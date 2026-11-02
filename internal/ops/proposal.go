@@ -704,7 +704,7 @@ func ProposalPoll(ctx context.Context, d Deps, id string) (ProposalWaitOutput, e
 // ProposalWait waits a short time for a decision, then returns pending. A
 // harness with background jobs uses `para proposal wait`, which costs no
 // tokens. With Deps.Changed set, it blocks on that, not on a timer.
-var ProposalWait = define("proposal_wait", "Wait a short time for the owner's decision on a proposal; returns pending true if there is none yet. Prefer a background `para proposal wait` where the harness supports it", func(ctx context.Context, d Deps, in ProposalWaitInput) (ProposalWaitOutput, error) {
+var ProposalWait = define("proposal_wait", "Wait up to timeout_seconds (default 15, most 60) for the owner's decision on a proposal; returns as soon as it is decided, or pending true if there is none yet. A harness that cannot receive notifications may run `para proposal wait` as a background job", func(ctx context.Context, d Deps, in ProposalWaitInput) (ProposalWaitOutput, error) {
 	limit := DefaultProposalWait
 	switch {
 	case in.TimeoutSeconds < 0:

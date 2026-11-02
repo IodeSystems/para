@@ -19,11 +19,19 @@ Use para from dun.
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
-6. A session can wait for queued work with no token cost. This blocks until a
-   request can be claimed, so run it as a background job, then call `request_next`:
+6. `para mcp` watches the vault for the session, with no polling. It sends a
+   short message (notifications/message, logger "para") when a proposal you filed
+   is decided, a request can be claimed by this install, or a request you
+   claimed is cancelled. It holds ids and states only, never vault text, and
+   names the tool to call next. The tools `proposal_wait` and `request_wait`
+   block up to 60 seconds and return as soon as the state changes.
+   dun adds the message to the conversation at the next tool result or turn. It
+   does not start a turn on an idle session: this is read from dun's code, not
+   run.
+   Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
-   To wake it when the owner decides a proposal:
    $ para proposal wait proposal-example --timeout 1h
+   Each blocks with no token cost, then call `request_next` or `proposal_show`.
 
 Para cannot stop an agent from using other tools. To enforce "no external action
 without approval", use a dun hook or server-level limits. A hook can run para
