@@ -12,6 +12,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/store"
 	"github.com/iodesystems/parasolve/internal/store/local"
 	"github.com/iodesystems/parasolve/internal/today"
 	"github.com/iodesystems/parasolve/internal/vault"
@@ -95,6 +96,8 @@ type Snapshot struct {
 	Events     []model.Event
 	LintErrors int
 	Errs       []string
+	// Titles maps a document id to its title, so a row shows a name, not an id.
+	Titles map[string]string
 }
 
 const eventWindow = 2000
@@ -178,6 +181,12 @@ func Load(ctx context.Context, e Env) Snapshot {
 	if o, err := ops.EventsTail.Run(ctx, e.Deps, ops.EventsTailInput{Limit: eventWindow}); note("events", err) {
 		s.Events = o.Events
 	}
+	s.Titles = map[string]string{}
+	if refs, err := e.Deps.Store.List(ctx, store.Filter{}); note("titles", err) {
+		for _, r := range refs {
+			s.Titles[r.ID] = r.Title
+		}
+	}
 	if o, err := ops.Lint.Run(ctx, e.Deps, ops.LintInput{}); note("lint", err) {
 		s.LintErrors = o.Errors
 	}
@@ -226,4 +235,10 @@ func titleOr(title, id string) string {
 		return id
 	}
 	return title
+}
+
+// name is the title of a document, or "" when it is not known: a surface shows
+// a name or nothing, never an id.
+func (s Snapshot) name(id string) string {
+	return strings.TrimSpace(s.Titles[model.Link(id).Target()])
 }

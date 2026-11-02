@@ -22,7 +22,7 @@ func (m *Model) answer() tea.Cmd {
 	}
 	r, ok := m.current()
 	if !ok || r.kind != "question" {
-		m.setStatus("move to an open question to answer it", true)
+		m.setHint("Move to an open question to answer it.")
 		return nil
 	}
 	var q ops.QuestionView
@@ -52,7 +52,7 @@ func (m *Model) answer() tea.Cmd {
 		{label: label, value: value},
 		{label: "why: ", skip: func([]string) bool { return q.Kind != model.KindDecision }},
 	}
-	return m.askForLines("Answer "+q.ID, lines, steps, func(vals []string) tea.Cmd {
+	return m.askForLines("Answer: "+titleOr(q.Title, q.ID), lines, steps, func(vals []string) tea.Cmd {
 		return m.runAnswer(q, vals[0], vals[1])
 	})
 }

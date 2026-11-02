@@ -30,6 +30,8 @@ type Target struct {
 	ID    string
 	Label string
 	Pref  rune
+	// Dim shows the target greyed: it has a key, and does not apply now.
+	Dim bool
 }
 
 // Key is the key of one target. Code is one lowercase letter, or ";" and two

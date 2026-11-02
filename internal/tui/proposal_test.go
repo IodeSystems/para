@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -80,20 +81,41 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	id := v.fileProposal(mailItem("Hi Ada."), v.taskItem("Write the parser"))
 	d := newDrv(t, v, 100, 30)
 	d.openProposal(id)
-	for _, want := range []string{"Approve", "Deny", "Rework", "Needs first", "Annotate", "Edit", "Source", "Diff", "History"} {
+	// The footer lists the primary actions, Send back among them even when it
+	// does not apply; the others are under ?.
+	for _, want := range []string{"Approve", "Deny", "Rework", "Send back", "? more actions"} {
 		if !d.has(want) {
 			t.Errorf("no %s in\n%s", want, d.plainFrame())
 		}
 	}
-	if d.has("Send back") {
-		t.Error("send back offered on an item with no edits or annotations")
+	if d.has("Annotate") {
+		t.Error("a secondary action is in the footer")
+	}
+	if !d.has("Approve records your decision. Para sends nothing.") {
+		t.Errorf("approve is not explained:\n%s", d.plainFrame())
 	}
 	if !d.has("page 1") || !d.has("Ignore your rules") {
 		t.Errorf("no evidence:\n%s", d.plainFrame())
 	}
+	// Send back does not apply to an item with no edit or annotation: a quiet
+	// hint, and nothing changes.
+	d.key("b")
+	if !d.has("Send back applies after") || d.m.statErr {
+		t.Errorf("no quiet hint, status %q err %v", d.m.status, d.m.statErr)
+	}
+	if it := d.item(v, id, "i1"); it.State != model.ItemPending {
+		t.Fatalf("send back changed a pending item: %+v", it)
+	}
+	d.key("?")
+	for _, want := range []string{"needs first", "annotate", "edit the text", "every revision"} {
+		if !d.has(want) {
+			t.Errorf("help lacks %q:\n%s", want, d.plainFrame())
+		}
+	}
+	d.key("esc")
 
 	// Annotate with a chain of prompts: then only send back remains.
-	d.key("n")
+	d.key("t")
 	if !d.has("quote") {
 		t.Fatalf("no prompt:\n%s", d.plainFrame())
 	}
@@ -103,13 +125,16 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	if it := d.item(v, id, "i1"); it.OpenAnnotations != 1 {
 		t.Fatalf("i1 = %+v\n%s", it, d.plainFrame())
 	}
-	if d.has("Approve") || d.has("Deny") || d.has("Rework") || !d.has("Send back") {
-		t.Fatalf("rule not shown:\n%s", d.plainFrame())
+	if it := d.item(v, id, "i1"); slices.Contains(it.Actions, ops.ActionApprove) || !slices.Contains(it.Actions, ops.ActionSendBack) {
+		t.Fatalf("rule: %v", it.Actions)
 	}
-	// The hidden actions are not bound either.
+	// An action that does not apply says so, quietly, and does nothing.
 	d.key("a")
 	if it := d.item(v, id, "i1"); it.State != model.ItemPending {
 		t.Fatalf("a approved an annotated item: %+v", it)
+	}
+	if !d.has("Approve is not available") || d.m.statErr {
+		t.Errorf("no quiet hint, status %q err %v", d.m.status, d.m.statErr)
 	}
 	d.key("b")
 	if it := d.item(v, id, "i1"); it.State != model.ItemSentBack {
@@ -139,7 +164,7 @@ func TestNeedsFirstPrompts(t *testing.T) {
 	id := v.fileProposal(v.taskItem("Write the parser"))
 	d := newDrv(t, v, 100, 30)
 	d.openProposal(id)
-	d.key("f")
+	d.key("n")
 	d.key("enter") // task
 	d.typeText("Check the budget")
 	d.key("enter")
@@ -148,15 +173,15 @@ func TestNeedsFirstPrompts(t *testing.T) {
 	if it.State != model.ItemHeld || it.HeldBy == "" {
 		t.Fatalf("i1 = %+v\n%s\n%s", it, d.m.status, d.plainFrame())
 	}
-	if d.has("Approve") || !d.has("held by") {
+	if !d.has("needs first:") {
 		t.Fatalf("held item:\n%s", d.plainFrame())
 	}
 	if _, err := ops.TaskDone.Run(context.Background(), v.env.Deps, ops.TaskDoneInput{ID: it.HeldBy.Target()}); err != nil {
 		t.Fatal(err)
 	}
 	d.send(snapReload(d))
-	if !d.has("Approve") {
-		t.Fatalf("not released:\n%s", d.plainFrame())
+	if it := d.item(v, id, "i1"); it.State != model.ItemPending {
+		t.Fatalf("not released: %+v", it)
 	}
 }
 
@@ -269,7 +294,7 @@ func TestOnEditedAppliesTheBuffer(t *testing.T) {
 	if _, err := os.Stat(path); err == nil {
 		t.Error("the edit buffer stayed on disk")
 	}
-	if d.has("Deny") || !d.has("Send back") || !d.has("Approve") {
-		t.Fatalf("edited item:\n%s", d.plainFrame())
+	if slices.Contains(got.Actions, ops.ActionDeny) || !slices.Contains(got.Actions, ops.ActionSendBack) || !slices.Contains(got.Actions, ops.ActionApprove) {
+		t.Fatalf("edited item: %v", got.Actions)
 	}
 }

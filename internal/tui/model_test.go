@@ -58,9 +58,12 @@ func TestEveryVisibleLinkRowHasAUniqueKey(t *testing.T) {
 				t.Errorf("tab %d: action %s has no key", tab, a.ID)
 			}
 		}
-		// Every visible row that holds a link shows the key style.
+		// Every visible row that holds a link shows its key: a marked letter in
+		// the label, or the key in the dim column at the left.
 		for i, ln := range l.lines {
-			if i+d.m.tabs[tab].offset < len(rows) && rows[i+d.m.tabs[tab].offset].sel && !strings.Contains(ln, KeyStyle.On) {
+			code, _, _ := strings.Cut(strings.TrimLeft(stripSGR(ln), " "), " ")
+			inGutter := strings.HasPrefix(stripSGR(ln), code+" ") && code != "" && len(code) <= 3 && !strings.ContainsAny(code, "0123456789-:")
+			if i+d.m.tabs[tab].offset < len(rows) && rows[i+d.m.tabs[tab].offset].sel && !strings.Contains(ln, KeyStyle.On) && !inGutter {
 				t.Errorf("tab %d line %d has no key: %q", tab, i, stripSGR(ln))
 			}
 		}
@@ -301,7 +304,7 @@ func TestCaptureFromAnyScreen(t *testing.T) {
 	d.key("c")
 	d.typeText("remember the milk")
 	d.key("enter")
-	if !d.has("captured inbox-") {
+	if !d.has("Captured: remember the milk") {
 		t.Fatalf("no confirmation:\n%s", d.plainFrame())
 	}
 	if d.m.tab != tabWork || len(d.m.stack) != 0 {

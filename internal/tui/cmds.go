@@ -33,6 +33,7 @@ type (
 		err       error
 		reload    bool // an in-place refresh of the page already shown
 		untrusted bool // a proposal's source: the page says so
+		ov        overview
 	}
 	whoMsg struct {
 		query string
@@ -94,7 +95,11 @@ func (m *Model) loadDoc(id string, reload bool) tea.Cmd {
 	env := m.env
 	return func() tea.Msg {
 		d, err := env.Deps.Store.Get(context.Background(), id)
-		return docMsg{id: id, doc: d, err: err, reload: reload}
+		var ov overview
+		if err == nil {
+			ov = buildOverview(context.Background(), env, d)
+		}
+		return docMsg{id: id, doc: d, err: err, reload: reload, ov: ov}
 	}
 }
 
@@ -127,11 +132,11 @@ func (m *Model) loadExportList() tea.Cmd {
 func (m *Model) capture(text string) tea.Cmd {
 	env := m.env
 	return func() tea.Msg {
-		o, err := ops.InboxAdd.Run(context.Background(), env.Deps, ops.InboxAddInput{Text: text})
+		_, err := ops.InboxAdd.Run(context.Background(), env.Deps, ops.InboxAddInput{Text: text})
 		if err != nil {
 			return doneMsg{err: err}
 		}
-		return doneMsg{text: "captured " + o.ID, reload: true}
+		return doneMsg{text: "Captured: " + truncate(oneLine(text), 60), reload: true}
 	}
 }
 

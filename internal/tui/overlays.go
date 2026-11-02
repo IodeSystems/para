@@ -153,13 +153,18 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 	var lines []string
 	switch m.ov.kind {
 	case ovCapture, ovSearch:
-		lines = []string{stHead.Render("enter saves, esc cancels"), m.ov.input.View()}
+		hint := "enter saves it to the inbox, esc cancels"
+		if m.ov.kind == ovSearch {
+			hint = "enter searches, esc cancels"
+		}
+		lines = []string{stHead.Render(hint), m.ov.input.View()}
 	case ovPrompt:
-		lines = []string{stHead.Render(m.ov.prompt.title + ": enter continues, esc cancels")}
+		lines = []string{stHead.Render(m.ov.prompt.title)}
+		lines = append(lines, stDim.Render(m.ov.prompt.hint()))
 		lines = append(lines, m.ov.prompt.lines...)
 		lines = append(lines, m.ov.input.View())
 	case ovHelp:
-		lines = helpLines()
+		lines = m.helpLines()
 	case ovOutput:
 		lines = append(strings.Split(strings.TrimRight(m.ov.output, "\n"), "\n"), "", stDim.Render("esc closes"))
 	case ovVault:
@@ -244,25 +249,73 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 	return lines, keymap
 }
 
-func helpLines() []string {
-	return []string{
+// actionHelp says what each action does, for the help sheet.
+var actionHelp = map[string]string{
+	"act:answer":   "answer the question under the cursor",
+	"act:graph":    "graph of the project or area under the cursor",
+	"act:accept":   "accept: move your review position to the event under the cursor",
+	"act:reopen":   "reopen: undo the last accept, or reopen a closed request",
+	"act:zoom":     "full screen",
+	"act:export":   "export menu",
+	"act:copy":     "copy with the last format",
+	"act:meta":     "show or hide the details strip (type, dates, status)",
+	"act:approve":  "approve: record your decision. Para sends nothing",
+	"act:deny":     "deny, with a reason the agent reads",
+	"act:rework":   "rework: ask the agent to change the item",
+	"act:sendback": "send back to the agent (after an edit or an annotation)",
+	"act:hold":     "needs first: hold the item until another task or request is done",
+	"act:annotate": "annotate: quote the words, say what is wrong",
+	"act:edit":     "edit the text in your editor",
+	"act:source":   "the source the agent worked from (untrusted)",
+	"act:diff":     "what changed since the previous revision",
+	"act:history":  "every revision",
+}
+
+// helpLines is the help sheet for the screen showing: the keys that always
+// work, then the actions of this screen with the keys they have now. A key is
+// listed once, so a letter never has two meanings on the sheet.
+func (m *Model) helpLines() []string {
+	code := map[string]string{}
+	for c, id := range m.keymap {
+		code[id] = c
+	}
+	out := []string{
 		stHead.Render("Keys"),
 		"  1-6        tabs: Today Review Work RFX People Policy",
-		"  " + keyed("x") + "          each link and action shows one marked letter; press it to follow",
-		"  j k        move the cursor, enter opens the row",
-		"  g G        top, bottom        space, ctrl+d  page down",
-		"  esc        back (or leave full screen)",
-		"  ;ab        a link with a two letter key after ;",
-		"  /          search (on People: who); filters: type:task status:open area:x project:y since:7d",
+		"  j k        move the cursor      g G  top, bottom      space  page down",
+		"  enter      open the row         esc  back",
+		"  /          search (on People: find a person)",
 		"  c          capture a note to the inbox",
 		"  v          switch vault for this session",
-		"  document:  z full screen, x export menu, y copy with the last format",
-		"  review:    a accept, r reopen",
-		"  questions: a answer the question under the cursor (Today, Work)",
-		"  proposal:  a approve, d deny, r rework, b send back, f needs first,",
-		"             n annotate, e edit, s source, i diff, h history, enter item in full",
 		"  q          quit",
-		"",
-		stDim.Render("para never sends anything. esc closes this."),
+		"  ;ab        two-letter keys start with ;",
+		"  left edge  a row with no free letter shows its key there, dim",
 	}
+	var here []string
+	add := func(ids ...string) {
+		for _, id := range ids {
+			if c := code[id]; c != "" && actionHelp[id] != "" {
+				here = append(here, fmt.Sprintf("  %-10s %s", c, actionHelp[id]))
+			}
+		}
+	}
+	switch p := m.top(); {
+	case p != nil && p.kind == pageProposal:
+		add("act:approve", "act:deny", "act:rework", "act:sendback", "act:hold", "act:annotate", "act:edit", "act:source", "act:diff", "act:history")
+		here = append(here, "  enter      the item in full")
+	case p != nil && p.kind == pageDoc:
+		add("act:zoom", "act:export", "act:copy", "act:meta")
+	case p != nil:
+	case m.tab == tabReview:
+		add("act:accept", "act:reopen")
+	case m.tab == tabToday:
+		add("act:answer")
+	case m.tab == tabWork:
+		add("act:graph", "act:answer")
+	}
+	if len(here) > 0 {
+		out = append(out, "", stHead.Render("On this screen"))
+		out = append(out, here...)
+	}
+	return append(out, "", stDim.Render("para never sends anything. esc closes this."))
 }

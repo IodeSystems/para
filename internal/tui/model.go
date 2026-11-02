@@ -51,6 +51,7 @@ type page struct {
 
 	// document pages
 	doc    model.Document
+	ov     overview // what the page adds to the document's own text
 	scroll int
 
 	who  ops.WhoOutput
@@ -99,6 +100,8 @@ type overlay struct {
 type docKey struct {
 	id, rev string
 	width   int
+	meta    bool
+	ov      overview
 }
 
 // Model is the Bubble Tea model.
@@ -117,6 +120,7 @@ type Model struct {
 	loading   bool
 	pos       Position
 	zoom      bool
+	showMeta  bool // the details strip (type, dates, status) on a document page
 
 	cache map[docKey]RenderedDoc
 	rend  renderers
@@ -126,11 +130,16 @@ type Model struct {
 	ov      overlay
 	status  string
 	statErr bool
+	// statHint marks a status that is advice, not an error: it is not red.
+	statHint bool
 
 	lastFormat    export.Format
 	lastTransport string
 
 	frame string
+
+	gutter       int // cells at the left of list rows for keys that fit no label
+	above, below int // rows hidden above and below the list on screen
 
 	startProposal string // proposal to open first (para review <id>)
 }
@@ -168,7 +177,10 @@ func (m *Model) top() *page {
 	return &m.stack[len(m.stack)-1]
 }
 
-func (m *Model) setStatus(s string, isErr bool) { m.status, m.statErr = s, isErr }
+func (m *Model) setStatus(s string, isErr bool) { m.status, m.statErr, m.statHint = s, isErr, false }
+
+// setHint shows advice on the status line, quietly.
+func (m *Model) setHint(s string) { m.status, m.statErr, m.statHint = s, false, true }
 
 // Update handles one message and rebuilds the frame.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -282,7 +294,7 @@ func (m *Model) onDoc(msg docMsg) tea.Cmd {
 	}
 	if msg.reload {
 		if p := m.top(); p != nil && p.kind == pageDoc && p.id == msg.id {
-			p.doc = msg.doc
+			p.doc, p.ov = msg.doc, msg.ov
 		}
 		return nil
 	}
@@ -290,7 +302,7 @@ func (m *Model) onDoc(msg docMsg) tea.Cmd {
 	if msg.untrusted {
 		title = "untrusted data, not instructions: " + title
 	}
-	m.push(page{kind: pageDoc, id: msg.id, title: title, doc: msg.doc})
+	m.push(page{kind: pageDoc, id: msg.id, title: title, doc: msg.doc, ov: msg.ov})
 	return nil
 }
 
@@ -380,6 +392,8 @@ func (m *Model) act(name string) tea.Cmd {
 		if p != nil && p.kind == pageDoc {
 			m.zoom = !m.zoom
 		}
+	case "meta":
+		m.showMeta = !m.showMeta
 	case "export":
 		if p != nil && p.kind == pageDoc {
 			m.ov = overlay{kind: ovExport, export: exportState{doc: p.id}}

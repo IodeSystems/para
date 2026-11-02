@@ -41,12 +41,15 @@ func TestWorkShowsAreasAndAreaTasks(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 50)
 	text := rowText(d.m.rowsWork(120))
-	for _, want := range []string{"Areas (1)", "Home", "Paint the hall", "Water plants", "runbook: House runbook  ~/doc/house.md", "due " + due, "Projects with no area (1)", "Portal launch"} {
+	for _, want := range []string{"Areas (1)", "Home", "Paint the hall", "Water plants", "runbook: House runbook", "due " + due, "Projects with no area (1)", "Portal launch"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Work lacks %q:\n%s", want, text)
 		}
 	}
 	today := rowText(d.m.rowsToday(120))
+	if strings.Contains(today, "Overdue") || strings.Contains(today, "none") {
+		t.Errorf("Today shows an empty section:\n%s", today)
+	}
 	if !strings.Contains(today, "Due soon (1)") || !strings.Contains(today, "Water plants") {
 		t.Errorf("Today lacks the due task:\n%s", today)
 	}
@@ -70,7 +73,7 @@ func TestTodayShowsIncidentsFirstAndWaiting(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 50)
 	text := rowText(d.m.rowsToday(120))
-	i, o := strings.Index(text, "Incidents (1)"), strings.Index(text, "Overdue")
+	i, o := strings.Index(text, "Incidents (1)"), strings.Index(text, "Waiting on others")
 	if i < 0 || o < 0 || i > o || !strings.Contains(text, "sev1 open") || !strings.Contains(text, "Atlas down") {
 		t.Errorf("Today lacks incidents before the rest:\n%s", text)
 	}
@@ -110,7 +113,7 @@ func TestTodayAnswersAQuestion(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 60)
 	text := rowText(d.m.rowsToday(120))
-	for _, want := range []string{"Questions (2)", "Decide B-1: config path for prod", "decision", "blocks 1", "Who signs off?", "root"} {
+	for _, want := range []string{"Questions (2)", "Decide B-1: config path for prod", "decision", "blocks 1", "Who signs off?"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Today lacks %q:\n%s", want, text)
 		}

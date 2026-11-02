@@ -30,3 +30,13 @@ func pad(s string, w int) string {
 	}
 	return s
 }
+
+// firstNonEmpty is the first string that is not empty.
+func firstNonEmpty(ss ...string) string {
+	for _, s := range ss {
+		if s != "" {
+			return s
+		}
+	}
+	return ""
+}

@@ -2,13 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"unicode"
 )
 
 // Letters of the document actions. Link keys in a document avoid them, so a
 // document's keys do not depend on anything but its text.
-const docActionLetters = "zxycv"
+const docActionLetters = "zxycvd"
 
 var (
 	actCapture = Target{ID: "act:capture", Label: "Capture", Pref: 'c'}
@@ -20,23 +21,25 @@ var (
 	actReopen  = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
 	actGraph   = Target{ID: "act:graph", Label: "Graph"}
 	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
+	actMeta    = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
 )
 
-// markFor shows a key on a label. The label may differ from the one the key
-// was chosen on (the same target twice), so the letter is found again.
-func markFor(label string, k Key) string {
+// placeKey shows a key on a label: bold and underline on a letter of the label.
+// It reports false when the label holds no letter for the key; the row then
+// shows the key in the gutter instead, never after the label.
+func placeKey(label string, k Key) (string, bool) {
 	lab := []rune(label)
 	if k.At >= 0 && k.At < len(lab) && strings.EqualFold(string(lab[k.At]), k.Code) {
-		return Mark(label, k)
+		return Mark(label, k), true
 	}
 	if len(k.Code) == 1 {
 		for i, r := range lab {
 			if unicode.ToLower(r) == rune(k.Code[0]) {
-				return Mark(label, Key{Code: k.Code, At: i})
+				return Mark(label, Key{Code: k.Code, At: i}), true
 			}
 		}
 	}
-	return Mark(label, Key{Code: k.Code, At: -1})
+	return label, false
 }
 
 // listing is one list screen drawn: its lines and the key map.
@@ -106,10 +109,33 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	return m.rowsToday(w), append([]Target{actAnswer}, acts...)
 }
 
+// extraActs are actions with a key and no place in the footer: they are under ?.
+func (m *Model) extraActs() []Target {
+	if p := m.top(); p != nil && p.kind == pageProposal {
+		return secondaryActs()
+	}
+	return nil
+}
+
+// listWidth is the width rows may use: the screen less the key gutter.
+func (m *Model) listWidth() int { return max(m.w-m.gutter, 20) }
+
 // drawList draws the visible rows and assigns keys to the actions and to the
-// links of visible rows.
+// links of visible rows. A row whose label has no free letter shows its key in
+// a dim column at the left; the column exists only while some visible row needs
+// it, and then every row keeps clear of it.
 func (m *Model) drawList(h int) listing {
-	rows, acts := m.rows(m.w)
+	for pass := 0; ; pass++ {
+		l, gw := m.drawListOnce(h)
+		if gw == m.gutter || pass == 1 {
+			return l
+		}
+		m.gutter = gw
+	}
+}
+
+func (m *Model) drawListOnce(h int) (listing, int) {
+	rows, acts := m.rows(m.listWidth())
 	cur, off := m.listState()
 	// Keep the cursor on a selectable row, and in view.
 	*cur = clampSel(rows, *cur)
@@ -122,6 +148,7 @@ func (m *Model) drawList(h int) listing {
 	*off = max(0, min(*off, max(len(rows)-h, 0)))
 	end := min(*off+h, len(rows))
 	vis := rows[*off:end]
+	m.above, m.below = *off, len(rows)-end
 
 	var links []Target
 	measure := func(id, label string) string {
@@ -131,16 +158,42 @@ func (m *Model) drawList(h int) listing {
 	for _, r := range vis {
 		r.draw(measure)
 	}
-	keys := Assign(acts, links, "")
-	use := func(id, label string) string {
-		if k, ok := keys[id]; ok {
-			return markFor(label, k)
-		}
-		return label
+	// Hidden actions have keys but no footer entry, and Answer has its key
+	// always so the letters of the links do not move with the cursor.
+	keys := Assign(append(append([]Target{}, acts...), m.extraActs()...), links, "")
+	footer := acts
+	if *cur >= 0 && *cur < len(rows) && rows[*cur].kind != "question" {
+		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actAnswer.ID })
 	}
-	out := listing{keys: keys, footer: acts}
+	inGutter := map[string]string{} // target id -> key code
+	use := func(id, label string) string {
+		k, ok := keys[id]
+		if !ok {
+			return label
+		}
+		s, placed := placeKey(label, k)
+		if !placed {
+			inGutter[id] = k.Code
+		}
+		return s
+	}
+	out := listing{keys: keys, footer: footer}
+	body := make([]string, len(vis))
 	for i, r := range vis {
-		line := r.draw(use)
+		body[i] = r.draw(use)
+	}
+	gw := 0
+	for _, r := range vis {
+		if c := inGutter[r.target]; r.sel && c != "" {
+			gw = max(gw, cells(c)+1)
+		}
+	}
+	for i, r := range vis {
+		g := strings.Repeat(" ", gw)
+		if c := inGutter[r.target]; r.sel && c != "" {
+			g = stDim.Render(pad(c, gw))
+		}
+		line := g + body[i]
 		if r.sel && *off+i == *cur {
 			line = selected(line, m.w)
 		} else {
@@ -148,7 +201,7 @@ func (m *Model) drawList(h int) listing {
 		}
 		out.lines = append(out.lines, line)
 	}
-	return out
+	return out, gw
 }
 
 // selected paints a row with the selection background. A reset inside the
@@ -191,11 +244,12 @@ func clampSel(rows []row, cur int) int {
 // renderDoc renders (or fetches from cache) the document of a page.
 func (m *Model) renderDoc(p *page) RenderedDoc {
 	rev := p.doc.Rev
-	k := docKey{id: p.id, rev: rev, width: m.w}
+	k := docKey{id: p.id, rev: rev, width: m.w, meta: m.showMeta, ov: p.ov}
 	if rd, ok := m.cache[k]; ok && rev != "" {
 		return rd
 	}
-	pre := PreRender(docSource(p.doc), PreOpts{Width: m.w, Reserved: docActionLetters})
+	src := withOverview(docSource(p.doc), p.doc.Title, p.ov)
+	pre := PreRender(src, PreOpts{Width: m.w, Reserved: docActionLetters, Meta: m.showMeta})
 	rd := m.rend.render(pre, m.w)
 	if len(m.cache) > 64 {
 		m.cache = map[docKey]RenderedDoc{}
@@ -204,7 +258,7 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	return rd
 }
 
-var docActions = []Target{actZoom, actExport, actCopy, actCapture, actVault}
+var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture, actVault}
 
 // relayout rebuilds the frame and the key map from the current state.
 func (m *Model) relayout() {
@@ -314,32 +368,89 @@ func (m *Model) statusLine() string {
 	if m.pending != "" {
 		s = "key " + keyed(m.pending) + " ..."
 	}
-	if s == "" {
+	cue := m.moreCue()
+	room := m.w - cells(cue)
+	if cue != "" {
+		room--
+	}
+	var left string
+	switch {
+	case s == "":
 		if p := m.top(); p != nil {
-			s = stDim.Render(p.title)
-			if len(m.stack) > 1 {
-				s = stDim.Render(fmt.Sprintf("%s  (%d deep)", p.title, len(m.stack)))
+			t := p.title
+			if len(m.stack) > 1 && m.w >= 60 {
+				t = fmt.Sprintf("%s  (%d deep)", t, len(m.stack))
 			}
+			left = stDim.Render(truncate(t, room))
 		}
-		return truncateLine(s, m.w)
+	case m.statErr:
+		left = stBad.Render(truncate(s, room))
+	case m.statHint:
+		left = stDim.Render(truncate(s, room))
+	default:
+		left = stGood.Render(truncate(s, room))
 	}
-	if m.statErr {
-		return truncateLine(stBad.Render(s), m.w)
+	if cue == "" {
+		return left
 	}
-	return truncateLine(stGood.Render(s), m.w)
+	return left + strings.Repeat(" ", max(m.w-cells(left)-cells(cue), 1)) + cue
 }
 
-// footerLine shows the actions with their keys, then the fixed keys.
+// moreCue says that the list continues above or below the screen.
+func (m *Model) moreCue() string {
+	if m.docPage() != nil {
+		return ""
+	}
+	switch {
+	case m.above > 0 && m.below > 0:
+		if m.w < 60 {
+			return stDim.Render("↑↓ more")
+		}
+		return stDim.Render(fmt.Sprintf("↑ %d above  ↓ %d more", m.above, m.below))
+	case m.below > 0:
+		if m.w < 60 {
+			return stDim.Render("↓ more")
+		}
+		return stDim.Render(fmt.Sprintf("↓ %d more", m.below))
+	case m.above > 0:
+		if m.w < 60 {
+			return stDim.Render("↑ more")
+		}
+		return stDim.Render(fmt.Sprintf("↑ %d above", m.above))
+	}
+	return ""
+}
+
+// footerLine shows the actions with their keys, then the fixed keys. Whole items
+// only: what does not fit is left out, from the right, and the help key stays.
 func (m *Model) footerLine(acts []Target, keys map[string]Key) string {
 	var parts []string
 	for _, a := range acts {
 		if k, ok := keys[a.ID]; ok {
-			parts = append(parts, Mark(a.Label, k))
+			if a.Dim {
+				parts = append(parts, stDim.Render(Mark(a.Label, k)))
+			} else {
+				parts = append(parts, Mark(a.Label, k))
+			}
 		}
 	}
-	tail := "j/k move  enter open  esc back  ? help  q quit"
-	if m.top() == nil {
-		tail = "j/k move  enter open  / search  ? help  q quit"
+	tails := []string{"j/k move  enter open  / search  ? help  q quit", "enter open  ? help  q quit", "? help  q quit", "? help"}
+	if p := m.top(); p != nil && p.kind == pageProposal {
+		tails = []string{"enter item in full  ? more actions  esc back  q quit", "? more actions  esc back  q quit", "? more  esc back", "? more"}
+	} else if m.top() != nil {
+		tails = []string{"j/k move  enter open  esc back  ? help  q quit", "enter open  esc back  ? help  q quit", "esc back  ? help  q quit", "esc back  ? help", "? help"}
 	}
-	return " " + strings.Join(parts, "  ") + "   " + stDim.Render(tail)
+	for n := len(parts); n >= 0; n-- {
+		for _, tail := range tails {
+			line := " " + strings.Join(parts[:n], "  ")
+			if n > 0 {
+				line += "   "
+			}
+			line += stDim.Render(tail)
+			if cells(line) <= m.w {
+				return line
+			}
+		}
+	}
+	return truncateLine(" "+stDim.Render("? help"), m.w)
 }

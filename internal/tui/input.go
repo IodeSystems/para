@@ -103,7 +103,7 @@ func (m *Model) move(delta int) {
 		p.scroll = max(0, p.scroll+delta)
 		return
 	}
-	rows, _ := m.rows(m.w)
+	rows, _ := m.rows(m.listWidth())
 	cur, _ := m.listState()
 	step := 1
 	if delta < 0 {
@@ -144,7 +144,7 @@ func (m *Model) jump(end bool) {
 		}
 		return
 	}
-	rows, _ := m.rows(m.w)
+	rows, _ := m.rows(m.listWidth())
 	cur, off := m.listState()
 	if !end {
 		*cur, *off = 0, 0
@@ -159,7 +159,7 @@ func (m *Model) activate() tea.Cmd {
 	if m.docPage() != nil {
 		return nil
 	}
-	rows, _ := m.rows(m.w)
+	rows, _ := m.rows(m.listWidth())
 	cur, _ := m.listState()
 	if *cur < 0 || *cur >= len(rows) || !rows[*cur].sel {
 		return nil
@@ -168,7 +168,7 @@ func (m *Model) activate() tea.Cmd {
 }
 
 func (m *Model) current() (row, bool) {
-	rows, _ := m.rows(m.w)
+	rows, _ := m.rows(m.listWidth())
 	cur, _ := m.listState()
 	if *cur < 0 || *cur >= len(rows) {
 		return row{}, false

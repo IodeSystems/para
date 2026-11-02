@@ -7,7 +7,34 @@ import (
 	"sync"
 
 	"charm.land/glamour/v2"
+	"charm.land/glamour/v2/ansi"
+	"charm.land/glamour/v2/styles"
 )
+
+// styleConfig is the glamour style by name, with the heading prefixes of
+// levels 2 to 6 removed: they print "## " in front of a heading, which is
+// markdown source, not a heading.
+func styleConfig(name string) ansi.StyleConfig {
+	var c ansi.StyleConfig
+	switch name {
+	case "light":
+		c = styles.LightStyleConfig
+	case "notty":
+		c = styles.NoTTYStyleConfig
+	default:
+		c = styles.DarkStyleConfig
+	}
+	for _, h := range []*ansi.StyleBlock{&c.H2, &c.H3, &c.H4, &c.H5, &c.H6} {
+		h.Prefix = ""
+		h.Bold = boolPtr(true)
+	}
+	if name == "notty" {
+		c.H1.Prefix = ""
+	}
+	return c
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 // mdStyle is the glamour style, resolved once at startup. glamour's
 // WithAutoStyle asks the terminal for its background with an OSC query and
@@ -59,7 +86,7 @@ func (r *renderers) get(width int) *glamour.TermRenderer {
 		return tr
 	}
 	InitStyle()
-	tr, err := glamour.NewTermRenderer(glamour.WithStandardStyle(mdStyle), glamour.WithWordWrap(width))
+	tr, err := glamour.NewTermRenderer(glamour.WithStyles(styleConfig(mdStyle)), glamour.WithWordWrap(width))
 	if err != nil {
 		tr = nil
 	}

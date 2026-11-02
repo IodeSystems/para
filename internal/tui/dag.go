@@ -22,6 +22,7 @@ type DEdge struct{ From, To string }
 type dnode struct {
 	id    string
 	label string
+	lines []string // the label, wrapped to at most two lines
 	dummy bool
 	layer int
 	x, w  int
@@ -182,7 +183,7 @@ func RenderDAG(nodes []DNode, edges []DEdge, cycles [][]string, width int) strin
 
 	// Shrink labels until the widest layer fits.
 	const gap = 2
-	maxLabel := 40
+	maxLabel := 28
 	fit := func() int {
 		w := 0
 		for _, l := range layers {
@@ -205,8 +206,10 @@ func RenderDAG(nodes []DNode, edges []DEdge, cycles [][]string, width int) strin
 		maxLabel--
 	}
 	for _, n := range byID {
-		n.label = truncate(n.label, maxLabel)
-		n.w = cells(n.label) + 4
+		n.lines = wrapLabel(n.label, maxLabel)
+		for _, l := range n.lines {
+			n.w = max(n.w, cells(l)+4)
+		}
 	}
 	if place(layers, segs, gap, true) > width {
 		place(layers, segs, gap, false)
@@ -289,8 +292,35 @@ func place(layers [][]*dnode, segs []dseg, gap int, pull bool) int {
 	return tw
 }
 
+// wrapLabel breaks a label into at most two lines of w cells, at a space when
+// there is one; text that still does not fit ends in an ellipsis.
+func wrapLabel(label string, w int) []string {
+	if cells(label) <= w {
+		return []string{label}
+	}
+	rs := []rune(label)
+	cut := w
+	for i := min(w, len(rs)-1); i > 0; i-- {
+		if rs[i] == ' ' {
+			cut = i
+			break
+		}
+	}
+	first := strings.TrimRight(string(rs[:min(cut, len(rs))]), " ")
+	rest := strings.TrimLeft(string(rs[min(cut, len(rs)):]), " ")
+	return []string{first, truncate(rest, w)}
+}
+
 func draw(layers [][]*dnode, segs []dseg, reversed map[int]bool, cycles [][]string, gap int) string {
 	maxL := len(layers) - 1
+	nh := 3 // rows of a node: border, one or two lines of label, border
+	for _, l := range layers {
+		for _, n := range l {
+			if len(n.lines) > 1 {
+				nh = 4
+			}
+		}
+	}
 	gapSegs := make([][]*dseg, maxL+1)
 	for i := range segs {
 		s := &segs[i]
@@ -330,7 +360,7 @@ func draw(layers [][]*dnode, segs []dseg, reversed map[int]bool, cycles [][]stri
 	}
 	y := make([]int, maxL+2)
 	for l := 0; l <= maxL; l++ {
-		y[l+1] = y[l] + 3 + gapH[l]
+		y[l+1] = y[l] + nh + gapH[l]
 	}
 	H := y[maxL+1] - gapH[maxL]
 	W := 0
@@ -372,7 +402,7 @@ func draw(layers [][]*dnode, segs []dseg, reversed map[int]bool, cycles [][]stri
 		}
 	}
 	for g := 0; g < maxL; g++ {
-		top := y[g] + 3
+		top := y[g] + nh
 		bot := top + gapH[g] - 1
 		for _, s := range gapSegs[g] {
 			xa, xb := s.sx, s.tx
@@ -407,36 +437,42 @@ func draw(layers [][]*dnode, segs []dseg, reversed map[int]bool, cycles [][]stri
 	for li, l := range layers {
 		for _, n := range l {
 			if n.dummy {
-				for r := y[li]; r < y[li]+3; r++ {
+				for r := y[li]; r < y[li]+nh; r++ {
 					put(r, n.x, mU|mD, -1)
 				}
 				continue
 			}
 			r0 := y[li]
+			rb := r0 + nh - 1
 			text[r0][n.x] = '┌'
 			text[r0][n.x+n.w-1] = '┐'
-			text[r0+2][n.x] = '└'
-			text[r0+2][n.x+n.w-1] = '┘'
+			text[rb][n.x] = '└'
+			text[rb][n.x+n.w-1] = '┘'
 			for c := n.x + 1; c < n.x+n.w-1; c++ {
 				text[r0][c] = '─'
-				text[r0+2][c] = '─'
+				text[rb][c] = '─'
 			}
-			text[r0+1][n.x] = '│'
-			text[r0+1][n.x+n.w-1] = '│'
-			c := n.x + 2
-			for _, r := range n.label {
-				text[r0+1][c] = r
-				if w := ansi.StringWidth(string(r)); w == 2 {
-					text[r0+1][c+1] = skipCell
-					c += 2
-				} else {
-					c++
+			for i := 1; i < nh-1; i++ {
+				text[r0+i][n.x] = '│'
+				text[r0+i][n.x+n.w-1] = '│'
+				if i-1 >= len(n.lines) {
+					continue
+				}
+				c := n.x + 2
+				for _, r := range n.lines[i-1] {
+					text[r0+i][c] = r
+					if w := ansi.StringWidth(string(r)); w == 2 {
+						text[r0+i][c+1] = skipCell
+						c += 2
+					} else {
+						c++
+					}
 				}
 			}
 			if li < maxL {
 				for _, s := range gapSegs[li] {
-					if s.a == n && text[r0+2][s.sx] == '─' {
-						text[r0+2][s.sx] = '┬'
+					if s.a == n && text[rb][s.sx] == '─' {
+						text[rb][s.sx] = '┬'
 					}
 				}
 			}

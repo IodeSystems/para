@@ -31,6 +31,9 @@ type PreOpts struct {
 	// Reserved holds letters link keys must not use, such as the letters of
 	// the actions on the screen.
 	Reserved string
+	// Meta shows the frontmatter as a quoted strip under the title. A page
+	// leaves it out until the reader asks.
+	Meta bool
 }
 
 // cardWidth is the width below which a table turns into cards.
@@ -44,8 +47,10 @@ const standInBase = 0xE000
 func standIn(r rune) rune { return standInBase + r }
 
 var (
-	reBlockEOL  = regexp.MustCompile(` \^[A-Za-z0-9-]+\s*$`)
-	reBlockOwn  = regexp.MustCompile(`^\^[A-Za-z0-9-]+\s*$`)
+	reBlockEOL = regexp.MustCompile(` \^[A-Za-z0-9-]+\s*$`)
+	reBlockOwn = regexp.MustCompile(`^\^[A-Za-z0-9-]+\s*$`)
+	// A rule line is "R1 policy-x: text ^R1". A reader needs "R1" and the text.
+	reRuleLine  = regexp.MustCompile(`^(\s*(?:[-*+]\s+)?)R(\d+) [a-z0-9.-]+: (.*?)(?: \^R\d+)?\s*$`)
 	reMarker    = regexp.MustCompile(`^%% para:(begin|end) ([a-z0-9-]+) %%\s*$`)
 	reWiki      = regexp.MustCompile(`^\[\[([^\]|#]+)(?:#(\^?)([^\]|]*))?(?:\|([^\]]*))?\]\]$`)
 	reMDLink    = regexp.MustCompile(`^\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)$`)
@@ -115,7 +120,7 @@ func transform(src string, o PreOpts, keys map[string]Key) Prepared {
 				}
 				meta = append(meta, "**"+strings.TrimSpace(k)+"** "+linkify(v, mark))
 			}
-			if len(meta) > 0 {
+			if len(meta) > 0 && o.Meta {
 				out = append(out, "> "+strings.Join(meta, " · "), "")
 			}
 			i = j + 1
@@ -160,6 +165,7 @@ func transform(src string, o PreOpts, keys map[string]Key) Prepared {
 		if reBlockOwn.MatchString(l) {
 			continue
 		}
+		l = reRuleLine.ReplaceAllString(l, "${1}**R${2}** ${3}")
 		l = reBlockEOL.ReplaceAllString(l, "")
 		out = append(out, linkify(l, mark))
 	}
