@@ -291,6 +291,12 @@ var actionHelp = map[string]string{
 	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to find context; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
 	"act:later":     "put it off until a date or someday; it leaves the Agenda and next and still blocks what depends on it. On a put-off row it brings it back",
 	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
+	"act:resolve":   "close the task: done (enter keeps it), partial, dropped, duplicate, or superseded; partial and the last two can make follow-up tasks that waiting items move to",
+	"act:start":     "start the task",
+	"act:block":     "block the task, with a reason: who said it and where it applies",
+	"act:assign":    "assign the task to self, a person, or agent:<name>; para sends nothing",
+	"act:delegate":  "give the task to an agent: queues agent work linked to it, with its done condition and an optional hint; a second press adds the hint",
+	"act:due":       "set or remove the due date",
 	"act:graph":     "graph of the goal or area under the cursor",
 	"act:accept":    "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
 	"act:reopen":    "reopen: undo the last mark, or reopen closed agent work",
@@ -342,16 +348,16 @@ func (m *Model) helpLines() []string {
 		add("act:approve", "act:deny", "act:request", "act:hold", "act:edit", "act:copydraft", "act:source", "act:diff", "act:history")
 		here = append(here, "  enter      the item in full")
 	case p != nil && p.kind == pageDoc:
-		add("act:editnote", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut", "act:zoom", "act:export", "act:copy", "act:meta")
+		add("act:editnote", "act:answer", "act:reject", "act:drop", "act:ask", "act:resolve", "act:start", "act:block", "act:assign", "act:delegate", "act:due", "act:find", "act:later", "act:cut", "act:zoom", "act:export", "act:copy", "act:meta")
 	case p != nil && p.kind == pageText:
 		add("act:source", "act:copydraft")
 	case p != nil:
 	case m.tab == tabReview:
-		add("act:accept", "act:reopen", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
+		add("act:accept", "act:reopen", "act:answer", "act:reject", "act:drop", "act:ask", "act:resolve", "act:start", "act:block", "act:assign", "act:delegate", "act:due", "act:find", "act:later", "act:cut")
 	case m.tab == tabToday:
-		add("act:vault", "act:bydate", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
+		add("act:vault", "act:bydate", "act:answer", "act:reject", "act:drop", "act:ask", "act:resolve", "act:start", "act:block", "act:assign", "act:delegate", "act:due", "act:find", "act:later", "act:cut")
 	case m.tab == tabWork:
-		add("act:graph", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
+		add("act:graph", "act:answer", "act:reject", "act:drop", "act:ask", "act:resolve", "act:start", "act:block", "act:assign", "act:delegate", "act:due", "act:find", "act:later", "act:cut")
 	}
 	if len(here) > 0 {
 		out = append(out, "", stHead.Render("On this screen"))

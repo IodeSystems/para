@@ -488,6 +488,9 @@ func (m *Model) act(name string) tea.Cmd {
 	case "cut":
 		return m.cut()
 	default:
+		if cmd, ok := m.taskAct(name); ok {
+			return cmd
+		}
 		return m.proposalAct(name)
 	}
 	return nil

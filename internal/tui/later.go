@@ -70,6 +70,13 @@ func (m *Model) cursorTarget() (actTarget, bool) {
 		if p.kind != pageDoc {
 			return actTarget{}, false
 		}
+		if _, ok := p.doc.Meta.(*model.Task); ok {
+			if t, ok := m.findTask(p.id); ok {
+				return actTarget{kind: "task", id: p.id, t: t}, true
+			}
+			o, err := ops.TaskShow.Run(context.Background(), m.env.Deps, ops.TaskShowInput{ID: p.id})
+			return actTarget{kind: "task", id: p.id, t: o.Task}, err == nil
+		}
 		if _, ok := p.doc.Meta.(*model.Question); !ok {
 			return actTarget{}, false
 		}
@@ -128,13 +135,16 @@ func (m *Model) shownActs(acts []Target) []Target {
 		}
 	case ok && tg.kind == "task":
 		keep = func(t Target) bool {
+			if slicesContainsID(taskActs, t.ID) {
+				return keepTaskAct(t, tg.t)
+			}
 			return t.ID == actLater.ID || t.ID == actCut.ID && len(m.taskWaits(tg.t)) > 0
 		}
 	}
 	_, _, canFind := m.findTarget()
 	var out []Target
 	for _, t := range acts {
-		isQ := slicesContainsID(questionActs, t.ID)
+		isQ := slicesContainsID(questionActs, t.ID) || slicesContainsID(taskActs, t.ID)
 		switch {
 		case t.ID == actFind.ID:
 			if canFind {

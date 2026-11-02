@@ -583,6 +583,9 @@ func (m *Model) rowsWork(w int) []row {
 		if st[t.ID] == "" {
 			label = state(string(t.Status))
 		}
+		if t.Outcome != "" && t.Outcome != model.OutcomeDone {
+			label = stDim.Render(string(t.Outcome)) // how it ended, when not simply done
+		}
 		if t.Due != "" {
 			label += stDim.Render("  due " + dateWords(string(t.Due), m.snap.Loaded))
 		}

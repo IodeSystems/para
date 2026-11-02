@@ -19,7 +19,7 @@ var (
 	actCopy     = Target{ID: "act:copy", Label: "Copy", Pref: 'y'}
 	actAccept   = Target{ID: "act:accept", Label: "Mark reviewed", Pref: 'm'}
 	actReopen   = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
-	actGraph    = Target{ID: "act:graph", Label: "Graph"}
+	actGraph    = Target{ID: "act:graph", Label: "Graph", Pref: 'h'}
 	actAnswer   = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
 	actReject   = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
 	actMeta     = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
@@ -64,10 +64,14 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	rs, acts := m.rowsRaw(w)
 	for i, r := range rs {
 		id := strings.TrimPrefix(r.target, "doc:")
-		if r.draw == nil || id == r.target || r.kind == "event" || !m.snap.looking(id) {
+		if r.draw == nil || id == r.target || r.kind == "event" || (!m.snap.looking(id) && !m.snap.Working[id]) {
 			continue
 		}
 		draw := r.draw
+		if m.snap.Working[id] {
+			rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("Agent working") }
+			continue
+		}
 		rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("agent looking") }
 	}
 	return rs, acts
@@ -100,9 +104,9 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	}
 	switch m.tab {
 	case tabReview:
-		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen, actActivity, actRespond}, questionActs...), actFind), acts...)
+		return m.rowsReview(w), append(append(append(append([]Target{actAccept, actReopen, actActivity, actRespond}, questionActs...), taskActs...), actFind), acts...)
 	case tabWork:
-		return m.rowsWork(w), append(append(append([]Target{actGraph}, questionActs...), actFind), acts...)
+		return m.rowsWork(w), append(append(append(append([]Target{actGraph}, questionActs...), taskActs...), actFind), acts...)
 	case tabRFX:
 		return m.rowsRFX(w), append([]Target{actFind}, acts...)
 	case tabPeople:
@@ -111,7 +115,7 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 		return m.rowsPolicy(w), acts
 	}
 	// Switching vault is an Agenda-tab action only; the vault is read only elsewhere.
-	return m.rowsToday(w), append(append(append(append([]Target{}, questionActs...), actFind, actByDate), acts...), actVault)
+	return m.rowsToday(w), append(append(append(append(append([]Target{}, questionActs...), taskActs...), actFind, actByDate), acts...), actVault)
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -248,6 +252,8 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	}
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		reserved += questionActLetters
+	} else if _, ok := p.doc.Meta.(*model.Task); ok {
+		reserved += taskActLetters + questionActLetters
 	} else if findableID(p.id) {
 		reserved += "f"
 	}
@@ -271,6 +277,9 @@ func (m *Model) docActionsFor(p *page) []Target {
 	acts := docActions
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		acts = append(append([]Target{}, questionActs...), docActions...)
+	}
+	if _, ok := p.doc.Meta.(*model.Task); ok {
+		acts = append(append([]Target{}, acts...), append([]Target{actLater, actCut}, taskActs...)...)
 	}
 	if editable(p.doc) {
 		acts = append([]Target{actEditNote}, acts...)
