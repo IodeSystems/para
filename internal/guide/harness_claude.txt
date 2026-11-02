@@ -27,17 +27,15 @@ Use para from Claude Code.
    claimed is cancelled. It holds ids and states only, never vault text, and
    names the tool to call next. The tools `proposal_wait` and `request_wait`
    block up to 60 seconds and return as soon as the state changes.
-   Whether Claude Code shows notifications/message is not verified. For Claude
-   Code channel events, add "--channel" to the server args (research preview:
-   start Claude Code with --dangerously-load-development-channels server:<name>).
+   Whether Claude Code shows notifications/message is not verified.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
    $ para proposal wait proposal-example --timeout 1h
    Each blocks with no token cost, then call `request_next` or `proposal_show`.
 
 7. Optional: server push into a session. Claude Code channels are a research
-   preview. A custom channel such as para is not on the approved list, so start
-   the session with:
+   preview. Add "--channel" to the server args. A custom channel such as para is
+   not on the approved list, so start the session with:
    claude --dangerously-load-development-channels server:para-<vault>
    Team and Enterprise organizations must enable channels first. Para works
    without it: use step 6 or call the wait tools.
