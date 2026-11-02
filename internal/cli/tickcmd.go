@@ -59,7 +59,7 @@ func newTickCmd(l *loader) *cobra.Command {
 	var all bool
 	cmd := &cobra.Command{
 		Use:   "tick [--all]",
-		Short: "One scheduled pass: recurring work, agent requests, nudges, reconcile. Only on the vault's named runner",
+		Short: "One scheduled pass: recurring work, agent work, follow-ups, reconcile. Only on the vault's named runner",
 		Long: "One pass over a vault, safe to run twice: it makes the next occurrence of a\n" +
 			"recurring task that was marked done by hand, queues a request for a due\n" +
 			"recurring task assigned to agent:<name> that has none, names the nudges that\n" +

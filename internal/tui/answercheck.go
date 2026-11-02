@@ -71,7 +71,11 @@ func (m *Model) rowsAnswersToCheck(w int) []row {
 func (m *Model) acceptAnswer(q ops.QuestionView) tea.Cmd {
 	lines := []string{"  " + titleOr(q.Title, q.ID), "  proposed by " + q.ProposedBy}
 	for _, s := range q.ProposedSources {
-		lines = append(lines, "  source "+s.Ref)
+		ref := s.Ref
+		if !strings.HasPrefix(ref, "http") {
+			ref = titleOr(m.snap.name(ref), ref)
+		}
+		lines = append(lines, "  source "+ref)
 	}
 	steps := []promptStep{{label: "accept as (edit or enter): ", value: proposedText(q)}}
 	return m.askForLines("Accept the answer", lines, steps, func(vals []string) tea.Cmd {

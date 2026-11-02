@@ -2,6 +2,7 @@ package ops
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -88,6 +89,19 @@ func TestAgentAnswerIsOnlyProposed(t *testing.T) {
 	}
 	if _, err := QuestionAccept.Run(ctx, d, QuestionAcceptInput{ID: q}); err == nil {
 		t.Fatal("accepted twice")
+	}
+	// Events hold ids and states, never the answer, the reason, or a quote.
+	evs, err := d.Store.Events(ctx, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range evs {
+		blob := fmt.Sprintf("%+v", e)
+		for _, secret := range []string{"Sunday", "Saturday is the freeze", "Runbook says so", "Window is Saturday"} {
+			if strings.Contains(blob, secret) {
+				t.Errorf("event holds content %q: %s", secret, blob)
+			}
+		}
 	}
 	mustLintClean(t, d)
 }

@@ -53,7 +53,7 @@ func scope(t ops.TaskView) string {
 }
 
 func newProjectCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "project", Short: "Projects", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "project", Short: "Goals (projects): bounded outcomes with a done condition", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		newLinkCmd(l, ops.ProjectLinkAdd, ops.ProjectLinkRemove),
 		opCommand(l, ops.ProjectAdd, binding[ops.ProjectAddInput, ops.ProjectAddOutput]{

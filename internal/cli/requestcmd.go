@@ -20,7 +20,7 @@ import (
 // `request wait` only blocks until a request can be claimed, so a shell loop
 // can start one.
 func newRequestCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "request", Short: "Queue of asks for agents", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "request", Short: "Agent work: the queue of asks for agents", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.RequestAdd, binding[ops.RequestAddInput, ops.RequestAddOutput]{
 			Use:  "add <ask>",
@@ -149,7 +149,7 @@ func newRequestWaitCmd(l *loader) *cobra.Command {
 	var timeout, interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "wait",
-		Short: "Block until a request can be claimed, then exit 0 (CLI only)",
+		Short: "Block until agent work can be claimed, then exit 0 (CLI only)",
 		Long: "Watches the vault's event files, with no LLM use, and checks the request files on each change, until this install can claim a request.\n" +
 			"Exits 0 then, and claims nothing. With --timeout it exits non-zero when time runs out.\n" +
 			"Example: while para request wait; do my-agent-launcher; done",

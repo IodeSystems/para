@@ -15,7 +15,7 @@ import (
 
 func newRFXCmd(l *loader) *cobra.Command {
 	var to, via []string
-	cmd := &cobra.Command{Use: "rfx", Short: "Requests for something, in or out", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "rfx", Short: "Asks: requests for something, in or out", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.RFXAdd, binding[ops.RFXAddInput, ops.RFXAddOutput]{
 			Use:  "add <ask>",
@@ -205,7 +205,7 @@ func readPiped(r io.Reader) (string, error) {
 }
 
 func newRFXTargetCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "target", Short: "Who a request goes to, and by what medium", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "target", Short: "Who an ask goes to, and by what medium", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.RFXTargetAdd, binding[ops.RFXTargetAddInput, ops.RFXTargetOutput]{
 			Use:  "add <rfx-id> <to> <medium>",

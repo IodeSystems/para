@@ -53,7 +53,7 @@ func writeAgentStatus(w io.Writer, o agentStatusOutput) error {
 func newAgentCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "agent",
-		Short: "Dispatch: the command para serve starts when a request can be claimed on this machine",
+		Short: "Dispatch: the command para serve starts when agent work can be claimed on this machine",
 		Long: "Dispatch is off unless $PARA_HOME/vaults/<id>/agent.json exists on this machine.\n" +
 			"It is never in the vault. See para mcp --help-claude and para mcp --help-dun.",
 		Args: cobra.NoArgs,
