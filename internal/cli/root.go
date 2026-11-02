@@ -136,6 +136,11 @@ func newRoot(l *loader) *cobra.Command {
 		newTodayCmd(l),
 		newRequestCmd(l),
 		newTUICmd(l),
+		newServeCmd(l),
+		newKeyCmd(l),
+		newSchemaCmd(l),
+		newServiceCmd(l),
+		newDoctorCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root

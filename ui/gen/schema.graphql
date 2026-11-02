@@ -1,0 +1,2064 @@
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+directive @export(as: String!) on FIELD
+
+directive @derived(operationId: String) on FIELD_DEFINITION | OBJECT | INPUT_OBJECT | INPUT_FIELD_DEFINITION | ENUM | SCALAR | UNION | INTERFACE | ARGUMENT_DEFINITION
+
+"""Untyped JSON value (used as a fallback for OpenAPI schemas that can't be mapped exactly)."""
+scalar JSON
+
+type Mutation {
+  para: ParaMutationNamespace!
+}
+
+type ParaMutationNamespace {
+  v1: ParaV1MutationNamespace!
+}
+
+type ParaQueryNamespace {
+  v1: ParaV1QueryNamespace!
+}
+
+type ParaV1MutationNamespace {
+  adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
+  adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
+  authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
+  constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
+  conventionAdd(body: para_ConventionAddInputInput!): para_ConventionAddOutput @derived(operationId: "conventionAdd")
+  copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
+  exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
+  export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
+  inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
+  inboxTriage(body: para_InboxTriageInputInput!): para_InboxTriageOutput @derived(operationId: "inboxTriage")
+  indexRebuild: para_Stats @derived(operationId: "indexRebuild")
+  ingest(body: para_IngestInputInput!): para_IngestOutput @derived(operationId: "ingest")
+  interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
+  journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
+  journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
+  journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
+  orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
+  orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
+  orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
+  orgPersonAliasAdd(body: para_PersonAliasInputInput!): para_PersonAliasOutput @derived(operationId: "orgPersonAliasAdd")
+  orgPersonAliasRemove(body: para_PersonAliasInputInput!): para_PersonAliasOutput @derived(operationId: "orgPersonAliasRemove")
+  orgPersonContactAdd(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactAdd")
+  orgPersonContactRemove(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactRemove")
+  orgPersonGroupAdd(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupAdd")
+  orgPersonGroupRemove(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupRemove")
+  orgPersonNote(body: para_PersonNoteInputInput!): para_PersonNoteOutput @derived(operationId: "orgPersonNote")
+  orgRoleAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgRoleAdd")
+  orgTeamAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgTeamAdd")
+  policyRefresh(body: para_PolicyRefreshInputInput!): para_PolicyRefreshOutput @derived(operationId: "policyRefresh")
+  policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
+  projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
+  projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
+  reconcile: para_ReconcileResult @derived(operationId: "reconcile")
+  requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
+  requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
+  requestDone(body: para_RequestDoneInputInput!): para_RequestChangeOutput @derived(operationId: "requestDone")
+  requestFail(body: para_RequestFailInputInput!): para_RequestChangeOutput @derived(operationId: "requestFail")
+  requestNext(body: para_RequestNextInputInput!): para_RequestNextOutput @derived(operationId: "requestNext")
+  requestNote(body: para_RequestNoteInputInput!): para_RequestChangeOutput @derived(operationId: "requestNote")
+  rfxAdd(body: para_RFXAddInputInput!): para_RFXAddOutput @derived(operationId: "rfxAdd")
+  rfxClose(body: para_RFXCloseInputInput!): para_RFXStatusOutput @derived(operationId: "rfxClose")
+  rfxDraft(body: para_RFXDraftInputInput!): para_RFXDraftOutput @derived(operationId: "rfxDraft")
+  rfxReply(body: para_RFXReplyInputInput!): para_RFXReplyOutput @derived(operationId: "rfxReply")
+  rfxStatus(body: para_RFXStatusInputInput!): para_RFXStatusOutput @derived(operationId: "rfxStatus")
+  rfxTargetAdd(body: para_RFXTargetAddInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetAdd")
+  rfxTargetState(body: para_RFXTargetStateInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetState")
+  ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
+  taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
+  taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
+  taskDone(body: para_TaskDoneInputInput!): para_TaskChangeOutput @derived(operationId: "taskDone")
+  taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
+}
+
+type ParaV1QueryNamespace {
+  adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
+  authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
+  constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
+  constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
+  conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
+  conventionShow(id: String!): para_ConventionShowOutput @derived(operationId: "conventionShow")
+  eventsTail(limit: Int): para_EventsTailOutput @derived(operationId: "eventsTail")
+  exceptionExpiring(days: Int): para_ExceptionExpiringOutput @derived(operationId: "exceptionExpiring")
+  exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
+  exceptionShow(id: String!): para_ExceptionShowOutput @derived(operationId: "exceptionShow")
+  exportList: para_ExportListOutput @derived(operationId: "exportList")
+  graph(project: String): para_GraphOutput @derived(operationId: "graph")
+  inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
+  inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
+  interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
+  interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
+  lint: para_LintOutput @derived(operationId: "lint")
+  next(project: String): para_NextOutput @derived(operationId: "next")
+  orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
+  orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
+  orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
+  orgGroupShow(id: String!): para_GroupShowOutput @derived(operationId: "orgGroupShow")
+  orgPersonList: para_OrgListOutput @derived(operationId: "orgPersonList")
+  orgPersonShow(id: String!): para_OrgShowOutput @derived(operationId: "orgPersonShow")
+  orgRoleList: para_OrgListOutput @derived(operationId: "orgRoleList")
+  orgRoleShow(id: String!): para_OrgShowOutput @derived(operationId: "orgRoleShow")
+  orgTeamList: para_OrgListOutput @derived(operationId: "orgTeamList")
+  orgTeamShow(id: String!): para_OrgShowOutput @derived(operationId: "orgTeamShow")
+  policyList: para_PolicyListOutput @derived(operationId: "policyList")
+  policyShow(id: String!): para_PolicyShowOutput @derived(operationId: "policyShow")
+  projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
+  projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
+  requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
+  requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
+  rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
+  rfxShow(id: String!): para_RFXShowOutput @derived(operationId: "rfxShow")
+  rfxWaiting(direction: para_rfxWaitingDirection, today: String): para_RFXWaitingOutput @derived(operationId: "rfxWaiting")
+  route(query: String!): para_RouteOutput @derived(operationId: "route")
+  ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
+  search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
+  taskList(project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
+  who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
+}
+
+type Query {
+  para: ParaQueryNamespace!
+}
+
+type para_ChainNode {
+  depth: Int!
+  id: String!
+  status: String!
+  title: String!
+  type: String!
+}
+
+type para_Change {
+  kind: para_ChangeKind!
+  outcome: para_ChangeOutcome!
+  path: String!
+}
+
+enum para_ChangeKind {
+  added
+  changed
+  removed
+}
+
+enum para_ChangeOutcome {
+  logged
+  pending
+  synced
+}
+
+input para_ConstraintAddInputInput {
+  appliesIn: [String!]
+  by: String!
+  notIn: [String!]
+  reviewBy: String!
+  says: String!
+  source: String!
+  text: String
+  why: String!
+}
+
+type para_ConstraintAddOutput {
+  id: String!
+  rev: String!
+}
+
+type para_ConstraintListOutput {
+  constraints: [para_ConstraintView!]!
+}
+
+type para_ConstraintShowOutput {
+  appliesIn: [String!]!
+  body: String!
+  by: String!
+  id: String!
+  notIn: [String!]!
+  rev: String!
+  reviewBy: String!
+  says: String!
+  sourceUrl: String!
+  why: String!
+}
+
+type para_ConstraintView {
+  appliesIn: [String!]!
+  by: String!
+  id: String!
+  notIn: [String!]!
+  reviewBy: String!
+  says: String!
+  sourceUrl: String!
+  why: String!
+}
+
+type para_Contact {
+  label: String
+  method: para_ContactMethod!
+  preferred: Boolean
+  value: String!
+}
+
+enum para_ContactMethod {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+input para_ConventionAddInputInput {
+  appliesIn: [String!]
+  status: para_ConventionAddInputStatus
+  text: String
+  title: String!
+}
+
+enum para_ConventionAddInputStatus {
+  adopted
+  draft
+  retired
+}
+
+type para_ConventionAddOutput {
+  id: String!
+  rev: String!
+}
+
+type para_ConventionListOutput {
+  conventions: [para_ConventionView!]!
+}
+
+type para_ConventionShowOutput {
+  appliesIn: [String!]!
+  body: String!
+  id: String!
+  rev: String!
+  status: para_ConventionShowOutputStatus!
+  title: String!
+}
+
+enum para_ConventionShowOutputStatus {
+  adopted
+  draft
+  retired
+}
+
+type para_ConventionView {
+  appliesIn: [String!]!
+  id: String!
+  status: para_ConventionViewStatus!
+  title: String!
+}
+
+enum para_ConventionViewStatus {
+  adopted
+  draft
+  retired
+}
+
+enum para_CopyInputAs {
+  email
+  jira
+  plain
+  slack
+}
+
+input para_CopyInputInput {
+  as: para_CopyInputAs
+  clipboard: Boolean
+  id: String!
+}
+
+type para_CopyOutput {
+  as: para_CopyOutputAs!
+  destination: String!
+  egressAllowed: Boolean!
+  egressDefault: String!
+  id: String!
+  marking: String!
+  text: String!
+}
+
+enum para_CopyOutputAs {
+  email
+  jira
+  plain
+  slack
+}
+
+type para_Document {
+  body: String!
+  folder: para_DocumentFolder!
+  id: String!
+  meta: para_Meta!
+  rev: String
+  title: String!
+}
+
+enum para_DocumentFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_Event {
+  actor: String!
+  doc: String!
+  from: String!
+  hash: String
+  install: String!
+  op: String!
+  prev: String
+  surface: String!
+  to: String!
+  ts: String!
+  vault: String!
+}
+
+type para_EventsTailOutput {
+  events: [para_Event!]!
+}
+
+input para_ExceptionAddInputInput {
+  by: String!
+  kind: para_ExceptionAddInputKind!
+  policy: String!
+  reviewBy: String
+  rule: String
+  text: String
+  title: String
+  with: String
+}
+
+enum para_ExceptionAddInputKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+type para_ExceptionAddOutput {
+  id: String!
+  rev: String!
+}
+
+type para_ExceptionExpiringOutput {
+  exceptions: [para_ExpiringException!]!
+}
+
+type para_ExceptionListOutput {
+  exceptions: [para_ExceptionView!]!
+}
+
+type para_ExceptionRef {
+  id: String!
+  kind: para_ExceptionRefKind!
+  rule: String!
+  status: para_ExceptionRefStatus!
+}
+
+enum para_ExceptionRefKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+enum para_ExceptionRefStatus {
+  accepted
+  open
+  resolved
+}
+
+type para_ExceptionShowOutput {
+  body: String!
+  by: String!
+  id: String!
+  kind: para_ExceptionShowOutputKind!
+  policy: String!
+  rev: String!
+  reviewBy: String!
+  rule: String!
+  status: para_ExceptionShowOutputStatus!
+  title: String!
+  with: String!
+}
+
+enum para_ExceptionShowOutputKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+enum para_ExceptionShowOutputStatus {
+  accepted
+  open
+  resolved
+}
+
+type para_ExceptionView {
+  by: String!
+  id: String!
+  kind: para_ExceptionViewKind!
+  policy: String!
+  reviewBy: String!
+  rule: String!
+  status: para_ExceptionViewStatus!
+  title: String!
+  with: String!
+}
+
+enum para_ExceptionViewKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+enum para_ExceptionViewStatus {
+  accepted
+  open
+  resolved
+}
+
+type para_ExpiringException {
+  by: String!
+  daysLeft: Int!
+  id: String!
+  kind: para_ExpiringExceptionKind!
+  policy: String!
+  reviewBy: String!
+  rule: String!
+  status: para_ExpiringExceptionStatus!
+  title: String!
+  with: String!
+}
+
+enum para_ExpiringExceptionKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+enum para_ExpiringExceptionStatus {
+  accepted
+  open
+  resolved
+}
+
+enum para_ExportInputAs {
+  docx
+  email
+  html
+  jira
+  md
+  pdf
+  plain
+  slack
+}
+
+input para_ExportInputInput {
+  as: para_ExportInputAs
+  id: String!
+  to: String
+}
+
+type para_ExportListOutput {
+  formats: [para_Item!]!
+  transports: [para_Item!]!
+}
+
+type para_ExportOutput {
+  as: para_ExportOutputAs!
+  dataBase64: String
+  destination: String!
+  egressAllowed: Boolean!
+  egressDefault: String!
+  ext: String!
+  id: String!
+  marking: String!
+  text: String
+  to: String!
+}
+
+enum para_ExportOutputAs {
+  docx
+  email
+  html
+  jira
+  md
+  pdf
+  plain
+  slack
+}
+
+type para_Finding {
+  code: String!
+  line: Int
+  message: String!
+  path: String!
+  severity: String!
+}
+
+type para_GraphEdge {
+  from: String!
+  to: String!
+}
+
+type para_GraphNode {
+  blockedBy: [String!]!
+  id: String!
+  project: String
+  state: String!
+  status: String!
+  title: String!
+  type: para_GraphNodeType!
+  waitingOn: [String!]!
+}
+
+enum para_GraphNodeType {
+  constraint
+  convention
+  domain
+  group
+  inbox
+  interaction
+  journal
+  person
+  policy
+  policy_exception
+  project
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+type para_GraphOutput {
+  cycles: JSON!
+  edges: [para_GraphEdge!]!
+  nodes: [para_GraphNode!]!
+  order: [String!]!
+}
+
+input para_GroupAddInputInput {
+  id: String
+  kind: para_GroupAddInputKind!
+  name: String!
+  org: String!
+}
+
+enum para_GroupAddInputKind {
+  channel
+  department
+  list
+  other
+  team
+}
+
+type para_GroupShowOutput {
+  doc: para_Document!
+  members: [para_Ref!]!
+}
+
+type para_Hit {
+  id: String!
+  kind: String!
+  passage: String!
+  path: String!
+  score: Float!
+  sourceUrl: String!
+  title: String!
+  unverified: Boolean!
+}
+
+input para_InboxAddInputInput {
+  text: String!
+}
+
+type para_InboxAddOutput {
+  folder: para_InboxAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_InboxAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_InboxItem {
+  created: String!
+  folder: para_InboxItemFolder!
+  id: String!
+  title: String!
+}
+
+enum para_InboxItemFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_InboxListOutput {
+  items: [para_InboxItem!]!
+}
+
+type para_InboxShowOutput {
+  doc: para_Document!
+}
+
+enum para_InboxTriageInputDirection {
+  in
+  out
+}
+
+input para_InboxTriageInputInput {
+  date: String
+  direction: para_InboxTriageInputDirection
+  id: String!
+  nextNudge: String
+  owner: String
+  person: String
+  project: String
+  route: String
+  selfServe: String
+  targets: [para_TargetInputInput!]
+  to: para_InboxTriageInputTo!
+}
+
+enum para_InboxTriageInputTo {
+  drop
+  note
+  project
+  rfx
+  task
+}
+
+type para_InboxTriageOutput {
+  created: String!
+  folder: para_InboxTriageOutputFolder!
+  id: String!
+  rev: String!
+  to: para_InboxTriageOutputTo!
+  warnings: [String!]!
+}
+
+enum para_InboxTriageOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_InboxTriageOutputTo {
+  drop
+  note
+  project
+  rfx
+  task
+}
+
+input para_IngestInputInput {
+  backend: String
+  id: String
+  noCopy: Boolean
+  text: String
+  title: String
+  url: String!
+}
+
+type para_IngestOutput {
+  fidelity: para_IngestOutputFidelity!
+  hash: String!
+  id: String!
+  transcriptId: String!
+  verified: Boolean!
+}
+
+enum para_IngestOutputFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+enum para_InteractionAddInputDirection {
+  in
+  observed
+  out
+}
+
+input para_InteractionAddInputInput {
+  date: String
+  direction: para_InteractionAddInputDirection!
+  medium: para_InteractionAddInputMedium!
+  summary: String!
+  url: String
+  visibility: para_InteractionAddInputVisibility
+  with: [String!]
+}
+
+enum para_InteractionAddInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_InteractionAddInputVisibility {
+  private
+  public
+}
+
+type para_InteractionAddOutput {
+  folder: para_InteractionAddOutputFolder!
+  id: String!
+  rev: String!
+  warnings: [String!]!
+}
+
+enum para_InteractionAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_InteractionListOutput {
+  items: [para_InteractionSummary!]!
+}
+
+type para_InteractionShowOutput {
+  doc: para_Document!
+}
+
+type para_InteractionSummary {
+  date: String!
+  direction: para_InteractionSummaryDirection!
+  id: String!
+  medium: para_InteractionSummaryMedium!
+  title: String!
+  url: String!
+  visibility: para_InteractionSummaryVisibility!
+  with: [String!]!
+}
+
+enum para_InteractionSummaryDirection {
+  in
+  observed
+  out
+}
+
+enum para_InteractionSummaryMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_InteractionSummaryVisibility {
+  private
+  public
+}
+
+type para_Item {
+  arg: String
+  available: Boolean!
+  found: String
+  name: String!
+  needs: [String!]
+}
+
+input para_JournalInputInput {
+  date: String
+}
+
+type para_JournalOutput {
+  action: String!
+  events: Int!
+  id: String!
+  path: String!
+}
+
+type para_KeyCreateBody {
+  key: para_KeyView!
+  token: String!
+}
+
+input para_KeyCreateInputInput {
+  allowIp: [String!]
+  name: String!
+  scopes: [String!]
+  ttlSeconds: Int
+}
+
+type para_KeyListBody {
+  keys: [para_KeyView!]!
+}
+
+input para_KeyRevokeInputInput {
+  name: String!
+}
+
+type para_KeyView {
+  allowIp: [String!]!
+  created: String!
+  expires: String
+  name: String!
+  revoked: String
+  scopes: [String!]!
+}
+
+type para_LintOutput {
+  errors: Int!
+  findings: [para_Finding!]!
+  warnings: Int!
+}
+
+type para_Meta {
+  aliases: [String!]
+  appliesIn: [String!]
+  blockedBy: [String!]
+  blocks: [String!]
+  by: String
+  claimedBy: String
+  contacts: [para_Contact!]
+  created: String!
+  date: String
+  dependsOn: [String!]
+  direction: String
+  groups: [String!]
+  kind: String
+  leaseUntil: String
+  links: [String!]
+  medium: para_MetaMedium
+  nextNudge: String
+  notIn: [String!]
+  of: String
+  org: String
+  owner: String
+  playbook: String
+  policy: String
+  project: String
+  queuedAt: String
+  resultLinks: [String!]
+  reviewBy: String
+  reviewedBy: String
+  role: String
+  route: String
+  rule: String
+  runner: String
+  scope: String
+  selfServeCheck: String
+  source: para_Source
+  status: String
+  tags: [String!]
+  targets: [para_Target!]
+  team: String
+  type: para_MetaType!
+  updated: String
+  url: String
+  verified: Boolean
+  visibility: para_MetaVisibility
+  why: String
+  with: JSON
+}
+
+enum para_MetaMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_MetaType {
+  constraint
+  convention
+  domain
+  group
+  inbox
+  interaction
+  journal
+  person
+  policy
+  policy_exception
+  project
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+enum para_MetaVisibility {
+  private
+  public
+}
+
+type para_NextOutput {
+  cycles: JSON!
+  tasks: [para_TaskView!]!
+}
+
+input para_OrgAddInputInput {
+  aliases: [String!]
+  id: String
+  name: String!
+  org: String
+  owner: String
+  role: String
+  said: [String!]
+  source: String
+  team: String
+}
+
+type para_OrgAddOutput {
+  folder: para_OrgAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_OrgAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_OrgListOutput {
+  items: [para_Ref!]!
+}
+
+type para_OrgShowOutput {
+  doc: para_Document!
+}
+
+input para_PersonAliasInputInput {
+  alias: String!
+  id: String!
+}
+
+type para_PersonAliasOutput {
+  aliases: [String!]!
+  id: String!
+  rev: String!
+}
+
+input para_PersonContactInputInput {
+  id: String!
+  label: String
+  method: para_PersonContactInputMethod!
+  preferred: Boolean
+  value: String!
+}
+
+enum para_PersonContactInputMethod {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_PersonContactOutput {
+  contacts: [para_Contact!]!
+  id: String!
+  rev: String!
+}
+
+input para_PersonGroupInputInput {
+  group: String!
+  id: String!
+}
+
+type para_PersonGroupOutput {
+  groups: [String!]!
+  id: String!
+  rev: String!
+}
+
+input para_PersonNoteInputInput {
+  date: String
+  id: String!
+  text: String!
+}
+
+type para_PersonNoteOutput {
+  id: String!
+  line: String!
+  rev: String!
+}
+
+type para_PolicyListOutput {
+  policies: [para_PolicyView!]!
+}
+
+input para_PolicyRefreshInputInput {
+  backend: String
+  id: String!
+  text: String!
+}
+
+type para_PolicyRefreshOutput {
+  affectedExceptions: [para_ExceptionRef!]!
+  affectedRules: [para_Rule!]!
+  checked: String!
+  hash: String!
+  id: String!
+  previousHash: String!
+  result: String!
+}
+
+input para_PolicyReviewInputInput {
+  by: String!
+  id: String!
+}
+
+type para_PolicyReviewOutput {
+  id: String!
+  rev: String!
+  reviewedBy: String!
+  verified: Boolean!
+}
+
+type para_PolicyShowOutput {
+  body: String!
+  exceptions: [para_ExceptionRef!]!
+  fidelity: para_PolicyShowOutputFidelity!
+  id: String!
+  rev: String!
+  reviewedBy: String!
+  ruleList: [para_Rule!]!
+  rules: Int!
+  sourceChecked: String!
+  sourceStatus: String!
+  title: String!
+  transcriptId: String!
+  url: String!
+  verified: Boolean!
+}
+
+enum para_PolicyShowOutputFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+type para_PolicyView {
+  fidelity: para_PolicyViewFidelity!
+  id: String!
+  reviewedBy: String!
+  rules: Int!
+  sourceChecked: String!
+  sourceStatus: String!
+  title: String!
+  url: String!
+  verified: Boolean!
+}
+
+enum para_PolicyViewFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+input para_ProjectAddInputInput {
+  body: String
+  owner: String!
+  title: String!
+}
+
+type para_ProjectAddOutput {
+  folder: para_ProjectAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_ProjectAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+input para_ProjectCloseInputInput {
+  dropped: Boolean
+  force: Boolean
+  id: String!
+}
+
+type para_ProjectCloseOutput {
+  folder: para_ProjectCloseOutputFolder!
+  id: String!
+  rev: String!
+  status: para_ProjectCloseOutputStatus!
+}
+
+enum para_ProjectCloseOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_ProjectCloseOutputStatus {
+  active
+  done
+  dropped
+  paused
+}
+
+type para_ProjectListOutput {
+  projects: [para_ProjectView!]!
+}
+
+type para_ProjectShowOutput {
+  body: String!
+  project: para_ProjectView!
+  tasks: [para_TaskView!]!
+}
+
+type para_ProjectView {
+  folder: para_ProjectViewFolder!
+  id: String!
+  owner: String!
+  rev: String!
+  status: para_ProjectViewStatus!
+  title: String!
+}
+
+enum para_ProjectViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_ProjectViewStatus {
+  active
+  done
+  dropped
+  paused
+}
+
+enum para_RFXAddInputDirection {
+  in
+  out
+}
+
+input para_RFXAddInputInput {
+  ask: String!
+  blocks: [String!]
+  dependsOn: [String!]
+  direction: para_RFXAddInputDirection!
+  nextNudge: String
+  project: String
+  route: String!
+  selfServe: String
+  targets: [para_TargetInputInput!]
+}
+
+type para_RFXAddOutput {
+  folder: para_RFXAddOutputFolder!
+  id: String!
+  rev: String!
+  warnings: [String!]!
+}
+
+enum para_RFXAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+input para_RFXCloseInputInput {
+  id: String!
+  playbook: String
+}
+
+input para_RFXDraftInputInput {
+  id: String!
+  text: String!
+}
+
+type para_RFXDraftOutput {
+  draft: String!
+  id: String!
+  rev: String!
+}
+
+type para_RFXListOutput {
+  items: [para_RFXSummary!]!
+}
+
+input para_RFXReplyInputInput {
+  appliesIn: [String!]
+  date: String
+  from: String!
+  id: String!
+  notIn: [String!]
+  outcome: para_RFXReplyInputOutcome!
+  reviewBy: String
+  says: String
+  text: String!
+  url: String
+  via: para_RFXReplyInputVia
+  why: String
+}
+
+enum para_RFXReplyInputOutcome {
+  answered
+  no
+  partial
+}
+
+enum para_RFXReplyInputVia {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_RFXReplyOutput {
+  constraint: String!
+  from: String!
+  id: String!
+  interaction: String!
+  outcome: para_RFXReplyOutputOutcome!
+  rev: String!
+  state: para_RFXReplyOutputState!
+  warnings: [String!]!
+}
+
+enum para_RFXReplyOutputOutcome {
+  answered
+  no
+  partial
+}
+
+enum para_RFXReplyOutputState {
+  drafted
+  no_reply
+  replied
+  sent
+}
+
+type para_RFXShowOutput {
+  chain: [para_ChainNode!]!
+  dependedOnBy: [String!]!
+  doc: para_Document!
+  draft: String!
+}
+
+input para_RFXStatusInputInput {
+  id: String!
+  status: para_RFXStatusInputStatus!
+}
+
+enum para_RFXStatusInputStatus {
+  answered
+  closed
+  declined
+  open
+}
+
+type para_RFXStatusOutput {
+  from: para_RFXStatusOutputFrom!
+  id: String!
+  playbook: String!
+  rev: String!
+  status: para_RFXStatusOutputStatus!
+}
+
+enum para_RFXStatusOutputFrom {
+  answered
+  closed
+  declined
+  open
+}
+
+enum para_RFXStatusOutputStatus {
+  answered
+  closed
+  declined
+  open
+}
+
+type para_RFXSummary {
+  dependsOn: [String!]!
+  direction: para_RFXSummaryDirection!
+  id: String!
+  nextNudge: String!
+  route: String!
+  status: para_RFXSummaryStatus!
+  targets: [para_Target!]!
+  title: String!
+  waiting: Boolean!
+}
+
+enum para_RFXSummaryDirection {
+  in
+  out
+}
+
+enum para_RFXSummaryStatus {
+  answered
+  closed
+  declined
+  open
+}
+
+input para_RFXTargetAddInputInput {
+  id: String!
+  medium: para_RFXTargetAddInputMedium!
+  to: String!
+  value: String
+}
+
+enum para_RFXTargetAddInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_RFXTargetOutput {
+  id: String!
+  rev: String!
+  targets: [para_Target!]!
+  waiting: Boolean!
+}
+
+input para_RFXTargetStateInputInput {
+  date: String
+  id: String!
+  medium: para_RFXTargetStateInputMedium
+  ref: String
+  state: para_RFXTargetStateInputState!
+  to: String!
+}
+
+enum para_RFXTargetStateInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_RFXTargetStateInputState {
+  drafted
+  no_reply
+  replied
+  sent
+}
+
+type para_RFXWaitingOutput {
+  items: [para_WaitingItem!]!
+  today: String!
+}
+
+type para_ReconcileResult {
+  baseline: Boolean!
+  changes: [para_Change!]!
+}
+
+type para_Ref {
+  folder: para_RefFolder!
+  id: String!
+  rev: String!
+  title: String!
+  type: para_RefType!
+}
+
+enum para_RefFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_RefType {
+  constraint
+  convention
+  domain
+  group
+  inbox
+  interaction
+  journal
+  person
+  policy
+  policy_exception
+  project
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+input para_RequestAddInputInput {
+  ask: String!
+  links: [String!]
+  runner: String
+}
+
+type para_RequestAddOutput {
+  folder: para_RequestAddOutputFolder!
+  id: String!
+  rev: String!
+  runner: String!
+  status: para_RequestAddOutputStatus!
+}
+
+enum para_RequestAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_RequestAddOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+input para_RequestCancelInputInput {
+  id: String!
+}
+
+type para_RequestChangeOutput {
+  id: String!
+  leaseUntil: String
+  rev: String!
+  status: para_RequestChangeOutputStatus!
+}
+
+enum para_RequestChangeOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+type para_RequestDetail {
+  body: String!
+  claimedBy: String
+  id: String!
+  leaseUntil: String
+  links: [String!]
+  queuedAt: String!
+  runner: String!
+  status: para_RequestDetailStatus!
+  title: String!
+}
+
+enum para_RequestDetailStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+input para_RequestDoneInputInput {
+  id: String!
+  links: [String!]
+  result: String!
+}
+
+input para_RequestFailInputInput {
+  id: String!
+  reason: String!
+}
+
+type para_RequestListOutput {
+  items: [para_RequestView!]!
+}
+
+input para_RequestNextInputInput {
+  leaseSeconds: Int
+}
+
+type para_RequestNextOutput {
+  request: para_RequestDetail
+  requeued: [String!]!
+}
+
+input para_RequestNoteInputInput {
+  id: String!
+  leaseSeconds: Int
+  text: String!
+}
+
+type para_RequestShowOutput {
+  doc: para_Document!
+}
+
+type para_RequestView {
+  claimedBy: String
+  id: String!
+  leaseUntil: String
+  links: [String!]
+  queuedAt: String!
+  runner: String!
+  status: para_RequestViewStatus!
+  title: String!
+}
+
+enum para_RequestViewStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+type para_RouteOutput {
+  candidates: [para_Ref!]!
+  domain: para_Ref
+  owner: para_Ref
+  people: [para_Ref!]!
+  query: String!
+  selfServe: para_SelfServe!
+  terms: [String!]!
+}
+
+type para_Rule {
+  id: String!
+  link: String!
+  policy: String!
+  text: String!
+}
+
+input para_RuleAddInputInput {
+  policy: String!
+  text: String!
+}
+
+type para_RuleAddOutput {
+  id: String!
+  link: String!
+  policy: String!
+  rev: String!
+  text: String!
+}
+
+type para_RuleListOutput {
+  rules: [para_Rule!]!
+}
+
+type para_SearchOutput {
+  hits: [para_Hit!]!
+}
+
+type para_SelfServe {
+  constraints: [para_Ref!]!
+  conventions: [para_Ref!]!
+  policies: [para_Ref!]!
+  priorRfx: [para_RFXSummary!]!
+}
+
+type para_SessionCreateBody {
+  admin: Boolean!
+  expires: String!
+  key: String!
+  scopes: [String!]!
+  surface: String!
+  vault: String!
+}
+
+type para_SessionDeleteBody {
+  deleted: Boolean!
+}
+
+type para_SessionView {
+  admin: Boolean!
+  key: String!
+  scopes: [String!]!
+  surface: String!
+  vault: String!
+}
+
+type para_Source {
+  backend: String
+  checked: String
+  complete: Boolean
+  fidelity: para_SourceFidelity!
+  hash: String
+  retrieved: String!
+  status: String
+  untrusted: Boolean
+  url: String!
+}
+
+enum para_SourceFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+type para_Stats {
+  added: Int!
+  documents: Int!
+  removed: Int!
+  updated: Int!
+}
+
+type para_Target {
+  medium: para_TargetMedium!
+  ref: String
+  sent: String
+  state: para_TargetState!
+  to: String!
+  value: String
+}
+
+input para_TargetInputInput {
+  medium: para_TargetInputMedium!
+  to: String!
+  value: String
+}
+
+enum para_TargetInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_TargetMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_TargetState {
+  drafted
+  no_reply
+  replied
+  sent
+}
+
+input para_TaskAddInputInput {
+  body: String
+  dependsOn: [String!]
+  project: String!
+  title: String!
+}
+
+type para_TaskAddOutput {
+  folder: para_TaskAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_TaskAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+input para_TaskBlockInputInput {
+  id: String!
+  reason: String!
+}
+
+type para_TaskChangeOutput {
+  blockedBy: [String!]!
+  id: String!
+  rev: String!
+  status: para_TaskChangeOutputStatus!
+}
+
+enum para_TaskChangeOutputStatus {
+  blocked
+  doing
+  done
+  dropped
+  todo
+}
+
+input para_TaskDoneInputInput {
+  id: String!
+}
+
+type para_TaskListOutput {
+  tasks: [para_TaskView!]!
+}
+
+type para_TaskShowOutput {
+  body: String!
+  task: para_TaskView!
+}
+
+input para_TaskStartInputInput {
+  force: Boolean
+  id: String!
+}
+
+type para_TaskView {
+  blockedBy: [String!]!
+  dependsOn: [String!]!
+  folder: para_TaskViewFolder!
+  id: String!
+  project: String!
+  rev: String!
+  status: para_TaskViewStatus!
+  title: String!
+}
+
+enum para_TaskViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_TaskViewStatus {
+  blocked
+  doing
+  done
+  dropped
+  todo
+}
+
+type para_WaitingItem {
+  blockedOn: [String!]!
+  dependsOn: [String!]!
+  direction: para_WaitingItemDirection!
+  due: Boolean!
+  id: String!
+  nextNudge: String!
+  route: String!
+  stalled: Boolean!
+  status: para_WaitingItemStatus!
+  targets: [para_Target!]!
+  title: String!
+  waiting: Boolean!
+}
+
+enum para_WaitingItemDirection {
+  in
+  out
+}
+
+enum para_WaitingItemStatus {
+  answered
+  closed
+  declined
+  open
+}
+
+type para_WhoOutput {
+  candidates: [para_Ref!]!
+  person: para_WhoPerson
+  query: String!
+}
+
+type para_WhoPerson {
+  aliases: [String!]!
+  contacts: [para_Contact!]!
+  groups: [para_Ref!]!
+  id: String!
+  interactions: [para_InteractionSummary!]!
+  name: String!
+  notes: [String!]!
+  openRfx: [para_WhoRFX!]!
+  org: String!
+  role: para_Ref
+  team: para_Ref
+}
+
+type para_WhoRFX {
+  direction: para_WhoRFXDirection!
+  id: String!
+  targets: [para_Target!]!
+  title: String!
+}
+
+enum para_WhoRFXDirection {
+  in
+  out
+}
+
+enum para_exceptionListKind {
+  bug
+  conflict_with
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+}
+
+enum para_exceptionListStatus {
+  accepted
+  open
+  resolved
+}
+
+enum para_interactionListDirection {
+  in
+  observed
+  out
+}
+
+enum para_interactionListMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_requestListStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+enum para_rfxListDirection {
+  in
+  out
+}
+
+enum para_rfxListStatus {
+  answered
+  closed
+  declined
+  open
+}
+
+enum para_rfxWaitingDirection {
+  in
+  out
+}
+
+enum para_taskListStatus {
+  blocked
+  doing
+  done
+  dropped
+  todo
+}
