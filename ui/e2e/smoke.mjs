@@ -219,6 +219,14 @@ try {
   await page.getByText('Pushed live item').waitFor({ timeout: 8000 })
   check(true, 'live push refreshed Today without a reload')
 
+  // A write by a separate process (the CLI, as para mcp does) reaches the page through the events/
+  // watcher: no reload, well inside the 60 s poll.
+  const t0 = Date.now()
+  para(...v, 'inbox', 'add', 'Pushed by cli process')
+  await page.getByText('Pushed by cli process').waitFor({ timeout: 8000 })
+  const ms = Date.now() - t0
+  check(ms < 5000, `CLI write showed without a reload (${ms} ms including the CLI run)`)
+
   // Keyboard: digits, help, capture with Back closing it.
   await page.keyboard.press('2')
   await page.waitForURL(/\/review/)
