@@ -104,8 +104,8 @@ function Review() {
               {r.position
                 ? ` since you last marked changes reviewed (${humanTime(r.position)})`
                 : ' since the start'}
-              . Your own CLI, TUI, and browser work is not listed. Proposals above are decided item
-              by item; marking changes reviewed does not touch them.
+              . Your own CLI, TUI, and browser work is not listed. Proposals are decided item by
+              item; marking changes reviewed does not touch them.
             </Typography>
             <Section title="Needs you" count={r.needs.length} hideEmpty>
               {

@@ -11,6 +11,7 @@ const SearchDoc = graphql(/* GraphQL */ `
     $area: String
     $project: String
     $since: String
+    $prefix: Boolean
   ) {
     para {
       v1 {
@@ -22,6 +23,7 @@ const SearchDoc = graphql(/* GraphQL */ `
           area: $area
           project: $project
           since: $since
+          prefix: $prefix
         ) {
           degraded
           hits {
@@ -62,7 +64,7 @@ export function useSearch(query: string, filters: SearchFilters = {}) {
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const r = need(
-        (await gqlClient.request(SearchDoc, { query, ...filters })).para.v1.search,
+        (await gqlClient.request(SearchDoc, { query, ...filters, prefix: true })).para.v1.search,
         'hits',
       )
       return { hits: r.hits, degraded: r.degraded ?? '' }
