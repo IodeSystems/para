@@ -10,33 +10,190 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthedPolicyRouteImport } from './routes/_authed.policy'
+import { Route as AuthedRequestsRouteImport } from './routes/_authed.requests'
+import { Route as AuthedReviewRouteImport } from './routes/_authed.review'
+import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
+import { Route as AuthedTodayRouteImport } from './routes/_authed.today'
+import { Route as AuthedWorkRouteImport } from './routes/_authed.work'
+import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
+import { Route as AuthedPeopleIndexRouteImport } from './routes/_authed.people.index'
+import { Route as AuthedPeopleIdRouteImport } from './routes/_authed.people.$id'
+import { Route as AuthedRfxIndexRouteImport } from './routes/_authed.rfx.index'
+import { Route as AuthedRfxIdRouteImport } from './routes/_authed.rfx.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedRoute = AuthedRouteImport.update({
+  id: '/_authed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedPolicyRoute = AuthedPolicyRouteImport.update({
+  id: '/policy',
+  path: '/policy',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRequestsRoute = AuthedRequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedReviewRoute = AuthedReviewRouteImport.update({
+  id: '/review',
+  path: '/review',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedSearchRoute = AuthedSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedTodayRoute = AuthedTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedWorkRoute = AuthedWorkRouteImport.update({
+  id: '/work',
+  path: '/work',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedDocIdRoute = AuthedDocIdRouteImport.update({
+  id: '/doc/$id',
+  path: '/doc/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedPeopleIndexRoute = AuthedPeopleIndexRouteImport.update({
+  id: '/people/',
+  path: '/people/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedPeopleIdRoute = AuthedPeopleIdRouteImport.update({
+  id: '/people/$id',
+  path: '/people/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRfxIndexRoute = AuthedRfxIndexRouteImport.update({
+  id: '/rfx/',
+  path: '/rfx/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedRfxIdRoute = AuthedRfxIdRouteImport.update({
+  id: '/rfx/$id',
+  path: '/rfx/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/policy': typeof AuthedPolicyRoute
+  '/requests': typeof AuthedRequestsRoute
+  '/review': typeof AuthedReviewRoute
+  '/search': typeof AuthedSearchRoute
+  '/today': typeof AuthedTodayRoute
+  '/work': typeof AuthedWorkRoute
+  '/doc/$id': typeof AuthedDocIdRoute
+  '/people/$id': typeof AuthedPeopleIdRoute
+  '/rfx/$id': typeof AuthedRfxIdRoute
+  '/people/': typeof AuthedPeopleIndexRoute
+  '/rfx/': typeof AuthedRfxIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginRoute
+  '/policy': typeof AuthedPolicyRoute
+  '/requests': typeof AuthedRequestsRoute
+  '/review': typeof AuthedReviewRoute
+  '/search': typeof AuthedSearchRoute
+  '/today': typeof AuthedTodayRoute
+  '/work': typeof AuthedWorkRoute
+  '/doc/$id': typeof AuthedDocIdRoute
+  '/people/$id': typeof AuthedPeopleIdRoute
+  '/rfx/$id': typeof AuthedRfxIdRoute
+  '/people': typeof AuthedPeopleIndexRoute
+  '/rfx': typeof AuthedRfxIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authed': typeof AuthedRouteWithChildren
+  '/login': typeof LoginRoute
+  '/_authed/policy': typeof AuthedPolicyRoute
+  '/_authed/requests': typeof AuthedRequestsRoute
+  '/_authed/review': typeof AuthedReviewRoute
+  '/_authed/search': typeof AuthedSearchRoute
+  '/_authed/today': typeof AuthedTodayRoute
+  '/_authed/work': typeof AuthedWorkRoute
+  '/_authed/doc/$id': typeof AuthedDocIdRoute
+  '/_authed/people/$id': typeof AuthedPeopleIdRoute
+  '/_authed/rfx/$id': typeof AuthedRfxIdRoute
+  '/_authed/people/': typeof AuthedPeopleIndexRoute
+  '/_authed/rfx/': typeof AuthedRfxIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/login'
+    | '/policy'
+    | '/requests'
+    | '/review'
+    | '/search'
+    | '/today'
+    | '/work'
+    | '/doc/$id'
+    | '/people/$id'
+    | '/rfx/$id'
+    | '/people/'
+    | '/rfx/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/login'
+    | '/policy'
+    | '/requests'
+    | '/review'
+    | '/search'
+    | '/today'
+    | '/work'
+    | '/doc/$id'
+    | '/people/$id'
+    | '/rfx/$id'
+    | '/people'
+    | '/rfx'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authed'
+    | '/login'
+    | '/_authed/policy'
+    | '/_authed/requests'
+    | '/_authed/review'
+    | '/_authed/search'
+    | '/_authed/today'
+    | '/_authed/work'
+    | '/_authed/doc/$id'
+    | '/_authed/people/$id'
+    | '/_authed/rfx/$id'
+    | '/_authed/people/'
+    | '/_authed/rfx/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthedRoute: typeof AuthedRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +205,135 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed': {
+      id: '/_authed'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authed/policy': {
+      id: '/_authed/policy'
+      path: '/policy'
+      fullPath: '/policy'
+      preLoaderRoute: typeof AuthedPolicyRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/requests': {
+      id: '/_authed/requests'
+      path: '/requests'
+      fullPath: '/requests'
+      preLoaderRoute: typeof AuthedRequestsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/review': {
+      id: '/_authed/review'
+      path: '/review'
+      fullPath: '/review'
+      preLoaderRoute: typeof AuthedReviewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/search': {
+      id: '/_authed/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof AuthedSearchRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/today': {
+      id: '/_authed/today'
+      path: '/today'
+      fullPath: '/today'
+      preLoaderRoute: typeof AuthedTodayRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/work': {
+      id: '/_authed/work'
+      path: '/work'
+      fullPath: '/work'
+      preLoaderRoute: typeof AuthedWorkRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/doc/$id': {
+      id: '/_authed/doc/$id'
+      path: '/doc/$id'
+      fullPath: '/doc/$id'
+      preLoaderRoute: typeof AuthedDocIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/people/': {
+      id: '/_authed/people/'
+      path: '/people'
+      fullPath: '/people/'
+      preLoaderRoute: typeof AuthedPeopleIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/people/$id': {
+      id: '/_authed/people/$id'
+      path: '/people/$id'
+      fullPath: '/people/$id'
+      preLoaderRoute: typeof AuthedPeopleIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/rfx/': {
+      id: '/_authed/rfx/'
+      path: '/rfx'
+      fullPath: '/rfx/'
+      preLoaderRoute: typeof AuthedRfxIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/rfx/$id': {
+      id: '/_authed/rfx/$id'
+      path: '/rfx/$id'
+      fullPath: '/rfx/$id'
+      preLoaderRoute: typeof AuthedRfxIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
+interface AuthedRouteChildren {
+  AuthedPolicyRoute: typeof AuthedPolicyRoute
+  AuthedRequestsRoute: typeof AuthedRequestsRoute
+  AuthedReviewRoute: typeof AuthedReviewRoute
+  AuthedSearchRoute: typeof AuthedSearchRoute
+  AuthedTodayRoute: typeof AuthedTodayRoute
+  AuthedWorkRoute: typeof AuthedWorkRoute
+  AuthedDocIdRoute: typeof AuthedDocIdRoute
+  AuthedPeopleIdRoute: typeof AuthedPeopleIdRoute
+  AuthedRfxIdRoute: typeof AuthedRfxIdRoute
+  AuthedPeopleIndexRoute: typeof AuthedPeopleIndexRoute
+  AuthedRfxIndexRoute: typeof AuthedRfxIndexRoute
+}
+
+const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedPolicyRoute: AuthedPolicyRoute,
+  AuthedRequestsRoute: AuthedRequestsRoute,
+  AuthedReviewRoute: AuthedReviewRoute,
+  AuthedSearchRoute: AuthedSearchRoute,
+  AuthedTodayRoute: AuthedTodayRoute,
+  AuthedWorkRoute: AuthedWorkRoute,
+  AuthedDocIdRoute: AuthedDocIdRoute,
+  AuthedPeopleIdRoute: AuthedPeopleIdRoute,
+  AuthedRfxIdRoute: AuthedRfxIdRoute,
+  AuthedPeopleIndexRoute: AuthedPeopleIndexRoute,
+  AuthedRfxIndexRoute: AuthedRfxIndexRoute,
+}
+
+const AuthedRouteWithChildren =
+  AuthedRoute._addFileChildren(AuthedRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthedRoute: AuthedRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,14 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router'
-import Typography from '@mui/material/Typography'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/')({
-  component: Index,
+  beforeLoad: () => {
+    throw redirect({ to: '/today', replace: true })
+  },
 })
-
-function Index() {
-  return (
-    <Typography variant="h4" component="h1">
-      para
-    </Typography>
-  )
-}

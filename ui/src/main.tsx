@@ -6,15 +6,21 @@ import '@fontsource/roboto/400.css'
 import '@fontsource/roboto/500.css'
 import '@fontsource/roboto/700.css'
 import { AppProviders } from '@/providers/AppProviders'
+import { installChunkReload } from '@/client/chunkReload'
 import { routeTree } from './routeTree.gen'
 
-const router = createRouter({ routeTree })
+installChunkReload()
+
+const router = createRouter({ routeTree, defaultPreload: 'intent' })
 
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router
   }
 }
+
+// The boot screen in index.html stays until the router has rendered the first screen.
+void router.load().then(() => document.getElementById('boot')?.remove())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
