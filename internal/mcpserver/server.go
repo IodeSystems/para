@@ -26,6 +26,7 @@ import (
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
 	guide.Rule() + "\nPrompts: orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), journal_lod (write a day, week, or month journal summary).\n\n" + rules
+	guide.Rule() + "\nPrompts: orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
@@ -204,6 +205,7 @@ func (s *Server) addPrompts() {
 		{"review_cycle", "File a proposal, wait for the owner's review, revise, and act on what is approved", guide.ReviewCycle()},
 		{"process_meeting", "Turn a meeting transcript into one proposal: answers, a no, action items, new questions, people", guide.ProcessMeeting()},
 		{"journal_lod", "Write the day, week, or month summary of a journal: facts with links, short, nothing sensitive", guide.JournalLOD()},
+		{"import_corpus", "Sort a corpus the owner imported: propose plan edits, then file one proposal that classifies the documents", guide.ImportCorpus()},
 	} {
 		s.mcp.AddPrompt(mcp.NewPrompt(p.name, mcp.WithPromptDescription(p.desc)),
 			func(context.Context, mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

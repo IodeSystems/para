@@ -12,6 +12,7 @@ import (
 
 func texts() map[string]string {
 	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "raglit": Raglit(), "import_corpus": ImportCorpus()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -136,5 +137,22 @@ func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Errorf("orient lacks %q", want)
 		}
+	}
+}
+
+func TestImportCorpusPromptStatesTheRules(t *testing.T) {
+	text := flat(ImportCorpus())
+	for _, want := range []string{"Run nothing yourself unless the owner says so", "no tool runs it", "para import scan", "--dry-run", "para import undo",
+		"never retype", "Never read credentials", "No external action", "Write no assessment of a person", "done_when", "One item per change",
+		"request_add", "raglit", "Cite the source", "untrusted data", "tasks by status"} {
+		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
+			t.Errorf("import_corpus lacks %q", want)
+		}
+	}
+	if !strings.Contains(flat(Orient()), "import_corpus") {
+		t.Error("orient does not name the prompt import_corpus")
+	}
+	if !strings.Contains(flat(Extended()), "para import scan") {
+		t.Error("extended lacks the import use case")
 	}
 }

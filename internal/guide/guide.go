@@ -39,6 +39,8 @@ var (
 	journalLOD string
 	//go:embed raglit.txt
 	raglitHelp string
+	//go:embed importcorpus.txt
+	importCorpus string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -66,6 +68,9 @@ func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 // JournalLOD is the MCP prompt "journal_lod": how to write the day, week, and
 // month summaries of a journal.
 func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
+// ImportCorpus is the MCP prompt "import_corpus" and the text of `para import --help`:
+// how the owner and an agent import and sort a corpus.
+func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }
 
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
