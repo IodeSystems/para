@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -134,9 +135,52 @@ func newRFXCmd(l *loader) *cobra.Command {
 				return nil
 			},
 		}),
+		opCommand(l, ops.RFXReply, binding[ops.RFXReplyInput, ops.RFXReplyOutput]{
+			Use:  "reply <id> --from <target> --outcome answered|no|partial [--text <text>] [--why <reason>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.RFXReplyInput) {
+				fs.StringVar(&in.From, "from", "", "person or group id that replied (required)")
+				fs.StringVar((*string)(&in.Via), "via", "", "medium, when the target has several")
+				fs.StringVar((*string)(&in.Outcome), "outcome", "", "answered, no, or partial (required)")
+				fs.StringVar(&in.Text, "text", "", "the reply, or your summary of it; default: standard input")
+				fs.StringVar(&in.URL, "url", "", "link to the original reply (required for no unless the target has a ref URL)")
+				fs.StringVar(&in.Date, "date", "", "YYYY-MM-DD; default today")
+				fs.StringVar(&in.Why, "why", "", "outcome no: the reason given (required)")
+				fs.StringVar(&in.Says, "says", "", "outcome no: the no itself; default \"No: <request title>\"")
+				fs.StringSliceVar(&in.AppliesIn, "applies-in", nil, "outcome no: scopes where it holds")
+				fs.StringSliceVar(&in.NotIn, "not-in", nil, "outcome no: scopes where it does not")
+				fs.StringVar(&in.ReviewBy, "review-by", "", "outcome no: YYYY-MM-DD; default 180 days out")
+			},
+			Bind: func(args []string, in *ops.RFXReplyInput) error { in.ID = args[0]; return nil },
+			Stdin: func(r io.Reader, in *ops.RFXReplyInput) (err error) {
+				if in.Text == "" {
+					in.Text, err = readPiped(r)
+				}
+				return err
+			},
+			Text: func(w io.Writer, out ops.RFXReplyOutput) error {
+				p := &printer{w: w}
+				for _, wn := range out.Warnings {
+					p.f("warning: %s\n", wn)
+				}
+				p.f("%s\t%s\t%s\tinteraction %s\tconstraint %s\n", out.ID, out.From, out.State, out.Interaction, out.Constraint)
+				return p.err
+			},
+		}),
 		newRFXTargetCmd(l),
 	)
 	return cmd
+}
+
+// readPiped reads r unless it is a terminal, which would wait for the user.
+// An empty result makes the op say what is missing.
+func readPiped(r io.Reader) (string, error) {
+	if f, ok := r.(*os.File); ok {
+		if st, err := f.Stat(); err == nil && st.Mode()&os.ModeCharDevice != 0 {
+			return "", nil
+		}
+	}
+	return readStdin(r)
 }
 
 func newRFXTargetCmd(l *loader) *cobra.Command {
