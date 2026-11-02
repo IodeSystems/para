@@ -1,0 +1,258 @@
+package paramd
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const hash = "sha256:abababababababababababababababababababababababababababababababab"
+
+// doc builds a file from frontmatter lines and a body.
+func doc(fm, body string) string {
+	return "---\n" + strings.TrimLeft(fm, "\n") + "---\n\n" + strings.TrimLeft(body, "\n")
+}
+
+const policyFM = `
+type: policy
+created: 2026-11-01
+verified: false
+source:
+  url: https://wiki.acme.example/policies/logging
+  retrieved: 2026-11-01T09:00:00Z
+  hash: ` + hash + `
+  fidelity: exact
+`
+
+func TestParse(t *testing.T) {
+	src := doc(policyFM, "# Logging\n\nSee [[policy-logging.source]] and [[acme-portal#Goals|goals]] and [[policy-logging#^R1]].\n\n```\n[[in-code]] ^R9\n```\n\nUse `[[inline]]` here.\n\nR1 policy-logging: Log failures. ^R1\n\n## Page 2\n")
+	f := Parse("vault/policy-logging.md", []byte(src))
+	if f.Name != "policy-logging" || f.Type() != "policy" || f.Title != "Logging" {
+		t.Fatalf("name/type/title = %q %q %q", f.Name, f.Type(), f.Title)
+	}
+	var got []string
+	for _, l := range f.Links {
+		got = append(got, l.Target+"|"+l.Heading+"|"+l.Block+"|"+l.Alias)
+	}
+	want := []string{"policy-logging.source|||", "acme-portal|Goals||goals", "policy-logging||R1|"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("links = %v, want %v", got, want)
+	}
+	if len(f.Blocks) != 1 || f.Blocks[0].ID != "R1" {
+		t.Errorf("blocks = %+v", f.Blocks)
+	}
+	if len(f.Rules) != 1 || f.Rules[0].Policy != "policy-logging" || f.Rules[0].Text != "Log failures." {
+		t.Errorf("rules = %+v", f.Rules)
+	}
+	if len(f.PageMarks) != 1 || f.PageMarks[0].N != 2 {
+		t.Errorf("page marks = %+v", f.PageMarks)
+	}
+	if f.Frontmatter["verified"] != false {
+		t.Errorf("frontmatter = %v", f.Frontmatter)
+	}
+}
+
+func TestLint(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		src  string
+		want []string // "code" or "code:line"; empty means no findings
+	}{
+		{"valid policy", "policy-logging.md", doc(policyFM, "# Logging\n\nR1 policy-logging: Log failures. ^R1\n"), nil},
+		{"crlf", "convention-a.md", strings.ReplaceAll(doc("type: convention\ncreated: 2026-11-01\nstatus: draft\napplies_in: [acme-prod]\n", "# A\n"), "\n", "\r\n"), []string{"line-ending"}},
+		{"no frontmatter", "a.md", "# A\n", []string{"frontmatter:1", "title"}},
+		{"unterminated frontmatter", "a.md", "---\ntype: person\n# A\n", []string{"frontmatter:1"}},
+		{"bad yaml", "a.md", "---\ntype: [\n---\n\n# A\n", []string{"frontmatter:1"}},
+		{"missing type", "a.md", doc("created: 2026-11-01\n", "# A\n"), []string{"type:1"}},
+		{"unknown type", "a.md", doc("type: widget\n", "# A\n"), []string{"type:1"}},
+		{"missing org", "jo.md", doc("type: person\ncreated: 2026-11-01\n", "# Jo\n"), []string{"field:1"}},
+		{"bad date", "jo.md", doc("type: person\ncreated: yesterday\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
+		{"timestamp not date", "jo.md", doc("type: person\ncreated: 2026-11-01T10:00:00Z\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
+		{"bad enum", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: weird\nowner: Jo\n", "# P\n"), []string{"field-value:1"}},
+		{"unquoted link", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: [[acme-portal]]\n", "# T\n"), []string{"field-value:1"}},
+		{"exception conflict needs with", "e.md", doc("type: policy_exception\ncreated: 2026-11-01\npolicy: \"[[policy-a]]\"\nkind: conflict_with\nstatus: open\nby: Jo\n", "# E\n"), []string{"field:1"}},
+		{"exception rule must be block", "e.md", doc("type: policy_exception\ncreated: 2026-11-01\npolicy: \"[[policy-a]]\"\nrule: \"[[policy-a]]\"\nkind: bug\nstatus: open\nby: Jo\n", "# E\n"), []string{"field-value:1"}},
+		{"source missing hash", "policy-a.md", doc(strings.Replace(policyFM, "  hash: "+hash+"\n", "", 1), "# A\n\nR1 policy-a: x. ^R1\n"), []string{"source:1"}},
+		{"source none needs no hash", "policy-a.md", doc(strings.Replace(strings.Replace(policyFM, "  hash: "+hash+"\n", "", 1), "fidelity: exact", "fidelity: none", 1), "# A\n\nR1 policy-a: x. ^R1\n"), nil},
+		{"source bad url", "policy-a.md", doc(strings.Replace(policyFM, "https://wiki", "ftp://wiki", 1), "# A\n\nR1 policy-a: x. ^R1\n"), []string{"source:1"}},
+		{"filename uppercase", "Jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n"), []string{"filename"}},
+		{"source suffix on non-transcript", "jo.source.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n"), []string{"filename"}},
+		{"no title", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "Text first.\n"), []string{"title:6"}},
+		{"two titles", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n# Again\n"), []string{"title:9"}},
+		{"h1 in code is fine", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n```\n# comment\n```\n"), nil},
+		{"raw html", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nHello <b>x</b>\n"), []string{"raw-html:9"}},
+		{"html comment", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n<!-- x -->\n"), []string{"raw-html:9"}},
+		{"html in code span and autolink ok", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nUse `<b>` or <https://acme.example/a>.\n"), nil},
+		{"table ok", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n| a | b |\n|---|:-:|\n| 1 | 2 |\n"), nil},
+		{"table ragged", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n| a | b |\n|---|---|\n| 1 |\n"), []string{"table:11"}},
+		{"table second separator", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n| a | b |\n|---|---|\n|---|---|\n"), []string{"table:11"}},
+		{"table separator width", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n| a | b |\n|---|\n"), []string{"table:10"}},
+		{"table escaped pipe", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n| a | b |\n|---|---|\n| x \\| y | z |\n"), nil},
+		{"image ok", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n![Org chart with three teams](img/org.png)\n"), nil},
+		{"image no alt", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n![](img/org.png)\n"), []string{"image:9"}},
+		{"image alt is filename", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n![org.png](img/org.png)\n"), []string{"image:9"}},
+		{"image embed", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n![[org.png]]\n"), []string{"image:9", "wikilink:9"}},
+		{"signed url", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n[f](https://files.acme.example/a.pdf?X-Amz-Signature=abc&x=1)\n"), []string{"url:9"}},
+		{"url with userinfo", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nhttps://bob:pw@acme.example/a\n"), []string{"url:9"}},
+		{"plain url ok", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nhttps://acme.example/a?page=2.\n"), nil},
+		{"wikilink with folder", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n[[people/jo]] [[jo.md]] [[]]\n"), []string{"wikilink:9", "wikilink:9", "wikilink:9"}},
+		{"duplicate block id", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nA ^x1\n\nB ^x1\n"), []string{"block-id:11"}},
+		{"rule wrong policy id", "policy-a.md", doc(policyFM, "# A\n\nR1 policy-b: x. ^R1\n"), []string{"rule:14"}},
+		{"rule id mismatch", "policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: x. ^R2\n"), []string{"rule:14", "rule"}},
+		{"rule without block id", "policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: x.\n\nR2 policy-a: y. ^R2\n"), []string{"rule:14"}},
+		{"rule without policy id", "policy-a.md", doc(policyFM, "# A\n\nR1: x. ^R1\n"), []string{"rule:14", "rule"}},
+		{"rule too long", "policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: "+strings.Repeat("word ", 110)+" ^R1\n"), []string{"rule:14"}},
+		{"rule in list item", "policy-a.md", doc(policyFM, "# A\n\n- R1 policy-a: x. ^R1\n"), nil},
+		{"policy without rules warns", "policy-a.md", doc(policyFM, "# A\n\nSummary only.\n"), []string{"rule"}},
+		{"rule outside policy", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nR1 jo: x. ^R1\n"), []string{"rule:9"}},
+		{"transcript ok", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A (transcript)\n\nSource: https://wiki.acme.example/policies/logging\n\n## Page 1\n\nx\n\n## Page 3\n\ny\n"), nil},
+		{"transcript wrong name", "policy-a.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n"), []string{"filename"}},
+		{"transcript of mismatch", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-b]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n"), []string{"field-value:1"}},
+		{"transcript no source line", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nText.\n"), []string{"source-line:13"}},
+		{"transcript source mismatch", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/other\n"), []string{"source-line:15"}},
+		{"transcript page order", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n\n## Page 2\n\n## Page 2\n"), []string{"page-marker:19"}},
+		{"transcript page form", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n\n### Page  1\n"), []string{"page-marker:17"}},
+		{"journal ok", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin tasks %%\nx\n%% para:end tasks %%\n"), nil},
+		{"journal unclosed", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin tasks %%\nx\n"), []string{"journal-marker:10"}},
+		{"journal mismatched end", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin a %%\n%% para:end b %%\n"), []string{"journal-marker:11"}},
+		{"marker outside journal", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n%% para:begin a %%\n%% para:end a %%\n"), []string{"journal-marker:9", "journal-marker:10"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := Lint(Parse(c.path, []byte(c.src)))
+			if !sameCodes(got, c.want) {
+				t.Errorf("findings:\n  %s\nwant %v", joinFindings(got), c.want)
+			}
+		})
+	}
+}
+
+// sameCodes compares findings to "code" or "code:line" wants, ignoring order.
+func sameCodes(got []Finding, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	used := make([]bool, len(got))
+outer:
+	for _, w := range want {
+		code, line, hasLine := strings.Cut(w, ":")
+		for i, g := range got {
+			if used[i] || g.Code != code {
+				continue
+			}
+			if hasLine && itoa(g.Line) != line {
+				continue
+			}
+			used[i] = true
+			continue outer
+		}
+		return false
+	}
+	return true
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	var b []byte
+	for ; n > 0; n /= 10 {
+		b = append([]byte{byte('0' + n%10)}, b...)
+	}
+	return string(b)
+}
+
+func joinFindings(fs []Finding) string {
+	var s []string
+	for _, f := range fs {
+		s = append(s, f.String())
+	}
+	return strings.Join(s, "\n  ")
+}
+
+func TestLintInvalidUTF8(t *testing.T) {
+	src := doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\nbad \xff byte\n")
+	got := Lint(Parse("jo.md", []byte(src)))
+	if !sameCodes(got, []string{"encoding"}) {
+		t.Errorf("findings: %s", joinFindings(got))
+	}
+}
+
+func TestLintBOM(t *testing.T) {
+	src := "\xef\xbb\xbf" + doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n")
+	got := Lint(Parse("jo.md", []byte(src)))
+	if !sameCodes(got, []string{"encoding"}) {
+		t.Errorf("findings: %s", joinFindings(got))
+	}
+}
+
+// Every shipped template must lint clean under a valid file name.
+func TestTemplatesLintClean(t *testing.T) {
+	names := map[string]string{
+		"policy.md":           "policy-example.md",
+		"transcript.md":       "policy-example.source.md",
+		"policy_exception.md": "exception-example.md",
+	}
+	dir := filepath.Join("..", "..", "docs", "templates")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, e := range entries {
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := e.Name()
+		if n, ok := names[name]; ok {
+			name = n
+		}
+		f := Parse(name, data)
+		seen[f.Type()] = true
+		if got := Lint(f); len(got) != 0 {
+			t.Errorf("%s:\n  %s", e.Name(), joinFindings(got))
+		}
+	}
+	for _, typ := range Types {
+		if !seen[typ] {
+			t.Errorf("no template for type %s", typ)
+		}
+	}
+}
+
+func TestCheckVault(t *testing.T) {
+	mk := func(path, src string) *File { return Parse(path, []byte(src)) }
+	person := "type: person\ncreated: 2026-11-01\norg: acme.example\n"
+	pol := mk("policies/policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: x. ^R1\n"))
+	tr := mk("policies/policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n"))
+	cases := []struct {
+		name  string
+		files []*File
+		want  []string
+	}{
+		{"clean", []*File{pol, tr, mk("org/jo.md", doc(person, "# Jo\n\n[[policy-a#^R1]]\n"))}, nil},
+		{"duplicate name across folders", []*File{mk("org/jo.md", doc(person, "# Jo\n")), mk("archive/jo.md", doc(person, "# Jo\n"))}, []string{"filename-duplicate"}},
+		{"case-insensitive duplicate", []*File{mk("org/jo.md", doc(person, "# Jo\n")), mk("archive/JO.md", doc(person, "# Jo\n"))}, []string{"filename-duplicate"}},
+		{"broken link", []*File{mk("org/jo.md", doc(person, "# Jo\n\n[[nobody]]\n"))}, []string{"link-unresolved:9"}},
+		{"broken block", []*File{pol, tr, mk("org/jo.md", doc(person, "# Jo\n\n[[policy-a#^R9]]\n"))}, []string{"block-unresolved:9"}},
+		{"policy without transcript", []*File{pol}, []string{"transcript-missing"}},
+		{"fidelity none needs no transcript", []*File{mk("policies/policy-a.md", doc(strings.Replace(strings.Replace(policyFM, "  hash: "+hash+"\n", "", 1), "fidelity: exact", "fidelity: none", 1), "# A\n\nR1 policy-a: x. ^R1\n"))}, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := CheckVault(c.files)
+			if !sameCodes(got, c.want) {
+				t.Errorf("findings:\n  %s\nwant %v", joinFindings(got), c.want)
+			}
+		})
+	}
+}
+
+func TestParseFileMissing(t *testing.T) {
+	if _, err := ParseFile("does-not-exist.md"); err == nil || !strings.HasPrefix(err.Error(), "parse file: ") {
+		t.Errorf("err = %v", err)
+	}
+}
