@@ -55,36 +55,99 @@ type Selection struct {
 	Via string `json:"via"`
 }
 
-// List returns the registered vaults sorted by id. An unreadable entry is an
-// error: treating it as absent could turn two vaults into a "single" vault.
-func (in Install) List() ([]Vault, error) {
+// Entry is one registry directory. Err is set when its vault.ref is
+// unreadable or has no path; Path is then empty.
+type Entry struct {
+	Vault
+	Err string `json:"error,omitempty"`
+}
+
+// Entries returns every registered vault sorted by id, including broken
+// entries (Err set). A directory with no vault.ref is not an entry: it holds
+// the state of a pruned vault. Only an unreadable registry is an error.
+func (in Install) Entries() ([]Entry, error) {
 	entries, err := os.ReadDir(filepath.Join(in.Home, "vaults"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return []Vault{}, nil
+		return []Entry{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("registry: list: %w", err)
+		return nil, fmt.Errorf("registry: entries: %w", err)
 	}
-	out := []Vault{}
+	out := []Entry{}
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
 		ref, err := props.Load(filepath.Join(in.Home, "vaults", e.Name(), "vault.ref"))
-		if err != nil {
-			return nil, fmt.Errorf("registry: list: vault %s: %w", e.Name(), err)
+		switch {
+		case errors.Is(err, fs.ErrNotExist):
+			continue
+		case err != nil:
+			out = append(out, Entry{Vault: Vault{ID: e.Name()}, Err: err.Error()})
+		case ref["path"] == "":
+			out = append(out, Entry{Vault: Vault{ID: e.Name()}, Err: "vault.ref has no path"})
+		default:
+			out = append(out, Entry{Vault: Vault{ID: e.Name(), Path: ref["path"]}})
 		}
-		if ref["path"] == "" {
-			return nil, fmt.Errorf("registry: list: vault %s: vault.ref has no path", e.Name())
-		}
-		out = append(out, Vault{ID: e.Name(), Path: ref["path"]})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out, nil
 }
 
+// List returns the registered vaults sorted by id. A broken entry is an
+// error: treating it as absent could turn two vaults into a "single" vault.
+func (in Install) List() ([]Vault, error) {
+	entries, err := in.Entries()
+	if err != nil {
+		return nil, fmt.Errorf("registry: list: %w", err)
+	}
+	out := []Vault{}
+	for _, e := range entries {
+		if e.Err != "" {
+			return nil, fmt.Errorf("registry: list: vault %s: %s", e.ID, e.Err)
+		}
+		out = append(out, e.Vault)
+	}
+	return out, nil
+}
+
+// Pruned is a registry entry whose vault directory does not exist.
+type Pruned struct {
+	ID   string `json:"id"`
+	Path string `json:"path"`
+}
+
+// Prune removes the vault.ref of each entry whose path does not exist. It
+// keeps the rest of vaults/<id>/ (keys, state): a path on an unmounted drive
+// or sync folder looks missing. A path that exists, or that cannot be checked
+// for another reason, is never touched. A broken entry is not pruned. With
+// dry it changes nothing.
+func (in Install) Prune(dry bool) ([]Pruned, error) {
+	entries, err := in.Entries()
+	if err != nil {
+		return nil, fmt.Errorf("registry: prune: %w", err)
+	}
+	out := []Pruned{}
+	for _, e := range entries {
+		if e.Err != "" {
+			continue
+		}
+		if _, err := os.Stat(e.Path); !errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if !dry {
+			ref := filepath.Join(in.Home, "vaults", e.ID, "vault.ref")
+			if err := os.Remove(ref); err != nil {
+				return out, fmt.Errorf("registry: prune: %w", err)
+			}
+		}
+		out = append(out, Pruned{ID: e.ID, Path: e.Path})
+	}
+	return out, nil
+}
+
 // Add registers a vault, creating the install on first use. path must be
-// absolute.
+// absolute. The id may have state left by Prune; it is reused.
 func (in Install) Add(id, path string) error {
 	if !filepath.IsAbs(path) {
 		return fmt.Errorf("registry: add: %q is not absolute", path)
@@ -93,11 +156,15 @@ func (in Install) Add(id, path string) error {
 		return err
 	}
 	dir := filepath.Join(in.Home, "vaults", id)
-	if err := os.Mkdir(dir, 0o700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("registry: add: %w", err)
 	}
+	refPath := filepath.Join(dir, "vault.ref")
+	if _, err := os.Stat(refPath); err == nil {
+		return fmt.Errorf("registry: add: vault %s is already registered", id)
+	}
 	ref := props.Format(map[string]string{"path": path})
-	if err := atomicfile.Write(filepath.Join(dir, "vault.ref"), ref, 0o600); err != nil {
+	if err := atomicfile.Write(refPath, ref, 0o600); err != nil {
 		return fmt.Errorf("registry: add: %w", err)
 	}
 	return nil
@@ -147,15 +214,34 @@ func (in Install) ensure() error {
 // Select picks the vault: flag, then env, then the only vault. Several vaults
 // with no choice is an error that names them.
 func (in Install) Select(flag, env string) (Selection, error) {
-	vaults, err := in.List()
+	entries, err := in.Entries()
 	if err != nil {
-		return Selection{}, err
+		return Selection{}, fmt.Errorf("registry: select: %w", err)
 	}
-	if flag != "" {
-		return pick(vaults, flag, ViaFlag)
+	var vaults []Vault
+	var broken []string
+	for _, e := range entries {
+		if e.Err != "" {
+			broken = append(broken, e.ID+" ("+e.Err+")")
+			continue
+		}
+		vaults = append(vaults, e.Vault)
 	}
-	if env != "" {
-		return pick(vaults, env, ViaEnv)
+	// A broken entry only matters when it is the choice, or when there is no
+	// choice: it could be the vault the user meant.
+	for _, c := range []struct{ id, via string }{{flag, ViaFlag}, {env, ViaEnv}} {
+		if c.id == "" {
+			continue
+		}
+		for _, e := range entries {
+			if e.ID == c.id && e.Err != "" {
+				return Selection{}, fmt.Errorf("registry: select: vault %q is broken: %s", c.id, e.Err)
+			}
+		}
+		return pick(vaults, c.id, c.via)
+	}
+	if len(broken) > 0 {
+		return Selection{}, fmt.Errorf("registry: select: broken entries: %s; choose with --vault or PARA_VAULT", strings.Join(broken, ", "))
 	}
 	switch len(vaults) {
 	case 0:

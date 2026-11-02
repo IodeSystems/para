@@ -77,7 +77,7 @@ func (r Report) Failed() error {
 // Read reads every vault of the install. A vault that cannot be read is
 // reported with Error and does not stop the others. now is the date.
 func Read(ctx context.Context, in registry.Install, actor, surface, date string) (Report, error) {
-	vaults, err := in.List()
+	vaults, err := in.Entries()
 	if err != nil {
 		return Report{}, fmt.Errorf("today: %w", err)
 	}
@@ -85,7 +85,12 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	for _, rv := range vaults {
 		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
 			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
-		if err := readVault(ctx, rv, actor, surface, date, &vt); err != nil {
+		if rv.Err != "" {
+			vt.Error = "registry entry is broken: " + rv.Err
+			rep.Vaults = append(rep.Vaults, vt)
+			continue
+		}
+		if err := readVault(ctx, rv.Vault, actor, surface, date, &vt); err != nil {
 			vt.Error = err.Error()
 		}
 		rep.Vaults = append(rep.Vaults, vt)

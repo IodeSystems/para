@@ -144,3 +144,78 @@ func TestTodayCountsNudgesExceptionsUnverifiedInbox(t *testing.T) {
 		t.Errorf("text:\n%s", out)
 	}
 }
+
+func TestTodayReportsBrokenEntry(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	// A vault whose directory is gone is reported too.
+	gone := e.init("gone")
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.home, "vaults", "broken")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "vault.ref"), []byte("nonsense\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, _, err := e.run("today", "--json")
+	if err == nil || !strings.Contains(err.Error(), "2 vaults could not be read") {
+		t.Fatalf("err = %v", err)
+	}
+	var rep today.Report
+	if err := json.Unmarshal([]byte(out), &rep); err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Vaults) != 3 {
+		t.Fatalf("report = %+v", rep)
+	}
+	by := map[string]today.VaultToday{}
+	for _, v := range rep.Vaults {
+		by[v.Vault] = v
+	}
+	if by["acme"].Error != "" || by["broken"].Error == "" || by["gone"].Error == "" {
+		t.Errorf("errors: acme %q broken %q gone %q", by["acme"].Error, by["broken"].Error, by["gone"].Error)
+	}
+}
+
+func TestVaultPrune(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	gone := e.init("gone")
+	keys := filepath.Join(e.home, "vaults", "gone", "keys.properties")
+	if err := os.WriteFile(keys, []byte("k=v\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.run("vault", "--dry-run"); err == nil {
+		t.Error("--dry-run without --prune must fail")
+	}
+	out := e.ok("vault", "--prune", "--dry-run")
+	if !strings.Contains(out, "would prune\tgone\t"+gone) {
+		t.Errorf("dry run output = %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(e.home, "vaults", "gone", "vault.ref")); err != nil {
+		t.Fatalf("dry run changed the registry: %v", err)
+	}
+	out = e.ok("vault", "--prune")
+	if !strings.Contains(out, "pruned\tgone\t"+gone) || strings.Contains(out, "acme") {
+		t.Errorf("output = %q", out)
+	}
+	var list struct {
+		Vaults []struct{ ID string } `json:"vaults"`
+	}
+	e.json(&list, "vault", "list")
+	if len(list.Vaults) != 1 || list.Vaults[0].ID != "acme" {
+		t.Errorf("list = %+v", list)
+	}
+	if _, err := os.Stat(keys); err != nil {
+		t.Errorf("state removed: %v", err)
+	}
+	if out = e.ok("vault", "--prune"); out != "" {
+		t.Errorf("second prune = %q", out)
+	}
+}

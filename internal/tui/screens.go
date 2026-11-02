@@ -139,7 +139,14 @@ func (m *Model) rowsToday(w int) []row {
 	for _, e := range s.Errs {
 		r = append(r, plain("  "+stBad.Render(truncate(e, w-4))))
 	}
+	if s.Today.Error != "" {
+		r = append(r, plain("  "+stBad.Render(truncate("vault "+s.Vault+": "+s.Today.Error, w-4))))
+	}
 	for _, o := range s.Others {
+		if o.Error != "" {
+			r = append(r, plain("  "+stBad.Render(truncate("vault "+o.Vault+": "+o.Error, w-4))))
+			continue
+		}
 		r = append(r, dim(fmt.Sprintf("  vault %s: due %d, nudges %d, blocked %d, inbox %d", o.Vault, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
 	}
 	return r

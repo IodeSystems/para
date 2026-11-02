@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -67,7 +68,48 @@ func newInitCmd(l *loader) *cobra.Command {
 }
 
 func newVaultCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "vault", Short: "Inspect registered vaults", Args: cobra.NoArgs}
+	var prune, dry bool
+	cmd := &cobra.Command{
+		Use:   "vault",
+		Short: "Inspect registered vaults; --prune drops entries whose directory is gone",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if dry && !prune {
+				return errors.New("vault: --dry-run needs --prune")
+			}
+			if !prune {
+				return cmd.Help()
+			}
+			if err := l.load(); err != nil {
+				return err
+			}
+			// Admin command, not an op: it edits the install registry, which
+			// no agent surface may reach. It deletes only vault.ref files.
+			gone, err := l.install.Prune(dry)
+			out := vaultPruneOutput{DryRun: dry, Pruned: gone}
+			if out.Pruned == nil {
+				out.Pruned = []registry.Pruned{}
+			}
+			if err != nil {
+				return err
+			}
+			return emit(cmd, out, func(w io.Writer, o vaultPruneOutput) error {
+				verb := "pruned"
+				if o.DryRun {
+					verb = "would prune"
+				}
+				for _, p := range o.Pruned {
+					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\n", verb, p.ID, p.Path); err != nil {
+						return err
+					}
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&prune, "prune", false, "remove registry entries whose vault directory no longer exists (keeps keys and state)")
+	cmd.Flags().BoolVar(&dry, "dry-run", false, "with --prune: print what would be pruned and change nothing")
+	addJSONFlag(cmd)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List registered vaults",
@@ -115,6 +157,11 @@ func newVaultCmd(l *loader) *cobra.Command {
 	addJSONFlag(useCheck)
 	cmd.AddCommand(list, useCheck)
 	return cmd
+}
+
+type vaultPruneOutput struct {
+	DryRun bool              `json:"dry_run"`
+	Pruned []registry.Pruned `json:"pruned"`
 }
 
 type vaultListOutput struct {

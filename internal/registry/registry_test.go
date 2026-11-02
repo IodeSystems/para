@@ -64,11 +64,91 @@ func TestSelect(t *testing.T) {
 // A broken entry must not leave one good vault looking like the only one.
 func TestBrokenEntryIsNotSkipped(t *testing.T) {
 	in := withVaults(t, "acme")
-	if err := os.Mkdir(filepath.Join(in.Home, "vaults", "broken"), 0o700); err != nil {
-		t.Fatal(err)
-	}
+	breakEntry(t, in, "broken")
 	if _, err := in.Select("", ""); err == nil || !strings.Contains(err.Error(), "broken") {
 		t.Fatalf("err = %v", err)
+	}
+	if _, err := in.List(); err == nil || !strings.Contains(err.Error(), "broken") {
+		t.Fatalf("list err = %v", err)
+	}
+	// An explicit choice of a healthy vault does not need the broken one.
+	if sel, err := in.Select("acme", ""); err != nil || sel.ID != "acme" {
+		t.Fatalf("select acme = %+v, %v", sel, err)
+	}
+	if _, err := in.Select("broken", ""); err == nil || !strings.Contains(err.Error(), "broken") {
+		t.Fatalf("select broken: err = %v", err)
+	}
+	entries, err := in.Entries()
+	if err != nil || len(entries) != 2 || entries[0].Err != "" || entries[1].Err == "" {
+		t.Fatalf("entries = %+v, %v", entries, err)
+	}
+}
+
+func breakEntry(t *testing.T, in Install, id string) {
+	t.Helper()
+	dir := filepath.Join(in.Home, "vaults", id)
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "vault.ref"), []byte("nonsense\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPrune(t *testing.T) {
+	root := t.TempDir()
+	in := Install{Home: filepath.Join(root, "home")}
+	live, gone := filepath.Join(root, "live"), filepath.Join(root, "gone")
+	if err := os.Mkdir(live, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for id, p := range map[string]string{"live": live, "gone": gone} {
+		if err := in.Add(id, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	breakEntry(t, in, "broken")
+	keys := filepath.Join(in.Home, "vaults", "gone", "keys.properties")
+	if err := os.WriteFile(keys, []byte("k=v\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	ref := filepath.Join(in.Home, "vaults", "gone", "vault.ref")
+
+	got, err := in.Prune(true)
+	if err != nil || len(got) != 1 || got[0].ID != "gone" || got[0].Path != gone {
+		t.Fatalf("dry = %+v, %v", got, err)
+	}
+	if _, err := os.Stat(ref); err != nil {
+		t.Fatalf("dry run removed the ref: %v", err)
+	}
+	if got, err = in.Prune(false); err != nil || len(got) != 1 || got[0].ID != "gone" {
+		t.Fatalf("prune = %+v, %v", got, err)
+	}
+	if _, err := os.Stat(ref); !os.IsNotExist(err) {
+		t.Errorf("ref still there: %v", err)
+	}
+	if _, err := os.Stat(keys); err != nil {
+		t.Errorf("state was removed: %v", err)
+	}
+	for _, p := range []string{live, filepath.Join(in.Home, "vaults", "live", "vault.ref"), filepath.Join(in.Home, "vaults", "broken", "vault.ref")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("%s was touched: %v", p, err)
+		}
+	}
+	// The pruned id is no longer an entry, and can be registered again with
+	// its state kept.
+	entries, _ := in.Entries()
+	if len(entries) != 2 {
+		t.Errorf("entries = %+v", entries)
+	}
+	if err := in.Add("gone", gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(keys); err != nil {
+		t.Errorf("state lost on re-add: %v", err)
+	}
+	if got, _ = in.Prune(false); len(got) != 1 {
+		t.Errorf("second prune = %+v", got)
 	}
 }
 
