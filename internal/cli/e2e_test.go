@@ -29,6 +29,8 @@ type env struct {
 func newEnv(t *testing.T) *env {
 	t.Helper()
 	dir := t.TempDir()
+	// A test must not see or probe the service installed on this machine.
+	t.Setenv("HOME", dir)
 	return &env{t: t, home: filepath.Join(dir, "home"), dir: dir, vars: map[string]string{}}
 }
 
