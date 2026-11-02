@@ -8,7 +8,7 @@
 // It uses one port (7710, or PARA_E2E_PORT), a temp home, and stops the server and the MCP agent
 // by their own PIDs.
 import { spawn, execFileSync } from 'node:child_process'
-import { appendFileSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import { appendFileSync, existsSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { request } from 'node:http'
@@ -17,7 +17,11 @@ import { chromium } from 'playwright'
 const repo = resolve(import.meta.dirname, '..', '..')
 const port = Number(process.env.PARA_E2E_PORT ?? 7710)
 const base = `http://acme.localhost:${port}`
-const work = mkdtempSync(join(tmpdir(), 'para-e2e-'))
+// Vault writes fsync. On a busy disk one write takes seconds and the "closes at once" check fails
+// for a reason that is not the page, so the run uses tmpfs when there is one, as bin/t does.
+// PARA_TEST_DISK=1 keeps it on disk.
+const fast = !process.env.PARA_TEST_DISK && existsSync('/dev/shm') ? '/dev/shm' : tmpdir()
+const work = mkdtempSync(join(fast, 'para-e2e-'))
 const home = join(work, 'home')
 const bin = join(work, 'para')
 const failures = []

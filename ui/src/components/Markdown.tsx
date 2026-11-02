@@ -128,7 +128,12 @@ function ScrollTable({ children }: { children?: ReactNode }) {
                   },
                   '& tbody, & tr, & td': { display: 'block' },
                   '& tr': { border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 },
-                  '& td': { border: 0, borderBottom: 1, borderColor: 'divider', textAlign: 'left' },
+                  '& td': {
+                    border: 0,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    textAlign: 'left !important',
+                  },
                   '& td:last-child': { borderBottom: 0 },
                   '& td::before': {
                     content: 'attr(data-label)',
