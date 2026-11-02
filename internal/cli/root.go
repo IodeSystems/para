@@ -38,6 +38,9 @@ type loader struct {
 
 	// exe returns the path of this binary; nil means os.Executable. Tests set it.
 	exe func() (string, error)
+
+	// raglitExe overrides the raglit binary; tests set it.
+	raglitExe string
 }
 
 // executable is the absolute path of this binary, symlinks resolved.
@@ -171,6 +174,7 @@ func newRoot(l *loader) *cobra.Command {
 		newInteractionCmd(l),
 		newIndexCmd(l),
 		newSearchCmd(l),
+		newRaglitCmd(l),
 		newJournalCmd(l),
 		newTodayCmd(l),
 		newRequestCmd(l),
