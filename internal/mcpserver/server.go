@@ -123,7 +123,8 @@ func (s *Server) logPanic(op string, r any) {
 	if s.log == nil {
 		return
 	}
-	fmt.Fprintf(s.log, "para mcp: op %s panicked: %v\n%s\n", op, r, debug.Stack())
+	// A failing log must not turn a recovered panic into another one.
+	_, _ = fmt.Fprintf(s.log, "para mcp: op %s panicked: %v\n%s\n", op, r, debug.Stack())
 }
 
 // encode matches the CLI --json encoding byte for byte.
