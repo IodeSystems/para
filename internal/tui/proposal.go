@@ -515,6 +515,9 @@ func (m *Model) textActs(p *page) []Target {
 	if p.paths != nil {
 		out = append(out, actTake)
 	}
+	if p.by != "" {
+		out = append(out, actGroupBy)
+	}
 	if p.receipt != "" {
 		out = append(out, actVerified, actWrong)
 	}

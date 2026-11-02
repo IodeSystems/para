@@ -189,3 +189,12 @@ func TestGuideNamesNextMoves(t *testing.T) {
 		}
 	}
 }
+
+func TestGuideNamesFrictionReport(t *testing.T) {
+	text := flat(texts()["extended"])
+	for _, w := range []string{"para report friction", "no per-person view", "evidence", "egress"} {
+		if !strings.Contains(text, w) {
+			t.Errorf("extended lacks %q", w)
+		}
+	}
+}

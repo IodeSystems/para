@@ -533,6 +533,13 @@ try {
       'a next move adds a target with a reason',
     )
   }
+  // AQ: the friction report groups by reason and names no person.
+  await page.goto(`${base}/friction`)
+  await page.getByRole('heading', { name: 'Friction', exact: true }).waitFor()
+  await page.getByText('no response').first().waitFor()
+  await page.getByRole('button', { name: 'Domain' }).click()
+  await page.getByText('Staging').first().waitFor()
+  check((await page.getByText('Sam Rivera').count()) === 0, 'the friction report names no person')
   await page.goto(`${base}/rfx/${rfx}`)
   await page.getByRole('heading', { name: 'Need the staging quota raised' }).waitFor()
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base })
@@ -1920,8 +1927,8 @@ try {
   await nav.getByText('Questions', { exact: true }).waitFor()
   check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
   check(
-    (await nav.getByRole('link').count()) === 11,
-    'the menu lists the nine screens, Meetings, and Activity',
+    (await nav.getByRole('link').count()) === 12,
+    'the menu lists the nine screens, Meetings, Activity, and Friction',
   )
   await rp.goBack()
   await nav.waitFor({ state: 'hidden' })

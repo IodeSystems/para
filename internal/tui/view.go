@@ -108,7 +108,7 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	case tabWork:
 		return m.rowsWork(w), append(append(append(append([]Target{actGraph}, questionActs...), taskActs...), actFind), acts...)
 	case tabRFX:
-		return m.rowsRFX(w), append([]Target{actFind, actPaths}, acts...)
+		return m.rowsRFX(w), append([]Target{actFind, actPaths, actFriction}, acts...)
 	case tabPeople:
 		return m.rowsPeople(w), acts
 	case tabPolicy:

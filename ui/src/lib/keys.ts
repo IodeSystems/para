@@ -18,6 +18,7 @@ export const TABS: Tab[] = [
 export const EXTRA_SCREENS: Tab[] = [
   { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
   { key: '', to: '/activity', label: 'Agent activity', hint: 'what each agent did' },
+  { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
 ]
 
 export type KeyAction =

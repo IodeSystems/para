@@ -180,6 +180,7 @@ func newRoot(l *loader) *cobra.Command {
 		newNoteCmd(l),
 		newDocCmd(l),
 		newAttemptCmd(l),
+		newReportCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),

@@ -5,6 +5,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import { useRfxList } from '@/api/rfx'
 import { CHIP_ROW, Empty, PageTitle, StateChip } from '@/components/Bits'
+import { LinkButton } from '@/components/links'
 import { DataState } from '@/components/DataState'
 import { RfxLink } from '@/components/DocLink'
 import { RowMenu } from '@/components/RowMenu'
@@ -21,7 +22,14 @@ function RfxList() {
   const q = useRfxList()
   return (
     <>
-      <PageTitle subtitle="Asks between you and other people, and what they said back.">
+      <PageTitle
+        action={
+          <LinkButton size="small" to="/friction">
+            Friction
+          </LinkButton>
+        }
+        subtitle="Asks between you and other people, and what they said back."
+      >
         Asks
       </PageTitle>
       <DataState q={q}>

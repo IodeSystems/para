@@ -146,3 +146,57 @@ func reasonCodes() string {
 	}
 	return strings.Join(out, ", ")
 }
+
+// The friction report (AQ): what slows Asks down, by reason, domain, or policy.
+// Never by person.
+var (
+	actFriction = Target{ID: "act:friction", Label: "Friction report", Pref: 'r'}
+	actGroupBy  = Target{ID: "act:groupby", Label: "Group by", Pref: 'b'}
+)
+
+var frictionOrder = []string{ops.FrictionByReason, ops.FrictionByDomain, ops.FrictionByPolicy}
+
+// showFriction opens the report, grouped by reason.
+func (m *Model) showFriction() tea.Cmd {
+	lines, err := m.frictionLines(ops.FrictionByReason)
+	if err != nil {
+		m.setHint(err.Error())
+		return nil
+	}
+	m.push(page{kind: pageText, title: "Friction report", lines: lines, by: ops.FrictionByReason})
+	return nil
+}
+
+func (m *Model) frictionLines(by string) ([]string, error) {
+	o, err := ops.ReportFriction.Run(context.Background(), m.env.Deps, ops.FrictionInput{By: by})
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(strings.TrimRight(o.Text, "\n"), "\n"), nil
+}
+
+// groupFriction cycles the grouping: reason, domain, policy.
+func (m *Model) groupFriction() tea.Cmd {
+	p := m.top()
+	if p == nil || p.by == "" {
+		return nil
+	}
+	next := frictionOrder[(slicesIndex(frictionOrder, p.by)+1)%len(frictionOrder)]
+	lines, err := m.frictionLines(next)
+	if err != nil {
+		m.setHint(err.Error())
+		return nil
+	}
+	p.lines, p.by, p.cursor, p.offset = lines, next, 0, 0
+	m.setHint("Grouped by " + next + ".")
+	return nil
+}
+
+func slicesIndex(s []string, v string) int {
+	for i, x := range s {
+		if x == v {
+			return i
+		}
+	}
+	return 0
+}

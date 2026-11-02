@@ -53,6 +53,7 @@ func registerRFX(r *registrar) {
 	reg(r, ops.RFXTargetAdd, post, netguard.ScopeRFXDraft)
 	reg(r, ops.RFXTargetState, post, netguard.ScopeRFXSend)
 	reg(r, ops.RFXPaths, get, read)
+	reg(r, ops.ReportFriction, get, read)
 	reg(r, ops.RFXPathAdd, post, netguard.ScopeRFXDraft)
 }
 

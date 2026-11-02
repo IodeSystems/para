@@ -201,6 +201,7 @@ type ParaV1QueryNamespace {
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, request: String): para_ReceiptListOutput @derived(operationId: "receiptList")
   receiptShow(id: String!): para_ReceiptDetail @derived(operationId: "receiptShow")
+  reportFriction(by: String, since: String, to: String): para_FrictionOutput @derived(operationId: "reportFriction")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
@@ -1138,6 +1139,43 @@ type para_Finding {
   message: String!
   path: String!
   severity: String!
+}
+
+type para_FrictionOutput {
+  asks: Int!
+  by: String!
+  destination: String
+  ext: String
+  marking: String
+  repeats: [para_FrictionRepeat!]!
+  rows: [para_FrictionRow!]!
+  since: String
+  text: String
+  to: String
+  withFriction: Int!
+}
+
+type para_FrictionRepeat {
+  askNames: [String!]
+  asks: [String!]!
+  title: String!
+}
+
+type para_FrictionRow {
+  askNames: [String!]
+  asks: [String!]!
+  exceptionsHit: Int!
+  firstAnswerDays: Float
+  hopsPerAsk: Float!
+  key: String!
+  label: String!
+  name: String
+  playbookCandidates: Int!
+  policyConflicts: Int!
+  redirects: Int!
+  resolutionDays: Float
+  stalledDays: Int!
+  stalls: Int!
 }
 
 input para_GateCheckInputInput {

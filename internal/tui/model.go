@@ -73,6 +73,8 @@ type page struct {
 	receipt string
 	// paths is the path log a text page shows, so Take move can use it.
 	paths *ops.RFXPathsOutput
+	// by is the grouping of a friction report page.
+	by string
 }
 
 type tabState struct{ cursor, offset int }
@@ -496,6 +498,10 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.showPaths()
 	case "take":
 		return m.takeMove()
+	case "friction":
+		return m.showFriction()
+	case "groupby":
+		return m.groupFriction()
 	case "later":
 		return m.later()
 	case "cut":
