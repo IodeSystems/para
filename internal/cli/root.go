@@ -175,6 +175,7 @@ func newRoot(l *loader) *cobra.Command {
 		newUndeferCmd(l),
 		newDependsCmd(l),
 		newOrderCmd(l),
+		newHealthCmd(l),
 		newNoteCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),

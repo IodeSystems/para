@@ -86,3 +86,45 @@ func newOrderCmd(l *loader) *cobra.Command {
 		},
 	})
 }
+
+// newHealthCmd is `para health`: gaps in the vault, as warnings. It exits 0
+// with findings. Dismiss and undismiss are the owner's.
+func newHealthCmd(l *loader) *cobra.Command {
+	cmd := opCommand(l, ops.HealthOp, binding[ops.HealthInput, ops.HealthOutput]{
+		Use:  "health",
+		Args: cobra.NoArgs,
+		Text: func(w io.Writer, out ops.HealthOutput) error {
+			p := &printer{w: w}
+			for _, g := range out.Groups {
+				p.f("%s\t%s\n", g.Goal, g.Title)
+				for _, f := range g.Findings {
+					p.f("  %s\t%s\t%s\t%s\n    fix: %s\n", f.Kind, f.ID, f.Title, f.Message, f.Fix)
+				}
+			}
+			p.f("%d findings, %d dismissed\n", out.Count, out.Dismissed)
+			return p.err
+		},
+	})
+	cmd.Short = "Report gaps in the vault as warnings grouped by goal (never fails)"
+	cmd.AddCommand(opCommand(l, ops.HealthDismiss, binding[ops.HealthDismissInput, ops.HealthDismissOutput]{
+		Use:  "dismiss <id> <kind> --reason <text>",
+		Args: cobra.ExactArgs(2),
+		Flags: func(fs *pflag.FlagSet, in *ops.HealthDismissInput) {
+			fs.StringVar(&in.Reason, "reason", "", "why it can stay as it is (required)")
+		},
+		Bind: func(args []string, in *ops.HealthDismissInput) error { in.ID, in.Kind = args[0], args[1]; return nil },
+		Text: healthText,
+	}))
+	cmd.AddCommand(opCommand(l, ops.HealthUndismiss, binding[ops.HealthUndismissInput, ops.HealthDismissOutput]{
+		Use:  "undismiss <id> <kind>",
+		Args: cobra.ExactArgs(2),
+		Bind: func(args []string, in *ops.HealthUndismissInput) error { in.ID, in.Kind = args[0], args[1]; return nil },
+		Text: healthText,
+	}))
+	return cmd
+}
+
+func healthText(w io.Writer, out ops.HealthDismissOutput) error {
+	_, err := fmt.Fprintf(w, "%s\t%s\n", out.ID, joinOrDash(out.Dismissed))
+	return err
+}

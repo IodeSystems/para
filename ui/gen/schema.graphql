@@ -38,6 +38,8 @@ type ParaV1MutationNamespace {
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
+  healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
+  healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
   inboxTriage(body: para_InboxTriageInputInput!): para_InboxTriageOutput @derived(operationId: "inboxTriage")
   incidentAdd(body: para_IncidentAddInputInput!): para_IncidentAddOutput @derived(operationId: "incidentAdd")
@@ -143,6 +145,7 @@ type ParaV1QueryNamespace {
   exceptionShow(id: String!): para_ExceptionShowOutput @derived(operationId: "exceptionShow")
   exportList: para_ExportListOutput @derived(operationId: "exportList")
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
+  health: para_HealthOutput @derived(operationId: "health")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
   incidentList(all: Boolean, area: String, status: para_incidentListStatus): para_IncidentListOutput @derived(operationId: "incidentList")
@@ -942,6 +945,52 @@ enum para_GroupAddInputKind {
 type para_GroupShowOutput {
   doc: para_Document!
   members: [para_Ref!]!
+}
+
+input para_HealthDismissInputInput {
+  id: String!
+  kind: String!
+  reason: String!
+}
+
+type para_HealthDismissOutput {
+  dismissed: [String!]!
+  id: String!
+  rev: String!
+}
+
+type para_HealthDismissal {
+  date: String!
+  kind: String!
+  reason: String!
+}
+
+type para_HealthFinding {
+  fix: String!
+  goal: String
+  id: String!
+  kind: String!
+  message: String!
+  severity: String!
+  title: String!
+}
+
+type para_HealthGroup {
+  due: String
+  findings: [para_HealthFinding!]!
+  goal: String!
+  title: String!
+}
+
+type para_HealthOutput {
+  count: Int!
+  dismissed: Int!
+  groups: [para_HealthGroup!]!
+}
+
+input para_HealthUndismissInputInput {
+  id: String!
+  kind: String!
 }
 
 type para_HeldUp {
@@ -1771,6 +1820,7 @@ type para_Meta {
   end: String
   ended: String
   groups: [String!]
+  healthDismissed: [para_HealthDismissal!]
   incident: String
   kind: String
   leaseUntil: String
@@ -3622,6 +3672,7 @@ type para_TodayVaultToday {
   dueSoon: para_TodayGroup!
   error: String
   expiring: para_TodayGroup!
+  health: Int!
   heldUp: [para_HeldUp!]!
   inbox: Int!
   incidents: para_TodayGroup!

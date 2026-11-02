@@ -88,6 +88,9 @@ type VaultToday struct {
 	// AnswersToCheck counts open questions with an answer an agent proposed
 	// that no person has accepted yet.
 	AnswersToCheck int `json:"answers_to_check"`
+	// Health counts health findings (para health) not dismissed. It is a line
+	// on Today, not part of the agenda.
+	Health int `json:"health"`
 	// Inbox counts captures not yet triaged.
 	Inbox int `json:"inbox"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
@@ -311,6 +314,10 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 	o, err := ops.OrderAt(ctx, st, date)
 	if err != nil {
 		return fmt.Errorf("today: agenda: %w", err)
+	}
+	// Health never fails Today: a vault it cannot read shows no count.
+	if h, err := ops.HealthAt(ctx, st, date); err == nil {
+		vt.Health = h.Count
 	}
 	ready, err := ops.Next.Run(ctx, ops.Deps{Store: st}, ops.NextInput{})
 	if err != nil {

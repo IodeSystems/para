@@ -147,6 +147,14 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := DependsCut.Run(t.Context(), d, DependsCutInput{ID: "task-x", Dep: "task-y", Reason: "no"})
 			return err
 		}},
+		{"health_dismiss", func(d Deps) error {
+			_, err := HealthDismiss.Run(t.Context(), d, HealthDismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen, Reason: "no"})
+			return err
+		}},
+		{"health_undismiss", func(d Deps) error {
+			_, err := HealthUndismiss.Run(t.Context(), d, HealthUndismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen})
+			return err
+		}},
 		{"edit", func(d Deps) error {
 			s := "x"
 			_, err := ProposalEdit.Run(t.Context(), d, ProposalEditInput{ID: id, Item: "i1", Draft: &s})

@@ -38,6 +38,16 @@ type Common struct {
 	Created Date     `yaml:"created" json:"created"`
 	Updated Date     `yaml:"updated,omitempty" json:"updated,omitempty"`
 	Tags    []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	// HealthDismissed lists health findings a person set aside for this
+	// document (para health). It lives in the file, so it stays with sync.
+	HealthDismissed []HealthDismissal `yaml:"health_dismissed,omitempty" json:"health_dismissed,omitempty"`
+}
+
+// HealthDismissal is one dismissed finding kind on a document.
+type HealthDismissal struct {
+	Kind   string `yaml:"kind" json:"kind"`
+	Reason string `yaml:"reason" json:"reason"`
+	Date   Date   `yaml:"date" json:"date"`
 }
 
 // Header returns the common fields. Embedding Common makes *T a Meta.

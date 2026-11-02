@@ -130,6 +130,8 @@ type Meta struct {
 	End             string           `json:"end,omitempty"`
 	DeferUntil      string           `json:"defer_until,omitempty"`
 	DeferredReason  string           `json:"deferred_reason,omitempty"`
+
+	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.

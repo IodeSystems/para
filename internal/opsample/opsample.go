@@ -88,6 +88,8 @@ var Inputs = map[string]string{
 	"question_depends_remove":   `{"id":"question-waiting","depends_on":["task-sample"]}`,
 	"defer":                     `{"ids":["task-sample"],"until":"2027-01-15","reason":"After the audit."}`,
 	"undefer":                   `{"ids":["task-sample"]}`,
+	"health_dismiss":            `{"id":"task-sample","kind":"task_no_done_when","reason":"The title says it all."}`,
+	"health_undismiss":          `{"id":"task-sample","kind":"task_no_done_when"}`,
 	"depends_cut":               `{"id":"task-other","dep":"task-sample","reason":"The sample is not needed for this."}`,
 	"question_investigate":      `{"id":"question-sample","how":"check the wiki"}`,
 	"question_drop":             `{"id":"question-sample","reason":"No longer needed."}`,
