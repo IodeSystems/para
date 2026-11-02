@@ -78,20 +78,20 @@ function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => 
     if (text.trim() === '') return
     cap.mutate(text.trim(), {
       onSuccess: () => {
-        onDone('Captured to the inbox')
+        onDone('Added to the inbox')
         close()
       },
     })
   }
   return (
     <Frame
-      title="Capture"
+      title="Add to inbox"
       onSubmit={submit}
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
           <Button type="submit" variant="contained" disabled={cap.isPending || text.trim() === ''}>
-            Capture
+            Add to inbox
           </Button>
         </>
       }
@@ -99,7 +99,7 @@ function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => 
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {cap.isError && <Alert severity="error">{errorText(cap.error)}</Alert>}
         <TextField
-          label="What is on your mind?"
+          label="Add to inbox, to sort later"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
@@ -112,7 +112,7 @@ function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => 
         />
         <SimilarHint type="task" title={text} />
         <Typography variant="caption" color="text.secondary">
-          Goes to the inbox. Sort it later. Ctrl+Enter captures.
+          Goes to the inbox. Sort it later. Ctrl+Enter adds it.
         </Typography>
       </Stack>
     </Frame>
@@ -179,7 +179,7 @@ function HelpDialog() {
                 <Row key={t.key} k={t.key} v={t.label} />
               ))}
               <Row k="/" v="Search" />
-              <Row k="c" v="Capture" />
+              <Row k="c" v="Add to inbox" />
               <Row k="?" v="This help" />
               <Row k="Esc" v="Close a dialog" />
             </Stack>

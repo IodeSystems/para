@@ -541,7 +541,7 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
   const isQuestion = id.startsWith('question-')
   return (
     <Frame
-      title="Find context"
+      title="Investigate"
       onSubmit={() =>
         find.mutate(
           { id, hint: hint.trim() },
@@ -550,7 +550,7 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
               onDone(
                 o.appended
                   ? 'Added your hint to the agent work that is open.'
-                  : 'Queued agent work to find context.',
+                  : 'Queued agent work to investigate.',
               )
               close()
             },
@@ -573,7 +573,7 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
         )}
         <Typography sx={{ overflowWrap: 'anywhere' }}>{doc.data?.title ?? ''}</Typography>
         <TextField
-          label="Hint: where to look (optional; for example: check the wiki, search #platform)"
+          label="What should the agent look into? (optional; for example: check the wiki, search #platform)"
           value={hint}
           onChange={(e) => setHint(e.target.value)}
           multiline

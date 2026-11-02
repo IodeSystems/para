@@ -39,7 +39,7 @@ func taskID(t *testing.T, v *testVault, title string) string {
 	return ""
 }
 
-// Find context works on a task row with an empty hint, says "agent looking",
+// Investigate works on a task row with an empty hint, says "agent looking",
 // and a second press adds its hint to the open work.
 func TestFindContextOnATaskRowAndSecondPressAppends(t *testing.T) {
 	v, _, _, _ := azVault(t)
@@ -47,12 +47,12 @@ func TestFindContextOnATaskRowAndSecondPressAppends(t *testing.T) {
 	d := newDrv(t, v, 120, 36)
 	d.key("3")
 	d.onRow("task", task)
-	if !strings.Contains(d.footer(), "Find context") {
-		t.Fatalf("no Find context on a task row: %s", d.footer())
+	if !strings.Contains(d.footer(), "Investigate") {
+		t.Fatalf("no Investigate on a task row: %s", d.footer())
 	}
 	d.key(d.keyFor("act:find"))
 	d.key("enter") // an empty hint
-	got := findRequests(t, v, "Find context: Schedule the move")
+	got := findRequests(t, v, "Investigate: Schedule the move")
 	if len(got) != 1 || got[0].Status != model.RequestQueued || !got[0].Investigates {
 		t.Fatalf("requests = %+v\n%s", got, d.plainFrame())
 	}
@@ -66,7 +66,7 @@ func TestFindContextOnATaskRowAndSecondPressAppends(t *testing.T) {
 	}
 	d.typeText("check the wiki")
 	d.key("enter")
-	if n := len(findRequests(t, v, "Find context: Schedule the move")); n != 1 {
+	if n := len(findRequests(t, v, "Investigate: Schedule the move")); n != 1 {
 		t.Fatalf("%d requests, want 1", n)
 	}
 	sh, err := ops.RequestShow.Run(context.Background(), v.env.Deps, ops.RequestShowInput{ID: got[0].ID})
@@ -78,7 +78,7 @@ func TestFindContextOnATaskRowAndSecondPressAppends(t *testing.T) {
 	}
 }
 
-// Find context is offered on an opened task and on Today, and not on a row
+// Investigate is offered on an opened task and on Today, and not on a row
 // that is no item.
 func TestFindContextOnOpenedTaskAndToday(t *testing.T) {
 	v, _, _, _ := azVault(t)
@@ -87,12 +87,12 @@ func TestFindContextOnOpenedTaskAndToday(t *testing.T) {
 	d.key("1")
 	d.onRow("task", task)
 	d.key("enter")
-	if !strings.Contains(d.footer(), "Find context") {
-		t.Fatalf("no Find context on an opened task: %s", d.footer())
+	if !strings.Contains(d.footer(), "Investigate") {
+		t.Fatalf("no Investigate on an opened task: %s", d.footer())
 	}
 	d.key(d.keyFor("act:find"))
 	d.key("enter")
-	if n := len(findRequests(t, v, "Find context: Schedule the move")); n != 1 {
+	if n := len(findRequests(t, v, "Investigate: Schedule the move")); n != 1 {
 		t.Fatalf("%d requests, want 1", n)
 	}
 	d.key("esc")
@@ -106,7 +106,7 @@ func TestFindContextOnOpenedTaskAndToday(t *testing.T) {
 	if r, _ := d.m.current(); r.target != "act:health" {
 		t.Fatalf("never reached the health row:\n%s", d.plainFrame())
 	}
-	if strings.Contains(d.footer(), "Find context") {
-		t.Errorf("Find context on a row that is no item: %s", d.footer())
+	if strings.Contains(d.footer(), "Investigate") {
+		t.Errorf("Investigate on a row that is no item: %s", d.footer())
 	}
 }

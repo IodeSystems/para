@@ -14,7 +14,8 @@ import (
 // Titles of agent work made by investigate. A question gets the evidence title.
 const (
 	findEvidencePrefix = "Find evidence: "
-	findContextPrefix  = "Find context: "
+	findContextPrefix  = "Find context: " // the old title, still read
+	investigatePrefix  = "Investigate: "
 	hintsHeading       = "Hints"
 )
 
@@ -25,7 +26,7 @@ var investigable = []model.Type{
 
 // isFindTitle reports whether a request title was made by investigate.
 func isFindTitle(title string) bool {
-	return strings.HasPrefix(title, findEvidencePrefix) || strings.HasPrefix(title, findContextPrefix)
+	return strings.HasPrefix(title, findEvidencePrefix) || strings.HasPrefix(title, findContextPrefix) || strings.HasPrefix(title, investigatePrefix)
 }
 
 // investigating maps the id of each item that queued or claimed agent work
@@ -73,7 +74,7 @@ type InvestigateOutput struct {
 }
 
 func findInstruction(id string, question bool) string {
-	s := "Find context for " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
+	s := "Investigate " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
 		"stay read-only outside para. "
 	if question {
 		s += "Propose an answer with question_answer and at least one source (a URL or a document id, with a quote). " +
@@ -122,7 +123,7 @@ var Investigate = definePerson("investigate", "Send an item (task, meeting, ques
 	if hint != "" {
 		body = appendSection(body, hintsHeading, "- "+hint)
 	}
-	prefix := findContextPrefix
+	prefix := investigatePrefix
 	if typ == model.TypeQuestion {
 		prefix = findEvidencePrefix
 	}
@@ -171,12 +172,12 @@ func queueInvestigation(ctx context.Context, d Deps, p *proposal, item, text str
 		out, err := appendHint(ctx, d, p.doc.ID, rid, hint)
 		return out.Request, err
 	}
-	body := fmt.Sprintf("Find context for %s.\n\nThe owner asked for an investigation of an item of this proposal; the hint says which. "+
+	body := fmt.Sprintf("Investigate %s.\n\nThe owner asked for an investigation of an item of this proposal; the hint says which. "+
 		"Gather context and sources with your own tools; stay read-only outside para. "+
 		"Answer in a revision: call proposal_revise with an answer for the open request and the findings in the item. "+
 		"No source, no finding: a guess is not a source. If you find nothing, answer declined and say so.", p.doc.ID)
 	body = appendSection(body, hintsHeading, "- "+hint)
-	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: findContextPrefix + p.doc.Title, Ask: body, Links: []string{p.doc.ID}})
+	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: investigatePrefix + p.doc.Title, Ask: body, Links: []string{p.doc.ID}})
 	if err != nil {
 		return "", err
 	}

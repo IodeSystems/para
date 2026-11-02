@@ -432,9 +432,9 @@ try {
   // Capture from anywhere.
   await page.keyboard.press('1')
   await page.keyboard.press('c')
-  const dlg = page.getByRole('dialog', { name: 'Capture' })
+  const dlg = page.getByRole('dialog', { name: 'Add to inbox' })
   await dlg.waitFor()
-  await dlg.getByLabel('What is on your mind?').fill('Captured from the browser')
+  await dlg.getByLabel('Add to inbox, to sort later').fill('Captured from the browser')
   const closeFrom = Date.now()
   await page.keyboard.press('Control+Enter')
   await dlg.waitFor({ state: 'hidden' })
@@ -444,7 +444,7 @@ try {
   await page.getByText('Captured from the browser').first().waitFor()
   check(true, 'capture adds an inbox item')
   check(
-    await page.getByRole('status').or(page.getByText('Captured to the inbox')).first().isVisible(),
+    await page.getByRole('status').or(page.getByText('Added to the inbox')).first().isVisible(),
     'the capture toast shows',
   )
   check(!page.url().includes('capture'), 'capture overlay closed in the URL')
@@ -1080,24 +1080,24 @@ try {
   await deployRow.getByText(/waiting on question/).waitFor({ state: 'detached' })
   check(true, 'the task is unblocked after the answer')
 
-  // Find context: an optional hint, one open run per item, and the row says an agent is looking.
+  // Investigate: an optional hint, one open run per item, and the row says an agent is looking.
   const findRow = rp.getByRole('listitem').filter({ hasText: 'Deploy the service' }).first()
   await findRow.getByRole('button', { name: /^Actions for/ }).click()
-  await rp.getByRole('menuitem', { name: /^Find context/ }).click()
-  const fc = rp.getByRole('dialog', { name: 'Find context' })
+  await rp.getByRole('menuitem', { name: /^Investigate/ }).click()
+  const fc = rp.getByRole('dialog', { name: 'Investigate' })
   await fc.getByRole('button', { name: 'Send to an agent' }).click()
   await fc.waitFor({ state: 'hidden' })
   await findRow.getByText('Agent looking').waitFor()
-  check(true, 'Find context with an empty hint queues work and the row says Agent looking')
+  check(true, 'Investigate with an empty hint queues work and the row says Agent looking')
   await findRow.getByRole('button', { name: /^Actions for/ }).click()
-  await rp.getByRole('menuitem', { name: /^Find context/ }).click()
-  const fc2 = rp.getByRole('dialog', { name: 'Find context' })
+  await rp.getByRole('menuitem', { name: /^Investigate/ }).click()
+  const fc2 = rp.getByRole('dialog', { name: 'Investigate' })
   await fc2.getByText('An agent is looking already').waitFor()
-  await fc2.getByLabel(/^Hint/).fill('check the wiki')
+  await fc2.getByLabel(/^What should the agent look into/).fill('check the wiki')
   await fc2.getByRole('button', { name: 'Add the hint' }).click()
   await fc2.waitFor({ state: 'hidden' })
   const findWork = JSON.parse(para(...v, 'request', 'list', '--json')).items.filter((r) =>
-    r.title.startsWith('Find context: Deploy the service'),
+    r.title.startsWith('Investigate: Deploy the service'),
   )
   check(findWork.length === 1, 'a second press adds the hint to the open work, not a new request')
 
@@ -1265,11 +1265,11 @@ try {
   await rp.goto(`${base}/search?q=Logs&type=task`)
   await rp.getByText('No results for \u201cLogs\u201d.').waitFor()
   check(true, 'the type filter narrows the search')
-  await rp.getByRole('link', { name: 'Capture this' }).click()
-  const seeded = rp.getByRole('dialog', { name: 'Capture' })
+  await rp.getByRole('link', { name: 'Add this to inbox' }).click()
+  const seeded = rp.getByRole('dialog', { name: 'Add to inbox' })
   check(
-    (await seeded.getByLabel('What is on your mind?').inputValue()) === 'Logs',
-    'Capture this starts with the search text',
+    (await seeded.getByLabel('Add to inbox, to sort later').inputValue()) === 'Logs',
+    'Add this to inbox starts with the search text',
   )
   await seeded.getByRole('button', { name: 'Cancel' }).click()
   await seeded.waitFor({ state: 'hidden' })
@@ -1889,8 +1889,8 @@ try {
   await nav.waitFor({ state: 'hidden' })
   check(true, 'Back closes the menu')
   check(
-    await rp.getByRole('link', { name: /^Capture/ }).isVisible(),
-    'the capture button is labeled Capture',
+    await rp.getByRole('link', { name: /^Add to inbox/ }).isVisible(),
+    'the capture button is labeled Add to inbox',
   )
   const quick = rp.getByRole('navigation', { name: 'Quick screens' })
   const quickNames = (await quick.getByRole('link').allInnerTexts()).map((t) =>

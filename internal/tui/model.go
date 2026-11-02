@@ -6,8 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/iodesystems/parasolve/internal/export"
 	"github.com/iodesystems/parasolve/internal/index"
@@ -100,7 +101,9 @@ type exportState struct {
 
 type overlay struct {
 	kind   overlayKind
-	input  textinput.Model
+	input  textarea.Model
+	label  string // what the field asks, shown above it, wrapped
+	short  bool   // one value: shift+enter does not add a line
 	export exportState
 	vaults []string
 	output string
@@ -224,6 +227,8 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
 		return nil
+	case tea.PasteMsg:
+		return m.onPaste(msg)
 	case snapMsg:
 		m.loading = false
 		m.snap, m.loaded, m.fp = msg.snap, true, msg.fp
@@ -425,7 +430,8 @@ func (m *Model) act(name string) tea.Cmd {
 	p := m.top()
 	switch name {
 	case "capture":
-		m.ov = overlay{kind: ovCapture, input: newInput("capture: ", "")}
+		m.ov = overlay{kind: ovCapture}
+		m.setInput("add to inbox, to sort later: ", "", false)
 		return m.ov.input.Focus()
 	case "vault":
 		if m.tab != tabToday || len(m.stack) > 0 {
@@ -497,12 +503,87 @@ func (m *Model) act(name string) tea.Cmd {
 	return nil
 }
 
-func newInput(prompt, value string) textinput.Model {
-	ti := textinput.New()
-	ti.Prompt = prompt
-	ti.SetValue(value)
-	ti.CharLimit = 2000
-	return ti
+// onPaste puts pasted text in the open field, lines kept. A one-value field
+// gets the lines joined by spaces.
+func (m *Model) onPaste(msg tea.PasteMsg) tea.Cmd {
+	switch m.ov.kind {
+	case ovCapture, ovSearch, ovPrompt:
+	case ovExport:
+		if m.ov.export.stage != 2 {
+			return nil
+		}
+	default:
+		return nil
+	}
+	text := strings.ReplaceAll(msg.Content, "\r\n", "\n")
+	if m.ov.short {
+		text = strings.Join(strings.Fields(text), " ")
+	}
+	var cmd tea.Cmd
+	m.ov.input, cmd = m.ov.input.Update(tea.PasteMsg{Content: text})
+	if m.ov.kind == ovSearch {
+		return tea.Batch(cmd, m.liveSearch())
+	}
+	return cmd
+}
+
+// maxInputRows is how tall a field grows before it scrolls.
+const maxInputRows = 8
+
+// newInput is a wrapping field. It has no length limit. It grows to
+// maxInputRows, then scrolls.
+func newInput(value string) textarea.Model {
+	ta := textarea.New()
+	ta.Prompt = ""
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 0
+	ta.MaxHeight = maxInputRows
+	ta.MinHeight = 1
+	ta.DynamicHeight = true
+	ta.SetVirtualCursor(true)
+	st := ta.Styles()
+	st.Focused.CursorLine = lipgloss.NewStyle()
+	st.Blurred.CursorLine = lipgloss.NewStyle()
+	ta.SetStyles(st)
+	ta.SetWidth(78)
+	ta.SetValue(value)
+	return ta
+}
+
+// setInput opens the overlay field. short is for one value (a date, a letter).
+func (m *Model) setInput(label, value string, short bool) {
+	m.ov.input = newInput(value)
+	m.ov.label, m.ov.short = label, short
+	if m.w > 0 {
+		m.ov.input.SetWidth(max(m.w-2, 10))
+	}
+	_ = m.ov.input.Focus() // its command only blinks the cursor
+}
+
+// inputKey sends a key to the field. Shift+enter and ctrl+j add a line.
+func (m *Model) inputKey(k tea.KeyPressMsg) tea.Cmd {
+	if s := k.String(); s == "shift+enter" || s == "ctrl+j" {
+		if !m.ov.short {
+			m.ov.input.InsertString("\n")
+		}
+		return nil
+	}
+	var cmd tea.Cmd
+	m.ov.input, cmd = m.ov.input.Update(k)
+	return cmd
+}
+
+// inputLines is the label wrapped to the width, then the field.
+func (m *Model) inputLines() []string {
+	w := max(m.w-2, 10)
+	m.ov.input.SetWidth(w)
+	var out []string
+	if m.ov.label != "" {
+		for _, l := range wrapText(strings.TrimRight(m.ov.label, " "), w) {
+			out = append(out, stPrompt.Render(l))
+		}
+	}
+	return append(out, strings.Split(m.ov.input.View(), "\n")...)
 }
 
 // Run-time check that Model satisfies tea.Model.

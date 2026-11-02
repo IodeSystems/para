@@ -232,7 +232,7 @@ func TestInvestigateAcceptsEachType(t *testing.T) {
 		o := must(t, Investigate, d, InvestigateInput{ID: id, Hint: "wiki"})
 		r := must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
 		rm := r.Meta.(*model.Request)
-		want := "Find context: "
+		want := "Investigate: "
 		if name == "question" {
 			want = "Find evidence: "
 		}

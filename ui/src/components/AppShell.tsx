@@ -75,7 +75,7 @@ export function AppShell({ session, children }: { session: SessionView; children
             search={(p) => ({ ...p, capture: true })}
             aria-keyshortcuts="c"
           >
-            Capture
+            Add to inbox
             <Box
               component="kbd"
               sx={{

@@ -122,7 +122,7 @@ func (m *Model) assignTask() tea.Cmd {
 	}
 	env := m.env
 	lines := []string{"  " + titleOr(t.Title, t.ID), "  Para stores the name and sends nothing. Use Give to agent to queue agent work."}
-	steps := []promptStep{{label: "assign to (self, a person id, or agent:<name>): ", value: t.Assignee}}
+	steps := []promptStep{{short: true, label: "assign to (self, a person id, or agent:<name>): ", value: t.Assignee}}
 	return m.askForLines("Assign", lines, steps, func(v []string) tea.Cmd {
 		return m.runOp(func(ctx context.Context) (string, error) {
 			o, err := ops.TaskAssign.Run(ctx, env.Deps, ops.TaskAssignInput{ID: t.ID, Assignee: v[0]})
@@ -145,7 +145,7 @@ func (m *Model) dueTask() tea.Cmd {
 	}
 	env := m.env
 	lines := []string{"  " + titleOr(t.Title, t.ID)}
-	steps := []promptStep{{label: "due YYYY-MM-DD (empty removes the date): ", value: string(t.Due), optional: true}}
+	steps := []promptStep{{short: true, label: "due YYYY-MM-DD (empty removes the date): ", value: string(t.Due), optional: true}}
 	return m.askForLines("Due", lines, steps, func(v []string) tea.Cmd {
 		return m.runOp(func(ctx context.Context) (string, error) {
 			in := ops.TaskDueInput{ID: t.ID, Date: v[0], Clear: v[0] == ""}
@@ -172,7 +172,7 @@ func (m *Model) delegateTask() tea.Cmd {
 	}
 	lines := []string{"  " + titleOr(t.Title, t.ID), "  " + what}
 	steps := []promptStep{
-		{label: "agent name (optional; default request.runner): ", optional: true},
+		{short: true, label: "agent name (optional; default request.runner): ", optional: true},
 		{label: "hint: where to start (optional): ", optional: true},
 	}
 	return m.askForLines("Give to agent", lines, steps, func(v []string) tea.Cmd {
@@ -238,9 +238,9 @@ func (m *Model) resolveTask() tea.Cmd {
 		lines = append(lines, "  Done when: "+t.DoneWhen)
 	}
 	steps := []promptStep{
-		{label: "outcome (enter for done; or partial, dropped, duplicate, superseded): ", optional: true},
+		{short: true, label: "outcome (enter for done; or partial, dropped, duplicate, superseded): ", optional: true},
 		{label: "why it ends this way (partial: or give a follow-up; dropped: required): ", skip: not(model.OutcomePartial, model.OutcomeDropped, model.OutcomeDuplicate, model.OutcomeSuperseded), optional: true},
-		{label: "the id of the item it duplicates or that supersedes it: ", skip: not(model.OutcomeDuplicate, model.OutcomeSuperseded)},
+		{short: true, label: "the id of the item it duplicates or that supersedes it: ", skip: not(model.OutcomeDuplicate, model.OutcomeSuperseded)},
 		{label: "follow-up task title (optional; separate several with ;): ", skip: not(model.OutcomePartial, model.OutcomeDuplicate, model.OutcomeSuperseded), optional: true},
 		{label: "change the done condition (optional): ", value: t.DoneWhen, skip: func(v []string) bool { return t.DoneWhen == "" || out(v) == model.OutcomeDone }, optional: true},
 	}

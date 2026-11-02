@@ -41,8 +41,9 @@ func (m *Model) onKey(k tea.KeyPressMsg) tea.Cmd {
 		m.ov = overlay{kind: ovHelp}
 		return nil
 	case "/":
-		m.ov = overlay{kind: ovSearch, input: newInput("search: ", ""), liveCur: -1}
-		return m.ov.input.Focus()
+		m.ov = overlay{kind: ovSearch, liveCur: -1}
+		m.setInput("search: ", "", true)
+		return nil
 	case "j", "down":
 		m.move(1)
 		return nil

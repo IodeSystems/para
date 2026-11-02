@@ -246,7 +246,7 @@ function Search() {
                     to="."
                     search={(p) => ({ ...p, capture: true, seed: q })}
                   >
-                    Capture this
+                    Add this to inbox
                   </LinkButton>
                 </Stack>
               ) : (

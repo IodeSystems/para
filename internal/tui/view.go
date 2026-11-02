@@ -12,7 +12,7 @@ import (
 const docActionLetters = "zxycvd"
 
 var (
-	actCapture  = Target{ID: "act:capture", Label: "Capture", Pref: 'c'}
+	actCapture  = Target{ID: "act:capture", Label: "Add to inbox", Pref: 'c', Fixed: true}
 	actVault    = Target{ID: "act:vault", Label: "Switch vault", Pref: 'v'}
 	actZoom     = Target{ID: "act:zoom", Label: "Zoom", Pref: 'z'}
 	actExport   = Target{ID: "act:export", Label: "Export", Pref: 'x'}

@@ -32,6 +32,8 @@ type Target struct {
 	Pref  rune
 	// Dim shows the target greyed: it has a key, and does not apply now.
 	Dim bool
+	// Fixed keeps Pref as the key when the label has no such letter; the key shows beside the label.
+	Fixed bool
 }
 
 // Key is the key of one target. Code is one lowercase letter, or ";" and two
@@ -65,6 +67,11 @@ func Assign(actions, links []Target, reserved string) map[string]Key {
 					out[t.ID] = Key{Code: string(t.Pref), At: i}
 					return
 				}
+			}
+			if t.Fixed && !used[t.Pref] {
+				used[t.Pref] = true
+				out[t.ID] = Key{Code: string(t.Pref), At: -1}
+				return
 			}
 		}
 		for i, r := range lab {

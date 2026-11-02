@@ -139,7 +139,7 @@ func (m *Model) capture(text string) tea.Cmd {
 		if err != nil {
 			return doneMsg{err: err}
 		}
-		said := "Captured: " + truncate(oneLine(text), 60)
+		said := "Added to inbox: " + truncate(oneLine(text), 60)
 		if len(hint) > 0 {
 			said += ". similar: " + truncate(hint[0].Title, 40)
 		}

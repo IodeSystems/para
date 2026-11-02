@@ -83,7 +83,7 @@ func TestQuestionActionsFromAnOpenedQuestion(t *testing.T) {
 		t.Fatalf("no document page:\n%s", d.plainFrame())
 	}
 	foot := d.footer()
-	for _, want := range []string{"Answer", "Drop", "Ask person", "Find context", "Later", "Cut"} {
+	for _, want := range []string{"Answer", "Drop", "Ask person", "Investigate", "Later", "Cut"} {
 		if !strings.Contains(foot, want) {
 			t.Errorf("footer lacks %q: %s", want, foot)
 		}

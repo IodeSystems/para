@@ -92,3 +92,10 @@ func TestAssignDeterministic(t *testing.T) {
 		}
 	}
 }
+
+func TestAssignFixedKeepsKeyOutsideLabel(t *testing.T) {
+	got := Assign([]Target{{ID: "a", Label: "Add to inbox", Pref: 'c', Fixed: true}}, nil, "")
+	if got["a"].Code != "c" || got["a"].At != -1 {
+		t.Fatalf("got %+v", got["a"])
+	}
+}

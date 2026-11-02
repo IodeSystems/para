@@ -17,7 +17,7 @@ import (
 var (
 	actDrop  = Target{ID: "act:drop", Label: "Drop", Pref: 'p'}
 	actAsk   = Target{ID: "act:ask", Label: "Ask person", Pref: 's'}
-	actFind  = Target{ID: "act:find", Label: "Find context", Pref: 'f'}
+	actFind  = Target{ID: "act:find", Label: "Investigate", Pref: 'f', Fixed: true}
 	actLater = Target{ID: "act:later", Label: "Later", Pref: 'l'}
 	actBack  = Target{ID: "act:later", Label: "Not later", Pref: 'l'}
 	actCut   = Target{ID: "act:cut", Label: "Cut", Pref: 'u'}
@@ -224,9 +224,9 @@ func (m *Model) askPerson() tea.Cmd {
 		lines = append(lines, "  routes: "+strings.Join(ds, ", "))
 	}
 	steps := []promptStep{
-		{label: "ask whom (a person's name or id): "},
-		{label: "by (email, slack, ...): "},
-		{label: "route (the domain): ", value: route},
+		{short: true, label: "ask whom (a person's name or id): "},
+		{short: true, label: "by (email, slack, ...): "},
+		{short: true, label: "route (the domain): ", value: route},
 	}
 	return m.askForLines("Ask a person", lines, steps, func(v []string) tea.Cmd {
 		env := m.env
@@ -255,7 +255,7 @@ func findableID(id string) bool {
 	return false
 }
 
-// findTarget is the item Find context applies to: the opened document, or the
+// findTarget is the item Investigate applies to: the opened document, or the
 // item row under the cursor.
 func (m *Model) findTarget() (id, title string, ok bool) {
 	if p := m.top(); p != nil && p.kind == pageDoc {
@@ -283,7 +283,7 @@ func (s Snapshot) looking(id string) bool { return s.Looking[id] }
 func (m *Model) findContext() tea.Cmd {
 	id, title, ok := m.findTarget()
 	if !ok {
-		m.setHint("Move to a task, meeting, question, ask, goal, or agent work to find context for it.")
+		m.setHint("Move to a task, meeting, question, ask, goal, or agent work to investigate it.")
 		return nil
 	}
 	what := "The agent files a proposal that adds context and sources to it. You check it."
@@ -294,8 +294,8 @@ func (m *Model) findContext() tea.Cmd {
 		what = "An agent is looking already. The hint goes into its work."
 	}
 	lines := []string{"  " + titleOr(title, id), "  " + what}
-	steps := []promptStep{{label: "hint: where to look (optional; for example: check the wiki, search #platform): ", optional: true}}
-	return m.askForLines("Find context", lines, steps, func(v []string) tea.Cmd {
+	steps := []promptStep{{label: "what should the agent look into? (optional; for example: check the wiki, search #platform): ", optional: true}}
+	return m.askForLines("Investigate", lines, steps, func(v []string) tea.Cmd {
 		env := m.env
 		return func() tea.Msg {
 			o, err := ops.Investigate.Run(context.Background(), env.Deps, ops.InvestigateInput{ID: id, Hint: v[0]})
@@ -332,9 +332,9 @@ func (m *Model) later() tea.Cmd {
 		}
 	}
 	steps := []promptStep{
-		{label: "until: YYYY-MM-DD, someday, after <item id or words>, or when <condition>: ", value: "someday"},
+		{short: true, label: "until: YYYY-MM-DD, someday, after <item id or words>, or when <condition>: ", value: "someday"},
 		{label: "why it can wait (optional): ", optional: true},
-		{label: "place for a new when task: goal or area id (optional): ", optional: true},
+		{short: true, label: "place for a new when task: goal or area id (optional): ", optional: true},
 	}
 	lines := []string{
 		"  It leaves the Agenda and next. It still blocks what depends on it.",
@@ -460,9 +460,9 @@ func (m *Model) cut() tea.Cmd {
 	for i, p := range pairs {
 		lines = append(lines, fmt.Sprintf("  %d  %s stops waiting on %s", i+1, m.name(p.waiter), m.name(p.dep)))
 	}
-	steps := []promptStep{{label: "cut which (number): "}}
+	steps := []promptStep{{short: true, label: "cut which (number): "}}
 	if len(pairs) == 1 {
-		steps = []promptStep{{label: "cut it? (number 1): ", value: "1"}}
+		steps = []promptStep{{short: true, label: "cut it? (number 1): ", value: "1"}}
 	}
 	steps = append(steps, promptStep{label: "why it can go ahead without it: "})
 	return m.askForLines("Cut a dependency", lines, steps, func(v []string) tea.Cmd {

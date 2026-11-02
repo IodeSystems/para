@@ -596,7 +596,7 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			return err == nil && intent == ops.IntentChange
 		}
 		steps := []promptStep{
-			{label: "changes, clarification, or investigation (c, l, i; enter for changes): ", optional: true},
+			{short: true, label: "changes, clarification, or investigation (c, l, i; enter for changes): ", optional: true},
 			{label: "what to change: ", skip: func(v []string) bool { return !isChange(v) }},
 			{label: "anything to add (enter to send): ", optional: true, skip: isChange},
 		}
@@ -612,9 +612,9 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 	case "hold":
 		place, _ := it.Input["project"].(string)
 		steps := []promptStep{
-			{label: "task or agent work: ", value: "task"},
+			{short: true, label: "task or agent work: ", value: "task"},
 			{label: "text: "},
-			{label: "goal or area id: ", value: place, skip: func(v []string) bool { return v[0] != "task" }},
+			{short: true, label: "goal or area id: ", value: place, skip: func(v []string) bool { return v[0] != "task" }},
 		}
 		return m.askFor("Needs first: "+itemLine(it), steps, func(v []string) tea.Cmd {
 			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
@@ -769,14 +769,16 @@ type promptStep struct {
 	skip         func(vals []string) bool
 	// optional lets enter on an empty line move on, with the value "".
 	optional bool
+	// short is one value, such as a date or a letter; shift+enter adds no line.
+	short bool
 }
 
 // hint says what enter does at this step of the chain.
 func (p promptState) hint() string {
 	if p.lastAsk() {
-		return "enter records it, esc cancels"
+		return "enter records it, shift+enter or ctrl+j adds a line, esc cancels"
 	}
-	return "enter continues, esc cancels"
+	return "enter continues, shift+enter or ctrl+j adds a line, esc cancels"
 }
 
 // lastAsk reports whether no later step will be asked.
@@ -814,8 +816,7 @@ func (m *Model) nextPrompt() tea.Cmd {
 			pr.vals = append(pr.vals, "")
 			continue
 		}
-		m.ov.input = newInput(s.label, s.value)
-		_ = m.ov.input.Focus() // its command only blinks the cursor
+		m.setInput(s.label, s.value, s.short)
 		return nil
 	}
 	vals, done := pr.vals, pr.done
@@ -836,9 +837,7 @@ func (m *Model) onPromptKey(k tea.KeyPressMsg) tea.Cmd {
 		m.ov.prompt.vals = append(m.ov.prompt.vals, text)
 		return m.nextPrompt()
 	}
-	var cmd tea.Cmd
-	m.ov.input, cmd = m.ov.input.Update(k)
-	return cmd
+	return m.inputKey(k)
 }
 
 // The buffer $EDITOR gets. An external item is its target, a separator line,

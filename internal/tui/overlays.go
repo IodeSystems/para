@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/iodesystems/parasolve/internal/export"
 	"github.com/iodesystems/parasolve/internal/index"
@@ -53,8 +54,7 @@ func (m *Model) onOverlayKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			return m.loadSearch(text)
 		}
-		var cmd tea.Cmd
-		m.ov.input, cmd = m.ov.input.Update(k)
+		cmd := m.inputKey(k)
 		if m.ov.kind == ovSearch {
 			return tea.Batch(cmd, m.liveSearch())
 		}
@@ -97,9 +97,7 @@ func (m *Model) onExportKey(k tea.KeyPressMsg) tea.Cmd {
 			}
 			return m.finishExport(e.format, e.transport.Name+":"+arg)
 		}
-		var cmd tea.Cmd
-		m.ov.input, cmd = m.ov.input.Update(k)
-		return cmd
+		return m.inputKey(k)
 	}
 	if s == "?" {
 		e.needs = !e.needs
@@ -142,9 +140,9 @@ func (m *Model) onExportKey(k tea.KeyPressMsg) tea.Cmd {
 			if it.Name == "file" {
 				def = e.doc + "." + extFor(e.format)
 			}
-			m.ov.input = newInput(it.Arg+" ", def)
+			m.setInput(it.Arg+" ", def, true)
 			e.stage = 2
-			return m.ov.input.Focus()
+			return nil
 		}
 		return m.finishExport(e.format, it.Name)
 	}
@@ -175,24 +173,37 @@ func (m *Model) finishExport(f export.Format, to string) tea.Cmd {
 	return m.runExport(doc, f, to)
 }
 
+// wrapped is text broken at spaces to the overlay width, one style per line.
+func (m *Model) wrapped(st lipgloss.Style, text string) []string {
+	var out []string
+	for _, l := range wrapText(text, max(m.w-2, 10)) {
+		out = append(out, st.Render(l))
+	}
+	return out
+}
+
 // drawOverlay paints the overlay over the body and adds its keys.
 func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]string, map[string]string) {
 	var lines []string
 	switch m.ov.kind {
 	case ovCapture, ovSearch:
-		hint := "enter saves it to the inbox, esc cancels"
+		hint := "enter adds it to the inbox, shift+enter or ctrl+j adds a line, esc cancels"
 		if m.ov.kind == ovSearch {
 			hint = "down picks a result, enter opens it or shows every result, esc cancels. person:<name> finds a person"
 		}
-		lines = []string{stPrompt.Render("▸ " + hint), m.ov.input.View()}
+		lines = append(m.wrapped(stPrompt, "▸ "+hint), m.inputLines()...)
 		if m.ov.kind == ovSearch {
 			lines = append(lines, m.liveLines()...)
 		}
 	case ovPrompt:
-		lines = []string{stPrompt.Render("▸ " + m.ov.prompt.title)}
-		lines = append(lines, stDim.Render(m.ov.prompt.hint()))
-		lines = append(lines, m.ov.prompt.lines...)
-		lines = append(lines, m.ov.input.View())
+		lines = m.wrapped(stPrompt, "▸ "+m.ov.prompt.title)
+		lines = append(lines, m.wrapped(stDim, m.ov.prompt.hint())...)
+		for _, l := range m.ov.prompt.lines {
+			for _, w := range wrapText(strings.TrimSpace(l), max(m.w-4, 10)) {
+				lines = append(lines, "  "+w)
+			}
+		}
+		lines = append(lines, m.inputLines()...)
 	case ovHelp:
 		lines = m.helpLines()
 	case ovOutput:
@@ -248,10 +259,9 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 		return []string{"loading export options..."}, keymap
 	}
 	if e.stage == 2 {
-		return []string{
+		return append(append([]string{
 			stHead.Render(fmt.Sprintf("Export %s as %s to %s", m.exportName(e.doc), e.format, e.transport.Name)),
-			m.ov.input.View(), "", stDim.Render("enter sends, esc goes back"),
-		}, keymap
+		}, m.inputLines()...), "", stDim.Render("enter sends, esc goes back")), keymap
 	}
 	items := e.list.Formats
 	title := fmt.Sprintf("Export %s: pick a format", m.exportName(e.doc))
@@ -303,7 +313,7 @@ var actionHelp = map[string]string{
 	"act:reject":    "reject the proposed answer, with a reason the agent reads",
 	"act:drop":      "drop the question, with a reason: tasks that waited on it stop waiting",
 	"act:ask":       "ask a person: makes an ask; para sends nothing",
-	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to find context; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
+	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to investigate; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
 	"act:later":     "put it off until a date or someday; it leaves the Agenda and next and still blocks what depends on it. On a put-off row it brings it back",
 	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
 	"act:resolve":   "close the task: done (enter keeps it), partial, dropped, duplicate, or superseded; partial and the last two can make follow-up tasks that waiting items move to",
@@ -345,7 +355,7 @@ func (m *Model) helpLines() []string {
 		"  j k        move the cursor      g G  top, bottom      space  page down",
 		"  enter      open the row         esc  back",
 		"  /          search as you type; person:<name> finds a person",
-		"  c          capture a note to the inbox",
+		"  c          add a line to the inbox, to sort later",
 		"  q          quit",
 		"  ;ab        two-letter keys start with ;",
 		"  letter     the dim letter at the left of a row opens it",

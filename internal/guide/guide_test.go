@@ -157,7 +157,7 @@ func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 
 func TestExtendedAndOrientNameInvestigate(t *testing.T) {
 	text := flat(Extended())
-	for _, want := range []string{"para investigate", "Find context", "Find evidence", "Agent looking", "a guess is not a source", "adds the hint"} {
+	for _, want := range []string{"para investigate", "Investigate: <title>", "Find evidence", "Agent looking", "a guess is not a source", "adds the hint"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("extended lacks %q", want)
 		}

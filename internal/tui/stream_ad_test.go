@@ -221,7 +221,7 @@ func TestPromptsSayWhatComesNext(t *testing.T) {
 	}
 	d.key("esc")
 	d.key("c")
-	if !d.has("enter saves it to the inbox") {
+	if !d.has("enter adds it to the inbox") {
 		t.Errorf("capture prompt:\n%s", d.plainFrame())
 	}
 }

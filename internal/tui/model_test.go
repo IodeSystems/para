@@ -310,7 +310,7 @@ func TestCaptureFromAnyScreen(t *testing.T) {
 	d.key("c")
 	d.typeText("remember the milk")
 	d.key("enter")
-	if !d.has("Captured: remember the milk") {
+	if !d.has("Added to inbox: remember the milk") {
 		t.Fatalf("no confirmation:\n%s", d.plainFrame())
 	}
 	if d.m.tab != tabWork || len(d.m.stack) != 0 {

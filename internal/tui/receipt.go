@@ -140,7 +140,7 @@ func (m *Model) respond() tea.Cmd {
 	}
 	env := m.env
 	id := r.id
-	steps := []promptStep{{label: "change, clarify, or revert: ", value: "change"}, {label: "what to do: "}}
+	steps := []promptStep{{short: true, label: "change, clarify, or revert: ", value: "change"}, {label: "what to do: "}}
 	return m.askFor("Respond to agent work", steps, func(v []string) tea.Cmd {
 		return func() tea.Msg {
 			_, err := ops.RequestRespond.Run(context.Background(), env.Deps, ops.RequestRespondInput{ID: id, Kind: ops.RespondKind(strings.TrimSpace(v[0])), Text: v[1]})
