@@ -84,6 +84,8 @@ func newRoot(l *loader) *cobra.Command {
 		Short:         "Progress without pain",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		Args:          cobra.NoArgs,
+		RunE:          func(*cobra.Command, []string) error { return runTUI(l) },
 	}
 	root.PersistentFlags().StringVar(&l.homeFlag, "home", "", "para home directory (or PARA_HOME; default ~/.para)")
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
@@ -110,6 +112,7 @@ func newRoot(l *loader) *cobra.Command {
 		newJournalCmd(l),
 		newTodayCmd(l),
 		newRequestCmd(l),
+		newTUICmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root
