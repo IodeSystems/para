@@ -108,7 +108,7 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	case tabWork:
 		return m.rowsWork(w), append(append(append(append([]Target{actGraph}, questionActs...), taskActs...), actFind), acts...)
 	case tabRFX:
-		return m.rowsRFX(w), append([]Target{actFind}, acts...)
+		return m.rowsRFX(w), append([]Target{actFind, actPaths}, acts...)
 	case tabPeople:
 		return m.rowsPeople(w), acts
 	case tabPolicy:
@@ -256,6 +256,9 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 		reserved += taskActLetters + questionActLetters
 	} else if findableID(p.id) {
 		reserved += "f"
+		if _, ok := p.doc.Meta.(*model.RFX); ok {
+			reserved += "n"
+		}
 	}
 	pre := PreRender(src, PreOpts{Width: m.w, Reserved: reserved, Meta: m.showMeta})
 	rd := m.rend.render(pre, m.w)
@@ -283,6 +286,9 @@ func (m *Model) docActionsFor(p *page) []Target {
 	}
 	if editable(p.doc) {
 		acts = append([]Target{actEditNote}, acts...)
+	}
+	if _, ok := p.doc.Meta.(*model.RFX); ok {
+		acts = append([]Target{actPaths}, acts...)
 	}
 	if findableID(p.id) {
 		acts = append(append([]Target{}, actFind), acts...)

@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography'
 import { useRfx, useRfxTargetState } from '@/api/rfx'
 import { useCopyText } from '@/api/doc'
 import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
+import { NextMoves } from '@/components/NextMoves'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
@@ -101,6 +102,7 @@ function RfxPage() {
               </List>
             )}
           </Section>
+          {r.doc.meta.direction !== 'in' && r.doc.meta.status === 'open' && <NextMoves id={id} />}
           {(r.chain.length > 0 || r.dependedOnBy.length > 0) && (
             <Section title="Chain" count={r.chain.length}>
               <List dense disablePadding>

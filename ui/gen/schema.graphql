@@ -118,6 +118,7 @@ type ParaV1MutationNamespace {
   rfxClose(body: para_RFXCloseInputInput!): para_RFXStatusOutput @derived(operationId: "rfxClose")
   rfxDraft(body: para_RFXDraftInputInput!): para_RFXDraftOutput @derived(operationId: "rfxDraft")
   rfxNudge(body: para_RFXNudgeInputInput!): para_RFXNudgeOutput @derived(operationId: "rfxNudge")
+  rfxPathAdd(body: para_RFXPathAddInputInput!): para_RFXPathAddOutput @derived(operationId: "rfxPathAdd")
   rfxReply(body: para_RFXReplyInputInput!): para_RFXReplyOutput @derived(operationId: "rfxReply")
   rfxStatus(body: para_RFXStatusInputInput!): para_RFXStatusOutput @derived(operationId: "rfxStatus")
   rfxTargetAdd(body: para_RFXTargetAddInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetAdd")
@@ -204,6 +205,7 @@ type ParaV1QueryNamespace {
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
   rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
+  rfxPaths(id: String!): para_RFXPathsOutput @derived(operationId: "rfxPaths")
   rfxShow(id: String!): para_RFXShowOutput @derived(operationId: "rfxShow")
   rfxWaiting(direction: para_rfxWaitingDirection, today: String): para_RFXWaitingOutput @derived(operationId: "rfxWaiting")
   route(query: String!): para_RouteOutput @derived(operationId: "route")
@@ -2184,6 +2186,7 @@ type para_Meta {
   appliesIn: [String!]
   area: String
   assignee: String
+  awayUntil: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -2239,6 +2242,7 @@ type para_Meta {
   proposedWhy: String
   question: String
   queuedAt: String
+  quietDays: Int
   recommended: String
   recur: String
   rejectedBy: String
@@ -2512,6 +2516,80 @@ type para_OrgListOutput {
 
 type para_OrgShowOutput {
   doc: para_Document!
+}
+
+type para_PathEntry {
+  about: String
+  added: String
+  contacts: Int!
+  last: String
+  medium: para_PathEntryMedium!
+  reason: para_PathEntryReason
+  sent: String
+  state: para_PathEntryState!
+  to: String!
+  toName: String
+  value: String
+  why: String
+}
+
+enum para_PathEntryMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_PathEntryReason {
+  capacity
+  needs_approval
+  no_owner
+  no_response
+  other
+  policy_conflict
+  policy_unclear
+  tool_gap
+  wrong_owner
+}
+
+enum para_PathEntryState {
+  drafted
+  no_reply
+  replied
+  requested
+  scheduled
+  sent
+}
+
+type para_PathMove {
+  command: String
+  contacts: Int
+  hold: String
+  kind: String!
+  label: String!
+  last: String
+  medium: para_PathMoveMedium
+  to: String
+  toName: String
+  value: String
+  why: String!
+}
+
+enum para_PathMoveMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
 }
 
 input para_PersonAliasInputInput {
@@ -3327,6 +3405,61 @@ type para_RFXNudgeOutput {
   rev: String!
 }
 
+input para_RFXPathAddInputInput {
+  about: String
+  id: String!
+  medium: para_RFXPathAddInputMedium!
+  nudge: String
+  override: Boolean
+  reason: para_RFXPathAddInputReason!
+  to: String!
+  value: String
+  why: String!
+}
+
+enum para_RFXPathAddInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_RFXPathAddInputReason {
+  capacity
+  needs_approval
+  no_owner
+  no_response
+  other
+  policy_conflict
+  policy_unclear
+  tool_gap
+  wrong_owner
+}
+
+type para_RFXPathAddOutput {
+  held: String
+  id: String!
+  rev: String!
+  targets: [para_Target!]!
+}
+
+type para_RFXPathsOutput {
+  id: String!
+  log: [para_PathEntry!]!
+  moves: [para_PathMove!]!
+  rev: String!
+  stalled: Boolean!
+  stalledDays: Int
+  stalledWhy: String
+  status: String!
+  title: String!
+}
+
 input para_RFXReplyInputInput {
   appliesIn: [String!]
   date: String
@@ -3489,12 +3622,15 @@ type para_RFXTargetOutput {
 }
 
 input para_RFXTargetStateInputInput {
+  about: String
   date: String
   id: String!
   medium: para_RFXTargetStateInputMedium
+  reason: para_RFXTargetStateInputReason
   ref: String
   state: para_RFXTargetStateInputState!
   to: String!
+  why: String
 }
 
 enum para_RFXTargetStateInputMedium {
@@ -3507,6 +3643,18 @@ enum para_RFXTargetStateInputMedium {
   phone
   slack
   teams
+}
+
+enum para_RFXTargetStateInputReason {
+  capacity
+  needs_approval
+  no_owner
+  no_response
+  other
+  policy_conflict
+  policy_unclear
+  tool_gap
+  wrong_owner
 }
 
 enum para_RFXTargetStateInputState {
@@ -4063,12 +4211,16 @@ type para_Stats {
 }
 
 type para_Target {
+  about: String
+  added: String
   medium: para_TargetMedium!
+  reason: para_TargetReason
   ref: String
   sent: String
   state: para_TargetState!
   to: String!
   value: String
+  why: String
 }
 
 input para_TargetInputInput {
@@ -4099,6 +4251,18 @@ enum para_TargetMedium {
   phone
   slack
   teams
+}
+
+enum para_TargetReason {
+  capacity
+  needs_approval
+  no_owner
+  no_response
+  other
+  policy_conflict
+  policy_unclear
+  tool_gap
+  wrong_owner
 }
 
 enum para_TargetState {

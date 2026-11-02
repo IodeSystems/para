@@ -198,6 +198,14 @@ type Target struct {
 	State  TargetState `yaml:"state" json:"state"`
 	Ref    string      `yaml:"ref,omitempty" json:"ref,omitempty"`   // thread or ticket URL or id
 	Sent   Date        `yaml:"sent,omitempty" json:"sent,omitempty"` // date it was sent
+	// Added is the date the target was added. Reason is the friction code when
+	// the target came from a redirect (wrong_owner, no_response, ...) or when a
+	// stall was recorded on it. Why is the reason in words. About links the
+	// policy, policy exception, or domain that applies.
+	Added  Date           `yaml:"added,omitempty" json:"added,omitempty"`
+	Reason FrictionReason `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Why    string         `yaml:"why,omitempty" json:"why,omitempty"`
+	About  Link           `yaml:"about,omitempty" json:"about,omitempty"`
 }
 
 // Constraint is type: constraint, a justified "no".
@@ -256,6 +264,12 @@ type Person struct {
 	Contacts []Contact `yaml:"contacts,omitempty" json:"contacts,omitempty"`
 	// Groups are the groups the person belongs to. Membership lives here only.
 	Groups []Link `yaml:"groups,omitempty" json:"groups,omitempty"`
+	// AwayUntil is the last day the person is away. Only this structured date is
+	// used to hold back a repeat Ask; an away note in the body is not read.
+	AwayUntil Date `yaml:"away_until,omitempty" json:"away_until,omitempty"`
+	// QuietDays is how many days to leave between Asks to the person, as the
+	// person stated it.
+	QuietDays int `yaml:"quiet_days,omitempty" json:"quiet_days,omitempty"`
 }
 
 // Contact is one way to reach a person. At most one contact per method is

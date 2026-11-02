@@ -512,6 +512,9 @@ func (m *Model) showItem(id string) tea.Cmd {
 // draft has Copy draft.
 func (m *Model) textActs(p *page) []Target {
 	var out []Target
+	if p.paths != nil {
+		out = append(out, actTake)
+	}
 	if p.receipt != "" {
 		out = append(out, actVerified, actWrong)
 	}

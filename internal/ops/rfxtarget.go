@@ -84,6 +84,11 @@ type RFXTargetStateInput struct {
 	State  model.TargetState `json:"state"`
 	Ref    string            `json:"ref,omitempty"`  // thread or ticket URL or id
 	Date   string            `json:"date,omitempty"` // YYYY-MM-DD, the day it was sent; empty means the local date
+	// Reason is the friction code of a stall. Moving to no_reply without one
+	// records no_response.
+	Reason model.FrictionReason `json:"reason,omitempty"`
+	Why    string               `json:"why,omitempty"`   // the reason in words
+	About  string               `json:"about,omitempty"` // policy, exception, or domain that applies
 }
 
 // RFXTargetState sets the state of one target. Moving to sent records the
@@ -93,6 +98,14 @@ var RFXTargetState = defineSafe("rfx_target_state", "Record that a request to on
 		return RFXTargetOutput{}, fmt.Errorf("state %q: want one of %v", in.State, model.TargetStates)
 	}
 	date, err := dateOrToday(in.Date)
+	if err != nil {
+		return RFXTargetOutput{}, err
+	}
+	if in.Reason != "" && !slices.Contains(model.FrictionReasons, in.Reason) {
+		return RFXTargetOutput{}, fmt.Errorf("reason %q: want one of %v", in.Reason, model.FrictionReasons)
+	}
+	why := strings.Join(strings.Fields(in.Why), " ")
+	about, err := linkTo(ctx, d, "about", in.About, model.TypePolicy, model.TypePolicyException, model.TypeDomain)
 	if err != nil {
 		return RFXTargetOutput{}, err
 	}
@@ -118,6 +131,18 @@ var RFXTargetState = defineSafe("rfx_target_state", "Record that a request to on
 			t.Sent = model.Date(date)
 		}
 		t.State = in.State
+		if in.Reason == "" && in.State == model.TargetNoReply && t.Reason == "" {
+			in.Reason = model.FrictionNoResponse
+		}
+		if in.Reason != "" {
+			t.Reason = in.Reason
+		}
+		if why != "" {
+			t.Why = why
+		}
+		if about != "" {
+			t.About = about
+		}
 		if ref := strings.TrimSpace(in.Ref); ref != "" {
 			t.Ref = ref
 		}

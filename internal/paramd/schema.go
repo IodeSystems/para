@@ -55,6 +55,7 @@ var (
 	questionStatus     = []string{"open", "answered", "dropped"}
 	questionKinds      = []string{"question", "decision", "input"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
+	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
@@ -180,6 +181,8 @@ var typeFields = map[string][]field{
 		{Name: "aliases", Kind: kList},
 		{Name: "contacts", Kind: kContacts},
 		{Name: "groups", Kind: kLinkList},
+		{Name: "away_until", Kind: kDate},
+		{Name: "quiet_days", Kind: kCount},
 	},
 	"group": {
 		{Name: "org", Kind: kString, Required: true},
@@ -263,6 +266,10 @@ var (
 		{Name: "state", Kind: kEnum, Enum: targetStates, Required: true},
 		{Name: "ref", Kind: kString},
 		{Name: "sent", Kind: kDate},
+		{Name: "added", Kind: kDate},
+		{Name: "reason", Kind: kEnum, Enum: frictionReasons},
+		{Name: "why", Kind: kString},
+		{Name: "about", Kind: kLink},
 	}
 )
 

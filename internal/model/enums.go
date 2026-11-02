@@ -334,6 +334,30 @@ func (TargetState) Enum() []string { return enumStrings(TargetStates) }
 // TargetStates lists every TargetState.
 var TargetStates = []TargetState{TargetDrafted, TargetSent, TargetReplied, TargetNoReply, TargetRequested, TargetScheduled}
 
+// FrictionReason is rfx.targets[].reason: why an Ask was redirected or stalled.
+// It feeds the friction report. It says what went wrong with the process, never
+// who is to blame.
+type FrictionReason string
+
+const (
+	FrictionWrongOwner     FrictionReason = "wrong_owner"
+	FrictionNoOwner        FrictionReason = "no_owner"
+	FrictionPolicyConflict FrictionReason = "policy_conflict"
+	FrictionPolicyUnclear  FrictionReason = "policy_unclear"
+	FrictionNoResponse     FrictionReason = "no_response"
+	FrictionCapacity       FrictionReason = "capacity"
+	FrictionNeedsApproval  FrictionReason = "needs_approval"
+	FrictionToolGap        FrictionReason = "tool_gap"
+	FrictionOther          FrictionReason = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (FrictionReason) Enum() []string { return enumStrings(FrictionReasons) }
+
+// FrictionReasons lists every FrictionReason.
+var FrictionReasons = []FrictionReason{FrictionWrongOwner, FrictionNoOwner, FrictionPolicyConflict, FrictionPolicyUnclear,
+	FrictionNoResponse, FrictionCapacity, FrictionNeedsApproval, FrictionToolGap, FrictionOther}
+
 // InteractionDirection is interaction.direction. Observed: the user saw it
 // and took no part.
 type InteractionDirection string

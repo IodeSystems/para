@@ -309,21 +309,31 @@ var AttemptAdd = defineSafe("attempt_add", "Record an attempt, something tried a
 	if t := doc.Meta.Header().Type; t != model.TypeTask && t != model.TypeRFX {
 		return AttemptAddOutput{}, fmt.Errorf("attempt_add: %s is a %s: an attempt goes on a task or an Ask", doc.ID, t)
 	}
-	line := fmt.Sprintf("- %s %s: %s: %s", d.Store.Now().UTC().Format(time.RFC3339), d.Store.Info().Actor, what, result)
-	if src := cleanList(in.Sources); len(src) > 0 {
-		line += " (sources: " + strings.Join(src, "; ") + ")"
-	}
-	if strings.Contains(doc.Body, "\n## Attempts\n") || strings.HasPrefix(doc.Body, "## Attempts\n") {
-		doc.Body += "\n" + line
-	} else {
-		doc.Body = appendSection(doc.Body, "Attempts", line)
-	}
+	addAttemptLine(&doc, attemptLine(d, what, result, in.Sources))
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return AttemptAddOutput{}, fmt.Errorf("attempt_add: %w", err)
 	}
 	return AttemptAddOutput{ID: doc.ID, Rev: saved.Rev}, nil
 })
+
+// attemptLine is one line of an Attempts section: when, who, what, and the result.
+func attemptLine(d Deps, what, result string, sources []string) string {
+	line := fmt.Sprintf("- %s %s: %s: %s", d.Store.Now().UTC().Format(time.RFC3339), d.Store.Info().Actor, what, result)
+	if src := cleanList(sources); len(src) > 0 {
+		line += " (sources: " + strings.Join(src, "; ") + ")"
+	}
+	return line
+}
+
+// addAttemptLine appends a line to the Attempts section of a document body.
+func addAttemptLine(doc *model.Document, line string) {
+	if strings.Contains(doc.Body, "\n## Attempts\n") || strings.HasPrefix(doc.Body, "## Attempts\n") {
+		doc.Body += "\n" + line
+		return
+	}
+	doc.Body = appendSection(doc.Body, "Attempts", line)
+}
 
 // DocEditInput is the input of doc_edit. Fields left out stay as they are. Fields
 // are frontmatter keys the type declares and a person may change; a null value

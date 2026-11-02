@@ -108,6 +108,8 @@ var Inputs = map[string]string{
 	"rfx_show":                  `{"id":"rfx-sample"}`,
 	"rfx_status":                `{"id":"rfx-sample","status":"answered"}`,
 	"rfx_target_add":            `{"id":"rfx-sample","to":"person-sample","medium":"slack"}`,
+	"rfx_paths":                 `{"id":"rfx-sample"}`,
+	"rfx_path_add":              `{"id":"rfx-sample","to":"person-sample","medium":"phone","reason":"no_response","why":"No reply by chat in a week.","nudge":"2026-11-12"}`,
 	"rfx_target_state":          `{"id":"rfx-sample","to":"person-sample","state":"sent","date":"2026-11-01"}`,
 	"request_add":               `{"title":"Summarize the sample goal","ask":"Summarize the sample project","links":["project-sample"]}`,
 	"request_cancel":            `{"id":"request-sample"}`,

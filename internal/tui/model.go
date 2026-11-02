@@ -71,6 +71,8 @@ type page struct {
 	item  string
 	// receipt is the id of the receipt a text page shows.
 	receipt string
+	// paths is the path log a text page shows, so Take move can use it.
+	paths *ops.RFXPathsOutput
 }
 
 type tabState struct{ cursor, offset int }
@@ -490,6 +492,10 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.findContext()
 	case "editnote":
 		return m.editNote()
+	case "paths":
+		return m.showPaths()
+	case "take":
+		return m.takeMove()
 	case "later":
 		return m.later()
 	case "cut":

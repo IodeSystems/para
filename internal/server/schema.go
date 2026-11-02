@@ -91,6 +91,8 @@ type Meta struct {
 	Aliases         []string           `json:"aliases,omitempty"`
 	Contacts        []model.Contact    `json:"contacts,omitempty"`
 	Groups          []string           `json:"groups,omitempty"`
+	AwayUntil       string             `json:"away_until,omitempty"`
+	QuietDays       int                `json:"quiet_days,omitempty"`
 	Kind            string             `json:"kind,omitempty"`
 	Date            string             `json:"date,omitempty"`
 	Medium          model.Medium       `json:"medium,omitempty"`
@@ -176,6 +178,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
 	addEnum(reg, model.TaskOutcomes)
+	addEnum(reg, model.FrictionReasons)
 	addEnum(reg, model.RFXDirections)
 	addEnum(reg, model.RFXStatuses)
 	addEnum(reg, model.Fidelities)

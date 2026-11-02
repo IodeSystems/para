@@ -200,6 +200,13 @@ func newRFXCmd(l *loader) *cobra.Command {
 			},
 		}),
 		newRFXTargetCmd(l),
+		opCommand(l, ops.RFXPaths, binding[ops.RFXPathsInput, ops.RFXPathsOutput]{
+			Use:  "paths <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.RFXPathsInput) error { in.ID = args[0]; return nil },
+			Text: writePaths,
+		}),
+		newRFXPathCmd(l),
 	)
 	return cmd
 }
@@ -237,6 +244,9 @@ func newRFXTargetCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Medium), "via", "", "medium, when the target has several")
 				fs.StringVar(&in.Ref, "ref", "", "thread or ticket URL or id")
 				fs.StringVar(&in.Date, "date", "", "YYYY-MM-DD it was sent; default today")
+				fs.StringVar((*string)(&in.Reason), "reason", "", "friction code of a stall: "+reasonList+" (no_reply records no_response)")
+				fs.StringVar(&in.Why, "why", "", "the reason in words")
+				fs.StringVar(&in.About, "about", "", "policy, exception, or domain that applies")
 			},
 			Bind: func(args []string, in *ops.RFXTargetStateInput) error {
 				in.ID, in.To, in.State = args[0], args[1], model.TargetState(args[2])
@@ -247,6 +257,59 @@ func newRFXTargetCmd(l *loader) *cobra.Command {
 	)
 	return cmd
 }
+
+func newRFXPathCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "path", Short: "Next moves on a stalled ask", Args: cobra.NoArgs}
+	cmd.AddCommand(opCommand(l, ops.RFXPathAdd, binding[ops.RFXPathAddInput, ops.RFXPathAddOutput]{
+		Use:  "add <rfx-id> <to>",
+		Args: cobra.ExactArgs(2),
+		Flags: func(fs *pflag.FlagSet, in *ops.RFXPathAddInput) {
+			fs.StringVar((*string)(&in.Medium), "medium", "", "how it goes: "+mediumList)
+			fs.StringVar(&in.Value, "value", "", "address or handle; default the person's preferred contact")
+			fs.StringVar((*string)(&in.Reason), "reason", "", "why it moves: "+reasonList)
+			fs.StringVar(&in.Why, "why", "", "the reason in one line")
+			fs.StringVar(&in.About, "about", "", "policy, exception, or domain that applies")
+			fs.StringVar(&in.Nudge, "nudge", "", "new follow-up date YYYY-MM-DD")
+			fs.BoolVar(&in.Override, "override", false, "repeat inside the person's away_until or quiet_days (a person only)")
+		},
+		Bind: func(args []string, in *ops.RFXPathAddInput) error { in.ID, in.To = args[0], args[1]; return nil },
+		Text: func(w io.Writer, out ops.RFXPathAddOutput) error {
+			if out.Held != "" {
+				if _, err := fmt.Fprintf(w, "override: %s\n", out.Held); err != nil {
+					return err
+				}
+			}
+			return writeTargets(w, ops.RFXTargetOutput{Targets: out.Targets})
+		},
+	}))
+	return cmd
+}
+
+func writePaths(w io.Writer, out ops.RFXPathsOutput) error {
+	p := &printer{w: w}
+	p.f("%s\t%s\t%s\n", out.ID, out.Status, out.Title)
+	if out.Stalled {
+		p.f("stalled\t%s\n", out.StalledWhy)
+	}
+	for _, e := range out.Log {
+		p.f("tried\t%s\t%s\t%s\tadded %s\tsent %s\t%s\tasked %d times, last %s\n", e.To, e.Medium, e.State, dash(e.Added), dash(e.Sent), dash(string(e.Reason)), e.Contacts, dash(e.Last))
+	}
+	for _, m := range out.Moves {
+		hold := ""
+		if m.Hold != "" {
+			hold = "\tHELD: " + m.Hold
+		}
+		p.f("move\t%s\t%s%s\n", m.Kind, m.Label, hold)
+		p.f("\t%s\n", m.Why)
+		if m.Command != "" {
+			p.f("\t$ %s\n", m.Command)
+		}
+	}
+	return p.err
+}
+
+// reasonList is the list of friction codes for flag help.
+var reasonList = strings.Join(strs(model.FrictionReasons), ", ")
 
 // mediumList is the list of media for flag help.
 var mediumList = strings.Join(strs(model.Mediums), ", ")

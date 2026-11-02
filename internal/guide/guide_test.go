@@ -180,3 +180,12 @@ func TestGuideNamesResolveAndDelegate(t *testing.T) {
 		}
 	}
 }
+
+func TestGuideNamesNextMoves(t *testing.T) {
+	text := flat(texts()["extended"])
+	for _, w := range []string{"para rfx paths", "para rfx path add", "away_until", "quiet_days", "wrong_owner", "--override", "rfx_path_add"} {
+		if !strings.Contains(text, w) {
+			t.Errorf("extended lacks %q", w)
+		}
+	}
+}

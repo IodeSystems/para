@@ -501,6 +501,40 @@ try {
       .catch(() => false)) || (await page.getByText(person).first().isVisible()),
     'RFX page shows the target',
   )
+  // AP: next moves on a second ask; take a meeting move with a reason.
+  const rfx2 = idOf(
+    para(
+      ...v,
+      'rfx',
+      'add',
+      'Stalled quota question',
+      '--to',
+      person,
+      '--via',
+      'email',
+      '--route',
+      domain,
+      '--self-serve',
+      'read the wiki',
+      '--json',
+    ),
+  )
+  await page.goto(`${base}/rfx/${rfx2}`)
+  await page.getByRole('heading', { name: 'Next moves' }).waitFor()
+  await page.getByRole('button', { name: 'Take' }).first().click()
+  const take = page.getByRole('dialog')
+  await take.getByLabel('Why, in one line').fill('No answer by email.')
+  await take.getByRole('button', { name: 'Add to ask' }).click()
+  await take.waitFor({ state: 'hidden' })
+  {
+    const ts = JSON.parse(para(...v, 'rfx', 'show', rfx2, '--json')).targets ?? []
+    check(
+      ts.length === 2 && ts[1].reason === 'no_response' && ts[1].medium === 'meeting',
+      'a next move adds a target with a reason',
+    )
+  }
+  await page.goto(`${base}/rfx/${rfx}`)
+  await page.getByRole('heading', { name: 'Need the staging quota raised' }).waitFor()
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base })
   await page.getByRole('button', { name: 'Copy for chair swivel' }).click()
   await page.getByRole('button', { name: 'Copied' }).waitFor()

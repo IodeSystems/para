@@ -212,6 +212,12 @@ To align on a schedule, make it a recurring task for the agent, as above. When i
   $ para attempt add task-a --what "Asked in chat" --result "No reply"
 doc rename rewrites every link to the file and refuses an id that is taken. doc retype moves the document to its type's folder and keeps keys that do not apply as extra frontmatter. Agents file these in a proposal; a script would go around the review.
 
+23. Stalled asks: next moves
+  $ para rfx paths rfx-example
+  $ para rfx path add rfx-example person-bo-example --medium email --reason wrong_owner --why "Ada does not own the quota" --nudge 2026-12-01
+  $ para rfx target state rfx-example person-ada-example no_reply --reason capacity --why "On leave"
+An ask keeps a path log: each target is a try, with the medium, when it was added and sent, and how it went. rfx paths lists it, and when the ask is stalled (every target unanswered, the follow-up date passed, or a send a week old) it lists the next moves: other contact methods for the person, ranked by the preferred contact and by what their notes say; someone else with the same domain role, team, or group; an introduction; a meeting or call; self-serve again; a blocker. Each line shows how many times and how lately the person was asked across all asks. rfx path add takes a move as a new target on the same ask, with a reason code (wrong_owner, no_owner, policy_conflict, policy_unclear, no_response, capacity, needs_approval, tool_gap, other), a reason in words, optionally the policy, exception, or domain it is about (--about), and a new follow-up date; it records the attempt in the ask. Para sends nothing: you send it. A person's structured away_until and quiet_days (set with doc edit) hold a repeat back; only a person can pass --override. Notes in the body are not read for this. An agent can draft the next move as a proposal item for rfx_path_add. The TUI key is n (Next moves) on an Ask, with Take move on the page; the web app shows Next moves on the ask page. target state no_reply records no_response unless you give another reason.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
