@@ -9,6 +9,7 @@
 # secrets
 *.secret.properties
 *.secret.env
+dev.local.env
 
 # JS
 node_modules

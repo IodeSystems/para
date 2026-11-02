@@ -6,14 +6,20 @@
 #   bin/dev --stop     stop the detached stack
 #   bin/dev --status   running or not, with pgid and ports
 #
+# dev.local.env (gitignored, optional) is sourced first. Set UI_HOST there to
+# listen on another address, such as a LAN IP. See dev.local.env.example.
+#
 # No server exists yet, so this runs Vite only. When `para serve` lands, add
 # air for the Go side here (DEV-7); API_PORT is already exported for the proxy.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+[ -f dev.local.env ] && . ./dev.local.env
+
 API_PORT="${API_PORT:-7700}"   # para serve
 UI_PORT=$((API_PORT + 1))      # DEV-2
-export API_PORT UI_PORT
+UI_HOST="${UI_HOST:-127.0.0.1}"
+export API_PORT UI_PORT UI_HOST
 
 PIDFILE=tmp/dev.pid
 LOG=tmp/dev.log
@@ -57,12 +63,12 @@ stop() {
 detach=0 child=0
 for arg in "$@"; do
   case "$arg" in
-    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \?//'; exit 0 ;;
     -d|--detach|--detatch) detach=1 ;;
     --run) child=1 ;;
     --stop) stop; exit 0 ;;
     --status)
-      if running; then echo "running (pgid $(cat "$PIDFILE"))  ui :$UI_PORT  api :$API_PORT (not started yet)"
+      if running; then echo "running (pgid $(cat "$PIDFILE"))  ui $UI_HOST:$UI_PORT  api :$API_PORT (not started yet)"
       else echo "not running  (ui :$UI_PORT)"; fi
       exit 0 ;;
     *) echo "bin/dev: unknown option '$arg'" >&2; exit 2 ;;
@@ -76,7 +82,7 @@ if [ "$child" = 0 ]; then
   need pnpm '' pnpm
   need lsof lsof lsof
   need setsid util-linux util-linux
-  echo "==> ui :$UI_PORT (vite). api :$API_PORT: no server yet." >&2
+  echo "==> ui http://$UI_HOST:$UI_PORT (vite). api :$API_PORT: no server yet." >&2
 fi
 
 if [ "$detach" = 1 ]; then # DEV-4
@@ -88,8 +94,22 @@ if [ "$detach" = 1 ]; then # DEV-4
 fi
 
 ps -o pgid= -p $$ | tr -d ' ' > "$PIDFILE"
-trap 'rm -f "$PIDFILE"; kill 0 2>/dev/null || true' EXIT INT TERM
 free_port "$UI_PORT"
 cd ui
 [ -d node_modules ] || pnpm install # DEV-6
-pnpm dev
+
+# Vite runs in the background so a signal reaches this trap at once; bash runs
+# a trap only after a foreground child exits. Only Vite is signalled: `kill 0`
+# would also hit a parent shell in the same process group.
+cleanup() {
+  trap - EXIT INT TERM
+  rm -f "../$PIDFILE"
+  kill "$vite" 2>/dev/null || true
+  for _ in $(seq 1 30); do kill -0 "$vite" 2>/dev/null || exit 0; sleep 0.1; done
+  kill -9 "$vite" 2>/dev/null || true
+  exit 0
+}
+node_modules/.bin/vite </dev/null &
+vite=$!
+trap cleanup EXIT INT TERM
+wait "$vite"
