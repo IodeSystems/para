@@ -86,13 +86,18 @@ func (l *loader) deps() (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, err
 	}
+	return l.depsFor(sel.ID, sel.Path)
+}
+
+// depsFor opens the vault id at path as the CLI.
+func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 	install, err := l.install.ID()
 	if err != nil {
 		return ops.Deps{}, err
 	}
-	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(sel.ID)})
+	s, err := local.Open(path, vault.Options{ID: id, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(id)})
 	if err != nil {
-		return ops.Deps{}, fmt.Errorf("vault %s: %w", sel.ID, err)
+		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}
 	return ops.Deps{Store: s}, nil
 }
@@ -189,6 +194,7 @@ func newRoot(l *loader) *cobra.Command {
 		newSchemaCmd(l),
 		newServiceCmd(l),
 		newDoctorCmd(l),
+		newTickCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root

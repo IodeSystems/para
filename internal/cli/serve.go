@@ -34,6 +34,7 @@ const (
 	serverConfig = "server.properties" // in $PARA_HOME: per machine, never synced
 	keyProxies   = "net.trusted_proxies"
 	keyBases     = "net.base_hosts"
+	keyTick      = "tick.interval" // a duration such as 1m, or off
 )
 
 type serveFlags struct {
@@ -50,6 +51,7 @@ type serveConfig struct {
 	bases   []string
 	bare    string
 	web     http.Handler
+	tick    time.Duration // 0 means no tick timer
 }
 
 func newServeCmd(l *loader) *cobra.Command {
@@ -111,7 +113,11 @@ func loadServeConfig(l *loader, f serveFlags) (serveConfig, error) {
 	if err != nil {
 		return serveConfig{}, fmt.Errorf("serve: %w", err)
 	}
-	out := serveConfig{proxies: proxies, bases: append(splitList(cfg[keyBases]), f.bases...), bare: l.vaultFlag}
+	tick, err := parseTickInterval(cfg[keyTick])
+	if err != nil {
+		return serveConfig{}, fmt.Errorf("serve: %w", err)
+	}
+	out := serveConfig{proxies: proxies, bases: append(splitList(cfg[keyBases]), f.bases...), bare: l.vaultFlag, tick: tick}
 	if out.bare != "" {
 		if _, err := l.install.Select(out.bare, ""); err != nil {
 			return serveConfig{}, fmt.Errorf("serve: --vault: %w", err)
@@ -134,6 +140,26 @@ func loadServeConfig(l *loader, f serveFlags) (serveConfig, error) {
 	}
 	out.web = webui.Handler(webFS)
 	return out, nil
+}
+
+// parseTickInterval reads tick.interval: empty means a minute, off or 0 means
+// no timer, anything else is a duration of at least ten seconds.
+func parseTickInterval(v string) (time.Duration, error) {
+	v = strings.TrimSpace(v)
+	switch strings.ToLower(v) {
+	case "":
+		return server.DefaultTickInterval, nil
+	case "off", "0":
+		return 0, nil
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return 0, fmt.Errorf("%s %q: want a duration such as 1m, or off: %w", keyTick, v, err)
+	}
+	if d < server.MinTickInterval {
+		return 0, fmt.Errorf("%s %q: at least %s", keyTick, v, server.MinTickInterval)
+	}
+	return d, nil
 }
 
 func splitList(s string) []string {
@@ -227,6 +253,17 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	defer stop()
 	done := make(chan error, 1)
 	go func() { done <- hs.Serve(ln) }()
+	tickDone := make(chan struct{})
+	if cfg.tick > 0 {
+		go func() {
+			defer close(tickDone)
+			server.NewTicker(hub, cfg.tick).Run(ctx)
+		}()
+		log.Info("tick timer on", "every", cfg.tick.String())
+	} else {
+		close(tickDone)
+		log.Info("tick timer off")
+	}
 	log.Info("para serving", "addr", ln.Addr().String(), "vaults", strings.Join(ids, ","), "version", l.version)
 	log.Info("to sign in as admin, run: para serve login" + loginVaultHint(cfg.bare, ids) + " (the token is never logged)")
 	select {
@@ -241,6 +278,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return fmt.Errorf("serve: shutdown: %w", err)
 	}
 	<-relayDone
+	<-tickDone
 	if err := <-done; !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve: %w", err)
 	}

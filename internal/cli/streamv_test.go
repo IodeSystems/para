@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/registry"
 )
 
 // streamVParityCases are the parity rows of stream V: meetings, agenda. A
@@ -193,4 +195,100 @@ func TestAgendaAndCalendarCLI(t *testing.T) {
 		t.Error("a refused export wrote a file")
 	}
 	e.ok("calendar", "export")
+}
+
+func TestTickCLI(t *testing.T) {
+	e := newEnv(t)
+	acme := e.init("acme")
+	e.init("beta")
+	id, err := registry.Install{Home: e.home}.ID()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// No runner named: the single-vault command fails and says what to add.
+	_, _, err = e.run("tick", "--vault", "acme")
+	if err == nil || !strings.Contains(err.Error(), "request.runner="+id) {
+		t.Fatalf("err = %v", err)
+	}
+	props := filepath.Join(acme, ".para", "vault.properties")
+	cur, _ := os.ReadFile(props)
+	if err := os.WriteFile(props, append(cur, []byte("request.runner="+id+"\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var project ops.ProjectAddOutput
+	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example", "--vault", "acme")
+	var task ops.TaskAddOutput
+	e.json(&task, "task", "add", "Rotate disks", "-p", project.ID, "--due", "2026-01-01", "--recur", "monthly", "--vault", "acme")
+	// Mark it done by hand.
+	file := filepath.Join(acme, "projects", task.ID+".md")
+	raw, _ := os.ReadFile(file)
+	if err := os.WriteFile(file, []byte(strings.Replace(string(raw), "status: todo", "status: done", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out := e.ok("tick", "--vault", "acme")
+	if !strings.Contains(out, "acme\tran\trevived 1") {
+		t.Fatalf("tick = %q", out)
+	}
+	if again := e.ok("tick", "--vault", "acme"); !strings.Contains(again, "revived 0\trequests 0") {
+		t.Fatalf("second tick = %q", again)
+	}
+	// --all: beta names no runner, so the run fails, and acme is still ticked.
+	var all struct {
+		Vaults []ops.TickOutput `json:"vaults"`
+	}
+	stdout, _, err := e.run("tick", "--all", "--json")
+	if err == nil || !strings.Contains(err.Error(), "1 vaults failed") {
+		t.Fatalf("err = %v", err)
+	}
+	if err := json.Unmarshal([]byte(stdout), &all); err != nil {
+		t.Fatalf("%v: %s", err, stdout)
+	}
+	if len(all.Vaults) != 2 || !all.Vaults[0].Ran || !all.Vaults[1].NoRunner {
+		t.Fatalf("all = %+v", all.Vaults)
+	}
+	text, _, _ := e.run("tick", "--all")
+	if !strings.Contains(text, "acme\tran") || !strings.Contains(text, "beta\tskipped: vault beta names no runner") {
+		t.Fatalf("text = %q", text)
+	}
+	e.ok("lint", "--vault", "acme")
+}
+
+func TestParseTickInterval(t *testing.T) {
+	for _, c := range []struct {
+		in      string
+		want    time.Duration
+		wantErr string
+	}{
+		{"", time.Minute, ""},
+		{"  ", time.Minute, ""},
+		{"30s", 30 * time.Second, ""},
+		{"5m", 5 * time.Minute, ""},
+		{"off", 0, ""},
+		{"OFF", 0, ""},
+		{"0", 0, ""},
+		{"5s", 0, "at least 10s"},
+		{"-1m", 0, "at least"},
+		{"soon", 0, "want a duration"},
+	} {
+		got, err := parseTickInterval(c.in)
+		if c.wantErr != "" {
+			if err == nil || !strings.Contains(err.Error(), c.wantErr) {
+				t.Errorf("%q: err = %v, want %q", c.in, err, c.wantErr)
+			}
+			continue
+		}
+		if err != nil || got != c.want {
+			t.Errorf("%q = %v, %v; want %v", c.in, got, err, c.want)
+		}
+	}
+	// A bad value in server.properties stops serve --check, so a service unit
+	// does not loop on it.
+	e := newEnv(t)
+	e.init("acme")
+	if err := os.WriteFile(filepath.Join(e.home, serverConfig), []byte("tick.interval=often\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.run("serve", "--check"); err == nil || !strings.Contains(err.Error(), "tick.interval") {
+		t.Errorf("serve --check err = %v", err)
+	}
 }
