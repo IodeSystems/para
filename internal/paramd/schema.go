@@ -16,6 +16,7 @@ const (
 	kPointers  // list of {label, kind, target} maps
 	kTargets   // list of rfx target maps
 	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
+	kCount     // integer, 1 or more
 )
 
 type field struct {
@@ -45,13 +46,14 @@ var (
 	severities      = []string{"sev1", "sev2", "sev3"}
 	incidentStatus  = []string{"open", "mitigated", "resolved"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
+	proposalStatus  = []string{"open", "sent_back", "closed", "superseded"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area", "note", "incident",
+	"group", "interaction", "request", "area", "note", "incident", "proposal",
 }
 
 // commonFields apply to every type.
@@ -159,6 +161,13 @@ var typeFields = map[string][]field{
 		{Name: "lease_until", Kind: kTimestamp},
 		{Name: "links", Kind: kLinkList},
 		{Name: "result_links", Kind: kLinkList},
+	},
+	"proposal": {
+		{Name: "source", Kind: kLink, Required: true},
+		{Name: "status", Kind: kEnum, Enum: proposalStatus, Required: true},
+		{Name: "revision", Kind: kCount, Required: true},
+		{Name: "supersedes", Kind: kLink},
+		{Name: "proposed_by", Kind: kString, Required: true},
 	},
 	"team": {
 		{Name: "org", Kind: kString, Required: true},

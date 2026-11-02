@@ -24,3 +24,12 @@ func (v *Vault) Egress(ctx context.Context, doc, dest string) (egress.Decision, 
 	}
 	return d, nil
 }
+
+// Record appends one event under the vault lock: one writer per event file.
+func (v *Vault) Record(ctx context.Context, op, doc, from, to, hash string) error {
+	err := v.lock(ctx, func() error { return v.log.AppendHash(op, doc, from, to, hash) })
+	if err != nil {
+		return fmt.Errorf("vault: record: %w", err)
+	}
+	return nil
+}

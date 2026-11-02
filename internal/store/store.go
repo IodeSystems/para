@@ -30,6 +30,9 @@ type Info struct {
 type Store interface {
 	// Info returns the identity the Store was opened with.
 	Info() Info
+	// ActAs returns this Store acting for another actor and surface. An approved
+	// proposal item runs through it, under the actor that proposed it.
+	ActAs(actor, surface string) Store
 	// Now returns the Store's clock, so lease times follow one clock.
 	Now() time.Time
 	// Config returns a vault.properties value, or "" when the key is unset.
@@ -58,6 +61,9 @@ type Store interface {
 	// an egress event with the doc id and destination. Callers release content
 	// only after it returns.
 	Egress(ctx context.Context, doc, dest string) (egress.Decision, error)
+	// Record logs one event that no write logs by itself, such as a change of
+	// one item inside a proposal. It takes ids, states, and hashes, never content.
+	Record(ctx context.Context, op, doc, from, to, hash string) error
 	// Search returns up to limit hits for query, best first. It first brings
 	// the search index up to date with the documents.
 	Search(ctx context.Context, query string, limit int) ([]index.Hit, error)

@@ -349,6 +349,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Note{Common: c}, true
 	case TypeIncident:
 		return &Incident{Common: c}, true
+	case TypeProposal:
+		return &Proposal{Common: c}, true
 	}
 	return nil, false
 }

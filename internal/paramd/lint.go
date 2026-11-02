@@ -244,6 +244,10 @@ func (l *linter) checkValue(fd field, v any) {
 		if _, ok := v.(bool); !ok {
 			bad("must be true or false, got %v", v)
 		}
+	case kCount:
+		if n, ok := v.(int); !ok || n < 1 {
+			bad("must be a whole number, 1 or more, got %v", v)
+		}
 	case kEnum:
 		s, _ := v.(string)
 		for _, e := range fd.Enum {

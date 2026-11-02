@@ -26,6 +26,7 @@ const (
 	TypeArea            Type = "area"
 	TypeNote            Type = "note"
 	TypeIncident        Type = "incident"
+	TypeProposal        Type = "proposal"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -33,7 +34,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident,
+	TypeArea, TypeNote, TypeIncident, TypeProposal,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -54,13 +55,14 @@ const (
 	FolderInteractions Folder = "interactions"
 	FolderRequests     Folder = "requests"
 	FolderIncidents    Folder = "incidents"
+	FolderProposals    Folder = "proposals"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
-	FolderInteractions, FolderRequests, FolderIncidents,
+	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals,
 }
 
 // Valid reports whether f is a document folder.

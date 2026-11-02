@@ -42,6 +42,9 @@ func (s *Store) As(actor, surface string) *Store {
 	return &Store{v: v, log: v.Log(), root: s.root}
 }
 
+// ActAs is As behind the store.Store interface.
+func (s *Store) ActAs(actor, surface string) store.Store { return s.As(actor, surface) }
+
 func (s *Store) VaultID() string { return s.v.ID() }
 
 func (s *Store) Info() store.Info {
@@ -82,6 +85,10 @@ func (s *Store) Events(_ context.Context, n int) ([]model.Event, error) { return
 
 func (s *Store) Egress(ctx context.Context, doc, dest string) (egress.Decision, error) {
 	return s.v.Egress(ctx, doc, dest)
+}
+
+func (s *Store) Record(ctx context.Context, op, doc, from, to, hash string) error {
+	return s.v.Record(ctx, op, doc, from, to, hash)
 }
 
 // indexPath is the search cache, in the state dir and never in the vault
