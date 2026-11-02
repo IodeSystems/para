@@ -48,6 +48,9 @@ type Options struct {
 	// ReadOnly opens a vault for reading only: no StateDir or Install needed,
 	// and every write returns an error.
 	ReadOnly bool
+	// Warn receives non-fatal notes from reading the event log (a partial last
+	// line from a sync in flight). Nil means stderr.
+	Warn func(string)
 }
 
 // Vault is an open vault.
@@ -95,7 +98,7 @@ func Open(root string, o Options) (*Vault, error) {
 		o.Now = time.Now
 	}
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
-		Vault: id, Install: o.Install, Actor: o.Actor, Surface: o.Surface, Now: o.Now,
+		Vault: id, Install: o.Install, Actor: o.Actor, Surface: o.Surface, Now: o.Now, Warn: o.Warn,
 	})
 	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install}, nil
 }

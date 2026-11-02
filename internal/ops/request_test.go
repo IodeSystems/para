@@ -47,7 +47,7 @@ func (rv *reqVault) as(actor, surface, install string) Deps {
 	s, err := local.Open(rv.root, vault.Options{
 		ID: "acme", Actor: actor, Surface: surface, Install: install,
 		StateDir: filepath.Join(filepath.Dir(rv.root), "state-"+install),
-		Now: func() time.Time { return time.Unix(0, rv.now.Load()).UTC() },
+		Now:      func() time.Time { return time.Unix(0, rv.now.Load()).UTC() },
 	})
 	if err != nil {
 		rv.t.Fatal(err)

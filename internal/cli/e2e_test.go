@@ -452,3 +452,34 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestInitNoGit(t *testing.T) {
+	e := newEnv(t)
+	path := filepath.Join(e.dir, "ng")
+	e.ok("init", "ng", path, "--no-git")
+	if _, err := os.Stat(filepath.Join(path, ".git")); err == nil {
+		t.Fatal("git init ran")
+	}
+	ign, _ := os.ReadFile(filepath.Join(path, ".gitignore"))
+	if !strings.Contains(string(ign), ".para/*") || !strings.Contains(string(ign), "!.para/vault.properties") {
+		t.Fatalf(".gitignore = %q", ign)
+	}
+	if left, _ := os.ReadDir(filepath.Join(path, ".para")); len(left) != 1 {
+		t.Fatalf(".para holds %v", left)
+	}
+	if _, err := os.Stat(filepath.Join(e.home, "vaults", "ng", "manifest.json")); err != nil {
+		t.Fatalf("manifest not in state dir: %v", err)
+	}
+}
+
+func TestTodayShowsSyncConflicts(t *testing.T) {
+	e := newEnv(t)
+	path := e.init("acme")
+	os.WriteFile(filepath.Join(path, "inbox", "x (1).md"), []byte("c"), 0o600)
+	if out := e.ok("today"); !strings.Contains(out, "sync-conflict\tinbox/x (1).md") {
+		t.Fatalf("today = %q", out)
+	}
+	if out := e.ok("lint"); !strings.Contains(out, "sync-conflict") {
+		t.Fatalf("lint = %q", out)
+	}
+}
