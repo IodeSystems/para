@@ -68,7 +68,25 @@ type Hit struct {
 	Via string `json:"via,omitempty"`
 	// Caveat says why a meaning hit's text is not the document's own words.
 	Caveat string `json:"caveat,omitempty"`
+	// Snippet is Passage for a reader: no match markers, links written as the
+	// titles they point at. Marks are the matched words in it, counted in runes
+	// (Unicode code points) from the start of Snippet. Set by ops.Search.
+	Snippet string `json:"snippet"`
+	Marks   []Span `json:"marks,omitempty"`
 }
+
+// Span is a half-open range [Start, End) of runes in a snippet.
+type Span struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
+}
+
+// The markers the index puts around matched words in Passage. ops.Search
+// strips them; nothing else should show them.
+const (
+	MarkOpen  = "<<"
+	MarkClose = ">>"
+)
 
 // Stats says what a Rebuild or sync did.
 type Stats struct {
@@ -408,7 +426,7 @@ func (ix *Index) Find(ctx context.Context, src Source, in Query) ([]Hit, error) 
 	args = append(args, limit)
 	rs, err := ix.db.QueryContext(ctx, `
 SELECT d.id, d.title, d.path, d.kind, d.source_url, d.unverified,
-       snippet(fts, -1, '<<', '>>', ' ... ', 24), bm25(fts)
+       snippet(fts, -1, '`+MarkOpen+`', '`+MarkClose+`', ' ... ', 24), bm25(fts)
 FROM fts JOIN docs d ON d.rowid = fts.rowid
 WHERE `+strings.Join(where, " AND ")+`
 ORDER BY bm25(fts), d.id

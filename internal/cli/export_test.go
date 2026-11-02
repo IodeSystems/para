@@ -70,7 +70,7 @@ func TestExportFormatsToStdout(t *testing.T) {
 	e.init("acme")
 	pol := e.ingest(exportDoc)
 	for as, want := range map[string]string{
-		"plain": "Unverified summary stub",
+		"plain": "Summary not written yet",
 		"md":    "# ",
 		"email": "Subject: [UNMARKED] ",
 		"slack": "*Rules*",

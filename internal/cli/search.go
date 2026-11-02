@@ -55,7 +55,7 @@ func newSearchCmd(l *loader) *cobra.Command {
 				if h.Match != "" {
 					label += ", " + h.Match
 				}
-				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t[%s]\n    %s\n", h.ID, h.Title, h.Path, label, h.Passage); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t[%s]\n    %s\n", h.ID, h.Title, h.Path, label, h.Snippet); err != nil {
 					return err
 				}
 				if h.Via != "" {

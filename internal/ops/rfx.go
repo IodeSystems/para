@@ -143,6 +143,9 @@ type RFXSummary struct {
 	Targets   []model.Target     `json:"targets"`
 	// Waiting is true while any target is sent and not answered.
 	Waiting bool `json:"waiting"`
+	// Names are for people. TargetNames has one entry per target: who it goes to.
+	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
+	TargetNames    []string `json:"target_names,omitempty" nameof:"Targets.To"`
 }
 
 func summarize(id, title string, m *model.RFX) RFXSummary {
@@ -221,6 +224,8 @@ type WaitingItem struct {
 	Due       bool     `json:"due"`        // next_nudge is today or earlier
 	Stalled   bool     `json:"stalled"`    // every target is no_reply: nobody answered, nobody is left to wait on
 	BlockedOn []string `json:"blocked_on"` // open RFX it depends on: do not nudge yet
+	// BlockedOnNames has one entry per BlockedOn, for people.
+	BlockedOnNames []string `json:"blocked_on_names,omitempty" nameof:"BlockedOn"`
 }
 
 // RFXWaitingOutput is the output of rfx_waiting.

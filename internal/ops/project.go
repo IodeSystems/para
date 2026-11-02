@@ -20,6 +20,8 @@ type ProjectView struct {
 	Area   string              `json:"area,omitempty"`
 	Links  []model.Pointer     `json:"links,omitempty"`
 	Rev    string              `json:"rev"`
+	// AreaName is the title of Area, for people.
+	AreaName string `json:"area_name,omitempty" nameof:"Area"`
 }
 
 func projectView(d model.Document) (ProjectView, error) {

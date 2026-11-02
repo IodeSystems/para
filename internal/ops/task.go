@@ -29,6 +29,13 @@ type TaskView struct {
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
+	// Names are for people: the title of what the id fields point at, "" when
+	// unknown. DependsOnNames has one entry per DependsOn.
+	ProjectName    string   `json:"project_name,omitempty" nameof:"Project"`
+	AreaName       string   `json:"area_name,omitempty" nameof:"Area"`
+	AssigneeName   string   `json:"assignee_name,omitempty" nameof:"Assignee"`
+	IncidentName   string   `json:"incident_name,omitempty" nameof:"Incident"`
+	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
 }
 
 func taskView(d model.Document) (TaskView, error) {

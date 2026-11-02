@@ -28,6 +28,14 @@ type Item struct {
 	Detail string `json:"detail,omitempty"`
 	// Blocks counts what waits on an open question, through any chain.
 	Blocks int `json:"blocks,omitempty"`
+	// Names, for people. Project is a task's project id, Scope a question's
+	// scope id ("root" for the vault); each has the title of what it points at.
+	// With is who a request goes to, by name.
+	Project     string   `json:"project,omitempty"`
+	ProjectName string   `json:"project_name,omitempty"`
+	Scope       string   `json:"scope,omitempty"`
+	ScopeName   string   `json:"scope_name,omitempty"`
+	With        []string `json:"with,omitempty"`
 }
 
 // Group is a counted list.
@@ -144,6 +152,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		limit = t.AddDate(0, 0, ExpiringDays).Format(dateLayout)
 		soon = t.AddDate(0, 0, DueSoonDays).Format(dateLayout)
 	}
+	titles := make(map[string]string, len(refs))
+	for _, r := range refs {
+		titles[r.ID] = r.Title
+	}
 	users := map[string][]string{} // id -> open tasks and requests that depend on it
 	for _, r := range refs {
 		switch r.Type {
@@ -169,6 +181,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 					scope = "root"
 				}
 				item.Detail = string(m.AsKind()) + " " + scope
+				item.Scope, item.ScopeName = scope, titles[scope]
 				vt.Questions.Items = append(vt.Questions.Items, item)
 			}
 		case *model.Incident:
@@ -186,6 +199,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 					users[l.Target()] = append(users[l.Target()], d.ID)
 				}
 			}
+			for _, t := range m.Targets {
+				if n := titles[t.To.Target()]; n != "" {
+					item.With = append(item.With, n)
+				}
+			}
 			if m.Status == model.RFXOpen && m.NextNudge != "" && string(m.NextNudge) <= date {
 				vt.Nudges.Items = append(vt.Nudges.Items, item)
 			}
@@ -201,6 +219,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 				vt.Unverified++
 			}
 		case *model.Task:
+			if item.Project = m.Project.Target(); item.Project == "" {
+				item.Project = m.Area.Target()
+			}
+			item.ProjectName = titles[item.Project]
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
 			if open {
 				for _, l := range m.DependsOn {

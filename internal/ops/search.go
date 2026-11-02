@@ -109,6 +109,8 @@ var Search = define("search", "Search documents, transcripts and summaries by te
 	if sem != nil {
 		out = sem.merge(ctx, d, q, limit, out)
 	}
+	n := &namer{ctx: ctx, s: d.Store}
+	readableHits(out.Hits, n.name)
 	return out, nil
 })
 

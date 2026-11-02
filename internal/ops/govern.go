@@ -143,6 +143,8 @@ type Rule struct {
 	ID     string     `json:"id"`
 	Text   string     `json:"text"`
 	Link   model.Link `json:"link"`
+	// PolicyName is the title of the policy, for people.
+	PolicyName string `json:"policy_name,omitempty" nameof:"Policy"`
 }
 
 // parseRules reads the rule lines of a policy body.

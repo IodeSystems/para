@@ -14,7 +14,7 @@ func TestJournalEndToEnd(t *testing.T) {
 	e := newEnv(t)
 	root := e.init("acme")
 	e.ok("inbox", "add", "synthetic capture")
-	day := time.Now().UTC().Format("2006-01-02")
+	day := time.Now().Format("2006-01-02")
 
 	var j ops.JournalOutput
 	e.json(&j, "journal", "daily", day)

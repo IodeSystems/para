@@ -358,6 +358,8 @@ type ProposalView struct {
 	ItemCount  int                  `json:"item_count"`
 	Pending    int                  `json:"pending"`         // items that wait for the owner
 	Error      string               `json:"error,omitempty"` // the file's block cannot be read
+	// SourceName is the title of the source document, for people.
+	SourceName string `json:"source_name,omitempty" nameof:"Source"`
 }
 
 func (p *proposal) view() ProposalView {
@@ -521,6 +523,10 @@ type ItemView struct {
 	Hash            string   `json:"hash"` // hash of the text as it stands; approval binds to this
 	OpenAnnotations int      `json:"open_annotations"`
 	Actions         []string `json:"actions"`
+	// Summary is one plain line for a person: what approving the item records,
+	// for example "Add task: Order extra node pool, for Priya Raman, due Nov 3".
+	// The full input is Input.
+	Summary string `json:"summary"`
 }
 
 // AnnotationView is an annotation. Anchored is false when its quote is no
@@ -618,6 +624,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 		out.SourceDoc.Title, out.SourceDoc.Body = src.Title, src.Body
 	}
 	text := map[string]string{}
+	sum := newItemSummarizer(ctx, d)
 	for i := range p.content.Items {
 		it := &p.content.Items[i]
 		hash, err := it.Hash()
@@ -625,7 +632,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 			return out, err
 		}
 		text[it.ID] = itemText(*it)
-		out.Items = append(out.Items, ItemView{ProposalItem: *it, Hash: hash, OpenAnnotations: p.openAnnotations(it.ID), Actions: p.actions(it)})
+		out.Items = append(out.Items, ItemView{ProposalItem: *it, Hash: hash, OpenAnnotations: p.openAnnotations(it.ID), Actions: p.actions(it), Summary: sum.of(*it)})
 	}
 	for _, a := range p.content.Annotations {
 		out.Annotations = append(out.Annotations, AnnotationView{Annotation: a, Anchored: strings.Contains(text[a.Item], a.Quote)})

@@ -44,6 +44,9 @@ func (m *memStore) Get(_ context.Context, id string) (model.Document, error) {
 	return d, nil
 }
 
+// Now is UTC, so the periods of these tests are the days of the stamps.
+func (m *memStore) Now() time.Time { return time.Now().UTC() }
+
 func (m *memStore) Events(context.Context, int) ([]model.Event, error) { return m.events, nil }
 
 // Create and Update log like the vault does: an event stamped now.
@@ -286,3 +289,29 @@ func TestJournalRollup(t *testing.T) {
 		t.Errorf("weekly after new daily: %+v\n%s", out, m.docs["2026-w45"].Body)
 	}
 }
+
+// A journal day is the owner's local day: an event at 23:30 local, which is
+// the next day in UTC, belongs to the local day.
+func TestJournalDayIsLocal(t *testing.T) {
+	loc := time.FixedZone("test", -8*3600)
+	m := &zoneStore{memStore: newMemStore(), loc: loc}
+	m.addNote("n1")
+	m.emit("2026-11-02T07:30:00Z", "create", "n1") // 23:30 on Nov 1 in -08:00
+	out, err := journal(context.Background(), Deps{Store: m}, JournalInput{Date: "2026-11-01"}, model.JournalDay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.ID != "2026-11-01" || out.Events != 1 {
+		t.Fatalf("journal %s with %d events, want 2026-11-01 with 1", out.ID, out.Events)
+	}
+	if body := m.docs["2026-11-01"].Body; !strings.Contains(body, "23:30") {
+		t.Errorf("activity is not in local time:\n%s", body)
+	}
+}
+
+type zoneStore struct {
+	*memStore
+	loc *time.Location
+}
+
+func (z *zoneStore) Now() time.Time { return time.Date(2026, 11, 1, 23, 45, 0, 0, z.loc) }

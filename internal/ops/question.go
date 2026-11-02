@@ -55,6 +55,8 @@ type QuestionView struct {
 	Blocks      []string             `json:"blocks"`
 	Blocking    int                  `json:"blocking"`
 	Rev         string               `json:"rev"`
+	// ScopeName is the title of Scope, for people. A root question has none.
+	ScopeName string `json:"scope_name,omitempty" nameof:"Scope"`
 }
 
 func questionOpen(v QuestionView) bool { return v.Status == model.QuestionOpen }

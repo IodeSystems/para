@@ -81,7 +81,7 @@ func ingest(ctx context.Context, d Deps, in IngestInput) (IngestOutput, error) {
 		ID:     in.ID,
 		Folder: model.FolderPolicies,
 		Title:  title,
-		Body:   stubBody(in.NoCopy, u, in.ID),
+		Body:   stubBody(),
 		Meta:   &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: src},
 	})
 	if err != nil {
@@ -114,15 +114,10 @@ func transcriptDoc(policy, title string, src model.Source, norm string) model.Do
 	}
 }
 
-func stubBody(noCopy bool, u, id string) string {
-	if noCopy {
-		return "Unverified summary stub. The source must not be copied; read it at " + u + ".\n\n" + rulesHead
-	}
-	link := "the transcript (same name, ending .source)"
-	if id != "" {
-		link = "the transcript [[" + transcriptID(id) + "]]"
-	}
-	return "Unverified summary stub. Quote " + link + " and cite " + u + ".\n\n" + rulesHead
+// stubBody is the summary of a policy that was just stored. It is for a person:
+// how an agent fills it in is in the orient prompt.
+func stubBody() string {
+	return "Summary not written yet. Read the source.\n\n" + rulesHead
 }
 
 // checkURL requires an absolute http(s) URL. A signed or credential query

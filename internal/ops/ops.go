@@ -80,6 +80,9 @@ func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
 	if err != nil {
 		return out, fmt.Errorf("%s: %w", o.name, err)
 	}
+	if needsNames(reflect.TypeFor[O]()) {
+		fillNames(ctx, d.Store, &out)
+	}
 	return out, nil
 }
 

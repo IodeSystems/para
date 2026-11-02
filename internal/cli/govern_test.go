@@ -97,7 +97,7 @@ func TestIngestRefreshFlow(t *testing.T) {
 		t.Errorf("transcript is not normalized:\n%q", transcript)
 	}
 	summary := readFile(t, summaryPath)
-	if !strings.Contains(summary, "verified: false") || !strings.Contains(summary, "Unverified summary stub") {
+	if !strings.Contains(summary, "verified: false") || !strings.Contains(summary, "Summary not written yet") {
 		t.Errorf("summary:\n%s", summary)
 	}
 
@@ -379,7 +379,7 @@ func TestCopy(t *testing.T) {
 		wants []string
 		nots  []string
 	}{
-		{"plain", []string{"[ACME INTERNAL]", "Unverified summary stub", "R1 " + pol.ID + ": Log every failure.", "Source: " + govURL}, []string{"type: policy", "---", "**", "^R1"}},
+		{"plain", []string{"[ACME INTERNAL]", "Summary not written yet", "R1 " + pol.ID + ": Log every failure.", "Source: " + govURL}, []string{"type: policy", "---", "**", "^R1"}},
 		{"email", []string{"Subject: [ACME INTERNAL] ", "[ACME INTERNAL]"}, []string{"type: policy", "---"}},
 		{"slack", []string{"*[ACME INTERNAL]*", "*Rules*", "• R1 "}, []string{"type: policy", "---"}},
 		{"jira", []string{"*[ACME INTERNAL]*", "h1. ", "h2. Rules", "* R1 "}, []string{"type: policy", "---"}},

@@ -17,7 +17,7 @@ import (
 
 // JournalInput is the input of journal_daily, journal_weekly, journal_monthly.
 type JournalInput struct {
-	Date string `json:"date,omitempty"` // YYYY-MM-DD inside the period; empty means today (UTC)
+	Date string `json:"date,omitempty"` // YYYY-MM-DD inside the period; empty means today (local time)
 }
 
 // JournalOutput is the output of the journal ops.
@@ -50,7 +50,7 @@ var JournalMonthly = define("journal_monthly", "Generate the monthly journal and
 	return journal(ctx, d, in, model.JournalMonth)
 })
 
-// period is one journal's span: [start, end) in UTC.
+// period is one journal's span: [start, end) in the location of the day given: local time.
 type period struct {
 	scope      model.JournalScope
 	id, title  string
@@ -58,14 +58,14 @@ type period struct {
 }
 
 func newPeriod(scope model.JournalScope, day time.Time) period {
-	day = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.UTC)
+	day = time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	switch scope {
 	case model.JournalWeek:
 		start := day.AddDate(0, 0, -((int(day.Weekday()) + 6) % 7))
 		y, w := start.ISOWeek()
 		return period{scope, fmt.Sprintf("%04d-w%02d", y, w), fmt.Sprintf("Week %04d-W%02d", y, w), start, start.AddDate(0, 0, 7)}
 	case model.JournalMonth:
-		start := time.Date(day.Year(), day.Month(), 1, 0, 0, 0, 0, time.UTC)
+		start := time.Date(day.Year(), day.Month(), 1, 0, 0, 0, 0, day.Location())
 		return period{scope, start.Format("2006-01"), "Month " + start.Format("2006-01"), start, start.AddDate(0, 1, 0)}
 	default:
 		return period{scope, day.Format(dateLayout), "Day " + day.Format(dateLayout), day, day.AddDate(0, 0, 1)}
@@ -93,10 +93,11 @@ func (p period) children() []period {
 }
 
 func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalScope) (JournalOutput, error) {
-	day := time.Now().UTC()
+	day := d.Store.Now()
+	loc := day.Location()
 	if in.Date != "" {
 		var err error
-		if day, err = time.Parse(dateLayout, in.Date); err != nil {
+		if day, err = time.ParseInLocation(dateLayout, in.Date, loc); err != nil {
 			return JournalOutput{}, fmt.Errorf("date %q: want YYYY-MM-DD", in.Date)
 		}
 	}
@@ -119,13 +120,13 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 		if r, ok := exist[e.Doc]; ok && r.Type == model.TypeJournal {
 			continue
 		}
-		if t := e.TS.UTC(); !t.Before(p.start) && t.Before(p.end) {
+		if t := e.TS.In(loc); !t.Before(p.start) && t.Before(p.end) {
 			in2 = append(in2, e)
 		}
 	}
 	sections := []section{{"summary", summaryLines(in2)}}
 	if scope == model.JournalDay {
-		sections = append(sections, section{"activity", activityLines(in2, exist)})
+		sections = append(sections, section{"activity", activityLines(in2, exist, loc)})
 	} else {
 		lines, err := rollupLines(ctx, d, p, exist)
 		if err != nil {
@@ -227,7 +228,7 @@ func summaryLines(evs []model.Event) []string {
 
 // activityLines lists events in order. A document that exists is a wikilink;
 // a gone one is a code span, so the journal never has a dead link.
-func activityLines(evs []model.Event, exist map[string]model.Ref) []string {
+func activityLines(evs []model.Event, exist map[string]model.Ref, loc *time.Location) []string {
 	if len(evs) == 0 {
 		return []string{"No activity."}
 	}
@@ -237,7 +238,7 @@ func activityLines(evs []model.Event, exist map[string]model.Ref) []string {
 		if _, ok := exist[e.Doc]; ok {
 			doc = "[[" + e.Doc + "]]"
 		}
-		l := fmt.Sprintf("- %s %s %s", e.TS.UTC().Format("15:04"), e.Op, doc)
+		l := fmt.Sprintf("- %s %s %s", e.TS.In(loc).Format("15:04"), e.Op, doc)
 		if e.Op != "external_edit" && (e.From != "" || e.To != "") {
 			l += fmt.Sprintf(" %s -> %s", orDash(e.From), orDash(e.To))
 		}

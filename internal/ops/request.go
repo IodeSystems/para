@@ -45,6 +45,8 @@ type RequestView struct {
 	ClaimedBy  string              `json:"claimed_by,omitempty"`
 	LeaseUntil string              `json:"lease_until,omitempty"`
 	Links      []string            `json:"links,omitempty"`
+	// LinkNames has one entry per link, for people.
+	LinkNames []string `json:"link_names,omitempty" nameof:"Links"`
 }
 
 // RequestDetail is a request with its body: the ask, notes, and result.

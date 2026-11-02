@@ -39,6 +39,10 @@ type GraphNode struct {
 	// the scope id or "root". An open question holds back what depends on it.
 	Kind  model.QuestionKind `json:"kind,omitempty"`
 	Scope string             `json:"scope,omitempty"`
+	// Names are the titles of Project, Area and Scope, for people.
+	ProjectName string `json:"project_name,omitempty" nameof:"Project"`
+	AreaName    string `json:"area_name,omitempty" nameof:"Area"`
+	ScopeName   string `json:"scope_name,omitempty" nameof:"Scope"`
 }
 
 // GraphEdge says From depends on To.

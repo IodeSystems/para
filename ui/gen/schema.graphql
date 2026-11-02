@@ -756,11 +756,14 @@ type para_GraphEdge {
 
 type para_GraphNode {
   area: String
+  areaName: String
   blockedBy: [String!]!
   id: String!
   kind: para_GraphNodeKind
   project: String
+  projectName: String
   scope: String
+  scopeName: String
   state: String!
   status: String!
   title: String!
@@ -830,10 +833,12 @@ type para_Hit {
   caveat: String
   id: String!
   kind: String!
+  marks: [para_Span!]
   match: String
   passage: String!
   path: String!
   score: Float!
+  snippet: String!
   sourceUrl: String!
   title: String!
   unverified: Boolean!
@@ -1290,6 +1295,7 @@ type para_ItemView {
   reason: String
   result: String
   state: para_ItemViewState!
+  summary: String!
   target: String
 }
 
@@ -1863,6 +1869,7 @@ type para_ProjectShowOutput {
 
 type para_ProjectView {
   area: String
+  areaName: String
   folder: para_ProjectViewFolder!
   id: String!
   links: [para_Pointer!]
@@ -2044,6 +2051,7 @@ type para_ProposalView {
   proposedBy: String!
   revision: Int!
   sourceDoc: String!
+  sourceName: String
   status: para_ProposalViewStatus!
   supersedes: String
   title: String!
@@ -2196,6 +2204,7 @@ type para_QuestionView {
   rev: String!
   rfx: String
   scope: String!
+  scopeName: String
   scopeType: String!
   status: para_QuestionViewStatus!
   title: String!
@@ -2397,11 +2406,13 @@ enum para_RFXStatusOutputStatus {
 
 type para_RFXSummary {
   dependsOn: [String!]!
+  dependsOnNames: [String!]
   direction: para_RFXSummaryDirection!
   id: String!
   nextNudge: String!
   route: String!
   status: para_RFXSummaryStatus!
+  targetNames: [String!]
   targets: [para_Target!]!
   title: String!
   waiting: Boolean!
@@ -2602,6 +2613,7 @@ type para_RequestDetail {
   claimedBy: String
   id: String!
   leaseUntil: String
+  linkNames: [String!]
   links: [String!]
   queuedAt: String!
   runner: String!
@@ -2656,6 +2668,7 @@ type para_RequestView {
   claimedBy: String
   id: String!
   leaseUntil: String
+  linkNames: [String!]
   links: [String!]
   queuedAt: String!
   runner: String!
@@ -2711,6 +2724,7 @@ type para_Rule {
   id: String!
   link: String!
   policy: String!
+  policyName: String
   text: String!
 }
 
@@ -2723,6 +2737,7 @@ type para_RuleAddOutput {
   id: String!
   link: String!
   policy: String!
+  policyName: String
   rev: String!
   text: String!
 }
@@ -2788,6 +2803,11 @@ type para_SourceView {
   error: String
   id: String!
   title: String
+}
+
+type para_Span {
+  end: Int!
+  start: Int!
 }
 
 type para_Stats {
@@ -2999,16 +3019,21 @@ type para_TaskToQuestionOutput {
 
 type para_TaskView {
   area: String
+  areaName: String
   assignee: String
+  assigneeName: String
   blockedBy: [String!]!
   created: String!
   dependsOn: [String!]!
+  dependsOnNames: [String!]
   due: String
   folder: para_TaskViewFolder!
   id: String!
   incident: String
+  incidentName: String
   previous: String
   project: String!
+  projectName: String
   recur: String
   rev: String!
   status: para_TaskViewStatus!
@@ -3052,7 +3077,12 @@ type para_TodayItem {
   detail: String
   due: String
   id: String!
+  project: String
+  projectName: String
+  scope: String
+  scopeName: String
   title: String!
+  with: [String!]
 }
 
 type para_TodayVaultToday {
@@ -3098,7 +3128,9 @@ type para_UITodayBody {
 
 type para_WaitingItem {
   blockedOn: [String!]!
+  blockedOnNames: [String!]
   dependsOn: [String!]!
+  dependsOnNames: [String!]
   direction: para_WaitingItemDirection!
   due: Boolean!
   id: String!
@@ -3106,6 +3138,7 @@ type para_WaitingItem {
   route: String!
   stalled: Boolean!
   status: para_WaitingItemStatus!
+  targetNames: [String!]
   targets: [para_Target!]!
   title: String!
   waiting: Boolean!

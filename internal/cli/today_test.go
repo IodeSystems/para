@@ -266,3 +266,21 @@ func TestVaultListShowsBrokenAndMissing(t *testing.T) {
 		t.Errorf("after prune:\n%s", out)
 	}
 }
+
+// Today names what its items point at, so a surface shows titles, not ids.
+func TestTodayNamesProjectAndScope(t *testing.T) {
+	e := newEnv(t)
+	a := e.init("acme")
+	write(t, a, "projects/p.md", "---\ntype: project\ncreated: 2026-11-01\nstatus: active\nowner: self\n---\n\n# Portal rebuild\n")
+	write(t, a, "projects/t.md", "---\ntype: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ndue: 2020-01-01\n---\n\n# Order the pool\n")
+	write(t, a, "projects/q.md", "---\ntype: question\ncreated: 2026-11-01\nstatus: open\nkind: input\nscope: \"[[p]]\"\n---\n\n# Which window?\n")
+	var rep today.Report
+	e.json(&rep, "today")
+	v := rep.Vaults[0]
+	if len(v.Overdue.Items) != 1 || v.Overdue.Items[0].Project != "p" || v.Overdue.Items[0].ProjectName != "Portal rebuild" {
+		t.Errorf("overdue = %+v", v.Overdue.Items)
+	}
+	if len(v.Questions.Items) != 1 || v.Questions.Items[0].Scope != "p" || v.Questions.Items[0].ScopeName != "Portal rebuild" {
+		t.Errorf("questions = %+v", v.Questions.Items)
+	}
+}
