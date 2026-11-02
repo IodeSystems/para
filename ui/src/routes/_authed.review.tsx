@@ -8,13 +8,14 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useProposals } from '@/api/proposals'
 import { useAccept, useReopen, useReview } from '@/api/review'
-import { Empty, PageTitle, Section } from '@/components/Bits'
+import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { StateChip } from '@/components/Bits'
 import { errorText } from '@/client/gqlClient'
-import { ago, needWords, newestTS, opPhrase, transition } from '@/lib/events'
+import { humanTime } from '@/lib/when'
+import { needWords, newestTS, opPhrase, transition } from '@/lib/events'
 import { nameOr, stripIds } from '@/lib/names'
 
 export const Route = createFileRoute('/_authed/review')({ component: Review })
@@ -30,7 +31,7 @@ function ProposalsSection() {
       ) : (
         <List dense disablePadding>
           {items.map((p) => (
-            <ListItem key={p.id} disableGutters>
+            <ListItem key={p.id} disableGutters sx={CHIP_ROW}>
               <ListItemText
                 primary={
                   <TextLink to="/proposals/$id" params={{ id: p.id }} underline="hover">
@@ -81,17 +82,7 @@ function Review() {
                 disabled={reopen.isPending}
                 onClick={() => reopen.mutate()}
               >
-                Reopen last
-              </Button>
-            )}
-            {!!q.data?.count && (
-              <Button
-                variant="contained"
-                size="small"
-                disabled={accept.isPending}
-                onClick={() => accept.mutate('')}
-              >
-                Accept all
+                Undo last mark
               </Button>
             )}
           </Stack>
@@ -109,9 +100,12 @@ function Review() {
         {(r) => (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {r.count} change{r.count === 1 ? '' : 's'} by others
-              {r.position ? ` since you accepted ${ago(r.position)}` : ''}. Your own CLI, TUI, and
-              browser work is not listed.
+              {r.count} logged change{r.count === 1 ? '' : 's'} by others
+              {r.position
+                ? ` since you last marked changes reviewed (${humanTime(r.position)})`
+                : ' since the start'}
+              . Your own CLI, TUI, and browser work is not listed. Proposals above are decided item
+              by item; marking changes reviewed does not touch them.
             </Typography>
             <Section title="Needs you" count={r.needs.length} hideEmpty>
               {
@@ -130,8 +124,20 @@ function Review() {
               }
             </Section>
             {r.groups.length === 0 ? (
-              <Empty>Nothing changed since the last accept.</Empty>
+              <Empty>Nothing changed since you last marked changes reviewed.</Empty>
             ) : (
+              <Stack direction="row" sx={{ mb: 1, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="contained"
+                  size="small"
+                  disabled={accept.isPending}
+                  onClick={() => accept.mutate('')}
+                >
+                  Mark all {r.count} logged changes reviewed
+                </Button>
+              </Stack>
+            )}
+            {r.groups.length > 0 &&
               r.groups.map((g) => (
                 <Section
                   key={g.actor}
@@ -144,7 +150,7 @@ function Review() {
                         disabled={accept.isPending}
                         onClick={() => accept.mutate(newestTS(g.events))}
                       >
-                        Accept up to here
+                        Mark reviewed up to here
                       </Button>
                     ) : undefined
                   }
@@ -161,7 +167,7 @@ function Review() {
                           }
                           secondary={[
                             e.op === 'create' ? (e.to ? `in ${e.to}` : '') : transition(e),
-                            ago(e.ts),
+                            humanTime(e.ts),
                           ]
                             .filter(Boolean)
                             .join(' - ')}
@@ -170,8 +176,7 @@ function Review() {
                     ))}
                   </List>
                 </Section>
-              ))
-            )}
+              ))}
           </>
         )}
       </DataState>

@@ -11,8 +11,14 @@ export function dueState(due: string, today: string, soonDays = 3): DueState {
   return due <= end.toISOString().slice(0, 10) ? 'soon' : 'later'
 }
 
+import { dateWords } from '@/lib/when'
+
 // dueLabel is the text of a due chip.
 export function dueLabel(due: string, today: string): string {
   const s = dueState(due, today)
-  return s === 'overdue' ? `overdue ${due}` : s === 'today' ? 'due today' : `due ${due}`
+  return s === 'overdue'
+    ? `overdue ${dateWords(due, today)}`
+    : s === 'today'
+      ? 'due today'
+      : `due ${dateWords(due, today)}`
 }

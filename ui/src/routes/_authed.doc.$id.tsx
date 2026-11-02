@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Link from '@mui/material/Link'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
@@ -14,6 +15,11 @@ import { Markdown } from '@/components/Markdown'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
+
+// withSourceLink turns "Read the source." in a summary stub into a link to the source.
+function withSourceLink(body: string, url: string | null | undefined): string {
+  return url ? body.replace('Read the source.', `[Read the source](${url}).`) : body
+}
 
 const FORMATS: Para_CopyInputAs[] = ['plain', 'email', 'slack', 'jira']
 
@@ -64,7 +70,10 @@ function Doc() {
           {d.meta.source?.url && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                Source: {d.meta.source.url}
+                Source:{' '}
+                <Link href={d.meta.source.url} target="_blank" rel="noreferrer noopener">
+                  {d.meta.source.url}
+                </Link>
               </Typography>
               <Details>
                 Fidelity: {d.meta.source.fidelity}. Source state: {d.meta.source.status}.
@@ -77,7 +86,7 @@ function Doc() {
               The server refused the copy.
             </Alert>
           )}
-          <Markdown source={d.body} />
+          <Markdown source={withSourceLink(d.body, d.meta.source?.url)} />
         </>
       )}
     </DataState>

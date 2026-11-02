@@ -6,7 +6,7 @@ import { useQuestions } from '@/api/questions'
 import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton } from '@/components/links'
+import { RowMenu } from '@/components/RowMenu'
 import { dueLabel, dueState } from '@/lib/due'
 import { nameList, nameOr } from '@/lib/names'
 
@@ -61,7 +61,13 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
       {tasks.map((t) => {
         const open = t.status !== 'done' && t.status !== 'dropped'
         return (
-          <ListItem key={t.id} disableGutters divider sx={{ display: 'block' }}>
+          <ListItem
+            key={t.id}
+            disableGutters
+            divider
+            className="row-with-menu"
+            sx={{ display: 'block' }}
+          >
             <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
               <ListItemText
                 primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
@@ -75,28 +81,26 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                 }
                 slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
               />
-              {t.status !== 'todo' && <StateChip state={t.status} />}
+              {open && (
+                <RowMenu
+                  label={`Actions for ${t.title || t.id}`}
+                  items={[
+                    { label: 'Done', hint: 'Mark this task finished', search: { done: t.id } },
+                    {
+                      label: 'To question',
+                      hint: 'Turn this into a question you need answered first',
+                      search: { toq: t.id },
+                    },
+                  ]}
+                />
+              )}
             </Stack>
             <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+              {t.status !== 'todo' && <StateChip state={t.status} />}
               {t.due && open && <DueChip due={t.due} />}
               {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
               {t.assignee && (
                 <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
-              )}
-              {open && (
-                <>
-                  <LinkButton size="small" to="." search={(p) => ({ ...p, done: t.id })}>
-                    Done
-                  </LinkButton>
-                  <LinkButton
-                    size="small"
-                    color="inherit"
-                    to="."
-                    search={(p) => ({ ...p, toq: t.id })}
-                  >
-                    To question
-                  </LinkButton>
-                </>
               )}
             </Stack>
           </ListItem>

@@ -13,8 +13,8 @@ describe('due dates', () => {
     expect(dueState('2027-01-02', '2026-12-30')).toBe('soon')
   })
   it('labels', () => {
-    expect(dueLabel('2026-10-31', '2026-11-01')).toBe('overdue 2026-10-31')
+    expect(dueLabel('2026-10-31', '2026-11-01')).toBe('overdue Oct 31')
     expect(dueLabel('2026-11-01', '2026-11-01')).toBe('due today')
-    expect(dueLabel('2026-11-20', '2026-11-01')).toBe('due 2026-11-20')
+    expect(dueLabel('2026-11-20', '2026-11-01')).toBe('due Nov 20')
   })
 })

@@ -8,6 +8,7 @@ import { Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { RfxLink } from '@/components/DocLink'
 import { nameList, nameOr } from '@/lib/names'
+import { dateWords } from '@/lib/when'
 import { plainState } from '@/lib/status'
 
 export const Route = createFileRoute('/_authed/rfx/')({ component: RfxList })
@@ -32,7 +33,7 @@ function RfxList() {
                     secondary={[
                       x.direction === 'in' ? 'asked of you' : 'you ask',
                       x.route && `via ${nameOr(x.routeName, x.route)}`,
-                      x.nextNudge && `nudge ${x.nextNudge}`,
+                      x.nextNudge && `nudge ${dateWords(x.nextNudge)}`,
                       x.dependsOn.length > 0 &&
                         `after ${nameList(x.dependsOn, x.dependsOnNames).join(', ')}`,
                     ]

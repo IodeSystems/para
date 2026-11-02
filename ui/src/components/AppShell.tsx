@@ -11,6 +11,8 @@ import AddIcon from '@mui/icons-material/Add'
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
+import Badge from '@mui/material/Badge'
+import { useOpenProposals } from '@/api/proposals'
 import { HttpBanner } from '@/components/Banners'
 import { LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
@@ -24,6 +26,7 @@ export function AppShell({ session, children }: { session: SessionView; children
   const navigate = useNavigate()
   const path = useRouterState({ select: (s) => s.location.pathname })
   const current = TABS.find((t) => path === t.to || path.startsWith(`${t.to}/`))
+  const { open } = useOpenProposals()
   const wide = { xs: 'none', md: 'flex' }
   const narrow = { xs: 'inline-flex', md: 'none' }
 
@@ -36,15 +39,20 @@ export function AppShell({ session, children }: { session: SessionView; children
     <Box sx={{ minHeight: '100dvh', pb: 4 }}>
       <AppBar position="sticky" color="primary" enableColorOnDark>
         <Toolbar variant="dense" sx={{ gap: 1, pl: 'max(8px, env(safe-area-inset-left))' }}>
-          <LinkIconButton
+          <LinkButton
             color="inherit"
             aria-label="Menu"
+            startIcon={
+              <Badge color="warning" variant="dot" invisible={open.length === 0}>
+                <MenuIcon />
+              </Badge>
+            }
             to="."
             search={(p) => ({ ...p, menu: true })}
-            sx={{ display: narrow }}
+            sx={{ display: narrow, minWidth: 0 }}
           >
-            <MenuIcon />
-          </LinkIconButton>
+            Menu
+          </LinkButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, pl: { md: 1 } }} noWrap>
             para
           </Typography>
@@ -104,10 +112,27 @@ export function AppShell({ session, children }: { session: SessionView; children
             <LinkTab
               key={t.to}
               value={t.to}
-              label={t.label}
+              label={
+                t.to === '/review' && open.length > 0 ? (
+                  <Badge
+                    color="warning"
+                    badgeContent={open.length}
+                    sx={{ '& .MuiBadge-badge': { right: -14, top: 2 } }}
+                  >
+                    {t.label}
+                  </Badge>
+                ) : (
+                  t.label
+                )
+              }
               title={t.hint}
               to={t.to}
-              sx={{ minHeight: 44, minWidth: 0, px: 2 }}
+              sx={{
+                minHeight: 44,
+                minWidth: 0,
+                px: 2,
+                pr: t.to === '/review' && open.length > 0 ? 3.5 : 2,
+              }}
             />
           ))}
         </Tabs>

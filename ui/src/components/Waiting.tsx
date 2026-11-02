@@ -6,10 +6,11 @@ import Stack from '@mui/material/Stack'
 import { localDate } from '@/api/today'
 import { useWaiting } from '@/api/areas'
 import { errorText } from '@/client/gqlClient'
-import { Empty, Section, StateChip } from '@/components/Bits'
+import { CHIP_ROW, Empty, Section, StateChip } from '@/components/Bits'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { DueChip } from '@/components/TaskRows'
 import { joinNames, nameList, nameOr } from '@/lib/names'
+import { dateWords } from '@/lib/when'
 
 // What you wait on: requests you sent, and tasks assigned to someone else.
 export function WaitingSection() {
@@ -24,14 +25,14 @@ export function WaitingSection() {
       ) : (
         <List dense disablePadding>
           {w.rfx.map((x) => (
-            <ListItem key={x.id} disableGutters>
+            <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
               <ListItemText
                 primary={<RfxLink id={x.id}>{x.title || x.id}</RfxLink>}
                 secondary={
                   [
                     x.targetNames?.length ? `to ${joinNames(x.targetNames)}` : '',
                     x.route && `via ${nameOr(x.routeName, x.route)}`,
-                    x.nextNudge && `nudge ${x.nextNudge}`,
+                    x.nextNudge && `nudge ${dateWords(x.nextNudge)}`,
                     x.blockedOn.length > 0 &&
                       `after ${joinNames(nameList(x.blockedOn, x.blockedOnNames))}`,
                   ]
@@ -46,7 +47,7 @@ export function WaitingSection() {
             </ListItem>
           ))}
           {w.tasks.map((t) => (
-            <ListItem key={t.id} disableGutters>
+            <ListItem key={t.id} disableGutters sx={CHIP_ROW}>
               <ListItemText
                 primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
                 secondary={t.assignee ? `with ${nameOr(t.assigneeName, t.assignee)}` : undefined}

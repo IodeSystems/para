@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useWho } from '@/api/people'
 import { nameOr } from '@/lib/names'
+import { dateWords } from '@/lib/when'
 import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
@@ -83,7 +84,7 @@ function Person() {
                     <ListItem key={i.id} disableGutters>
                       <ListItemText
                         primary={<DocLink id={i.id}>{i.title || i.id}</DocLink>}
-                        secondary={`${i.date} - ${i.medium}`}
+                        secondary={`${dateWords(i.date)} - ${i.medium}`}
                       />
                     </ListItem>
                   ))}

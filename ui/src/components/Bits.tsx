@@ -8,6 +8,14 @@ import { plainState, toneOf, type Tone } from '@/lib/status'
 
 // Small shared pieces of layout.
 
+// CHIP_ROW is for a list row with text and a status chip: on a phone the chip goes under the
+// text, on its own line, so it is never clipped or squeezed.
+export const CHIP_ROW = {
+  flexDirection: { xs: 'column', sm: 'row' },
+  alignItems: { xs: 'flex-start', sm: 'center' },
+  gap: 0.5,
+} as const
+
 export function Section({
   title,
   count,
@@ -25,8 +33,17 @@ export function Section({
   if (hideEmpty && count === 0) return null
   return (
     <Paper component="section" variant="outlined" sx={{ p: 1.5, mb: 2 }}>
-      <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
-        <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, flexGrow: 1 }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <Typography
+          variant="subtitle1"
+          component="h2"
+          sx={{ fontWeight: 600, flexGrow: 1, minWidth: 0, overflowWrap: 'anywhere' }}
+        >
           {title}
           {count !== undefined && <Chip size="small" label={count} sx={{ ml: 1 }} />}
         </Typography>

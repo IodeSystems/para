@@ -2,9 +2,10 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
-import { StateChip, StatusChip } from '@/components/Bits'
+import { CHIP_ROW, StateChip, StatusChip } from '@/components/Bits'
 import { TextLink } from '@/components/links'
 import { toneOfSeverity } from '@/lib/status'
+import { humanTime } from '@/lib/when'
 
 type Row = {
   id: string
@@ -19,14 +20,14 @@ export function IncidentRows({ list }: { list: Row[] }) {
   return (
     <List dense disablePadding>
       {list.map((i) => (
-        <ListItem key={i.id} disableGutters>
+        <ListItem key={i.id} disableGutters sx={CHIP_ROW}>
           <ListItemText
             primary={
               <TextLink to="/incidents/$id" params={{ id: i.id }} underline="hover">
                 {i.title || i.id}
               </TextLink>
             }
-            secondary={`started ${i.started}${i.ended ? `, ended ${i.ended}` : ''}`}
+            secondary={`started ${humanTime(i.started)}${i.ended ? `, ended ${humanTime(i.ended)}` : ''}`}
           />
           <Stack direction="row" spacing={0.5}>
             <StatusChip tone={toneOfSeverity(i.severity)} label={i.severity} />

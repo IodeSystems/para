@@ -20,7 +20,8 @@ import {
 import { useTaskDone } from '@/api/tasks'
 import { useWork } from '@/api/work'
 import { errorText } from '@/client/gqlClient'
-import { DocLink } from '@/components/DocLink'
+import { joinNames, nameOr } from '@/lib/names'
+import { dateWords } from '@/lib/when'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import type { OverlaySearch } from '@/lib/overlays'
 import type { Para_QuestionAskInputVia, Para_TaskToQuestionInputKind } from '@/gql/graphql'
@@ -54,57 +55,36 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const options = question?.options ?? []
   const ok = (choice !== '' || text.trim() !== '') && (!decision || why.trim() !== '')
 
-  if (answer.data) {
-    const titles = new Map((work.data?.tasks ?? []).map((t) => [t.id, t.title]))
-    const unblocked = answer.data.unblocked
-    return (
-      <Frame
-        title="Answered"
-        actions={
-          <Button
-            variant="contained"
-            onClick={() => {
-              onDone('Answered')
-              close()
-            }}
-          >
-            Done
-          </Button>
-        }
-      >
-        <Stack spacing={1} sx={{ pt: 1 }}>
-          <Typography>Recorded{answer.data.choice ? `: ${answer.data.choice}` : ''}.</Typography>
-          {unblocked.length === 0 ? (
-            <Typography color="text.secondary">Nothing else was waiting only on this.</Typography>
-          ) : (
-            <>
-              <Typography>Unblocked {unblocked.length}:</Typography>
-              <Stack component="ul" sx={{ m: 0, pl: 3 }} data-testid="unblocked">
-                {unblocked.map((u) => (
-                  <li key={u}>
-                    <DocLink id={u}>{titles.get(u) || u}</DocLink>
-                  </li>
-                ))}
-              </Stack>
-            </>
-          )}
-        </Stack>
-      </Frame>
-    )
-  }
-
   return (
     <Frame
       title="Answer"
       onSubmit={() =>
-        answer.mutate({
-          id,
-          choice: choice || undefined,
-          text: text.trim() || undefined,
-          why: why.trim() || undefined,
-          by: by.trim() || undefined,
-          source: source.trim() || undefined,
-        })
+        answer.mutate(
+          {
+            id,
+            choice: choice || undefined,
+            text: text.trim() || undefined,
+            why: why.trim() || undefined,
+            by: by.trim() || undefined,
+            source: source.trim() || undefined,
+          },
+          {
+            // One way to say done: a toast that names what was recorded and what it unblocked.
+            onSuccess: (r) => {
+              const titles = new Map((work.data?.tasks ?? []).map((t) => [t.id, t.title]))
+              const names = r.unblocked.map((u) => titles.get(u) || nameOr('', u))
+              const said = r.choice || text.trim()
+              onDone(
+                `Recorded ${said ? `"${said}"` : 'the answer'}${question?.title ? ` for "${question.title}"` : ''}. ${
+                  names.length
+                    ? `Unblocked ${joinNames(names)}.`
+                    : 'Nothing else was waiting only on this.'
+                }`,
+              )
+              close()
+            },
+          },
+        )
       }
       actions={
         <>
@@ -268,7 +248,9 @@ function DropDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
           { id, reason: reason.trim() || undefined },
           {
             onSuccess: (r) => {
-              onDone(r.unblocked.length ? `Dropped. Unblocked ${r.unblocked.length}.` : 'Dropped')
+              onDone(
+                `Dropped ${q.data?.question.title ? `"${q.data.question.title}"` : 'the question'}. ${r.unblocked.length ? `Unblocked ${r.unblocked.length}.` : 'Nothing else was waiting only on it.'}`,
+              )
               close()
             },
           },
@@ -303,6 +285,8 @@ function DropDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
 function DoneDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
   const close = useClose()
   const done = useTaskDone()
+  const work = useWork()
+  const title = work.data?.tasks.find((t) => t.id === id)?.title
   const [note, setNote] = useState('')
   return (
     <Frame
@@ -312,7 +296,9 @@ function DoneDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
           { id, note: note.trim() || undefined },
           {
             onSuccess: (r) => {
-              onDone(r.next ? `Done. Next recurrence ${r.next}.` : 'Done')
+              onDone(
+                `Finished ${title ? `"${title}"` : 'the task'}.${r.next ? ` Next recurrence ${dateWords(r.next)}.` : ''}`,
+              )
               close()
             },
           },

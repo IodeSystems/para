@@ -9,6 +9,7 @@ import { Empty, Section, StatusChip } from '@/components/Bits'
 import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
+import { RowMenu } from '@/components/RowMenu'
 
 // Open questions in a scope, in the order the server gives: the ones that block most come first.
 export function QuestionsSection({
@@ -71,17 +72,34 @@ export function QuestionRows({ list }: { list: Rows }) {
           <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
             <StatusChip tone="quiet" label={x.kind} />
             {x.blocking > 0 && <StatusChip tone="attn" label={`blocks ${x.blocking}`} />}
-            <LinkButton size="small" to="." search={(p) => ({ ...p, answer: x.id })}>
+            <LinkButton
+              size="small"
+              variant="outlined"
+              to="."
+              search={(p) => ({ ...p, answer: x.id })}
+            >
               Answer
             </LinkButton>
-            {!x.rfx && (
-              <LinkButton size="small" to="." search={(p) => ({ ...p, ask: x.id })}>
-                Ask someone
-              </LinkButton>
-            )}
-            <LinkButton size="small" color="inherit" to="." search={(p) => ({ ...p, drop: x.id })}>
-              Drop
-            </LinkButton>
+            <RowMenu
+              label={`More actions for ${x.title || x.id}`}
+              items={[
+                ...(x.rfx
+                  ? []
+                  : [
+                      {
+                        label: 'Ask someone',
+                        hint: 'Send this question to a person as a request',
+                        search: { ask: x.id },
+                      },
+                    ]),
+                {
+                  label: 'Drop',
+                  hint: 'Close this question without answering it',
+                  search: { drop: x.id },
+                },
+              ]}
+              always
+            />
           </Stack>
         </ListItem>
       ))}

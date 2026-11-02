@@ -14,12 +14,14 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import MenuItem from '@mui/material/MenuItem'
 import Snackbar from '@mui/material/Snackbar'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useAreas } from '@/api/areas'
 import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
 import { usePeople } from '@/api/people'
+import { useOpenProposals } from '@/api/proposals'
 import { useWork } from '@/api/work'
 import { useRequestAdd } from '@/api/requests'
 import { useRfxReply } from '@/api/rfx'
@@ -50,7 +52,7 @@ export function Overlays() {
       {/* The toast sits under the top bar, where Capture is, and never over page text. */}
       <Snackbar
         open={toast !== ''}
-        autoHideDuration={3000}
+        autoHideDuration={7000}
         onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         sx={{ top: { xs: 60, md: 108 } }}
@@ -158,23 +160,29 @@ function RequestDialog({ onDone }: { onDone: (m: string) => void }) {
 function HelpDialog() {
   const close = useClose()
   const { session } = useRouteContext({ from: '/_authed' })
+  // A touch screen has no keyboard to show: the section is left out.
+  const touch = useMediaQuery('(hover: none)')
   return (
     <Dialog open onClose={close} fullWidth maxWidth="xs" aria-labelledby="help-title">
-      <DialogTitle id="help-title">Keyboard</DialogTitle>
+      <DialogTitle id="help-title">{touch ? 'Help' : 'Keyboard'}</DialogTitle>
       <DialogContent>
-        <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
-          {TABS.map((t) => (
-            <Row key={t.key} k={t.key} v={t.label} />
-          ))}
-          <Row k="/" v="Search" />
-          <Row k="c" v="Capture" />
-          <Row k="?" v="This help" />
-          <Row k="Esc" v="Close a dialog" />
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Keys do nothing while you type in a field.
-        </Typography>
-        <Divider sx={{ my: 2 }} />
+        {!touch && (
+          <>
+            <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
+              {TABS.map((t) => (
+                <Row key={t.key} k={t.key} v={t.label} />
+              ))}
+              <Row k="/" v="Search" />
+              <Row k="c" v="Capture" />
+              <Row k="?" v="This help" />
+              <Row k="Esc" v="Close a dialog" />
+            </Stack>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              Keys do nothing while you type in a field.
+            </Typography>
+            <Divider sx={{ my: 2 }} />
+          </>
+        )}
         <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5 }}>
           Colors
         </Typography>
@@ -205,6 +213,7 @@ function NavDrawer() {
   const close = useClose()
   const path = useRouterState({ select: (st) => st.location.pathname })
   const navigate = useNavigate()
+  const { open } = useOpenProposals()
   return (
     <Drawer open onClose={close} anchor="left" aria-label="Screens">
       <Box sx={{ width: 280 }} role="navigation">
@@ -221,7 +230,14 @@ function NavDrawer() {
                 void navigate({ href: t.to })
               }}
             >
-              <ListItemText primary={t.label} secondary={t.hint} />
+              <ListItemText
+                primary={t.label}
+                secondary={
+                  t.to === '/review' && open.length > 0
+                    ? `${open.length} proposal${open.length === 1 ? '' : 's'} to decide`
+                    : t.hint
+                }
+              />
               <Typography
                 component="kbd"
                 variant="caption"

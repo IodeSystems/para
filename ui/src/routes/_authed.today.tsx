@@ -9,10 +9,12 @@ import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import { useInbox } from '@/api/inbox'
+import { useOpenProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
 import { useToday } from '@/api/today'
-import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
+import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
@@ -21,6 +23,7 @@ import { DueChip } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
+import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/today')({ component: Today })
 
@@ -64,7 +67,7 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
   return (
     <List dense disablePadding>
       {items.map((i) => (
-        <ListItem key={i.id} disableGutters>
+        <ListItem key={i.id} disableGutters sx={CHIP_ROW}>
           <ListItemText
             primary={<ItemLink kind={kind} item={i} />}
             secondary={aboutItem(kind, i) || undefined}
@@ -96,6 +99,8 @@ function Today() {
   const q = useToday()
   const inbox = useInbox()
   const questions = useQuestions()
+  const proposals = useOpenProposals()
+  const narrow = useMediaQuery('(max-width: 599px)')
   const [more, setMore] = useState<string>('')
   return (
     <>
@@ -108,19 +113,47 @@ function Today() {
           const incidents = t.incidents.items
           const overdue = t.overdue.items
           const nudges = t.nudges.items
+          const props = proposals.open
           const need =
-            incidents.length + qs.length + overdue.length + nudges.length + inboxItems.length
+            props.length +
+            incidents.length +
+            qs.length +
+            overdue.length +
+            nudges.length +
+            inboxItems.length
 
           // The lead is the one thing to do first: an incident, then a decision that blocks
           // work, then something late, then a follow-up, then a sort. It is not listed again.
           let lead: Lead | null = null
-          let leadKind: 'incident' | 'question' | 'overdue' | 'nudge' | 'inbox' | '' = ''
+          let leadKind: 'proposal' | 'incident' | 'question' | 'overdue' | 'nudge' | 'inbox' | '' =
+            ''
+          const firstProp = props[0]
           const first = incidents[0]
           const firstQ = qs[0]
           const firstLate = overdue[0]
           const firstNudge = nudges[0]
           const firstIn = inboxItems[0]
-          if (first) {
+          if (firstProp) {
+            leadKind = 'proposal'
+            lead = {
+              why: `Proposal from ${firstProp.proposedBy}, ${firstProp.pending} of ${firstProp.itemCount} to decide`,
+              title: (
+                <TextLink to="/proposals/$id" params={{ id: firstProp.id }} underline="hover">
+                  {firstProp.title || nameOr('', firstProp.id)}
+                </TextLink>
+              ),
+              action: (
+                <LinkButton
+                  size="small"
+                  variant="contained"
+                  to="/proposals/$id"
+                  params={{ id: firstProp.id }}
+                >
+                  Review
+                </LinkButton>
+              ),
+            }
+          } else if (first) {
             leadKind = 'incident'
             lead = {
               why: `Open incident${first.detail ? `, ${first.detail}` : ''}`,
@@ -209,10 +242,11 @@ function Today() {
             for (const i of out) seen.add(i.id)
             return out
           }
-          if (first) seen.add(first.id)
+          if (leadKind === 'incident' && first) seen.add(first.id)
           if (leadKind === 'question' && firstQ) seen.add(firstQ.id)
           if (leadKind === 'overdue' && firstLate) seen.add(firstLate.id)
           if (leadKind === 'nudge' && firstNudge) seen.add(firstNudge.id)
+          const propRows = props.slice(leadKind === 'proposal' ? 1 : 0)
           const incidentRows = mark(incidents)
           const questionRows = qs.filter((x) => {
             if (seen.has(x.id)) return false
@@ -228,6 +262,7 @@ function Today() {
           const nextRows = d.next.filter((x) => !seen.has(x.id)).slice(0, 8)
 
           const heading = leadLine([
+            [props.length, 'proposal to decide', 'proposals to decide'],
             [incidents.length, 'incident', 'incidents'],
             [qs.length, 'question', 'questions'],
             [overdue.length, 'late task', 'late tasks'],
@@ -235,7 +270,60 @@ function Today() {
             [inboxItems.length, 'capture to sort', 'captures to sort'],
           ])
 
+          const inboxOf = (list: typeof inboxRows) => (
+            <List dense disablePadding>
+              {list.map((i) => (
+                <ListItem
+                  key={i.id}
+                  disableGutters
+                  secondaryAction={
+                    <LinkButton size="small" to="." search={(p) => ({ ...p, triage: i.id })}>
+                      Sort
+                    </LinkButton>
+                  }
+                >
+                  <ListItemText
+                    primary={i.title || 'Untitled capture'}
+                    secondary={humanTime(i.created)}
+                    sx={{ pr: 8, overflowWrap: 'anywhere' }}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )
+          const nextList = (
+            <List dense disablePadding>
+              {nextRows.map((x) => (
+                <ListItem key={x.id} disableGutters>
+                  <ListItemText
+                    primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
+                    secondary={x.project ? nameOr(x.projectName, x.project) : undefined}
+                  />
+                  {x.due && <DueChip due={x.due} />}
+                </ListItem>
+              ))}
+            </List>
+          )
+          // On a phone the lower sections fold into the buttons at the bottom, so the page is short.
+          const lower: { key: string; label: string; count: number; body: ReactNode }[] = narrow
+            ? [
+                {
+                  key: 'follow',
+                  label: 'Follow up',
+                  count: nudgeRows.length,
+                  body: <ItemRows kind="nudge" items={nudgeRows} />,
+                },
+                {
+                  key: 'soon',
+                  label: 'Due this week',
+                  count: soonRows.length,
+                  body: <ItemRows kind="doc" items={soonRows} />,
+                },
+                { key: 'next', label: 'Next tasks', count: nextRows.length, body: nextList },
+              ]
+            : []
           const rest: { key: string; label: string; count: number; body: ReactNode }[] = [
+            ...lower,
             {
               key: 'waiting',
               label: 'Waiting on others',
@@ -298,6 +386,22 @@ function Today() {
                   </Stack>
                 </Paper>
               )}
+              <Section title="Proposals" count={propRows.length} hideEmpty>
+                <List dense disablePadding>
+                  {propRows.map((x) => (
+                    <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
+                      <ListItemText
+                        primary={
+                          <TextLink to="/proposals/$id" params={{ id: x.id }} underline="hover">
+                            {x.title || nameOr('', x.id)}
+                          </TextLink>
+                        }
+                        secondary={`${x.pending} of ${x.itemCount} to decide, from ${x.proposedBy}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Section>
               <Section title="Incidents" count={incidentRows.length} hideEmpty>
                 <ItemRows kind="incident" items={incidentRows} />
               </Section>
@@ -308,45 +412,21 @@ function Today() {
                 <ItemRows kind="overdue" items={overdueRows} />
               </Section>
               <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
-                <List dense disablePadding>
-                  {inboxRows.map((i) => (
-                    <ListItem
-                      key={i.id}
-                      disableGutters
-                      secondaryAction={
-                        <LinkButton size="small" to="." search={(p) => ({ ...p, triage: i.id })}>
-                          Sort
-                        </LinkButton>
-                      }
-                    >
-                      <ListItemText
-                        primary={i.title || 'Untitled capture'}
-                        secondary={i.created}
-                        sx={{ pr: 8, overflowWrap: 'anywhere' }}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
+                {inboxOf(inboxRows)}
               </Section>
-              <Section title="Follow up" count={nudgeRows.length} hideEmpty>
-                <ItemRows kind="nudge" items={nudgeRows} />
-              </Section>
-              <Section title="Due this week" count={soonRows.length} hideEmpty>
-                <ItemRows kind="doc" items={soonRows} />
-              </Section>
-              <Section title="Next tasks" count={nextRows.length} hideEmpty>
-                <List dense disablePadding>
-                  {nextRows.map((x) => (
-                    <ListItem key={x.id} disableGutters>
-                      <ListItemText
-                        primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
-                        secondary={x.project ? nameOr(x.projectName, x.project) : undefined}
-                      />
-                      {x.due && <DueChip due={x.due} />}
-                    </ListItem>
-                  ))}
-                </List>
-              </Section>
+              {!narrow && (
+                <>
+                  <Section title="Follow up" count={nudgeRows.length} hideEmpty>
+                    <ItemRows kind="nudge" items={nudgeRows} />
+                  </Section>
+                  <Section title="Due this week" count={soonRows.length} hideEmpty>
+                    <ItemRows kind="doc" items={soonRows} />
+                  </Section>
+                  <Section title="Next tasks" count={nextRows.length} hideEmpty>
+                    {nextList}
+                  </Section>
+                </>
+              )}
               {need === 0 && nextRows.length === 0 && <Empty>No task is ready.</Empty>}
               {(rest.length > 0 || t.unverified > 0) && (
                 <Box sx={{ mt: 1 }}>

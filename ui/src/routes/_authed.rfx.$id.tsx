@@ -15,6 +15,7 @@ import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
 import { nameList, nameOr } from '@/lib/names'
+import { dateWords } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/rfx/$id')({ component: RfxPage })
 
@@ -45,7 +46,7 @@ function RfxPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {r.doc.meta.direction === 'in' ? 'Asked of you' : 'You ask'} - {r.doc.meta.status}
             {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}
-            {r.doc.meta.nextNudge ? ` - nudge ${r.doc.meta.nextNudge}` : ''}
+            {r.doc.meta.nextNudge ? ` - nudge ${dateWords(r.doc.meta.nextNudge)}` : ''}
           </Typography>
           <Section title="Asked of" count={r.targets.length}>
             {r.targets.length === 0 ? (

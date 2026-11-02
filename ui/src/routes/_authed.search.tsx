@@ -21,7 +21,7 @@ import { useAreas } from '@/api/areas'
 import { useSearch } from '@/api/search'
 import { useWork } from '@/api/work'
 import { Empty, PageTitle, StatusChip } from '@/components/Bits'
-import { DataState } from '@/components/DataState'
+import { SearchState } from '@/components/SearchState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
 import { highlight } from '@/lib/highlight'
@@ -218,7 +218,7 @@ function Search() {
         />
       </Stack>
       {q !== '' && (
-        <DataState q={hits}>
+        <SearchState q={hits} text={q} typing={text.trim() !== q}>
           {({ hits: list, degraded }) => (
             <>
               {degraded !== '' && (
@@ -313,7 +313,7 @@ function Search() {
               )}
             </>
           )}
-        </DataState>
+        </SearchState>
       )}
     </>
   )

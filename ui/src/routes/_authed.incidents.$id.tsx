@@ -12,6 +12,7 @@ import { PointerLinks } from '@/components/PointerLinks'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { nameOr } from '@/lib/names'
+import { humanTime } from '@/lib/when'
 import { toneOfSeverity } from '@/lib/status'
 import { TaskRows } from '@/components/TaskRows'
 import type { Para_IncidentStatusInputStatus } from '@/gql/graphql'
@@ -48,8 +49,8 @@ function IncidentPage() {
             <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               <StatusChip tone={toneOfSeverity(i.severity)} label={i.severity} />
               <StateChip state={i.status} tone={i.status === 'open' ? 'attn' : undefined} />
-              <StatusChip tone="quiet" label={`started ${i.started}`} />
-              {i.ended && <StatusChip tone="quiet" label={`ended ${i.ended}`} />}
+              <StatusChip tone="quiet" label={`started ${humanTime(i.started)}`} />
+              {i.ended && <StatusChip tone="quiet" label={`ended ${humanTime(i.ended)}`} />}
               {i.area && (
                 <LinkButton size="small" to="/areas/$id" params={{ id: i.area }}>
                   area {nameOr(areas.data?.find((a) => a.id === i.area)?.title, i.area)}

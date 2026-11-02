@@ -7,7 +7,7 @@ import { useRequests } from '@/api/requests'
 import { Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { ago } from '@/lib/events'
+import { humanTime } from '@/lib/when'
 import { joinNames, nameList, stripIds, withNames } from '@/lib/names'
 
 // What each status says to a person.
@@ -56,7 +56,7 @@ function Requests() {
                       </DocLink>
                     }
                     secondary={[
-                      `queued ${ago(r.queuedAt)}`,
+                      `queued ${humanTime(r.queuedAt)}`,
                       r.claimedBy && `taken by ${r.claimedBy}`,
                       (r.links ?? []).length > 0 &&
                         `about ${joinNames(nameList(r.links, r.linkNames))}`,

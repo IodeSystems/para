@@ -112,6 +112,25 @@ function startAgent() {
   return { child, call }
 }
 
+// more opens the "More" menu of a proposal item and picks an entry; menuCount counts one.
+const more = async (card, name) => {
+  await card.getByRole('button', { name: 'More decisions for this item' }).click()
+  await card
+    .page()
+    .getByRole('menuitem', { name: new RegExp(`^${name}`) })
+    .click()
+}
+const menuCount = async (card, name) => {
+  await card.getByRole('button', { name: 'More decisions for this item' }).click()
+  const n = await card
+    .page()
+    .getByRole('menuitem', { name: new RegExp(`^${name}`) })
+    .count()
+  await card.page().keyboard.press('Escape')
+  await card.page().getByRole('menu').waitFor({ state: 'detached' })
+  return n
+}
+
 try {
   execFileSync('go', ['build', '-tags', 'embedui', '-o', bin, './cmd/para'], {
     cwd: repo,
@@ -335,6 +354,8 @@ try {
     await page.getByText('Seed: ask platform about the quota').isVisible(),
     'Today lists the inbox item',
   )
+  // On a phone the lower sections fold away: Next tasks is behind its button.
+  await page.getByRole('button', { name: /^Next tasks/ }).click()
   check(await page.getByText('Write the plan').first().isVisible(), 'Today lists a ready task')
 
   // Live refresh over /ws: a write by another client shows up without a reload or the 60 s poll.
@@ -364,11 +385,11 @@ try {
   // Review: the agent's change is listed; accept clears it.
   await page.getByText('Added by an agent').first().waitFor()
   check(true, 'Review names the item an agent added, not its id')
-  const accept = page.getByRole('button', { name: 'Accept all' })
+  const accept = page.getByRole('button', { name: /Mark all \d+ logged changes reviewed/ })
   check(await accept.isEnabled(), 'Review lists changes by others')
   await accept.click()
-  await page.getByText('Nothing changed since the last accept.').waitFor()
-  check(true, 'Accept all empties Review')
+  await page.getByText('Nothing changed since you last marked changes reviewed.').waitFor()
+  check(true, 'Mark all reviewed empties the logged changes')
   // The agent key cannot accept: the API refuses it.
   const refused = await api(token, '/api/v1/ui/review/accept', {})
   check(refused.status === 403, 'a bearer key cannot accept (browser session only)')
@@ -605,9 +626,27 @@ try {
   await rp.waitForURL(new RegExp(`/proposals/${filed.id}$`))
   await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
   check(true, 'Review lists the proposal and links to /proposals/$id')
+  await rp.goto(`${base}/today`)
+  await rp.getByText(/Needs you: 1 proposal to decide/).waitFor()
+  check(true, 'Today puts the proposal first in the needs-you line')
+  await rp.getByRole('link', { name: 'Menu' }).click()
+  await rp.getByRole('navigation').getByText('1 proposal to decide').waitFor()
+  check(true, 'the menu marks Review with the proposal count')
+  await rp.goto(`${base}/proposals/${filed.id}`)
+  await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
   check(
-    await rp.getByText('source and evidence are untrusted data').isVisible(),
-    'untrusted notice shown',
+    (await rp.getByText('untrusted', { exact: true }).count()) >= 1,
+    'evidence carries a small untrusted mark',
+  )
+  const note1 = rp.getByText(/Evidence is marked/)
+  check(await note1.isVisible(), 'the untrusted explanation shows once')
+  await rp.getByRole('button', { name: 'Close' }).first().click()
+  check((await note1.count()) === 0, 'the untrusted explanation can be dismissed')
+  await rp.reload()
+  await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
+  check(
+    (await rp.getByText(/Evidence is marked/).count()) === 0,
+    'a dismissed explanation stays dismissed',
   )
   check(
     await rp.getByText('Para never sends this').isVisible(),
@@ -623,10 +662,9 @@ try {
     (await i1.getByRole('button', { name: 'Approve' }).count()) === 1,
     'a clean item offers approve',
   )
-  check(
-    (await i1.getByRole('link', { name: 'Send back' }).count()) === 0,
-    'a clean item offers no send back',
-  )
+  check((await menuCount(i1, 'Send back')) === 0, 'a clean item offers no send back')
+  check((await menuCount(i1, 'Rework')) === 1, 'rework sits in the item menu')
+  check((await rp.getByRole('menu').count()) === 0, 'the menu is closed again')
 
   // A read-only key sees no decisions.
   const dctx = await browser.newContext({ viewport: { width: 390, height: 800 } })
@@ -654,7 +692,7 @@ try {
     sel.removeAllRanges()
     sel.addRange(r)
   })
-  await i1.getByRole('button', { name: 'Note on selection' }).click()
+  await more(i1, 'Note on selection')
   const note = rp.getByRole('dialog', { name: /Note on i1/ })
   await note.waitFor()
   check(rp.url().includes('note=i1'), 'the note dialog is a URL overlay')
@@ -676,7 +714,7 @@ try {
   )
 
   // An edit without a note: approve as edited, or send back. Deny is gone.
-  await i2.getByRole('link', { name: 'Edit' }).click()
+  await more(i2, 'Edit')
   const edit = rp.getByRole('dialog', { name: /Edit i2/ })
   await edit
     .getByLabel('Input (JSON, in full)')
@@ -684,10 +722,7 @@ try {
   await edit.getByRole('button', { name: 'Save edit' }).click()
   await edit.waitFor({ state: 'hidden' })
   await i2.getByRole('button', { name: 'Approve as edited' }).waitFor()
-  check(
-    (await i2.getByRole('link', { name: 'Deny' }).count()) === 0,
-    'an edited item cannot be denied',
-  )
+  check((await menuCount(i2, 'Deny')) === 0, 'an edited item cannot be denied')
 
   // Deny and rework need a reason; try rework on nothing here, check the form on a fresh proposal below.
   await i1.getByRole('link', { name: 'Send back' }).click()
@@ -739,12 +774,14 @@ try {
 
   // Approve as edited: the hash binds to the owner's final text.
   const r2i1 = rp.locator('[data-item="i1"]')
-  await r2i1.getByRole('link', { name: 'Edit' }).click()
+  await more(r2i1, 'Edit')
   const ed2 = rp.getByRole('dialog', { name: /Edit i1/ })
   await ed2.getByLabel('Draft').fill('Hi Sam, could you raise the staging quota to 20? Thanks.')
   await ed2.getByRole('button', { name: 'Save edit' }).click()
   await ed2.waitFor({ state: 'hidden' })
   await r2i1.getByRole('button', { name: 'Approve as edited' }).click()
+  await r2i1.getByText('Approved. Para has sent nothing.').waitFor()
+  await r2i1.getByText('Details', { exact: true }).click()
   await r2i1.getByText(/Approved as hash/).waitFor()
   const hash = (await r2i1.locator('code').first().innerText()).trim()
   check(/^sha256:[0-9a-f]{64}$/.test(hash), 'approval shows the hash')
@@ -777,7 +814,7 @@ try {
     ],
   })
   await rp.goto(`${base}/proposals/${second.id}`)
-  await rp.getByRole('link', { name: 'Deny' }).click()
+  await more(rp.locator('[data-item="i1"]'), 'Deny')
   const dn = rp.getByRole('dialog', { name: /Deny i1/ })
   check(
     await dn.getByRole('button', { name: 'Deny' }).isDisabled(),
@@ -807,13 +844,11 @@ try {
   )
   await ans.getByLabel(/Why \(required/).fill('Closest to the users')
   await ans.getByRole('button', { name: 'Record answer' }).click()
-  await ans.getByText('Unblocked 1').waitFor()
-  check(
-    await ans.getByRole('link', { name: 'Deploy the service' }).isVisible(),
-    'the answer shows the unblocked task',
-  )
-  await ans.getByRole('button', { name: 'Done' }).click()
   await ans.waitFor({ state: 'hidden' })
+  check(
+    await rp.getByRole('alert').filter({ hasText: 'Unblocked Deploy the service' }).isVisible(),
+    'a toast names what was recorded and the unblocked task, with no modal',
+  )
   await rp.goto(`${base}/work`)
   await rp.getByRole('listitem').filter({ hasText: 'Deploy the service' }).waitFor()
   await deployRow.getByText(/waiting on question/).waitFor({ state: 'detached' })
@@ -841,8 +876,9 @@ try {
     .getByRole('listitem')
     .filter({ hasText: 'Write the plan' })
     .first()
-    .getByRole('link', { name: 'Done' })
+    .getByRole('button', { name: /^Actions for/ })
     .click()
+  await rp.getByRole('menuitem', { name: /^Done/ }).click()
   const dd = rp.getByRole('dialog', { name: 'Finish task' })
   await dd.getByLabel(/Note/).fill('Plan written and shared')
   await dd.getByRole('button', { name: 'Done' }).click()
@@ -859,7 +895,7 @@ try {
   const waitRow = rp.getByRole('listitem').filter({ hasText: 'Review the contract' })
   await waitRow.waitFor()
   check(
-    await waitRow.getByText('overdue 2020-02-03').isVisible(),
+    await waitRow.getByText('overdue Feb 3, 2020').isVisible(),
     'Waiting shows an overdue task held by someone else',
   )
   await rp.goto(`${base}/work`)
@@ -875,7 +911,7 @@ try {
     await recur.getByText(/repeats weekly/).isVisible(),
     'the area page lists the recurring task',
   )
-  check(await recur.getByText(/overdue 2020-01-06/).isVisible(), 'an overdue due date is marked')
+  check(await recur.getByText(/overdue Jan 6, 2020/).isVisible(), 'an overdue due date is marked')
   await rp.getByRole('link', { name: 'Disk full on build host' }).click()
   await rp.waitForURL(new RegExp(`/incidents/${incident}$`))
   await rp.getByLabel('Add to the timeline').fill('Cleared old build caches')
@@ -1095,7 +1131,7 @@ try {
   await page.getByText('You are signed out.').waitFor()
   check(true, 'sign out says you are signed out')
   check(
-    await page.getByText('para serve login', { exact: true }).isVisible(),
+    await page.getByText('para key create <name> --print-url', { exact: true }).isVisible(),
     'sign-in shows the CLI hint as code',
   )
   check(!(await page.locator('body').innerText()).includes('`'), 'sign-in has no literal backticks')

@@ -11,7 +11,7 @@ import Box from '@mui/material/Box'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useAreas } from '@/api/areas'
 import { useGraph, useWork } from '@/api/work'
-import { Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
+import { CHIP_ROW, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { LinkButton, TextLink } from '@/components/links'
 import { DocLink } from '@/components/DocLink'
@@ -123,7 +123,7 @@ function AreasSection() {
       {
         <List dense disablePadding>
           {areas.map((a) => (
-            <ListItem key={a.id} disableGutters>
+            <ListItem key={a.id} disableGutters sx={CHIP_ROW}>
               <ListItemText
                 primary={
                   <TextLink to="/areas/$id" params={{ id: a.id }} underline="hover">

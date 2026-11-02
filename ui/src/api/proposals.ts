@@ -60,6 +60,8 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             id
             kind
             summary
+            change
+            resultName
             op
             input
             medium
@@ -225,6 +227,12 @@ export function useProposals() {
     queryFn: async () =>
       need((await gqlClient.request(ProposalListDoc)).para.v1.proposalList, 'proposals').items,
   })
+}
+
+// useOpenProposals lists the proposals that wait for a decision from the owner.
+export function useOpenProposals() {
+  const q = useProposals()
+  return { ...q, open: (q.data ?? []).filter((p) => p.status === 'open' && !p.error) }
 }
 
 export function useProposal(id: string) {

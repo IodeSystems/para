@@ -63,7 +63,7 @@ function Login() {
             </Typography>
             {signedout && !error && <Alert severity="success">You are signed out.</Alert>}
             <Typography variant="body2" color="text.secondary">
-              Paste your access key to sign in. To get a key, run{' '}
+              Open the sign-in link para gave you. To get one, run{' '}
               <Box
                 component="code"
                 sx={{
@@ -73,11 +73,12 @@ function Login() {
                   bgcolor: 'action.hover',
                   fontFamily: 'ui-monospace, monospace',
                   fontSize: '0.9em',
+                  overflowWrap: 'anywhere',
                 }}
               >
-                para serve login
+                para key create &lt;name&gt; --print-url
               </Box>{' '}
-              on the computer that runs para. It opens para already signed in.
+              on the machine running para. Or paste an access key below.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField

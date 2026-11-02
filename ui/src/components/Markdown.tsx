@@ -9,6 +9,7 @@ import { useDoc } from '@/api/doc'
 import { isInternalHref, linkWikilinks, WIKI_TITLE } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
 import { Mermaid } from '@/components/Mermaid'
+import { whenify } from '@/components/When'
 
 // Renders para-md. No raw HTML: react-markdown does not parse it (it is dropped, never
 // injected), and urlTransform keeps only safe link schemes. Wikilinks become in-app routes.
@@ -145,6 +146,12 @@ function ScrollTable({ children }: { children?: ReactNode }) {
 }
 
 const components: Components = {
+  p({ children }) {
+    return <p>{whenify(children)}</p>
+  },
+  li({ children }) {
+    return <li>{whenify(children)}</li>
+  },
   a({ href, title, children }) {
     if (isInternalHref(href)) {
       // A link with only an id for a label shows the title of what it points at.
