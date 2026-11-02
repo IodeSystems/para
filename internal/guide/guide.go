@@ -28,6 +28,8 @@ var (
 	harnessClaude string
 	//go:embed harness_dun.txt
 	harnessDun string
+	//go:embed reviewcycle.txt
+	reviewCycle string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -43,6 +45,10 @@ func Orient() string { return Intro() + "\n\n" + Rule() + "\n\n" + trim(orient) 
 // Bootstrap is the interview an agent runs to fill a new vault. Both the MCP
 // prompt "bootstrap" and `para bootstrap` print it.
 func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
+
+// ReviewCycle is the MCP prompt "review_cycle": how an agent works with the
+// owner through proposals.
+func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
 
 // Extended is `para --help-extended`: use cases with real commands, and a
 // "where does this go?" table.

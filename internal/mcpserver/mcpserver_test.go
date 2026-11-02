@@ -155,9 +155,14 @@ func TestToolsMatchOps(t *testing.T) {
 	for _, tl := range list.Tools {
 		got[tl.Name] = tl
 	}
-	all := ops.All()
+	all := ops.ForAgents()
 	if len(got) != len(all) {
 		t.Errorf("tools = %d, ops = %d", len(got), len(all))
+	}
+	for _, e := range ops.All() {
+		if _, ok := got[e.Name()]; ok && e.PersonOnly() {
+			t.Errorf("person-only op %s is a tool", e.Name())
+		}
 	}
 	for _, e := range all {
 		tl, ok := got[e.Name()]
@@ -330,7 +335,7 @@ func TestInputEnums(t *testing.T) {
 // the op Output as `para <cmd> --json` prints it.
 func TestParity(t *testing.T) {
 	template := seededTemplate(t)
-	for _, e := range ops.All() {
+	for _, e := range ops.ForAgents() {
 		t.Run(e.Name(), func(t *testing.T) {
 			s := vaultFromTemplate(t, template)
 			c := connect(t, ops.Deps{Store: s})

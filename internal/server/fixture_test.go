@@ -198,11 +198,18 @@ func (f *fixture) do(c call) *httptest.ResponseRecorder {
 // graphql posts one document with variables.
 func (f *fixture) graphql(token, doc string, vars map[string]any) (*httptest.ResponseRecorder, map[string]any) {
 	f.t.Helper()
+	return f.graphqlAs(call{token: token}, doc, vars)
+}
+
+// graphqlAs posts one document with the credentials of c.
+func (f *fixture) graphqlAs(c call, doc string, vars map[string]any) (*httptest.ResponseRecorder, map[string]any) {
+	f.t.Helper()
 	b, err := json.Marshal(map[string]any{"query": doc, "variables": vars})
 	if err != nil {
 		f.t.Fatal(err)
 	}
-	w := f.do(call{method: http.MethodPost, target: "/api/graphql", body: string(b), token: token})
+	c.method, c.target, c.body = http.MethodPost, "/api/graphql", string(b)
+	w := f.do(c)
 	var out map[string]any
 	dec := json.NewDecoder(bytes.NewReader(w.Body.Bytes()))
 	dec.UseNumber()

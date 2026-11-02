@@ -105,6 +105,21 @@ Para is not a pager: alerts stay in monitoring (your pager, Alertmanager, a stat
   $ para key revoke phone
 The server listens on 127.0.0.1:7700 by default and every request needs a token.
 
+11. Proposals: an agent suggests, you decide
+  $ para proposal list
+  $ para proposal show proposal-example
+  $ para proposal approve proposal-example i1
+  $ para proposal deny proposal-example i2 --reason "Not this quarter"
+  $ para proposal rework proposal-example i3 --reason "Name the owner"
+  $ para proposal annotate proposal-example i4 --quote "Friday" --note "Monday works better"
+  $ para proposal sendback proposal-example i4
+  $ para proposal hold proposal-example i5 --kind task --text "Check the budget" --project project-portal
+  $ para proposal wait proposal-example --timeout 1h
+  $ para proposal approved sha256:0000000000000000000000000000000000000000000000000000000000000000
+An agent files items with evidence, and para changes nothing until you approve. An approved
+op runs under the agent's name. An external item (an email, a PR, a ticket) never runs: para
+records the hash of the exact text you approved, and the agent or you send it.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -119,4 +134,6 @@ Where does this go?
   reference facts you will look up           a note
   a plan, doc, runbook, or repository        stays where it lives; link it from the area or project
   a phone or browser view of the vault       para serve, with a key from para key create
+  a change an agent suggests                 a proposal: you approve each item
+  an email or PR an agent wants to send      a proposal with an external item
   a meeting, a reminder at a time, a page    not para: use a calendar or a pager

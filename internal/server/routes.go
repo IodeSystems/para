@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"reflect"
@@ -26,6 +27,7 @@ const (
 // routeTable is every huma route and its scope, for the gate and the guards.
 type routeTable struct {
 	byKey map[string]string
+	byOp  map[string]string // op name to scope
 	list  []Route
 }
 
@@ -38,7 +40,9 @@ type Route struct {
 	Scope  string
 }
 
-func newRouteTable() *routeTable { return &routeTable{byKey: map[string]string{}} }
+func newRouteTable() *routeTable {
+	return &routeTable{byKey: map[string]string{}, byOp: map[string]string{}}
+}
 
 func (t *routeTable) add(method, path, scope string) {
 	t.byKey[method+" "+path] = scope
@@ -87,6 +91,7 @@ func reg[I, O any](r *registrar, op *ops.Op[I, O], method, scope string) {
 		Metadata:     map[string]any{metaScope: scope, metaOp: name},
 	}
 	r.s.routes.add(method, route.Path, scope)
+	r.s.routes.byOp[name] = scope
 	r.s.routes.list = append(r.s.routes.list, route)
 	s := r.s
 	run := func(ctx context.Context, in I) (*output[O], error) {
@@ -155,10 +160,19 @@ type boundVault struct {
 	t       *Tenant
 	req     netguard.Request
 	surface string
+	routes  *routeTable
 }
 
+// deps binds the caller. Authorize holds an approval to the approver's scopes:
+// proposal:review alone cannot cause a write the caller could not make.
 func (b *boundVault) deps() ops.Deps {
-	return ops.Deps{Store: b.t.store.As(b.req.Principal.Name, b.surface)}
+	return ops.Deps{Store: b.t.store.As(b.req.Principal.Name, b.surface), Authorize: func(op string) error {
+		scope, ok := b.routes.byOp[op]
+		if !ok || !b.req.Principal.Has(scope) {
+			return fmt.Errorf("%w: approving %s needs scope %s", ops.ErrPersonOnly, op, scope)
+		}
+		return nil
+	}}
 }
 
 // apiError maps an op error to a status. Text reaches the client through the
@@ -167,6 +181,8 @@ func (t *Tenant) apiError(err error) error {
 	var lint *model.LintError
 	var path *fs.PathError
 	switch {
+	case errors.Is(err, ops.ErrPersonOnly):
+		return huma.Error403Forbidden(t.public(err))
 	case errors.Is(err, model.ErrNotFound):
 		return huma.Error404NotFound(t.public(err))
 	case errors.Is(err, model.ErrConflict), errors.Is(err, model.ErrExists):

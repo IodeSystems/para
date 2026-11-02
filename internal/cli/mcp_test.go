@@ -83,7 +83,7 @@ func TestMCPSubprocess(t *testing.T) {
 			for _, tl := range tools.Tools {
 				have[tl.Name] = true
 			}
-			for _, o := range ops.All() {
+			for _, o := range ops.ForAgents() {
 				if !have[o.Name()] {
 					t.Errorf("op %s is not a tool", o.Name())
 				}
@@ -93,8 +93,8 @@ func TestMCPSubprocess(t *testing.T) {
 					t.Errorf("admin command %s is a tool", admin)
 				}
 			}
-			if len(have) != len(ops.All()) {
-				t.Errorf("tools = %d, ops = %d", len(have), len(ops.All()))
+			if len(have) != len(ops.ForAgents()) {
+				t.Errorf("tools = %d, ops = %d", len(have), len(ops.ForAgents()))
 			}
 
 			if out, isErr := callText(t, c, "inbox_add", map[string]any{"text": "synthetic capture"}); isErr {

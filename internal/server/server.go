@@ -206,6 +206,7 @@ func (s *Server) build() error {
 	registerGovernance(r)
 	registerRecords(r)
 	registerRequests(r)
+	registerProposals(r)
 	registerVault(r)
 	registerUI(r)
 	registerSession(r)
@@ -309,5 +310,5 @@ func (s *Server) bound(ctx context.Context) (*boundVault, error) {
 	if req.Principal.Session {
 		surface = surfacePWA
 	}
-	return &boundVault{t: t, req: req, surface: surface}, nil
+	return &boundVault{t: t, req: req, surface: surface, routes: s.routes}, nil
 }

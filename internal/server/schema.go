@@ -106,6 +106,10 @@ type Meta struct {
 	LeaseUntil     string           `json:"lease_until,omitempty"`
 	Links          *jsonValue       `json:"links,omitempty"`
 	ResultLinks    []string         `json:"result_links,omitempty"`
+	SourceDoc      string           `json:"source_doc,omitempty"`
+	Revision       int              `json:"revision,omitempty"`
+	Supersedes     string           `json:"supersedes,omitempty"`
+	ProposedBy     string           `json:"proposed_by,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.
@@ -113,10 +117,12 @@ type Meta struct {
 //     and para has no integer ids.
 //   - model.Meta is the flat Meta object.
 //   - [][]string (graph cycles) would flatten in gat, so it is the JSON scalar.
+//   - map[string]any (a proposed op's input) has no fixed shape: the JSON scalar.
 func registerAliases(reg huma.Registry) {
 	reg.RegisterTypeAlias(reflect.TypeFor[int](), reflect.TypeFor[int32]())
 	reg.RegisterTypeAlias(reflect.TypeFor[model.Meta](), reflect.TypeFor[Meta]())
 	reg.RegisterTypeAlias(reflect.TypeFor[[][]string](), reflect.TypeFor[jsonValue]())
+	reg.RegisterTypeAlias(reflect.TypeFor[map[string]any](), reflect.TypeFor[jsonValue]())
 
 	addEnum(reg, model.Types)
 	addEnum(reg, model.Folders)
@@ -139,6 +145,11 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.RequestStatuses)
 	addEnum(reg, model.IncidentSeverities)
 	addEnum(reg, model.IncidentStatuses)
+	addEnum(reg, model.ProposalStatuses)
+	addEnum(reg, model.ItemKinds)
+	addEnum(reg, model.ItemStates)
+	addEnum(reg, model.AnnotationStates)
+	addEnum(reg, ops.HoldKinds)
 	addEnum(reg, []model.ChangeKind{model.ChangeAdded, model.ChangeChanged, model.ChangeRemoved})
 	addEnum(reg, []model.Outcome{model.OutcomeLogged, model.OutcomeSynced, model.OutcomePending})
 	addEnum(reg, ops.CopyFormats)

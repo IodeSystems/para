@@ -94,6 +94,55 @@ var Inputs = map[string]string{
 	"task_show":                 `{"id":"task-sample"}`,
 	"task_start":                `{"id":"task-sample"}`,
 	"who":                       `{"query":"Sample person"}`,
+	"proposal_add": `{"title":"Sample proposal","source":"note-sample","items":[` +
+		`{"kind":"op","op":"task_add","input":{"project":"project-sample","title":"From a proposal"},"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
+		`{"kind":"external","medium":"email","target":"sample@acme.example","draft":"Hi Sam.","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
+	"proposal_show":     `{"id":"proposal-sample"}`,
+	"proposal_diff":     `{"id":"proposal-sample"}`,
+	"proposal_wait":     `{"id":"proposal-decided"}`,
+	"proposal_approved": `{"hash":"` + model.ExternalHash(sampleTarget, sampleDraft) + `"}`,
+	"proposal_revise":   `{"id":"proposal-sample","answers":[{"annotation":"a1","outcome":"applied"}]}`,
+	"proposal_approve":  `{"id":"proposal-sample","items":["i1"]}`,
+	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
+	"proposal_rework":   `{"id":"proposal-sample","item":"i1","reason":"Name the owner."}`,
+	"proposal_sendback": `{"id":"proposal-sample","item":"i3"}`,
+	"proposal_hold":     `{"id":"proposal-sample","item":"i1","kind":"request","text":"Check the budget first"}`,
+	"proposal_annotate": `{"id":"proposal-sample","item":"i2","quote":"Hi Sam","note":"Use the full name."}`,
+	"proposal_edit":     `{"id":"proposal-sample","item":"i2","draft":"Hi Sample."}`,
+}
+
+const (
+	sampleTarget = "sample@acme.example"
+	sampleDraft  = "Hi Sam."
+)
+
+func sampleProposals() ([]model.Document, error) {
+	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
+	open, err := model.RenderProposalBody(model.ProposalContent{
+		Items: []model.ProposalItem{
+			{ID: "i1", Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal"}, Evidence: ev, State: model.ItemPending},
+			{ID: "i2", Kind: model.ItemExternal, Medium: model.MediumEmail, Target: sampleTarget, Draft: sampleDraft, Evidence: ev, State: model.ItemPending},
+			{ID: "i3", Kind: model.ItemExternal, Medium: model.MediumSlack, Target: "#sample", Draft: "Sample note.", Evidence: ev, State: model.ItemPending},
+		},
+		Annotations: []model.Annotation{{ID: "a1", Item: "i3", Quote: "Sample note", Note: "Reword this.", By: "user", Revision: 1, State: model.AnnotationOpen}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	closed, err := model.RenderProposalBody(model.ProposalContent{
+		Items: []model.ProposalItem{{ID: "i1", Kind: model.ItemExternal, Medium: model.MediumEmail, Target: sampleTarget, Draft: sampleDraft,
+			Evidence: ev, State: model.ItemApproved, ApprovedHash: model.ExternalHash(sampleTarget, sampleDraft)}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	meta := func(s model.ProposalStatus) *model.Proposal {
+		return &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo("note-sample"), Status: s, Revision: 1, ProposedBy: "claude-agent"}
+	}
+	return []model.Document{
+		{ID: "proposal-sample", Folder: model.FolderProposals, Title: "Sample proposal", Body: open, Meta: meta(model.ProposalOpen)},
+		{ID: "proposal-decided", Folder: model.FolderProposals, Title: "Decided proposal", Body: closed, Meta: meta(model.ProposalClosed)},
+	}, nil
 }
 
 func source() model.Source {
@@ -103,7 +152,11 @@ func source() model.Source {
 
 // Seed creates the documents that Inputs name.
 func Seed(ctx context.Context, s store.Store) error {
-	for _, d := range []model.Document{
+	proposals, err := sampleProposals()
+	if err != nil {
+		return fmt.Errorf("opsample: seed: %w", err)
+	}
+	for _, d := range append([]model.Document{
 		{ID: "project-sample", Folder: model.FolderProjects, Title: "Sample project",
 			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example",
 				Links: []model.Pointer{{Label: "Docs", Kind: model.PointerDocs, Target: "https://wiki.acme.example/sample"}}}},
@@ -163,7 +216,7 @@ func Seed(ctx context.Context, s store.Store) error {
 				Source: model.Source{URL: "https://wiki.acme.example/a", Retrieved: "2026-11-01", Fidelity: model.FidelityNone}, ReviewBy: "2027-01-01"}},
 		{ID: "convention-sample", Folder: model.FolderConventions, Title: "Sample convention",
 			Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: model.ConventionDraft}},
-	} {
+	}, proposals...) {
 		if _, err := s.Create(ctx, d); err != nil {
 			return fmt.Errorf("opsample: seed %s: %w", d.ID, err)
 		}

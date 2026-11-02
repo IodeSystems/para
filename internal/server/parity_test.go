@@ -71,6 +71,17 @@ func restTarget(t *testing.T, r Route, input string) call {
 // an actor named agent.
 func (f *fixture) sampleToken() string { return f.key(f.keyA, "agent", allScopes...) }
 
+// sign sends c as the caller an op needs: a person-only op refuses a bearer key,
+// so it goes through a browser session of the same key.
+func (f *fixture) sign(c *call, e ops.Entry, tok string) {
+	f.t.Helper()
+	if !e.PersonOnly() {
+		c.token = tok
+		return
+	}
+	c.header = map[string]string{"Cookie": netguard.CookieName + "=" + f.session(tok), "Origin": "http://" + hostA}
+}
+
 // TestRESTEqualsInvoke: for every op the REST body is the canonical --json form
 // of the Output type, and a read gives the exact bytes of Invoke, which
 // TestInvokeMatchesCLIJSON ties to the CLI.
@@ -85,7 +96,7 @@ func TestRESTEqualsInvoke(t *testing.T) {
 			t.Parallel()
 			f := newFixture(t)
 			c := restTarget(t, r, sample(r.Op))
-			c.token = f.sampleToken()
+			f.sign(&c, e, f.sampleToken())
 			w := f.do(c)
 			wantStatus(t, w, 200)
 			text := w.Body.String()
@@ -366,7 +377,9 @@ func TestGraphQLEveryOp(t *testing.T) {
 			f := newFixture(t)
 			key := f.sampleToken()
 			doc, vars := gqlDoc(types, got.Kind, got.Field, sample(r.Op), t)
-			w, res := f.graphql(key, doc, vars)
+			c := call{}
+			f.sign(&c, entry(t, r.Op), key)
+			w, res := f.graphqlAs(c, doc, vars)
 			wantStatus(t, w, 200)
 			if res["errors"] != nil {
 				t.Fatalf("errors: %v\n%s\nvars %v", res["errors"], doc, vars)
@@ -375,7 +388,7 @@ func TestGraphQLEveryOp(t *testing.T) {
 				return
 			}
 			data := res["data"].(map[string]any)["para"].(map[string]any)["v1"].(map[string]any)[r.ID]
-			c := restTarget(t, r, sample(r.Op))
+			c = restTarget(t, r, sample(r.Op))
 			c.token = key
 			rest := f.do(c)
 			wantStatus(t, rest, 200)

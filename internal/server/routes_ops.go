@@ -125,6 +125,27 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
 }
 
+// registerProposals: a key with vault:read and proposal:add can suggest and
+// change nothing. Review routes take proposal:review, and the ops refuse a
+// bearer key, so a decision needs a browser session. Any op an approval runs
+// is checked against the approver's own scopes (boundVault.deps).
+func registerProposals(r *registrar) {
+	reg(r, ops.ProposalAdd, post, netguard.ScopeProposalAdd)
+	reg(r, ops.ProposalRevise, post, netguard.ScopeProposalAdd)
+	reg(r, ops.ProposalList, get, read)
+	reg(r, ops.ProposalShow, get, read)
+	reg(r, ops.ProposalDiff, get, read)
+	reg(r, ops.ProposalWait, get, read)
+	reg(r, ops.ProposalApproved, get, read)
+	reg(r, ops.ProposalApprove, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalDeny, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalRework, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalSendback, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalHold, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalAnnotate, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalEdit, post, netguard.ScopeProposalReview)
+}
+
 func registerVault(r *registrar) {
 	reg(r, ops.Lint, get, read)
 	reg(r, ops.Reconcile, post, write)

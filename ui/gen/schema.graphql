@@ -67,6 +67,15 @@ type ParaV1MutationNamespace {
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
+  proposalAdd(body: para_ProposalAddInputInput!): para_ProposalFiled @derived(operationId: "proposalAdd")
+  proposalAnnotate(body: para_ProposalAnnotateInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalAnnotate")
+  proposalApprove(body: para_ProposalApproveInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalApprove")
+  proposalDeny(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalDeny")
+  proposalEdit(body: para_ProposalEditInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalEdit")
+  proposalHold(body: para_ProposalHoldInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalHold")
+  proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
+  proposalRework(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalRework")
+  proposalSendback(body: para_ProposalSendbackInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalSendback")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
@@ -134,6 +143,11 @@ type ParaV1QueryNamespace {
   policyShow(id: String!): para_PolicyShowOutput @derived(operationId: "policyShow")
   projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
   projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
+  proposalApproved(hash: String!): para_ProposalApprovedOutput @derived(operationId: "proposalApproved")
+  proposalDiff(id: String!): para_ProposalDiffOutput @derived(operationId: "proposalDiff")
+  proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
+  proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
+  proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
   rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
@@ -154,6 +168,36 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+input para_AnnotationAnswerInput {
+  annotation: String!
+  outcome: para_AnnotationAnswerOutcome!
+  reason: String
+}
+
+enum para_AnnotationAnswerOutcome {
+  applied
+  declined
+  open
+}
+
+type para_AnnotationView {
+  anchored: Boolean!
+  answer: String
+  by: String!
+  id: String!
+  item: String!
+  note: String!
+  quote: String!
+  revision: Int!
+  state: para_AnnotationViewState!
+}
+
+enum para_AnnotationViewState {
+  applied
+  declined
+  open
 }
 
 input para_AreaAddInputInput {
@@ -186,6 +230,7 @@ enum para_AreaAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -226,6 +271,7 @@ enum para_AreaViewFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -405,6 +451,27 @@ enum para_CopyOutputAs {
   slack
 }
 
+type para_Decision {
+  approvedHash: String
+  heldBy: String
+  item: String!
+  reason: String
+  result: String
+  state: para_DecisionState!
+}
+
+enum para_DecisionState {
+  approved
+  denied
+  failed
+  held
+  pending
+  rework
+  running
+  sent_back
+  withdrawn
+}
+
 type para_Document {
   body: String!
   folder: para_DocumentFolder!
@@ -426,6 +493,7 @@ enum para_DocumentFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -447,6 +515,16 @@ type para_Event {
 
 type para_EventsTailOutput {
   events: [para_Event!]!
+}
+
+type para_Evidence {
+  locator: String!
+  quote: String!
+}
+
+input para_EvidenceInput {
+  locator: String!
+  quote: String!
 }
 
 input para_ExceptionAddInputInput {
@@ -634,6 +712,11 @@ enum para_ExportOutputAs {
   slack
 }
 
+type para_FieldChange {
+  field: String!
+  lines: [String!]!
+}
+
 type para_Finding {
   code: String!
   line: Int
@@ -674,6 +757,7 @@ enum para_GraphNodeType {
   policy
   policy_exception
   project
+  proposal
   request
   rfx
   role
@@ -742,6 +826,7 @@ enum para_InboxAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -766,6 +851,7 @@ enum para_InboxItemFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -828,6 +914,7 @@ enum para_InboxTriageOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -873,6 +960,7 @@ enum para_IncidentAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -946,6 +1034,7 @@ enum para_IncidentViewFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1039,6 +1128,7 @@ enum para_InteractionAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1092,6 +1182,89 @@ type para_Item {
   found: String
   name: String!
   needs: [String!]
+}
+
+type para_ItemDiff {
+  change: String!
+  fields: [para_FieldChange!]!
+  item: String!
+}
+
+input para_ItemInputInput {
+  draft: String
+  evidence: para_EvidenceInput!
+  id: String
+  input: JSON
+  kind: para_ItemInputKind!
+  medium: para_ItemInputMedium
+  op: String
+  target: String
+}
+
+enum para_ItemInputKind {
+  external
+  op
+}
+
+enum para_ItemInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_ItemView {
+  actions: [String!]!
+  approvedHash: String
+  draft: String
+  edited: Boolean
+  evidence: para_Evidence!
+  hash: String!
+  heldBy: String
+  id: String!
+  input: JSON
+  kind: para_ItemViewKind!
+  medium: para_ItemViewMedium
+  op: String
+  openAnnotations: Int!
+  reason: String
+  result: String
+  state: para_ItemViewState!
+  target: String
+}
+
+enum para_ItemViewKind {
+  external
+  op
+}
+
+enum para_ItemViewMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_ItemViewState {
+  approved
+  denied
+  failed
+  held
+  pending
+  rework
+  running
+  sent_back
+  withdrawn
 }
 
 input para_JournalInputInput {
@@ -1199,11 +1372,13 @@ type para_Meta {
   policy: String
   previous: String
   project: String
+  proposedBy: String
   queuedAt: String
   recur: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
+  revision: Int
   role: String
   route: String
   rule: String
@@ -1212,8 +1387,10 @@ type para_Meta {
   selfServeCheck: String
   severity: String
   source: para_Source
+  sourceDoc: String
   started: String
   status: String
+  supersedes: String
   tags: [String!]
   targets: [para_Target!]
   team: String
@@ -1253,6 +1430,7 @@ enum para_MetaType {
   policy
   policy_exception
   project
+  proposal
   request
   rfx
   role
@@ -1297,6 +1475,7 @@ enum para_NoteAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1333,6 +1512,7 @@ enum para_NoteViewFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1368,6 +1548,7 @@ enum para_OrgAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1557,6 +1738,7 @@ enum para_ProjectAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1587,6 +1769,7 @@ enum para_ProjectCloseOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1632,6 +1815,7 @@ enum para_ProjectViewFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1642,6 +1826,179 @@ enum para_ProjectViewStatus {
   done
   dropped
   paused
+}
+
+input para_ProposalAddInputInput {
+  items: [para_ItemInputInput!]
+  source: String!
+  title: String!
+}
+
+input para_ProposalAnnotateInputInput {
+  id: String!
+  item: String!
+  note: String!
+  quote: String!
+}
+
+input para_ProposalApproveInputInput {
+  id: String!
+  items: [String!]
+}
+
+type para_ProposalApprovedOutput {
+  approved: Boolean!
+  hash: String!
+  item: String
+  medium: para_ProposalApprovedOutputMedium
+  proposal: String
+  target: String
+}
+
+enum para_ProposalApprovedOutputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_ProposalDetail {
+  annotations: [para_AnnotationView!]!
+  history: [para_RevisionView!]!
+  items: [para_ItemView!]!
+  proposal: para_ProposalView!
+  rev: String!
+  reviewCommand: String!
+  reviewUrl: String
+  source: para_SourceView!
+  supersededBy: String
+  untrusted: String!
+}
+
+type para_ProposalDiffOutput {
+  id: String!
+  items: [para_ItemDiff!]!
+  previous: String
+  revision: Int!
+}
+
+input para_ProposalEditInputInput {
+  draft: String
+  id: String!
+  input: JSON
+  item: String!
+  target: String
+}
+
+type para_ProposalFiled {
+  id: String!
+  rev: String!
+  reviewCommand: String!
+  reviewUrl: String
+  revision: Int!
+  status: para_ProposalFiledStatus!
+  supersedes: String
+}
+
+enum para_ProposalFiledStatus {
+  closed
+  open
+  sent_back
+  superseded
+}
+
+input para_ProposalHoldInputInput {
+  area: String
+  id: String!
+  item: String!
+  kind: para_ProposalHoldInputKind!
+  project: String
+  text: String!
+}
+
+enum para_ProposalHoldInputKind {
+  request
+  task
+}
+
+type para_ProposalListOutput {
+  items: [para_ProposalView!]!
+}
+
+input para_ProposalReasonInputInput {
+  id: String!
+  item: String!
+  reason: String!
+}
+
+type para_ProposalReviewOutput {
+  failed: [String!]
+  id: String!
+  items: [para_Decision!]!
+  request: String
+  rev: String!
+  status: para_ProposalReviewOutputStatus!
+}
+
+enum para_ProposalReviewOutputStatus {
+  closed
+  open
+  sent_back
+  superseded
+}
+
+input para_ProposalReviseInputInput {
+  answers: [para_AnnotationAnswerInput!]
+  id: String!
+  items: [para_ItemInputInput!]
+  withdraw: [String!]
+}
+
+input para_ProposalSendbackInputInput {
+  id: String!
+  item: String!
+  reason: String
+}
+
+type para_ProposalView {
+  created: String!
+  error: String
+  id: String!
+  itemCount: Int!
+  pending: Int!
+  proposedBy: String!
+  revision: Int!
+  sourceDoc: String!
+  status: para_ProposalViewStatus!
+  supersedes: String
+  title: String!
+}
+
+enum para_ProposalViewStatus {
+  closed
+  open
+  sent_back
+  superseded
+}
+
+type para_ProposalWaitOutput {
+  decisions: [para_Decision!]!
+  id: String!
+  pending: Boolean!
+  status: para_ProposalWaitOutputStatus!
+  supersededBy: String
+}
+
+enum para_ProposalWaitOutputStatus {
+  closed
+  open
+  sent_back
+  superseded
 }
 
 enum para_RFXAddInputDirection {
@@ -1680,6 +2037,7 @@ enum para_RFXAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1911,6 +2269,7 @@ enum para_RefFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -1931,6 +2290,7 @@ enum para_RefType {
   policy
   policy_exception
   project
+  proposal
   request
   rfx
   role
@@ -1965,6 +2325,7 @@ enum para_RequestAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -2085,6 +2446,20 @@ type para_ReviewNeed {
   title: String!
 }
 
+type para_RevisionView {
+  created: String!
+  id: String!
+  revision: Int!
+  status: para_RevisionViewStatus!
+}
+
+enum para_RevisionViewStatus {
+  closed
+  open
+  sent_back
+  superseded
+}
+
 type para_RouteOutput {
   candidates: [para_Ref!]!
   domain: para_Ref
@@ -2168,6 +2543,13 @@ enum para_SourceFidelity {
   none
   ocr
   partial
+}
+
+type para_SourceView {
+  body: String
+  error: String
+  id: String!
+  title: String
 }
 
 type para_Stats {
@@ -2255,6 +2637,7 @@ enum para_TaskAddOutputFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -2383,6 +2766,7 @@ enum para_TaskViewFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -2503,6 +2887,7 @@ enum para_WhereMatchFolder {
   org
   policies
   projects
+  proposals
   requests
   resources
   rfx
@@ -2523,6 +2908,7 @@ enum para_WhereMatchType {
   policy
   policy_exception
   project
+  proposal
   request
   rfx
   role
@@ -2605,6 +2991,13 @@ enum para_interactionListMedium {
   phone
   slack
   teams
+}
+
+enum para_proposalListStatus {
+  closed
+  open
+  sent_back
+  superseded
 }
 
 enum para_requestListStatus {

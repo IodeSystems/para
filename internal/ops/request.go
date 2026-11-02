@@ -195,7 +195,7 @@ func requestLinks(ctx context.Context, d Deps, field string, ids []string, types
 // RequestAddInput is the input of request_add.
 type RequestAddInput struct {
 	Ask    string   `json:"ask"`              // first line is the title; the rest is the ask
-	Links  []string `json:"links,omitempty"`  // task or project ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 }
 
@@ -219,7 +219,7 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 	if err != nil {
 		return RequestAddOutput{}, fmt.Errorf("ask: %w", err)
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

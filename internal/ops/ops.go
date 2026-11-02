@@ -9,9 +9,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -21,6 +23,11 @@ import (
 // Deps is what an op may use. A surface builds it per call or per session.
 type Deps struct {
 	Store store.Store
+	// Authorize says whether the caller may cause op to run. An approved
+	// proposal item runs under the proposing agent, so the server uses this to
+	// keep the approver's own scopes in force. Nil allows every op: the CLI and
+	// the TUI are the owner on this machine.
+	Authorize func(op string) error
 }
 
 // Func is the shape of every op.
@@ -28,9 +35,10 @@ type Func[I, O any] func(ctx context.Context, d Deps, in I) (O, error)
 
 // Op is a typed, named op. Surfaces with a compile-time reference use Run.
 type Op[I, O any] struct {
-	name string
-	desc string
-	fn   Func[I, O]
+	name   string
+	desc   string
+	fn     Func[I, O]
+	person bool
 }
 
 // Entry is the untyped view of an Op, for surfaces that iterate All.
@@ -38,6 +46,9 @@ type Entry interface {
 	// Name is the CLI path joined by '_': `para inbox add` is inbox_add.
 	Name() string
 	Description() string
+	// PersonOnly marks an op no agent may call. It is refused inside the op, and
+	// MCP does not list it (ForAgents).
+	PersonOnly() bool
 	InputType() reflect.Type
 	OutputType() reflect.Type
 	// Invoke decodes a JSON Input and returns the Output. An unknown field is
@@ -54,6 +65,7 @@ type Failing interface {
 
 func (o *Op[I, O]) Name() string        { return o.name }
 func (o *Op[I, O]) Description() string { return o.desc }
+func (o *Op[I, O]) PersonOnly() bool    { return o.person }
 
 func (o *Op[I, O]) InputType() reflect.Type  { return reflect.TypeFor[I]() }
 func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }
@@ -120,6 +132,32 @@ func define[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 	op := &Op[I, O]{name: name, desc: desc, fn: fn}
 	registry[name] = op
 	return op
+}
+
+// ErrPersonOnly is a person-only op called from an agent surface.
+var ErrPersonOnly = errors.New("only a person can do this: use the terminal or a browser session")
+
+// PersonSurfaces can call a person-only op. A bearer key is surface api and an
+// MCP server is surface mcp: both are agents here, whatever their scopes.
+var PersonSurfaces = []string{"cli", "tui", "pwa"}
+
+// definePerson registers an op that refuses every surface but a person's. The
+// check sits in the op, so no surface can forget it.
+func definePerson[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
+	op := define(name, desc, func(ctx context.Context, d Deps, in I) (O, error) {
+		if !slices.Contains(PersonSurfaces, d.Store.Info().Surface) {
+			var zero O
+			return zero, ErrPersonOnly
+		}
+		return fn(ctx, d, in)
+	})
+	op.person = true
+	return op
+}
+
+// ForAgents returns the ops an agent surface lists, sorted by name.
+func ForAgents() []Entry {
+	return slices.DeleteFunc(All(), Entry.PersonOnly)
 }
 
 // All returns every op, sorted by name.

@@ -9,3 +9,5 @@ How to work a vault:
 8. To ask a person, search first, then `rfx_add` with what you checked, `rfx_draft` for the message, and `rfx_reply` when they answer. A no keeps its reason.
 9. Facts about people go in `org_person_add`, `org_person_contact_add`, and `org_person_note`.
 10. Run `lint` after a batch of writes and fix every error.
+11. No public or external action without an accepted item. An email, a PR, a ticket, or a message goes in a proposal first (`proposal_add`, kind external). Para never sends it. After the owner approves, you or the owner send the exact approved text; `proposal_approved` checks its hash.
+12. A change the owner should decide goes in a proposal too. Show the owner the review_command and review_url it returns, then wait: run para proposal wait with its id as a background job where the harness supports it, which costs no tokens, or call `proposal_wait`. The prompt review_cycle has the whole cycle.
