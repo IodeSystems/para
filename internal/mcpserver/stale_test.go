@@ -47,7 +47,7 @@ func TestUpgradedBinaryIsRefusedWithARestartMessage(t *testing.T) {
 		t.Fatal(err)
 	}
 	res := call(t, c, "lint", "")
-	if !res.IsError || !strings.Contains(textOf(t, res), "restart the MCP server") {
+	if !res.IsError || !strings.Contains(textOf(t, res), "reconnect para") {
 		t.Fatalf("after the upgrade: error=%v %s", res.IsError, textOf(t, res))
 	}
 }

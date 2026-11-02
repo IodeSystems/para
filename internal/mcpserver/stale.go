@@ -18,7 +18,7 @@ type binaryStamp struct {
 }
 
 // StaleMessage is the tool error returned after an upgrade.
-const StaleMessage = "para was upgraded after this MCP server started, so this server is out of date and may misread newer documents. Ask the user to restart the MCP server (in Claude Code: /mcp, then reconnect para), then retry. Nothing was changed."
+const StaleMessage = "para was upgraded after this MCP server started. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server."
 
 // ExecutablePath is the path of the running binary. Linux appends " (deleted)"
 // to the path of a binary that an upgrade replaced.
