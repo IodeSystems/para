@@ -97,7 +97,7 @@ func (in Install) Add(id, path string) error {
 		return fmt.Errorf("registry: add: %w", err)
 	}
 	ref := props.Format(map[string]string{"path": path})
-	if err := atomicfile.Write(filepath.Join(dir, "vault.ref"), dir, ref, 0o600); err != nil {
+	if err := atomicfile.Write(filepath.Join(dir, "vault.ref"), ref, 0o600); err != nil {
 		return fmt.Errorf("registry: add: %w", err)
 	}
 	return nil
@@ -118,7 +118,7 @@ func (in Install) ID() (string, error) {
 		return id, nil
 	}
 	cfg["install.id"] = ashid.New()
-	if err := atomicfile.Write(file, in.Home, props.Format(cfg), 0o600); err != nil {
+	if err := atomicfile.Write(file, props.Format(cfg), 0o600); err != nil {
 		return "", fmt.Errorf("registry: install id: %w", err)
 	}
 	return cfg["install.id"], nil
@@ -138,7 +138,7 @@ func (in Install) ensure() error {
 		"install.id":      ashid.New(),
 		"install.created": time.Now().UTC().Format(time.RFC3339),
 	})
-	if err := atomicfile.Write(file, in.Home, cfg, 0o600); err != nil {
+	if err := atomicfile.Write(file, cfg, 0o600); err != nil {
 		return fmt.Errorf("registry: install: %w", err)
 	}
 	return nil

@@ -77,9 +77,14 @@ func (e *LintError) Error() string {
 	return b.String()
 }
 
-// Event is one line of events/YYYY-MM.jsonl: ids and metadata, never content.
+// Event is one line of events/YYYY-MM.<install>.jsonl: ids and metadata,
+// never content. Install is the machine that wrote the line. Hash is the
+// sha256 of the file the event produced (create, update, move, external_edit);
+// it identifies content and holds none, and lets another machine tell a synced
+// write from a hand edit.
 type Event struct {
 	TS      time.Time `json:"ts"`
+	Install string    `json:"install"`
 	Actor   string    `json:"actor"`
 	Surface string    `json:"surface"`
 	Vault   string    `json:"vault"`
@@ -87,6 +92,7 @@ type Event struct {
 	Doc     string    `json:"doc"`
 	From    string    `json:"from"`
 	To      string    `json:"to"`
+	Hash    string    `json:"hash,omitempty"`
 }
 
 // ChangeKind says how a file differs from the manifest.
@@ -98,10 +104,25 @@ const (
 	ChangeRemoved ChangeKind = "removed"
 )
 
+// Outcome says what reconcile did with a change.
+type Outcome string
+
+const (
+	// OutcomeLogged: no event explained the change; an external_edit was logged.
+	OutcomeLogged Outcome = "logged"
+	// OutcomeSynced: a logged event from any install carries the file's hash,
+	// so another machine wrote it. Accepted without an external_edit.
+	OutcomeSynced Outcome = "synced"
+	// OutcomePending: no matching event yet. Held for the grace period in case
+	// a sync tool delivers the event after the file.
+	OutcomePending Outcome = "pending"
+)
+
 // Change is one file changed outside the vault write path.
 type Change struct {
-	Path string     `json:"path"`
-	Kind ChangeKind `json:"kind"`
+	Path    string     `json:"path"`
+	Kind    ChangeKind `json:"kind"`
+	Outcome Outcome    `json:"outcome"`
 }
 
 // ReconcileResult is the outcome of a reconcile. Baseline is true when no

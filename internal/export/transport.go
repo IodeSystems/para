@@ -187,7 +187,7 @@ func sendFile(t Target, r Rendered) (string, error) {
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 		return "", fmt.Errorf("file: directory %s does not exist", dir)
 	}
-	if err := atomicfile.Write(t.Path, dir, r.Data, 0o600); err != nil {
+	if err := atomicfile.Write(t.Path, r.Data, 0o600); err != nil {
 		return "", fmt.Errorf("file: %w", err)
 	}
 	return fmt.Sprintf("wrote %d bytes to %s", len(r.Data), t.Path), nil

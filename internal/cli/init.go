@@ -14,6 +14,7 @@ import (
 )
 
 func newInitCmd(l *loader) *cobra.Command {
+	var noGit bool
 	cmd := &cobra.Command{
 		Use:   "init <id> [path]",
 		Short: "Create a vault and register it (default path: ./<id>)",
@@ -44,10 +45,13 @@ func newInitCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("init: %w", err)
 			}
-			if err := vault.Init(abs, id, templates); err != nil {
+			if err := vault.Init(abs, id, templates, vault.InitOptions{NoGit: noGit}); err != nil {
 				return err
 			}
 			if err := l.install.Add(id, abs); err != nil {
+				return err
+			}
+			if err := l.baseline(id, abs); err != nil {
 				return err
 			}
 			out := registry.Vault{ID: id, Path: abs}
@@ -57,6 +61,7 @@ func newInitCmd(l *loader) *cobra.Command {
 			})
 		},
 	}
+	cmd.Flags().BoolVar(&noGit, "no-git", false, "do not run git init (the vault may live in a file-sync folder)")
 	addJSONFlag(cmd)
 	return cmd
 }
@@ -97,7 +102,7 @@ func newVaultCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := vault.Open(sel.Path, vault.Options{ID: sel.ID}); err != nil {
+			if _, err := vault.Open(sel.Path, vault.Options{ID: sel.ID, ReadOnly: true}); err != nil {
 				return err
 			}
 			return emit(cmd, sel, func(w io.Writer, s registry.Selection) error {

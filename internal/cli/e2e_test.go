@@ -299,6 +299,10 @@ func TestReconcileCommand(t *testing.T) {
 	file := filepath.Join(path, "inbox", added.ID+".md")
 	raw, _ := os.ReadFile(file)
 	os.WriteFile(file, append(raw, []byte("By hand.\n")...), 0o600)
+	// One-machine vault: log a hand edit at once.
+	propsFile := filepath.Join(path, ".para", "vault.properties")
+	cfg, _ := os.ReadFile(propsFile)
+	os.WriteFile(propsFile, append(cfg, []byte("reconcile.grace=0s\n")...), 0o600)
 
 	if out := e.ok("reconcile"); !strings.Contains(out, "changed\tinbox/"+added.ID+".md") {
 		t.Fatalf("out = %q", out)

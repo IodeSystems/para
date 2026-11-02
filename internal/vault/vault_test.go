@@ -33,19 +33,37 @@ func templates(t testing.TB) fs.FS {
 	return sub
 }
 
+// stateFor is the machine-local state dir of a test vault: beside the vault,
+// outside its tree.
+func stateFor(root string) string { return filepath.Join(filepath.Dir(root), "state") }
+
 func open(t testing.TB, root string) *Vault {
 	t.Helper()
-	v, err := Open(root, Options{ID: "acme", Actor: "user", Surface: "test"})
+	v, err := Open(root, Options{ID: "acme", Actor: "user", Surface: "test", Install: "m1", StateDir: stateFor(root)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return v
 }
 
+// noGrace makes reconcile log a hand edit at once, as on a one-machine vault.
+func noGrace(t testing.TB, root string) {
+	t.Helper()
+	p := filepath.Join(root, ".para", "vault.properties")
+	cfg, err := props.Load(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg["reconcile.grace"] = "0s"
+	if err := os.WriteFile(p, []byte(props.Format(cfg)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func newVault(t testing.TB) (*Vault, string) {
 	t.Helper()
 	root := filepath.Join(t.TempDir(), "vault")
-	if err := Init(root, "acme", templates(t)); err != nil {
+	if err := Init(root, "acme", templates(t), InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	return open(t, root), root
@@ -86,9 +104,13 @@ func TestInit(t *testing.T) {
 			t.Errorf("template %s: %v", typ, err)
 		}
 	}
-	res, err := v.Reconcile(ctx)
-	if err != nil || len(res.Changes) != 0 || res.Baseline {
-		t.Errorf("fresh vault reconcile = %+v, %v", res, err)
+	// A fresh vault has no manifest on this machine: the first reconcile
+	// baselines, the second finds nothing.
+	for i, wantBase := range []bool{true, false} {
+		res, err := v.Reconcile(ctx)
+		if err != nil || len(res.Changes) != 0 || res.Baseline != wantBase {
+			t.Errorf("fresh vault reconcile %d = %+v, %v", i, res, err)
+		}
 	}
 	if got := eventLog(t, v); len(got) != 0 {
 		t.Errorf("init logged %v", got)
@@ -105,9 +127,8 @@ func TestInitGitignore(t *testing.T) {
 		path    string
 		ignored bool
 	}{
-		{".para/manifest.json", true},
-		{".para/lock", true},
-		{".para/tmp/x", true},
+		{".para/anything", true},
+		{"inbox/.note.md.tmp-123", true},
 		{".para/vault.properties", false},
 		{"inbox/x.md", false},
 		{"events/2026-11.jsonl", false},
@@ -140,7 +161,7 @@ func TestInitRefuses(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			err := Init(c.root, c.id, templates(t))
+			err := Init(c.root, c.id, templates(t), InitOptions{})
 			if (err == nil) != c.ok {
 				t.Fatalf("err = %v", err)
 			}
@@ -158,7 +179,7 @@ func TestOpenRefuses(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, err := Open(c.root, Options{ID: c.id}); err == nil {
+			if _, err := Open(c.root, Options{ID: c.id, ReadOnly: true}); err == nil {
 				t.Fatal("want error")
 			}
 		})
@@ -188,8 +209,12 @@ func TestCreate(t *testing.T) {
 	if got.Title != "A title" || got.Body != "Text." || got.Rev != d.Rev || got.Folder != model.FolderInbox {
 		t.Errorf("got %+v", got)
 	}
-	if left, _ := os.ReadDir(filepath.Join(root, ".para", "tmp")); len(left) != 0 {
-		t.Errorf("temp files left: %v", left)
+	left, _ := os.ReadDir(filepath.Join(root, "inbox"))
+	if len(left) != 1 {
+		t.Errorf("inbox holds %v, want only the document", left)
+	}
+	if left, _ := os.ReadDir(filepath.Join(root, ".para")); len(left) != 1 {
+		t.Errorf(".para holds %v, want only vault.properties", left)
 	}
 }
 
@@ -369,6 +394,7 @@ func TestNoContentInEvents(t *testing.T) {
 	if _, err = v.Move(ctx, d.ID, model.FolderArchive); err != nil {
 		t.Fatal(err)
 	}
+	noGrace(t, root)
 	p := filepath.Join(root, "archive", d.ID+".md")
 	raw, _ := os.ReadFile(p)
 	os.WriteFile(p, append(raw, []byte(marker+" by hand\n")...), 0o600)
@@ -391,8 +417,12 @@ func TestNoContentInEvents(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &rec); err != nil {
 			t.Fatal(err)
 		}
-		if len(rec) != 8 {
+		// ts install actor surface vault op doc from to hash
+		if len(rec) != 10 {
 			t.Fatalf("fields = %v", rec)
+		}
+		if h, _ := rec["hash"].(string); len(h) != len("sha256:")+64 {
+			t.Fatalf("hash = %q", h)
 		}
 	}
 }
@@ -607,6 +637,7 @@ func TestReconcileThroughVault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	noGrace(t, root)
 	p := filepath.Join(root, "inbox", d.ID+".md")
 	raw, _ := os.ReadFile(p)
 	os.WriteFile(p, append(raw, []byte("By hand.\n")...), 0o600)
@@ -644,7 +675,7 @@ func TestMissingManifest(t *testing.T) {
 			if _, err := v.Create(ctx, inbox("One", "")); err != nil {
 				t.Fatal(err)
 			}
-			os.Remove(filepath.Join(root, ".para", "manifest.json"))
+			os.Remove(filepath.Join(stateFor(root), "manifest.json"))
 			n := 1
 			if c.write {
 				if _, err := v.Create(ctx, inbox("Two", "")); err != nil {
@@ -716,7 +747,7 @@ func TestConcurrentWriters(t *testing.T) {
 	if got := eventLog(t, v); len(got) != writers {
 		t.Fatalf("events = %d", len(got))
 	}
-	m, _, err := events.LoadManifest(filepath.Join(root, ".para", "manifest.json"))
+	m, _, err := events.LoadManifest(filepath.Join(stateFor(root), "manifest.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -801,7 +832,7 @@ func TestConcurrentUpdatesLoseNothing(t *testing.T) {
 
 func TestLockTimeoutHonorsContext(t *testing.T) {
 	v, root := newVault(t)
-	release, err := acquire(ctx, filepath.Join(root, ".para", "lock"))
+	release, err := acquire(ctx, filepath.Join(stateFor(root), "lock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -818,7 +849,7 @@ const helperEnv = "PARA_TEST_LOCK_ROOT"
 // The test binary re-runs itself as a writer process.
 func TestMain(m *testing.M) {
 	if root := os.Getenv(helperEnv); root != "" {
-		v, err := Open(root, Options{ID: "acme", Actor: "user", Surface: "test"})
+		v, err := Open(root, Options{ID: "acme", Actor: "user", Surface: "test", Install: "m1", StateDir: stateFor(root)})
 		if err == nil {
 			for i := 0; i < 5 && err == nil; i++ {
 				_, err = v.Create(ctx, inbox("From a process", ""))

@@ -14,7 +14,7 @@ import (
 func testLog(t *testing.T, now *time.Time) (*Log, string) {
 	t.Helper()
 	dir := t.TempDir()
-	return NewLog(dir, Source{Vault: "acme", Actor: "user", Surface: "cli", Now: func() time.Time { return *now }}), dir
+	return NewLog(dir, Source{Vault: "acme", Install: "m1", Actor: "user", Surface: "cli", Now: func() time.Time { return *now }}), dir
 }
 
 func TestAppendFieldsAndMonthFile(t *testing.T) {
@@ -24,7 +24,7 @@ func TestAppendFieldsAndMonthFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 23:00 at UTC-3 is December in UTC.
-	data, err := os.ReadFile(filepath.Join(dir, "2026-12.jsonl"))
+	data, err := os.ReadFile(filepath.Join(dir, "2026-12.m1.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestAppendFieldsAndMonthFile(t *testing.T) {
 	if err := json.Unmarshal(data, &m); err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]any{"actor": "user", "surface": "cli", "vault": "acme", "op": "move", "doc": "inbox-1", "from": "inbox", "to": "archive"}
+	want := map[string]any{"install": "m1", "actor": "user", "surface": "cli", "vault": "acme", "op": "move", "doc": "inbox-1", "from": "inbox", "to": "archive"}
 	for k, v := range want {
 		if m[k] != v {
 			t.Errorf("%s = %v, want %v", k, m[k], v)
@@ -41,7 +41,7 @@ func TestAppendFieldsAndMonthFile(t *testing.T) {
 	if m["ts"] != "2026-12-01T02:00:00Z" {
 		t.Errorf("ts = %v", m["ts"])
 	}
-	if len(m) != 8 {
+	if len(m) != 9 {
 		t.Errorf("fields = %v", m)
 	}
 }
@@ -101,8 +101,8 @@ func TestTailAcrossMonths(t *testing.T) {
 func TestTailReportsBadLine(t *testing.T) {
 	now := time.Now()
 	l, dir := testLog(t, &now)
-	os.WriteFile(filepath.Join(dir, "2026-11.jsonl"), []byte("{bad\n"), 0o600)
-	if _, err := l.Tail(1); err == nil || !strings.Contains(err.Error(), "2026-11.jsonl:1") {
+	os.WriteFile(filepath.Join(dir, "2026-11.m1.jsonl"), []byte("{bad\n"), 0o600)
+	if _, err := l.Tail(1); err == nil || !strings.Contains(err.Error(), "2026-11.m1.jsonl:1") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -124,9 +124,9 @@ func TestReconcile(t *testing.T) {
 		to   bool
 	}{
 		{"nothing", func(string) {}, nil, false, false},
-		{"changed", write("inbox/a.md", "edited"), []model.Change{{Path: "inbox/a.md", Kind: model.ChangeChanged}}, true, true},
-		{"added", write("inbox/b.md", "new"), []model.Change{{Path: "inbox/b.md", Kind: model.ChangeAdded}}, false, true},
-		{"removed", func(r string) { os.Remove(filepath.Join(r, "inbox/a.md")) }, []model.Change{{Path: "inbox/a.md", Kind: model.ChangeRemoved}}, true, false},
+		{"changed", write("inbox/a.md", "edited"), []model.Change{{Path: "inbox/a.md", Kind: model.ChangeChanged, Outcome: model.OutcomeLogged}}, true, true},
+		{"added", write("inbox/b.md", "new"), []model.Change{{Path: "inbox/b.md", Kind: model.ChangeAdded, Outcome: model.OutcomeLogged}}, false, true},
+		{"removed", func(r string) { os.Remove(filepath.Join(r, "inbox/a.md")) }, []model.Change{{Path: "inbox/a.md", Kind: model.ChangeRemoved, Outcome: model.OutcomeLogged}}, true, false},
 		{"dot file ignored", write("inbox/.draft.md", "x"), nil, false, false},
 		{"untracked folder ignored", write("other/x.md", "x"), nil, false, false},
 	}
@@ -135,14 +135,14 @@ func TestReconcile(t *testing.T) {
 			root := t.TempDir()
 			write("inbox/a.md", "one")(root)
 			now := time.Now()
-			l := NewLog(t.TempDir(), Source{Vault: "acme", Now: func() time.Time { return now }})
+			l := NewLog(t.TempDir(), Source{Vault: "acme", Install: "m1", Now: func() time.Time { return now }})
 			files, err := Scan(root, []string{"inbox"})
 			if err != nil {
 				t.Fatal(err)
 			}
 			m := Manifest{Files: files}
 			c.edit(root)
-			got, err := Reconcile(l, root, []string{"inbox"}, &m)
+			got, err := Reconcile(l, root, []string{"inbox"}, &m, Pending{}, now, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -158,7 +158,7 @@ func TestReconcile(t *testing.T) {
 					t.Errorf("event = %+v", r)
 				}
 			}
-			again, err := Reconcile(l, root, []string{"inbox"}, &m)
+			again, err := Reconcile(l, root, []string{"inbox"}, &m, Pending{}, now, 0)
 			if err != nil || len(again) != 0 {
 				t.Fatalf("second run = %v, %v", again, err)
 			}
@@ -172,7 +172,7 @@ func TestManifestRoundTrip(t *testing.T) {
 	if _, found, err := LoadManifest(file); found || err != nil {
 		t.Fatalf("absent: found=%v err=%v", found, err)
 	}
-	if err := (Manifest{Files: map[string]string{"a": "h"}}).Save(file, dir); err != nil {
+	if err := (Manifest{Files: map[string]string{"a": "h"}}).Save(file); err != nil {
 		t.Fatal(err)
 	}
 	m, found, err := LoadManifest(file)

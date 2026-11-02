@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -66,11 +67,33 @@ func (l *loader) deps() (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, err
 	}
-	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
+	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(sel.ID)})
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", sel.ID, err)
 	}
 	return ops.Deps{Store: s}, nil
+}
+
+// stateDir is this machine's state for a vault: lock, manifest, index.
+func (l *loader) stateDir(id string) string {
+	return filepath.Join(l.install.Home, "vaults", id)
+}
+
+// baseline records this machine's manifest for a new vault, so its first
+// reconcile has a baseline. It writes no event.
+func (l *loader) baseline(id, path string) error {
+	install, err := l.install.ID()
+	if err != nil {
+		return err
+	}
+	v, err := vault.Open(path, vault.Options{ID: id, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(id)})
+	if err != nil {
+		return err
+	}
+	if _, err := v.Reconcile(context.Background()); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Execute runs the root command and returns its single error.

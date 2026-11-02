@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 )
 
-// Write replaces path with data. tmpDir holds the temp file and must be on
-// the same filesystem as path. A vault passes .para/tmp, so file watchers
-// never see a partial file in a document folder.
-func Write(path, tmpDir string, data []byte, perm fs.FileMode) (err error) {
-	tmp, err := os.CreateTemp(tmpDir, ".write-*")
+// Write replaces path with data. The temp file sits beside path (same
+// filesystem, so the rename is atomic) with a dotted name: vault scans and
+// lint skip dotted names. It is removed on failure. A crash can leave one
+// behind; it is harmless and ignored.
+func Write(path string, data []byte, perm fs.FileMode) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
 		return fmt.Errorf("atomicfile: write: %w", err)
 	}

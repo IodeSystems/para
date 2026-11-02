@@ -1,5 +1,5 @@
 // Package vault is the only write path into a vault. Each mutation runs under
-// the file lock in .para/, lints the new file, replaces it atomically, logs
+// the machine's file lock (in the state dir), lints the new file, replaces it atomically, logs
 // one event, and updates the manifest.
 package vault
 
@@ -22,6 +22,7 @@ import (
 	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/paramd"
 	"github.com/iodesystems/paradize/internal/props"
+	"github.com/iodesystems/paradize/internal/syncname"
 )
 
 // lockWait bounds the wait for the lock when ctx has no deadline.
@@ -35,13 +36,18 @@ type Options struct {
 	Actor   string
 	Surface string
 	Now     func() time.Time // nil means time.Now
-	// StateDir holds machine-local caches (the search index). It must be
-	// outside the vault tree: a vault may sit in a file-synced folder, and
-	// SQLite corrupts under file sync. Empty means the caller has none and
-	// cache-backed features return an error.
+	// StateDir holds this machine's lock, manifest, pending-change list, and
+	// search index ($PARA_HOME/vaults/<id>/). It must be outside the vault
+	// tree: a vault may sit in a file-synced folder, and a lock, a manifest
+	// of this machine's view, or SQLite would corrupt or mislead there. It is
+	// required unless ReadOnly.
 	StateDir string
-	// Install is the install id of this machine. Request ops need it.
+	// Install is the install id of this machine. It names this machine's event
+	// files, so it is required unless ReadOnly. Request ops need it too.
 	Install string
+	// ReadOnly opens a vault for reading only: no StateDir or Install needed,
+	// and every write returns an error.
+	ReadOnly bool
 }
 
 // Vault is an open vault.
@@ -52,6 +58,7 @@ type Vault struct {
 	now  func() time.Time
 
 	stateDir string
+	readOnly bool
 	actor    string
 	surface  string
 	install  string
@@ -67,19 +74,30 @@ func Open(root string, o Options) (*Vault, error) {
 	if id == "" || (o.ID != "" && o.ID != id) {
 		return nil, fmt.Errorf("vault: open: %s has id %q, want %q", root, id, o.ID)
 	}
-	// git keeps no empty folder and .para/tmp is ignored, so a clone lacks them.
-	for _, d := range append(trackedDirs(), dirEvents, filepath.Join(dirState, "tmp")) {
-		if err := os.MkdirAll(filepath.Join(root, d), 0o700); err != nil {
+	if !o.ReadOnly {
+		if o.StateDir == "" {
+			return nil, errors.New("vault: open: StateDir is required to write: the lock and manifest are per machine and live outside the vault")
+		}
+		if o.Install == "" {
+			return nil, errors.New("vault: open: Install is required to write: it names this machine's event files")
+		}
+		if err := os.MkdirAll(o.StateDir, 0o700); err != nil {
 			return nil, fmt.Errorf("vault: open: %w", err)
+		}
+		// git and sync tools keep no empty folder, so a copy may lack them.
+		for _, d := range append(trackedDirs(), dirEvents) {
+			if err := os.MkdirAll(filepath.Join(root, d), 0o700); err != nil {
+				return nil, fmt.Errorf("vault: open: %w", err)
+			}
 		}
 	}
 	if o.Now == nil {
 		o.Now = time.Now
 	}
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
-		Vault: id, Actor: o.Actor, Surface: o.Surface, Now: o.Now,
+		Vault: id, Install: o.Install, Actor: o.Actor, Surface: o.Surface, Now: o.Now,
 	})
-	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, actor: o.Actor, surface: o.Surface, install: o.Install}, nil
+	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install}, nil
 }
 
 // Actor, Surface, and Install return the Options they were opened with.
@@ -151,7 +169,7 @@ func (v *Vault) Create(ctx context.Context, d model.Document) (model.Document, e
 			return err
 		}
 		undo := func() error { return os.Remove(v.abs(rel)) }
-		if err := v.logOrUndo(undo, events.OpCreate, d.ID, "", string(d.Folder)); err != nil {
+		if err := v.logOrUndo(undo, events.OpCreate, d.ID, "", string(d.Folder), events.Hash(data)); err != nil {
 			return err
 		}
 		m.Files[rel] = events.Hash(data)
@@ -203,7 +221,7 @@ func (v *Vault) Update(ctx context.Context, d model.Document) (model.Document, e
 		}
 		undo := func() error { return v.write(f.rel, old, mode) }
 		from, to := statusChange(f.rel, old, data)
-		if err := v.logOrUndo(undo, events.OpUpdate, d.ID, from, to); err != nil {
+		if err := v.logOrUndo(undo, events.OpUpdate, d.ID, from, to, events.Hash(data)); err != nil {
 			return err
 		}
 		d.Rev = events.Hash(data)
@@ -252,7 +270,7 @@ func (v *Vault) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 			return err
 		}
 		undo := func() error { return os.Rename(v.abs(rel), v.abs(f.rel)) }
-		if err := v.logOrUndo(undo, events.OpMove, id, string(f.folder), string(to)); err != nil {
+		if err := v.logOrUndo(undo, events.OpMove, id, string(f.folder), string(to), hash); err != nil {
 			return err
 		}
 		delete(m.Files, f.rel)
@@ -324,14 +342,42 @@ func (v *Vault) Check(_ context.Context) ([]model.Finding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("vault: check: %w", err)
 	}
-	return out, nil
+	conflicts, err := v.Conflicts()
+	if err != nil {
+		return nil, fmt.Errorf("vault: check: %w", err)
+	}
+	return append(out, conflictFindings(conflicts)...), nil
 }
 
-// Reconcile logs an external_edit for each file changed outside this package
-// and accepts it. With no manifest, the current files become the baseline.
+// DefaultGrace is how long reconcile holds a change that no logged event
+// explains. vault.properties key reconcile.grace (a Go duration, "0s" for
+// none) overrides it.
+const DefaultGrace = events.PendingGrace
+
+func (v *Vault) grace() (time.Duration, error) {
+	val, err := v.Config("reconcile.grace")
+	if err != nil || val == "" {
+		return DefaultGrace, err
+	}
+	d, err := time.ParseDuration(val)
+	if err != nil || d < 0 {
+		return 0, fmt.Errorf("vault: reconcile.grace %q is not a duration", val)
+	}
+	return d, nil
+}
+
+// Reconcile accepts files changed outside this package. A file whose hash a
+// logged event from any install carries is another machine's write and logs
+// nothing. Any other change is held for the grace period (see
+// events.Reconcile), then logged as one external_edit. With no manifest, the
+// current files become the baseline.
 func (v *Vault) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 	res := model.ReconcileResult{Changes: []model.Change{}}
-	err := v.lock(ctx, func() error {
+	grace, err := v.grace()
+	if err != nil {
+		return res, err
+	}
+	err = v.lock(ctx, func() error {
 		m, found, err := events.LoadManifest(v.manifestPath())
 		if err != nil {
 			return err
@@ -343,8 +389,15 @@ func (v *Vault) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 			}
 			return v.saveManifest(m)
 		}
-		changes, err := events.Reconcile(v.log, v.root, trackedDirs(), &m)
+		p, err := events.LoadPending(v.pendingPath())
 		if err != nil {
+			return err
+		}
+		changes, err := events.Reconcile(v.log, v.root, trackedDirs(), &m, p, v.now(), grace)
+		if err != nil {
+			return err
+		}
+		if err := p.Save(v.pendingPath()); err != nil {
 			return err
 		}
 		if len(changes) == 0 {
@@ -363,25 +416,28 @@ func (v *Vault) today() model.Date { return model.Date(v.now().Format("2006-01-0
 
 func (v *Vault) abs(rel string) string { return filepath.Join(v.root, filepath.FromSlash(rel)) }
 
-func (v *Vault) tmpDir() string { return filepath.Join(v.root, dirState, "tmp") }
+func (v *Vault) manifestPath() string { return filepath.Join(v.stateDir, "manifest.json") }
 
-func (v *Vault) manifestPath() string { return filepath.Join(v.root, dirState, "manifest.json") }
+func (v *Vault) pendingPath() string { return filepath.Join(v.stateDir, "pending.json") }
 
 func (v *Vault) saveManifest(m events.Manifest) error {
-	return m.Save(v.manifestPath(), v.tmpDir())
+	return m.Save(v.manifestPath())
 }
 
 func (v *Vault) write(rel string, data []byte, mode fs.FileMode) error {
-	return atomicfile.Write(v.abs(rel), v.tmpDir(), data, mode)
+	return atomicfile.Write(v.abs(rel), data, mode)
 }
 
 func (v *Vault) lock(ctx context.Context, fn func() error) error {
+	if v.readOnly {
+		return errors.New("vault: opened read-only")
+	}
 	if _, ok := ctx.Deadline(); !ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, lockWait)
 		defer cancel()
 	}
-	release, err := acquire(ctx, filepath.Join(v.root, dirState, "lock"))
+	release, err := acquire(ctx, filepath.Join(v.stateDir, "lock"))
 	if err != nil {
 		return err
 	}
@@ -408,8 +464,8 @@ func (v *Vault) withLock(ctx context.Context, fn func(*events.Manifest) error) e
 
 // logOrUndo logs the mutation. If the log fails, it reverses the file change,
 // so a change without an event does not stay on disk.
-func (v *Vault) logOrUndo(undo func() error, op, doc, from, to string) error {
-	err := v.log.Append(op, doc, from, to)
+func (v *Vault) logOrUndo(undo func() error, op, doc, from, to, hash string) error {
+	err := v.log.AppendHash(op, doc, from, to, hash)
 	if err == nil {
 		return nil
 	}
@@ -419,11 +475,32 @@ func (v *Vault) logOrUndo(undo func() error, op, doc, from, to string) error {
 	return err
 }
 
-// noteExternalEdit logs a hand edit that a mutation is about to absorb, so
-// reconcile does not lose it.
+// noteExternalEdit handles a file that differs from the manifest just before a
+// mutation absorbs it. A hash that a logged event from any install carries is
+// another machine's write: nothing to log. Otherwise it is logged as a hand
+// edit now (the caller has read the file, so the grace period does not apply)
+// and any held pending entry is cleared.
 func (v *Vault) noteExternalEdit(m *events.Manifest, rel, hash string) error {
-	if old, ok := m.Files[rel]; !ok || old != hash {
-		return events.LogExternalEdit(v.log, rel, old, hash)
+	old, ok := m.Files[rel]
+	if ok && old == hash {
+		return nil
+	}
+	known, err := v.log.LoadKnown()
+	if err != nil {
+		return err
+	}
+	if !known.Has(hash) {
+		if err := events.LogExternalEdit(v.log, rel, old, hash); err != nil {
+			return err
+		}
+	}
+	p, err := events.LoadPending(v.pendingPath())
+	if err != nil {
+		return err
+	}
+	if _, held := p[rel]; held {
+		delete(p, rel)
+		return p.Save(v.pendingPath())
 	}
 	return nil
 }
@@ -474,7 +551,7 @@ func mdFiles(root, dir string) ([]string, error) {
 			return err
 		case d.IsDir() && strings.HasPrefix(d.Name(), "."):
 			return filepath.SkipDir
-		case d.IsDir() || !d.Type().IsRegular() || !strings.HasSuffix(d.Name(), ".md"):
+		case d.IsDir() || !d.Type().IsRegular() || !strings.HasSuffix(d.Name(), ".md") || syncname.IsConflict(d.Name()):
 			return nil
 		}
 		rel, err := filepath.Rel(root, p)

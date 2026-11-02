@@ -38,6 +38,11 @@ func newTodayCmd(l *loader) *cobra.Command {
 						v.Vault, v.Due.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Unverified, v.Inbox); err != nil {
 						return err
 					}
+					for _, c := range v.SyncConflicts {
+						if _, err := fmt.Fprintf(w, "  sync-conflict\t%s\n", c); err != nil {
+							return err
+						}
+					}
 					for _, g := range []struct {
 						name string
 						g    today.Group

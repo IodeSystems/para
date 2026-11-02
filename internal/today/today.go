@@ -42,8 +42,11 @@ type VaultToday struct {
 	// Unverified counts policy summaries no person has reviewed.
 	Unverified int `json:"unverified"`
 	// Inbox counts captures not yet triaged.
-	Inbox int    `json:"inbox"`
-	Error string `json:"error,omitempty"`
+	Inbox int `json:"inbox"`
+	// SyncConflicts lists conflict copies a file-sync tool left (finding code
+	// sync-conflict in lint). They are not documents.
+	SyncConflicts []string `json:"sync_conflicts"`
+	Error         string   `json:"error,omitempty"`
 }
 
 // ExpiringDays is the window for exceptions, the same as exception_expiring.
@@ -79,7 +82,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
 		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
-			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}}
+			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}}
 		if err := readVault(ctx, rv, actor, surface, date, &vt); err != nil {
 			vt.Error = err.Error()
 		}
@@ -89,8 +92,11 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 }
 
 func readVault(ctx context.Context, rv registry.Vault, actor, surface, date string, vt *VaultToday) error {
-	v, err := vault.Open(rv.Path, vault.Options{ID: rv.ID, Actor: actor, Surface: surface})
+	v, err := vault.Open(rv.Path, vault.Options{ID: rv.ID, Actor: actor, Surface: surface, ReadOnly: true})
 	if err != nil {
+		return err
+	}
+	if vt.SyncConflicts, err = v.Conflicts(); err != nil {
 		return err
 	}
 	refs, err := v.List(ctx, "", "")

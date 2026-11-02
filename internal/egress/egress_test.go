@@ -41,7 +41,7 @@ func TestCheck(t *testing.T) {
 
 func TestLogHoldsOnlyIDAndDestination(t *testing.T) {
 	dir := t.TempDir()
-	l := events.NewLog(dir, events.Source{Vault: "acme", Actor: "user", Surface: "cli"})
+	l := events.NewLog(dir, events.Source{Vault: "acme", Install: "m1", Actor: "user", Surface: "cli"})
 	if err := Log(l, "policy-abc", "copy:email", Decision{Default: "deny", Allowed: true, Marking: "SECRET WORDS"}); err != nil {
 		t.Fatal(err)
 	}

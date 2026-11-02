@@ -92,5 +92,9 @@ func LintPath(p string) ([]model.Finding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("vault: lint path: %w", err)
 	}
-	return out, nil
+	conflicts, err := conflictCopies(p, dirs)
+	if err != nil {
+		return nil, fmt.Errorf("vault: lint path: %w", err)
+	}
+	return append(out, conflictFindings(conflicts)...), nil
 }

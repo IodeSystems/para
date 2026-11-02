@@ -33,7 +33,7 @@ func newReqVault(t *testing.T) *reqVault {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := vault.Init(rv.root, "acme", tpl); err != nil {
+	if err := vault.Init(rv.root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	return rv
@@ -46,6 +46,7 @@ func (rv *reqVault) as(actor, surface, install string) Deps {
 	rv.t.Helper()
 	s, err := local.Open(rv.root, vault.Options{
 		ID: "acme", Actor: actor, Surface: surface, Install: install,
+		StateDir: filepath.Join(filepath.Dir(rv.root), "state-"+install),
 		Now: func() time.Time { return time.Unix(0, rv.now.Load()).UTC() },
 	})
 	if err != nil {
@@ -316,9 +317,6 @@ func TestRequestLinks(t *testing.T) {
 		if _, err := RequestAdd.Run(ctx, p, in); err == nil {
 			t.Errorf("accepted %+v", in)
 		}
-	}
-	if _, err := RequestAdd.Run(ctx, Deps{Store: rv.as("user", "cli", "").Store}, RequestAddInput{Ask: "x"}); err == nil {
-		t.Error("no install id accepted")
 	}
 }
 
