@@ -119,6 +119,7 @@ func (m *Model) rowsToday(w int) []row {
 		blocked = append(blocked, link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "", w))
 	}
 	section("Blocked", blocked)
+	r = append(r, head(fmt.Sprintf("Waiting on others (%d)", s.Today.Waiting)))
 	var exp []row
 	for _, it := range s.Today.Expiring.Items {
 		exp = append(exp, link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "", w))
@@ -513,6 +514,10 @@ func (m *Model) rowsPerson(p *page, w int) []row {
 			ts = append(ts, string(t.Medium)+" "+state(string(t.State)))
 		}
 		r = append(r, link("doc:"+x.ID, "  "+stDim.Render(string(x.Direction))+"  ", titleOr(x.Title, x.ID), "  "+strings.Join(ts, ", "), w))
+	}
+	r = append(r, head(fmt.Sprintf("Assigned tasks (%d)", len(wp.OpenTasks))))
+	for _, t := range wp.OpenTasks {
+		r = append(r, link("doc:"+t.ID, "  "+stDim.Render(string(t.Status))+"  ", titleOr(t.Title, t.ID), "  "+stDim.Render(string(t.Due)), w))
 	}
 	r = append(r, head(fmt.Sprintf("Interactions (%d)", len(wp.Interactions))))
 	for _, i := range wp.Interactions {

@@ -28,6 +28,8 @@ type WhoPerson struct {
 	Notes        []string             `json:"notes"`    // lines under "## Notes"
 	Interactions []InteractionSummary `json:"interactions"`
 	OpenRFX      []WhoRFX             `json:"open_rfx"`
+	// OpenTasks are open tasks assigned to the person.
+	OpenTasks []TaskView `json:"open_tasks"`
 }
 
 // WhoRFX is an open RFX that targets the person.
@@ -161,6 +163,9 @@ func describe(ctx context.Context, d Deps, id string, recent int) (*WhoPerson, e
 		if len(mine) > 0 {
 			wp.OpenRFX = append(wp.OpenRFX, WhoRFX{ID: s.ID, Title: s.Title, Direction: s.Direction, Targets: mine})
 		}
+	}
+	if wp.OpenTasks, err = assignedTo(ctx, d, doc.ID); err != nil {
+		return nil, err
 	}
 	return wp, nil
 }

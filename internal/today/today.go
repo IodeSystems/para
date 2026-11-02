@@ -46,6 +46,9 @@ type VaultToday struct {
 	Expiring Group `json:"expiring"`
 	// Unverified counts policy summaries no person has reviewed.
 	Unverified int `json:"unverified"`
+	// Waiting counts what you wait on: open tasks assigned to someone else, and
+	// open outbound RFX with a target to hear from (the list `para waiting` shows).
+	Waiting int `json:"waiting"`
 	// Inbox counts captures not yet triaged.
 	Inbox int `json:"inbox"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
@@ -155,6 +158,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			if m.Status == model.RFXOpen && m.NextNudge != "" && string(m.NextNudge) <= date {
 				vt.Nudges.Items = append(vt.Nudges.Items, item)
 			}
+			if m.Status == model.RFXOpen && m.Direction == model.RFXOut && waitsOnSomeone(m) {
+				vt.Waiting++
+			}
 		case *model.PolicyException:
 			if m.Status != model.ExceptionResolved && m.ReviewBy != "" && string(m.ReviewBy) <= limit {
 				vt.Expiring.Items = append(vt.Expiring.Items, item)
@@ -165,6 +171,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			}
 		case *model.Task:
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
+			if open && m.Assignee != "" && m.Assignee != "self" {
+				vt.Waiting++
+			}
 			if open && (m.Status == model.TaskBlocked || len(m.BlockedBy) > 0) {
 				vt.Blocked.Items = append(vt.Blocked.Items, item)
 			}
@@ -189,4 +198,22 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		g.Count = len(g.Items)
 	}
 	return nil
+}
+
+// waitsOnSomeone is the rule of rfx_waiting: no target is recorded, a target is
+// sent, or every target is no_reply.
+func waitsOnSomeone(m *model.RFX) bool {
+	if len(m.Targets) == 0 {
+		return true
+	}
+	allNoReply := true
+	for _, t := range m.Targets {
+		if t.State == model.TargetSent {
+			return true
+		}
+		if t.State != model.TargetNoReply {
+			allNoReply = false
+		}
+	}
+	return allNoReply
 }

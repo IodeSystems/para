@@ -34,8 +34,8 @@ func newTodayCmd(l *loader) *cobra.Command {
 						}
 						continue
 					}
-					if _, err := fmt.Fprintf(w, "%s\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\tunverified %d\tinbox %d\n",
-						v.Vault, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Unverified, v.Inbox); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tinbox %d\n",
+						v.Vault, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.Inbox); err != nil {
 						return err
 					}
 					for _, d := range v.LostUpdates {

@@ -107,8 +107,10 @@ type Task struct {
 	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
 	// Due is the date the task is due. Recur is free text such as "weekly";
 	// para stores it and never schedules from it.
-	Due       Date     `yaml:"due,omitempty" json:"due,omitempty"`
-	Recur     string   `yaml:"recur,omitempty" json:"recur,omitempty"`
+	Due   Date   `yaml:"due,omitempty" json:"due,omitempty"`
+	Recur string `yaml:"recur,omitempty" json:"recur,omitempty"`
+	// Assignee is empty for the owner, else a person id or agent:<name>.
+	Assignee  string   `yaml:"assignee,omitempty" json:"assignee,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 }

@@ -225,6 +225,9 @@ func newWhoCmd(l *loader) *cobra.Command {
 					p.f("\ttarget\t%s\n", targetText(t))
 				}
 			}
+			for _, t := range wp.OpenTasks {
+				p.f("task\t%s\t%s\t%s\t%s\n", t.ID, t.Status, dash(string(t.Due)), t.Title)
+			}
 			return p.err
 		},
 	})

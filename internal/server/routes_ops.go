@@ -26,6 +26,8 @@ func registerWork(r *registrar) {
 	reg(r, ops.TaskStart, post, write)
 	reg(r, ops.TaskDone, post, write)
 	reg(r, ops.TaskBlock, post, write)
+	reg(r, ops.TaskAssign, post, write)
+	reg(r, ops.Waiting, get, read)
 	reg(r, ops.Graph, get, read)
 	reg(r, ops.Next, get, read)
 	reg(r, ops.InboxAdd, post, write)

@@ -100,7 +100,7 @@ type NextOutput struct {
 func (o NextOutput) Failed() error { return cyclesError(o.Cycles) }
 
 // Next lists tasks that can start now: todo or doing, not blocked, every
-// dependency resolved. Order: due date first (earliest first, undated last),
+// dependency resolved, and assigned to you (not to a person or an agent). Order: due date first (earliest first, undated last),
 // then oldest created, then id.
 var Next = define("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
 	w, err := loadWork(ctx, d.Store, in.Project, "")
@@ -112,7 +112,7 @@ var Next = define("next", "List tasks that are ready to work", func(ctx context.
 		out.Cycles = [][]string{}
 	}
 	for _, id := range w.g.Ready() {
-		if v, ok := w.tasks[id]; ok && (in.Project == "" || v.Project == in.Project) {
+		if v, ok := w.tasks[id]; ok && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
 			out.Tasks = append(out.Tasks, v)
 		}
 	}

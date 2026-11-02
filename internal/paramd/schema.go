@@ -82,6 +82,7 @@ var typeFields = map[string][]field{
 		{Name: "area", Kind: kLink},
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString},
+		{Name: "assignee", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 	},

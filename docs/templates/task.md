@@ -6,6 +6,7 @@ project: "[[acme-portal]]"
 area: "[[health]]"
 due: 2026-11-08
 recur: weekly
+assignee: agent:scribe
 blocked_by: []
 ---
 

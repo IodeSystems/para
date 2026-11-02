@@ -27,11 +27,19 @@ func joinOrDash(s []string) string {
 
 func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 	for _, t := range tasks {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", t.ID, t.Status, scope(t), dash(string(t.Due)), t.Title); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s%s\n", t.ID, t.Status, scope(t), dash(string(t.Due)), t.Title, assigneeSuffix(t)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// assigneeSuffix marks a task that is someone else's.
+func assigneeSuffix(t ops.TaskView) string {
+	if ops.IsOther(t.Assignee) {
+		return "\t@" + t.Assignee
+	}
+	return ""
 }
 
 // scope is where a task lives: its project, else its area.
@@ -125,6 +133,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence as free text, such as weekly (stored only)")
+				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
@@ -141,6 +150,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVarP(&in.Project, "project", "p", "", "only this project")
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
+				fs.StringVar(&in.Assignee, "assignee", "", "only tasks assigned to this person id or agent:<name>; self for your own")
 			},
 			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
 		}),
@@ -150,8 +160,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
 				return err
 			},
 		}),
@@ -171,6 +181,15 @@ func newTaskCmd(l *loader) *cobra.Command {
 			},
 			Text: func(w io.Writer, out ops.TaskDueOutput) error {
 				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, dash(string(out.Due)), dash(out.Recur))
+				return err
+			},
+		}),
+		opCommand(l, ops.TaskAssign, binding[ops.TaskAssignInput, ops.TaskAssignOutput]{
+			Use:  "assign <id> <assignee>",
+			Args: cobra.ExactArgs(2),
+			Bind: func(args []string, in *ops.TaskAssignInput) error { in.ID, in.Assignee = args[0], args[1]; return nil },
+			Text: func(w io.Writer, out ops.TaskAssignOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\n", out.ID, orSelf(out.Assignee))
 				return err
 			},
 		}),
@@ -201,6 +220,13 @@ func newTaskCmd(l *loader) *cobra.Command {
 		}),
 	)
 	return cmd
+}
+
+func orSelf(a string) string {
+	if a == "" {
+		return ops.SelfAssignee
+	}
+	return a
 }
 
 func newTaskDependsCmd(l *loader) *cobra.Command {
@@ -272,5 +298,35 @@ func newNextCmd(l *loader) *cobra.Command {
 			return nil
 		},
 		Text: func(w io.Writer, out ops.NextOutput) error { return writeTasks(w, out.Tasks) },
+	})
+}
+
+func newWaitingCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.Waiting, binding[ops.WaitingInput, ops.WaitingOutput]{
+		Use:  "waiting",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.WaitingInput) {
+			fs.StringVar(&in.Today, "today", "", "date YYYY-MM-DD; default today")
+		},
+		Text: func(w io.Writer, out ops.WaitingOutput) error {
+			for _, it := range out.RFX {
+				flag := ""
+				switch {
+				case it.Stalled:
+					flag = "\tstalled"
+				case it.Due:
+					flag = "\tdue"
+				}
+				if _, err := fmt.Fprintf(w, "rfx\t%s\t%s\t%s%s\n", it.ID, dash(it.NextNudge), it.Title, flag); err != nil {
+					return err
+				}
+			}
+			for _, t := range out.Tasks {
+				if _, err := fmt.Fprintf(w, "task\t%s\t%s\t%s\t@%s\n", t.ID, dash(string(t.Due)), t.Title, t.Assignee); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
 	})
 }

@@ -78,15 +78,13 @@ type ParaV1MutationNamespace {
   rfxTargetState(body: para_RFXTargetStateInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetState")
   ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
+  taskAssign(body: para_TaskAssignInputInput!): para_TaskAssignOutput @derived(operationId: "taskAssign")
   taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
   taskDependsAdd(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsAdd")
   taskDependsRemove(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsRemove")
   taskDone(body: para_TaskDoneInputInput!): para_TaskChangeOutput @derived(operationId: "taskDone")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
-  uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
-  uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
-  uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
 }
 
 type ParaV1QueryNamespace {
@@ -134,11 +132,9 @@ type ParaV1QueryNamespace {
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
   search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
-  taskList(area: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
-  uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
-  uiReview: para_UIReviewBody @derived(operationId: "uiReview")
-  uiToday: para_UITodayBody @derived(operationId: "uiToday")
+  waiting(today: String): para_WaitingOutput @derived(operationId: "waiting")
   where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
   who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
 }
@@ -1031,6 +1027,7 @@ type para_Meta {
   aliases: [String!]
   appliesIn: [String!]
   area: String
+  assignee: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -1916,17 +1913,6 @@ enum para_RequestViewStatus {
   queued
 }
 
-type para_ReviewGroup {
-  actor: String!
-  events: [para_Event!]!
-}
-
-type para_ReviewNeed {
-  id: String!
-  kind: String!
-  title: String!
-}
-
 type para_RouteOutput {
   candidates: [para_Ref!]!
   domain: para_Ref
@@ -2067,6 +2053,7 @@ enum para_TargetState {
 
 input para_TaskAddInputInput {
   area: String
+  assignee: String
   body: String
   dependsOn: [String!]
   due: String
@@ -2095,6 +2082,17 @@ enum para_TaskAddOutputFolder {
   requests
   resources
   rfx
+}
+
+input para_TaskAssignInputInput {
+  assignee: String!
+  id: String!
+}
+
+type para_TaskAssignOutput {
+  assignee: String
+  id: String!
+  rev: String!
 }
 
 input para_TaskBlockInputInput {
@@ -2162,6 +2160,7 @@ input para_TaskStartInputInput {
 
 type para_TaskView {
   area: String
+  assignee: String
   blockedBy: [String!]!
   created: String!
   dependsOn: [String!]!
@@ -2199,55 +2198,6 @@ enum para_TaskViewStatus {
   todo
 }
 
-type para_TodayGroup {
-  count: Int!
-  items: [para_TodayItem!]!
-}
-
-type para_TodayItem {
-  due: String
-  id: String!
-  title: String!
-}
-
-type para_TodayVaultToday {
-  blocked: para_TodayGroup!
-  due: para_TodayGroup!
-  dueSoon: para_TodayGroup!
-  error: String
-  expiring: para_TodayGroup!
-  inbox: Int!
-  lostUpdates: [String!]!
-  nudges: para_TodayGroup!
-  overdue: para_TodayGroup!
-  syncConflicts: [String!]!
-  unverified: Int!
-  vault: String!
-}
-
-type para_UILiveSubscribeBody {
-  channel: String!
-  exp: String!
-  token: String!
-}
-
-input para_UIReviewAcceptInputInput {
-  at: String
-}
-
-type para_UIReviewBody {
-  canUndo: Boolean!
-  count: Int!
-  groups: [para_ReviewGroup!]!
-  needs: [para_ReviewNeed!]!
-  position: String!
-}
-
-type para_UITodayBody {
-  date: String!
-  today: para_TodayVaultToday!
-}
-
 type para_WaitingItem {
   blockedOn: [String!]!
   dependsOn: [String!]!
@@ -2273,6 +2223,13 @@ enum para_WaitingItemStatus {
   closed
   declined
   open
+}
+
+type para_WaitingOutput {
+  count: Int!
+  rfx: [para_WaitingItem!]!
+  tasks: [para_TaskView!]!
+  today: String!
 }
 
 type para_WhereMatch {
@@ -2340,6 +2297,7 @@ type para_WhoPerson {
   name: String!
   notes: [String!]!
   openRfx: [para_WhoRFX!]!
+  openTasks: [para_TaskView!]!
   org: String!
   role: para_Ref
   team: para_Ref

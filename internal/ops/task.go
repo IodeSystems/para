@@ -23,6 +23,7 @@ type TaskView struct {
 	Created   model.Date       `json:"created"`
 	Due       model.Date       `json:"due,omitempty"`
 	Recur     string           `json:"recur,omitempty"`
+	Assignee  string           `json:"assignee,omitempty"` // empty means self
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -35,7 +36,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -102,6 +103,7 @@ type TaskAddInput struct {
 	Body      string   `json:"body,omitempty"`
 	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
 	Recur     string   `json:"recur,omitempty"`      // free text, stored only
+	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
 }
 
@@ -142,6 +144,10 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
+	assignee, err := resolveAssignee(ctx, d, in.Assignee)
+	if err != nil {
+		return TaskAddOutput{}, err
+	}
 	var deps []model.Link
 	for _, id := range in.DependsOn {
 		l, err := dependencyLink(ctx, d.Store, id)
@@ -163,6 +169,7 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 			Area:      area,
 			Due:       due,
 			Recur:     strings.Join(strings.Fields(in.Recur), " "),
+			Assignee:  assignee,
 			DependsOn: deps,
 		},
 	})
@@ -177,6 +184,9 @@ type TaskListInput struct {
 	Project string           `json:"project,omitempty" query:"project"`
 	Area    string           `json:"area,omitempty" query:"area"` // tasks with this area of their own
 	Status  model.TaskStatus `json:"status,omitempty" query:"status"`
+	// Assignee keeps tasks assigned to this person id or agent:<name>; self
+	// keeps the tasks with no assignee.
+	Assignee string `json:"assignee,omitempty" query:"assignee"`
 }
 
 // TaskListOutput is the output of task_list.
@@ -195,6 +205,14 @@ var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Dep
 	}
 	if area := normID(in.Area); area != "" {
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Area != area })
+	}
+	if want := strings.TrimSpace(in.Assignee); want != "" {
+		if strings.EqualFold(want, SelfAssignee) {
+			want = ""
+		} else if want, err = resolveAssignee(ctx, d, want); err != nil {
+			return TaskListOutput{}, err
+		}
+		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Assignee != want })
 	}
 	return TaskListOutput{Tasks: tasks}, nil
 })

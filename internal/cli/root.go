@@ -153,6 +153,7 @@ func newRoot(l *loader) *cobra.Command {
 		newProjectCmd(l),
 		newAreaCmd(l),
 		newWhereCmd(l),
+		newWaitingCmd(l),
 		newNoteCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),

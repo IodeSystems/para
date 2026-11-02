@@ -79,6 +79,7 @@ var Inputs = map[string]string{
 	"route":                     `{"query":"domain-sample"}`,
 	"rule_add":                  `{"policy":"policy-sample","text":"Services log every failure."}`,
 	"task_add":                  `{"project":"project-sample","title":"Write parser"}`,
+	"task_assign":               `{"id":"task-sample","assignee":"person-sample"}`,
 	"task_block":                `{"id":"task-sample","reason":"waiting on legal"}`,
 	"task_due":                  `{"id":"task-sample","date":"2026-12-01","recur":"monthly"}`,
 	"task_depends_add":          `{"id":"task-sample","depends_on":["task-free"]}`,

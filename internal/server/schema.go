@@ -61,6 +61,7 @@ type Meta struct {
 	Area           string           `json:"area,omitempty"`
 	Due            string           `json:"due,omitempty"`
 	Recur          string           `json:"recur,omitempty"`
+	Assignee       string           `json:"assignee,omitempty"`
 	BlockedBy      []string         `json:"blocked_by,omitempty"`
 	DependsOn      []string         `json:"depends_on,omitempty"`
 	Direction      string           `json:"direction,omitempty"`
