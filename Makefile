@@ -17,6 +17,7 @@ install: ui-build ## Stamped build with the UI to $(BINDIR)/para (temp name, the
 	mv -f $(BINDIR)/.para.new $(BINDIR)/para
 	@case ":$$PATH:" in *":$(BINDIR):"*) ;; *) echo "warning: $(BINDIR) is not on PATH" >&2 ;; esac
 	@echo "installed $(BINDIR)/para ($(VERSION))"
+	@if $(BINDIR)/para service status >/dev/null 2>&1; then $(BINDIR)/para service restart && echo "restarted the para service"; fi
 
 lint:             ## golangci-lint (X-LINT-1) + UI lint
 	golangci-lint run ./...
