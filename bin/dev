@@ -9,8 +9,13 @@
 # dev.local.env (gitignored, optional) is sourced first. Set UI_HOST there to
 # listen on another address, such as a LAN IP. See dev.local.env.example.
 #
-# No server exists yet, so this runs Vite only. When `para serve` lands, add
-# air for the Go side here (DEV-7); API_PORT is already exported for the proxy.
+# Two processes: `para serve --vault dev` under air (rebuilds on .go saves, API
+# only, 127.0.0.1:API_PORT) and Vite (HMR, UI_HOST:UI_PORT). Vite proxies every
+# server path and sends the API's own Host and Origin, so POSTs pass the gate.
+# State lives in tmp/dev-home (PARA_HOME) with one vault, `dev`, made on first
+# run. It never touches ~/.para. The sign-in link with the admin token is
+# printed once the server answers. Through the proxy a remote browser looks
+# local to the gate, so the admin token works from your laptop in dev only.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,6 +28,9 @@ export API_PORT UI_PORT UI_HOST
 
 PIDFILE=tmp/dev.pid
 LOG=tmp/dev.log
+export PARA_HOME="$PWD/tmp/dev-home"
+DEV_VAULT_DIR="$PWD/tmp/dev-vault"
+AIR_BIN=.air/para-dev
 
 running() { [ -f "$PIDFILE" ] && kill -0 -- "-$(cat "$PIDFILE")" 2>/dev/null; }
 
@@ -58,17 +66,18 @@ stop() {
   fi
   rm -f "$PIDFILE"
   free_port "$UI_PORT"
+  free_port "$API_PORT"
 }
 
 detach=0 child=0
 for arg in "$@"; do
   case "$arg" in
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \?//'; exit 0 ;;
     -d|--detach|--detatch) detach=1 ;;
     --run) child=1 ;;
     --stop) stop; exit 0 ;;
     --status)
-      if running; then echo "running (pgid $(cat "$PIDFILE"))  ui $UI_HOST:$UI_PORT  api :$API_PORT (not started yet)"
+      if running; then echo "running (pgid $(cat "$PIDFILE"))  ui $UI_HOST:$UI_PORT  api 127.0.0.1:$API_PORT"
       else echo "not running  (ui :$UI_PORT)"; fi
       exit 0 ;;
     *) echo "bin/dev: unknown option '$arg'" >&2; exit 2 ;;
@@ -80,9 +89,12 @@ if [ "$child" = 0 ]; then
   running && { echo "bin/dev: already running; --stop first" >&2; exit 1; }
   need node nodejs node
   need pnpm '' pnpm
+  command -v air >/dev/null 2>&1 || { echo "bin/dev: missing 'air' — install: go install github.com/air-verse/air@latest" >&2; exit 1; }
+  need go golang go
   need lsof lsof lsof
   need setsid util-linux util-linux
-  echo "==> ui http://$UI_HOST:$UI_PORT (vite). api :$API_PORT: no server yet." >&2
+  echo "==> ui http://$UI_HOST:$UI_PORT (vite)  api 127.0.0.1:$API_PORT (para serve --vault dev, air)  home $PARA_HOME" >&2
+  [ -d "$PARA_HOME/vaults/dev" ] && echo "==> dev vault: already set up" >&2 || echo "==> dev vault: will be created at $DEV_VAULT_DIR with sample items" >&2
 fi
 
 if [ "$detach" = 1 ]; then # DEV-4
@@ -95,21 +107,61 @@ fi
 
 ps -o pgid= -p $$ | tr -d ' ' > "$PIDFILE"
 free_port "$UI_PORT"
+free_port "$API_PORT"
+
+# First run: a throwaway vault with a few items, so every screen has something.
+if [ ! -d "$PARA_HOME/vaults/dev" ]; then
+  mkdir -p "$PARA_HOME" .air
+  go build -o .air/para-seed ./cmd/para
+  .air/para-seed init dev "$DEV_VAULT_DIR" --no-git >/dev/null
+  P=".air/para-seed --vault dev"
+  id() { sed -n 's/.*"id": *"\([^"]*\)".*/\1/p' | head -1; }
+  $P inbox add "Ask platform about the staging quota" >/dev/null
+  $P inbox add "Renew the VPN certificate" >/dev/null
+  proj="$($P project add "Launch the pilot" --owner me --json | id)"
+  t1="$($P task add "Write the rollout plan" -p "$proj" --json | id)"
+  $P task add "Get the quota approved" -p "$proj" --depends-on "$t1" >/dev/null
+  $P org person add "Sam Rivera" --org Acme >/dev/null 2>&1 || true
+  rm -f .air/para-seed
+fi
+
 cd ui
 [ -d node_modules ] || pnpm install # DEV-6
 
-# Vite runs in the background so a signal reaches this trap at once; bash runs
-# a trap only after a foreground child exits. Only Vite is signalled: `kill 0`
-# would also hit a parent shell in the same process group.
 cleanup() {
   trap - EXIT INT TERM
   rm -f "../$PIDFILE"
-  kill "$vite" 2>/dev/null || true
-  for _ in $(seq 1 30); do kill -0 "$vite" 2>/dev/null || exit 0; sleep 0.1; done
-  kill -9 "$vite" 2>/dev/null || true
+  kill "$vite" "$air" 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    kill -0 "$vite" 2>/dev/null || kill -0 "$air" 2>/dev/null || exit 0
+    sleep 0.1
+  done
+  kill -9 "$vite" "$air" 2>/dev/null || true
   exit 0
 }
+# Both run in the background so a signal reaches this trap at once; bash runs a
+# trap only after a foreground child exits. Only these two are signalled: `kill 0`
+# would also hit a parent shell in the same process group.
+cd ..
+air -c .air.toml \
+  --build.cmd "go build -o $AIR_BIN ./cmd/para" \
+  --build.entrypoint "$AIR_BIN" \
+  --build.args_bin "serve,--vault,dev,--addr,127.0.0.1:$API_PORT" </dev/null &
+air=$!
+cd ui
+pnpm gen >/dev/null
 node_modules/.bin/vite </dev/null &
 vite=$!
 trap cleanup EXIT INT TERM
-wait "$vite"
+
+# Print the sign-in link once the server answers (the token file exists after its first start).
+(
+  for _ in $(seq 1 120); do
+    # Through Vite, so both the proxy and the server answer.
+    curl -fsS "http://$UI_HOST:$UI_PORT/healthz" >/dev/null 2>&1 && break
+    sleep 0.5
+  done
+  cd ..
+  echo "==> sign in: $(.air/para-dev service login-admin --vault dev --print --url "http://$UI_HOST:$UI_PORT" 2>&1 | tail -1)"
+) &
+wait "$vite" "$air"

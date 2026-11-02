@@ -1,0 +1,19 @@
+# air for bin/dev (DEV-7): rebuilds and restarts `para serve` on .go saves. API only; Vite
+# serves the UI in dev. bin/dev passes the build command and arguments. tmp_dir is .air, not
+# tmp/: air removes its tmp_dir on exit, and tmp/ holds the runner's pidfile (DEV-4).
+root = "."
+tmp_dir = ".air"
+
+[build]
+  include_ext = ["go", "sql", "md", "tmpl"]
+  include_dir = ["cmd", "internal", "docs"]
+  exclude_dir = ["ui", "ext", "tmp", ".air", "spikes", "plan", "dist"]
+  exclude_regex = ["_test\\.go$"]
+  delay = 300
+  stop_on_error = true
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = false

@@ -20,3 +20,4 @@ ui/.tanstack/
 # editor
 .idea/
 .DS_Store
+/.air/
