@@ -256,8 +256,8 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 
 // RequestListInput is the input of request_list. Empty fields match all.
 type RequestListInput struct {
-	Status model.RequestStatus `json:"status,omitempty"`
-	Limit  int                 `json:"limit,omitempty"` // 0 means all
+	Status model.RequestStatus `json:"status,omitempty" query:"status"`
+	Limit  int                 `json:"limit,omitempty" query:"limit"` // 0 means all
 }
 
 // RequestListOutput is the output of request_list.
@@ -293,7 +293,7 @@ var RequestList = define("request_list", "List agent requests, oldest first", fu
 
 // RequestShowInput is the input of request_show.
 type RequestShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // RequestShowOutput is the output of request_show.
@@ -382,7 +382,7 @@ type RequestNextInput struct {
 // RequestNextOutput is the output of request_next. Request is null when
 // nothing is claimable. Requeued lists requests whose lease had expired.
 type RequestNextOutput struct {
-	Request  *RequestDetail `json:"request"`
+	Request  *RequestDetail `json:"request" required:"false"`
 	Requeued []string       `json:"requeued"`
 }
 

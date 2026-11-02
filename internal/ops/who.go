@@ -11,8 +11,8 @@ import (
 
 // WhoInput is the input of who.
 type WhoInput struct {
-	Query  string `json:"query"`            // a name, alias, or contact value, any case
-	Recent int    `json:"recent,omitempty"` // interactions to list; default 5
+	Query  string `json:"query" query:"query" required:"true"` // a name, alias, or contact value, any case
+	Recent int    `json:"recent,omitempty" query:"recent"`     // interactions to list; default 5
 }
 
 // WhoPerson is what para knows about one person.
@@ -21,8 +21,8 @@ type WhoPerson struct {
 	Name         string               `json:"name"`
 	Org          string               `json:"org"`
 	Aliases      []string             `json:"aliases"`
-	Role         *model.Ref           `json:"role"`
-	Team         *model.Ref           `json:"team"`
+	Role         *model.Ref           `json:"role" required:"false"`
+	Team         *model.Ref           `json:"team" required:"false"`
 	Groups       []model.Ref          `json:"groups"`
 	Contacts     []model.Contact      `json:"contacts"` // preferred ones carry preferred: true
 	Notes        []string             `json:"notes"`    // lines under "## Notes"
@@ -42,7 +42,7 @@ type WhoRFX struct {
 // person. When it names several, Candidates lists them and Person is nil.
 type WhoOutput struct {
 	Query      string      `json:"query"`
-	Person     *WhoPerson  `json:"person"`
+	Person     *WhoPerson  `json:"person" required:"false"`
 	Candidates []model.Ref `json:"candidates"`
 }
 

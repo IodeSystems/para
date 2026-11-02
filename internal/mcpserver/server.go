@@ -10,9 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"runtime/debug"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -138,24 +136,5 @@ func encode(v any) (string, error) {
 	return b.String(), nil
 }
 
-// quotedPath finds a quoted absolute path, which may hold spaces.
-var quotedPath = regexp.MustCompile(`(["'])/[^"'\n]*(["'])`)
-
-// absPath finds absolute filesystem paths in error text.
-var absPath = regexp.MustCompile(`(^|[\s"'(=:])(/[^\s"'):,;]+)`)
-
 // clean returns the error text on one line with filesystem paths removed.
-func (s *Server) clean(err error) string {
-	msg := err.Error()
-	for _, h := range s.hide {
-		if h != "" && h != "/" {
-			msg = strings.ReplaceAll(msg, h, "<vault>")
-		}
-	}
-	msg = quotedPath.ReplaceAllString(msg, "${1}<path>${2}")
-	msg = absPath.ReplaceAllString(msg, "${1}<path>")
-	if i := strings.IndexAny(msg, "\r\n"); i >= 0 {
-		msg = msg[:i]
-	}
-	return msg
-}
+func (s *Server) clean(err error) string { return ops.PublicError(err, s.hide) }

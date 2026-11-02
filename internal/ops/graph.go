@@ -42,7 +42,7 @@ type GraphEdge struct {
 
 // GraphInput is the input of graph.
 type GraphInput struct {
-	Project string `json:"project,omitempty"` // project id; empty means every task
+	Project string `json:"project,omitempty" query:"project"` // project id; empty means every task
 }
 
 // GraphOutput is the output of graph. Order lists ids with dependencies first;
@@ -78,7 +78,7 @@ var Graph = define("graph", "Show task and rfx dependencies", func(ctx context.C
 
 // NextInput is the input of next.
 type NextInput struct {
-	Project string `json:"project,omitempty"`
+	Project string `json:"project,omitempty" query:"project"`
 }
 
 // NextOutput is the output of next. Cycles is as in GraphOutput.

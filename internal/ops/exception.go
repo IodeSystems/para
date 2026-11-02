@@ -143,9 +143,9 @@ var ExceptionAdd = define("exception_add", "Record a policy exception", func(ctx
 
 // ExceptionListInput is the input of exception_list. Empty filters match all.
 type ExceptionListInput struct {
-	Policy string                `json:"policy,omitempty"`
-	Status model.ExceptionStatus `json:"status,omitempty"`
-	Kind   model.ExceptionKind   `json:"kind,omitempty"`
+	Policy string                `json:"policy,omitempty" query:"policy"`
+	Status model.ExceptionStatus `json:"status,omitempty" query:"status"`
+	Kind   model.ExceptionKind   `json:"kind,omitempty" query:"kind"`
 }
 
 // ExceptionListOutput is the output of exception_list.
@@ -170,7 +170,7 @@ var ExceptionList = define("exception_list", "List policy exceptions", func(ctx 
 
 // ExceptionShowInput is the input of exception_show.
 type ExceptionShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // ExceptionShowOutput is the output of exception_show.
@@ -197,7 +197,7 @@ type ExpiringException struct {
 
 // ExceptionExpiringInput is the input of exception_expiring.
 type ExceptionExpiringInput struct {
-	Days int `json:"days,omitempty"` // window from today; 0 means 30
+	Days int `json:"days,omitempty" query:"days"` // window from today; 0 means 30
 }
 
 // ExceptionExpiringOutput is the output of exception_expiring.

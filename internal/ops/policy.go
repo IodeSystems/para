@@ -82,7 +82,7 @@ type ExceptionRef struct {
 
 // PolicyShowInput is the input of policy_show.
 type PolicyShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // PolicyShowOutput is the output of policy_show.

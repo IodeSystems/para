@@ -82,7 +82,7 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 
 // ProjectListInput is the input of project_list.
 type ProjectListInput struct {
-	All bool `json:"all,omitempty"` // include archived projects
+	All bool `json:"all,omitempty" query:"all"` // include archived projects
 }
 
 // ProjectListOutput is the output of project_list.
@@ -116,7 +116,7 @@ var ProjectList = define("project_list", "List projects", func(ctx context.Conte
 
 // ProjectShowInput is the input of project_show.
 type ProjectShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // ProjectShowOutput is the output of project_show.

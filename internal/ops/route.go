@@ -65,7 +65,7 @@ func (ScanFinder) Find(ctx context.Context, s store.Store, q Query) ([]model.Ref
 
 // RouteInput is the input of route.
 type RouteInput struct {
-	Query string `json:"query"` // a domain id or name, or free text
+	Query string `json:"query" query:"query" required:"true"` // a domain id or name, or free text
 }
 
 // RouteOutput is the output of route. Read SelfServe before asking Who.
@@ -75,9 +75,9 @@ type RouteOutput struct {
 	SelfServe SelfServe `json:"self_serve"`
 	// Domain is the resolved domain; nil when the query matched none or
 	// several (see Candidates).
-	Domain     *model.Ref  `json:"domain"`
+	Domain     *model.Ref  `json:"domain" required:"false"`
 	Candidates []model.Ref `json:"candidates"`
-	Owner      *model.Ref  `json:"owner"` // the domain's owner: role, team, or person
+	Owner      *model.Ref  `json:"owner" required:"false"` // the domain's owner: role, team, or person
 	People     []model.Ref `json:"people"`
 	Terms      []string    `json:"terms"` // what self-serve matched on
 }

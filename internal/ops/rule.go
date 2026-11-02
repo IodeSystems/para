@@ -50,7 +50,7 @@ var RuleAdd = define("rule_add", "Add a rule with a stable id to a policy summar
 
 // RuleListInput is the input of rule_list.
 type RuleListInput struct {
-	Policy string `json:"policy,omitempty"` // empty means every policy
+	Policy string `json:"policy,omitempty" query:"policy"` // empty means every policy
 }
 
 // RuleListOutput is the output of rule_list.

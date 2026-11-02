@@ -128,7 +128,7 @@ var ConstraintList = define("constraint_list", "List constraints", func(ctx cont
 
 // ConstraintShowInput is the input of constraint_show.
 type ConstraintShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // ConstraintShowOutput is the output of constraint_show.

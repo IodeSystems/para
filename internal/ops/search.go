@@ -8,8 +8,8 @@ import (
 
 // SearchInput is the input of search.
 type SearchInput struct {
-	Query string `json:"query"`
-	Limit int    `json:"limit,omitempty"` // 0 means 10
+	Query string `json:"query" query:"query" required:"true"`
+	Limit int    `json:"limit,omitempty" query:"limit"` // 0 means 10
 }
 
 // SearchOutput is the output of search.

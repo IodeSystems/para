@@ -150,8 +150,8 @@ var TaskAdd = define("task_add", "Create a task in a project", func(ctx context.
 
 // TaskListInput is the input of task_list.
 type TaskListInput struct {
-	Project string           `json:"project,omitempty"`
-	Status  model.TaskStatus `json:"status,omitempty"`
+	Project string           `json:"project,omitempty" query:"project"`
+	Status  model.TaskStatus `json:"status,omitempty" query:"status"`
 }
 
 // TaskListOutput is the output of task_list.
@@ -170,7 +170,7 @@ var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Dep
 
 // TaskShowInput is the input of task_show.
 type TaskShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // TaskShowOutput is the output of task_show.

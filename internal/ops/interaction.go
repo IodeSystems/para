@@ -145,11 +145,11 @@ func loadInteractions(ctx context.Context, d Deps) ([]InteractionSummary, error)
 
 // InteractionListInput is the input of interaction_list. Empty fields match all.
 type InteractionListInput struct {
-	With      string                     `json:"with,omitempty"` // person or group id
-	Medium    model.Medium               `json:"medium,omitempty"`
-	Direction model.InteractionDirection `json:"direction,omitempty"`
-	Since     string                     `json:"since,omitempty"` // YYYY-MM-DD, inclusive
-	Limit     int                        `json:"limit,omitempty"` // 0 means all
+	With      string                     `json:"with,omitempty" query:"with"` // person or group id
+	Medium    model.Medium               `json:"medium,omitempty" query:"medium"`
+	Direction model.InteractionDirection `json:"direction,omitempty" query:"direction"`
+	Since     string                     `json:"since,omitempty" query:"since"` // YYYY-MM-DD, inclusive
+	Limit     int                        `json:"limit,omitempty" query:"limit"` // 0 means all
 }
 
 // InteractionListOutput is the output of interaction_list.
@@ -187,7 +187,7 @@ var InteractionList = define("interaction_list", "List logged interactions, newe
 
 // InteractionShowInput is the input of interaction_show.
 type InteractionShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // InteractionShowOutput is the output of interaction_show.

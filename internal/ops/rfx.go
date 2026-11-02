@@ -158,9 +158,9 @@ func loadRFX(ctx context.Context, d Deps) ([]RFXSummary, error) {
 
 // RFXListInput is the input of rfx_list. Empty fields match everything.
 type RFXListInput struct {
-	Direction model.RFXDirection `json:"direction,omitempty"`
-	Status    model.RFXStatus    `json:"status,omitempty"`
-	Route     string             `json:"route,omitempty"`
+	Direction model.RFXDirection `json:"direction,omitempty" query:"direction"`
+	Status    model.RFXStatus    `json:"status,omitempty" query:"status"`
+	Route     string             `json:"route,omitempty" query:"route"`
 }
 
 // RFXListOutput is the output of rfx_list.
@@ -197,8 +197,8 @@ func allNoReply(ts []model.Target) bool {
 
 // RFXWaitingInput is the input of rfx_waiting.
 type RFXWaitingInput struct {
-	Direction model.RFXDirection `json:"direction,omitempty"` // empty means both
-	Today     string             `json:"today,omitempty"`     // YYYY-MM-DD; empty means the local date
+	Direction model.RFXDirection `json:"direction,omitempty" query:"direction"` // empty means both
+	Today     string             `json:"today,omitempty" query:"today"`         // YYYY-MM-DD; empty means the local date
 }
 
 // WaitingItem is an open RFX with its nudge state.
@@ -261,7 +261,7 @@ var RFXWaiting = define("rfx_waiting", "List open requests waiting on someone, b
 
 // RFXShowInput is the input of rfx_show.
 type RFXShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // ChainNode is one RFX (or other document) upstream of the shown RFX.

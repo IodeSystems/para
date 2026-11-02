@@ -108,6 +108,18 @@ func (v *Vault) Actor() string   { return v.actor }
 func (v *Vault) Surface() string { return v.surface }
 func (v *Vault) Install() string { return v.install }
 
+// As returns the same open vault acting for another actor and surface. It
+// shares the root and the lock file, and costs one struct and one Log, so a
+// server can bind the caller per request. Mutual exclusion is the file lock,
+// taken per write on its own descriptor, so copies exclude each other as
+// processes do.
+func (v *Vault) As(actor, surface string) *Vault {
+	c := *v
+	c.actor, c.surface = actor, surface
+	c.log = v.log.As(actor, surface)
+	return &c
+}
+
 // Now returns the vault clock.
 func (v *Vault) Now() time.Time { return v.now() }
 

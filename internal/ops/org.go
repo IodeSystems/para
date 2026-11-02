@@ -46,7 +46,7 @@ type OrgListOutput struct {
 
 // OrgShowInput is the input of org_<kind>_show.
 type OrgShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // OrgShowOutput is the output of org_<kind>_show.

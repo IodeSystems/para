@@ -48,7 +48,7 @@ type InboxItem struct {
 
 // InboxListInput is the input of inbox_list.
 type InboxListInput struct {
-	All bool `json:"all,omitempty"` // include triaged (archived) items
+	All bool `json:"all,omitempty" query:"all"` // include triaged (archived) items
 }
 
 // InboxListOutput is the output of inbox_list.
@@ -78,7 +78,7 @@ var InboxList = define("inbox_list", "List inbox captures not yet triaged", func
 
 // InboxShowInput is the input of inbox_show.
 type InboxShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // InboxShowOutput is the output of inbox_show.

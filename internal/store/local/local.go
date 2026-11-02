@@ -35,6 +35,13 @@ func Open(root string, o vault.Options) (*Store, error) {
 	return &Store{v: v, log: v.Log(), root: root}, nil
 }
 
+// As returns the Store acting for another actor and surface, without opening
+// the vault again.
+func (s *Store) As(actor, surface string) *Store {
+	v := s.v.As(actor, surface)
+	return &Store{v: v, log: v.Log(), root: s.root}
+}
+
 func (s *Store) VaultID() string { return s.v.ID() }
 
 func (s *Store) Info() store.Info {

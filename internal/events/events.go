@@ -57,6 +57,13 @@ func NewLog(dir string, src Source) *Log {
 	return &Log{dir: dir, src: src}
 }
 
+// As returns a Log over the same files that records another actor and surface.
+func (l *Log) As(actor, surface string) *Log {
+	c := *l
+	c.src.Actor, c.src.Surface = actor, surface
+	return &c
+}
+
 var (
 	opRe      = regexp.MustCompile(`^[a-z][a-z_]{0,63}$`)
 	tokenRe   = regexp.MustCompile(`^[A-Za-z0-9_.:-]{0,64}$`)

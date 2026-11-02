@@ -98,7 +98,7 @@ var ConventionList = define("convention_list", "List conventions", func(ctx cont
 
 // ConventionShowInput is the input of convention_show.
 type ConventionShowInput struct {
-	ID string `json:"id"`
+	ID string `json:"id" query:"id" required:"true"`
 }
 
 // ConventionShowOutput is the output of convention_show.

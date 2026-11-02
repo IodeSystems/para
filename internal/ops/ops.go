@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/iodesystems/parasolve/internal/store"
 )
@@ -64,6 +65,29 @@ func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
 		return out, fmt.Errorf("%s: %w", o.name, err)
 	}
 	return out, nil
+}
+
+// quotedPath finds a quoted absolute path, which may hold spaces.
+var quotedPath = regexp.MustCompile(`(["'])/[^"'\n]*(["'])`)
+
+// absPath finds absolute filesystem paths in error text.
+var absPath = regexp.MustCompile(`(^|[\s"'(=:])(/[^\s"'):,;]+)`)
+
+// PublicError returns error text for a client of a surface: one line, with
+// the prefixes in hide and every other absolute path removed.
+func PublicError(err error, hide []string) string {
+	msg := err.Error()
+	for _, h := range hide {
+		if h != "" && h != "/" {
+			msg = strings.ReplaceAll(msg, h, "<vault>")
+		}
+	}
+	msg = quotedPath.ReplaceAllString(msg, "${1}<path>${2}")
+	msg = absPath.ReplaceAllString(msg, "${1}<path>")
+	if i := strings.IndexAny(msg, "\r\n"); i >= 0 {
+		msg = msg[:i]
+	}
+	return msg
 }
 
 // Invoke implements Entry.
