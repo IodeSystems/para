@@ -90,7 +90,7 @@ func TestServeRunsTickAndDispatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var task ops.TaskAddOutput
 	e.json(&task, "task", "add", "Rotate disks", "-p", project.ID, "--due", "2026-01-01", "--recur", "monthly")
 	file := filepath.Join(vaultPath, "projects", task.ID+".md")

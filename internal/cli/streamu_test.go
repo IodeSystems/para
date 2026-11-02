@@ -255,7 +255,7 @@ func TestRecurrence(t *testing.T) {
 
 	// A closed project gets no next task.
 	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "Move rack", "--owner", "Jordan Example")
+	e.json(&proj, "project", "add", "--done-when", "Done.", "Move rack", "--owner", "Jordan Example")
 	var pt ops.TaskAddOutput
 	e.json(&pt, "task", "add", "Dust", "-p", proj.ID, "--recur", "daily")
 	e.ok("project", "close", proj.ID, "--force")

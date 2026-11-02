@@ -134,6 +134,7 @@ type InboxTriageInput struct {
 	Person string `json:"person,omitempty"` // person id
 	Date   string `json:"date,omitempty"`   // YYYY-MM-DD; default the local date
 	// question: Project, Area, Task, or Root, exactly one
+	DoneWhen    string             `json:"done_when,omitempty"` // task: how we know it is done; project: required
 	Task        string             `json:"task,omitempty"`
 	Root        bool               `json:"root,omitempty"`
 	Kind        model.QuestionKind `json:"kind,omitempty"`
@@ -172,13 +173,13 @@ var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, req
 	out := InboxTriageOutput{ID: doc.ID, To: in.To, Warnings: []string{}}
 	switch in.To {
 	case TriageTask:
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back)})
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
 		if err != nil {
 			return out, err
 		}
 		out.Created = r.ID
 	case TriageProject:
-		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back)})
+		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
 		if err != nil {
 			return out, err
 		}

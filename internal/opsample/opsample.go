@@ -27,7 +27,7 @@ var Inputs = map[string]string{
 	"meeting_add":               `{"title":"Launch sync","with":["person-sample"],"rfx":["rfx-sample"],"start":"2026-11-04T10:00:00-05:00","end":"2026-11-04T10:30:00-05:00"}`,
 	"meeting_show":              `{"id":"meeting-sample"}`,
 	"meeting_schedule":          `{"id":"meeting-sample","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,
-	"meeting_hold":              `{"id":"meeting-sample","notes":"Agreed to ship in January.","replies":[{"id":"rfx-sample","from":"person-sample","outcome":"answered","text":"January works."}],"answers":[{"id":"question-sample","text":"Window is 2026-12-05.","sources":[{"ref":"note-sample","quote":"Sample text."}]}],"actions":[{"title":"Send the plan","assignee":"person-sample","project":"project-sample"}]}`,
+	"meeting_hold":              `{"id":"meeting-sample","notes":"Agreed to ship in January.","replies":[{"id":"rfx-sample","from":"person-sample","outcome":"answered","text":"January works."}],"answers":[{"id":"question-sample","text":"Window is 2026-12-05.","sources":[{"ref":"note-sample","quote":"Sample text."}]}],"actions":[{"title":"Send the plan","assignee":"person-sample","project":"project-sample","done_when":"The plan is in the shared folder."}]}`,
 	"meeting_cancel":            `{"id":"meeting-sample","reason":"Not needed."}`,
 	"note_add":                  `{"title":"Recipe","area":"area-sample"}`,
 	"note_show":                 `{"id":"note-sample"}`,
@@ -50,7 +50,7 @@ var Inputs = map[string]string{
 	"inbox_add":                 `{"text":"buy milk\nand eggs"}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"inbox_show":                `{"id":"inbox-sample"}`,
-	"inbox_triage":              `{"id":"inbox-sample","to":"task","project":"project-sample"}`,
+	"inbox_triage":              `{"id":"inbox-sample","to":"task","project":"project-sample","done_when":"The capture is handled."}`,
 	"interaction_add":           `{"summary":"Agreed to review on Friday","with":["person-sample"],"medium":"slack","direction":"in","date":"2026-11-01","url":"https://acme.example/m/1"}`,
 	"interaction_show":          `{"id":"interaction-sample"}`,
 	"org_domain_add":            `{"name":"Billing","owner":"role-sample"}`,
@@ -73,7 +73,7 @@ var Inputs = map[string]string{
 	"policy_refresh":            `{"id":"policy-sample","text":"Sample policy text."}`,
 	"policy_review":             `{"id":"policy-sample","by":"Jordan Example"}`,
 	"policy_show":               `{"id":"policy-sample"}`,
-	"project_add":               `{"title":"Portal","owner":"Jordan Example"}`,
+	"project_add":               `{"title":"Portal","owner":"Jordan Example","done_when":"The portal serves production traffic."}`,
 	"project_close":             `{"id":"project-sample","force":true}`,
 	"project_show":              `{"id":"project-sample"}`,
 	"question_add":              `{"text":"Which config path does prod use?","project":"project-sample","kind":"decision","options":["/etc/sample","/opt/sample"],"recommended":"/etc/sample"}`,
@@ -81,6 +81,8 @@ var Inputs = map[string]string{
 	"question_answer":           `{"id":"question-sample","text":"Window is 2026-12-05.","why":"Agreed in review.","sources":[{"ref":"note-sample","quote":"Sample text."}]}`,
 	"question_accept":           `{"id":"question-proposed","text":"Window is 2026-12-06."}`,
 	"question_reject":           `{"id":"question-proposed","reason":"Not what the runbook says."}`,
+	"project_edit":              `{"id":"project-sample","done_when":"Every sample check passes."}`,
+	"task_edit":                 `{"id":"task-sample","done_when":"The sample is checked."}`,
 	"question_edit":             `{"id":"question-sample","title":"Sample question, edited"}`,
 	"question_depends_add":      `{"id":"question-sample","depends_on":["task-sample"]}`,
 	"question_depends_remove":   `{"id":"question-waiting","depends_on":["task-sample"]}`,
@@ -94,7 +96,7 @@ var Inputs = map[string]string{
 	"rfx_status":                `{"id":"rfx-sample","status":"answered"}`,
 	"rfx_target_add":            `{"id":"rfx-sample","to":"person-sample","medium":"slack"}`,
 	"rfx_target_state":          `{"id":"rfx-sample","to":"person-sample","state":"sent","date":"2026-11-01"}`,
-	"request_add":               `{"ask":"Summarize the sample project","links":["project-sample"]}`,
+	"request_add":               `{"title":"Summarize the sample goal","ask":"Summarize the sample project","links":["project-sample"]}`,
 	"request_cancel":            `{"id":"request-sample"}`,
 	"request_done":              `{"id":"request-sample","result":"Summary written.","links":["project-sample"]}`,
 	"request_fail":              `{"id":"request-sample","reason":"No access."}`,
@@ -102,7 +104,7 @@ var Inputs = map[string]string{
 	"request_show":              `{"id":"request-sample"}`,
 	"route":                     `{"query":"domain-sample"}`,
 	"rule_add":                  `{"policy":"policy-sample","text":"Services log every failure."}`,
-	"task_add":                  `{"project":"project-sample","title":"Write parser"}`,
+	"task_add":                  `{"project":"project-sample","title":"Write parser","done_when":"The parser passes its tests."}`,
 	"task_to_question":          `{"id":"task-sample","kind":"decision","options":["A","B"]}`,
 	"task_assign":               `{"id":"task-sample","assignee":"person-sample"}`,
 	"task_block":                `{"id":"task-sample","reason":"waiting on legal"}`,
@@ -114,7 +116,7 @@ var Inputs = map[string]string{
 	"task_start":                `{"id":"task-sample"}`,
 	"who":                       `{"query":"Sample person"}`,
 	"proposal_add": `{"title":"Sample proposal","source":"note-sample","items":[` +
-		`{"kind":"op","op":"task_add","input":{"project":"project-sample","title":"From a proposal"},"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
+		`{"kind":"op","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
 		`{"kind":"external","medium":"email","target":"sample@acme.example","draft":"Hi Sam.","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,
@@ -139,7 +141,7 @@ func sampleProposals() ([]model.Document, error) {
 	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
 	open, err := model.RenderProposalBody(model.ProposalContent{
 		Items: []model.ProposalItem{
-			{ID: "i1", Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal"}, Evidence: ev, State: model.ItemPending},
+			{ID: "i1", Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending},
 			{ID: "i2", Kind: model.ItemExternal, Medium: model.MediumEmail, Target: sampleTarget, Draft: sampleDraft, Evidence: ev, State: model.ItemPending},
 			{ID: "i3", Kind: model.ItemExternal, Medium: model.MediumSlack, Target: "#sample", Draft: "Sample note.", Evidence: ev, State: model.ItemPending},
 		},

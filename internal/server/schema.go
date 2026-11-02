@@ -111,6 +111,7 @@ type Meta struct {
 	Revision        int              `json:"revision,omitempty"`
 	Supersedes      string           `json:"supersedes,omitempty"`
 	ProposedBy      string           `json:"proposed_by,omitempty"`
+	DoneWhen        string           `json:"done_when,omitempty"`
 	ProposedAnswer  string           `json:"proposed_answer,omitempty"`
 	ProposedChoice  string           `json:"proposed_choice,omitempty"`
 	ProposedSources *jsonValue       `json:"proposed_sources,omitempty"`

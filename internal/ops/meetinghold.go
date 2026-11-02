@@ -24,6 +24,7 @@ type HoldAction struct {
 	Project  string `json:"project,omitempty"`  // default: the project of the hold, else of a linked request
 	Area     string `json:"area,omitempty"`
 	Body     string `json:"body,omitempty"`
+	DoneWhen string `json:"done_when,omitempty"` // how we know the task is done; required from an agent
 }
 
 // MeetingHoldInput is the input of meeting_hold.
@@ -165,7 +166,7 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 	}
 	tasks := make([]TaskAddInput, 0, len(in.Actions))
 	for i, a := range in.Actions {
-		ti := TaskAddInput{Title: a.Title, Assignee: a.Assignee, Due: a.Due, Project: a.Project, Area: a.Area}
+		ti := TaskAddInput{Title: a.Title, Assignee: a.Assignee, Due: a.Due, Project: a.Project, Area: a.Area, DoneWhen: a.DoneWhen}
 		if normID(ti.Project) == "" && normID(ti.Area) == "" {
 			ti.Project, ti.Area = project, area
 		}
@@ -174,6 +175,9 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 		}
 		if strings.TrimSpace(ti.Title) == "" {
 			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: title is empty", i)
+		}
+		if _, err := checkDoneWhen(a.DoneWhen, doneWhenNeeded(d)); err != nil {
+			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: %w", i, err)
 		}
 		if _, err := resolveAssignee(ctx, d, a.Assignee); err != nil {
 			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: %w", i, err)

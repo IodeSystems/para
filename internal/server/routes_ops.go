@@ -20,6 +20,7 @@ func registerWork(r *registrar) {
 	reg(r, ops.ProjectList, get, read)
 	reg(r, ops.ProjectShow, get, read)
 	reg(r, ops.ProjectClose, post, write)
+	reg(r, ops.ProjectEdit, post, write)
 	reg(r, ops.TaskAdd, post, write)
 	reg(r, ops.TaskList, get, read)
 	reg(r, ops.TaskShow, get, read)

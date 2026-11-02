@@ -114,7 +114,7 @@ func TestNoteCommands(t *testing.T) {
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "Move", "--owner", "self")
+	e.json(&p, "project", "add", "--done-when", "Done.", "Move", "--owner", "self")
 	var n ops.NoteAddOutput
 	e.json(&n, "note", "add", "Paint colours", "--area", a.ID, "-p", p.ID, "--tag", "house", "--tag", "house", "--body", "Hall: grey.")
 	if !strings.HasPrefix(n.ID, "note-") || n.Folder != model.FolderResources {
@@ -182,7 +182,7 @@ func TestTaskInAnArea(t *testing.T) {
 	e.json(&a, "area", "add", "Home")
 	// Owner default: the vault property, else self.
 	var p1, p2 ops.ProjectAddOutput
-	e.json(&p1, "project", "add", "Move")
+	e.json(&p1, "project", "add", "--done-when", "Done.", "Move")
 	cfg := filepath.Join(path, ".para", "vault.properties")
 	raw, err := os.ReadFile(cfg)
 	if err != nil {
@@ -191,7 +191,7 @@ func TestTaskInAnArea(t *testing.T) {
 	if err := os.WriteFile(cfg, append(raw, "owner=Jordan Example\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	e.json(&p2, "project", "add", "Paint", "--area", a.ID)
+	e.json(&p2, "project", "add", "--done-when", "Done.", "Paint", "--area", a.ID)
 	var projects ops.ProjectListOutput
 	e.json(&projects, "project", "list")
 	owners := map[string]string{}
@@ -359,7 +359,7 @@ func TestEditDependencies(t *testing.T) {
 	e.json(&a, "area", "add", "Home")
 	e.json(&b, "area", "add", "Money")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "Move", "--area", a.ID)
+	e.json(&p, "project", "add", "--done-when", "Done.", "Move", "--area", a.ID)
 	task := func(title string, args ...string) string {
 		var o ops.TaskAddOutput
 		e.json(&o, append([]string{"task", "add", title}, args...)...)
@@ -461,7 +461,7 @@ func TestLinks(t *testing.T) {
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home lab")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "Server move", "--area", a.ID)
+	e.json(&p, "project", "add", "--done-when", "Done.", "Server move", "--area", a.ID)
 	var out ops.LinkOutput
 	e.json(&out, "area", "link", "add", a.ID, "Ops", "runbook", "--kind", "runbook", "--target", "~/doc/lab/runbook.md")
 	e.json(&out, "area", "link", "add", a.ID, "Repo", "--kind", "repo", "--target", "https://git.acme.example/lab")

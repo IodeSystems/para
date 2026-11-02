@@ -59,7 +59,7 @@ func newPropFix(t *testing.T) *propFix {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proj, err := ProjectAdd.Run(t.Context(), f.owner, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"})
+	proj, err := ProjectAdd.Run(t.Context(), f.owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func mailItem(draft string) ItemInput {
 }
 
 func (f *propFix) taskItem(title string) ItemInput {
-	return ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": title}, Evidence: ev}
+	return ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": title, "done_when": "It exists."}, Evidence: ev}
 }
 
 func (f *propFix) file(items ...ItemInput) string {

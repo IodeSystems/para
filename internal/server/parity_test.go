@@ -320,6 +320,9 @@ func same(g, r any) bool {
 func camelKeys(m map[string]any) map[string]any {
 	out := make(map[string]any, len(m))
 	for k, v := range m {
+		out[k] = v // a JSON scalar keeps its keys as written
+	}
+	for k, v := range m {
 		out[operationID(k)] = v
 	}
 	return out
@@ -331,6 +334,10 @@ func camelInput(v any) any {
 	case map[string]any:
 		out := make(map[string]any, len(x))
 		for k, e := range x {
+			if k == "input" { // a JSON scalar: its keys pass through as written
+				out[k] = e
+				continue
+			}
 			out[operationID(k)] = camelInput(e)
 		}
 		return out

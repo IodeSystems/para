@@ -34,7 +34,7 @@ func TestWorkFlow(t *testing.T) {
 	path := e.init("acme")
 
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "Portal rewrite", "--owner", "Jordan Example")
+	e.json(&p, "project", "add", "--done-when", "Done.", "Portal rewrite", "--owner", "Jordan Example")
 	if !strings.HasPrefix(p.ID, "project-") || p.Folder != model.FolderProjects {
 		t.Fatalf("project = %+v", p)
 	}
@@ -129,7 +129,7 @@ func TestProjectCloseRefusesOpenTasks(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "P", "--owner", "x")
+	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
 	e.ok("task", "add", "open", "-p", p.ID)
 	if _, _, err := e.run("project", "close", p.ID); err == nil || !strings.Contains(err.Error(), "open tasks") {
 		t.Fatalf("err = %v", err)
@@ -141,7 +141,7 @@ func TestCycleIsReported(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "P", "--owner", "x")
+	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
 	var x, y ops.TaskAddOutput
 	e.json(&x, "task", "add", "x", "-p", p.ID)
 	e.json(&y, "task", "add", "y", "-p", p.ID, "--depends-on", x.ID)
@@ -167,7 +167,7 @@ func TestTaskAddRefusals(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "P", "--owner", "x")
+	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
 	cases := []struct {
 		name string
 		args []string

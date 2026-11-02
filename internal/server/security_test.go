@@ -550,13 +550,13 @@ func TestConcurrentWritersShareOneVault(t *testing.T) {
 func TestRequestSurface(t *testing.T) {
 	f := newFixture(t)
 	tok := f.key(f.keyA, "k", netguard.ScopeRequestQueue)
-	w := f.do(call{method: post, target: "/api/v1/request/add", token: tok, body: `{"ask":"Summarize"}`})
+	w := f.do(call{method: post, target: "/api/v1/request/add", token: tok, body: `{"title":"Summarize","ask":"Summarize"}`})
 	wantStatus(t, w, 200)
 	if !strings.Contains(w.Body.String(), `"status": "proposed"`) {
 		t.Errorf("bearer: %s", w.Body)
 	}
 	cookie := netguard.CookieName + "=" + f.session(tok)
-	w = f.do(call{method: post, target: "/api/v1/request/add", body: `{"ask":"Summarize"}`,
+	w = f.do(call{method: post, target: "/api/v1/request/add", body: `{"title":"Summarize","ask":"Summarize"}`,
 		header: map[string]string{"Cookie": cookie, "Origin": "http://" + hostA}})
 	wantStatus(t, w, 200)
 	if !strings.Contains(w.Body.String(), `"status": "queued"`) {

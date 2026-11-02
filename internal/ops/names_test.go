@@ -11,7 +11,7 @@ import (
 // Ops that return ids also return the names, so no surface shows an id.
 func TestNamesBesideIds(t *testing.T) {
 	d := targetDeps(t) // person-ada-example (Ada Example), contact ada@acme.example
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal rebuild"})
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal rebuild"})
 	t1 := must(t, TaskAdd, d, TaskAddInput{Project: proj.ID, Title: "Draft the plan", Assignee: "person-ada-example"})
 	t2 := must(t, TaskAdd, d, TaskAddInput{Project: proj.ID, Title: "Review the plan", DependsOn: []string{t1.ID}})
 
@@ -64,7 +64,7 @@ func TestSummaryOfOpItem(t *testing.T) {
 	person := must(t, OrgPersonAdd, f.owner, OrgAddInput{Name: "Priya Raman", Org: "acme.example"})
 	must(t, OrgPersonContactAdd, f.owner, PersonContactInput{ID: person.ID, Method: "email", Value: "priya@acme.example"})
 	id := f.file(
-		ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": "Order extra node pool", "assignee": person.ID, "due": "2026-11-03"}, Evidence: ev},
+		ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": "Order extra node pool", "assignee": person.ID, "due": "2026-11-03", "done_when": "The pool exists."}, Evidence: ev},
 		ItemInput{Kind: model.ItemOp, Op: "task_start", Input: map[string]any{"id": "x"}, Evidence: ev},
 		ItemInput{Kind: model.ItemOp, Op: "task_depends_add", Input: map[string]any{"id": "x"}, Evidence: ev},
 		mailItem("Hi."),

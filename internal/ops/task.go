@@ -23,9 +23,10 @@ type TaskView struct {
 	Created   model.Date       `json:"created"`
 	Due       model.Date       `json:"due,omitempty"`
 	Recur     string           `json:"recur,omitempty"`
-	Assignee  string           `json:"assignee,omitempty"` // empty means self
-	Previous  string           `json:"previous,omitempty"` // the task this one recurred from
-	Incident  string           `json:"incident,omitempty"` // the incident this task follows up
+	Assignee  string           `json:"assignee,omitempty"`  // empty means self
+	Previous  string           `json:"previous,omitempty"`  // the task this one recurred from
+	Incident  string           `json:"incident,omitempty"`  // the incident this task follows up
+	DoneWhen  string           `json:"done_when,omitempty"` // how we know it is done
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -45,7 +46,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -116,6 +117,7 @@ type TaskAddInput struct {
 	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, or every <n> days
 	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
 	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
+	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
 }
 
@@ -139,6 +141,10 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 	due, err := parseDue(in.Due)
 	if err != nil {
 		return TaskAddOutput{}, err
+	}
+	doneWhen, err := checkDoneWhen(in.DoneWhen, doneWhenNeeded(d))
+	if err != nil {
+		return TaskAddOutput{}, fmt.Errorf("%w (every task an agent writes says how we know it is done)", err)
 	}
 	in.Project = normID(in.Project)
 	var incident model.Link
@@ -197,6 +203,7 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 			Recur:     strings.Join(strings.Fields(in.Recur), " "),
 			Assignee:  assignee,
 			Incident:  incident,
+			DoneWhen:  doneWhen,
 			DependsOn: deps,
 		},
 	})
@@ -551,3 +558,43 @@ func saveDepends(ctx context.Context, d Deps, doc model.Document, t *model.Task)
 	}
 	return TaskDependsOutput{ID: doc.ID, DependsOn: targets(t.DependsOn), Rev: saved.Rev}, nil
 }
+
+// doneWhenNeeded is true for a caller that is not a person: an agent, or an
+// item an agent proposed. A person may capture a task without a condition.
+func doneWhenNeeded(d Deps) bool {
+	return !slices.Contains(PersonSurfaces, d.Store.Info().Surface)
+}
+
+// TaskEditInput is the input of task_edit.
+type TaskEditInput struct {
+	ID       string `json:"id"`
+	DoneWhen string `json:"done_when"` // how we know the task is done
+}
+
+// TaskEditOutput is the output of task_edit.
+type TaskEditOutput struct {
+	ID       string `json:"id"`
+	DoneWhen string `json:"done_when"`
+	Rev      string `json:"rev"`
+}
+
+// TaskEdit sets the done condition of an open task.
+var TaskEdit = define("task_edit", "Set how we know a task is done", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
+	if err != nil {
+		return TaskEditOutput{}, err
+	}
+	if taskTerminal(t.Status) {
+		return TaskEditOutput{}, fmt.Errorf("%s is already %s", doc.ID, t.Status)
+	}
+	dw, err := checkDoneWhen(in.DoneWhen, true)
+	if err != nil {
+		return TaskEditOutput{}, err
+	}
+	t.DoneWhen = dw
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return TaskEditOutput{}, err
+	}
+	return TaskEditOutput{ID: doc.ID, DoneWhen: dw, Rev: saved.Rev}, nil
+})

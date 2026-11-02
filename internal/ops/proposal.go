@@ -80,6 +80,11 @@ func checkOpItem(op string, input map[string]any) error {
 	if err := dec.Decode(reflect.New(e.InputType()).Interface()); err != nil {
 		return fmt.Errorf("op %s: input: %w", op, err)
 	}
+	if op == "task_add" {
+		if dw, _ := input["done_when"].(string); strings.TrimSpace(dw) == "" {
+			return errors.New("task_add: done_when is required in a proposal: say how we know the task is done")
+		}
+	}
 	return nil
 }
 

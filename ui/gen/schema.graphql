@@ -71,6 +71,7 @@ type ParaV1MutationNamespace {
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
+  projectEdit(body: para_ProjectEditInputInput!): para_ProjectEditOutput @derived(operationId: "projectEdit")
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   proposalAdd(body: para_ProposalAddInputInput!): para_ProposalFiled @derived(operationId: "proposalAdd")
@@ -113,6 +114,7 @@ type ParaV1MutationNamespace {
   taskDependsRemove(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsRemove")
   taskDone(body: para_TaskDoneInputInput!): para_TaskDoneOutput @derived(operationId: "taskDone")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
+  taskEdit(body: para_TaskEditInputInput!): para_TaskEditOutput @derived(operationId: "taskEdit")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
@@ -930,6 +932,7 @@ input para_HoldActionInput {
   area: String
   assignee: String
   body: String
+  doneWhen: String
   due: String
   project: String
   title: String!
@@ -1009,6 +1012,7 @@ input para_InboxTriageInputInput {
   area: String
   date: String
   direction: para_InboxTriageInputDirection
+  doneWhen: String
   id: String!
   kind: para_InboxTriageInputKind
   nextNudge: String
@@ -1719,6 +1723,7 @@ type para_Meta {
   date: String
   dependsOn: [String!]
   direction: String
+  doneWhen: String
   due: String
   end: String
   ended: String
@@ -2101,6 +2106,7 @@ enum para_PolicyViewFidelity {
 input para_ProjectAddInputInput {
   area: String
   body: String
+  doneWhen: String!
   owner: String
   title: String!
 }
@@ -2171,6 +2177,17 @@ enum para_ProjectCloseOutputStatus {
   paused
 }
 
+input para_ProjectEditInputInput {
+  doneWhen: String!
+  id: String!
+}
+
+type para_ProjectEditOutput {
+  doneWhen: String!
+  id: String!
+  rev: String!
+}
+
 type para_ProjectListOutput {
   projects: [para_ProjectView!]!
 }
@@ -2185,6 +2202,7 @@ type para_ProjectShowOutput {
 type para_ProjectView {
   area: String
   areaName: String
+  doneWhen: String
   folder: para_ProjectViewFolder!
   id: String!
   links: [para_Pointer!]
@@ -2936,6 +2954,7 @@ input para_RequestAddInputInput {
   ask: String!
   links: [String!]
   runner: String
+  title: String
 }
 
 type para_RequestAddOutput {
@@ -3272,6 +3291,7 @@ input para_TaskAddInputInput {
   assignee: String
   body: String
   dependsOn: [String!]
+  doneWhen: String
   due: String
   incident: String
   project: String
@@ -3357,6 +3377,7 @@ input para_TaskDoneInputInput {
 
 type para_TaskDoneOutput {
   blockedBy: [String!]!
+  doneWhen: String
   id: String!
   next: String
   request: String
@@ -3384,6 +3405,17 @@ type para_TaskDueOutput {
   due: String
   id: String!
   recur: String
+  rev: String!
+}
+
+input para_TaskEditInputInput {
+  doneWhen: String!
+  id: String!
+}
+
+type para_TaskEditOutput {
+  doneWhen: String!
+  id: String!
   rev: String!
 }
 
@@ -3432,6 +3464,7 @@ type para_TaskView {
   created: String!
   dependsOn: [String!]!
   dependsOnNames: [String!]
+  doneWhen: String
   due: String
   folder: para_TaskViewFolder!
   id: String!

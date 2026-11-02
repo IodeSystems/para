@@ -29,7 +29,7 @@ func TestWorkShowsAreasAndAreaTasks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ops.ProjectAdd.Run(ctx, v.env.Deps, ops.ProjectAddInput{Title: "Paint the hall", Area: a.ID}); err != nil {
+	if _, err := ops.ProjectAdd.Run(ctx, v.env.Deps, ops.ProjectAddInput{DoneWhen: "Done.", Title: "Paint the hall", Area: a.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ops.AreaLinkAdd.Run(ctx, v.env.Deps, ops.LinkAddInput{ID: a.ID, Label: "House runbook", Kind: model.PointerRunbook, Target: "~/doc/house.md"}); err != nil {

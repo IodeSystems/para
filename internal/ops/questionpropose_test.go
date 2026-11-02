@@ -121,7 +121,7 @@ func TestProposalItemAnswerNeedsSources(t *testing.T) {
 func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 	d := targetDeps(t)
 	agent := agentOf(d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Can it launch?", Project: proj}).ID
 	ask := must(t, QuestionAsk, d, QuestionAskInput{ID: q, To: "person-ada-example", Via: "email", Route: "domain-logging"})
 	must(t, RFXTargetState, d, RFXTargetStateInput{ID: ask.RFX, To: "person-ada-example", State: "sent"})

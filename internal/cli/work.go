@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"strings"
@@ -62,12 +63,22 @@ func newProjectCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Owner, "owner", "", "project owner (default: the vault's owner property, else self)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a goal that never finishes is an area")
 			},
 			Bind: func(args []string, in *ops.ProjectAddInput) error {
 				in.Title = strings.Join(args, " ")
 				return nil
 			},
 			Text: printID(func(o ops.ProjectAddOutput) string { return o.ID }),
+		}),
+		opCommand(l, ops.ProjectEdit, binding[ops.ProjectEditInput, ops.ProjectEditOutput]{
+			Use:  "edit <id> --done-when <text>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProjectEditInput) {
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required)")
+			},
+			Bind: func(args []string, in *ops.ProjectEditInput) error { in.ID = args[0]; return nil },
+			Text: printID(func(o ops.ProjectEditOutput) string { return o.ID }),
 		}),
 		opCommand(l, ops.ProjectList, binding[ops.ProjectListInput, ops.ProjectListOutput]{
 			Use:  "list",
@@ -94,6 +105,11 @@ func newProjectCmd(l *loader) *cobra.Command {
 					return err
 				}
 				pr := &printer{w: w}
+				if p.DoneWhen != "" {
+					pr.f("done when\t%s\n", p.DoneWhen)
+				} else {
+					pr.f("done when\t(none: set one with para project edit %s --done-when <text>)\n", p.ID)
+				}
 				writeLinks(pr, p.Links)
 				if len(out.Questions) > 0 {
 					pr.f("questions\n")
@@ -142,6 +158,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")
 			},
 			Bind: func(args []string, in *ops.TaskAddInput) error {
 				in.Title = strings.Join(args, " ")
@@ -177,8 +194,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\ndone_when\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), dash(t.DoneWhen), out.Body)
 				if err == nil && len(out.Questions) > 0 {
 					p := &printer{w: w}
 					p.f("questions\n")
@@ -187,6 +204,15 @@ func newTaskCmd(l *loader) *cobra.Command {
 				}
 				return err
 			},
+		}),
+		opCommand(l, ops.TaskEdit, binding[ops.TaskEditInput, ops.TaskEditOutput]{
+			Use:  "edit <id> --done-when <text>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskEditInput) {
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the task is done (required)")
+			},
+			Bind: func(args []string, in *ops.TaskEditInput) error { in.ID = args[0]; return nil },
+			Text: printID(func(o ops.TaskEditOutput) string { return o.ID }),
 		}),
 		opCommand(l, ops.TaskDue, binding[ops.TaskDueInput, ops.TaskDueOutput]{
 			Use:  "due <id> [date]",
@@ -245,7 +271,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskStartInput) error { in.ID = args[0]; return nil },
 			Text: changeText,
 		}),
-		opCommand(l, ops.TaskDone, binding[ops.TaskDoneInput, ops.TaskDoneOutput]{
+		confirmDone(l, opCommand(l, ops.TaskDone, binding[ops.TaskDoneInput, ops.TaskDoneOutput]{
 			Use:  "done <id>",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskDoneInput) {
@@ -256,6 +282,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.TaskDoneOutput) error {
 				p := &printer{w: w}
 				p.f("%s\t%s\n", out.ID, out.Status)
+				if out.DoneWhen != "" {
+					p.f("done when\t%s\n", out.DoneWhen)
+				}
 				if out.Next != "" {
 					p.f("next\t%s\n", out.Next)
 				}
@@ -267,7 +296,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				}
 				return p.err
 			},
-		}),
+		})),
 		opCommand(l, ops.TaskBlock, binding[ops.TaskBlockInput, ops.TaskChangeOutput]{
 			Use:  "block <id>",
 			Args: cobra.ExactArgs(1),
@@ -396,4 +425,37 @@ func graphType(n ops.GraphNode) string {
 		return string(n.Type)
 	}
 	return string(n.Type) + ":" + string(n.Kind) + ":" + n.Scope
+}
+
+// confirmDone makes `task done` on a terminal show the task's done condition
+// and ask. Without a condition, or off a terminal, it does not ask.
+func confirmDone(l *loader, cmd *cobra.Command) *cobra.Command {
+	run := cmd.RunE
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if skip, _ := c.Flags().GetBool("skip"); skip || len(args) != 1 || !isTerminal(c.InOrStdin()) {
+			return run(c, args)
+		}
+		if err := l.load(); err != nil {
+			return err
+		}
+		deps, err := l.deps()
+		if err != nil {
+			return err
+		}
+		sh, err := ops.TaskShow.Run(c.Context(), deps, ops.TaskShowInput{ID: args[0]})
+		if err != nil || sh.Task.DoneWhen == "" {
+			return run(c, args)
+		}
+		p := &printer{w: c.ErrOrStderr()}
+		p.f("%s\nDone when: %s\nIs it done? [y/N] ", sh.Task.Title, sh.Task.DoneWhen)
+		if p.err != nil {
+			return p.err
+		}
+		line, _ := bufio.NewReader(c.InOrStdin()).ReadString('\n')
+		if strings.ToLower(strings.TrimSpace(line)) != "y" {
+			return fmt.Errorf("not marked done: the condition is not met yet")
+		}
+		return run(c, args)
+	}
+	return cmd
 }

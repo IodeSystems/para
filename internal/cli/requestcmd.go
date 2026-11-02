@@ -26,6 +26,7 @@ func newRequestCmd(l *loader) *cobra.Command {
 			Use:  "add <ask>",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.RequestAddInput) {
+				fs.StringVar(&in.Title, "title", "", "short name for the work, without ids; default the first line of the ask")
 				fs.StringSliceVar(&in.Links, "link", nil, "task or project id the ask is about (repeatable)")
 				fs.StringVar(&in.Runner, "runner", "", "install id that may claim; default vault.properties request.runner, else this install")
 			},

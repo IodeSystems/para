@@ -18,8 +18,10 @@ type ProjectView struct {
 	Status model.ProjectStatus `json:"status"`
 	Owner  string              `json:"owner"`
 	Area   string              `json:"area,omitempty"`
-	Links  []model.Pointer     `json:"links,omitempty"`
-	Rev    string              `json:"rev"`
+	// DoneWhen is how we know the goal is reached; empty on an older goal.
+	DoneWhen string          `json:"done_when,omitempty"`
+	Links    []model.Pointer `json:"links,omitempty"`
+	Rev      string          `json:"rev"`
 	// AreaName is the title of Area, for people.
 	AreaName string `json:"area_name,omitempty" nameof:"Area"`
 }
@@ -29,7 +31,7 @@ func projectView(d model.Document) (ProjectView, error) {
 	if !ok {
 		return ProjectView{}, fmt.Errorf("%s is a %s, not a project", d.ID, d.Meta.Header().Type)
 	}
-	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), Links: p.Links, Rev: d.Rev}, nil
+	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Links: p.Links, Rev: d.Rev}, nil
 }
 
 // getProject reads a document that must be a project.
@@ -51,6 +53,9 @@ type ProjectAddInput struct {
 	Owner string `json:"owner,omitempty"` // default: the vault's owner property, else "self"
 	Area  string `json:"area,omitempty"`  // area id
 	Body  string `json:"body,omitempty"`
+	// DoneWhen is required: how we know the goal is reached, in one line. A
+	// goal that never finishes is an area.
+	DoneWhen string `json:"done_when"`
 }
 
 // ProjectAddOutput is the output of project_add.
@@ -65,6 +70,10 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return ProjectAddOutput{}, errors.New("title is empty")
+	}
+	doneWhen, err := checkDoneWhen(in.DoneWhen, true)
+	if err != nil {
+		return ProjectAddOutput{}, fmt.Errorf("%w: a goal needs a done condition; if it never finishes, it is an area (area_add)", err)
 	}
 	owner := strings.TrimSpace(in.Owner)
 	if owner == "" {
@@ -85,10 +94,11 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 		Title:  title,
 		Body:   strings.TrimSpace(in.Body),
 		Meta: &model.Project{
-			Common: model.Common{Type: model.TypeProject},
-			Status: model.ProjectActive,
-			Owner:  owner,
-			Area:   area,
+			Common:   model.Common{Type: model.TypeProject},
+			Status:   model.ProjectActive,
+			Owner:    owner,
+			Area:     area,
+			DoneWhen: doneWhen,
 		},
 	})
 	if err != nil {
@@ -219,4 +229,54 @@ var ProjectClose = define("project_close", "Close a project and move it to archi
 		return ProjectCloseOutput{}, err
 	}
 	return ProjectCloseOutput{ID: moved.ID, Status: p.Status, Folder: moved.Folder, Rev: moved.Rev}, nil
+})
+
+// checkDoneWhen returns a done condition in one line. When need is set an
+// empty one is an error.
+func checkDoneWhen(s string, need bool) (string, error) {
+	s = strings.Join(strings.Fields(s), " ")
+	if s == "" {
+		if need {
+			return "", errors.New("done_when is required: say how we know it is done")
+		}
+		return "", nil
+	}
+	if len([]rune(s)) > 300 {
+		return "", errors.New("done_when is over 300 characters: one line that a person can check")
+	}
+	if err := lintText("done_when", s); err != nil {
+		return "", err
+	}
+	return s, nil
+}
+
+// ProjectEditInput is the input of project_edit.
+type ProjectEditInput struct {
+	ID       string `json:"id"`
+	DoneWhen string `json:"done_when"` // how we know the goal is reached
+}
+
+// ProjectEditOutput is the output of project_edit.
+type ProjectEditOutput struct {
+	ID       string `json:"id"`
+	DoneWhen string `json:"done_when"`
+	Rev      string `json:"rev"`
+}
+
+// ProjectEdit sets the done condition of a goal.
+var ProjectEdit = define("project_edit", "Set the done condition of a project (a goal): how we know it is finished", func(ctx context.Context, d Deps, in ProjectEditInput) (ProjectEditOutput, error) {
+	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
+	if err != nil {
+		return ProjectEditOutput{}, err
+	}
+	dw, err := checkDoneWhen(in.DoneWhen, true)
+	if err != nil {
+		return ProjectEditOutput{}, err
+	}
+	p.DoneWhen = dw
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return ProjectEditOutput{}, err
+	}
+	return ProjectEditOutput{ID: doc.ID, DoneWhen: dw, Rev: saved.Rev}, nil
 })

@@ -92,7 +92,7 @@ func (v *testVault) seed() {
 	must(err)
 	_, err = ops.OrgPersonAdd.Run(ctx, d, ops.OrgAddInput{Name: "Adam Example", Org: "acme.example"})
 	must(err)
-	pr, err := ops.ProjectAdd.Run(ctx, d, ops.ProjectAddInput{Title: "Portal launch", Owner: "Jordan Example", Body: "See [[person-ada-example]] and https://wiki.acme.example/portal for the plan."})
+	pr, err := ops.ProjectAdd.Run(ctx, d, ops.ProjectAddInput{DoneWhen: "Done.", Title: "Portal launch", Owner: "Jordan Example", Body: "See [[person-ada-example]] and https://wiki.acme.example/portal for the plan."})
 	must(err)
 	v.ids["project"] = pr.ID
 	t1, err := ops.TaskAdd.Run(ctx, d, ops.TaskAddInput{Project: pr.ID, Title: "Write the parser"})
@@ -129,7 +129,7 @@ func (v *testVault) agentWrites() {
 	if _, err := ops.RFXDraft.Run(ctx, v.agent, ops.RFXDraftInput{ID: v.ids["rfx"], Text: "Hi Ada, any news on the portal?"}); err != nil {
 		v.t.Fatal(err)
 	}
-	if _, err := ops.RequestAdd.Run(ctx, v.agent, ops.RequestAddInput{Ask: "Summarize the retention policy"}); err != nil {
+	if _, err := ops.RequestAdd.Run(ctx, v.agent, ops.RequestAddInput{Title: "Summarize the retention policy", Ask: "Summarize the retention policy"}); err != nil {
 		v.t.Fatal(err)
 	}
 }

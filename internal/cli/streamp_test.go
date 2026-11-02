@@ -66,7 +66,7 @@ func TestInboxTriageCommand(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var add ops.InboxAddOutput
 	e.json(&add, "inbox", "add", "write the parser")
 	if out := e.ok("inbox", "list"); !strings.Contains(out, add.ID) {

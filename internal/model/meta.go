@@ -79,6 +79,9 @@ type Project struct {
 	Owner  string        `yaml:"owner" json:"owner"`
 	// Area is the area of life or work the project belongs to; optional.
 	Area Link `yaml:"area,omitempty" json:"area,omitempty"`
+	// DoneWhen says how we know the goal is reached. Optional in a file, so
+	// older files stay valid; project_add requires it.
+	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
 	// Links point at plans, repos, and docs that live elsewhere.
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
@@ -114,7 +117,10 @@ type Task struct {
 	// Incident links the incident this task follows up.
 	Incident Link `yaml:"incident,omitempty" json:"incident,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
-	Assignee  string   `yaml:"assignee,omitempty" json:"assignee,omitempty"`
+	Assignee string `yaml:"assignee,omitempty" json:"assignee,omitempty"`
+	// DoneWhen says how we know the task is done. Optional for a person;
+	// an agent must give it.
+	DoneWhen  string   `yaml:"done_when,omitempty" json:"done_when,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 }

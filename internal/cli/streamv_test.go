@@ -88,7 +88,7 @@ func TestMeetingHoldCLI(t *testing.T) {
 	var person ops.OrgAddOutput
 	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
 	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var q ops.QuestionAddOutput
 	e.json(&q, "question", "add", "Which window?", "--project", project.ID)
 	var m ops.MeetingAddOutput
@@ -133,7 +133,7 @@ func TestAgendaAndCalendarCLI(t *testing.T) {
 	var person ops.OrgAddOutput
 	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
 	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	at := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
 	e.ok("meeting", "add", "Launch", "sync", "--with", person.ID, "--start", at.Format(time.RFC3339), "--end", at.Add(30*time.Minute).Format(time.RFC3339))
 	e.ok("task", "add", "File the form", "-p", project.ID, "--due", time.Now().Format("2006-01-02"))
@@ -216,7 +216,7 @@ func TestTickCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example", "--vault", "acme")
+	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example", "--vault", "acme")
 	var task ops.TaskAddOutput
 	e.json(&task, "task", "add", "Rotate disks", "-p", project.ID, "--due", "2026-01-01", "--recur", "monthly", "--vault", "acme")
 	// Mark it done by hand.

@@ -57,7 +57,7 @@ func (rv *reqVault) as(actor, surface, install string) Deps {
 
 func addReq(t *testing.T, d Deps, ask string) RequestAddOutput {
 	t.Helper()
-	out, err := RequestAdd.Run(context.Background(), d, RequestAddInput{Ask: ask})
+	out, err := RequestAdd.Run(context.Background(), d, RequestAddInput{Title: agentTitle(d, ask), Ask: ask})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -418,4 +418,12 @@ func TestRequestClaimConcurrent(t *testing.T) {
 	if lint, _ := person.Store.Lint(context.Background()); len(lint) != 0 {
 		t.Errorf("lint: %v", lint)
 	}
+}
+
+// agentTitle is the title an agent must give; a person's comes from the ask.
+func agentTitle(d Deps, ask string) string {
+	if slices.Contains(PersonSurfaces, d.Store.Info().Surface) {
+		return ""
+	}
+	return strings.SplitN(ask, "\n", 2)[0]
 }

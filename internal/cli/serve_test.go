@@ -245,7 +245,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 	var project struct {
 		ID string `json:"id"`
 	}
-	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	e.ok("task", "add", "Write parser", "--project", project.ID)
 	e.ok("inbox", "add", "sample capture")
 	tok := strings.TrimSpace(e.ok("key", "create", "agent", "--scope", "vault:read", "--scope", "vault:write"))

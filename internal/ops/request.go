@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -198,9 +199,54 @@ func requestLinks(ctx context.Context, d Deps, field string, ids []string, types
 
 // RequestAddInput is the input of request_add.
 type RequestAddInput struct {
-	Ask    string   `json:"ask"`              // first line is the title; the rest is the ask
+	// Title is a short human name for the work, such as "Check backups". It
+	// never holds a document id: ids go in links. Required from an agent. A
+	// person may leave it out; the first line of ask is then the title.
+	Title  string   `json:"title,omitempty"`
+	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
 	Links  []string `json:"links,omitempty"`  // task, project, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
+}
+
+// idWord finds a document id in text: a type word, a dash, and a slug.
+var idWord = regexp.MustCompile(`\b(?:project|task|rfx|constraint|policy|person|team|role|domain|convention|journal|inbox|group|interaction|request|area|note|incident|proposal|question|meeting|exception)-[a-z0-9][a-z0-9.-]*\b`)
+
+// requestTitle returns the title and body of a request. A given title is the
+// name and the whole ask is the body; no title is the first line of the ask,
+// and an agent must give one.
+func requestTitle(d Deps, in RequestAddInput) (title, body string, err error) {
+	if strings.TrimSpace(in.Title) == "" {
+		if agentSurface(d) {
+			return "", "", errors.New("title is required: a short human name for the work, such as \"Check backups\". Keep ids out of it; put them in links")
+		}
+		title, body, err = splitCapture(in.Ask)
+		if err != nil {
+			return "", "", fmt.Errorf("ask: %w", err)
+		}
+		return title, body, nil
+	}
+	if title, err = oneLine("title", in.Title); err != nil {
+		return "", "", err
+	}
+	if m := idWord.FindString(title); m != "" && agentSurface(d) {
+		return "", "", fmt.Errorf("title holds the id %q: name it in words and put the id in links", m)
+	}
+	body = strings.TrimSpace(strings.ReplaceAll(in.Ask, "\r\n", "\n"))
+	if body == "" {
+		return "", "", errors.New("ask is empty")
+	}
+	return title, body, nil
+}
+
+// plainTitle replaces the document ids in a title with the titles of the
+// documents, so an old request that was titled from its ask reads in words.
+func plainTitle(ctx context.Context, s store.Store, title string) string {
+	return idWord.ReplaceAllStringFunc(title, func(id string) string {
+		if doc, err := s.Get(ctx, id); err == nil && strings.TrimSpace(doc.Title) != "" {
+			return doc.Title
+		}
+		return id
+	})
 }
 
 // RequestAddOutput is the output of request_add. Status is proposed when the
@@ -219,9 +265,9 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	title, body, err := splitCapture(in.Ask)
+	title, body, err := requestTitle(d, in)
 	if err != nil {
-		return RequestAddOutput{}, fmt.Errorf("ask: %w", err)
+		return RequestAddOutput{}, err
 	}
 	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal)
 	if err != nil {
@@ -287,7 +333,9 @@ var RequestList = define("request_list", "List agent requests, oldest first", fu
 		if in.Status != "" && r.Status != in.Status {
 			continue
 		}
-		out.Items = append(out.Items, requestView(doc, r))
+		v := requestView(doc, r)
+		v.Title = plainTitle(ctx, d.Store, v.Title)
+		out.Items = append(out.Items, v)
 	}
 	if in.Limit > 0 && len(out.Items) > in.Limit {
 		out.Items = out.Items[:in.Limit]

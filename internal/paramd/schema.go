@@ -75,6 +75,7 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
 		{Name: "owner", Kind: kString, Required: true},
 		{Name: "area", Kind: kLink},
+		{Name: "done_when", Kind: kString},
 		{Name: "links", Kind: kPointers},
 	},
 	"area": {
@@ -102,6 +103,7 @@ var typeFields = map[string][]field{
 		{Name: "previous", Kind: kLink},
 		{Name: "incident", Kind: kLink},
 		{Name: "assignee", Kind: kString},
+		{Name: "done_when", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 	},

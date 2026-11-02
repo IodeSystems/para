@@ -10,7 +10,7 @@ import (
 func TestInboxTriage(t *testing.T) {
 	d := newDeps(t)
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"})
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Home"})
 	add := func(text string) string { return must(t, InboxAdd, d, InboxAddInput{Text: text}).ID }
 
@@ -27,7 +27,7 @@ func TestInboxTriage(t *testing.T) {
 				t.Fatalf("task = %+v, %v", doc, err)
 			}
 		}},
-		{"project", "new thing", InboxTriageInput{To: TriageProject, Owner: "Jordan Example"}, "", nil},
+		{"project", "new thing", InboxTriageInput{To: TriageProject, Owner: "Jordan Example", DoneWhen: "Done."}, "", nil},
 		{"rfx", "who owns logs?", InboxTriageInput{To: TriageRFX, Route: "domain-logging", SelfServe: "searched policies",
 			Targets: []TargetInput{{To: "person-bo-example", Medium: "email"}}}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
@@ -44,7 +44,7 @@ func TestInboxTriage(t *testing.T) {
 		}},
 		{"drop", "never mind", InboxTriageInput{To: TriageDrop}, "", nil},
 		{"task needs project or area", "x", InboxTriageInput{To: TriageTask}, "needs project or area", nil},
-		{"project owner defaults", "x", InboxTriageInput{To: TriageProject}, "", func(t *testing.T, id string) {
+		{"project owner defaults", "x", InboxTriageInput{To: TriageProject, DoneWhen: "Done."}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
 			if p, _ := doc.Meta.(*model.Project); err != nil || p == nil || p.Owner != "self" {
 				t.Fatalf("project = %+v, %v", doc, err)

@@ -46,7 +46,9 @@ type TaskDoneOutput struct {
 	Rev       string           `json:"rev"`
 	Next      string           `json:"next,omitempty"`
 	Request   string           `json:"request,omitempty"`
-	Warnings  []string         `json:"warnings"`
+	// DoneWhen is the condition the task was finished against, if it had one.
+	DoneWhen string   `json:"done_when,omitempty"`
+	Warnings []string `json:"warnings"`
 }
 
 // TaskDone marks a task done and clears its blockers. A recurring task also
@@ -101,7 +103,7 @@ var TaskDone = define("task_done", "Mark a task done; a recurring task also gets
 	if err != nil {
 		return TaskDoneOutput{}, err
 	}
-	out.Status, out.BlockedBy, out.Rev = t.Status, []string{}, saved.Rev
+	out.Status, out.BlockedBy, out.Rev, out.DoneWhen = t.Status, []string{}, saved.Rev, t.DoneWhen
 	return out, nil
 })
 
@@ -164,6 +166,7 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			Due:      model.Date(due),
 			Recur:    t.Recur,
 			Assignee: t.Assignee,
+			DoneWhen: t.DoneWhen,
 			Previous: model.LinkTo(doc.ID),
 		},
 	})
@@ -185,7 +188,7 @@ func agentRequest(ctx context.Context, d Deps, doc model.Document, warns []strin
 		return "", warns
 	}
 	ask := fmt.Sprintf("%s\n\nRecurring task %s, assigned to %s, due %s.", doc.Title, doc.ID, t.Assignee, dashOr(string(t.Due)))
-	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Ask: ask, Links: []string{doc.ID}})
+	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: doc.Title, Ask: ask, Links: []string{doc.ID}})
 	if err != nil {
 		return "", append(warns, "task "+doc.ID+" is assigned to "+t.Assignee+" but no request was made: "+err.Error())
 	}

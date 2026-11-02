@@ -96,7 +96,7 @@ func markDone(t *testing.T, d Deps, id string) {
 func TestTickRunnerGate(t *testing.T) {
 	tv := newTickVault(t, "2026-11-02T09:00:00Z")
 	a, b := tv.open("ia", "cli"), tv.open("ib", "cli")
-	proj := must(t, ProjectAdd, a, ProjectAddInput{Title: "Portal"}).ID
+	proj := must(t, ProjectAdd, a, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	task := must(t, TaskAdd, a, TaskAddInput{Project: proj, Title: "Rotate disks", Due: "2026-10-01", Recur: "monthly"}).ID
 	markDone(t, a, task)
 
@@ -136,7 +136,7 @@ func TestTickRunnerGate(t *testing.T) {
 func TestTickRevivesRecurringDoneByHand(t *testing.T) {
 	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia")
 	d := tv.open("ia", "cli")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal"}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	byHand := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Rotate disks", Due: "2026-10-01", Recur: "monthly"}).ID
 	viaOp := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Water plants", Due: "2026-10-15", Recur: "weekly"}).ID
 	dropped := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Ended on purpose", Due: "2026-10-01", Recur: "daily"}).ID
@@ -199,7 +199,7 @@ func TestTickRevivesRecurringDoneByHand(t *testing.T) {
 func TestTickClosedProjectMakesNothingAndWarnsEachPass(t *testing.T) {
 	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia")
 	d := tv.open("ia", "cli")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal"}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Rotate disks", Due: "2026-10-01", Recur: "monthly"}).ID
 	markDone(t, d, task)
 	must(t, ProjectClose, d, ProjectCloseInput{ID: proj, Force: true})
@@ -214,7 +214,7 @@ func TestTickClosedProjectMakesNothingAndWarnsEachPass(t *testing.T) {
 func TestTickRequestsForAgentTasks(t *testing.T) {
 	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia")
 	d := tv.open("ia", "cli")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal"}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	add := func(title, due, status string, assign string) string {
 		id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: title, Due: due, Recur: "daily"}).ID
 		if assign != "" {

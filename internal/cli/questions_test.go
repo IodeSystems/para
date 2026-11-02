@@ -76,7 +76,7 @@ func TestQuestionFlowThroughTheCLI(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "Portal", "--owner", "Jordan Example")
+	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	if out, _, err := e.run("question", "add", "Which window?"); err == nil {
 		t.Fatalf("an unscoped question was accepted: %s", out)
 	}

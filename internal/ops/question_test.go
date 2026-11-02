@@ -12,7 +12,7 @@ func questionVault(t *testing.T) (Deps, string, string) {
 	t.Helper()
 	d := directoryDeps(t)
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Atlas"}).ID
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", Owner: "Jordan Example", Area: area}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example", Area: area}).ID
 	return d, proj, area
 }
 
@@ -170,7 +170,7 @@ func TestQuestionOptionsAndDecisions(t *testing.T) {
 
 func TestQuestionAskAndReply(t *testing.T) {
 	d := targetDeps(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Can the portal launch before the audit?\n\nContext line.", Project: proj}).ID
 	a := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Launch", DependsOn: []string{q}}).ID
 	if _, err := QuestionAsk.Run(ctx, d, QuestionAskInput{ID: q, To: "person-ada-example"}); err == nil {
@@ -207,7 +207,7 @@ func TestQuestionAskAndReply(t *testing.T) {
 		t.Fatal("second reply from the same target")
 	}
 	d2 := targetDeps(t)
-	proj2 := must(t, ProjectAdd, d2, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"}).ID
+	proj2 := must(t, ProjectAdd, d2, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	q2 := must(t, QuestionAdd, d2, QuestionAddInput{Text: "Can the portal launch?", Project: proj2}).ID
 	a2 := must(t, TaskAdd, d2, TaskAddInput{Project: proj2, Title: "Launch", DependsOn: []string{q2}}).ID
 	ask2 := must(t, QuestionAsk, d2, QuestionAskInput{ID: q2, To: "person-ada-example", Via: "email", Route: "domain-logging"})
