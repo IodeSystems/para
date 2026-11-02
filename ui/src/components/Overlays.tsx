@@ -36,6 +36,7 @@ import { TaskDialogs } from '@/components/TaskDialogs'
 import { EXTRA_SCREENS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
+import { NotifySetting } from '@/components/NotifySetting'
 
 import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
 
@@ -199,6 +200,11 @@ function HelpDialog() {
           <StatusChip tone="bad" label="blocked or late" />
           <StatusChip tone="quiet" label="plain state" />
         </Stack>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5 }}>
+          Notifications
+        </Typography>
+        <NotifySetting vault={session.vault} />
         <Divider sx={{ my: 2 }} />
         <Details summary="About">
           Vault {session.vault}. Signed in with key {session.key}. Build {UI_COMMIT}.

@@ -119,6 +119,7 @@ The server listens on 127.0.0.1:7700 by default and every request needs a token.
 server itself (var/serve.json in the para home), so it needs no URL. The admin token works
 from this machine only. For a phone or another machine, make a key with --print-url and
 give the URL of that machine.
+The web app can show browser notifications while a tab or the installed app is open: Help, then Notifications. It is off by default, set per vault in that browser, and a notice names a kind and a count only (proposal filed, answer to check, agent work that needs you, incident). There is no push service.
 
 11. Proposals: an agent suggests, you decide
   $ para proposal list

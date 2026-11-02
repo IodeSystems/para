@@ -413,6 +413,10 @@ try {
   await page.keyboard.press('?')
   await page.getByRole('dialog', { name: 'Help' }).waitFor()
   check(page.url().includes('help=true'), 'help is a URL overlay')
+  {
+    const sw = page.getByRole('dialog', { name: 'Help' }).getByRole('switch')
+    check((await sw.count()) === 1 && !(await sw.isChecked()), 'notifications are off by default')
+  }
   await page.goBack()
   await page.getByRole('dialog', { name: 'Help' }).waitFor({ state: 'hidden' })
   check(true, 'Back closes the help overlay')
