@@ -58,6 +58,7 @@ const AreaShowDoc = graphql(/* GraphQL */ `
       v1 {
         areaShow(id: $id) {
           body
+          lastAligned
           area {
             id
             title
@@ -102,6 +103,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
       v1 {
         projectShow(id: $id) {
           body
+          lastAligned
           project {
             id
             title

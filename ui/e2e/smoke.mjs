@@ -109,7 +109,7 @@ function startAgent() {
     await ready
     // Every write carries why; reads and the work flow ops take none.
     const noWhy =
-      /_(list|show|wait|approved|diff|expiring)$|^(search|where|who|route|graph|next|waiting|agenda|lint|copy|export|calendar_export|events_tail|request_(next|note|done|fail|add)|proposal_(add|revise|executed|undone)|gate_check|agent_activity|similar)$/
+      /_(list|show|wait|approved|diff|expiring)$|^(search|where|who|route|graph|next|waiting|agenda|lint|copy|export|calendar_export|events_tail|request_(next|note|done|fail|add)|proposal_(add|revise|executed|undone)|gate_check|agent_activity|similar|align_(scope|record))$/
     const withWhy = noWhy.test(name) ? args : { why: 'From the smoke test.', ...args }
     const m = await rpc('tools/call', { name, arguments: withWhy })
     if (m.error) throw new Error(`mcp ${name}: ${JSON.stringify(m.error)}`)
@@ -1522,6 +1522,15 @@ try {
     para(...v, 'project', 'show', proj).includes('Launched and verified.'),
     'the goal done when is saved',
   )
+  // Align: a goal shows when an agent last compared it with reality, and a clean run counts.
+  await rp.getByText('never aligned').waitFor()
+  const walk = await agent.call('align_scope', { scope: proj })
+  check(walk.kind === 'goal' && walk.items.some((i) => i.id === proj), 'align_scope lists the goal')
+  const aligned = await agent.call('align_record', { scope: proj, checked: 1, matched: 1 })
+  check(aligned.summary.includes('no change'), 'a run with no change is recorded')
+  await rp.goto(`${base}/projects/${proj}`)
+  await rp.getByText(/last aligned \d{4}-\d{2}-\d{2}/).waitFor()
+  check(true, 'a goal page shows the date it was last aligned')
   const apprTask = idOf(para(...v, 'task', 'add', 'Check the done page', '-p', proj, '--json'))
   await rp.goto(`${base}/doc/${apprTask}`)
   await rp.getByText('Say how we know it is done').waitFor()

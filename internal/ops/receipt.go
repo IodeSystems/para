@@ -29,13 +29,14 @@ type ReceiptView struct {
 	CheckNote    string             `json:"check_note,omitempty"`
 	SelfReported bool               `json:"self_reported,omitempty"`
 	NotDuplicate string             `json:"not_duplicate,omitempty"`
+	Align        *model.AlignResult `json:"align,omitempty"`
 	Created      model.Date         `json:"created"`
 }
 
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
 	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
 		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote,
-		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, Created: r.Created}
+		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, Align: r.Align, Created: r.Created}
 }
 
 func getReceipt(ctx context.Context, s store.Store, id string) (model.Document, *model.Receipt, error) {

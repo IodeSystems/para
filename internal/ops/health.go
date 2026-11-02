@@ -36,6 +36,7 @@ const (
 	HealthNoSource           = "no_source"
 	HealthPolicyReviewDue    = "policy_review_due"
 	HealthQuestionStale      = "question_stale"
+	HealthNotAligned         = "not_aligned"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -44,7 +45,7 @@ var HealthKinds = []string{
 	HealthGoalNoDue, HealthAskNoFollowup, HealthBlockerNoFollowup,
 	HealthGoalNoDoneWhen, HealthTaskNoDoneWhen, HealthAskNoTarget, HealthPersonNoContact,
 	HealthBlockerIncomplete, HealthAreaNoLinks,
-	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale,
+	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -126,6 +127,9 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	h.index()
 	h.scan()
 	h.graphFindings(ctx, s)
+	if err := h.notAligned(ctx, s); err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
 
 	// Dismissed findings are left out and counted.
 	var kept []HealthFinding

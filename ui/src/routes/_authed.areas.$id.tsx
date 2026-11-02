@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import Typography from '@mui/material/Typography'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
@@ -24,6 +25,9 @@ function AreaPage() {
       {(d) => (
         <>
           <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {d.lastAligned ? `last aligned ${d.lastAligned}` : 'never aligned'}
+          </Typography>
           <PointerLinks links={d.area.links} />
           <Section title="Goals" count={d.projects.length} hideEmpty>
             {

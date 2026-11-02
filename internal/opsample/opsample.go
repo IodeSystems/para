@@ -129,6 +129,8 @@ var Inputs = map[string]string{
 	"receipt_check":     `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_revert":    `{"id":"receipt-sample"}`,
 	"proposal_executed": `{"id":"proposal-decided","item":"i1","result":"done","url":"https://acme.example/m/2"}`,
+	"align_scope":       `{"scope":"project-sample"}`,
+	"align_record":      `{"scope":"project-sample","checked":4,"matched":3,"differ":1,"unreachable":["jira"],"proposal":"proposal-sample"}`,
 	"gate_check":        `{"target":"` + sampleTarget + `","body":"` + sampleDraft + `"}`,
 	"similar":           `{"type":"task","title":"Sample task"}`,
 	"request_respond":   `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,

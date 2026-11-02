@@ -28,7 +28,11 @@ function Activity() {
                     primary={
                       <>
                         {a.actor}: {a.op.replace(/_/g, ' ')}{' '}
-                        <DocLink id={a.doc}>{a.docName || a.doc}</DocLink>{' '}
+                        {a.doc === 'vault' ? (
+                          'the vault'
+                        ) : (
+                          <DocLink id={a.doc}>{a.docName || a.doc}</DocLink>
+                        )}{' '}
                         {a.selfReported && <StatusChip tone="wait" label="self-reported" />}
                       </>
                     }

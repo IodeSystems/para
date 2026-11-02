@@ -55,7 +55,7 @@ func writeMeta(ctx context.Context) WriteMeta {
 
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
-var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "proposal_add", "proposal_revise", "proposal_executed"}
+var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "proposal_add", "proposal_revise", "proposal_executed", "align_record"}
 
 // NeedsWhy reports whether an MCP call of the op must carry why.
 func NeedsWhy(e Entry) bool {
@@ -229,6 +229,7 @@ type receiptInput struct {
 	meta           WriteMeta
 	content        model.ReceiptContent
 	selfReported   bool
+	align          *model.AlignResult
 }
 
 // fileReceipt writes a receipt and an event that points at it. The event holds
@@ -250,7 +251,7 @@ func createReceipt(ctx context.Context, d Deps, in receiptInput) (string, error)
 		Meta: &model.Receipt{
 			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request,
 			Why: strings.TrimSpace(in.meta.Why), Sources: in.meta.Sources, Verify: strings.TrimSpace(in.meta.Verify), Confidence: conf,
-			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate),
+			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align,
 		},
 	})
 	if err != nil {

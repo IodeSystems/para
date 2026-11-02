@@ -62,6 +62,20 @@ type Receipt struct {
 	CheckNote    string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
 	SelfReported bool         `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
 	NotDuplicate string       `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+	// Align is set on an align_record receipt: what one comparison of a scope with
+	// reality checked. Doc is then the goal or area aligned, or "vault".
+	Align *AlignResult `yaml:"align,omitempty" json:"align,omitempty"`
+}
+
+// AlignResult is the outcome of one align run. Checked, Matched, and Differ
+// count items of the vault; Unreachable names the sources the agent could not
+// read. Proposal is the proposal that holds the differences, when there were any.
+type AlignResult struct {
+	Checked     int      `yaml:"checked" json:"checked"`
+	Matched     int      `yaml:"matched" json:"matched"`
+	Differ      int      `yaml:"differ" json:"differ"`
+	Unreachable []string `yaml:"unreachable,omitempty" json:"unreachable,omitempty"`
+	Proposal    string   `yaml:"proposal,omitempty" json:"proposal,omitempty"`
 }
 
 // ReceiptContent is the fenced block of a receipt's body. An empty Before means

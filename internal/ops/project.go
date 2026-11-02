@@ -161,6 +161,9 @@ type ProjectShowOutput struct {
 	Tasks   []TaskView  `json:"tasks"`
 	// Questions are the open questions in scope: the project's own and those of its tasks.
 	Questions []QuestionView `json:"questions"`
+	// LastAligned is the date an agent last compared this goal with reality
+	// (align_record), or empty.
+	LastAligned string `json:"last_aligned,omitempty"`
 }
 
 // ProjectShow returns a project and its tasks.
@@ -181,7 +184,11 @@ var ProjectShow = defineRead("project_show", "Show a project and its tasks", fun
 	if err != nil {
 		return ProjectShowOutput{}, err
 	}
-	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs}, nil
+	aligned, err := LastAligned(ctx, d.Store, doc.ID)
+	if err != nil {
+		return ProjectShowOutput{}, err
+	}
+	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs, LastAligned: aligned}, nil
 })
 
 // ProjectCloseInput is the input of project_close.

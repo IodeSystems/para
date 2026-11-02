@@ -51,6 +51,9 @@ function ProjectPage() {
               </>
             )}
           </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            {d.lastAligned ? `last aligned ${d.lastAligned}` : 'never aligned'}
+          </Typography>
           <DoneWhen
             value={d.project.doneWhen}
             param="goaldw"

@@ -25,6 +25,7 @@ type ParaQueryNamespace {
 type ParaV1MutationNamespace {
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
@@ -137,6 +138,7 @@ type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
   agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
   agentActivity(actor: String, limit: Int, since: String): para_AgentActivityOutput @derived(operationId: "agentActivity")
+  alignScope(scope: String!): para_AlignScopeOutput @derived(operationId: "alignScope")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
@@ -278,6 +280,66 @@ type para_AgentActivityOutput {
   items: [para_ActivityRow!]!
 }
 
+type para_AlignItem {
+  blocks: [String!]
+  dependsOn: [String!]
+  doneWhen: String
+  due: String
+  effDue: String
+  goal: String
+  goalName: String
+  id: String!
+  kind: String!
+  links: [para_Pointer!]
+  scope: String
+  state: String!
+  targets: [para_AlignTarget!]
+  title: String!
+  why: String!
+}
+
+input para_AlignRecordInputInput {
+  checked: Int!
+  differ: Int!
+  matched: Int!
+  proposal: String
+  scope: String!
+  unreachable: [String!]
+}
+
+type para_AlignRecordOutput {
+  date: String!
+  receipt: String!
+  scope: String!
+  summary: String!
+}
+
+type para_AlignResult {
+  checked: Int!
+  differ: Int!
+  matched: Int!
+  proposal: String
+  unreachable: [String!]
+}
+
+type para_AlignScopeOutput {
+  doneWhen: String
+  items: [para_AlignItem!]!
+  kind: String!
+  lastAligned: String
+  links: [para_Pointer!]!
+  scope: String!
+  title: String!
+}
+
+type para_AlignTarget {
+  medium: String!
+  ref: String
+  sent: String
+  state: String!
+  to: String!
+}
+
 type para_AnswerSource {
   quote: String
   ref: String!
@@ -335,6 +397,7 @@ type para_AreaShowOutput {
   area: para_AreaView!
   body: String!
   incidents: [para_IncidentView!]!
+  lastAligned: String
   notes: [para_NoteView!]!
   projects: [para_ProjectView!]!
   questions: [para_QuestionView!]!
@@ -1960,6 +2023,7 @@ enum para_MeetingViewStatus {
 type para_Meta {
   actor: String
   aliases: [String!]
+  align: para_AlignResult
   answered: String
   answeredBy: String
   appliesIn: [String!]
@@ -2518,6 +2582,7 @@ type para_ProjectListOutput {
 
 type para_ProjectShowOutput {
   body: String!
+  lastAligned: String
   project: para_ProjectView!
   questions: [para_QuestionView!]!
   tasks: [para_TaskView!]!
@@ -3317,6 +3382,7 @@ type para_ReceiptRevertOutput {
 
 type para_ReceiptView {
   actor: String!
+  align: para_AlignResult
   check: para_ReceiptViewCheck!
   checkNote: String
   checkedBy: String

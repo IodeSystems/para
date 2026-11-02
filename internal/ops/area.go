@@ -164,6 +164,8 @@ type AreaShowOutput struct {
 	// Questions are the open questions in scope: the area's own, and those of
 	// its projects and tasks.
 	Questions []QuestionView `json:"questions"`
+	// LastAligned is the date an agent last compared this area with reality, or empty.
+	LastAligned string `json:"last_aligned,omitempty"`
 }
 
 // AreaShow returns an area with its projects and tasks.
@@ -215,6 +217,9 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		return AreaShowOutput{}, err
 	}
 	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Project] }); err != nil {
+		return AreaShowOutput{}, err
+	}
+	if out.LastAligned, err = LastAligned(ctx, d.Store, doc.ID); err != nil {
 		return AreaShowOutput{}, err
 	}
 	return out, nil
