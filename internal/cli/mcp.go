@@ -26,7 +26,7 @@ const mcpSurface = "mcp"
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor string
-	var helpClaude, helpDun bool
+	var helpClaude, helpDun, channel bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
@@ -72,6 +72,7 @@ server entries for this install. They write nothing.`,
 				Hide:      []string{filepath.Clean(sel.Path), l.install.Home},
 				Log:       cmd.ErrOrStderr(),
 				EventsDir: filepath.Join(sel.Path, "events"),
+				Channel:   channel,
 			})
 			if err != nil {
 				return err
@@ -80,6 +81,7 @@ server entries for this install. They write nothing.`,
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", "agent", "actor name recorded in events")
+	cmd.Flags().BoolVar(&channel, "channel", false, "also send notifications as Claude Code channel events (research preview; Claude Code needs --dangerously-load-development-channels)")
 	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
 	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
 	cmd.AddCommand(newMCPConfigCmd(l))

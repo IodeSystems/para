@@ -580,13 +580,20 @@ func NewRequestWatch(d Deps) *RequestWatch { return &RequestWatch{d: d, seen: ma
 
 // Claimable reports whether request_next would find a request now.
 func (w *RequestWatch) Claimable(ctx context.Context) (bool, error) {
+	ids, err := w.ClaimableIDs(ctx)
+	return len(ids) > 0, err
+}
+
+// ClaimableIDs lists the requests request_next could claim now, sorted. The ids
+// are for a caller's own bookkeeping: a file name is not trusted text.
+func (w *RequestWatch) ClaimableIDs(ctx context.Context) ([]string, error) {
 	info, err := identity(w.d)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	refs, err := w.d.Store.List(ctx, store.Filter{Folder: model.FolderRequests, Type: model.TypeRequest})
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	live := make(map[string]watched, len(refs))
 	for _, ref := range refs {
@@ -599,7 +606,7 @@ func (w *RequestWatch) Claimable(ctx context.Context) (bool, error) {
 			if errors.Is(err, model.ErrNotFound) {
 				continue
 			}
-			return false, err
+			return nil, err
 		}
 		if r, ok := doc.Meta.(*model.Request); ok {
 			live[ref.ID] = watched{rev: doc.Rev, r: *r}
@@ -607,10 +614,12 @@ func (w *RequestWatch) Claimable(ctx context.Context) (bool, error) {
 	}
 	w.seen = live
 	now := w.d.Store.Now()
-	for _, v := range live {
+	var ids []string
+	for id, v := range live {
 		if claimable(&v.r, info.Install, now) {
-			return true, nil
+			ids = append(ids, id)
 		}
 	}
-	return false, nil
+	slices.Sort(ids)
+	return ids, nil
 }

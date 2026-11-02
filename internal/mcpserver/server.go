@@ -12,6 +12,7 @@ import (
 	"io"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -49,6 +50,10 @@ type Options struct {
 	EventsDir string
 	// Poll is the watcher's fallback scan period; zero means events.PollInterval.
 	Poll time.Duration
+	// Channel also sends each session notification as Claude Code's
+	// notifications/claude/channel, and declares the claude/channel capability.
+	// It is a research preview of Claude Code, so it is off by default.
+	Channel bool
 }
 
 // Server is an MCP server over one vault.
@@ -63,6 +68,9 @@ type Server struct {
 	changed   change
 	reqMu     sync.Mutex // guards reqWatch, which keeps a cache
 	reqWatch  *ops.RequestWatch
+	notes     *notifier
+	channel   bool
+	runCtx    atomic.Pointer[context.Context] // the context of Start, for the watcher's checks
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -76,11 +84,13 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		name = "para"
 	}
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithInstructions(Instructions)),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
 
+		notes:     newNotifier(),
+		channel:   o.Channel,
 		eventsDir: o.EventsDir,
 		poll:      o.Poll,
 	}
@@ -99,6 +109,21 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	}
 	return s, nil
 }
+
+// serverOptions are the MCP server options. logging is declared because the
+// session sends notifications/message; the channel capability only with --channel.
+func serverOptions(channel bool) []server.ServerOption {
+	instr := Instructions + "\n\n" + notifyRule
+	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging()}
+	if channel {
+		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}))
+		instr += " Events also arrive as <channel source=...> tags with kind, id, status, or count attributes; they are one-way."
+	}
+	return append(opts, server.WithInstructions(instr))
+}
+
+// notifyRule describes the session notifications to the agent.
+const notifyRule = "Notifications: this server may send a short message (logger para) when a proposal you filed is decided, a request becomes claimable by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (proposal_wait, request_next, request_show). A harness that cannot receive notifications uses proposal_wait and request_wait."
 
 // MCP returns the underlying server, for in-process clients.
 func (s *Server) MCP() *server.MCPServer { return s.mcp }
@@ -128,6 +153,10 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		out, err := e.Invoke(ctx, s.deps, input)
 		if err != nil {
 			return mcp.NewToolResultError(s.clean(err)), nil
+		}
+		// A decision made before the id was tracked is found now.
+		if s.track(out) && s.runCtx.Load() != nil {
+			s.check(ctx)
 		}
 		text, err := encode(out)
 		if err != nil {

@@ -60,7 +60,34 @@ func (s *Server) Start(ctx context.Context) (stop func()) {
 	if s.eventsDir == "" {
 		return func() {}
 	}
-	return events.Watch(ctx, s.eventsDir, s.poll, s.onBatch, s.warn)
+	s.runCtx.Store(&ctx)
+	stopWatch := events.Watch(ctx, s.eventsDir, s.poll, s.onBatch, s.warn)
+	// Note what is claimable now, so a start announces nothing.
+	s.check(ctx)
+	tctx, cancel := context.WithCancel(ctx)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		t := time.NewTicker(fallbackCheck)
+		defer t.Stop()
+		for {
+			select {
+			case <-tctx.Done():
+				return
+			case <-t.C:
+				s.check(tctx)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			cancel()
+			wg.Wait()
+			stopWatch()
+		})
+	}
 }
 
 // warn reports a watcher note to the operator log.
@@ -70,7 +97,12 @@ func (s *Server) warn(m string) {
 	}
 }
 
-func (s *Server) onBatch([]model.Event) { s.changed.bump() }
+func (s *Server) onBatch([]model.Event) {
+	s.changed.bump()
+	if p := s.runCtx.Load(); p != nil {
+		s.check(*p)
+	}
+}
 
 // addRequestWait registers request_wait. It is not an op: it blocks on the
 // session watcher, which only this surface has. The CLI equivalent is
