@@ -63,6 +63,10 @@ type Meta struct {
 	Recur          string           `json:"recur,omitempty"`
 	Assignee       string           `json:"assignee,omitempty"`
 	Previous       string           `json:"previous,omitempty"`
+	Incident       string           `json:"incident,omitempty"`
+	Severity       string           `json:"severity,omitempty"`
+	Started        string           `json:"started,omitempty"`
+	Ended          string           `json:"ended,omitempty"`
 	BlockedBy      []string         `json:"blocked_by,omitempty"`
 	DependsOn      []string         `json:"depends_on,omitempty"`
 	Direction      string           `json:"direction,omitempty"`
@@ -133,6 +137,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.InteractionDirections)
 	addEnum(reg, model.Visibilities)
 	addEnum(reg, model.RequestStatuses)
+	addEnum(reg, model.IncidentSeverities)
+	addEnum(reg, model.IncidentStatuses)
 	addEnum(reg, []model.ChangeKind{model.ChangeAdded, model.ChangeChanged, model.ChangeRemoved})
 	addEnum(reg, []model.Outcome{model.OutcomeLogged, model.OutcomeSynced, model.OutcomePending})
 	addEnum(reg, ops.CopyFormats)

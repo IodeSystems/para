@@ -37,6 +37,11 @@ type ParaV1MutationNamespace {
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
   inboxTriage(body: para_InboxTriageInputInput!): para_InboxTriageOutput @derived(operationId: "inboxTriage")
+  incidentAdd(body: para_IncidentAddInputInput!): para_IncidentAddOutput @derived(operationId: "incidentAdd")
+  incidentLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "incidentLinkAdd")
+  incidentLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "incidentLinkRemove")
+  incidentNote(body: para_IncidentNoteInputInput!): para_IncidentChangeOutput @derived(operationId: "incidentNote")
+  incidentStatus(body: para_IncidentStatusInputInput!): para_IncidentChangeOutput @derived(operationId: "incidentStatus")
   indexRebuild: para_Stats @derived(operationId: "indexRebuild")
   ingest(body: para_IngestInputInput!): para_IngestOutput @derived(operationId: "ingest")
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
@@ -104,6 +109,8 @@ type ParaV1QueryNamespace {
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
+  incidentList(all: Boolean, area: String, status: para_incidentListStatus): para_IncidentListOutput @derived(operationId: "incidentList")
+  incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
   lint: para_LintOutput @derived(operationId: "lint")
@@ -132,7 +139,7 @@ type ParaV1QueryNamespace {
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
   search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
-  taskList(area: String, assignee: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   waiting(today: String): para_WaitingOutput @derived(operationId: "waiting")
   where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
@@ -167,6 +174,7 @@ enum para_AreaAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -204,6 +212,7 @@ enum para_AreaViewFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -403,6 +412,7 @@ enum para_DocumentFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -648,6 +658,7 @@ enum para_GraphNodeType {
   domain
   group
   inbox
+  incident
   interaction
   journal
   note
@@ -717,6 +728,7 @@ enum para_InboxAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -740,6 +752,7 @@ enum para_InboxItemFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -801,6 +814,7 @@ enum para_InboxTriageOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -817,6 +831,128 @@ enum para_InboxTriageOutputTo {
   project
   rfx
   task
+}
+
+input para_IncidentAddInputInput {
+  area: String
+  body: String
+  severity: para_IncidentAddInputSeverity!
+  started: String
+  title: String!
+}
+
+enum para_IncidentAddInputSeverity {
+  sev1
+  sev2
+  sev3
+}
+
+type para_IncidentAddOutput {
+  folder: para_IncidentAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_IncidentAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_IncidentChangeOutput {
+  ended: String
+  followUps: Int!
+  id: String!
+  rev: String!
+  status: para_IncidentChangeOutputStatus!
+  warnings: [String!]!
+}
+
+enum para_IncidentChangeOutputStatus {
+  mitigated
+  open
+  resolved
+}
+
+type para_IncidentListOutput {
+  incidents: [para_IncidentView!]!
+}
+
+input para_IncidentNoteInputInput {
+  at: String
+  id: String!
+  text: String!
+}
+
+type para_IncidentShowOutput {
+  body: String!
+  followUps: [para_TaskView!]!
+  incident: para_IncidentView!
+}
+
+input para_IncidentStatusInputInput {
+  id: String!
+  status: para_IncidentStatusInputStatus!
+  text: String
+}
+
+enum para_IncidentStatusInputStatus {
+  mitigated
+  open
+  resolved
+}
+
+type para_IncidentView {
+  area: String
+  ended: String
+  folder: para_IncidentViewFolder!
+  id: String!
+  links: [para_Pointer!]!
+  rev: String!
+  severity: para_IncidentViewSeverity!
+  started: String!
+  status: para_IncidentViewStatus!
+  title: String!
+}
+
+enum para_IncidentViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_IncidentViewSeverity {
+  sev1
+  sev2
+  sev3
+}
+
+enum para_IncidentViewStatus {
+  mitigated
+  open
+  resolved
 }
 
 input para_IngestInputInput {
@@ -889,6 +1025,7 @@ enum para_InteractionAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1038,7 +1175,9 @@ type para_Meta {
   dependsOn: [String!]
   direction: String
   due: String
+  ended: String
   groups: [String!]
+  incident: String
   kind: String
   leaseUntil: String
   links: JSON
@@ -1063,7 +1202,9 @@ type para_Meta {
   runner: String
   scope: String
   selfServeCheck: String
+  severity: String
   source: para_Source
+  started: String
   status: String
   tags: [String!]
   targets: [para_Target!]
@@ -1096,6 +1237,7 @@ enum para_MetaType {
   domain
   group
   inbox
+  incident
   interaction
   journal
   note
@@ -1141,6 +1283,7 @@ enum para_NoteAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1176,6 +1319,7 @@ enum para_NoteViewFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1210,6 +1354,7 @@ enum para_OrgAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1398,6 +1543,7 @@ enum para_ProjectAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1427,6 +1573,7 @@ enum para_ProjectCloseOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1471,6 +1618,7 @@ enum para_ProjectViewFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1518,6 +1666,7 @@ enum para_RFXAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1748,6 +1897,7 @@ enum para_RefFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -1765,6 +1915,7 @@ enum para_RefType {
   domain
   group
   inbox
+  incident
   interaction
   journal
   note
@@ -1800,6 +1951,7 @@ enum para_RequestAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -2058,6 +2210,7 @@ input para_TaskAddInputInput {
   body: String
   dependsOn: [String!]
   due: String
+  incident: String
   project: String
   recur: String
   title: String!
@@ -2077,6 +2230,7 @@ enum para_TaskAddOutputFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -2189,6 +2343,7 @@ type para_TaskView {
   due: String
   folder: para_TaskViewFolder!
   id: String!
+  incident: String
   previous: String
   project: String!
   recur: String
@@ -2203,6 +2358,7 @@ enum para_TaskViewFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -2269,6 +2425,7 @@ enum para_WhereMatchFolder {
   constraints
   conventions
   inbox
+  incidents
   interactions
   journal
   org
@@ -2286,6 +2443,7 @@ enum para_WhereMatchType {
   domain
   group
   inbox
+  incident
   interaction
   journal
   note
@@ -2349,6 +2507,12 @@ enum para_exceptionListKind {
 
 enum para_exceptionListStatus {
   accepted
+  open
+  resolved
+}
+
+enum para_incidentListStatus {
+  mitigated
   open
   resolved
 }

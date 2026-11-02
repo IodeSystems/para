@@ -21,7 +21,7 @@ func nonNilPointers(in []model.Pointer) []model.Pointer {
 	return in
 }
 
-// LinkAddInput is the input of area_link_add and project_link_add.
+// LinkAddInput is the input of the *_link_add ops.
 type LinkAddInput struct {
 	ID     string            `json:"id"`
 	Label  string            `json:"label"`
@@ -67,8 +67,10 @@ func pointers(doc model.Document) (*[]model.Pointer, error) {
 		return &m.Links, nil
 	case *model.Project:
 		return &m.Links, nil
+	case *model.Incident:
+		return &m.Links, nil
 	}
-	return nil, fmt.Errorf("%s is a %s: links belong to an area or a project", doc.ID, doc.Meta.Header().Type)
+	return nil, fmt.Errorf("%s is a %s: links belong to an area, a project, or an incident", doc.ID, doc.Meta.Header().Type)
 }
 
 func linkAdd(kind model.Type) Func[LinkAddInput, LinkOutput] {

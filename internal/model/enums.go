@@ -25,6 +25,7 @@ const (
 	TypeRequest         Type = "request"
 	TypeArea            Type = "area"
 	TypeNote            Type = "note"
+	TypeIncident        Type = "incident"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -32,7 +33,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote,
+	TypeArea, TypeNote, TypeIncident,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -52,13 +53,14 @@ const (
 	FolderJournal      Folder = "journal"
 	FolderInteractions Folder = "interactions"
 	FolderRequests     Folder = "requests"
+	FolderIncidents    Folder = "incidents"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
-	FolderInteractions, FolderRequests,
+	FolderInteractions, FolderRequests, FolderIncidents,
 }
 
 // Valid reports whether f is a document folder.
@@ -348,3 +350,33 @@ func enumStrings[T ~string](in []T) []string {
 	}
 	return out
 }
+
+// IncidentSeverity is incident.severity: sev1 is the worst.
+type IncidentSeverity string
+
+const (
+	Sev1 IncidentSeverity = "sev1"
+	Sev2 IncidentSeverity = "sev2"
+	Sev3 IncidentSeverity = "sev3"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IncidentSeverity) Enum() []string { return enumStrings(IncidentSeverities) }
+
+// IncidentSeverities lists every IncidentSeverity, worst first.
+var IncidentSeverities = []IncidentSeverity{Sev1, Sev2, Sev3}
+
+// IncidentStatus is incident.status.
+type IncidentStatus string
+
+const (
+	IncidentOpen      IncidentStatus = "open"
+	IncidentMitigated IncidentStatus = "mitigated"
+	IncidentResolved  IncidentStatus = "resolved"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IncidentStatus) Enum() []string { return enumStrings(IncidentStatuses) }
+
+// IncidentStatuses lists every IncidentStatus.
+var IncidentStatuses = []IncidentStatus{IncidentOpen, IncidentMitigated, IncidentResolved}

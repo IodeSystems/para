@@ -154,6 +154,7 @@ func newRoot(l *loader) *cobra.Command {
 		newAreaCmd(l),
 		newWhereCmd(l),
 		newWaitingCmd(l),
+		newIncidentCmd(l),
 		newNoteCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),

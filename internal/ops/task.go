@@ -25,6 +25,7 @@ type TaskView struct {
 	Recur     string           `json:"recur,omitempty"`
 	Assignee  string           `json:"assignee,omitempty"` // empty means self
 	Previous  string           `json:"previous,omitempty"` // the task this one recurred from
+	Incident  string           `json:"incident,omitempty"` // the incident this task follows up
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -37,7 +38,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -105,6 +106,7 @@ type TaskAddInput struct {
 	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
 	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, or every <n> days
 	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
+	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
 }
 
@@ -130,6 +132,17 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 		return TaskAddOutput{}, err
 	}
 	in.Project = normID(in.Project)
+	var incident model.Link
+	if id := normID(in.Incident); id != "" {
+		idoc, im, err := getIncident(ctx, d.Store, id)
+		if err != nil {
+			return TaskAddOutput{}, fmt.Errorf("incident %s: %w", id, err)
+		}
+		incident = model.LinkTo(idoc.ID)
+		if in.Project == "" && normID(in.Area) == "" {
+			in.Area = im.Area.Target()
+		}
+	}
 	if in.Project == "" && normID(in.Area) == "" {
 		return TaskAddOutput{}, errors.New("a task needs a project or an area")
 	}
@@ -174,6 +187,7 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 			Due:       due,
 			Recur:     strings.Join(strings.Fields(in.Recur), " "),
 			Assignee:  assignee,
+			Incident:  incident,
 			DependsOn: deps,
 		},
 	})
@@ -196,6 +210,7 @@ type TaskListInput struct {
 	// Assignee keeps tasks assigned to this person id or agent:<name>; self
 	// keeps the tasks with no assignee.
 	Assignee string `json:"assignee,omitempty" query:"assignee"`
+	Incident string `json:"incident,omitempty" query:"incident"` // follow-ups of this incident
 }
 
 // TaskListOutput is the output of task_list.
@@ -214,6 +229,9 @@ var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Dep
 	}
 	if area := normID(in.Area); area != "" {
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Area != area })
+	}
+	if inc := normID(in.Incident); inc != "" {
+		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Incident != inc })
 	}
 	if want := strings.TrimSpace(in.Assignee); want != "" {
 		if strings.EqualFold(want, SelfAssignee) {

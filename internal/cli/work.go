@@ -134,6 +134,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, or \"every <n> days\"; done makes the next task")
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
+				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
@@ -161,6 +162,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 				fs.StringVar(&in.Assignee, "assignee", "", "only tasks assigned to this person id or agent:<name>; self for your own")
+				fs.StringVar(&in.Incident, "incident", "", "only follow-ups of this incident")
 			},
 			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
 		}),
@@ -170,8 +172,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
 				return err
 			},
 		}),

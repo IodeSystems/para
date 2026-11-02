@@ -42,6 +42,8 @@ var (
 	journalScopes   = []string{"day", "week", "month", "project"}
 	pointerKinds    = []string{"repo", "plan", "docs", "runbook", "tracker", "dashboard", "other"}
 	areaStatus      = []string{"active", "paused"}
+	severities      = []string{"sev1", "sev2", "sev3"}
+	incidentStatus  = []string{"open", "mitigated", "resolved"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 )
 
@@ -49,7 +51,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area", "note",
+	"group", "interaction", "request", "area", "note", "incident",
 }
 
 // commonFields apply to every type.
@@ -72,6 +74,14 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
 		{Name: "links", Kind: kPointers},
 	},
+	"incident": {
+		{Name: "severity", Kind: kEnum, Enum: severities, Required: true},
+		{Name: "status", Kind: kEnum, Enum: incidentStatus, Required: true},
+		{Name: "started", Kind: kTimestamp, Required: true},
+		{Name: "ended", Kind: kTimestamp},
+		{Name: "area", Kind: kLink},
+		{Name: "links", Kind: kPointers},
+	},
 	"note": {
 		{Name: "area", Kind: kLink},
 		{Name: "project", Kind: kLink},
@@ -83,6 +93,7 @@ var typeFields = map[string][]field{
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, every <n> days; another value is a warning
 		{Name: "previous", Kind: kLink},
+		{Name: "incident", Kind: kLink},
 		{Name: "assignee", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},

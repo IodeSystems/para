@@ -51,3 +51,37 @@ func TestWorkShowsAreasAndAreaTasks(t *testing.T) {
 		t.Errorf("Today lacks the due task:\n%s", today)
 	}
 }
+
+func TestTodayShowsIncidentsFirstAndWaiting(t *testing.T) {
+	v := newTestVault(t)
+	v.seed()
+	ctx := context.Background()
+	deps := v.env.Deps
+	a, err := ops.AreaAdd.Run(ctx, deps, ops.AreaAddInput{Title: "Atlas service"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	inc, err := ops.IncidentAdd.Run(ctx, deps, ops.IncidentAddInput{Title: "Atlas down", Severity: model.Sev1, Area: a.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ops.TaskAdd.Run(ctx, deps, ops.TaskAddInput{Area: a.ID, Title: "Ask Ada for logs", Assignee: "person-ada-example"}); err != nil {
+		t.Fatal(err)
+	}
+	d := newDrv(t, v, 120, 50)
+	text := rowText(d.m.rowsToday(120))
+	i, o := strings.Index(text, "Incidents (1)"), strings.Index(text, "Overdue")
+	if i < 0 || o < 0 || i > o || !strings.Contains(text, "sev1 open") || !strings.Contains(text, "Atlas down") {
+		t.Errorf("Today lacks incidents before the rest:\n%s", text)
+	}
+	if !strings.Contains(text, "Waiting on others (2)") { // the seeded outbound RFX and the task
+		t.Errorf("Today lacks the waiting count:\n%s", text)
+	}
+	if _, err := ops.IncidentStatus.Run(ctx, deps, ops.IncidentStatusInput{ID: inc.ID, Status: model.IncidentResolved}); err != nil {
+		t.Fatal(err)
+	}
+	d = newDrv(t, v, 120, 50)
+	if text := rowText(d.m.rowsToday(120)); strings.Contains(text, "Incidents (") {
+		t.Errorf("a resolved incident is still on Today:\n%s", text)
+	}
+}

@@ -37,6 +37,8 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"convention.status", strs(ConventionStatuses), paramd.FieldEnum("convention", "status")},
 		{"journal.scope", strs(JournalScopes), paramd.FieldEnum("journal", "scope")},
 		{"group.kind", strs(GroupKinds), paramd.FieldEnum("group", "kind")},
+		{"incident.severity", strs(IncidentSeverities), paramd.FieldEnum("incident", "severity")},
+		{"incident.status", strs(IncidentStatuses), paramd.FieldEnum("incident", "status")},
 		{"request.status", strs(RequestStatuses), paramd.FieldEnum("request", "status")},
 		{"interaction.medium", strs(Mediums), paramd.FieldEnum("interaction", "medium")},
 		{"interaction.direction", strs(InteractionDirections), paramd.FieldEnum("interaction", "direction")},
@@ -75,6 +77,9 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			{Label: "Runbook", Kind: PointerRunbook, Target: "~/doc/runbook.md"}, {Label: "Repo", Kind: PointerRepo, Target: "https://git.acme.example/atlas"}}}, "Standard."},
 		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Project: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
 		{"task-area", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health")}, ""},
+		{"incident-one", &Incident{Common: c(TypeIncident), Severity: Sev2, Status: IncidentResolved, Started: "2026-11-01T09:00:00Z", Ended: "2026-11-01T10:30:00Z",
+			Area: LinkTo("health"), Links: []Pointer{{Label: "Dashboard", Kind: PointerDashboard, Target: "https://grafana.acme.example/d/atlas"}}}, "## Timeline\n\n- 2026-11-01T09:00:00Z opened"},
+		{"task-follow", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health"), Incident: LinkTo("incident-one")}, ""},
 		{"task-recur", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health"), Due: "2026-11-08", Recur: "every 3 days", Assignee: "agent:scribe", Previous: LinkTo("task-area")}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{

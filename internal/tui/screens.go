@@ -102,6 +102,13 @@ func (m *Model) rowsToday(w int) []row {
 		}
 		return rows
 	}
+	if len(s.Today.Incidents.Items) > 0 { // incidents come first, and only when there are some
+		var inc []row
+		for _, it := range s.Today.Incidents.Items {
+			inc = append(inc, link("doc:"+it.ID, "  "+stBad.Render(it.Detail)+"  ", titleOr(it.Title, it.ID), "", w))
+		}
+		section("Incidents", inc)
+	}
 	section("Overdue", dated(s.Today.Overdue.Items))
 	section("Due soon", dated(s.Today.DueSoon.Items))
 	var nudge []row
@@ -158,7 +165,7 @@ func (m *Model) rowsToday(w int) []row {
 			r = append(r, plain("  "+stBad.Render(truncate("vault "+o.Vault+": "+o.Error, w-4))))
 			continue
 		}
-		r = append(r, dim(fmt.Sprintf("  vault %s: due %d, nudges %d, blocked %d, inbox %d", o.Vault, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
+		r = append(r, dim(fmt.Sprintf("  vault %s: incidents %d, due %d, nudges %d, blocked %d, inbox %d", o.Vault, o.Incidents.Count, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
 	}
 	return r
 }

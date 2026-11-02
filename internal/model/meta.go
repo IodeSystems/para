@@ -111,6 +111,8 @@ type Task struct {
 	Due      Date   `yaml:"due,omitempty" json:"due,omitempty"`
 	Recur    string `yaml:"recur,omitempty" json:"recur,omitempty"`
 	Previous Link   `yaml:"previous,omitempty" json:"previous,omitempty"`
+	// Incident links the incident this task follows up.
+	Incident Link `yaml:"incident,omitempty" json:"incident,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
 	Assignee  string   `yaml:"assignee,omitempty" json:"assignee,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
@@ -288,6 +290,21 @@ type Inbox struct {
 	Common `yaml:",inline"`
 }
 
+// Incident is type: incident, the record of one outage or fault in a system
+// you run. Started and Ended are RFC 3339 times. The body holds a timeline, one
+// timestamped line per note. Follow-up tasks link here with their incident field.
+// Para is not a pager: alerts stay in monitoring.
+type Incident struct {
+	Common   `yaml:",inline"`
+	Severity IncidentSeverity `yaml:"severity" json:"severity"`
+	Status   IncidentStatus   `yaml:"status" json:"status"`
+	Started  string           `yaml:"started" json:"started"`
+	Ended    string           `yaml:"ended,omitempty" json:"ended,omitempty"`
+	Area     Link             `yaml:"area,omitempty" json:"area,omitempty"`
+	// Links point at dashboards, runbooks, and the ticket that live elsewhere.
+	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+}
+
 // NewMeta returns an empty Meta of type t with Common.Type set.
 func NewMeta(t Type) (Meta, bool) {
 	c := Common{Type: t}
@@ -330,6 +347,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Area{Common: c}, true
 	case TypeNote:
 		return &Note{Common: c}, true
+	case TypeIncident:
+		return &Incident{Common: c}, true
 	}
 	return nil, false
 }

@@ -18,8 +18,15 @@ import (
 // (b). Ids come from seedStreamUParity.
 func streamUParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"task_assign": {`{"id":"task-u-a","assignee":"person-u-seed"}`, []string{"task", "assign", "task-u-b", "person-u-seed"}, false},
-		"waiting":     {`{"today":"2026-11-01"}`, []string{"waiting", "--today", "2026-11-01"}, false},
+		"task_assign":          {`{"id":"task-u-a","assignee":"person-u-seed"}`, []string{"task", "assign", "task-u-b", "person-u-seed"}, false},
+		"incident_add":         {`{"title":"Cache outage","severity":"sev2","area":"area-u-seed"}`, []string{"incident", "add", "Cache", "outage", "--severity", "sev2", "--area", "area-u-seed"}, false},
+		"incident_list":        {`{}`, []string{"incident", "list"}, true},
+		"incident_show":        {`{"id":"incident-u-show"}`, []string{"incident", "show", "incident-u-show"}, true},
+		"incident_note":        {`{"id":"incident-u-a","text":"Failed over."}`, []string{"incident", "note", "incident-u-b", "Failed", "over."}, false},
+		"incident_status":      {`{"id":"incident-u-a","status":"mitigated"}`, []string{"incident", "status", "incident-u-b", "mitigated"}, false},
+		"incident_link_add":    {`{"id":"incident-u-a","label":"Dashboard","kind":"dashboard","target":"https://grafana.acme.example/d/u"}`, []string{"incident", "link", "add", "incident-u-b", "Dashboard", "--kind", "dashboard", "--target", "https://grafana.acme.example/d/u"}, false},
+		"incident_link_remove": {`{"id":"incident-u-c","label":"Runbook"}`, []string{"incident", "link", "remove", "incident-u-d", "Runbook"}, false},
+		"waiting":              {`{"today":"2026-11-01"}`, []string{"waiting", "--today", "2026-11-01"}, false},
 	}
 }
 
@@ -39,6 +46,17 @@ func seedStreamUParity(t *testing.T, deps ops.Deps) {
 	} {
 		if _, err := deps.Store.Create(ctx, d); err != nil {
 			t.Fatalf("seed %s: %v", d.ID, err)
+		}
+	}
+	for _, id := range []string{"incident-u-show", "incident-u-a", "incident-u-b", "incident-u-c", "incident-u-d"} {
+		inc := &model.Incident{Common: model.Common{Type: model.TypeIncident}, Severity: model.Sev3, Status: model.IncidentOpen,
+			Started: "2026-11-01T09:00:00Z", Area: model.LinkTo("area-u-seed")}
+		if id > "incident-u-b" {
+			inc.Links = []model.Pointer{{Label: "Runbook", Kind: model.PointerRunbook, Target: "~/doc/rb.md"}}
+		}
+		if _, err := deps.Store.Create(ctx, model.Document{ID: id, Folder: model.FolderIncidents, Title: "U incident " + id,
+			Body: "## Timeline\n\n- 2026-11-01T09:00:00Z opened sev3", Meta: inc}); err != nil {
+			t.Fatalf("seed %s: %v", id, err)
 		}
 	}
 }
@@ -273,5 +291,126 @@ func TestRecurringAgentTask(t *testing.T) {
 	e.json(&reqs, "request", "list")
 	if again.Next != done.Next || len(reqs.Items) != 2 {
 		t.Fatalf("repeat made a request: %+v, %d requests", again, len(reqs.Items))
+	}
+}
+
+func TestIncidentFlow(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	var area ops.AreaAddOutput
+	e.json(&area, "area", "add", "Atlas service")
+	e.ok("area", "link", "add", area.ID, "Runbook", "--kind", "runbook", "--target", "~/doc/atlas/runbook.md")
+
+	if _, _, err := e.run("incident", "add", "No severity", "--area", area.ID); err == nil {
+		t.Fatal("add without severity: want an error")
+	}
+	if _, _, err := e.run("incident", "add", "Bad time", "--severity", "sev1", "--started", "yesterday"); err == nil {
+		t.Fatal("add with a bad time: want an error")
+	}
+	var minor, major ops.IncidentAddOutput
+	e.json(&minor, "incident", "add", "Slow search", "--severity", "sev3", "--area", area.ID, "--started", "2026-11-01T08:00:00Z", "--body", "Search p99 is high.")
+	e.json(&major, "incident", "add", "Atlas down", "--severity", "sev1", "--area", area.ID, "--started", "2026-11-01T09:00:00Z")
+	if !strings.HasPrefix(major.ID, "incident-") || major.Folder != model.FolderIncidents {
+		t.Fatalf("add = %+v", major)
+	}
+
+	e.ok("incident", "note", major.ID, "Pager", "fired", "for", "zebrafish-latency", "--at", "2026-11-01T09:05:00Z")
+	e.ok("incident", "note", major.ID, "Rolled back the 14:00 deploy")
+	var sh ops.IncidentShowOutput
+	e.json(&sh, "incident", "show", major.ID)
+	var lines []string
+	for _, l := range strings.Split(sh.Body, "\n") {
+		if strings.HasPrefix(l, "- ") {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) != 3 || lines[0] != "- 2026-11-01T09:00:00Z opened sev1" || lines[1] != "- 2026-11-01T09:05:00Z Pager fired for zebrafish-latency" ||
+		!strings.HasSuffix(lines[2], "Z Rolled back the 14:00 deploy") {
+		t.Fatalf("timeline = %q\nbody:\n%s", lines, sh.Body)
+	}
+	if !strings.Contains(e.ok("incident", "show", minor.ID), "Search p99 is high.\n\n## Timeline\n\n- 2026-11-01T08:00:00Z opened sev3") {
+		t.Fatalf("minor body:\n%s", e.ok("incident", "show", minor.ID))
+	}
+
+	// Open incidents are listed worst first; Today shows them before anything else.
+	var list ops.IncidentListOutput
+	e.json(&list, "incident", "list")
+	if len(list.Incidents) != 2 || list.Incidents[0].ID != major.ID {
+		t.Fatalf("list = %+v", list.Incidents)
+	}
+	var rep today.Report
+	e.json(&rep, "today")
+	v := rep.Vaults[0]
+	if v.Incidents.Count != 2 || v.Incidents.Items[0].ID != major.ID || v.Incidents.Items[0].Detail != "sev1 open" {
+		t.Fatalf("today incidents = %+v", v.Incidents)
+	}
+	out := e.ok("today")
+	lines0 := strings.Split(out, "\n")
+	if !strings.Contains(lines0[0], "incidents 2") || !strings.HasPrefix(lines0[1], "  incident\t"+major.ID+"\tsev1 open\t") {
+		t.Fatalf("today:\n%s", out)
+	}
+
+	// Resolving warns when nothing follows the incident up.
+	var res ops.IncidentChangeOutput
+	e.json(&res, "incident", "status", major.ID, "mitigated", "--note", "rolled back")
+	if res.Status != model.IncidentMitigated || res.Ended != "" || len(res.Warnings) != 0 {
+		t.Fatalf("mitigated = %+v", res)
+	}
+	e.json(&res, "incident", "status", major.ID, "resolved")
+	if res.Status != model.IncidentResolved || res.Ended == "" || len(res.Warnings) != 1 || res.FollowUps != 0 {
+		t.Fatalf("resolved without follow-up = %+v", res)
+	}
+	if _, _, err := e.run("incident", "status", major.ID, "resolved"); err == nil {
+		t.Fatal("resolve twice: want an error")
+	}
+	// Reopen clears the end; a follow-up task silences the warning.
+	res = ops.IncidentChangeOutput{}
+	e.json(&res, "incident", "status", major.ID, "open")
+	if res.Ended != "" {
+		t.Fatalf("reopened = %+v", res)
+	}
+	var fu ops.TaskAddOutput
+	e.json(&fu, "task", "add", "Add a canary stage", "--incident", major.ID)
+	var task ops.TaskShowOutput
+	e.json(&task, "task", "show", fu.ID)
+	if task.Task.Incident != major.ID || task.Task.Area != area.ID {
+		t.Fatalf("follow-up = %+v", task.Task)
+	}
+	e.json(&res, "incident", "status", major.ID, "resolved", "--note", "canary task filed")
+	if len(res.Warnings) != 0 || res.FollowUps != 1 {
+		t.Fatalf("resolved with follow-up = %+v", res)
+	}
+	var tl ops.TaskListOutput
+	e.json(&tl, "task", "list", "--incident", major.ID)
+	if len(tl.Tasks) != 1 || tl.Tasks[0].ID != fu.ID {
+		t.Fatalf("task list --incident = %+v", tl.Tasks)
+	}
+	if _, _, err := e.run("task", "add", "Orphan", "--incident", minor.ID); err != nil {
+		t.Fatalf("follow-up in the incident area: %v", err)
+	}
+
+	// Resolved incidents leave the default list and Today, and stay searchable.
+	e.json(&list, "incident", "list")
+	if len(list.Incidents) != 1 || list.Incidents[0].ID != minor.ID {
+		t.Fatalf("list after resolve = %+v", list.Incidents)
+	}
+	e.json(&list, "incident", "list", "--all")
+	if len(list.Incidents) != 2 || list.Incidents[1].ID != major.ID {
+		t.Fatalf("list --all = %+v", list.Incidents)
+	}
+	e.json(&rep, "today")
+	if rep.Vaults[0].Incidents.Count != 1 {
+		t.Fatalf("today after resolve = %+v", rep.Vaults[0].Incidents)
+	}
+	var hits ops.SearchOutput
+	e.json(&hits, "search", "zebrafish-latency")
+	if len(hits.Hits) == 0 || hits.Hits[0].ID != major.ID {
+		t.Fatalf("search = %+v", hits.Hits)
+	}
+	e.ok("incident", "link", "add", major.ID, "Dashboard", "--kind", "dashboard", "--target", "https://grafana.acme.example/d/atlas")
+	var lint ops.LintOutput
+	e.json(&lint, "lint")
+	if lint.Errors != 0 || lint.Warnings != 0 {
+		t.Fatalf("lint = %+v", lint)
 	}
 }

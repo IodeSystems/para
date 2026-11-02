@@ -23,6 +23,8 @@ type Item struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Due   string `json:"due,omitempty"` // tasks: the due date
+	// Detail is extra text: "sev1 open" for an incident.
+	Detail string `json:"detail,omitempty"`
 }
 
 // Group is a counted list.
@@ -33,10 +35,13 @@ type Group struct {
 
 // VaultToday is what one vault has.
 type VaultToday struct {
-	Vault   string `json:"vault"`
-	Due     Group  `json:"due"`     // constraints whose review_by is today or earlier
-	Blocked Group  `json:"blocked"` // open tasks with status blocked or a blocked_by entry
-	Nudges  Group  `json:"nudges"`  // open RFX whose next_nudge is today or earlier
+	Vault string `json:"vault"`
+	// Incidents holds incidents not resolved (open or mitigated), worst first.
+	// They are shown before everything else.
+	Incidents Group `json:"incidents"`
+	Due       Group `json:"due"`     // constraints whose review_by is today or earlier
+	Blocked   Group `json:"blocked"` // open tasks with status blocked or a blocked_by entry
+	Nudges    Group `json:"nudges"`  // open RFX whose next_nudge is today or earlier
 	// Overdue holds open tasks due before today; DueSoon holds open tasks due
 	// from today through DueSoonDays days ahead. Both are ordered by due date.
 	Overdue Group `json:"overdue"`
@@ -94,7 +99,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	}
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
-		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
+		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
 			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
@@ -135,7 +140,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	}
 	for _, r := range refs {
 		switch r.Type {
-		case model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeIncident, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
 		case model.TypeInbox:
 			if r.Folder == model.FolderInbox {
 				vt.Inbox++
@@ -150,6 +155,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		}
 		item := Item{ID: d.ID, Title: d.Title}
 		switch m := d.Meta.(type) {
+		case *model.Incident:
+			if m.Status != model.IncidentResolved {
+				item.Detail = string(m.Severity) + " " + string(m.Status)
+				vt.Incidents.Items = append(vt.Incidents.Items, item)
+			}
 		case *model.Constraint:
 			if m.ReviewBy != "" && string(m.ReviewBy) <= date {
 				vt.Due.Items = append(vt.Due.Items, item)
@@ -188,6 +198,15 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			}
 		}
 	}
+	// Worst severity first: the detail starts with sev1, sev2, or sev3.
+	sort.Slice(vt.Incidents.Items, func(i, j int) bool {
+		a, b := vt.Incidents.Items[i], vt.Incidents.Items[j]
+		if a.Detail != b.Detail {
+			return a.Detail < b.Detail
+		}
+		return a.ID < b.ID
+	})
+	vt.Incidents.Count = len(vt.Incidents.Items)
 	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon} {
 		sort.Slice(g.Items, func(i, j int) bool {
 			if a, b := g.Items[i], g.Items[j]; a.Due != b.Due {
