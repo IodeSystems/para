@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
@@ -70,5 +72,19 @@ func TestRuleReachesEverySurface(t *testing.T) {
 			t.Errorf("bootstrap names %s out of order", tool)
 		}
 		at = i
+	}
+}
+
+func TestSkillFrontmatterParses(t *testing.T) {
+	parts := strings.SplitN(Skill(), "---\n", 3)
+	if len(parts) != 3 {
+		t.Fatalf("no frontmatter: %q", Skill()[:40])
+	}
+	var fm map[string]string
+	if err := yaml.Unmarshal([]byte(parts[1]), &fm); err != nil {
+		t.Fatal(err)
+	}
+	if fm["name"] != "para" || fm["description"] == "" {
+		t.Fatalf("frontmatter = %v", fm)
 	}
 }
