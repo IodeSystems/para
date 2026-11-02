@@ -14,6 +14,7 @@ export type OverlaySearch = {
   itemreq?: string // proposal item id being asked for changes, a clarification, or an investigation
   edit?: string // proposal item id being edited
   noteedit?: string // note id whose title and body are edited
+  docedit?: string // id of any other document whose title, body, and fields are edited
   answer?: string // question id
   ask?: string // question id to ask someone about
   drop?: string // question id to drop
@@ -46,6 +47,7 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     itemreq: id(s.itemreq),
     edit: id(s.edit),
     noteedit: id(s.noteedit),
+    docedit: id(s.docedit),
     answer: id(s.answer),
     ask: id(s.ask),
     drop: id(s.drop),
@@ -74,6 +76,7 @@ export const NO_OVERLAYS: OverlaySearch = {
   itemreq: undefined,
   edit: undefined,
   noteedit: undefined,
+  docedit: undefined,
   answer: undefined,
   ask: undefined,
   drop: undefined,

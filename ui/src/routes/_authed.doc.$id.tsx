@@ -7,7 +7,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
-import { useCopyText, useDoc } from '@/api/doc'
+import { useCopyText, useDoc, useDocFields } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
@@ -31,6 +31,7 @@ function Doc() {
   const { id } = Route.useParams()
   const q = useDoc(id)
   const copy = useCopyText()
+  const fields = useDocFields(id)
   const [as, setAs] = useState<Para_CopyInputAs>('plain')
   return (
     <DataState q={q}>
@@ -39,13 +40,15 @@ function Doc() {
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {d.meta.type === 'note' && (
+                {(d.meta.type === 'note' || fields.data?.editable) && (
                   <LinkButton
                     size="small"
                     variant="outlined"
                     to="."
                     title="Change the text yourself"
-                    search={(p) => ({ ...p, noteedit: d.id })}
+                    search={(p) =>
+                      d.meta.type === 'note' ? { ...p, noteedit: d.id } : { ...p, docedit: d.id }
+                    }
                   >
                     Edit
                   </LinkButton>

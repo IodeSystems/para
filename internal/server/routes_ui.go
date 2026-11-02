@@ -9,6 +9,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/netguard"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/paramd"
 	"github.com/iodesystems/parasolve/internal/store"
 	"github.com/iodesystems/parasolve/internal/today"
 	"github.com/iodesystems/parasolve/internal/tui"
@@ -75,6 +76,25 @@ type UIDocInput struct {
 }
 
 type uiDocOutput struct{ Body model.Document }
+
+// UIDocField is one field a person may edit on a document, with its value as
+// the edit form shows it.
+type UIDocField struct {
+	Name     string   `json:"name"`
+	Kind     string   `json:"kind"`
+	Enum     []string `json:"enum,omitempty"`
+	Required bool     `json:"required,omitempty"`
+	Value    string   `json:"value"`
+}
+
+// UIDocFieldsBody lists the editable fields of a document. Editable is false
+// for a type with its own ops.
+type UIDocFieldsBody struct {
+	Editable bool         `json:"editable"`
+	Fields   []UIDocField `json:"fields"`
+}
+
+type uiDocFieldsOutput struct{ Body UIDocFieldsBody }
 
 // UILiveSubscribeBody is a signed cap for the vault's event channel.
 type UILiveSubscribeBody struct {
@@ -197,6 +217,27 @@ func registerUI(r *registrar) {
 				return nil, b.t.apiError(err)
 			}
 			return &uiDocOutput{Body: d}, nil
+		})
+	raw(r, "uiDocFields", get, "/api/v1/ui/doc/fields", netguard.ScopeVaultRead, "List the fields of a document a person may edit, with their values",
+		func(ctx context.Context, in *UIDocInput) (*uiDocFieldsOutput, error) {
+			b, err := s.bound(ctx)
+			if err != nil {
+				return nil, err
+			}
+			d, err := b.t.store.As(b.req.Principal.Name, b.surface).Get(ctx, in.ID)
+			if err != nil {
+				return nil, b.t.apiError(err)
+			}
+			text, err := d.FieldText()
+			if err != nil {
+				return nil, b.t.apiError(err)
+			}
+			out := UIDocFieldsBody{Fields: []UIDocField{}}
+			for _, f := range paramd.EditableFields(string(d.Meta.Header().Type)) {
+				out.Editable = true
+				out.Fields = append(out.Fields, UIDocField{Name: f.Name, Kind: f.Kind, Enum: f.Enum, Required: f.Required, Value: text[f.Name]})
+			}
+			return &uiDocFieldsOutput{Body: out}, nil
 		})
 	raw(r, "uiLiveSubscribe", post, "/api/v1/ui/live/subscribe", netguard.ScopeVaultRead, "Mint a cap for this vault's live event channel",
 		func(ctx context.Context, _ *noInput) (*uiLiveOutput, error) {

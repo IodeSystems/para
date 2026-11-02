@@ -972,8 +972,11 @@ func (m *Model) editNote() tea.Cmd {
 		return nil
 	}
 	if _, ok := p.doc.Meta.(*model.Note); !ok {
-		m.setStatus("Edit is for notes.", true)
-		return nil
+		if !editable(p.doc) {
+			m.setStatus("This document has its own commands; it is not edited here.", true)
+			return nil
+		}
+		return m.editDocBuffer(p)
 	}
 	f, err := os.CreateTemp(m.env.StateDir, "edit-*.txt")
 	if err != nil {

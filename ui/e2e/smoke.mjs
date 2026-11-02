@@ -1201,6 +1201,16 @@ try {
   await rp.getByText('resolved', { exact: true }).first().waitFor()
   check(true, 'the incident can be resolved')
 
+  // Edit on a page that is not a note: the incident's body, through doc_edit.
+  await rp.goto(`${base}/doc/${incident}`)
+  await rp.getByRole('link', { name: 'Edit', exact: true }).click()
+  const ie = rp.getByRole('dialog', { name: 'Edit' })
+  await ie.getByLabel('Body').fill('Build host ran out of disk; caches cleared by hand.')
+  await ie.getByRole('button', { name: 'Save' }).click()
+  await ie.waitFor({ state: 'hidden' })
+  await rp.getByText('Build host ran out of disk; caches cleared by hand.').waitFor()
+  check(true, 'an incident page has Edit, and the body change shows')
+
   // Search filters and tags.
   await rp.goto(`${base}/search?q=Logs&type=policy`)
   await rp.getByRole('link', { name: 'Logging policy' }).first().waitFor()

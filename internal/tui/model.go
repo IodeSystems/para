@@ -263,6 +263,8 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		return m.onEdited(msg)
 	case noteEditedMsg:
 		return m.onNoteEdited(msg)
+	case docEditedMsg:
+		return m.onDocEdited(msg)
 	case whoMsg:
 		return m.onWho(msg)
 	case liveTickMsg:

@@ -243,7 +243,7 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	}
 	src := withOverview(docSource(p.doc), p.doc.Title, p.ov)
 	reserved := docActionLetters
-	if _, ok := p.doc.Meta.(*model.Note); ok {
+	if editable(p.doc) {
 		reserved += "e"
 	}
 	if _, ok := p.doc.Meta.(*model.Question); ok {
@@ -272,7 +272,7 @@ func (m *Model) docActionsFor(p *page) []Target {
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		acts = append(append([]Target{}, questionActs...), docActions...)
 	}
-	if _, ok := p.doc.Meta.(*model.Note); ok {
+	if editable(p.doc) {
 		acts = append([]Target{actEditNote}, acts...)
 	}
 	if findableID(p.id) {
