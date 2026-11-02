@@ -18,7 +18,7 @@ export const Route = createRootRoute({
       <Typography variant="h5" component="h1" gutterBottom>
         Not found
       </Typography>
-      <LinkButton to="/today">Go to Today</LinkButton>
+      <LinkButton to="/agenda">Go to Agenda</LinkButton>
     </Box>
   ),
 })

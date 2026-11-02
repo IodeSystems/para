@@ -61,6 +61,10 @@ export function AppShell({ session, children }: { session: SessionView; children
           </LinkButton>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, pl: { md: 1 } }} noWrap>
             para
+            {/* The vault is shown as plain text: the session is bound to one vault by its address. */}
+            <Box component="span" sx={{ ml: 1, opacity: 0.8, fontSize: '0.8em' }} aria-label="Vault">
+              {session.vault}
+            </Box>
           </Typography>
           <LinkButton
             color="inherit"
@@ -165,12 +169,12 @@ export function AppShell({ session, children }: { session: SessionView; children
         <BottomNavigation
           showLabels
           value={
-            current?.to === '/search' || current?.to === '/today' || current?.to === '/review'
+            current?.to === '/search' || current?.to === '/agenda' || current?.to === '/review'
               ? current.to
               : false
           }
         >
-          <LinkBottomNavAction value="/today" label="Today" icon={<TodayIcon />} to="/today" />
+          <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           <LinkBottomNavAction
             value="/review"
             label="Review"

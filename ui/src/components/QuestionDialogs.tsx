@@ -525,7 +525,7 @@ function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => vo
           fullWidth
         />
         <Typography variant="caption" color="text.secondary">
-          It leaves Today and the task lists. It still blocks what depends on it. Waiting on
+          It leaves the Agenda and the task lists. It still blocks what depends on it. Waiting on
           something adds a dependency; a condition makes a task with that done-when. To go ahead
           without it, cut the dependency instead.
         </Typography>

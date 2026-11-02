@@ -115,12 +115,12 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                     t.deferred
                       ? {
                           label: 'Not later',
-                          hint: 'Bring this back to Today and next',
+                          hint: 'Bring this back to the Agenda and next',
                           onSelect: () => undefer.mutate([t.id]),
                         }
                       : {
                           label: 'Later',
-                          hint: 'Put this off. It leaves Today and next',
+                          hint: 'Put this off. It leaves the Agenda and next',
                           search: { later: t.id },
                         },
                     {

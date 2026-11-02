@@ -122,7 +122,7 @@ export function QuestionRows({ list }: { list: Rows }) {
                 x.deferred
                   ? {
                       label: 'Not later',
-                      hint: 'Bring this back to Today',
+                      hint: 'Bring this back to the Agenda',
                       onSelect: () => undefer.mutate([x.id]),
                     }
                   : {

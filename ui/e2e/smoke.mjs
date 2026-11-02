@@ -1,6 +1,6 @@
 // Browser smoke test against the real binary. It builds para with the embedded UI, makes a temp
 // install with one vault, runs `para serve` on 127.0.0.1:7710, and drives Chrome through sign-in,
-// Today, Review accept, capture, live refresh, a rendered document, the graph, and the service
+// Agenda, Review accept, capture, live refresh, a rendered document, the graph, and the service
 // worker. Needs Google Chrome (playwright channel 'chrome') and a built ui/dist (`pnpm build`).
 //
 //   pnpm build && pnpm e2e
@@ -344,7 +344,7 @@ try {
   page.on('websocket', (w) => sockets.push(w))
 
   // Without a session: the sign-in page.
-  await page.goto(`${base}/today`)
+  await page.goto(`${base}/agenda`)
   await page.waitForURL(/\/login/)
   check(
     await page.getByRole('heading', { name: 'Sign in to para' }).isVisible(),
@@ -358,9 +358,9 @@ try {
 
   // The fragment token signs in and is stripped from the address bar.
   await page.goto(`${base}/#token=${token}`)
-  await page.waitForURL(/\/today/)
+  await page.waitForURL(/\/agenda/)
   check(!page.url().includes('token'), 'token is gone from the address bar')
-  await page.getByRole('heading', { name: 'Today' }).waitFor()
+  await page.getByRole('heading', { name: 'Agenda' }).waitFor()
   await page.getByText('Seed: ask platform about the quota').waitFor()
   const cookies = await ctx.cookies()
   const sess = cookies.find((c) => c.name === 'para_session')
@@ -374,16 +374,30 @@ try {
   )
   check(
     await page.getByText('Seed: ask platform about the quota').isVisible(),
-    'Today lists the inbox item',
+    'Agenda lists the inbox item',
   )
+  // Today is gone: the old address lands on the Agenda. The vault is plain text in the bar.
+  await page.goto(`${base}/today`)
+  await page.waitForURL(/\/agenda/)
+  check(!page.url().includes('/today'), '/today redirects to /agenda')
+  check(
+    (await page.getByRole('link', { name: 'Today', exact: true }).count()) === 0,
+    'there is no Today link',
+  )
+  check(await page.getByLabel('Vault').first().isVisible(), 'the bar names the vault as text')
+  await page.getByRole('link', { name: 'Group by date' }).click()
+  await page.waitForURL(/by=date/)
+  await page.getByRole('link', { name: 'Group by date' }).click()
+  await page.waitForFunction(() => !location.search.includes('by=date'))
+  check(true, 'Group by date toggles on and off')
   // Ready work is in the one list in value order, with the reason on the row.
-  check(await page.getByText('Write the plan').first().isVisible(), 'Today lists a ready task')
+  check(await page.getByText('Write the plan').first().isVisible(), 'Agenda lists a ready task')
 
   // Live refresh over /ws: a write by another client shows up without a reload or the 60 s poll.
   check(sockets.length > 0, '/ws socket opened')
   await api(token, '/api/v1/inbox/add', { text: 'Pushed live item' })
   await page.getByText('Pushed live item').waitFor({ timeout: 8000 })
-  check(true, 'live push refreshed Today without a reload')
+  check(true, 'live push refreshed Agenda without a reload')
 
   // A write by a separate process (the CLI, as para mcp does) reaches the page through the events/
   // watcher: no reload, well inside the 60 s poll.
@@ -643,7 +657,7 @@ try {
   })
   await rp.goto(reviewerUrl)
   // The cookie exists once the page is drawn; leaving earlier would cancel the exchange.
-  await rp.getByRole('heading', { name: 'Today' }).waitFor()
+  await rp.getByRole('heading', { name: 'Agenda' }).waitFor()
   await rp.goto(`${base}/review`)
   await rp.getByRole('heading', { name: 'Proposals' }).waitFor()
   await rp.getByRole('link', { name: 'Quota follow-ups' }).first().click()
@@ -654,11 +668,11 @@ try {
     await rp.getByText('This text came from a document, not from you.').isVisible(),
     'the first proposal a browser opens explains untrusted text',
   )
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp.getByText(/Start here - Proposal from/).waitFor()
   check(
     (await rp.getByText(/Needs you:/).count()) === 0,
-    'Today puts the proposal first, with no Needs you sentence',
+    'Agenda puts the proposal first, with no Needs you sentence',
   )
   await rp.getByRole('link', { name: 'Menu' }).click()
   await rp
@@ -709,7 +723,7 @@ try {
   const dp = await dctx.newPage()
   watched = dp
   await dp.goto(readerUrl)
-  await dp.getByRole('heading', { name: 'Today' }).waitFor()
+  await dp.getByRole('heading', { name: 'Agenda' }).waitFor()
   await dp.goto(`${base}/proposals/${filed.id}`)
   await dp.getByText('lacks the proposal:review scope').waitFor()
   check(
@@ -1088,7 +1102,7 @@ try {
   check(findWork.length === 1, 'a second press adds the hint to the open work, not a new request')
 
   // Triage an inbox item into a question with a scope; finish a task with a note.
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp
     .getByRole('listitem')
     .filter({ hasText: 'Triage me to a question' })
@@ -1122,13 +1136,13 @@ try {
   )
 
   // Areas, incidents, waiting, due dates.
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp.getByRole('link', { name: 'Disk full on build host' }).waitFor()
-  check(true, 'Today lists the open incident')
+  check(true, 'Agenda lists the open incident')
   // Health: one line on Today with a count, a page with the groups, and dismiss with a reason.
   const healthLine = rp.getByRole('link', { name: /health finding/ })
   await healthLine.waitFor()
-  check(true, 'Today has a health line with the count')
+  check(true, 'Agenda has a health line with the count')
   await healthLine.click()
   await rp.getByRole('heading', { name: 'Health', exact: true }).waitFor()
   const dismissButtons = rp.getByRole('button', { name: 'Dismiss', exact: true })
@@ -1146,15 +1160,15 @@ try {
     healthBefore,
   )
   check(true, 'dismissing a finding takes it off the Health page')
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp.getByRole('link', { name: 'Disk full on build host' }).waitFor()
   check(
     (await rp.getByRole('button', { name: /^Done: / }).count()) >= 1,
-    'Today task rows have Done in place',
+    'Agenda task rows have Done in place',
   )
   check(
     (await rp.getByRole('button', { name: /^Change the date of/ }).count()) >= 1,
-    'Today task rows have a date action in place',
+    'Agenda task rows have a date action in place',
   )
   await rp.getByRole('button', { name: /^Waiting on others/ }).click()
   const waitRow = rp.getByRole('listitem').filter({ hasText: 'Review the contract' })
@@ -1230,7 +1244,7 @@ try {
   const rawId =
     /\b(task|project|person|policy|rfx|area|question|proposal|request|incident|constraint|domain)-[a-z0-9]+(-[a-z0-9]+)*/
   for (const path of [
-    '/today',
+    '/agenda',
     '/work',
     '/rfx',
     `/rfx/${rfx}`,
@@ -1343,11 +1357,11 @@ try {
   )
 
   // Today counts the answer to check and links to it.
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp.getByText(/Start here - .*answer.* to check/).waitFor()
   check(
     (await rp.getByRole('link', { name: 'Check', exact: true }).count()) >= 1,
-    'Today counts answers to check and links to Review',
+    'Agenda counts answers to check and links to Review',
   )
   await rp.goto(`${base}/questions`)
   const prow = rp.getByRole('listitem').filter({ hasText: 'Which log retention applies?' })
@@ -1523,7 +1537,7 @@ try {
   check(true, 'a task page lets the owner set done when')
   // A new goal needs done when; a new task may have it.
   para(...v, 'inbox', 'add', 'Triage me to a goal')
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp
     .getByRole('listitem')
     .filter({ hasText: 'Triage me to a goal' })
@@ -1600,7 +1614,7 @@ try {
     'rescheduling through the dialog stores the typed time in the viewer zone',
   )
   // Agenda lists it, and the export button gives a calendar file.
-  await rp.goto(`${base}/agenda`)
+  await rp.goto(`${base}/agenda?by=date`)
   await rp.getByRole('link', { name: 'Quota sync' }).waitFor()
   check(true, 'the Agenda lists the meeting')
   const [dl] = await Promise.all([
@@ -1750,7 +1764,6 @@ try {
     ['/rfx', 'Asks'],
     ['/requests', 'Agent work'],
     ['/work', 'Goals and tasks'],
-    ['/today', null],
     ['/questions', null],
     ['/meetings', 'Meetings'],
     ['/agenda', 'Agenda'],
@@ -1784,7 +1797,7 @@ try {
   if (process.env.PARA_E2E_SHOTS) {
     const dir = process.env.PARA_E2E_SHOTS
     const shots = [
-      ['today', '/today'],
+      ['agenda', '/agenda'],
       ['work', '/work'],
       ['graph', '/work?view=graph'],
       ['rfx', '/rfx'],
@@ -1811,14 +1824,14 @@ try {
   }
 
   // Phone: the tabs fold into a menu, and every screen is in it.
-  await rp.goto(`${base}/today`)
+  await rp.goto(`${base}/agenda`)
   await rp.getByRole('link', { name: 'Menu' }).click()
   const nav = rp.getByRole('navigation').filter({ hasText: 'Questions' })
   await nav.getByText('Questions', { exact: true }).waitFor()
   check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
   check(
-    (await nav.getByRole('link').count()) === 12,
-    'the menu lists the nine screens, Meetings, Agenda, and Activity',
+    (await nav.getByRole('link').count()) === 11,
+    'the menu lists the nine screens, Meetings, and Activity',
   )
   await rp.goBack()
   await nav.waitFor({ state: 'hidden' })
@@ -1832,14 +1845,14 @@ try {
     t.replace(/\d+/g, '').replace(/\s+/g, ' ').trim(),
   )
   check(
-    quickNames.join('|') === 'Today|Review|Search|Menu',
-    `a phone has a bottom bar: Today, Review, Search, Menu (got ${quickNames.join('|')})`,
+    quickNames.join('|') === 'Agenda|Review|Search|Menu',
+    `a phone has a bottom bar: Agenda, Review, Search, Menu (got ${quickNames.join('|')})`,
   )
   await quick.getByRole('link', { name: 'Search' }).click()
   await rp.waitForURL(/\/search/)
   check(true, 'the bottom bar opens Search in one tap')
-  await rp.goto(`${base}/today`)
-  await rp.getByRole('heading', { name: 'Today' }).waitFor()
+  await rp.goto(`${base}/agenda`)
+  await rp.getByRole('heading', { name: 'Agenda' }).waitFor()
   // Help holds the build, the vault, and the key list; the page has no footer stamp.
   await rp.keyboard.press('?')
   const help = rp.getByRole('dialog', { name: 'Help' })
@@ -1878,7 +1891,7 @@ try {
   await rctx.close()
 
   // Service worker: app shell only.
-  await page.goto(`${base}/today`)
+  await page.goto(`${base}/agenda`)
   const swInfo = await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready
     const keys = await caches.keys()
@@ -1920,7 +1933,7 @@ try {
   )
 
   // Sign out.
-  await page.goto(`${base}/today`)
+  await page.goto(`${base}/agenda`)
   await page.getByRole('button', { name: /Sign out/ }).click()
   await page.waitForURL(/\/login/)
   check(true, 'sign out returns to /login')

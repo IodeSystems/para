@@ -20,7 +20,7 @@ export const Route = createFileRoute('/login')({
   }),
   // A valid session needs no sign-in.
   beforeLoad: async ({ search }) => {
-    if (await ensureSession()) throw redirect({ href: search.redirect ?? '/today', replace: true })
+    if (await ensureSession()) throw redirect({ href: search.redirect ?? '/agenda', replace: true })
   },
   component: Login,
 })
@@ -32,7 +32,7 @@ function Login() {
   const [error, setError] = useState(lastSignInError)
   const [busy, setBusy] = useState(false)
 
-  const go = () => void navigate({ href: redirect ?? '/today', replace: true })
+  const go = () => void navigate({ href: redirect ?? '/agenda', replace: true })
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
