@@ -4,7 +4,7 @@ import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 
 const TodayDoc = graphql(/* GraphQL */ `
-  query Today($today: String) {
+  query Today {
     para {
       v1 {
         uiToday {
@@ -52,21 +52,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             title
             status
             project
-          }
-        }
-        rfxWaiting(today: $today) {
-          items {
-            id
-            title
-            route
-            nextNudge
             due
-            stalled
-            targets {
-              to
-              state
-              medium
-            }
           }
         }
       }
@@ -78,11 +64,10 @@ export function useToday() {
   return useQuery({
     queryKey: ['today'],
     queryFn: async () => {
-      const v = (await gqlClient.request(TodayDoc, { today: localDate() })).para.v1
+      const v = (await gqlClient.request(TodayDoc)).para.v1
       return {
         today: need(v.uiToday, 'today').today,
         next: need(v.next, 'next tasks').tasks,
-        waiting: need(v.rfxWaiting, 'waiting requests').items,
       }
     },
   })

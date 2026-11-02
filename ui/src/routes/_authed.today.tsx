@@ -4,13 +4,17 @@ import { LinkButton } from '@/components/links'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
-import Stack from '@mui/material/Stack'
 import { useInbox } from '@/api/inbox'
 import { useToday } from '@/api/today'
 import { errorText } from '@/client/gqlClient'
 import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
-import { DocLink, RfxLink } from '@/components/DocLink'
+import { DocLink } from '@/components/DocLink'
+import { IncidentRows } from '@/components/IncidentRows'
+import { QuestionsSection } from '@/components/Questions'
+import { DueChip } from '@/components/TaskRows'
+import { WaitingSection } from '@/components/Waiting'
+import { useIncidents } from '@/api/areas'
 
 export const Route = createFileRoute('/_authed/today')({ component: Today })
 
@@ -61,6 +65,20 @@ function InboxSection() {
   )
 }
 
+function IncidentsSection() {
+  const q = useIncidents()
+  const list = (q.data ?? []).filter((i) => i.status !== 'resolved')
+  return (
+    <Section title="Incidents" count={list.length}>
+      {list.length === 0 ? (
+        <Empty>{q.isError ? errorText(q.error) : 'No open incident.'}</Empty>
+      ) : (
+        <IncidentRows list={list} />
+      )}
+    </Section>
+  )
+}
+
 function Today() {
   const q = useToday()
   return (
@@ -83,6 +101,8 @@ function Today() {
                 </Alert>
               )}
               <InboxSection />
+              <IncidentsSection />
+              <QuestionsSection />
               <Section title="Next tasks" count={d.next.length}>
                 {d.next.length === 0 ? (
                   <Empty>No task is ready.</Empty>
@@ -94,36 +114,14 @@ function Today() {
                           primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>}
                           secondary={x.project || undefined}
                         />
+                        {x.due && <DueChip due={x.due} />}
                         <StateChip state={x.status} />
                       </ListItem>
                     ))}
                   </List>
                 )}
               </Section>
-              <Section title="Waiting on others" count={d.waiting.length}>
-                {d.waiting.length === 0 ? (
-                  <Empty>Nobody owes you an answer.</Empty>
-                ) : (
-                  <List dense disablePadding>
-                    {d.waiting.map((x) => (
-                      <ListItem key={x.id} disableGutters>
-                        <ListItemText
-                          primary={<RfxLink id={x.id}>{x.title || x.id}</RfxLink>}
-                          secondary={
-                            [x.route, x.nextNudge && `nudge ${x.nextNudge}`]
-                              .filter(Boolean)
-                              .join(' - ') || undefined
-                          }
-                        />
-                        <Stack direction="row" spacing={0.5}>
-                          {x.stalled && <StateChip state="stalled" />}
-                          {x.due && <StateChip state="blocked" label="nudge due" />}
-                        </Stack>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </Section>
+              <WaitingSection />
               <Section title="Blocked" count={t.blocked.count}>
                 <DocList g={t.blocked} empty="Nothing is blocked." />
               </Section>

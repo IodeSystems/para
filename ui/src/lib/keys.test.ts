@@ -8,7 +8,7 @@ describe('shortcuts', () => {
   it('digits switch tabs', () => {
     for (const t of TABS) expect(press(t.key)).toEqual({ kind: 'tab', to: t.to })
     expect(press('0')).toBeNull()
-    expect(press('9')).toBeNull()
+    expect(press('10')).toBeNull()
   })
   it('/ searches, c captures, ? shows help', () => {
     expect(press('/')).toEqual({ kind: 'search' })

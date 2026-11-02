@@ -11,6 +11,7 @@ export const TABS: Tab[] = [
   { key: '6', to: '/policy', label: 'Policy' },
   { key: '7', to: '/search', label: 'Search' },
   { key: '8', to: '/requests', label: 'Requests' },
+  { key: '9', to: '/questions', label: 'Questions' },
 ]
 
 export type KeyAction =

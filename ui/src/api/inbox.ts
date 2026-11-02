@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_InboxTriageInputTo } from '@/gql/graphql'
+import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
 
 const InboxListDoc = graphql(/* GraphQL */ `
   query Inbox {
@@ -96,6 +96,13 @@ export type TriageInput = {
   owner?: string
   person?: string
   route?: string
+  // question: exactly one scope, and optional kind and options
+  area?: string
+  task?: string
+  root?: boolean
+  kind?: Para_InboxTriageInputKind
+  options?: string[]
+  recommended?: string
 }
 
 export function useTriage() {
@@ -112,6 +119,12 @@ export function useTriage() {
               owner: b.owner || undefined,
               person: b.person || undefined,
               route: b.route || undefined,
+              area: b.area || undefined,
+              task: b.task || undefined,
+              root: b.root || undefined,
+              kind: b.kind,
+              options: b.options?.length ? b.options : undefined,
+              recommended: b.recommended || undefined,
             },
           })
         ).para.v1.inboxTriage,

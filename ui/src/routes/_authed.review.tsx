@@ -6,14 +6,57 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useProposals } from '@/api/proposals'
 import { useAccept, useReopen, useReview } from '@/api/review'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
+import { TextLink } from '@/components/links'
+import { StateChip } from '@/components/Bits'
 import { errorText } from '@/client/gqlClient'
 import { ago, newestTS, transition } from '@/lib/events'
 
 export const Route = createFileRoute('/_authed/review')({ component: Review })
+
+function ProposalsSection() {
+  const q = useProposals()
+  // A closed proposal has been decided. Everything else is waiting on someone.
+  const items = (q.data ?? []).filter((p) => p.status !== 'closed' || p.error)
+  return (
+    <Section title="Proposals" count={items.length}>
+      {q.isError ? (
+        <Alert severity="error">{errorText(q.error)}</Alert>
+      ) : items.length === 0 ? (
+        <Empty>No agent proposal waits for you.</Empty>
+      ) : (
+        <List dense disablePadding>
+          {items.map((p) => (
+            <ListItem key={p.id} disableGutters>
+              <ListItemText
+                primary={
+                  <TextLink to="/proposals/$id" params={{ id: p.id }} underline="hover">
+                    {p.title || p.id}
+                  </TextLink>
+                }
+                secondary={
+                  p.error
+                    ? p.error
+                    : `revision ${p.revision} - ${p.pending} of ${p.itemCount} open - by ${p.proposedBy}`
+                }
+                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+              />
+              {p.error ? (
+                <StateChip state="blocked" label="broken file" />
+              ) : (
+                <StateChip state={p.status} />
+              )}
+            </ListItem>
+          ))}
+        </List>
+      )}
+    </Section>
+  )
+}
 
 function Review() {
   const q = useReview()
@@ -51,6 +94,7 @@ function Review() {
           {errorText(err)}
         </Alert>
       )}
+      <ProposalsSection />
       <DataState q={q}>
         {(r) => (
           <>

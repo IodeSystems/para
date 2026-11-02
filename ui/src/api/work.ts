@@ -21,6 +21,10 @@ const WorkDoc = graphql(/* GraphQL */ `
             title
             status
             project
+            area
+            due
+            recur
+            assignee
             dependsOn
             blockedBy
           }

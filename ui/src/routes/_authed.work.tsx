@@ -3,14 +3,18 @@ import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
+import { useAreas } from '@/api/areas'
 import { useGraph, useWork } from '@/api/work'
-import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
+import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
-import { DocLink } from '@/components/DocLink'
+import { LinkButton, TextLink } from '@/components/links'
+import { QuestionsSection } from '@/components/Questions'
+import { TaskRows } from '@/components/TaskRows'
 import { Mermaid } from '@/components/Mermaid'
 import { graphToMermaid } from '@/lib/markdown'
 
@@ -62,6 +66,8 @@ function Tasks({ w }: { w: WorkData }) {
   const loose = byProject.get('') ?? []
   return (
     <>
+      <QuestionsSection />
+      <AreasSection />
       {w.projects.length === 0 && <Empty>No projects yet.</Empty>}
       {w.projects.map((p) => (
         <Section
@@ -69,45 +75,54 @@ function Tasks({ w }: { w: WorkData }) {
           title={p.title || p.id}
           count={byProject.get(p.id)?.length ?? 0}
           action={
-            <Chip
-              size="small"
-              label={`${p.status}${p.owner ? ` - ${p.owner}` : ''}`}
-              variant="outlined"
-            />
+            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+              <Chip
+                size="small"
+                label={`${p.status}${p.owner ? ` - ${p.owner}` : ''}`}
+                variant="outlined"
+              />
+              <LinkButton size="small" to="/projects/$id" params={{ id: p.id }}>
+                Open
+              </LinkButton>
+            </Stack>
           }
         >
-          <TaskList tasks={byProject.get(p.id) ?? []} />
+          <TaskRows tasks={byProject.get(p.id) ?? []} />
         </Section>
       ))}
       {loose.length > 0 && (
         <Section title="No project" count={loose.length}>
-          <TaskList tasks={loose} />
+          <TaskRows tasks={loose} />
         </Section>
       )}
     </>
   )
 }
 
-function TaskList({ tasks }: { tasks: WorkData['tasks'] }) {
-  if (tasks.length === 0) return <Empty>No tasks.</Empty>
+function AreasSection() {
+  const q = useAreas()
+  const areas = q.data ?? []
   return (
-    <List dense disablePadding>
-      {tasks.map((t) => (
-        <ListItem key={t.id} disableGutters>
-          <ListItemText
-            primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
-            secondary={
-              t.blockedBy.length
-                ? `blocked by ${t.blockedBy.join(', ')}`
-                : t.dependsOn.length
-                  ? `after ${t.dependsOn.join(', ')}`
-                  : undefined
-            }
-          />
-          <StateChip state={t.status} />
-        </ListItem>
-      ))}
-    </List>
+    <Section title="Areas" count={areas.length}>
+      {areas.length === 0 ? (
+        <Empty>No area. An area is long-running work with no end.</Empty>
+      ) : (
+        <List dense disablePadding>
+          {areas.map((a) => (
+            <ListItem key={a.id} disableGutters>
+              <ListItemText
+                primary={
+                  <TextLink to="/areas/$id" params={{ id: a.id }} underline="hover">
+                    {a.title || a.id}
+                  </TextLink>
+                }
+              />
+              <Chip size="small" variant="outlined" label={a.status} />
+            </ListItem>
+          ))}
+        </List>
+      )}
+    </Section>
   )
 }
 

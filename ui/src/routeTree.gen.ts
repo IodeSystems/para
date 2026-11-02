@@ -18,9 +18,14 @@ import { Route as AuthedReviewRouteImport } from './routes/_authed.review'
 import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
 import { Route as AuthedTodayRouteImport } from './routes/_authed.today'
 import { Route as AuthedWorkRouteImport } from './routes/_authed.work'
+import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
 import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
+import { Route as AuthedIncidentsIdRouteImport } from './routes/_authed.incidents.$id'
 import { Route as AuthedPeopleIndexRouteImport } from './routes/_authed.people.index'
 import { Route as AuthedPeopleIdRouteImport } from './routes/_authed.people.$id'
+import { Route as AuthedProjectsIdRouteImport } from './routes/_authed.projects.$id'
+import { Route as AuthedProposalsIdRouteImport } from './routes/_authed.proposals.$id'
+import { Route as AuthedQuestionsIndexRouteImport } from './routes/_authed.questions.index'
 import { Route as AuthedRfxIndexRouteImport } from './routes/_authed.rfx.index'
 import { Route as AuthedRfxIdRouteImport } from './routes/_authed.rfx.$id'
 
@@ -68,9 +73,19 @@ const AuthedWorkRoute = AuthedWorkRouteImport.update({
   path: '/work',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAreasIdRoute = AuthedAreasIdRouteImport.update({
+  id: '/areas/$id',
+  path: '/areas/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedDocIdRoute = AuthedDocIdRouteImport.update({
   id: '/doc/$id',
   path: '/doc/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedIncidentsIdRoute = AuthedIncidentsIdRouteImport.update({
+  id: '/incidents/$id',
+  path: '/incidents/$id',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedPeopleIndexRoute = AuthedPeopleIndexRouteImport.update({
@@ -81,6 +96,21 @@ const AuthedPeopleIndexRoute = AuthedPeopleIndexRouteImport.update({
 const AuthedPeopleIdRoute = AuthedPeopleIdRouteImport.update({
   id: '/people/$id',
   path: '/people/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProjectsIdRoute = AuthedProjectsIdRouteImport.update({
+  id: '/projects/$id',
+  path: '/projects/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProposalsIdRoute = AuthedProposalsIdRouteImport.update({
+  id: '/proposals/$id',
+  path: '/proposals/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedQuestionsIndexRoute = AuthedQuestionsIndexRouteImport.update({
+  id: '/questions/',
+  path: '/questions/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedRfxIndexRoute = AuthedRfxIndexRouteImport.update({
@@ -103,10 +133,15 @@ export interface FileRoutesByFullPath {
   '/search': typeof AuthedSearchRoute
   '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
+  '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
+  '/incidents/$id': typeof AuthedIncidentsIdRoute
   '/people/$id': typeof AuthedPeopleIdRoute
+  '/projects/$id': typeof AuthedProjectsIdRoute
+  '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
   '/people/': typeof AuthedPeopleIndexRoute
+  '/questions/': typeof AuthedQuestionsIndexRoute
   '/rfx/': typeof AuthedRfxIndexRoute
 }
 export interface FileRoutesByTo {
@@ -118,10 +153,15 @@ export interface FileRoutesByTo {
   '/search': typeof AuthedSearchRoute
   '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
+  '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
+  '/incidents/$id': typeof AuthedIncidentsIdRoute
   '/people/$id': typeof AuthedPeopleIdRoute
+  '/projects/$id': typeof AuthedProjectsIdRoute
+  '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
   '/people': typeof AuthedPeopleIndexRoute
+  '/questions': typeof AuthedQuestionsIndexRoute
   '/rfx': typeof AuthedRfxIndexRoute
 }
 export interface FileRoutesById {
@@ -135,10 +175,15 @@ export interface FileRoutesById {
   '/_authed/search': typeof AuthedSearchRoute
   '/_authed/today': typeof AuthedTodayRoute
   '/_authed/work': typeof AuthedWorkRoute
+  '/_authed/areas/$id': typeof AuthedAreasIdRoute
   '/_authed/doc/$id': typeof AuthedDocIdRoute
+  '/_authed/incidents/$id': typeof AuthedIncidentsIdRoute
   '/_authed/people/$id': typeof AuthedPeopleIdRoute
+  '/_authed/projects/$id': typeof AuthedProjectsIdRoute
+  '/_authed/proposals/$id': typeof AuthedProposalsIdRoute
   '/_authed/rfx/$id': typeof AuthedRfxIdRoute
   '/_authed/people/': typeof AuthedPeopleIndexRoute
+  '/_authed/questions/': typeof AuthedQuestionsIndexRoute
   '/_authed/rfx/': typeof AuthedRfxIndexRoute
 }
 export interface FileRouteTypes {
@@ -152,10 +197,15 @@ export interface FileRouteTypes {
     | '/search'
     | '/today'
     | '/work'
+    | '/areas/$id'
     | '/doc/$id'
+    | '/incidents/$id'
     | '/people/$id'
+    | '/projects/$id'
+    | '/proposals/$id'
     | '/rfx/$id'
     | '/people/'
+    | '/questions/'
     | '/rfx/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -167,10 +217,15 @@ export interface FileRouteTypes {
     | '/search'
     | '/today'
     | '/work'
+    | '/areas/$id'
     | '/doc/$id'
+    | '/incidents/$id'
     | '/people/$id'
+    | '/projects/$id'
+    | '/proposals/$id'
     | '/rfx/$id'
     | '/people'
+    | '/questions'
     | '/rfx'
   id:
     | '__root__'
@@ -183,10 +238,15 @@ export interface FileRouteTypes {
     | '/_authed/search'
     | '/_authed/today'
     | '/_authed/work'
+    | '/_authed/areas/$id'
     | '/_authed/doc/$id'
+    | '/_authed/incidents/$id'
     | '/_authed/people/$id'
+    | '/_authed/projects/$id'
+    | '/_authed/proposals/$id'
     | '/_authed/rfx/$id'
     | '/_authed/people/'
+    | '/_authed/questions/'
     | '/_authed/rfx/'
   fileRoutesById: FileRoutesById
 }
@@ -261,11 +321,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedWorkRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/areas/$id': {
+      id: '/_authed/areas/$id'
+      path: '/areas/$id'
+      fullPath: '/areas/$id'
+      preLoaderRoute: typeof AuthedAreasIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/doc/$id': {
       id: '/_authed/doc/$id'
       path: '/doc/$id'
       fullPath: '/doc/$id'
       preLoaderRoute: typeof AuthedDocIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/incidents/$id': {
+      id: '/_authed/incidents/$id'
+      path: '/incidents/$id'
+      fullPath: '/incidents/$id'
+      preLoaderRoute: typeof AuthedIncidentsIdRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/people/': {
@@ -280,6 +354,27 @@ declare module '@tanstack/react-router' {
       path: '/people/$id'
       fullPath: '/people/$id'
       preLoaderRoute: typeof AuthedPeopleIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/projects/$id': {
+      id: '/_authed/projects/$id'
+      path: '/projects/$id'
+      fullPath: '/projects/$id'
+      preLoaderRoute: typeof AuthedProjectsIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/proposals/$id': {
+      id: '/_authed/proposals/$id'
+      path: '/proposals/$id'
+      fullPath: '/proposals/$id'
+      preLoaderRoute: typeof AuthedProposalsIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/questions/': {
+      id: '/_authed/questions/'
+      path: '/questions'
+      fullPath: '/questions/'
+      preLoaderRoute: typeof AuthedQuestionsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/rfx/': {
@@ -306,10 +401,15 @@ interface AuthedRouteChildren {
   AuthedSearchRoute: typeof AuthedSearchRoute
   AuthedTodayRoute: typeof AuthedTodayRoute
   AuthedWorkRoute: typeof AuthedWorkRoute
+  AuthedAreasIdRoute: typeof AuthedAreasIdRoute
   AuthedDocIdRoute: typeof AuthedDocIdRoute
+  AuthedIncidentsIdRoute: typeof AuthedIncidentsIdRoute
   AuthedPeopleIdRoute: typeof AuthedPeopleIdRoute
+  AuthedProjectsIdRoute: typeof AuthedProjectsIdRoute
+  AuthedProposalsIdRoute: typeof AuthedProposalsIdRoute
   AuthedRfxIdRoute: typeof AuthedRfxIdRoute
   AuthedPeopleIndexRoute: typeof AuthedPeopleIndexRoute
+  AuthedQuestionsIndexRoute: typeof AuthedQuestionsIndexRoute
   AuthedRfxIndexRoute: typeof AuthedRfxIndexRoute
 }
 
@@ -320,10 +420,15 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedSearchRoute: AuthedSearchRoute,
   AuthedTodayRoute: AuthedTodayRoute,
   AuthedWorkRoute: AuthedWorkRoute,
+  AuthedAreasIdRoute: AuthedAreasIdRoute,
   AuthedDocIdRoute: AuthedDocIdRoute,
+  AuthedIncidentsIdRoute: AuthedIncidentsIdRoute,
   AuthedPeopleIdRoute: AuthedPeopleIdRoute,
+  AuthedProjectsIdRoute: AuthedProjectsIdRoute,
+  AuthedProposalsIdRoute: AuthedProposalsIdRoute,
   AuthedRfxIdRoute: AuthedRfxIdRoute,
   AuthedPeopleIndexRoute: AuthedPeopleIndexRoute,
+  AuthedQuestionsIndexRoute: AuthedQuestionsIndexRoute,
   AuthedRfxIndexRoute: AuthedRfxIndexRoute,
 }
 

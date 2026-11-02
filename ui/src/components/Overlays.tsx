@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useState } from 'react'
+import { useSearch } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
@@ -15,17 +15,11 @@ import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
 import { useRequestAdd } from '@/api/requests'
 import { useRfxReply } from '@/api/rfx'
 import { errorText } from '@/client/gqlClient'
-import { NO_OVERLAYS } from '@/lib/overlays'
+import { Frame, useClose } from '@/components/OverlayFrame'
+import { ProposalDialogs } from '@/components/ProposalDialogs'
+import { QuestionDialogs } from '@/components/QuestionDialogs'
 import { TABS } from '@/lib/keys'
-import type { Para_InboxTriageInputTo } from '@/gql/graphql'
-
-// Every overlay is a search param on the current route (WEB-10). Closing drops the params in
-// place with replace, so Back never re-opens one.
-function useClose() {
-  const navigate = useNavigate()
-  return () =>
-    void navigate({ to: '.', search: (prev) => ({ ...prev, ...NO_OVERLAYS }), replace: true })
-}
+import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
 
 export function Overlays() {
   const s = useSearch({ strict: false })
@@ -37,6 +31,8 @@ export function Overlays() {
       {s.help && <HelpDialog />}
       {s.triage && <TriageDialog id={s.triage} onDone={setToast} />}
       {s.reply && <ReplyDialog id={s.reply} onDone={setToast} />}
+      <ProposalDialogs s={s} onDone={setToast} />
+      <QuestionDialogs s={s} onDone={setToast} />
       <Snackbar
         open={toast !== ''}
         autoHideDuration={3000}
@@ -44,34 +40,6 @@ export function Overlays() {
         message={toast}
       />
     </>
-  )
-}
-
-function Frame({
-  title,
-  children,
-  actions,
-  onSubmit,
-}: {
-  title: string
-  children: ReactNode
-  actions: ReactNode
-  onSubmit?: () => void
-}) {
-  const close = useClose()
-  return (
-    <Dialog open onClose={close} fullWidth maxWidth="sm" aria-labelledby="overlay-title">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSubmit?.()
-        }}
-      >
-        <DialogTitle id="overlay-title">{title}</DialogTitle>
-        <DialogContent>{children}</DialogContent>
-        <DialogActions>{actions}</DialogActions>
-      </form>
-    </Dialog>
   )
 }
 
@@ -209,10 +177,13 @@ function Row({ k, v }: { k: string; v: string }) {
 const TRIAGE_TARGETS: { value: Para_InboxTriageInputTo; label: string }[] = [
   { value: 'task', label: 'Task' },
   { value: 'project', label: 'Project' },
+  { value: 'question', label: 'Question (needs a scope)' },
   { value: 'rfx', label: 'RFX (ask someone)' },
   { value: 'note', label: 'Note on a person' },
   { value: 'drop', label: 'Drop (archive)' },
 ]
+
+type QuestionScopeType = 'project' | 'area' | 'task' | 'root'
 
 function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
   const close = useClose()
@@ -222,12 +193,32 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const [project, setProject] = useState('')
   const [person, setPerson] = useState('')
   const [route, setRoute] = useState('')
+  const [scope, setScope] = useState<QuestionScopeType>('project')
+  const [scopeId, setScopeId] = useState('')
+  const [kind, setKind] = useState<Para_InboxTriageInputKind>('question')
+  const [options, setOptions] = useState('')
+  const [recommended, setRecommended] = useState('')
+  const question = to === 'question'
+  // A question has exactly one scope: a project, an area, a task, or the vault itself.
+  const scopeOk = !question || scope === 'root' || scopeId.trim() !== ''
   const submit = () =>
     triage.mutate(
       {
         id,
         to,
-        project: to === 'task' ? project : undefined,
+        project:
+          to === 'task' ? project : question && scope === 'project' ? scopeId.trim() : undefined,
+        area: question && scope === 'area' ? scopeId.trim() : undefined,
+        task: question && scope === 'task' ? scopeId.trim() : undefined,
+        root: question && scope === 'root' ? true : undefined,
+        kind: question ? kind : undefined,
+        options: question
+          ? options
+              .split('\n')
+              .map((o) => o.trim())
+              .filter(Boolean)
+          : undefined,
+        recommended: question ? recommended.trim() : undefined,
         person: to === 'note' ? person : undefined,
         route: to === 'rfx' ? route : undefined,
       },
@@ -245,7 +236,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={triage.isPending}>
+          <Button type="submit" variant="contained" disabled={triage.isPending || !scopeOk}>
             Sort
           </Button>
         </>
@@ -274,6 +265,51 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
             value={project}
             onChange={(e) => setProject(e.target.value)}
           />
+        )}
+        {question && (
+          <>
+            <TextField
+              select
+              label="Scope (what this question is about)"
+              value={scope}
+              onChange={(e) => setScope(e.target.value as QuestionScopeType)}
+            >
+              <MenuItem value="project">A project</MenuItem>
+              <MenuItem value="area">An area</MenuItem>
+              <MenuItem value="task">A task</MenuItem>
+              <MenuItem value="root">The whole vault</MenuItem>
+            </TextField>
+            {scope !== 'root' && (
+              <TextField
+                label={`${scope[0]?.toUpperCase()}${scope.slice(1)} id`}
+                value={scopeId}
+                onChange={(e) => setScopeId(e.target.value)}
+                required
+              />
+            )}
+            <TextField
+              select
+              label="Kind"
+              value={kind}
+              onChange={(e) => setKind(e.target.value as Para_InboxTriageInputKind)}
+            >
+              <MenuItem value="question">Question</MenuItem>
+              <MenuItem value="decision">Decision (options and a reason)</MenuItem>
+              <MenuItem value="input">Input (someone gives you a value)</MenuItem>
+            </TextField>
+            <TextField
+              label="Options (one per line, optional)"
+              value={options}
+              onChange={(e) => setOptions(e.target.value)}
+              multiline
+              minRows={2}
+            />
+            <TextField
+              label="Recommended option (optional)"
+              value={recommended}
+              onChange={(e) => setRecommended(e.target.value)}
+            />
+          </>
         )}
         {to === 'note' && (
           <TextField
