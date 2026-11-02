@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"runtime/debug"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -37,6 +38,9 @@ type Options struct {
 	Name    string   // server name; empty means "para"
 	Version string   // server version
 	Hide    []string // path prefixes to remove from error text (vault root, home)
+	// Log receives a line and a stack for each op panic. Nil discards them. It
+	// is for the operator (stderr), never sent to the client.
+	Log io.Writer
 }
 
 // Server is an MCP server over one vault.
@@ -44,6 +48,7 @@ type Server struct {
 	mcp  *server.MCPServer
 	deps ops.Deps
 	hide []string
+	log  io.Writer
 }
 
 // New registers a tool for each op in ops.All.
@@ -59,6 +64,7 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		mcp:  server.NewMCPServer(name, o.Version, server.WithToolCapabilities(false), server.WithInstructions(Instructions)),
 		deps: deps,
 		hide: o.Hide,
+		log:  o.Log,
 	}
 	for _, e := range ops.All() {
 		raw, err := inputSchema(e.InputType())
@@ -81,7 +87,8 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (res *mcp.CallToolResult, _ error) {
 		defer func() {
-			if recover() != nil {
+			if r := recover(); r != nil {
+				s.logPanic(e.Name(), r)
 				res = mcp.NewToolResultError(e.Name() + ": internal error")
 			}
 		}()
@@ -108,6 +115,15 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		}
 		return res, nil
 	}
+}
+
+// logPanic writes the panic and its stack to the operator log. The client
+// gets only the generic error.
+func (s *Server) logPanic(op string, r any) {
+	if s.log == nil {
+		return
+	}
+	fmt.Fprintf(s.log, "para mcp: op %s panicked: %v\n%s\n", op, r, debug.Stack())
 }
 
 // encode matches the CLI --json encoding byte for byte.

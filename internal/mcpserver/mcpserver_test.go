@@ -607,6 +607,39 @@ func TestPanicBecomesError(t *testing.T) {
 	}
 }
 
+func TestPanicIsLoggedNotSent(t *testing.T) {
+	var log bytes.Buffer
+	srv, err := New(ops.Deps{Store: failStore{panics: true}}, Options{Log: &log})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := client.NewInProcessClient(srv.MCP())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	if err := c.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Initialize(t.Context(), mcp.InitializeRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	res := call(t, c, "reconcile", "{}")
+	msg := textOf(t, res)
+	if !res.IsError || msg != "reconcile: internal error" {
+		t.Errorf("client result = %q, error %v", msg, res.IsError)
+	}
+	got := log.String()
+	for _, want := range []string{"op reconcile panicked: boom", "goroutine", "failstore_test.go"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("log lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(msg, "boom") {
+		t.Error("panic value reached the client")
+	}
+}
+
 func TestServeStdio(t *testing.T) {
 	s, _ := newVault(t)
 	srv, err := New(ops.Deps{Store: s}, Options{})

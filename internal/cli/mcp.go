@@ -45,6 +45,7 @@ func newMCPCmd(l *loader) *cobra.Command {
 			srv, err := mcpserver.New(ops.Deps{Store: s}, mcpserver.Options{
 				Version: l.version,
 				Hide:    []string{filepath.Clean(sel.Path), l.install.Home},
+				Log:     cmd.ErrOrStderr(),
 			})
 			if err != nil {
 				return err
