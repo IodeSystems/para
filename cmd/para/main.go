@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -14,9 +15,18 @@ var (
 	srcDir  = ""
 )
 
+// exitCode is 1, or what the error asks for: a blocked hook exits 2.
+func exitCode(err error) int {
+	var c interface{ ExitCode() int }
+	if errors.As(err, &c) {
+		return c.ExitCode()
+	}
+	return 1
+}
+
 func main() {
 	if err := cli.Execute(version, srcDir); err != nil {
 		fmt.Fprintln(os.Stderr, "para:", err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }

@@ -824,3 +824,87 @@ func TestSearchBeforeCreate(t *testing.T) {
 		}
 	}
 }
+
+func TestExecutionFlow(t *testing.T) {
+	f := newPropFix(t)
+	pr := ItemInput{Kind: model.ItemAction, Subtype: "pr", What: "Open the PR", How: "Adds the fix.", Target: "acme/api", Title: "Fix", Body: "The body.",
+		Reversible: model.ReversibleYes, Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+	note := ItemInput{Kind: model.ItemMessage, Channel: "#ops", Body: "See {{i1.url}}.", Subtype: "slack", After: "i1",
+		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+	task := paraTask(f, "Watch the rollout of {{i1.url}}")
+	task.After = "i1"
+	id := f.add(pr, note, task)
+	if _, err := ProposalApprove.Run(t.Context(), f.owner, ProposalApproveInput{ID: id, Items: []string{"i1", "i2", "i3"}}); err != nil {
+		t.Fatal(err)
+	}
+	un, _ := ProposalUndone.Run(t.Context(), f.owner, ProposalUndoneInput{})
+	if len(un.Items) != 2 {
+		t.Fatalf("undone = %+v", un.Items)
+	}
+	// i2 runs after i1: its gate is shut, and it cannot be reported done.
+	if _, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "i2", Result: ExecDone, URL: "https://x.example/1"}); err == nil {
+		t.Fatal("reported before its after")
+	}
+	if out, _ := GateCheck.Run(t.Context(), f.agent, GateCheckInput{Target: "acme/api", Kind: "pr", Subject: "", Body: "wrong"}); out.Approved {
+		t.Fatal("gate passed other text")
+	}
+	full, err := GateCheck.Run(t.Context(), f.agent, GateCheckInput{Target: "acme/api", Kind: "pr", Body: "The body."})
+	if err != nil || !full.Approved {
+		t.Fatalf("gate = %+v %v", full, err)
+	}
+	if err := full.Failed(); err != nil {
+		t.Fatal(err)
+	}
+	done, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "i1", Result: ExecDone, URL: "https://github.example/acme/api/pull/7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if done.SelfReported || done.Receipt == "" {
+		t.Fatalf("a hook recorded it: %+v", done)
+	}
+	// The later item's text fills, and only then does the gate open.
+	if out, _ := GateCheck.Run(t.Context(), f.agent, GateCheckInput{Target: "#ops", Kind: "slack", Body: "See {{i1.url}}."}); out.Approved {
+		t.Fatal("gate passed the placeholder text")
+	}
+	if out, _ := GateCheck.Run(t.Context(), f.agent, GateCheckInput{Target: "#ops", Kind: "slack", Body: "See https://github.example/acme/api/pull/7."}); !out.Approved {
+		t.Fatalf("gate = %+v", out)
+	}
+	show, _ := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if show.Items[1].Hash != show.Items[1].ApprovedHash || !strings.Contains(show.Items[1].Filled, "pull/7") {
+		t.Fatalf("i2 = %+v", show.Items[1])
+	}
+	// The para item that waited on i1 ran, with the value filled.
+	if show.Items[2].State != model.ItemApproved || show.Items[2].Waits || show.Items[2].Result == "" {
+		t.Fatalf("i3 = %+v", show.Items[2])
+	}
+	made, _ := TaskShow.Run(t.Context(), f.owner, TaskShowInput{ID: show.Items[2].Result})
+	if !strings.Contains(made.Task.Title, "pull/7") {
+		t.Fatalf("title = %q", made.Task.Title)
+	}
+	// No hook: self-reported, and the value is in the receipt.
+	second, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "i2", Result: ExecDone, Locator: "#ops 12:00"})
+	if err == nil && second.SelfReported {
+		t.Fatalf("the gate recorded i2: %+v", second)
+	}
+	act, err := AgentActivity.Run(t.Context(), f.owner, AgentActivityInput{Actor: "claude"})
+	if err != nil || len(act.Items) == 0 {
+		t.Fatalf("activity = %+v %v", act, err)
+	}
+	if u, _ := ProposalUndone.Run(t.Context(), f.owner, ProposalUndoneInput{}); len(u.Items) != 0 {
+		t.Fatalf("undone = %+v", u.Items)
+	}
+}
+
+func TestBundleHaltsOnFailedExecution(t *testing.T) {
+	f := newPropFix(t)
+	a, b := reviewItem("First."), reviewItem("Second.")
+	a.Bundle, b.Bundle, b.After = "b", "b", "i1"
+	id := f.add(a, b)
+	if _, err := ProposalApprove.Run(t.Context(), f.owner, ProposalApproveInput{ID: id, Items: []string{"i2"}}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "i1", Result: ExecFailed, Reason: "The API refused."})
+	if err != nil || out.State != model.ItemFailed || len(out.Halted) != 1 || out.Halted[0] != "i2" {
+		t.Fatalf("out = %+v %v", out, err)
+	}
+}

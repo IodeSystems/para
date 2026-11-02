@@ -131,6 +131,9 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 	sections := []section{{"summary", summaryLines(in2)}}
 	if scope == model.JournalDay {
 		sections = append(sections, section{"activity", activityLines(in2, exist, loc)})
+		if lines := agentDigest(ctx, d, p.start, p.end); len(lines) > 0 {
+			sections = append(sections, section{"agent-activity", lines})
+		}
 	} else {
 		lines, err := rollupLines(ctx, d, p, exist)
 		if err != nil {
@@ -330,4 +333,38 @@ func sectionText(body, name string) string {
 		return rest[:j]
 	}
 	return ""
+}
+
+// agentDigest is the day's agent work: a line per agent, with self-reported acts
+// counted apart.
+func agentDigest(ctx context.Context, d Deps, start, end time.Time) []string {
+	rows, err := activityRows(ctx, d, "", start, end)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	type tally struct{ writes, self int }
+	by := map[string]*tally{}
+	var names []string
+	for _, r := range rows {
+		t := by[r.Actor]
+		if t == nil {
+			t = &tally{}
+			by[r.Actor] = t
+			names = append(names, r.Actor)
+		}
+		t.writes++
+		if r.SelfReported {
+			t.self++
+		}
+	}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		line := fmt.Sprintf("- %s: %d writes", n, by[n].writes)
+		if by[n].self > 0 {
+			line += fmt.Sprintf(", %d self-reported", by[n].self)
+		}
+		out = append(out, line)
+	}
+	return out
 }

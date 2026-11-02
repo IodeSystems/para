@@ -7,10 +7,17 @@ import ListItem from '@mui/material/ListItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useReceipt, useReceiptCheck, useReceiptRevert, useReceipts } from '@/api/receipts'
+import {
+  useReceipt,
+  useReceiptCheck,
+  useReceiptRevert,
+  useReceipts,
+  useUndone,
+} from '@/api/receipts'
 import { errorText } from '@/client/gqlClient'
 import { Section, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
+import { TextLink } from '@/components/links'
 import { diffKind } from '@/lib/proposal'
 
 type Row = NonNullable<ReturnType<typeof useReceipts>['data']>[number]
@@ -137,6 +144,25 @@ export function ReceiptSection({
         {items.map((r) => (
           <ListItem key={r.id} disableGutters divider sx={{ display: 'block' }}>
             <ReceiptCard r={r} />
+          </ListItem>
+        ))}
+      </List>
+    </Section>
+  )
+}
+
+// UndoneSection lists what the owner approved and nobody has carried out.
+export function UndoneSection() {
+  const q = useUndone()
+  const items = q.data ?? []
+  return (
+    <Section title="Approved, not done" count={items.length} hideEmpty>
+      <List dense disablePadding>
+        {items.map((u) => (
+          <ListItem key={`${u.proposal}-${u.item}`} disableGutters divider>
+            <TextLink to="/proposals/$id" params={{ id: u.proposal }} underline="hover">
+              {u.summary}
+            </TextLink>
           </ListItem>
         ))}
       </List>

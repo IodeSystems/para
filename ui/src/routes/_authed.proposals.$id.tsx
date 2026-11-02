@@ -496,6 +496,12 @@ function ItemCard({
           )}
         </Alert>
       )}
+      {it.execution && (
+        <Row
+          label={it.execution.selfReported ? 'Done, self-reported' : 'Done, recorded by a hook'}
+          text={it.execution.url || it.execution.locator}
+        />
+      )}
       {it.state === 'approved' && external && (
         <Alert
           severity="success"

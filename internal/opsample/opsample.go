@@ -128,6 +128,8 @@ var Inputs = map[string]string{
 	"receipt_show":      `{"id":"receipt-sample"}`,
 	"receipt_check":     `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_revert":    `{"id":"receipt-sample"}`,
+	"proposal_executed": `{"id":"proposal-decided","item":"i1","result":"done","url":"https://acme.example/m/2"}`,
+	"gate_check":        `{"target":"` + sampleTarget + `","body":"` + sampleDraft + `"}`,
 	"similar":           `{"type":"task","title":"Sample task"}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,

@@ -97,3 +97,35 @@ func (m *Model) receiptAct(id, name string) tea.Cmd {
 	}
 	return run("")
 }
+
+// rowsUndone lists what the owner approved that nobody has carried out.
+func (m *Model) rowsUndone(w int) []row {
+	if len(m.snap.Undone) == 0 {
+		return nil
+	}
+	r := []row{head(fmt.Sprintf("Approved, not done (%d)", len(m.snap.Undone)))}
+	for _, u := range m.snap.Undone {
+		r = append(r, link("prop:"+u.Proposal, "  ", u.Summary, stDim.Render("  "+u.Title), w))
+	}
+	return r
+}
+
+// rowsActivity shows what each agent did, newest first.
+func (m *Model) rowsActivity(w int) []row {
+	r := []row{head("Agent activity")}
+	if len(m.snap.Activity) == 0 {
+		return append(r, dim("  nothing yet"))
+	}
+	for _, a := range m.snap.Activity {
+		tail := ""
+		if a.SelfReported {
+			tail = "  " + stWarn.Render("self-reported")
+		}
+		if a.Why != "" {
+			tail += stDim.Render("  " + truncate(oneLine(a.Why), 40))
+		}
+		pre := "  " + stDim.Render(whenWords(a.TS, m.snap.Loaded)+" "+a.Actor) + " " + strings.ReplaceAll(a.Op, "_", " ") + " "
+		r = append(r, link("receipt:"+a.Receipt, pre, titleOr(m.snap.name(a.Doc), a.Doc), tail, w))
+	}
+	return r
+}

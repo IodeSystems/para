@@ -12,18 +12,19 @@ import (
 const docActionLetters = "zxycvd"
 
 var (
-	actCapture = Target{ID: "act:capture", Label: "Capture", Pref: 'c'}
-	actVault   = Target{ID: "act:vault", Label: "Switch vault", Pref: 'v'}
-	actZoom    = Target{ID: "act:zoom", Label: "Zoom", Pref: 'z'}
-	actExport  = Target{ID: "act:export", Label: "Export", Pref: 'x'}
-	actCopy    = Target{ID: "act:copy", Label: "Copy", Pref: 'y'}
-	actAccept  = Target{ID: "act:accept", Label: "Mark reviewed", Pref: 'm'}
-	actReopen  = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
-	actGraph   = Target{ID: "act:graph", Label: "Graph"}
-	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
-	actReject  = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
-	actMeta    = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
-	actAgenda  = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
+	actCapture  = Target{ID: "act:capture", Label: "Capture", Pref: 'c'}
+	actVault    = Target{ID: "act:vault", Label: "Switch vault", Pref: 'v'}
+	actZoom     = Target{ID: "act:zoom", Label: "Zoom", Pref: 'z'}
+	actExport   = Target{ID: "act:export", Label: "Export", Pref: 'x'}
+	actCopy     = Target{ID: "act:copy", Label: "Copy", Pref: 'y'}
+	actAccept   = Target{ID: "act:accept", Label: "Mark reviewed", Pref: 'm'}
+	actReopen   = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
+	actGraph    = Target{ID: "act:graph", Label: "Graph"}
+	actAnswer   = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
+	actReject   = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
+	actMeta     = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
+	actAgenda   = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
+	actActivity = Target{ID: "act:activity", Label: "Activity", Pref: 'i'}
 )
 
 // listing is one list screen drawn: its lines and the key map.
@@ -93,12 +94,15 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 			return m.rowsAgenda(w), acts
 		case pageHealth:
 			return m.rowsHealth(w), append([]Target{actDismiss}, acts...)
+		case pageActivity:
+			return m.rowsActivity(w), acts
 		}
 		return nil, acts
 	}
 	switch m.tab {
 	case tabReview:
 		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen}, questionActs...), actFind), acts...)
+		return m.rowsReview(w), append(append([]Target{actAccept, actReopen, actActivity}, questionActs...), acts...)
 	case tabWork:
 		return m.rowsWork(w), append(append(append([]Target{actGraph}, questionActs...), actFind), acts...)
 	case tabRFX:

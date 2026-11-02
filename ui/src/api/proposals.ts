@@ -106,6 +106,15 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             group
             waits
             filled
+            execution {
+              result
+              url
+              locator
+              by
+              at
+              selfReported
+              receipt
+            }
             state
             edited
             reason

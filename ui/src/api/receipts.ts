@@ -27,6 +27,46 @@ const ListDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const UndoneDoc = graphql(/* GraphQL */ `
+  query ProposalUndone {
+    para {
+      v1 {
+        proposalUndone {
+          items {
+            proposal
+            title
+            item
+            summary
+            target
+          }
+        }
+      }
+    }
+  }
+`)
+
+const ActivityDoc = graphql(/* GraphQL */ `
+  query AgentActivity {
+    para {
+      v1 {
+        agentActivity {
+          items {
+            ts
+            actor
+            op
+            doc
+            docName
+            request
+            receipt
+            why
+            selfReported
+          }
+        }
+      }
+    }
+  }
+`)
+
 const ShowDoc = graphql(/* GraphQL */ `
   query ReceiptShow($id: String!) {
     para {
@@ -105,5 +145,21 @@ export function useReceiptRevert() {
     mutationFn: async (v: { id: string }) =>
       need((await gqlClient.request(RevertDoc, { body: v })).para.v1.receiptRevert, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export function useUndone() {
+  return useQuery({
+    queryKey: ['undone'],
+    queryFn: async () =>
+      need((await gqlClient.request(UndoneDoc)).para.v1.proposalUndone, 'undone').items,
+  })
+}
+
+export function useActivity() {
+  return useQuery({
+    queryKey: ['activity'],
+    queryFn: async () =>
+      need((await gqlClient.request(ActivityDoc)).para.v1.agentActivity, 'activity').items,
   })
 }

@@ -143,6 +143,35 @@ func newProposalCmd(l *loader) *cobra.Command {
 		}),
 		newProposalEditCmd(l),
 		newProposalWaitCmd(l),
+		opCommand(l, ops.ProposalExecuted, binding[ops.ProposalExecutedInput, ops.ProposalExecutedOutput]{
+			Use:  "executed <id> <item> done|failed",
+			Args: cobra.ExactArgs(3),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalExecutedInput) {
+				fs.StringVar(&in.URL, "url", "", "where the result is")
+				fs.StringVar(&in.Locator, "locator", "", "where the result is, when it has no URL")
+				fs.StringVar(&in.Reason, "reason", "", "why it failed")
+			},
+			Bind: func(args []string, in *ops.ProposalExecutedInput) error {
+				in.ID, in.Item, in.Result = args[0], args[1], args[2]
+				return nil
+			},
+			Text: func(w io.Writer, out ops.ProposalExecutedOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\treceipt %s\n", out.ID, out.Item, out.State, out.Receipt)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalUndone, binding[ops.ProposalUndoneInput, ops.ProposalUndoneOutput]{
+			Use:  "undone",
+			Args: cobra.NoArgs,
+			Text: func(w io.Writer, out ops.ProposalUndoneOutput) error {
+				p := &printer{w: w}
+				for _, it := range out.Items {
+					p.f("%s\t%s\t%s\n", it.Proposal, it.Item, it.Summary)
+				}
+				return p.err
+			},
+		}),
 	)
 	return cmd
 }

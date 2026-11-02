@@ -33,12 +33,17 @@ export function ensureSession(): Promise<SessionView | null> {
 
 export async function signIn(token: string): Promise<SessionView> {
   const s = await createSession(token)
+  signingOut = false
   lastSignInError = ''
   current = Promise.resolve(s)
   return s
 }
 
+// signingOut is true from sign-out on: a call in flight then gets a 401 that means nothing.
+export let signingOut = false
+
 export async function signOut(): Promise<void> {
+  signingOut = true
   try {
     await deleteSession()
   } finally {

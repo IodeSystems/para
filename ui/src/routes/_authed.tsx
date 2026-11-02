@@ -3,7 +3,7 @@ import { Outlet, createFileRoute, redirect, useNavigate } from '@tanstack/react-
 import { AppShell } from '@/components/AppShell'
 import { Keyboard } from '@/components/Keyboard'
 import { Overlays } from '@/components/Overlays'
-import { dropSession, ensureSession } from '@/client/auth'
+import { dropSession, ensureSession, signingOut } from '@/client/auth'
 import { UNAUTHORIZED_EVENT } from '@/client/gqlClient'
 import { useLiveRefresh } from '@/client/live'
 
@@ -29,6 +29,7 @@ function Authed() {
   // A 401 from any call means the session ended: sign in again, then return here.
   useEffect(() => {
     const onDead = () => {
+      if (signingOut) return
       dropSession()
       void navigate({
         to: '/login',

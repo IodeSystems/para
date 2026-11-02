@@ -172,6 +172,9 @@ func (m *Model) rowsToday(w int) []row {
 	if n := m.answersToCheck(); n > 0 {
 		inbox += fmt.Sprintf(", %s to check", plural(n, "answer"))
 	}
+	if n := len(s.Undone); n > 0 {
+		inbox += fmt.Sprintf(", %d approved, not done", n)
+	}
 	r := []row{head(title + stDim.Render("   "+inbox))}
 	shown := map[string]bool{}
 	// add builds a row for an item the first time it appears on the screen.
@@ -444,6 +447,7 @@ func (m *Model) rowsReview(w int) []row {
 	var r []row
 	r = append(r, m.rowsAnswersToCheck(w)...)
 	r = append(r, m.rowsProposals(w)...)
+	r = append(r, m.rowsUndone(w)...)
 	r = append(r, m.rowsReceipts(w)...)
 	r = append(r, head(fmt.Sprintf("Needs you (%d)", len(rv.Needs))))
 	if len(rv.Needs) == 0 {

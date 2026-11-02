@@ -63,6 +63,8 @@ Use para from dun.
    $ para doctor
 
 Para cannot stop an agent from using other tools. To enforce "no external action
-without approval", use a dun hook or server-level limits. A hook can run para
-proposal approved with the sha256 of the target, one NUL byte, and the draft; it
-exits non-zero unless the owner approved that exact text.
+without approval", add the hook from para hook print: it blocks gh pr create, gh
+issue create, slack, acli writes, and browser form input unless the owner approved
+that exact text. A hook can also call para gate check --target <t> --body-file <f>,
+which exits 0 only for approved text. What an agent reports without a hook is marked
+self-reported.

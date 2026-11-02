@@ -38,6 +38,7 @@ type ParaV1MutationNamespace {
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
+  gateCheck(body: para_GateCheckInputInput!): para_GateCheckOutput @derived(operationId: "gateCheck")
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
@@ -83,6 +84,7 @@ type ParaV1MutationNamespace {
   proposalApprove(body: para_ProposalApproveInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalApprove")
   proposalDeny(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalDeny")
   proposalEdit(body: para_ProposalEditInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalEdit")
+  proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
   proposalHold(body: para_ProposalHoldInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalHold")
   proposalNote(body: para_ProposalNoteInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalNote")
   proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
@@ -133,6 +135,7 @@ type ParaV1MutationNamespace {
 type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
   agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
+  agentActivity(actor: String, limit: Int, since: String): para_AgentActivityOutput @derived(operationId: "agentActivity")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
@@ -180,6 +183,7 @@ type ParaV1QueryNamespace {
   proposalDiff(id: String!): para_ProposalDiffOutput @derived(operationId: "proposalDiff")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
+  proposalUndone: para_ProposalUndoneOutput @derived(operationId: "proposalUndone")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
@@ -225,6 +229,18 @@ type Query {
   para: ParaQueryNamespace!
 }
 
+type para_ActivityRow {
+  actor: String!
+  doc: String!
+  docName: String
+  op: String!
+  receipt: String!
+  request: String
+  selfReported: Boolean
+  ts: String!
+  why: String
+}
+
 type para_AgendaItem {
   at: String
   date: String!
@@ -254,6 +270,10 @@ type para_AgendaOutput {
   items: [para_AgendaItem!]!
   to: String!
   zone: String!
+}
+
+type para_AgentActivityOutput {
+  items: [para_ActivityRow!]!
 }
 
 type para_AnswerSource {
@@ -889,6 +909,21 @@ type para_Finding {
   message: String!
   path: String!
   severity: String!
+}
+
+input para_GateCheckInputInput {
+  body: String!
+  kind: String
+  subject: String
+  target: String!
+}
+
+type para_GateCheckOutput {
+  approved: Boolean!
+  hash: String!
+  item: String
+  proposal: String
+  reason: String
 }
 
 type para_GraphEdge {
@@ -2574,6 +2609,38 @@ input para_ProposalEditInputInput {
   title: String
 }
 
+input para_ProposalExecutedInputInput {
+  id: String!
+  item: String!
+  locator: String
+  reason: String
+  result: String!
+  url: String
+}
+
+type para_ProposalExecutedOutput {
+  halted: [String!]
+  id: String!
+  item: String!
+  receipt: String!
+  rev: String!
+  selfReported: Boolean!
+  state: para_ProposalExecutedOutputState!
+}
+
+enum para_ProposalExecutedOutputState {
+  approved
+  denied
+  done
+  failed
+  halted
+  held
+  pending
+  running
+  sent_back
+  withdrawn
+}
+
 type para_ProposalFiled {
   id: String!
   rev: String!
@@ -2657,6 +2724,10 @@ input para_ProposalSendbackInputInput {
   id: String!
   item: String!
   reason: String
+}
+
+type para_ProposalUndoneOutput {
+  items: [para_UndoneItem!]!
 }
 
 type para_ProposalView {
@@ -3956,6 +4027,7 @@ type para_TodayItem {
 type para_TodayVaultToday {
   agenda: para_TodayGroup!
   answersToCheck: Int!
+  approvedNotDone: Int!
   blocked: para_TodayGroup!
   deferred: Int!
   due: para_TodayGroup!
@@ -4028,6 +4100,14 @@ type para_UITodayBody {
 
 input para_UndeferInputInput {
   ids: [String!]
+}
+
+type para_UndoneItem {
+  item: String!
+  proposal: String!
+  summary: String!
+  target: String
+  title: String!
 }
 
 type para_ValueRow {

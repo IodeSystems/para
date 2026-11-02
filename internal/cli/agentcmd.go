@@ -58,6 +58,7 @@ func newAgentCmd(l *loader) *cobra.Command {
 			"It is never in the vault. See para mcp --help-claude and para mcp --help-dun.",
 		Args: cobra.NoArgs,
 	}
+	cmd.AddCommand(newActivityCmd(l))
 	status := &cobra.Command{
 		Use:   "status",
 		Short: "Show the dispatch config, today's count, what runs, and how the last runs ended",

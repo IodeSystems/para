@@ -105,12 +105,19 @@ type Snapshot struct {
 	Titles map[string]string
 	// Receipts are agent writes nobody has checked yet.
 	Receipts []ops.ReceiptView
+	// Undone holds what the owner approved and nobody carried out.
+	Undone []ops.UndoneItem
+	// Activity is what agents did, newest first.
+	Activity []ops.ActivityRow
 }
 
 const eventWindow = 2000
 
 // receiptWindow is how many unchecked receipts Review reads.
 const receiptWindow = 50
+
+// activityRows is how many rows the agent activity page shows.
+const activityRows = 100
 
 // AgendaDays is how far ahead the Agenda page looks.
 const AgendaDays = 14
@@ -165,6 +172,12 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.ReceiptList.Run(ctx, e.Deps, ops.ReceiptListInput{Check: model.ReceiptUnchecked, Limit: receiptWindow}); note("receipts", err) {
 		s.Receipts = o.Items
+	}
+	if o, err := ops.ProposalUndone.Run(ctx, e.Deps, ops.ProposalUndoneInput{}); note("undone", err) {
+		s.Undone = o.Items
+	}
+	if o, err := ops.AgentActivity.Run(ctx, e.Deps, ops.AgentActivityInput{Limit: activityRows}); note("activity", err) {
+		s.Activity = o.Items
 	}
 	if o, err := ops.ProposalList.Run(ctx, e.Deps, ops.ProposalListInput{}); note("proposals", err) {
 		s.Proposals = o.Items

@@ -91,6 +91,9 @@ type VaultToday struct {
 	// Health counts health findings (para health) not dismissed. It is a line
 	// on Today, not part of the agenda.
 	Health int `json:"health"`
+	// ApprovedNotDone counts messages and actions the owner approved that nobody
+	// has reported done.
+	ApprovedNotDone int `json:"approved_not_done"`
 	// Inbox counts captures not yet triaged.
 	Inbox int `json:"inbox"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
@@ -182,6 +185,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	for _, r := range refs {
 		switch r.Type {
 		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeProposal:
+			if d, err := v.Get(ctx, r.ID); err == nil {
+				vt.ApprovedNotDone += approvedNotDone(d)
+			}
+			continue
 		case model.TypeInbox:
 			if r.Folder == model.FolderInbox {
 				vt.Inbox++
@@ -389,4 +397,24 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 		}
 	}
 	return nil
+}
+
+// approvedNotDone counts a proposal's outward items that wait to be carried out.
+// A broken block counts none: Review reports it.
+func approvedNotDone(d model.Document) int {
+	m, ok := d.Meta.(*model.Proposal)
+	if !ok || m.Status == model.ProposalSuperseded {
+		return 0
+	}
+	c, err := model.ParseProposalBody(d.Body)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, it := range c.Items {
+		if it.Kind.Outward() && it.State == model.ItemApproved {
+			n++
+		}
+	}
+	return n
 }

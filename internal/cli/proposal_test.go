@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,6 +50,18 @@ func seedProposalParity(t *testing.T, deps ops.Deps) {
 	decided := mail("i1")
 	decided.State = model.ItemDenied
 	seed("proposal-wait-sample", decided)
+	approved := func(id string) model.ProposalItem {
+		it := mail(id)
+		it.Body = "Mail " + id
+		it.State = model.ItemApproved
+		it.ApprovedHash, _ = it.Hash()
+		return it
+	}
+	seed("proposal-pe", approved("i1"), approved("i2"))
+	gated := mail("i1")
+	gated.Target, gated.Body, gated.State = "gate-target", "", model.ItemApproved
+	gated.ApprovedHash, _ = gated.Hash()
+	seed("proposal-pg", gated)
 	for _, id := range []string{"a", "b", "c", "d"} {
 		note, err := deps.Store.Create(ctx, model.Document{ID: "note-rc-" + id, Folder: model.FolderResources, Title: "Receipted " + id, Body: "Text.",
 			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}})
@@ -90,6 +103,10 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_edit":     {`{"id":"proposal-pa","item":"i9","draft":"Changed."}`, []string{"proposal", "edit", "proposal-pa", "i9", "--draft", "Changed again."}, false},
 		"proposal_sendback": {`{"id":"proposal-pb","item":"i2"}`, []string{"proposal", "sendback", "proposal-pb", "i1"}, false},
 		"similar":           {`{"type":"task","title":"Sample"}`, []string{"similar", "task", "Sample"}, false},
+		"proposal_undone":   {`{}`, []string{"proposal", "undone"}, false},
+		"proposal_executed": {`{"id":"proposal-pe","item":"i1","result":"done","url":"https://acme.example/1"}`, []string{"proposal", "executed", "proposal-pe", "i2", "done", "--url", "https://acme.example/2"}, false},
+		"gate_check":        {`{"target":"gate-target","body":""}`, []string{"gate", "check", "--target", "gate-target", "--body-file", "/dev/null"}, false},
+		"agent_activity":    {`{}`, []string{"agent", "activity"}, false},
 		"receipt_list":      {`{}`, []string{"receipt", "list"}, false},
 		"receipt_show":      {`{"id":"receipt-rc-a"}`, []string{"receipt", "show", "receipt-rc-a"}, false},
 		"receipt_check":     {`{"id":"receipt-rc-a","verdict":"verified"}`, []string{"receipt", "check", "receipt-rc-b", "verified"}, false},
@@ -475,4 +492,57 @@ func TestProposalWaitWakesOnEvent(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("wait did not wake on the event")
 	}
+}
+
+func (e *env) okStdin(text string, args ...string) {
+	e.t.Helper()
+	e.stdin = text
+	if _, _, err := e.run(args...); err != nil {
+		e.t.Fatalf("para %v: %v", args, err)
+	}
+}
+
+// failsStdin returns the error of a blocked hook, which must exit 2.
+func (e *env) failsStdin(text string, args ...string) string {
+	e.t.Helper()
+	e.stdin = text
+	_, _, err := e.run(args...)
+	var b blockError
+	if !errors.As(err, &b) || b.ExitCode() != 2 {
+		e.t.Fatalf("para %v: %v, want a block", args, err)
+	}
+	return err.Error()
+}
+
+func TestHookBlocksUnlessApproved(t *testing.T) {
+	e := newProposalEnv(t)
+	body := filepath.Join(t.TempDir(), "body.md")
+	if err := os.WriteFile(body, []byte("Fixes the parser."), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	call := func(cmd string) string {
+		b, _ := json.Marshal(map[string]any{"tool_name": "Bash", "tool_input": map[string]any{"command": cmd}})
+		return string(b)
+	}
+	if out := e.ok("hook", "print", "--client", "claude"); !strings.Contains(out, "para hook check") {
+		t.Fatalf("print: %s", out)
+	}
+	e.okStdin(call("ls -la"), "hook", "check")
+	e.okStdin(call("gh pr list"), "hook", "check")
+	e.okStdin(call("acli jira issue view X-1"), "hook", "check")
+	for _, cmd := range []string{
+		"gh pr create --repo acme/api --title Fix --body-file " + body,
+		"cd /x && gh issue create -R acme/api --body hello",
+		"slackcli send --channel '#ops' --text hello",
+		"acli jira issue create --project ACME --description hello",
+		"gh pr create --title Fix",
+	} {
+		if msg := e.failsStdin(call(cmd), "hook", "check"); !strings.Contains(msg, "para") {
+			t.Errorf("%s: %s", cmd, msg)
+		}
+	}
+	filed := tool[ops.ProposalFiled](t, e.agent, "proposal_add", map[string]any{"title": "PR", "source": e.source, "tldr": "Open the PR.", "context": "It fixes the parser.", "items": []any{
+		map[string]any{"kind": "action", "subtype": "pr", "what": "Open a PR", "how": "Adds the fix.", "target": "acme/api", "body": "Fixes the parser.", "reversible": "yes", "evidence": map[string]any{"quote": "Ada", "locator": "line 1"}}}})
+	e.ok("proposal", "approve", filed.ID, "i1")
+	e.okStdin(call("gh pr create --repo acme/api --title Fix --body-file "+body), "hook", "check")
 }

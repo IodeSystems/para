@@ -467,6 +467,18 @@ function Today() {
                 </List>
               </Section>
               <Section
+                title="Approved, not done"
+                count={t.approvedNotDone}
+                hideEmpty
+                action={
+                  <LinkButton size="small" to="/review">
+                    Open
+                  </LinkButton>
+                }
+              >
+                {null}
+              </Section>
+              <Section
                 title="Answers to check"
                 count={t.answersToCheck}
                 hideEmpty

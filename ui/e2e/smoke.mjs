@@ -109,7 +109,7 @@ function startAgent() {
     await ready
     // Every write carries why; reads and the work flow ops take none.
     const noWhy =
-      /_(list|show|wait|approved|diff|expiring)$|^(search|where|who|route|graph|next|waiting|agenda|lint|copy|export|calendar_export|events_tail|request_(next|note|done|fail|add)|proposal_(add|revise))$/
+      /_(list|show|wait|approved|diff|expiring)$|^(search|where|who|route|graph|next|waiting|agenda|lint|copy|export|calendar_export|events_tail|request_(next|note|done|fail|add)|proposal_(add|revise|executed|undone)|gate_check|agent_activity|similar)$/
     const withWhy = noWhy.test(name) ? args : { why: 'From the smoke test.', ...args }
     const m = await rpc('tools/call', { name, arguments: withWhy })
     if (m.error) throw new Error(`mcp ${name}: ${JSON.stringify(m.error)}`)
@@ -913,6 +913,42 @@ try {
   await receiptCard.getByRole('button', { name: 'Verified' }).click()
   await receiptCard.waitFor({ state: 'hidden' })
   check(written.id !== '', 'one click marks a receipt verified')
+
+  // Supervised execution: approved is not done until the agent reports it.
+  const act = await agent.call('proposal_add', {
+    title: 'Open the quota ticket',
+    tldr: 'Open a ticket for the quota.',
+    context: 'Sam asked for a record.',
+    source: docId,
+    items: [
+      {
+        kind: 'action',
+        subtype: 'ticket',
+        what: 'Open a ticket',
+        how: 'Adds a ticket for the quota.',
+        target: 'OPS',
+        body: 'Raise the staging quota.',
+        reversible: 'yes',
+        evidence,
+      },
+    ],
+  })
+  await rp.goto(`${base}/proposals/${act.id}`)
+  await rp.locator('[data-item="i1"]').getByRole('button', { name: 'Approve' }).click()
+  await rp.locator('[data-item="i1"]').getByText('Not sent yet').waitFor()
+  await rp.goto(`${base}/review`)
+  await rp.getByRole('heading', { name: /Approved, not done/ }).waitFor()
+  check(true, 'Review lists what is approved and not done')
+  const ran = await agent.call('proposal_executed', {
+    id: act.id,
+    item: 'i1',
+    result: 'done',
+    url: 'https://tickets.acme.example/OPS-1',
+  })
+  check(ran.self_reported === true && ran.state === 'done', 'an act with no hook is self-reported')
+  await rp.goto(`${base}/activity`)
+  await rp.getByText('self-reported').first().waitFor()
+  check(true, 'the activity page marks self-reported work')
 
   // The review gate is in para: from an agent a review op is gateNo, with the way forward.
   const gateNo = await agent
@@ -1759,8 +1795,8 @@ try {
   await nav.getByText('Questions', { exact: true }).waitFor()
   check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
   check(
-    (await nav.getByRole('link').count()) === 11,
-    'the menu lists the nine screens, Meetings, and Agenda',
+    (await nav.getByRole('link').count()) === 12,
+    'the menu lists the nine screens, Meetings, Agenda, and Activity',
   )
   await rp.goBack()
   await nav.waitFor({ state: 'hidden' })

@@ -76,3 +76,27 @@ func newReceiptCmd(l *loader) *cobra.Command {
 	)
 	return cmd
 }
+
+// newActivityCmd is `para agent activity`: what each agent did.
+func newActivityCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.AgentActivity, binding[ops.AgentActivityInput, ops.AgentActivityOutput]{
+		Use:  "activity",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.AgentActivityInput) {
+			fs.StringVar(&in.Actor, "actor", "", "only this agent")
+			fs.StringVar(&in.Since, "since", "", "from this date or time")
+			fs.IntVar(&in.Limit, "limit", 0, "most to list; default 200")
+		},
+		Text: func(w io.Writer, out ops.AgentActivityOutput) error {
+			p := &printer{w: w}
+			for _, r := range out.Items {
+				mark := ""
+				if r.SelfReported {
+					mark = "\tself-reported"
+				}
+				p.f("%s\t%s\t%s\t%s\t%s\t%s%s\n", r.TS.Format("2006-01-02T15:04:05Z07:00"), r.Actor, r.Op, r.Doc, r.Request, r.Receipt, mark)
+			}
+			return p.err
+		},
+	})
+}
