@@ -29,6 +29,7 @@ type ParaV1MutationNamespace {
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
+  attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
   calendarExport(body: para_CalendarExportInputInput!): para_CalendarExportOutput @derived(operationId: "calendarExport")
@@ -37,6 +38,9 @@ type ParaV1MutationNamespace {
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
   defer(body: para_DeferInputInput!): para_DeferOutput @derived(operationId: "defer")
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
+  docEdit(body: para_DocEditInputInput!): para_DocEditOutput @derived(operationId: "docEdit")
+  docRename(body: para_DocRenameInputInput!): para_DocRenameOutput @derived(operationId: "docRename")
+  docRetype(body: para_DocRetypeInputInput!): para_DocRetypeOutput @derived(operationId: "docRetype")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   gateCheck(body: para_GateCheckInputInput!): para_GateCheckOutput @derived(operationId: "gateCheck")
@@ -113,6 +117,7 @@ type ParaV1MutationNamespace {
   rfxAdd(body: para_RFXAddInputInput!): para_RFXAddOutput @derived(operationId: "rfxAdd")
   rfxClose(body: para_RFXCloseInputInput!): para_RFXStatusOutput @derived(operationId: "rfxClose")
   rfxDraft(body: para_RFXDraftInputInput!): para_RFXDraftOutput @derived(operationId: "rfxDraft")
+  rfxNudge(body: para_RFXNudgeInputInput!): para_RFXNudgeOutput @derived(operationId: "rfxNudge")
   rfxReply(body: para_RFXReplyInputInput!): para_RFXReplyOutput @derived(operationId: "rfxReply")
   rfxStatus(body: para_RFXStatusInputInput!): para_RFXStatusOutput @derived(operationId: "rfxStatus")
   rfxTargetAdd(body: para_RFXTargetAddInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetAdd")
@@ -127,6 +132,7 @@ type ParaV1MutationNamespace {
   taskDone(body: para_TaskDoneInputInput!): para_TaskDoneOutput @derived(operationId: "taskDone")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskEdit(body: para_TaskEditInputInput!): para_TaskEditOutput @derived(operationId: "taskEdit")
+  taskMove(body: para_TaskMoveInputInput!): para_TaskMoveOutput @derived(operationId: "taskMove")
   taskResolve(body: para_TaskResolveInputInput!): para_TaskResolveOutput @derived(operationId: "taskResolve")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
@@ -224,6 +230,7 @@ type ParaV1QueryNamespace {
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
+  uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
   uiToday: para_UITodayBody @derived(operationId: "uiToday")
   waiting(today: String): para_WaitingOutput @derived(operationId: "waiting")
@@ -440,6 +447,18 @@ enum para_AreaViewFolder {
 enum para_AreaViewStatus {
   active
   paused
+}
+
+input para_AttemptAddInputInput {
+  result: String!
+  sources: [String!]
+  target: String!
+  what: String!
+}
+
+type para_AttemptAddOutput {
+  id: String!
+  rev: String!
 }
 
 input para_CalendarExportInputInput {
@@ -707,6 +726,119 @@ type para_DocChange {
   type: String!
 }
 
+input para_DocEditInputInput {
+  body: String
+  fields: JSON
+  id: String!
+  rev: String
+  title: String
+}
+
+type para_DocEditOutput {
+  id: String!
+  rev: String!
+}
+
+input para_DocRenameInputInput {
+  id: String!
+  newId: String!
+}
+
+type para_DocRenameOutput {
+  id: String!
+  rev: String!
+  rewritten: [String!]!
+}
+
+input para_DocRetypeInputInput {
+  fields: JSON
+  id: String!
+  type: para_DocRetypeInputType!
+}
+
+enum para_DocRetypeInputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+type para_DocRetypeOutput {
+  folder: para_DocRetypeOutputFolder!
+  id: String!
+  kept: [String!]!
+  rev: String!
+  type: para_DocRetypeOutputType!
+}
+
+enum para_DocRetypeOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  meetings
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+}
+
+enum para_DocRetypeOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
 type para_Document {
   body: String!
   folder: para_DocumentFolder!
@@ -786,7 +918,8 @@ input para_ExampleInput {
 input para_ExceptionAddInputInput {
   by: String!
   kind: para_ExceptionAddInputKind!
-  policy: String!
+  policy: String
+  policyText: String
   reviewBy: String
   rule: String
   text: String
@@ -797,10 +930,12 @@ input para_ExceptionAddInputInput {
 enum para_ExceptionAddInputKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 type para_ExceptionAddOutput {
@@ -826,10 +961,12 @@ type para_ExceptionRef {
 enum para_ExceptionRefKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 enum para_ExceptionRefStatus {
@@ -844,6 +981,7 @@ type para_ExceptionShowOutput {
   id: String!
   kind: para_ExceptionShowOutputKind!
   policy: String!
+  policyText: String
   rev: String!
   reviewBy: String!
   rule: String!
@@ -855,10 +993,12 @@ type para_ExceptionShowOutput {
 enum para_ExceptionShowOutputKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 enum para_ExceptionShowOutputStatus {
@@ -872,6 +1012,7 @@ type para_ExceptionView {
   id: String!
   kind: para_ExceptionViewKind!
   policy: String!
+  policyText: String
   reviewBy: String!
   rule: String!
   status: para_ExceptionViewStatus!
@@ -882,10 +1023,12 @@ type para_ExceptionView {
 enum para_ExceptionViewKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 enum para_ExceptionViewStatus {
@@ -911,6 +1054,7 @@ type para_ExpiringException {
   id: String!
   kind: para_ExpiringExceptionKind!
   policy: String!
+  policyText: String
   reviewBy: String!
   rule: String!
   status: para_ExpiringExceptionStatus!
@@ -921,10 +1065,12 @@ type para_ExpiringException {
 enum para_ExpiringExceptionKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 enum para_ExpiringExceptionStatus {
@@ -2082,6 +2228,7 @@ type para_Meta {
   owner: String
   playbook: String
   policy: String
+  policyText: String
   previous: String
   project: String
   proposed: String
@@ -3169,6 +3316,17 @@ type para_RFXListOutput {
   items: [para_RFXSummary!]!
 }
 
+input para_RFXNudgeInputInput {
+  date: String!
+  id: String!
+}
+
+type para_RFXNudgeOutput {
+  id: String!
+  nextNudge: String!
+  rev: String!
+}
+
 input para_RFXReplyInputInput {
   appliesIn: [String!]
   date: String
@@ -4115,6 +4273,17 @@ type para_TaskListOutput {
   tasks: [para_TaskView!]!
 }
 
+input para_TaskMoveInputInput {
+  area: String
+  id: String
+  ids: [String!]
+  project: String
+}
+
+type para_TaskMoveOutput {
+  moved: [String!]!
+}
+
 input para_TaskResolveInputInput {
   doneWhen: String
   due: String
@@ -4336,6 +4505,19 @@ enum para_TurnState {
   open
 }
 
+type para_UIDocField {
+  enum: [String!]
+  kind: String!
+  name: String!
+  required: Boolean
+  value: String!
+}
+
+type para_UIDocFieldsBody {
+  editable: Boolean!
+  fields: [para_UIDocField!]!
+}
+
 type para_UILiveSubscribeBody {
   channel: String!
   exp: String!
@@ -4520,10 +4702,12 @@ enum para_WhoRFXDirection {
 enum para_exceptionListKind {
   bug
   conflict_with
+  established_example
   interpreted_as
   overly_broad
   underspecified
   unenforced
+  wide_enough_for
 }
 
 enum para_exceptionListStatus {
