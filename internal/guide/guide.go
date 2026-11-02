@@ -68,6 +68,7 @@ func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 // JournalLOD is the MCP prompt "journal_lod": how to write the day, week, and
 // month summaries of a journal.
 func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
+
 // ImportCorpus is the MCP prompt "import_corpus" and the text of `para import --help`:
 // how the owner and an agent import and sort a corpus.
 func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }

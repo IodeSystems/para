@@ -25,8 +25,7 @@ import (
 // Instructions is the text every client receives at initialize. It states
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
-	guide.Rule() + "\nPrompts: orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), journal_lod (write a day, week, or month journal summary).\n\n" + rules
-	guide.Rule() + "\nPrompts: orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported).\n\n" + rules
+	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
