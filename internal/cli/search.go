@@ -31,6 +31,11 @@ func newSearchCmd(l *loader) *cobra.Command {
 		Args: cobra.MinimumNArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.SearchInput) {
 			fs.IntVarP(&in.Limit, "limit", "n", 10, "number of hits")
+			fs.StringVar(&in.Type, "type", "", "only this document type (task, project, note, policy ...)")
+			fs.StringVar(&in.Status, "status", "", "only this status; open means any status that is not final")
+			fs.StringVar(&in.Area, "area", "", "only documents linked to this area id")
+			fs.StringVar(&in.Project, "project", "", "only documents linked to this project id")
+			fs.StringVar(&in.Since, "since", "", "only documents updated since a date (YYYY-MM-DD) or a span (7d, 2w)")
 		},
 		Bind: func(args []string, in *ops.SearchInput) error {
 			in.Query = strings.Join(args, " ")

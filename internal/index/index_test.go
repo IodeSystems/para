@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/iodesystems/parasolve/internal/model"
@@ -291,6 +292,53 @@ func TestOpenRecovers(t *testing.T) {
 			hs, err := ix.Search(ctx, v, "pelican", 10)
 			if err != nil || len(hs) != 1 {
 				t.Fatalf("hits %v err %v", hs, err)
+			}
+		})
+	}
+}
+
+func task(id, title, body, status, project, area, updated string) model.Document {
+	return model.Document{ID: id, Folder: model.FolderProjects, Title: title, Body: body,
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Created: "2026-01-01", Updated: model.Date(updated)},
+			Status: model.TaskStatus(status), Project: model.Link(project), Area: model.Link(area)}}
+}
+
+func TestFindFilters(t *testing.T) {
+	v := newFake(
+		task("t-open", "Heron count", "count the heron", "todo", "[[p1]]", "", "2026-10-30"),
+		task("t-done", "Heron photo", "photo of heron", "done", "[[p1]]", "", "2026-03-01"),
+		task("t-area", "Heron feeder", "heron feeder", "doing", "", "[[a1]]", ""),
+		note("inbox-a", "Heron note", "heron"),
+	)
+	ix, _ := openIndex(t)
+	cases := []struct {
+		name string
+		q    Query
+		want []string
+	}{
+		{"none", Query{}, []string{"inbox-a", "t-area", "t-done", "t-open"}},
+		{"type", Query{Type: "task"}, []string{"t-area", "t-done", "t-open"}},
+		{"type none", Query{Type: "project"}, []string{}},
+		{"status exact", Query{Status: "done"}, []string{"t-done"}},
+		{"status open", Query{Status: "open"}, []string{"t-area", "t-open"}},
+		{"project", Query{Project: "p1"}, []string{"t-done", "t-open"}},
+		{"project link form", Query{Project: "[[p1]]"}, []string{"t-done", "t-open"}},
+		{"area", Query{Area: "a1"}, []string{"t-area"}},
+		{"since uses updated", Query{Since: "2026-10-01"}, []string{"t-open"}},
+		{"since falls back to created", Query{Since: "2026-01-01", Type: "task", Status: "open"}, []string{"t-area", "t-open"}},
+		{"combined", Query{Type: "task", Status: "open", Project: "p1"}, []string{"t-open"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			c.q.Text = "heron"
+			hs, err := ix.Find(ctx, v, c.q)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := ids(hs)
+			sort.Strings(got)
+			if fmt.Sprint(got) != fmt.Sprint(c.want) {
+				t.Errorf("got %v, want %v", got, c.want)
 			}
 		})
 	}

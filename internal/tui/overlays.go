@@ -253,7 +253,7 @@ func helpLines() []string {
 		"  g G        top, bottom        space, ctrl+d  page down",
 		"  esc        back (or leave full screen)",
 		"  ;ab        a link with a two letter key after ;",
-		"  /          search (on People: who)",
+		"  /          search (on People: who); filters: type:task status:open area:x project:y since:7d",
 		"  c          capture a note to the inbox",
 		"  v          switch vault for this session",
 		"  document:  z full screen, x export menu, y copy with the last format",

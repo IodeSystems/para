@@ -87,6 +87,22 @@ func TestSearchEndToEnd(t *testing.T) {
 		t.Errorf("text output:\n%s", txt)
 	}
 
+	e.json(&out, "search", "authentication", "--type", "policy")
+	if len(out.Hits) != 1 || out.Hits[0].ID != "policy-logging" {
+		t.Errorf("--type policy: %+v", out.Hits)
+	}
+	e.json(&out, "search", "authentication", "--type", "task")
+	if len(out.Hits) != 0 {
+		t.Errorf("--type task: %+v", out.Hits)
+	}
+	e.json(&out, "search", "authentication", "--since", "2099-01-01")
+	if len(out.Hits) != 0 {
+		t.Errorf("--since 2099-01-01: %+v", out.Hits)
+	}
+	if _, _, err := e.run("search", "x", "--type", "bogus"); err == nil {
+		t.Error("--type bogus accepted")
+	}
+
 	if _, err := os.Stat(filepath.Join(root, ".para", "index.sqlite")); err == nil {
 		t.Error("index is inside the vault tree")
 	}

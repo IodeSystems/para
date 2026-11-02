@@ -113,7 +113,7 @@ func (a source) Get(ctx context.Context, id string) (model.Document, error) {
 	return a.s.v.Get(ctx, id)
 }
 
-func (s *Store) Search(ctx context.Context, query string, limit int) ([]index.Hit, error) {
+func (s *Store) Search(ctx context.Context, q index.Query) ([]index.Hit, error) {
 	p, err := s.indexPath()
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (s *Store) Search(ctx context.Context, query string, limit int) ([]index.Hi
 		return nil, fmt.Errorf("local: search: %w", err)
 	}
 	defer func() { _ = ix.Close() }()
-	return ix.Search(ctx, source{s}, query, limit)
+	return ix.Find(ctx, source{s}, q)
 }
 
 func (s *Store) IndexRebuild(ctx context.Context) (index.Stats, error) {

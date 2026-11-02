@@ -162,7 +162,20 @@ type ParaV1QueryNamespace {
   rfxWaiting(direction: para_rfxWaitingDirection, today: String): para_RFXWaitingOutput @derived(operationId: "rfxWaiting")
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
-  search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
+  search(
+    """id of an area; matches documents that link to it"""
+    area: String
+    limit: Int
+    """id of a project; matches documents that link to it"""
+    project: String
+    query: String!
+    """updated on or after this date (YYYY-MM-DD), or within a span such as 7d or 2w"""
+    since: String
+    """document status, such as todo or active; open means any status that is not final"""
+    status: String
+    """document type, such as task, project, note, policy"""
+    type: String
+  ): para_SearchOutput @derived(operationId: "search")
   taskList(area: String, assignee: String, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")

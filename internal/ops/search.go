@@ -2,14 +2,68 @@ package ops
 
 import (
 	"context"
+	"fmt"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
-// SearchInput is the input of search.
+// SearchInput is the input of search. The filters narrow the hits; an empty
+// filter matches all.
 type SearchInput struct {
-	Query string `json:"query" query:"query" required:"true"`
-	Limit int    `json:"limit,omitempty" query:"limit"` // 0 means 10
+	Query   string `json:"query" query:"query" required:"true"`
+	Limit   int    `json:"limit,omitempty" query:"limit"` // 0 means 10
+	Type    string `json:"type,omitempty" query:"type" doc:"document type, such as task, project, note, policy"`
+	Status  string `json:"status,omitempty" query:"status" doc:"document status, such as todo or active; open means any status that is not final"`
+	Area    string `json:"area,omitempty" query:"area" doc:"id of an area; matches documents that link to it"`
+	Project string `json:"project,omitempty" query:"project" doc:"id of a project; matches documents that link to it"`
+	Since   string `json:"since,omitempty" query:"since" doc:"updated on or after this date (YYYY-MM-DD), or within a span such as 7d or 2w"`
+}
+
+var sinceSpan = regexp.MustCompile(`^(\d{1,4})([dw])$`)
+
+// ParseSince turns a --since value into a YYYY-MM-DD date. It accepts a date,
+// or a span back from now: 7d, 2w.
+func ParseSince(s string, now time.Time) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	if m := sinceSpan.FindStringSubmatch(s); m != nil {
+		n, _ := strconv.Atoi(m[1])
+		if m[2] == "w" {
+			n *= 7
+		}
+		return now.AddDate(0, 0, -n).Format("2006-01-02"), nil
+	}
+	if _, err := time.Parse("2006-01-02", s); err != nil {
+		return "", fmt.Errorf("since %q: want YYYY-MM-DD or a span such as 7d or 2w", s)
+	}
+	return s, nil
+}
+
+// ParseQuery reads a search box: words, plus type:, status:, area:, project:
+// and since: tokens that become filters. A token with an unknown key, or an
+// empty value, stays part of the query text. The result has no Limit.
+func ParseQuery(text string) SearchInput {
+	var in SearchInput
+	var words []string
+	for _, w := range strings.Fields(text) {
+		key, val, ok := strings.Cut(w, ":")
+		dst := map[string]*string{"type": &in.Type, "status": &in.Status, "area": &in.Area, "project": &in.Project, "since": &in.Since}[key]
+		if !ok || val == "" || dst == nil {
+			words = append(words, w)
+			continue
+		}
+		*dst = val
+	}
+	in.Query = strings.Join(words, " ")
+	return in
 }
 
 // SearchOutput is the output of search.
@@ -20,7 +74,16 @@ type SearchOutput struct {
 // Search finds documents by text. A hit says whether it is a transcript or a
 // summary, and carries the source URL, so a reader can cite the original.
 var Search = define("search", "Search documents, transcripts and summaries by text", func(ctx context.Context, d Deps, in SearchInput) (SearchOutput, error) {
-	hits, err := d.Store.Search(ctx, in.Query, in.Limit)
+	q := index.Query{Text: in.Query, Limit: in.Limit, Type: in.Type, Status: in.Status, Area: in.Area, Project: in.Project}
+	if in.Type != "" && !slices.Contains(model.Types, model.Type(in.Type)) {
+		return SearchOutput{}, fmt.Errorf("type %q: want one of %v", in.Type, model.Types)
+	}
+	since, err := ParseSince(in.Since, d.Store.Now())
+	if err != nil {
+		return SearchOutput{}, err
+	}
+	q.Since = since
+	hits, err := d.Store.Search(ctx, q)
 	if err != nil {
 		return SearchOutput{}, err
 	}

@@ -64,9 +64,10 @@ type Store interface {
 	// Record logs one event that no write logs by itself, such as a change of
 	// one item inside a proposal. It takes ids, states, and hashes, never content.
 	Record(ctx context.Context, op, doc, from, to, hash string) error
-	// Search returns up to limit hits for query, best first. It first brings
+	// Search returns up to q.Limit hits for q.Text that pass the filters, best
+	// first. It first brings
 	// the search index up to date with the documents.
-	Search(ctx context.Context, query string, limit int) ([]index.Hit, error)
+	Search(ctx context.Context, q index.Query) ([]index.Hit, error)
 	// IndexRebuild drops the search index and reads every document again.
 	IndexRebuild(ctx context.Context) (index.Stats, error)
 

@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
@@ -21,7 +22,7 @@ import (
 
 // schemaVersion changes when the tables change. A file with another version
 // is dropped and rebuilt.
-const schemaVersion = "1"
+const schemaVersion = "2"
 
 const schema = `
 CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
@@ -32,7 +33,12 @@ CREATE TABLE IF NOT EXISTS docs (
 	kind TEXT NOT NULL,
 	source_url TEXT NOT NULL,
 	unverified INTEGER NOT NULL,
-	rev TEXT NOT NULL
+	rev TEXT NOT NULL,
+	type TEXT NOT NULL DEFAULT '',
+	status TEXT NOT NULL DEFAULT '',
+	area TEXT NOT NULL DEFAULT '',
+	project TEXT NOT NULL DEFAULT '',
+	updated TEXT NOT NULL DEFAULT ''
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(title, body, tokenize='porter unicode61');
 `
@@ -224,6 +230,7 @@ func (ix *Index) revs(ctx context.Context) (map[string]string, error) {
 
 type row struct {
 	id, path, title, kind, url, rev, body string
+	typ, status, area, project, updated   string
 	unverified                            bool
 }
 
@@ -232,6 +239,14 @@ func newRow(d model.Document) row {
 		id: d.ID, path: string(d.Folder) + "/" + d.ID + ".md", title: d.Title,
 		kind: string(d.Meta.Header().Type), rev: d.Rev, body: d.Body,
 	}
+	h := d.Meta.Header()
+	r.typ, r.updated = string(h.Type), string(h.Updated)
+	if r.updated == "" {
+		r.updated = string(h.Created)
+	}
+	r.status = metaString(d.Meta, "Status")
+	r.area = linkTarget(metaString(d.Meta, "Area"))
+	r.project = linkTarget(metaString(d.Meta, "Project"))
 	switch m := d.Meta.(type) {
 	case *model.Policy:
 		r.kind, r.url, r.unverified = KindSummary, m.Source.URL, !m.Verified
@@ -242,6 +257,22 @@ func newRow(d model.Document) row {
 	}
 	return r
 }
+
+// metaString reads a string-kinded field of a document's typed frontmatter,
+// or "" when the type has none.
+func metaString(m model.Meta, name string) string {
+	v := reflect.ValueOf(m)
+	if v.Kind() != reflect.Pointer || v.IsNil() {
+		return ""
+	}
+	f := v.Elem().FieldByName(name)
+	if !f.IsValid() || f.Kind() != reflect.String {
+		return ""
+	}
+	return f.String()
+}
+
+func linkTarget(s string) string { return model.Link(s).Target() }
 
 func deleteDoc(ctx context.Context, tx *sql.Tx, id string) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM fts WHERE rowid IN (SELECT rowid FROM docs WHERE id=?)`, id); err != nil {
@@ -255,8 +286,8 @@ func deleteDoc(ctx context.Context, tx *sql.Tx, id string) error {
 
 func insertDoc(ctx context.Context, tx *sql.Tx, r row) error {
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO docs(id, path, title, kind, source_url, unverified, rev) VALUES(?,?,?,?,?,?,?)`,
-		r.id, r.path, r.title, r.kind, r.url, r.unverified, r.rev)
+		`INSERT INTO docs(id, path, title, kind, source_url, unverified, rev, type, status, area, project, updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`,
+		r.id, r.path, r.title, r.kind, r.url, r.unverified, r.rev, r.typ, r.status, r.area, r.project, r.updated)
 	if err != nil {
 		return fmt.Errorf("index: insert: %w", err)
 	}
@@ -272,26 +303,79 @@ func insertDoc(ctx context.Context, tx *sql.Tx, r row) error {
 
 const defaultLimit = 10
 
+// Query is a search: text, plus optional filters. An empty filter matches all.
+type Query struct {
+	Text  string
+	Limit int // 0 means 10
+	// Type is a document type (task, project, note, policy ...).
+	Type string
+	// Status is the document's status. "open" also matches every status that
+	// is not final (see finalStatuses).
+	Status string
+	// Area and Project are document ids; a document matches when its area or
+	// project link points there.
+	Area, Project string
+	// Since is YYYY-MM-DD: documents updated (else created) on or after it.
+	Since string
+}
+
+// StatusOpen is the status filter that means "not finished".
+const StatusOpen = "open"
+
+// finalStatuses end a document's life. They are what "open" excludes.
+var finalStatuses = []string{"done", "dropped", "closed", "declined", "cancelled", "failed",
+	"resolved", "retired", "superseded", "mitigated", "adopted", "accepted"}
+
 // Search syncs with src, then returns up to limit hits, best first. A query
 // with no word characters returns no hits.
 func (ix *Index) Search(ctx context.Context, src Source, query string, limit int) ([]Hit, error) {
+	return ix.Find(ctx, src, Query{Text: query, Limit: limit})
+}
+
+// Find is Search with filters.
+func (ix *Index) Find(ctx context.Context, src Source, in Query) ([]Hit, error) {
 	if _, err := ix.Sync(ctx, src); err != nil {
 		return nil, err
 	}
-	q := ftsQuery(query)
+	q := ftsQuery(in.Text)
 	if q == "" {
 		return []Hit{}, nil
 	}
+	limit := in.Limit
 	if limit <= 0 {
 		limit = defaultLimit
 	}
+	where, args := []string{"fts MATCH ?"}, []any{q}
+	eq := func(col, v string) {
+		if v != "" {
+			where, args = append(where, col+" = ?"), append(args, v)
+		}
+	}
+	eq("d.type", in.Type)
+	eq("d.area", model.Link(in.Area).Target())
+	eq("d.project", model.Link(in.Project).Target())
+	switch in.Status {
+	case "":
+	case StatusOpen:
+		marks := strings.TrimSuffix(strings.Repeat("?,", len(finalStatuses)), ",")
+		where = append(where, "d.status != '' AND d.status NOT IN ("+marks+")")
+		for _, s := range finalStatuses {
+			args = append(args, s)
+		}
+	default:
+		eq("d.status", in.Status)
+	}
+	if in.Since != "" {
+		where, args = append(where, "d.updated >= ?"), append(args, in.Since)
+	}
+	args = append(args, limit)
 	rs, err := ix.db.QueryContext(ctx, `
 SELECT d.id, d.title, d.path, d.kind, d.source_url, d.unverified,
        snippet(fts, -1, '<<', '>>', ' ... ', 24), bm25(fts)
 FROM fts JOIN docs d ON d.rowid = fts.rowid
-WHERE fts MATCH ?
+WHERE `+strings.Join(where, " AND ")+`
 ORDER BY bm25(fts), d.id
-LIMIT ?`, q, limit)
+LIMIT ?`, args...)
 	if err != nil {
 		return nil, fmt.Errorf("index: search: %w", err)
 	}
