@@ -417,7 +417,10 @@ func TestNoContentInEvents(t *testing.T) {
 		if err := json.Unmarshal([]byte(line), &rec); err != nil {
 			t.Fatal(err)
 		}
-		// ts install actor surface vault op doc from to hash
+		// ts install actor surface vault op doc from to hash, plus prev on update
+		if _, prev := rec["prev"]; prev {
+			delete(rec, "prev")
+		}
 		if len(rec) != 10 {
 			t.Fatalf("fields = %v", rec)
 		}

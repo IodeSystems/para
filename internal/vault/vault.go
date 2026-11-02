@@ -224,7 +224,7 @@ func (v *Vault) Update(ctx context.Context, d model.Document) (model.Document, e
 		}
 		undo := func() error { return v.write(f.rel, old, mode) }
 		from, to := statusChange(f.rel, old, data)
-		if err := v.logOrUndo(undo, events.OpUpdate, d.ID, from, to, events.Hash(data)); err != nil {
+		if err := v.undoOnError(undo, v.log.AppendUpdate(events.OpUpdate, d.ID, from, to, events.Hash(data), oldHash)); err != nil {
 			return err
 		}
 		d.Rev = events.Hash(data)
@@ -349,7 +349,11 @@ func (v *Vault) Check(_ context.Context) ([]model.Finding, error) {
 	if err != nil {
 		return nil, fmt.Errorf("vault: check: %w", err)
 	}
-	return append(out, conflictFindings(conflicts)...), nil
+	lost, err := v.LostUpdates()
+	if err != nil {
+		return nil, fmt.Errorf("vault: check: %w", err)
+	}
+	return append(append(out, conflictFindings(conflicts)...), lostFindings(lost)...), nil
 }
 
 // DefaultGrace is how long reconcile holds a change that no logged event
@@ -468,7 +472,10 @@ func (v *Vault) withLock(ctx context.Context, fn func(*events.Manifest) error) e
 // logOrUndo logs the mutation. If the log fails, it reverses the file change,
 // so a change without an event does not stay on disk.
 func (v *Vault) logOrUndo(undo func() error, op, doc, from, to, hash string) error {
-	err := v.log.AppendHash(op, doc, from, to, hash)
+	return v.undoOnError(undo, v.log.AppendHash(op, doc, from, to, hash))
+}
+
+func (v *Vault) undoOnError(undo func() error, err error) error {
 	if err == nil {
 		return nil
 	}

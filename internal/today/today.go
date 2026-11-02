@@ -46,7 +46,9 @@ type VaultToday struct {
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
 	// sync-conflict in lint). They are not documents.
 	SyncConflicts []string `json:"sync_conflicts"`
-	Error         string   `json:"error,omitempty"`
+	// LostUpdates lists documents with a write a sync tool replaced.
+	LostUpdates []string `json:"lost_updates"`
+	Error       string   `json:"error,omitempty"`
 }
 
 // ExpiringDays is the window for exceptions, the same as exception_expiring.
@@ -82,7 +84,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
 		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
-			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}}
+			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if err := readVault(ctx, rv, actor, surface, date, &vt); err != nil {
 			vt.Error = err.Error()
 		}
@@ -98,6 +100,13 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	}
 	if vt.SyncConflicts, err = v.Conflicts(); err != nil {
 		return err
+	}
+	lost, err := v.LostUpdates()
+	if err != nil {
+		return fmt.Errorf("today: lost updates: %w", err)
+	}
+	for _, l := range lost {
+		vt.LostUpdates = append(vt.LostUpdates, l.Doc)
 	}
 	refs, err := v.List(ctx, "", "")
 	if err != nil {

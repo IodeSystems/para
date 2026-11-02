@@ -93,6 +93,9 @@ type Event struct {
 	From    string    `json:"from"`
 	To      string    `json:"to"`
 	Hash    string    `json:"hash,omitempty"`
+	// Prev is the hash the update replaced. Two updates from one Prev mean a
+	// sync tool dropped one of them.
+	Prev string `json:"prev,omitempty"`
 }
 
 // ChangeKind says how a file differs from the manifest.

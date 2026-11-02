@@ -2,11 +2,14 @@ package vault
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/iodesystems/paradize/internal/events"
 	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/paramd"
 	"github.com/iodesystems/paradize/internal/syncname"
@@ -61,6 +64,39 @@ func conflictFindings(rels []string) []model.Finding {
 	for _, rel := range rels {
 		out = append(out, model.Finding{Path: rel, Code: syncname.Code, Severity: string(paramd.Warn),
 			Message: "looks like a sync conflict copy, not a document: compare it with the original, keep one, delete the other"})
+	}
+	return out
+}
+
+// CodeLostUpdate is the finding for a write a file-sync tool dropped.
+const CodeLostUpdate = "sync-lost-update"
+
+// LostUpdates lists writes from other installs, or this one, that a file-sync
+// tool replaced. Paths are not in events, so findings name the document id.
+func (v *Vault) LostUpdates() ([]events.LostUpdate, error) {
+	evs, err := v.log.All()
+	if err != nil {
+		return nil, err
+	}
+	current := func(doc string) string {
+		f, err := v.find(doc)
+		if err != nil {
+			return ""
+		}
+		b, err := os.ReadFile(v.abs(f.rel))
+		if err != nil {
+			return ""
+		}
+		return events.Hash(b)
+	}
+	return events.LostUpdates(evs, current), nil
+}
+
+func lostFindings(lost []events.LostUpdate) []model.Finding {
+	out := make([]model.Finding, 0, len(lost))
+	for _, l := range lost {
+		out = append(out, model.Finding{Path: l.Doc, Code: CodeLostUpdate, Severity: string(paramd.Warn),
+			Message: fmt.Sprintf("an update from install %s at %s was replaced by sync: check the sync tool's history or a conflict copy, then edit the document from that install", l.Install, l.Event.TS.Format("2006-01-02 15:04"))})
 	}
 	return out
 }

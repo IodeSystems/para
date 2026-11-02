@@ -51,7 +51,7 @@ func SavePosition(stateDir string, p Position) error {
 	if err != nil {
 		return fmt.Errorf("tui: review position: %w", err)
 	}
-	if err := atomicfile.Write(filepath.Join(stateDir, positionFile), stateDir, b, 0o600); err != nil {
+	if err := atomicfile.Write(filepath.Join(stateDir, positionFile), b, 0o600); err != nil {
 		return fmt.Errorf("tui: review position: %w", err)
 	}
 	return nil

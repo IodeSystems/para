@@ -360,6 +360,40 @@ func TestSyncTwoUpdatesBetweenSyncs(t *testing.T) {
 	if _, err := p.b.Update(ctx, ub); !errors.Is(err, model.ErrConflict) {
 		t.Fatalf("stale B update: %v", err)
 	}
+	// B's write is reported as lost on both machines once logs have synced.
+	sendEvents(t, p.rootB, p.rootA, "ib")
+	for _, v := range []*Vault{p.a, p.b} {
+		lost, err := v.LostUpdates()
+		if err != nil || len(lost) != 1 || lost[0].Install != "ib" || lost[0].Doc != d.ID {
+			t.Fatalf("lost updates = %+v, %v", lost, err)
+		}
+	}
+	// B edits again from the surviving version, so the report clears.
+	p.advance(time.Minute)
+	cur, _ := p.b.Get(ctx, d.ID)
+	cur.Body = "B merged by hand"
+	if _, err := p.b.Update(ctx, cur); err != nil {
+		t.Fatal(err)
+	}
+	if lost, err := p.b.LostUpdates(); err != nil || len(lost) != 0 {
+		t.Fatalf("after re-edit = %+v, %v", lost, err)
+	}
+}
+
+func TestPlainUpdatesAreNotLost(t *testing.T) {
+	p := newPair(t)
+	d, _ := p.a.Create(ctx, inbox("Shared", "v0"))
+	for _, body := range []string{"one", "two", "three"} {
+		p.advance(time.Second)
+		cur, _ := p.a.Get(ctx, d.ID)
+		cur.Body = body
+		if _, err := p.a.Update(ctx, cur); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if lost, err := p.a.LostUpdates(); err != nil || len(lost) != 0 {
+		t.Fatalf("lost = %+v, %v", lost, err)
+	}
 }
 
 func TestSyncConflictCopies(t *testing.T) {

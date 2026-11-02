@@ -130,6 +130,12 @@ func (m *Model) rowsToday(w int) []row {
 	}
 	r = append(r, head("Vault"))
 	r = append(r, plain("  "+lint+"   "+plural(s.Today.Unverified, "unverified summary")))
+	for _, c := range s.Today.SyncConflicts {
+		r = append(r, plain("  "+stBad.Render(truncate("sync conflict  "+c, w-4))))
+	}
+	for _, d := range s.Today.LostUpdates {
+		r = append(r, plain("  "+stBad.Render(truncate("lost update  "+d, w-4))))
+	}
 	for _, e := range s.Errs {
 		r = append(r, plain("  "+stBad.Render(truncate(e, w-4))))
 	}

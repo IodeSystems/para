@@ -76,7 +76,12 @@ func (l *Log) Append(op, doc, from, to string) error {
 // AppendHash writes one record. hash is the full content hash of the file the
 // event produced, or empty.
 func (l *Log) AppendHash(op, doc, from, to, hash string) error {
-	if !opRe.MatchString(op) || !docRe.MatchString(doc) || !tokenRe.MatchString(from) || !tokenRe.MatchString(to) || !hashRe.MatchString(hash) {
+	return l.AppendUpdate(op, doc, from, to, hash, "")
+}
+
+// AppendUpdate is AppendHash plus prev, the hash of the content it replaced.
+func (l *Log) AppendUpdate(op, doc, from, to, hash, prev string) error {
+	if !opRe.MatchString(op) || !docRe.MatchString(doc) || !tokenRe.MatchString(from) || !tokenRe.MatchString(to) || !hashRe.MatchString(hash) || !hashRe.MatchString(prev) {
 		return fmt.Errorf("events: append: op %q: values must be ids, enums, or hashes", op)
 	}
 	if !installRe.MatchString(l.src.Install) {
@@ -93,6 +98,7 @@ func (l *Log) AppendHash(op, doc, from, to, hash string) error {
 		From:    from,
 		To:      to,
 		Hash:    hash,
+		Prev:    prev,
 	}
 	line, err := json.Marshal(rec)
 	if err != nil {
