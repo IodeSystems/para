@@ -5,7 +5,8 @@
 // every "$ para ..." line against the command tree and checks every backticked
 // tool name against ops.All.
 //
-// Meetings are left out of the texts on purpose: para does not run them.
+// Para does not run meetings. The one text about them is ProcessMeeting, which
+// works from a transcript the owner gives it.
 package guide
 
 import (
@@ -30,6 +31,8 @@ var (
 	harnessDun string
 	//go:embed reviewcycle.txt
 	reviewCycle string
+	//go:embed processmeeting.txt
+	processMeeting string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -49,6 +52,10 @@ func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
 // ReviewCycle is the MCP prompt "review_cycle": how an agent works with the
 // owner through proposals.
 func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
+
+// ProcessMeeting is the MCP prompt "process_meeting": one proposal from a
+// transcript.
+func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 
 // Extended is `para --help-extended`: use cases with real commands, and a
 // "where does this go?" table.

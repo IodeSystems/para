@@ -10,12 +10,18 @@ Use para from Claude Code.
 3. Start with a prompt, as a slash command:
    /mcp__para-<vault>__orient      what para is, and how to work a vault
    /mcp__para-<vault>__bootstrap   an interview that fills a new vault
+   /mcp__para-<vault>__review_cycle   how to file a proposal and act on the review
+   /mcp__para-<vault>__process_meeting   turn a transcript into one proposal
 
 4. Events record the actor `claude`. Change `--actor` to tell agents apart.
 
 5. A session can wait for queued work with no token cost. This blocks until a
    request can be claimed, so run it as a background job, then call `request_next`:
    $ para request wait --timeout 1h
+   To wake it when the owner decides a proposal:
+   $ para proposal wait proposal-example --timeout 1h
 
 Para cannot stop an agent from using other tools. To enforce "no external action
-without approval", use Claude Code permission rules or a hook.
+without approval", use Claude Code permission rules or a hook. A hook can run
+para proposal approved with the sha256 of the target, one NUL byte, and the draft;
+it exits non-zero unless the owner approved that exact text.

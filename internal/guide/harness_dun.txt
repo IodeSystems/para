@@ -10,12 +10,18 @@ Use para from dun.
 3. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
+   /para-<vault>:review_cycle   how to file a proposal and act on the review
+   /para-<vault>:process_meeting   turn a transcript into one proposal
 
 4. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
 5. A session can wait for queued work with no token cost. This blocks until a
    request can be claimed, so run it as a background job, then call `request_next`:
    $ para request wait --timeout 1h
+   To wake it when the owner decides a proposal:
+   $ para proposal wait proposal-example --timeout 1h
 
 Para cannot stop an agent from using other tools. To enforce "no external action
-without approval", use a dun hook or server-level limits.
+without approval", use a dun hook or server-level limits. A hook can run para
+proposal approved with the sha256 of the target, one NUL byte, and the draft; it
+exits non-zero unless the owner approved that exact text.

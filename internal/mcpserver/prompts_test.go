@@ -21,7 +21,7 @@ func TestPrompts(t *testing.T) {
 	for _, p := range list.Prompts {
 		names[p.Name] = true
 	}
-	want := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "review_cycle": guide.ReviewCycle()}
+	want := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "review_cycle": guide.ReviewCycle(), "process_meeting": guide.ProcessMeeting()}
 	if len(names) != len(want) {
 		t.Fatalf("prompts = %v", names)
 	}
