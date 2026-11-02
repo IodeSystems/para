@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/iodesystems/parasolve/internal/atomicfile"
@@ -129,8 +130,8 @@ func BuildReview(s Snapshot, pos Position) ReviewData {
 	}
 	by := map[string][]model.Event{}
 	for _, e := range s.Events {
-		if !e.TS.After(pos.At) || ownSurface(e) {
-			continue
+		if !e.TS.After(pos.At) || ownSurface(e) || e.Op == "receipt" || strings.HasPrefix(e.Doc, "receipt-") {
+			continue // a receipt has its own section
 		}
 		by[e.Actor] = append(by[e.Actor], e)
 		r.Count++
