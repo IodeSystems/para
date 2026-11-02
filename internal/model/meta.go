@@ -162,7 +162,10 @@ type Task struct {
 	DoneWhen  string   `yaml:"done_when,omitempty" json:"done_when,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
-	Deferral  `yaml:",inline"`
+	// Outcome says how a closed task ended (task_resolve). The note is under
+	// ## Outcome in the body.
+	Outcome  TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
+	Deferral `yaml:",inline"`
 }
 
 // RFX is type: rfx.

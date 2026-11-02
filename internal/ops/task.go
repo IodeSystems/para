@@ -14,22 +14,25 @@ import (
 
 // TaskView is a task without its body. Project, Area, and DependsOn hold ids.
 type TaskView struct {
-	ID        string           `json:"id"`
-	Folder    model.Folder     `json:"folder"`
-	Title     string           `json:"title"`
-	Status    model.TaskStatus `json:"status"`
-	Project   string           `json:"project"`
-	Area      string           `json:"area,omitempty"`
-	Created   model.Date       `json:"created"`
-	Due       model.Date       `json:"due,omitempty"`
-	Recur     string           `json:"recur,omitempty"`
-	Assignee  string           `json:"assignee,omitempty"`  // empty means self
-	Previous  string           `json:"previous,omitempty"`  // the task this one recurred from
-	Incident  string           `json:"incident,omitempty"`  // the incident this task follows up
-	DoneWhen  string           `json:"done_when,omitempty"` // how we know it is done
-	DependsOn []string         `json:"depends_on"`
-	BlockedBy []string         `json:"blocked_by"`
-	Rev       string           `json:"rev"`
+	ID       string           `json:"id"`
+	Folder   model.Folder     `json:"folder"`
+	Title    string           `json:"title"`
+	Status   model.TaskStatus `json:"status"`
+	Project  string           `json:"project"`
+	Area     string           `json:"area,omitempty"`
+	Created  model.Date       `json:"created"`
+	Due      model.Date       `json:"due,omitempty"`
+	Recur    string           `json:"recur,omitempty"`
+	Assignee string           `json:"assignee,omitempty"`  // empty means self
+	Previous string           `json:"previous,omitempty"`  // the task this one recurred from
+	Incident string           `json:"incident,omitempty"`  // the incident this task follows up
+	DoneWhen string           `json:"done_when,omitempty"` // how we know it is done
+	// Outcome is how a closed task ended: done, partial, dropped, duplicate, or
+	// superseded. Empty on an open task and on one closed before outcomes.
+	Outcome   model.TaskOutcome `json:"outcome,omitempty"`
+	DependsOn []string          `json:"depends_on"`
+	BlockedBy []string          `json:"blocked_by"`
+	Rev       string            `json:"rev"`
 	// Deferred is true while a person has put the task off (itself, or its
 	// goal). DeferUntil is the date or "someday". It still blocks its dependents.
 	Deferred       bool   `json:"deferred"`
@@ -56,7 +59,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
 	}
 	for _, l := range t.DependsOn {

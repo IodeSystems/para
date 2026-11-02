@@ -96,6 +96,8 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return with("Add task: "+str("title"), person("assignee"), prefixed("due ", z.date(str("due"))), prefixed("in ", firstNonEmpty(ref("project"), ref("area"))))
 	case "task_done":
 		return "Mark done: " + ref("id")
+	case "task_resolve":
+		return with("Close "+ref("id")+" as "+firstNonEmpty(str("outcome"), "done"), prefixed("see ", ref("link")), prefixed("because ", first(str("note"))))
 	case "task_due":
 		if str("date") == "" {
 			return "Remove the due date of: " + ref("id")

@@ -144,6 +144,25 @@ const (
 // TaskStatuses lists every TaskStatus.
 var TaskStatuses = []TaskStatus{TaskTodo, TaskDoing, TaskBlocked, TaskDone, TaskDropped}
 
+// TaskOutcome is task.outcome: how a closed task ended. Empty on a task closed
+// before outcomes, and on an open task. The status says closed; the outcome
+// says how.
+type TaskOutcome string
+
+const (
+	OutcomeDone       TaskOutcome = "done"
+	OutcomePartial    TaskOutcome = "partial"
+	OutcomeDropped    TaskOutcome = "dropped"
+	OutcomeDuplicate  TaskOutcome = "duplicate"
+	OutcomeSuperseded TaskOutcome = "superseded"
+)
+
+// TaskOutcomes lists every TaskOutcome.
+var TaskOutcomes = []TaskOutcome{OutcomeDone, OutcomePartial, OutcomeDropped, OutcomeDuplicate, OutcomeSuperseded}
+
+// Enum lists the allowed values, for schema generation.
+func (TaskOutcome) Enum() []string { return enumStrings(TaskOutcomes) }
+
 // RFXDirection is rfx.direction. Out: the user asks someone. In: someone asks
 // the user.
 type RFXDirection string

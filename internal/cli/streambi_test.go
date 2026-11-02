@@ -1,0 +1,33 @@
+package cli
+
+import (
+	"context"
+	"testing"
+
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
+)
+
+// streamBIParityCases are the parity rows of stream BI: resolve with an outcome,
+// and give a task to an agent. Ids come from seedStreamBIParity.
+func streamBIParityCases() map[string]parityCase {
+	return map[string]parityCase{
+		"task_resolve":  {`{"id":"task-bi-r-a","outcome":"partial","note":"Half done.","follow_ups":["Finish it"]}`, []string{"task", "resolve", "task-bi-r-b", "--outcome", "partial", "--note", "Half done.", "--follow-up", "Finish it"}, false},
+		"task_delegate": {`{"id":"task-bi-d-a","agent":"scribe","hint":"start here"}`, []string{"task", "delegate", "task-bi-d-b", "--agent", "scribe", "--hint", "start here"}, false},
+	}
+}
+
+func seedStreamBIParity(t *testing.T, deps ops.Deps) {
+	t.Helper()
+	docs := []model.Document{{ID: "project-bi", Folder: model.FolderProjects, Title: "BI project",
+		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}}}
+	for _, id := range []string{"task-bi-r-a", "task-bi-r-b", "task-bi-d-a", "task-bi-d-b"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "BI " + id,
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-bi")}})
+	}
+	for _, d := range docs {
+		if _, err := deps.Store.Create(context.Background(), d); err != nil {
+			t.Fatalf("seed %s: %v", d.ID, err)
+		}
+	}
+}

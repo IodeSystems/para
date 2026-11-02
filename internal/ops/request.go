@@ -52,8 +52,11 @@ type RequestView struct {
 	LinkNames []string `json:"link_names,omitempty" nameof:"Links"`
 	// Investigates is true while the request is open agent work made by
 	// investigate. The items in Links then show "Agent looking".
-	Investigates bool   `json:"investigates"`
-	Kind         string `json:"kind,omitempty"`
+	Investigates bool `json:"investigates"`
+	// Delegates is true while the request is open agent work made by
+	// task_delegate. The task in Links then shows "Agent working".
+	Delegates bool   `json:"delegates"`
+	Kind      string `json:"kind,omitempty"`
 	// Resolution is how the last turn ended. Turn counts responses.
 	Resolution model.RequestResolution `json:"resolution,omitempty"`
 	Turn       int                     `json:"turn,omitempty"`
@@ -97,6 +100,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 		v.Links = targets(r.Links)
 	}
 	v.Investigates = openFind(d.Title, r)
+	v.Delegates = openWork(d.Title, r)
 	return v
 }
 

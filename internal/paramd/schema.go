@@ -31,6 +31,7 @@ type field struct {
 var (
 	projectStatus      = []string{"active", "paused", "done", "dropped"}
 	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
+	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded"}
 	rfxDirection       = []string{"in", "out"}
 	rfxStatus          = []string{"open", "answered", "closed", "declined"}
 	fidelities         = []string{"exact", "ocr", "partial", "none"}
@@ -108,6 +109,7 @@ var typeFields = map[string][]field{
 		{Name: "done_when", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
+		{Name: "outcome", Kind: kEnum, Enum: taskOutcome},
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},

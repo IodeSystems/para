@@ -324,6 +324,59 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		})),
+		opCommand(l, ops.TaskResolve, binding[ops.TaskResolveInput, ops.TaskResolveOutput]{
+			Use:  "resolve <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskResolveInput) {
+				fs.StringVar((*string)(&in.Outcome), "outcome", "done", "done, partial, dropped, duplicate, or superseded")
+				fs.StringVar(&in.Note, "note", "", "how it ended; partial needs this or a follow-up, dropped needs it")
+				fs.StringVar(&in.Link, "link", "", "duplicate or superseded: the id of the item that replaces it")
+				fs.StringArrayVar(&in.FollowUps, "follow-up", nil, "title of a new task in the same goal or area; dependents move to the first (repeatable)")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "change the done condition first; the old text is kept under ## Outcome")
+				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD of the follow-ups")
+			},
+			Bind: func(args []string, in *ops.TaskResolveInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.TaskResolveOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\n", out.ID, out.Status, out.Outcome)
+				for _, id := range out.FollowUps {
+					p.f("follow-up\t%s\n", id)
+				}
+				for _, id := range out.Moved {
+					p.f("moved\t%s\n", id)
+				}
+				for _, id := range out.Released {
+					p.f("released\t%s\n", id)
+				}
+				if out.Next != "" {
+					p.f("next\t%s\n", out.Next)
+				}
+				for _, wn := range out.Warnings {
+					p.f("warning: %s\n", wn)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.TaskDelegate, binding[ops.TaskDelegateInput, ops.TaskDelegateOutput]{
+			Use:  "delegate <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskDelegateInput) {
+				fs.StringVar(&in.Agent, "agent", "", "agent name; default request.runner")
+				fs.StringVar(&in.Hint, "hint", "", "where to start, in words")
+			},
+			Bind: func(args []string, in *ops.TaskDelegateInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.TaskDelegateOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\t%s\n", out.ID, out.Request, out.Status, dash(out.Assignee))
+				if out.Appended {
+					p.f("hint added to open work\n")
+				}
+				if out.Note != "" {
+					p.f("note: %s\n", out.Note)
+				}
+				return p.err
+			},
+		}),
 		opCommand(l, ops.TaskBlock, binding[ops.TaskBlockInput, ops.TaskChangeOutput]{
 			Use:  "block <id>",
 			Args: cobra.ExactArgs(1),

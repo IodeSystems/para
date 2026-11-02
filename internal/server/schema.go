@@ -69,6 +69,7 @@ type Meta struct {
 	Started         string             `json:"started,omitempty"`
 	Ended           string             `json:"ended,omitempty"`
 	BlockedBy       []string           `json:"blocked_by,omitempty"`
+	Outcome         model.TaskOutcome  `json:"outcome,omitempty"`
 	DependsOn       []string           `json:"depends_on,omitempty"`
 	Direction       string             `json:"direction,omitempty"`
 	Route           string             `json:"route,omitempty"`
@@ -174,6 +175,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.AreaStatuses)
 	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
+	addEnum(reg, model.TaskOutcomes)
 	addEnum(reg, model.RFXDirections)
 	addEnum(reg, model.RFXStatuses)
 	addEnum(reg, model.Fidelities)

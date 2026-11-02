@@ -126,6 +126,8 @@ var Inputs = map[string]string{
 	"task_depends_add":          `{"id":"task-sample","depends_on":["task-free"]}`,
 	"task_depends_remove":       `{"id":"task-other","depends_on":["task-sample"]}`,
 	"task_done":                 `{"id":"task-sample"}`,
+	"task_resolve":              `{"id":"task-sample","outcome":"done","note":"The sample is checked.","done_when":"The sample is checked."}`,
+	"task_delegate":             `{"id":"task-sample","agent":"scribe","hint":"Start with the sample notes."}`,
 	"task_show":                 `{"id":"task-sample"}`,
 	"task_start":                `{"id":"task-sample"}`,
 	"who":                       `{"query":"Sample person"}`,

@@ -127,6 +127,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := Investigate.Run(t.Context(), d, InvestigateInput{ID: "question-x", Hint: "wiki"})
 			return err
 		}},
+		{"delegate", func(d Deps) error {
+			_, err := TaskDelegate.Run(t.Context(), d, TaskDelegateInput{ID: "task-x", Agent: "scribe"})
+			return err
+		}},
 		{"defer", func(d Deps) error {
 			_, err := Defer.Run(t.Context(), d, DeferInput{IDs: []string{"task-x"}})
 			return err

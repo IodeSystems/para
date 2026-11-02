@@ -30,6 +30,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"area.status", strs(AreaStatuses), paramd.FieldEnum("area", "status")},
 		{"pointer.kind", strs(PointerKinds), paramd.ItemFieldEnum("area", "links", "kind")},
 		{"task.status", strs(TaskStatuses), paramd.FieldEnum("task", "status")},
+		{"task.outcome", strs(TaskOutcomes), paramd.FieldEnum("task", "outcome")},
 		{"proposal.status", strs(ProposalStatuses), paramd.FieldEnum("proposal", "status")},
 		{"rfx.direction", strs(RFXDirections), paramd.FieldEnum("rfx", "direction")},
 		{"rfx.status", strs(RFXStatuses), paramd.FieldEnum("rfx", "status")},

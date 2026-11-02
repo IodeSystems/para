@@ -56,6 +56,12 @@ type TaskDoneOutput struct {
 // occurrence is made once. With Skip the task is dropped, not done, and the
 // next occurrence is made all the same.
 var TaskDone = defineSafe("task_done", "Mark a task done; a recurring task also gets its next occurrence (skip advances without doing)", func(ctx context.Context, d Deps, in TaskDoneInput) (TaskDoneOutput, error) {
+	return finishTask(ctx, d, in, "")
+})
+
+// finishTask closes a task done, or dropped with Skip. A non-empty outcome is
+// stored in the frontmatter.
+func finishTask(ctx context.Context, d Deps, in TaskDoneInput, outcome model.TaskOutcome) (TaskDoneOutput, error) {
 	id := normID(in.ID)
 	doc, t, err := getTask(ctx, d.Store, id)
 	if err != nil {
@@ -96,6 +102,7 @@ var TaskDone = defineSafe("task_done", "Mark a task done; a recurring task also 
 		t.Status = model.TaskDropped
 	}
 	t.BlockedBy = nil
+	t.Outcome = outcome
 	if note := strings.TrimSpace(in.Note); note != "" {
 		doc.Body = appendToSection(doc.Body, outcomeHeading, note)
 	}
@@ -105,7 +112,7 @@ var TaskDone = defineSafe("task_done", "Mark a task done; a recurring task also 
 	}
 	out.Status, out.BlockedBy, out.Rev, out.DoneWhen = t.Status, []string{}, saved.Rev, t.DoneWhen
 	return out, nil
-})
+}
 
 func recurRule(t *model.Task) (recur.Rule, bool) {
 	if strings.TrimSpace(t.Recur) == "" {

@@ -166,3 +166,17 @@ func TestExtendedAndOrientNameInvestigate(t *testing.T) {
 		t.Error("orient does not name investigate")
 	}
 }
+
+func TestGuideNamesResolveAndDelegate(t *testing.T) {
+	for name, want := range map[string][]string{
+		"orient":   {"task_resolve", "partial", "superseded", "file a proposal", "task_delegate", "Work on:", "without an approved proposal"},
+		"extended": {"para task resolve", "para task delegate", "--follow-up", "## Outcome", "Agent working", "request.runner"},
+	} {
+		text := flat(texts()[name])
+		for _, w := range want {
+			if !strings.Contains(text, w) {
+				t.Errorf("%s lacks %q", name, w)
+			}
+		}
+	}
+}
