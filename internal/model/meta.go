@@ -105,10 +105,12 @@ type Task struct {
 	Status  TaskStatus `yaml:"status" json:"status"`
 	Project Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
 	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
-	// Due is the date the task is due. Recur is free text such as "weekly";
-	// para stores it and never schedules from it.
-	Due   Date   `yaml:"due,omitempty" json:"due,omitempty"`
-	Recur string `yaml:"recur,omitempty" json:"recur,omitempty"`
+	// Due is the date the task is due. Recur is daily, weekly, monthly, or
+	// every <n> days: marking the task done creates the next one (internal/recur).
+	// Previous links the task this one recurred from.
+	Due      Date   `yaml:"due,omitempty" json:"due,omitempty"`
+	Recur    string `yaml:"recur,omitempty" json:"recur,omitempty"`
+	Previous Link   `yaml:"previous,omitempty" json:"previous,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
 	Assignee  string   `yaml:"assignee,omitempty" json:"assignee,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`

@@ -62,6 +62,7 @@ type Meta struct {
 	Due            string           `json:"due,omitempty"`
 	Recur          string           `json:"recur,omitempty"`
 	Assignee       string           `json:"assignee,omitempty"`
+	Previous       string           `json:"previous,omitempty"`
 	BlockedBy      []string         `json:"blocked_by,omitempty"`
 	DependsOn      []string         `json:"depends_on,omitempty"`
 	Direction      string           `json:"direction,omitempty"`

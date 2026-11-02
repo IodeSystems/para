@@ -75,6 +75,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			{Label: "Runbook", Kind: PointerRunbook, Target: "~/doc/runbook.md"}, {Label: "Repo", Kind: PointerRepo, Target: "https://git.acme.example/atlas"}}}, "Standard."},
 		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Project: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
 		{"task-area", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health")}, ""},
+		{"task-recur", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health"), Due: "2026-11-08", Recur: "every 3 days", Assignee: "agent:scribe", Previous: LinkTo("task-area")}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{
 			{To: LinkTo("jordan-example"), Medium: MediumSlack, Value: "@jordan", State: TargetSent, Ref: "https://acme.example.slack.com/archives/C0/p1", Sent: "2026-11-01"},

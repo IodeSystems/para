@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/iodesystems/parasolve/internal/recur"
 )
 
 // Severity of a finding.
@@ -44,6 +46,7 @@ const (
 	CodeBlockBroken  = "block-unresolved"
 	CodeNoTranscript = "transcript-missing"
 	CodeSummaryLong  = "summary-long"
+	CodeRecur        = "recur"
 )
 
 // MaxRuleLen is the longest allowed rule line, in characters. raglit
@@ -184,6 +187,13 @@ func (l *linter) frontmatter() {
 	}
 	if typ == "task" && f.Frontmatter["project"] == nil && f.Frontmatter["area"] == nil {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	}
+	if typ == "task" {
+		if r := str(f.Frontmatter["recur"]); r != "" {
+			if _, err := recur.Parse(r); err != nil {
+				l.add(1, CodeRecur, Warn, "%v: para will not create the next task from it", err)
+			}
+		}
 	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {

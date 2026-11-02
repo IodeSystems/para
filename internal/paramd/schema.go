@@ -81,7 +81,8 @@ var typeFields = map[string][]field{
 		{Name: "project", Kind: kLink}, // project or area: at least one (lint)
 		{Name: "area", Kind: kLink},
 		{Name: "due", Kind: kDate},
-		{Name: "recur", Kind: kString},
+		{Name: "recur", Kind: kString}, // daily, weekly, monthly, every <n> days; another value is a warning
+		{Name: "previous", Kind: kLink},
 		{Name: "assignee", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},

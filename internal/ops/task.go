@@ -24,6 +24,7 @@ type TaskView struct {
 	Due       model.Date       `json:"due,omitempty"`
 	Recur     string           `json:"recur,omitempty"`
 	Assignee  string           `json:"assignee,omitempty"` // empty means self
+	Previous  string           `json:"previous,omitempty"` // the task this one recurred from
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -36,7 +37,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -102,16 +103,19 @@ type TaskAddInput struct {
 	Title     string   `json:"title"`
 	Body      string   `json:"body,omitempty"`
 	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
-	Recur     string   `json:"recur,omitempty"`      // free text, stored only
+	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, or every <n> days
 	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
 }
 
 // TaskAddOutput is the output of task_add.
 type TaskAddOutput struct {
-	ID     string       `json:"id"`
-	Folder model.Folder `json:"folder"`
-	Rev    string       `json:"rev"`
+	ID      string       `json:"id"`
+	Folder  model.Folder `json:"folder"`
+	Rev     string       `json:"rev"`
+	Request string       `json:"request,omitempty"` // request made for a recurring agent task
+	// Warnings: an unknown recur is stored, and lint warns.
+	Warnings []string `json:"warnings"`
 }
 
 // TaskAdd creates a todo task in a project, an area, or both. Tasks live in
@@ -176,7 +180,12 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
-	return TaskAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
+	out := TaskAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
+	if w := recurWarning(in.Recur); w != "" {
+		out.Warnings = append(out.Warnings, w)
+	}
+	out.Request, out.Warnings = agentRequest(ctx, d, doc, out.Warnings)
+	return out, nil
 })
 
 // TaskListInput is the input of task_list.
@@ -296,20 +305,6 @@ var TaskStart = define("task_start", "Start a task", func(ctx context.Context, d
 	})
 })
 
-// TaskDoneInput is the input of task_done.
-type TaskDoneInput struct {
-	ID string `json:"id"`
-}
-
-// TaskDone marks a task done and clears its blockers.
-var TaskDone = define("task_done", "Mark a task done", func(ctx context.Context, d Deps, in TaskDoneInput) (TaskChangeOutput, error) {
-	return transition(ctx, d, in.ID, func(_ model.Document, t *model.Task) error {
-		t.Status = model.TaskDone
-		t.BlockedBy = nil
-		return nil
-	})
-})
-
 // TaskBlockInput is the input of task_block.
 type TaskBlockInput struct {
 	ID     string `json:"id"`
@@ -349,7 +344,7 @@ type TaskDueInput struct {
 	ID    string `json:"id"`
 	Date  string `json:"date,omitempty"`  // YYYY-MM-DD; empty with Clear removes the date
 	Clear bool   `json:"clear,omitempty"` // remove the due date
-	Recur string `json:"recur,omitempty"` // free text, such as "weekly"; stored only
+	Recur string `json:"recur,omitempty"` // daily, weekly, monthly, or every <n> days
 }
 
 // TaskDueOutput is the output of task_due.
@@ -361,7 +356,7 @@ type TaskDueOutput struct {
 }
 
 // TaskDue sets or clears the due date of an open task, and optionally its
-// recurrence text. Para never schedules from the recurrence.
+// recurrence. The recurrence acts when the task is marked done.
 var TaskDue = define("task_due", "Set or clear the due date of a task", func(ctx context.Context, d Deps, in TaskDueInput) (TaskDueOutput, error) {
 	date, err := parseDue(in.Date)
 	if err != nil {

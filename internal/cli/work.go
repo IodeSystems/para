@@ -132,7 +132,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
-				fs.StringVar(&in.Recur, "recur", "", "recurrence as free text, such as weekly (stored only)")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, or \"every <n> days\"; done makes the next task")
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
@@ -141,7 +141,17 @@ func newTaskCmd(l *loader) *cobra.Command {
 				in.Title = strings.Join(args, " ")
 				return nil
 			},
-			Text: printID(func(o ops.TaskAddOutput) string { return o.ID }),
+			Text: func(w io.Writer, out ops.TaskAddOutput) error {
+				p := &printer{w: w}
+				p.f("%s\n", out.ID)
+				if out.Request != "" {
+					p.f("request\t%s\n", out.Request)
+				}
+				for _, wn := range out.Warnings {
+					p.f("warning: %s\n", wn)
+				}
+				return p.err
+			},
 		}),
 		opCommand(l, ops.TaskList, binding[ops.TaskListInput, ops.TaskListOutput]{
 			Use:  "list",
@@ -160,8 +170,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
 				return err
 			},
 		}),
@@ -170,7 +180,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.RangeArgs(1, 2),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskDueInput) {
 				fs.BoolVar(&in.Clear, "clear", false, "remove the due date (and the recurrence)")
-				fs.StringVar(&in.Recur, "recur", "", "recurrence as free text, such as weekly (stored only)")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, or \"every <n> days\"; done makes the next task")
 			},
 			Bind: func(args []string, in *ops.TaskDueInput) error {
 				in.ID = args[0]
@@ -203,11 +213,27 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskStartInput) error { in.ID = args[0]; return nil },
 			Text: changeText,
 		}),
-		opCommand(l, ops.TaskDone, binding[ops.TaskDoneInput, ops.TaskChangeOutput]{
+		opCommand(l, ops.TaskDone, binding[ops.TaskDoneInput, ops.TaskDoneOutput]{
 			Use:  "done <id>",
 			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskDoneInput) {
+				fs.BoolVar(&in.Skip, "skip", false, "a recurring task: advance to the next one without doing this one")
+			},
 			Bind: func(args []string, in *ops.TaskDoneInput) error { in.ID = args[0]; return nil },
-			Text: changeText,
+			Text: func(w io.Writer, out ops.TaskDoneOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.ID, out.Status)
+				if out.Next != "" {
+					p.f("next\t%s\n", out.Next)
+				}
+				if out.Request != "" {
+					p.f("request\t%s\n", out.Request)
+				}
+				for _, wn := range out.Warnings {
+					p.f("warning: %s\n", wn)
+				}
+				return p.err
+			},
 		}),
 		opCommand(l, ops.TaskBlock, binding[ops.TaskBlockInput, ops.TaskChangeOutput]{
 			Use:  "block <id>",
