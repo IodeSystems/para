@@ -2,8 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"slices"
 	"strings"
+
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // Letters of the document actions. Link keys in a document avoid them, so a
@@ -81,9 +82,9 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	}
 	switch m.tab {
 	case tabReview:
-		return m.rowsReview(w), append([]Target{actAccept, actReopen, actAnswer, actReject}, acts...)
+		return m.rowsReview(w), append(append([]Target{actAccept, actReopen}, questionActs...), acts...)
 	case tabWork:
-		return m.rowsWork(w), append([]Target{actGraph, actAnswer, actReject}, acts...)
+		return m.rowsWork(w), append(append([]Target{actGraph}, questionActs...), acts...)
 	case tabRFX:
 		return m.rowsRFX(w), acts
 	case tabPeople:
@@ -91,7 +92,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), append([]Target{actAnswer, actReject, actAgenda}, acts...)
+	return m.rowsToday(w), append(append(append([]Target{}, questionActs...), actAgenda), acts...)
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -138,12 +139,8 @@ func (m *Model) drawListOnce(h int) (listing, int) {
 	// Hidden actions have keys but no footer entry, and Answer has its key
 	// always so the letters of the links do not move with the cursor.
 	keys := Assign(append(append([]Target{}, m.extraActs()...), acts...), links, "")
-	footer := acts
-	if *cur >= 0 && *cur < len(rows) && rows[*cur].kind != "question" {
-		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actAnswer.ID || t.ID == actReject.ID })
-	} else if *cur >= 0 && *cur < len(rows) && !rows[*cur].proposed {
-		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actReject.ID })
-	}
+	// The footer shows the question actions that fit the row under the cursor.
+	footer := m.shownActs(acts)
 	inGutter := map[string]string{} // target id -> key code
 	use := func(id, label string) string {
 		if k, ok := keys[id]; ok {
@@ -226,7 +223,11 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 		return rd
 	}
 	src := withOverview(docSource(p.doc), p.doc.Title, p.ov)
-	pre := PreRender(src, PreOpts{Width: m.w, Reserved: docActionLetters, Meta: m.showMeta})
+	reserved := docActionLetters
+	if _, ok := p.doc.Meta.(*model.Question); ok {
+		reserved += questionActLetters
+	}
+	pre := PreRender(src, PreOpts{Width: m.w, Reserved: reserved, Meta: m.showMeta})
 	rd := m.rend.render(pre, m.w)
 	if len(m.cache) > 64 {
 		m.cache = map[docKey]RenderedDoc{}
@@ -236,6 +237,15 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 }
 
 var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture, actVault}
+
+// docActionsFor are the actions of a document page: an opened question also
+// has the question actions.
+func (m *Model) docActionsFor(p *page) []Target {
+	if _, ok := p.doc.Meta.(*model.Question); !ok {
+		return docActions
+	}
+	return append(append([]Target{}, questionActs...), docActions...)
+}
 
 // relayout rebuilds the frame and the key map from the current state.
 func (m *Model) relayout() {
@@ -257,11 +267,12 @@ func (m *Model) relayout() {
 		for id, k := range rd.Keys {
 			keymap[k.Code] = id
 		}
-		akeys := Assign(docActions, nil, "")
-		for _, a := range docActions {
+		all := m.docActionsFor(p)
+		akeys := Assign(all, nil, "")
+		for _, a := range all {
 			keymap[akeys[a.ID].Code] = a.ID
 		}
-		footer = m.footerLine(docActions, akeys)
+		footer = m.footerLine(m.shownActs(all), akeys)
 		if len(rd.Lines) > h {
 			footer += stDim.Render(fmt.Sprintf("  %d%%", 100*min(p.scroll+h, len(rd.Lines))/len(rd.Lines)))
 		}

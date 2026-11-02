@@ -49,9 +49,10 @@ func TestTodayShowsEachItemOnce(t *testing.T) {
 	if !strings.Contains(text, "inbox 1 to sort") {
 		t.Errorf("the inbox count is not shown:\n%s", text)
 	}
-	// Late comes before the nudge, the nudge before ready, ready before the inbox, and a divider sits before ready.
-	o, nu, r, ib, dv := strings.Index(text, "late "), strings.Index(text, "follow up "), strings.Index(text, "ready "), strings.Index(text, "inbox  "), strings.Index(text, "──")
-	if o < 0 || nu < 0 || r < 0 || ib < 0 || o > nu || nu > dv || dv > r || r > ib {
+	// One list in value order: late, then the dated follow up, then ready work
+	// with no date; the divider closes the list, and the inbox comes after it.
+	o, nu, r, ib, dv := strings.Index(text, "late "), strings.Index(text, "Can we launch"), strings.Index(text, "ready "), strings.Index(text, "inbox  "), strings.Index(text, "──")
+	if o < 0 || nu < 0 || r < 0 || ib < 0 || o > nu || nu > r || r > dv || dv > ib {
 		t.Errorf("order:\n%s", text)
 	}
 }
@@ -63,7 +64,7 @@ func TestTodayWaitingRowsAndCount(t *testing.T) {
 	d := newDrv(t, v, 120, 60)
 	text := rowText(d.m.rowsToday(120))
 	// The seeded request is also past its nudge date: it shows once, as a nudge.
-	if !strings.Contains(text, "follow up ") || !strings.Contains(text, "Can we launch the portal?") {
+	if !strings.Contains(text, "follow up") || !strings.Contains(text, "Can we launch the portal?") {
 		t.Errorf("waiting:\n%s", text)
 	}
 	if got := len(d.m.snap.Waiting); got != 1 {
@@ -244,9 +245,14 @@ func TestAnswerHintIsQuietAndFooterFollowsTheRow(t *testing.T) {
 	if d.m.statErr || !strings.Contains(d.m.status, "Move to an open question") {
 		t.Errorf("status %q, error %v", d.m.status, d.m.statErr)
 	}
-	d.key("g") // the top: the question
+	for range 20 { // the question sits below the dated rows
+		if r, _ := d.m.current(); r.kind == "question" {
+			break
+		}
+		d.key("j")
+	}
 	if r, _ := d.m.current(); r.kind != "question" {
-		t.Fatalf("the top row is %q", r.kind)
+		t.Fatalf("no question row, at %q", r.kind)
 	}
 	if !strings.Contains(strings.Split(d.plainFrame(), "\n")[39], "Answer") {
 		t.Errorf("Answer missing on a question row:\n%s", d.plainFrame())

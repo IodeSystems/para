@@ -144,6 +144,10 @@ func TestTodayAnswersAQuestion(t *testing.T) {
 	}
 	d.typeText("Matches the image.")
 	d.key("enter")
+	if !d.has("source") {
+		t.Fatalf("no source step:\n%s", d.plainFrame())
+	}
+	d.key("enter") // a source is optional for a person
 	got, err := ops.QuestionShow.Run(ctx, deps, ops.QuestionShowInput{ID: q.ID})
 	if err != nil {
 		t.Fatal(err)
@@ -162,6 +166,7 @@ func TestTodayAnswersAQuestion(t *testing.T) {
 	d.key(d.keyFor("act:answer"))
 	d.typeText("Sam Example")
 	d.key("enter")
+	d.key("enter") // no source
 	got, err = ops.QuestionShow.Run(ctx, deps, ops.QuestionShowInput{ID: root.ID})
 	if err != nil || got.Question.Status != model.QuestionAnswered || !strings.Contains(got.Body, "Sam Example") {
 		t.Fatalf("root = %+v, %v", got.Question, err)

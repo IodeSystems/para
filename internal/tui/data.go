@@ -84,7 +84,9 @@ type Snapshot struct {
 	Proposals  []ops.ProposalView // current revisions
 	Inbox      []ops.InboxItem
 	Questions  []ops.QuestionView // open, the ones that block the most first
-	Agenda     ops.AgendaOutput   // dated items, the next AgendaDays days
+	Later      []ops.QuestionView // open and put off; they still block what depends on them
+	Domains    []model.Ref
+	Agenda     ops.AgendaOutput // dated items, the next AgendaDays days
 	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
 	Tasks      []ops.TaskView
@@ -152,8 +154,17 @@ func Load(ctx context.Context, e Env) Snapshot {
 	if o, err := ops.InboxList.Run(ctx, e.Deps, ops.InboxListInput{}); note("inbox", err) {
 		s.Inbox = o.Items
 	}
-	if o, err := ops.QuestionList.Run(ctx, e.Deps, ops.QuestionListInput{}); note("questions", err) {
-		s.Questions = o.Questions
+	if o, err := ops.QuestionList.Run(ctx, e.Deps, ops.QuestionListInput{Deferred: true}); note("questions", err) {
+		for _, q := range o.Questions {
+			if q.Deferred {
+				s.Later = append(s.Later, q)
+			} else {
+				s.Questions = append(s.Questions, q)
+			}
+		}
+	}
+	if o, err := ops.OrgDomainList.Run(ctx, e.Deps, ops.OrgListInput{}); note("domains", err) {
+		s.Domains = o.Items
 	}
 	if o, err := ops.Agenda.Run(ctx, e.Deps, ops.AgendaInput{Days: AgendaDays}); note("agenda", err) {
 		s.Agenda = o
@@ -164,7 +175,7 @@ func Load(ctx context.Context, e Env) Snapshot {
 	if o, err := ops.ProjectList.Run(ctx, e.Deps, ops.ProjectListInput{}); note("projects", err) {
 		s.Projects = o.Projects
 	}
-	if o, err := ops.TaskList.Run(ctx, e.Deps, ops.TaskListInput{}); note("tasks", err) {
+	if o, err := ops.TaskList.Run(ctx, e.Deps, ops.TaskListInput{Deferred: true}); note("tasks", err) {
 		s.Tasks = o.Tasks
 	}
 	if o, err := ops.Graph.Run(ctx, e.Deps, ops.GraphInput{}); note("graph", err) {

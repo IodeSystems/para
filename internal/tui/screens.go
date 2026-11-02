@@ -195,32 +195,58 @@ func (m *Model) rowsToday(w int) []row {
 			return x
 		})
 	}
-	for _, it := range s.Today.Incidents.Items {
-		item(it.ID, "incident", stBad, it.Title, "  "+stBad.Render(it.Detail))
-	}
-	for _, q := range s.Questions {
-		add(q.ID, func() row {
-			post := ""
-			if q.Kind != "question" {
-				post = "  " + stDim.Render(string(q.Kind))
+	// One list in value order (ops.RankValue): incidents, then what has an
+	// effective due date, then the rest. Each row says why it is there.
+	for _, it := range s.Today.Agenda.Items {
+		tag, st := it.Kind, stDim
+		why := stDim.Render("  " + it.Why)
+		switch it.Kind {
+		case ops.KindIncident:
+			st = stBad
+		case ops.KindQuestion:
+			tag, st = "question", stWarn
+			if it.Proposal {
+				tag = "check"
+			}
+		case ops.KindTask:
+			tag, st = "ready", stGood
+			if it.Due != "" && it.Due < s.Date {
+				tag, st = "late", stBad
+			} else if it.Due != "" {
+				tag, st = "due", stWarn
+			}
+		case ops.KindAsk:
+			tag, st = "follow up", stWarn
+			if x, ok := nudge[it.ID]; ok && len(x.TargetNames) > 0 {
+				why += stDim.Render("  to " + joinNames(x.TargetNames))
+			}
+		case ops.KindMeeting:
+			tag, st = "meeting", stGood
+		}
+		if q, ok := m.findQuestion(it.ID); ok && it.Kind == ops.KindQuestion {
+			if q.Kind != model.KindQuestion {
+				why = "  " + stDim.Render(string(q.Kind)) + why
 			}
 			if q.ScopeName != "" {
-				post += "  " + stDim.Render(q.ScopeName)
+				why += stDim.Render("  " + q.ScopeName)
 			}
-			if q.Blocking > 0 {
-				post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
+			if q.AgentLooking {
+				why += "  " + stGood.Render("agent looking")
 			}
-			tag := "question"
-			if q.HasProposal {
-				tag = "check"
-				post += "  " + stDim.Render("answer from "+q.ProposedBy)
-			} else if len(q.WaitingOn) > 0 {
-				post += "  " + stDim.Render("waiting")
+		}
+		add(it.ID, func() row {
+			x := linkKeep("doc:"+it.ID, "  "+todayTag(tag, st)+" ", titleOr(it.Title, it.ID), why, w)
+			switch it.Kind {
+			case ops.KindQuestion:
+				x.kind, x.id, x.proposed = "question", it.ID, it.Proposal
+			case ops.KindTask:
+				x.kind, x.id = "task", it.ID
 			}
-			x := linkKeep("doc:"+q.ID, "  "+todayTag(tag, stWarn)+" ", titleOr(q.Title, q.ID), post, w)
-			x.kind, x.id, x.proposed = "question", q.ID, q.HasProposal
 			return x
 		})
+	}
+	if n := s.Today.OtherOpen; n > 0 {
+		r = append(r, link("tab:2", "  ", plural(n, "other open question"), stDim.Render("  on Work"), w))
 	}
 	dated := func(it today.Item, tag string, st lipgloss.Style) {
 		post := "  " + st.Render(dateWords(it.Due, s.Loaded))
@@ -246,6 +272,9 @@ func (m *Model) rowsToday(w int) []row {
 		dated(it, "due", stDim)
 	}
 	urgent := len(r)
+	if n := s.Today.Deferred; n > 0 {
+		r = append(r, dim(fmt.Sprintf("  %d put off (Later); questions are listed on Work", n)))
+	}
 	for _, t := range s.Next {
 		post := ""
 		if t.ProjectName != "" {
@@ -293,6 +322,14 @@ func (m *Model) rowsToday(w int) []row {
 	}
 	r = append(r, m.vaultRows(w)...)
 	return r
+}
+
+// laterWords says when a put-off item returns.
+func laterWords(until string) string {
+	if until == model.SomedayWord {
+		return "someday"
+	}
+	return "on " + until
 }
 
 func joinNames(ns []string) string {
@@ -347,11 +384,11 @@ func (m *Model) vaultRows(w int) []row {
 	return r
 }
 
-// questionRows lists the open questions: kind, what each is about, and what it
-// blocks. Answer acts on the row under the cursor.
-func (m *Model) questionRows(w int) []row {
+// questionRows lists questions: kind, what each is about, and what it blocks.
+// The row actions apply to the row under the cursor.
+func (m *Model) questionRows(w int, qs []ops.QuestionView) []row {
 	var rows []row
-	for _, q := range m.snap.Questions {
+	for _, q := range qs {
 		pre := "  " + stWarn.Render(string(q.Kind)) + "  "
 		post := ""
 		if q.ScopeName != "" {
@@ -360,11 +397,42 @@ func (m *Model) questionRows(w int) []row {
 		if q.Blocking > 0 {
 			post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
 		}
+		if q.AgentLooking {
+			post += "  " + stGood.Render("agent looking")
+		}
+		if q.Deferred {
+			post += "  " + stDim.Render("back "+laterWords(q.DeferUntil))
+		}
 		x := link("doc:"+q.ID, pre, titleOr(q.Title, q.ID), post, w)
 		x.kind, x.id, x.proposed = "question", q.ID, q.HasProposal
 		rows = append(rows, x)
 	}
 	return rows
+}
+
+// questionSections is the question list in three sections: Blocking (something
+// waits on it, or an answer waits to be checked), Other, and Later.
+func (m *Model) questionSections(w int) []row {
+	var blocking, other []ops.QuestionView
+	for _, q := range m.snap.Questions {
+		if q.Blocking > 0 || q.HasProposal {
+			blocking = append(blocking, q)
+		} else {
+			other = append(other, q)
+		}
+	}
+	var r []row
+	for _, sec := range []struct {
+		name string
+		qs   []ops.QuestionView
+	}{{"Blocking", blocking}, {"Other", other}, {"Later", m.snap.Later}} {
+		if len(sec.qs) == 0 {
+			continue
+		}
+		r = append(r, head(fmt.Sprintf("Questions: %s (%d)", sec.name, len(sec.qs))))
+		r = append(r, m.questionRows(w, sec.qs)...)
+	}
+	return r
 }
 
 // review returns the derived Review data for the current snapshot.
@@ -464,8 +532,12 @@ func (m *Model) rowsWork(w int) []row {
 		if t.Due != "" {
 			label += stDim.Render("  due " + dateWords(string(t.Due), m.snap.Loaded))
 		}
+		if t.Deferred {
+			label += stDim.Render("  back " + laterWords(t.DeferUntil))
+		}
 		tx := link("doc:"+t.ID, indent, titleOr(t.Title, t.ID), "  "+label, w)
 		tx.id = t.ID
+		tx.kind = "task"
 		return tx
 	}
 	linkRows := func(indent string, links []model.Pointer) {
@@ -520,10 +592,7 @@ func (m *Model) rowsWork(w int) []row {
 			}
 		}
 	}
-	if len(s.Questions) > 0 {
-		r = append(r, head(fmt.Sprintf("Open questions (%d)", len(s.Questions))))
-		r = append(r, m.questionRows(w)...)
-	}
+	r = append(r, m.questionSections(w)...)
 	if len(s.Cycles) > 0 {
 		r = append(r, head("Cycles"))
 		for _, c := range s.Cycles {

@@ -168,7 +168,7 @@ func TestAnswerToastNamesWhatWasRecordedAndUnblocked(t *testing.T) {
 			qv = x
 		}
 	}
-	d.run(d.m.runAnswer(qv, "1", "closest to users"))
+	d.run(d.m.runAnswer(qv, "1", "closest to users", nil))
 	for _, want := range []string{`Recorded "eu" for "Which region first?"`, "Unblocked Deploy the service"} {
 		if !strings.Contains(d.m.status, want) {
 			t.Errorf("status %q lacks %q", d.m.status, want)

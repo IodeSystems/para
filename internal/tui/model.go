@@ -451,6 +451,16 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.answer()
 	case "reject":
 		return m.rejectAnswer()
+	case "drop":
+		return m.dropQuestion()
+	case "ask":
+		return m.askPerson()
+	case "find":
+		return m.findEvidence()
+	case "later":
+		return m.later()
+	case "cut":
+		return m.cut()
 	default:
 		return m.proposalAct(name)
 	}

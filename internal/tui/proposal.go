@@ -664,6 +664,8 @@ func (m *Model) loadDiff(id string) tea.Cmd {
 type promptStep struct {
 	label, value string
 	skip         func(vals []string) bool
+	// optional lets enter on an empty line move on, with the value "".
+	optional bool
 }
 
 // hint says what enter does at this step of the chain.
@@ -725,7 +727,7 @@ func (m *Model) onPromptKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case "enter":
 		text := strings.TrimSpace(m.ov.input.Value())
-		if text == "" {
+		if text == "" && !m.ov.prompt.steps[len(m.ov.prompt.vals)].optional {
 			return nil
 		}
 		m.ov.prompt.vals = append(m.ov.prompt.vals, text)

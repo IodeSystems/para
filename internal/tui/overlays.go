@@ -282,7 +282,13 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 
 // actionHelp says what each action does, for the help sheet.
 var actionHelp = map[string]string{
-	"act:answer":    "answer the question under the cursor",
+	"act:answer":    "answer the question; then give sources (a URL, a document id, or words such as a meeting) if you have them",
+	"act:reject":    "reject the proposed answer, with a reason the agent reads",
+	"act:drop":      "drop the question, with a reason: tasks that waited on it stop waiting",
+	"act:ask":       "ask a person: makes an ask; para sends nothing",
+	"act:find":      "send it to an agent to find evidence; you check the proposed answer",
+	"act:later":     "put it off until a date or someday; it leaves Today and next and still blocks what depends on it. On a put-off row it brings it back",
+	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
 	"act:graph":     "graph of the goal or area under the cursor",
 	"act:accept":    "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
 	"act:reopen":    "reopen: undo the last mark, or reopen closed agent work",
@@ -335,16 +341,16 @@ func (m *Model) helpLines() []string {
 		add("act:approve", "act:deny", "act:sendback", "act:hold", "act:annotate", "act:edit", "act:copydraft", "act:source", "act:diff", "act:history")
 		here = append(here, "  enter      the item in full")
 	case p != nil && p.kind == pageDoc:
-		add("act:zoom", "act:export", "act:copy", "act:meta")
+		add("act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut", "act:zoom", "act:export", "act:copy", "act:meta")
 	case p != nil && p.kind == pageText:
 		add("act:source", "act:copydraft")
 	case p != nil:
 	case m.tab == tabReview:
-		add("act:accept", "act:reopen")
+		add("act:accept", "act:reopen", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabToday:
-		add("act:answer")
+		add("act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabWork:
-		add("act:graph", "act:answer")
+		add("act:graph", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	}
 	if len(here) > 0 {
 		out = append(out, "", stHead.Render("On this screen"))

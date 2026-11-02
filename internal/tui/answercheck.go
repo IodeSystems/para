@@ -127,19 +127,12 @@ func (m *Model) rejectAnswer() tea.Cmd {
 	})
 }
 
-// cursorProposal is the question under the cursor, when it has a proposal.
+// cursorProposal is the question under the cursor, or the opened question,
+// when it has a proposal.
 func (m *Model) cursorProposal() (ops.QuestionView, bool) {
-	if len(m.stack) > 0 {
+	t, ok := m.cursorTarget()
+	if !ok || t.kind != "question" || !t.q.HasProposal {
 		return ops.QuestionView{}, false
 	}
-	r, ok := m.current()
-	if !ok || r.kind != "question" || !r.proposed {
-		return ops.QuestionView{}, false
-	}
-	for _, q := range m.snap.Questions {
-		if q.ID == r.id && q.HasProposal {
-			return q, true
-		}
-	}
-	return ops.QuestionView{}, false
+	return t.q, true
 }

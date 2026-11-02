@@ -12,26 +12,15 @@ import (
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
-// answer handles "a" on Today and Work: answer the open question under the
-// cursor through question_answer, as the tui surface. With options, the answer
-// is the number of an option or free text. A decision also asks for its reason.
+// answer handles "a" on Today, Work, Review, and an opened question: answer
+// the open question through question_answer, as the tui surface. With options,
+// the answer is the number of an option or free text. A decision also asks for
+// its reason. Then up to three sources, each with an optional quote: a URL, a
+// document id, or words such as a meeting. Sources are optional for a person.
 // Dependents change at once because they read the question's state.
 func (m *Model) answer() tea.Cmd {
-	if len(m.stack) > 0 || (m.tab != tabToday && m.tab != tabWork && m.tab != tabReview) {
-		return nil
-	}
-	r, ok := m.current()
-	if !ok || r.kind != "question" {
-		m.setHint("Move to an open question to answer it.")
-		return nil
-	}
-	var q ops.QuestionView
-	for _, x := range m.snap.Questions {
-		if x.ID == r.id {
-			q = x
-		}
-	}
-	if q.ID == "" {
+	q, ok := m.targetQuestion("answer")
+	if !ok {
 		return nil
 	}
 	if q.HasProposal {
@@ -55,9 +44,43 @@ func (m *Model) answer() tea.Cmd {
 		{label: label, value: value},
 		{label: "why: ", skip: func([]string) bool { return q.Kind != model.KindDecision }},
 	}
+	steps = append(steps, sourceSteps(2)...)
 	return m.askForLines("Answer: "+titleOr(q.Title, q.ID), lines, steps, func(vals []string) tea.Cmd {
-		return m.runAnswer(q, vals[0], vals[1])
+		return m.runAnswer(q, vals[0], vals[1], sourcesFrom(vals[2:]))
 	})
+}
+
+// sourceSteps are three optional (source, quote) pairs. A pair is asked only
+// when the pair before it was given. first is the index in the chain of the
+// first source step.
+func sourceSteps(first int) []promptStep {
+	var steps []promptStep
+	for i := range 3 {
+		at := first + 2*i
+		label := "source (a URL, a document id, or words such as a meeting; enter for none): "
+		if i > 0 {
+			label = "another source (enter to finish): "
+		}
+		var skipSrc func([]string) bool
+		if i > 0 {
+			skipSrc = func(v []string) bool { return v[at-2] == "" }
+		}
+		steps = append(steps,
+			promptStep{label: label, optional: true, skip: skipSrc},
+			promptStep{label: "quote from it (optional): ", optional: true, skip: func(v []string) bool { return v[at] == "" }})
+	}
+	return steps
+}
+
+// sourcesFrom reads the (source, quote) pairs that sourceSteps collected.
+func sourcesFrom(vals []string) []model.AnswerSource {
+	var out []model.AnswerSource
+	for i := 0; i+1 < len(vals); i += 2 {
+		if r := strings.TrimSpace(vals[i]); r != "" {
+			out = append(out, model.AnswerSource{Ref: r, Quote: strings.TrimSpace(vals[i+1])})
+		}
+	}
+	return out
 }
 
 // askForLines is askFor with lines of context above the input.
@@ -88,9 +111,10 @@ func answerInput(q ops.QuestionView, typed, why string) ops.QuestionAnswerInput 
 	return in
 }
 
-func (m *Model) runAnswer(q ops.QuestionView, typed, why string) tea.Cmd {
+func (m *Model) runAnswer(q ops.QuestionView, typed, why string, sources []model.AnswerSource) tea.Cmd {
 	env := m.env
 	in := answerInput(q, typed, why)
+	in.Sources = sources
 	snap := m.snap
 	return func() tea.Msg {
 		o, err := ops.QuestionAnswer.Run(context.Background(), env.Deps, in)
