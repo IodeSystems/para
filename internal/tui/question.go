@@ -31,6 +31,9 @@ func (m *Model) answer() tea.Cmd {
 	if len(q.Options) > 0 {
 		label = "answer (number, or your own words): "
 		lines = append(lines, "  "+titleOr(q.Title, q.ID))
+		if q.Context != "" {
+			lines = append(lines, wrapText("  "+q.Context, max(m.w-6, 20))...)
+		}
 		for i, o := range q.Options {
 			rec := ""
 			if o == q.Recommended {
@@ -38,6 +41,7 @@ func (m *Model) answer() tea.Cmd {
 				value = strconv.Itoa(i + 1)
 			}
 			lines = append(lines, fmt.Sprintf("  %d  %s%s", i+1, o, rec))
+			lines = append(lines, optionCard(q, o, max(m.w-10, 20))...)
 		}
 	}
 	steps := []promptStep{
@@ -78,6 +82,47 @@ func sourcesFrom(vals []string) []model.AnswerSource {
 	for i := 0; i+1 < len(vals); i += 2 {
 		if r := strings.TrimSpace(vals[i]); r != "" {
 			out = append(out, model.AnswerSource{Ref: r, Quote: strings.TrimSpace(vals[i+1])})
+		}
+	}
+	return out
+}
+
+// optionCard is the weighing of one option, as lines under its name.
+func optionCard(q ops.QuestionView, name string, w int) []string {
+	var out []string
+	for _, o := range q.OptionDetails {
+		if o.Name != name {
+			continue
+		}
+		add := func(head, text string) {
+			for i, l := range wrapText(head+": "+text, w) {
+				if i > 0 {
+					l = "  " + l
+				}
+				out = append(out, "     "+l)
+			}
+		}
+		claim := func(head string, c model.Claim) { add(head, c.Text+" ["+c.Source+"]") }
+		for _, c := range o.Pros {
+			claim("pro", c)
+		}
+		for _, c := range o.Cons {
+			claim("con", c)
+		}
+		if o.Cost != nil {
+			claim("cost", *o.Cost)
+		}
+		if o.Benefit != nil {
+			claim("benefit", *o.Benefit)
+		}
+		for _, e := range o.Examples {
+			add(e.Kind, e.Text+" ["+e.Source+"]")
+		}
+		if o.Confidence > 0 {
+			add("confidence", fmt.Sprintf("%d%% %s", o.Confidence, o.ConfidenceBasis))
+		}
+		if o.Recommendation > 0 {
+			add("recommended", fmt.Sprintf("%d%%", o.Recommendation))
 		}
 	}
 	return out

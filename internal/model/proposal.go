@@ -214,6 +214,52 @@ func (t Tradeoffs) Check() error {
 	return nil
 }
 
+// Example is a case that bears on an option: what happened elsewhere, with its
+// source. Kind is success or failure.
+type Example struct {
+	Kind   string `yaml:"kind" json:"kind"`
+	Text   string `yaml:"text" json:"text"`
+	Source string `yaml:"source" json:"source"`
+}
+
+// OptionDetail weighs one option of a decision.
+type OptionDetail struct {
+	Name            string    `yaml:"name" json:"name"`
+	Pros            []Claim   `yaml:"pros,omitempty" json:"pros,omitempty"`
+	Cons            []Claim   `yaml:"cons,omitempty" json:"cons,omitempty"`
+	Cost            *Claim    `yaml:"cost,omitempty" json:"cost,omitempty"`
+	Benefit         *Claim    `yaml:"benefit,omitempty" json:"benefit,omitempty"`
+	Confidence      int       `yaml:"confidence,omitempty" json:"confidence,omitempty"`
+	ConfidenceBasis string    `yaml:"confidence_basis,omitempty" json:"confidence_basis,omitempty"`
+	Recommendation  int       `yaml:"recommendation,omitempty" json:"recommendation,omitempty"`
+	Examples        []Example `yaml:"examples,omitempty" json:"examples,omitempty"`
+}
+
+// Weighing returns the option's Tradeoffs.
+func (o OptionDetail) Weighing() Tradeoffs {
+	return Tradeoffs{Pros: o.Pros, Cons: o.Cons, Cost: o.Cost, Benefit: o.Benefit, Confidence: o.Confidence,
+		ConfidenceBasis: o.ConfidenceBasis, Recommendation: o.Recommendation}
+}
+
+// Check enforces cited claims, and that each example has a kind and a source.
+func (o OptionDetail) Check() error {
+	if err := o.Weighing().Check(); err != nil {
+		return err
+	}
+	for _, e := range o.Examples {
+		if e.Kind != "success" && e.Kind != "failure" {
+			return fmt.Errorf("example %q: kind %q: want success or failure", e.Text, e.Kind)
+		}
+		if strings.TrimSpace(e.Text) == "" || strings.TrimSpace(e.Source) == "" {
+			return errors.New("an example needs text and a source")
+		}
+		if strings.EqualFold(strings.TrimSpace(e.Source), NoSource) && o.Confidence > LowConfidence {
+			return fmt.Errorf("example %q has no source, so confidence must be low: %d or under", e.Text, LowConfidence)
+		}
+	}
+	return nil
+}
+
 // Turn is one entry of an item's conversation. It stays with the item across
 // revisions, with the agent's answer. Quote is optional: the text it is about.
 type Turn struct {

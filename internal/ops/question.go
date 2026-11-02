@@ -47,13 +47,16 @@ type QuestionView struct {
 	ScopeType   string               `json:"scope_type"`
 	Options     []string             `json:"options"`
 	Recommended string               `json:"recommended,omitempty"`
-	RFX         string               `json:"rfx,omitempty"`
-	Choice      string               `json:"choice,omitempty"`
-	AnsweredBy  string               `json:"answered_by,omitempty"`
-	Answered    model.Date           `json:"answered,omitempty"`
-	Created     model.Date           `json:"created"`
-	Blocks      []string             `json:"blocks"`
-	Blocking    int                  `json:"blocking"`
+	Context     string               `json:"context,omitempty"`
+	// OptionDetails weighs each option, for a comparison.
+	OptionDetails []model.OptionDetail `json:"option_details,omitempty"`
+	RFX           string               `json:"rfx,omitempty"`
+	Choice        string               `json:"choice,omitempty"`
+	AnsweredBy    string               `json:"answered_by,omitempty"`
+	Answered      model.Date           `json:"answered,omitempty"`
+	Created       model.Date           `json:"created"`
+	Blocks        []string             `json:"blocks"`
+	Blocking      int                  `json:"blocking"`
 	// DependsOn are the tasks, requests, and questions this one waits on.
 	// WaitingOn is the part of DependsOn not yet resolved.
 	DependsOn []string `json:"depends_on"`
@@ -94,6 +97,7 @@ func questionView(d model.Document) (QuestionView, error) {
 	return QuestionView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Kind: q.AsKind(), Status: q.Status,
 		Scope: scopeID(q), Options: append([]string{}, q.Options...), Recommended: q.Recommended,
+		Context: q.Context, OptionDetails: q.OptionDetails,
 		RFX: q.RFX.Target(), Choice: q.Choice, AnsweredBy: q.AnsweredBy, Answered: q.Answered,
 		Created: q.Created, Blocks: []string{}, DependsOn: targets(q.DependsOn), WaitingOn: []string{}, Rev: d.Rev,
 		HasProposal: q.HasProposal(), ProposedAnswer: q.ProposedAnswer, ProposedChoice: q.ProposedChoice,
@@ -409,6 +413,11 @@ type QuestionAddInput struct {
 	Kind        model.QuestionKind `json:"kind,omitempty"`        // question (default), decision, or input
 	Options     []string           `json:"options,omitempty"`     // the choices, when there is a fixed set
 	Recommended string             `json:"recommended,omitempty"` // one of the options
+	Context     string             `json:"context,omitempty"`     // what the owner needs to know to decide
+	// OptionDetails weighs each option: pros, cons, cost, benefit, examples,
+	// confidence with its basis, and a recommendation percent. It names the
+	// options, so options may be left out.
+	OptionDetails []model.OptionDetail `json:"option_details,omitempty"`
 }
 
 // QuestionAddOutput is the output of question_add.
@@ -428,8 +437,19 @@ var QuestionAdd = define("question_add", "Record an open question, decision, or 
 	if err != nil {
 		return QuestionAddOutput{}, err
 	}
+	if len(in.Options) == 0 {
+		for _, o := range in.OptionDetails {
+			in.Options = append(in.Options, o.Name)
+		}
+	}
+	if in.Recommended == "" {
+		in.Recommended = recommendedOf(in.OptionDetails)
+	}
 	opts, rec, err := checkOptions(in.Kind, in.Options, in.Recommended)
 	if err != nil {
+		return QuestionAddOutput{}, err
+	}
+	if err := checkDecision(d, in.Kind, opts, rec, in.OptionDetails); err != nil {
 		return QuestionAddOutput{}, err
 	}
 	kind := in.Kind
@@ -441,6 +461,7 @@ var QuestionAdd = define("question_add", "Record an open question, decision, or 
 		Meta: &model.Question{
 			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: kind,
 			Scope: scope, Options: opts, Recommended: rec,
+			Context: strings.TrimSpace(in.Context), OptionDetails: in.OptionDetails,
 		},
 	})
 	if err != nil {
@@ -448,6 +469,50 @@ var QuestionAdd = define("question_add", "Record an open question, decision, or 
 	}
 	return QuestionAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
 })
+
+// recommendedOf names the option with the highest recommendation percent.
+func recommendedOf(list []model.OptionDetail) string {
+	best, out := 0, ""
+	for _, o := range list {
+		if o.Recommendation > best {
+			best, out = o.Recommendation, o.Name
+		}
+	}
+	return out
+}
+
+// checkDecision holds a decision to the rule for cited claims. A decision an
+// agent files is refused without options, a recommendation, and a basis. A
+// person may file a bare decision.
+func checkDecision(d Deps, kind model.QuestionKind, options []string, recommended string, details []model.OptionDetail) error {
+	for _, o := range details {
+		if !slices.Contains(options, o.Name) {
+			return fmt.Errorf("option_details: %q is not one of the options", o.Name)
+		}
+		if err := o.Check(); err != nil {
+			return fmt.Errorf("option %s: %w", o.Name, err)
+		}
+	}
+	if kind != model.KindDecision || !agentSurface(d) {
+		return nil
+	}
+	if len(options) < 2 {
+		return errors.New("a decision from an agent needs options: at least two, in option_details")
+	}
+	if recommended == "" {
+		return errors.New("a decision from an agent needs a recommendation: a recommendation percent on the option you suggest")
+	}
+	for _, name := range options {
+		i := slices.IndexFunc(details, func(o model.OptionDetail) bool { return o.Name == name })
+		if i < 0 {
+			return fmt.Errorf("a decision from an agent weighs every option: %q has no option_details", name)
+		}
+		if strings.TrimSpace(details[i].ConfidenceBasis) == "" || details[i].Confidence == 0 {
+			return fmt.Errorf("option %s: give confidence and confidence_basis", name)
+		}
+	}
+	return nil
+}
 
 // QuestionListInput is the input of question_list. Empty fields match all.
 type QuestionListInput struct {

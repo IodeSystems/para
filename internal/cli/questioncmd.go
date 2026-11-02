@@ -136,6 +136,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Kind), "kind", "", "question (default), decision (needs a reason to answer), or input")
 				fs.StringArrayVar(&in.Options, "option", nil, "a choice; repeatable")
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
+				fs.StringVar(&in.Context, "context", "", "what is needed to decide")
 			},
 			Bind: func(args []string, in *ops.QuestionAddInput) error {
 				in.Text = strings.Join(args, " ")
@@ -168,13 +169,19 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				if v.RejectedReason != "" {
 					p.f("rejected\t%s: %s\n", v.RejectedBy, v.RejectedReason)
 				}
-				if len(v.Options) > 0 {
-					for i, o := range v.Options {
-						mark := ""
-						if o == v.Recommended {
-							mark = "\t(recommended)"
+				if v.Context != "" {
+					p.f("context\t%s\n", v.Context)
+				}
+				for i, o := range v.Options {
+					mark := ""
+					if o == v.Recommended {
+						mark = "\t(recommended)"
+					}
+					p.f("option %d\t%s%s\n", i+1, o, mark)
+					for _, od := range v.OptionDetails {
+						if od.Name == o {
+							writeOptionDetail(p, od)
 						}
-						p.f("option %d\t%s%s\n", i+1, o, mark)
 					}
 				}
 				p.f("rfx\t%s\nblocks\t%s\n%s\n", dash(v.RFX), joinOrDash(v.Blocks), out.Body)
@@ -210,6 +217,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&in.Options, "option", nil, "replace the options; repeatable")
 				fs.BoolVar(&in.ClearOptions, "clear-options", false, "remove all options")
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
+				fs.StringVar(&in.Context, "context", "", "what is needed to decide")
 				fs.BoolVar(&in.ClearRecommended, "clear-recommended", false, "remove the recommendation")
 			},
 			Bind: func(args []string, in *ops.QuestionEditInput) error { in.ID = args[0]; return nil },
@@ -367,4 +375,26 @@ func questionInvestigateCmd(l *loader) *cobra.Command {
 	})
 	cmd.Annotations = nil
 	return cmd
+func writeOptionDetail(p *printer, o model.OptionDetail) {
+	for _, c := range o.Pros {
+		p.f("  pro\t%s [%s]\n", c.Text, c.Source)
+	}
+	for _, c := range o.Cons {
+		p.f("  con\t%s [%s]\n", c.Text, c.Source)
+	}
+	if o.Cost != nil {
+		p.f("  cost\t%s [%s]\n", o.Cost.Text, o.Cost.Source)
+	}
+	if o.Benefit != nil {
+		p.f("  benefit\t%s [%s]\n", o.Benefit.Text, o.Benefit.Source)
+	}
+	for _, e := range o.Examples {
+		p.f("  %s\t%s [%s]\n", e.Kind, e.Text, e.Source)
+	}
+	if o.Confidence > 0 {
+		p.f("  confidence\t%d%% %s\n", o.Confidence, o.ConfidenceBasis)
+	}
+	if o.Recommendation > 0 {
+		p.f("  recommendation\t%d%%\n", o.Recommendation)
+	}
 }

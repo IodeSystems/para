@@ -892,6 +892,36 @@ try {
   await rp.locator('[data-item="i3"]').getByText('Not chosen: picked i2').waitFor()
   check(true, 'picking one choice closes the other, with the reason')
 
+  // A decision from an agent is weighed; the owner reads a comparison table.
+  const weighed = await agent.call('question_add', {
+    text: 'Which quota size?',
+    project: proj,
+    kind: 'decision',
+    context: 'Staging runs out of quota weekly.',
+    option_details: [
+      {
+        name: 'Twenty',
+        pros: [{ text: 'Covers a month of growth.', source: docId }],
+        confidence: 60,
+        confidence_basis: 'Last month of usage.',
+        recommendation: 70,
+      },
+      {
+        name: 'Forty',
+        cost: { text: 'Double the bill.', source: 'no source found' },
+        confidence: 30,
+        confidence_basis: 'A guess.',
+        recommendation: 30,
+      },
+    ],
+  })
+  await rp.goto(`${base}/questions?answer=${weighed.id}`)
+  const compare = rp.getByRole('table', { name: 'Compare the options' })
+  await compare.waitFor()
+  await compare.getByText('Double the bill. [no source found]').waitFor()
+  check(true, 'a decision shows a comparison table with sources')
+  await rp.keyboard.press('Escape')
+
   // Deny and rework need a reason.
   const second = await agent.call('proposal_add', {
     title: 'Second batch',

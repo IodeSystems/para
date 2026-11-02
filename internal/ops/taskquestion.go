@@ -43,6 +43,9 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 		return TaskToQuestionOutput{}, fmt.Errorf("%s is already %s", doc.ID, t.Status)
 	}
 	opts, rec, err := checkOptions(in.Kind, in.Options, in.Recommended)
+	if err == nil {
+		err = checkDecision(d, in.Kind, opts, rec, nil)
+	}
 	if err != nil {
 		return TaskToQuestionOutput{}, err
 	}

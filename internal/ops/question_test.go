@@ -352,3 +352,61 @@ func TestQuestionsInScope(t *testing.T) {
 		t.Errorf("where = %+v", w.Matches)
 	}
 }
+
+func TestAgentDecisionNeedsWeighing(t *testing.T) {
+	f := newPropFix(t)
+	base := QuestionAddInput{Text: "Which path?", Project: f.proj, Kind: model.KindDecision}
+	bad := []struct {
+		name string
+		in   func(QuestionAddInput) QuestionAddInput
+		want string
+	}{
+		{"no options", func(i QuestionAddInput) QuestionAddInput { return i }, "needs options"},
+		{"bare options", func(i QuestionAddInput) QuestionAddInput {
+			i.Options, i.Recommended = []string{"A", "B"}, "A"
+			return i
+		}, "weighs every option"},
+		{"no recommendation", func(i QuestionAddInput) QuestionAddInput {
+			i.OptionDetails = []model.OptionDetail{{Name: "A"}, {Name: "B"}}
+			return i
+		}, "recommendation"},
+		{"no basis", func(i QuestionAddInput) QuestionAddInput {
+			i.OptionDetails = []model.OptionDetail{{Name: "A", Recommendation: 60}, {Name: "B"}}
+			return i
+		}, "confidence_basis"},
+		{"unsourced claim", func(i QuestionAddInput) QuestionAddInput {
+			i.OptionDetails = []model.OptionDetail{{Name: "A", Pros: []model.Claim{{Text: "Fast."}}}, {Name: "B"}}
+			return i
+		}, "no source"},
+		{"no source at high confidence", func(i QuestionAddInput) QuestionAddInput {
+			i.OptionDetails = []model.OptionDetail{{Name: "A", Confidence: 90, Pros: []model.Claim{{Text: "Fast.", Source: model.NoSource}}}, {Name: "B"}}
+			return i
+		}, "must be low"},
+	}
+	for _, c := range bad {
+		if _, err := QuestionAdd.Run(t.Context(), f.agent, c.in(base)); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v", c.name, err)
+		}
+	}
+	good := base
+	good.Context = "The installer writes one of these."
+	good.OptionDetails = []model.OptionDetail{
+		{Name: "A", Confidence: 40, ConfidenceBasis: "One note.", Recommendation: 70, Pros: []model.Claim{{Text: "Fast.", Source: model.NoSource}},
+			Examples: []model.Example{{Kind: "failure", Text: "Beta broke.", Source: f.source}}},
+		{Name: "B", Confidence: 20, ConfidenceBasis: "None.", Recommendation: 30},
+	}
+	out, err := QuestionAdd.Run(t.Context(), f.agent, good)
+	if err != nil {
+		t.Fatal(err)
+	}
+	show, err := QuestionShow.Run(t.Context(), f.owner, QuestionShowInput{ID: out.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if show.Question.Recommended != "A" || len(show.Question.Options) != 2 || show.Question.OptionDetails[0].Examples[0].Kind != "failure" {
+		t.Fatalf("question = %+v", show.Question)
+	}
+	if _, err := QuestionAdd.Run(t.Context(), f.owner, base); err != nil {
+		t.Fatalf("a person may file a bare decision: %v", err)
+	}
+}

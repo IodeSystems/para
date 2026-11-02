@@ -316,6 +316,7 @@ type QuestionEditInput struct {
 	ClearOptions     bool     `json:"clear_options,omitempty"`     // remove all options (and the recommendation)
 	Recommended      string   `json:"recommended,omitempty"`       // one of the options
 	ClearRecommended bool     `json:"clear_recommended,omitempty"` // remove the recommendation
+	Context          string   `json:"context,omitempty"`           // replaces what is needed to decide
 }
 
 // QuestionEditOutput is the output of question_edit.
@@ -367,6 +368,9 @@ var QuestionEdit = define("question_edit", "Change the title, options, or recomm
 		return QuestionEditOutput{}, fmt.Errorf("the proposed answer picks %q, which is not in the new options: reject the proposal first", q.ProposedChoice)
 	}
 	q.Options, q.Recommended = opts, rec
+	if c := strings.TrimSpace(in.Context); c != "" {
+		q.Context = c
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return QuestionEditOutput{}, err

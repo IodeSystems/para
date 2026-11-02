@@ -379,6 +379,10 @@ type Question struct {
 	// the one the asker suggests; it is one of Options.
 	Options     []string `yaml:"options,omitempty" json:"options,omitempty"`
 	Recommended string   `yaml:"recommended,omitempty" json:"recommended,omitempty"`
+	// Context is what the owner needs to know to decide. OptionDetails weighs
+	// each option, by name.
+	Context       string         `yaml:"context,omitempty" json:"context,omitempty"`
+	OptionDetails []OptionDetail `yaml:"option_details,omitempty" json:"option_details,omitempty"`
 	// RFX links the request that asks this question of a person.
 	RFX Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
 	// Choice, AnsweredBy, and Answered record the answer: the option picked, who

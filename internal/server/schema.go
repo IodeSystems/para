@@ -121,6 +121,8 @@ type Meta struct {
 	RejectedBy      string           `json:"rejected_by,omitempty"`
 	Options         []string         `json:"options,omitempty"`
 	Recommended     string           `json:"recommended,omitempty"`
+	Context         string           `json:"context,omitempty"`
+	OptionDetails   *jsonValue       `json:"option_details,omitempty"`
 	RFX             *jsonValue       `json:"rfx,omitempty"`
 	Question        string           `json:"question,omitempty"`
 	Choice          string           `json:"choice,omitempty"`

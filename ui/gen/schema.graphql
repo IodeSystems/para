@@ -662,6 +662,18 @@ input para_EvidenceInput {
   quote: String!
 }
 
+type para_Example {
+  kind: String!
+  source: String!
+  text: String!
+}
+
+input para_ExampleInput {
+  kind: String!
+  source: String!
+  text: String!
+}
+
 input para_ExceptionAddInputInput {
   by: String!
   kind: para_ExceptionAddInputKind!
@@ -1895,6 +1907,7 @@ type para_Meta {
   choice: String
   claimedBy: String
   contacts: [para_Contact!]
+  context: String
   created: String!
   date: String
   deferUntil: String
@@ -1915,6 +1928,7 @@ type para_Meta {
   nextNudge: String
   notIn: [String!]
   of: String
+  optionDetails: JSON
   options: [String!]
   org: String
   owner: String
@@ -2097,6 +2111,30 @@ enum para_NoteViewFolder {
   requests
   resources
   rfx
+}
+
+type para_OptionDetail {
+  benefit: para_Claim
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_Claim!]
+  cost: para_Claim
+  examples: [para_Example!]
+  name: String!
+  pros: [para_Claim!]
+  recommendation: Int
+}
+
+input para_OptionDetailInput {
+  benefit: para_ClaimInput
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_ClaimInput!]
+  cost: para_ClaimInput
+  examples: [para_ExampleInput!]
+  name: String!
+  pros: [para_ClaimInput!]
+  recommendation: Int
 }
 
 type para_OrderOutput {
@@ -2629,7 +2667,9 @@ input para_QuestionAcceptInputInput {
 
 input para_QuestionAddInputInput {
   area: String
+  context: String
   kind: para_QuestionAddInputKind
+  optionDetails: [para_OptionDetailInput!]
   options: [String!]
   project: String
   recommended: String
@@ -2745,6 +2785,7 @@ input para_QuestionDropInputInput {
 input para_QuestionEditInputInput {
   clearOptions: Boolean
   clearRecommended: Boolean
+  context: String
   id: String!
   options: [String!]
   recommended: String
@@ -2780,6 +2821,7 @@ type para_QuestionView {
   blocking: Int!
   blocks: [String!]!
   choice: String
+  context: String
   created: String!
   deferUntil: String
   deferred: Boolean!
@@ -2789,6 +2831,7 @@ type para_QuestionView {
   hasProposal: Boolean!
   id: String!
   kind: para_QuestionViewKind!
+  optionDetails: [para_OptionDetail!]
   options: [String!]!
   proposed: String
   proposedAnswer: String

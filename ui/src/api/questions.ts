@@ -15,6 +15,34 @@ export const QuestionFields = graphql(/* GraphQL */ `
     scopeType
     options
     recommended
+    context
+    optionDetails {
+      name
+      pros {
+        text
+        source
+      }
+      cons {
+        text
+        source
+      }
+      cost {
+        text
+        source
+      }
+      benefit {
+        text
+        source
+      }
+      confidence
+      confidenceBasis
+      recommendation
+      examples {
+        kind
+        text
+        source
+      }
+    }
     blocking
     blocks
     choice

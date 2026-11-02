@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import FormControl from '@mui/material/FormControl'
 import FormControlLabel from '@mui/material/FormControlLabel'
@@ -8,6 +9,11 @@ import MenuItem from '@mui/material/MenuItem'
 import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import Stack from '@mui/material/Stack'
+import Table from '@mui/material/Table'
+import TableBody from '@mui/material/TableBody'
+import TableCell from '@mui/material/TableCell'
+import TableHead from '@mui/material/TableHead'
+import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import {
@@ -130,6 +136,12 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
         <Typography sx={{ overflowWrap: 'anywhere' }}>
           {question?.title ?? (q.isError ? '' : 'Loading')}
         </Typography>
+        {question?.context && (
+          <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+            {question.context}
+          </Typography>
+        )}
+        <OptionCompare details={question?.optionDetails ?? []} />
         {options.length > 0 && (
           <FormControl>
             <FormLabel id="options-label">Options</FormLabel>
@@ -932,5 +944,65 @@ function DoneWhenDialog({
         />
       </Stack>
     </Frame>
+  )
+}
+
+type Cited = { text: string; source: string }
+type WeighedOption = {
+  name: string
+  pros?: Cited[] | null
+  cons?: Cited[] | null
+  cost?: Cited | null
+  benefit?: Cited | null
+  examples?: { kind: string; text: string; source: string }[] | null
+  confidence?: number | null
+  confidenceBasis?: string | null
+  recommendation?: number | null
+}
+
+const cited = (list: Cited[]) => list.map((c) => `${c.text} [${c.source}]`).join('; ')
+
+// OptionCompare lays the options of a decision side by side, one row per measure.
+function OptionCompare({ details }: { details: WeighedOption[] }) {
+  if (details.length === 0) return null
+  const rows: [string, (o: WeighedOption) => string][] = [
+    ['Pros', (o) => cited(o.pros ?? [])],
+    ['Cons', (o) => cited(o.cons ?? [])],
+    ['Cost', (o) => cited(o.cost ? [o.cost] : [])],
+    ['Benefit', (o) => cited(o.benefit ? [o.benefit] : [])],
+    [
+      'Examples',
+      (o) => (o.examples ?? []).map((e) => `${e.kind}: ${e.text} [${e.source}]`).join('; '),
+    ],
+    ['Confidence', (o) => (o.confidence ? `${o.confidence}%: ${o.confidenceBasis ?? ''}` : '')],
+    ['Recommended', (o) => (o.recommendation ? `${o.recommendation}%` : '')],
+  ]
+  return (
+    <Box sx={{ overflowX: 'auto' }}>
+      <Table size="small" aria-label="Compare the options">
+        <TableHead>
+          <TableRow>
+            <TableCell />
+            {details.map((o) => (
+              <TableCell key={o.name}>{o.name}</TableCell>
+            ))}
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows
+            .filter(([, of]) => details.some((o) => of(o) !== ''))
+            .map(([label, of]) => (
+              <TableRow key={label}>
+                <TableCell component="th" scope="row">
+                  {label}
+                </TableCell>
+                {details.map((o) => (
+                  <TableCell key={o.name}>{of(o)}</TableCell>
+                ))}
+              </TableRow>
+            ))}
+        </TableBody>
+      </Table>
+    </Box>
   )
 }
