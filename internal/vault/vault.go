@@ -101,7 +101,7 @@ func (v *Vault) Create(ctx context.Context, d model.Document) (model.Document, e
 		d.Meta.Header().Created = v.today()
 	}
 	rel := path.Join(string(d.Folder), d.ID+".md")
-	data, err := renderChecked(rel, d)
+	data, err := renderChecked(rel, d, nil)
 	if err != nil {
 		return d, fmt.Errorf("vault: create: %w", err)
 	}
@@ -154,7 +154,7 @@ func (v *Vault) Update(ctx context.Context, d model.Document) (model.Document, e
 			return fmt.Errorf("%w: %s", model.ErrConflict, f.rel)
 		}
 		d.Folder = f.folder
-		data, err := renderChecked(f.rel, d)
+		data, err := renderChecked(f.rel, d, paramd.Parse(f.rel, old).FrontmatterYAML())
 		if err != nil {
 			return err
 		}

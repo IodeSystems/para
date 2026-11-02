@@ -162,3 +162,110 @@ func TestLinks(t *testing.T) {
 		t.Errorf("target %q", got)
 	}
 }
+
+func TestRenderOntoPreservesFrontmatter(t *testing.T) {
+	const old = `# hand-edited note
+owner: jordan   # who runs it
+status: active
+type: project
+tags: [b, a]
+note: keep me
+created: "2026-11-01"
+`
+	cases := []struct {
+		name   string
+		mutate func(d *Document)
+		want   string
+	}{
+		{"no change", func(d *Document) {}, `---
+# hand-edited note
+owner: jordan # who runs it
+status: active
+type: project
+tags: [b, a]
+note: keep me
+created: "2026-11-01"
+---
+
+# T
+`},
+		{"one key", func(d *Document) { d.Meta.(*Project).Status = "done" }, `---
+# hand-edited note
+owner: jordan # who runs it
+status: done
+type: project
+tags: [b, a]
+note: keep me
+created: "2026-11-01"
+---
+
+# T
+`},
+		{"changed keeps line comment", func(d *Document) { d.Meta.(*Project).Owner = "sam" }, `---
+# hand-edited note
+owner: sam # who runs it
+status: active
+type: project
+tags: [b, a]
+note: keep me
+created: "2026-11-01"
+---
+
+# T
+`},
+		{"new key appended", func(d *Document) { d.Meta.Header().Updated = "2026-11-02" }, `---
+# hand-edited note
+owner: jordan # who runs it
+status: active
+type: project
+tags: [b, a]
+note: keep me
+created: "2026-11-01"
+updated: 2026-11-02
+---
+
+# T
+`},
+		{"removed key dropped", func(d *Document) { d.Meta.Header().Tags = nil }, `---
+# hand-edited note
+owner: jordan # who runs it
+status: active
+type: project
+note: keep me
+created: "2026-11-01"
+---
+
+# T
+`},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			parsed, err := Decode("p", FolderProjects, []byte(old), "T", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			c.mutate(&parsed)
+			got, err := RenderOnto(parsed, []byte(old))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != c.want {
+				t.Fatalf("got:\n%s\nwant:\n%s", got, c.want)
+			}
+		})
+	}
+}
+
+func TestRenderOntoIgnoresUnusableOld(t *testing.T) {
+	d := Document{Title: "T", Meta: &Inbox{Common: Common{Type: TypeInbox, Created: "2026-11-01"}}}
+	want, err := Render(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, old := range []string{"", "- a\n- b\n", ":\n  : [", "plain"} {
+		got, err := RenderOnto(d, []byte(old))
+		if err != nil || string(got) != string(want) {
+			t.Errorf("old %q: %v\n%s", old, err, got)
+		}
+	}
+}

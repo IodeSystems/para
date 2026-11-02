@@ -113,12 +113,19 @@ type ReconcileResult struct {
 }
 
 // Render produces para-md: frontmatter, blank line, title, body.
-func Render(d Document) ([]byte, error) {
+func Render(d Document) ([]byte, error) { return RenderOnto(d, nil) }
+
+// RenderOnto is Render for an update: oldFrontmatter is the YAML of the file
+// being replaced. Its comments, key order, and the form of every unchanged
+// value are kept, and only keys whose value changed are rewritten. Keys the
+// new document no longer has are dropped, and new keys are appended. An
+// oldFrontmatter that is empty or not a mapping is ignored.
+func RenderOnto(d Document, oldFrontmatter []byte) ([]byte, error) {
 	if d.Meta == nil {
 		return nil, errors.New("model: render: document has no meta")
 	}
-	var node yaml.Node
-	if err := node.Encode(d.Meta); err != nil {
+	var fresh yaml.Node
+	if err := fresh.Encode(d.Meta); err != nil {
 		return nil, fmt.Errorf("model: render: %w", err)
 	}
 	keys := make([]string, 0, len(d.extra))
@@ -128,13 +135,22 @@ func Render(d Document) ([]byte, error) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		v := d.extra[k]
-		node.Content = append(node.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: k}, &v)
+		fresh.Content = append(fresh.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: k}, &v)
+	}
+	out := &fresh
+	if len(bytes.TrimSpace(oldFrontmatter)) > 0 {
+		var old yaml.Node
+		if err := yaml.Unmarshal(oldFrontmatter, &old); err == nil &&
+			old.Kind == yaml.DocumentNode && len(old.Content) == 1 && old.Content[0].Kind == yaml.MappingNode {
+			mergeMapping(old.Content[0], &fresh)
+			out = &old
+		}
 	}
 	var b bytes.Buffer
 	b.WriteString("---\n")
 	enc := yaml.NewEncoder(&b)
 	enc.SetIndent(2)
-	if err := enc.Encode(&node); err != nil {
+	if err := enc.Encode(out); err != nil {
 		return nil, fmt.Errorf("model: render: %w", err)
 	}
 	if err := enc.Close(); err != nil {
@@ -149,6 +165,60 @@ func Render(d Document) ([]byte, error) {
 		b.WriteString("\n")
 	}
 	return b.Bytes(), nil
+}
+
+// mergeMapping makes old hold the keys of fresh. A key whose value is the same
+// keeps its old nodes, with comments and style. A changed value is replaced,
+// and the old comments move to the new value. old is edited in place.
+func mergeMapping(old, fresh *yaml.Node) {
+	have := map[string]bool{}
+	for i := 0; i+1 < len(old.Content); i += 2 {
+		have[old.Content[i].Value] = true
+	}
+	want := map[string]*yaml.Node{}
+	for i := 0; i+1 < len(fresh.Content); i += 2 {
+		want[fresh.Content[i].Value] = fresh.Content[i+1]
+	}
+	kept := make([]*yaml.Node, 0, len(old.Content))
+	for i := 0; i+1 < len(old.Content); i += 2 {
+		k, v := old.Content[i], old.Content[i+1]
+		nv, ok := want[k.Value]
+		if !ok {
+			continue
+		}
+		if !sameValue(v, nv) {
+			nv.HeadComment, nv.LineComment, nv.FootComment = v.HeadComment, v.LineComment, v.FootComment
+			v = nv
+		}
+		kept = append(kept, k, v)
+	}
+	for i := 0; i+1 < len(fresh.Content); i += 2 {
+		if !have[fresh.Content[i].Value] {
+			kept = append(kept, fresh.Content[i], fresh.Content[i+1])
+		}
+	}
+	old.Content = kept
+}
+
+// sameValue reports whether two nodes hold the same data, ignoring comments
+// and scalar style (plain, quoted, folded).
+func sameValue(a, b *yaml.Node) bool {
+	if a.Kind == yaml.AliasNode || b.Kind == yaml.AliasNode {
+		return false
+	}
+	if a.Kind != b.Kind || len(a.Content) != len(b.Content) {
+		return false
+	}
+	if a.Kind == yaml.ScalarNode {
+		// A Date encodes as a plain timestamp; a quoted date is the same date.
+		return a.Value == b.Value && (a.ShortTag() == b.ShortTag() || b.ShortTag() == "!!timestamp")
+	}
+	for i := range a.Content {
+		if !sameValue(a.Content[i], b.Content[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // Decode builds a Document from raw frontmatter YAML and parsed text.

@@ -951,3 +951,27 @@ func TestList(t *testing.T) {
 		})
 	}
 }
+
+// Update touches only the lines that changed: comments and key order stay.
+func TestUpdateKeepsCommentsAndKeyOrder(t *testing.T) {
+	v, root := newVault(t)
+	p := filepath.Join(root, "inbox", "hand-made.md")
+	in := "---\n# mine\nnote: keep me # why\ncreated: 2026-11-01\ntype: inbox\n---\n\n# Hand\n\nText.\n"
+	if err := os.WriteFile(p, []byte(in), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d, err := v.Get(ctx, "hand-made")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Body = "Edited."
+	if _, err := v.Update(ctx, d); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(p)
+	want := "---\n# mine\nnote: keep me # why\ncreated: 2026-11-01\ntype: inbox\nupdated: " +
+		string(v.today()) + "\n---\n\n# Hand\n\nEdited.\n"
+	if string(got) != want {
+		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
+	}
+}

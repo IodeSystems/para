@@ -19,10 +19,10 @@ func convert(in []paramd.Finding) []model.Finding {
 	return out
 }
 
-// renderChecked renders d and refuses it if Lint reports an error. Warnings
+// renderChecked renders d (onto oldFrontmatter, as model.RenderOnto) and refuses it if Lint reports an error. Warnings
 // do not refuse a write.
-func renderChecked(rel string, d model.Document) ([]byte, error) {
-	data, err := model.Render(d)
+func renderChecked(rel string, d model.Document, oldFrontmatter []byte) ([]byte, error) {
+	data, err := model.RenderOnto(d, oldFrontmatter)
 	if err != nil {
 		return nil, err
 	}
