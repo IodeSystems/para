@@ -39,6 +39,30 @@ func newPersonContactCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+func newPersonAliasCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "alias", Short: "Other names for a person", Args: cobra.NoArgs}
+	bind := func(args []string, in *ops.PersonAliasInput) error {
+		in.ID, in.Alias = args[0], strings.Join(args[1:], " ")
+		return nil
+	}
+	text := func(w io.Writer, out ops.PersonAliasOutput) error {
+		p := &printer{w: w}
+		for _, a := range out.Aliases {
+			p.f("%s\n", a)
+		}
+		return p.err
+	}
+	cmd.AddCommand(
+		opCommand(l, ops.OrgPersonAliasAdd, binding[ops.PersonAliasInput, ops.PersonAliasOutput]{
+			Use: "add <person-id> <alias>", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+		opCommand(l, ops.OrgPersonAliasRemove, binding[ops.PersonAliasInput, ops.PersonAliasOutput]{
+			Use: "remove <person-id> <alias>", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+	)
+	return cmd
+}
+
 func writeContacts(w io.Writer, out ops.PersonContactOutput) error {
 	p := &printer{w: w}
 	for _, c := range out.Contacts {

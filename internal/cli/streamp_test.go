@@ -23,6 +23,10 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 		"rfx_reply": {`{"id":"rfx-p-a","from":"person-seed","outcome":"no","text":"Not this quarter.","why":"Audit freeze","url":"https://chat.acme.example/t/1"}`,
 			[]string{"rfx", "reply", "rfx-p-b", "--from", "person-seed", "--outcome", "no", "--why", "Audit freeze", "--url", "https://chat.acme.example/t/2"}, false},
 		"rfx_draft": {`{"id":"rfx-p-a","text":"Hi, can we launch X?"}`, []string{"rfx", "draft", "rfx-p-b"}, false},
+		"org_person_alias_add": {`{"id":"person-seed-a","alias":"Seedy A"}`,
+			[]string{"org", "person", "alias", "add", "person-seed-b", "Seedy", "B"}, false},
+		"org_person_alias_remove": {`{"id":"person-p-alias-a","alias":"Old Name"}`,
+			[]string{"org", "person", "alias", "remove", "person-p-alias-b", "old", "name"}, false},
 	}, map[string]string{"rfx_reply": "Not this quarter.", "rfx_draft": "Hi, can we launch X?"}
 }
 
@@ -34,6 +38,14 @@ func seedStreamPParity(t *testing.T, deps ops.Deps) {
 		if _, err := deps.Store.Create(ctx, model.Document{
 			ID: id, Folder: model.FolderInbox, Title: "Capture " + id,
 			Meta: &model.Inbox{Common: model.Common{Type: model.TypeInbox}},
+		}); err != nil {
+			t.Fatalf("seed %s: %v", id, err)
+		}
+	}
+	for _, id := range []string{"person-p-alias-a", "person-p-alias-b"} {
+		if _, err := deps.Store.Create(ctx, model.Document{
+			ID: id, Folder: model.FolderOrg, Title: "Alias " + id,
+			Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example", Aliases: []string{"Old Name"}},
 		}); err != nil {
 			t.Fatalf("seed %s: %v", id, err)
 		}
@@ -158,5 +170,23 @@ func TestRFXDraftCommand(t *testing.T) {
 	e.json(&lint, "lint")
 	if lint.Errors != 0 || lint.Warnings != 0 {
 		t.Errorf("lint = %+v", lint)
+	}
+}
+
+func TestPersonAliasCommand(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	var bo ops.OrgAddOutput
+	e.json(&bo, "org", "person", "add", "Bo Example", "--org", "acme.example")
+	e.ok("org", "person", "alias", "add", bo.ID, "Bobby", "Ex")
+	if out := e.ok("who", "bobby ex"); !strings.Contains(out, bo.ID) {
+		t.Fatalf("who:\n%s", out)
+	}
+	if _, _, err := e.run("org", "person", "alias", "add", bo.ID, "BOBBY EX"); err == nil {
+		t.Error("duplicate alias accepted")
+	}
+	e.ok("org", "person", "alias", "remove", bo.ID, "bobby", "ex")
+	if out, _, _ := e.run("who", "bobby ex"); strings.Contains(out, bo.ID) {
+		t.Errorf("alias still found:\n%s", out)
 	}
 }

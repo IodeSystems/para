@@ -328,7 +328,7 @@ func newOrgCmd(l *loader) *cobra.Command {
 			}),
 		)
 		if name == "person" {
-			sub.AddCommand(newPersonContactCmd(l), newPersonGroupCmd(l), newPersonNoteCmd(l))
+			sub.AddCommand(newPersonAliasCmd(l), newPersonContactCmd(l), newPersonGroupCmd(l), newPersonNoteCmd(l))
 		}
 		cmd.AddCommand(sub)
 	}
