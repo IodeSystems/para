@@ -1,0 +1,21 @@
+Use para from dun.
+
+1. Add one server per vault to `servers` in .dun/dun.local.json for this machine,
+   or dun.json for the project:
+
+{{config}}
+
+2. Check with /mcp.
+
+3. Start with a prompt, as a slash command:
+   /para-<vault>:orient      what para is, and how to work a vault
+   /para-<vault>:bootstrap   an interview that fills a new vault
+
+4. Name the agent so events show who wrote what. Add "--actor", "<name>" after
+   "mcp" in args.
+
+5. To wake a session when work arrives, run this as a background job:
+   $ para request wait --timeout 1h
+
+Para cannot stop an agent from using other tools. To enforce "no external action
+without approval", use a dun hook or server-level limits.

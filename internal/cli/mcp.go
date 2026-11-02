@@ -25,13 +25,27 @@ const mcpSurface = "mcp"
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor string
+	var helpClaude, helpDun bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
-		Args:  cobra.NoArgs,
+		Long: `Serve ops as MCP tools over stdio, for one vault.
+--help-claude and --help-dun print setup steps for that harness, with the
+server entries for this install. They write nothing.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
 				return err
+			}
+			if helpClaude || helpDun {
+				if helpClaude && helpDun {
+					return fmt.Errorf("mcp: choose --help-claude or --help-dun")
+				}
+				client := "dun"
+				if helpClaude {
+					client = "claude"
+				}
+				return writeHarnessHelp(cmd, l, client)
 			}
 			if actor == "" {
 				return fmt.Errorf("mcp: --actor must not be empty")
@@ -60,6 +74,8 @@ func newMCPCmd(l *loader) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", "agent", "actor name recorded in events")
+	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
+	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
 	cmd.AddCommand(newMCPConfigCmd(l))
 	return cmd
 }
@@ -92,44 +108,70 @@ The command is the absolute path of this binary, with --vault set.`,
 			if !slices.Contains([]string{"json", "claude", "dun"}, client) {
 				return fmt.Errorf("mcp config: --client %q: want claude, dun, or json", client)
 			}
-			exe, err := l.executable()
-			if err != nil {
-				return fmt.Errorf("mcp config: %w", err)
-			}
-			entries, err := l.install.Entries()
+			picked, err := mcpEntries(cmd, l)
 			if err != nil {
 				return err
-			}
-			var picked []mcpServerEntry
-			for _, e := range entries {
-				if l.vaultFlag != "" && e.ID != l.vaultFlag {
-					continue
-				}
-				if e.Err != "" {
-					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "para: skipping vault %s: %s\n", e.ID, e.Err)
-					continue
-				}
-				args := []string{"mcp", "--vault", e.ID}
-				if l.homeFlag != "" {
-					home, err := filepath.Abs(l.homeFlag)
-					if err != nil {
-						return fmt.Errorf("mcp config: %w", err)
-					}
-					args = append([]string{"--home", home}, args...)
-				}
-				picked = append(picked, mcpServerEntry{Name: "para-" + e.ID, Command: exe, Args: args})
-			}
-			if len(picked) == 0 {
-				if l.vaultFlag != "" {
-					return fmt.Errorf("mcp config: unknown vault %q", l.vaultFlag)
-				}
-				return fmt.Errorf("mcp config: no vaults in %s; run para init <id>", l.install.Home)
 			}
 			return writeMCPConfig(cmd.OutOrStdout(), client, picked)
 		},
 	}
 	cmd.Flags().StringVar(&client, "client", "json", "claude, dun, or json")
 	return cmd
+}
+
+// mcpEntries is one server entry per usable vault, or for --vault.
+func mcpEntries(cmd *cobra.Command, l *loader) ([]mcpServerEntry, error) {
+	exe, err := l.executable()
+	if err != nil {
+		return nil, fmt.Errorf("mcp config: %w", err)
+	}
+	entries, err := l.install.Entries()
+	if err != nil {
+		return nil, err
+	}
+	var picked []mcpServerEntry
+	for _, e := range entries {
+		if l.vaultFlag != "" && e.ID != l.vaultFlag {
+			continue
+		}
+		if e.Err != "" {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "para: skipping vault %s: %s\n", e.ID, e.Err)
+			continue
+		}
+		args := []string{"mcp", "--vault", e.ID}
+		if l.homeFlag != "" {
+			home, err := filepath.Abs(l.homeFlag)
+			if err != nil {
+				return nil, fmt.Errorf("mcp config: %w", err)
+			}
+			args = append([]string{"--home", home}, args...)
+		}
+		picked = append(picked, mcpServerEntry{Name: "para-" + e.ID, Command: exe, Args: args})
+	}
+	if len(picked) == 0 {
+		if l.vaultFlag != "" {
+			return nil, fmt.Errorf("mcp config: unknown vault %q", l.vaultFlag)
+		}
+		return nil, fmt.Errorf("mcp config: no vaults in %s; run para init <id>", l.install.Home)
+	}
+	return picked, nil
+}
+
+// writeHarnessHelp prints setup steps for a harness. With no vaults yet, the
+// steps still print, and say to create one.
+func writeHarnessHelp(cmd *cobra.Command, l *loader, client string) error {
+	var config strings.Builder
+	picked, err := mcpEntries(cmd, l)
+	switch {
+	case err != nil:
+		config.WriteString("   No vault here yet. Run: para init <id>, then this command again.")
+	default:
+		if err := writeMCPConfig(&config, client, picked); err != nil {
+			return err
+		}
+	}
+	_, err = fmt.Fprintln(cmd.OutOrStdout(), guide.Harness(client, config.String()))
+	return err
 }
 
 func writeMCPConfig(w io.Writer, client string, entries []mcpServerEntry) error {

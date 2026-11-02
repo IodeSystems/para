@@ -1,0 +1,20 @@
+Use para from Claude Code.
+
+1. Add one MCP server per vault. Run these commands, and add `--scope user` after
+   `add` to use a vault in every project:
+
+{{config}}
+
+2. Restart the session, then check with /mcp.
+
+3. Start with a prompt, as a slash command:
+   /mcp__para-<vault>__orient      what para is, and how to work a vault
+   /mcp__para-<vault>__bootstrap   an interview that fills a new vault
+
+4. Name the agent so events show who wrote what. Add `--actor <name>` after `mcp`.
+
+5. To wake a session when work arrives, run this as a background job:
+   $ para request wait --timeout 1h
+
+Para cannot stop an agent from using other tools. To enforce "no external action
+without approval", use Claude Code permission rules or a hook.

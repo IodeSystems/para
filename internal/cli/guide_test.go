@@ -67,7 +67,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap()} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.Harness("claude", ""), guide.Harness("dun", "")} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {
@@ -137,5 +137,29 @@ func TestHelpExtendedAndBootstrapCommands(t *testing.T) {
 	}
 	if _, _, err := e.run("bootstrap", "extra"); err == nil {
 		t.Error("bootstrap takes no arguments")
+	}
+}
+
+func TestMCPHarnessHelp(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	for flag, want := range map[string]string{
+		"--help-claude": "claude mcp add para-acme",
+		"--help-dun":    `"id": "para-acme"`,
+	} {
+		out := e.ok("mcp", flag)
+		if !strings.Contains(out, want) || strings.Contains(out, "{{config}}") {
+			t.Errorf("%s:\n%s", flag, out)
+		}
+	}
+	if _, _, err := e.run("mcp", "--help-claude", "--help-dun"); err == nil {
+		t.Error("both flags must be refused")
+	}
+}
+
+func TestMCPHarnessHelpNoVault(t *testing.T) {
+	e := newEnv(t)
+	if out := e.ok("mcp", "--help-dun"); !strings.Contains(out, "para init") {
+		t.Errorf("no vault:\n%s", out)
 	}
 }

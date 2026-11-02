@@ -24,6 +24,10 @@ var (
 	bootstrap string
 	//go:embed extended.txt
 	extended string
+	//go:embed harness_claude.txt
+	harnessClaude string
+	//go:embed harness_dun.txt
+	harnessDun string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -43,5 +47,15 @@ func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
 // Extended is `para --help-extended`: use cases with real commands, and a
 // "where does this go?" table.
 func Extended() string { return Intro() + "\n\n" + trim(extended) }
+
+// Harness is the setup text for an agent harness, claude or dun. config is the
+// server entries for this install.
+func Harness(client, config string) string {
+	text := harnessDun
+	if client == "claude" {
+		text = harnessClaude
+	}
+	return strings.ReplaceAll(trim(text), "{{config}}", strings.TrimRight(config, "\n"))
+}
 
 func trim(s string) string { return strings.TrimSpace(s) }
