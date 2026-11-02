@@ -165,11 +165,10 @@ func (m *Model) rowsToday(w int) []row {
 	if !m.loaded {
 		return []row{dim("loading...")}
 	}
-	r := []row{head(fmt.Sprintf("Today %s   vault %s", s.Date, s.Vault) + stDim.Render(fmt.Sprintf("   inbox %d", len(s.Inbox))))}
+	r := []row{head(fmt.Sprintf("Today, %s   vault %s", dateWords(s.Date, m.snap.Loaded), s.Vault) + stDim.Render(fmt.Sprintf("   inbox %d", len(s.Inbox))))}
 	if line := m.agendaSummary(); line != "" {
 		r = append(r, dim("  Agenda: "+stripSGR(line)+" (press the Agenda key below)"))
 	}
-	r := []row{head(fmt.Sprintf("Today, %s   vault %s", dateWords(s.Date, m.snap.Loaded), s.Vault) + stDim.Render(fmt.Sprintf("   inbox %d", len(s.Inbox))))}
 	shown := map[string]bool{}
 	// once builds a row for an item the first time it appears on the screen.
 	once := func(id string, build func() row) []row {
