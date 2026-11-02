@@ -104,3 +104,43 @@ func TestTodayIsNotAnOp(t *testing.T) {
 		t.Error("no today command")
 	}
 }
+
+func TestTodayCountsNudgesExceptionsUnverifiedInbox(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	e.ok("org", "role", "add", "Lead", "--org", "acme.example")
+	e.ok("org", "domain", "add", "Logging", "--owner", "role-lead")
+	var late, future, closed ops.RFXAddOutput
+	e.json(&late, "rfx", "add", "late ask", "--route", "domain-logging", "--self-serve", "x", "--next-nudge", "2020-01-01")
+	e.json(&future, "rfx", "add", "future ask", "--route", "domain-logging", "--self-serve", "x", "--next-nudge", "2999-01-01")
+	e.json(&closed, "rfx", "add", "closed ask", "--direction", "in", "--route", "domain-logging", "--next-nudge", "2020-01-01")
+	e.ok("rfx", "close", closed.ID, "--playbook", "role-lead")
+
+	pol := e.ingest(govText)
+	e.ok("exception", "add", "--policy", pol.ID, "--kind", "bug", "--by", "Jordan Example", "--review-by", "2020-01-01")
+	e.ok("exception", "add", "--policy", pol.ID, "--kind", "bug", "--by", "Jordan Example", "--review-by", "2999-01-01")
+	e.ok("exception", "add", "--policy", pol.ID, "--kind", "bug", "--by", "Jordan Example")
+	e.ok("inbox", "add", "one")
+	e.ok("inbox", "add", "two")
+
+	var rep today.Report
+	e.json(&rep, "today")
+	v := rep.Vaults[0]
+	if v.Nudges.Count != 1 || v.Nudges.Items[0].ID != late.ID {
+		t.Errorf("nudges = %+v", v.Nudges)
+	}
+	if v.Expiring.Count != 1 {
+		t.Errorf("expiring = %+v", v.Expiring)
+	}
+	if v.Unverified != 1 || v.Inbox != 2 {
+		t.Errorf("unverified %d, inbox %d", v.Unverified, v.Inbox)
+	}
+	e.ok("policy", "review", pol.ID, "--by", "Jordan Example")
+	e.json(&rep, "today")
+	if rep.Vaults[0].Unverified != 0 {
+		t.Errorf("reviewed policy still unverified: %+v", rep.Vaults[0])
+	}
+	if out := e.ok("today"); !strings.Contains(out, "nudges 1") || !strings.Contains(out, "inbox 2") {
+		t.Errorf("text:\n%s", out)
+	}
+}

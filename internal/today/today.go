@@ -9,11 +9,14 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/registry"
 	"github.com/iodesystems/paradize/internal/vault"
 )
+
+const dateLayout = "2006-01-02"
 
 // Item is one document that needs attention.
 type Item struct {
@@ -32,8 +35,19 @@ type VaultToday struct {
 	Vault   string `json:"vault"`
 	Due     Group  `json:"due"`     // constraints whose review_by is today or earlier
 	Blocked Group  `json:"blocked"` // open tasks with status blocked or a blocked_by entry
-	Error   string `json:"error,omitempty"`
+	Nudges  Group  `json:"nudges"`  // open RFX whose next_nudge is today or earlier
+	// Expiring holds unresolved policy exceptions whose review_by is overdue or
+	// within ExpiringDays of today.
+	Expiring Group `json:"expiring"`
+	// Unverified counts policy summaries no person has reviewed.
+	Unverified int `json:"unverified"`
+	// Inbox counts captures not yet triaged.
+	Inbox int    `json:"inbox"`
+	Error string `json:"error,omitempty"`
 }
+
+// ExpiringDays is the window for exceptions, the same as exception_expiring.
+const ExpiringDays = 30
 
 // Report is the result across the install.
 type Report struct {
@@ -64,7 +78,8 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	}
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
-		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}}}
+		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
+			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}}
 		if err := readVault(ctx, rv, actor, surface, date, &vt); err != nil {
 			vt.Error = err.Error()
 		}
@@ -82,8 +97,19 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	if err != nil {
 		return err
 	}
+	limit := ""
+	if t, err := time.Parse(dateLayout, date); err == nil {
+		limit = t.AddDate(0, 0, ExpiringDays).Format(dateLayout)
+	}
 	for _, r := range refs {
-		if r.Type != model.TypeTask && r.Type != model.TypeConstraint {
+		switch r.Type {
+		case model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeInbox:
+			if r.Folder == model.FolderInbox {
+				vt.Inbox++
+			}
+			continue
+		default:
 			continue
 		}
 		d, err := v.Get(ctx, r.ID)
@@ -96,6 +122,18 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			if m.ReviewBy != "" && string(m.ReviewBy) <= date {
 				vt.Due.Items = append(vt.Due.Items, item)
 			}
+		case *model.RFX:
+			if m.Status == model.RFXOpen && m.NextNudge != "" && string(m.NextNudge) <= date {
+				vt.Nudges.Items = append(vt.Nudges.Items, item)
+			}
+		case *model.PolicyException:
+			if m.Status != model.ExceptionResolved && m.ReviewBy != "" && string(m.ReviewBy) <= limit {
+				vt.Expiring.Items = append(vt.Expiring.Items, item)
+			}
+		case *model.Policy:
+			if !m.Verified {
+				vt.Unverified++
+			}
 		case *model.Task:
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
 			if open && (m.Status == model.TaskBlocked || len(m.BlockedBy) > 0) {
@@ -103,7 +141,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			}
 		}
 	}
-	for _, g := range []*Group{&vt.Due, &vt.Blocked} {
+	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring} {
 		sort.Slice(g.Items, func(i, j int) bool { return g.Items[i].ID < g.Items[j].ID })
 		g.Count = len(g.Items)
 	}
