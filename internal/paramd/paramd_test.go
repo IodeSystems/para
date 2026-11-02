@@ -52,6 +52,18 @@ visibility: private
 url: https://acme.example/m/1
 `
 
+const requestFM = `
+type: request
+created: 2026-11-01
+status: claimed
+runner: inst-a
+queued_at: 2026-11-01T09:00:00.123456789Z
+claimed_by: agent
+lease_until: 2026-11-01T09:30:00Z
+links:
+  - "[[project-a]]"
+`
+
 func TestParse(t *testing.T) {
 	src := doc(policyFM, "# Logging\n\nSee [[policy-logging.source]] and [[acme-portal#Goals|goals]] and [[policy-logging#^R1]].\n\n```\n[[in-code]] ^R9\n```\n\nUse `[[inline]]` here.\n\nR1 policy-logging: Log failures. ^R1\n\n## Page 2\n")
 	f := Parse("vault/policy-logging.md", []byte(src))
@@ -159,6 +171,10 @@ func TestLint(t *testing.T) {
 		{"rfx target missing medium", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    state: sent\n", "# A\n"), []string{"field-value:1"}},
 		{"rfx target unquoted to", "rfx-a.md", doc(rfxFM+"targets:\n  - to: [[jo]]\n    medium: slack\n    state: sent\n", "# A\n"), []string{"field-value:1"}},
 		{"rfx target bad sent date", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    medium: slack\n    state: sent\n    sent: today\n", "# A\n"), []string{"field-value:1"}},
+		{"request ok", "request-a.md", doc(requestFM, "# A\n"), nil},
+		{"request bad status", "request-a.md", doc(strings.Replace(requestFM, "status: claimed", "status: running", 1), "# A\n"), []string{"field-value:1"}},
+		{"request no runner", "request-a.md", doc(strings.Replace(requestFM, "runner: inst-a\n", "", 1), "# A\n"), []string{"field:1"}},
+		{"request bad time", "request-a.md", doc(strings.Replace(requestFM, "lease_until: 2026-11-01T09:30:00Z", "lease_until: soon", 1), "# A\n"), []string{"field-value:1"}},
 		{"interaction ok", "interaction-a.md", doc(interactionFM, "# A\n\nShort summary.\n"), nil},
 		{"interaction no with", "interaction-a.md", doc(strings.Replace(interactionFM, "with:\n  - \"[[jo]]\"\n", "with: []\n", 1), "# A\n"), []string{"field-value:1"}},
 		{"interaction missing with", "interaction-a.md", doc(strings.Replace(interactionFM, "with:\n  - \"[[jo]]\"\n", "", 1), "# A\n"), []string{"field:1"}},

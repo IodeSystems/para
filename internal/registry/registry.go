@@ -103,6 +103,27 @@ func (in Install) Add(id, path string) error {
 	return nil
 }
 
+// ID returns the install id, adding one to install.properties when the file
+// has none.
+func (in Install) ID() (string, error) {
+	if err := in.ensure(); err != nil {
+		return "", err
+	}
+	file := filepath.Join(in.Home, "install.properties")
+	cfg, err := props.Load(file)
+	if err != nil {
+		return "", fmt.Errorf("registry: install id: %w", err)
+	}
+	if id := cfg["install.id"]; id != "" {
+		return id, nil
+	}
+	cfg["install.id"] = ashid.New()
+	if err := atomicfile.Write(file, in.Home, props.Format(cfg), 0o600); err != nil {
+		return "", fmt.Errorf("registry: install id: %w", err)
+	}
+	return cfg["install.id"], nil
+}
+
 func (in Install) ensure() error {
 	if err := os.MkdirAll(filepath.Join(in.Home, "vaults"), 0o700); err != nil {
 		return fmt.Errorf("registry: install: %w", err)

@@ -5,6 +5,7 @@ package store
 
 import (
 	"context"
+	"time"
 
 	"github.com/iodesystems/paradize/internal/egress"
 	"github.com/iodesystems/paradize/internal/index"
@@ -17,8 +18,23 @@ type Filter struct {
 	Type   model.Type
 }
 
+// Info is who the open vault acts as and where. Actor and Surface are what
+// events record; Install is this machine's install id.
+type Info struct {
+	Actor   string
+	Surface string
+	Install string
+}
+
 // Store is one open vault.
 type Store interface {
+	// Info returns the identity the Store was opened with.
+	Info() Info
+	// Now returns the Store's clock, so lease times follow one clock.
+	Now() time.Time
+	// Config returns a vault.properties value, or "" when the key is unset.
+	Config(key string) (string, error)
+
 	// VaultID returns the id of the open vault.
 	VaultID() string
 

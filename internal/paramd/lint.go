@@ -211,6 +211,16 @@ func (l *linter) checkValue(fd field, v any) {
 		if s, ok := v.(string); !ok || strings.TrimSpace(s) == "" {
 			bad("must be a non-empty string")
 		}
+	case kTimestamp:
+		switch x := v.(type) {
+		case time.Time:
+		case string:
+			if _, err := time.Parse(time.RFC3339Nano, x); err != nil {
+				bad("must be an RFC 3339 time such as 2026-11-01T09:00:00Z, got %q", x)
+			}
+		default:
+			bad("must be an RFC 3339 time, got %v", v)
+		}
 	case kDate:
 		if !isDate(v) {
 			bad("must be a date YYYY-MM-DD, got %v", v)

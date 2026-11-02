@@ -113,3 +113,33 @@ func TestDefaultHome(t *testing.T) {
 		t.Fatalf("got %q, %v", got, err)
 	}
 }
+
+func TestInstallID(t *testing.T) {
+	in := Install{Home: filepath.Join(t.TempDir(), "home")}
+	if err := in.Add("acme", filepath.Join(t.TempDir(), "acme")); err != nil {
+		t.Fatal(err)
+	}
+	id, err := in.ID()
+	if err != nil || id == "" {
+		t.Fatalf("id = %q, %v", id, err)
+	}
+	if again, _ := in.ID(); again != id {
+		t.Errorf("id changed: %s then %s", id, again)
+	}
+	// An install.properties with no id gets one, and keeps its other keys.
+	file := filepath.Join(in.Home, "install.properties")
+	if err := os.WriteFile(file, []byte("install.created=2026-11-01T00:00:00Z\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := in.ID()
+	if err != nil || fresh == "" || fresh == id {
+		t.Fatalf("fresh = %q, %v", fresh, err)
+	}
+	if raw, _ := os.ReadFile(file); !strings.Contains(string(raw), "install.created=") {
+		t.Errorf("lost a key:\n%s", raw)
+	}
+	// A home with no install file gets one.
+	if id, err := (Install{Home: filepath.Join(t.TempDir(), "new")}).ID(); err != nil || id == "" {
+		t.Errorf("new home: %q, %v", id, err)
+	}
+}

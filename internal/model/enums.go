@@ -22,13 +22,14 @@ const (
 	TypeInbox           Type = "inbox"
 	TypeGroup           Type = "group"
 	TypeInteraction     Type = "interaction"
+	TypeRequest         Type = "request"
 )
 
 // Types lists every Type, in the order of paramd.Types.
 var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
-	TypeJournal, TypeInbox, TypeGroup, TypeInteraction,
+	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -47,13 +48,14 @@ const (
 	FolderOrg          Folder = "org"
 	FolderJournal      Folder = "journal"
 	FolderInteractions Folder = "interactions"
+	FolderRequests     Folder = "requests"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
-	FolderInteractions,
+	FolderInteractions, FolderRequests,
 }
 
 // Valid reports whether f is a document folder.
@@ -279,6 +281,27 @@ func (Visibility) Enum() []string { return enumStrings(Visibilities) }
 
 // Visibilities lists every Visibility.
 var Visibilities = []Visibility{VisibilityPublic, VisibilityPrivate}
+
+// RequestStatus is request.status. Proposed is a request an agent surface
+// made: it is never claimed until a person accepts it.
+type RequestStatus string
+
+const (
+	RequestProposed  RequestStatus = "proposed"
+	RequestQueued    RequestStatus = "queued"
+	RequestClaimed   RequestStatus = "claimed"
+	RequestDone      RequestStatus = "done"
+	RequestFailed    RequestStatus = "failed"
+	RequestCancelled RequestStatus = "cancelled"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (RequestStatus) Enum() []string { return enumStrings(RequestStatuses) }
+
+// RequestStatuses lists every RequestStatus.
+var RequestStatuses = []RequestStatus{
+	RequestProposed, RequestQueued, RequestClaimed, RequestDone, RequestFailed, RequestCancelled,
+}
 
 func enumStrings[T ~string](in []T) []string {
 	out := make([]string, len(in))

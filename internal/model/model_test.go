@@ -35,6 +35,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"convention.status", strs(ConventionStatuses), paramd.FieldEnum("convention", "status")},
 		{"journal.scope", strs(JournalScopes), paramd.FieldEnum("journal", "scope")},
 		{"group.kind", strs(GroupKinds), paramd.FieldEnum("group", "kind")},
+		{"request.status", strs(RequestStatuses), paramd.FieldEnum("request", "status")},
 		{"interaction.medium", strs(Mediums), paramd.FieldEnum("interaction", "medium")},
 		{"interaction.direction", strs(InteractionDirections), paramd.FieldEnum("interaction", "direction")},
 		{"interaction.visibility", strs(Visibilities), paramd.FieldEnum("interaction", "visibility")},
@@ -89,6 +90,8 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"branch-names", &Convention{c(TypeConvention), ConventionDraft, []string{"repo"}}, ""},
 		{"2026-11-01", &Journal{c(TypeJournal), "2026-11-01", JournalDay}, ""},
 		{"inbox-one", &Inbox{c(TypeInbox)}, "Text."},
+		{"request-one", &Request{Common: c(TypeRequest), Status: RequestClaimed, Runner: "inst-a", Queued: "2026-11-01T09:00:00.5Z",
+			Claimed: "agent", Lease: "2026-11-01T09:30:00Z", Links: []Link{LinkTo("acme-portal")}, Results: []Link{LinkTo("acme-portal")}}, "Summarize.\n\n## Result\n\nDone."},
 	}
 	seen := map[Type]bool{}
 	for _, c := range cases {

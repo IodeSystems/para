@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/iodesystems/paradize/internal/egress"
 	"github.com/iodesystems/paradize/internal/events"
@@ -35,6 +36,14 @@ func Open(root string, o vault.Options) (*Store, error) {
 }
 
 func (s *Store) VaultID() string { return s.v.ID() }
+
+func (s *Store) Info() store.Info {
+	return store.Info{Actor: s.v.Actor(), Surface: s.v.Surface(), Install: s.v.Install()}
+}
+
+func (s *Store) Now() time.Time { return s.v.Now() }
+
+func (s *Store) Config(key string) (string, error) { return s.v.Config(key) }
 
 func (s *Store) Create(ctx context.Context, d model.Document) (model.Document, error) {
 	return s.v.Create(ctx, d)

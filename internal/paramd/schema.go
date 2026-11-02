@@ -14,6 +14,7 @@ const (
 	kLinkList  // list of "[[name]]"
 	kContacts  // list of contact maps
 	kTargets   // list of rfx target maps
+	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
 )
 
 type field struct {
@@ -38,13 +39,14 @@ var (
 	interDirections = []string{"in", "out", "observed"}
 	visibilities    = []string{"public", "private"}
 	journalScopes   = []string{"day", "week", "month", "project"}
+	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction",
+	"group", "interaction", "request",
 }
 
 // commonFields apply to every type.
@@ -119,6 +121,15 @@ var typeFields = map[string][]field{
 		{Name: "direction", Kind: kEnum, Enum: interDirections, Required: true},
 		{Name: "visibility", Kind: kEnum, Enum: visibilities, Required: true},
 		{Name: "url", Kind: kString},
+	},
+	"request": {
+		{Name: "status", Kind: kEnum, Enum: requestStatus, Required: true},
+		{Name: "runner", Kind: kString, Required: true},
+		{Name: "queued_at", Kind: kTimestamp, Required: true},
+		{Name: "claimed_by", Kind: kString},
+		{Name: "lease_until", Kind: kTimestamp},
+		{Name: "links", Kind: kLinkList},
+		{Name: "result_links", Kind: kLinkList},
 	},
 	"team": {
 		{Name: "org", Kind: kString, Required: true},

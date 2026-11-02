@@ -200,6 +200,19 @@ type Interaction struct {
 	URL        string               `yaml:"url,omitempty" json:"url,omitempty"`
 }
 
+// Request is type: request, a task for an agent. The body is the ask, then
+// notes and the result. Times are RFC 3339 UTC strings.
+type Request struct {
+	Common  `yaml:",inline"`
+	Status  RequestStatus `yaml:"status" json:"status"`
+	Runner  string        `yaml:"runner" json:"runner"`                             // install id; only this install can claim
+	Queued  string        `yaml:"queued_at" json:"queued_at"`                       // when it became claimable; orders the queue
+	Claimed string        `yaml:"claimed_by,omitempty" json:"claimed_by,omitempty"` // actor holding the lease
+	Lease   string        `yaml:"lease_until,omitempty" json:"lease_until,omitempty"`
+	Links   []Link        `yaml:"links,omitempty" json:"links,omitempty"`               // task or project the ask is about
+	Results []Link        `yaml:"result_links,omitempty" json:"result_links,omitempty"` // documents the agent made or changed
+}
+
 // Team is type: team.
 type Team struct {
 	Common `yaml:",inline"`
@@ -273,6 +286,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Group{Common: c}, true
 	case TypeInteraction:
 		return &Interaction{Common: c}, true
+	case TypeRequest:
+		return &Request{Common: c}, true
 	}
 	return nil, false
 }

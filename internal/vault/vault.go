@@ -40,6 +40,8 @@ type Options struct {
 	// SQLite corrupts under file sync. Empty means the caller has none and
 	// cache-backed features return an error.
 	StateDir string
+	// Install is the install id of this machine. Request ops need it.
+	Install string
 }
 
 // Vault is an open vault.
@@ -50,6 +52,9 @@ type Vault struct {
 	now  func() time.Time
 
 	stateDir string
+	actor    string
+	surface  string
+	install  string
 }
 
 // Open opens the vault at root and restores any missing folder.
@@ -74,7 +79,24 @@ func Open(root string, o Options) (*Vault, error) {
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
 		Vault: id, Actor: o.Actor, Surface: o.Surface, Now: o.Now,
 	})
-	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir}, nil
+	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, actor: o.Actor, surface: o.Surface, install: o.Install}, nil
+}
+
+// Actor, Surface, and Install return the Options they were opened with.
+func (v *Vault) Actor() string   { return v.actor }
+func (v *Vault) Surface() string { return v.surface }
+func (v *Vault) Install() string { return v.install }
+
+// Now returns the vault clock.
+func (v *Vault) Now() time.Time { return v.now() }
+
+// Config returns a vault.properties value, or "" when the key is unset.
+func (v *Vault) Config(key string) (string, error) {
+	cfg, err := props.Load(filepath.Join(v.root, dirState, "vault.properties"))
+	if err != nil {
+		return "", fmt.Errorf("vault: config: %w", err)
+	}
+	return cfg[key], nil
 }
 
 // StateDir returns Options.StateDir.
