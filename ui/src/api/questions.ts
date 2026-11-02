@@ -66,6 +66,9 @@ export const QuestionFields = graphql(/* GraphQL */ `
     deferred
     deferUntil
     deferredReason
+    waitsOn
+    waitsOnNames
+    readyWhy
     agentLooking
   }
 `)
@@ -235,6 +238,12 @@ const DeferDoc = graphql(/* GraphQL */ `
           changed
           skipped
           until
+          after
+          created
+          similar {
+            id
+            title
+          }
         }
       }
     }
@@ -445,7 +454,15 @@ export function useQuestionDepends() {
 export function useDefer() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (b: { ids: string[]; until?: string; reason?: string }) =>
+    mutationFn: async (b: {
+      ids: string[]
+      until?: string
+      reason?: string
+      after?: string
+      when?: string
+      place?: string
+      new?: boolean
+    }) =>
       need((await gqlClient.request(DeferDoc, { body: b })).para.v1.defer, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })

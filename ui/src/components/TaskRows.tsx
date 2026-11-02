@@ -20,7 +20,7 @@ import { RowMenu } from '@/components/RowMenu'
 import { AgentLooking, findContextItem } from '@/components/FindContext'
 import { useLooking } from '@/api/requests'
 import { dueLabel, dueState } from '@/lib/due'
-import { nameList, nameOr } from '@/lib/names'
+import { laterLabel, nameList, nameOr } from '@/lib/names'
 
 export type TaskRow = {
   id: string
@@ -38,6 +38,8 @@ export type TaskRow = {
   doneWhen?: string | null
   deferred?: boolean
   deferUntil?: string | null
+  waitsOn?: string[]
+  waitsOnNames?: string[] | null
 }
 
 // DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
@@ -136,7 +138,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
               {t.deferred && (
                 <StatusChip
                   tone="quiet"
-                  label={`Later: back ${!t.deferUntil || t.deferUntil === 'someday' ? 'someday' : `on ${t.deferUntil}`}`}
+                  label={laterLabel(t.deferUntil || (t.waitsOn?.length ? null : 'someday'), t.waitsOn, t.waitsOnNames)}
                 />
               )}
               <AgentLooking id={t.id} />

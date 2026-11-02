@@ -20,6 +20,9 @@ const WorkDoc = graphql(/* GraphQL */ `
             id
             deferred
             deferUntil
+            waitsOn
+            waitsOnNames
+            readyWhy
             title
             status
             project

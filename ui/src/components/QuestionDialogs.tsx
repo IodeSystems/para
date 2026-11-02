@@ -34,6 +34,7 @@ import { useGoalEdit } from '@/api/areas'
 import { useTaskDone, useTaskEdit } from '@/api/tasks'
 import { Pick } from '@/components/Pick'
 import { doneConfirm } from '@/lib/answer'
+import { useSearch } from '@/api/search'
 import { useWork } from '@/api/work'
 import { useDoc } from '@/api/doc'
 import { useLooking } from '@/api/requests'
@@ -374,31 +375,62 @@ function DropDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
   )
 }
 
+type LaterWhen = 'date' | 'item' | 'condition'
+
 function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => void }) {
   const close = useClose()
   const later = useDefer()
+  const [mode, setMode] = useState<LaterWhen>('date')
   const [until, setUntil] = useState('')
   const [reason, setReason] = useState('')
+  const [find, setFind] = useState('')
+  const [after, setAfter] = useState('')
+  const [cond, setCond] = useState('')
+  const [place, setPlace] = useState('')
+  const hits = useSearch(find)
+  const items = (hits.data?.hits ?? []).filter((h) =>
+    /^(task|question|rfx|project|request)-/.test(h.id) && !ids.includes(h.id),
+  )
+  const similar = later.data?.similar ?? []
+  const submit = (force = false, pick = '') => {
+    const body: Parameters<typeof later.mutate>[0] = { ids, reason: reason.trim() || undefined }
+    if (mode === 'date') body.until = until || undefined
+    if (mode === 'item') body.after = pick || after
+    if (mode === 'condition') {
+      body.when = cond.trim()
+      body.place = place.trim() || undefined
+      body.new = force || undefined
+    }
+    if (pick) {
+      body.after = pick
+      delete body.when
+      delete body.place
+      delete body.new
+    }
+    later.mutate(body, {
+      onSuccess: (r) => {
+        if ((r.similar ?? []).length > 0) return
+        const waits = r.created
+          ? ` until the new task ${r.created} is done`
+          : r.after
+            ? ` until ${nameOr(null, r.after)} is done`
+            : ''
+        onDone(
+          `Put off ${r.changed.length}${waits || (until ? ` until ${dateWords(until)}` : ' until someday')}.${r.skipped.length ? ` Left as they were: ${r.skipped.length}.` : ''}`,
+        )
+        close()
+      },
+    })
+  }
+  const ready = mode === 'date' || (mode === 'item' ? after !== '' : cond.trim() !== '')
   return (
     <Frame
       title={`Later: ${ids.length} item${ids.length === 1 ? '' : 's'}`}
-      onSubmit={() =>
-        later.mutate(
-          { ids, until: until || undefined, reason: reason.trim() || undefined },
-          {
-            onSuccess: (r) => {
-              onDone(
-                `Put off ${r.changed.length}${until ? ` until ${dateWords(until)}` : ' until someday'}.${r.skipped.length ? ` Left as they were: ${r.skipped.length}.` : ''}`,
-              )
-              close()
-            },
-          },
-        )
-      }
+      onSubmit={() => submit()}
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={later.isPending}>
+          <Button type="submit" variant="contained" disabled={later.isPending || !ready}>
             Put off
           </Button>
         </>
@@ -406,14 +438,86 @@ function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => vo
     >
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {later.isError && <Alert severity="error">{errorText(later.error)}</Alert>}
-        <TextField
-          label="Back on (leave empty for someday)"
-          type="date"
-          value={until}
-          onChange={(e) => setUntil(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
-          fullWidth
-        />
+        <FormControl>
+          <FormLabel>Until</FormLabel>
+          <RadioGroup
+            row
+            value={mode}
+            onChange={(e) => setMode(e.target.value as LaterWhen)}
+            aria-label="Until"
+          >
+            <FormControlLabel value="date" control={<Radio />} label="A date or someday" />
+            <FormControlLabel value="item" control={<Radio />} label="Something is done" />
+            <FormControlLabel value="condition" control={<Radio />} label="A condition is met" />
+          </RadioGroup>
+        </FormControl>
+        {mode === 'date' && (
+          <TextField
+            label="Back on (leave empty for someday)"
+            type="date"
+            value={until}
+            onChange={(e) => setUntil(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            fullWidth
+          />
+        )}
+        {mode === 'item' && (
+          <>
+            <TextField
+              label="Find a task, question, ask, goal, or agent work"
+              value={find}
+              onChange={(e) => setFind(e.target.value)}
+              autoFocus
+              fullWidth
+            />
+            <RadioGroup value={after} onChange={(e) => setAfter(e.target.value)} aria-label="Item">
+              {items.slice(0, 8).map((h) => (
+                <FormControlLabel
+                  key={h.id}
+                  value={h.id}
+                  control={<Radio />}
+                  label={`${h.title} (${h.id})`}
+                />
+              ))}
+            </RadioGroup>
+          </>
+        )}
+        {mode === 'condition' && (
+          <>
+            <TextField
+              label="Condition, for example: AI policy notes updated"
+              value={cond}
+              onChange={(e) => setCond(e.target.value)}
+              autoFocus
+              fullWidth
+            />
+            <TextField
+              label="Goal or area id for the new task (only when this has none)"
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              fullWidth
+            />
+            {similar.length > 0 && (
+              <Alert
+                severity="info"
+                action={
+                  <Button color="inherit" size="small" onClick={() => submit(true)}>
+                    Make a new task
+                  </Button>
+                }
+              >
+                A similar open task exists. Wait on it instead?
+                {similar.map((x) => (
+                  <Box key={x.id}>
+                    <Button size="small" onClick={() => submit(false, x.id)}>
+                      {x.title} ({x.id})
+                    </Button>
+                  </Box>
+                ))}
+              </Alert>
+            )}
+          </>
+        )}
         <TextField
           label="Why it can wait (optional)"
           value={reason}
@@ -421,7 +525,8 @@ function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => vo
           fullWidth
         />
         <Typography variant="caption" color="text.secondary">
-          It leaves Today and the task lists. It still blocks what depends on it. To go ahead
+          It leaves Today and the task lists. It still blocks what depends on it. Waiting on
+          something adds a dependency; a condition makes a task with that done-when. To go ahead
           without it, cut the dependency instead.
         </Typography>
       </Stack>

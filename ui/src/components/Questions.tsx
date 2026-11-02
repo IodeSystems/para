@@ -7,7 +7,7 @@ import { useQuestions, useUndefer, type QuestionScope } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
 import { Empty, Section, StateChip, StatusChip } from '@/components/Bits'
 import { questionState } from '@/lib/answer'
-import { nameList } from '@/lib/names'
+import { laterLabel, nameList } from '@/lib/names'
 import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
@@ -88,8 +88,9 @@ export function QuestionRows({ list }: { list: Rows }) {
             <StatusChip tone="quiet" label={x.kind} />
             {x.agentLooking && <StatusChip tone="good" label="Agent looking" />}
             {x.deferred && (
-              <StatusChip tone="quiet" label={`Later: back ${laterWords(x.deferUntil)}`} />
+              <StatusChip tone="quiet" label={laterLabel(x.deferUntil, x.waitsOn, x.waitsOnNames)} />
             )}
+            {!x.deferred && x.readyWhy && <StatusChip tone="good" label={x.readyWhy} />}
             {(x.hasProposal || x.waitingOn.length > 0) && <StateChip {...questionState(x)} />}
             {x.blocking > 0 && <StatusChip tone="attn" label={`blocks ${x.blocking}`} />}
             {x.hasProposal && (
