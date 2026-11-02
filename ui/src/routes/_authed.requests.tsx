@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { LinkButton } from '@/components/links'
 import Alert from '@mui/material/Alert'
@@ -8,6 +9,16 @@ import ListItemText from '@mui/material/ListItemText'
 import { useLooking, useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
 import { RowMenu } from '@/components/RowMenu'
 import { AgentLooking, findContextItem } from '@/components/FindContext'
+import MenuItem from '@mui/material/MenuItem'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import {
+  useRequestAccept,
+  useRequestCancel,
+  useRequestChanges,
+  useRequests,
+  useRespond,
+} from '@/api/requests'
 import { Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { errorText } from '@/client/gqlClient'
@@ -26,6 +37,57 @@ const STATUS_WORDS: Record<string, string> = {
 }
 
 export const Route = createFileRoute('/_authed/requests')({ component: Requests })
+
+// Respond reopens finished work as the next turn. What the work changed comes from events.
+function Respond({ id }: { id: string }) {
+  const [open, setOpen] = useState(false)
+  const [kind, setKind] = useState<'change' | 'clarify' | 'revert'>('change')
+  const [text, setText] = useState('')
+  const respond = useRespond()
+  const changes = useRequestChanges(id, open)
+  if (!open) {
+    return (
+      <Button size="small" onClick={() => setOpen(true)} sx={{ ml: 1 }}>
+        Respond
+      </Button>
+    )
+  }
+  return (
+    <Stack spacing={1} sx={{ ml: 1, minWidth: 240 }}>
+      {respond.isError && <Alert severity="error">{errorText(respond.error)}</Alert>}
+      {(changes.data ?? []).map((c) => (
+        <DocLink key={c.receipt} id={c.doc}>
+          {c.docName || c.doc}
+        </DocLink>
+      ))}
+      <TextField
+        select
+        size="small"
+        label="Response"
+        value={kind}
+        onChange={(e) => setKind(e.target.value as typeof kind)}
+      >
+        <MenuItem value="change">Change</MenuItem>
+        <MenuItem value="clarify">Clarify</MenuItem>
+        <MenuItem value="revert">Revert</MenuItem>
+      </TextField>
+      <TextField
+        size="small"
+        label="What to do"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <Button
+        size="small"
+        variant="contained"
+        disabled={respond.isPending || text.trim() === ''}
+        onClick={() => respond.mutate({ id, kind, text: text.trim() })}
+      >
+        Send
+      </Button>
+    </Stack>
+  )
+}
 
 function Requests() {
   const looking = useLooking()
@@ -92,6 +154,11 @@ function Requests() {
                       items={[findContextItem(r.id, looking.has(r.id))]}
                     />
                   )}
+                  <StateChip
+                    state={r.status}
+                    label={r.resolution ? r.resolution.replace(/_/g, ' ') : STATUS_WORDS[r.status]}
+                  />
+                  {(r.status === 'done' || r.status === 'failed') && <Respond id={r.id} />}
                   {r.status === 'proposed' && (
                     <>
                       <Button

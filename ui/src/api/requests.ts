@@ -19,6 +19,8 @@ const RequestListDoc = graphql(/* GraphQL */ `
             linkNames
             links
             investigates
+            resolution
+            turn
           }
         }
       }
@@ -37,6 +39,54 @@ const RequestAddDoc = graphql(/* GraphQL */ `
     }
   }
 `)
+
+const RespondDoc = graphql(/* GraphQL */ `
+  mutation RequestRespond($body: para_RequestRespondInputInput!) {
+    para {
+      v1 {
+        requestRespond(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+const ChangesDoc = graphql(/* GraphQL */ `
+  query RequestChanges($id: String!) {
+    para {
+      v1 {
+        requestChanges(id: $id) {
+          items {
+            doc
+            docName
+            op
+            receipt
+          }
+        }
+      }
+    }
+  }
+`)
+
+export function useRespond() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (v: { id: string; kind: 'change' | 'clarify' | 'revert'; text: string }) =>
+      need((await gqlClient.request(RespondDoc, { body: v })).para.v1.requestRespond, 'response'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export function useRequestChanges(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['requestChanges', id],
+    enabled,
+    queryFn: async () =>
+      need((await gqlClient.request(ChangesDoc, { id })).para.v1.requestChanges, 'changes').items,
+  })
+}
 
 export function useRequests() {
   return useQuery({

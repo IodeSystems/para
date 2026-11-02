@@ -361,7 +361,7 @@ func TestProposalCycle(t *testing.T) {
 	if rev.Revision != 2 || rev.Supersedes != id || rev.ID == id || rev.Status != model.ProposalOpen {
 		t.Fatalf("revision = %+v", rev)
 	}
-	tool[ops.RequestChangeOutput](t, second, "request_done", map[string]any{"id": next.Request.ID, "result": "Revised."})
+	tool[ops.RequestChangeOutput](t, second, "request_done", map[string]any{"id": next.Request.ID, "resolution": "done", "result": "Revised."})
 
 	// The old revision answers with where to go, and no longer reviews.
 	if w := tool[ops.ProposalWaitOutput](t, second, "proposal_wait", map[string]any{"id": id}); w.SupersededBy != rev.ID || w.Pending {

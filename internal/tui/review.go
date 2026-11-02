@@ -75,6 +75,7 @@ const (
 	NeedDraft      = "draft ask"
 	NeedUnverified = "unverified summary"
 	NeedProposed   = "proposed agent work"
+	NeedResponse   = "agent work waits for you"
 )
 
 // Need is an item that needs the owner.
@@ -121,6 +122,9 @@ func BuildReview(s Snapshot, pos Position) ReviewData {
 	for _, q := range s.Requests {
 		if q.Status == model.RequestProposed {
 			r.Needs = append(r.Needs, Need{NeedProposed, q.ID, q.Title})
+		}
+		if q.Resolution.NeedsOwner() {
+			r.Needs = append(r.Needs, Need{NeedResponse, q.ID, q.Title})
 		}
 	}
 	by := map[string][]model.Event{}

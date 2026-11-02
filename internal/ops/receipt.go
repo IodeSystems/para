@@ -185,8 +185,15 @@ var ReceiptCheck = definePerson("receipt_check", "Mark a receipt verified or wro
 	return out, nil
 })
 
-// respondToWrong queues agent work to fix a write the owner marked wrong.
+// respondToWrong opens a response on the work item, or queues agent work when
+// the write has no finished item to reopen.
 func respondToWrong(ctx context.Context, d Deps, id string, r *model.Receipt, note string) (string, error) {
+	text := fmt.Sprintf("Receipt %s is marked wrong: %s", id, note)
+	if r.Request != "" {
+		if doc, _, err := respondTo(ctx, d, RequestRespondInput{ID: r.Request, Kind: RespondChange, Text: text}); err == nil {
+			return doc.ID, nil
+		}
+	}
 	ask := fmt.Sprintf("Receipt %s is marked wrong: %s\n\nRead it with receipt_show. Fix the document %s, or revert the write with receipt_revert.", id, note, r.Doc)
 	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: "Fix a write marked wrong", Ask: ask})
 	return out.ID, err

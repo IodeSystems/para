@@ -107,6 +107,10 @@ type Meta struct {
 	LeaseUntil      string           `json:"lease_until,omitempty"`
 	Links           *jsonValue       `json:"links,omitempty"`
 	ResultLinks     []string         `json:"result_links,omitempty"`
+	Required        []string         `json:"required,omitempty"`
+	Followed        []string         `json:"followed,omitempty"`
+	Resolution      string           `json:"resolution,omitempty"`
+	Turn            int              `json:"turn,omitempty"`
 	SourceDoc       string           `json:"source_doc,omitempty"`
 	Revision        int              `json:"revision,omitempty"`
 	Supersedes      string           `json:"supersedes,omitempty"`
@@ -121,7 +125,7 @@ type Meta struct {
 	RejectedBy      string           `json:"rejected_by,omitempty"`
 	Options         []string         `json:"options,omitempty"`
 	Recommended     string           `json:"recommended,omitempty"`
-	Context         string           `json:"context,omitempty"`
+	Context         *jsonValue       `json:"context,omitempty"`
 	OptionDetails   *jsonValue       `json:"option_details,omitempty"`
 	RFX             *jsonValue       `json:"rfx,omitempty"`
 	Question        string           `json:"question,omitempty"`
@@ -188,6 +192,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.ItemKinds)
 	addEnum(reg, model.ItemStates)
 	addEnum(reg, model.TurnKinds)
+	addEnum(reg, model.RequestResolutions)
+	addEnum(reg, ops.RespondKinds)
 	addEnum(reg, model.ReceiptChecks)
 	addEnum(reg, model.Confidences)
 	addEnum(reg, model.TurnStates)

@@ -13,15 +13,17 @@ import (
 // uses one document for Invoke and one for the CLI. seedRequestParity makes
 // them. Acting as "user" on the cli surface, which holds the claims.
 var requestParityCases = map[string]parityCase{
-	"request_add":    {`{"ask":"Parity ask"}`, []string{"request", "add", "Parity ask"}, false},
-	"request_list":   {`{}`, []string{"request", "list"}, true},
-	"request_show":   {`{"id":"request-show"}`, []string{"request", "show", "request-show"}, true},
-	"request_cancel": {`{"id":"request-c1"}`, []string{"request", "cancel", "request-c2"}, false},
-	"request_accept": {`{"id":"request-p1"}`, []string{"request", "accept", "request-p2"}, false},
-	"request_next":   {`{}`, []string{"request", "next"}, false},
-	"request_note":   {`{"id":"request-n1","text":"progress"}`, []string{"request", "note", "request-n2", "progress"}, false},
-	"request_done":   {`{"id":"request-d1","result":"Done."}`, []string{"request", "done", "request-d2", "Done."}, false},
-	"request_fail":   {`{"id":"request-f1","reason":"Blocked."}`, []string{"request", "fail", "request-f2", "Blocked."}, false},
+	"request_add":     {`{"ask":"Parity ask"}`, []string{"request", "add", "Parity ask"}, false},
+	"request_list":    {`{}`, []string{"request", "list"}, true},
+	"request_show":    {`{"id":"request-show"}`, []string{"request", "show", "request-show"}, true},
+	"request_cancel":  {`{"id":"request-c1"}`, []string{"request", "cancel", "request-c2"}, false},
+	"request_accept":  {`{"id":"request-p1"}`, []string{"request", "accept", "request-p2"}, false},
+	"request_next":    {`{}`, []string{"request", "next"}, false},
+	"request_note":    {`{"id":"request-n1","text":"progress"}`, []string{"request", "note", "request-n2", "progress"}, false},
+	"request_respond": {`{"id":"request-d4","kind":"clarify","text":"Which one?"}`, []string{"request", "respond", "request-d5", "clarify", "Which", "one?"}, false},
+	"request_changes": {`{"id":"request-d4"}`, []string{"request", "changes", "request-d4"}, false},
+	"request_done":    {`{"id":"request-d1","resolution":"done","result":"Done."}`, []string{"request", "done", "request-d2", "Done."}, false},
+	"request_fail":    {`{"id":"request-f1","reason":"Blocked."}`, []string{"request", "fail", "request-f2", "Blocked."}, false},
 }
 
 // seedRequestParity runs last in the parity table. Ids sort so that
@@ -49,6 +51,8 @@ func seedRequestParity(t *testing.T, deps ops.Deps) {
 	for _, id := range []string{"request-n1", "request-n2", "request-d1", "request-d2", "request-f1", "request-f2"} {
 		mk(id, model.RequestClaimed, true)
 	}
+	mk("request-d4", model.RequestDone, false)
+	mk("request-d5", model.RequestDone, false)
 }
 
 func TestRequestFlow(t *testing.T) {

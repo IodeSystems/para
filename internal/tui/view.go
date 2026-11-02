@@ -24,6 +24,7 @@ var (
 	actReject   = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
 	actMeta     = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
 	actAgenda   = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
+	actRespond  = Target{ID: "act:respond", Label: "Respond", Pref: 'p'}
 	actActivity = Target{ID: "act:activity", Label: "Activity", Pref: 'i'}
 )
 
@@ -103,6 +104,7 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	case tabReview:
 		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen}, questionActs...), actFind), acts...)
 		return m.rowsReview(w), append(append([]Target{actAccept, actReopen, actActivity}, questionActs...), acts...)
+		return m.rowsReview(w), append(append([]Target{actAccept, actReopen, actActivity, actRespond}, questionActs...), acts...)
 	case tabWork:
 		return m.rowsWork(w), append(append(append([]Target{actGraph}, questionActs...), actFind), acts...)
 	case tabRFX:

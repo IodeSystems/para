@@ -294,6 +294,19 @@ type Request struct {
 	Lease   string        `yaml:"lease_until,omitempty" json:"lease_until,omitempty"`
 	Links   []Link        `yaml:"links,omitempty" json:"links,omitempty"`               // task or project the ask is about
 	Results []Link        `yaml:"result_links,omitempty" json:"result_links,omitempty"` // documents the agent made or changed
+	// Kind is free text. A rule in .para/proposals.yaml can require a policy or a
+	// convention for a kind.
+	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
+	// Context links what the work must follow: policies, conventions, a goal,
+	// documents. Required is the part a rule demands. Followed is what the agent
+	// cited at the end.
+	Context  []Link `yaml:"context,omitempty" json:"context,omitempty"`
+	Required []Link `yaml:"required,omitempty" json:"required,omitempty"`
+	Followed []Link `yaml:"followed,omitempty" json:"followed,omitempty"`
+	// Resolution is how the last turn ended. Turn counts responses: each is the
+	// next turn in one thread, and the body keeps them all.
+	Resolution RequestResolution `yaml:"resolution,omitempty" json:"resolution,omitempty"`
+	Turn       int               `yaml:"turn,omitempty" json:"turn,omitempty"`
 }
 
 // Team is type: team.

@@ -461,6 +461,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.dismissHealth()
 	case "activity":
 		m.push(page{kind: pageActivity, title: "Agent activity"})
+	case "respond":
+		return m.respond()
 	case "answer":
 		return m.answer()
 	case "reject":

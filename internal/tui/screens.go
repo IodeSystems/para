@@ -505,7 +505,33 @@ func (m *Model) rowsReview(w int) []row {
 		}
 		r = append(r, x)
 	}
+	r = append(r, m.rowsFinished(w)...)
 	return r
+}
+
+// finishedRows is how many finished items Review offers to respond to.
+const finishedRows = 10
+
+// rowsFinished lists finished agent work, so the owner can respond.
+func (m *Model) rowsFinished(w int) []row {
+	var r []row
+	for i := len(m.snap.Requests) - 1; i >= 0 && len(r) < finishedRows; i-- {
+		q := m.snap.Requests[i]
+		if q.Status != model.RequestDone && q.Status != model.RequestFailed {
+			continue
+		}
+		label := string(q.Resolution)
+		if label == "" {
+			label = string(q.Status)
+		}
+		x := link("doc:"+q.ID, "  "+state(label)+"  ", titleOr(q.Title, q.ID), "", w)
+		x.kind, x.id = "work", q.ID
+		r = append(r, x)
+	}
+	if len(r) == 0 {
+		return nil
+	}
+	return append([]row{head("Finished agent work")}, r...)
 }
 
 func (m *Model) rowsWork(w int) []row {

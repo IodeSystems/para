@@ -129,3 +129,25 @@ func (m *Model) rowsActivity(w int) []row {
 	}
 	return r
 }
+
+// respond answers finished agent work under the cursor: change, clarify, or
+// revert. It reopens the work as the next turn.
+func (m *Model) respond() tea.Cmd {
+	r, ok := m.current()
+	if !ok || r.kind != "work" {
+		m.setHint("Move to finished agent work to respond.")
+		return nil
+	}
+	env := m.env
+	id := r.id
+	steps := []promptStep{{label: "change, clarify, or revert: ", value: "change"}, {label: "what to do: "}}
+	return m.askFor("Respond to agent work", steps, func(v []string) tea.Cmd {
+		return func() tea.Msg {
+			_, err := ops.RequestRespond.Run(context.Background(), env.Deps, ops.RequestRespondInput{ID: id, Kind: ops.RespondKind(strings.TrimSpace(v[0])), Text: v[1]})
+			if err != nil {
+				return doneMsg{err: err}
+			}
+			return doneMsg{text: "Reopened for an agent.", reload: true}
+		}
+	})
+}

@@ -950,6 +950,39 @@ try {
   await rp.getByText('self-reported').first().waitFor()
   check(true, 'the activity page marks self-reported work')
 
+  // Agent work: a resolution ends each turn, and a response opens the next.
+  para(...v, 'request', 'add', 'Summarize the quota thread')
+  let claimed = await agent.call('request_next', {})
+  while (claimed.request && !claimed.request.title.includes('Summarize')) {
+    await agent.call('request_done', {
+      id: claimed.request.id,
+      resolution: 'done',
+      result: 'Older work.',
+    })
+    claimed = await agent.call('request_next', {})
+  }
+  check(!!claimed.request, 'an agent claims the work')
+  await agent.call('request_done', {
+    id: claimed.request.id,
+    resolution: 'needs_clarification',
+    result: 'Which thread?',
+  })
+  await rp.goto(`${base}/requests`)
+  await rp.getByText('needs clarification').first().waitFor()
+  check(true, 'agent work shows its resolution')
+  const workRow = rp.getByRole('listitem').filter({ hasText: 'Summarize the quota thread' })
+  await workRow.getByRole('button', { name: 'Respond' }).click()
+  await workRow.getByLabel('What to do').fill('The staging one.')
+  await workRow.getByRole('button', { name: 'Send' }).click()
+  await workRow.getByText('waiting for an agent').waitFor()
+  const again = await agent.call('request_next', {})
+  check(
+    again.request?.id === claimed.request.id && again.request.turn === 1,
+    'a response reopens the work as the next turn',
+  )
+  check(again.request.body.includes('The staging one.'), 'the turn keeps the thread')
+  await agent.call('request_done', { id: again.request.id, resolution: 'done', result: 'Done.' })
+
   // The review gate is in para: from an agent a review op is gateNo, with the way forward.
   const gateNo = await agent
     .call('project_close', { id: proj, force: true })

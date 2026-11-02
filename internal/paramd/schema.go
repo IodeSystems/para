@@ -29,30 +29,31 @@ type field struct {
 }
 
 var (
-	projectStatus   = []string{"active", "paused", "done", "dropped"}
-	taskStatus      = []string{"todo", "doing", "blocked", "done", "dropped"}
-	rfxDirection    = []string{"in", "out"}
-	rfxStatus       = []string{"open", "answered", "closed", "declined"}
-	fidelities      = []string{"exact", "ocr", "partial", "none"}
-	exceptionKinds  = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as"}
-	exceptionStatus = []string{"open", "resolved", "accepted"}
-	conventionState = []string{"draft", "adopted", "retired"}
-	mediums         = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
-	groupKinds      = []string{"team", "department", "channel", "list", "other"}
-	targetStates    = []string{"drafted", "sent", "replied", "no_reply", "requested", "scheduled"}
-	interDirections = []string{"in", "out", "observed"}
-	visibilities    = []string{"public", "private"}
-	journalScopes   = []string{"day", "week", "month", "project"}
-	pointerKinds    = []string{"repo", "plan", "docs", "runbook", "tracker", "dashboard", "other"}
-	areaStatus      = []string{"active", "paused"}
-	severities      = []string{"sev1", "sev2", "sev3"}
-	incidentStatus  = []string{"open", "mitigated", "resolved"}
-	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
-	proposalStatus  = []string{"open", "sent_back", "closed", "superseded"}
-	receiptChecks   = []string{"unchecked", "verified", "wrong"}
-	questionStatus  = []string{"open", "answered", "dropped"}
-	questionKinds   = []string{"question", "decision", "input"}
-	meetingStatus   = []string{"requested", "scheduled", "held", "cancelled"}
+	projectStatus      = []string{"active", "paused", "done", "dropped"}
+	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
+	rfxDirection       = []string{"in", "out"}
+	rfxStatus          = []string{"open", "answered", "closed", "declined"}
+	fidelities         = []string{"exact", "ocr", "partial", "none"}
+	exceptionKinds     = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as"}
+	exceptionStatus    = []string{"open", "resolved", "accepted"}
+	conventionState    = []string{"draft", "adopted", "retired"}
+	mediums            = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
+	groupKinds         = []string{"team", "department", "channel", "list", "other"}
+	targetStates       = []string{"drafted", "sent", "replied", "no_reply", "requested", "scheduled"}
+	interDirections    = []string{"in", "out", "observed"}
+	visibilities       = []string{"public", "private"}
+	journalScopes      = []string{"day", "week", "month", "project"}
+	pointerKinds       = []string{"repo", "plan", "docs", "runbook", "tracker", "dashboard", "other"}
+	areaStatus         = []string{"active", "paused"}
+	severities         = []string{"sev1", "sev2", "sev3"}
+	incidentStatus     = []string{"open", "mitigated", "resolved"}
+	requestStatus      = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
+	proposalStatus     = []string{"open", "sent_back", "closed", "superseded"}
+	requestResolutions = []string{"done", "partial", "stuck", "blocked", "needs_clarification", "failed", "cancelled"}
+	receiptChecks      = []string{"unchecked", "verified", "wrong"}
+	questionStatus     = []string{"open", "answered", "dropped"}
+	questionKinds      = []string{"question", "decision", "input"}
+	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
@@ -197,6 +198,10 @@ var typeFields = map[string][]field{
 		{Name: "lease_until", Kind: kTimestamp},
 		{Name: "links", Kind: kLinkList},
 		{Name: "result_links", Kind: kLinkList},
+		{Name: "context", Kind: kLinkList},
+		{Name: "required", Kind: kLinkList},
+		{Name: "followed", Kind: kLinkList},
+		{Name: "resolution", Kind: kEnum, Enum: requestResolutions},
 	},
 	"proposal": {
 		{Name: "source", Kind: kLink, Required: true},

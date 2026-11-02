@@ -53,18 +53,45 @@ type RequestView struct {
 	// Investigates is true while the request is open agent work made by
 	// investigate. The items in Links then show "Agent looking".
 	Investigates bool `json:"investigates"`
+	Kind      string   `json:"kind,omitempty"`
+	// Resolution is how the last turn ended. Turn counts responses.
+	Resolution model.RequestResolution `json:"resolution,omitempty"`
+	Turn       int                     `json:"turn,omitempty"`
 }
 
-// RequestDetail is a request with its body: the ask, notes, and result.
+// ContextDoc is one document a request links as context. Required says a rule
+// demands it: the agent must cite it at the end.
+type ContextDoc struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	Type     string `json:"type"`
+	Required bool   `json:"required,omitempty"`
+}
+
+// RequestDetail is a request with its body: the ask, notes, and result, each
+// response in turn. Context is what the work must follow.
 type RequestDetail struct {
 	RequestView
-	Body string `json:"body"`
+	Body    string       `json:"body"`
+	Context []ContextDoc `json:"context"`
+}
+
+func contextDocs(ctx context.Context, s store.Store, r *model.Request) []ContextDoc {
+	out := []ContextDoc{}
+	for _, l := range r.Context {
+		c := ContextDoc{ID: l.Target(), Required: slices.Contains(r.Required, l)}
+		if doc, err := s.Get(ctx, c.ID); err == nil {
+			c.Title, c.Type = doc.Title, string(doc.Meta.Header().Type)
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 func requestView(d model.Document, r *model.Request) RequestView {
 	v := RequestView{
 		ID: d.ID, Title: d.Title, Status: r.Status, Runner: r.Runner, QueuedAt: r.Queued,
-		ClaimedBy: r.Claimed, LeaseUntil: r.Lease,
+		ClaimedBy: r.Claimed, LeaseUntil: r.Lease, Kind: r.Kind, Resolution: r.Resolution, Turn: r.Turn,
 	}
 	if len(r.Links) > 0 {
 		v.Links = targets(r.Links)
@@ -210,6 +237,11 @@ type RequestAddInput struct {
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
 	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, request, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
+	// Context links what the work must follow: policies, conventions, a goal, documents.
+	Context []string `json:"context,omitempty"`
+	// Kind is free text. A rule in .para/proposals.yaml can require a policy or
+	// a convention for a kind.
+	Kind string `json:"kind,omitempty"`
 }
 
 // idWord finds a document id in text: a type word, a dash, and a slug.
@@ -295,11 +327,32 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	} else if ok {
 		status = model.RequestQueued
 	}
+	rules, err := loadProposalRules(d)
+	if err != nil {
+		return RequestAddOutput{}, err
+	}
+	context, err := requestLinks(ctx, d, "context", in.Context)
+	if err != nil {
+		return RequestAddOutput{}, err
+	}
+	kind := strings.TrimSpace(in.Kind)
+	var required []model.Link
+	if kind != "" {
+		if required, err = requestLinks(ctx, d, "rule for "+kind, rules.Work[kind].Require); err != nil {
+			return RequestAddOutput{}, err
+		}
+		for _, l := range required {
+			if !slices.Contains(context, l) {
+				context = append(context, l)
+			}
+		}
+	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderRequests, Title: title, Body: body,
 		Meta: &model.Request{
 			Common: model.Common{Type: model.TypeRequest},
 			Status: status, Runner: runner, Queued: nowString(d.Store), Links: links,
+			Kind: kind, Context: context, Required: required,
 		},
 	})
 	if err != nil {
@@ -396,7 +449,7 @@ var RequestCancel = define("request_cancel", "Cancel an agent request that is no
 	if !slices.Contains([]model.RequestStatus{model.RequestProposed, model.RequestQueued, model.RequestClaimed}, r.Status) {
 		return RequestChangeOutput{}, fmt.Errorf("%s is %s: only a proposed, queued, or claimed request can be cancelled", doc.ID, r.Status)
 	}
-	r.Status, r.Claimed, r.Lease = model.RequestCancelled, "", ""
+	r.Status, r.Claimed, r.Lease, r.Resolution = model.RequestCancelled, "", "", model.ResolutionCancelled
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -503,7 +556,8 @@ var RequestNext = defineSafe("request_next", "Claim the oldest queued request fo
 			if err != nil {
 				return out, err
 			}
-			out.Request = &RequestDetail{RequestView: requestView(got, got.Meta.(*model.Request)), Body: got.Body}
+			m := got.Meta.(*model.Request)
+			out.Request = &RequestDetail{RequestView: requestView(got, m), Body: got.Body, Context: contextDocs(ctx, d.Store, m)}
 			return out, nil
 		}
 		if !conflict {
@@ -575,13 +629,21 @@ var RequestNote = defineSafe("request_note", "Add a progress note to a request y
 
 // RequestDoneInput is the input of request_done.
 type RequestDoneInput struct {
-	ID     string   `json:"id"`
-	Result string   `json:"result"`          // summary of what was done
-	Links  []string `json:"links,omitempty"` // ids of documents made or changed
+	ID string `json:"id"`
+	// Resolution is required: done, partial, stuck, blocked, or needs_clarification.
+	Resolution model.RequestResolution `json:"resolution"`
+	Result     string                  `json:"result"`             // summary of what was done
+	Links      []string                `json:"links,omitempty"`    // ids of documents made or changed
+	Followed   []string                `json:"followed,omitempty"` // context you followed
 }
 
-// RequestDone finishes a claimed request with a result summary.
-var RequestDone = defineSafe("request_done", "Finish a request you claimed, with a result summary and links to what you made", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
+// RequestDone ends a turn of a claimed request with a resolution and a summary.
+// What the agent changed comes from events. A rule's required context must be
+// cited. stuck, blocked, and needs_clarification wait for the owner's response.
+var RequestDone = defineSafe("request_done", "End a request you claimed: resolution done, partial, stuck, blocked, or needs_clarification, a summary, links to what you made, and the context you followed", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
+	if !slices.Contains([]model.RequestResolution{model.ResolutionDone, model.ResolutionPartial, model.ResolutionStuck, model.ResolutionBlocked, model.ResolutionNeedsClarification}, in.Resolution) {
+		return RequestChangeOutput{}, fmt.Errorf("resolution %q: want done, partial, stuck, blocked, or needs_clarification", in.Resolution)
+	}
 	if strings.TrimSpace(in.Result) == "" {
 		return RequestChangeOutput{}, errors.New("result is empty")
 	}
@@ -589,12 +651,25 @@ var RequestDone = defineSafe("request_done", "Finish a request you claimed, with
 	if err != nil {
 		return RequestChangeOutput{}, err
 	}
+	followed, err := requestLinks(ctx, d, "followed", in.Followed)
+	if err != nil {
+		return RequestChangeOutput{}, err
+	}
 	doc, r, err := ownClaim(ctx, d, in.ID)
 	if err != nil {
 		return RequestChangeOutput{}, err
 	}
-	doc.Body = appendSection(doc.Body, "Result", in.Result)
-	r.Status, r.Lease, r.Results = model.RequestDone, "", links
+	for _, l := range r.Required {
+		if !slices.Contains(followed, l) && in.Resolution == model.ResolutionDone {
+			return RequestChangeOutput{}, fmt.Errorf("a rule requires %s for this work: follow it and cite it in followed", l.Target())
+		}
+	}
+	heading := "Result"
+	if in.Resolution != model.ResolutionDone {
+		heading += " (" + string(in.Resolution) + ")"
+	}
+	doc.Body = appendSection(doc.Body, heading, in.Result)
+	r.Status, r.Lease, r.Results, r.Resolution, r.Followed = model.RequestDone, "", links, in.Resolution, followed
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -615,9 +690,109 @@ var RequestFail = defineSafe("request_fail", "Mark a request you claimed as fail
 		return RequestChangeOutput{}, err
 	}
 	doc.Body = appendSection(doc.Body, "Failure", in.Reason)
-	r.Status, r.Lease = model.RequestFailed, ""
+	r.Status, r.Lease, r.Resolution = model.RequestFailed, "", model.ResolutionFailed
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
+})
+
+// RespondKind is what the owner's response asks for.
+type RespondKind string
+
+const (
+	RespondChange  RespondKind = "change"
+	RespondClarify RespondKind = "clarify"
+	RespondRevert  RespondKind = "revert"
+)
+
+// RespondKinds lists every RespondKind.
+var RespondKinds = []RespondKind{RespondChange, RespondClarify, RespondRevert}
+
+// Enum lists the allowed values, for schema generation.
+func (RespondKind) Enum() []string { return enumStrings(RespondKinds) }
+
+func enumStrings[T ~string](in []T) []string {
+	out := make([]string, len(in))
+	for i, v := range in {
+		out[i] = string(v)
+	}
+	return out
+}
+
+// RequestRespondInput is the input of request_respond.
+type RequestRespondInput struct {
+	ID   string      `json:"id"`
+	Kind RespondKind `json:"kind"` // change, clarify, or revert
+	Text string      `json:"text"`
+}
+
+// RequestRespond reopens finished work as the next turn in one thread. History
+// stays in the body. Revert is a turn the agent carries out through ops: a
+// write that took review goes through a proposal.
+var RequestRespond = definePerson("request_respond", "Respond to finished agent work: change, clarify, or revert. It reopens the work as the next turn, for an agent to pick up. People only", func(ctx context.Context, d Deps, in RequestRespondInput) (RequestChangeOutput, error) {
+	if !slices.Contains(RespondKinds, in.Kind) {
+		return RequestChangeOutput{}, fmt.Errorf("kind %q: want change, clarify, or revert", in.Kind)
+	}
+	if strings.TrimSpace(in.Text) == "" {
+		return RequestChangeOutput{}, errors.New("text is empty")
+	}
+	doc, _, err := respondTo(ctx, d, in)
+	return changeOutput(doc), err
+})
+
+func respondTo(ctx context.Context, d Deps, in RequestRespondInput) (model.Document, *model.Request, error) {
+	doc, r, err := getRequest(ctx, d.Store, in.ID)
+	if err != nil {
+		return doc, nil, err
+	}
+	if r.Status != model.RequestDone && r.Status != model.RequestFailed {
+		return doc, nil, fmt.Errorf("%s is %s: a response needs finished work", doc.ID, r.Status)
+	}
+	r.Turn++
+	text := strings.TrimSpace(in.Text)
+	if in.Kind == RespondRevert {
+		text += "\n\nRevert with receipt_revert, newest receipt first: receipt_list names them. A write that took review goes through a proposal."
+	}
+	doc.Body = appendSection(doc.Body, fmt.Sprintf("Response %d (%s)", r.Turn, in.Kind), text)
+	r.Status, r.Claimed, r.Lease, r.Resolution, r.Queued = model.RequestQueued, "", "", "", nowString(d.Store)
+	doc, err = d.Store.Update(ctx, doc)
+	return doc, r, err
+}
+
+// RequestChangesInput is the input of request_changes.
+type RequestChangesInput struct {
+	ID string `json:"id" query:"id" required:"true"`
+}
+
+// RequestChange is one document the work touched.
+type RequestChange struct {
+	Doc     string `json:"doc"`
+	DocName string `json:"doc_name,omitempty" nameof:"Doc"`
+	Op      string `json:"op"`
+	Receipt string `json:"receipt"`
+}
+
+// RequestChangesOutput is the output of request_changes.
+type RequestChangesOutput struct {
+	Items []RequestChange `json:"items"`
+}
+
+// RequestChanges lists what the work touched, from events.
+var RequestChanges = defineRead("request_changes", "List the documents an agent changed under a request, from events, with receipts", func(ctx context.Context, d Deps, in RequestChangesInput) (RequestChangesOutput, error) {
+	doc, _, err := getRequest(ctx, d.Store, in.ID)
+	if err != nil {
+		return RequestChangesOutput{}, err
+	}
+	rows, err := activityRows(ctx, d, "", time.Time{}, time.Time{})
+	if err != nil {
+		return RequestChangesOutput{}, err
+	}
+	out := RequestChangesOutput{Items: []RequestChange{}}
+	for _, row := range rows {
+		if row.Request == doc.ID {
+			out.Items = append(out.Items, RequestChange{Doc: row.Doc, Op: row.Op, Receipt: row.Receipt})
+		}
+	}
+	return out, nil
 })
 
 // RequestWatch answers "can this install claim a request now?" cheaply, for

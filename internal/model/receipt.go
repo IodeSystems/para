@@ -138,3 +138,28 @@ func ParseDocument(id string, folder Folder, text string) (Document, error) {
 	}
 	return Decode(id, folder, []byte(front), title, strings.Trim(body, "\n"))
 }
+
+// RequestResolution is how a turn of agent work ended.
+type RequestResolution string
+
+const (
+	ResolutionDone               RequestResolution = "done"
+	ResolutionPartial            RequestResolution = "partial"
+	ResolutionStuck              RequestResolution = "stuck"
+	ResolutionBlocked            RequestResolution = "blocked"
+	ResolutionNeedsClarification RequestResolution = "needs_clarification"
+	ResolutionFailed             RequestResolution = "failed"
+	ResolutionCancelled          RequestResolution = "cancelled"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (RequestResolution) Enum() []string { return enumStrings(RequestResolutions) }
+
+// RequestResolutions lists every RequestResolution.
+var RequestResolutions = []RequestResolution{ResolutionDone, ResolutionPartial, ResolutionStuck, ResolutionBlocked,
+	ResolutionNeedsClarification, ResolutionFailed, ResolutionCancelled}
+
+// NeedsOwner reports whether the work ended waiting for a person.
+func (r RequestResolution) NeedsOwner() bool {
+	return r == ResolutionStuck || r == ResolutionBlocked || r == ResolutionNeedsClarification
+}

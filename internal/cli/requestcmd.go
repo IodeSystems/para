@@ -29,6 +29,8 @@ func newRequestCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Title, "title", "", "short name for the work, without ids; default the first line of the ask")
 				fs.StringSliceVar(&in.Links, "link", nil, "task or project id the ask is about (repeatable)")
 				fs.StringVar(&in.Runner, "runner", "", "install id that may claim; default vault.properties request.runner, else this install")
+				fs.StringSliceVar(&in.Context, "context", nil, "id of a policy, convention, goal, or document the work must follow (repeatable)")
+				fs.StringVar(&in.Kind, "kind", "", "kind of work; a rule in .para/proposals.yaml can require context for a kind")
 			},
 			Bind: func(args []string, in *ops.RequestAddInput) error { in.Ask = strings.Join(args, " "); return nil },
 			Text: func(w io.Writer, out ops.RequestAddOutput) error {
@@ -47,7 +49,7 @@ func newRequestCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.RequestListOutput) error {
 				p := &printer{w: w}
 				for _, r := range out.Items {
-					p.f("%s\t%s\t%s\t%s\t%s\n", r.ID, r.Status, r.ClaimedBy, r.LeaseUntil, r.Title)
+					p.f("%s\t%s\t%s\t%s\t%s\t%s\n", r.ID, r.Status, r.Resolution, r.ClaimedBy, r.LeaseUntil, r.Title)
 				}
 				return p.err
 			},
@@ -59,9 +61,9 @@ func newRequestCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.RequestShowOutput) error {
 				m := out.Doc.Meta.(*model.Request)
 				p := &printer{w: w}
-				p.f("%s\t%s\nstatus\t%s\nrunner\t%s\nqueued_at\t%s\nclaimed_by\t%s\nlease_until\t%s\nlinks\t%s\nresult_links\t%s\n%s\n",
-					out.Doc.ID, out.Doc.Title, m.Status, m.Runner, m.Queued, m.Claimed, m.Lease,
-					strings.Join(linkIDs(m.Links), ","), strings.Join(linkIDs(m.Results), ","), out.Doc.Body)
+				p.f("%s\t%s\nstatus\t%s\nresolution\t%s\nturn\t%d\nrunner\t%s\nqueued_at\t%s\nclaimed_by\t%s\nlease_until\t%s\nlinks\t%s\ncontext\t%s\nfollowed\t%s\nresult_links\t%s\n%s\n",
+					out.Doc.ID, out.Doc.Title, m.Status, m.Resolution, m.Turn, m.Runner, m.Queued, m.Claimed, m.Lease,
+					strings.Join(linkIDs(m.Links), ","), strings.Join(linkIDs(m.Context), ","), strings.Join(linkIDs(m.Followed), ","), strings.Join(linkIDs(m.Results), ","), out.Doc.Body)
 				return p.err
 			},
 		}),
@@ -85,6 +87,9 @@ func newRequestCmd(l *loader) *cobra.Command {
 				}
 				r := out.Request
 				p.f("%s\t%s\tlease %s\n%s\n", r.ID, r.Title, r.LeaseUntil, r.Body)
+				for _, c := range r.Context {
+					p.f("context\t%s\t%s\t%s\n", c.ID, c.Type, c.Title)
+				}
 				return p.err
 			},
 		}),
@@ -105,6 +110,8 @@ func newRequestCmd(l *loader) *cobra.Command {
 			Args: cobra.MinimumNArgs(2),
 			Flags: func(fs *pflag.FlagSet, in *ops.RequestDoneInput) {
 				fs.StringSliceVar(&in.Links, "link", nil, "id of a document made or changed (repeatable)")
+				fs.StringSliceVar(&in.Followed, "followed", nil, "id of context you followed (repeatable)")
+				fs.StringVar((*string)(&in.Resolution), "resolution", string(model.ResolutionDone), "done, partial, stuck, blocked, or needs_clarification")
 			},
 			Bind: func(args []string, in *ops.RequestDoneInput) error {
 				in.ID, in.Result = args[0], strings.Join(args[1:], " ")
@@ -126,6 +133,27 @@ func newRequestCmd(l *loader) *cobra.Command {
 			Args: cobra.ExactArgs(1),
 			Bind: func(args []string, in *ops.RequestAcceptInput) error { in.ID = args[0]; return nil },
 			Text: requestChangeText,
+		}),
+		opCommand(l, ops.RequestRespond, binding[ops.RequestRespondInput, ops.RequestChangeOutput]{
+			Use:  "respond <id> change|clarify|revert <text>",
+			Args: cobra.MinimumNArgs(3),
+			Bind: func(args []string, in *ops.RequestRespondInput) error {
+				in.ID, in.Kind, in.Text = args[0], ops.RespondKind(args[1]), strings.Join(args[2:], " ")
+				return nil
+			},
+			Text: requestChangeText,
+		}),
+		opCommand(l, ops.RequestChanges, binding[ops.RequestChangesInput, ops.RequestChangesOutput]{
+			Use:  "changes <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.RequestChangesInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.RequestChangesOutput) error {
+				p := &printer{w: w}
+				for _, c := range out.Items {
+					p.f("%s\t%s\t%s\n", c.Doc, c.Op, c.Receipt)
+				}
+				return p.err
+			},
 		}),
 		newRequestWaitCmd(l),
 	)

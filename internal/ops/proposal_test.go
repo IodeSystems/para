@@ -149,6 +149,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 		}},
 		{"health_undismiss", func(d Deps) error {
 			_, err := HealthUndismiss.Run(t.Context(), d, HealthUndismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen})
+		{"respond", func(d Deps) error {
+			_, err := RequestRespond.Run(t.Context(), d, RequestRespondInput{ID: "x", Kind: RespondClarify, Text: "t"})
+			return err
+		}},
 		{"receipt check", func(d Deps) error {
 			_, err := ReceiptCheck.Run(t.Context(), d, ReceiptCheckInput{ID: "x", Verdict: model.ReceiptVerified})
 			return err
@@ -906,5 +910,59 @@ func TestBundleHaltsOnFailedExecution(t *testing.T) {
 	out, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "i1", Result: ExecFailed, Reason: "The API refused."})
 	if err != nil || out.State != model.ItemFailed || len(out.Halted) != 1 || out.Halted[0] != "i2" {
 		t.Fatalf("out = %+v %v", out, err)
+	}
+}
+
+func TestAgentWorkTurns(t *testing.T) {
+	f := newPropFix(t)
+	if err := os.WriteFile(filepath.Join(f.root, ".para", "proposals.yaml"), []byte("work:\n  release:\n    require: ["+f.source+"]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	add, err := RequestAdd.Run(t.Context(), f.owner, RequestAddInput{Ask: "Ship it", Kind: "release", Context: []string{f.proj}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next, err := RequestNext.Run(t.Context(), f.agent, RequestNextInput{})
+	if err != nil || next.Request == nil || len(next.Request.Context) != 2 {
+		t.Fatalf("next = %+v %v", next.Request, err)
+	}
+	if _, err := RequestDone.Run(t.Context(), f.agent, RequestDoneInput{ID: add.ID, Result: "x"}); err == nil || !strings.Contains(err.Error(), "resolution") {
+		t.Fatalf("no resolution: %v", err)
+	}
+	if _, err := RequestDone.Run(t.Context(), f.agent, RequestDoneInput{ID: add.ID, Resolution: model.ResolutionDone, Result: "x"}); err == nil || !strings.Contains(err.Error(), "requires") {
+		t.Fatalf("no citation: %v", err)
+	}
+	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Under the request", DoneWhen: "It exists."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RequestDone.Run(t.Context(), f.agent, RequestDoneInput{ID: add.ID, Resolution: model.ResolutionPartial, Result: "Half.", Followed: []string{f.source}}); err != nil {
+		t.Fatal(err)
+	}
+	ch, err := RequestChanges.Run(t.Context(), f.owner, RequestChangesInput{ID: add.ID})
+	if err != nil || len(ch.Items) != 1 || ch.Items[0].Doc != task.ID {
+		t.Fatalf("changes = %+v %v", ch.Items, err)
+	}
+	if _, err := RequestRespond.Run(t.Context(), f.agent, RequestRespondInput{ID: add.ID, Kind: RespondChange, Text: "x"}); !errors.Is(err, ErrPersonOnly) {
+		t.Fatalf("agent respond: %v", err)
+	}
+	if _, err := RequestRespond.Run(t.Context(), f.owner, RequestRespondInput{ID: add.ID, Kind: RespondClarify, Text: "Which half?"}); err != nil {
+		t.Fatal(err)
+	}
+	again, err := RequestNext.Run(t.Context(), f.agent, RequestNextInput{})
+	if err != nil || again.Request == nil || again.Request.ID != add.ID || again.Request.Turn != 1 {
+		t.Fatalf("again = %+v %v", again.Request, err)
+	}
+	if !strings.Contains(again.Request.Body, "## Result (partial)") || !strings.Contains(again.Request.Body, "Which half?") {
+		t.Fatalf("body = %q", again.Request.Body)
+	}
+	// A wrong receipt opens a response on the item it served.
+	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{Doc: task.ID})
+	if _, err := RequestDone.Run(t.Context(), f.agent, RequestDoneInput{ID: add.ID, Resolution: model.ResolutionDone, Result: "All.", Followed: []string{f.source}}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := ReceiptCheck.Run(t.Context(), f.owner, ReceiptCheckInput{ID: list.Items[0].ID, Verdict: model.ReceiptWrong, Note: "Wrong goal."})
+	if err != nil || out.Request != add.ID {
+		t.Fatalf("wrong = %+v %v", out, err)
 	}
 }

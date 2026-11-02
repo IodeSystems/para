@@ -101,7 +101,7 @@ func TestRequestLifecycle(t *testing.T) {
 	if _, err := RequestNote.Run(ctx, other, RequestNoteInput{ID: first.ID, Text: "mine"}); err == nil {
 		t.Fatal("another actor added a note")
 	}
-	if _, err := RequestDone.Run(ctx, other, RequestDoneInput{ID: first.ID, Result: "x"}); err == nil {
+	if _, err := RequestDone.Run(ctx, other, RequestDoneInput{ID: first.ID, Resolution: model.ResolutionDone, Result: "x"}); err == nil {
 		t.Fatal("another actor finished it")
 	}
 	rv.advance(10 * time.Minute)
@@ -115,7 +115,7 @@ func TestRequestLifecycle(t *testing.T) {
 	if _, err := RequestNote.Run(ctx, agent, RequestNoteInput{ID: first.ID, Text: "second note"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := RequestDone.Run(ctx, agent, RequestDoneInput{ID: first.ID, Result: "Wrote the summary.", Links: []string{first.ID}}); err != nil {
+	if _, err := RequestDone.Run(ctx, agent, RequestDoneInput{ID: first.ID, Resolution: model.ResolutionDone, Result: "Wrote the summary.", Links: []string{first.ID}}); err != nil {
 		t.Fatal(err)
 	}
 	show, err := RequestShow.Run(ctx, person, RequestShowInput{ID: first.ID})
@@ -131,7 +131,7 @@ func TestRequestLifecycle(t *testing.T) {
 			t.Errorf("body lacks %q:\n%s", want, show.Doc.Body)
 		}
 	}
-	if _, err := RequestDone.Run(ctx, agent, RequestDoneInput{ID: first.ID, Result: "again"}); err == nil {
+	if _, err := RequestDone.Run(ctx, agent, RequestDoneInput{ID: first.ID, Resolution: model.ResolutionDone, Result: "again"}); err == nil {
 		t.Error("finished a done request twice")
 	}
 	if got, _ := agent.Store.Lint(ctx); len(got) != 0 {
@@ -183,7 +183,7 @@ func TestRequestLeaseExpires(t *testing.T) {
 		t.Fatalf("after expiry: %+v", out)
 	}
 	// The first agent lost it.
-	if _, err := RequestDone.Run(context.Background(), a1, RequestDoneInput{ID: req.ID, Result: "late"}); err == nil {
+	if _, err := RequestDone.Run(context.Background(), a1, RequestDoneInput{ID: req.ID, Resolution: model.ResolutionDone, Result: "late"}); err == nil {
 		t.Error("expired holder finished the request")
 	}
 	// An expired claim stays visible to a watch as claimable.
@@ -329,7 +329,7 @@ func TestRequestEventsHoldNoText(t *testing.T) {
 	req := addReq(t, p, "zebrafish ask text\n\nzebrafish body")
 	nextReq(t, a)
 	RequestNote.Run(ctx, a, RequestNoteInput{ID: req.ID, Text: "zebrafish note"})
-	if _, err := RequestDone.Run(ctx, a, RequestDoneInput{ID: req.ID, Result: "zebrafish result"}); err != nil {
+	if _, err := RequestDone.Run(ctx, a, RequestDoneInput{ID: req.ID, Resolution: model.ResolutionDone, Result: "zebrafish result"}); err != nil {
 		t.Fatal(err)
 	}
 	evs, err := p.Store.Events(ctx, 50)
