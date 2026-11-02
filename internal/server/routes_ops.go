@@ -112,6 +112,10 @@ func registerRecords(r *registrar) {
 	reg(r, ops.JournalDaily, post, write)
 	reg(r, ops.JournalWeekly, post, write)
 	reg(r, ops.JournalMonthly, post, write)
+	reg(r, ops.JournalList, get, read)
+	reg(r, ops.JournalShow, get, read)
+	// journal_summary changes one marked section of a journal and nothing else.
+	reg(r, ops.JournalSummary, post, write)
 	reg(r, ops.Search, get, read)
 }
 

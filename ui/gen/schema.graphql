@@ -48,6 +48,7 @@ type ParaV1MutationNamespace {
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
+  journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
   meetingAdd(body: para_MeetingAddInputInput!): para_MeetingAddOutput @derived(operationId: "meetingAdd")
   meetingCancel(body: para_MeetingCancelInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingCancel")
@@ -136,6 +137,8 @@ type ParaV1QueryNamespace {
   incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
+  journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
+  journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
   lint: para_LintOutput @derived(operationId: "lint")
   meetingList(all: Boolean, status: para_meetingListStatus): para_MeetingListOutput @derived(operationId: "meetingList")
   meetingShow(id: String!): para_MeetingShowOutput @derived(operationId: "meetingShow")
@@ -1412,11 +1415,55 @@ input para_JournalInputInput {
   date: String
 }
 
+type para_JournalListOutput {
+  items: [para_JournalView!]!
+}
+
 type para_JournalOutput {
   action: String!
   events: Int!
   id: String!
   path: String!
+}
+
+type para_JournalShowOutput {
+  body: String!
+  id: String!
+  level: String!
+  path: String!
+  summary: Boolean!
+  title: String!
+}
+
+type para_JournalSource {
+  at: String
+  id: String!
+  kind: String!
+  op: String
+  summary: Boolean
+  title: String
+}
+
+input para_JournalSummaryInputInput {
+  id: String!
+  text: String
+}
+
+type para_JournalSummaryOutput {
+  action: String!
+  id: String!
+  level: String!
+  omitted: Int
+  path: String!
+  sources: [para_JournalSource!]!
+}
+
+type para_JournalView {
+  date: String!
+  id: String!
+  level: String!
+  summary: Boolean!
+  title: String!
 }
 
 type para_KeyCreateBody {

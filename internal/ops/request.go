@@ -223,7 +223,7 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 	if err != nil {
 		return RequestAddOutput{}, fmt.Errorf("ask: %w", err)
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

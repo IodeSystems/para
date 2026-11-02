@@ -114,10 +114,14 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 	if err != nil {
 		return JournalOutput{}, err
 	}
+	skip, err := journalPlumbing(ctx, d, exist)
+	if err != nil {
+		return JournalOutput{}, err
+	}
 	var in2 []model.Event
 	for _, e := range evs {
 		// A journal's own writes are left out, or a rerun would change what it writes.
-		if r, ok := exist[e.Doc]; ok && r.Type == model.TypeJournal {
+		if skip[e.Doc] {
 			continue
 		}
 		if t := e.TS.In(loc); !t.Before(p.start) && t.Before(p.end) {
@@ -165,6 +169,38 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 	}
 	out.Action = JournalUpdated
 	return out, nil
+}
+
+// journalPlumbing returns the ids of documents whose events stay out of a
+// journal: the journals themselves, and the requests for their narratives
+// (a request that links a journal). Counting those would make each narrative
+// request count as activity, and so start the next one.
+func journalPlumbing(ctx context.Context, d Deps, exist map[string]model.Ref) (map[string]bool, error) {
+	skip := map[string]bool{}
+	hasReq := false
+	for id, r := range exist {
+		switch r.Type {
+		case model.TypeJournal:
+			skip[id] = true
+		case model.TypeRequest:
+			hasReq = true
+		}
+	}
+	if !hasReq {
+		return skip, nil
+	}
+	reqs, err := loadRequests(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range reqs {
+		for _, l := range r.Meta.(*model.Request).Links {
+			if skip[l.Target()] {
+				skip[r.ID] = true
+			}
+		}
+	}
+	return skip, nil
 }
 
 // section is one generated block of a journal.

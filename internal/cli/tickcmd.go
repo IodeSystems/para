@@ -37,7 +37,7 @@ func tickLine(v ops.TickOutput) string {
 	case !v.Ran:
 		return fmt.Sprintf("%s\tskipped: %s", v.Vault, v.Skipped)
 	}
-	line := fmt.Sprintf("%s\tran\trevived %d\trequests %d\tnudges %d\tchanges %d", v.Vault, len(v.Revived), len(v.Requests), len(v.Nudges), v.Changes)
+	line := fmt.Sprintf("%s\tran\trevived %d\trequests %d\tjournals %d\tnudges %d\tchanges %d", v.Vault, len(v.Revived), len(v.Requests), len(v.Journals), len(v.Nudges), v.Changes)
 	if v.Proposed > 0 {
 		line += fmt.Sprintf("\t%d proposed: add tick to request.surfaces in .para/vault.properties to queue them, or run para request accept", v.Proposed)
 	}
@@ -91,7 +91,7 @@ func newTickCmd(l *loader) *cobra.Command {
 			var res tickAllOutput
 			res.Vaults = []ops.TickOutput{}
 			for _, e := range entries {
-				v := ops.TickOutput{Vault: e.ID, Revived: []string{}, Requests: []string{}, Nudges: []string{}, Warnings: []string{}}
+				v := ops.TickOutput{Vault: e.ID, Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Warnings: []string{}}
 				if e.Err != "" {
 					v.Error = "registry entry is broken: " + e.Err
 				} else if deps, err := l.depsFor(e.ID, e.Path); err != nil {

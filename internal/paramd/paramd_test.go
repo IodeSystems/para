@@ -175,6 +175,8 @@ func TestLint(t *testing.T) {
 		{"transcript page order", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n\n## Page 2\n\n## Page 2\n"), []string{"page-marker:19"}},
 		{"transcript page form", "policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n\n### Page  1\n"), []string{"page-marker:17"}},
 		{"journal ok", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin tasks %%\nx\n%% para:end tasks %%\n"), nil},
+		{"journal summary-agent ok", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\nMine.\n\n%% para:begin summary-agent %%\nMoved [[x]].\n%% para:end summary-agent %%\n"), nil},
+		{"journal summary-agent unclosed", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin summary-agent %%\nMoved.\n"), []string{"journal-marker:10"}},
 		{"journal unclosed", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin tasks %%\nx\n"), []string{"journal-marker:10"}},
 		{"journal mismatched end", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin a %%\n%% para:end b %%\n"), []string{"journal-marker:11"}},
 		{"marker outside journal", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n%% para:begin a %%\n%% para:end a %%\n"), []string{"journal-marker:9", "journal-marker:10"}},

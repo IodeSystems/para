@@ -112,7 +112,7 @@ func (t *Ticker) report(r ops.TickOutput) {
 		if !same {
 			t.log.Info("tick skipped", "vault", r.Vault, "reason", r.Skipped)
 		}
-	case len(r.Revived)+len(r.Requests) > 0:
-		t.log.Info("tick", "vault", r.Vault, "revived", len(r.Revived), "requests", len(r.Requests), "proposed", r.Proposed, "nudges", len(r.Nudges))
+	case len(r.Revived)+len(r.Requests)+len(r.Journals) > 0:
+		t.log.Info("tick", "vault", r.Vault, "revived", len(r.Revived), "journals", len(r.Journals), "requests", len(r.Requests), "proposed", r.Proposed, "nudges", len(r.Nudges))
 	}
 }

@@ -45,6 +45,8 @@ var Inputs = map[string]string{
 	"incident_status":           `{"id":"incident-sample","status":"mitigated"}`,
 	"incident_link_add":         `{"id":"incident-sample","label":"Dashboard","kind":"dashboard","target":"https://grafana.acme.example/d/sample"}`,
 	"incident_link_remove":      `{"id":"incident-sample","label":"Runbook"}`,
+	"journal_show":              `{"id":"2026-11-01"}`,
+	"journal_summary":           `{"id":"2026-11-01","text":"Moved the sample project."}`,
 	"inbox_add":                 `{"text":"buy milk\nand eggs"}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"inbox_show":                `{"id":"inbox-sample"}`,
@@ -233,6 +235,9 @@ func Seed(ctx context.Context, s store.Store) error {
 		{ID: "constraint-sample", Folder: model.FolderConstraints, Title: "Sample no",
 			Meta: &model.Constraint{Common: model.Common{Type: model.TypeConstraint}, Why: "w", By: "Jordan Example",
 				Source: model.Source{URL: "https://wiki.acme.example/a", Retrieved: "2026-11-01", Fidelity: model.FidelityNone}, ReviewBy: "2027-01-01"}},
+		{ID: "2026-11-01", Folder: model.FolderJournal, Title: "Day 2026-11-01",
+			Body: "%% para:begin summary %%\nevents: 0\n%% para:end summary %%\n\n%% para:begin activity %%\nNo activity.\n%% para:end activity %%",
+			Meta: &model.Journal{Common: model.Common{Type: model.TypeJournal}, Date: "2026-11-01", Scope: model.JournalDay}},
 		{ID: "convention-sample", Folder: model.FolderConventions, Title: "Sample convention",
 			Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: model.ConventionDraft}},
 	}, proposals...) {

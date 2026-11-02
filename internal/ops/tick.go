@@ -47,6 +47,9 @@ type TickOutput struct {
 	// assigned to an agent; Proposed counts those left for a person to accept.
 	Revived  []string `json:"revived"`
 	Requests []string `json:"requests"`
+	// Journals lists the mechanical journals tick made this pass. A request for
+	// a narrative, when journal.agent is set, is in Requests.
+	Journals []string `json:"journals"`
 	Proposed int      `json:"proposed"`
 	// Nudges lists open requests whose next_nudge is today or earlier. Today and
 	// agenda show them; tick only names them.
@@ -75,7 +78,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Nudges: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -107,6 +110,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickRequests(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: requests: %w", err)
+	}
+	if err := tickJournals(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: journals: %w", err)
 	}
 	if err := tickNudges(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: nudges: %w", err)
