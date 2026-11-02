@@ -168,6 +168,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return err
 			},
 		}),
+		newTaskDependsCmd(l),
 		opCommand(l, ops.TaskStart, binding[ops.TaskStartInput, ops.TaskChangeOutput]{
 			Use:  "start <id>",
 			Args: cobra.ExactArgs(1),
@@ -196,12 +197,34 @@ func newTaskCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+func newTaskDependsCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "depends", Short: "Edit what a task waits on", Args: cobra.NoArgs}
+	text := func(w io.Writer, out ops.TaskDependsOutput) error {
+		_, err := fmt.Fprintf(w, "%s\t%s\n", out.ID, joinOrDash(out.DependsOn))
+		return err
+	}
+	bind := func(args []string, in *ops.TaskDependsInput) error {
+		in.ID, in.DependsOn = args[0], args[1:]
+		return nil
+	}
+	cmd.AddCommand(
+		opCommand(l, ops.TaskDependsAdd, binding[ops.TaskDependsInput, ops.TaskDependsOutput]{
+			Use: "add <id> <depends-on>...", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+		opCommand(l, ops.TaskDependsRemove, binding[ops.TaskDependsInput, ops.TaskDependsOutput]{
+			Use: "remove <id> <depends-on>...", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+	)
+	return cmd
+}
+
 func newGraphCmd(l *loader) *cobra.Command {
 	var mermaid bool
 	cmd := opCommand(l, ops.Graph, binding[ops.GraphInput, ops.GraphOutput]{
-		Use:  "graph [project]",
+		Use:  "graph [project]", // with no project or area: every task in the vault
 		Args: cobra.MaximumNArgs(1),
-		Flags: func(fs *pflag.FlagSet, _ *ops.GraphInput) {
+		Flags: func(fs *pflag.FlagSet, in *ops.GraphInput) {
+			fs.StringVar(&in.Area, "area", "", "graph one area: its tasks and those of its projects")
 			fs.BoolVar(&mermaid, "mermaid", false, "print mermaid source (ignored with --json)")
 		},
 		Bind: func(args []string, in *ops.GraphInput) error {

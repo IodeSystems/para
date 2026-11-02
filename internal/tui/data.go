@@ -81,6 +81,7 @@ type Snapshot struct {
 	Drafts     map[string]string // open RFX id -> draft text
 	Requests   []ops.RequestView
 	Inbox      []ops.InboxItem
+	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
 	Tasks      []ops.TaskView
 	Graph      ops.GraphOutput
@@ -138,6 +139,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.InboxList.Run(ctx, e.Deps, ops.InboxListInput{}); note("inbox", err) {
 		s.Inbox = o.Items
+	}
+	if o, err := ops.AreaList.Run(ctx, e.Deps, ops.AreaListInput{}); note("areas", err) {
+		s.Areas = o.Areas
 	}
 	if o, err := ops.ProjectList.Run(ctx, e.Deps, ops.ProjectListInput{}); note("projects", err) {
 		s.Projects = o.Projects

@@ -32,6 +32,7 @@ type GraphNode struct {
 	Status    string     `json:"status"`
 	State     string     `json:"state"`
 	Project   string     `json:"project,omitempty"`
+	Area      string     `json:"area,omitempty"`
 	BlockedBy []string   `json:"blocked_by"`
 	WaitingOn []string   `json:"waiting_on"`
 }
@@ -44,7 +45,9 @@ type GraphEdge struct {
 
 // GraphInput is the input of graph.
 type GraphInput struct {
-	Project string `json:"project,omitempty" query:"project"` // project id; empty means every task
+	Project string `json:"project,omitempty" query:"project"` // project id
+	Area    string `json:"area,omitempty" query:"area"`       // area id: its own tasks and those of its projects
+	// With neither, the graph covers every task in the vault.
 }
 
 // GraphOutput is the output of graph. Order lists ids with dependencies first;
@@ -67,11 +70,15 @@ func cyclesError(c [][]string) error {
 	return &graph.CycleError{Cycles: c}
 }
 
-// Graph returns the task dependency graph of a project, or of every task.
+// Graph returns the task dependency graph of a project, of an area, or of
+// every task in the vault.
 // Dependency targets outside the project are included, with their own
 // dependencies, so readiness is right across projects.
 var Graph = define("graph", "Show task and rfx dependencies", func(ctx context.Context, d Deps, in GraphInput) (GraphOutput, error) {
-	w, err := loadWork(ctx, d.Store, in.Project)
+	if in.Project != "" && in.Area != "" {
+		return GraphOutput{}, errors.New("give project or area, not both")
+	}
+	w, err := loadWork(ctx, d.Store, in.Project, in.Area)
 	if err != nil {
 		return GraphOutput{}, err
 	}
@@ -96,7 +103,7 @@ func (o NextOutput) Failed() error { return cyclesError(o.Cycles) }
 // dependency resolved. Order: due date first (earliest first, undated last),
 // then oldest created, then id.
 var Next = define("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
-	w, err := loadWork(ctx, d.Store, in.Project)
+	w, err := loadWork(ctx, d.Store, in.Project, "")
 	if err != nil {
 		return NextOutput{}, err
 	}
@@ -135,10 +142,30 @@ type work struct {
 
 // loadWork reads the tasks of a project (every task when project is empty),
 // then every task and rfx they depend on, transitively.
-func loadWork(ctx context.Context, s store.Store, project string) (*work, error) {
+func loadWork(ctx context.Context, s store.Store, project, area string) (*work, error) {
 	if project != "" {
 		if _, _, err := getProject(ctx, s, project); err != nil {
 			return nil, err
+		}
+	}
+	inArea := map[string]bool{}
+	if area != "" {
+		area = normID(area)
+		if _, _, err := getArea(ctx, s, area); err != nil {
+			return nil, err
+		}
+		projects, err := s.List(ctx, store.Filter{Type: model.TypeProject})
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range projects {
+			doc, err := s.Get(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			if p, ok := doc.Meta.(*model.Project); ok && p.Area.Target() == area {
+				inArea[r.ID] = true
+			}
 		}
 	}
 	all, err := listTasks(ctx, s, "", "")
@@ -156,7 +183,7 @@ func loadWork(ctx context.Context, s store.Store, project string) (*work, error)
 	}
 	for _, t := range all {
 		w.tasks[t.ID] = t
-		if project == "" || t.Project == project {
+		if (project == "" && area == "" || t.Project == project && project != "") || (area != "" && (t.Area == area || inArea[t.Project])) {
 			queue = append(queue, t.ID)
 		}
 	}
@@ -179,7 +206,7 @@ func loadWork(ctx context.Context, s store.Store, project string) (*work, error)
 		case *model.Task:
 			t := w.tasks[id]
 			add(GraphNode{ID: id, Type: model.TypeTask, Title: doc.Title, Status: string(m.Status),
-				Project: t.Project, BlockedBy: t.BlockedBy}, resolved(doc), m.Status == model.TaskBlocked)
+				Project: t.Project, Area: t.Area, BlockedBy: t.BlockedBy}, resolved(doc), m.Status == model.TaskBlocked)
 			deps = t.DependsOn
 		case *model.RFX:
 			add(GraphNode{ID: id, Type: model.TypeRFX, Title: doc.Title, Status: string(m.Status),

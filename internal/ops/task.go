@@ -144,17 +144,13 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 	}
 	var deps []model.Link
 	for _, id := range in.DependsOn {
-		if slices.Contains(deps, model.LinkTo(id)) {
-			continue
-		}
-		dep, err := d.Store.Get(ctx, id)
+		l, err := dependencyLink(ctx, d.Store, id)
 		if err != nil {
-			return TaskAddOutput{}, fmt.Errorf("depends_on %s: %w", id, err)
+			return TaskAddOutput{}, err
 		}
-		if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX {
-			return TaskAddOutput{}, fmt.Errorf("depends_on %s is a %s: want a task or rfx", id, typ)
+		if !slices.Contains(deps, l) {
+			deps = append(deps, l)
 		}
-		deps = append(deps, model.LinkTo(id))
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProjects,
@@ -376,3 +372,133 @@ var TaskDue = define("task_due", "Set or clear the due date of a task", func(ctx
 	}
 	return TaskDueOutput{ID: doc.ID, Due: t.Due, Recur: t.Recur, Rev: saved.Rev}, nil
 })
+
+// dependencyLink checks that id names a task or rfx, in any project or area.
+func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
+	id := normID(raw)
+	dep, err := s.Get(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("depends_on %s: %w", id, err)
+	}
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX {
+		return "", fmt.Errorf("depends_on %s is a %s: want a task or rfx", id, typ)
+	}
+	return model.LinkTo(id), nil
+}
+
+// dependencyPath returns a chain of dependencies from "from" to "to" (both
+// ends included), or nil when "from" does not depend on "to", directly or not.
+// A missing document ends its branch.
+func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]string, error) {
+	seen := map[string]bool{}
+	var walk func(id string) ([]string, error)
+	walk = func(id string) ([]string, error) {
+		if id == to {
+			return []string{id}, nil
+		}
+		if seen[id] {
+			return nil, nil
+		}
+		seen[id] = true
+		doc, err := s.Get(ctx, id)
+		if errors.Is(err, model.ErrNotFound) {
+			return nil, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		var links []model.Link
+		switch m := doc.Meta.(type) {
+		case *model.Task:
+			links = m.DependsOn
+		case *model.RFX:
+			links = m.DependsOn
+		}
+		for _, l := range links {
+			path, err := walk(l.Target())
+			if err != nil || path != nil {
+				return append([]string{id}, path...), err
+			}
+		}
+		return nil, nil
+	}
+	return walk(from)
+}
+
+// TaskDependsInput is the input of task_depends_add and task_depends_remove.
+type TaskDependsInput struct {
+	ID        string   `json:"id"`
+	DependsOn []string `json:"depends_on"` // task or rfx ids, in any project or area
+}
+
+// TaskDependsOutput is the output of task_depends_add and task_depends_remove.
+type TaskDependsOutput struct {
+	ID        string   `json:"id"`
+	DependsOn []string `json:"depends_on"` // all dependencies after the change
+	Rev       string   `json:"rev"`
+}
+
+// TaskDependsAdd adds dependencies to an open task. An edge that would close a
+// cycle is refused, and nothing is changed.
+var TaskDependsAdd = define("task_depends_add", "Make a task wait on other tasks or rfx; a cycle is refused", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
+	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
+	if err != nil {
+		return TaskDependsOutput{}, err
+	}
+	if taskTerminal(t.Status) {
+		return TaskDependsOutput{}, fmt.Errorf("%s is already %s", doc.ID, t.Status)
+	}
+	if len(in.DependsOn) == 0 {
+		return TaskDependsOutput{}, errors.New("depends_on is empty")
+	}
+	for _, raw := range in.DependsOn {
+		l, err := dependencyLink(ctx, d.Store, raw)
+		if err != nil {
+			return TaskDependsOutput{}, err
+		}
+		if slices.Contains(t.DependsOn, l) {
+			continue
+		}
+		if l.Target() == doc.ID {
+			return TaskDependsOutput{}, fmt.Errorf("%s cannot depend on itself", doc.ID)
+		}
+		// The new edge doc -> dep closes a cycle when dep already reaches doc.
+		back, err := dependencyPath(ctx, d.Store, l.Target(), doc.ID)
+		if err != nil {
+			return TaskDependsOutput{}, err
+		}
+		if back != nil {
+			return TaskDependsOutput{}, fmt.Errorf("%s -> %s would make a dependency cycle: %s -> %s",
+				doc.ID, l.Target(), doc.ID, strings.Join(back, " -> "))
+		}
+		t.DependsOn = append(t.DependsOn, l)
+	}
+	return saveDepends(ctx, d, doc, t)
+})
+
+// TaskDependsRemove removes dependencies from a task.
+var TaskDependsRemove = define("task_depends_remove", "Stop a task waiting on other tasks or rfx", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
+	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
+	if err != nil {
+		return TaskDependsOutput{}, err
+	}
+	if len(in.DependsOn) == 0 {
+		return TaskDependsOutput{}, errors.New("depends_on is empty")
+	}
+	for _, raw := range in.DependsOn {
+		l := model.LinkTo(normID(raw))
+		if !slices.Contains(t.DependsOn, l) {
+			return TaskDependsOutput{}, fmt.Errorf("%s does not depend on %s", doc.ID, normID(raw))
+		}
+		t.DependsOn = slices.DeleteFunc(t.DependsOn, func(x model.Link) bool { return x == l })
+	}
+	return saveDepends(ctx, d, doc, t)
+})
+
+func saveDepends(ctx context.Context, d Deps, doc model.Document, t *model.Task) (TaskDependsOutput, error) {
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return TaskDependsOutput{}, err
+	}
+	return TaskDependsOutput{ID: doc.ID, DependsOn: targets(t.DependsOn), Rev: saved.Rev}, nil
+}

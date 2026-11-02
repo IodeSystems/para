@@ -235,30 +235,64 @@ func (m *Model) rowsWork(w int) []row {
 	}
 	s := m.snap
 	var r []row
-	r = append(r, head(fmt.Sprintf("Projects (%d)", len(s.Projects))))
 	byProject := map[string][]ops.TaskView{}
+	byArea := map[string][]ops.TaskView{} // tasks with an area and no project
 	for _, t := range s.Tasks {
-		byProject[t.Project] = append(byProject[t.Project], t)
+		if t.Project != "" {
+			byProject[t.Project] = append(byProject[t.Project], t)
+		} else {
+			byArea[t.Area] = append(byArea[t.Area], t)
+		}
 	}
 	st := map[string]string{}
 	for _, n := range s.Graph.Nodes {
 		st[n.ID] = n.State
 	}
-	if len(s.Projects) == 0 {
-		r = append(r, dim("  none"))
+	taskRow := func(t ops.TaskView) row {
+		label := state(st[t.ID])
+		if st[t.ID] == "" {
+			label = state(string(t.Status))
+		}
+		if t.Due != "" {
+			label += stDim.Render("  due " + string(t.Due))
+		}
+		tx := link("doc:"+t.ID, "      ", titleOr(t.Title, t.ID), "  "+label, w)
+		tx.id = t.ID
+		return tx
 	}
-	for _, p := range s.Projects {
+	projectRows := func(p ops.ProjectView) {
 		x := link("doc:"+p.ID, "  ", titleOr(p.Title, p.ID), "  "+state(string(p.Status))+stDim.Render(fmt.Sprintf("  %d tasks", len(byProject[p.ID]))), w)
 		x.id = p.ID
 		r = append(r, x)
 		for _, t := range byProject[p.ID] {
-			label := state(st[t.ID])
-			if st[t.ID] == "" {
-				label = state(string(t.Status))
+			r = append(r, taskRow(t))
+		}
+	}
+	r = append(r, head(fmt.Sprintf("Areas (%d)", len(s.Areas))))
+	if len(s.Areas) == 0 {
+		r = append(r, dim("  none"))
+	}
+	for _, a := range s.Areas {
+		x := link("doc:"+a.ID, "  ", titleOr(a.Title, a.ID), "  "+state(string(a.Status)), w)
+		x.id = a.ID
+		r = append(r, x)
+		for _, p := range s.Projects {
+			if p.Area == a.ID {
+				projectRows(p)
 			}
-			tx := link("doc:"+t.ID, "      ", titleOr(t.Title, t.ID), "  "+label, w)
-			tx.id = t.ID
-			r = append(r, tx)
+		}
+		for _, t := range byArea[a.ID] {
+			r = append(r, taskRow(t))
+		}
+	}
+	inArea := map[string]bool{}
+	for _, a := range s.Areas {
+		inArea[a.ID] = true
+	}
+	r = append(r, head(fmt.Sprintf("Projects with no area (%d)", countNoArea(s.Projects, inArea))))
+	for _, p := range s.Projects {
+		if !inArea[p.Area] {
+			projectRows(p)
 		}
 	}
 	if len(s.Cycles) > 0 {
@@ -270,7 +304,18 @@ func (m *Model) rowsWork(w int) []row {
 	return r
 }
 
-// graphProject is the project of the row under the cursor on Work, or all.
+func countNoArea(projects []ops.ProjectView, inArea map[string]bool) int {
+	n := 0
+	for _, p := range projects {
+		if !inArea[p.Area] {
+			n++
+		}
+	}
+	return n
+}
+
+// graphProject is the project or area of the row under the cursor on Work, or
+// all.
 func (m *Model) graphProject() string {
 	if m.tab != tabWork || len(m.stack) > 0 {
 		return ""
@@ -281,6 +326,11 @@ func (m *Model) graphProject() string {
 		return ""
 	}
 	id := rows[c].id
+	for _, a := range m.snap.Areas {
+		if a.ID == id {
+			return id
+		}
+	}
 	for _, p := range m.snap.Projects {
 		if p.ID == id {
 			return id
@@ -288,7 +338,10 @@ func (m *Model) graphProject() string {
 	}
 	for _, t := range m.snap.Tasks {
 		if t.ID == id {
-			return t.Project
+			if t.Project != "" {
+				return t.Project
+			}
+			return t.Area
 		}
 	}
 	return ""
@@ -488,8 +541,12 @@ func (m *Model) rowsResults(p *page, w int) []row {
 func (m *Model) rowsGraph(p *page, w int) []row {
 	g := m.snap.Graph
 	keep := map[string]bool{}
+	projectArea := map[string]string{}
+	for _, pr := range m.snap.Projects {
+		projectArea[pr.ID] = pr.Area
+	}
 	for _, n := range g.Nodes {
-		if p.id == "" || n.Project == p.id {
+		if p.id == "" || n.Project == p.id || n.Area == p.id || (n.Project != "" && projectArea[n.Project] == p.id) {
 			keep[n.ID] = true
 		}
 	}

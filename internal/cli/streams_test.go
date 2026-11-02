@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -19,13 +20,15 @@ import (
 // the CLI (b). Ids come from seedStreamSParity.
 func streamSParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"area_add":  {`{"title":"Health"}`, []string{"area", "add", "Money"}, false},
-		"area_list": {`{}`, []string{"area", "list"}, true},
-		"area_show": {`{"id":"area-s-seed"}`, []string{"area", "show", "area-s-seed"}, true},
-		"note_add":  {`{"title":"Recipe","area":"area-s-seed","tags":["food"]}`, []string{"note", "add", "Recipe", "--area", "area-s-seed", "--tag", "food"}, false},
-		"note_list": {`{"area":"area-s-seed"}`, []string{"note", "list", "--area", "area-s-seed"}, true},
-		"task_due":  {`{"id":"task-s-due-a","date":"2026-12-01","recur":"monthly"}`, []string{"task", "due", "task-s-due-b", "2026-12-01", "--recur", "monthly"}, false},
-		"note_show": {`{"id":"note-s-seed"}`, []string{"note", "show", "note-s-seed"}, true},
+		"area_add":            {`{"title":"Health"}`, []string{"area", "add", "Money"}, false},
+		"area_list":           {`{}`, []string{"area", "list"}, true},
+		"area_show":           {`{"id":"area-s-seed"}`, []string{"area", "show", "area-s-seed"}, true},
+		"note_add":            {`{"title":"Recipe","area":"area-s-seed","tags":["food"]}`, []string{"note", "add", "Recipe", "--area", "area-s-seed", "--tag", "food"}, false},
+		"note_list":           {`{"area":"area-s-seed"}`, []string{"note", "list", "--area", "area-s-seed"}, true},
+		"task_due":            {`{"id":"task-s-due-a","date":"2026-12-01","recur":"monthly"}`, []string{"task", "due", "task-s-due-b", "2026-12-01", "--recur", "monthly"}, false},
+		"task_depends_add":    {`{"id":"task-s-due-a","depends_on":["task-s-due-b"]}`, []string{"task", "depends", "add", "task-s-dep-c", "task-s-due-b"}, false},
+		"task_depends_remove": {`{"id":"task-s-dep-d","depends_on":["task-s-due-b"]}`, []string{"task", "depends", "remove", "task-s-dep-e", "task-s-due-b"}, false},
+		"note_show":           {`{"id":"note-s-seed"}`, []string{"note", "show", "note-s-seed"}, true},
 	}
 }
 
@@ -42,6 +45,12 @@ func seedStreamSParity(t *testing.T, deps ops.Deps) {
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed")}},
 		{ID: "task-s-due-b", Folder: model.FolderProjects, Title: "Due b",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed")}},
+		{ID: "task-s-dep-c", Folder: model.FolderProjects, Title: "Dep c",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed")}},
+		{ID: "task-s-dep-d", Folder: model.FolderProjects, Title: "Dep d",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed"), DependsOn: []model.Link{model.LinkTo("task-s-due-b")}}},
+		{ID: "task-s-dep-e", Folder: model.FolderProjects, Title: "Dep e",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed"), DependsOn: []model.Link{model.LinkTo("task-s-due-b")}}},
 		{ID: "project-s-seed", Folder: model.FolderProjects, Title: "Seed project",
 			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Area: model.LinkTo("area-s-seed")}},
 	} {
@@ -325,3 +334,106 @@ func TestTodayOverdueAndDueSoon(t *testing.T) {
 
 // DueSoonDaysForTest mirrors today.DueSoonDays so a change to the window shows here.
 const DueSoonDaysForTest = today.DueSoonDays
+
+func TestEditDependencies(t *testing.T) {
+	e := newEnv(t)
+	e.init("life")
+	var a, b ops.AreaAddOutput
+	e.json(&a, "area", "add", "Home")
+	e.json(&b, "area", "add", "Money")
+	var p ops.ProjectAddOutput
+	e.json(&p, "project", "add", "Move", "--area", a.ID)
+	task := func(title string, args ...string) string {
+		var o ops.TaskAddOutput
+		e.json(&o, append([]string{"task", "add", title}, args...)...)
+		return o.ID
+	}
+	one := task("Sign lease", "-p", p.ID)
+	two := task("Book movers", "--area", a.ID)
+	three := task("Pay deposit", "--area", b.ID)
+	other := task("Unrelated", "--area", b.ID)
+
+	// Edges cross projects and areas.
+	var out ops.TaskDependsOutput
+	e.json(&out, "task", "depends", "add", two, one)
+	e.json(&out, "task", "depends", "add", three, two, one)
+	if !reflect.DeepEqual(out.DependsOn, []string{two, one}) {
+		t.Fatalf("depends = %v", out.DependsOn)
+	}
+	e.json(&out, "task", "depends", "add", three, one) // already there: no change
+	if len(out.DependsOn) != 2 {
+		t.Fatalf("repeat add = %v", out.DependsOn)
+	}
+
+	// Refusals change nothing.
+	for _, c := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"task", "depends", "add", one, three}, "dependency cycle"},
+		{[]string{"task", "depends", "add", one, one}, "itself"},
+		{[]string{"task", "depends", "add", one, other, three}, "dependency cycle"},
+		{[]string{"task", "depends", "add", one, "task-nope"}, "not found"},
+		{[]string{"task", "depends", "add", one, p.ID}, "want a task or rfx"},
+		{[]string{"task", "depends", "remove", one, two}, "does not depend"},
+	} {
+		if _, _, err := e.run(c.args...); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("para %v: err = %v, want %q", c.args, err, c.want)
+		}
+	}
+	var sh ops.TaskShowOutput
+	e.json(&sh, "task", "show", one)
+	if len(sh.Task.DependsOn) != 0 {
+		t.Fatalf("a refused add changed the task: %+v", sh.Task)
+	}
+
+	e.json(&out, "task", "depends", "remove", three, one)
+	if !reflect.DeepEqual(out.DependsOn, []string{two}) {
+		t.Fatalf("after remove = %v", out.DependsOn)
+	}
+	e.ok("task", "done", one)
+	if _, _, err := e.run("task", "depends", "add", one, other); err == nil {
+		t.Error("a done task takes no new dependency")
+	}
+
+	// graph: the whole vault with no arguments, or one area.
+	var all, home, money ops.GraphOutput
+	e.json(&all, "graph")
+	e.json(&home, "graph", "--area", a.ID)
+	e.json(&money, "graph", "--area", b.ID)
+	ids := func(g ops.GraphOutput) []string {
+		var out []string
+		for _, n := range g.Nodes {
+			out = append(out, n.ID)
+		}
+		sort.Strings(out)
+		return out
+	}
+	if len(all.Nodes) != 4 {
+		t.Errorf("whole vault = %v", ids(all))
+	}
+	// Home: its project's task and its own task; Money's tasks pull in what they wait on.
+	if got := ids(home); !reflect.DeepEqual(got, sortedCopy(one, two)) {
+		t.Errorf("home graph = %v", got)
+	}
+	if got := ids(money); !reflect.DeepEqual(got, sortedCopy(one, two, three, other)) {
+		t.Errorf("money graph = %v", got)
+	}
+	if _, _, err := e.run("graph", p.ID, "--area", a.ID); err == nil {
+		t.Error("project and area together must fail")
+	}
+	if _, _, err := e.run("graph", "--area", p.ID); err == nil {
+		t.Error("a project as area must fail")
+	}
+	var lint ops.LintOutput
+	e.json(&lint, "lint")
+	if lint.Errors != 0 {
+		t.Fatalf("lint = %+v", lint)
+	}
+}
+
+func sortedCopy(ids ...string) []string {
+	out := append([]string(nil), ids...)
+	sort.Strings(out)
+	return out
+}

@@ -75,6 +75,8 @@ type ParaV1MutationNamespace {
   ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
+  taskDependsAdd(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsAdd")
+  taskDependsRemove(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsRemove")
   taskDone(body: para_TaskDoneInputInput!): para_TaskChangeOutput @derived(operationId: "taskDone")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
@@ -94,7 +96,7 @@ type ParaV1QueryNamespace {
   exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
   exceptionShow(id: String!): para_ExceptionShowOutput @derived(operationId: "exceptionShow")
   exportList: para_ExportListOutput @derived(operationId: "exportList")
-  graph(project: String): para_GraphOutput @derived(operationId: "graph")
+  graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
@@ -620,6 +622,7 @@ type para_GraphEdge {
 }
 
 type para_GraphNode {
+  area: String
   blockedBy: [String!]!
   id: String!
   project: String
@@ -2044,6 +2047,17 @@ enum para_TaskChangeOutputStatus {
   done
   dropped
   todo
+}
+
+input para_TaskDependsInputInput {
+  dependsOn: [String!]
+  id: String!
+}
+
+type para_TaskDependsOutput {
+  dependsOn: [String!]!
+  id: String!
+  rev: String!
 }
 
 input para_TaskDoneInputInput {
