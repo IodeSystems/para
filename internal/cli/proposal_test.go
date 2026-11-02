@@ -429,3 +429,27 @@ func eventFiles(t *testing.T, e *env) string {
 	}
 	return b.String()
 }
+
+// With a fallback far longer than the test, only a vault event can wake wait.
+func TestProposalWaitWakesOnEvent(t *testing.T) {
+	e := newProposalEnv(t)
+	filed := tool[ops.ProposalFiled](t, e.agent, "proposal_add", map[string]any{"title": "Wakes", "source": e.source,
+		"items": []any{extItem("email", "ada@acme.example", "Hi.")}})
+	done := make(chan string, 1)
+	go func() {
+		out, _, _ := e.run("proposal", "wait", filed.ID, "--timeout", "30s", "--interval", "1h")
+		done <- out
+	}()
+	time.Sleep(300 * time.Millisecond)
+	e.ok("proposal", "deny", filed.ID, "i1", "--reason", "No")
+	start := time.Now()
+	select {
+	case out := <-done:
+		if !strings.Contains(out, "i1\tdenied\tNo") {
+			t.Fatalf("wait = %q", out)
+		}
+		t.Logf("wake latency after deny returned: %s", time.Since(start))
+	case <-time.After(5 * time.Second):
+		t.Fatal("wait did not wake on the event")
+	}
+}

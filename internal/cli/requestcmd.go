@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -134,14 +135,15 @@ func requestChangeText(w io.Writer, out ops.RequestChangeOutput) error {
 var errWaitTimeout = errors.New("request wait: timed out with no claimable request")
 
 // newRequestWaitCmd is CLI-only on purpose and not an op: an agent that needs
-// the next request calls request_next. Wait polls the requests folder with no
-// LLM and exits 0 as soon as this install can claim one. It claims nothing.
+// the next request calls request_next. Wait watches the vault's event files
+// with no LLM, checks the requests folder on each change, and exits 0 as soon
+// as this install can claim one. It claims nothing.
 func newRequestWaitCmd(l *loader) *cobra.Command {
 	var timeout, interval time.Duration
 	cmd := &cobra.Command{
 		Use:   "wait",
 		Short: "Block until a request can be claimed, then exit 0 (CLI only)",
-		Long: "Polls the vault's request files, with no LLM use, until this install can claim a request.\n" +
+		Long: "Watches the vault's event files, with no LLM use, and checks the request files on each change, until this install can claim a request.\n" +
 			"Exits 0 then, and claims nothing. With --timeout it exits non-zero when time runs out.\n" +
 			"Example: while para request wait; do my-agent-launcher; done",
 		Args: cobra.NoArgs,
@@ -159,36 +161,16 @@ func newRequestWaitCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ctx := cmd.Context()
-			var deadline <-chan time.Time
-			if timeout > 0 {
-				t := time.NewTimer(timeout)
-				defer t.Stop()
-				deadline = t.C
-			}
 			watch := ops.NewRequestWatch(deps)
-			tick := time.NewTicker(interval)
-			defer tick.Stop()
-			for {
-				ok, err := watch.Claimable(ctx)
-				if err != nil {
-					return fmt.Errorf("request wait: %w", err)
-				}
-				if ok {
-					return nil
-				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-deadline:
-					return errWaitTimeout
-				case <-tick.C:
-				}
+			err = l.waitFor(cmd.Context(), interval, timeout, errWaitTimeout, watch.Claimable)
+			if err != nil && !errors.Is(err, errWaitTimeout) && !errors.Is(err, context.Canceled) {
+				return fmt.Errorf("request wait: %w", err)
 			}
+			return err
 		},
 	}
 	cmd.Flags().DurationVar(&timeout, "timeout", 0, "give up after this long and exit non-zero; 0 waits forever")
-	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "time between polls")
+	cmd.Flags().DurationVar(&interval, "interval", waitFallback, "longest time between checks when no event arrives")
 	return cmd
 }
 

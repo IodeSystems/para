@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -278,15 +279,15 @@ func proposalDetailText(w io.Writer, out ops.ProposalDetail) error {
 var errProposalTimeout = errors.New("proposal wait: timed out with no decision")
 
 // newProposalWaitCmd is `para proposal wait`. It carries the name of the op
-// proposal_wait and its Output, but it blocks as long as it is told: it polls
-// files, so an agent harness can leave it running as a background job at no
+// proposal_wait and its Output, but it blocks as long as it is told: it watches
+// event files, so an agent harness can leave it running as a background job at no
 // token cost. It exits 0 on a decision, non-zero on a timeout.
 func newProposalWaitCmd(l *loader) *cobra.Command {
 	var timeout, interval time.Duration
 	cmd := &cobra.Command{
 		Use:         "wait <id>",
 		Short:       "Block until the owner decides, then print the decisions and exit 0; exit non-zero on a timeout",
-		Long:        "Polls the proposal's file, with no LLM use. A decision is made when no item waits for the owner.\nExits 0 and prints the decisions then. With --timeout it exits non-zero when time runs out.",
+		Long:        "Watches the vault's event files, with no LLM use, and reads the proposal on each change. A decision is made when no item waits for the owner.\nExits 0 and prints the decisions then. With --timeout it exits non-zero when time runs out.",
 		Args:        cobra.ExactArgs(1),
 		Annotations: map[string]string{opAnnotation: ops.ProposalWait.Name()},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -303,36 +304,24 @@ func newProposalWaitCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			ctx := cmd.Context()
-			var deadline <-chan time.Time
-			if timeout > 0 {
-				t := time.NewTimer(timeout)
-				defer t.Stop()
-				deadline = t.C
+			var out ops.ProposalWaitOutput
+			err = l.waitFor(cmd.Context(), interval, timeout, errProposalTimeout, func(ctx context.Context) (bool, error) {
+				var err error
+				out, err = ops.ProposalPoll(ctx, deps, args[0])
+				return err == nil && !out.Pending, err
+			})
+			if err != nil {
+				if errors.Is(err, errProposalTimeout) || errors.Is(err, context.Canceled) {
+					return err
+				}
+				return fmt.Errorf("proposal wait: %w", err)
 			}
-			tick := time.NewTicker(interval)
-			defer tick.Stop()
-			for {
-				out, err := ops.ProposalPoll(ctx, deps, args[0])
-				if err != nil {
-					return fmt.Errorf("proposal wait: %w", err)
-				}
-				if !out.Pending {
-					return emit(cmd, out, proposalWaitText)
-				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				case <-deadline:
-					return errProposalTimeout
-				case <-tick.C:
-				}
-			}
+			return emit(cmd, out, proposalWaitText)
 		},
 	}
 	addJSONFlag(cmd)
 	cmd.Flags().DurationVar(&timeout, "timeout", 0, "give up after this long and exit non-zero; 0 waits forever")
-	cmd.Flags().DurationVar(&interval, "interval", 5*time.Second, "time between polls")
+	cmd.Flags().DurationVar(&interval, "interval", waitFallback, "longest time between checks when no event arrives")
 	return cmd
 }
 

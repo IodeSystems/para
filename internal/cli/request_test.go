@@ -174,3 +174,26 @@ func TestRequestWait(t *testing.T) {
 		t.Error("zero interval accepted")
 	}
 }
+
+// With a fallback far longer than the test, only a vault event can wake wait.
+func TestRequestWaitWakesOnEvent(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	done := make(chan error, 1)
+	go func() {
+		_, _, err := e.run("request", "wait", "--timeout", "30s", "--interval", "1h")
+		done <- err
+	}()
+	time.Sleep(300 * time.Millisecond)
+	e.ok("request", "add", "Wake the agent")
+	start := time.Now()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("wake latency after add returned: %s", time.Since(start))
+	case <-time.After(5 * time.Second):
+		t.Fatal("wait did not wake on the event")
+	}
+}
