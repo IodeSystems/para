@@ -83,6 +83,9 @@ func newRFXCmd(l *loader) *cobra.Command {
 				for _, id := range out.DependedOnBy {
 					p.f("depended_on_by\t%s\n", id)
 				}
+				if out.Draft != "" {
+					p.f("draft\n%s\n", out.Draft)
+				}
 				return p.err
 			},
 		}),
@@ -165,6 +168,24 @@ func newRFXCmd(l *loader) *cobra.Command {
 				}
 				p.f("%s\t%s\t%s\tinteraction %s\tconstraint %s\n", out.ID, out.From, out.State, out.Interaction, out.Constraint)
 				return p.err
+			},
+		}),
+		opCommand(l, ops.RFXDraft, binding[ops.RFXDraftInput, ops.RFXDraftOutput]{
+			Use:  "draft <id> [--text <text>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.RFXDraftInput) {
+				fs.StringVar(&in.Text, "text", "", "the draft message; default: standard input. Replaces the earlier draft; nothing is sent")
+			},
+			Bind: func(args []string, in *ops.RFXDraftInput) error { in.ID = args[0]; return nil },
+			Stdin: func(r io.Reader, in *ops.RFXDraftInput) (err error) {
+				if in.Text == "" {
+					in.Text, err = readPiped(r)
+				}
+				return err
+			},
+			Text: func(w io.Writer, out ops.RFXDraftOutput) error {
+				_, err := fmt.Fprintln(w, out.ID)
+				return err
 			},
 		}),
 		newRFXTargetCmd(l),

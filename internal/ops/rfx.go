@@ -278,6 +278,7 @@ type RFXShowOutput struct {
 	Doc          model.Document `json:"doc"`
 	Chain        []ChainNode    `json:"chain"`          // everything it depends on, transitively
 	DependedOnBy []string       `json:"depended_on_by"` // RFX that list this one in depends_on
+	Draft        string         `json:"draft"`          // the message under "## Draft"; empty if none
 }
 
 // RFXShow shows one RFX with its dependency chain.
@@ -286,7 +287,7 @@ var RFXShow = define("rfx_show", "Show a request and its dependency chain", func
 	if err != nil {
 		return RFXShowOutput{}, err
 	}
-	out := RFXShowOutput{Doc: doc, Chain: []ChainNode{}, DependedOnBy: []string{}}
+	out := RFXShowOutput{Doc: doc, Chain: []ChainNode{}, DependedOnBy: []string{}, Draft: draftOf(doc.Body)}
 	seen := map[string]bool{doc.ID: true}
 	var walk func(ids []string, depth int) error
 	walk = func(ids []string, depth int) error {

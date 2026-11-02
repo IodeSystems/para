@@ -22,7 +22,8 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 			[]string{"inbox", "triage", "inbox-p-b", "--to", "task", "--project", "project-a"}, false},
 		"rfx_reply": {`{"id":"rfx-p-a","from":"person-seed","outcome":"no","text":"Not this quarter.","why":"Audit freeze","url":"https://chat.acme.example/t/1"}`,
 			[]string{"rfx", "reply", "rfx-p-b", "--from", "person-seed", "--outcome", "no", "--why", "Audit freeze", "--url", "https://chat.acme.example/t/2"}, false},
-	}, map[string]string{"rfx_reply": "Not this quarter."}
+		"rfx_draft": {`{"id":"rfx-p-a","text":"Hi, can we launch X?"}`, []string{"rfx", "draft", "rfx-p-b"}, false},
+	}, map[string]string{"rfx_reply": "Not this quarter.", "rfx_draft": "Hi, can we launch X?"}
 }
 
 // seedStreamPParity creates the fixed-id documents the rows above refer to.
@@ -128,5 +129,34 @@ func TestRFXReplyCommand(t *testing.T) {
 	}
 	if ev := e.ok("events", "tail", "-n", "50"); strings.Contains(ev, "Audit freeze") || strings.Contains(ev, "Not this quarter") {
 		t.Errorf("content in events:\n%s", ev)
+	}
+}
+
+func TestRFXDraftCommand(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	e.ok("org", "role", "add", "Lead", "--org", "acme.example")
+	e.ok("org", "domain", "add", "Logging", "--owner", "role-lead")
+	var rfx ops.RFXAddOutput
+	e.json(&rfx, "rfx", "add", "Can we launch X?", "--route", "domain-logging", "--self-serve", "read policies")
+
+	e.stdin = "Hi Bo,\n\nCan we launch X?"
+	e.ok("rfx", "draft", rfx.ID)
+	var show ops.RFXShowOutput
+	e.json(&show, "rfx", "show", rfx.ID)
+	if show.Draft != "Hi Bo,\n\nCan we launch X?" {
+		t.Fatalf("draft = %q", show.Draft)
+	}
+	e.ok("rfx", "draft", rfx.ID, "--text", "Second draft")
+	if out := e.ok("rfx", "show", rfx.ID); !strings.Contains(out, "draft\nSecond draft") || strings.Contains(out, "Hi Bo") {
+		t.Errorf("text:\n%s", out)
+	}
+	if _, _, err := e.run("rfx", "draft", rfx.ID); err == nil || !strings.Contains(err.Error(), "text is empty") {
+		t.Errorf("err = %v", err)
+	}
+	var lint ops.LintOutput
+	e.json(&lint, "lint")
+	if lint.Errors != 0 || lint.Warnings != 0 {
+		t.Errorf("lint = %+v", lint)
 	}
 }

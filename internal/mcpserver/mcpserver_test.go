@@ -65,6 +65,7 @@ var sampleInputs = map[string]string{
 	"project_show":              `{"id":"project-sample"}`,
 	"rfx_add":                   `{"direction":"out","ask":"Can feature X launch?","route":"domain-sample","self_serve":"policy read"}`,
 	"rfx_close":                 `{"id":"rfx-sample"}`,
+	"rfx_draft":                 `{"id":"rfx-sample","text":"Hi, can we launch X?"}`,
 	"rfx_reply":                 `{"id":"rfx-sample","from":"person-sample","outcome":"no","text":"Not now.","why":"Audit freeze","url":"https://acme.example/m/9"}`,
 	"rfx_show":                  `{"id":"rfx-sample"}`,
 	"rfx_status":                `{"id":"rfx-sample","status":"answered"}`,
