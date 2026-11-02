@@ -204,7 +204,7 @@ func vaultFromTemplate(t *testing.T, template string) store.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", StateDir: t.TempDir()})
+	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", Install: "install-test", StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}
