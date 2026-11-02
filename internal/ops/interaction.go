@@ -9,9 +9,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/paramd"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // An interaction is one logged contact with people. The user writes it, or

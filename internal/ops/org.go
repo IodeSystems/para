@@ -7,8 +7,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // The org ops record facts about who owns what: owner, role, what was said,

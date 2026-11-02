@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // expiringDefault is the default window of exception_expiring, in days.

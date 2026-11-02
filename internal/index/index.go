@@ -16,7 +16,7 @@ import (
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // schemaVersion changes when the tables change. A file with another version

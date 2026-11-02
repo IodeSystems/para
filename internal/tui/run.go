@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/internal/registry"
+	"github.com/iodesystems/parasolve/internal/registry"
 )
 
 // Options says which vault to open.

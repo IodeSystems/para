@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // opAnnotation names the op a command wraps. The parity test reads it.

@@ -7,8 +7,8 @@ import (
 
 	"charm.land/lipgloss/v2"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // KeyFn marks a link label with its key, or returns the label when the link

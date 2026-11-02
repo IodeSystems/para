@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/paradize/docs"
-	"github.com/iodesystems/paradize/internal/events"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/paramd"
-	"github.com/iodesystems/paradize/internal/props"
+	"github.com/iodesystems/parasolve/docs"
+	"github.com/iodesystems/parasolve/internal/events"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/props"
 )
 
 var ctx = context.Background()

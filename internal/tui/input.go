@@ -5,7 +5,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // onKey handles a key press. Global keys come first, then the link keys of

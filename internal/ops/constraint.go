@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // ConstraintView is a constraint as list and show report it. Says is the

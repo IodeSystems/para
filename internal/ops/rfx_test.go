@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/docs"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store/local"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/docs"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 var ctx = context.Background()

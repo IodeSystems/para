@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/paradize/internal/today"
+	"github.com/iodesystems/parasolve/internal/today"
 )
 
 // newTodayCmd is CLI-only on purpose. It reads every vault of the install,

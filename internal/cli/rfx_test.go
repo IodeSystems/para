@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // rfxParityCases are the rfx, org, and route rows of the parity table. Names

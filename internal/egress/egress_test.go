@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/events"
+	"github.com/iodesystems/parasolve/internal/events"
 )
 
 func TestCheck(t *testing.T) {

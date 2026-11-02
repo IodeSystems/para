@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/paramd"
 )
 
 // Helpers shared by the policy, rule, exception, constraint, convention, and

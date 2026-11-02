@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // requestParityCases are the request rows of the parity table. A mutating op

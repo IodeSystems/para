@@ -17,7 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Instructions is the text every client receives at initialize. It states

@@ -10,13 +10,13 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/docs"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
-	"github.com/iodesystems/paradize/internal/registry"
-	"github.com/iodesystems/paradize/internal/store"
-	"github.com/iodesystems/paradize/internal/store/local"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/docs"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 // testVault is a synthetic vault with a TUI env and an agent store on it.

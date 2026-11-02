@@ -13,10 +13,10 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/internal/export"
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/export"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Messages. Every one is the result of a command run off the update loop.

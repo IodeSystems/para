@@ -16,12 +16,12 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/paradize/docs"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
-	"github.com/iodesystems/paradize/internal/store"
-	"github.com/iodesystems/paradize/internal/store/local"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/docs"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 // sampleInputs holds a valid Input for each op that rejects the empty Input.

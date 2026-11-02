@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/atomicfile"
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // Position is this machine's review position for one vault: events at or

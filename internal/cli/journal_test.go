@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 func TestJournalEndToEnd(t *testing.T) {

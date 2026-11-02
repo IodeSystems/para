@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // WhoInput is the input of who.

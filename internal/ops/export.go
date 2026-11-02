@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/iodesystems/paradize/internal/export"
+	"github.com/iodesystems/parasolve/internal/export"
 )
 
 // ExportInput is the input of export.

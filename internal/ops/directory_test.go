@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // directoryDeps seeds a vault with synthetic people and groups.

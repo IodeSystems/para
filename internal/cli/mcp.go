@@ -6,10 +6,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/paradize/internal/mcpserver"
-	"github.com/iodesystems/paradize/internal/ops"
-	"github.com/iodesystems/paradize/internal/store/local"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/internal/mcpserver"
+	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 const mcpSurface = "mcp"

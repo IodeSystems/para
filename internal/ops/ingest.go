@@ -8,8 +8,8 @@ import (
 	"path"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/paramd"
 )
 
 // IngestInput is the input of ingest. Text is the source as the manual

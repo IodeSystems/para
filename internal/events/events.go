@@ -16,7 +16,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // Op values the vault writes.

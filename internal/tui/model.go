@@ -9,10 +9,10 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/internal/export"
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/export"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Tabs, in key order: digits 1 to 6.

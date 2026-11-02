@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/iodesystems/paradize/internal/egress"
-	"github.com/iodesystems/paradize/internal/export"
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/egress"
+	"github.com/iodesystems/parasolve/internal/export"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // CopyFormat is a paste target for copy.

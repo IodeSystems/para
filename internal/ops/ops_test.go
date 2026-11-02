@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // fakeStore proves ops need only the interface.

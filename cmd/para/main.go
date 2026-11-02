@@ -1,11 +1,11 @@
-// Command para is the paradize CLI.
+// Command para is the parasolve CLI.
 package main
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/iodesystems/paradize/internal/cli"
+	"github.com/iodesystems/parasolve/internal/cli"
 )
 
 // Stamped by the Makefile via -ldflags -X (CLI-12).

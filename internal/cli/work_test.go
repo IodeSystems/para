@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // seedWork creates fixed-id documents the parity cases refer to. Mutating ops

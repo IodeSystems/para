@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // JournalInput is the input of journal_daily, journal_weekly, journal_monthly.

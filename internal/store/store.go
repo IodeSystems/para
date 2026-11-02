@@ -7,9 +7,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/egress"
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/egress"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // Filter narrows List. Empty fields match everything.

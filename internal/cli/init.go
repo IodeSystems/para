@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/paradize/docs"
-	"github.com/iodesystems/paradize/internal/registry"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/docs"
+	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 func newInitCmd(l *loader) *cobra.Command {

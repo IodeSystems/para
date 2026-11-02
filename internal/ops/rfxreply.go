@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 // ReplyOutcome is how a target answered.

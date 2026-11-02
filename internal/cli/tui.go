@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/paradize/internal/tui"
+	"github.com/iodesystems/parasolve/internal/tui"
 )
 
 // newTUICmd is `para tui`, also what bare `para` runs. The TUI is for review

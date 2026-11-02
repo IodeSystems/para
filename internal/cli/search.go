@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 func newIndexCmd(l *loader) *cobra.Command {

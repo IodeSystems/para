@@ -15,8 +15,8 @@ import (
 
 	ashid "github.com/IodeSystems/ashid/go"
 
-	"github.com/iodesystems/paradize/internal/atomicfile"
-	"github.com/iodesystems/paradize/internal/props"
+	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/parasolve/internal/props"
 )
 
 // DefaultHome returns $PARA_HOME, or ~/.para.

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 func write(t *testing.T, root, rel, content string) {

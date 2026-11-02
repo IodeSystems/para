@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/events"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/paramd"
-	"github.com/iodesystems/paradize/internal/syncname"
+	"github.com/iodesystems/parasolve/internal/events"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/syncname"
 )
 
 // Conflicts lists the sync-conflict copies in the vault (names by package

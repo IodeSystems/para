@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/ops"
-	"github.com/iodesystems/paradize/internal/registry"
-	"github.com/iodesystems/paradize/internal/store/local"
-	"github.com/iodesystems/paradize/internal/today"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/today"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 // Surface and actor of every write the TUI makes.

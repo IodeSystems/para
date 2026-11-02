@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/ops"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 const exportDoc = "# Logging policy\n\nServices **must** log failures. See [the wiki](https://wiki.acme.example/x).\n"

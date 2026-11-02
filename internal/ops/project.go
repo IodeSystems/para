@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // ProjectView is a project without its body.

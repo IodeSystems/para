@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // PolicyView is a policy as list and show report it.

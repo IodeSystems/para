@@ -14,7 +14,7 @@ import (
 	"regexp"
 	"sort"
 
-	"github.com/iodesystems/paradize/internal/store"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // Deps is what an op may use. A surface builds it per call or per session.

@@ -3,7 +3,7 @@ package ops
 import (
 	"context"
 
-	"github.com/iodesystems/paradize/internal/index"
+	"github.com/iodesystems/parasolve/internal/index"
 )
 
 // SearchInput is the input of search.

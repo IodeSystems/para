@@ -1,4 +1,4 @@
-module github.com/iodesystems/paradize
+module github.com/iodesystems/parasolve
 
 go 1.26.2
 

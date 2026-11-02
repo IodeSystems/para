@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/paradize/internal/model"
+	"github.com/iodesystems/parasolve/internal/model"
 )
 
 func whoDeps(t *testing.T) Deps {

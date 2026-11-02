@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/egress"
-	"github.com/iodesystems/paradize/internal/events"
-	"github.com/iodesystems/paradize/internal/index"
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/store"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/internal/egress"
+	"github.com/iodesystems/parasolve/internal/events"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 // Store is a vault on this machine.

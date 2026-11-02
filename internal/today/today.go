@@ -11,9 +11,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iodesystems/paradize/internal/model"
-	"github.com/iodesystems/paradize/internal/registry"
-	"github.com/iodesystems/paradize/internal/vault"
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 const dateLayout = "2006-01-02"

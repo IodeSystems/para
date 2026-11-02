@@ -6,7 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/iodesystems/paradize/internal/export"
+	"github.com/iodesystems/parasolve/internal/export"
 )
 
 // onOverlayKey routes keys while an overlay is open.
