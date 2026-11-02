@@ -62,6 +62,11 @@ type page struct {
 
 	prop  ops.ProposalDetail // proposal and history pages
 	lines []string           // text pages
+	// An item in full: the raw source behind the Source key, and the draft
+	// that Copy draft sends to the clipboard.
+	raw   []string
+	draft string
+	item  string
 }
 
 type tabState struct{ cursor, offset int }
@@ -87,6 +92,7 @@ type exportState struct {
 	format    export.Format
 	transport export.Item
 	loaded    bool
+	needs     bool // ? shows what each missing format needs
 }
 
 type overlay struct {
@@ -139,6 +145,10 @@ type Model struct {
 	statErr bool
 	// statHint marks a status that is advice, not an error: it is not red.
 	statHint bool
+	// statKeep keeps a result on the status line while the cursor moves, so
+	// the line that says what an answer or a decision did is still there to read.
+	statKeep bool
+	statAt   time.Time
 
 	lastFormat    export.Format
 	lastTransport string
@@ -149,6 +159,9 @@ type Model struct {
 	above, below int // rows hidden above and below the list on screen
 
 	startProposal string // proposal to open first (para review <id>)
+	// advanceFrom is the item just decided: when the proposal reloads, the
+	// cursor moves to the next item that still waits.
+	advanceFrom string
 }
 
 // New builds the model over env.
@@ -184,10 +197,14 @@ func (m *Model) top() *page {
 	return &m.stack[len(m.stack)-1]
 }
 
-func (m *Model) setStatus(s string, isErr bool) { m.status, m.statErr, m.statHint = s, isErr, false }
+func (m *Model) setStatus(s string, isErr bool) {
+	m.status, m.statErr, m.statHint, m.statKeep = s, isErr, false, false
+}
 
 // setHint shows advice on the status line, quietly.
-func (m *Model) setHint(s string) { m.status, m.statErr, m.statHint = s, false, true }
+func (m *Model) setHint(s string) {
+	m.status, m.statErr, m.statHint, m.statKeep = s, false, true, false
+}
 
 // Update handles one message and rebuilds the frame.
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -214,6 +231,9 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		}
 		return nil
 	case pollMsg:
+		if m.statKeep && time.Since(m.statAt) > 15*time.Second {
+			m.status, m.statKeep = "", false
+		}
 		return tea.Batch(m.checkFP(), m.tick())
 	case fpMsg:
 		if m.loaded && msg.fp != m.fp && !m.loading {
@@ -261,9 +281,13 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 			m.setStatus(msg.err.Error(), true)
 		} else if msg.text != "" {
 			m.setStatus(msg.text, false)
+			m.statKeep, m.statAt = true, time.Now()
 		}
 		if msg.output != "" {
 			m.ov = overlay{kind: ovOutput, output: msg.output}
+		}
+		if msg.advance != "" && msg.err == nil {
+			m.advanceFrom = msg.advance
 		}
 		var page tea.Cmd
 		if p := m.top(); msg.reload && p != nil && p.kind == pageProposal {

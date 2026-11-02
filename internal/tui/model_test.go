@@ -59,13 +59,18 @@ func TestEveryVisibleLinkRowHasAUniqueKey(t *testing.T) {
 				t.Errorf("tab %d: action %s has no key", tab, a.ID)
 			}
 		}
-		// Every visible row that holds a link shows its key: a marked letter in
-		// the label, or the key in the dim column at the left.
+		// Every visible row that holds a link shows its key, dim, next to its text.
 		for i, ln := range l.lines {
+			if i+d.m.tabs[tab].offset >= len(rows) {
+				continue
+			}
+			r := rows[i+d.m.tabs[tab].offset]
+			if !r.sel || r.target == "" {
+				continue
+			}
 			code, _, _ := strings.Cut(strings.TrimLeft(stripSGR(ln), " "), " ")
-			inGutter := strings.HasPrefix(stripSGR(ln), code+" ") && code != "" && len(code) <= 3 && !strings.ContainsAny(code, "0123456789-:")
-			if i+d.m.tabs[tab].offset < len(rows) && rows[i+d.m.tabs[tab].offset].sel && !strings.Contains(ln, KeyStyle.On) && !inGutter {
-				t.Errorf("tab %d line %d has no key: %q", tab, i, stripSGR(ln))
+			if k, ok := l.keys[r.target]; !ok || k.Code != code {
+				t.Errorf("tab %d line %d shows %q, want its key: %q", tab, i, code, stripSGR(ln))
 			}
 		}
 	}

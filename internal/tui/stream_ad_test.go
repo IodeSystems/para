@@ -43,27 +43,27 @@ func TestTodayShowsEachItemOnce(t *testing.T) {
 			t.Errorf("%q shown %d times:\n%s", title, n, text)
 		}
 	}
-	if strings.Contains(text, "(0)") {
-		t.Errorf("an empty section is shown:\n%s", text)
+	if strings.Contains(text, "(0)") || strings.Contains(text, "Needs you") || strings.Contains(text, "shown above") {
+		t.Errorf("a section header, a summary, or a footnote is shown:\n%s", text)
 	}
-	if !strings.Contains(text, "inbox 1") {
+	if !strings.Contains(text, "inbox 1 to sort") {
 		t.Errorf("the inbox count is not shown:\n%s", text)
 	}
-	// Overdue comes before ready, and ready before waiting.
-	o, r := strings.Index(text, "Overdue"), strings.Index(text, "Ready to work")
-	if o < 0 || r < 0 || o > r {
+	// Late comes before the nudge, the nudge before ready, ready before the inbox, and a divider sits before ready.
+	o, nu, r, ib, dv := strings.Index(text, "late "), strings.Index(text, "nudge "), strings.Index(text, "ready "), strings.Index(text, "inbox  "), strings.Index(text, "──")
+	if o < 0 || nu < 0 || r < 0 || ib < 0 || o > nu || nu > dv || dv > r || r > ib {
 		t.Errorf("order:\n%s", text)
 	}
 }
 
-// Waiting on others lists the rows it counts, and the count includes every
-// request `rfx waiting` lists.
+// Waiting rows carry the waiting tag, and include every request `rfx waiting` lists.
 func TestTodayWaitingRowsAndCount(t *testing.T) {
 	v := newTestVault(t)
 	v.seed()
 	d := newDrv(t, v, 120, 60)
 	text := rowText(d.m.rowsToday(120))
-	if !strings.Contains(text, "Waiting on others (1)") || !strings.Contains(text, "Can we launch the portal?") {
+	// The seeded request is also past its nudge date: it shows once, as a nudge.
+	if !strings.Contains(text, "nudge ") || !strings.Contains(text, "Can we launch the portal?") {
 		t.Errorf("waiting:\n%s", text)
 	}
 	if got := len(d.m.snap.Waiting); got != 1 {
@@ -114,9 +114,6 @@ func TestKeyInGutterNotAfterTheLabel(t *testing.T) {
 	keys := Assign(nil, links, "")
 	if keys["c"].At >= 0 {
 		t.Fatalf("a label with no letters has a mark at %d", keys["c"].At)
-	}
-	if got, ok := placeKey("!!!", keys["c"]); ok || got != "!!!" {
-		t.Errorf("placeKey = %q, %v", got, ok)
 	}
 	v := newTestVault(t)
 	v.seed()

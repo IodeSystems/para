@@ -36,6 +36,7 @@ var (
 	stWarn   = lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
 	stBad    = lipgloss.NewStyle().Foreground(lipgloss.Color("203"))
 	stActive = lipgloss.NewStyle().Bold(true).Underline(true)
+	stPrompt = lipgloss.NewStyle().Bold(true)
 	stMatch  = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("252"))
 )
 
@@ -69,11 +70,21 @@ func indentOf(s string) string {
 // a narrow screen the title comes first: the text after it goes, then the text
 // before it, before the title is cut.
 func link(target, pre, label, post string, w int) row {
+	return linkRow(target, pre, label, post, w, false)
+}
+
+// linkKeep is link for a row that starts with a tag: the tag stays and the
+// title is cut instead.
+func linkKeep(target, pre, label, post string, w int) row {
+	return linkRow(target, pre, label, post, w, true)
+}
+
+func linkRow(target, pre, label, post string, w int, keepPre bool) row {
 	return row{sel: true, target: target, draw: func(k KeyFn) string {
 		p, q := pre, post
 		if w < narrowW && cells(p)+cells(label)+cells(q) > w-2 {
 			q = ""
-			if cells(p)+cells(label) > w-2 {
+			if !keepPre && cells(p)+cells(label) > w-2 {
 				p = indentOf(p)
 			}
 		}
@@ -135,153 +146,133 @@ func (m *Model) openProposals() []ops.ProposalView {
 	return out
 }
 
-// needsLine counts what waits for the owner, proposals first.
-func (m *Model) needsLine() string {
-	s := m.snap
-	var parts []string
-	add := func(n int, one string) {
-		if n > 0 {
-			parts = append(parts, plural(n, one))
-		}
-	}
-	if n := len(m.openProposals()); n == 1 {
-		parts = append(parts, "1 proposal to decide")
-	} else if n > 1 {
-		parts = append(parts, fmt.Sprintf("%d proposals to decide", n))
-	}
-	add(len(s.Today.Incidents.Items), "incident")
-	add(len(s.Questions), "question")
-	add(len(s.Today.Overdue.Items), "late task")
-	add(len(s.Today.Nudges.Items), "nudge")
-	add(len(s.Inbox), "capture to sort")
-	return strings.Join(parts, ", ")
-}
+// todayTag is the short tag of a Today row, padded to one column.
+func todayTag(word string, st lipgloss.Style) string { return st.Render(pad(word, 9)) }
 
-// rowsToday is the home screen: what needs the owner first. Incidents, then
-// questions, overdue, nudges, due soon, ready, blocked, waiting, and the rest.
-// A section with nothing in it is not shown, and nothing is shown twice.
+// rowsToday is the home screen: one list, most urgent first, one short tag on
+// each row. A thin divider sits before the lower-priority rows. A row appears
+// once, whichever way it qualifies.
 func (m *Model) rowsToday(w int) []row {
 	s := m.snap
 	if !m.loaded {
 		return []row{dim("loading...")}
 	}
-	r := []row{head(fmt.Sprintf("Today, %s   vault %s", dateWords(s.Date, m.snap.Loaded), s.Vault) + stDim.Render(fmt.Sprintf("   inbox %d", len(s.Inbox))))}
-	if line := m.agendaSummary(); line != "" {
-		r = append(r, dim("  Agenda: "+stripSGR(line)+" (press the Agenda key below)"))
+	inbox := "inbox 0"
+	if n := len(s.Inbox); n > 0 {
+		inbox = fmt.Sprintf("inbox %d to sort", n)
 	}
+	r := []row{head(fmt.Sprintf("Today, %s   vault %s", dateWords(s.Date, s.Loaded), s.Vault) + stDim.Render("   "+inbox))}
 	shown := map[string]bool{}
-	// once builds a row for an item the first time it appears on the screen.
-	once := func(id string, build func() row) []row {
+	// add builds a row for an item the first time it appears on the screen.
+	add := func(id string, build func() row) {
 		if shown[id] {
-			return nil
+			return
 		}
 		shown[id] = true
-		return []row{build()}
+		r = append(r, build())
 	}
-	section := func(title string, items []row) {
-		if len(items) > 0 {
-			r = append(r, head(fmt.Sprintf("%s (%d)", title, len(items))))
-			r = append(r, items...)
-		}
+	item := func(id, tag string, st lipgloss.Style, title, post string) {
+		add(id, func() row { return linkKeep("doc:"+id, "  "+todayTag(tag, st)+" ", titleOr(title, id), post, w) })
 	}
 	nudge := map[string]ops.WaitingItem{}
 	for _, it := range s.Waiting {
 		nudge[it.ID] = it
 	}
-	if line := m.needsLine(); line != "" {
-		r = append(r, plain("  "+stWarn.Render("Needs you: ")+line))
-	}
-	var props []row
 	for _, p := range m.openProposals() {
-		props = append(props, once(p.ID, func() row {
-			x := link("prop:"+p.ID, "  ", titleOr(p.Title, p.ID), stDim.Render(fmt.Sprintf("  %d of %d to decide, from %s", p.Pending, p.ItemCount, p.ProposedBy)), w)
+		add(p.ID, func() row {
+			x := linkKeep("prop:"+p.ID, "  "+todayTag("proposal", stWarn)+" ", titleOr(p.Title, p.ID), stDim.Render(fmt.Sprintf("  %d of %d to decide, from %s", p.Pending, p.ItemCount, p.ProposedBy)), w)
 			x.kind, x.id = "proposal", p.ID
 			return x
-		})...)
+		})
 	}
-	section("Proposals", props)
-	var inc []row
 	for _, it := range s.Today.Incidents.Items {
-		inc = append(inc, once(it.ID, func() row {
-			return link("doc:"+it.ID, "  "+stBad.Render(it.Detail)+"  ", titleOr(it.Title, it.ID), "", w)
-		})...)
+		item(it.ID, "incident", stBad, it.Title, "  "+stBad.Render(it.Detail))
 	}
-	section("Incidents", inc)
-	var qs []row
-	for _, x := range m.questionRows(w) {
-		if !shown[x.id] {
-			shown[x.id] = true
-			qs = append(qs, x)
-		}
-	}
-	section("Questions", qs)
-	dated := func(items []today.Item, late bool) []row {
-		var rows []row
-		for _, it := range items {
-			rows = append(rows, once(it.ID, func() row {
-				due := stDim.Render(dateWords(it.Due, m.snap.Loaded))
-				if late {
-					due = stBad.Render(dateWords(it.Due, m.snap.Loaded))
-				}
-				post := "  " + due
-				if it.ProjectName != "" {
-					post += "  " + stDim.Render(it.ProjectName)
-				}
-				return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), post, w)
-			})...)
-		}
-		return rows
-	}
-	section("Overdue", dated(s.Today.Overdue.Items, true))
-	var nudges []row
-	for _, it := range s.Today.Nudges.Items {
-		nudges = append(nudges, once(it.ID, func() row {
+	for _, q := range s.Questions {
+		add(q.ID, func() row {
 			post := ""
-			if x, ok := nudge[it.ID]; ok {
-				if len(x.TargetNames) > 0 {
-					post += "  " + stDim.Render("to "+joinNames(x.TargetNames))
-				}
-				post += "  " + stDim.Render("nudge "+dateWords(x.NextNudge, m.snap.Loaded))
+			if q.Kind != "question" {
+				post = "  " + stDim.Render(string(q.Kind))
 			}
-			return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), post, w)
-		})...)
+			if q.ScopeName != "" {
+				post += "  " + stDim.Render(q.ScopeName)
+			}
+			if q.Blocking > 0 {
+				post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
+			}
+			x := linkKeep("doc:"+q.ID, "  "+todayTag("question", stWarn)+" ", titleOr(q.Title, q.ID), post, w)
+			x.kind, x.id = "question", q.ID
+			return x
+		})
 	}
-	section("Nudge due", nudges)
-	section("Due soon", dated(s.Today.DueSoon.Items, false))
-	var ready []row
+	dated := func(it today.Item, tag string, st lipgloss.Style) {
+		post := "  " + st.Render(dateWords(it.Due, s.Loaded))
+		if it.ProjectName != "" {
+			post += "  " + stDim.Render(it.ProjectName)
+		}
+		item(it.ID, tag, st, it.Title, post)
+	}
+	for _, it := range s.Today.Overdue.Items {
+		dated(it, "late", stBad)
+	}
+	for _, it := range s.Today.Nudges.Items {
+		post := ""
+		if x, ok := nudge[it.ID]; ok {
+			if len(x.TargetNames) > 0 {
+				post += "  " + stDim.Render("to "+joinNames(x.TargetNames))
+			}
+			post += "  " + stDim.Render("nudge "+dateWords(x.NextNudge, s.Loaded))
+		}
+		item(it.ID, "nudge", stWarn, it.Title, post)
+	}
+	for _, it := range s.Today.DueSoon.Items {
+		dated(it, "due", stDim)
+	}
+	urgent := len(r)
 	for _, t := range s.Next {
-		ready = append(ready, once(t.ID, func() row {
-			return link("doc:"+t.ID, "  ", titleOr(t.Title, t.ID), "  "+stDim.Render(t.ProjectName), w)
-		})...)
+		post := ""
+		if t.ProjectName != "" {
+			post = "  " + stDim.Render(t.ProjectName)
+		}
+		item(t.ID, "ready", stGood, t.Title, post)
 	}
-	section("Ready to work", ready)
-	var blocked []row
 	for _, it := range s.Today.Blocked.Items {
-		blocked = append(blocked, once(it.ID, func() row {
-			return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "  "+stDim.Render(it.ProjectName), w)
-		})...)
+		item(it.ID, "blocked", stBad, it.Title, "  "+stDim.Render(it.ProjectName))
 	}
-	section("Blocked", blocked)
-	r = append(r, m.waitingRows(w, shown)...)
-	var exp []row
+	for _, it := range s.Waiting {
+		post := ""
+		if len(it.TargetNames) > 0 {
+			post = "  " + stDim.Render("to "+joinNames(it.TargetNames))
+		}
+		if it.NextNudge != "" {
+			post += "  " + stDim.Render("nudge "+dateWords(it.NextNudge, s.Loaded))
+		}
+		item(it.ID, "waiting", stDim, it.Title, post)
+	}
+	for _, t := range s.Tasks {
+		if t.Assignee == "" || t.Assignee == "self" || t.Status == model.TaskDone || t.Status == model.TaskDropped {
+			continue
+		}
+		post := ""
+		if t.AssigneeName != "" {
+			post = "  " + stDim.Render("with "+t.AssigneeName)
+		}
+		item(t.ID, "waiting", stDim, t.Title, post)
+	}
 	for _, it := range s.Today.Expiring.Items {
-		exp = append(exp, once(it.ID, func() row { return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "", w) })...)
+		item(it.ID, "expiring", stWarn, it.Title, "")
 	}
-	section("Expiring exceptions", exp)
-	var due []row
 	for _, it := range s.Today.Due.Items {
-		due = append(due, once(it.ID, func() row { return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "", w) })...)
+		item(it.ID, "review", stWarn, it.Title, "")
 	}
-	section("Constraints due for review", due)
-	var inbox []row
 	for _, it := range s.Inbox {
-		inbox = append(inbox, once(it.ID, func() row {
-			return link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "  "+stDim.Render(dateWords(string(it.Created), m.snap.Loaded)), w)
-		})...)
+		item(it.ID, "inbox", stDim, it.Title, "  "+stDim.Render(dateWords(string(it.Created), s.Loaded)))
 	}
-	section("Inbox", inbox)
 	if len(r) == 1 {
 		r = append(r, dim("  Nothing needs you today."))
+	}
+	if urgent > 1 && len(r) > urgent {
+		r = append(r[:urgent], append([]row{dim("  " + strings.Repeat("─", max(min(w-4, 40), 4)))}, r[urgent:]...)...)
 	}
 	r = append(r, m.vaultRows(w)...)
 	return r
@@ -295,56 +286,6 @@ func joinNames(ns []string) string {
 		}
 	}
 	return strings.Join(out, ", ")
-}
-
-// waitingRows is who the owner waits on: the requests `rfx waiting` lists, and
-// the tasks given to someone else. The count is every one of them; a request
-// already shown above under Nudge due is not listed again, and a line says so.
-func (m *Model) waitingRows(w int, shown map[string]bool) []row {
-	s := m.snap
-	total := len(s.Waiting)
-	var rows []row
-	hidden := 0
-	for _, it := range s.Waiting {
-		if shown[it.ID] {
-			hidden++
-			continue
-		}
-		shown[it.ID] = true
-		post := ""
-		if len(it.TargetNames) > 0 {
-			post = "  " + stDim.Render("to "+joinNames(it.TargetNames))
-		}
-		if it.NextNudge != "" {
-			post += "  " + stDim.Render("nudge "+dateWords(it.NextNudge, m.snap.Loaded))
-		}
-		rows = append(rows, link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), post, w))
-	}
-	for _, t := range s.Tasks {
-		if t.Assignee == "" || t.Assignee == "self" || t.Status == model.TaskDone || t.Status == model.TaskDropped {
-			continue
-		}
-		total++
-		if shown[t.ID] {
-			hidden++
-			continue
-		}
-		shown[t.ID] = true
-		post := ""
-		if t.AssigneeName != "" {
-			post = "  " + stDim.Render("with "+t.AssigneeName)
-		}
-		rows = append(rows, link("doc:"+t.ID, "  ", titleOr(t.Title, t.ID), post, w))
-	}
-	if total == 0 {
-		return nil
-	}
-	r := []row{head(fmt.Sprintf("Waiting on others (%d)", total))}
-	r = append(r, rows...)
-	if hidden > 0 {
-		r = append(r, dim(fmt.Sprintf("  %d shown above, under Nudge due", hidden)))
-	}
-	return r
 }
 
 // vaultRows is the vault's own health: lint, sync trouble, load errors.
@@ -806,7 +747,7 @@ func (m *Model) rowsPerson(p *page, w int) []row {
 		r = append(r, head(fmt.Sprintf("Assigned tasks (%d)", len(wp.OpenTasks))))
 	}
 	for _, t := range wp.OpenTasks {
-		r = append(r, link("doc:"+t.ID, "  "+stDim.Render(string(t.Status))+"  ", titleOr(t.Title, t.ID), "  "+stDim.Render(dateWords(string(t.Due), m.snap.Loaded)), w))
+		r = append(r, link("doc:"+t.ID, "  "+stDim.Render(stateWord(string(t.Status)))+"  ", titleOr(t.Title, t.ID), "  "+stDim.Render(dateWords(string(t.Due), m.snap.Loaded)), w))
 	}
 	if len(wp.Interactions) > 0 {
 		r = append(r, head(fmt.Sprintf("Interactions (%d)", len(wp.Interactions))))
@@ -951,41 +892,11 @@ func hasQuestion(ns []ops.GraphNode) bool {
 	return false
 }
 
-// agendaSummary is one line for Today: what is dated, so the Agenda link says
-// what is behind it. Empty when nothing is dated.
-func (m *Model) agendaSummary() string {
-	var meetings, due, late int
-	for _, it := range m.snap.Agenda.Items {
-		switch {
-		case it.Overdue:
-			late++
-		case it.Kind == ops.AgendaMeeting:
-			meetings++
-		default:
-			due++
-		}
-	}
-	var parts []string
-	if meetings > 0 {
-		parts = append(parts, plural(meetings, "meeting"))
-	}
-	if due > 0 {
-		parts = append(parts, fmt.Sprintf("%d dated", due))
-	}
-	if late > 0 {
-		parts = append(parts, stBad.Render(fmt.Sprintf("%d overdue", late)))
-	}
-	if len(parts) == 0 {
-		return ""
-	}
-	return strings.Join(parts, ", ") + fmt.Sprintf(" in %d days", AgendaDays)
-}
-
 // rowsAgenda is the Agenda page: dated items by day in local time, meetings
 // with their hours, and a link to the document on each.
 func (m *Model) rowsAgenda(w int) []row {
 	a := m.snap.Agenda
-	r := []row{head(fmt.Sprintf("Agenda %s to %s   %s", a.From, a.To, a.Zone))}
+	r := []row{head(fmt.Sprintf("Agenda %s to %s   %s", dateWords(a.From, m.snap.Loaded), dateWords(a.To, m.snap.Loaded), a.Zone))}
 	if len(a.Items) == 0 {
 		return append(r, dim("  Nothing is dated in the next "+fmt.Sprint(AgendaDays)+" days."))
 	}
@@ -993,9 +904,9 @@ func (m *Model) rowsAgenda(w int) []row {
 	for _, it := range a.Items {
 		if it.Date != day {
 			day = it.Date
-			name := day
+			name := dateWords(day, m.snap.Loaded)
 			if t, err := time.Parse("2006-01-02", day); err == nil {
-				name += " " + t.Weekday().String()[:3]
+				name = t.Weekday().String()[:3] + " " + name
 			}
 			if day == m.snap.Date {
 				name += "  today"

@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -85,6 +86,10 @@ func (m *Model) onExportKey(k tea.KeyPressMsg) tea.Cmd {
 		m.ov.input, cmd = m.ov.input.Update(k)
 		return cmd
 	}
+	if s == "?" {
+		e.needs = !e.needs
+		return nil
+	}
 	if s == "esc" {
 		if e.stage == 1 {
 			e.stage = 0
@@ -164,12 +169,12 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 		if m.ov.kind == ovSearch {
 			hint = "enter shows every result, esc cancels. person:<name> finds a person"
 		}
-		lines = []string{stHead.Render(hint), m.ov.input.View()}
+		lines = []string{stPrompt.Render("▸ " + hint), m.ov.input.View()}
 		if m.ov.kind == ovSearch {
 			lines = append(lines, m.liveLines()...)
 		}
 	case ovPrompt:
-		lines = []string{stHead.Render(m.ov.prompt.title)}
+		lines = []string{stPrompt.Render("▸ " + m.ov.prompt.title)}
 		lines = append(lines, stDim.Render(m.ov.prompt.hint()))
 		lines = append(lines, m.ov.prompt.lines...)
 		lines = append(lines, m.ov.input.View())
@@ -249,7 +254,11 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 	lines := []string{stHead.Render(title)}
 	for _, it := range items {
 		if !it.Available {
-			lines = append(lines, stDim.Render(fmt.Sprintf("  %s  needs %s", it.Name, strings.Join(it.Needs, " or "))))
+			if e.needs {
+				lines = append(lines, stDim.Render(fmt.Sprintf("  %s needs %s", it.Name, strings.Join(it.Needs, " or "))))
+			} else {
+				lines = append(lines, stDim.Render(fmt.Sprintf("  %s (not installed)", it.Name)))
+			}
 			continue
 		}
 		id := "opt:" + it.Name
@@ -263,30 +272,34 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 		lines = append(lines, "  "+Mark(it.Name, keys[id])+extra)
 		keymap[keys[id].Code] = id
 	}
-	lines = append(lines, "", stDim.Render("esc goes back"))
+	hint := "esc goes back"
+	if slices.ContainsFunc(items, func(it export.Item) bool { return !it.Available }) {
+		hint += "   ? shows what a missing one needs"
+	}
+	lines = append(lines, "", stDim.Render(hint))
 	return lines, keymap
 }
 
 // actionHelp says what each action does, for the help sheet.
 var actionHelp = map[string]string{
-	"act:answer":   "answer the question under the cursor",
-	"act:graph":    "graph of the project or area under the cursor",
-	"act:accept":   "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
-	"act:reopen":   "reopen: undo the last mark, or reopen a closed request",
-	"act:zoom":     "full screen",
-	"act:export":   "export menu",
-	"act:copy":     "copy with the last format",
-	"act:meta":     "show or hide the details strip (type, dates, status)",
-	"act:approve":  "approve: record your decision. Para sends nothing",
-	"act:deny":     "deny, with a reason the agent reads",
-	"act:rework":   "rework: ask the agent to redo this, with your reason",
-	"act:sendback": "send back: return it to the agent with your edits and notes",
-	"act:hold":     "needs first: hold this until something else is done",
-	"act:annotate": "annotate: quote the words, say what is wrong",
-	"act:edit":     "edit the text in your editor",
-	"act:source":   "the source the agent worked from (untrusted)",
-	"act:diff":     "what changed since the previous revision",
-	"act:history":  "every revision",
+	"act:answer":    "answer the question under the cursor",
+	"act:graph":     "graph of the project or area under the cursor",
+	"act:accept":    "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
+	"act:reopen":    "reopen: undo the last mark, or reopen a closed request",
+	"act:zoom":      "full screen",
+	"act:export":    "export menu",
+	"act:copy":      "copy with the last format",
+	"act:meta":      "show or hide the details strip (type, dates, status)",
+	"act:approve":   "approve this item",
+	"act:deny":      "deny, with a reason the agent reads",
+	"act:sendback":  "send back to the agent: with your reason, or with your edits and notes",
+	"act:hold":      "needs first: hold this until something else is done",
+	"act:annotate":  "note: quote the words, say what is wrong",
+	"act:edit":      "edit the text in your editor",
+	"act:source":    "the source the agent worked from (untrusted)",
+	"act:diff":      "what changed since the previous revision",
+	"act:history":   "every revision",
+	"act:copydraft": "copy the draft of an approved email",
 }
 
 // helpLines is the help sheet for the screen showing: the keys that always
@@ -304,10 +317,10 @@ func (m *Model) helpLines() []string {
 		"  enter      open the row         esc  back",
 		"  /          search as you type; person:<name> finds a person",
 		"  c          capture a note to the inbox",
-		"  v          switch vault for this session",
+		"  v          switch vault, for this session only",
 		"  q          quit",
 		"  ;ab        two-letter keys start with ;",
-		"  left edge  a row with no free letter shows its key there, dim",
+		"  letter     the dim letter at the left of a row opens it",
 	}
 	var here []string
 	add := func(ids ...string) {
@@ -319,10 +332,12 @@ func (m *Model) helpLines() []string {
 	}
 	switch p := m.top(); {
 	case p != nil && p.kind == pageProposal:
-		add("act:approve", "act:rework", "act:hold", "act:sendback", "act:deny", "act:annotate", "act:edit", "act:source", "act:diff", "act:history")
+		add("act:approve", "act:deny", "act:sendback", "act:hold", "act:annotate", "act:edit", "act:copydraft", "act:source", "act:diff", "act:history")
 		here = append(here, "  enter      the item in full")
 	case p != nil && p.kind == pageDoc:
 		add("act:zoom", "act:export", "act:copy", "act:meta")
+	case p != nil && p.kind == pageText:
+		add("act:source", "act:copydraft")
 	case p != nil:
 	case m.tab == tabReview:
 		add("act:accept", "act:reopen")

@@ -18,39 +18,64 @@ import (
 
 // Item actions on a proposal page. Only what the review rule allows for the
 // item under the cursor is shown or bound: ops.ItemView.Actions is the rule.
+// The verbs are Approve, Deny, Send back, Needs first, Note, Edit. Send back
+// is the one action for two ops: rework (a reason is required) when the item
+// has no edit or note, and send back (no reason) when it has.
 var (
-	actApprove  = Target{ID: "act:approve", Label: "Approve", Pref: 'a'}
-	actDeny     = Target{ID: "act:deny", Label: "Deny", Pref: 'd'}
-	actRework   = Target{ID: "act:rework", Label: "Rework", Pref: 'r'}
-	actSendBack = Target{ID: "act:sendback", Label: "Send back", Pref: 'b'}
-	actHold     = Target{ID: "act:hold", Label: "Needs first", Pref: 'n'}
-	actAnnotate = Target{ID: "act:annotate", Label: "Annotate", Pref: 't'}
-	actEdit     = Target{ID: "act:edit", Label: "Edit", Pref: 'e'}
-	actSource   = Target{ID: "act:source", Label: "Source", Pref: 's'}
-	actDiff     = Target{ID: "act:diff", Label: "Diff", Pref: 'i'}
-	actHistory  = Target{ID: "act:history", Label: "History", Pref: 'h'}
+	actApprove   = Target{ID: "act:approve", Label: "Approve", Pref: 'a'}
+	actDeny      = Target{ID: "act:deny", Label: "Deny", Pref: 'd'}
+	actSendBack  = Target{ID: "act:sendback", Label: "Send back", Pref: 's'}
+	actNote      = Target{ID: "act:annotate", Label: "Note", Pref: 'n'}
+	actHold      = Target{ID: "act:hold", Label: "Needs first", Pref: 'f'}
+	actEdit      = Target{ID: "act:edit", Label: "Edit", Pref: 'e'}
+	actSource    = Target{ID: "act:source", Label: "Source", Pref: 'o'}
+	actDiff      = Target{ID: "act:diff", Label: "Diff", Pref: 'i'}
+	actHistory   = Target{ID: "act:history", Label: "History", Pref: 'h'}
+	actCopyDraft = Target{ID: "act:copydraft", Label: "Copy draft", Pref: 'y'}
 
-	ruleActs = []struct {
-		action string
-		target Target
-	}{
-		{ops.ActionApprove, actApprove}, {ops.ActionDeny, actDeny}, {ops.ActionRework, actRework},
-		{ops.ActionSendBack, actSendBack}, {ops.ActionHold, actHold}, {ops.ActionAnnotate, actAnnotate}, {ops.ActionEdit, actEdit},
-	}
+	// itemActs is every action of a proposal page, in the one order that
+	// gives their keys. The footer shows the ones that apply.
+	itemActs = []Target{actApprove, actDeny, actSendBack, actNote, actHold, actEdit, actSource, actDiff, actHistory, actCopyDraft}
 )
 
-// proposalPromise says what approving does, once, at the top of a proposal.
-const proposalPromise = "Approve records your decision. Para sends nothing."
+// itemAction is the rule's action behind a footer action, or "" for a view.
+// Send back maps to both ops.
+func applies(it ops.ItemView, t Target) bool {
+	has := func(a string) bool { return slices.Contains(it.Actions, a) }
+	switch t.ID {
+	case actApprove.ID:
+		return has(ops.ActionApprove)
+	case actDeny.ID:
+		return has(ops.ActionDeny)
+	case actSendBack.ID:
+		return has(ops.ActionRework) || has(ops.ActionSendBack)
+	case actNote.ID:
+		return has(ops.ActionAnnotate)
+	case actHold.ID:
+		return has(ops.ActionHold)
+	case actEdit.ID:
+		return has(ops.ActionEdit)
+	case actCopyDraft.ID:
+		return it.Kind == model.ItemExternal && it.State == model.ItemApproved
+	}
+	return false
+}
+
+// External items: what approving means, in plain words.
+const (
+	externalPromise = "Approving marks this OK to send. Para does not send it: send it yourself, or tell the agent to."
+	notSentYet      = "Approved. Not sent yet."
+	coversText      = "Approval covers this exact text."
+)
 
 // whyNot says why an item action is not available, in words.
 var whyNot = map[string]string{
-	ops.ActionApprove:  "Approve is not available: the item was edited, has an open annotation, or is already decided.",
-	ops.ActionDeny:     "Deny is not available: the item was edited or has an open annotation, or is already decided.",
-	ops.ActionRework:   "Rework is not available: the item was edited or has an open annotation, or is already decided.",
-	ops.ActionSendBack: "Send back applies after an edit or an open annotation.",
-	ops.ActionHold:     "Needs first is not available for this item now.",
-	ops.ActionAnnotate: "Annotate is not available for this item now.",
-	ops.ActionEdit:     "Edit is not available for this item now.",
+	"approve":  "Approve is not available: the item was edited, has an open note, or is already decided.",
+	"deny":     "Deny is not available: the item was edited or has an open note, or is already decided.",
+	"sendback": "Send back is not available: the item is already decided.",
+	"hold":     "Needs first is not available for this item now.",
+	"annotate": "Note is not available for this item now.",
+	"edit":     "Edit is not available for this item now.",
 }
 
 type (
@@ -92,11 +117,34 @@ func (m *Model) onProposal(msg proposalMsg) tea.Cmd {
 	if msg.reload {
 		if p := m.top(); p != nil && p.kind == pageProposal && p.id == msg.id {
 			p.prop = msg.out
+			if m.advanceFrom != "" {
+				m.advanceCursor(p, m.advanceFrom)
+				m.advanceFrom = ""
+			}
 		}
 		return nil
 	}
 	m.push(page{kind: pageProposal, id: msg.id, title: msg.out.Proposal.Title, prop: msg.out})
 	return nil
+}
+
+// advanceCursor moves the cursor of a proposal page to the next item that
+// still waits after item, wrapping to the first one. With none, it stays.
+func (m *Model) advanceCursor(p *page, item string) {
+	items := p.prop.Items
+	at := slices.IndexFunc(items, func(it ops.ItemView) bool { return it.ID == item })
+	for n := 1; n <= len(items); n++ {
+		next := items[(at+n+len(items))%len(items)]
+		if next.State != model.ItemPending || next.ID == item {
+			continue
+		}
+		for i, r := range m.rowsProposal(p, m.listWidth()) {
+			if r.sel && r.id == next.ID {
+				p.cursor = i
+				return
+			}
+		}
+	}
 }
 
 // rowsProposals is the top of the Review tab: proposals that wait for the
@@ -188,14 +236,13 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 	if d.SupersededBy != "" {
 		r = append(r, link("prop:"+d.SupersededBy, "  replaced by a newer revision: ", "open it", "", w))
 	}
-	r = append(r, dim("  "+proposalPromise))
 	for _, it := range d.Items {
 		flag := ""
 		if it.Edited {
 			flag = "  " + stWarn.Render("edited")
 		}
 		if it.OpenAnnotations > 0 {
-			flag += "  " + stWarn.Render(plural(it.OpenAnnotations, "open annotation"))
+			flag += "  " + stWarn.Render(plural(it.OpenAnnotations, "open note"))
 		}
 		x := link("item:"+it.ID, "  "+stDim.Render(itemNo(it.ID))+"  ", itemLine(it), "  "+state(string(it.State))+flag, w)
 		x.kind, x.id = "item", it.ID
@@ -247,7 +294,7 @@ func (m *Model) outcomeRows(it ops.ItemView, w int) []row {
 	case it.ResultName != "":
 		return []row{link("doc:"+it.Result, "      "+stGood.Render("done")+", made ", it.ResultName, "", w)}
 	case it.Kind == model.ItemExternal:
-		return []row{dim("      approved. Para has sent nothing.")}
+		return []row{plain("      " + stGood.Render("Approved.") + stDim.Render(" Not sent yet."))}
 	}
 	return []row{plain("      " + stGood.Render("done"))}
 }
@@ -266,65 +313,45 @@ func (m *Model) proposalItem(p *page, w int) (ops.ItemView, bool) {
 	return p.prop.Items[i], true
 }
 
-// primaryAct is the one action an item leads with: Approve, or Send back when
-// the item was edited or has an open annotation and cannot be approved.
-func primaryAct(it ops.ItemView) string {
-	if slices.Contains(it.Actions, ops.ActionApprove) {
-		return ops.ActionApprove
-	}
-	if slices.Contains(it.Actions, ops.ActionSendBack) {
-		return ops.ActionSendBack
-	}
-	return ops.ActionApprove
-}
-
-// proposalActs is the footer of a proposal page: one primary action for the
-// item under the cursor, dimmed when the rule does not allow it. Every other
-// decision is under ?.
+// proposalActs is the footer of a proposal page: the decisions that apply to
+// the item under the cursor, each with its key. The rest is under ?.
 func (m *Model) proposalActs(p *page, w int) []Target {
 	it, ok := m.proposalItem(p, w)
-	want := ops.ActionApprove
-	if ok {
-		want = primaryAct(it)
-	}
-	for _, a := range ruleActs {
-		if a.action != want {
-			continue
-		}
-		t := a.target
-		if ok && !slices.Contains(it.Actions, a.action) {
-			t.Dim = true
-		}
-		return []Target{t}
-	}
-	return nil
-}
-
-// secondaryActs are the actions under ? on a proposal page: the decisions the
-// item does not lead with, then the rest.
-func (m *Model) secondaryActs() []Target {
-	lead := ops.ActionApprove
-	if p := m.top(); p != nil {
-		if it, ok := m.proposalItem(p, m.listWidth()); ok {
-			lead = primaryAct(it)
-		}
+	if !ok {
+		return nil
 	}
 	var out []Target
-	if lead != ops.ActionApprove {
-		// Approve keeps its key so that it can say why it does not apply.
-		t := actApprove
-		t.Dim = true
-		out = append(out, t)
-	}
-	for _, a := range []struct {
-		action string
-		target Target
-	}{{ops.ActionRework, actRework}, {ops.ActionHold, actHold}, {ops.ActionSendBack, actSendBack}, {ops.ActionDeny, actDeny}} {
-		if a.action != lead {
-			out = append(out, a.target)
+	for _, t := range itemActs {
+		if t.ID == actNote.ID || t.ID == actSendBack.ID || t.ID == actApprove.ID || t.ID == actDeny.ID || t.ID == actCopyDraft.ID {
+			if applies(it, t) {
+				out = append(out, t)
+			}
 		}
 	}
-	return append(out, actAnnotate, actEdit, actSource, actDiff, actHistory)
+	return out
+}
+
+// proposalHint is what the item under the cursor needs said: for a pending
+// email, what approving does.
+func (m *Model) proposalHint() string {
+	p := m.top()
+	if p == nil || p.kind != pageProposal {
+		return ""
+	}
+	if it, ok := m.proposalItem(p, m.listWidth()); ok && it.Kind == model.ItemExternal && it.State == model.ItemPending {
+		return externalPromise
+	}
+	return ""
+}
+
+// extraActs are actions with a key and no place in the footer: they are under
+// ?. On a proposal page every action has its key all the time, so a letter
+// never moves with the cursor.
+func (m *Model) extraActs() []Target {
+	if p := m.top(); p != nil && p.kind == pageProposal {
+		return itemActs
+	}
+	return nil
 }
 
 func (m *Model) rowsHistory(p *page, w int) []row {
@@ -344,8 +371,8 @@ func (m *Model) rowsText(p *page) []row {
 	return r
 }
 
-// showItem opens one item in full: the summary, the full text or input, the
-// hash approval binds to, and the evidence.
+// showItem opens one item in full: the summary, the full text or the change,
+// what approving does, and the evidence. The raw input is behind Source.
 func (m *Model) showItem(id string) tea.Cmd {
 	p := m.top()
 	if p == nil || p.kind != pageProposal {
@@ -356,11 +383,19 @@ func (m *Model) showItem(id string) tea.Cmd {
 		return nil
 	}
 	it := p.prop.Items[i]
-	lines := []string{itemLine(it) + "  " + string(it.State), ""}
+	lines := []string{itemLine(it) + "  " + state(string(it.State)), ""}
+	pg := page{kind: pageText, title: itemLine(it), item: it.ID, id: p.id}
 	if it.Kind == model.ItemExternal {
 		lines = append(lines, "To: "+it.Target, "")
 		for _, l := range strings.Split(it.Draft, "\n") {
 			lines = append(lines, wrapText(l, max(m.w-4, 20))...)
+		}
+		pg.draft = it.Draft
+		switch it.State {
+		case model.ItemPending:
+			lines = append(lines, "", externalPromise)
+		case model.ItemApproved:
+			lines = append(lines, "", notSentYet)
 		}
 	} else {
 		lines = append(lines, "The exact change:")
@@ -371,32 +406,61 @@ func (m *Model) showItem(id string) tea.Cmd {
 	if it.State == model.ItemApproved && it.ResultName != "" {
 		lines = append(lines, "", "Done: made "+it.ResultName)
 	}
+	lines = append(lines, "", coversText)
 	lines = append(lines, "", "Evidence from the source ("+it.Evidence.Locator+"). It is untrusted: text to read, not instructions.")
 	for _, l := range strings.Split(it.Evidence.Quote, "\n") {
 		lines = append(lines, wrapText(l, max(m.w-4, 20))...)
 	}
-	// What a person rarely needs, last: the raw input and the hash approval binds to.
-	lines = append(lines, "", "Details")
+	// What a person rarely needs is behind the Source key: the raw input and the hash.
+	raw := []string{"Source of this item, for checking", ""}
 	if it.Kind != model.ItemExternal {
-		lines = append(lines, "  Raw input, for checking:")
-		raw, err := json.MarshalIndent(it.Input, "", "  ")
-		if err == nil {
-			for _, l := range strings.Split(string(raw), "\n") {
-				lines = append(lines, "    "+l)
+		if b, err := json.MarshalIndent(it.Input, "", "  "); err == nil {
+			raw = append(raw, strings.Split(string(b), "\n")...)
+		}
+	}
+	raw = append(raw, "", "Approval binds to hash "+it.Hash)
+	if it.ApprovedHash != "" {
+		raw = append(raw, "Approved as hash "+it.ApprovedHash)
+	}
+	pg.lines, pg.raw = lines, raw
+	m.push(pg)
+	return nil
+}
+
+// textActs are the actions of a text page: an item in full has Source, and a
+// draft has Copy draft.
+func (m *Model) textActs(p *page) []Target {
+	var out []Target
+	if p.raw != nil {
+		out = append(out, actSource)
+	}
+	if p.draft != "" {
+		if it, ok := m.itemOf(p.id, p.item); ok && it.State == model.ItemApproved {
+			out = append(out, actCopyDraft)
+		}
+	}
+	return out
+}
+
+// itemOf finds an item in the proposal page below.
+func (m *Model) itemOf(prop, item string) (ops.ItemView, bool) {
+	for i := len(m.stack) - 1; i >= 0; i-- {
+		if q := m.stack[i]; q.kind == pageProposal && q.id == prop {
+			j := slices.IndexFunc(q.prop.Items, func(it ops.ItemView) bool { return it.ID == item })
+			if j >= 0 {
+				return q.prop.Items[j], true
 			}
 		}
 	}
-	lines = append(lines, "  Approval binds to hash "+it.Hash)
-	if it.ApprovedHash != "" {
-		lines = append(lines, "  Approved as hash "+it.ApprovedHash)
-	}
-	m.push(page{kind: pageText, title: itemLine(it), lines: lines})
-	return nil
+	return ops.ItemView{}, false
 }
 
 // proposalAct runs a footer action on the item under the cursor.
 func (m *Model) proposalAct(name string) tea.Cmd {
 	p := m.top()
+	if p != nil && p.kind == pageText {
+		return m.textAct(p, name)
+	}
 	if p == nil || p.kind != pageProposal {
 		return nil
 	}
@@ -420,36 +484,43 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 		return nil
 	}
 	item := it.ID
-	if want := map[string]string{"approve": ops.ActionApprove, "deny": ops.ActionDeny, "rework": ops.ActionRework, "sendback": ops.ActionSendBack,
-		"hold": ops.ActionHold, "annotate": ops.ActionAnnotate, "edit": ops.ActionEdit}[name]; want != "" && !slices.Contains(it.Actions, want) {
-		m.setHint(whyNot[want])
+	if name == "copydraft" {
+		if !applies(it, actCopyDraft) {
+			m.setHint("Copy draft applies after you approve an email.")
+			return nil
+		}
+		return m.copyText(id, it.Draft)
+	}
+	if t, known := map[string]Target{"approve": actApprove, "deny": actDeny, "sendback": actSendBack, "hold": actHold, "annotate": actNote, "edit": actEdit}[name]; known && !applies(it, t) {
+		m.setHint(whyNot[name])
 		return nil
 	}
 	switch name {
 	case "approve":
-		return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+		return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 			return ops.ProposalApprove.Run(ctx, d, ops.ProposalApproveInput{ID: id, Items: []string{item}})
 		})
 	case "deny":
 		return m.askFor("Deny: "+itemLine(it), []promptStep{{label: "why (the agent reads it): "}}, func(v []string) tea.Cmd {
-			return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 				return ops.ProposalDeny.Run(ctx, d, ops.ProposalReasonInput{ID: id, Item: item, Reason: v[0]})
 			})
 		})
-	case "rework":
-		return m.askFor("Rework: "+itemLine(it), []promptStep{{label: "what should change: "}}, func(v []string) tea.Cmd {
-			return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+	case "sendback":
+		if slices.Contains(it.Actions, ops.ActionSendBack) { // an edit or a note is the message
+			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+				return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item})
+			})
+		}
+		return m.askFor("Send back: "+itemLine(it), []promptStep{{label: "what should change: "}}, func(v []string) tea.Cmd {
+			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 				return ops.ProposalRework.Run(ctx, d, ops.ProposalReasonInput{ID: id, Item: item, Reason: v[0]})
 			})
 		})
-	case "sendback":
-		return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-			return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item})
-		})
 	case "annotate":
 		steps := []promptStep{{label: "quote (the words you mean): ", value: quoteDefault(it)}, {label: "note (what is wrong or missing): "}}
-		return m.askFor("Annotate: "+itemLine(it), steps, func(v []string) tea.Cmd {
-			return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+		return m.askFor("Note: "+itemLine(it), steps, func(v []string) tea.Cmd {
+			return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 				return ops.ProposalAnnotate.Run(ctx, d, ops.ProposalAnnotateInput{ID: id, Item: item, Quote: v[0], Note: v[1]})
 			})
 		})
@@ -461,7 +532,7 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			{label: "project or area id: ", value: place, skip: func(v []string) bool { return v[0] != "task" }},
 		}
 		return m.askFor("Needs first: "+itemLine(it), steps, func(v []string) tea.Cmd {
-			return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 				in := ops.ProposalHoldInput{ID: id, Item: item, Kind: ops.HoldKind(v[0]), Text: v[1]}
 				if strings.HasPrefix(v[2], "area-") {
 					in.Area = v[2]
@@ -473,6 +544,22 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 		})
 	case "edit":
 		return m.openEditor(id, it)
+	}
+	return nil
+}
+
+// textAct runs an action of an item in full: Source shows the raw input, and
+// Copy draft copies the draft of an approved email.
+func (m *Model) textAct(p *page, name string) tea.Cmd {
+	switch name {
+	case "source":
+		if p.raw != nil {
+			m.push(page{kind: pageText, title: "source of " + p.title, lines: p.raw})
+		}
+	case "copydraft":
+		if p.draft != "" {
+			return m.copyText(p.id, p.draft)
+		}
 	}
 	return nil
 }
@@ -490,7 +577,7 @@ func quoteDefault(it ops.ItemView) string {
 var reviewVerbs = map[model.ItemState]string{
 	model.ItemApproved:  "Approved",
 	model.ItemDenied:    "Denied",
-	model.ItemRework:    "Asked the agent to redo",
+	model.ItemRework:    "Sent back",
 	model.ItemSentBack:  "Sent back",
 	model.ItemHeld:      "Holding",
 	model.ItemRunning:   "Approved, running",
@@ -499,13 +586,16 @@ var reviewVerbs = map[model.ItemState]string{
 }
 
 // runReview runs a review op off the update loop and reloads. Its result is
-// one line that names the item, not its number.
-func (m *Model) runReview(fn func(context.Context, ops.Deps) (ops.ProposalReviewOutput, error)) tea.Cmd {
+// one line that names the item, not its number. A decision on item moves the
+// cursor to the next item that waits; a note does not.
+func (m *Model) runReview(item string, advance bool, fn func(context.Context, ops.Deps) (ops.ProposalReviewOutput, error)) tea.Cmd {
 	env := m.env
 	names := map[string]string{}
+	external := map[string]bool{}
 	if p := m.top(); p != nil && p.kind == pageProposal {
 		for _, it := range p.prop.Items {
 			names[it.ID] = itemLine(it)
+			external[it.ID] = it.Kind == model.ItemExternal
 		}
 	}
 	return func() tea.Msg {
@@ -526,13 +616,21 @@ func (m *Model) runReview(fn func(context.Context, ops.Deps) (ops.ProposalReview
 			if verb == "" {
 				verb = "Updated"
 			}
+			if d.State == model.ItemApproved && external[d.Item] {
+				parts = append(parts, notSentYet+" "+what)
+				continue
+			}
 			parts = append(parts, verb+": "+what)
 		}
 		text := strings.Join(parts, "; ")
 		if o.Request != "" {
 			text += ". Queued a request for the agent"
 		}
-		return doneMsg{text: text, reload: true}
+		msg := doneMsg{text: text, reload: true}
+		if advance {
+			msg.advance = item
+		}
+		return msg
 	}
 }
 
@@ -569,7 +667,7 @@ func (p promptState) hint() string {
 	if p.lastAsk() {
 		return "enter records it, esc cancels"
 	}
-	return "enter goes to the next question, esc cancels"
+	return "enter continues, esc cancels"
 }
 
 // lastAsk reports whether no later step will be asked.
@@ -724,7 +822,7 @@ func (m *Model) onEdited(msg editedMsg) tea.Cmd {
 		return nil
 	}
 	in.ID, in.Item = msg.id, msg.item.ID
-	return m.runReview(func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
+	return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 		return ops.ProposalEdit.Run(ctx, d, in)
 	})
 }

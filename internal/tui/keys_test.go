@@ -6,9 +6,12 @@ import (
 	"testing"
 )
 
-func TestAssignFirstFreeLetterInLabel(t *testing.T) {
-	got := Assign(nil, []Target{{ID: "a", Label: "Beta"}, {ID: "b", Label: "Bold"}, {ID: "c", Label: "Bee"}}, "")
-	want := map[string]Key{"a": {"b", 0}, "b": {"o", 1}, "c": {"e", 1}}
+func TestAssignLinkKeysSitOnWordStarts(t *testing.T) {
+	got := Assign(nil, []Target{{ID: "a", Label: "Beta"}, {ID: "b", Label: "Big Owl"}, {ID: "c", Label: "Bee east"}, {ID: "d", Label: "https://x.example/y"}}, "")
+	want := map[string]Key{"a": {"b", 0}, "b": {"o", 4}, "c": {"e", 4}}
+	if k := got["d"]; k.At != -1 {
+		t.Errorf("a URL label has a mark at %d", k.At)
+	}
 	for id, k := range want {
 		if got[id] != k {
 			t.Errorf("%s: got %+v want %+v", id, got[id], k)
@@ -30,7 +33,7 @@ func TestAssignSkipsReservedAndFallsBackToAnyFreeLetter(t *testing.T) {
 
 func TestAssignOneKeyPerTarget(t *testing.T) {
 	got := Assign(nil, []Target{{ID: "t", Label: "Alpha"}, {ID: "t", Label: "other words"}, {ID: "u", Label: "Alpha"}}, "")
-	if len(got) != 2 || got["t"].Code != "a" || got["u"].Code != "l" {
+	if len(got) != 2 || got["t"].Code != "a" || got["u"].Code != "b" {
 		t.Fatalf("got %+v", got)
 	}
 }
@@ -38,7 +41,7 @@ func TestAssignOneKeyPerTarget(t *testing.T) {
 func TestAssignActionsBeforeLinks(t *testing.T) {
 	// The link comes first in the slice order but actions pick first.
 	got := Assign([]Target{{ID: "act:zoom", Label: "Zoom", Pref: 'z'}}, []Target{{ID: "wiki:z", Label: "Zed"}}, "")
-	if got["act:zoom"].Code != "z" || got["wiki:z"].Code != "e" {
+	if got["act:zoom"].Code != "z" || got["wiki:z"].Code != "a" {
 		t.Fatalf("got %+v", got)
 	}
 }

@@ -28,8 +28,8 @@ func TestAgendaPageFromToday(t *testing.T) {
 	if len(tabNames) != 6 {
 		t.Fatalf("Agenda must not be a tab: %v", tabNames)
 	}
-	if !dr.has("Agenda: 1 meeting") || !dr.has("Agenda") {
-		t.Fatalf("Today has no Agenda summary:\n%s", dr.plainFrame())
+	if dr.has("Agenda:") || !dr.has("Agenda") {
+		t.Fatalf("Today has an Agenda sentence, or no Agenda key:\n%s", dr.plainFrame())
 	}
 	dr.key(dr.keyFor("act:agenda"))
 	f := dr.plainFrame()

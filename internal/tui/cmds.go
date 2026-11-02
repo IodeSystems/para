@@ -57,6 +57,8 @@ type (
 		output string
 		err    error
 		reload bool
+		// advance is the item a decision settled: the cursor moves on.
+		advance string
 	}
 	envMsg struct {
 		env Env

@@ -69,6 +69,11 @@ func Assign(actions, links []Target, reserved string) map[string]Key {
 		}
 		for i, r := range lab {
 			l := unicode.ToLower(r)
+			// A link key sits on the start of a word, never inside one, and
+			// never inside a URL.
+			if !preferred && !wordStart(lab, i) {
+				continue
+			}
 			if l >= 'a' && l <= 'z' && !used[l] {
 				used[l] = true
 				out[t.ID] = Key{Code: string(l), At: i}
@@ -94,6 +99,14 @@ func Assign(actions, links []Target, reserved string) map[string]Key {
 		take(t, false)
 	}
 	return out
+}
+
+// wordStart reports whether lab[i] begins a word of a label that is not a URL.
+func wordStart(lab []rune, i int) bool {
+	if strings.HasPrefix(string(lab), "http://") || strings.HasPrefix(string(lab), "https://") {
+		return false
+	}
+	return i == 0 || !unicode.IsLetter(lab[i-1]) && !unicode.IsDigit(lab[i-1])
 }
 
 // Mark renders label with its key shown: bold and underline on the key letter, or

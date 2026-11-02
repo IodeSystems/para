@@ -47,10 +47,10 @@ func TestWorkShowsAreasAndAreaTasks(t *testing.T) {
 		}
 	}
 	today := rowText(d.m.rowsToday(120))
-	if strings.Contains(today, "Overdue") || strings.Contains(today, "none") {
+	if strings.Contains(today, "late ") || strings.Contains(today, "none") {
 		t.Errorf("Today shows an empty section:\n%s", today)
 	}
-	if !strings.Contains(today, "Due soon (1)") || !strings.Contains(today, "Water plants") {
+	if !strings.Contains(today, "due ") || !strings.Contains(today, "Water plants") {
 		t.Errorf("Today lacks the due task:\n%s", today)
 	}
 }
@@ -73,18 +73,18 @@ func TestTodayShowsIncidentsFirstAndWaiting(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 50)
 	text := rowText(d.m.rowsToday(120))
-	i, o := strings.Index(text, "Incidents (1)"), strings.Index(text, "Waiting on others")
+	i, o := strings.Index(text, "incident "), strings.Index(text, "waiting ")
 	if i < 0 || o < 0 || i > o || !strings.Contains(text, "sev1 open") || !strings.Contains(text, "Atlas down") {
 		t.Errorf("Today lacks incidents before the rest:\n%s", text)
 	}
-	if !strings.Contains(text, "Waiting on others (2)") { // the seeded outbound RFX and the task
-		t.Errorf("Today lacks the waiting count:\n%s", text)
+	if n := strings.Count(text, "waiting "); n != 1 { // the task; the seeded RFX shows once, as a nudge
+		t.Errorf("Today has %d waiting rows, want 1:\n%s", n, text)
 	}
 	if _, err := ops.IncidentStatus.Run(ctx, deps, ops.IncidentStatusInput{ID: inc.ID, Status: model.IncidentResolved}); err != nil {
 		t.Fatal(err)
 	}
 	d = newDrv(t, v, 120, 50)
-	if text := rowText(d.m.rowsToday(120)); strings.Contains(text, "Incidents (") {
+	if text := rowText(d.m.rowsToday(120)); strings.Contains(text, "incident ") {
 		t.Errorf("a resolved incident is still on Today:\n%s", text)
 	}
 }
@@ -113,7 +113,7 @@ func TestTodayAnswersAQuestion(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 60)
 	text := rowText(d.m.rowsToday(120))
-	for _, want := range []string{"Questions (2)", "Decide B-1: config path for prod", "decision", "blocks 1", "Who signs off?"} {
+	for _, want := range []string{"question ", "Decide B-1: config path for prod", "decision", "blocks 1", "Who signs off?"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Today lacks %q:\n%s", want, text)
 		}
@@ -154,7 +154,7 @@ func TestTodayAnswersAQuestion(t *testing.T) {
 	}
 	// The dependent is ready at once, and the answered question left the list.
 	text = rowText(d.m.rowsToday(120))
-	if !strings.Contains(text, "Questions (1)") || !strings.Contains(text, "Deploy to prod") {
+	if strings.Count(text, "question \x1b") != 1 || !strings.Contains(text, "Deploy to prod") {
 		t.Fatalf("Today after the answer:\n%s", text)
 	}
 	// Free text for a question with no options.

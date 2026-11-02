@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"unicode"
 )
 
 // Letters of the document actions. Link keys in a document avoid them, so a
@@ -13,7 +12,7 @@ const docActionLetters = "zxycvd"
 
 var (
 	actCapture = Target{ID: "act:capture", Label: "Capture", Pref: 'c'}
-	actVault   = Target{ID: "act:vault", Label: "Vault", Pref: 'v'}
+	actVault   = Target{ID: "act:vault", Label: "Switch vault", Pref: 'v'}
 	actZoom    = Target{ID: "act:zoom", Label: "Zoom", Pref: 'z'}
 	actExport  = Target{ID: "act:export", Label: "Export", Pref: 'x'}
 	actCopy    = Target{ID: "act:copy", Label: "Copy", Pref: 'y'}
@@ -24,24 +23,6 @@ var (
 	actMeta    = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
 	actAgenda  = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
 )
-
-// placeKey shows a key on a label: bold and underline on a letter of the label.
-// It reports false when the label holds no letter for the key; the row then
-// shows the key in the gutter instead, never after the label.
-func placeKey(label string, k Key) (string, bool) {
-	lab := []rune(label)
-	if k.At >= 0 && k.At < len(lab) && strings.EqualFold(string(lab[k.At]), k.Code) {
-		return Mark(label, k), true
-	}
-	if len(k.Code) == 1 {
-		for i, r := range lab {
-			if unicode.ToLower(r) == rune(k.Code[0]) {
-				return Mark(label, Key{Code: k.Code, At: i}), true
-			}
-		}
-	}
-	return label, false
-}
 
 // listing is one list screen drawn: its lines and the key map.
 type listing struct {
@@ -88,10 +69,10 @@ func (m *Model) rows(w int) ([]row, []Target) {
 			return m.rowsGraph(p, w), acts
 		case pageProposal:
 			return m.rowsProposal(p, w), append(m.proposalActs(p, w), acts...)
+		case pageText:
+			return m.rowsText(p), append(m.textActs(p), acts...)
 		case pageHistory:
 			return m.rowsHistory(p, w), acts
-		case pageText:
-			return m.rowsText(p), acts
 		case pageAgenda:
 			return m.rowsAgenda(w), acts
 		}
@@ -110,14 +91,6 @@ func (m *Model) rows(w int) ([]row, []Target) {
 		return m.rowsPolicy(w), acts
 	}
 	return m.rowsToday(w), append([]Target{actAnswer, actAgenda}, acts...)
-}
-
-// extraActs are actions with a key and no place in the footer: they are under ?.
-func (m *Model) extraActs() []Target {
-	if p := m.top(); p != nil && p.kind == pageProposal {
-		return m.secondaryActs()
-	}
-	return nil
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -163,40 +136,38 @@ func (m *Model) drawListOnce(h int) (listing, int) {
 	}
 	// Hidden actions have keys but no footer entry, and Answer has its key
 	// always so the letters of the links do not move with the cursor.
-	keys := Assign(append(append([]Target{}, acts...), m.extraActs()...), links, "")
+	keys := Assign(append(append([]Target{}, m.extraActs()...), acts...), links, "")
 	footer := acts
 	if *cur >= 0 && *cur < len(rows) && rows[*cur].kind != "question" {
 		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actAnswer.ID })
 	}
 	inGutter := map[string]string{} // target id -> key code
 	use := func(id, label string) string {
-		k, ok := keys[id]
-		if !ok {
-			return label
-		}
-		s, placed := placeKey(label, k)
-		if !placed {
+		if k, ok := keys[id]; ok {
 			inGutter[id] = k.Code
 		}
-		return s
+		return label
 	}
 	out := listing{keys: keys, footer: footer}
 	body := make([]string, len(vis))
 	for i, r := range vis {
 		body[i] = r.draw(use)
 	}
+	// A key sits in the row's own indent, next to the text. Only when the
+	// indent is too small does every row move right to make room.
+	lead := func(s string) int { return len(s) - len(strings.TrimLeft(s, " ")) }
 	gw := 0
-	for _, r := range vis {
+	for i, r := range vis {
 		if c := inGutter[r.target]; r.sel && c != "" {
-			gw = max(gw, cells(c)+1)
+			gw = max(gw, cells(c)+1-lead(body[i]))
 		}
 	}
 	for i, r := range vis {
-		g := strings.Repeat(" ", gw)
+		line := strings.Repeat(" ", gw) + body[i]
 		if c := inGutter[r.target]; r.sel && c != "" {
-			g = stDim.Render(pad(c, gw))
+			at := gw + lead(body[i]) - cells(c) - 1
+			line = line[:at] + stDim.Render(c) + line[at+cells(c):]
 		}
-		line := g + body[i]
 		if r.sel && *off+i == *cur {
 			line = selected(line, m.w)
 		} else {
@@ -405,7 +376,9 @@ func (m *Model) statusLine() string {
 	var left string
 	switch {
 	case s == "":
-		if p := m.top(); p != nil {
+		if hint := m.proposalHint(); hint != "" {
+			left = stDim.Render(truncate(hint, room))
+		} else if p := m.top(); p != nil {
 			t := p.title
 			if len(m.stack) > 1 && m.w >= 60 {
 				t = fmt.Sprintf("%s  (%d deep)", t, len(m.stack))

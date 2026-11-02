@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
@@ -66,9 +67,9 @@ func pointerLines(ps []model.Pointer) []string {
 }
 
 func taskLine(t ops.TaskView) string {
-	s := wl(t.ID, t.Title) + " · " + string(t.Status)
+	s := wl(t.ID, t.Title) + " · " + stateWord(string(t.Status))
 	if t.Due != "" {
-		s += " · due " + string(t.Due)
+		s += " · due " + dateWords(string(t.Due), time.Time{})
 	}
 	if t.AssigneeName != "" {
 		s += " · with " + t.AssigneeName
@@ -107,7 +108,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if err != nil {
 			return ov
 		}
-		ov.glance = glanceLine("Area", string(m.Status))
+		ov.glance = glanceLine("Area", stateWord(string(m.Status)))
 		section(&b, "Links", pointerLines(o.Area.Links))
 		count := map[string]int{}
 		var loose []string
@@ -124,13 +125,13 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 			if count[p.ID] > 0 {
 				n = plural(count[p.ID], "task")
 			}
-			ps = append(ps, wl(p.ID, p.Title)+" · "+string(p.Status)+" · "+n)
+			ps = append(ps, wl(p.ID, p.Title)+" · "+stateWord(string(p.Status))+" · "+n)
 		}
 		section(&b, "Projects", ps)
 		section(&b, "Tasks in the area itself", loose)
 		var inc []string
 		for _, i := range o.Incidents {
-			inc = append(inc, wl(i.ID, i.Title)+" · "+string(i.Severity)+" "+string(i.Status))
+			inc = append(inc, wl(i.ID, i.Title)+" · "+string(i.Severity)+" "+stateWord(string(i.Status)))
 		}
 		section(&b, "Incidents", inc)
 		var qs []string
@@ -143,7 +144,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if err != nil {
 			return ov
 		}
-		ov.glance = glanceLine("Project", string(m.Status), prefixed("Area ", wlOrName(m.Area.Target(), name(m.Area.Target()))))
+		ov.glance = glanceLine("Project", stateWord(string(m.Status)), prefixed("Area ", wlOrName(m.Area.Target(), name(m.Area.Target()))))
 		section(&b, "Links", pointerLines(o.Project.Links))
 		var ts []string
 		for _, t := range o.Tasks {
@@ -170,14 +171,14 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if proj == "" {
 			proj = m.Area.Target()
 		}
-		ov.glance = glanceLine("Task", string(m.Status), prefixed("due ", string(m.Due)), prefixed("in ", wlOrName(proj, name(proj))), assignee,
+		ov.glance = glanceLine("Task", stateWord(string(m.Status)), prefixed("due ", dateWords(string(m.Due), time.Time{})), prefixed("in ", wlOrName(proj, name(proj))), assignee,
 			prefixed("needs ", strings.Join(deps, ", ")))
 		if len(m.BlockedBy) > 0 {
 			section(&b, "Blocked by", m.BlockedBy)
 		}
 	case *model.Question:
 		scope := m.Scope.Target()
-		ov.glance = glanceLine("Question", string(m.AsKind()), string(m.Status), prefixed("about ", wlOrName(scope, name(scope))))
+		ov.glance = glanceLine("Question", string(m.AsKind()), stateWord(string(m.Status)), prefixed("about ", wlOrName(scope, name(scope))))
 		var opts []string
 		for _, o := range m.Options {
 			if o == m.Recommended {
@@ -195,13 +196,13 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if m.Direction == model.RFXIn {
 			dir = "Asks you"
 		}
-		ov.glance = glanceLine(dir, string(m.Status), prefixed("route ", name(m.Route)), prefixed("nudge ", string(m.NextNudge)))
+		ov.glance = glanceLine(dir, stateWord(string(m.Status)), prefixed("route ", name(m.Route)), prefixed("nudge ", dateWords(string(m.NextNudge), time.Time{})))
 		var ts []string
 		for _, t := range m.Targets {
 			who := firstNonEmpty(wlOrName(t.To.Target(), name(t.To.Target())), "someone")
-			s := who + " · " + string(t.Medium) + " · " + string(t.State)
+			s := who + " · " + string(t.Medium) + " · " + stateWord(string(t.State))
 			if t.Sent != "" {
-				s += " " + string(t.Sent)
+				s += " " + dateWords(string(t.Sent), time.Time{})
 			}
 			ts = append(ts, s)
 		}
@@ -214,7 +215,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		}
 		var chain []string
 		for _, c := range o.Chain {
-			chain = append(chain, wl(c.ID, c.Title)+" · "+c.Status)
+			chain = append(chain, wl(c.ID, c.Title)+" · "+stateWord(c.Status))
 		}
 		section(&b, "Waits on", chain)
 		var by []string

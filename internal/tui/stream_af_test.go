@@ -50,10 +50,10 @@ func TestTodayLeadsWithProposalsAndReviewTabCountsThem(t *testing.T) {
 	v.fileProposal(mailItem("Hi Ada."))
 	d := newDrv(t, v, 120, 40)
 	f := d.plainFrame()
-	if !strings.Contains(f, "Needs you: 1 proposal to decide") {
-		t.Errorf("no needs line:\n%s", f)
+	if strings.Contains(f, "Needs you") {
+		t.Errorf("a needs line:\n%s", f)
 	}
-	if p, i := strings.Index(f, "Proposals (1)"), strings.Index(f, "Questions"); p < 0 || (i >= 0 && p > i) {
+	if p, i := strings.Index(f, "proposal "), strings.Index(f, "question "); p < 0 || (i >= 0 && p > i) {
 		t.Errorf("proposals are not first:\n%s", f)
 	}
 	if !strings.Contains(strings.Split(f, "\n")[0], "Review 1") {
@@ -191,10 +191,11 @@ func TestApprovedItemShowsOutcomeByNameAndHashStaysInDetails(t *testing.T) {
 	}
 	d.key("enter")
 	f := d.plainFrame()
-	if !strings.Contains(f, "Details") || strings.Index(f, "Details") > strings.Index(f, "Approval binds to hash") {
-		t.Errorf("hash is not under details:\n%s", f)
+	if !strings.Contains(f, coversText) || strings.Contains(f, "sha256:") || strings.Contains(f, "task-") || strings.Contains(f, `"title"`) {
+		t.Errorf("the full view shows a hash, an id or raw input:\n%s", f)
 	}
-	if strings.Contains(f[:strings.Index(f, "Details")], "task-") {
-		t.Errorf("an id shows above the details:\n%s", f)
+	d.key(d.keyFor("act:source"))
+	if f := d.plainFrame(); !strings.Contains(f, "Approval binds to hash sha256:") || !strings.Contains(f, `"title"`) {
+		t.Errorf("Source does not show the raw input and hash:\n%s", f)
 	}
 }

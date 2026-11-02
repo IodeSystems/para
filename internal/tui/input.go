@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"slices"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -21,7 +22,10 @@ func (m *Model) onKey(k tea.KeyPressMsg) tea.Cmd {
 	if m.pending != "" {
 		return m.onOverflowKey(s)
 	}
-	m.status = ""
+	moves := slices.Contains([]string{"j", "k", "up", "down", "g", "G", "pgdown", "pgup", "space", " "}, s)
+	if !m.statKeep || m.status == "" || !moves {
+		m.status, m.statKeep = "", false
+	}
 	switch s {
 	case "q":
 		return tea.Quit

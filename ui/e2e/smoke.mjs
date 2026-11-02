@@ -1162,7 +1162,8 @@ try {
   rmSync(work, { recursive: true, force: true })
 }
 if (failures.length) {
-  console.error(`\n${failures.length} failure(s)`)
+  console.error(`\n${failures.length} failure(s):`)
+  for (const f of failures) console.error(`  FAILED: ${f}`)
   process.exit(1)
 }
 console.log('\nall checks passed')
