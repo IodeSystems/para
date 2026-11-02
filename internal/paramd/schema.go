@@ -39,6 +39,7 @@ var (
 	interDirections = []string{"in", "out", "observed"}
 	visibilities    = []string{"public", "private"}
 	journalScopes   = []string{"day", "week", "month", "project"}
+	areaStatus      = []string{"active", "paused"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 )
 
@@ -46,7 +47,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request",
+	"group", "interaction", "request", "area",
 }
 
 // commonFields apply to every type.
@@ -62,6 +63,10 @@ var typeFields = map[string][]field{
 	"project": {
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
 		{Name: "owner", Kind: kString, Required: true},
+		{Name: "area", Kind: kLink},
+	},
+	"area": {
+		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
 	},
 	"task": {
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},

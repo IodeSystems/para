@@ -122,6 +122,7 @@ func newRoot(l *loader) *cobra.Command {
 		newInboxCmd(l),
 		newMCPCmd(l),
 		newProjectCmd(l),
+		newAreaCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),

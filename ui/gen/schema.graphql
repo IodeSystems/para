@@ -25,6 +25,7 @@ type ParaQueryNamespace {
 type ParaV1MutationNamespace {
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
@@ -79,6 +80,8 @@ type ParaV1MutationNamespace {
 
 type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
+  areaList: para_AreaListOutput @derived(operationId: "areaList")
+  areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
@@ -125,6 +128,80 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+input para_AreaAddInputInput {
+  body: String
+  id: String
+  status: para_AreaAddInputStatus
+  title: String!
+}
+
+enum para_AreaAddInputStatus {
+  active
+  paused
+}
+
+type para_AreaAddOutput {
+  folder: para_AreaAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_AreaAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_AreaListOutput {
+  areas: [para_AreaView!]!
+}
+
+type para_AreaShowOutput {
+  area: para_AreaView!
+  body: String!
+  projects: [para_ProjectView!]!
+  tasks: [para_TaskView!]!
+}
+
+type para_AreaView {
+  folder: para_AreaViewFolder!
+  id: String!
+  rev: String!
+  status: para_AreaViewStatus!
+  title: String!
+}
+
+enum para_AreaViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_AreaViewStatus {
+  active
+  paused
 }
 
 type para_ChainNode {
@@ -549,6 +626,7 @@ type para_GraphNode {
 }
 
 enum para_GraphNodeType {
+  area
   constraint
   convention
   domain
@@ -902,6 +980,7 @@ type para_LintOutput {
 type para_Meta {
   aliases: [String!]
   appliesIn: [String!]
+  area: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -961,6 +1040,7 @@ enum para_MetaMedium {
 }
 
 enum para_MetaType {
+  area
   constraint
   convention
   domain
@@ -1242,6 +1322,7 @@ type para_ProjectShowOutput {
 }
 
 type para_ProjectView {
+  area: String
   folder: para_ProjectViewFolder!
   id: String!
   owner: String!
@@ -1544,6 +1625,7 @@ enum para_RefFolder {
 }
 
 enum para_RefType {
+  area
   constraint
   convention
   domain

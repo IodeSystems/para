@@ -23,6 +23,7 @@ const (
 	TypeGroup           Type = "group"
 	TypeInteraction     Type = "interaction"
 	TypeRequest         Type = "request"
+	TypeArea            Type = "area"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -30,6 +31,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
+	TypeArea,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -80,6 +82,20 @@ const (
 
 // ProjectStatuses lists every ProjectStatus.
 var ProjectStatuses = []ProjectStatus{ProjectActive, ProjectPaused, ProjectDone, ProjectDropped}
+
+// AreaStatus is area.status.
+type AreaStatus string
+
+const (
+	AreaActive AreaStatus = "active"
+	AreaPaused AreaStatus = "paused"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (AreaStatus) Enum() []string { return enumStrings(AreaStatuses) }
+
+// AreaStatuses lists every AreaStatus.
+var AreaStatuses = []AreaStatus{AreaActive, AreaPaused}
 
 // TaskStatus is task.status.
 type TaskStatus string

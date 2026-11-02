@@ -3,6 +3,7 @@ type: project
 created: 2026-11-01
 status: active
 owner: Jordan Example
+area: "[[health]]"
 tags: []
 ---
 

@@ -27,6 +27,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"type", strs(Types), paramd.Types},
 		{"fidelity", strs(Fidelities), paramd.Fidelities()},
 		{"project.status", strs(ProjectStatuses), paramd.FieldEnum("project", "status")},
+		{"area.status", strs(AreaStatuses), paramd.FieldEnum("area", "status")},
 		{"task.status", strs(TaskStatuses), paramd.FieldEnum("task", "status")},
 		{"rfx.direction", strs(RFXDirections), paramd.FieldEnum("rfx", "direction")},
 		{"rfx.status", strs(RFXStatuses), paramd.FieldEnum("rfx", "status")},
@@ -66,7 +67,8 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		meta Meta
 		body string
 	}{
-		{"acme-portal", &Project{c(TypeProject), ProjectActive, "Jordan Example"}, ""},
+		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health")}, ""},
+		{"health", &Area{c(TypeArea), AreaActive}, "Standard."},
 		{"task-one", &Task{c(TypeTask), TaskBlocked, LinkTo("acme-portal"), []string{"waiting on rfx-one"}, []Link{LinkTo("rfx-one")}}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{

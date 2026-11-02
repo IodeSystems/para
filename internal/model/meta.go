@@ -68,6 +68,14 @@ type Project struct {
 	Common `yaml:",inline"`
 	Status ProjectStatus `yaml:"status" json:"status"`
 	Owner  string        `yaml:"owner" json:"owner"`
+	// Area is the area of life or work the project belongs to; optional.
+	Area Link `yaml:"area,omitempty" json:"area,omitempty"`
+}
+
+// Area is type: area, an ongoing responsibility with no end date (PARA).
+type Area struct {
+	Common `yaml:",inline"`
+	Status AreaStatus `yaml:"status" json:"status"`
 }
 
 // Task is type: task.
@@ -288,6 +296,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Interaction{Common: c}, true
 	case TypeRequest:
 		return &Request{Common: c}, true
+	case TypeArea:
+		return &Area{Common: c}, true
 	}
 	return nil, false
 }

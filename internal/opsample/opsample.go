@@ -16,6 +16,8 @@ import (
 // test fails and names the op: add its entry here.
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
+	"area_add":                  `{"title":"Health"}`,
+	"area_show":                 `{"id":"area-sample"}`,
 	"constraint_add":            `{"says":"No prod access","why":"Audit scope","by":"Jordan Example","source":"https://wiki.acme.example/access","review_by":"2027-01-01"}`,
 	"constraint_show":           `{"id":"constraint-sample"}`,
 	"convention_add":            `{"title":"Branch names"}`,
@@ -87,6 +89,8 @@ func Seed(ctx context.Context, s store.Store) error {
 	for _, d := range []model.Document{
 		{ID: "project-sample", Folder: model.FolderProjects, Title: "Sample project",
 			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+		{ID: "area-sample", Folder: model.FolderAreas, Title: "Sample area",
+			Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive}},
 		{ID: "task-sample", Folder: model.FolderProjects, Title: "Sample task",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-sample")}},
 		{ID: "inbox-sample", Folder: model.FolderInbox, Title: "Sample capture",
