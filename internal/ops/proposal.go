@@ -527,6 +527,11 @@ type ItemView struct {
 	// for example "Add task: Order extra node pool, for Priya Raman, due Nov 3".
 	// The full input is Input.
 	Summary string `json:"summary"`
+	// Change is the exact change in plain words, one line per field.
+	Change []string `json:"change"`
+	// ResultName is the title of what an approved item made, when it made a
+	// document: Result is its id.
+	ResultName string `json:"result_name,omitempty"`
 }
 
 // AnnotationView is an annotation. Anchored is false when its quote is no
@@ -632,7 +637,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 			return out, err
 		}
 		text[it.ID] = itemText(*it)
-		out.Items = append(out.Items, ItemView{ProposalItem: *it, Hash: hash, OpenAnnotations: p.openAnnotations(it.ID), Actions: p.actions(it), Summary: sum.of(*it)})
+		out.Items = append(out.Items, ItemView{ProposalItem: *it, Hash: hash, OpenAnnotations: p.openAnnotations(it.ID), Actions: p.actions(it), Summary: sum.of(*it), Change: sum.change(*it), ResultName: sum.resultName(*it)})
 	}
 	for _, a := range p.content.Annotations {
 		out.Annotations = append(out.Annotations, AnnotationView{Annotation: a, Anchored: strings.Contains(text[a.Item], a.Quote)})

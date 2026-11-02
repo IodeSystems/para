@@ -2,6 +2,8 @@ package ops
 
 import (
 	"context"
+	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -217,4 +219,84 @@ func (z itemSummarizer) date(s string) string {
 		return t.Format("Jan 2, 2006")
 	}
 	return t.Format("Jan 2")
+}
+
+// fieldWords are input keys whose plain label differs from the key.
+var fieldWords = map[string]string{
+	"assignee": "Given to", "with": "With", "ask": "Ask", "text": "Text", "area": "Area",
+	"project": "Project", "due": "Due", "date": "Date", "id": "Item", "depends_on": "Needs first",
+}
+
+// change is the exact change of an item in plain words: one line per field,
+// ids as names, dates as dates. It is made from the item's fields, never from
+// the evidence. The raw input stays on the item for checking.
+func (z itemSummarizer) change(it model.ProposalItem) []string {
+	if it.Kind == model.ItemExternal {
+		out := []string{"Send to: " + it.Target}
+		if w := mediumWords[it.Medium]; w != "" {
+			out = append(out, "By: "+w)
+		}
+		return out
+	}
+	keys := make([]string, 0, len(it.Input))
+	for k := range it.Input {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	out := []string{}
+	for _, k := range keys {
+		v := z.value(it.Input[k])
+		if v == "" {
+			continue
+		}
+		label, ok := fieldWords[k]
+		if !ok {
+			label = strings.ToUpper(k[:1]) + strings.ReplaceAll(k[1:], "_", " ")
+		}
+		out = append(out, label+": "+v)
+	}
+	return out
+}
+
+// value writes one input value: a name for an id, a date for a date, a list
+// joined by commas.
+func (z itemSummarizer) value(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return ""
+	case string:
+		x = strings.TrimSpace(x)
+		if n := z.name(x); n != "" {
+			return n
+		}
+		if _, err := time.Parse(dateLayout, x); err == nil {
+			return z.date(x)
+		}
+		return x
+	case []any:
+		var parts []string
+		for _, e := range x {
+			if s := z.value(e); s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, ", ")
+	case bool:
+		if x {
+			return "yes"
+		}
+		return "no"
+	case float64:
+		return fmt.Sprint(x)
+	}
+	return fmt.Sprint(v)
+}
+
+// resultName names what an approved item made: the title of the document its
+// result id points at, or "" when the result is no document.
+func (z itemSummarizer) resultName(it model.ProposalItem) string {
+	if it.Result == "" {
+		return ""
+	}
+	return z.name(it.Result)
 }
