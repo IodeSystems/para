@@ -105,6 +105,7 @@ func registerRecords(r *registrar) {
 	reg(r, ops.Copy, post, read)
 	reg(r, ops.Export, post, read)
 	reg(r, ops.ExportList, get, read)
+	reg(r, ops.CalendarExport, post, read)
 	reg(r, ops.InteractionAdd, post, write)
 	reg(r, ops.InteractionList, get, read)
 	reg(r, ops.InteractionShow, get, read)

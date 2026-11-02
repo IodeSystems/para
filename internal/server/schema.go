@@ -169,4 +169,5 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, export.Formats)
 	addEnum(reg, ops.TriageTargets)
 	addEnum(reg, ops.ReplyOutcomes)
+	addEnum(reg, ops.AgendaKinds)
 }

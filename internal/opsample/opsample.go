@@ -23,6 +23,7 @@ var Inputs = map[string]string{
 	"project_link_add":          `{"id":"project-sample","label":"Plan","kind":"plan","target":"~/doc/plan.md"}`,
 	"project_link_remove":       `{"id":"project-sample","label":"Docs"}`,
 	"where":                     `{"query":"sample"}`,
+	"calendar_export":           `{"days":30,"to":"ssh:desk.example:/tmp/sample.ics"}`,
 	"meeting_add":               `{"title":"Launch sync","with":["person-sample"],"rfx":["rfx-sample"],"start":"2026-11-04T10:00:00-05:00","end":"2026-11-04T10:30:00-05:00"}`,
 	"meeting_show":              `{"id":"meeting-sample"}`,
 	"meeting_schedule":          `{"id":"meeting-sample","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,

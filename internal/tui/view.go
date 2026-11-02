@@ -22,6 +22,7 @@ var (
 	actGraph   = Target{ID: "act:graph", Label: "Graph"}
 	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
 	actMeta    = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
+	actAgenda  = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
 )
 
 // placeKey shows a key on a label: bold and underline on a letter of the label.
@@ -91,6 +92,8 @@ func (m *Model) rows(w int) ([]row, []Target) {
 			return m.rowsHistory(p, w), acts
 		case pageText:
 			return m.rowsText(p), acts
+		case pageAgenda:
+			return m.rowsAgenda(w), acts
 		}
 		return nil, acts
 	}
@@ -106,7 +109,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), append([]Target{actAnswer}, acts...)
+	return m.rowsToday(w), append([]Target{actAnswer, actAgenda}, acts...)
 }
 
 // extraActs are actions with a key and no place in the footer: they are under ?.

@@ -2,8 +2,11 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
@@ -19,6 +22,8 @@ func streamVParityCases() map[string]parityCase {
 		"meeting_show":     {`{"id":"meeting-v-show"}`, []string{"meeting", "show", "meeting-v-show"}, true},
 		"meeting_schedule": {`{"id":"meeting-v-a","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`, []string{"meeting", "schedule", "meeting-v-b", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
 		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","project":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--project", "project-v-seed"}, false},
+		"agenda":           {`{"days":14}`, []string{"agenda", "--days", "14"}, false},
+		"calendar_export":  {`{"days":30}`, []string{"calendar", "export", "--days", "30"}, false},
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
 	}
 }
@@ -118,4 +123,74 @@ func TestMeetingHoldCLI(t *testing.T) {
 	if _, _, err := e.run("meeting", "hold", m3.ID, "--stdin-json", "--notes", "y"); err == nil || !strings.Contains(err.Error(), "leave out") {
 		t.Fatalf("err = %v", err)
 	}
+}
+
+func TestAgendaAndCalendarCLI(t *testing.T) {
+	e := newEnv(t)
+	vaultPath := e.init("acme")
+	var person ops.OrgAddOutput
+	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
+	var project ops.ProjectAddOutput
+	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	at := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
+	e.ok("meeting", "add", "Launch", "sync", "--with", person.ID, "--start", at.Format(time.RFC3339), "--end", at.Add(30*time.Minute).Format(time.RFC3339))
+	e.ok("task", "add", "File the form", "-p", project.ID, "--due", time.Now().Format("2006-01-02"))
+
+	out := e.ok("agenda", "--days", "3", "--zone", "UTC")
+	for _, want := range []string{"agenda ", "(UTC)", "Launch sync", "with Vera Example", "File the form", "due"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("agenda lacks %q:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(out, at.UTC().Format("15:04")+"-"+at.Add(30*time.Minute).UTC().Format("15:04")) {
+		t.Errorf("agenda shows no UTC hours %s:\n%s", at.UTC().Format("15:04"), out)
+	}
+	if _, _, err := e.run("agenda", "--zone", "Nowhere/Land"); err == nil {
+		t.Error("a bad zone must fail")
+	}
+
+	ics := e.ok("calendar", "export", "--days", "3")
+	if !strings.HasPrefix(ics, "BEGIN:VCALENDAR\r\n") || !strings.Contains(ics, "SUMMARY:Launch sync") || !strings.Contains(ics, "SUMMARY:Due: File the form") {
+		t.Errorf("ics = %q", ics)
+	}
+	file := filepath.Join(e.dir, "agenda.ics")
+	e.ok("calendar", "export", "--to", "file:"+file)
+	st, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o600 {
+		t.Errorf("mode = %v, want 0600", st.Mode().Perm())
+	}
+	if _, _, err := e.run("calendar", "export", "--to", "file:"+file, "--json"); err == nil {
+		t.Error("--to with --json must fail")
+	}
+	// An export is an egress event; with an allowlist that lacks the transport it is refused.
+	var tail ops.EventsTailOutput
+	e.json(&tail, "events", "tail", "-n", "50")
+	n := 0
+	for _, ev := range tail.Events {
+		if ev.Op == "egress" && ev.Doc == "calendar" {
+			n++
+		}
+	}
+	if n < 2 {
+		t.Errorf("egress events for the calendar = %d, want at least 2", n)
+	}
+	props := filepath.Join(vaultPath, ".para", "vault.properties")
+	cur, err := os.ReadFile(props)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(props, append(cur, []byte("egress.export=stdout\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(e.dir, "other.ics")
+	if _, _, err := e.run("calendar", "export", "--to", "file:"+other); err == nil || !strings.Contains(err.Error(), "egress.export") {
+		t.Errorf("err = %v, want a refusal that names egress.export", err)
+	}
+	if _, err := os.Stat(other); err == nil {
+		t.Error("a refused export wrote a file")
+	}
+	e.ok("calendar", "export")
 }

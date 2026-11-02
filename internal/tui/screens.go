@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 
@@ -113,6 +114,9 @@ func (m *Model) rowsToday(w int) []row {
 		return []row{dim("loading...")}
 	}
 	r := []row{head(fmt.Sprintf("Today %s   vault %s", s.Date, s.Vault) + stDim.Render(fmt.Sprintf("   inbox %d", len(s.Inbox))))}
+	if line := m.agendaSummary(); line != "" {
+		r = append(r, dim("  Agenda: "+stripSGR(line)+" (press the Agenda key below)"))
+	}
 	shown := map[string]bool{}
 	// once builds a row for an item the first time it appears on the screen.
 	once := func(id string, build func() row) []row {
@@ -880,4 +884,84 @@ func hasQuestion(ns []ops.GraphNode) bool {
 		}
 	}
 	return false
+}
+
+// agendaSummary is one line for Today: what is dated, so the Agenda link says
+// what is behind it. Empty when nothing is dated.
+func (m *Model) agendaSummary() string {
+	var meetings, due, late int
+	for _, it := range m.snap.Agenda.Items {
+		switch {
+		case it.Overdue:
+			late++
+		case it.Kind == ops.AgendaMeeting:
+			meetings++
+		default:
+			due++
+		}
+	}
+	var parts []string
+	if meetings > 0 {
+		parts = append(parts, plural(meetings, "meeting"))
+	}
+	if due > 0 {
+		parts = append(parts, fmt.Sprintf("%d dated", due))
+	}
+	if late > 0 {
+		parts = append(parts, stBad.Render(fmt.Sprintf("%d overdue", late)))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ", ") + fmt.Sprintf(" in %d days", AgendaDays)
+}
+
+// rowsAgenda is the Agenda page: dated items by day in local time, meetings
+// with their hours, and a link to the document on each.
+func (m *Model) rowsAgenda(w int) []row {
+	a := m.snap.Agenda
+	r := []row{head(fmt.Sprintf("Agenda %s to %s   %s", a.From, a.To, a.Zone))}
+	if len(a.Items) == 0 {
+		return append(r, dim("  Nothing is dated in the next "+fmt.Sprint(AgendaDays)+" days."))
+	}
+	day := ""
+	for _, it := range a.Items {
+		if it.Date != day {
+			day = it.Date
+			name := day
+			if t, err := time.Parse("2006-01-02", day); err == nil {
+				name += " " + t.Weekday().String()[:3]
+			}
+			if day == m.snap.Date {
+				name += "  today"
+			}
+			r = append(r, head(name))
+		}
+		when := string(it.Kind)
+		switch it.Kind {
+		case ops.AgendaMeeting:
+			when = it.Time
+			if t, err := time.Parse(time.RFC3339, it.Until); err == nil {
+				when += "-" + t.Format("15:04")
+			}
+		case ops.AgendaDue:
+			when = "due"
+		}
+		pre := "  " + stDim.Render(pad(when, 12)) + " "
+		post := ""
+		if names := joinNames(it.WhoNames); names != "" {
+			post += "  " + stDim.Render("with "+names)
+		}
+		if it.ProjectName != "" {
+			post += "  " + stDim.Render(it.ProjectName)
+		}
+		if it.Overdue {
+			post += "  " + stBad.Render("overdue")
+		}
+		if it.Kind == ops.AgendaDue && it.Detail != "" {
+			post += "  " + stWarn.Render(it.Detail)
+		}
+		r = append(r, link("doc:"+it.ID, pre, titleOr(it.Title, it.ID), post, w))
+	}
+	return r
 }

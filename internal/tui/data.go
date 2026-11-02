@@ -84,6 +84,7 @@ type Snapshot struct {
 	Proposals  []ops.ProposalView // current revisions
 	Inbox      []ops.InboxItem
 	Questions  []ops.QuestionView // open, the ones that block the most first
+	Agenda     ops.AgendaOutput   // dated items, the next AgendaDays days
 	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
 	Tasks      []ops.TaskView
@@ -101,6 +102,9 @@ type Snapshot struct {
 }
 
 const eventWindow = 2000
+
+// AgendaDays is how far ahead the Agenda page looks.
+const AgendaDays = 14
 
 // Load reads a snapshot. It never returns an error: a failing section is
 // recorded in Errs so the other screens stay usable.
@@ -150,6 +154,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.QuestionList.Run(ctx, e.Deps, ops.QuestionListInput{}); note("questions", err) {
 		s.Questions = o.Questions
+	}
+	if o, err := ops.Agenda.Run(ctx, e.Deps, ops.AgendaInput{Days: AgendaDays}); note("agenda", err) {
+		s.Agenda = o
 	}
 	if o, err := ops.AreaList.Run(ctx, e.Deps, ops.AreaListInput{}); note("areas", err) {
 		s.Areas = o.Areas

@@ -30,6 +30,7 @@ type ParaV1MutationNamespace {
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
+  calendarExport(body: para_CalendarExportInputInput!): para_CalendarExportOutput @derived(operationId: "calendarExport")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
   conventionAdd(body: para_ConventionAddInputInput!): para_ConventionAddOutput @derived(operationId: "conventionAdd")
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
@@ -115,6 +116,7 @@ type ParaV1MutationNamespace {
 
 type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
+  agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
@@ -194,6 +196,36 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+type para_AgendaItem {
+  at: String
+  date: String!
+  detail: String
+  id: String!
+  kind: para_AgendaItemKind!
+  overdue: Boolean!
+  project: String
+  projectName: String
+  time: String
+  title: String!
+  until: String
+  who: [String!]!
+  whoNames: [String!]
+}
+
+enum para_AgendaItemKind {
+  due
+  exception
+  meeting
+  nudge
+}
+
+type para_AgendaOutput {
+  from: String!
+  items: [para_AgendaItem!]!
+  to: String!
+  zone: String!
 }
 
 input para_AnnotationAnswerInput {
@@ -311,6 +343,23 @@ enum para_AreaViewFolder {
 enum para_AreaViewStatus {
   active
   paused
+}
+
+input para_CalendarExportInputInput {
+  days: Int
+  to: String
+  zone: String
+}
+
+type para_CalendarExportOutput {
+  destination: String!
+  egressAllowed: Boolean!
+  egressDefault: String!
+  events: Int!
+  ext: String!
+  marking: String!
+  text: String!
+  to: String!
 }
 
 type para_ChainNode {
