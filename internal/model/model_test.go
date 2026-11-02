@@ -59,7 +59,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		body string
 	}{
 		{"acme-portal", &Project{c(TypeProject), ProjectActive, "Jordan Example"}, ""},
-		{"task-one", &Task{c(TypeTask), TaskBlocked, LinkTo("acme-portal"), []string{"rfx-one"}}, ""},
+		{"task-one", &Task{c(TypeTask), TaskBlocked, LinkTo("acme-portal"), []string{"waiting on rfx-one"}, []Link{LinkTo("rfx-one")}}, ""},
 		{"rfx-one", &RFX{c(TypeRFX), RFXOut, RFXOpen, "email", "searched wiki", LinkTo("acme-portal")}, ""},
 		{"no-prod-logs", &Constraint{c(TypeConstraint), "PII", "Jordan", source(), []string{"prod"}, []string{"dev"}, "2027-01-01"}, ""},
 		{"policy-logging", &Policy{c(TypePolicy), source(), false}, "R1 policy-logging: Log failures. ^R1"},

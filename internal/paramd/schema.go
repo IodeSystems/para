@@ -56,6 +56,7 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},
 		{Name: "project", Kind: kLink, Required: true},
 		{Name: "blocked_by", Kind: kList},
+		{Name: "depends_on", Kind: kList},
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},

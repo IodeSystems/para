@@ -72,6 +72,7 @@ type Task struct {
 	Status    TaskStatus `yaml:"status" json:"status"`
 	Project   Link       `yaml:"project" json:"project"`
 	BlockedBy []string   `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
+	DependsOn []Link     `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 }
 
 // RFX is type: rfx.
