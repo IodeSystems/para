@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        dir: [ui, ext/chrome]
+        dir: [ui]
     defaults:
       run:
         working-directory: ${{ matrix.dir }}

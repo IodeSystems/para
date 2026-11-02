@@ -32,4 +32,4 @@ schema:           ## Write ui/gen/schema.graphql (committed)
 	go run ./cmd/para schema dump
 
 clean:
-	rm -rf $(DIST) tmp ui/dist ui/node_modules ext/chrome/dist ext/chrome/node_modules
+	rm -rf $(DIST) tmp ui/dist ui/node_modules

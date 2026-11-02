@@ -8,12 +8,11 @@ echo "==> go get -u ./... && go mod tidy" >&2
 go get -u ./...
 go mod tidy
 
-for d in ui ext/chrome; do
+for d in ui; do
   [ -f "$d/package.json" ] || continue
   echo "==> $d: pnpm update" >&2
   (cd "$d" && pnpm update)
 done
 
 echo "==> diff" >&2
-git --no-pager diff --stat -- go.mod go.sum ui/package.json ui/pnpm-lock.yaml \
-  ext/chrome/package.json ext/chrome/pnpm-lock.yaml
+git --no-pager diff --stat -- go.mod go.sum ui/package.json ui/pnpm-lock.yaml
