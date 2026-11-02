@@ -17,6 +17,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 
 	"github.com/iodesystems/paradize/docs"
+	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/ops"
 	"github.com/iodesystems/paradize/internal/store"
 	"github.com/iodesystems/paradize/internal/store/local"
@@ -27,7 +28,30 @@ import (
 // An op added by another stream is called with {}; if that fails,
 // TestParity fails and names the op: add its entry here.
 var sampleInputs = map[string]string{
-	"inbox_add": `{"text":"buy milk\nand eggs"}`,
+	"inbox_add":     `{"text":"buy milk\nand eggs"}`,
+	"project_add":   `{"title":"Portal","owner":"Jordan Example"}`,
+	"project_close": `{"id":"project-sample","force":true}`,
+	"project_show":  `{"id":"project-sample"}`,
+	"task_add":      `{"project":"project-sample","title":"Write parser"}`,
+	"task_block":    `{"id":"task-sample","reason":"waiting on legal"}`,
+	"task_done":     `{"id":"task-sample"}`,
+	"task_show":     `{"id":"task-sample"}`,
+	"task_start":    `{"id":"task-sample"}`,
+}
+
+// seedSamples creates the documents that sampleInputs name.
+func seedSamples(t *testing.T, s store.Store) {
+	t.Helper()
+	for _, d := range []model.Document{
+		{ID: "project-sample", Folder: model.FolderProjects, Title: "Sample project",
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+		{ID: "task-sample", Folder: model.FolderProjects, Title: "Sample task",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-sample")}},
+	} {
+		if _, err := s.Create(t.Context(), d); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func newVault(t *testing.T) (store.Store, string) {
@@ -283,6 +307,7 @@ func TestParity(t *testing.T) {
 	for _, e := range ops.All() {
 		t.Run(e.Name(), func(t *testing.T) {
 			s, _ := newVault(t)
+			seedSamples(t, s)
 			c := connect(t, ops.Deps{Store: s})
 			args, haveSample := sampleInputs[e.Name()]
 			if !haveSample {
@@ -313,6 +338,7 @@ func TestParity(t *testing.T) {
 			// A deterministic op gives the same bytes through Invoke.
 			if !haveSample {
 				s2, _ := newVault(t)
+				seedSamples(t, s2)
 				out, err := e.Invoke(context.Background(), ops.Deps{Store: s2}, json.RawMessage(args))
 				if err != nil {
 					t.Fatal(err)
