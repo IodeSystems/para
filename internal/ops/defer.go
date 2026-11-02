@@ -164,7 +164,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = definePerson("defer", "Put questions, tasks, or goals off until a date, or someday with no date; they leave Today and next but still block what depends on them. With scope, put off every open question in a goal or area that blocks nothing", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
+var Defer = definePerson("defer", "Put questions, tasks, or goals off until a date, or someday with no date; they leave the agenda and next but still block what depends on them. With scope, put off every open question in a goal or area that blocks nothing", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
 	after, when := normID(in.After), strings.Join(strings.Fields(in.When), " ")
