@@ -15,19 +15,85 @@ import (
 
 func newInboxCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "inbox", Short: "Unsorted captures", Args: cobra.NoArgs}
-	cmd.AddCommand(opCommand(l, ops.InboxAdd, binding[ops.InboxAddInput, ops.InboxAddOutput]{
-		Use:  "add <text>",
-		Args: cobra.MinimumNArgs(1),
-		Bind: func(args []string, in *ops.InboxAddInput) error {
-			in.Text = strings.Join(args, " ")
+	cmd.AddCommand(
+		opCommand(l, ops.InboxAdd, binding[ops.InboxAddInput, ops.InboxAddOutput]{
+			Use:  "add <text>",
+			Args: cobra.MinimumNArgs(1),
+			Bind: func(args []string, in *ops.InboxAddInput) error {
+				in.Text = strings.Join(args, " ")
+				return nil
+			},
+			Text: func(w io.Writer, out ops.InboxAddOutput) error {
+				_, err := fmt.Fprintln(w, out.ID)
+				return err
+			},
+		}),
+		opCommand(l, ops.InboxList, binding[ops.InboxListInput, ops.InboxListOutput]{
+			Use:  "list",
+			Args: cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.InboxListInput) {
+				fs.BoolVar(&in.All, "all", false, "include triaged (archived) items")
+			},
+			Text: func(w io.Writer, out ops.InboxListOutput) error {
+				p := &printer{w: w}
+				for _, it := range out.Items {
+					p.f("%s\t%s\t%s\t%s\n", it.ID, it.Folder, it.Created, it.Title)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.InboxShow, binding[ops.InboxShowInput, ops.InboxShowOutput]{
+			Use:  "show <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.InboxShowInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.InboxShowOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n%s\n", out.Doc.ID, out.Doc.Folder, out.Doc.Title, out.Doc.Body)
+				return err
+			},
+		}),
+		newInboxTriageCmd(l),
+	)
+	return cmd
+}
+
+func newInboxTriageCmd(l *loader) *cobra.Command {
+	var to, via []string
+	return opCommand(l, ops.InboxTriage, binding[ops.InboxTriageInput, ops.InboxTriageOutput]{
+		Use:  "triage <id> --to task|rfx|project|note|drop",
+		Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.InboxTriageInput) {
+			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, or drop (required)")
+			fs.StringVar(&in.Project, "project", "", "task: project id (required); rfx: optional")
+			fs.StringVar(&in.Owner, "owner", "", "project: owner (required)")
+			fs.StringVar((*string)(&in.Direction), "direction", "", "rfx: in or out (default out)")
+			fs.StringVar(&in.Route, "route", "", "rfx: domain id (required)")
+			fs.StringArrayVar(&to, "target", nil, "rfx: person or group id asked; pairs with --via, repeatable")
+			fs.StringArrayVar(&via, "via", nil, "rfx: medium for the matching --target: "+mediumList)
+			fs.StringVar(&in.SelfServe, "self-serve", "", "rfx: what you checked before asking")
+			fs.StringVar(&in.NextNudge, "next-nudge", "", "rfx: YYYY-MM-DD")
+			fs.StringVar(&in.Person, "person", "", "note: person id (required)")
+			fs.StringVar(&in.Date, "date", "", "note: YYYY-MM-DD; default today")
+		},
+		Bind: func(args []string, in *ops.InboxTriageInput) error {
+			in.ID = args[0]
+			if len(to) != len(via) {
+				return fmt.Errorf("%d --target and %d --via: give one --via for each --target", len(to), len(via))
+			}
+			in.Targets = nil
+			for i := range to {
+				in.Targets = append(in.Targets, ops.TargetInput{To: to[i], Medium: model.Medium(via[i])})
+			}
 			return nil
 		},
-		Text: func(w io.Writer, out ops.InboxAddOutput) error {
-			_, err := fmt.Fprintln(w, out.ID)
-			return err
+		Text: func(w io.Writer, out ops.InboxTriageOutput) error {
+			p := &printer{w: w}
+			for _, wn := range out.Warnings {
+				p.f("warning: %s\n", wn)
+			}
+			p.f("%s\t%s\t%s\t%s\n", out.ID, out.To, out.Created, out.Folder)
+			return p.err
 		},
-	}))
-	return cmd
+	})
 }
 
 // newLintCmd wraps the lint op. With a path it lints files directly, needs no
