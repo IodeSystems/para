@@ -10,11 +10,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/iodesystems/paradize/internal/export"
 	"github.com/iodesystems/paradize/internal/ops"
 )
 
 // addGovernanceCmds adds the policy, rule, exception, constraint, convention,
-// ingest, and copy commands.
+// ingest, copy, and export commands.
 func addGovernanceCmds(root *cobra.Command, l *loader) {
 	root.AddCommand(
 		newIngestCmd(l),
@@ -24,6 +25,7 @@ func addGovernanceCmds(root *cobra.Command, l *loader) {
 		newConstraintCmd(l),
 		newConventionCmd(l),
 		newCopyCmd(l),
+		newExportCmd(l),
 	)
 }
 
@@ -357,27 +359,6 @@ func newConventionCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
-// clipboardTools are tried in order; the first on PATH wins.
-var clipboardTools = [][]string{
-	{"pbcopy"},
-	{"wl-copy"},
-	{"xclip", "-selection", "clipboard"},
-}
-
-// clipboardCopy pipes text into the first available clipboard tool and
-// returns its name.
-func clipboardCopy(text string, lookPath func(string) (string, error), run func(argv []string, stdin string) error) (string, error) {
-	for _, argv := range clipboardTools {
-		if _, err := lookPath(argv[0]); err == nil {
-			if err := run(argv, text); err != nil {
-				return "", fmt.Errorf("clipboard: %s: %w", argv[0], err)
-			}
-			return argv[0], nil
-		}
-	}
-	return "", errors.New("clipboard: none of pbcopy, wl-copy, xclip found on PATH")
-}
-
 func runClipboard(argv []string, stdin string) error {
 	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = strings.NewReader(stdin)
@@ -401,7 +382,7 @@ func newCopyCmd(l *loader) *cobra.Command {
 				_, err := io.WriteString(w, out.Text)
 				return err
 			}
-			tool, err := clipboardCopy(out.Text, exec.LookPath, runClipboard)
+			tool, err := export.ClipboardCopy(out.Text, exec.LookPath, runClipboard)
 			if err != nil {
 				return err
 			}

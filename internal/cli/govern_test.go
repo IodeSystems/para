@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/iodesystems/paradize/internal/export"
 	"github.com/iodesystems/paradize/internal/ops"
 )
 
@@ -469,7 +470,7 @@ func TestClipboardCopy(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			var argv, stdin string
-			tool, err := clipboardCopy("hello", c.look, func(a []string, in string) error {
+			tool, err := export.ClipboardCopy("hello", c.look, func(a []string, in string) error {
 				argv, stdin = strings.Join(a, " "), in
 				return c.runErr
 			})

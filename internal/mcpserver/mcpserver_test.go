@@ -36,6 +36,7 @@ var sampleInputs = map[string]string{
 	"copy":                      `{"id":"policy-sample","as":"slack"}`,
 	"exception_add":             `{"policy":"policy-sample","kind":"bug","by":"Jordan Example"}`,
 	"exception_show":            `{"id":"exception-sample"}`,
+	"export":                    `{"id":"policy-sample","as":"slack","to":"ssh:desk.example:/tmp/sample.txt"}`,
 	"inbox_add":                 `{"text":"buy milk\nand eggs"}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"inbox_show":                `{"id":"inbox-sample"}`,
