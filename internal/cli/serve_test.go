@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/parasolve/internal/keys"
+	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/server"
 )
@@ -377,5 +378,44 @@ func TestLoginAdminPrint(t *testing.T) {
 	}
 	if _, _, err := e.run("service", "login-admin", "--print", "--url", "http://acme.localhost:1"); err == nil {
 		t.Error("a dead server must be an error")
+	}
+}
+
+// A real `para serve` logs a hand edit by itself, and stops cleanly.
+func TestServeLogsHandEdits(t *testing.T) {
+	e := newEnv(t)
+	path := e.init("acme")
+	props := filepath.Join(path, ".para", "vault.properties")
+	raw, err := os.ReadFile(props)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(props, append(raw, []byte("\nreconcile.grace=0s\n")...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, stop := runningServer(t, e)
+	time.Sleep(500 * time.Millisecond)
+	start := time.Now()
+	if err := os.WriteFile(filepath.Join(path, "inbox", "inbox-hand.md"), []byte("---\ntype: inbox\n---\n# By hand\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		var tail ops.EventsTailOutput
+		e.json(&tail, "events", "tail")
+		found := false
+		for _, ev := range tail.Events {
+			found = found || (ev.Op == "external_edit" && ev.Doc == "inbox-hand")
+		}
+		if found {
+			t.Logf("external_edit logged %v after the write", time.Since(start))
+			break
+		}
+		if time.Since(start) > 10*time.Second {
+			t.Fatalf("no external_edit: %+v", tail.Events)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err := stop(); err != nil {
+		t.Fatalf("serve did not stop cleanly: %v", err)
 	}
 }

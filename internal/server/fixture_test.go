@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/parasolve/docs"
 	"github.com/iodesystems/parasolve/internal/keys"
@@ -114,6 +115,7 @@ func newFixture(t *testing.T) *fixture {
 	in := registry.Install{Home: home}
 	log := slog.New(slog.DiscardHandler)
 	hub := NewHub(in, log)
+	hub.docDebounce = 50 * time.Millisecond
 	live, err := NewLive()
 	if err != nil {
 		t.Fatal(err)

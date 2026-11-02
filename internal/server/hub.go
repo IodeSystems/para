@@ -1,15 +1,19 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/atomicfile"
 	"github.com/iodesystems/parasolve/internal/keys"
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/netguard"
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/store/local"
@@ -30,7 +34,9 @@ type Hub struct {
 	mu      sync.Mutex
 	open    map[string]*Tenant
 	live    *Live
-	stops   map[string]func() // event watchers by vault id
+	stops   map[string]func() // event and document watchers by vault id
+
+	docDebounce time.Duration // quiet time before a reconcile; tests shorten it
 }
 
 // SetLive makes vaults opened from now on push live events: a watcher on the
@@ -43,7 +49,7 @@ func NewHub(in registry.Install, log *slog.Logger) *Hub {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Hub{install: in, log: log, open: map[string]*Tenant{}, stops: map[string]func(){}}
+	return &Hub{install: in, log: log, open: map[string]*Tenant{}, stops: map[string]func(){}, docDebounce: docDebounce}
 }
 
 // ServerDir is the per-machine server state of a vault: admin.token, net.rules,
@@ -155,8 +161,10 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 	}
 	if h.live != nil {
 		h.stopWatch(v.ID)
-		h.stops[v.ID] = h.live.Watch(v.ID, filepath.Join(v.Path, "events"),
-			func(m string) { h.log.Warn("event watch", "vault", v.ID, "note", m) })
+		warn := func(m string) { h.log.Warn("event watch", "vault", v.ID, "note", m) }
+		stopEvents := h.live.Watch(v.ID, filepath.Join(v.Path, "events"), warn)
+		stopDocs := h.watchDocs(v, st)
+		h.stops[v.ID] = func() { stopDocs(); stopEvents() }
 	}
 	return &Tenant{
 		id: v.ID, store: st, keys: ks, install: h.install, state: state, rulesPath: filepath.Join(dir, "net.rules"),
@@ -215,4 +223,29 @@ func (t *Tenant) Authenticate(cred netguard.Credential, c netguard.Client) (netg
 		return netguard.Principal{}, netguard.ErrForbidden
 	}
 	return netguard.Principal{Name: id.Name, Scopes: id.Scopes, Admin: id.Admin, Session: id.Session, Expires: id.Expires}, nil
+}
+
+// watchDocs reconciles the vault when its document folders change.
+func (h *Hub) watchDocs(v registry.Vault, st *local.Store) (stop func()) {
+	w := &docWatcher{
+		root: v.Path, dirs: vault.TrackedDirs(),
+		reconcile: st.Reconcile,
+		grace: func() time.Duration {
+			val, err := st.Config("reconcile.grace")
+			if d, perr := time.ParseDuration(val); err == nil && perr == nil && d >= 0 {
+				return d
+			}
+			return vault.DefaultGrace
+		},
+		publish: func(cs []model.Change) {
+			evs := make([]model.Event, 0, len(cs))
+			for _, c := range cs {
+				evs = append(evs, model.Event{Op: "file_" + string(c.Kind), Doc: strings.TrimSuffix(filepath.Base(c.Path), ".md")})
+			}
+			h.live.Publish(v.ID, evs)
+		},
+		warn:     func(m string) { h.log.Warn("doc watch", "vault", v.ID, "note", m) },
+		debounce: h.docDebounce, maxWait: docMaxWait, fallback: docFallback,
+	}
+	return w.start(context.Background())
 }

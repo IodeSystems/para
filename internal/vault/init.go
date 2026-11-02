@@ -103,6 +103,9 @@ func copyTemplates(src fs.FS, dst string) error {
 	})
 }
 
+// TrackedDirs are the folders the manifest covers, relative to the vault root.
+func TrackedDirs() []string { return trackedDirs() }
+
 // trackedDirs are the folders the manifest covers.
 func trackedDirs() []string {
 	out := []string{dirTemplates}
