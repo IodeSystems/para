@@ -28,13 +28,19 @@ func styleConfig(name string) ansi.StyleConfig {
 		h.Prefix = ""
 		h.Bold = boolPtr(true)
 	}
-	if name == "notty" {
-		c.H1.Prefix = ""
+	// A page title looks the same on every screen: bold and blue, as the
+	// headings of the list screens. glamour's H1 is a colour block.
+	c.H1.Prefix, c.H1.Suffix, c.H1.BackgroundColor = "", "", nil
+	c.H1.Bold = boolPtr(true)
+	if name != "notty" {
+		c.H1.Color = strPtr("39")
 	}
 	return c
 }
 
 func boolPtr(b bool) *bool { return &b }
+
+func strPtr(s string) *string { return &s }
 
 // mdStyle is the glamour style, resolved once at startup. glamour's
 // WithAutoStyle asks the terminal for its background with an OSC query and

@@ -30,7 +30,8 @@ func TestTabsRenderWithinFrame(t *testing.T) {
 					t.Errorf("%dx%d tab %d line %d is %d wide: %q", size[0], size[1], tab, i, w, stripSGR(l))
 				}
 			}
-			if !strings.Contains(d.plainFrame(), tabNames[tab]) {
+			f := d.plainFrame()
+			if named := strings.Contains(f, tabNames[tab]); !named && (size[0] >= 60 || !strings.Contains(f, shortNames[tab])) {
 				t.Errorf("tab %d: no tab name", tab)
 			}
 		}
@@ -240,7 +241,7 @@ func TestReviewExcludesOwnActionsAndAcceptMovesPosition(t *testing.T) {
 	}
 	d.m.tabs[tabReview].cursor = last
 	d.m.relayout()
-	d.key("a")
+	d.key(d.keyFor("act:accept"))
 	if d.m.pos.At.IsZero() {
 		t.Fatal("position did not move")
 	}
@@ -279,13 +280,13 @@ func TestReviewAcceptItemsAreOps(t *testing.T) {
 		t.Fatalf("no %s row", kind)
 	}
 	pick(NeedUnverified)
-	d.key("a")
+	d.key(d.keyFor("act:accept"))
 	doc, err := v.env.Deps.Store.Get(t.Context(), "policy-logging")
 	if err != nil || !doc.Meta.(*model.Policy).Verified {
 		t.Fatalf("policy not verified: %v", err)
 	}
 	pick(NeedProposed)
-	d.key("a")
+	d.key(d.keyFor("act:accept"))
 	refs, _ := v.env.Deps.Store.List(t.Context(), storeFilter(model.TypeRequest))
 	if len(refs) != 1 {
 		t.Fatalf("refs %v", refs)

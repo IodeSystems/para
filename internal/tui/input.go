@@ -37,11 +37,7 @@ func (m *Model) onKey(k tea.KeyPressMsg) tea.Cmd {
 		m.ov = overlay{kind: ovHelp}
 		return nil
 	case "/":
-		prompt := "search: "
-		if m.tab == tabPeople && len(m.stack) == 0 {
-			prompt = "who: "
-		}
-		m.ov = overlay{kind: ovSearch, input: newInput(prompt, "")}
+		m.ov = overlay{kind: ovSearch, input: newInput("search: ", "")}
 		return m.ov.input.Focus()
 	case "j", "down":
 		m.move(1)

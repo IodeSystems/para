@@ -216,6 +216,12 @@ func keyMsg(s string) tea.KeyPressMsg {
 // plainFrame is the frame without SGR codes.
 func (d *drv) plainFrame() string { return stripSGR(d.m.frame) }
 
+// footer is the last row of the frame: the actions and the fixed keys.
+func (d *drv) footer() string {
+	lines := strings.Split(d.plainFrame(), "\n")
+	return lines[len(lines)-1]
+}
+
 func (d *drv) has(sub string) bool { return strings.Contains(d.plainFrame(), sub) }
 
 // keyFor returns the code of the key whose target is id.

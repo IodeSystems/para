@@ -229,11 +229,29 @@ func Fingerprint(root string) string {
 
 // docSource is the para-md text of a document: frontmatter, title, body.
 func docSource(d model.Document) string {
+	d = linkSource(d)
 	b, err := model.Render(d)
 	if err != nil {
 		return "# " + d.Title + "\n\n" + d.Body
 	}
 	return string(b)
+}
+
+// joinNamesAnd is "A", "A and B", "A, B and C".
+func joinNamesAnd(ns []string) string {
+	if len(ns) <= 1 {
+		return strings.Join(ns, "")
+	}
+	return strings.Join(ns[:len(ns)-1], ", ") + " and " + ns[len(ns)-1]
+}
+
+// linkSource turns "Read the source." in a policy summary stub into a link to
+// the policy's source, so the stub is not a dead end.
+func linkSource(d model.Document) model.Document {
+	if p, ok := d.Meta.(*model.Policy); ok && p.Source.URL != "" {
+		d.Body = strings.Replace(d.Body, "Read the source.", "[Read the source]("+p.Source.URL+").", 1)
+	}
+	return d
 }
 
 // label shortens an id for a row when there is no title.

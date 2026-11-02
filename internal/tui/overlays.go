@@ -1,12 +1,16 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/iodesystems/parasolve/internal/export"
+	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // onOverlayKey routes keys while an overlay is open.
@@ -28,13 +32,16 @@ func (m *Model) onOverlayKey(k tea.KeyPressMsg) tea.Cmd {
 			if kind == ovCapture {
 				return m.capture(text)
 			}
-			if m.tab == tabPeople && len(m.stack) == 0 {
-				return m.loadWho(text)
+			if who, ok := strings.CutPrefix(text, personPrefix); ok {
+				return m.loadWho(strings.TrimSpace(who))
 			}
 			return m.loadSearch(text)
 		}
 		var cmd tea.Cmd
 		m.ov.input, cmd = m.ov.input.Update(k)
+		if m.ov.kind == ovSearch {
+			return tea.Batch(cmd, m.liveSearch())
+		}
 		return cmd
 	case ovHelp, ovOutput:
 		if s == "esc" || s == "q" || s == "enter" || s == "?" {
@@ -155,9 +162,12 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 	case ovCapture, ovSearch:
 		hint := "enter saves it to the inbox, esc cancels"
 		if m.ov.kind == ovSearch {
-			hint = "enter searches, esc cancels"
+			hint = "enter shows every result, esc cancels. person:<name> finds a person"
 		}
 		lines = []string{stHead.Render(hint), m.ov.input.View()}
+		if m.ov.kind == ovSearch {
+			lines = append(lines, m.liveLines()...)
+		}
 	case ovPrompt:
 		lines = []string{stHead.Render(m.ov.prompt.title)}
 		lines = append(lines, stDim.Render(m.ov.prompt.hint()))
@@ -203,6 +213,14 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 	return out, keymap
 }
 
+// exportName is the title of the document being exported, never its id.
+func (m *Model) exportName(id string) string {
+	if p := m.docPage(); p != nil && p.id == id && strings.TrimSpace(p.doc.Title) != "" {
+		return p.doc.Title
+	}
+	return titleOr(m.snap.name(id), "this page")
+}
+
 func (m *Model) exportLines() ([]string, map[string]string) {
 	e := m.ov.export
 	keymap := map[string]string{}
@@ -211,15 +229,15 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 	}
 	if e.stage == 2 {
 		return []string{
-			stHead.Render(fmt.Sprintf("Export %s as %s to %s", e.doc, e.format, e.transport.Name)),
+			stHead.Render(fmt.Sprintf("Export %s as %s to %s", m.exportName(e.doc), e.format, e.transport.Name)),
 			m.ov.input.View(), "", stDim.Render("enter sends, esc goes back"),
 		}, keymap
 	}
 	items := e.list.Formats
-	title := fmt.Sprintf("Export %s: pick a format", e.doc)
+	title := fmt.Sprintf("Export %s: pick a format", m.exportName(e.doc))
 	if e.stage == 1 {
 		items = e.list.Transports
-		title = fmt.Sprintf("Export %s as %s: pick a transport", e.doc, e.format)
+		title = fmt.Sprintf("Export %s as %s: pick a transport", m.exportName(e.doc), e.format)
 	}
 	var targets []Target
 	for _, it := range items {
@@ -253,17 +271,17 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 var actionHelp = map[string]string{
 	"act:answer":   "answer the question under the cursor",
 	"act:graph":    "graph of the project or area under the cursor",
-	"act:accept":   "accept: move your review position to the event under the cursor",
-	"act:reopen":   "reopen: undo the last accept, or reopen a closed request",
+	"act:accept":   "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
+	"act:reopen":   "reopen: undo the last mark, or reopen a closed request",
 	"act:zoom":     "full screen",
 	"act:export":   "export menu",
 	"act:copy":     "copy with the last format",
 	"act:meta":     "show or hide the details strip (type, dates, status)",
 	"act:approve":  "approve: record your decision. Para sends nothing",
 	"act:deny":     "deny, with a reason the agent reads",
-	"act:rework":   "rework: ask the agent to change the item",
-	"act:sendback": "send back to the agent (after an edit or an annotation)",
-	"act:hold":     "needs first: hold the item until another task or request is done",
+	"act:rework":   "rework: ask the agent to redo this, with your reason",
+	"act:sendback": "send back: return it to the agent with your edits and notes",
+	"act:hold":     "needs first: hold this until something else is done",
 	"act:annotate": "annotate: quote the words, say what is wrong",
 	"act:edit":     "edit the text in your editor",
 	"act:source":   "the source the agent worked from (untrusted)",
@@ -284,7 +302,7 @@ func (m *Model) helpLines() []string {
 		"  1-6        tabs: Today Review Work RFX People Policy",
 		"  j k        move the cursor      g G  top, bottom      space  page down",
 		"  enter      open the row         esc  back",
-		"  /          search (on People: find a person)",
+		"  /          search as you type; person:<name> finds a person",
 		"  c          capture a note to the inbox",
 		"  v          switch vault for this session",
 		"  q          quit",
@@ -301,7 +319,7 @@ func (m *Model) helpLines() []string {
 	}
 	switch p := m.top(); {
 	case p != nil && p.kind == pageProposal:
-		add("act:approve", "act:deny", "act:rework", "act:sendback", "act:hold", "act:annotate", "act:edit", "act:source", "act:diff", "act:history")
+		add("act:approve", "act:rework", "act:hold", "act:sendback", "act:deny", "act:annotate", "act:edit", "act:source", "act:diff", "act:history")
 		here = append(here, "  enter      the item in full")
 	case p != nil && p.kind == pageDoc:
 		add("act:zoom", "act:export", "act:copy", "act:meta")
@@ -318,4 +336,85 @@ func (m *Model) helpLines() []string {
 		out = append(out, here...)
 	}
 	return append(out, "", stDim.Render("para never sends anything. esc closes this."))
+}
+
+// personPrefix scopes a search to people: "person:ada" finds a person.
+const personPrefix = "person:"
+
+// liveRows is how many results the search overlay shows as you type.
+const liveRows = 8
+
+// liveDebounce is how long typing pauses before the search runs.
+const liveDebounce = 200 * time.Millisecond
+
+type (
+	// liveTickMsg ends a pause in typing. It is stale when seq moved on.
+	liveTickMsg struct {
+		seq  int
+		text string
+	}
+	// liveMsg is the hits of one live search.
+	liveMsg struct {
+		seq      int
+		text     string
+		hits     []index.Hit
+		degraded string
+		err      error
+	}
+)
+
+// liveSearch starts the debounce after a key in the search box.
+func (m *Model) liveSearch() tea.Cmd {
+	text := strings.TrimSpace(m.ov.input.Value())
+	m.ov.liveSeq++
+	seq := m.ov.liveSeq
+	if text == "" || strings.HasPrefix(text, personPrefix) {
+		m.ov.liveFor, m.ov.liveHits, m.ov.liveNote = "", nil, ""
+		return nil
+	}
+	if text != m.ov.liveFor {
+		m.ov.liveNote = "searching..."
+	}
+	return tea.Tick(liveDebounce, func(time.Time) tea.Msg { return liveTickMsg{seq: seq, text: text} })
+}
+
+func (m *Model) onLiveTick(msg liveTickMsg) tea.Cmd {
+	if m.ov.kind != ovSearch || msg.seq != m.ov.liveSeq {
+		return nil
+	}
+	env := m.env
+	return func() tea.Msg {
+		in := ops.ParseQuery(msg.text)
+		in.Limit, in.Prefix, in.ExactOnly = liveRows, true, true
+		o, err := ops.Search.Run(context.Background(), env.Deps, in)
+		return liveMsg{seq: msg.seq, text: msg.text, hits: o.Hits, degraded: o.Degraded, err: err}
+	}
+}
+
+func (m *Model) onLive(msg liveMsg) {
+	if m.ov.kind != ovSearch || msg.seq != m.ov.liveSeq {
+		return
+	}
+	m.ov.liveFor, m.ov.liveHits, m.ov.liveNote = msg.text, msg.hits, ""
+	switch {
+	case msg.err != nil:
+		m.ov.liveNote = "search failed: " + oneLine(msg.err.Error())
+	case len(msg.hits) == 0:
+		m.ov.liveNote = "nothing matches yet"
+	}
+}
+
+// liveLines are the results under the search box.
+func (m *Model) liveLines() []string {
+	var out []string
+	if m.ov.liveNote != "" {
+		out = append(out, stDim.Render("  "+m.ov.liveNote))
+	}
+	for i, h := range m.ov.liveHits {
+		if i >= liveRows {
+			break
+		}
+		out = append(out, "  "+stDim.Render(fmt.Sprintf("%-9s", truncate(h.Kind, 9)))+" "+titleOr(h.Title, "(untitled)"))
+	}
+	return out
 }

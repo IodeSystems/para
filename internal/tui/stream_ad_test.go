@@ -218,7 +218,7 @@ func TestPromptsSayWhatComesNext(t *testing.T) {
 	v.seed()
 	d := newDrv(t, v, 100, 30)
 	d.key("/")
-	if !d.has("enter searches") || d.has("enter saves") {
+	if !d.has("enter shows every result") || d.has("enter saves") {
 		t.Errorf("search prompt:\n%s", d.plainFrame())
 	}
 	d.key("esc")

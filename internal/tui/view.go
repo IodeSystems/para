@@ -17,7 +17,7 @@ var (
 	actZoom    = Target{ID: "act:zoom", Label: "Zoom", Pref: 'z'}
 	actExport  = Target{ID: "act:export", Label: "Export", Pref: 'x'}
 	actCopy    = Target{ID: "act:copy", Label: "Copy", Pref: 'y'}
-	actAccept  = Target{ID: "act:accept", Label: "Accept", Pref: 'a'}
+	actAccept  = Target{ID: "act:accept", Label: "Mark reviewed", Pref: 'm'}
 	actReopen  = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
 	actGraph   = Target{ID: "act:graph", Label: "Graph"}
 	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
@@ -53,7 +53,7 @@ type listing struct {
 // bodyHeight is the lines available to the body.
 func (m *Model) bodyHeight() int {
 	if m.zoom && m.docPage() != nil {
-		return m.h
+		return max(m.h-1, 1) // the last row is the way out
 	}
 	return max(m.h-3, 1)
 }
@@ -115,7 +115,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 // extraActs are actions with a key and no place in the footer: they are under ?.
 func (m *Model) extraActs() []Target {
 	if p := m.top(); p != nil && p.kind == pageProposal {
-		return secondaryActs()
+		return m.secondaryActs()
 	}
 	return nil
 }
@@ -311,7 +311,14 @@ func (m *Model) relayout() {
 	m.keymap = keymap
 
 	if m.zoom && m.docPage() != nil && m.ov.kind == ovNone {
-		m.frame = strings.Join(body, "\n")
+		leave := "z"
+		for c, id := range keymap {
+			if id == actZoom.ID {
+				leave = c
+			}
+		}
+		hint := " " + keyed(leave) + stDim.Render(" leave zoom   j/k scroll   esc back   ? help")
+		m.frame = strings.Join(body, "\n") + "\n" + truncateLine(hint, m.w)
 		return
 	}
 	var b strings.Builder
@@ -325,18 +332,30 @@ func (m *Model) relayout() {
 	m.frame = b.String()
 }
 
-// topLine is the vault name, the tabs, and the refresh clock. Narrow
-// screens keep only the digits of inactive tabs, then drop the clock.
+// shortNames are the tab names for a narrow screen: three letters keep a name.
+var shortNames = [numTabs]string{"Tdy", "Rev", "Wrk", "RFX", "Ppl", "Pol"}
+
+// topLine is the vault name, the tabs, and the refresh clock. A narrow screen
+// shortens the tab names before it drops them, then drops the vault name and
+// the clock. Review carries the count of proposals that wait for a decision.
 func (m *Model) topLine() string {
-	build := func(short bool) string {
+	badge := ""
+	if n := len(m.openProposals()); n > 0 && m.loaded {
+		badge = " " + stWarn.Render(fmt.Sprint(n))
+	}
+	build := func(short, withVault, brand bool) string {
 		var tabs []string
 		for i, n := range tabNames {
-			t := keyed(fmt.Sprint(i+1)) + " " + n
-			switch {
-			case i == m.tab:
-				t = keyed(fmt.Sprint(i+1)) + " " + stActive.Render(n)
-			case short:
-				t = keyed(fmt.Sprint(i + 1))
+			name := n
+			if short {
+				name = shortNames[i]
+			}
+			t := keyed(fmt.Sprint(i+1)) + " " + name
+			if i == m.tab {
+				t = keyed(fmt.Sprint(i+1)) + " " + stActive.Render(name)
+			}
+			if i == tabReview {
+				t += badge
 			}
 			tabs = append(tabs, t)
 		}
@@ -344,7 +363,14 @@ func (m *Model) topLine() string {
 		if short {
 			sep = " "
 		}
-		return stHead.Render(" para ") + stDim.Render(m.env.Vault.ID) + "  " + strings.Join(tabs, sep)
+		left := " "
+		if brand {
+			left = stHead.Render(" para ")
+		}
+		if withVault {
+			left += stDim.Render(m.env.Vault.ID) + "  "
+		}
+		return left + strings.Join(tabs, sep)
 	}
 	clock := ""
 	if !m.refreshed.IsZero() {
@@ -354,8 +380,8 @@ func (m *Model) topLine() string {
 		}
 		clock = stDim.Render(mark + m.refreshed.Format("15:04:05"))
 	}
-	for _, short := range []bool{false, true} {
-		left := build(short)
+	for _, f := range []struct{ short, vault, brand bool }{{false, true, true}, {true, true, true}, {true, false, true}, {true, false, false}} {
+		left := build(f.short, f.vault, f.brand)
 		if gap := m.w - cells(left) - cells(clock); gap >= 1 {
 			return left + strings.Repeat(" ", gap) + clock
 		}
@@ -363,7 +389,7 @@ func (m *Model) topLine() string {
 			return left
 		}
 	}
-	return truncateLine(build(true), m.w)
+	return truncateLine(build(true, false, false), m.w)
 }
 
 func (m *Model) statusLine() string {

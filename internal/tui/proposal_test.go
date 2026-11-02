@@ -81,15 +81,19 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	id := v.fileProposal(mailItem("Hi Ada."), v.taskItem("Write the parser"))
 	d := newDrv(t, v, 100, 30)
 	d.openProposal(id)
-	// The footer lists the primary actions, Send back among them even when it
-	// does not apply; the others are under ?.
-	for _, want := range []string{"Approve", "Deny", "Rework", "Send back", "? more actions"} {
+	// The footer leads with one action. Every other decision is under ?.
+	for _, want := range []string{"Approve", "? more actions"} {
 		if !d.has(want) {
 			t.Errorf("no %s in\n%s", want, d.plainFrame())
 		}
 	}
-	if d.has("Annotate") {
-		t.Error("a secondary action is in the footer")
+	for _, not := range []string{"Annotate", "Deny", "Rework", "Send back"} {
+		if strings.Contains(d.footer(), not) {
+			t.Errorf("%s is in the footer, not under ?:\n%s", not, d.plainFrame())
+		}
+	}
+	if !strings.Contains(d.plainFrame(), "[untrusted]") {
+		t.Errorf("evidence has no untrusted mark:\n%s", d.plainFrame())
 	}
 	if !d.has("Approve records your decision. Para sends nothing.") {
 		t.Errorf("approve is not explained:\n%s", d.plainFrame())
@@ -140,7 +144,7 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	if it := d.item(v, id, "i1"); it.State != model.ItemSentBack {
 		t.Fatalf("i1 = %+v\n%s", it, d.plainFrame())
 	}
-	if !strings.Contains(d.m.status, "queued request-") {
+	if !strings.Contains(d.m.status, "Queued a request") {
 		t.Errorf("status = %q", d.m.status)
 	}
 

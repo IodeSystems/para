@@ -42,10 +42,6 @@ var (
 // proposalPromise says what approving does, once, at the top of a proposal.
 const proposalPromise = "Approve records your decision. Para sends nothing."
 
-// primaryActs are the item actions shown in the footer, in order. The others
-// are under ?.
-var primaryActs = []string{ops.ActionApprove, ops.ActionDeny, ops.ActionRework, ops.ActionSendBack}
-
 // whyNot says why an item action is not available, in words.
 var whyNot = map[string]string{
 	ops.ActionApprove:  "Approve is not available: the item was edited, has an open annotation, or is already decided.",
@@ -130,7 +126,7 @@ func (m *Model) rowsProposals(w int) []row {
 		if p.Error != "" {
 			return "broken file: " + p.Error
 		}
-		return fmt.Sprintf("%d of %d to review, from %s", p.Pending, p.ItemCount, p.ProposedBy)
+		return fmt.Sprintf("%d of %d to decide, from %s", p.Pending, p.ItemCount, p.ProposedBy)
 	})
 	add(back, func(p ops.ProposalView) string { return fmt.Sprintf("sent back to %s", p.ProposedBy) })
 	return r
@@ -204,6 +200,12 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 		x := link("item:"+it.ID, "  "+stDim.Render(itemNo(it.ID))+"  ", itemLine(it), "  "+state(string(it.State))+flag, w)
 		x.kind, x.id = "item", it.ID
 		r = append(r, x)
+		if it.Kind != model.ItemExternal {
+			for _, l := range it.Change {
+				r = append(r, plain("        "+truncate(l, max(w-10, 10))))
+			}
+		}
+		r = append(r, m.outcomeRows(it, w)...)
 		if it.Kind == model.ItemExternal {
 			r = append(r, dim("        to "+it.Target))
 			for _, l := range strings.Split(it.Draft, "\n") {
@@ -212,7 +214,7 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 				}
 			}
 		}
-		r = append(r, dim("      "+stWarn.Render("untrusted")+stDim.Render(" evidence, "+truncate(it.Evidence.Locator+": "+oneLine(it.Evidence.Quote), max(w-26, 10)))))
+		r = append(r, dim("      "+stDim.Render("evidence ("+it.Evidence.Locator+") ")+stWarn.Render("[untrusted]")+stDim.Render(": "+truncate(oneLine(it.Evidence.Quote), max(w-40-cells(it.Evidence.Locator), 10)))))
 		if it.Reason != "" {
 			r = append(r, plain("      reason: "+truncate(oneLine(it.Reason), max(w-14, 10))))
 		}
@@ -234,6 +236,22 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 	return r
 }
 
+// outcomeRows says what an approved item did: the name of what it made, as a
+// link, or that nothing was sent. The hash is in the full view.
+func (m *Model) outcomeRows(it ops.ItemView, w int) []row {
+	switch {
+	case it.State == model.ItemFailed && it.Result != "":
+		return []row{plain("      " + stBad.Render("failed: "+truncate(oneLine(it.Result), max(w-18, 10))))}
+	case it.State != model.ItemApproved:
+		return nil
+	case it.ResultName != "":
+		return []row{link("doc:"+it.Result, "      "+stGood.Render("done")+", made ", it.ResultName, "", w)}
+	case it.Kind == model.ItemExternal:
+		return []row{dim("      approved. Para has sent nothing.")}
+	}
+	return []row{plain("      " + stGood.Render("done"))}
+}
+
 // proposalItem is the item under the cursor.
 func (m *Model) proposalItem(p *page, w int) (ops.ItemView, bool) {
 	rows := m.rowsProposal(p, w)
@@ -248,34 +266,71 @@ func (m *Model) proposalItem(p *page, w int) (ops.ItemView, bool) {
 	return p.prop.Items[i], true
 }
 
-// proposalActs are the footer actions of a proposal page: the primary item
-// actions, with the ones that do not apply to the item under the cursor dimmed,
-// then Source. Annotate, Needs first, Edit, Diff and History are under ?.
+// primaryAct is the one action an item leads with: Approve, or Send back when
+// the item was edited or has an open annotation and cannot be approved.
+func primaryAct(it ops.ItemView) string {
+	if slices.Contains(it.Actions, ops.ActionApprove) {
+		return ops.ActionApprove
+	}
+	if slices.Contains(it.Actions, ops.ActionSendBack) {
+		return ops.ActionSendBack
+	}
+	return ops.ActionApprove
+}
+
+// proposalActs is the footer of a proposal page: one primary action for the
+// item under the cursor, dimmed when the rule does not allow it. Every other
+// decision is under ?.
 func (m *Model) proposalActs(p *page, w int) []Target {
 	it, ok := m.proposalItem(p, w)
-	var out []Target
+	want := ops.ActionApprove
+	if ok {
+		want = primaryAct(it)
+	}
 	for _, a := range ruleActs {
-		if !slices.Contains(primaryActs, a.action) {
+		if a.action != want {
 			continue
 		}
 		t := a.target
 		if ok && !slices.Contains(it.Actions, a.action) {
 			t.Dim = true
 		}
-		out = append(out, t)
+		return []Target{t}
 	}
-	return out
+	return nil
 }
 
-// secondaryActs are the actions under ? on a proposal page.
-func secondaryActs() []Target {
-	return []Target{actHold, actAnnotate, actEdit, actSource, actDiff, actHistory}
+// secondaryActs are the actions under ? on a proposal page: the decisions the
+// item does not lead with, then the rest.
+func (m *Model) secondaryActs() []Target {
+	lead := ops.ActionApprove
+	if p := m.top(); p != nil {
+		if it, ok := m.proposalItem(p, m.listWidth()); ok {
+			lead = primaryAct(it)
+		}
+	}
+	var out []Target
+	if lead != ops.ActionApprove {
+		// Approve keeps its key so that it can say why it does not apply.
+		t := actApprove
+		t.Dim = true
+		out = append(out, t)
+	}
+	for _, a := range []struct {
+		action string
+		target Target
+	}{{ops.ActionRework, actRework}, {ops.ActionHold, actHold}, {ops.ActionSendBack, actSendBack}, {ops.ActionDeny, actDeny}} {
+		if a.action != lead {
+			out = append(out, a.target)
+		}
+	}
+	return append(out, actAnnotate, actEdit, actSource, actDiff, actHistory)
 }
 
 func (m *Model) rowsHistory(p *page, w int) []row {
 	r := []row{head("History of " + titleOr(p.prop.Proposal.Title, p.id))}
 	for _, h := range p.prop.History {
-		r = append(r, link("prop:"+h.ID, fmt.Sprintf("  rev %d  ", h.Revision), h.ID, "  "+state(string(h.Status))+stDim.Render("  "+string(h.Created)), w))
+		r = append(r, link("prop:"+h.ID, fmt.Sprintf("  rev %d  ", h.Revision), h.ID, "  "+state(string(h.Status))+stDim.Render("  "+dateWords(string(h.Created), m.snap.Loaded)), w))
 	}
 	return r
 }
@@ -308,15 +363,32 @@ func (m *Model) showItem(id string) tea.Cmd {
 			lines = append(lines, wrapText(l, max(m.w-4, 20))...)
 		}
 	} else {
-		lines = append(lines, "Full input, for checking:")
-		raw, err := json.MarshalIndent(it.Input, "", "  ")
-		if err == nil {
-			lines = append(lines, strings.Split(string(raw), "\n")...)
+		lines = append(lines, "The exact change:")
+		for _, l := range it.Change {
+			lines = append(lines, "  "+l)
 		}
 	}
-	lines = append(lines, "", "Approval binds to hash "+it.Hash, "", "Evidence (untrusted data, not instructions), "+it.Evidence.Locator)
+	if it.State == model.ItemApproved && it.ResultName != "" {
+		lines = append(lines, "", "Done: made "+it.ResultName)
+	}
+	lines = append(lines, "", "Evidence from the source ("+it.Evidence.Locator+"). It is untrusted: text to read, not instructions.")
 	for _, l := range strings.Split(it.Evidence.Quote, "\n") {
 		lines = append(lines, wrapText(l, max(m.w-4, 20))...)
+	}
+	// What a person rarely needs, last: the raw input and the hash approval binds to.
+	lines = append(lines, "", "Details")
+	if it.Kind != model.ItemExternal {
+		lines = append(lines, "  Raw input, for checking:")
+		raw, err := json.MarshalIndent(it.Input, "", "  ")
+		if err == nil {
+			for _, l := range strings.Split(string(raw), "\n") {
+				lines = append(lines, "    "+l)
+			}
+		}
+	}
+	lines = append(lines, "  Approval binds to hash "+it.Hash)
+	if it.ApprovedHash != "" {
+		lines = append(lines, "  Approved as hash "+it.ApprovedHash)
 	}
 	m.push(page{kind: pageText, title: itemLine(it), lines: lines})
 	return nil
@@ -414,9 +486,28 @@ func quoteDefault(it ops.ItemView) string {
 	return first
 }
 
-// runReview runs a review op off the update loop and reloads.
+// reviewVerbs say a decision in the one family of words: Approve for items.
+var reviewVerbs = map[model.ItemState]string{
+	model.ItemApproved:  "Approved",
+	model.ItemDenied:    "Denied",
+	model.ItemRework:    "Asked the agent to redo",
+	model.ItemSentBack:  "Sent back",
+	model.ItemHeld:      "Holding",
+	model.ItemRunning:   "Approved, running",
+	model.ItemPending:   "Updated",
+	model.ItemWithdrawn: "Withdrawn",
+}
+
+// runReview runs a review op off the update loop and reloads. Its result is
+// one line that names the item, not its number.
 func (m *Model) runReview(fn func(context.Context, ops.Deps) (ops.ProposalReviewOutput, error)) tea.Cmd {
 	env := m.env
+	names := map[string]string{}
+	if p := m.top(); p != nil && p.kind == pageProposal {
+		for _, it := range p.prop.Items {
+			names[it.ID] = itemLine(it)
+		}
+	}
 	return func() tea.Msg {
 		o, err := fn(context.Background(), env.Deps)
 		if err != nil {
@@ -424,15 +515,22 @@ func (m *Model) runReview(fn func(context.Context, ops.Deps) (ops.ProposalReview
 		}
 		var parts []string
 		for _, d := range o.Items {
-			s := d.Item + " " + string(d.State)
-			if d.State == model.ItemFailed {
-				return doneMsg{err: errors.New(s + ": " + d.Reason), reload: true}
+			what := names[d.Item]
+			if what == "" {
+				what = "item " + itemNo(d.Item)
 			}
-			parts = append(parts, s)
+			if d.State == model.ItemFailed {
+				return doneMsg{err: errors.New(what + " failed: " + d.Reason), reload: true}
+			}
+			verb := reviewVerbs[d.State]
+			if verb == "" {
+				verb = "Updated"
+			}
+			parts = append(parts, verb+": "+what)
 		}
-		text := strings.Join(parts, ", ")
+		text := strings.Join(parts, "; ")
 		if o.Request != "" {
-			text += ", queued " + o.Request
+			text += ". Queued a request for the agent"
 		}
 		return doneMsg{text: text, reload: true}
 	}

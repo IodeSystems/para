@@ -88,14 +88,26 @@ func answerInput(q ops.QuestionView, typed, why string) ops.QuestionAnswerInput 
 func (m *Model) runAnswer(q ops.QuestionView, typed, why string) tea.Cmd {
 	env := m.env
 	in := answerInput(q, typed, why)
+	snap := m.snap
 	return func() tea.Msg {
 		o, err := ops.QuestionAnswer.Run(context.Background(), env.Deps, in)
 		if err != nil {
 			return doneMsg{err: err}
 		}
-		text := "answered " + o.ID
-		if len(o.Unblocked) > 0 {
-			text += ", unblocked " + strings.Join(o.Unblocked, " ")
+		// One way to say done, as on the web: what was recorded, what it unblocked.
+		said := in.Choice
+		if said == "" {
+			said = in.Text
+		}
+		text := fmt.Sprintf("Recorded %q for %q.", said, titleOr(q.Title, "the question"))
+		if len(o.Unblocked) == 0 {
+			text += " Nothing else was waiting only on this."
+		} else {
+			var names []string
+			for _, id := range o.Unblocked {
+				names = append(names, titleOr(snap.name(id), "a task"))
+			}
+			text += " Unblocked " + joinNamesAnd(names) + "."
 		}
 		return doneMsg{text: text, reload: true}
 	}

@@ -96,6 +96,12 @@ type overlay struct {
 	vaults []string
 	output string
 	prompt promptState
+
+	// live search: results of the text typed, as it is typed
+	liveSeq  int
+	liveFor  string // the text the hits are for
+	liveHits []index.Hit
+	liveNote string // "searching..." or why there are none
 }
 
 type docKey struct {
@@ -230,6 +236,11 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		return m.onEdited(msg)
 	case whoMsg:
 		return m.onWho(msg)
+	case liveTickMsg:
+		return m.onLiveTick(msg)
+	case liveMsg:
+		m.onLive(msg)
+		return nil
 	case searchMsg:
 		if msg.err != nil {
 			m.setStatus("search: "+msg.err.Error(), true)
