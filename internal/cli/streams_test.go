@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -138,4 +140,69 @@ func TestTriageToNoteDocument(t *testing.T) {
 	if out.Created != "person-sam-example" {
 		t.Fatalf("person note out = %+v", out)
 	}
+}
+
+func TestTaskInAnArea(t *testing.T) {
+	e := newEnv(t)
+	path := e.init("life")
+	var a ops.AreaAddOutput
+	e.json(&a, "area", "add", "Home")
+	// Owner default: the vault property, else self.
+	var p1, p2 ops.ProjectAddOutput
+	e.json(&p1, "project", "add", "Move")
+	cfg := filepath.Join(path, ".para", "vault.properties")
+	raw, err := os.ReadFile(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, append(raw, "owner=Jordan Example\n"...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.json(&p2, "project", "add", "Paint", "--area", a.ID)
+	var projects ops.ProjectListOutput
+	e.json(&projects, "project", "list")
+	owners := map[string]string{}
+	for _, p := range projects.Projects {
+		owners[p.ID] = p.Owner
+	}
+	if owners[p1.ID] != "self" || owners[p2.ID] != "Jordan Example" {
+		t.Fatalf("owners = %v", owners)
+	}
+
+	var own, inProject, both ops.TaskAddOutput
+	e.json(&own, "task", "add", "Water plants", "--area", a.ID)
+	// A dependency may sit in another project or area.
+	e.json(&inProject, "task", "add", "Buy paint", "-p", p2.ID, "--depends-on", own.ID)
+	e.json(&both, "task", "add", "Call landlord", "-p", p1.ID, "--area", a.ID, "--depends-on", inProject.ID)
+	var sh ops.TaskShowOutput
+	e.json(&sh, "task", "show", both.ID)
+	if sh.Task.Project != p1.ID || sh.Task.Area != a.ID || len(sh.Task.DependsOn) != 1 {
+		t.Fatalf("task = %+v", sh.Task)
+	}
+	e.json(&sh, "task", "show", own.ID)
+	if sh.Task.Project != "" || sh.Task.Area != a.ID {
+		t.Fatalf("task = %+v", sh.Task)
+	}
+	var list ops.TaskListOutput
+	e.json(&list, "task", "list", "--area", a.ID)
+	if len(list.Tasks) != 2 {
+		t.Fatalf("area list = %+v", list)
+	}
+	var show ops.AreaShowOutput
+	e.json(&show, "area", "show", a.ID)
+	if len(show.Tasks) != 3 || len(show.Projects) != 1 {
+		t.Fatalf("area show = %+v", show)
+	}
+	var next ops.NextOutput
+	e.json(&next, "next")
+	if len(next.Tasks) != 1 || next.Tasks[0].ID != own.ID {
+		t.Fatalf("next = %+v", next)
+	}
+	var lint ops.LintOutput
+	e.json(&lint, "lint")
+	if lint.Errors != 0 {
+		t.Fatalf("lint = %+v", lint)
+	}
+	e.ok("task", "done", own.ID)
+	e.ok("project", "close", p2.ID, "--force")
 }

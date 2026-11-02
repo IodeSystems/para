@@ -124,7 +124,7 @@ type ParaV1QueryNamespace {
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
   search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
-  taskList(project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
 }
@@ -1320,8 +1320,9 @@ enum para_PolicyViewFidelity {
 }
 
 input para_ProjectAddInputInput {
+  area: String
   body: String
-  owner: String!
+  owner: String
   title: String!
 }
 
@@ -1991,9 +1992,10 @@ enum para_TargetState {
 }
 
 input para_TaskAddInputInput {
+  area: String
   body: String
   dependsOn: [String!]
-  project: String!
+  project: String
   title: String!
 }
 
@@ -2058,6 +2060,7 @@ input para_TaskStartInputInput {
 }
 
 type para_TaskView {
+  area: String
   blockedBy: [String!]!
   dependsOn: [String!]!
   folder: para_TaskViewFolder!

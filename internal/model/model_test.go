@@ -70,7 +70,8 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health")}, ""},
 		{"note-one", &Note{Common: c(TypeNote), Area: LinkTo("health"), Project: LinkTo("acme-portal")}, "Reference text."},
 		{"health", &Area{c(TypeArea), AreaActive}, "Standard."},
-		{"task-one", &Task{c(TypeTask), TaskBlocked, LinkTo("acme-portal"), []string{"waiting on rfx-one"}, []Link{LinkTo("rfx-one")}}, ""},
+		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Project: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
+		{"task-area", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health")}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{
 			{To: LinkTo("jordan-example"), Medium: MediumSlack, Value: "@jordan", State: TargetSent, Ref: "https://acme.example.slack.com/archives/C0/p1", Sent: "2026-11-01"},

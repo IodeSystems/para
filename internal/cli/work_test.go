@@ -173,12 +173,13 @@ func TestTaskAddRefusals(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"no project", []string{"task", "add", "t"}, "not found"},
+		{"no project or area", []string{"task", "add", "t"}, "needs a project or an area"},
+		{"unknown area", []string{"task", "add", "t", "--area", "area-nope"}, "not found"},
+		{"project is not an area", []string{"task", "add", "t", "--area", p.ID}, "not an area"},
 		{"unknown project", []string{"task", "add", "t", "-p", "project-nope"}, "not found"},
 		{"project is not a task", []string{"task", "add", "t", "-p", p.ID, "--depends-on", p.ID}, "want a task or rfx"},
 		{"unknown dependency", []string{"task", "add", "t", "-p", p.ID, "--depends-on", "task-nope"}, "not found"},
 		{"block without reason", []string{"task", "block", "task-nope"}, "reason is empty"},
-		{"project add without owner", []string{"project", "add", "t"}, "owner is empty"},
 		{"bad status filter", []string{"task", "list", "--status", "nope"}, "unknown status"},
 	}
 	for _, c := range cases {

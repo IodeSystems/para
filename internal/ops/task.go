@@ -11,13 +11,14 @@ import (
 	"github.com/iodesystems/parasolve/internal/store"
 )
 
-// TaskView is a task without its body. Project and DependsOn hold ids.
+// TaskView is a task without its body. Project, Area, and DependsOn hold ids.
 type TaskView struct {
 	ID        string           `json:"id"`
 	Folder    model.Folder     `json:"folder"`
 	Title     string           `json:"title"`
 	Status    model.TaskStatus `json:"status"`
 	Project   string           `json:"project"`
+	Area      string           `json:"area,omitempty"`
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -30,7 +31,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -91,7 +92,8 @@ func resolved(d model.Document) bool {
 
 // TaskAddInput is the input of task_add.
 type TaskAddInput struct {
-	Project   string   `json:"project"` // project id
+	Project   string   `json:"project,omitempty"` // project id; a task needs a project or an area
+	Area      string   `json:"area,omitempty"`    // area id
 	Title     string   `json:"title"`
 	Body      string   `json:"body,omitempty"`
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
@@ -104,18 +106,31 @@ type TaskAddOutput struct {
 	Rev    string       `json:"rev"`
 }
 
-// TaskAdd creates a todo task in a project. Tasks live in projects/.
-var TaskAdd = define("task_add", "Create a task in a project", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+// TaskAdd creates a todo task in a project, an area, or both. Tasks live in
+// projects/. A dependency may be any task or rfx, in any project or area.
+var TaskAdd = define("task_add", "Create a task in a project or an area (at least one)", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return TaskAddOutput{}, errors.New("title is empty")
 	}
-	proj, _, err := getProject(ctx, d.Store, in.Project)
+	in.Project = normID(in.Project)
+	if in.Project == "" && normID(in.Area) == "" {
+		return TaskAddOutput{}, errors.New("a task needs a project or an area")
+	}
+	var project model.Link
+	if in.Project != "" {
+		proj, _, err := getProject(ctx, d.Store, in.Project)
+		if err != nil {
+			return TaskAddOutput{}, err
+		}
+		if proj.Folder == model.FolderArchive {
+			return TaskAddOutput{}, fmt.Errorf("project %s is archived", in.Project)
+		}
+		project = model.LinkTo(in.Project)
+	}
+	area, err := areaLink(ctx, d.Store, in.Area)
 	if err != nil {
 		return TaskAddOutput{}, err
-	}
-	if proj.Folder == model.FolderArchive {
-		return TaskAddOutput{}, fmt.Errorf("project %s is archived", in.Project)
 	}
 	var deps []model.Link
 	for _, id := range in.DependsOn {
@@ -138,7 +153,8 @@ var TaskAdd = define("task_add", "Create a task in a project", func(ctx context.
 		Meta: &model.Task{
 			Common:    model.Common{Type: model.TypeTask},
 			Status:    model.TaskTodo,
-			Project:   model.LinkTo(in.Project),
+			Project:   project,
+			Area:      area,
 			DependsOn: deps,
 		},
 	})
@@ -151,6 +167,7 @@ var TaskAdd = define("task_add", "Create a task in a project", func(ctx context.
 // TaskListInput is the input of task_list.
 type TaskListInput struct {
 	Project string           `json:"project,omitempty" query:"project"`
+	Area    string           `json:"area,omitempty" query:"area"` // tasks with this area of their own
 	Status  model.TaskStatus `json:"status,omitempty" query:"status"`
 }
 
@@ -165,7 +182,13 @@ var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Dep
 		return TaskListOutput{}, fmt.Errorf("unknown status %q", in.Status)
 	}
 	tasks, err := listTasks(ctx, d.Store, in.Project, in.Status)
-	return TaskListOutput{Tasks: tasks}, err
+	if err != nil {
+		return TaskListOutput{}, err
+	}
+	if area := normID(in.Area); area != "" {
+		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Area != area })
+	}
+	return TaskListOutput{Tasks: tasks}, nil
 })
 
 // TaskShowInput is the input of task_show.

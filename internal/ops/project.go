@@ -45,7 +45,8 @@ func getProject(ctx context.Context, s store.Store, id string) (model.Document, 
 // ProjectAddInput is the input of project_add.
 type ProjectAddInput struct {
 	Title string `json:"title"`
-	Owner string `json:"owner"`
+	Owner string `json:"owner,omitempty"` // default: the vault's owner property, else "self"
+	Area  string `json:"area,omitempty"`  // area id
 	Body  string `json:"body,omitempty"`
 }
 
@@ -62,8 +63,19 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 	if title == "" {
 		return ProjectAddOutput{}, errors.New("title is empty")
 	}
-	if strings.TrimSpace(in.Owner) == "" {
-		return ProjectAddOutput{}, errors.New("owner is empty")
+	owner := strings.TrimSpace(in.Owner)
+	if owner == "" {
+		var err error
+		if owner, err = d.Store.Config("owner"); err != nil {
+			return ProjectAddOutput{}, err
+		}
+		if owner = strings.TrimSpace(owner); owner == "" {
+			owner = "self"
+		}
+	}
+	area, err := areaLink(ctx, d.Store, in.Area)
+	if err != nil {
+		return ProjectAddOutput{}, err
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProjects,
@@ -72,7 +84,8 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 		Meta: &model.Project{
 			Common: model.Common{Type: model.TypeProject},
 			Status: model.ProjectActive,
-			Owner:  strings.TrimSpace(in.Owner),
+			Owner:  owner,
+			Area:   area,
 		},
 	})
 	if err != nil {

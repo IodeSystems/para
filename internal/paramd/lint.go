@@ -180,6 +180,9 @@ func (l *linter) frontmatter() {
 			l.errf(1, CodeField, "type policy_exception: kind conflict_with requires field %q", "with")
 		}
 	}
+	if typ == "task" && f.Frontmatter["project"] == nil && f.Frontmatter["area"] == nil {
+		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")

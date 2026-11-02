@@ -27,11 +27,19 @@ func joinOrDash(s []string) string {
 
 func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 	for _, t := range tasks {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", t.ID, t.Status, t.Project, t.Title); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", t.ID, t.Status, scope(t), t.Title); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// scope is where a task lives: its project, else its area.
+func scope(t ops.TaskView) string {
+	if t.Project != "" {
+		return t.Project
+	}
+	return t.Area
 }
 
 func newProjectCmd(l *loader) *cobra.Command {
@@ -41,7 +49,8 @@ func newProjectCmd(l *loader) *cobra.Command {
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ProjectAddInput) {
-				fs.StringVar(&in.Owner, "owner", "", "project owner (required)")
+				fs.StringVar(&in.Owner, "owner", "", "project owner (default: the vault's owner property, else self)")
+				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
 			Bind: func(args []string, in *ops.ProjectAddInput) error {
@@ -106,8 +115,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
-				fs.StringVarP(&in.Project, "project", "p", "", "project id (required)")
-				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on (repeatable)")
+				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
+				fs.StringVar(&in.Area, "area", "", "area id")
+				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
 			Bind: func(args []string, in *ops.TaskAddInput) error {
@@ -121,6 +131,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskListInput) {
 				fs.StringVarP(&in.Project, "project", "p", "", "only this project")
+				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 			},
 			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
@@ -131,8 +142,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
 				return err
 			},
 		}),

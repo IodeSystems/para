@@ -43,8 +43,19 @@ func TestInboxTriage(t *testing.T) {
 			}
 		}},
 		{"drop", "never mind", InboxTriageInput{To: TriageDrop}, "", nil},
-		{"task needs project", "x", InboxTriageInput{To: TriageTask}, "needs project", nil},
-		{"project needs owner", "x", InboxTriageInput{To: TriageProject}, "needs owner", nil},
+		{"task needs project or area", "x", InboxTriageInput{To: TriageTask}, "needs project or area", nil},
+		{"project owner defaults", "x", InboxTriageInput{To: TriageProject}, "", func(t *testing.T, id string) {
+			doc, err := d.Store.Get(ctx, id)
+			if p, _ := doc.Meta.(*model.Project); err != nil || p == nil || p.Owner != "self" {
+				t.Fatalf("project = %+v, %v", doc, err)
+			}
+		}},
+		{"task in an area", "water plants", InboxTriageInput{To: TriageTask, Area: area.ID}, "", func(t *testing.T, id string) {
+			doc, err := d.Store.Get(ctx, id)
+			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || m.Area != model.LinkTo(area.ID) || m.Project != "" {
+				t.Fatalf("task = %+v, %v", doc, err)
+			}
+		}},
 		{"rfx needs route", "x", InboxTriageInput{To: TriageRFX}, "needs route", nil},
 		{"note document", "keep this recipe", InboxTriageInput{To: TriageNote, Area: area.ID, Project: proj.ID}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)

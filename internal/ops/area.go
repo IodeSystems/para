@@ -177,7 +177,7 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 		return AreaShowOutput{}, err
 	}
 	for _, t := range tasks {
-		if inArea[t.Project] {
+		if t.Area == doc.ID || inArea[t.Project] {
 			out.Tasks = append(out.Tasks, t)
 		}
 	}

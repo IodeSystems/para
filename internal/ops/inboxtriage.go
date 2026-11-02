@@ -118,7 +118,7 @@ type InboxTriageInput struct {
 	ID string       `json:"id"`
 	To TriageTarget `json:"to"`
 	// task
-	Project string `json:"project,omitempty"` // task: project id; rfx: optional project id
+	Project string `json:"project,omitempty"` // task: project id (or Area); rfx: optional project id
 	// project
 	Owner string `json:"owner,omitempty"`
 	// rfx
@@ -127,8 +127,9 @@ type InboxTriageInput struct {
 	Targets   []TargetInput      `json:"targets,omitempty"`
 	SelfServe string             `json:"self_serve,omitempty"`
 	NextNudge string             `json:"next_nudge,omitempty"`
+	// area: task (instead of or beside Project), project, or note document
+	Area string `json:"area,omitempty"`
 	// note: a note document (Area, Project), or with Person a person note (Date)
-	Area   string `json:"area,omitempty"`   // note: area id
 	Person string `json:"person,omitempty"` // person id
 	Date   string `json:"date,omitempty"`   // YYYY-MM-DD; default the local date
 }
@@ -164,13 +165,13 @@ var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, req
 	out := InboxTriageOutput{ID: doc.ID, To: in.To, Warnings: []string{}}
 	switch in.To {
 	case TriageTask:
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Title: doc.Title, Body: joinBody(doc.Body, back)})
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back)})
 		if err != nil {
 			return out, err
 		}
 		out.Created = r.ID
 	case TriageProject:
-		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Body: joinBody(doc.Body, back)})
+		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back)})
 		if err != nil {
 			return out, err
 		}
@@ -250,15 +251,18 @@ func checkTriageFields(in InboxTriageInput) error {
 		"date":       in.Date != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:    {"project"},
-		TriageProject: {"owner"},
+		TriageTask:    {"project", "area"},
+		TriageProject: {"owner", "area"},
 		TriageRFX:     {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
 		TriageNote:    {"person", "date", "area", "project"},
 		TriageDrop:    {},
 	}[in.To]
 	required := map[TriageTarget][]string{
-		TriageTask: {"project"}, TriageProject: {"owner"}, TriageRFX: {"route"},
+		TriageRFX: {"route"},
 	}[in.To]
+	if in.To == TriageTask && in.Project == "" && in.Area == "" {
+		return errors.New("to task needs project or area")
+	}
 	if in.To == TriageNote {
 		if in.Person != "" && (in.Area != "" || in.Project != "") {
 			return errors.New("area and project apply to a note document: drop person, or drop area and project")

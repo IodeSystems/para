@@ -110,6 +110,8 @@ func TestLint(t *testing.T) {
 		{"bad date", "jo.md", doc("type: person\ncreated: yesterday\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
 		{"timestamp not date", "jo.md", doc("type: person\ncreated: 2026-11-01T10:00:00Z\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
 		{"bad enum", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: weird\nowner: Jo\n", "# P\n"), []string{"field-value:1"}},
+		{"task with neither", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\n", "# T\n"), []string{"field:1"}},
+		{"task with area only", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\narea: \"[[health]]\"\n", "# T\n"), nil},
 		{"unquoted link", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: [[acme-portal]]\n", "# T\n"), []string{"field-value:1"}},
 		{"exception conflict needs with", "e.md", doc("type: policy_exception\ncreated: 2026-11-01\npolicy: \"[[policy-a]]\"\nkind: conflict_with\nstatus: open\nby: Jo\n", "# E\n"), []string{"field:1"}},
 		{"exception rule must be block", "e.md", doc("type: policy_exception\ncreated: 2026-11-01\npolicy: \"[[policy-a]]\"\nrule: \"[[policy-a]]\"\nkind: bug\nstatus: open\nby: Jo\n", "# E\n"), []string{"field-value:1"}},

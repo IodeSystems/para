@@ -90,7 +90,8 @@ type Note struct {
 type Task struct {
 	Common    `yaml:",inline"`
 	Status    TaskStatus `yaml:"status" json:"status"`
-	Project   Link       `yaml:"project" json:"project"`
+	Project   Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
+	Area      Link       `yaml:"area,omitempty" json:"area,omitempty"`
 	BlockedBy []string   `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link     `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 }
