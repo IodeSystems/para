@@ -167,7 +167,7 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 		h.stops[v.ID] = func() { stopDocs(); stopEvents() }
 	}
 	return &Tenant{
-		id: v.ID, store: st, keys: ks, install: h.install, state: state, rulesPath: filepath.Join(dir, "net.rules"),
+		id: v.ID, path: v.Path, store: st, keys: ks, install: h.install, state: state, rulesPath: filepath.Join(dir, "net.rules"),
 		ref: filepath.Join(state, "vault.ref"), hide: []string{filepath.Clean(v.Path), h.install.Home}, log: h.log,
 	}, nil
 }
@@ -189,6 +189,7 @@ func EnsureRules(dir string) error {
 // Tenant is one open vault with its keys and rules.
 type Tenant struct {
 	id        string
+	path      string // the vault's root
 	install   registry.Install
 	state     string // per-machine state directory of this vault
 	store     *local.Store

@@ -195,6 +195,7 @@ func newRoot(l *loader) *cobra.Command {
 		newServiceCmd(l),
 		newDoctorCmd(l),
 		newTickCmd(l),
+		newAgentCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root

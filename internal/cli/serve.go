@@ -193,6 +193,13 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	if err != nil {
 		return err
 	}
+	notes, err := hub.CheckDispatch()
+	if err != nil {
+		return fmt.Errorf("serve: %w", err)
+	}
+	for _, n := range notes {
+		log.Warn("dispatch", "note", n)
+	}
 	if f.check {
 		log.Info("server can start", "addr", f.addr, "vaults", len(ids))
 		return nil
@@ -264,6 +271,11 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		close(tickDone)
 		log.Info("tick timer off")
 	}
+	dispatchDone := make(chan struct{})
+	go func() {
+		defer close(dispatchDone)
+		hub.RunDispatch(ctx, l.install.Home)
+	}()
 	log.Info("para serving", "addr", ln.Addr().String(), "vaults", strings.Join(ids, ","), "version", l.version)
 	log.Info("to sign in as admin, run: para serve login" + loginVaultHint(cfg.bare, ids) + " (the token is never logged)")
 	select {
@@ -279,6 +291,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	}
 	<-relayDone
 	<-tickDone
+	<-dispatchDone
 	if err := <-done; !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve: %w", err)
 	}
