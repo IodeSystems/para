@@ -19,7 +19,9 @@ Use para from Claude Code.
 
 5. Events record the actor `claude`. Change `--actor` to tell agents apart.
 
-6. `para mcp` watches the vault for the session, with no polling. It sends a
+6. Agents normally file a proposal, show the link, and end the turn. Nothing has
+   to wait. The rest of this step is only for unattended work.
+   `para mcp` watches the vault for the session, with no polling. It sends a
    short message (notifications/message, logger "para") when a proposal you filed
    is decided, a request can be claimed by this install, or a request you
    claimed is cancelled. It holds ids and states only, never vault text, and

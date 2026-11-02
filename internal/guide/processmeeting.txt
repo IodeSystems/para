@@ -10,4 +10,4 @@ Turn a meeting transcript into one proposal. Para does not record or transcribe;
    - a person you do not have: `org_person_add`.
    - who you met: `interaction_add`, as a short summary.
 4. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
-5. Then follow the prompt review_cycle: show the owner review_command and review_url, and wait.
+5. Then follow the prompt review_cycle: show the owner review_command and review_url, and end your turn.

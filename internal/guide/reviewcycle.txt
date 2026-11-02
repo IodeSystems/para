@@ -2,7 +2,7 @@ How to work with the owner through proposals. A proposal is a discussion. State 
 
 1. File. Call `proposal_add` with a title, a source document, and items. Each item needs evidence: a quote and a locator. An item of kind op names a real op and its input. An item of kind external holds a medium, a target, and a draft: an email, a PR, a ticket, a message. Para checks every item when you file it.
 2. Show the owner the review_command and the review_url that `proposal_add` returns, both, exactly.
-3. Wait. Call `proposal_wait` with the id: it blocks up to 60 seconds, returns as soon as the owner decides, and returns pending true after that, so call it again. A notification from para mcp may also tell you it is decided. Only a harness that cannot receive notifications needs para proposal wait as a background job: it costs no tokens, exits 0 on a decision and non-zero on a timeout, and prints the decisions. You may also stop: a send back or a rework queues a request, so a later agent can pick it up with `request_next`.
+3. Stop. End your turn. The owner reviews when they can, and decisions stay in the vault. Read them when the owner says so, or in a later session. Wait only if the owner asked you to carry on alone: `proposal_wait` blocks up to 60 seconds, returns as soon as the owner decides, and returns pending true after that, so call it again.
 4. Read the decisions with `proposal_show` and `proposal_diff`. Item states:
    - approved: an op ran under your name. An external item is approved for its exact text.
    - failed: the op failed. The reason holds the message. Fix it with a revision.
