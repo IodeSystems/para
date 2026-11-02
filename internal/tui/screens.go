@@ -161,7 +161,11 @@ func (m *Model) rowsToday(w int) []row {
 	if n := len(s.Inbox); n > 0 {
 		inbox = fmt.Sprintf("inbox %d to sort", n)
 	}
-	r := []row{head(fmt.Sprintf("Today, %s   vault %s", dateWords(s.Date, s.Loaded), s.Vault) + stDim.Render("   "+inbox))}
+	title := fmt.Sprintf("Today, %s", dateWords(s.Date, s.Loaded))
+	if w >= 60 {
+		title += "   vault " + s.Vault
+	}
+	r := []row{head(title + stDim.Render("   "+inbox))}
 	shown := map[string]bool{}
 	// add builds a row for an item the first time it appears on the screen.
 	add := func(id string, build func() row) {

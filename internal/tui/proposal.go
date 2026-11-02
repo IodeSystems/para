@@ -267,7 +267,9 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 		}
 		if it.HeldBy != "" {
 			target := it.HeldBy.Target()
-			r = append(r, link("doc:"+target, "      needs first: ", titleOr(m.snap.name(target), "another item"), "", w))
+			x := link("doc:"+target, "      needs first: ", titleOr(m.snap.name(target), "another item"), "", w)
+			x.id = it.ID
+			r = append(r, x)
 		}
 		for _, a := range d.Annotations {
 			if a.Item != it.ID {
@@ -292,7 +294,9 @@ func (m *Model) outcomeRows(it ops.ItemView, w int) []row {
 	case it.State != model.ItemApproved:
 		return nil
 	case it.ResultName != "":
-		return []row{link("doc:"+it.Result, "      "+stGood.Render("done")+", made ", it.ResultName, "", w)}
+		x := link("doc:"+it.Result, "      "+stGood.Render("done")+", made ", it.ResultName, "", w)
+		x.id = it.ID // the decisions on the footer stay those of this item
+		return []row{x}
 	case it.Kind == model.ItemExternal:
 		return []row{plain("      " + stGood.Render("Approved.") + stDim.Render(" Not sent yet."))}
 	}
