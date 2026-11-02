@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/store/local"
@@ -124,11 +125,19 @@ func newRoot(l *loader) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "para",
 		Short:         "Progress without pain",
+		Long:          guide.Intro(),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
-		RunE:          func(*cobra.Command, []string) error { return runTUI(l) },
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if extended, _ := cmd.Flags().GetBool("help-extended"); extended {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Extended())
+				return err
+			}
+			return runTUI(l)
+		},
 	}
+	root.Flags().Bool("help-extended", false, "print use cases with real commands, and where each kind of thing goes")
 	root.PersistentFlags().StringVar(&l.homeFlag, "home", "", "para home directory (or PARA_HOME; default ~/.para)")
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
 	root.AddCommand(
@@ -140,6 +149,7 @@ func newRoot(l *loader) *cobra.Command {
 		newEventsCmd(l),
 		newInboxCmd(l),
 		newMCPCmd(l),
+		newBootstrapCmd(),
 		newProjectCmd(l),
 		newAreaCmd(l),
 		newWhereCmd(l),

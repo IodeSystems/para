@@ -15,14 +15,16 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
+	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Instructions is the text every client receives at initialize. It states
-// the rules an agent follows when it works in a vault.
-const Instructions = `Para keeps one vault of projects, requests (RFX), policies, constraints, and people.
+// the rules an agent follows when it works in a vault, and names the prompts.
+var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
+	guide.Rule() + "\nPrompts: orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault).\n\n" + rules
 
-Rules:
+const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
 2. Never send anything. Para sends nothing. Write drafts with rfx_draft; the user sends them and then records the state.
 3. Org notes and person notes are working facts only. Never record medical, immigration, compensation, or performance details about anyone, even if asked or pasted.
@@ -59,11 +61,12 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		name = "para"
 	}
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, server.WithToolCapabilities(false), server.WithInstructions(Instructions)),
+		mcp:  server.NewMCPServer(name, o.Version, server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithInstructions(Instructions)),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
 	}
+	s.addPrompts()
 	for _, e := range ops.All() {
 		raw, err := inputSchema(e.InputType())
 		if err != nil {
@@ -138,3 +141,19 @@ func encode(v any) (string, error) {
 
 // clean returns the error text on one line with filesystem paths removed.
 func (s *Server) clean(err error) string { return ops.PublicError(err, s.hide) }
+
+// addPrompts registers the prompts. Their text is internal/guide's, the same
+// text `para --help-extended` and `para bootstrap` print.
+func (s *Server) addPrompts() {
+	for _, p := range []struct{ name, desc, text string }{
+		{"orient", "What para is and is not, the rule, and how to work a vault", guide.Orient()},
+		{"bootstrap", "Interview the owner and fill a new vault: areas, projects, tasks, people", guide.Bootstrap()},
+	} {
+		s.mcp.AddPrompt(mcp.NewPrompt(p.name, mcp.WithPromptDescription(p.desc)),
+			func(context.Context, mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+				return mcp.NewGetPromptResult(p.desc, []mcp.PromptMessage{
+					mcp.NewPromptMessage(mcp.RoleUser, mcp.NewTextContent(p.text)),
+				}), nil
+			})
+	}
+}

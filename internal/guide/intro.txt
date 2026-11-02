@@ -1,0 +1,7 @@
+para tracks what you owe and who you wait on.
+It keeps bounded projects, areas for ongoing responsibilities, tasks with
+dependencies and due dates, blockers with reasons, and people.
+Plans, docs, and runbooks stay where they live; para links to them.
+
+It is not a documentation system, a long-running engineering plan, a pager,
+a scheduler, a calendar, or a sync tool. Those stay where they live.

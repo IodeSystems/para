@@ -1,0 +1,92 @@
+Use cases. Every line starting with "$" is a real command. Ids are examples: use the
+id that the creating command prints.
+
+1. Start a vault
+  $ para init life ~/vaults/life
+  $ para area add "Home"
+  $ para project add "Paint the hall" --area area-home
+  $ para task add "Water the plants" --area area-home --due 2026-11-08 --recur weekly
+
+2. Capture and triage
+  $ para inbox add "call the plumber about the leak"
+  $ para inbox list
+  $ para inbox triage inbox-example --to task --area area-home
+  $ para inbox triage inbox-example --to note --area area-home
+  $ para inbox triage inbox-example --to drop
+
+3. A project with a task DAG
+  $ para project add "Move the server" --area area-home
+  $ para task add "Order the disk" -p project-move
+  $ para task add "Mount the disk" -p project-move --depends-on task-order
+  $ para task depends add task-mount task-order
+  $ para task due task-mount 2026-12-01
+  $ para graph project-move
+  $ para next
+  $ para task block task-mount --reason "Asha said wait for the delivery, this project only"
+  $ para task done task-order
+
+4. Ask someone: self-serve first, then the request, then the reply
+  $ para search "launch freeze"
+  $ para route billing
+  $ para rfx add "Can the portal launch before the audit?" --route domain-billing --self-serve "read policy-logging, searched the wiki" --to person-ada-example --via email
+  $ para rfx draft rfx-example --text "Hi Ada, can the portal launch before the audit?"
+  $ para rfx target state rfx-example person-ada-example sent
+  $ para rfx reply rfx-example --from person-ada-example --outcome no --why "Audit freeze" --url https://chat.acme.example/t/1 --text "Not before January."
+  $ para constraint list
+A "no" with its reason becomes a constraint, so nobody asks the same question twice.
+
+5. An area for a system you run
+  $ para area add "Home lab"
+  $ para area link add area-home-lab "Runbook" --kind runbook --target ~/doc/lab/runbook.md
+  $ para task add "Renew the TLS certificate" --area area-home-lab --due 2026-12-01 --recur yearly
+  $ para note add "Switch ports" --area area-home-lab --tag network --body "Port 3 is the uplink."
+  $ para where lab
+  $ para area show area-home-lab
+
+6. Before you contact someone
+  $ para who ada
+  $ para interaction list
+  $ para org person show person-ada-example
+
+7. Policies and exceptions
+  $ para ingest --url https://wiki.acme.example/policies/logging --title "Logging policy" < logging.txt
+  $ para policy show policy-logging
+  $ para rule list
+  $ para exception add --policy policy-logging --kind bug --by "Jordan Example" --rule R4
+  $ para exception expiring
+
+8. Agents: MCP tools and the request queue
+  $ para mcp config --client claude
+  $ para request add "Summarize the portal project" --link project-portal
+  $ para request accept request-example
+  $ para request list
+  $ para tui
+
+9. Export: carry a document to another window
+  $ para export policy-logging --as slack --to clipboard
+  $ para copy policy-logging --as email
+
+10. Browser and phone: the server, keys, and the service
+  $ para key create phone --scope vault:read --scope vault:write --ttl 30d --print-url --url http://127.0.0.1:7700
+  $ para key list
+  $ para serve --check
+  $ para serve
+  $ para service install
+  $ para service start
+  $ para service status
+  $ para service login-admin
+  $ para key revoke phone
+The server listens on 127.0.0.1:7700 by default and every request needs a token.
+
+Where does this go?
+  You have                                   It goes in
+  a deadline you owe                         a task with --due
+  an ongoing responsibility (no end)         an area
+  a bounded outcome                          a project (in an area)
+  something you wait on a person for         an rfx, with a reason if refused
+  a refusal with its reason                  a constraint (rfx reply --outcome no)
+  who someone is, how to reach them          org person, contacts, interactions
+  reference facts you will look up           a note
+  a plan, doc, runbook, or repository        stays where it lives; link it from the area or project
+  a phone or browser view of the vault       para serve, with a key from para key create
+  a meeting, a reminder at a time, a page    not para: use a calendar or a pager

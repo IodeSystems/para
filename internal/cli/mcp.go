@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/mcpserver"
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/store/local"
@@ -181,4 +182,18 @@ func shellQuote(s string) string {
 		return s
 	}
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
+// newBootstrapCmd prints the bootstrap interview, the text of the MCP prompt
+// of the same name, so it can be pasted into any agent. It reads no vault.
+func newBootstrapCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "bootstrap",
+		Short: "Print the instructions that make an agent interview you and fill a new vault",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Bootstrap())
+			return err
+		},
+	}
 }

@@ -1,0 +1,9 @@
+How to work a vault:
+1. Look before you write. Use `search`, `where`, `who`, and `route`. Read `next` and `graph` to see what is owed and what waits.
+2. Capture with `inbox_add`. Sort with `inbox_triage` (to task, project, note, rfx, or drop). Nothing is deleted.
+3. An area is an ongoing responsibility with no end (`area_add`). A project is a bounded outcome (`project_add`, with an area when it has one). A task needs a project or an area (`task_add`). Set a due date with `task_due`. Order work with `task_depends_add`; a cycle is refused.
+4. Point at plans, repos, and docs with `area_link_add` and `project_link_add`. Para never reads the target.
+5. A blocker is `task_block` with a reason: who said it, and where it applies.
+6. To ask a person, search first, then `rfx_add` with what you checked, `rfx_draft` for the message, and `rfx_reply` when they answer. A no keeps its reason.
+7. Facts about people go in `org_person_add`, `org_person_contact_add`, and `org_person_note`.
+8. Run `lint` after a batch of writes and fix every error.
