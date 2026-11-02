@@ -115,7 +115,7 @@ func TestRegistry(t *testing.T) {
 			checkJSONTags(t, e.Name(), typ)
 		}
 	}
-	if got := strings.Join(names, " "); got != "events_tail inbox_add lint reconcile" {
+	if got := strings.Join(names, " "); got != "events_tail graph inbox_add lint next project_add project_close project_list project_show reconcile task_add task_block task_done task_list task_show task_start" {
 		t.Errorf("ops = %s", got)
 	}
 }

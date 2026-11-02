@@ -363,15 +363,28 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	seedWork(t, deps)
 	cases := map[string]struct {
 		input    string
 		args     []string
 		sameData bool
 	}{
-		"inbox_add":   {`{"text":"synthetic"}`, []string{"inbox", "add", "synthetic"}, false},
-		"lint":        {``, []string{"lint"}, true},
-		"reconcile":   {`{}`, []string{"reconcile"}, true},
-		"events_tail": {`{"limit":20}`, []string{"events", "tail"}, true},
+		"inbox_add":     {`{"text":"synthetic"}`, []string{"inbox", "add", "synthetic"}, false},
+		"lint":          {``, []string{"lint"}, true},
+		"reconcile":     {`{}`, []string{"reconcile"}, true},
+		"events_tail":   {`{"limit":20}`, []string{"events", "tail"}, true},
+		"project_add":   {`{"title":"One","owner":"Jordan Example"}`, []string{"project", "add", "One", "--owner", "Jordan Example"}, false},
+		"project_list":  {`{}`, []string{"project", "list"}, true},
+		"project_show":  {`{"id":"project-a"}`, []string{"project", "show", "project-a"}, true},
+		"project_close": {`{"id":"project-c1"}`, []string{"project", "close", "project-c2"}, false},
+		"task_add":      {`{"project":"project-a","title":"T","depends_on":["task-d1"]}`, []string{"task", "add", "T", "-p", "project-a", "--depends-on", "task-d1"}, false},
+		"task_list":     {`{"project":"project-a"}`, []string{"task", "list", "-p", "project-a"}, false},
+		"task_show":     {`{"id":"task-d1"}`, []string{"task", "show", "task-d1"}, true},
+		"task_start":    {`{"id":"task-s1"}`, []string{"task", "start", "task-s2"}, false},
+		"task_done":     {`{"id":"task-d2"}`, []string{"task", "done", "task-d3"}, false},
+		"task_block":    {`{"id":"task-b1","reason":"waiting"}`, []string{"task", "block", "task-b2", "--reason", "waiting"}, false},
+		"graph":         {`{"project":"project-a"}`, []string{"graph", "project-a"}, false},
+		"next":          {`{"project":"project-a"}`, []string{"next", "project-a"}, false},
 	}
 	all := ops.All()
 	if len(all) != len(cases) {

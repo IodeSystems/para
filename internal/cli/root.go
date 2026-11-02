@@ -91,6 +91,10 @@ func newRoot(l *loader) *cobra.Command {
 		newEventsCmd(l),
 		newInboxCmd(l),
 		newMCPCmd(l),
+		newProjectCmd(l),
+		newTaskCmd(l),
+		newGraphCmd(l),
+		newNextCmd(l),
 	)
 	return root
 }
