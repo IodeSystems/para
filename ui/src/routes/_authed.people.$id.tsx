@@ -64,7 +64,7 @@ function Person() {
             </Section>
             <Section title="Waiting on them" count={p.openRfx.length} hideEmpty>
               {p.openRfx.length === 0 ? (
-                <Empty>No open request.</Empty>
+                <Empty>No open ask.</Empty>
               ) : (
                 <List dense disablePadding>
                   {p.openRfx.map((r) => (

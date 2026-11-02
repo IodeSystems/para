@@ -93,6 +93,7 @@ type ParaV1MutationNamespace {
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
   questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
+  requestAccept(body: para_RequestAcceptInputInput!): para_RequestChangeOutput @derived(operationId: "requestAccept")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
   requestDone(body: para_RequestDoneInputInput!): para_RequestChangeOutput @derived(operationId: "requestDone")
@@ -2950,6 +2951,10 @@ enum para_RefType {
   transcript
 }
 
+input para_RequestAcceptInputInput {
+  id: String!
+}
+
 input para_RequestAddInputInput {
   ask: String!
   links: [String!]
@@ -3526,6 +3531,7 @@ type para_TodayItem {
 }
 
 type para_TodayVaultToday {
+  answersToCheck: Int!
   blocked: para_TodayGroup!
   due: para_TodayGroup!
   dueSoon: para_TodayGroup!

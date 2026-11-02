@@ -159,7 +159,7 @@ function Search() {
         <TextField
           select
           size="small"
-          label="Project"
+          label="Goal"
           value={project ?? ''}
           onChange={(e) => set({ project: e.target.value || undefined })}
           sx={{ flex: '1 1 130px' }}

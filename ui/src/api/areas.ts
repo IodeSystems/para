@@ -20,6 +20,7 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     dependsOn
     dependsOnNames
     blockedBy
+    doneWhen
   }
 `)
 
@@ -106,6 +107,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
             title
             status
             owner
+            doneWhen
             area
             areaName
             links {
@@ -288,5 +290,28 @@ export function useWaiting(today: string) {
     queryKey: ['waiting'],
     queryFn: async () =>
       need((await gqlClient.request(WaitingDoc, { today })).para.v1.waiting, 'waiting'),
+  })
+}
+
+const ProjectEditDoc = graphql(/* GraphQL */ `
+  mutation ProjectEdit($body: para_ProjectEditInputInput!) {
+    para {
+      v1 {
+        projectEdit(body: $body) {
+          id
+          doneWhen
+        }
+      }
+    }
+  }
+`)
+
+// useGoalEdit sets how we know a goal (a project in the API) is done.
+export function useGoalEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; doneWhen: string }) =>
+      need((await gqlClient.request(ProjectEditDoc, { body: b })).para.v1.projectEdit, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

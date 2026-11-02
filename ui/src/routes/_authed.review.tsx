@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import List from '@mui/material/List'
@@ -10,6 +11,9 @@ import Tooltip from '@mui/material/Tooltip'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Typography from '@mui/material/Typography'
 import { useProposals } from '@/api/proposals'
+import { useQuestions } from '@/api/questions'
+import { useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
+import { AnswerCard } from '@/components/AnswerCheck'
 import { useAccept, useReopen, useReview } from '@/api/review'
 import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -22,6 +26,86 @@ import { needWords, newestTS, opPhrase, transition } from '@/lib/events'
 import { nameOr, stripIds } from '@/lib/names'
 
 export const Route = createFileRoute('/_authed/review')({ component: Review })
+
+// Agent answers wait here until a person accepts or rejects them. Until then the question stays
+// open and whatever waits on it stays blocked.
+function AnswersSection() {
+  const q = useQuestions()
+  const [said, setSaid] = useState('')
+  const items = (q.data ?? []).filter((x) => x.hasProposal)
+  return (
+    <Section title="Answers to check" count={q.isError ? undefined : items.length} hideEmpty>
+      {q.isError ? (
+        <Alert severity="error">{errorText(q.error)}</Alert>
+      ) : (
+        <>
+          {said && (
+            <Alert severity="success" onClose={() => setSaid('')} sx={{ mb: 1 }}>
+              {said}
+            </Alert>
+          )}
+          <List dense disablePadding>
+            {items.map((x) => (
+              <ListItem key={x.id} disableGutters divider sx={{ display: 'block' }}>
+                <AnswerCard q={x} onAccepted={setSaid} />
+              </ListItem>
+            ))}
+          </List>
+        </>
+      )}
+    </Section>
+  )
+}
+
+// Requests an agent proposed stay proposed until a person accepts them. Only a browser session
+// can accept; an agent key is refused.
+function AgentWorkSection() {
+  const q = useRequests()
+  const cancel = useRequestCancel()
+  const accept = useRequestAccept()
+  const items = (q.data ?? []).filter((r) => r.status === 'proposed')
+  return (
+    <Section title="Agent work to accept" count={q.isError ? undefined : items.length} hideEmpty>
+      {q.isError ? (
+        <Alert severity="error">{errorText(q.error)}</Alert>
+      ) : (
+        <>
+          {cancel.isError && <Alert severity="error">{errorText(cancel.error)}</Alert>}
+          {accept.isError && <Alert severity="error">{errorText(accept.error)}</Alert>}
+          <List dense disablePadding>
+            {items.map((r) => (
+              <ListItem key={r.id} disableGutters sx={CHIP_ROW}>
+                <ListItemText
+                  primary={<DocLink id={r.id}>{r.title || nameOr('', r.id)}</DocLink>}
+                  secondary={`proposed ${humanTime(r.queuedAt)}`}
+                  slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+                />
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={accept.isPending || cancel.isPending}
+                  aria-label={`Accept agent work: ${r.title || r.id}`}
+                  onClick={() => accept.mutate({ id: r.id })}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  disabled={cancel.isPending || accept.isPending}
+                  aria-label={`Decline agent work: ${r.title || r.id}`}
+                  onClick={() => cancel.mutate({ id: r.id })}
+                >
+                  Decline
+                </Button>
+              </ListItem>
+            ))}
+          </List>
+        </>
+      )}
+    </Section>
+  )
+}
 
 function ProposalsSection() {
   const q = useProposals()
@@ -98,6 +182,8 @@ function Review() {
           {errorText(err)}
         </Alert>
       )}
+      <AnswersSection />
+      <AgentWorkSection />
       <ProposalsSection />
       <DataState q={q}>
         {(r) => (

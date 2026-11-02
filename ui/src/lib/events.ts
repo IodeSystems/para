@@ -47,6 +47,16 @@ const VERB: Record<string, string> = {
   approve: 'Approved',
   deny: 'Denied',
   resolve: 'Resolved',
+  accept: 'Accepted',
+  reject: 'Rejected',
+}
+
+// The words a person reads for a thing, where the op name is older than the word.
+const NOUN: Record<string, string> = {
+  project: 'goal',
+  rfx: 'ask',
+  request: 'agent work',
+  nudge: 'follow up',
 }
 
 // opPhrase says an event's op in words: task_add is "Added task", external_edit is "Edited outside para".
@@ -54,7 +64,10 @@ export function opPhrase(op: string): string {
   if (op === 'external_edit') return 'Edited outside para'
   const parts = op.split('_').filter(Boolean)
   const verb = parts[parts.length - 1] ?? ''
-  const noun = parts.slice(0, -1).join(' ')
+  const noun = parts
+    .slice(0, -1)
+    .map((p) => NOUN[p] ?? p)
+    .join(' ')
   const v = VERB[verb]
   if (!v) return op.replace(/_/g, ' ')
   return noun ? `${v} ${noun}` : v
@@ -68,7 +81,7 @@ export function needWords(kind: string): string {
     case 'unverified summary':
       return 'Summary to verify'
     case 'proposed request':
-      return 'Request an agent proposed'
+      return 'Agent work proposed'
     default:
       return kind
   }

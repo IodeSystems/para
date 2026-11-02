@@ -6,12 +6,18 @@ export const TABS: Tab[] = [
   { key: '1', to: '/today', label: 'Today' },
   { key: '2', to: '/review', label: 'Review' },
   { key: '3', to: '/work', label: 'Work' },
-  { key: '4', to: '/rfx', label: 'RFX', hint: 'asks between you and people' },
+  { key: '4', to: '/rfx', label: 'Asks', hint: 'asks between you and people' },
   { key: '5', to: '/people', label: 'People' },
   { key: '6', to: '/policy', label: 'Policy' },
   { key: '7', to: '/search', label: 'Search' },
-  { key: '8', to: '/requests', label: 'Requests', hint: 'work queued for an agent' },
+  { key: '8', to: '/requests', label: 'Agent work', hint: 'work queued for an agent' },
   { key: '9', to: '/questions', label: 'Questions' },
+]
+
+// Screens with no digit key and no tab: the menu and the Today page link to them.
+export const EXTRA_SCREENS: Tab[] = [
+  { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
+  { key: '', to: '/agenda', label: 'Agenda', hint: 'what is dated in the next days' },
 ]
 
 export type KeyAction =

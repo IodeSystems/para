@@ -3,7 +3,9 @@
 const LABEL: Record<string, string> = {
   summary: 'Policy summary',
   transcript: 'Transcript',
-  rfx: 'RFX',
+  rfx: 'Ask',
+  project: 'Goal',
+  request: 'Agent work',
   inbox: 'Inbox',
   person: 'Person',
 }

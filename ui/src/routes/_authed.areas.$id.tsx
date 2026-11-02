@@ -25,7 +25,7 @@ function AreaPage() {
         <>
           <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
           <PointerLinks links={d.area.links} />
-          <Section title="Projects" count={d.projects.length} hideEmpty>
+          <Section title="Goals" count={d.projects.length} hideEmpty>
             {
               <List dense disablePadding>
                 {d.projects.map((p) => (

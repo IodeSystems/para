@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography'
 import { useProject } from '@/api/areas'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { DoneWhen } from '@/components/DoneWhen'
 import { PointerLinks } from '@/components/PointerLinks'
 import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
@@ -33,6 +34,12 @@ function ProjectPage() {
               </>
             )}
           </Typography>
+          <DoneWhen
+            value={d.project.doneWhen}
+            param="goaldw"
+            id={d.project.id}
+            prompt="Say how we know it is done"
+          />
           <PointerLinks links={d.project.links} />
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
             <TaskRows tasks={d.tasks} />

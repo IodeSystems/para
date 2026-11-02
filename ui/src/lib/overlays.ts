@@ -19,6 +19,11 @@ export type OverlaySearch = {
   drop?: string // question id to drop
   done?: string // task id to finish
   toq?: string // task id to turn into a question
+  reject?: string // question id whose proposed answer is rejected
+  qedit?: string // question id to edit
+  qdeps?: string // question id whose dependencies are edited
+  taskdw?: string // task id whose done-when is set
+  goaldw?: string // goal (project) id whose done-when is set
 }
 
 const flag = (v: unknown): true | undefined =>
@@ -43,6 +48,11 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     drop: id(s.drop),
     done: id(s.done),
     toq: id(s.toq),
+    reject: id(s.reject),
+    qedit: id(s.qedit),
+    qdeps: id(s.qdeps),
+    taskdw: id(s.taskdw),
+    goaldw: id(s.goaldw),
   }
 }
 
@@ -63,6 +73,11 @@ export const NO_OVERLAYS: OverlaySearch = {
   drop: undefined,
   done: undefined,
   toq: undefined,
+  reject: undefined,
+  qedit: undefined,
+  qdeps: undefined,
+  taskdw: undefined,
+  goaldw: undefined,
 }
 
 export function anyOverlay(s: OverlaySearch): boolean {

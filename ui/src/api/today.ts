@@ -33,6 +33,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             inbox
             unverified
             waiting
+            answersToCheck
             syncConflicts
             lostUpdates
             incidents {

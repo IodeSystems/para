@@ -94,6 +94,7 @@ export type TriageInput = {
   to: Para_InboxTriageInputTo
   project?: string
   owner?: string
+  doneWhen?: string
   person?: string
   route?: string
   // question: exactly one scope, and optional kind and options
@@ -117,6 +118,7 @@ export function useTriage() {
               to: b.to,
               project: b.project || undefined,
               owner: b.owner || undefined,
+              doneWhen: b.doneWhen || undefined,
               person: b.person || undefined,
               route: b.route || undefined,
               area: b.area || undefined,

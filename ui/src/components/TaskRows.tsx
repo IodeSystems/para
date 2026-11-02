@@ -9,7 +9,9 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import EventIcon from '@mui/icons-material/Event'
+import { useNavigate } from '@tanstack/react-router'
 import { useQuestions } from '@/api/questions'
+import { useWork } from '@/api/work'
 import { useTaskDone, useTaskDue } from '@/api/tasks'
 import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
@@ -31,6 +33,7 @@ export type TaskRow = {
   dependsOn: string[]
   dependsOnNames?: string[] | null
   blockedBy: string[]
+  doneWhen?: string | null
 }
 
 // DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
@@ -83,6 +86,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                   [
                     showProject && t.project ? nameOr(t.projectName, t.project) : undefined,
                     waitingOn(t, waits),
+                    open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,
                   ]
                     .filter(Boolean)
                     .join(' - ') || undefined
@@ -94,6 +98,11 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                   label={`Actions for ${t.title || t.id}`}
                   items={[
                     { label: 'Done', hint: 'Mark this task finished', search: { done: t.id } },
+                    {
+                      label: 'Set done when',
+                      hint: 'Say how we know this task is done',
+                      search: { taskdw: t.id },
+                    },
                     {
                       label: 'To question',
                       hint: 'Turn this into a question you need answered first',
@@ -129,6 +138,10 @@ function plusDays(date: string, n: number): string {
 export function TaskInline({ id, title }: { id: string; title: string }) {
   const done = useTaskDone()
   const due = useTaskDue()
+  const work = useWork()
+  const navigate = useNavigate()
+  // A task with a done_when asks first, in the Done dialog that shows the condition.
+  const doneWhen = work.data?.tasks.find((t) => t.id === id)?.doneWhen
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
   const today = localDate()
   const set = (date: string) => {
@@ -139,9 +152,13 @@ export function TaskInline({ id, title }: { id: string; title: string }) {
     <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
       <Button
         size="small"
-        disabled={done.isPending}
+        disabled={done.isPending || work.isPending}
         aria-label={`Done: ${title}`}
-        onClick={() => done.mutate({ id })}
+        onClick={() =>
+          doneWhen
+            ? void navigate({ to: '.', search: (p) => ({ ...p, done: id }) })
+            : done.mutate({ id })
+        }
       >
         Done
       </Button>

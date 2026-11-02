@@ -56,3 +56,54 @@ export function useRequestAdd() {
     onSuccess: () => void qc.invalidateQueries(),
   })
 }
+
+const RequestCancelDoc = graphql(/* GraphQL */ `
+  mutation RequestCancel($body: para_RequestCancelInputInput!) {
+    para {
+      v1 {
+        requestCancel(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+export function useRequestCancel() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string }) =>
+      need(
+        (await gqlClient.request(RequestCancelDoc, { body: b })).para.v1.requestCancel,
+        'result',
+      ),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const RequestAcceptDoc = graphql(/* GraphQL */ `
+  mutation RequestAccept($body: para_RequestAcceptInputInput!) {
+    para {
+      v1 {
+        requestAccept(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+// useRequestAccept moves a proposed agent request into the queue. Only a browser session may.
+export function useRequestAccept() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string }) =>
+      need(
+        (await gqlClient.request(RequestAcceptDoc, { body: b })).para.v1.requestAccept,
+        'result',
+      ),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}

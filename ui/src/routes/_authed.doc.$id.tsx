@@ -11,7 +11,9 @@ import { useCopyText, useDoc } from '@/api/doc'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
+import { hitKindLabel } from '@/lib/hitkind'
 import { Markdown } from '@/components/Markdown'
+import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
@@ -59,7 +61,7 @@ function Doc() {
             {d.title || d.id}
           </PageTitle>
           <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
-            <StatusChip tone="quiet" label={d.meta.type} />
+            <StatusChip tone="quiet" label={hitKindLabel(d.meta.type)} />
             {d.meta.status && <StateChip state={d.meta.status} />}
             {d.meta.verified === false && (
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
@@ -81,6 +83,8 @@ function Doc() {
               </Details>
             </Box>
           )}
+          {d.meta.type === 'question' && <QuestionPanel id={d.id} />}
+          {d.meta.type === 'task' && <TaskPanel id={d.id} />}
           {copy.isError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               The server refused the copy.

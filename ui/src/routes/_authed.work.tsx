@@ -49,7 +49,7 @@ function Work() {
         }
         sx={{ mb: 2 }}
       >
-        <Tab value="tasks" label="Projects and tasks" />
+        <Tab value="tasks" label="Goals and tasks" />
         <Tab value="graph" label="Graph" />
       </Tabs>
       {view === 'graph' ? (
@@ -73,7 +73,7 @@ function Tasks({ w }: { w: WorkData }) {
     <>
       <QuestionsSection hideEmpty />
       <AreasSection />
-      {w.projects.length === 0 && <Empty>No projects yet.</Empty>}
+      {w.projects.length === 0 && <Empty>No goals yet.</Empty>}
       {w.projects
         .filter((p) => (byProject.get(p.id)?.length ?? 0) > 0)
         .map((p) => (
@@ -107,7 +107,7 @@ function Tasks({ w }: { w: WorkData }) {
         </Typography>
       )}
       {loose.length > 0 && (
-        <Section title="No project" count={loose.length}>
+        <Section title="No goal" count={loose.length}>
           <TaskRows tasks={loose} />
         </Section>
       )}
@@ -140,7 +140,7 @@ function AreasSection() {
   )
 }
 
-const NODE_KIND: Record<string, string> = { question: 'Question', rfx: 'RFX', task: 'Task' }
+const NODE_KIND: Record<string, string> = { question: 'Question', rfx: 'Ask', task: 'Task' }
 
 function GraphLegend() {
   return (
@@ -165,7 +165,7 @@ function GraphLegend() {
         </Stack>
       ))}
       <Typography variant="caption" color="text.secondary">
-        Box: task. Dashed hexagon: question. Pill: request to someone.
+        Box: task. Dashed hexagon: question. Pill: ask to someone.
       </Typography>
     </Stack>
   )
@@ -230,7 +230,7 @@ function GraphView({ project }: { project: string | undefined }) {
               </Alert>
             )}
             {g.nodes.length === 0 ? (
-              <Empty>No tasks or requests to draw.</Empty>
+              <Empty>No tasks or asks to draw.</Empty>
             ) : narrow ? (
               <GraphList g={g} />
             ) : (

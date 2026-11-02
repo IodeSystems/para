@@ -21,6 +21,20 @@ export const QuestionFields = graphql(/* GraphQL */ `
     answered
     answeredBy
     rfx
+    dependsOn
+    waitingOn
+    hasProposal
+    proposedAnswer
+    proposedChoice
+    proposedBy
+    proposedWhy
+    proposed
+    proposedSources {
+      ref
+      quote
+    }
+    rejectedReason
+    rejectedBy
   }
 `)
 
@@ -64,6 +78,77 @@ const AnswerDoc = graphql(/* GraphQL */ `
           answeredBy
           answered
           unblocked
+        }
+      }
+    }
+  }
+`)
+
+const AcceptDoc = graphql(/* GraphQL */ `
+  mutation QuestionAccept($body: para_QuestionAcceptInputInput!) {
+    para {
+      v1 {
+        questionAccept(body: $body) {
+          id
+          status
+          choice
+          answeredBy
+          answered
+          unblocked
+        }
+      }
+    }
+  }
+`)
+
+const RejectDoc = graphql(/* GraphQL */ `
+  mutation QuestionReject($body: para_QuestionRejectInputInput!) {
+    para {
+      v1 {
+        questionReject(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+const EditDoc = graphql(/* GraphQL */ `
+  mutation QuestionEdit($body: para_QuestionEditInputInput!) {
+    para {
+      v1 {
+        questionEdit(body: $body) {
+          id
+          title
+          options
+          recommended
+        }
+      }
+    }
+  }
+`)
+
+const DependsAddDoc = graphql(/* GraphQL */ `
+  mutation QuestionDependsAdd($body: para_QuestionDependsInputInput!) {
+    para {
+      v1 {
+        questionDependsAdd(body: $body) {
+          id
+          dependsOn
+        }
+      }
+    }
+  }
+`)
+
+const DependsRemoveDoc = graphql(/* GraphQL */ `
+  mutation QuestionDependsRemove($body: para_QuestionDependsInputInput!) {
+    para {
+      v1 {
+        questionDependsRemove(body: $body) {
+          id
+          dependsOn
         }
       }
     }
@@ -188,6 +273,66 @@ export function useTaskToQuestion() {
       recommended?: string
     }) =>
       need((await gqlClient.request(ToQuestionDoc, { body: b })).para.v1.taskToQuestion, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export type AcceptInput = { id: string; text?: string; choice?: string; why?: string }
+
+// useAcceptAnswer turns an agent's proposed answer into the answer. Dependents unblock, so every
+// query refetches.
+export function useAcceptAnswer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: AcceptInput) =>
+      need((await gqlClient.request(AcceptDoc, { body: b })).para.v1.questionAccept, 'answer'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+// useRejectAnswer sends a proposed answer back with a reason the agent can read.
+export function useRejectAnswer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; reason: string }) =>
+      need((await gqlClient.request(RejectDoc, { body: b })).para.v1.questionReject, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export type QuestionEditInput = {
+  id: string
+  title?: string
+  options?: string[]
+  clearOptions?: boolean
+  recommended?: string
+  clearRecommended?: boolean
+}
+
+export function useEditQuestion() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: QuestionEditInput) =>
+      need((await gqlClient.request(EditDoc, { body: b })).para.v1.questionEdit, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export function useQuestionDepends() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; dependsOn: string[]; remove?: boolean }) => {
+      const body = { id: b.id, dependsOn: b.dependsOn }
+      return b.remove
+        ? need(
+            (await gqlClient.request(DependsRemoveDoc, { body })).para.v1.questionDependsRemove,
+            'result',
+          )
+        : need(
+            (await gqlClient.request(DependsAddDoc, { body })).para.v1.questionDependsAdd,
+            'result',
+          )
+    },
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

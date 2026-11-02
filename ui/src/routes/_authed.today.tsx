@@ -13,6 +13,7 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import { useInbox } from '@/api/inbox'
 import { useOpenProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
+import { useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
 import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -94,15 +95,32 @@ function Today() {
   const inbox = useInbox()
   const questions = useQuestions()
   const proposals = useOpenProposals()
+  const requests = useRequests()
   const narrow = useMediaQuery('(max-width: 599px)')
   const [more, setMore] = useState<string>('')
   return (
     <>
-      <PageTitle>Today</PageTitle>
+      <PageTitle
+        action={
+          <Stack direction="row" spacing={1}>
+            <LinkButton size="small" to="/meetings">
+              Meetings
+            </LinkButton>
+            <LinkButton size="small" to="/agenda">
+              Agenda
+            </LinkButton>
+          </Stack>
+        }
+      >
+        Today
+      </PageTitle>
       <DataState q={q}>
         {(d) => {
           const t = d.today
-          const qs = questions.data ?? []
+          // An answer an agent proposed is to check, not to answer.
+          const checks = (questions.data ?? []).filter((x) => x.hasProposal)
+          const qs = (questions.data ?? []).filter((x) => !x.hasProposal)
+          const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
           const inboxItems = inbox.data ?? []
           const incidents = t.incidents.items
           const overdue = t.overdue.items
@@ -110,6 +128,8 @@ function Today() {
           const props = proposals.open
           const need =
             props.length +
+            t.answersToCheck +
+            agentWork.length +
             incidents.length +
             qs.length +
             overdue.length +
@@ -119,9 +139,11 @@ function Today() {
           // The lead is the one thing to do first: an incident, then a decision that blocks
           // work, then something late, then a follow-up, then a sort. It is not listed again.
           let lead: Lead | null = null
-          let leadKind: 'proposal' | 'incident' | 'question' | 'overdue' | 'nudge' | 'inbox' | '' =
+          let leadKind:
+            'proposal' | 'answers' | 'incident' | 'question' | 'overdue' | 'nudge' | 'inbox' | '' =
             ''
           const firstProp = props[0]
+          const firstCheck = checks[0]
           const first = incidents[0]
           const firstQ = qs[0]
           const firstLate = overdue[0]
@@ -144,6 +166,17 @@ function Today() {
                   params={{ id: firstProp.id }}
                 >
                   Review
+                </LinkButton>
+              ),
+            }
+          } else if (firstCheck) {
+            leadKind = 'answers'
+            lead = {
+              why: `${t.answersToCheck} answer${t.answersToCheck === 1 ? '' : 's'} to check, from ${firstCheck.proposedBy || 'an agent'}`,
+              title: <DocLink id={firstCheck.id}>{firstCheck.title}</DocLink>,
+              action: (
+                <LinkButton size="small" variant="contained" to="/review">
+                  Check
                 </LinkButton>
               ),
             }
@@ -237,6 +270,7 @@ function Today() {
             return out
           }
           if (leadKind === 'incident' && first) seen.add(first.id)
+          const checkRows = checks.slice(leadKind === 'answers' ? 1 : 0)
           if (leadKind === 'question' && firstQ) seen.add(firstQ.id)
           if (leadKind === 'overdue' && firstLate) seen.add(firstLate.id)
           if (leadKind === 'nudge' && firstNudge) seen.add(firstNudge.id)
@@ -414,6 +448,47 @@ function Today() {
                           </TextLink>
                         }
                         secondary={`${x.pending} of ${x.itemCount} to decide, from ${x.proposedBy}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Section>
+              <Section
+                title="Answers to check"
+                count={t.answersToCheck}
+                hideEmpty
+                action={
+                  <LinkButton size="small" to="/review">
+                    Check
+                  </LinkButton>
+                }
+              >
+                <List dense disablePadding>
+                  {checkRows.map((x) => (
+                    <ListItem key={x.id} disableGutters>
+                      <ListItemText
+                        primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
+                        secondary={`proposed by ${x.proposedBy || 'an agent'}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Section>
+              <Section
+                title="Agent work to accept"
+                count={agentWork.length}
+                hideEmpty
+                action={
+                  <LinkButton size="small" to="/review">
+                    Review
+                  </LinkButton>
+                }
+              >
+                <List dense disablePadding>
+                  {agentWork.map((x) => (
+                    <ListItem key={x.id} disableGutters>
+                      <ListItemText
+                        primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
                       />
                     </ListItem>
                   ))}

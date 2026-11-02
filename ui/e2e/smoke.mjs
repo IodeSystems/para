@@ -143,7 +143,9 @@ try {
   para('init', 'acme', join(work, 'vault'), '--no-git')
   const v = ['--vault', 'acme']
   para(...v, 'inbox', 'add', 'Seed: ask platform about the quota')
-  const proj = idOf(para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--json'))
+  const proj = idOf(
+    para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
+  )
   const t1 = idOf(para(...v, 'task', 'add', 'Write the plan', '-p', proj, '--json'))
   para(...v, 'task', 'add', 'Get approval', '-p', proj, '--depends-on', t1)
   const person = idOf(
@@ -217,7 +219,19 @@ try {
     '```',
   ].join('\n')
   const docId = idOf(
-    para(...v, 'project', 'add', 'Doc view fixture', '--owner', 'me', '--body', body, '--json'),
+    para(
+      ...v,
+      'project',
+      'add',
+      'Doc view fixture',
+      '--owner',
+      'me',
+      '--done-when',
+      'Shown.',
+      '--body',
+      body,
+      '--json',
+    ),
   )
   // Para refuses raw HTML on write, so it can only arrive by a hand edit or a sync tool. The page
   // must still show it as inert.
@@ -607,7 +621,7 @@ try {
       {
         kind: 'op',
         op: 'task_add',
-        input: { title: 'Follow up on quota', project: proj },
+        input: { title: 'Follow up on quota', project: proj, done_when: 'The ticket is open.' },
         evidence,
       },
     ],
@@ -732,9 +746,13 @@ try {
   // An edit without a note: approve as edited, or send back. Deny is gone.
   await more(i2, 'Edit')
   const edit = rp.getByRole('dialog', { name: /^Edit/ })
-  await edit
-    .getByLabel('Input (JSON, in full)')
-    .fill(JSON.stringify({ title: 'Follow up on the quota ticket', project: proj }))
+  await edit.getByLabel('Input (JSON, in full)').fill(
+    JSON.stringify({
+      title: 'Follow up on the quota ticket',
+      project: proj,
+      done_when: 'The ticket is open.',
+    }),
+  )
   await edit.getByRole('button', { name: 'Save edit' }).click()
   await edit.waitFor({ state: 'hidden' })
   await i2.getByRole('button', { name: 'Approve as edited' }).waitFor()
@@ -1051,6 +1069,500 @@ try {
     'fidelity sits behind Details',
   )
 
+  // ---- Agent answers are proposals; the owner checks them. ----
+  const gq = idOf(
+    para(...v, 'question', 'add', 'Which log retention applies?', '-p', proj, '--json'),
+  )
+  const gTask = idOf(
+    para(
+      ...v,
+      'task',
+      'add',
+      'Publish the retention note',
+      '-p',
+      proj,
+      '--depends-on',
+      gq,
+      '--done-when',
+      'The note is published.',
+      '--json',
+    ),
+  )
+  const gq2 = idOf(
+    para(...v, 'question', 'add', 'Which team owns retention?', '-p', proj, '--json'),
+  )
+  const ready = async () => (await agent.call('next', { project: proj })).tasks.map((t) => t.id)
+  const quote = 'Logs are kept 30 days'
+
+  // (2) An agent answer without a source is refused, and nothing is recorded.
+  let refusal = ''
+  try {
+    await agent.call('question_answer', { id: gq, text: 'Keep logs 90 days.' })
+  } catch (e) {
+    refusal = String(e.message)
+  }
+  check(
+    /source/.test(refusal) && /owner/.test(refusal),
+    `an agent answer without a source is refused with a hint to cite or ask the owner (${refusal.slice(0, 90)})`,
+  )
+  const untouched = (await agent.call('question_show', { id: gq })).question
+  check(
+    untouched.status === 'open' && !untouched.has_proposal && !untouched.proposed_answer,
+    'a refused answer records nothing',
+  )
+
+  // (1) With a vault document as the source it is only a proposal: still open, dependents wait.
+  const prop = await agent.call('question_answer', {
+    id: gq,
+    text: 'Keep logs 90 days.',
+    why: 'The policy says so.',
+    sources: [{ ref: pol, quote }],
+  })
+  check(prop.proposed === true && prop.status === 'open', 'an agent answer is only proposed')
+  const proposed = (await agent.call('question_show', { id: gq })).question
+  check(
+    proposed.status === 'open' &&
+      proposed.has_proposal &&
+      proposed.proposed_sources?.[0]?.ref === pol &&
+      proposed.proposed_sources?.[0]?.quote === quote,
+    'the question stays open with the proposal and its source',
+  )
+  check(!(await ready()).includes(gTask), 'the task that depends on the question is not ready')
+  const apiNext = JSON.parse((await api(token, `/api/v1/next?project=${proj}`)).text)
+  check(
+    !apiNext.tasks.some((t) => t.id === gTask),
+    'the API agrees: the dependent task is not ready',
+  )
+
+  // Today counts the answer to check and links to it.
+  await rp.goto(`${base}/today`)
+  await rp.getByText(/Start here - .*answer.* to check/).waitFor()
+  check(
+    (await rp.getByRole('link', { name: 'Check', exact: true }).count()) >= 1,
+    'Today counts answers to check and links to Review',
+  )
+  await rp.goto(`${base}/questions`)
+  const prow = rp.getByRole('listitem').filter({ hasText: 'Which log retention applies?' })
+  await prow.getByText('proposed answer').waitFor()
+  check(true, 'the question row shows a proposed answer, not plain open')
+
+  // (3) Review lists it first, with the source link and quote. The owner edits and accepts.
+  await rp.goto(`${base}/review`)
+  await rp.getByRole('heading', { name: 'Answers to check' }).waitFor()
+  check(
+    (await rp.locator('main section h2').first().innerText()).startsWith('Answers to check'),
+    'Answers to check is the first section on Review',
+  )
+  const card = rp
+    .locator('section')
+    .filter({ has: rp.getByRole('heading', { name: 'Answers to check' }) })
+  const srcLink = card.getByRole('link', { name: 'Logging policy' })
+  await srcLink.waitFor()
+  check(
+    (await srcLink.getAttribute('href')) === `/doc/${pol}`,
+    'a document source links to the document',
+  )
+  check(await card.getByText(quote).isVisible(), 'the source quote is shown')
+  check(await card.getByText('The policy says so.').isVisible(), 'the agent reason is shown')
+  const box = card.getByLabel('Answer', { exact: true })
+  check((await box.inputValue()) === 'Keep logs 90 days.', 'the text starts as the proposed answer')
+  await box.fill('Keep logs 90 days, then archive.')
+  await card.getByRole('button', { name: /^Accept answer/ }).click()
+  await rp.getByRole('heading', { name: 'Answers to check' }).waitFor({ state: 'detached' })
+  check(true, 'accepting removes the item from Answers to check')
+  const accepted = (await agent.call('question_show', { id: gq })).question
+  check(
+    accepted.status === 'answered' && !accepted.has_proposal,
+    'the question is answered after accept (API)',
+  )
+  check(
+    para(...v, 'question', 'show', gq).includes('Keep logs 90 days, then archive.') &&
+      para(...v, 'question', 'show', gq).includes(quote),
+    'the edited text is recorded and the source stays',
+  )
+  check((await ready()).includes(gTask), 'the dependent task is ready after accept (API)')
+  await rp.goto(`${base}/work`)
+  const gRow = rp.getByRole('listitem').filter({ hasText: 'Publish the retention note' })
+  await gRow.waitFor()
+  check(
+    (await gRow.getByText(/waiting on question/).count()) === 0,
+    'the dependent task no longer waits (page)',
+  )
+  check(
+    await gRow.getByText('Done when: The note is published.').isVisible(),
+    'a task row shows done when',
+  )
+  // The Done dialog shows the condition first.
+  await gRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Done/ }).click()
+  const gd = rp.getByRole('dialog', { name: 'Finish task' })
+  check(
+    await gd.getByText('Done when: The note is published. Is it done?').isVisible(),
+    'Done asks "Done when: ... Is it done?" for a task with a condition',
+  )
+  await gd.getByRole('button', { name: 'Yes, done' }).click()
+  await gd.waitFor({ state: 'hidden' })
+  check(para(...v, 'task', 'show', gTask).includes('done'), 'the task is done after the confirm')
+
+  // (4) A second proposal is rejected with a reason; the agent reads it.
+  await agent.call('question_answer', {
+    id: gq2,
+    text: 'Platform owns it.',
+    sources: [{ ref: 'https://example.com/org-chart', quote: 'Platform: retention' }],
+  })
+  // (5) A bearer key cannot accept: it is not a person surface.
+  const denied = await api(token, '/api/v1/question/accept', { id: gq2, text: 'Platform owns it.' })
+  check(
+    denied.status >= 400 && denied.status !== 200,
+    `a bearer key calling question_accept is refused (${denied.status})`,
+  )
+  const stillOpen = (await agent.call('question_show', { id: gq2 })).question
+  check(stillOpen.status === 'open' && stillOpen.has_proposal, 'the refused accept changed nothing')
+  await rp.goto(`${base}/review`)
+  const card2 = rp
+    .locator('section')
+    .filter({ has: rp.getByRole('heading', { name: 'Answers to check' }) })
+  const webSrc = card2.getByRole('link', { name: 'https://example.com/org-chart' })
+  await webSrc.waitFor()
+  check(
+    (await webSrc.getAttribute('target')) === '_blank' &&
+      /noopener/.test((await webSrc.getAttribute('rel')) ?? ''),
+    'a URL source opens in a new tab with rel noopener',
+  )
+  await card2.getByRole('link', { name: /^Reject answer/ }).click()
+  const rj = rp.getByRole('dialog', { name: 'Reject the proposed answer' })
+  await rj.waitFor()
+  check(
+    await rj.getByRole('button', { name: 'Reject' }).isDisabled(),
+    'reject is disabled without a reason',
+  )
+  await rj.getByLabel(/Reason/).fill('Security owns retention, not Platform.')
+  await rj.getByRole('button', { name: 'Reject' }).click()
+  await rj.waitFor({ state: 'hidden' })
+  await rp.getByRole('heading', { name: 'Answers to check' }).waitFor({ state: 'detached' })
+  const rejected = (await agent.call('question_show', { id: gq2 })).question
+  check(
+    rejected.status === 'open' &&
+      !rejected.has_proposal &&
+      rejected.rejected_reason === 'Security owns retention, not Platform.',
+    'the agent reads rejected_reason through question_show',
+  )
+  await rp.goto(`${base}/questions`)
+  await rp.getByText('Rejected: Security owns retention, not Platform.').waitFor()
+  check(true, 'the owner sees "Rejected: ..." on the question row')
+
+  // A question page: edit it and change what it waits on.
+  await rp.goto(`${base}/doc/${gq2}`)
+  await rp.getByRole('link', { name: 'Edit question' }).click()
+  const qe = rp.getByRole('dialog', { name: 'Edit question' })
+  await qe.getByLabel('Question').fill('Which team owns log retention?')
+  await qe.getByRole('button', { name: 'Save' }).click()
+  await qe.waitFor({ state: 'hidden' })
+  await rp.getByRole('heading', { name: 'Which team owns log retention?' }).waitFor()
+  check(true, 'a question can be edited from its page')
+  const other = idOf(
+    para(...v, 'question', 'add', 'Is the retention note final?', '-p', proj, '--json'),
+  )
+  await rp.goto(`${base}/doc/${other}`)
+  await rp.getByRole('link', { name: 'Waits on' }).click()
+  const dep = rp.getByRole('dialog', { name: 'What this question waits on' })
+  await dep.getByRole('combobox', { name: /Add: wait on/ }).click()
+  await rp.getByRole('option', { name: 'Which team owns log retention?' }).click()
+  await dep.getByRole('button', { name: 'Add' }).click()
+  await dep.getByRole('button', { name: /^Remove dependency/ }).waitFor()
+  const waiting = (await agent.call('question_show', { id: other })).question
+  check(waiting.waiting_on?.includes(gq2), 'a dependency can be added from the question page')
+  await dep.getByRole('button', { name: /^Remove dependency/ }).click()
+  await dep.getByText('It waits on nothing.').waitFor()
+  check(
+    ((await agent.call('question_show', { id: other })).question.depends_on ?? []).length === 0,
+    'a dependency can be removed',
+  )
+  await dep.getByRole('button', { name: 'Close' }).click()
+
+  // Goals and done_when.
+  await rp.goto(`${base}/projects/${proj}`)
+  await rp.getByText('Done when: Launched.').waitFor()
+  check(true, 'a goal page shows done when')
+  await rp.getByRole('link', { name: 'Edit done when' }).click()
+  const gdw = rp.getByRole('dialog', { name: 'Done when (goal)' })
+  await gdw.getByLabel(/How we know/).fill('Launched and verified.')
+  await gdw.getByRole('button', { name: 'Save' }).click()
+  await gdw.waitFor({ state: 'hidden' })
+  await rp.getByText('Done when: Launched and verified.').waitFor()
+  check(
+    para(...v, 'project', 'show', proj).includes('Launched and verified.'),
+    'the goal done when is saved',
+  )
+  const apprTask = idOf(para(...v, 'task', 'add', 'Check the done page', '-p', proj, '--json'))
+  await rp.goto(`${base}/doc/${apprTask}`)
+  await rp.getByText('Say how we know it is done').waitFor()
+  await rp.getByRole('link', { name: 'Set done when' }).click()
+  const tdw = rp.getByRole('dialog', { name: 'Done when (task)' })
+  await tdw.getByLabel(/How we know/).fill('The page shows it.')
+  await tdw.getByRole('button', { name: 'Save' }).click()
+  await tdw.waitFor({ state: 'hidden' })
+  await rp.getByText('Done when: The page shows it.').waitFor()
+  check(true, 'a task page lets the owner set done when')
+  // A new goal needs done when; a new task may have it.
+  para(...v, 'inbox', 'add', 'Triage me to a goal')
+  await rp.goto(`${base}/today`)
+  await rp
+    .getByRole('listitem')
+    .filter({ hasText: 'Triage me to a goal' })
+    .getByRole('link', { name: 'Sort' })
+    .click()
+  const tg = rp.getByRole('dialog', { name: 'Sort inbox item' })
+  await tg.getByRole('combobox', { name: 'Turn into' }).click()
+  await rp.getByRole('option', { name: 'Goal', exact: true }).click()
+  check(
+    await tg.getByRole('button', { name: 'Sort', exact: true }).isDisabled(),
+    'a new goal cannot be made without done when',
+  )
+  await tg.getByLabel(/Done when/).fill('It ships.')
+  await tg.getByRole('button', { name: 'Sort', exact: true }).click()
+  await tg.waitFor({ state: 'hidden' })
+  check(true, 'a new goal is made with done when')
+
+  // ---- Meetings, agenda, calendar export, ask target states, agent work accept. ----
+  const iso = (daysAhead, hh) => {
+    const d = new Date(Date.now() + daysAhead * 86400_000)
+    return `${d.toISOString().slice(0, 10)}T${hh}:00:00Z`
+  }
+  const localVal = (daysAhead, hh) => iso(daysAhead, hh).slice(0, 16)
+  const m1 = idOf(
+    para(
+      ...v,
+      'meeting',
+      'add',
+      'Quota sync',
+      '--with',
+      person,
+      '--start',
+      iso(1, '10'),
+      '--end',
+      iso(1, '11'),
+      '--json',
+    ),
+  )
+  const m2 = idOf(para(...v, 'meeting', 'add', 'Budget review', '--with', person, '--json'))
+  await rp.goto(`${base}/meetings`)
+  const mrow = rp.getByRole('listitem').filter({ hasText: 'Quota sync' })
+  await mrow.waitFor()
+  check(
+    (await mrow.innerText()).includes('scheduled') &&
+      (await rp.getByRole('listitem').filter({ hasText: 'Budget review' }).innerText()).includes(
+        'not booked',
+      ),
+    'the Meetings list shows a scheduled and an unbooked meeting',
+  )
+  const order = await rp.locator('main li').allInnerTexts()
+  check(
+    order.findIndex((t) => t.includes('Quota sync')) <
+      order.findIndex((t) => t.includes('Budget review')),
+    'a booked meeting is listed before an unbooked one',
+  )
+  await mrow.getByRole('link', { name: 'Quota sync' }).click()
+  await rp.getByRole('heading', { name: 'Quota sync' }).waitFor()
+  check(
+    await rp.getByRole('heading', { name: 'Questions and notes' }).isVisible(),
+    'the meeting page shows its Questions and Notes',
+  )
+  // Reschedule through the dialog; the stored time is the typed wall clock in the viewer's zone.
+  await rp.getByRole('button', { name: 'Reschedule' }).click()
+  const sch = rp.getByRole('dialog', { name: 'Reschedule' })
+  await sch.getByLabel('Start').fill(localVal(2, '14'))
+  await sch.getByLabel('End').fill(localVal(2, '15'))
+  await sch.getByRole('button', { name: 'Reschedule' }).click()
+  await sch.waitFor({ state: 'hidden' })
+  const want = await rp.evaluate((x) => new Date(x).getTime(), localVal(2, '14'))
+  await rp.waitForFunction(() => document.body.innerText.includes('14:00'))
+  const mShown = JSON.parse(para(...v, 'meeting', 'show', m1, '--json'))
+  check(
+    Date.parse(mShown.meeting.start) === want,
+    'rescheduling through the dialog stores the typed time in the viewer zone',
+  )
+  // Agenda lists it, and the export button gives a calendar file.
+  await rp.goto(`${base}/agenda`)
+  await rp.getByRole('link', { name: 'Quota sync' }).waitFor()
+  check(true, 'the Agenda lists the meeting')
+  const [dl] = await Promise.all([
+    rp.waitForEvent('download'),
+    rp.getByRole('button', { name: 'Export calendar' }).click(),
+  ])
+  const icsPath = await dl.path()
+  const ics = readFileSync(icsPath, 'utf8')
+  check(
+    dl.suggestedFilename().endsWith('.ics') &&
+      ics.includes('BEGIN:VCALENDAR') &&
+      ics.includes('Quota sync'),
+    'the calendar export button saves an .ics file with the meeting',
+  )
+  await rp.getByText(/Calendar exported: \d+ event/).waitFor()
+  check(true, 'the calendar export says how many events')
+  // Hold it with notes, and one action with no done when.
+  await rp.goto(`${base}/meetings/${m1}`)
+  await rp.getByRole('button', { name: 'Hold', exact: true }).click()
+  const hd = rp.getByRole('dialog', { name: 'Hold meeting' })
+  await hd.getByLabel('Notes').fill('Agreed to raise the quota.')
+  await hd.getByRole('button', { name: 'Add action item' }).click()
+  await hd.getByRole('textbox', { name: /^Action/ }).fill('Send the quota form')
+  check(
+    await hd.getByRole('button', { name: 'Record as held' }).isDisabled(),
+    'an action item without a goal or area cannot be recorded',
+  )
+  await hd.getByRole('combobox', { name: 'Goal for the actions' }).click()
+  await rp.getByRole('option', { name: 'Launch', exact: true }).click()
+  await hd.getByRole('button', { name: 'Record as held' }).click()
+  await hd.waitFor({ state: 'hidden' })
+  await rp.getByText('held', { exact: true }).first().waitFor()
+  const heldBody = para(...v, 'meeting', 'show', m1)
+  check(
+    heldBody.includes('Agreed to raise the quota.') && heldBody.includes('Action: [['),
+    'holding a meeting records the notes and the action item',
+  )
+  await rp.goto(`${base}/meetings`)
+  await rp.getByRole('listitem').filter({ hasText: 'Budget review' }).waitFor()
+  check(
+    (await rp.getByRole('listitem').filter({ hasText: 'Quota sync' }).count()) === 0,
+    'a held meeting leaves the default list',
+  )
+  // Cancel the second one with a reason.
+  await rp.goto(`${base}/meetings/${m2}`)
+  await rp.getByRole('button', { name: 'Cancel', exact: true }).click()
+  const cd = rp.getByRole('dialog', { name: 'Cancel meeting' })
+  await cd.getByLabel('Reason (optional)').fill('Moved to next quarter.')
+  await cd.getByRole('button', { name: 'Cancel meeting' }).click()
+  await cd.waitFor({ state: 'hidden' })
+  await rp.getByText('cancelled', { exact: true }).first().waitFor()
+  check(
+    para(...v, 'meeting', 'show', m2).includes('Moved to next quarter.'),
+    'cancelling with a reason records the reason',
+  )
+  await rp.goto(`${base}/meetings`)
+  await rp.getByText('No requested or scheduled meetings.').waitFor()
+  await rp.getByLabel('Show held and cancelled').check()
+  await rp.getByRole('listitem').filter({ hasText: 'Budget review' }).waitFor()
+  check(
+    (await rp.getByRole('listitem').filter({ hasText: 'Quota sync' }).count()) === 1,
+    'the toggle shows held and cancelled meetings',
+  )
+
+  // Ask target states: a meeting target offers requested and scheduled, an email target does not.
+  const mrfx = idOf(
+    para(
+      ...v,
+      'rfx',
+      'add',
+      'Settle quota in person',
+      '--to',
+      person,
+      '--via',
+      'meeting',
+      '--route',
+      domain,
+      '--self-serve',
+      'ask in the meeting',
+      '--json',
+    ),
+  )
+  const stateOptions = async (id) => {
+    await rp.goto(`${base}/rfx/${id}`)
+    await rp.getByRole('combobox', { name: 'Set state' }).first().click()
+    const opts = await rp.getByRole('option').allInnerTexts()
+    await rp.keyboard.press('Escape')
+    return opts
+  }
+  const meetOpts = await stateOptions(mrfx)
+  check(
+    meetOpts.includes('requested') && meetOpts.includes('scheduled'),
+    `a meeting target offers requested and scheduled (got ${meetOpts.join(',')})`,
+  )
+  const mailOpts = await stateOptions(rfx)
+  check(
+    !mailOpts.includes('requested') && !mailOpts.includes('scheduled') && mailOpts.includes('sent'),
+    `an email target does not (got ${mailOpts.join(',')})`,
+  )
+  // Setting a state needs the rfx:send scope; the reviewer key of this phone page lacks it, so the
+  // admin page sets it.
+  await page.goto(`${base}/rfx/${mrfx}`)
+  await page.getByRole('combobox', { name: 'Set state' }).first().click()
+  await page.getByRole('option', { name: 'scheduled', exact: true }).click()
+  await page.locator('.MuiChip-label', { hasText: 'scheduled' }).first().waitFor()
+  check(
+    JSON.parse(para(...v, 'rfx', 'show', mrfx, '--json')).targets?.[0]?.state === 'scheduled',
+    'setting a meeting target to scheduled is stored',
+  )
+
+  // Agent work: an agent's request is proposed; the person accepts it in the browser.
+  const prop1 = await agent.call('request_add', {
+    ask: 'Check the dashboards',
+    title: 'Check dashboards',
+  })
+  const prop2 = await agent.call('request_add', { ask: 'Tidy the backlog', title: 'Tidy backlog' })
+  check(prop1.status === 'proposed', `an agent request is proposed (got ${prop1.status})`)
+  await rp.goto(`${base}/requests`)
+  const arow = rp.getByRole('listitem').filter({ hasText: 'Check dashboards' })
+  await arow.getByRole('button', { name: /^Accept agent work/ }).click()
+  await arow.getByText('waiting for an agent').waitFor()
+  check(true, 'Accept on Agent work moves a proposed item to the queue')
+  await rp.goto(`${base}/review`)
+  const rrow = rp
+    .locator('section')
+    .filter({ has: rp.getByRole('heading', { name: 'Agent work to accept' }) })
+    .getByRole('listitem')
+    .filter({ hasText: 'Tidy backlog' })
+  check(
+    !(await rp.locator('main').innerText()).includes('para request accept'),
+    'Review no longer tells the person to use the terminal',
+  )
+  await rrow.getByRole('button', { name: /^Accept agent work/ }).click()
+  await rrow.waitFor({ state: 'detached' })
+  await rp.goto(`${base}/requests`)
+  await rp
+    .getByRole('listitem')
+    .filter({ hasText: 'Tidy backlog' })
+    .getByText('waiting for an agent')
+    .waitFor()
+  check(prop2.status === 'proposed', 'Review accepts proposed agent work too')
+
+  // (6) Words.
+  const banned = /RFX|Requests?\b|nudge|Projects?\b/
+  for (const [path, must] of [
+    ['/review', null],
+    ['/rfx', 'Asks'],
+    ['/requests', 'Agent work'],
+    ['/work', 'Goals and tasks'],
+    ['/today', null],
+    ['/questions', null],
+    ['/meetings', 'Meetings'],
+    ['/agenda', 'Agenda'],
+  ]) {
+    await rp.goto(`${base}${path}`)
+    await rp.locator('main h1').first().waitFor()
+    await rp.waitForTimeout(300)
+    const text = await rp.locator('main').innerText()
+    check(
+      !banned.test(text),
+      `no old words on ${path}${banned.exec(text) ? `: ${banned.exec(text)[0]}` : ''}`,
+    )
+    if (must) check(text.toLowerCase().includes(must.toLowerCase()), `${path} says "${must}"`)
+  }
+  await rp.goto(`${base}/review?menu=true`)
+  const menu = rp.getByRole('navigation').filter({ hasText: 'Questions' })
+  await menu.waitFor()
+  const menuText = await menu.innerText()
+  check(
+    /Asks/.test(menuText) && /Agent work/.test(menuText) && !/RFX|Requests/.test(menuText),
+    'the menu says Asks and Agent work',
+  )
+  await rp.goto(`${base}/areas/${area}`)
+  await rp.locator('main h1').first().waitFor()
+  check(
+    !/Projects/.test(await rp.locator('main').innerText()),
+    'the area page says Goals, not Projects',
+  )
+
   // PARA_E2E_SHOTS=<dir> saves a screenshot of each main screen at 390 and 1440 px, to read.
   if (process.env.PARA_E2E_SHOTS) {
     const dir = process.env.PARA_E2E_SHOTS
@@ -1087,7 +1599,10 @@ try {
   const nav = rp.getByRole('navigation').filter({ hasText: 'Questions' })
   await nav.getByText('Questions', { exact: true }).waitFor()
   check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
-  check((await nav.getByRole('link').count()) === 9, 'the menu lists all nine screens')
+  check(
+    (await nav.getByRole('link').count()) === 11,
+    'the menu lists the nine screens, Meetings, and Agenda',
+  )
   await rp.goBack()
   await nav.waitFor({ state: 'hidden' })
   check(true, 'Back closes the menu')

@@ -14,10 +14,17 @@ import {
   useAnswer,
   useAskQuestion,
   useDropQuestion,
+  useEditQuestion,
   useQuestion,
+  useQuestionDepends,
+  useQuestions,
+  useRejectAnswer,
   useTaskToQuestion,
 } from '@/api/questions'
-import { useTaskDone } from '@/api/tasks'
+import { useGoalEdit } from '@/api/areas'
+import { useTaskDone, useTaskEdit } from '@/api/tasks'
+import { Pick } from '@/components/Pick'
+import { doneConfirm } from '@/lib/answer'
 import { useWork } from '@/api/work'
 import { errorText } from '@/client/gqlClient'
 import { joinNames, nameOr } from '@/lib/names'
@@ -36,6 +43,11 @@ export function QuestionDialogs({ s, onDone }: Props) {
       {s.drop && <DropDialog id={s.drop} onDone={onDone} />}
       {s.done && <DoneDialog id={s.done} onDone={onDone} />}
       {s.toq && <ToQuestionDialog id={s.toq} onDone={onDone} />}
+      {s.reject && <RejectDialog id={s.reject} onDone={onDone} />}
+      {s.qedit && <QuestionEditDialog id={s.qedit} onDone={onDone} />}
+      {s.qdeps && <DependsDialog id={s.qdeps} onDone={onDone} />}
+      {s.taskdw && <DoneWhenDialog kind="task" id={s.taskdw} onDone={onDone} />}
+      {s.goaldw && <DoneWhenDialog kind="goal" id={s.goaldw} onDone={onDone} />}
     </>
   )
 }
@@ -245,7 +257,7 @@ function AskDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) 
           ))}
         </TextField>
         <Typography variant="caption" color="text.secondary">
-          Creates a request to that person and links it to the question. Para sends nothing.
+          Creates an ask to that person and links it to the question. Para sends nothing.
         </Typography>
       </Stack>
     </Frame>
@@ -303,7 +315,9 @@ function DoneDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
   const close = useClose()
   const done = useTaskDone()
   const work = useWork()
-  const title = work.data?.tasks.find((t) => t.id === id)?.title
+  const task = work.data?.tasks.find((t) => t.id === id)
+  const title = task?.title
+  const confirm = doneConfirm(task?.doneWhen)
   const [note, setNote] = useState('')
   return (
     <Frame
@@ -325,13 +339,14 @@ function DoneDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
         <>
           <Button onClick={close}>Cancel</Button>
           <Button type="submit" variant="contained" disabled={done.isPending}>
-            Done
+            {confirm ? 'Yes, done' : 'Done'}
           </Button>
         </>
       }
     >
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {done.isError && <Alert severity="error">{errorText(done.error)}</Alert>}
+        {confirm && <Typography sx={{ overflowWrap: 'anywhere' }}>{confirm}</Typography>}
         <TextField
           label="Note (what was done or decided)"
           value={note}
@@ -412,6 +427,255 @@ function ToQuestionDialog({ id, onDone }: { id: string; onDone: (m: string) => v
         <Typography variant="caption" color="text.secondary">
           Tasks that waited on this task wait on the question instead.
         </Typography>
+      </Stack>
+    </Frame>
+  )
+}
+
+function RejectDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
+  const close = useClose()
+  const reject = useRejectAnswer()
+  const q = useQuestion(id)
+  const [reason, setReason] = useState('')
+  return (
+    <Frame
+      title="Reject the proposed answer"
+      onSubmit={() =>
+        reject.mutate(
+          { id, reason: reason.trim() },
+          {
+            onSuccess: () => {
+              onDone('Rejected. The agent can read your reason.')
+              close()
+            },
+          },
+        )
+      }
+      actions={
+        <>
+          <Button onClick={close}>Cancel</Button>
+          <Button
+            type="submit"
+            variant="contained"
+            color="error"
+            disabled={reject.isPending || reason.trim() === ''}
+          >
+            Reject
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
+        {reject.isError && <Alert severity="error">{errorText(reject.error)}</Alert>}
+        <Typography sx={{ overflowWrap: 'anywhere' }}>{q.data?.question.title ?? ''}</Typography>
+        <TextField
+          label="Reason (required)"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          multiline
+          minRows={2}
+          autoFocus
+          required
+          fullWidth
+          helperText="The question stays open. The agent reads this."
+        />
+      </Stack>
+    </Frame>
+  )
+}
+
+function QuestionEditDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
+  const close = useClose()
+  const q = useQuestion(id)
+  const edit = useEditQuestion()
+  const question = q.data?.question
+  // The form starts from the loaded question, once.
+  const [form, setForm] = useState<{ title: string; options: string; recommended: string } | null>(
+    null,
+  )
+  const f = form ?? {
+    title: question?.title ?? '',
+    options: (question?.options ?? []).join('\n'),
+    recommended: question?.recommended ?? '',
+  }
+  const set = (patch: Partial<typeof f>) => setForm({ ...f, ...patch })
+  const list = f.options
+    .split('\n')
+    .map((o) => o.trim())
+    .filter(Boolean)
+  return (
+    <Frame
+      title="Edit question"
+      onSubmit={() =>
+        edit.mutate(
+          {
+            id,
+            title: f.title.trim() || undefined,
+            options: list.length ? list : undefined,
+            clearOptions: list.length === 0 ? true : undefined,
+            recommended: f.recommended.trim() || undefined,
+            clearRecommended: f.recommended.trim() === '' ? true : undefined,
+          },
+          {
+            onSuccess: () => {
+              onDone('Question changed')
+              close()
+            },
+          },
+        )
+      }
+      actions={
+        <>
+          <Button onClick={close}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={edit.isPending || !question}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
+        {q.isError && <Alert severity="error">{errorText(q.error)}</Alert>}
+        {edit.isError && <Alert severity="error">{errorText(edit.error)}</Alert>}
+        <TextField
+          label="Question"
+          value={f.title}
+          onChange={(e) => set({ title: e.target.value })}
+          multiline
+          fullWidth
+          autoFocus
+        />
+        <TextField
+          label="Options (one per line)"
+          value={f.options}
+          onChange={(e) => set({ options: e.target.value })}
+          multiline
+          minRows={2}
+          fullWidth
+        />
+        <TextField
+          label="Recommended option"
+          value={f.recommended}
+          onChange={(e) => set({ recommended: e.target.value })}
+        />
+      </Stack>
+    </Frame>
+  )
+}
+
+function DependsDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
+  const close = useClose()
+  const q = useQuestion(id)
+  const open = useQuestions()
+  const depends = useQuestionDepends()
+  const [pick, setPick] = useState('')
+  const have = q.data?.question.dependsOn ?? []
+  const options = (open.data ?? []).filter((x) => x.id !== id && !have.includes(x.id))
+  const run = (dependsOn: string, remove?: boolean) =>
+    depends.mutate(
+      { id, dependsOn: [dependsOn], remove },
+      { onSuccess: () => onDone(remove ? 'Dependency removed' : 'Dependency added') },
+    )
+  return (
+    <Frame
+      title="What this question waits on"
+      onSubmit={() => pick && run(pick)}
+      actions={
+        <>
+          <Button onClick={close}>Close</Button>
+          <Button type="submit" variant="contained" disabled={depends.isPending || pick === ''}>
+            Add
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
+        {depends.isError && <Alert severity="error">{errorText(depends.error)}</Alert>}
+        <Typography sx={{ overflowWrap: 'anywhere' }}>{q.data?.question.title ?? ''}</Typography>
+        {have.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            It waits on nothing.
+          </Typography>
+        ) : (
+          have.map((d) => (
+            <Stack key={d} direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Typography variant="body2" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
+                {nameOr('', d)}
+              </Typography>
+              <Button
+                size="small"
+                disabled={depends.isPending}
+                aria-label={`Remove dependency ${nameOr('', d)}`}
+                onClick={() => run(d, true)}
+              >
+                Remove
+              </Button>
+            </Stack>
+          ))
+        )}
+        <Pick
+          label="Add: wait on this question"
+          value={pick}
+          onChange={setPick}
+          options={options}
+        />
+      </Stack>
+    </Frame>
+  )
+}
+
+// DoneWhenDialog sets how we know a task or a goal is done.
+function DoneWhenDialog({
+  kind,
+  id,
+  onDone,
+}: {
+  kind: 'task' | 'goal'
+  id: string
+  onDone: (m: string) => void
+}) {
+  const close = useClose()
+  const task = useTaskEdit()
+  const goal = useGoalEdit()
+  const work = useWork()
+  const current = kind === 'task' ? work.data?.tasks.find((t) => t.id === id)?.doneWhen : undefined
+  const [text, setText] = useState<string | null>(null)
+  const value = text ?? current ?? ''
+  const m = kind === 'task' ? task : goal
+  return (
+    <Frame
+      title={kind === 'task' ? 'Done when (task)' : 'Done when (goal)'}
+      onSubmit={() =>
+        m.mutate(
+          { id, doneWhen: value.trim() },
+          {
+            onSuccess: () => {
+              onDone('Saved how we know it is done')
+              close()
+            },
+          },
+        )
+      }
+      actions={
+        <>
+          <Button onClick={close}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={m.isPending || value.trim() === ''}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
+        {m.isError && <Alert severity="error">{errorText(m.error)}</Alert>}
+        <TextField
+          label="How we know it is done"
+          value={value}
+          onChange={(e) => setText(e.target.value)}
+          multiline
+          minRows={2}
+          autoFocus
+          required
+          fullWidth
+        />
       </Stack>
     </Frame>
   )

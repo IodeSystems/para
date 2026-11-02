@@ -32,7 +32,7 @@ export function WaitingSection() {
                   [
                     x.targetNames?.length ? `to ${joinNames(x.targetNames)}` : '',
                     x.route && `via ${nameOr(x.routeName, x.route)}`,
-                    x.nextNudge && `nudge ${dateWords(x.nextNudge)}`,
+                    x.nextNudge && `follow up ${dateWords(x.nextNudge)}`,
                     x.blockedOn.length > 0 &&
                       `after ${joinNames(nameList(x.blockedOn, x.blockedOnNames))}`,
                   ]
@@ -42,7 +42,7 @@ export function WaitingSection() {
               />
               <Stack direction="row" spacing={0.5}>
                 {x.stalled && <StateChip state="stalled" />}
-                {x.due && <StateChip state="stalled" label="nudge due" />}
+                {x.due && <StateChip state="stalled" label="follow up due" />}
               </Stack>
             </ListItem>
           ))}

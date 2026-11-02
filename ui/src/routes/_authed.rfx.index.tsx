@@ -18,12 +18,12 @@ function RfxList() {
   return (
     <>
       <PageTitle subtitle="Asks between you and other people, and what they said back.">
-        RFX
+        Asks
       </PageTitle>
       <DataState q={q}>
         {(items) =>
           items.length === 0 ? (
-            <Empty>No open requests.</Empty>
+            <Empty>No open asks.</Empty>
           ) : (
             <List disablePadding>
               {items.map((x) => (
@@ -38,7 +38,7 @@ function RfxList() {
                     secondary={[
                       x.direction === 'in' ? 'asked of you' : 'you ask',
                       x.route && `via ${nameOr(x.routeName, x.route)}`,
-                      x.nextNudge && `nudge ${dateWords(x.nextNudge)}`,
+                      x.nextNudge && `follow up ${dateWords(x.nextNudge)}`,
                       x.dependsOn.length > 0 &&
                         `after ${nameList(x.dependsOn, x.dependsOnNames).join(', ')}`,
                     ]

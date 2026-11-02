@@ -5,7 +5,9 @@ import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import { useQuestions, type QuestionScope } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
-import { Empty, Section, StatusChip } from '@/components/Bits'
+import { Empty, Section, StateChip, StatusChip } from '@/components/Bits'
+import { questionState } from '@/lib/answer'
+import { nameList } from '@/lib/names'
 import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
@@ -64,6 +66,10 @@ export function QuestionRows({ list }: { list: Rows }) {
               scopeWords(x.scopeType, x.scopeName, x.scope),
               x.recommended ? `recommended: ${x.recommended}` : '',
               x.rfx ? 'already asked' : '',
+              !x.hasProposal && x.waitingOn.length > 0
+                ? `waiting on ${nameList(x.waitingOn, null).join(', ')}`
+                : '',
+              x.rejectedReason ? `Rejected: ${x.rejectedReason}` : '',
             ]
               .filter(Boolean)
               .join(' - ')}
@@ -71,7 +77,13 @@ export function QuestionRows({ list }: { list: Rows }) {
           />
           <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
             <StatusChip tone="quiet" label={x.kind} />
+            {(x.hasProposal || x.waitingOn.length > 0) && <StateChip {...questionState(x)} />}
             {x.blocking > 0 && <StatusChip tone="attn" label={`blocks ${x.blocking}`} />}
+            {x.hasProposal && (
+              <LinkButton size="small" variant="outlined" to="/review">
+                Check answer
+              </LinkButton>
+            )}
             <LinkButton
               size="small"
               variant="outlined"
@@ -88,7 +100,7 @@ export function QuestionRows({ list }: { list: Rows }) {
                   : [
                       {
                         label: 'Ask someone',
-                        hint: 'Send this question to a person as a request',
+                        hint: 'Send this question to a person as an ask',
                         search: { ask: x.id },
                       },
                     ]),

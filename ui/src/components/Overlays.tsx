@@ -30,7 +30,7 @@ import { Pick, type Option } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
-import { TABS } from '@/lib/keys'
+import { EXTRA_SCREENS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
 
@@ -119,11 +119,11 @@ function RequestDialog({ onDone }: { onDone: (m: string) => void }) {
   const [ask, setAsk] = useState('')
   return (
     <Frame
-      title="Request for an agent"
+      title="Agent work"
       onSubmit={() =>
         add.mutate(ask.trim(), {
           onSuccess: () => {
-            onDone('Request queued')
+            onDone('Agent work queued')
             close()
           },
         })
@@ -215,7 +215,7 @@ function NavDrawer() {
     <Drawer open onClose={close} anchor="left" aria-label="Screens">
       <Box sx={{ width: 280 }} role="navigation">
         <List>
-          {TABS.map((t) => (
+          {[...TABS, ...EXTRA_SCREENS].map((t) => (
             <ListItemButton
               key={t.to}
               component="a"
@@ -235,14 +235,16 @@ function NavDrawer() {
                     : t.hint
                 }
               />
-              <Typography
-                component="kbd"
-                variant="caption"
-                color="text.secondary"
-                sx={{ fontFamily: 'ui-monospace, monospace' }}
-              >
-                {t.key}
-              </Typography>
+              {t.key && (
+                <Typography
+                  component="kbd"
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ fontFamily: 'ui-monospace, monospace' }}
+                >
+                  {t.key}
+                </Typography>
+              )}
             </ListItemButton>
           ))}
         </List>
@@ -266,9 +268,9 @@ function Row({ k, v }: { k: string; v: string }) {
 
 const TRIAGE_TARGETS: { value: Para_InboxTriageInputTo; label: string }[] = [
   { value: 'task', label: 'Task' },
-  { value: 'project', label: 'Project' },
+  { value: 'project', label: 'Goal' },
   { value: 'question', label: 'Question (needs a scope)' },
-  { value: 'rfx', label: 'RFX (ask someone)' },
+  { value: 'rfx', label: 'Ask (ask someone)' },
   { value: 'note', label: 'Note on a person' },
   { value: 'drop', label: 'Drop (archive)' },
 ]
@@ -290,15 +292,18 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const [project, setProject] = useState('')
   const [person, setPerson] = useState('')
   const [route, setRoute] = useState('')
+  const [doneWhen, setDoneWhen] = useState('')
   const [scope, setScope] = useState<QuestionScopeType>('project')
   const [scopeId, setScopeId] = useState('')
   const [kind, setKind] = useState<Para_InboxTriageInputKind>('question')
   const [options, setOptions] = useState('')
   const [recommended, setRecommended] = useState('')
   const question = to === 'question'
-  // A question has exactly one scope: a project, an area, a task, or the vault itself.
+  // A question has exactly one scope: a goal, an area, a task, or the vault itself.
   const scopeOk = !question || scope === 'root' || scopeId.trim() !== ''
   const personOk = to !== 'note' || person !== ''
+  // A goal must say how we know it is done. A task may.
+  const doneOk = to !== 'project' || doneWhen.trim() !== ''
   const submit = () =>
     triage.mutate(
       {
@@ -317,6 +322,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
               .filter(Boolean)
           : undefined,
         recommended: question ? recommended.trim() : undefined,
+        doneWhen: to === 'task' || to === 'project' ? doneWhen.trim() : undefined,
         person: to === 'note' ? person : undefined,
         route: to === 'rfx' ? route : undefined,
       },
@@ -339,7 +345,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
           <Button
             type="submit"
             variant="contained"
-            disabled={triage.isPending || !scopeOk || !personOk}
+            disabled={triage.isPending || !scopeOk || !personOk || !doneOk}
           >
             Sort
           </Button>
@@ -365,11 +371,24 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
         </TextField>
         {to === 'task' && (
           <Pick
-            label="Project (optional)"
+            label="Goal (optional)"
             value={project}
             onChange={setProject}
             options={projects}
-            none="No project"
+            none="No goal"
+          />
+        )}
+        {(to === 'task' || to === 'project') && (
+          <TextField
+            label={to === 'project' ? 'Done when (required)' : 'Done when (optional)'}
+            value={doneWhen}
+            onChange={(e) => setDoneWhen(e.target.value)}
+            required={to === 'project'}
+            multiline
+            minRows={2}
+            helperText={
+              to === 'project' ? 'How we know the goal is done.' : 'How we know the task is done.'
+            }
           />
         )}
         {question && (
@@ -383,7 +402,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
                 setScopeId('')
               }}
             >
-              <MenuItem value="project">A project</MenuItem>
+              <MenuItem value="project">A goal</MenuItem>
               <MenuItem value="area">An area</MenuItem>
               <MenuItem value="task">A task</MenuItem>
               <MenuItem value="root">The whole vault</MenuItem>
@@ -392,7 +411,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
               <Pick
                 label={
                   scope === 'project'
-                    ? 'Which project'
+                    ? 'Which goal'
                     : scope === 'area'
                       ? 'Which area'
                       : 'Which task'

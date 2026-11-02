@@ -1,18 +1,24 @@
 import { createFileRoute } from '@tanstack/react-router'
+import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import { LinkButton } from '@/components/links'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useRfx } from '@/api/rfx'
+import { useRfx, useRfxTargetState } from '@/api/rfx'
 import { useCopyText } from '@/api/doc'
 import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
+import { errorText } from '@/client/gqlClient'
+import { targetStates } from '@/lib/meeting'
+import { plainState } from '@/lib/status'
 import { withoutSection } from '@/lib/markdown'
 import { nameList, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
@@ -23,6 +29,7 @@ function RfxPage() {
   const { id } = Route.useParams()
   const q = useRfx(id)
   const copy = useCopyText()
+  const setState = useRfxTargetState()
   return (
     <DataState q={q}>
       {(r) => (
@@ -46,13 +53,18 @@ function RfxPage() {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {r.doc.meta.direction === 'in' ? 'Asked of you' : 'You ask'} - {r.doc.meta.status}
             {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}
-            {r.doc.meta.nextNudge ? ` - nudge ${dateWords(r.doc.meta.nextNudge)}` : ''}
+            {r.doc.meta.nextNudge ? ` - follow up ${dateWords(r.doc.meta.nextNudge)}` : ''}
           </Typography>
           <Section title="Asked of" count={r.targets.length}>
             {r.targets.length === 0 ? (
               <Empty>Nobody is named yet.</Empty>
             ) : (
               <List dense disablePadding>
+                {setState.isError && (
+                  <Alert severity="error" sx={{ mb: 1 }}>
+                    {errorText(setState.error)}
+                  </Alert>
+                )}
                 {r.targets.map((t, i) => (
                   <ListItem key={`${t.to}-${t.medium}`} disableGutters>
                     <ListItemText
@@ -62,6 +74,28 @@ function RfxPage() {
                         .join(' - ')}
                     />
                     <StateChip state={t.state} />
+                    <TextField
+                      select
+                      size="small"
+                      label="Set state"
+                      value={targetStates(t.medium).includes(t.state) ? t.state : ''}
+                      disabled={setState.isPending || r.doc.meta.status === 'closed'}
+                      onChange={(e) =>
+                        setState.mutate({
+                          id,
+                          to: t.to,
+                          medium: t.medium,
+                          state: e.target.value as never,
+                        })
+                      }
+                      sx={{ ml: 1, minWidth: 130 }}
+                    >
+                      {targetStates(t.medium).map((s) => (
+                        <MenuItem key={s} value={s}>
+                          {plainState(s)}
+                        </MenuItem>
+                      ))}
+                    </TextField>
                   </ListItem>
                 ))}
               </List>
@@ -106,7 +140,7 @@ function RfxPage() {
             </Section>
           )}
           {withoutSection(r.doc.body, 'Draft') && (
-            <Section title="Request">
+            <Section title="Ask">
               <Markdown source={withoutSection(r.doc.body, 'Draft')} />
             </Section>
           )}

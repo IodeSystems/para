@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import type { Para_RfxTargetStateInputMedium, Para_RfxTargetStateInputState } from '@/gql/graphql'
 
 const RfxListDoc = graphql(/* GraphQL */ `
   query RfxList {
@@ -134,6 +135,37 @@ export function useRfxReply() {
           .rfxReply,
         'reply',
       ),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const TargetStateDoc = graphql(/* GraphQL */ `
+  mutation RfxTargetState($body: para_RFXTargetStateInputInput!) {
+    para {
+      v1 {
+        rfxTargetState(body: $body) {
+          id
+          targets {
+            to
+            state
+            medium
+          }
+        }
+      }
+    }
+  }
+`)
+
+export function useRfxTargetState() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: {
+      id: string
+      to: string
+      medium: Para_RfxTargetStateInputMedium
+      state: Para_RfxTargetStateInputState
+    }) =>
+      need((await gqlClient.request(TargetStateDoc, { body: b })).para.v1.rfxTargetState, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

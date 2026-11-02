@@ -137,7 +137,7 @@ function DecideDialog({
             onChange={(e) => setKind(e.target.value as 'task' | 'request')}
           >
             <MenuItem value="task">Task</MenuItem>
-            <MenuItem value="request">Request for an agent</MenuItem>
+            <MenuItem value="request">Agent work</MenuItem>
           </TextField>
         )}
         <TextField
@@ -160,11 +160,11 @@ function DecideDialog({
         {action === 'hold' && kind === 'task' && (
           <>
             <Pick
-              label="Project (optional)"
+              label="Goal (optional)"
               value={project}
               onChange={setProject}
               options={work.data?.projects ?? []}
-              none="No project"
+              none="No goal"
             />
             <Pick
               label="Area (optional)"
