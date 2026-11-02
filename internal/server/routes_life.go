@@ -31,7 +31,7 @@ func registerLife(r *registrar) {
 	reg(r, ops.QuestionShow, get, read)
 	reg(r, ops.QuestionAnswer, post, write)
 	reg(r, ops.QuestionDrop, post, write)
-	reg(r, ops.QuestionInvestigate, post, write)
+	reg(r, ops.Investigate, post, write)
 	reg(r, ops.Defer, post, write)
 	reg(r, ops.Undefer, post, write)
 	reg(r, ops.DependsCut, post, write)

@@ -286,7 +286,7 @@ var actionHelp = map[string]string{
 	"act:reject":    "reject the proposed answer, with a reason the agent reads",
 	"act:drop":      "drop the question, with a reason: tasks that waited on it stop waiting",
 	"act:ask":       "ask a person: makes an ask; para sends nothing",
-	"act:find":      "send it to an agent to find evidence; you check the proposed answer",
+	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to find context; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
 	"act:later":     "put it off until a date or someday; it leaves Today and next and still blocks what depends on it. On a put-off row it brings it back",
 	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
 	"act:graph":     "graph of the goal or area under the cursor",

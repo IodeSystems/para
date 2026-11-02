@@ -91,7 +91,7 @@ var Inputs = map[string]string{
 	"health_dismiss":            `{"id":"task-sample","kind":"task_no_done_when","reason":"The title says it all."}`,
 	"health_undismiss":          `{"id":"task-sample","kind":"task_no_done_when"}`,
 	"depends_cut":               `{"id":"task-other","dep":"task-sample","reason":"The sample is not needed for this."}`,
-	"question_investigate":      `{"id":"question-sample","how":"check the wiki"}`,
+	"investigate":               `{"id":"question-sample","hint":"check the wiki"}`,
 	"question_drop":             `{"id":"question-sample","reason":"No longer needed."}`,
 	"question_ask":              `{"id":"question-sample","to":"person-sample","via":"slack","route":"domain-sample"}`,
 	"rfx_add":                   `{"direction":"out","ask":"Can feature X launch?","route":"domain-sample","self_serve":"policy read"}`,

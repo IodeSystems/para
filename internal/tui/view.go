@@ -56,8 +56,22 @@ func (m *Model) listState() (cursor, offset *int) {
 	return &m.tabs[m.tab].cursor, &m.tabs[m.tab].offset
 }
 
-// rows returns the rows and footer actions of the list screen showing.
+// rows returns the rows and footer actions of the list screen showing. An item
+// row says "agent looking" while open agent work looks for context for it.
 func (m *Model) rows(w int) ([]row, []Target) {
+	rs, acts := m.rowsRaw(w)
+	for i, r := range rs {
+		id := strings.TrimPrefix(r.target, "doc:")
+		if r.draw == nil || id == r.target || r.kind == "event" || !m.snap.looking(id) {
+			continue
+		}
+		draw := r.draw
+		rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("agent looking") }
+	}
+	return rs, acts
+}
+
+func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	acts := []Target{actCapture, actVault}
 	if p := m.top(); p != nil {
 		switch p.kind {
@@ -66,7 +80,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 		case pageWho:
 			return m.rowsWho(p, w), acts
 		case pageResults:
-			return m.rowsResults(p, w), acts
+			return m.rowsResults(p, w), append([]Target{actFind}, acts...)
 		case pageGraph:
 			return m.rowsGraph(p, w), acts
 		case pageProposal:
@@ -84,17 +98,17 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	}
 	switch m.tab {
 	case tabReview:
-		return m.rowsReview(w), append(append([]Target{actAccept, actReopen}, questionActs...), acts...)
+		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen}, questionActs...), actFind), acts...)
 	case tabWork:
-		return m.rowsWork(w), append(append([]Target{actGraph}, questionActs...), acts...)
+		return m.rowsWork(w), append(append(append([]Target{actGraph}, questionActs...), actFind), acts...)
 	case tabRFX:
-		return m.rowsRFX(w), acts
+		return m.rowsRFX(w), append([]Target{actFind}, acts...)
 	case tabPeople:
 		return m.rowsPeople(w), acts
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), append(append(append([]Target{}, questionActs...), actAgenda), acts...)
+	return m.rowsToday(w), append(append(append(append([]Target{}, questionActs...), actFind), actAgenda), acts...)
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -228,6 +242,8 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	reserved := docActionLetters
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		reserved += questionActLetters
+	} else if findableID(p.id) {
+		reserved += "f"
 	}
 	pre := PreRender(src, PreOpts{Width: m.w, Reserved: reserved, Meta: m.showMeta})
 	rd := m.rend.render(pre, m.w)
@@ -243,10 +259,14 @@ var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture, actV
 // docActionsFor are the actions of a document page: an opened question also
 // has the question actions.
 func (m *Model) docActionsFor(p *page) []Target {
-	if _, ok := p.doc.Meta.(*model.Question); !ok {
-		return docActions
+	acts := docActions
+	if _, ok := p.doc.Meta.(*model.Question); ok {
+		acts = append(append([]Target{}, questionActs...), docActions...)
 	}
-	return append(append([]Target{}, questionActs...), docActions...)
+	if findableID(p.id) {
+		acts = append(append([]Target{}, actFind), acts...)
+	}
+	return acts
 }
 
 // relayout rebuilds the frame and the key map from the current state.

@@ -77,7 +77,7 @@ type QuestionView struct {
 	Deferred       bool   `json:"deferred"`
 	DeferUntil     string `json:"defer_until,omitempty"`
 	DeferredReason string `json:"deferred_reason,omitempty"`
-	// AgentLooking is true while queued or claimed agent work looks for evidence
+	// AgentLooking is true while queued or claimed agent work looks for context
 	// for this question. The question stays open.
 	AgentLooking bool `json:"agent_looking"`
 	// ScopeName is the title of Scope, for people. A root question has none.
@@ -265,7 +265,7 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			return nil, err
 		}
 		v.Deferred = deferred[v.ID]
-		v.AgentLooking = looking[v.ID]
+		v.AgentLooking = looking[v.ID] != ""
 		x := qrow{v: v}
 		sd, gerr := scopeDoc(ctx, s, v.Scope)
 		switch {

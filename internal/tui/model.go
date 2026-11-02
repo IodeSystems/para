@@ -461,7 +461,7 @@ func (m *Model) act(name string) tea.Cmd {
 	case "ask":
 		return m.askPerson()
 	case "find":
-		return m.findEvidence()
+		return m.findContext()
 	case "later":
 		return m.later()
 	case "cut":

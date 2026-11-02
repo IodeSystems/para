@@ -83,7 +83,7 @@ func TestQuestionActionsFromAnOpenedQuestion(t *testing.T) {
 		t.Fatalf("no document page:\n%s", d.plainFrame())
 	}
 	foot := d.footer()
-	for _, want := range []string{"Answer", "Drop", "Ask person", "Find evidence", "Later", "Cut"} {
+	for _, want := range []string{"Answer", "Drop", "Ask person", "Find context", "Later", "Cut"} {
 		if !strings.Contains(foot, want) {
 			t.Errorf("footer lacks %q: %s", want, foot)
 		}
@@ -152,7 +152,7 @@ func TestLaterMovesAQuestionToItsSectionAndBack(t *testing.T) {
 	_ = q
 }
 
-func TestFindEvidenceQueuesAgentWork(t *testing.T) {
+func TestFindContextQueuesAgentWork(t *testing.T) {
 	v, _, q, _ := azVault(t)
 	d := newDrv(t, v, 120, 36)
 	d.onRow("question", q)
@@ -175,8 +175,8 @@ func TestFindEvidenceQueuesAgentWork(t *testing.T) {
 		t.Errorf("question = %+v", got.Question)
 	}
 	d.key("esc")
-	if !strings.Contains(rowText(d.m.rowsToday(120)), "agent looking") {
-		t.Errorf("Today does not say an agent is looking:\n%s", rowText(d.m.rowsToday(120)))
+	if rows, _ := d.m.rows(120); !strings.Contains(rowText(rows), "agent looking") {
+		t.Errorf("Today does not say an agent is looking:\n%s", rowText(rows))
 	}
 }
 

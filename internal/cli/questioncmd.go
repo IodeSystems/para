@@ -229,19 +229,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.QuestionDropInput) error { in.ID = args[0]; return nil },
 			Text: answerText,
 		}),
-		opCommand(l, ops.QuestionInvestigate, binding[ops.QuestionInvestigateInput, ops.QuestionInvestigateOutput]{
-			Use:  "investigate <id> --how <text>",
-			Args: cobra.ExactArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.QuestionInvestigateInput) {
-				fs.StringVar(&in.How, "how", "", "where the agent should look, in words, such as \"check the wiki\" (required)")
-				fs.StringVar(&in.Runner, "runner", "", "install id that may claim the work; default as request add")
-			},
-			Bind: func(args []string, in *ops.QuestionInvestigateInput) error { in.ID = args[0]; return nil },
-			Text: func(w io.Writer, out ops.QuestionInvestigateOutput) error {
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\trunner %s\n", out.ID, out.Request, out.Status, out.Runner)
-				return err
-			},
-		}),
+		questionInvestigateCmd(l),
 		opCommand(l, ops.QuestionAsk, binding[ops.QuestionAskInput, ops.QuestionAskOutput]{
 			Use:  "ask <id> --to <person> --via <medium> --route <domain>",
 			Args: cobra.ExactArgs(1),
@@ -351,4 +339,32 @@ func isTerminal(r io.Reader) bool {
 	}
 	st, err := f.Stat()
 	return err == nil && st.Mode()&os.ModeCharDevice != 0
+}
+
+// investigateText prints the request an investigate queued or added to.
+func investigateText(w io.Writer, out ops.InvestigateOutput) error {
+	how := "queued"
+	if out.Appended {
+		how = "added to"
+	}
+	_, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\trunner %s\n", out.ID, out.Request, how, out.Status, out.Runner)
+	return err
+}
+
+// questionInvestigateCmd is `para question investigate <id> --how <text>`, a
+// second spelling of the investigate op. It carries no op annotation: the op's
+// one command is `para investigate`.
+func questionInvestigateCmd(l *loader) *cobra.Command {
+	cmd := opCommand(l, ops.Investigate, binding[ops.InvestigateInput, ops.InvestigateOutput]{
+		Use:  "investigate <id> [--how <text>]",
+		Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.InvestigateInput) {
+			fs.StringVar(&in.Hint, "how", "", "where the agent should look, in words, such as \"check the wiki\"")
+			fs.StringVar(&in.Runner, "runner", "", "install id that may claim the work; default as request add")
+		},
+		Bind: func(args []string, in *ops.InvestigateInput) error { in.ID = args[0]; return nil },
+		Text: investigateText,
+	})
+	cmd.Annotations = nil
+	return cmd
 }

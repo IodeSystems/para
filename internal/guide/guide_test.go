@@ -154,3 +154,15 @@ func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 		t.Error("extended lacks the import use case")
 	}
 }
+
+func TestExtendedAndOrientNameInvestigate(t *testing.T) {
+	text := flat(Extended())
+	for _, want := range []string{"para investigate", "Find context", "Find evidence", "Agent looking", "a guess is not a source", "adds the hint"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("extended lacks %q", want)
+		}
+	}
+	if !strings.Contains(Orient(), "`investigate`") {
+		t.Error("orient does not name investigate")
+	}
+}

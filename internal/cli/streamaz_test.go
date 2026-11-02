@@ -12,11 +12,11 @@ import (
 // cutting an edge, and the value order. Ids come from seedStreamAZParity.
 func streamAZParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"defer":                {`{"ids":["task-az-d-a"],"until":"2999-01-01","reason":"After the audit."}`, []string{"defer", "task-az-d-b", "--until", "2999-01-01", "--reason", "After the audit."}, false},
-		"undefer":              {`{"ids":["task-az-u-a"]}`, []string{"undefer", "task-az-u-b"}, false},
-		"depends_cut":          {`{"id":"task-az-c-a","dep":"question-az-c","reason":"Assume the default."}`, []string{"depends", "cut", "task-az-c-b", "question-az-c", "--reason", "Assume the default."}, false},
-		"question_investigate": {`{"id":"question-az-i-a","how":"check the wiki"}`, []string{"question", "investigate", "question-az-i-b", "--how", "check the wiki"}, false},
-		"order":                {`{}`, []string{"order"}, false},
+		"defer":       {`{"ids":["task-az-d-a"],"until":"2999-01-01","reason":"After the audit."}`, []string{"defer", "task-az-d-b", "--until", "2999-01-01", "--reason", "After the audit."}, false},
+		"undefer":     {`{"ids":["task-az-u-a"]}`, []string{"undefer", "task-az-u-b"}, false},
+		"depends_cut": {`{"id":"task-az-c-a","dep":"question-az-c","reason":"Assume the default."}`, []string{"depends", "cut", "task-az-c-b", "question-az-c", "--reason", "Assume the default."}, false},
+		"investigate": {`{"id":"question-az-i-a","hint":"check the wiki"}`, []string{"investigate", "question-az-i-b", "--hint", "check the wiki"}, false},
+		"order":       {`{}`, []string{"order"}, false},
 	}
 }
 

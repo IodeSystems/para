@@ -179,34 +179,114 @@ func TestDeferringAGoalPushesOutItsWork(t *testing.T) {
 func TestInvestigateQueuesLinkedWork(t *testing.T) {
 	d, proj := laterVault(t)
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port does prod use?", Project: proj}).ID
-	if _, err := QuestionInvestigate.Run(ctx, agentOf(d), QuestionInvestigateInput{ID: q, How: "wiki"}); !errors.Is(err, ErrPersonOnly) {
+	if _, err := Investigate.Run(ctx, agentOf(d), InvestigateInput{ID: q, Hint: "wiki"}); !errors.Is(err, ErrPersonOnly) {
 		t.Errorf("agent: %v", err)
 	}
-	if _, err := QuestionInvestigate.Run(ctx, d, QuestionInvestigateInput{ID: q}); err == nil {
-		t.Error("no how accepted")
-	}
-	o := must(t, QuestionInvestigate, d, QuestionInvestigateInput{ID: q, How: "check the wiki, search #platform"})
-	if o.Status != model.RequestQueued || o.Runner != "m1" {
+	o := must(t, Investigate, d, InvestigateInput{ID: q, Hint: "check the wiki, search #platform"})
+	if o.Status != model.RequestQueued || o.Runner != "m1" || o.Appended {
 		t.Errorf("out = %+v", o)
 	}
 	r := must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
 	rm := r.Meta.(*model.Request)
-	if r.Title != "Find evidence: Which port does prod use?" || len(rm.Links) != 1 || rm.Links[0].Target() != q || !strings.Contains(r.Body, "check the wiki, search #platform") {
+	if r.Title != "Find evidence: Which port does prod use?" || len(rm.Links) != 1 || rm.Links[0].Target() != q ||
+		!strings.Contains(r.Body, "- check the wiki, search #platform") || !strings.Contains(r.Body, "Propose an answer") ||
+		!strings.Contains(r.Body, "a guess is not a source") {
 		t.Errorf("request = %+v %s", r.Title, r.Body)
 	}
 	got := must(t, QuestionList, d, QuestionListInput{})
 	if len(got.Questions) != 1 || !got.Questions[0].AgentLooking || got.Questions[0].Status != model.QuestionOpen {
 		t.Errorf("question = %+v", got.Questions)
 	}
-	if _, err := QuestionInvestigate.Run(ctx, d, QuestionInvestigateInput{ID: q, How: "again"}); err == nil {
-		t.Error("a second look accepted while one is queued")
+	// A second press adds the hint to the open request. It adds no request.
+	o2 := must(t, Investigate, d, InvestigateInput{ID: q, Hint: "also ask in #ops"})
+	if !o2.Appended || o2.Request != o.Request {
+		t.Errorf("second = %+v", o2)
+	}
+	o3 := must(t, Investigate, d, InvestigateInput{ID: q})
+	if !o3.Appended || o3.Request != o.Request {
+		t.Errorf("third = %+v", o3)
+	}
+	r = must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
+	if n := strings.Count(r.Body, "## Hints"); n != 1 || !strings.Contains(r.Body, "- check the wiki, search #platform\n- also ask in #ops") {
+		t.Errorf("body after second press:\n%s", r.Body)
+	}
+	if n := len(must(t, RequestList, d, RequestListInput{}).Items); n != 1 {
+		t.Errorf("%d requests, want 1", n)
 	}
 	// A runner on another install is the person's choice.
 	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another?", Project: proj}).ID
-	if o2 := must(t, QuestionInvestigate, d, QuestionInvestigateInput{ID: q2, How: "wiki", Runner: "m2"}); o2.Runner != "m2" {
+	if o2 := must(t, Investigate, d, InvestigateInput{ID: q2, Hint: "wiki", Runner: "m2"}); o2.Runner != "m2" {
 		t.Errorf("runner = %s", o2.Runner)
 	}
 	mustLintClean(t, d)
+}
+
+func TestInvestigateAcceptsEachType(t *testing.T) {
+	f := newMeetingFixture(t)
+	d, proj, rfx := f.d, f.project, f.rfx
+	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Write the plan"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID
+	meet := must(t, MeetingAdd, d, MeetingAddInput{Title: "Launch sync", With: []string{f.person}}).ID
+	other := must(t, RequestAdd, d, RequestAddInput{Title: "Check backups", Ask: "Check them."}).ID
+	for name, id := range map[string]string{"task": task, "question": q, "meeting": meet, "ask": rfx, "goal": proj, "agent work": other} {
+		o := must(t, Investigate, d, InvestigateInput{ID: id, Hint: "wiki"})
+		r := must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
+		rm := r.Meta.(*model.Request)
+		want := "Find context: "
+		if name == "question" {
+			want = "Find evidence: "
+		}
+		if !strings.HasPrefix(r.Title, want) || len(rm.Links) != 1 || rm.Links[0].Target() != id {
+			t.Errorf("%s: request = %q %v", name, r.Title, rm.Links)
+		}
+		if name != "question" && !strings.Contains(r.Body, "File a proposal that adds") {
+			t.Errorf("%s: body = %s", name, r.Body)
+		}
+	}
+	// The list view marks each request, so rows can say who is looked into.
+	n := 0
+	for _, v := range must(t, RequestList, d, RequestListInput{}).Items {
+		if v.Investigates {
+			n++
+		}
+	}
+	if n != 6 {
+		t.Errorf("%d requests investigate, want 6", n)
+	}
+	// Other types are refused, and so is a search for context itself.
+	note := must(t, NoteAdd, d, NoteAddInput{Title: "Runbook", Body: "Text."}).ID
+	if _, err := Investigate.Run(ctx, d, InvestigateInput{ID: note}); err == nil {
+		t.Error("a note was accepted")
+	}
+	first := must(t, RequestList, d, RequestListInput{Status: model.RequestQueued}).Items
+	for _, v := range first {
+		if v.Investigates {
+			if _, err := Investigate.Run(ctx, d, InvestigateInput{ID: v.ID}); err == nil {
+				t.Error("a search for context was investigated")
+			}
+			break
+		}
+	}
+	if _, err := Investigate.Run(ctx, d, InvestigateInput{ID: "task-nope"}); err == nil {
+		t.Error("an unknown id was accepted")
+	}
+	// Done questions are refused.
+	must(t, QuestionDrop, d, QuestionDropInput{ID: q, Reason: "Not needed."})
+	if _, err := Investigate.Run(ctx, d, InvestigateInput{ID: q}); err == nil {
+		t.Error("a dropped question was accepted")
+	}
+	mustLintClean(t, d)
+}
+
+func TestRequestAddLinksTakeMeetingsAsksAndRequests(t *testing.T) {
+	f := newMeetingFixture(t)
+	d, rfx := f.d, f.rfx
+	meet := must(t, MeetingAdd, d, MeetingAddInput{Title: "Launch sync", With: []string{f.person}}).ID
+	for _, id := range []string{meet, rfx} {
+		if _, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: "Look at it", Ask: "Look.", Links: []string{id}}); err != nil {
+			t.Errorf("%s: %v", id, err)
+		}
+	}
 }
 
 func TestCutRecordsTheAssumption(t *testing.T) {

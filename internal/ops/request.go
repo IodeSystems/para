@@ -50,6 +50,9 @@ type RequestView struct {
 	Links      []string            `json:"links,omitempty"`
 	// LinkNames has one entry per link, for people.
 	LinkNames []string `json:"link_names,omitempty" nameof:"Links"`
+	// Investigates is true while the request is open agent work made by
+	// investigate. The items in Links then show "Agent looking".
+	Investigates bool `json:"investigates"`
 }
 
 // RequestDetail is a request with its body: the ask, notes, and result.
@@ -66,6 +69,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 	if len(r.Links) > 0 {
 		v.Links = targets(r.Links)
 	}
+	v.Investigates = openFind(d.Title, r)
 	return v
 }
 
@@ -204,7 +208,7 @@ type RequestAddInput struct {
 	// person may leave it out; the first line of ask is then the title.
 	Title  string   `json:"title,omitempty"`
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
-	Links  []string `json:"links,omitempty"`  // task, project, question, or proposal ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, request, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 }
 
@@ -269,7 +273,7 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

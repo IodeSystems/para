@@ -81,6 +81,7 @@ type Snapshot struct {
 	RFX        []ops.RFXSummary
 	Drafts     map[string]string // open RFX id -> draft text
 	Requests   []ops.RequestView
+	Looking    map[string]bool    // ids of items open agent work looks into
 	Proposals  []ops.ProposalView // current revisions
 	Inbox      []ops.InboxItem
 	Questions  []ops.QuestionView // open, the ones that block the most first
@@ -148,6 +149,14 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.RequestList.Run(ctx, e.Deps, ops.RequestListInput{}); note("requests", err) {
 		s.Requests = o.Items
+		s.Looking = map[string]bool{}
+		for _, r := range o.Items {
+			if r.Investigates {
+				for _, l := range r.Links {
+					s.Looking[l] = true
+				}
+			}
+		}
 	}
 	if o, err := ops.ProposalList.Run(ctx, e.Deps, ops.ProposalListInput{}); note("proposals", err) {
 		s.Proposals = o.Items

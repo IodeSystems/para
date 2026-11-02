@@ -50,6 +50,7 @@ type ParaV1MutationNamespace {
   indexRebuild: para_Stats @derived(operationId: "indexRebuild")
   ingest(body: para_IngestInputInput!): para_IngestOutput @derived(operationId: "ingest")
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
+  investigate(body: para_InvestigateInputInput!): para_InvestigateOutput @derived(operationId: "investigate")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
@@ -95,7 +96,6 @@ type ParaV1MutationNamespace {
   questionDependsRemove(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsRemove")
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
-  questionInvestigate(body: para_QuestionInvestigateInputInput!): para_QuestionInvestigateOutput @derived(operationId: "questionInvestigate")
   questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAccept(body: para_RequestAcceptInputInput!): para_RequestChangeOutput @derived(operationId: "requestAccept")
@@ -1426,6 +1426,29 @@ enum para_InteractionSummaryVisibility {
   public
 }
 
+input para_InvestigateInputInput {
+  hint: String
+  id: String!
+  runner: String
+}
+
+type para_InvestigateOutput {
+  appended: Boolean!
+  id: String!
+  request: String!
+  runner: String!
+  status: para_InvestigateOutputStatus!
+}
+
+enum para_InvestigateOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
 type para_Item {
   arg: String
   available: Boolean!
@@ -2654,28 +2677,6 @@ type para_QuestionEditOutput {
   title: String!
 }
 
-input para_QuestionInvestigateInputInput {
-  how: String!
-  id: String!
-  runner: String
-}
-
-type para_QuestionInvestigateOutput {
-  id: String!
-  request: String!
-  runner: String!
-  status: para_QuestionInvestigateOutputStatus!
-}
-
-enum para_QuestionInvestigateOutputStatus {
-  cancelled
-  claimed
-  done
-  failed
-  proposed
-  queued
-}
-
 type para_QuestionListOutput {
   questions: [para_QuestionView!]!
 }
@@ -3150,6 +3151,7 @@ type para_RequestDetail {
   body: String!
   claimedBy: String
   id: String!
+  investigates: Boolean!
   leaseUntil: String
   linkNames: [String!]
   links: [String!]
@@ -3205,6 +3207,7 @@ type para_RequestShowOutput {
 type para_RequestView {
   claimedBy: String
   id: String!
+  investigates: Boolean!
   leaseUntil: String
   linkNames: [String!]
   links: [String!]

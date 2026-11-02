@@ -89,7 +89,10 @@ Para is not a pager: alerts stay in monitoring (your pager, Alertmanager, a stat
   $ para request add "Summarize the portal project" --title "Summarize the portal goal" --link project-portal
   $ para request accept request-example
   $ para request list
+  $ para investigate task-example --hint "check the wiki"
   $ para tui
+
+Find context: investigate sends a task, meeting, question, ask, goal, or agent work to an agent as queued agent work, "Find context: <title>" ("Find evidence: <title>" for a question), linked to the item. The hint is optional; it says where to look. The agent reads the item, gathers context and sources with its own tools (read-only outside para), and for a question proposes an answer with sources; for anything else it files a proposal that adds the context and sources to the item. No source, no item: a guess is not a source. One run is open per item: investigate again adds the hint to it. The item shows "Agent looking" while the work is queued or claimed. Only a person can do this (para investigate, the key f in the TUI, Find context in the PWA row menu); an agent cannot. Para fetches nothing itself, and starts an agent only when dispatch is set up. para question investigate <id> --how <text> is the same call for a question.
 
 12. Export: carry a document to another window
   $ para export policy-logging --as slack --to clipboard

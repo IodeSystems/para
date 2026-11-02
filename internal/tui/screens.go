@@ -231,9 +231,6 @@ func (m *Model) rowsToday(w int) []row {
 			if q.ScopeName != "" {
 				why += stDim.Render("  " + q.ScopeName)
 			}
-			if q.AgentLooking {
-				why += "  " + stGood.Render("agent looking")
-			}
 		}
 		add(it.ID, func() row {
 			x := linkKeep("doc:"+it.ID, "  "+todayTag(tag, st)+" ", titleOr(it.Title, it.ID), why, w)
@@ -400,9 +397,6 @@ func (m *Model) questionRows(w int, qs []ops.QuestionView) []row {
 		}
 		if q.Blocking > 0 {
 			post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
-		}
-		if q.AgentLooking {
-			post += "  " + stGood.Render("agent looking")
 		}
 		if q.Deferred {
 			post += "  " + stDim.Render("back "+laterWords(q.DeferUntil))

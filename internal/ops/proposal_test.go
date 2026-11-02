@@ -132,7 +132,7 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			return err
 		}},
 		{"investigate", func(d Deps) error {
-			_, err := QuestionInvestigate.Run(t.Context(), d, QuestionInvestigateInput{ID: "question-x", How: "wiki"})
+			_, err := Investigate.Run(t.Context(), d, InvestigateInput{ID: "question-x", Hint: "wiki"})
 			return err
 		}},
 		{"defer", func(d Deps) error {

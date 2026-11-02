@@ -16,7 +16,7 @@ import (
 var (
 	actDrop  = Target{ID: "act:drop", Label: "Drop", Pref: 'p'}
 	actAsk   = Target{ID: "act:ask", Label: "Ask person", Pref: 's'}
-	actFind  = Target{ID: "act:find", Label: "Find evidence", Pref: 'f'}
+	actFind  = Target{ID: "act:find", Label: "Find context", Pref: 'f'}
 	actLater = Target{ID: "act:later", Label: "Later", Pref: 'l'}
 	actBack  = Target{ID: "act:later", Label: "Not later", Pref: 'l'}
 	actCut   = Target{ID: "act:cut", Label: "Cut", Pref: 'u'}
@@ -27,7 +27,7 @@ var (
 const questionActLetters = "aepsflu"
 
 // questionActs are the actions of a question row, in footer order.
-var questionActs = []Target{actAnswer, actReject, actDrop, actAsk, actFind, actLater, actCut}
+var questionActs = []Target{actAnswer, actReject, actDrop, actAsk, actLater, actCut}
 
 // actTarget is what a row action applies to: an open question or a task.
 type actTarget struct {
@@ -130,10 +130,15 @@ func (m *Model) shownActs(acts []Target) []Target {
 			return t.ID == actLater.ID || t.ID == actCut.ID && len(m.taskWaits(tg.t)) > 0
 		}
 	}
+	_, _, canFind := m.findTarget()
 	var out []Target
 	for _, t := range acts {
 		isQ := slicesContainsID(questionActs, t.ID)
 		switch {
+		case t.ID == actFind.ID:
+			if canFind {
+				out = append(out, t)
+			}
 		case !isQ:
 			out = append(out, t)
 		case keep != nil && keep(t):
@@ -225,26 +230,72 @@ func (m *Model) askPerson() tea.Cmd {
 	})
 }
 
-// findEvidence queues agent work that looks for evidence for the question.
-func (m *Model) findEvidence() tea.Cmd {
-	q, ok := m.targetQuestion("find evidence for")
+// findPrefixes are the id words of what an agent can be sent to find context
+// for: tasks, meetings, questions, Asks, goals, and agent work.
+var findPrefixes = []string{"task-", "meeting-", "question-", "rfx-", "project-", "request-"}
+
+// findableID reports whether an id is of a type investigate accepts.
+func findableID(id string) bool {
+	for _, p := range findPrefixes {
+		if strings.HasPrefix(id, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// findTarget is the item Find context applies to: the opened document, or the
+// item row under the cursor.
+func (m *Model) findTarget() (id, title string, ok bool) {
+	if p := m.top(); p != nil && p.kind == pageDoc {
+		if findableID(p.id) {
+			return p.id, p.doc.Title, true
+		}
+		return "", "", false
+	}
+	r, found := m.current()
+	if !found || r.kind == "event" || !strings.HasPrefix(r.target, "doc:") {
+		return "", "", false
+	}
+	id = strings.TrimPrefix(r.target, "doc:")
+	if !findableID(id) {
+		return "", "", false
+	}
+	return id, titleOr(m.snap.name(id), id), true
+}
+
+// looking reports whether open agent work looks for context for the item.
+func (s Snapshot) looking(id string) bool { return s.Looking[id] }
+
+// findContext queues agent work that finds context for the item, or adds the
+// hint to the work that is open. The hint may be left empty.
+func (m *Model) findContext() tea.Cmd {
+	id, title, ok := m.findTarget()
 	if !ok {
+		m.setHint("Move to a task, meeting, question, ask, goal, or agent work to find context for it.")
 		return nil
 	}
-	if q.AgentLooking {
-		m.setHint("An agent is looking already.")
-		return nil
+	what := "The agent files a proposal that adds context and sources to it. You check it."
+	switch {
+	case strings.HasPrefix(id, "question-"):
+		what = "The agent proposes an answer with sources. You check it; the question stays open."
+	case m.snap.looking(id):
+		what = "An agent is looking already. The hint goes into its work."
 	}
-	lines := []string{"  " + titleOr(q.Title, q.ID), "  The agent proposes an answer with sources. You check it; the question stays open."}
-	steps := []promptStep{{label: "where to look (for example: check the wiki, search #platform): "}}
-	return m.askForLines("Find evidence", lines, steps, func(v []string) tea.Cmd {
+	lines := []string{"  " + titleOr(title, id), "  " + what}
+	steps := []promptStep{{label: "hint: where to look (optional; for example: check the wiki, search #platform): ", optional: true}}
+	return m.askForLines("Find context", lines, steps, func(v []string) tea.Cmd {
 		env := m.env
 		return func() tea.Msg {
-			o, err := ops.QuestionInvestigate.Run(context.Background(), env.Deps, ops.QuestionInvestigateInput{ID: q.ID, How: v[0]})
+			o, err := ops.Investigate.Run(context.Background(), env.Deps, ops.InvestigateInput{ID: id, Hint: v[0]})
 			if err != nil {
 				return doneMsg{err: err}
 			}
-			return doneMsg{text: fmt.Sprintf("Queued agent work %s for %q. It is listed under Agent work.", o.Request, titleOr(q.Title, "the question")), reload: true}
+			verb := "Queued agent work " + o.Request + " for"
+			if o.Appended {
+				verb = "Added your hint to " + o.Request + " for"
+			}
+			return doneMsg{text: fmt.Sprintf("%s %q. It is listed under Agent work.", verb, titleOr(title, id)), reload: true}
 		}
 	})
 }
