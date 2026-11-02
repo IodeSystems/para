@@ -2366,8 +2366,13 @@ enum para_RFXReplyOutputState {
 type para_RFXShowOutput {
   chain: [para_ChainNode!]!
   dependedOnBy: [String!]!
+  dependedOnByNames: [String!]
   doc: para_Document!
   draft: String!
+  route: String
+  routeName: String
+  targetNames: [String!]
+  targets: [para_Target!]!
 }
 
 input para_RFXStatusInputInput {
@@ -2411,6 +2416,7 @@ type para_RFXSummary {
   id: String!
   nextNudge: String!
   route: String!
+  routeName: String
   status: para_RFXSummaryStatus!
   targetNames: [String!]
   targets: [para_Target!]!
@@ -2685,9 +2691,24 @@ enum para_RequestViewStatus {
   queued
 }
 
+type para_ReviewEvent {
+  actor: String!
+  doc: String!
+  docName: String
+  from: String!
+  hash: String
+  install: String!
+  op: String!
+  prev: String
+  surface: String!
+  to: String!
+  ts: String!
+  vault: String!
+}
+
 type para_ReviewGroup {
   actor: String!
-  events: [para_Event!]!
+  events: [para_ReviewEvent!]!
 }
 
 type para_ReviewNeed {
@@ -3136,6 +3157,7 @@ type para_WaitingItem {
   id: String!
   nextNudge: String!
   route: String!
+  routeName: String
   stalled: Boolean!
   status: para_WaitingItemStatus!
   targetNames: [String!]

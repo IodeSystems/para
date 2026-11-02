@@ -146,6 +146,8 @@ type RFXSummary struct {
 	// Names are for people. TargetNames has one entry per target: who it goes to.
 	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
 	TargetNames    []string `json:"target_names,omitempty" nameof:"Targets.To"`
+	// RouteName is the title of the route document, when Route names one.
+	RouteName string `json:"route_name,omitempty" nameof:"Route"`
 }
 
 func summarize(id, title string, m *model.RFX) RFXSummary {
@@ -298,6 +300,12 @@ type RFXShowOutput struct {
 	Chain        []ChainNode    `json:"chain"`          // everything it depends on, transitively
 	DependedOnBy []string       `json:"depended_on_by"` // RFX that list this one in depends_on
 	Draft        string         `json:"draft"`          // the message under "## Draft"; empty if none
+	// Route and Targets repeat the document's, so a screen can show names for them.
+	Route             string         `json:"route,omitempty"`
+	RouteName         string         `json:"route_name,omitempty" nameof:"Route"`
+	Targets           []model.Target `json:"targets"`
+	TargetNames       []string       `json:"target_names,omitempty" nameof:"Targets.To"`
+	DependedOnByNames []string       `json:"depended_on_by_names,omitempty" nameof:"DependedOnBy"`
 }
 
 // RFXShow shows one RFX with its dependency chain.
@@ -306,7 +314,8 @@ var RFXShow = define("rfx_show", "Show a request and its dependency chain", func
 	if err != nil {
 		return RFXShowOutput{}, err
 	}
-	out := RFXShowOutput{Doc: doc, Chain: []ChainNode{}, DependedOnBy: []string{}, Draft: draftOf(doc.Body)}
+	out := RFXShowOutput{Doc: doc, Chain: []ChainNode{}, DependedOnBy: []string{}, Draft: draftOf(doc.Body),
+		Route: m.Route, Targets: append([]model.Target{}, m.Targets...)}
 	seen := map[string]bool{doc.ID: true}
 	var walk func(ids []string, depth int) error
 	walk = func(ids []string, depth int) error {

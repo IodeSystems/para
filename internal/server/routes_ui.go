@@ -9,6 +9,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/netguard"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/store"
 	"github.com/iodesystems/parasolve/internal/today"
 	"github.com/iodesystems/parasolve/internal/tui"
 )
@@ -35,7 +36,14 @@ type ReviewNeed struct {
 // ReviewGroup is the events one actor made since the review position.
 type ReviewGroup struct {
 	Actor  string        `json:"actor"`
-	Events []model.Event `json:"events"`
+	Events []ReviewEvent `json:"events"`
+}
+
+// ReviewEvent is an event with the title of the document it touched, for people.
+// DocName is empty when the document is gone.
+type ReviewEvent struct {
+	model.Event
+	DocName string `json:"doc_name,omitempty"`
 }
 
 // UIReviewBody is the Review screen. Position is the time of the last accept,
@@ -261,8 +269,18 @@ func (s *Server) review(ctx context.Context, b *boundVault) (UIReviewBody, error
 	for _, n := range rd.Needs {
 		out.Needs = append(out.Needs, ReviewNeed{Kind: n.Kind, ID: n.ID, Title: n.Title})
 	}
+	titles := map[string]string{}
+	if refs, err := deps.Store.List(ctx, store.Filter{}); err == nil {
+		for _, r := range refs {
+			titles[r.ID] = r.Title
+		}
+	}
 	for _, g := range rd.Groups {
-		out.Groups = append(out.Groups, ReviewGroup{Actor: g.Actor, Events: g.Events})
+		evs := make([]ReviewEvent, 0, len(g.Events))
+		for _, e := range g.Events {
+			evs = append(evs, ReviewEvent{Event: e, DocName: titles[e.Doc]})
+		}
+		out.Groups = append(out.Groups, ReviewGroup{Actor: g.Actor, Events: evs})
 	}
 	return out, nil
 }
