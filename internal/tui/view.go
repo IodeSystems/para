@@ -81,6 +81,12 @@ func (m *Model) rows(w int) ([]row, []Target) {
 			return m.rowsResults(p, w), acts
 		case pageGraph:
 			return m.rowsGraph(p, w), acts
+		case pageProposal:
+			return m.rowsProposal(p, w), append(m.proposalActs(p, w), acts...)
+		case pageHistory:
+			return m.rowsHistory(p, w), acts
+		case pageText:
+			return m.rowsText(p), acts
 		}
 		return nil, acts
 	}

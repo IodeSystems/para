@@ -107,6 +107,7 @@ The server listens on 127.0.0.1:7700 by default and every request needs a token.
 
 11. Proposals: an agent suggests, you decide
   $ para proposal list
+  $ para review proposal-example
   $ para proposal show proposal-example
   $ para proposal approve proposal-example i1
   $ para proposal deny proposal-example i2 --reason "Not this quarter"

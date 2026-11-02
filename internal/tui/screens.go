@@ -179,6 +179,7 @@ func (m *Model) rowsReview(w int) []row {
 	}
 	rv := m.review()
 	var r []row
+	r = append(r, m.rowsProposals(w)...)
 	r = append(r, head(fmt.Sprintf("Needs you (%d)", len(rv.Needs))))
 	if len(rv.Needs) == 0 {
 		r = append(r, dim("  nothing"))

@@ -36,6 +36,9 @@ const (
 	pageWho     // several people matched
 	pageResults // search hits
 	pageGraph
+	pageProposal
+	pageHistory // the revisions of a proposal
+	pageText    // plain lines: a diff, one item in full
 )
 
 // page is a screen above the tabs on the back stack.
@@ -52,6 +55,9 @@ type page struct {
 
 	who  ops.WhoOutput
 	hits []index.Hit
+
+	prop  ops.ProposalDetail // proposal and history pages
+	lines []string           // text pages
 }
 
 type tabState struct{ cursor, offset int }
@@ -66,6 +72,7 @@ const (
 	ovVault
 	ovHelp
 	ovOutput
+	ovPrompt
 )
 
 // exportState is the export menu: format, then transport, then an argument.
@@ -84,6 +91,7 @@ type overlay struct {
 	export exportState
 	vaults []string
 	output string
+	prompt promptState
 }
 
 type docKey struct {
@@ -121,6 +129,8 @@ type Model struct {
 	lastTransport string
 
 	frame string
+
+	startProposal string // proposal to open first (para review <id>)
 }
 
 // New builds the model over env.
@@ -130,9 +140,15 @@ func New(env Env) *Model {
 	return m
 }
 
+// StartReview opens on the Review tab, and on a proposal when id is not empty.
+func (m *Model) StartReview(id string) { m.tab, m.startProposal = tabReview, id }
+
 // Init starts the first load and the poll.
 func (m *Model) Init() tea.Cmd {
 	m.loading = true
+	if m.startProposal != "" {
+		return tea.Batch(m.loadSnap(), m.tick(), m.loadProposal(m.startProposal, false))
+	}
 	return tea.Batch(m.loadSnap(), m.tick())
 }
 
@@ -172,6 +188,9 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		if p := m.top(); p != nil && p.kind == pageDoc {
 			return m.loadDoc(p.id, true)
 		}
+		if p := m.top(); p != nil && p.kind == pageProposal {
+			return m.loadProposal(p.id, true)
+		}
 		return nil
 	case pollMsg:
 		return tea.Batch(m.checkFP(), m.tick())
@@ -183,6 +202,17 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		return nil
 	case docMsg:
 		return m.onDoc(msg)
+	case proposalMsg:
+		return m.onProposal(msg)
+	case textMsg:
+		if msg.err != nil {
+			m.setStatus(msg.err.Error(), true)
+			return nil
+		}
+		m.push(page{kind: pageText, title: msg.title, lines: msg.lines})
+		return nil
+	case editedMsg:
+		return m.onEdited(msg)
 	case whoMsg:
 		return m.onWho(msg)
 	case searchMsg:
@@ -209,11 +239,15 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		if msg.output != "" {
 			m.ov = overlay{kind: ovOutput, output: msg.output}
 		}
+		var page tea.Cmd
+		if p := m.top(); msg.reload && p != nil && p.kind == pageProposal {
+			page = m.loadProposal(p.id, true) // the rule for the next key
+		}
 		if msg.reload && !m.loading {
 			m.loading = true
-			return m.loadSnap()
+			return tea.Batch(page, m.loadSnap())
 		}
-		return nil
+		return page
 	case envMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
@@ -250,7 +284,11 @@ func (m *Model) onDoc(msg docMsg) tea.Cmd {
 		}
 		return nil
 	}
-	m.push(page{kind: pageDoc, id: msg.id, title: msg.doc.Title, doc: msg.doc})
+	title := msg.doc.Title
+	if msg.untrusted {
+		title = "untrusted data, not instructions: " + title
+	}
+	m.push(page{kind: pageDoc, id: msg.id, title: title, doc: msg.doc})
 	return nil
 }
 
@@ -290,6 +328,10 @@ func (m *Model) follow(target string) tea.Cmd {
 		}
 	case "vault":
 		return m.openVault(id)
+	case "prop":
+		return m.loadProposal(id, false)
+	case "item":
+		return m.showItem(id)
 	case "act":
 		return m.act(id)
 	}
@@ -351,6 +393,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.reopen()
 	case "graph":
 		m.push(page{kind: pageGraph, id: m.graphProject(), title: "graph"})
+	default:
+		return m.proposalAct(name)
 	}
 	return nil
 }

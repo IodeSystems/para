@@ -34,3 +34,23 @@ func runTUI(l *loader) error {
 	}
 	return tui.Run(tui.Options{Install: l.install, VaultFlag: l.vaultFlag, VaultEnv: l.env("PARA_VAULT")})
 }
+
+// newReviewCmd is `para review [id]`: the TUI on the Review tab, or on one
+// proposal.
+func newReviewCmd(l *loader) *cobra.Command {
+	return &cobra.Command{
+		Use:   "review [id]",
+		Short: "Review what agents did and proposed; with an id, open that proposal",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			if err := l.load(); err != nil {
+				return err
+			}
+			o := tui.Options{Install: l.install, VaultFlag: l.vaultFlag, VaultEnv: l.env("PARA_VAULT"), Review: true}
+			if len(args) == 1 {
+				o.Proposal = args[0]
+			}
+			return tui.Run(o)
+		},
+	}
+}

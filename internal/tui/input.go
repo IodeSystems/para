@@ -189,6 +189,8 @@ func (m *Model) accept() tea.Cmd {
 	switch r.kind {
 	case "need":
 		return m.acceptNeed(r.need)
+	case "proposal":
+		return m.loadProposal(r.id, false)
 	case "event":
 		next := m.pos.Accept(r.event.TS)
 		if next == m.pos {

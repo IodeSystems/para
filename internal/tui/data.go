@@ -80,6 +80,7 @@ type Snapshot struct {
 	RFX        []ops.RFXSummary
 	Drafts     map[string]string // open RFX id -> draft text
 	Requests   []ops.RequestView
+	Proposals  []ops.ProposalView // current revisions
 	Inbox      []ops.InboxItem
 	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
@@ -136,6 +137,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.RequestList.Run(ctx, e.Deps, ops.RequestListInput{}); note("requests", err) {
 		s.Requests = o.Items
+	}
+	if o, err := ops.ProposalList.Run(ctx, e.Deps, ops.ProposalListInput{}); note("proposals", err) {
+		s.Proposals = o.Items
 	}
 	if o, err := ops.InboxList.Run(ctx, e.Deps, ops.InboxListInput{}); note("inbox", err) {
 		s.Inbox = o.Items

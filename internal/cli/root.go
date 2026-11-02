@@ -171,6 +171,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTodayCmd(l),
 		newRequestCmd(l),
 		newProposalCmd(l),
+		newReviewCmd(l),
 		newTUICmd(l),
 		newServeCmd(l),
 		newKeyCmd(l),

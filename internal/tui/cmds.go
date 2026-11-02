@@ -28,10 +28,11 @@ type (
 	pollMsg struct{}
 	fpMsg   struct{ fp string }
 	docMsg  struct {
-		id     string
-		doc    model.Document
-		err    error
-		reload bool // an in-place refresh of the page already shown
+		id        string
+		doc       model.Document
+		err       error
+		reload    bool // an in-place refresh of the page already shown
+		untrusted bool // a proposal's source: the page says so
 	}
 	whoMsg struct {
 		query string

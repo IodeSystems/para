@@ -53,6 +53,8 @@ func (m *Model) onOverlayKey(k tea.KeyPressMsg) tea.Cmd {
 		return nil
 	case ovExport:
 		return m.onExportKey(k)
+	case ovPrompt:
+		return m.onPromptKey(k)
 	}
 	return nil
 }
@@ -152,6 +154,8 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 	switch m.ov.kind {
 	case ovCapture, ovSearch:
 		lines = []string{stHead.Render("enter saves, esc cancels"), m.ov.input.View()}
+	case ovPrompt:
+		lines = []string{stHead.Render(m.ov.prompt.title + ": enter continues, esc cancels"), m.ov.input.View()}
 	case ovHelp:
 		lines = helpLines()
 	case ovOutput:
@@ -252,6 +256,8 @@ func helpLines() []string {
 		"  v          switch vault for this session",
 		"  document:  z full screen, x export menu, y copy with the last format",
 		"  review:    a accept, r reopen",
+		"  proposal:  a approve, d deny, r rework, b send back, f needs first,",
+		"             n annotate, e edit, s source, i diff, h history, enter item in full",
 		"  q          quit",
 		"",
 		stDim.Render("para never sends anything. esc closes this."),

@@ -15,6 +15,9 @@ type Options struct {
 	Install   registry.Install
 	VaultFlag string
 	VaultEnv  string
+	// Review opens the Review tab. Proposal also opens that proposal.
+	Review   bool
+	Proposal string
 }
 
 // Run opens the vault by the normal rule (flag, PARA_VAULT, the single vault)
@@ -32,7 +35,11 @@ func Run(o Options) error {
 		return err
 	}
 	InitStyle() // before the program owns the terminal
-	if _, err := tea.NewProgram(New(env)).Run(); err != nil {
+	m := New(env)
+	if o.Review {
+		m.StartReview(o.Proposal)
+	}
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 		return fmt.Errorf("tui: %w", err)
 	}
 	return nil
