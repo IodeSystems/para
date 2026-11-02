@@ -40,6 +40,9 @@ type Store interface {
 	Now() time.Time
 	// Config returns a vault.properties value, or "" when the key is unset.
 	Config(key string) (string, error)
+	// ConfigFile returns a file of the vault's .para directory, or nil when
+	// there is none, such as proposals.yaml.
+	ConfigFile(name string) ([]byte, error)
 
 	// VaultID returns the id of the open vault.
 	VaultID() string

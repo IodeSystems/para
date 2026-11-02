@@ -82,14 +82,18 @@ func newProposalCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.ProposalApprovedOutput) error {
 				p := &printer{w: w}
 				if out.Approved {
-					p.f("approved\t%s\t%s\t%s\t%s\n", out.Proposal, out.Item, out.Medium, out.Target)
+					p.f("approved\t%s\t%s\t%s\t%s\n", out.Proposal, out.Item, out.Subtype, out.Target)
 				}
 				return p.err
 			},
 		}),
 		opCommand(l, ops.ProposalApprove, binding[ops.ProposalApproveInput, ops.ProposalReviewOutput]{
-			Use:  "approve <id> <item>...",
-			Args: cobra.MinimumNArgs(2),
+			Use:  "approve <id> [item]... [--group <group>]",
+			Args: cobra.MinimumNArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalApproveInput) {
+				fs.StringVar(&in.Group, "group", "", "approve every waiting item of this group")
+				fs.StringVar(&in.Reason, "reason", "", "optional: kept on the alternatives a pick closes")
+			},
 			Bind: func(args []string, in *ops.ProposalApproveInput) error {
 				in.ID, in.Items = args[0], args[1:]
 				return nil
@@ -97,12 +101,11 @@ func newProposalCmd(l *loader) *cobra.Command {
 			Text: proposalReviewText,
 		}),
 		reasonCmd(l, ops.ProposalDeny, "deny <id> <item>"),
-		reasonCmd(l, ops.ProposalRework, "rework <id> <item>"),
 		opCommand(l, ops.ProposalSendback, binding[ops.ProposalSendbackInput, ops.ProposalReviewOutput]{
 			Use:  "sendback <id> <item>",
 			Args: cobra.ExactArgs(2),
 			Flags: func(fs *pflag.FlagSet, in *ops.ProposalSendbackInput) {
-				fs.StringVar(&in.Reason, "reason", "", "optional: the edits and annotations already say why")
+				fs.StringVar(&in.Reason, "reason", "", "why; optional when an edit or a note already says")
 			},
 			Bind: func(args []string, in *ops.ProposalSendbackInput) error {
 				in.ID, in.Item = args[0], args[1]
@@ -125,15 +128,15 @@ func newProposalCmd(l *loader) *cobra.Command {
 			},
 			Text: proposalReviewText,
 		}),
-		opCommand(l, ops.ProposalAnnotate, binding[ops.ProposalAnnotateInput, ops.ProposalReviewOutput]{
-			Use:  "annotate <id> <item> --quote <text> --note <text>",
-			Args: cobra.ExactArgs(2),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProposalAnnotateInput) {
-				fs.StringVar(&in.Quote, "quote", "", "text from the item the note is about (required)")
-				fs.StringVar(&in.Note, "note", "", "the note (required)")
+		opCommand(l, ops.ProposalNote, binding[ops.ProposalNoteInput, ops.ProposalReviewOutput]{
+			Use:  "note <id> <item> <text>",
+			Args: cobra.MinimumNArgs(3),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalNoteInput) {
+				fs.StringVar((*string)(&in.Intent), "intent", "", "clarify (default), or redirect: change the path")
+				fs.StringVar(&in.Quote, "quote", "", "text from the item the note is about")
 			},
-			Bind: func(args []string, in *ops.ProposalAnnotateInput) error {
-				in.ID, in.Item = args[0], args[1]
+			Bind: func(args []string, in *ops.ProposalNoteInput) error {
+				in.ID, in.Item, in.Note = args[0], args[1], strings.Join(args[2:], " ")
 				return nil
 			},
 			Text: proposalReviewText,
@@ -160,22 +163,31 @@ func reasonCmd(l *loader, op *ops.Op[ops.ProposalReasonInput, ops.ProposalReview
 }
 
 func newProposalEditCmd(l *loader) *cobra.Command {
-	var draft, target, input string
+	var body, target, subject, title, input string
 	return opCommand(l, ops.ProposalEdit, binding[ops.ProposalEditInput, ops.ProposalReviewOutput]{
 		Use:  "edit <id> <item>",
 		Args: cobra.ExactArgs(2),
 		Flags: func(fs *pflag.FlagSet, _ *ops.ProposalEditInput) {
-			fs.StringVar(&draft, "draft", "", "external: the new draft")
-			fs.StringVar(&target, "target", "", "external: the new target")
-			fs.StringVar(&input, "input", "", "op: the new input, in full, as JSON")
+			fs.StringVar(&body, "body", "", "message or action: the new body")
+			fs.StringVar(&body, "draft", "", "the old name of --body")
+			fs.StringVar(&target, "target", "", "message or action: the new target")
+			fs.StringVar(&subject, "subject", "", "message: the new subject")
+			fs.StringVar(&title, "title", "", "action: the new title")
+			fs.StringVar(&input, "input", "", "para: the new input, in full, as JSON")
 		},
 		Bind: func(args []string, in *ops.ProposalEditInput) error {
 			in.ID, in.Item = args[0], args[1]
-			if draft != "" {
-				in.Draft = &draft
+			if body != "" {
+				in.Body = &body
 			}
 			if target != "" {
 				in.Target = &target
+			}
+			if subject != "" {
+				in.Subject = &subject
+			}
+			if title != "" {
+				in.Title = &title
 			}
 			if input != "" {
 				return json.Unmarshal([]byte(input), &in.Input)
@@ -241,9 +253,15 @@ func proposalDetailText(w io.Writer, out ops.ProposalDetail) error {
 	if out.SupersededBy != "" {
 		p.f("superseded_by\t%s\n", out.SupersededBy)
 	}
+	if out.TLDR != "" {
+		p.f("tldr\t%s\n", out.TLDR)
+	}
+	if out.Context != "" {
+		p.f("context\t%s\n", out.Context)
+	}
 	p.f("note\t%s\n", out.Untrusted)
 	for _, it := range out.Items {
-		p.f("\n%s\t%s\t%s", it.ID, it.Kind, it.State)
+		p.f("\n%s\t%s\t%s", it.ID, kindWord(it.ProposalItem), it.State)
 		if it.Edited {
 			p.f("\tedited")
 		}
@@ -254,25 +272,94 @@ func proposalDetailText(w io.Writer, out ops.ProposalDetail) error {
 			p.f("\theld by %s", it.HeldBy.Target())
 		}
 		p.f("\n")
-		if it.Kind == model.ItemOp {
-			raw, err := json.Marshal(it.Input)
-			if err != nil {
-				return err
-			}
-			p.f("op\t%s %s\n", it.Op, raw)
-		} else {
-			p.f("to\t%s %s\n%s\n", it.Medium, it.Target, it.Draft)
-		}
+		writeItemBody(p, it)
 		p.f("evidence (untrusted)\t%s\t%s\n", it.Evidence.Locator, it.Evidence.Quote)
 		p.f("actions\t%s\n", strings.Join(it.Actions, ", "))
 	}
-	for _, a := range out.Annotations {
-		p.f("\n%s\t%s\t%s\t%q: %s\n", a.ID, a.Item, a.State, a.Quote, a.Note)
-		if a.Answer != "" {
-			p.f("answer\t%s\n", a.Answer)
+	return p.err
+}
+
+func kindWord(it model.ProposalItem) string {
+	if it.Subtype != "" {
+		return string(it.Kind) + "/" + it.Subtype
+	}
+	return string(it.Kind)
+}
+
+func writeItemBody(p *printer, it ops.ItemView) {
+	row := func(k, v string) {
+		if v != "" {
+			p.f("%s\t%s\n", k, v)
 		}
 	}
-	return p.err
+	if it.Kind == model.ItemPara {
+		p.f("op\t%s %s\n", it.Op, inputText(it.Input))
+	} else {
+		p.f("to\t%s\n", it.GateTarget())
+	}
+	row("subject", it.Subject)
+	row("what", it.What)
+	row("previous", it.Previous)
+	row("how", it.How)
+	row("impact", it.Impact)
+	row("title", it.Title)
+	if it.Body != "" {
+		p.f("%s\n", it.Body)
+	}
+	if it.Diff != "" {
+		p.f("%s\n", it.Diff)
+	}
+	row("reversible", strings.TrimSpace(string(it.Reversible)+" "+it.ReversibleHow))
+	row("after", it.After)
+	row("bundle", it.Bundle)
+	row("choice", it.Choice)
+	row("group", it.Group)
+	for _, c := range it.Pros {
+		p.f("pro\t%s [%s]\n", c.Text, c.Source)
+	}
+	for _, c := range it.Cons {
+		p.f("con\t%s [%s]\n", c.Text, c.Source)
+	}
+	if it.Cost != nil {
+		p.f("cost\t%s [%s]\n", it.Cost.Text, it.Cost.Source)
+	}
+	if it.Benefit != nil {
+		p.f("benefit\t%s [%s]\n", it.Benefit.Text, it.Benefit.Source)
+	}
+	if it.Confidence > 0 {
+		p.f("confidence\t%d%% %s\n", it.Confidence, it.ConfidenceBasis)
+	}
+	if it.Recommendation > 0 {
+		p.f("recommendation\t%d%%\n", it.Recommendation)
+	}
+	if pv := it.Preview; pv != nil {
+		if pv.Error != "" {
+			p.f("would fail\t%s\n", pv.Error)
+		}
+		for _, c := range pv.Changes {
+			p.f("changes\t%s\t%s\n", c.Doc, c.Title)
+			for _, ln := range c.Lines {
+				p.f("  %s\n", ln)
+			}
+		}
+		for _, w := range pv.Downstream {
+			p.f("downstream\t%s\t%s\t%s\n", w.Doc, w.Title, w.Effect)
+		}
+	}
+	for _, t := range it.Thread {
+		p.f("thread\t%s\t%s\t%s\t%s\t%s\n", t.ID, t.Kind, t.State, t.By, t.Text)
+		if t.Answer != "" {
+			p.f("answer\t%s\n", t.Answer)
+		}
+	}
+}
+
+func inputText(in map[string]any) string {
+	b, err := json.Marshal(in)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // errProposalTimeout is the error of a wait that ran out of time.

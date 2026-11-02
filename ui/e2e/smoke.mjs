@@ -775,11 +775,8 @@ try {
 
   // The agent reads the note over MCP and files revision 2, answering it.
   const shown = await agent.call('proposal_show', { id: filed.id })
-  const ann = shown.annotations.find((a) => a.item === 'i1')
-  check(
-    !!ann && ann.quote === 'raise the quota' && ann.anchored,
-    'MCP sees the annotation with its quote',
-  )
+  const ann = shown.items.find((a) => a.id === 'i1').thread.find((t) => t.state === 'open')
+  check(!!ann && ann.quote === 'raise the quota', 'MCP sees the note on the item thread')
   const revised = await agent.call('proposal_revise', {
     id: filed.id,
     items: [
@@ -838,6 +835,62 @@ try {
     para(...v, 'task', 'list').includes('Follow up on the quota ticket'),
     'an approved op item ran',
   )
+
+  // Proposal content: tldr and context, a choice, a group, a computed vault change, the thread.
+  const plan = await agent.call('proposal_add', {
+    title: 'Roll out the quota',
+    tldr: 'Raise the quota and tell Sam.',
+    context: 'Sam asked for more staging quota.',
+    source: docId,
+    items: [
+      {
+        kind: 'para',
+        op: 'task_add',
+        input: { title: 'Track the quota change', project: proj, done_when: 'The quota is live.' },
+        how: 'Adds a task to the goal.',
+        impact: 'One more open task.',
+        reversible: 'yes',
+        group: 'tasks',
+        confidence: 70,
+        confidence_basis: 'Sam said so.',
+        evidence,
+      },
+      {
+        kind: 'message',
+        subtype: 'email',
+        people: ['sam@example.com'],
+        subject: 'Quota',
+        body: 'Plan A: raise it now.',
+        reversible: 'no',
+        choice: 'how',
+        recommendation: 80,
+        evidence,
+      },
+      {
+        kind: 'message',
+        subtype: 'email',
+        people: ['sam@example.com'],
+        subject: 'Quota',
+        body: 'Plan B: raise it next week.',
+        reversible: 'no',
+        choice: 'how',
+        recommendation: 20,
+        evidence,
+      },
+    ],
+  })
+  await rp.goto(`${base}/proposals/${plan.id}`)
+  await rp.getByText('Raise the quota and tell Sam.').waitFor()
+  check(true, 'a proposal shows its tldr')
+  await rp.getByText('Sam asked for more staging quota.').waitFor()
+  await rp.getByLabel('What changes').first().waitFor()
+  check(true, 'a vault change shows what para computed')
+  await rp.getByRole('button', { name: 'Approve all tasks (1)' }).click()
+  await rp.locator('[data-item="i1"]').getByText('Done.').first().waitFor()
+  check(true, 'bulk approve by group runs the item')
+  await rp.locator('[data-item="i2"]').getByRole('button', { name: 'Approve' }).click()
+  await rp.locator('[data-item="i3"]').getByText('Not chosen: picked i2').waitFor()
+  check(true, 'picking one choice closes the other, with the reason')
 
   // Deny and rework need a reason.
   const second = await agent.call('proposal_add', {

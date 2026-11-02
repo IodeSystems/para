@@ -18,14 +18,12 @@ import (
 
 // Item actions on a proposal page. Only what the review rule allows for the
 // item under the cursor is shown or bound: ops.ItemView.Actions is the rule.
-// The verbs are Approve, Deny, Send back, Needs first, Note, Edit. Send back
-// is the one action for two ops: rework (a reason is required) when the item
-// has no edit or note, and send back (no reason) when it has.
+// The verbs are Approve, Deny, Send back, Needs first, Note, Edit.
 var (
 	actApprove   = Target{ID: "act:approve", Label: "Approve", Pref: 'a'}
 	actDeny      = Target{ID: "act:deny", Label: "Deny", Pref: 'd'}
 	actSendBack  = Target{ID: "act:sendback", Label: "Send back", Pref: 's'}
-	actNote      = Target{ID: "act:annotate", Label: "Note", Pref: 'n'}
+	actNote      = Target{ID: "act:note", Label: "Note", Pref: 'n'}
 	actHold      = Target{ID: "act:hold", Label: "Needs first", Pref: 'f'}
 	actEdit      = Target{ID: "act:edit", Label: "Edit", Pref: 'e'}
 	actSource    = Target{ID: "act:source", Label: "Source", Pref: 'o'}
@@ -48,15 +46,15 @@ func applies(it ops.ItemView, t Target) bool {
 	case actDeny.ID:
 		return has(ops.ActionDeny)
 	case actSendBack.ID:
-		return has(ops.ActionRework) || has(ops.ActionSendBack)
+		return has(ops.ActionSendBack)
 	case actNote.ID:
-		return has(ops.ActionAnnotate)
+		return has(ops.ActionNote)
 	case actHold.ID:
 		return has(ops.ActionHold)
 	case actEdit.ID:
 		return has(ops.ActionEdit)
 	case actCopyDraft.ID:
-		return it.Kind == model.ItemExternal && it.State == model.ItemApproved
+		return it.Kind.Outward() && it.State == model.ItemApproved
 	}
 	return false
 }
@@ -74,7 +72,7 @@ var whyNot = map[string]string{
 	"deny":     "Deny is not available: the item was edited or has an open note, or is already decided.",
 	"sendback": "Send back is not available: the item is already decided.",
 	"hold":     "Needs first is not available for this item now.",
-	"annotate": "Note is not available for this item now.",
+	"note":     "Note is not available for this item now.",
 	"edit":     "Edit is not available for this item now.",
 }
 
@@ -185,8 +183,8 @@ func itemLine(it ops.ItemView) string {
 	if it.Summary != "" {
 		return it.Summary
 	}
-	if it.Kind == model.ItemExternal {
-		return "Message to " + it.Target
+	if it.Kind.Outward() {
+		return "Message to " + it.GateTarget()
 	}
 	return strings.ToUpper(it.Op[:1]) + strings.ReplaceAll(it.Op[1:], "_", " ")
 }
@@ -233,6 +231,13 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 		meta += stDim.Render(fmt.Sprintf("  revision %d", v.Revision))
 	}
 	r = append(r, plain(meta))
+	for _, x := range []string{d.TLDR, d.Context} {
+		for _, l := range wrapText(x, max(w-4, 10)) {
+			if l != "" {
+				r = append(r, plain("  "+l))
+			}
+		}
+	}
 	if d.SupersededBy != "" {
 		r = append(r, link("prop:"+d.SupersededBy, "  replaced by a newer revision: ", "open it", "", w))
 	}
@@ -241,26 +246,22 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 		if it.Edited {
 			flag = "  " + stWarn.Render("edited")
 		}
-		if it.OpenAnnotations > 0 {
-			flag += "  " + stWarn.Render(plural(it.OpenAnnotations, "open note"))
+		if it.OpenNotes > 0 {
+			flag += "  " + stWarn.Render(plural(it.OpenNotes, "open note"))
 		}
 		x := link("item:"+it.ID, "  "+stDim.Render(itemNo(it.ID))+"  ", itemLine(it), "  "+state(string(it.State))+flag, w)
 		x.kind, x.id = "item", it.ID
 		r = append(r, x)
-		if it.Kind != model.ItemExternal {
+		if !it.Kind.Outward() {
 			for _, l := range it.Change {
 				r = append(r, plain("        "+truncate(l, max(w-10, 10))))
 			}
 		}
 		r = append(r, m.outcomeRows(it, w)...)
-		if it.Kind == model.ItemExternal {
-			r = append(r, dim("        to "+it.Target))
-			for _, l := range strings.Split(it.Draft, "\n") {
-				for _, wl := range wrapText(l, max(w-10, 10)) {
-					r = append(r, plain("        "+wl))
-				}
-			}
+		if it.Kind.Outward() {
+			r = append(r, dim("        to "+it.GateTarget()))
 		}
+		r = append(r, itemFullRows(it, w)...)
 		r = append(r, dim("      "+stDim.Render("evidence ("+it.Evidence.Locator+") ")+stWarn.Render("[untrusted]")+stDim.Render(": "+truncate(oneLine(it.Evidence.Quote), max(w-40-cells(it.Evidence.Locator), 10)))))
 		if it.Reason != "" {
 			r = append(r, plain("      reason: "+truncate(oneLine(it.Reason), max(w-14, 10))))
@@ -271,15 +272,92 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 			x.id = it.ID
 			r = append(r, x)
 		}
-		for _, a := range d.Annotations {
-			if a.Item != it.ID {
-				continue
+	}
+	return r
+}
+
+// itemFullRows is the content of an item, shown in full on the proposal page.
+func itemFullRows(it ops.ItemView, w int) []row {
+	var r []row
+	wrap := func(head, text string) {
+		if strings.TrimSpace(text) == "" {
+			return
+		}
+		lines := strings.Split(text, "\n")
+		for i, l := range lines {
+			for j, wl := range wrapText(l, max(w-10, 10)) {
+				if i == 0 && j == 0 && head != "" {
+					r = append(r, plain("        "+stDim.Render(head+": ")+wl))
+					continue
+				}
+				r = append(r, plain("        "+wl))
 			}
-			line := fmt.Sprintf("      %s %q: %s", a.State, oneLine(a.Quote), oneLine(a.Note))
-			if a.Answer != "" {
-				line += " (" + oneLine(a.Answer) + ")"
+		}
+	}
+	wrap("subject", it.Subject)
+	wrap("what", it.What)
+	wrap("previous", it.Previous)
+	wrap("how", it.How)
+	wrap("impact", it.Impact)
+	wrap("title", it.Title)
+	wrap("", it.Body)
+	wrap("", it.Diff)
+	wrap("with results filled in", it.Filled)
+	claim := func(head string, c model.Claim) { wrap(head, c.Text+" ["+c.Source+"]") }
+	for _, c := range it.Pros {
+		claim("pro", c)
+	}
+	for _, c := range it.Cons {
+		claim("con", c)
+	}
+	if it.Cost != nil {
+		claim("cost", *it.Cost)
+	}
+	if it.Benefit != nil {
+		claim("benefit", *it.Benefit)
+	}
+	if it.Confidence > 0 {
+		wrap("confidence", fmt.Sprintf("%d%% %s", it.Confidence, it.ConfidenceBasis))
+	}
+	if it.Recommendation > 0 {
+		wrap("recommended", fmt.Sprintf("%d%%", it.Recommendation))
+	}
+	if it.Reversible != "" {
+		wrap("reversible", strings.TrimSpace(string(it.Reversible)+" "+it.ReversibleHow))
+	}
+	for _, f := range []struct{ head, v string }{{"runs after", it.After}, {"bundle", it.Bundle}, {"choice", it.Choice}, {"group", it.Group}} {
+		wrap(f.head, f.v)
+	}
+	if pv := it.Preview; pv != nil {
+		wrap("would fail", pv.Error)
+		for _, c := range pv.Changes {
+			r = append(r, dim("        "+truncate("changes "+titleOr(c.Title, c.Doc), max(w-10, 10))))
+			for _, l := range c.Lines {
+				switch {
+				case strings.HasPrefix(l, "+ "):
+					r = append(r, plain("        "+stGood.Render(truncate(l, max(w-10, 10)))))
+				case strings.HasPrefix(l, "- "):
+					r = append(r, plain("        "+stBad.Render(truncate(l, max(w-10, 10)))))
+				default:
+					r = append(r, dim("        "+truncate(l, max(w-10, 10))))
+				}
 			}
-			r = append(r, dim(truncate(line, max(w-2, 10))))
+		}
+		for _, x := range pv.Downstream {
+			wrap("then", titleOr(x.Title, x.Doc)+": "+x.Effect)
+		}
+	}
+	for _, t := range it.Thread {
+		line := string(t.Kind) + " by " + t.By + ": " + oneLine(t.Text)
+		if t.State == model.TurnOpen {
+			line += " (waits for the agent)"
+		}
+		if t.Quote != "" {
+			line += fmt.Sprintf(" on %q", oneLine(t.Quote))
+		}
+		wrap("", line)
+		if t.Answer != "" || (t.State != model.TurnOpen && t.State != model.TurnNoted) {
+			wrap("answer", strings.TrimSpace(string(t.State)+" "+oneLine(t.Answer)))
 		}
 	}
 	return r
@@ -291,13 +369,17 @@ func (m *Model) outcomeRows(it ops.ItemView, w int) []row {
 	switch {
 	case it.State == model.ItemFailed && it.Result != "":
 		return []row{plain("      " + stBad.Render("failed: "+truncate(oneLine(it.Result), max(w-18, 10))))}
+	case it.State == model.ItemHalted:
+		return []row{plain("      " + stBad.Render(truncate(oneLine(it.Reason), max(w-8, 10))))}
 	case it.State != model.ItemApproved:
 		return nil
+	case it.Waits:
+		return []row{plain("      " + stGood.Render("Approved.") + stDim.Render(" Runs after item "+itemNo(it.After)+"."))}
 	case it.ResultName != "":
 		x := link("doc:"+it.Result, "      "+stGood.Render("done")+", made ", it.ResultName, "", w)
 		x.id = it.ID // the decisions on the footer stay those of this item
 		return []row{x}
-	case it.Kind == model.ItemExternal:
+	case it.Kind.Outward():
 		return []row{plain("      " + stGood.Render("Approved.") + stDim.Render(" Not sent yet."))}
 	}
 	return []row{plain("      " + stGood.Render("done"))}
@@ -342,7 +424,7 @@ func (m *Model) proposalHint() string {
 	if p == nil || p.kind != pageProposal {
 		return ""
 	}
-	if it, ok := m.proposalItem(p, m.listWidth()); ok && it.Kind == model.ItemExternal && it.State == model.ItemPending {
+	if it, ok := m.proposalItem(p, m.listWidth()); ok && it.Kind.Outward() && it.State == model.ItemPending {
 		return externalPromise
 	}
 	return ""
@@ -389,12 +471,12 @@ func (m *Model) showItem(id string) tea.Cmd {
 	it := p.prop.Items[i]
 	lines := []string{itemLine(it) + "  " + state(string(it.State)), ""}
 	pg := page{kind: pageText, title: itemLine(it), item: it.ID, id: p.id}
-	if it.Kind == model.ItemExternal {
-		lines = append(lines, "To: "+it.Target, "")
-		for _, l := range strings.Split(it.Draft, "\n") {
+	if it.Kind.Outward() {
+		lines = append(lines, "To: "+it.GateTarget(), "")
+		for _, l := range strings.Split(it.GateBody(), "\n") {
 			lines = append(lines, wrapText(l, max(m.w-4, 20))...)
 		}
-		pg.draft = it.Draft
+		pg.draft = it.GateBody()
 		switch it.State {
 		case model.ItemPending:
 			lines = append(lines, "", externalPromise)
@@ -417,7 +499,7 @@ func (m *Model) showItem(id string) tea.Cmd {
 	}
 	// What a person rarely needs is behind the Source key: the raw input and the hash.
 	raw := []string{"Source of this item, for checking", ""}
-	if it.Kind != model.ItemExternal {
+	if !it.Kind.Outward() {
 		if b, err := json.MarshalIndent(it.Input, "", "  "); err == nil {
 			raw = append(raw, strings.Split(string(b), "\n")...)
 		}
@@ -493,9 +575,9 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			m.setHint("Copy draft applies after you approve an email.")
 			return nil
 		}
-		return m.copyText(id, it.Draft)
+		return m.copyText(id, it.GateBody())
 	}
-	if t, known := map[string]Target{"approve": actApprove, "deny": actDeny, "sendback": actSendBack, "hold": actHold, "annotate": actNote, "edit": actEdit}[name]; known && !applies(it, t) {
+	if t, known := map[string]Target{"approve": actApprove, "deny": actDeny, "sendback": actSendBack, "hold": actHold, "note": actNote, "edit": actEdit}[name]; known && !applies(it, t) {
 		m.setHint(whyNot[name])
 		return nil
 	}
@@ -511,21 +593,21 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			})
 		})
 	case "sendback":
-		if slices.Contains(it.Actions, ops.ActionSendBack) { // an edit or a note is the message
+		if it.Edited || it.OpenNotes > 0 { // an edit or a note is the message
 			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 				return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item})
 			})
 		}
 		return m.askFor("Send back: "+itemLine(it), []promptStep{{label: "what should change: "}}, func(v []string) tea.Cmd {
 			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalRework.Run(ctx, d, ops.ProposalReasonInput{ID: id, Item: item, Reason: v[0]})
+				return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item, Reason: v[0]})
 			})
 		})
-	case "annotate":
-		steps := []promptStep{{label: "quote (the words you mean): ", value: quoteDefault(it)}, {label: "note (what is wrong or missing): "}}
+	case "note":
+		steps := []promptStep{{label: "note (what is wrong or missing): "}, {label: "clarify, or redirect to change the path: ", value: "clarify"}}
 		return m.askFor("Note: "+itemLine(it), steps, func(v []string) tea.Cmd {
 			return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalAnnotate.Run(ctx, d, ops.ProposalAnnotateInput{ID: id, Item: item, Quote: v[0], Note: v[1]})
+				return ops.ProposalNote.Run(ctx, d, ops.ProposalNoteInput{ID: id, Item: item, Note: v[0], Intent: ops.NoteIntent(strings.TrimSpace(v[1]))})
 			})
 		})
 	case "hold":
@@ -568,20 +650,12 @@ func (m *Model) textAct(p *page, name string) tea.Cmd {
 	return nil
 }
 
-func quoteDefault(it ops.ItemView) string {
-	text := it.Draft
-	if it.Kind == model.ItemOp {
-		text = it.Op
-	}
-	first, _, _ := strings.Cut(text, "\n")
-	return first
-}
-
 // reviewVerbs say a decision in the one family of words: Approve for items.
 var reviewVerbs = map[model.ItemState]string{
 	model.ItemApproved:  "Approved",
 	model.ItemDenied:    "Denied",
-	model.ItemRework:    "Sent back",
+	model.ItemDone:      "Done",
+	model.ItemHalted:    "Halted",
 	model.ItemSentBack:  "Sent back",
 	model.ItemHeld:      "Holding",
 	model.ItemRunning:   "Approved, running",
@@ -599,7 +673,7 @@ func (m *Model) runReview(item string, advance bool, fn func(context.Context, op
 	if p := m.top(); p != nil && p.kind == pageProposal {
 		for _, it := range p.prop.Items {
 			names[it.ID] = itemLine(it)
-			external[it.ID] = it.Kind == model.ItemExternal
+			external[it.ID] = it.Kind.Outward()
 		}
 	}
 	return func() tea.Msg {
@@ -748,8 +822,8 @@ const (
 
 // editBuffer writes an item for $EDITOR.
 func editBuffer(it ops.ItemView) (string, error) {
-	if it.Kind == model.ItemExternal {
-		return editTarget + it.Target + "\n" + editSplit + "\n" + it.Draft, nil
+	if it.Kind.Outward() {
+		return editTarget + it.GateTarget() + "\n" + editSplit + "\n" + it.Body, nil
 	}
 	b, err := json.MarshalIndent(it.Input, "", "  ")
 	if err != nil {
@@ -762,7 +836,7 @@ func editBuffer(it ops.ItemView) (string, error) {
 // exactly, but for the one newline an editor adds at the end of a file.
 func parseEditBuffer(it ops.ItemView, text string) (ops.ProposalEditInput, error) {
 	var in ops.ProposalEditInput
-	if it.Kind == model.ItemOp {
+	if it.Kind == model.ItemPara {
 		dec := json.NewDecoder(strings.NewReader(text))
 		dec.UseNumber()
 		if err := dec.Decode(&in.Input); err != nil {
@@ -775,11 +849,11 @@ func parseEditBuffer(it ops.ItemView, text string) (ops.ProposalEditInput, error
 	if !ok || !isTarget || strings.Contains(head, "\n") {
 		return in, fmt.Errorf("want a first line %q and a line %q before the draft", editTarget+"...", editSplit)
 	}
-	if !strings.HasSuffix(it.Draft, "\n") {
+	if !strings.HasSuffix(it.Body, "\n") {
 		draft = strings.TrimSuffix(draft, "\n")
 	}
 	target = strings.TrimSpace(target)
-	in.Target, in.Draft = &target, &draft
+	in.Target, in.Body = &target, &draft
 	return in, nil
 }
 

@@ -122,9 +122,9 @@ var Inputs = map[string]string{
 	"task_show":                 `{"id":"task-sample"}`,
 	"task_start":                `{"id":"task-sample"}`,
 	"who":                       `{"query":"Sample person"}`,
-	"proposal_add": `{"title":"Sample proposal","source":"note-sample","items":[` +
-		`{"kind":"op","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
-		`{"kind":"external","medium":"email","target":"sample@acme.example","draft":"Hi Sam.","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
+	"proposal_add": `{"title":"Sample proposal","tldr":"Add a task and tell Sam.","context":"Sam asked in the sample note.","source":"note-sample","items":[` +
+		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
+		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,
 	"proposal_wait":     `{"id":"proposal-decided"}`,
@@ -132,10 +132,9 @@ var Inputs = map[string]string{
 	"proposal_revise":   `{"id":"proposal-sample","answers":[{"annotation":"a1","outcome":"applied"}]}`,
 	"proposal_approve":  `{"id":"proposal-sample","items":["i1"]}`,
 	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
-	"proposal_rework":   `{"id":"proposal-sample","item":"i1","reason":"Name the owner."}`,
 	"proposal_sendback": `{"id":"proposal-sample","item":"i3"}`,
 	"proposal_hold":     `{"id":"proposal-sample","item":"i1","kind":"request","text":"Check the budget first"}`,
-	"proposal_annotate": `{"id":"proposal-sample","item":"i2","quote":"Hi Sam","note":"Use the full name."}`,
+	"proposal_note":     `{"id":"proposal-sample","item":"i2","quote":"Hi Sam","note":"Use the full name."}`,
 	"proposal_edit":     `{"id":"proposal-sample","item":"i2","draft":"Hi Sample."}`,
 }
 
@@ -148,17 +147,17 @@ func sampleProposals() ([]model.Document, error) {
 	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
 	open, err := model.RenderProposalBody(model.ProposalContent{
 		Items: []model.ProposalItem{
-			{ID: "i1", Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending},
-			{ID: "i2", Kind: model.ItemExternal, Medium: model.MediumEmail, Target: sampleTarget, Draft: sampleDraft, Evidence: ev, State: model.ItemPending},
-			{ID: "i3", Kind: model.ItemExternal, Medium: model.MediumSlack, Target: "#sample", Draft: "Sample note.", Evidence: ev, State: model.ItemPending},
+			{ID: "i1", Kind: model.ItemPara, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending},
+			{ID: "i2", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft, Evidence: ev, State: model.ItemPending},
+			{ID: "i3", Kind: model.ItemMessage, Subtype: "slack", Channel: "#sample", Body: "Sample note.", Evidence: ev, State: model.ItemPending,
+				Thread: []model.Turn{{ID: "a1", Kind: model.TurnClarify, Quote: "Sample note", Text: "Reword this.", By: "user", Revision: 1, State: model.TurnOpen}}},
 		},
-		Annotations: []model.Annotation{{ID: "a1", Item: "i3", Quote: "Sample note", Note: "Reword this.", By: "user", Revision: 1, State: model.AnnotationOpen}},
 	})
 	if err != nil {
 		return nil, err
 	}
 	closed, err := model.RenderProposalBody(model.ProposalContent{
-		Items: []model.ProposalItem{{ID: "i1", Kind: model.ItemExternal, Medium: model.MediumEmail, Target: sampleTarget, Draft: sampleDraft,
+		Items: []model.ProposalItem{{ID: "i1", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft,
 			Evidence: ev, State: model.ItemApproved, ApprovedHash: model.ExternalHash(sampleTarget, sampleDraft)}},
 	})
 	if err != nil {

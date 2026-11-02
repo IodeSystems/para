@@ -132,6 +132,22 @@ func (v *Vault) Config(key string) (string, error) {
 	return cfg[key], nil
 }
 
+// ConfigFile returns a file of the vault's .para directory, or nil when there is
+// none. name is a bare file name.
+func (v *Vault) ConfigFile(name string) ([]byte, error) {
+	if name != filepath.Base(name) || strings.HasPrefix(name, ".") {
+		return nil, fmt.Errorf("vault: config file %q: want a bare file name", name)
+	}
+	b, err := os.ReadFile(filepath.Join(v.root, dirState, name))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("vault: config file: %w", err)
+	}
+	return b, nil
+}
+
 // StateDir returns Options.StateDir.
 func (v *Vault) StateDir() string { return v.stateDir }
 

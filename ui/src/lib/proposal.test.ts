@@ -4,7 +4,7 @@ import { diffKind, parseInputObject, quoteAnchors } from '@/lib/proposal'
 const item = {
   op: 'task_add',
   target: null,
-  draft: 'Hi Sam, could you raise the quota?',
+  body: 'Hi Sam, could you raise the quota?',
   input: { title: 'Write the plan', project: 'project-x' },
   evidence: { quote: 'Sam will raise it', locator: 'minute 3' },
 }

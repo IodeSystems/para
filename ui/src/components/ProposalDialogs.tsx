@@ -2,26 +2,20 @@ import { useState } from 'react'
 import { useParams } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import {
-  useAnnotate,
-  useDeny,
-  useEdit,
-  useHold,
-  useProposal,
-  useRework,
-  useSendback,
-} from '@/api/proposals'
+import { useNote, useDeny, useEdit, useHold, useProposal, useSendback } from '@/api/proposals'
 import { useAreas } from '@/api/areas'
 import { useWork } from '@/api/work'
 import { errorText } from '@/client/gqlClient'
 import { Pick } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { parseDecide, type OverlaySearch } from '@/lib/overlays'
-import { parseInputObject, quoteAnchors } from '@/lib/proposal'
+import { isOutward, parseInputObject, quoteAnchors } from '@/lib/proposal'
 
 type Props = { s: OverlaySearch; onDone: (m: string) => void }
 
@@ -56,15 +50,14 @@ function DecideDialog({
   item: string
   onDone: (m: string) => void
 }) {
-  // Rework and Send back are one action here. An old link that says rework still works.
+  // An old link that says rework still works.
   const action = asked === 'rework' ? 'sendback' : asked
   const p = useProposal(id)
   const it = p.data?.items.find((x) => x.id === item)
   // With edits or notes the item goes back as it is; without, the reason is the message.
-  const hasEdits = !!it?.actions.includes('send_back')
+  const hasEdits = !!it && (it.edited || it.openNotes > 0)
   const close = useClose()
   const deny = useDeny()
-  const rework = useRework()
   const sendback = useSendback()
   const hold = useHold()
   const [reason, setReason] = useState('')
@@ -74,15 +67,7 @@ function DecideDialog({
   const work = useWork()
   const areas = useAreas()
   const m =
-    action === 'deny'
-      ? deny
-      : action === 'sendback'
-        ? hasEdits
-          ? sendback
-          : rework
-        : action === 'hold'
-          ? hold
-          : null
+    action === 'deny' ? deny : action === 'sendback' ? sendback : action === 'hold' ? hold : null
   const title = ACTION_TITLE[action]
   if (!title || !m) return null
   const reasonRequired = action === 'deny' || (action === 'sendback' && !hasEdits)
@@ -94,8 +79,6 @@ function DecideDialog({
   const submit = () => {
     const r = reason.trim()
     if (action === 'deny') deny.mutate({ id, item, reason: r }, { onSuccess: () => done('Denied') })
-    else if (action === 'sendback' && !hasEdits)
-      rework.mutate({ id, item, reason: r }, { onSuccess: () => done('Sent back to the agent') })
     else if (action === 'sendback')
       sendback.mutate(
         { id, item, reason: r || undefined },
@@ -192,19 +175,26 @@ function NoteDialog({
   onDone: (m: string) => void
 }) {
   const close = useClose()
-  const annotate = useAnnotate()
+  const annotate = useNote()
   const p = useProposal(id)
   const [quote, setQuote] = useState(initial)
   const [note, setNote] = useState('')
+  const [redirect, setRedirect] = useState(false)
   const it = p.data?.items.find((x) => x.id === item)
   // Wait for the item: until it is loaded the anchor cannot be judged.
-  const anchored = it ? quoteAnchors(it, quote) : true
+  const anchored = it && quote.trim() !== '' ? quoteAnchors(it, quote) : true
   return (
     <Frame
       title={`Note on: ${it?.summary ?? 'this item'}`}
       onSubmit={() =>
         annotate.mutate(
-          { id, item, quote: quote.trim(), note: note.trim() },
+          {
+            id,
+            item,
+            quote: quote.trim() || undefined,
+            note: note.trim(),
+            intent: redirect ? 'redirect' : undefined,
+          },
           {
             onSuccess: () => {
               onDone('Note added. The item can now be sent back.')
@@ -219,7 +209,7 @@ function NoteDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={annotate.isPending || quote.trim() === '' || note.trim() === ''}
+            disabled={annotate.isPending || note.trim() === ''}
           >
             Add note
           </Button>
@@ -232,7 +222,6 @@ function NoteDialog({
           label="Quoted text"
           value={quote}
           onChange={(e) => setQuote(e.target.value)}
-          required
           multiline
           minRows={1}
           fullWidth
@@ -252,6 +241,10 @@ function NoteDialog({
           minRows={3}
           autoFocus
           fullWidth
+        />
+        <FormControlLabel
+          control={<Checkbox checked={redirect} onChange={(e) => setRedirect(e.target.checked)} />}
+          label="Redirect: change the path, such as check the wiki first"
         />
         <Typography variant="caption" color="text.secondary">
           The agent must answer every note: applied, or declined with a reason. An item with a note
@@ -291,7 +284,7 @@ function CloseOnly() {
 type EditItem = {
   summary?: string | null
   kind: string
-  draft?: string | null
+  body?: string | null
   target?: string | null
   input?: unknown
 }
@@ -309,13 +302,13 @@ function EditForm({
 }) {
   const close = useClose()
   const edit = useEdit()
-  const external = it.kind === 'external'
-  const [draft, setDraft] = useState(it.draft ?? '')
+  const external = isOutward(it.kind)
+  const [draft, setDraft] = useState(it.body ?? '')
   const [target, setTarget] = useState(it.target ?? '')
   const [input, setInput] = useState(JSON.stringify(it.input ?? {}, null, 2))
   const parsed = external ? null : parseInputObject(input)
   const changed = external
-    ? draft !== (it.draft ?? '') || target !== (it.target ?? '')
+    ? draft !== (it.body ?? '') || target !== (it.target ?? '')
     : input !== JSON.stringify(it.input ?? {}, null, 2)
   const ok = changed && (parsed === null || parsed.ok)
   const submit = () => {
@@ -328,7 +321,7 @@ function EditForm({
         {
           id,
           item,
-          draft: draft !== (it.draft ?? '') ? draft : undefined,
+          body: draft !== (it.body ?? '') ? draft : undefined,
           target: target !== (it.target ?? '') ? target : undefined,
         },
         { onSuccess: done },

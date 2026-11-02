@@ -15,7 +15,7 @@ import (
 
 // TestReviewRule is the rule, row by row.
 func TestReviewRule(t *testing.T) {
-	const a, d, r, b, f, n, e = ActionApprove, ActionDeny, ActionRework, ActionSendBack, ActionHold, ActionAnnotate, ActionEdit
+	const a, d, b, f, n, e = ActionApprove, ActionDeny, ActionSendBack, ActionHold, ActionNote, ActionEdit
 	cases := []struct {
 		name   string
 		state  model.ItemState
@@ -24,16 +24,15 @@ func TestReviewRule(t *testing.T) {
 		held   bool
 		want   []string
 	}{
-		{"no edits, no annotations", model.ItemPending, false, 0, false, []string{a, d, r, f, n, e}},
+		{"no edits, no annotations", model.ItemPending, false, 0, false, []string{a, d, b, f, n, e}},
 		{"edits only", model.ItemPending, true, 0, false, []string{a, b, f, n, e}},
 		{"annotation", model.ItemPending, false, 1, false, []string{b, f, n, e}},
 		{"annotation and edits", model.ItemPending, true, 2, false, []string{b, f, n, e}},
-		{"held", model.ItemHeld, false, 0, true, []string{d, r, n, e}},
+		{"held", model.ItemHeld, false, 0, true, []string{d, b, n, e}},
 		{"held and edited", model.ItemHeld, true, 0, true, []string{b, n, e}},
 		{"approved", model.ItemApproved, false, 0, false, []string{}},
 		{"denied", model.ItemDenied, false, 0, false, []string{}},
 		{"sent back", model.ItemSentBack, false, 0, false, []string{}},
-		{"rework", model.ItemRework, false, 0, false, []string{}},
 		{"failed", model.ItemFailed, false, 0, false, []string{}},
 		{"running", model.ItemRunning, false, 0, false, []string{}},
 	}
@@ -70,7 +69,7 @@ func newPropFix(t *testing.T) *propFix {
 var ev = model.Evidence{Quote: "Ship it.", Locator: "line 1"}
 
 func mailItem(draft string) ItemInput {
-	return ItemInput{Kind: model.ItemExternal, Medium: model.MediumEmail, Target: "ada@acme.example", Draft: draft, Evidence: ev}
+	return ItemInput{Kind: model.ItemExternal, Medium: "email", Target: "ada@acme.example", Draft: draft, Evidence: ev}
 }
 
 func (f *propFix) taskItem(title string) ItemInput {
@@ -103,10 +102,6 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ProposalDeny.Run(t.Context(), d, ProposalReasonInput{ID: id, Item: "i1", Reason: "r"})
 			return err
 		}},
-		{"rework", func(d Deps) error {
-			_, err := ProposalRework.Run(t.Context(), d, ProposalReasonInput{ID: id, Item: "i1", Reason: "r"})
-			return err
-		}},
 		{"sendback", func(d Deps) error {
 			_, err := ProposalSendback.Run(t.Context(), d, ProposalSendbackInput{ID: id, Item: "i1"})
 			return err
@@ -116,7 +111,7 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			return err
 		}},
 		{"annotate", func(d Deps) error {
-			_, err := ProposalAnnotate.Run(t.Context(), d, ProposalAnnotateInput{ID: id, Item: "i1", Quote: "Hi", Note: "n"})
+			_, err := ProposalNote.Run(t.Context(), d, ProposalNoteInput{ID: id, Item: "i1", Quote: "Hi", Note: "n"})
 			return err
 		}},
 		{"request accept", func(d Deps) error {
@@ -315,17 +310,13 @@ func TestSendBackQueuesOneRequest(t *testing.T) {
 	f := newPropFix(t)
 	id := f.file(mailItem("One."), mailItem("Two."))
 	for _, n := range []struct{ item, quote string }{{"i1", "One"}, {"i2", "Two"}} {
-		if _, err := ProposalAnnotate.Run(t.Context(), f.owner, ProposalAnnotateInput{ID: id, Item: n.item, Quote: n.quote, Note: "n"}); err != nil {
+		if _, err := ProposalNote.Run(t.Context(), f.owner, ProposalNoteInput{ID: id, Item: n.item, Quote: n.quote, Note: "n"}); err != nil {
 			t.Fatal(err)
 		}
 	}
 	a, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i1"})
 	if err != nil {
 		t.Fatal(err)
-	}
-	b, err := ProposalRework.Run(t.Context(), f.owner, ProposalReasonInput{ID: id, Item: "i2", Reason: "x"})
-	if err == nil {
-		t.Fatalf("rework of an annotated item: %+v", b)
 	}
 	c, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i2"})
 	if err != nil {
@@ -390,7 +381,7 @@ func TestReviseItems(t *testing.T) {
 	}{{"i1", "Keep, edited.", model.ItemPending}, {"i2", "Replaced.", model.ItemPending}, {"i3", "Withdraw.", model.ItemWithdrawn}, {"i4", "Denied.", model.ItemDenied}, {"i5", "New.", model.ItemPending}}
 	for i, w := range want {
 		it := show.Items[i]
-		if it.ID != w.id || it.Draft != w.draft || it.State != w.state || it.Edited {
+		if it.ID != w.id || it.Body != w.draft || it.State != w.state || it.Edited {
 			t.Errorf("item %d: %+v", i, it)
 		}
 	}
@@ -437,5 +428,214 @@ func TestBrokenBlockIsReported(t *testing.T) {
 	list, err := ProposalList.Run(t.Context(), f.agent, ProposalListInput{})
 	if err != nil || len(list.Items) != 2 || !strings.Contains(list.Items[0].Error+list.Items[1].Error, "not closed") {
 		t.Fatalf("list = %+v, %v", list, err)
+	}
+}
+
+// reviewItem is a message with every required field.
+func reviewItem(body string) ItemInput {
+	return ItemInput{Kind: model.ItemMessage, Subtype: "email", People: []string{"ada@acme.example"}, Body: body,
+		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "Ship it.", Locator: "line 1"}}
+}
+
+func (f *propFix) add(items ...ItemInput) string {
+	f.t.Helper()
+	out, err := ProposalAdd.Run(f.t.Context(), f.agent, ProposalAddInput{Title: "Plan", TLDR: "Do it.", Context: "We agreed.", Source: f.source, Items: items})
+	if err != nil {
+		f.t.Fatal(err)
+	}
+	return out.ID
+}
+
+func paraTask(f *propFix, title string) ItemInput {
+	return ItemInput{Kind: model.ItemPara, Op: "task_add", How: "Adds a task.", Impact: "One more task.", Reversible: model.ReversibleYes,
+		Input:    map[string]any{"project": f.proj, "title": title, "done_when": "It exists."},
+		Evidence: model.Evidence{Quote: "Ship it.", Locator: "line 1"}}
+}
+
+func TestOldProposalFileReads(t *testing.T) {
+	f := newPropFix(t)
+	body := "Written by para.\n\n````yaml para-proposal\nitems:\n  - id: i1\n    kind: external\n    medium: email\n    target: a@acme.example\n    draft: Hi\n    evidence:\n      quote: q\n      locator: l\n    state: rework\n    reason: again\n  - id: i2\n    kind: op\n    op: task_start\n    input:\n      id: x\n    evidence:\n      quote: q\n      locator: l\n    state: pending\nannotations:\n  - id: a1\n    item: i2\n    quote: task\n    note: Why?\n    by: user\n    revision: 1\n    state: open\n````"
+	doc, err := f.owner.Store.Create(t.Context(), model.Document{ID: "proposal-old", Folder: model.FolderProposals, Title: "Old", Body: body,
+		Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo(f.source), Status: model.ProposalOpen, Revision: 1, ProposedBy: "claude"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	show, err := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: doc.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	a, b := show.Items[0], show.Items[1]
+	if a.Kind != model.ItemAction || a.Body != "Hi" || a.Subtype != "email" || a.State != model.ItemSentBack {
+		t.Fatalf("external = %+v", a)
+	}
+	if b.Kind != model.ItemPara || len(b.Thread) != 1 || b.Thread[0].State != model.TurnOpen || b.OpenNotes != 1 {
+		t.Fatalf("op = %+v", b)
+	}
+	if a.Hash != model.ExternalHash("a@acme.example", "Hi") {
+		t.Fatalf("old hash changed: %s", a.Hash)
+	}
+}
+
+func TestNewKindsRequireFields(t *testing.T) {
+	f := newPropFix(t)
+	bad := []struct {
+		name string
+		in   ItemInput
+		want string
+	}{
+		{"message with nobody", ItemInput{Kind: model.ItemMessage, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "people or a channel"},
+		{"action with no what", ItemInput{Kind: model.ItemAction, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "what it is"},
+		{"no reversible", ItemInput{Kind: model.ItemMessage, Channel: "#x", Body: "x", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "reversible"},
+	}
+	for _, c := range bad {
+		_, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{c.in}})
+		if err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: %v", c.name, err)
+		}
+	}
+	if _, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", Source: f.source, Items: []ItemInput{reviewItem("x")}}); err == nil || !strings.Contains(err.Error(), "tldr") {
+		t.Errorf("no tldr: %v", err)
+	}
+	unsourced := reviewItem("x")
+	unsourced.Pros = []model.Claim{{Text: "Good.", Source: model.NoSource}}
+	unsourced.Confidence = 90
+	if _, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{unsourced}}); err == nil || !strings.Contains(err.Error(), "must be low") {
+		t.Errorf("no source at high confidence: %v", err)
+	}
+}
+
+func TestChoiceClosesOthers(t *testing.T) {
+	f := newPropFix(t)
+	a, b := reviewItem("Plan A."), reviewItem("Plan B.")
+	a.Choice, b.Choice = "c1", "c1"
+	id := f.add(a, b)
+	if _, err := ProposalApprove.Run(t.Context(), f.owner, ProposalApproveInput{ID: id, Items: []string{"i2"}, Reason: "Cheaper."}); err != nil {
+		t.Fatal(err)
+	}
+	show, _ := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if show.Items[1].State != model.ItemApproved || show.Items[0].State != model.ItemDenied || !strings.Contains(show.Items[0].Reason, "Cheaper") {
+		t.Fatalf("items = %+v", show.Items)
+	}
+}
+
+func TestBundleApprovesInOrderAndHalts(t *testing.T) {
+	g := newPropFix(t)
+	a, b, c := paraTask(g, "First"), paraTask(g, "Second"), paraTask(g, "Third")
+	b.Op, b.Input = "task_start", map[string]any{"id": "task-missing"}
+	a.Bundle, b.Bundle, c.Bundle = "b", "b", "b"
+	b.After, c.After = "i1", "i2"
+	pid := g.add(a, b, c)
+	out, err := ProposalApprove.Run(t.Context(), g.owner, ProposalApproveInput{ID: pid, Items: []string{"i3"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Items) != 3 || out.Items[0].State != model.ItemApproved || out.Items[1].State != model.ItemFailed || out.Items[2].State != model.ItemHalted {
+		t.Fatalf("items = %+v", out.Items)
+	}
+}
+
+func TestPlaceholderMustFollowItem(t *testing.T) {
+	f := newPropFix(t)
+	a, b := reviewItem("Open the PR."), reviewItem("See {{i1.url}}.")
+	if _, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{a, b}}); err == nil || !strings.Contains(err.Error(), "does not run after") {
+		t.Fatalf("placeholder without after: %v", err)
+	}
+	b.After = "i1"
+	id := f.add(a, b)
+	show, _ := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if !strings.Contains(show.Items[1].Body, "{{i1.url}}") {
+		t.Fatalf("placeholder changed: %+v", show.Items[1])
+	}
+}
+
+func TestParaItemPreview(t *testing.T) {
+	f := newPropFix(t)
+	waits, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Waits"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dep, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Base"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TaskDependsAdd.Run(t.Context(), f.owner, TaskDependsInput{ID: waits.ID, DependsOn: []string{dep.ID}}); err != nil {
+		t.Fatal(err)
+	}
+	it := paraTask(f, "x")
+	it.Op, it.Input = "task_done", map[string]any{"id": dep.ID}
+	id := f.add(it)
+	show, err := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pv := show.Items[0].Preview
+	if pv == nil || pv.Error != "" || len(pv.Changes) != 1 || pv.Changes[0].Doc != dep.ID {
+		t.Fatalf("preview = %+v", pv)
+	}
+	if !strings.Contains(strings.Join(pv.Changes[0].Lines, "\n"), "+ status: done") {
+		t.Fatalf("lines = %v", pv.Changes[0].Lines)
+	}
+	if len(pv.Downstream) != 1 || pv.Downstream[0].Doc != waits.ID {
+		t.Fatalf("downstream = %+v", pv.Downstream)
+	}
+	after, _ := TaskShow.Run(t.Context(), f.owner, TaskShowInput{ID: dep.ID})
+	if after.Task.Status == model.TaskDone {
+		t.Fatal("the preview wrote to the vault")
+	}
+}
+
+func TestSubtypeRules(t *testing.T) {
+	f := newPropFix(t)
+	if err := os.WriteFile(filepath.Join(f.root, ".para", "proposals.yaml"), []byte("subtypes:\n  deploy:\n    required: [rollback]\n    default_risk: high\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	it := ItemInput{Kind: model.ItemAction, Subtype: "deploy", What: "Ship v2", How: "Rolls out v2.", Reversible: model.ReversiblePartly, ReversibleHow: "Roll back.", Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+	_, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{it}})
+	if err == nil || !strings.Contains(err.Error(), "needs rollback") {
+		t.Fatalf("err = %v", err)
+	}
+	it.Fields = map[string]any{"rollback": "helm rollback"}
+	id := f.add(it)
+	show, _ := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if show.Items[0].Risk != "high" {
+		t.Fatalf("risk = %q", show.Items[0].Risk)
+	}
+}
+
+func TestRedirectRecordsAttempt(t *testing.T) {
+	f := newPropFix(t)
+	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Find owner"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	it := reviewItem("Ask Ada.")
+	it.For = task.ID
+	id := f.add(it)
+	if _, err := ProposalNote.Run(t.Context(), f.owner, ProposalNoteInput{ID: id, Item: "i1", Note: "Check the wiki first", Intent: IntentRedirect}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProposalRevise.Run(t.Context(), f.agent, ProposalReviseInput{ID: id, Answers: []NoteAnswer{{Annotation: "a1", Outcome: model.TurnFailed, Reason: "The wiki has no page."}}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := TaskShow.Run(t.Context(), f.owner, TaskShowInput{ID: task.ID})
+	if !strings.Contains(got.Body, "## Attempts") || !strings.Contains(got.Body, "The wiki has no page") {
+		t.Fatalf("body = %q", got.Body)
+	}
+}
+
+func TestApproveByGroup(t *testing.T) {
+	f := newPropFix(t)
+	a, b, c := paraTask(f, "One"), paraTask(f, "Two"), reviewItem("Hi.")
+	a.Group, b.Group = "tasks", "tasks"
+	id := f.add(a, b, c)
+	out, err := ProposalApprove.Run(t.Context(), f.owner, ProposalApproveInput{ID: id, Group: "tasks"})
+	if err != nil || len(out.Items) != 2 {
+		t.Fatalf("out = %+v, %v", out, err)
+	}
+	if out.Status != model.ProposalOpen {
+		t.Fatalf("status = %s", out.Status)
 	}
 }

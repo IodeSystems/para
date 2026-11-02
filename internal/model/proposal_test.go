@@ -41,11 +41,11 @@ func TestProposalBodyRoundTrip(t *testing.T) {
 	}
 	for _, text := range hostile {
 		c := ProposalContent{
-			Items: []ProposalItem{{ID: "i1", Kind: ItemExternal, Medium: MediumEmail, Target: "x@acme.example", Draft: text,
-				Evidence: Evidence{Quote: text, Locator: text}, State: ItemPending, Reason: text},
-				{ID: "i2", Kind: ItemOp, Op: "task_add", Input: map[string]any{"title": text, "n": 3, "nested": map[string]any{"list": []any{text}}},
+			Items: []ProposalItem{{ID: "i1", Kind: ItemAction, Subtype: "email", Target: "x@acme.example", Body: text,
+				Evidence: Evidence{Quote: text, Locator: text}, State: ItemPending, Reason: text,
+				Thread: []Turn{{ID: "a1", Kind: TurnClarify, Quote: text, Text: text, By: "user", Revision: 1, State: TurnOpen}}},
+				{ID: "i2", Kind: ItemPara, Op: "task_add", Input: map[string]any{"title": text, "n": 3, "nested": map[string]any{"list": []any{text}}},
 					Evidence: Evidence{Quote: "q", Locator: "l"}, State: ItemPending}},
-			Annotations: []Annotation{{ID: "a1", Item: "i1", Quote: text, Note: text, By: "user", Revision: 1, State: AnnotationOpen}},
 		}
 		body, err := RenderProposalBody(c)
 		if err != nil {

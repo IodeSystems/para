@@ -37,7 +37,7 @@ func seedProposalParity(t *testing.T, deps ops.Deps) {
 		}
 	}
 	mail := func(id string) model.ProposalItem {
-		return model.ProposalItem{ID: id, Kind: model.ItemExternal, Medium: model.MediumEmail, Target: "ada@acme.example", Draft: "Hi Ada.", Evidence: ev, State: model.ItemPending}
+		return model.ProposalItem{ID: id, Kind: model.ItemAction, Subtype: "email", Target: "ada@acme.example", Body: "Hi Ada.", Evidence: ev, State: model.ItemPending}
 	}
 	seed("proposal-pa", mail("i1"), mail("i2"), mail("i3"), mail("i4"), mail("i5"), mail("i6"), mail("i7"), mail("i8"), mail("i9"))
 	annotated := mail("i1")
@@ -66,9 +66,8 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_approved": {`{"hash":"` + model.ExternalHash("ada@acme.example", "Hi Ada.") + `"}`, []string{"proposal", "approved", model.ExternalHash("ada@acme.example", "Hi Ada.")}, false},
 		"proposal_wait":     {`{"id":"proposal-wait-sample"}`, []string{"proposal", "wait", "proposal-wait-sample"}, false},
 		"proposal_deny":     {`{"id":"proposal-pa","item":"i3","reason":"No."}`, []string{"proposal", "deny", "proposal-pa", "i4", "--reason", "No."}, false},
-		"proposal_rework":   {`{"id":"proposal-pa","item":"i5","reason":"Again."}`, []string{"proposal", "rework", "proposal-pa", "i6", "--reason", "Again."}, false},
 		"proposal_hold":     {`{"id":"proposal-pa","item":"i7","kind":"request","text":"Check first"}`, []string{"proposal", "hold", "proposal-pa", "i8", "--kind", "request", "--text", "Check first"}, false},
-		"proposal_annotate": {`{"id":"proposal-pb","item":"i1","quote":"Hi","note":"No."}`, []string{"proposal", "annotate", "proposal-pb", "i1", "--quote", "Hi", "--note", "No."}, false},
+		"proposal_note":     {`{"id":"proposal-pb","item":"i1","quote":"Hi","note":"No."}`, []string{"proposal", "note", "proposal-pb", "i1", "--quote", "Hi", "No."}, false},
 		"proposal_edit":     {`{"id":"proposal-pa","item":"i9","draft":"Changed."}`, []string{"proposal", "edit", "proposal-pa", "i9", "--draft", "Changed again."}, false},
 		"proposal_sendback": {`{"id":"proposal-pb","item":"i2"}`, []string{"proposal", "sendback", "proposal-pb", "i1"}, false},
 	}, map[string]string{
@@ -192,18 +191,17 @@ func TestProposalCycle(t *testing.T) {
 	}
 
 	// No agent can decide, even by name, over real MCP.
-	for _, name := range []string{"proposal_approve", "proposal_deny", "proposal_edit", "proposal_annotate"} {
+	for _, name := range []string{"proposal_approve", "proposal_deny", "proposal_edit", "proposal_note"} {
 		if _, err := e.agent.CallTool(context.Background(), toolRequest(name, map[string]any{"id": id})); err == nil {
 			t.Errorf("%s is reachable over MCP", name)
 		}
 	}
 
 	// Annotation: send back only.
-	e.ok("proposal", "annotate", id, "i1", "--quote", "Write the parser", "--note", "Say which parser")
+	e.ok("proposal", "note", id, "i1", "--quote", "Write the parser", "Say which parser")
 	e.fails("not allowed", "proposal", "approve", id, "i1")
 	e.fails("not allowed", "proposal", "deny", id, "i1", "--reason", "no")
-	e.fails("not allowed", "proposal", "rework", id, "i1", "--reason", "no")
-	e.fails("does not contain", "proposal", "annotate", id, "i2", "--quote", "not there", "--note", "x")
+	e.fails("does not contain", "proposal", "note", id, "i2", "--quote", "not there", "x")
 	var sent ops.ProposalReviewOutput
 	e.json(&sent, "proposal", "sendback", id, "i1")
 	if sent.Request == "" {
@@ -214,7 +212,6 @@ func TestProposalCycle(t *testing.T) {
 	const edited = "Hi Ada,\n\nthe parser is due Monday.\n"
 	e.ok("proposal", "edit", id, "i2", "--draft", edited)
 	e.fails("not allowed", "proposal", "deny", id, "i2", "--reason", "no")
-	e.fails("not allowed", "proposal", "rework", id, "i2", "--reason", "no")
 	var ok ops.ProposalReviewOutput
 	e.json(&ok, "proposal", "approve", id, "i2")
 	if want := model.ExternalHash("ada@acme.example", edited); ok.Items[0].ApprovedHash != want || ok.Items[0].State != model.ItemApproved {
@@ -302,10 +299,10 @@ func TestProposalCycle(t *testing.T) {
 	if !strings.Contains(show.SourceDoc.Body, "Ada will write") || !strings.Contains(show.Untrusted, "untrusted") {
 		t.Fatalf("source = %+v, note %q", show.SourceDoc, show.Untrusted)
 	}
-	if len(show.Annotations) != 1 || show.Annotations[0].State != model.AnnotationOpen || !show.Annotations[0].Anchored {
-		t.Fatalf("annotations = %+v", show.Annotations)
+	if th := decision(t, show, "i1").Thread; len(th) != 1 || th[0].State != model.TurnOpen || th[0].ID != "a1" {
+		t.Fatalf("thread = %+v", th)
 	}
-	if got := decision(t, show, "i2"); !got.Edited || got.Draft != edited {
+	if got := decision(t, show, "i2"); !got.Edited || got.Body != edited {
 		t.Fatalf("i2 = %+v", got)
 	}
 
@@ -344,8 +341,8 @@ func TestProposalCycle(t *testing.T) {
 	if len(cur.History) != 2 || cur.History[0].ID != id || cur.History[1].ID != rev.ID {
 		t.Fatalf("history = %+v", cur.History)
 	}
-	if len(cur.Annotations) != 1 || cur.Annotations[0].State != model.AnnotationApplied || cur.Annotations[0].Anchored {
-		t.Fatalf("carried annotation = %+v", cur.Annotations)
+	if th := decision(t, cur, "i1").Thread; len(th) != 1 || th[0].State != model.TurnApplied {
+		t.Fatalf("carried thread = %+v", th)
 	}
 	if got := decision(t, cur, "i1"); got.State != model.ItemPending || len(got.Actions) == 0 || got.Actions[0] != ops.ActionApprove {
 		t.Fatalf("i1 = %+v", got)

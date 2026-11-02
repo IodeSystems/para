@@ -18,7 +18,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu, type RowMenuItem } from '@/components/RowMenu'
-import { diffKind, EXTERNAL_PROMISE, UNTRUSTED_WORDS } from '@/lib/proposal'
+import { diffKind, EXTERNAL_PROMISE, isOutward, UNTRUSTED_WORDS } from '@/lib/proposal'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/$id')({ component: ProposalPage })
@@ -67,6 +67,20 @@ function ProposalPage() {
                 .
               </Alert>
             )}
+            {(d.tldr || d.context) && (
+              <Box sx={{ mb: 2 }}>
+                {d.tldr && (
+                  <Typography variant="subtitle1" sx={{ overflowWrap: 'anywhere' }}>
+                    {d.tldr}
+                  </Typography>
+                )}
+                {d.context && (
+                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                    {d.context}
+                  </Typography>
+                )}
+              </Box>
+            )}
             <UntrustedNote />
             {p.status === 'sent_back' && (
               <Alert severity="info" sx={{ mb: 2 }}>
@@ -76,14 +90,9 @@ function ProposalPage() {
             )}
             <Section title="Items" count={d.items.length}>
               <Stack spacing={1.5}>
+                <GroupApprove id={id} items={d.items} canReview={canReview} />
                 {d.items.map((it) => (
-                  <ItemCard
-                    key={it.id}
-                    proposalId={id}
-                    it={it}
-                    notes={d.annotations.filter((a) => a.item === it.id)}
-                    canReview={canReview}
-                  />
+                  <ItemCard key={it.id} proposalId={id} it={it} canReview={canReview} />
                 ))}
                 {d.items.length === 0 && <Empty>This revision has no items.</Empty>}
               </Stack>
@@ -160,7 +169,126 @@ function ProposalPage() {
 
 type ProposalData = NonNullable<ReturnType<typeof useProposal>['data']>
 type Item = ProposalData['items'][number]
-type Note = ProposalData['annotations'][number]
+type Claim = { text: string; source: string }
+
+// GroupApprove offers one button per group of items that can be approved.
+function GroupApprove({ id, items, canReview }: { id: string; items: Item[]; canReview: boolean }) {
+  const approve = useApprove()
+  if (!canReview) return null
+  const counts = new Map<string, number>()
+  for (const it of items) {
+    if (it.group && it.actions.includes('approve')) {
+      counts.set(it.group, (counts.get(it.group) ?? 0) + 1)
+    }
+  }
+  if (counts.size === 0) return null
+  return (
+    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
+      {[...counts].map(([group, n]) => (
+        <Button
+          key={group}
+          size="small"
+          variant="outlined"
+          disabled={approve.isPending}
+          onClick={() => approve.mutate({ id, group })}
+        >
+          Approve all {group} ({n})
+        </Button>
+      ))}
+    </Stack>
+  )
+}
+
+// Row is one labelled line of an item. It shows nothing when there is no text.
+function Row({ label, text }: { label: string; text?: string | null }) {
+  if (!text) return null
+  return (
+    <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+      <Box component="span" sx={{ color: 'text.secondary' }}>
+        {label}:{' '}
+      </Box>
+      {text}
+    </Typography>
+  )
+}
+
+function ClaimRows({ label, list }: { label: string; list: Claim[] }) {
+  return (
+    <>
+      {list.map((c) => (
+        <Row key={c.text} label={label} text={`${c.text} [${c.source}]`} />
+      ))}
+    </>
+  )
+}
+
+// ItemContent shows everything an item says, in full.
+function ItemContent({ it }: { it: Item }) {
+  return (
+    <Box sx={{ my: 1 }}>
+      <Row label="Kind" text={it.subtype} />
+      <Row label="People" text={it.people?.join(', ')} />
+      <Row label="Channel" text={it.channel} />
+      <Row label="Subject" text={it.subject} />
+      <Row label="What" text={it.what} />
+      {it.previous && <Row label="Changes" text={it.previous} />}
+      <Row label="How" text={it.how} />
+      <Row label="Impact" text={it.impact} />
+      <Row label="Title" text={it.title} />
+      <ClaimRows label="Pro" list={it.pros ?? []} />
+      <ClaimRows label="Con" list={it.cons ?? []} />
+      {it.cost && <ClaimRows label="Cost" list={[it.cost]} />}
+      {it.benefit && <ClaimRows label="Benefit" list={[it.benefit]} />}
+      {!!it.confidence && (
+        <Row label="Confidence" text={`${it.confidence}% ${it.confidenceBasis ?? ''}`} />
+      )}
+      {!!it.recommendation && <Row label="Recommended" text={`${it.recommendation}%`} />}
+      <Row label="Reversible" text={[it.reversible, it.reversibleHow].filter(Boolean).join(': ')} />
+      <Row label="Runs after" text={it.after} />
+      <Row label="Bundle" text={it.bundle} />
+      <Row label="Choice" text={it.choice} />
+      <Row label="With results filled in" text={it.filled} />
+      {it.preview && <Preview pv={it.preview} />}
+    </Box>
+  )
+}
+
+// Preview is para's own account of a vault change: before, after, and what waits on it.
+function Preview({ pv }: { pv: NonNullable<Item['preview']> }) {
+  return (
+    <Box aria-label="What changes" sx={{ my: 1 }}>
+      {pv.error && <Alert severity="warning">This would fail now: {pv.error}</Alert>}
+      {pv.changes.map((c) => (
+        <Box key={c.doc}>
+          <Typography variant="caption" color="text.secondary">
+            {c.new ? 'New' : 'Changes'}: {c.title || c.doc}
+          </Typography>
+          <Box component="pre" sx={{ ...mono, m: 0, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+            {c.lines.map((l, n) => {
+              const k = diffKind(l)
+              return (
+                <Box
+                  component="span"
+                  key={n}
+                  sx={{
+                    display: 'block',
+                    color:
+                      k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
+                  }}
+                >
+                  {l}
+                </Box>
+              )
+            })}
+          </Box>
+        </Box>
+      ))}
+      {pv.downstream.map((x) => (
+        <Row key={x.doc} label={x.title || x.doc} text={x.effect} />
+      ))}
+    </Box>
+  )
+}
 
 const NOTE_KEY = 'para.untrustedNoteSeen'
 
@@ -187,12 +315,10 @@ function UntrustedNote() {
 function ItemCard({
   proposalId,
   it,
-  notes,
   canReview,
 }: {
   proposalId: string
   it: Item
-  notes: Note[]
   canReview: boolean
 }) {
   const approve = useApprove()
@@ -208,11 +334,12 @@ function ItemCard({
     return sel.toString().trim()
   }
   const can = (a: string) => canReview && it.actions.includes(a)
-  const external = it.kind === 'external'
+  const external = isOutward(it.kind)
+  const notes = it.thread ?? []
   const input: unknown = it.input
-  const decided = it.state === 'approved' || it.state === 'failed'
-  // Send back is one action. With edits or notes they are the message; otherwise a reason is asked.
-  const sendBack = can('send_back') || can('rework')
+  const decided = it.state === 'approved' || it.state === 'failed' || it.state === 'done'
+  // With edits or notes they are the message; otherwise a reason is asked.
+  const sendBack = can('send_back')
   // One primary per item: Approve, or Send back when the item was edited or has an open note.
   const primary = can('approve') ? 'approve' : sendBack ? 'send_back' : ''
   const more: RowMenuItem[] = [
@@ -243,7 +370,7 @@ function ItemCard({
           },
         ]
       : []),
-    ...(can('annotate')
+    ...(can('note')
       ? [
           {
             label: 'Note',
@@ -266,13 +393,22 @@ function ItemCard({
         {it.summary}
       </Typography>
       <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 1, flexWrap: 'wrap' }}>
-        <StatusChip tone="quiet" label={external ? 'message to send' : 'change in the vault'} />
+        <StatusChip
+          tone="quiet"
+          label={
+            it.kind === 'message'
+              ? 'message to send'
+              : external
+                ? 'action outside para'
+                : 'change in the vault'
+          }
+        />
         <StateChip state={it.state} />
         {it.edited && <StatusChip tone="wait" label="edited by you" />}
-        {it.openAnnotations > 0 && (
+        {it.openNotes > 0 && (
           <StatusChip
             tone="attn"
-            label={`${it.openAnnotations} open ${it.openAnnotations === 1 ? 'note' : 'notes'}`}
+            label={`${it.openNotes} open ${it.openNotes === 1 ? 'note' : 'notes'}`}
           />
         )}
         {it.heldBy && <StatusChip tone="attn" label="needs something first" />}
@@ -283,20 +419,22 @@ function ItemCard({
             <Typography variant="body2" sx={{ mb: 0.5 }}>
               {it.change.join('. ')}
             </Typography>
-            <Box
-              component="pre"
-              sx={{
-                ...mono,
-                my: 1,
-                p: 1,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                whiteSpace: 'pre-wrap',
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {it.draft}
-            </Box>
+            {(it.body || it.diff) && (
+              <Box
+                component="pre"
+                sx={{
+                  ...mono,
+                  my: 1,
+                  p: 1,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  whiteSpace: 'pre-wrap',
+                  overflowWrap: 'anywhere',
+                }}
+              >
+                {it.body || it.diff}
+              </Box>
+            )}
             {it.state === 'pending' && (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                 {EXTERNAL_PROMISE}
@@ -322,6 +460,7 @@ function ItemCard({
             </Box>
           </>
         )}
+        <ItemContent it={it} />
         <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 1.5, my: 1 }}>
           <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
             <Typography variant="caption" color="text.secondary">
@@ -361,14 +500,14 @@ function ItemCard({
         <Alert
           severity="success"
           sx={{ my: 1 }}
-          action={<CopyButton getText={() => it.draft ?? ''} label="Copy draft" />}
+          action={<CopyButton getText={() => it.body ?? ''} label="Copy draft" />}
         >
           Approved. Not sent yet.
         </Alert>
       )}
       {it.state === 'approved' && !external && !it.result && (
         <Alert severity="success" sx={{ my: 1 }}>
-          Approved.
+          {it.waits ? `Approved. Runs after ${it.after}.` : 'Approved.'}
         </Alert>
       )}
       <Details summary="Details">
@@ -403,14 +542,15 @@ function ItemCard({
       </Details>
       {notes.length > 0 && (
         <List dense disablePadding sx={{ my: 1 }}>
-          {notes.map((n) => (
-            <ListItem key={n.id} disableGutters sx={{ display: 'block' }}>
+          {notes.map((n, i) => (
+            <ListItem key={n.id ?? i} disableGutters sx={{ display: 'block' }}>
+              {n.quote && (
+                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                  <em>&ldquo;{n.quote}&rdquo;</em>
+                </Typography>
+              )}
               <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                <em>&ldquo;{n.quote}&rdquo;</em>
-                {!n.anchored && ' (no longer in the item)'}
-              </Typography>
-              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                {n.note} <StateChip state={n.state} />
+                {n.kind.replace(/_/g, ' ')}: {n.text} <StateChip state={n.state} />
               </Typography>
               {n.answer && (
                 <Typography variant="body2" color="text.secondary">

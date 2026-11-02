@@ -121,7 +121,7 @@ func decodeInput(input map[string]any, into any) error {
 // checkProposedAnswer checks a proposal item that names question_answer: it
 // must carry sources that exist. Called at proposal_add and proposal_revise.
 func checkProposedAnswer(ctx context.Context, d Deps, it model.ProposalItem) error {
-	if it.Kind != model.ItemOp || it.Op != "question_answer" {
+	if it.Kind != model.ItemPara || it.Op != "question_answer" {
 		return nil
 	}
 	var in QuestionAnswerInput

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_ProposalHoldInputKind } from '@/gql/graphql'
+import type { Para_ProposalHoldInputKind, Para_ProposalNoteInputIntent } from '@/gql/graphql'
 
 const ProposalListDoc = graphql(/* GraphQL */ `
   query ProposalList {
@@ -33,6 +33,8 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
       v1 {
         proposalShow(id: $id) {
           rev
+          tldr
+          context
           untrusted
           reviewCommand
           reviewUrl
@@ -64,9 +66,46 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             resultName
             op
             input
-            medium
+            subtype
+            people
+            channel
+            subject
             target
-            draft
+            what
+            previous
+            how
+            impact
+            title
+            body
+            diff
+            fields
+            pros {
+              text
+              source
+            }
+            cons {
+              text
+              source
+            }
+            cost {
+              text
+              source
+            }
+            benefit {
+              text
+              source
+            }
+            confidence
+            confidenceBasis
+            recommendation
+            reversible
+            reversibleHow
+            after
+            bundle
+            choice
+            group
+            waits
+            filled
             state
             edited
             reason
@@ -74,23 +113,37 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             heldBy
             hash
             approvedHash
-            openAnnotations
+            openNotes
             actions
+            thread {
+              id
+              kind
+              quote
+              text
+              by
+              revision
+              state
+              answer
+            }
+            preview {
+              error
+              changes {
+                doc
+                title
+                type
+                new
+                lines
+              }
+              downstream {
+                doc
+                title
+                effect
+              }
+            }
             evidence {
               locator
               quote
             }
-          }
-          annotations {
-            id
-            item
-            quote
-            note
-            by
-            revision
-            state
-            answer
-            anchored
           }
           history {
             id
@@ -165,17 +218,6 @@ const DenyDoc = graphql(/* GraphQL */ `
     }
   }
 `)
-const ReworkDoc = graphql(/* GraphQL */ `
-  mutation ProposalRework($body: para_ProposalReasonInputInput!) {
-    para {
-      v1 {
-        proposalRework(body: $body) {
-          ...ProposalReviewFields
-        }
-      }
-    }
-  }
-`)
 const SendbackDoc = graphql(/* GraphQL */ `
   mutation ProposalSendback($body: para_ProposalSendbackInputInput!) {
     para {
@@ -198,11 +240,11 @@ const HoldDoc = graphql(/* GraphQL */ `
     }
   }
 `)
-const AnnotateDoc = graphql(/* GraphQL */ `
-  mutation ProposalAnnotate($body: para_ProposalAnnotateInputInput!) {
+const NoteDoc = graphql(/* GraphQL */ `
+  mutation ProposalNote($body: para_ProposalNoteInputInput!) {
     para {
       v1 {
-        proposalAnnotate(body: $body) {
+        proposalNote(body: $body) {
           ...ProposalReviewFields
         }
       }
@@ -263,16 +305,12 @@ function useReviewMutation<V>(call: (v: V) => Promise<unknown>) {
 }
 
 export const useApprove = () =>
-  useReviewMutation(async (v: { id: string; items: string[] }) =>
+  useReviewMutation(async (v: { id: string; items?: string[]; group?: string }) =>
     need((await gqlClient.request(ApproveDoc, { body: v })).para.v1.proposalApprove, 'result'),
   )
 export const useDeny = () =>
   useReviewMutation(async (v: { id: string; item: string; reason: string }) =>
     need((await gqlClient.request(DenyDoc, { body: v })).para.v1.proposalDeny, 'result'),
-  )
-export const useRework = () =>
-  useReviewMutation(async (v: { id: string; item: string; reason: string }) =>
-    need((await gqlClient.request(ReworkDoc, { body: v })).para.v1.proposalRework, 'result'),
   )
 export const useSendback = () =>
   useReviewMutation(async (v: { id: string; item: string; reason?: string }) =>
@@ -289,16 +327,22 @@ export const useHold = () =>
       area?: string
     }) => need((await gqlClient.request(HoldDoc, { body: v })).para.v1.proposalHold, 'result'),
   )
-export const useAnnotate = () =>
-  useReviewMutation(async (v: { id: string; item: string; quote: string; note: string }) =>
-    need((await gqlClient.request(AnnotateDoc, { body: v })).para.v1.proposalAnnotate, 'result'),
+export const useNote = () =>
+  useReviewMutation(
+    async (v: {
+      id: string
+      item: string
+      quote?: string
+      note: string
+      intent?: Para_ProposalNoteInputIntent
+    }) => need((await gqlClient.request(NoteDoc, { body: v })).para.v1.proposalNote, 'result'),
   )
 export const useEdit = () =>
   useReviewMutation(
     async (v: {
       id: string
       item: string
-      draft?: string
+      body?: string
       target?: string
       input?: Record<string, unknown>
     }) => need((await gqlClient.request(EditDoc, { body: v })).para.v1.proposalEdit, 'result'),

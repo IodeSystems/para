@@ -54,7 +54,7 @@ func opWords(op string) string {
 }
 
 func (z itemSummarizer) of(it model.ProposalItem) string {
-	if it.Kind == model.ItemExternal {
+	if it.Kind.Outward() {
 		return z.external(it)
 	}
 	in := it.Input
@@ -176,13 +176,20 @@ func (z itemSummarizer) people(v any) string {
 }
 
 func (z itemSummarizer) external(it model.ProposalItem) string {
-	w := mediumWords[it.Medium]
+	if it.Kind == model.ItemAction && it.What != "" {
+		return it.What
+	}
+	w := mediumWords[model.Medium(it.Subtype)]
 	if w == "" {
 		w = "Message"
 	}
-	to := z.who(it.Target)
+	if it.Subtype != "" && mediumWords[model.Medium(it.Subtype)] == "" {
+		w = strings.ToUpper(it.Subtype[:1]) + it.Subtype[1:]
+	}
+	target := it.GateTarget()
+	to := z.who(target)
 	if to == "" {
-		to = nameFromAddress(it.Target)
+		to = nameFromAddress(target)
 	}
 	return w + " to " + to
 }
@@ -231,10 +238,15 @@ var fieldWords = map[string]string{
 // ids as names, dates as dates. It is made from the item's fields, never from
 // the evidence. The raw input stays on the item for checking.
 func (z itemSummarizer) change(it model.ProposalItem) []string {
-	if it.Kind == model.ItemExternal {
-		out := []string{"Send to: " + it.Target}
-		if w := mediumWords[it.Medium]; w != "" {
+	if it.Kind.Outward() {
+		out := []string{}
+		if t := it.GateTarget(); t != "" {
+			out = append(out, "Send to: "+t)
+		}
+		if w := mediumWords[model.Medium(it.Subtype)]; w != "" {
 			out = append(out, "By: "+w)
+		} else if it.Subtype != "" {
+			out = append(out, "Kind: "+it.Subtype)
 		}
 		return out
 	}

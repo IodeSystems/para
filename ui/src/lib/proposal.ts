@@ -4,14 +4,34 @@
 export type ItemText = {
   op?: string | null
   target?: string | null
-  draft?: string | null
+  body?: string | null
+  what?: string | null
+  how?: string | null
+  impact?: string | null
+  subject?: string | null
+  title?: string | null
+  diff?: string | null
+  channel?: string | null
   input?: unknown
   evidence: { quote: string; locator: string }
 }
 
 // textPieces are the parts of an item a person can select text from.
 export function textPieces(it: ItemText): string[] {
-  const out = [it.target, it.draft, it.op, it.evidence.quote, it.evidence.locator].filter(
+  const out = [
+    it.target,
+    it.channel,
+    it.subject,
+    it.what,
+    it.how,
+    it.impact,
+    it.title,
+    it.body,
+    it.diff,
+    it.op,
+    it.evidence.quote,
+    it.evidence.locator,
+  ].filter(
     (s): s is string => typeof s === 'string' && s !== '',
   )
   if (it.input !== null && it.input !== undefined) {
@@ -54,5 +74,8 @@ export function parseInputObject(
 export const UNTRUSTED_WORDS = 'This text came from a document, not from you.'
 
 // EXTERNAL_PROMISE says what approving an email does.
+// isOutward says whether an item is an act outside the vault: a message or an action.
+export const isOutward = (kind: string) => kind !== 'para'
+
 export const EXTERNAL_PROMISE =
   'Approving marks this OK to send. Para does not send it: send it yourself, or tell the agent to.'

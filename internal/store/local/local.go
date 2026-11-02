@@ -55,6 +55,8 @@ func (s *Store) Now() time.Time { return s.v.Now() }
 
 func (s *Store) Config(key string) (string, error) { return s.v.Config(key) }
 
+func (s *Store) ConfigFile(name string) ([]byte, error) { return s.v.ConfigFile(name) }
+
 func (s *Store) Create(ctx context.Context, d model.Document) (model.Document, error) {
 	return s.v.Create(ctx, d)
 }

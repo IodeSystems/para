@@ -6,63 +6,132 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
 )
 
-// AnnotationAnswer answers one open annotation. A declined one needs a reason.
-type AnnotationAnswer struct {
-	Annotation string                `json:"annotation"`
-	Outcome    model.AnnotationState `json:"outcome"` // applied or declined
-	Reason     string                `json:"reason,omitempty"`
+// NoteAnswer answers one open note. Outcome is applied, declined, or failed: a
+// redirect the agent could not resolve. Declined and failed need a reason.
+type NoteAnswer struct {
+	Annotation string          `json:"annotation"` // the note's id
+	Outcome    model.TurnState `json:"outcome"`
+	Reason     string          `json:"reason,omitempty"`
 }
 
 // ProposalReviseInput is the input of proposal_revise.
 type ProposalReviseInput struct {
-	ID       string             `json:"id"`
-	Items    []ItemInput        `json:"items,omitempty"`    // replacements (with id) and new items (no id)
-	Withdraw []string           `json:"withdraw,omitempty"` // item ids to drop
-	Answers  []AnnotationAnswer `json:"answers,omitempty"`  // one for each open annotation
+	ID       string       `json:"id"`
+	TLDR     string       `json:"tldr,omitempty"`     // replaces the tldr
+	Context  string       `json:"context,omitempty"`  // replaces the context
+	Items    []ItemInput  `json:"items,omitempty"`    // replacements (with id) and new items (no id)
+	Withdraw []string     `json:"withdraw,omitempty"` // item ids to drop
+	Answers  []NoteAnswer `json:"answers,omitempty"`  // one for each open note
 }
 
 // revisable reports whether an agent may replace or withdraw an item. A final
 // decision of the owner is not the agent's to change.
 func revisable(s model.ItemState) bool {
-	return slices.Contains([]model.ItemState{model.ItemPending, model.ItemHeld, model.ItemRework, model.ItemSentBack, model.ItemFailed, model.ItemRunning}, s)
+	return slices.Contains([]model.ItemState{model.ItemPending, model.ItemHeld, model.ItemSentBack, model.ItemHalted, model.ItemFailed, model.ItemRunning}, s)
 }
 
-// answerAnnotations applies answers. It fails on any open annotation left
-// unanswered, and on an answer to anything but an open annotation.
-func answerAnnotations(list []model.Annotation, answers []AnnotationAnswer) ([]model.Annotation, error) {
-	out := slices.Clone(list)
+// answerNotes applies answers to a copy of items. It fails on any open note left
+// unanswered, and on an answer to anything but an open note. Resolved lists the
+// redirects answered, with their items.
+func answerNotes(list []model.ProposalItem, answers []NoteAnswer) ([]model.ProposalItem, []resolvedTurn, error) {
+	out := make([]model.ProposalItem, len(list))
+	for i, it := range list {
+		out[i] = it
+		out[i].Thread = slices.Clone(it.Thread)
+	}
+	var done []resolvedTurn
 	seen := map[string]bool{}
 	for _, ans := range answers {
-		i := slices.IndexFunc(out, func(a model.Annotation) bool { return a.ID == ans.Annotation })
+		var t *model.Turn
+		var holder *model.ProposalItem
+		for i := range out {
+			for j := range out[i].Thread {
+				if ans.Annotation != "" && out[i].Thread[j].ID == ans.Annotation {
+					t, holder = &out[i].Thread[j], &out[i]
+				}
+			}
+		}
+		reason := strings.TrimSpace(ans.Reason)
 		switch {
-		case i < 0:
-			return nil, fmt.Errorf("no annotation %q", ans.Annotation)
+		case t == nil:
+			return nil, nil, fmt.Errorf("no note %q", ans.Annotation)
 		case seen[ans.Annotation]:
-			return nil, fmt.Errorf("annotation %s is answered twice", ans.Annotation)
-		case out[i].State != model.AnnotationOpen:
-			return nil, fmt.Errorf("annotation %s is already %s", ans.Annotation, out[i].State)
-		case ans.Outcome != model.AnnotationApplied && ans.Outcome != model.AnnotationDeclined:
-			return nil, fmt.Errorf("annotation %s: outcome %q: want applied or declined", ans.Annotation, ans.Outcome)
-		case ans.Outcome == model.AnnotationDeclined && strings.TrimSpace(ans.Reason) == "":
-			return nil, fmt.Errorf("annotation %s: declined needs a reason", ans.Annotation)
+			return nil, nil, fmt.Errorf("note %s is answered twice", ans.Annotation)
+		case t.State != model.TurnOpen:
+			return nil, nil, fmt.Errorf("note %s is already %s", ans.Annotation, t.State)
+		case !slices.Contains([]model.TurnState{model.TurnApplied, model.TurnDeclined, model.TurnFailed}, ans.Outcome):
+			return nil, nil, fmt.Errorf("note %s: outcome %q: want applied, declined, or failed", ans.Annotation, ans.Outcome)
+		case ans.Outcome == model.TurnFailed && t.Kind != model.TurnRedirect:
+			return nil, nil, fmt.Errorf("note %s: failed is for a redirect", ans.Annotation)
+		case ans.Outcome != model.TurnApplied && reason == "":
+			return nil, nil, fmt.Errorf("note %s: %s needs a reason", ans.Annotation, ans.Outcome)
 		}
 		seen[ans.Annotation] = true
-		out[i].State, out[i].Answer = ans.Outcome, strings.TrimSpace(ans.Reason)
+		t.State, t.Answer = ans.Outcome, reason
+		if t.Kind == model.TurnRedirect {
+			done = append(done, resolvedTurn{item: holder.ID, target: holder.For, turn: *t})
+		}
 	}
 	var open []string
-	for _, a := range out {
-		if a.State == model.AnnotationOpen {
-			open = append(open, a.ID)
+	for _, it := range out {
+		for _, t := range it.Thread {
+			if t.State == model.TurnOpen {
+				open = append(open, t.ID)
+			}
 		}
 	}
 	if len(open) > 0 {
-		return nil, fmt.Errorf("open annotations have no answer: %s: answer each as applied, or declined with a reason", strings.Join(open, ", "))
+		return nil, nil, fmt.Errorf("open notes have no answer: %s: answer each as applied, or declined with a reason", strings.Join(open, ", "))
 	}
-	return out, nil
+	return out, done, nil
+}
+
+// resolvedTurn is a redirect the agent answered.
+type resolvedTurn struct {
+	item   string
+	target string
+	turn   model.Turn
+}
+
+// recordAttempts writes each redirect's result on the item's task or Ask, or on
+// the proposal's source when that is one. A failure to resolve is recorded too.
+// A redirect with neither has nowhere to go and stays on the item's thread.
+func recordAttempts(ctx context.Context, d Deps, source string, list []resolvedTurn) error {
+	for _, r := range list {
+		target := r.target
+		if target == "" {
+			target = source
+		}
+		doc, err := d.Store.Get(ctx, target)
+		if err != nil {
+			if errors.Is(err, model.ErrNotFound) {
+				continue
+			}
+			return err
+		}
+		if t := doc.Meta.Header().Type; t != model.TypeTask && t != model.TypeRFX {
+			continue
+		}
+		line := fmt.Sprintf("- %s %s: redirect %q on %s: %s", d.Store.Now().UTC().Format(time.RFC3339), d.Store.Info().Actor,
+			strings.Join(strings.Fields(r.turn.Text), " "), r.item, r.turn.State)
+		if r.turn.Answer != "" {
+			line += ": " + strings.Join(strings.Fields(r.turn.Answer), " ")
+		}
+		if strings.Contains(doc.Body, "\n## Attempts\n") || strings.HasPrefix(doc.Body, "## Attempts\n") {
+			doc.Body += "\n" + line
+		} else {
+			doc.Body = appendSection(doc.Body, "Attempts", line)
+		}
+		if _, err := d.Store.Update(ctx, doc); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // reviseItems builds the items of the next revision. Items sent back or
@@ -70,6 +139,10 @@ func answerAnnotations(list []model.Annotation, answers []AnnotationAnswer) ([]m
 // and a replaced or carried item loses its edited mark: the agent has read it.
 func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in ProposalReviseInput) ([]model.ProposalItem, error) {
 	out := slices.Clone(prev)
+	rules, err := loadProposalRules(d)
+	if err != nil {
+		return nil, err
+	}
 	n := 0
 	for _, it := range out {
 		var v int
@@ -93,7 +166,7 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 	for _, raw := range in.Items {
 		if raw.ID == "" {
 			n++
-			it, err := newItem(ctx, d, raw, itemID(n))
+			it, err := newItem(ctx, d, raw, itemID(n), rules)
 			if err != nil {
 				return nil, fmt.Errorf("new item: %w", err)
 			}
@@ -107,10 +180,11 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 		if !revisable(out[i].State) {
 			return nil, fmt.Errorf("item %s is %s: the owner has decided it", raw.ID, out[i].State)
 		}
-		it, err := newItem(ctx, d, raw, raw.ID)
+		it, err := newItem(ctx, d, raw, raw.ID, rules)
 		if err != nil {
 			return nil, fmt.Errorf("item %s: %w", raw.ID, err)
 		}
+		it.Thread = out[i].Thread
 		if out[i].State == model.ItemHeld {
 			it.State, it.HeldBy = model.ItemHeld, out[i].HeldBy
 		}
@@ -118,19 +192,19 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 	}
 	for i := range out {
 		switch out[i].State {
-		case model.ItemRework, model.ItemSentBack:
+		case model.ItemSentBack, model.ItemHalted:
 			out[i].State, out[i].Reason = model.ItemPending, ""
 		}
 		out[i].Edited = false
 	}
-	return out, nil
+	return out, checkPlan(out)
 }
 
 // ProposalRevise files the next revision as a new document that supersedes
 // this one. The old file stays as history. It marks the old revision first,
 // with Rev compared, so a review that got in first makes it fail and read again.
-var ProposalRevise = define("proposal_revise", "File the next revision of a proposal. Answer each open annotation as applied, or declined with a reason, or it fails", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
-	if len(in.Items) == 0 && len(in.Withdraw) == 0 && len(in.Answers) == 0 {
+var ProposalRevise = define("proposal_revise", "File the next revision of a proposal. Answer each open note as applied, or declined with a reason; a redirect you could not resolve is failed, with a reason. It fails if a note has no answer", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
+	if len(in.Items) == 0 && len(in.Withdraw) == 0 && len(in.Answers) == 0 && in.TLDR == "" && in.Context == "" {
 		return ProposalFiled{}, errors.New("nothing to revise: give items, withdraw, or answers")
 	}
 	for range claimRetries {
@@ -141,11 +215,18 @@ var ProposalRevise = define("proposal_revise", "File the next revision of a prop
 		if p.meta.Status == model.ProposalSuperseded {
 			return ProposalFiled{}, fmt.Errorf("%s is superseded: revise the latest revision", p.doc.ID)
 		}
-		next := model.ProposalContent{}
-		if next.Annotations, err = answerAnnotations(p.content.Annotations, in.Answers); err != nil {
+		next := model.ProposalContent{TLDR: p.content.TLDR, Context: p.content.Context}
+		if t := strings.TrimSpace(in.TLDR); t != "" {
+			next.TLDR = t
+		}
+		if t := strings.TrimSpace(in.Context); t != "" {
+			next.Context = t
+		}
+		answered, resolved, err := answerNotes(p.content.Items, in.Answers)
+		if err != nil {
 			return ProposalFiled{}, err
 		}
-		if next.Items, err = reviseItems(ctx, d, p.content.Items, in); err != nil {
+		if next.Items, err = reviseItems(ctx, d, answered, in); err != nil {
 			return ProposalFiled{}, err
 		}
 		body, err := model.RenderProposalBody(next)
@@ -175,6 +256,9 @@ var ProposalRevise = define("proposal_revise", "File the next revision of a prop
 			if _, undo := d.Store.Update(ctx, old); undo != nil {
 				return ProposalFiled{}, errors.Join(err, undo)
 			}
+			return ProposalFiled{}, err
+		}
+		if err := recordAttempts(ctx, d, p.meta.Source.Target(), resolved); err != nil {
 			return ProposalFiled{}, err
 		}
 		return filed(d, doc)

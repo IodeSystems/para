@@ -30,7 +30,7 @@ func TestChangeIsPlainWords(t *testing.T) {
 
 func TestChangeOfExternalNamesTargetAndMedium(t *testing.T) {
 	z := testSummarizer()
-	it := model.ProposalItem{Kind: model.ItemExternal, Target: "a@b.example", Medium: model.MediumEmail}
+	it := model.ProposalItem{Kind: model.ItemAction, Target: "a@b.example", Subtype: "email"}
 	want := []string{"Send to: a@b.example", "By: Email"}
 	if got := z.change(it); !reflect.DeepEqual(got, want) {
 		t.Fatalf("change = %q, want %q", got, want)

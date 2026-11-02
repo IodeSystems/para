@@ -68,7 +68,7 @@ func TestSummaryOfOpItem(t *testing.T) {
 		ItemInput{Kind: model.ItemOp, Op: "task_start", Input: map[string]any{"id": "x"}, Evidence: ev},
 		ItemInput{Kind: model.ItemOp, Op: "task_depends_add", Input: map[string]any{"id": "x"}, Evidence: ev},
 		mailItem("Hi."),
-		ItemInput{Kind: model.ItemExternal, Medium: model.MediumEmail, Target: "marcus.oyelaran@brightwater.example", Draft: "Hi.", Evidence: ev},
+		ItemInput{Kind: model.ItemExternal, Medium: "email", Target: "marcus.oyelaran@brightwater.example", Draft: "Hi.", Evidence: ev},
 	)
 	got := must(t, ProposalShow, f.owner, ProposalIDInput{ID: id})
 	want := []string{

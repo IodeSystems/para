@@ -80,13 +80,12 @@ type ParaV1MutationNamespace {
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   proposalAdd(body: para_ProposalAddInputInput!): para_ProposalFiled @derived(operationId: "proposalAdd")
-  proposalAnnotate(body: para_ProposalAnnotateInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalAnnotate")
   proposalApprove(body: para_ProposalApproveInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalApprove")
   proposalDeny(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalDeny")
   proposalEdit(body: para_ProposalEditInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalEdit")
   proposalHold(body: para_ProposalHoldInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalHold")
+  proposalNote(body: para_ProposalNoteInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalNote")
   proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
-  proposalRework(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalRework")
   proposalSendback(body: para_ProposalSendbackInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalSendback")
   questionAccept(body: para_QuestionAcceptInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAccept")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
@@ -252,36 +251,6 @@ type para_AgendaOutput {
   zone: String!
 }
 
-input para_AnnotationAnswerInput {
-  annotation: String!
-  outcome: para_AnnotationAnswerOutcome!
-  reason: String
-}
-
-enum para_AnnotationAnswerOutcome {
-  applied
-  declined
-  open
-}
-
-type para_AnnotationView {
-  anchored: Boolean!
-  answer: String
-  by: String!
-  id: String!
-  item: String!
-  note: String!
-  quote: String!
-  revision: Int!
-  state: para_AnnotationViewState!
-}
-
-enum para_AnnotationViewState {
-  applied
-  declined
-  open
-}
-
 type para_AnswerSource {
   quote: String
   ref: String!
@@ -420,6 +389,16 @@ enum para_ChangeOutcome {
   logged
   pending
   synced
+}
+
+type para_Claim {
+  source: String!
+  text: String!
+}
+
+input para_ClaimInput {
+  source: String!
+  text: String!
 }
 
 input para_ConstraintAddInputInput {
@@ -577,10 +556,11 @@ type para_Decision {
 enum para_DecisionState {
   approved
   denied
+  done
   failed
+  halted
   held
   pending
-  rework
   running
   sent_back
   withdrawn
@@ -611,6 +591,14 @@ type para_DependsCutOutput {
   rev: String!
 }
 
+type para_DocChange {
+  doc: String!
+  lines: [String!]!
+  new: Boolean!
+  title: String!
+  type: String!
+}
+
 type para_Document {
   body: String!
   folder: para_DocumentFolder!
@@ -638,6 +626,12 @@ enum para_DocumentFolder {
   requests
   resources
   rfx
+}
+
+type para_Downstream {
+  doc: String!
+  effect: String!
+  title: String!
 }
 
 type para_Event {
@@ -777,6 +771,17 @@ enum para_ExceptionViewStatus {
   accepted
   open
   resolved
+}
+
+type para_Execution {
+  at: String!
+  by: String!
+  filled: JSON
+  locator: String
+  receipt: String
+  result: String!
+  selfReported: Boolean
+  url: String
 }
 
 type para_ExpiringException {
@@ -1464,80 +1469,138 @@ type para_ItemDiff {
 }
 
 input para_ItemInputInput {
+  after: String
+  benefit: para_ClaimInput
+  body: String
+  bundle: String
+  channel: String
+  choice: String
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_ClaimInput!]
+  cost: para_ClaimInput
+  diff: String
   draft: String
   evidence: para_EvidenceInput!
+  fields: JSON
+  for: String
+  group: String
+  how: String
   id: String
+  impact: String
   input: JSON
   kind: para_ItemInputKind!
-  medium: para_ItemInputMedium
+  medium: String
   op: String
+  people: [String!]
+  previous: String
+  pros: [para_ClaimInput!]
+  recommendation: Int
+  reversible: para_ItemInputReversible
+  reversibleHow: String
+  subject: String
+  subtype: String
   target: String
+  title: String
+  what: String
 }
 
 enum para_ItemInputKind {
+  action
   external
+  message
   op
+  para
 }
 
-enum para_ItemInputMedium {
-  confluence
-  email
-  github
-  jira
-  meeting
-  other
-  phone
-  slack
-  teams
+enum para_ItemInputReversible {
+  no
+  partly
+  yes
+}
+
+type para_ItemPreview {
+  changes: [para_DocChange!]!
+  downstream: [para_Downstream!]!
+  error: String
 }
 
 type para_ItemView {
   actions: [String!]!
+  after: String
   approvedHash: String
+  benefit: para_Claim
+  body: String
+  bundle: String
   change: [String!]!
-  draft: String
+  channel: String
+  choice: String
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_Claim!]
+  cost: para_Claim
+  diff: String
   edited: Boolean
   evidence: para_Evidence!
+  execution: para_Execution
+  fields: JSON
+  filled: String
+  for: String
+  gateHash: String
+  group: String
   hash: String!
   heldBy: String
+  how: String
   id: String!
+  impact: String
   input: JSON
   kind: para_ItemViewKind!
-  medium: para_ItemViewMedium
   op: String
-  openAnnotations: Int!
+  openNotes: Int!
+  people: [String!]
+  preview: para_ItemPreview
+  previous: String
+  pros: [para_Claim!]
   reason: String
+  recommendation: Int
   result: String
   resultName: String
+  reversible: para_ItemViewReversible
+  reversibleHow: String
+  risk: String
   state: para_ItemViewState!
+  subject: String
+  subtype: String
   summary: String!
   target: String
+  thread: [para_Turn!]
+  title: String
+  waits: Boolean
+  what: String
 }
 
 enum para_ItemViewKind {
+  action
   external
+  message
   op
+  para
 }
 
-enum para_ItemViewMedium {
-  confluence
-  email
-  github
-  jira
-  meeting
-  other
-  phone
-  slack
-  teams
+enum para_ItemViewReversible {
+  no
+  partly
+  yes
 }
 
 enum para_ItemViewState {
   approved
   denied
+  done
   failed
+  halted
   held
   pending
-  rework
   running
   sent_back
   withdrawn
@@ -1983,6 +2046,20 @@ enum para_NoteAddOutputFolder {
   rfx
 }
 
+input para_NoteAnswerInput {
+  annotation: String!
+  outcome: para_NoteAnswerOutcome!
+  reason: String
+}
+
+enum para_NoteAnswerOutcome {
+  applied
+  declined
+  failed
+  noted
+  open
+}
+
 type para_NoteListOutput {
   notes: [para_NoteView!]!
 }
@@ -2365,46 +2442,31 @@ enum para_ProjectViewStatus {
 }
 
 input para_ProposalAddInputInput {
+  context: String
   items: [para_ItemInputInput!]
   source: String!
   title: String!
-}
-
-input para_ProposalAnnotateInputInput {
-  id: String!
-  item: String!
-  note: String!
-  quote: String!
+  tldr: String
 }
 
 input para_ProposalApproveInputInput {
+  group: String
   id: String!
   items: [String!]
+  reason: String
 }
 
 type para_ProposalApprovedOutput {
   approved: Boolean!
   hash: String!
   item: String
-  medium: para_ProposalApprovedOutputMedium
   proposal: String
+  subtype: String
   target: String
 }
 
-enum para_ProposalApprovedOutputMedium {
-  confluence
-  email
-  github
-  jira
-  meeting
-  other
-  phone
-  slack
-  teams
-}
-
 type para_ProposalDetail {
-  annotations: [para_AnnotationView!]!
+  context: String
   history: [para_RevisionView!]!
   items: [para_ItemView!]!
   proposal: para_ProposalView!
@@ -2413,6 +2475,7 @@ type para_ProposalDetail {
   reviewUrl: String
   source: para_SourceView!
   supersededBy: String
+  tldr: String
   untrusted: String!
 }
 
@@ -2424,11 +2487,15 @@ type para_ProposalDiffOutput {
 }
 
 input para_ProposalEditInputInput {
+  body: String
+  diff: String
   draft: String
   id: String!
   input: JSON
   item: String!
+  subject: String
   target: String
+  title: String
 }
 
 type para_ProposalFiled {
@@ -2466,6 +2533,19 @@ type para_ProposalListOutput {
   items: [para_ProposalView!]!
 }
 
+input para_ProposalNoteInputInput {
+  id: String!
+  intent: para_ProposalNoteInputIntent
+  item: String!
+  note: String!
+  quote: String
+}
+
+enum para_ProposalNoteInputIntent {
+  clarify
+  redirect
+}
+
 input para_ProposalReasonInputInput {
   id: String!
   item: String!
@@ -2489,9 +2569,11 @@ enum para_ProposalReviewOutputStatus {
 }
 
 input para_ProposalReviseInputInput {
-  answers: [para_AnnotationAnswerInput!]
+  answers: [para_NoteAnswerInput!]
+  context: String
   id: String!
   items: [para_ItemInputInput!]
+  tldr: String
   withdraw: [String!]
 }
 
@@ -3687,6 +3769,33 @@ type para_TodayVaultToday {
   unverified: Int!
   vault: String!
   waiting: Int!
+}
+
+type para_Turn {
+  answer: String
+  by: String!
+  id: String!
+  kind: para_TurnKind!
+  quote: String
+  revision: Int!
+  state: para_TurnState!
+  text: String!
+}
+
+enum para_TurnKind {
+  clarify
+  close
+  edit
+  redirect
+  send_back
+}
+
+enum para_TurnState {
+  applied
+  declined
+  failed
+  noted
+  open
 }
 
 type para_UILiveSubscribeBody {

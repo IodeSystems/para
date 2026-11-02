@@ -121,15 +121,17 @@ give the URL of that machine.
   $ para proposal show proposal-example
   $ para proposal approve proposal-example i1
   $ para proposal deny proposal-example i2 --reason "Not this quarter"
-  $ para proposal rework proposal-example i3 --reason "Name the owner"
-  $ para proposal annotate proposal-example i4 --quote "Friday" --note "Monday works better"
+  $ para proposal sendback proposal-example i3 --reason "Name the owner"
+  $ para proposal note proposal-example i4 --quote "Friday" "Monday works better"
+  $ para proposal note proposal-example i4 --intent redirect "Check the wiki first"
   $ para proposal sendback proposal-example i4
+  $ para proposal approve proposal-example --group tasks
   $ para proposal hold proposal-example i5 --kind task --text "Check the budget" --project project-portal
   $ para proposal wait proposal-example --timeout 1h
   $ para proposal approved sha256:0000000000000000000000000000000000000000000000000000000000000000
 An agent files items with evidence, and para changes nothing until you approve. An approved
-op runs under the agent's name. An external item (an email, a PR, a ticket) never runs: para
-records the hash of the exact text you approved, and the agent or you send it.
+vault change runs under the agent's name. A message or an action (an email, a PR, a ticket)
+never runs: para records the hash of the exact text you approved, and the agent or you send it.
 
 14. Questions: unknowns, decisions, and inputs are not tasks
   $ para question add "Which config path does prod use?" --project project-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
@@ -209,7 +211,7 @@ Where does this go?
   a plan, doc, runbook, or repository        stays where it lives; link it from the area or goal
   a phone or browser view of the vault       para serve, with a key from para key create
   a change an agent suggests                 a proposal: you approve each item
-  an email or PR an agent wants to send      a proposal with an external item
+  an email or PR an agent wants to send      a proposal with a message or an action
   a conversation with people at a time      a meeting, linked to the asks it serves
   what is dated this week                    para agenda
   what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens
