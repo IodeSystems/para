@@ -1,7 +1,7 @@
 # para — build / install entry points. CLI-12: `make install` puts the
 # source-stamped binary in ~/.local/bin.
 
-.PHONY: build install lint test clean ui-build schema
+.PHONY: build install lint test clean ui-build schema e2e
 
 VERSION ?= $(shell git describe --always --dirty --tags 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION) -X main.srcDir=$(CURDIR)
@@ -28,8 +28,12 @@ test:             ## bin/t (X-TEST-3)
 ui-build:
 	cd ui && pnpm install && pnpm build
 
-schema:           ## Write ui/gen/schema.graphql (committed)
+schema:           ## Write ui/gen/schema.graphql and the live client in ui/src/gen (committed)
 	go run ./cmd/para schema dump
+	go run ./cmd/livegen
+
+e2e: ui-build     ## Drive Chrome against the real binary (port 7710, temp home)
+	cd ui && pnpm e2e
 
 clean:
 	rm -rf $(DIST) tmp ui/dist ui/node_modules

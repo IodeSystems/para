@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"reflect"
 	"sync"
 	"time"
 
@@ -138,3 +139,12 @@ func (l *Live) RegisterShutdown(srv *http.Server, timeout time.Duration, log *sl
 	})
 	return done
 }
+
+// GenChannels is the registry cmd/livegen walks to write the typed client in
+// ui/src/gen. Adding a channel here is all the payload types need.
+var GenChannels = []relay.ChannelSpec{
+	{Name: "Vault", Event: reflect.TypeFor[LiveEvent]()},
+}
+
+// GenEnums declares the value sets of named string types in event payloads.
+var GenEnums = []relay.EnumSpec{}

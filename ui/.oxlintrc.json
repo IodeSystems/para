@@ -39,7 +39,18 @@
     "typescript/no-unused-expressions": "error",
     "typescript/no-unused-vars": "error",
     "typescript/no-wrapper-object-types": "error",
-    "typescript/only-throw-error": "error",
+    "typescript/only-throw-error": [
+      "error",
+      {
+        "allow": [
+          {
+            "from": "package",
+            "package": "@tanstack/router-core",
+            "name": "Redirect"
+          }
+        ]
+      }
+    ],
     "typescript/prefer-as-const": "error",
     "typescript/prefer-namespace-keyword": "error",
     "typescript/prefer-promise-reject-errors": "error",
@@ -65,11 +76,28 @@
     "react/purity": "error",
     "react/set-state-in-render": "error",
     "react/incompatible-library": "warn",
-    "react/unsupported-syntax": "warn"
+    "react/unsupported-syntax": "warn",
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "fetch",
+        "message": "Use the GraphQL client (gqlClient), not raw fetch. Only src/client/session.ts may call fetch."
+      }
+    ],
+    "para/no-window-fetch": "error"
   },
-  "ignorePatterns": ["dist/**", "src/gql/**", "src/routeTree.gen.ts"],
+  "ignorePatterns": ["dist/**", "src/gql/**", "src/routeTree.gen.ts", "dev-dist/**", "src/gen/**"],
   "env": {
     "builtin": true,
     "browser": true
-  }
+  },
+  "jsPlugins": ["./lint/para-plugin.mjs"],
+  "overrides": [
+    {
+      "files": ["src/client/session.ts"],
+      "rules": {
+        "no-restricted-globals": "off"
+      }
+    }
+  ]
 }

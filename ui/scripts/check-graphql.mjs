@@ -1,0 +1,80 @@
+// Validate every graphql(`…`) snippet in src/ against the committed SDL snapshot (gen/schema.graphql).
+// tsc does NOT check these snippets, so this is the only enforcement of query drift. Replaces
+// graphql-eslint. Runs graphql-js's full `specifiedRules` (fields-on-correct-type, known-argument-names,
+// known-type-names, known-directives, known-fragment-names, fragments-on-composite-type,
+// executable-definitions, no-unused-fragments, possible-fragment-spread, provided-required-arguments,
+// scalar-leafs, unique-argument-names, values-of-correct-type, variables-are-input-types,
+// variables-in-allowed-position, …) — a superset of the graphql-eslint rule list we used to enable.
+// (graphql-codegen's own validation skips NoUnusedFragments / KnownDirectives / NoUnusedVariables, so
+// `pnpm gen` alone is not enough.)
+//
+// Usage: node scripts/check-graphql.mjs [file ...]   — with files, only report errors in those files
+// (the whole project is still parsed, so cross-file fragments resolve). Exit 1 on any error.
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
+import { buildSchema, parse, Source, specifiedRules, validate } from 'graphql'
+import { gqlPluckFromCodeString } from '@graphql-tools/graphql-tag-pluck'
+
+const root = resolve(import.meta.dirname, '..')
+const schema = buildSchema(readFileSync(join(root, 'gen/schema.graphql'), 'utf8'))
+
+function* walk(dir) {
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) {
+      if (p === join(root, 'src/gql')) continue // generated
+      yield* walk(p)
+    } else if (/\.tsx?$/.test(name)) yield p
+  }
+}
+
+const only = new Set(process.argv.slice(2).map((f) => resolve(f)))
+const definitions = []
+let failed = 0
+const fail = (where, msg) => {
+  failed++
+  console.error(`${where}: error graphql: ${msg}`)
+}
+
+for (const file of walk(join(root, 'src'))) {
+  const code = readFileSync(file, 'utf8')
+  if (!/graphql\s*\(/.test(code)) continue
+  let snippets
+  try {
+    snippets = await gqlPluckFromCodeString(file, code)
+  } catch (e) {
+    fail(relative(root, file), `could not extract graphql snippets: ${e.message}`)
+    continue
+  }
+  for (const s of snippets) {
+    const name = `${relative(root, file)}`
+    // pluck trims the body and reports the line of the opening backtick, so find where the
+    // body's first line really sits to keep reported line numbers exact.
+    const first = s.body.split('\n')[0]
+    const idx = code
+      .split('\n')
+      .findIndex((l, i) => i >= s.locationOffset.line - 1 && l.includes(first))
+    const startLine = idx >= 0 ? idx + 1 : s.locationOffset.line
+    try {
+      const doc = parse(new Source(s.body, name, { line: startLine, column: 1 }))
+      definitions.push(...doc.definitions)
+    } catch (e) {
+      fail(`${name}:${e.locations?.[0]?.line ?? '?'}`, e.message)
+    }
+  }
+}
+
+for (const err of validate(schema, { kind: 'Document', definitions }, specifiedRules)) {
+  const loc = err.nodes?.[0]?.loc
+  const file = loc?.source.name ?? '?'
+  if (only.size && !only.has(resolve(root, file))) continue
+  const pos = loc ? loc.source.locationOffset.line + (err.locations?.[0]?.line ?? 1) - 1 : '?'
+  fail(`${file}:${err.locations?.[0] ? pos : '?'}`, err.message)
+}
+
+if (failed) {
+  console.error(
+    `\n${failed} GraphQL error(s) vs gen/schema.graphql. If the backend schema changed, run make schema and pnpm gen.`,
+  )
+  process.exit(1)
+}

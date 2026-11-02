@@ -2,11 +2,78 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#1f3a5f" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <title>para</title>
+    <!-- Boot screen: paints with the first response, before any script arrives. Inline style
+      only: the CSP allows inline styles, not inline scripts. main.tsx removes #boot once the
+      router has rendered the first screen. -->
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html,
+      body {
+        margin: 0;
+        background: #f6f7f9;
+        color: #1b2430;
+      }
+      @media (prefers-color-scheme: dark) {
+        html,
+        body {
+          background: #10151c;
+          color: #e6e9ee;
+        }
+      }
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 24px;
+        box-sizing: border-box;
+        background: inherit;
+        font:
+          500 16px/1.4 system-ui,
+          sans-serif;
+        text-align: center;
+      }
+      #boot .slow {
+        max-width: 320px;
+        margin: 0;
+        font-weight: 400;
+        opacity: 0.75;
+        visibility: hidden;
+        animation: boot-show 0s 15s forwards;
+      }
+      @keyframes boot-show {
+        to {
+          visibility: visible;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="boot" role="status" aria-live="polite">
+      <div>para</div>
+      <p class="slow">
+        This is taking longer than usual. Check the connection, then <a href="">reload</a>.
+      </p>
+    </div>
     <div id="root"></div>
+    <!-- Boot reload (public/boot.js): when the network changes mid-load, Chromium cancels
+      in-flight requests and the app never starts. boot.js reloads once when a same-origin script
+      or stylesheet fails while #boot is still here. A file, not inline: the CSP is script-src
+      'self'. Plain sync and AFTER #boot on purpose, so it runs before the module entry's error
+      event and never holds back the first paint. -->
+    <script src="/boot.js"></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

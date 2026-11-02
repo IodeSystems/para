@@ -5,12 +5,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"github.com/iodesystems/gwag/v2/gw/relay"
 
 	"github.com/iodesystems/parasolve/internal/netguard"
 )
@@ -237,6 +240,28 @@ func TestServiceWorkerDenylistCoversServerRoutes(t *testing.T) {
 		}
 		if denied(list, p) {
 			t.Errorf("app route %s is denied", p)
+		}
+	}
+}
+
+// TestLiveClientIsCurrent: ui/src/gen is written by cmd/livegen from GenChannels. A changed
+// LiveEvent without a regenerated client fails here.
+func TestLiveClientIsCurrent(t *testing.T) {
+	out := t.TempDir()
+	if err := relay.GenClient(GenChannels, GenEnums, out); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{relay.TypesFile, relay.RuntimeFile} {
+		want, err := os.ReadFile(filepath.Join(out, f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := os.ReadFile(filepath.Join("../../ui/src/gen", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("ui/src/gen/%s is stale: run make schema", f)
 		}
 	}
 }

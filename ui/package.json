@@ -5,11 +5,14 @@
   "type": "module",
   "packageManager": "pnpm@10.27.0",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build && tsc -b",
+    "dev": "pnpm gen && vite",
+    "gen": "graphql-codegen --config codegen.ts",
+    "build": "pnpm gen && vite build && tsc --noEmit",
     "preview": "vite preview",
-    "lint": "oxlint --type-aware",
-    "typecheck": "tsc --noEmit",
+    "lint": "pnpm gen && oxlint --type-aware src && node scripts/check-graphql.mjs",
+    "typecheck": "pnpm gen && tsc --noEmit",
+    "test": "vitest run",
+    "e2e": "node e2e/smoke.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -21,10 +24,21 @@
     "@mui/material": "^9.4.0",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-router": "^1.170.32",
+    "graphql": "^16.14.2",
+    "graphql-request": "^7.4.0",
+    "mermaid": "^12.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "workbox-window": "^7.4.1"
   },
   "devDependencies": {
+    "@graphql-codegen/cli": "^7.4.6",
+    "@graphql-codegen/client-preset": "^6.2.3",
+    "@graphql-tools/graphql-tag-pluck": "^9.0.9",
+    "@graphql-typed-document-node/core": "^3.2.0",
+    "@swc-contrib/plugin-graphql-codegen-client-preset": "0.32.0",
     "@tanstack/router-plugin": "^1.168.35",
     "@types/node": "^26.4.1",
     "@types/react": "^19.2.18",
@@ -32,9 +46,12 @@
     "@vitejs/plugin-react-swc": "^4.3.3",
     "oxlint": "^1.89.0",
     "oxlint-tsgolint": "^7.0.2005",
+    "playwright": "^1.64.1",
     "prettier": "^3.9.6",
     "typescript": "~7.0.2",
-    "vite": "^8.2.2"
+    "vite": "^8.2.2",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.0.5"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
