@@ -23,6 +23,10 @@ func TestCheck(t *testing.T) {
 		{"deny still allows copy", map[string]string{KeyDefault: "deny"}, "copy:plain", "deny", true, UnmarkedMarking},
 		{"allow", map[string]string{KeyDefault: " Allow "}, "mcp:llm", "allow", true, UnmarkedMarking},
 		{"junk means deny", map[string]string{KeyDefault: "maybe"}, "mcp:llm", "deny", false, UnmarkedMarking},
+		{"export under deny", map[string]string{KeyDefault: "deny"}, "export:ssh", "deny", true, UnmarkedMarking},
+		{"export unset list", nil, "export:wormhole", "deny", true, UnmarkedMarking},
+		{"export in list", map[string]string{KeyExport: "stdout, SSH"}, "export:ssh", "deny", true, UnmarkedMarking},
+		{"export not in list", map[string]string{KeyExport: "stdout,ssh", KeyDefault: "allow"}, "export:wormhole", "allow", false, UnmarkedMarking},
 		{"marking", map[string]string{KeyMarking: " ACME CONFIDENTIAL "}, "copy:slack", "deny", true, "ACME CONFIDENTIAL"},
 	}
 	for _, c := range cases {

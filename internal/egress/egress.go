@@ -18,6 +18,7 @@ const Op = "egress"
 const (
 	KeyDefault = "egress.default" // "allow" or "deny"; anything else means deny
 	KeyMarking = "classification" // text printed on copied documents
+	KeyExport  = "egress.export"  // optional allowlist of export transports, comma separated; unset allows all
 )
 
 // UnmarkedMarking is printed when the vault sets no classification.
@@ -27,6 +28,10 @@ const UnmarkedMarking = "UNMARKED"
 // hand, so it stays allowed when the default is deny, and is logged.
 const (
 	DestCopy = "copy:" // copy:plain, copy:clipboard
+	// DestExport is an export transport: export:ssh, export:clipboard. It is
+	// the chair-swivel path between machines, so it stays allowed under
+	// egress.default=deny. KeyExport can restrict it.
+	DestExport = "export:"
 )
 
 // Decision is the outcome of Check.
@@ -47,6 +52,9 @@ func Check(cfg map[string]string, dest string) Decision {
 		d.Marking = m
 	}
 	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy)
+	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
+		d.Allowed = exportAllowed(cfg[KeyExport], kind)
+	}
 	return d
 }
 
@@ -57,4 +65,18 @@ func Log(l *events.Log, doc, dest string, d Decision) error {
 		return fmt.Errorf("egress: log: %w", err)
 	}
 	return nil
+}
+
+// exportAllowed applies the egress.export allowlist. An unset or blank list
+// allows every transport.
+func exportAllowed(list, kind string) bool {
+	if strings.TrimSpace(list) == "" {
+		return true
+	}
+	for _, k := range strings.Split(list, ",") {
+		if strings.EqualFold(strings.TrimSpace(k), kind) {
+			return true
+		}
+	}
+	return false
 }

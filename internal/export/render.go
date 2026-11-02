@@ -1,4 +1,8 @@
-package ops
+// Package export renders a document in a paste or file format and moves the
+// result through a transport. Formats and transports are independent: any
+// format goes through any transport that can carry it. The package never
+// checks egress; the export op does that before it releases content.
+package export
 
 import (
 	"regexp"
@@ -23,20 +27,32 @@ var (
 	sepCellRe  = regexp.MustCompile(`^:?-+:?$`)
 )
 
-// renderCopy renders doc for format. Frontmatter is never included.
-func renderCopy(f CopyFormat, doc model.Document, marking string) string {
+// SourceURL is the source URL of the types that carry one.
+func SourceURL(m model.Meta) string {
+	switch v := m.(type) {
+	case *model.Policy:
+		return v.Source.URL
+	case *model.Constraint:
+		return v.Source.URL
+	}
+	return ""
+}
+
+// Text renders doc for a text format (plain, email, slack, jira). Frontmatter
+// is never included.
+func Text(f Format, doc model.Document, marking string) string {
 	var b strings.Builder
 	banner := "[" + marking + "]"
-	if f == CopySlack || f == CopyJira {
+	if f == Slack || f == Jira {
 		banner = "*[" + marking + "]*"
 	}
 	b.WriteString(banner + "\n\n")
 	switch f {
-	case CopyEmail:
+	case Email:
 		b.WriteString("Subject: [" + marking + "] " + doc.Title + "\n\n")
-	case CopySlack:
+	case Slack:
 		b.WriteString("*" + doc.Title + "*\n\n")
-	case CopyJira:
+	case Jira:
 		b.WriteString("h1. " + doc.Title + "\n\n")
 	default:
 		b.WriteString(doc.Title + "\n\n")
@@ -44,14 +60,14 @@ func renderCopy(f CopyFormat, doc model.Document, marking string) string {
 	if body := renderBody(f, doc.Body); body != "" {
 		b.WriteString(body + "\n\n")
 	}
-	if u := sourceURLOf(doc.Meta); u != "" {
+	if u := SourceURL(doc.Meta); u != "" {
 		b.WriteString("Source: " + u + "\n\n")
 	}
 	b.WriteString(banner + "\n")
 	return b.String()
 }
 
-func renderBody(f CopyFormat, body string) string {
+func renderBody(f Format, body string) string {
 	var out []string
 	lines := strings.Split(strings.Trim(body, "\n"), "\n")
 	for i := 0; i < len(lines); i++ {
@@ -83,8 +99,8 @@ func isFence(line string) bool {
 	return strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")
 }
 
-func fence(f CopyFormat, code []string) []string {
-	if f == CopyJira {
+func fence(f Format, code []string) []string {
+	if f == Jira {
 		return append(append([]string{"{code}"}, code...), "{code}")
 	}
 	return append(append([]string{"```"}, code...), "```")
@@ -119,7 +135,7 @@ func isSeparator(cells []string) bool {
 	return len(cells) > 0
 }
 
-func table(f CopyFormat, rows [][]string) []string {
+func table(f Format, rows [][]string) []string {
 	var out []string
 	for n, cells := range rows {
 		if n == 1 && isSeparator(cells) {
@@ -129,28 +145,28 @@ func table(f CopyFormat, rows [][]string) []string {
 			cells[i] = inline(f, cells[i])
 		}
 		switch {
-		case f == CopyJira && n == 0:
+		case f == Jira && n == 0:
 			out = append(out, "||"+strings.Join(cells, "||")+"||")
-		case f == CopyJira:
+		case f == Jira:
 			out = append(out, "|"+strings.Join(cells, "|")+"|")
 		default:
 			out = append(out, strings.Join(cells, " | "))
 		}
 	}
-	if f == CopySlack {
+	if f == Slack {
 		return fence(f, out)
 	}
 	return out
 }
 
-func renderLine(f CopyFormat, line string) string {
+func renderLine(f Format, line string) string {
 	line = blockIDRe.ReplaceAllString(line, "")
 	if m := headingRe.FindStringSubmatch(line); m != nil {
 		text := inline(f, m[2])
 		switch f {
-		case CopyJira:
+		case Jira:
 			return "h" + string(rune('0'+len(m[1]))) + ". " + text
-		case CopySlack:
+		case Slack:
 			return "*" + text + "*"
 		}
 		return text
@@ -158,21 +174,21 @@ func renderLine(f CopyFormat, line string) string {
 	if m := bulletRe.FindStringSubmatch(line); m != nil {
 		depth := len(m[1]) / 2
 		switch f {
-		case CopyJira:
+		case Jira:
 			return strings.Repeat("*", depth+1) + " " + inline(f, m[2])
-		case CopySlack:
+		case Slack:
 			return m[1] + "• " + inline(f, m[2])
 		}
 		return m[1] + "- " + inline(f, m[2])
 	}
-	if m := numberedRe.FindStringSubmatch(line); m != nil && f == CopyJira {
+	if m := numberedRe.FindStringSubmatch(line); m != nil && f == Jira {
 		return strings.Repeat("#", len(m[1])/2+1) + " " + inline(f, m[2])
 	}
 	return inline(f, line)
 }
 
 // inline converts links, wikilinks, bold, and code spans.
-func inline(f CopyFormat, s string) string {
+func inline(f Format, s string) string {
 	s = wikiRe.ReplaceAllStringFunc(s, func(m string) string {
 		p := wikiRe.FindStringSubmatch(m)
 		switch {
@@ -186,17 +202,17 @@ func inline(f CopyFormat, s string) string {
 	s = mdLinkRe.ReplaceAllStringFunc(s, func(m string) string {
 		p := mdLinkRe.FindStringSubmatch(m)
 		switch f {
-		case CopySlack:
+		case Slack:
 			return "<" + p[2] + "|" + p[1] + ">"
-		case CopyJira:
+		case Jira:
 			return "[" + p[1] + "|" + p[2] + "]"
 		}
 		return p[1] + " (" + p[2] + ")"
 	})
 	switch f {
-	case CopySlack:
+	case Slack:
 		s = boldRe.ReplaceAllString(s, "*$1*")
-	case CopyJira:
+	case Jira:
 		s = boldRe.ReplaceAllString(s, "*$1*")
 		s = codeRe.ReplaceAllString(s, "{{$1}}")
 	default:

@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/iodesystems/paradize/internal/egress"
+	"github.com/iodesystems/paradize/internal/export"
 	"github.com/iodesystems/paradize/internal/model"
 )
 
@@ -80,13 +81,7 @@ var Copy = define("copy", "Render a document for paste (plain, email, slack, jir
 	}, nil
 })
 
-// sourceURLOf is the source URL of the types that carry one.
-func sourceURLOf(m model.Meta) string {
-	switch v := m.(type) {
-	case *model.Policy:
-		return v.Source.URL
-	case *model.Constraint:
-		return v.Source.URL
-	}
-	return ""
+// renderCopy renders doc for format.
+func renderCopy(f CopyFormat, doc model.Document, marking string) string {
+	return export.Text(export.Format(f), doc, marking)
 }
