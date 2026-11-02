@@ -17,6 +17,7 @@ const (
 	kTargets   // list of rfx target maps
 	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
 	kCount     // integer, 1 or more
+	kScope     // "[[name]]" or the word root
 )
 
 type field struct {
@@ -47,13 +48,15 @@ var (
 	incidentStatus  = []string{"open", "mitigated", "resolved"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 	proposalStatus  = []string{"open", "sent_back", "closed", "superseded"}
+	questionStatus  = []string{"open", "answered", "dropped"}
+	questionKinds   = []string{"question", "decision", "input"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area", "note", "incident", "proposal",
+	"group", "interaction", "request", "area", "note", "incident", "proposal", "question",
 }
 
 // commonFields apply to every type.
@@ -107,6 +110,18 @@ var typeFields = map[string][]field{
 		{Name: "self_serve_check", Kind: kString, Required: true},
 		{Name: "project", Kind: kLink},
 		{Name: "targets", Kind: kTargets},
+		{Name: "question", Kind: kLink},
+	},
+	"question": {
+		{Name: "status", Kind: kEnum, Enum: questionStatus, Required: true},
+		{Name: "kind", Kind: kEnum, Enum: questionKinds},
+		{Name: "scope", Kind: kScope, Required: true}, // a project, task, or area link, or root
+		{Name: "options", Kind: kList},
+		{Name: "recommended", Kind: kString},
+		{Name: "rfx", Kind: kLink},
+		{Name: "choice", Kind: kString},
+		{Name: "answered_by", Kind: kString},
+		{Name: "answered", Kind: kDate},
 	},
 	"constraint": {
 		{Name: "why", Kind: kString, Required: true},

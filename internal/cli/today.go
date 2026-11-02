@@ -34,12 +34,17 @@ func newTodayCmd(l *loader) *cobra.Command {
 						}
 						continue
 					}
-					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tinbox %d\n",
-						v.Vault, v.Incidents.Count, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.Inbox); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tquestions %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tinbox %d\n",
+						v.Vault, v.Incidents.Count, v.Questions.Count, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.Inbox); err != nil {
 						return err
 					}
 					for _, it := range v.Incidents.Items {
 						if _, err := fmt.Fprintf(w, "  incident\t%s\t%s\t%s\n", it.ID, it.Detail, it.Title); err != nil {
+							return err
+						}
+					}
+					for _, it := range v.Questions.Items {
+						if _, err := fmt.Fprintf(w, "  question\t%s\t%s\tblocks %d\t%s\n", it.ID, it.Detail, it.Blocks, it.Title); err != nil {
 							return err
 						}
 					}

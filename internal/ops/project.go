@@ -139,6 +139,8 @@ type ProjectShowOutput struct {
 	Project ProjectView `json:"project"`
 	Body    string      `json:"body"`
 	Tasks   []TaskView  `json:"tasks"`
+	// Questions are the open questions in scope: the project's own and those of its tasks.
+	Questions []QuestionView `json:"questions"`
 }
 
 // ProjectShow returns a project and its tasks.
@@ -155,7 +157,11 @@ var ProjectShow = define("project_show", "Show a project and its tasks", func(ct
 	if err != nil {
 		return ProjectShowOutput{}, err
 	}
-	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks}, nil
+	qs, err := openQuestions(ctx, d.Store, func(x qrow) bool { return x.project == doc.ID })
+	if err != nil {
+		return ProjectShowOutput{}, err
+	}
+	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs}, nil
 })
 
 // ProjectCloseInput is the input of project_close.

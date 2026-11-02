@@ -35,6 +35,7 @@ type RFXAddInput struct {
 	Blocks    []string           `json:"blocks,omitempty"`     // ids this RFX blocks
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
+	Question  string             `json:"question,omitempty"`   // id of the question this request asks; a reply answers it
 }
 
 // TargetInput names one target of an RFX.
@@ -91,6 +92,19 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 		Blocks:         blocks,
 		DependsOn:      deps,
 		NextNudge:      model.Date(in.NextNudge),
+	}
+	if id := normID(in.Question); id != "" {
+		qd, q, err := getQuestion(ctx, d.Store, id)
+		if err != nil {
+			return RFXAddOutput{}, fmt.Errorf("question %s: %w", id, err)
+		}
+		if q.Status != model.QuestionOpen {
+			return RFXAddOutput{}, fmt.Errorf("question %s is already %s", id, q.Status)
+		}
+		if in.Direction != model.RFXOut {
+			return RFXAddOutput{}, errors.New("a question is asked by an outbound request")
+		}
+		meta.Question = model.LinkTo(qd.ID)
 	}
 	if p := normID(in.Project); p != "" {
 		links, err := existingLinks(ctx, d, "project", []string{p})

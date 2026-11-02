@@ -27,6 +27,7 @@ const (
 	TypeNote            Type = "note"
 	TypeIncident        Type = "incident"
 	TypeProposal        Type = "proposal"
+	TypeQuestion        Type = "question"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -34,7 +35,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident, TypeProposal,
+	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -56,13 +57,14 @@ const (
 	FolderRequests     Folder = "requests"
 	FolderIncidents    Folder = "incidents"
 	FolderProposals    Folder = "proposals"
+	FolderQuestions    Folder = "questions"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
-	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals,
+	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions,
 }
 
 // Valid reports whether f is a document folder.
@@ -382,3 +384,35 @@ func (IncidentStatus) Enum() []string { return enumStrings(IncidentStatuses) }
 
 // IncidentStatuses lists every IncidentStatus.
 var IncidentStatuses = []IncidentStatus{IncidentOpen, IncidentMitigated, IncidentResolved}
+
+// QuestionStatus is question.status.
+type QuestionStatus string
+
+const (
+	QuestionOpen     QuestionStatus = "open"
+	QuestionAnswered QuestionStatus = "answered"
+	QuestionDropped  QuestionStatus = "dropped"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (QuestionStatus) Enum() []string { return enumStrings(QuestionStatuses) }
+
+// QuestionStatuses lists every QuestionStatus.
+var QuestionStatuses = []QuestionStatus{QuestionOpen, QuestionAnswered, QuestionDropped}
+
+// QuestionKind is question.kind: what the owner is asked to give. A question
+// wants facts, a decision wants a choice and its reason, an input wants a thing
+// (a key, a date) that only the owner has.
+type QuestionKind string
+
+const (
+	KindQuestion QuestionKind = "question"
+	KindDecision QuestionKind = "decision"
+	KindInput    QuestionKind = "input"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (QuestionKind) Enum() []string { return enumStrings(QuestionKinds) }
+
+// QuestionKinds lists every QuestionKind.
+var QuestionKinds = []QuestionKind{KindQuestion, KindDecision, KindInput}

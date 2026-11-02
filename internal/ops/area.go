@@ -161,6 +161,9 @@ type AreaShowOutput struct {
 	// open tasks with a recurrence.
 	Incidents []IncidentView `json:"incidents"`
 	Recurring []TaskView     `json:"recurring"`
+	// Questions are the open questions in scope: the area's own, and those of
+	// its projects and tasks.
+	Questions []QuestionView `json:"questions"`
 }
 
 // AreaShow returns an area with its projects and tasks.
@@ -206,6 +209,9 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 		}
 	}
 	if out.Incidents, err = areaIncidents(ctx, d.Store, doc.ID, true); err != nil {
+		return AreaShowOutput{}, err
+	}
+	if out.Questions, err = openQuestions(ctx, d.Store, func(x qrow) bool { return x.area == doc.ID }); err != nil {
 		return AreaShowOutput{}, err
 	}
 	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Project] }); err != nil {

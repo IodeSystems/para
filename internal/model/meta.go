@@ -136,6 +136,8 @@ type RFX struct {
 	// Playbook links the document that answers this ask for good. An inbound
 	// RFX closes by linking one.
 	Playbook Link `yaml:"playbook,omitempty" json:"playbook,omitempty"`
+	// Question links the question this RFX asks. A reply to it answers the question.
+	Question Link `yaml:"question,omitempty" json:"question,omitempty"`
 }
 
 // Target is one person or group an RFX goes to, by one medium. Para records
@@ -305,6 +307,42 @@ type Incident struct {
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
 
+// ScopeRoot is the question scope of a vault-level question.
+const ScopeRoot Link = "root"
+
+// Question is type: question, something unknown that nobody has been asked
+// yet, or a decision or an input the owner owes. Scope is required: a link to
+// a project, a task, or an area, or ScopeRoot for the whole vault. The body
+// holds the question, then the answer under "## Answer".
+type Question struct {
+	Common `yaml:",inline"`
+	Status QuestionStatus `yaml:"status" json:"status"`
+	Kind   QuestionKind   `yaml:"kind,omitempty" json:"kind,omitempty"` // empty means question
+	Scope  Link           `yaml:"scope" json:"scope"`
+	// Options are the choices, when the question has a fixed set. Recommended is
+	// the one the asker suggests; it is one of Options.
+	Options     []string `yaml:"options,omitempty" json:"options,omitempty"`
+	Recommended string   `yaml:"recommended,omitempty" json:"recommended,omitempty"`
+	// RFX links the request that asks this question of a person.
+	RFX Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
+	// Choice, AnsweredBy, and Answered record the answer: the option picked, who
+	// answered, and when. The text and the reason are in the body.
+	Choice     string `yaml:"choice,omitempty" json:"choice,omitempty"`
+	AnsweredBy string `yaml:"answered_by,omitempty" json:"answered_by,omitempty"`
+	Answered   Date   `yaml:"answered,omitempty" json:"answered,omitempty"`
+}
+
+// IsRoot reports whether the scope is the whole vault.
+func (q *Question) IsRoot() bool { return q.Scope == ScopeRoot }
+
+// AsKind returns the kind, with an empty kind read as a question.
+func (q *Question) AsKind() QuestionKind {
+	if q.Kind == "" {
+		return KindQuestion
+	}
+	return q.Kind
+}
+
 // NewMeta returns an empty Meta of type t with Common.Type set.
 func NewMeta(t Type) (Meta, bool) {
 	c := Common{Type: t}
@@ -351,6 +389,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Incident{Common: c}, true
 	case TypeProposal:
 		return &Proposal{Common: c}, true
+	case TypeQuestion:
+		return &Question{Common: c}, true
 	}
 	return nil, false
 }

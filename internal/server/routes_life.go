@@ -2,7 +2,7 @@ package server
 
 import "github.com/iodesystems/parasolve/internal/ops"
 
-// registerLife: areas, notes, incidents, links, and dependency edits. Reads are GET with
+// registerLife: areas, notes, incidents, questions, links, and dependency edits. Reads are GET with
 // vault:read, writes POST with vault:write.
 func registerLife(r *registrar) {
 	reg(r, ops.AreaAdd, post, write)
@@ -23,6 +23,13 @@ func registerLife(r *registrar) {
 	reg(r, ops.IncidentStatus, post, write)
 	reg(r, ops.IncidentLinkAdd, post, write)
 	reg(r, ops.IncidentLinkRemove, post, write)
+	reg(r, ops.QuestionAdd, post, write)
+	reg(r, ops.QuestionList, get, read)
+	reg(r, ops.QuestionShow, get, read)
+	reg(r, ops.QuestionAnswer, post, write)
+	reg(r, ops.QuestionDrop, post, write)
+	reg(r, ops.QuestionAsk, post, write)
+	reg(r, ops.TaskToQuestion, post, write)
 	reg(r, ops.TaskDue, post, write)
 	reg(r, ops.TaskDependsAdd, post, write)
 	reg(r, ops.TaskDependsRemove, post, write)

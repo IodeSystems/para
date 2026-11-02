@@ -46,6 +46,9 @@ func CheckVault(files []*File) []Finding {
 					Msg: fmt.Sprintf("%s: %s has no block ^%s", lk.Raw, dst.Path, lk.Block)})
 			}
 		}
+		if f.Type() == "question" {
+			out = append(out, checkScope(f, byName)...)
+		}
 		if f.Type() == "policy" {
 			if src, ok := f.Frontmatter["source"].(map[string]any); ok && src["fidelity"] != "none" {
 				if _, ok := byName[strings.ToLower(f.Name+".source")]; !ok {
@@ -56,4 +59,23 @@ func CheckVault(files []*File) []Finding {
 		}
 	}
 	return out
+}
+
+// checkScope: a question is scoped to a project, a task, or an area, or to
+// root. Lint checks the shape of the field; only the vault can check the type of
+// the target. A target that does not exist is a link-unresolved finding.
+func checkScope(f *File, byName map[string]*File) []Finding {
+	scope, _ := f.Frontmatter["scope"].(string)
+	m := linkValRe.FindStringSubmatch(scope)
+	if m == nil { // root, or a shape error that Lint reports
+		return nil
+	}
+	dst, ok := byName[strings.ToLower(m[1])]
+	switch {
+	case !ok: // link-unresolved reports it
+	case dst.Type() != "project" && dst.Type() != "task" && dst.Type() != "area":
+		return []Finding{{Path: f.Path, Code: CodeScope, Severity: Error,
+			Msg: fmt.Sprintf("scope %s is a %s: want a project, a task, an area, or root", scope, dst.Type())}}
+	}
+	return nil
 }

@@ -63,6 +63,8 @@ func newAreaCmd(l *loader) *cobra.Command {
 				}
 				p.f("incidents\n")
 				writeIncidents(p, "  ", out.Incidents)
+				p.f("questions\n")
+				writeQuestions(p, "  ", out.Questions)
 				p.f("recurring\n")
 				for _, t := range out.Recurring {
 					p.f("  %s\t%s\t%s\t%s\t%s\n", t.ID, t.Recur, dash(string(t.Due)), orSelf(t.Assignee), t.Title)
@@ -137,6 +139,9 @@ func newWhereCmd(l *loader) *cobra.Command {
 				}
 				for _, v := range m.Incidents {
 					p.f("  incident\t%s\t%s\t%s\t%s\n", v.ID, v.Severity, v.Status, v.Title)
+				}
+				if len(m.Questions) > 0 {
+					writeQuestions(p, "  question\t", m.Questions)
 				}
 			}
 			return p.err

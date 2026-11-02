@@ -110,6 +110,13 @@ type Meta struct {
 	Revision       int              `json:"revision,omitempty"`
 	Supersedes     string           `json:"supersedes,omitempty"`
 	ProposedBy     string           `json:"proposed_by,omitempty"`
+	Options        []string         `json:"options,omitempty"`
+	Recommended    string           `json:"recommended,omitempty"`
+	RFX            string           `json:"rfx,omitempty"`
+	Question       string           `json:"question,omitempty"`
+	Choice         string           `json:"choice,omitempty"`
+	AnsweredBy     string           `json:"answered_by,omitempty"`
+	Answered       string           `json:"answered,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.
@@ -145,6 +152,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.RequestStatuses)
 	addEnum(reg, model.IncidentSeverities)
 	addEnum(reg, model.IncidentStatuses)
+	addEnum(reg, model.QuestionStatuses)
+	addEnum(reg, model.QuestionKinds)
 	addEnum(reg, model.ProposalStatuses)
 	addEnum(reg, model.ItemKinds)
 	addEnum(reg, model.ItemStates)

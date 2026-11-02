@@ -35,6 +35,10 @@ type GraphNode struct {
 	Area      string     `json:"area,omitempty"`
 	BlockedBy []string   `json:"blocked_by"`
 	WaitingOn []string   `json:"waiting_on"`
+	// Kind and Scope are set on a question: question, decision, or input, and
+	// the scope id or "root". An open question holds back what depends on it.
+	Kind  model.QuestionKind `json:"kind,omitempty"`
+	Scope string             `json:"scope,omitempty"`
 }
 
 // GraphEdge says From depends on To.
@@ -211,6 +215,20 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 		case *model.RFX:
 			add(GraphNode{ID: id, Type: model.TypeRFX, Title: doc.Title, Status: string(m.Status),
 				Project: m.Project.Target()}, resolved(doc), false)
+		case *model.Question:
+			gn := GraphNode{ID: id, Type: model.TypeQuestion, Title: doc.Title, Status: string(m.Status),
+				Kind: m.AsKind(), Scope: scopeID(m)}
+			if sd, err := scopeDoc(ctx, s, gn.Scope); err == nil {
+				switch sm := sd.Meta.(type) {
+				case *model.Project:
+					gn.Project = sd.ID
+				case *model.Area:
+					gn.Area = sd.ID
+				case *model.Task:
+					gn.Project, gn.Area = sm.Project.Target(), sm.Area.Target()
+				}
+			}
+			add(gn, resolved(doc), false)
 		default:
 			add(GraphNode{ID: id, Type: doc.Meta.Header().Type, Title: doc.Title}, false, false)
 		}
@@ -282,8 +300,11 @@ func Mermaid(o GraphOutput) string {
 			label = mermaidText(n.ID)
 		}
 		open, closing := "[", "]"
-		if n.Type == model.TypeRFX {
+		switch n.Type {
+		case model.TypeRFX:
 			open, closing = "([", "])"
+		case model.TypeQuestion:
+			open, closing = "{{", "}}"
 		}
 		fmt.Fprintf(&b, "  %s%s\"%s\"%s\n", alias[n.ID], open, label, closing)
 	}

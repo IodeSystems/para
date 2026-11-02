@@ -23,8 +23,11 @@ type Item struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Due   string `json:"due,omitempty"` // tasks: the due date
-	// Detail is extra text: "sev1 open" for an incident.
+	// Detail is extra text: "sev1 open" for an incident, "decision project-x"
+	// (kind and scope) for a question.
 	Detail string `json:"detail,omitempty"`
+	// Blocks counts what waits on an open question, through any chain.
+	Blocks int `json:"blocks,omitempty"`
 }
 
 // Group is a counted list.
@@ -39,6 +42,9 @@ type VaultToday struct {
 	// Incidents holds incidents not resolved (open or mitigated), worst first.
 	// They are shown before everything else.
 	Incidents Group `json:"incidents"`
+	// Questions holds the open questions of the vault, the ones that block the
+	// most first. A vault-level question has the scope root.
+	Questions Group `json:"questions"`
 	Due       Group `json:"due"`     // constraints whose review_by is today or earlier
 	Blocked   Group `json:"blocked"` // open tasks with status blocked or a blocked_by entry
 	Nudges    Group `json:"nudges"`  // open RFX whose next_nudge is today or earlier
@@ -99,7 +105,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	}
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
-		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
+		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Questions: Group{Items: []Item{}}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
 			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
@@ -138,9 +144,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		limit = t.AddDate(0, 0, ExpiringDays).Format(dateLayout)
 		soon = t.AddDate(0, 0, DueSoonDays).Format(dateLayout)
 	}
+	users := map[string][]string{} // id -> open tasks and requests that depend on it
 	for _, r := range refs {
 		switch r.Type {
-		case model.TypeIncident, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
 		case model.TypeInbox:
 			if r.Folder == model.FolderInbox {
 				vt.Inbox++
@@ -155,6 +162,15 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		}
 		item := Item{ID: d.ID, Title: d.Title}
 		switch m := d.Meta.(type) {
+		case *model.Question:
+			if m.Status == model.QuestionOpen {
+				scope := m.Scope.Target()
+				if m.IsRoot() {
+					scope = "root"
+				}
+				item.Detail = string(m.AsKind()) + " " + scope
+				vt.Questions.Items = append(vt.Questions.Items, item)
+			}
 		case *model.Incident:
 			if m.Status != model.IncidentResolved {
 				item.Detail = string(m.Severity) + " " + string(m.Status)
@@ -165,6 +181,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 				vt.Due.Items = append(vt.Due.Items, item)
 			}
 		case *model.RFX:
+			if m.Status == model.RFXOpen {
+				for _, l := range m.DependsOn {
+					users[l.Target()] = append(users[l.Target()], d.ID)
+				}
+			}
 			if m.Status == model.RFXOpen && m.NextNudge != "" && string(m.NextNudge) <= date {
 				vt.Nudges.Items = append(vt.Nudges.Items, item)
 			}
@@ -181,6 +202,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			}
 		case *model.Task:
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
+			if open {
+				for _, l := range m.DependsOn {
+					users[l.Target()] = append(users[l.Target()], d.ID)
+				}
+			}
 			if open && m.Assignee != "" && m.Assignee != "self" {
 				vt.Waiting++
 			}
@@ -207,6 +233,28 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		return a.ID < b.ID
 	})
 	vt.Incidents.Count = len(vt.Incidents.Items)
+	for i := range vt.Questions.Items {
+		it := &vt.Questions.Items[i]
+		seen, queue := map[string]bool{it.ID: true}, []string{it.ID}
+		for len(queue) > 0 {
+			for _, u := range users[queue[0]] {
+				if !seen[u] {
+					seen[u] = true
+					queue = append(queue, u)
+					it.Blocks++
+				}
+			}
+			queue = queue[1:]
+		}
+	}
+	sort.Slice(vt.Questions.Items, func(i, j int) bool {
+		a, b := vt.Questions.Items[i], vt.Questions.Items[j]
+		if a.Blocks != b.Blocks {
+			return a.Blocks > b.Blocks
+		}
+		return a.ID < b.ID
+	})
+	vt.Questions.Count = len(vt.Questions.Items)
 	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon} {
 		sort.Slice(g.Items, func(i, j int) bool {
 			if a, b := g.Items[i], g.Items[j]; a.Due != b.Due {

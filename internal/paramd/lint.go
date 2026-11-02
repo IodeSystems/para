@@ -47,6 +47,7 @@ const (
 	CodeNoTranscript = "transcript-missing"
 	CodeSummaryLong  = "summary-long"
 	CodeRecur        = "recur"
+	CodeScope        = "scope"
 )
 
 // MaxRuleLen is the longest allowed rule line, in characters. raglit
@@ -195,11 +196,33 @@ func (l *linter) frontmatter() {
 			}
 		}
 	}
+	if typ == "question" {
+		l.question()
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")
 		}
 	}
+}
+
+// question checks what the field kinds cannot: recommended names one option.
+func (l *linter) question() {
+	fm := l.f.Frontmatter
+	rec := str(fm["recommended"])
+	opts, _ := fm["options"].([]any)
+	if list, ok := fm["options"].([]any); ok && len(list) == 0 {
+		l.errf(1, CodeFieldValue, "field %q: omit it or list the options", "options")
+	}
+	if rec == "" {
+		return
+	}
+	for _, o := range opts {
+		if o == rec {
+			return
+		}
+	}
+	l.errf(1, CodeFieldValue, "field %q: %q is not one of the options", "recommended", rec)
 }
 
 func str(v any) string {
@@ -279,6 +302,18 @@ func (l *linter) checkValue(fd field, v any) {
 		case fd.Kind == kRuleLink && m[2] == "":
 			bad("%q must point at a rule block, like \"[[policy-name#^R4]]\"", s)
 		case fd.Kind == kLink && m[2] != "":
+			bad("%q must not carry a block id", s)
+		}
+	case kScope:
+		s, ok := v.(string)
+		m := linkValRe.FindStringSubmatch(s)
+		switch {
+		case ok && s == "root":
+		case !ok:
+			bad("must be one quoted wikilink such as \"[[acme-portal]]\", or the word root (an unquoted [[name]] is parsed as a YAML list, and two scopes are not allowed)")
+		case m == nil:
+			bad("%q is not a wikilink like \"[[name]]\", and is not root", s)
+		case m[2] != "":
 			bad("%q must not carry a block id", s)
 		}
 	case kSourceMap:

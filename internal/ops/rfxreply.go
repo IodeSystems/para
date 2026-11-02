@@ -61,7 +61,8 @@ type RFXReplyOutput struct {
 	Outcome     ReplyOutcome      `json:"outcome"`
 	State       model.TargetState `json:"state"`
 	Interaction string            `json:"interaction"`
-	Constraint  string            `json:"constraint"` // empty unless outcome no
+	Constraint  string            `json:"constraint"`         // empty unless outcome no
+	Question    string            `json:"question,omitempty"` // the question this reply answered
 	Warnings    []string          `json:"warnings"`
 	Rev         string            `json:"rev"`
 }
@@ -177,6 +178,13 @@ var RFXReply = define("rfx_reply", "Record a reply to a request: target replied,
 		return out, fmt.Errorf("interaction %s was made but the request was not updated: %w", ia.ID, err)
 	}
 	out.Rev = doc.Rev
+	if qid := m.Question.Target(); qid != "" {
+		answered, err := answerFromReply(ctx, d, qid, from, in)
+		if err != nil {
+			return out, fmt.Errorf("the reply was recorded but question %s was not answered: %w", qid, err)
+		}
+		out.Question = answered
+	}
 	if out.Warnings == nil {
 		out.Warnings = []string{}
 	}

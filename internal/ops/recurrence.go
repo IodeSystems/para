@@ -27,10 +27,13 @@ func recurWarning(s string) string {
 	return ""
 }
 
+const outcomeHeading = "## Outcome"
+
 // TaskDoneInput is the input of task_done.
 type TaskDoneInput struct {
 	ID   string `json:"id"`
 	Skip bool   `json:"skip,omitempty"` // a recurring task: advance without doing it (this one is dropped)
+	Note string `json:"note,omitempty"` // how it ended; stored under ## Outcome
 }
 
 // TaskDoneOutput is the output of task_done. Next is the id of the next
@@ -91,6 +94,9 @@ var TaskDone = define("task_done", "Mark a task done; a recurring task also gets
 		t.Status = model.TaskDropped
 	}
 	t.BlockedBy = nil
+	if note := strings.TrimSpace(in.Note); note != "" {
+		doc.Body = appendToSection(doc.Body, outcomeHeading, note)
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return TaskDoneOutput{}, err

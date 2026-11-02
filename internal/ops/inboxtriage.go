@@ -20,15 +20,16 @@ import (
 type TriageTarget string
 
 const (
-	TriageTask    TriageTarget = "task"
-	TriageRFX     TriageTarget = "rfx"
-	TriageProject TriageTarget = "project"
-	TriageNote    TriageTarget = "note" // a note document; with Person, a dated line in a person's notes
-	TriageDrop    TriageTarget = "drop" // archive with no new document
+	TriageTask     TriageTarget = "task"
+	TriageRFX      TriageTarget = "rfx"
+	TriageProject  TriageTarget = "project"
+	TriageNote     TriageTarget = "note"     // a note document; with Person, a dated line in a person's notes
+	TriageQuestion TriageTarget = "question" // an open question; it needs a scope
+	TriageDrop     TriageTarget = "drop"     // archive with no new document
 )
 
 // TriageTargets lists every TriageTarget.
-var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageDrop}
+var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageDrop}
 
 // Enum implements the MCP enum hook.
 func (TriageTarget) Enum() []string {
@@ -132,6 +133,12 @@ type InboxTriageInput struct {
 	// note: a note document (Area, Project), or with Person a person note (Date)
 	Person string `json:"person,omitempty"` // person id
 	Date   string `json:"date,omitempty"`   // YYYY-MM-DD; default the local date
+	// question: Project, Area, Task, or Root, exactly one
+	Task        string             `json:"task,omitempty"`
+	Root        bool               `json:"root,omitempty"`
+	Kind        model.QuestionKind `json:"kind,omitempty"`
+	Options     []string           `json:"options,omitempty"`
+	Recommended string             `json:"recommended,omitempty"`
 }
 
 // InboxTriageOutput is the output of inbox_triage.
@@ -149,7 +156,7 @@ type InboxTriageOutput struct {
 // gets a line that links forward, then moves to archive/. The new document is
 // made first: if the archive step fails, the item stays in the inbox and the
 // new document exists, so the error names it.
-var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, request, project, or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
+var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, request, project, question (it needs a scope), or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
 	doc, _, err := getInbox(ctx, d, in.ID)
 	if err != nil {
 		return InboxTriageOutput{}, err
@@ -189,6 +196,15 @@ var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, req
 			return out, err
 		}
 		out.Created, out.Warnings = r.ID, r.Warnings
+	case TriageQuestion:
+		r, err := QuestionAdd.Run(ctx, d, QuestionAddInput{
+			Text: joinBody(text, back), Project: in.Project, Task: in.Task, Area: in.Area, Root: in.Root,
+			Kind: in.Kind, Options: in.Options, Recommended: in.Recommended,
+		})
+		if err != nil {
+			return out, err
+		}
+		out.Created = r.ID
 	case TriageNote:
 		if in.Person == "" {
 			r, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: doc.Title, Body: joinBody(doc.Body, back), Area: in.Area, Project: in.Project})
@@ -239,23 +255,29 @@ func checkTriageFields(in InboxTriageInput) error {
 		return fmt.Errorf("to %q: want one of %v", in.To, TriageTargets)
 	}
 	have := map[string]bool{
-		"project":    in.Project != "",
-		"owner":      in.Owner != "",
-		"direction":  in.Direction != "",
-		"route":      in.Route != "",
-		"targets":    len(in.Targets) > 0,
-		"self_serve": in.SelfServe != "",
-		"next_nudge": in.NextNudge != "",
-		"area":       in.Area != "",
-		"person":     in.Person != "",
-		"date":       in.Date != "",
+		"project":     in.Project != "",
+		"owner":       in.Owner != "",
+		"direction":   in.Direction != "",
+		"route":       in.Route != "",
+		"targets":     len(in.Targets) > 0,
+		"self_serve":  in.SelfServe != "",
+		"next_nudge":  in.NextNudge != "",
+		"area":        in.Area != "",
+		"person":      in.Person != "",
+		"date":        in.Date != "",
+		"task":        in.Task != "",
+		"root":        in.Root,
+		"kind":        in.Kind != "",
+		"options":     len(in.Options) > 0,
+		"recommended": in.Recommended != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:    {"project", "area"},
-		TriageProject: {"owner", "area"},
-		TriageRFX:     {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
-		TriageNote:    {"person", "date", "area", "project"},
-		TriageDrop:    {},
+		TriageTask:     {"project", "area"},
+		TriageProject:  {"owner", "area"},
+		TriageRFX:      {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
+		TriageNote:     {"person", "date", "area", "project"},
+		TriageQuestion: {"project", "area", "task", "root", "kind", "options", "recommended"},
+		TriageDrop:     {},
 	}[in.To]
 	required := map[TriageTarget][]string{
 		TriageRFX: {"route"},

@@ -59,10 +59,10 @@ func newInboxCmd(l *loader) *cobra.Command {
 func newInboxTriageCmd(l *loader) *cobra.Command {
 	var to, via []string
 	return opCommand(l, ops.InboxTriage, binding[ops.InboxTriageInput, ops.InboxTriageOutput]{
-		Use:  "triage <id> --to task|rfx|project|note|drop",
+		Use:  "triage <id> --to task|rfx|project|note|question|drop",
 		Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.InboxTriageInput) {
-			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, or drop (required)")
+			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or drop (required)")
 			fs.StringVar(&in.Project, "project", "", "task: project id (or --area); rfx, note: optional")
 			fs.StringVar(&in.Owner, "owner", "", "project: owner (default the vault owner, else self)")
 			fs.StringVar((*string)(&in.Direction), "direction", "", "rfx: in or out (default out)")
@@ -74,6 +74,11 @@ func newInboxTriageCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Area, "area", "", "task, project, or note: area id")
 			fs.StringVar(&in.Person, "person", "", "note: person id; makes a dated line in their notes, not a note document")
 			fs.StringVar(&in.Date, "date", "", "note: YYYY-MM-DD; default today")
+			fs.StringVar(&in.Task, "task", "", "question: scope to this task (or --project, --area, --root: exactly one)")
+			fs.BoolVar(&in.Root, "root", false, "question: scope to the whole vault")
+			fs.StringVar((*string)(&in.Kind), "kind", "", "question: question, decision, or input")
+			fs.StringArrayVar(&in.Options, "option", nil, "question: a choice; repeatable")
+			fs.StringVar(&in.Recommended, "recommended", "", "question: the option you suggest")
 		},
 		Bind: func(args []string, in *ops.InboxTriageInput) error {
 			in.ID = args[0]

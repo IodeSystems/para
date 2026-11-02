@@ -93,6 +93,8 @@ func resolved(d model.Document) bool {
 		return taskTerminal(m.Status)
 	case *model.RFX:
 		return m.Status == model.RFXAnswered || m.Status == model.RFXClosed
+	case *model.Question:
+		return m.Status != model.QuestionOpen
 	}
 	return false
 }
@@ -253,6 +255,8 @@ type TaskShowInput struct {
 type TaskShowOutput struct {
 	Task TaskView `json:"task"`
 	Body string   `json:"body"`
+	// Questions are the open questions scoped to this task.
+	Questions []QuestionView `json:"questions"`
 }
 
 // TaskShow returns one task.
@@ -262,7 +266,11 @@ var TaskShow = define("task_show", "Show a task", func(ctx context.Context, d De
 		return TaskShowOutput{}, err
 	}
 	v, err := taskView(doc)
-	return TaskShowOutput{Task: v, Body: doc.Body}, err
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	qs, err := openQuestions(ctx, d.Store, func(x qrow) bool { return x.v.Scope == doc.ID })
+	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs}, err
 })
 
 // TaskChangeOutput is the output of task_start, task_done, and task_block.
@@ -404,15 +412,16 @@ var TaskDue = define("task_due", "Set or clear the due date of a task", func(ctx
 	return TaskDueOutput{ID: doc.ID, Due: t.Due, Recur: t.Recur, Rev: saved.Rev}, nil
 })
 
-// dependencyLink checks that id names a task or rfx, in any project or area.
+// dependencyLink checks that id names a task, an rfx, or a question, in any
+// project or area.
 func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
 	id := normID(raw)
 	dep, err := s.Get(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("depends_on %s: %w", id, err)
 	}
-	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX {
-		return "", fmt.Errorf("depends_on %s is a %s: want a task or rfx", id, typ)
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX && typ != model.TypeQuestion {
+		return "", fmt.Errorf("depends_on %s is a %s: want a task, rfx, or question", id, typ)
 	}
 	return model.LinkTo(id), nil
 }

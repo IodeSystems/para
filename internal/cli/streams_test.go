@@ -391,7 +391,7 @@ func TestEditDependencies(t *testing.T) {
 		{[]string{"task", "depends", "add", one, one}, "itself"},
 		{[]string{"task", "depends", "add", one, other, three}, "dependency cycle"},
 		{[]string{"task", "depends", "add", one, "task-nope"}, "not found"},
-		{[]string{"task", "depends", "add", one, p.ID}, "want a task or rfx"},
+		{[]string{"task", "depends", "add", one, p.ID}, "want a task, rfx, or question"},
 		{[]string{"task", "depends", "remove", one, two}, "does not depend"},
 	} {
 		if _, _, err := e.run(c.args...); err == nil || !strings.Contains(err.Error(), c.want) {

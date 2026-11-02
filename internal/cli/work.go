@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
@@ -94,6 +95,10 @@ func newProjectCmd(l *loader) *cobra.Command {
 				}
 				pr := &printer{w: w}
 				writeLinks(pr, p.Links)
+				if len(out.Questions) > 0 {
+					pr.f("questions\n")
+					writeQuestions(pr, "  ", out.Questions)
+				}
 				if pr.err != nil {
 					return pr.err
 				}
@@ -174,6 +179,12 @@ func newTaskCmd(l *loader) *cobra.Command {
 				t := out.Task
 				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
 					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				if err == nil && len(out.Questions) > 0 {
+					p := &printer{w: w}
+					p.f("questions\n")
+					writeQuestions(p, "  ", out.Questions)
+					err = p.err
+				}
 				return err
 			},
 		}),
@@ -205,6 +216,24 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return err
 			},
 		}),
+		opCommand(l, ops.TaskToQuestion, binding[ops.TaskToQuestionInput, ops.TaskToQuestionOutput]{
+			Use:  "to-question <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskToQuestionInput) {
+				fs.StringVar((*string)(&in.Kind), "kind", "", "question (default), decision, or input")
+				fs.StringArrayVar(&in.Options, "option", nil, "a choice; repeatable")
+				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
+			},
+			Bind: func(args []string, in *ops.TaskToQuestionInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.TaskToQuestionOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.Question, out.Task)
+				for _, id := range out.Relinked {
+					p.f("relinked\t%s\n", id)
+				}
+				return p.err
+			},
+		}),
 		newTaskDependsCmd(l),
 		opCommand(l, ops.TaskStart, binding[ops.TaskStartInput, ops.TaskChangeOutput]{
 			Use:  "start <id>",
@@ -220,6 +249,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskDoneInput) {
 				fs.BoolVar(&in.Skip, "skip", false, "a recurring task: advance to the next one without doing this one")
+				fs.StringVar(&in.Note, "note", "", "how it ended; stored under ## Outcome")
 			},
 			Bind: func(args []string, in *ops.TaskDoneInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskDoneOutput) error {
@@ -300,7 +330,7 @@ func newGraphCmd(l *loader) *cobra.Command {
 			}
 			for _, n := range out.Nodes {
 				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\twaiting_on=%s\tblocked_by=%s\n",
-					n.ID, n.Type, n.State, joinOrDash(n.WaitingOn), joinOrDash(n.BlockedBy)); err != nil {
+					n.ID, graphType(n), n.State, joinOrDash(n.WaitingOn), joinOrDash(n.BlockedBy)); err != nil {
 					return err
 				}
 			}
@@ -357,4 +387,12 @@ func newWaitingCmd(l *loader) *cobra.Command {
 			return nil
 		},
 	})
+}
+
+// graphType is the node type, with a question's kind and scope: question:decision:project-x.
+func graphType(n ops.GraphNode) string {
+	if n.Type != model.TypeQuestion {
+		return string(n.Type)
+	}
+	return string(n.Type) + ":" + string(n.Kind) + ":" + n.Scope
 }

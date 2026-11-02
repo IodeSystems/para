@@ -157,6 +157,8 @@ type WhereMatch struct {
 	Links  []model.Pointer `json:"links"`
 	// Incidents are the open and mitigated incidents of a matching area.
 	Incidents []IncidentView `json:"incidents"`
+	// Questions are the open questions in the scope of a matching area or project.
+	Questions []QuestionView `json:"questions"`
 }
 
 // WhereOutput is the output of where.
@@ -165,7 +167,7 @@ type WhereOutput struct {
 }
 
 // Where finds areas and projects by name or link label and returns their
-// links, so "where does the plan for X live?" has one answer. An area also
+// links and open questions, so "where does the plan for X live?" has one answer. An area also
 // lists its open incidents. Every word of
 // the query must appear in the id, title, or a link label (case-insensitive).
 // It reads no target.
@@ -202,6 +204,9 @@ var Where = define("where", "Find areas and projects by name or link label and s
 					if m.Incidents, err = areaIncidents(ctx, d.Store, doc.ID, false); err != nil {
 						return WhereOutput{}, err
 					}
+				}
+				if m.Questions, err = openQuestions(ctx, d.Store, func(x qrow) bool { return x.project == doc.ID || x.area == doc.ID }); err != nil {
+					return WhereOutput{}, err
 				}
 				out.Matches = append(out.Matches, m)
 			}

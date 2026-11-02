@@ -76,6 +76,10 @@ type ParaV1MutationNamespace {
   proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
   proposalRework(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalRework")
   proposalSendback(body: para_ProposalSendbackInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalSendback")
+  questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
+  questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
+  questionAsk(body: para_QuestionAskInputInput!): para_QuestionAskOutput @derived(operationId: "questionAsk")
+  questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
@@ -99,6 +103,7 @@ type ParaV1MutationNamespace {
   taskDone(body: para_TaskDoneInputInput!): para_TaskDoneOutput @derived(operationId: "taskDone")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
+  taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
@@ -148,6 +153,8 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
+  questionList(all: Boolean, area: String, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
+  questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
   rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
@@ -231,6 +238,7 @@ enum para_AreaAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -246,6 +254,7 @@ type para_AreaShowOutput {
   incidents: [para_IncidentView!]!
   notes: [para_NoteView!]!
   projects: [para_ProjectView!]!
+  questions: [para_QuestionView!]!
   recurring: [para_TaskView!]!
   tasks: [para_TaskView!]!
 }
@@ -272,6 +281,7 @@ enum para_AreaViewFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -494,6 +504,7 @@ enum para_DocumentFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -734,12 +745,20 @@ type para_GraphNode {
   area: String
   blockedBy: [String!]!
   id: String!
+  kind: para_GraphNodeKind
   project: String
+  scope: String
   state: String!
   status: String!
   title: String!
   type: para_GraphNodeType!
   waitingOn: [String!]!
+}
+
+enum para_GraphNodeKind {
+  decision
+  input
+  question
 }
 
 enum para_GraphNodeType {
@@ -758,6 +777,7 @@ enum para_GraphNodeType {
   policy_exception
   project
   proposal
+  question
   request
   rfx
   role
@@ -827,6 +847,7 @@ enum para_InboxAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -852,6 +873,7 @@ enum para_InboxItemFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -875,20 +897,32 @@ input para_InboxTriageInputInput {
   date: String
   direction: para_InboxTriageInputDirection
   id: String!
+  kind: para_InboxTriageInputKind
   nextNudge: String
+  options: [String!]
   owner: String
   person: String
   project: String
+  recommended: String
+  root: Boolean
   route: String
   selfServe: String
   targets: [para_TargetInputInput!]
+  task: String
   to: para_InboxTriageInputTo!
+}
+
+enum para_InboxTriageInputKind {
+  decision
+  input
+  question
 }
 
 enum para_InboxTriageInputTo {
   drop
   note
   project
+  question
   rfx
   task
 }
@@ -915,6 +949,7 @@ enum para_InboxTriageOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -924,6 +959,7 @@ enum para_InboxTriageOutputTo {
   drop
   note
   project
+  question
   rfx
   task
 }
@@ -961,6 +997,7 @@ enum para_IncidentAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1035,6 +1072,7 @@ enum para_IncidentViewFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1129,6 +1167,7 @@ enum para_InteractionAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1343,12 +1382,15 @@ type para_LintOutput {
 
 type para_Meta {
   aliases: [String!]
+  answered: String
+  answeredBy: String
   appliesIn: [String!]
   area: String
   assignee: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
+  choice: String
   claimedBy: String
   contacts: [para_Contact!]
   created: String!
@@ -1366,6 +1408,7 @@ type para_Meta {
   nextNudge: String
   notIn: [String!]
   of: String
+  options: [String!]
   org: String
   owner: String
   playbook: String
@@ -1373,12 +1416,15 @@ type para_Meta {
   previous: String
   project: String
   proposedBy: String
+  question: String
   queuedAt: String
+  recommended: String
   recur: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
   revision: Int
+  rfx: String
   role: String
   route: String
   rule: String
@@ -1431,6 +1477,7 @@ enum para_MetaType {
   policy_exception
   project
   proposal
+  question
   request
   rfx
   role
@@ -1476,6 +1523,7 @@ enum para_NoteAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1513,6 +1561,7 @@ enum para_NoteViewFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1549,6 +1598,7 @@ enum para_OrgAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1739,6 +1789,7 @@ enum para_ProjectAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1770,6 +1821,7 @@ enum para_ProjectCloseOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -1789,6 +1841,7 @@ type para_ProjectListOutput {
 type para_ProjectShowOutput {
   body: String!
   project: para_ProjectView!
+  questions: [para_QuestionView!]!
   tasks: [para_TaskView!]!
 }
 
@@ -1816,6 +1869,7 @@ enum para_ProjectViewFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2001,6 +2055,167 @@ enum para_ProposalWaitOutputStatus {
   superseded
 }
 
+input para_QuestionAddInputInput {
+  area: String
+  kind: para_QuestionAddInputKind
+  options: [String!]
+  project: String
+  recommended: String
+  root: Boolean
+  task: String
+  text: String!
+}
+
+enum para_QuestionAddInputKind {
+  decision
+  input
+  question
+}
+
+type para_QuestionAddOutput {
+  folder: para_QuestionAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_QuestionAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  org
+  policies
+  projects
+  proposals
+  questions
+  requests
+  resources
+  rfx
+}
+
+input para_QuestionAnswerInputInput {
+  by: String
+  choice: String
+  id: String!
+  source: String
+  text: String
+  why: String
+}
+
+type para_QuestionAnswerOutput {
+  answered: String
+  answeredBy: String
+  choice: String
+  id: String!
+  rev: String!
+  status: para_QuestionAnswerOutputStatus!
+  unblocked: [String!]!
+}
+
+enum para_QuestionAnswerOutputStatus {
+  answered
+  dropped
+  open
+}
+
+input para_QuestionAskInputInput {
+  id: String!
+  nextNudge: String
+  route: String!
+  selfServe: String
+  to: String!
+  value: String
+  via: para_QuestionAskInputVia!
+}
+
+enum para_QuestionAskInputVia {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_QuestionAskOutput {
+  id: String!
+  rev: String!
+  rfx: String!
+  warnings: [String!]!
+}
+
+input para_QuestionDropInputInput {
+  id: String!
+  reason: String
+}
+
+type para_QuestionListOutput {
+  questions: [para_QuestionView!]!
+}
+
+type para_QuestionShowOutput {
+  body: String!
+  question: para_QuestionView!
+}
+
+type para_QuestionView {
+  answered: String
+  answeredBy: String
+  blocking: Int!
+  blocks: [String!]!
+  choice: String
+  created: String!
+  folder: para_QuestionViewFolder!
+  id: String!
+  kind: para_QuestionViewKind!
+  options: [String!]!
+  recommended: String
+  rev: String!
+  rfx: String
+  scope: String!
+  scopeType: String!
+  status: para_QuestionViewStatus!
+  title: String!
+}
+
+enum para_QuestionViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  org
+  policies
+  projects
+  proposals
+  questions
+  requests
+  resources
+  rfx
+}
+
+enum para_QuestionViewKind {
+  decision
+  input
+  question
+}
+
+enum para_QuestionViewStatus {
+  answered
+  dropped
+  open
+}
+
 enum para_RFXAddInputDirection {
   in
   out
@@ -2013,6 +2228,7 @@ input para_RFXAddInputInput {
   direction: para_RFXAddInputDirection!
   nextNudge: String
   project: String
+  question: String
   route: String!
   selfServe: String
   targets: [para_TargetInputInput!]
@@ -2038,6 +2254,7 @@ enum para_RFXAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2102,6 +2319,7 @@ type para_RFXReplyOutput {
   id: String!
   interaction: String!
   outcome: para_RFXReplyOutputOutcome!
+  question: String
   rev: String!
   state: para_RFXReplyOutputState!
   warnings: [String!]!
@@ -2270,6 +2488,7 @@ enum para_RefFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2291,6 +2510,7 @@ enum para_RefType {
   policy_exception
   project
   proposal
+  question
   request
   rfx
   role
@@ -2326,6 +2546,7 @@ enum para_RequestAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2638,6 +2859,7 @@ enum para_TaskAddOutputFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2687,6 +2909,7 @@ type para_TaskDependsOutput {
 
 input para_TaskDoneInputInput {
   id: String!
+  note: String
   skip: Boolean
 }
 
@@ -2728,12 +2951,33 @@ type para_TaskListOutput {
 
 type para_TaskShowOutput {
   body: String!
+  questions: [para_QuestionView!]!
   task: para_TaskView!
 }
 
 input para_TaskStartInputInput {
   force: Boolean
   id: String!
+}
+
+input para_TaskToQuestionInputInput {
+  id: String!
+  kind: para_TaskToQuestionInputKind
+  options: [String!]
+  recommended: String
+}
+
+enum para_TaskToQuestionInputKind {
+  decision
+  input
+  question
+}
+
+type para_TaskToQuestionOutput {
+  question: String!
+  relinked: [String!]!
+  rev: String!
+  task: String!
 }
 
 type para_TaskView {
@@ -2767,6 +3011,7 @@ enum para_TaskViewFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2786,6 +3031,7 @@ type para_TodayGroup {
 }
 
 type para_TodayItem {
+  blocks: Int
   detail: String
   due: String
   id: String!
@@ -2803,6 +3049,7 @@ type para_TodayVaultToday {
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
   overdue: para_TodayGroup!
+  questions: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
   vault: String!
@@ -2871,6 +3118,7 @@ type para_WhereMatch {
   id: String!
   incidents: [para_IncidentView!]!
   links: [para_Pointer!]!
+  questions: [para_QuestionView!]!
   title: String!
   type: para_WhereMatchType!
 }
@@ -2888,6 +3136,7 @@ enum para_WhereMatchFolder {
   policies
   projects
   proposals
+  questions
   requests
   resources
   rfx
@@ -2909,6 +3158,7 @@ enum para_WhereMatchType {
   policy_exception
   project
   proposal
+  question
   request
   rfx
   role
@@ -2998,6 +3248,12 @@ enum para_proposalListStatus {
   open
   sent_back
   superseded
+}
+
+enum para_questionListStatus {
+  answered
+  dropped
+  open
 }
 
 enum para_requestListStatus {

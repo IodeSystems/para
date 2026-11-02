@@ -329,7 +329,7 @@ func TestEveryOpHasACommand(t *testing.T) {
 	walk(root, func(c *cobra.Command) {
 		if name := c.Annotations[opAnnotation]; name != "" {
 			path := strings.TrimPrefix(c.CommandPath(), root.Name()+" ")
-			got[name] = strings.ReplaceAll(path, " ", "_")
+			got[name] = strings.NewReplacer(" ", "_", "-", "_").Replace(path) // task to-question is op task_to_question
 		}
 	})
 	for _, e := range ops.All() {
@@ -421,6 +421,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	maps.Copy(cases, streamSParityCases())
 	seedStreamUParity(t, deps)
 	maps.Copy(cases, streamUParityCases())
+	seedQuestionParity(t, deps)
+	maps.Copy(cases, questionParityCases())
 	seedProposalParity(t, deps)
 	proposalCases, proposalStdins := proposalParityCases()
 	maps.Copy(cases, proposalCases)
