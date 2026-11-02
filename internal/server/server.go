@@ -26,7 +26,9 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/gat"
 
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/netguard"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // maxBody caps a request body. Ingest and policy text can exceed huma's 1 MiB.
@@ -139,6 +141,10 @@ func (s *Server) access(next http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" {
+			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
+				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate")}))
+		}
 		next.ServeHTTP(sw, r)
 		req, _ := netguard.From(r.Context())
 		s.log.Info("request", "method", r.Method, "path", req.Path, "status", sw.status,

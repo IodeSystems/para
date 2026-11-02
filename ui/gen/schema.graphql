@@ -210,6 +210,7 @@ type ParaV1QueryNamespace {
     """document type, such as task, project, note, policy"""
     type: String
   ): para_SearchOutput @derived(operationId: "search")
+  similar(title: String!, type: para_similarType!): para_SimilarOutput @derived(operationId: "similar")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
@@ -1517,6 +1518,7 @@ input para_ItemInputInput {
   input: JSON
   kind: para_ItemInputKind!
   medium: String
+  notDuplicate: String
   op: String
   people: [String!]
   previous: String
@@ -1581,6 +1583,7 @@ type para_ItemView {
   impact: String
   input: JSON
   kind: para_ItemViewKind!
+  notDuplicate: String
   op: String
   openNotes: Int!
   people: [String!]
@@ -3578,6 +3581,45 @@ type para_SessionView {
   vault: String!
 }
 
+type para_Similar {
+  action: String!
+  id: String!
+  match: String!
+  title: String!
+  type: para_SimilarType!
+}
+
+type para_SimilarOutput {
+  items: [para_Similar!]!
+}
+
+enum para_SimilarType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
 type para_Source {
   backend: String
   checked: String
@@ -4223,6 +4265,33 @@ enum para_rfxListStatus {
 enum para_rfxWaitingDirection {
   in
   out
+}
+
+enum para_similarType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
 }
 
 enum para_taskListStatus {

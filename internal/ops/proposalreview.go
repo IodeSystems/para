@@ -475,6 +475,7 @@ func runItem(ctx context.Context, d Deps, it model.ProposalItem, actor string) (
 	if err != nil {
 		return "", err
 	}
+	ctx = WithWrite(ctx, WriteMeta{Why: firstOf(it.How, it.Evidence.Quote), Sources: []string{it.Evidence.Locator}, NotDuplicate: it.NotDuplicate})
 	out, err := registry[it.Op].Invoke(ctx, Deps{Store: d.Store.ActAs(actor, surfaceProposal)}, raw)
 	if err != nil {
 		return "", err
@@ -485,6 +486,15 @@ func runItem(ctx context.Context, d Deps, it model.ProposalItem, actor string) (
 		}
 	}
 	return outputID(out), nil
+}
+
+func firstOf(list ...string) string {
+	for _, s := range list {
+		if strings.TrimSpace(s) != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func outputID(out any) string {

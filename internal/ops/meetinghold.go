@@ -83,7 +83,7 @@ func flattenHeadings(text string) string {
 }
 
 // MeetingHold records a meeting as held.
-var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies to its requests (rfx_reply), answers to questions (question_answer), and action items as tasks linked to the meeting", func(ctx context.Context, d Deps, in MeetingHoldInput) (MeetingHoldOutput, error) {
+var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, replies to its requests (rfx_reply), answers to questions (question_answer), and action items as tasks linked to the meeting", func(ctx context.Context, d Deps, in MeetingHoldInput) (MeetingHoldOutput, error) {
 	doc, m, err := getMeeting(ctx, d.Store, in.ID)
 	if err != nil {
 		return MeetingHoldOutput{}, err

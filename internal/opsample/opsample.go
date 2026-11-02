@@ -128,6 +128,7 @@ var Inputs = map[string]string{
 	"receipt_show":      `{"id":"receipt-sample"}`,
 	"receipt_check":     `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_revert":    `{"id":"receipt-sample"}`,
+	"similar":           `{"type":"task","title":"Sample task"}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,
 	"proposal_wait":     `{"id":"proposal-decided"}`,

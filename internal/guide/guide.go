@@ -43,6 +43,8 @@ var (
 	importCorpus string
 	//go:embed healthtriage.txt
 	healthTriage string
+	//go:embed importsteps.txt
+	importSteps string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -89,9 +91,19 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review.\"\n---\n\n" +
-		"# para\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault.\"\nargument-hint: \"[import <folder|file>]\"\n---\n\n" +
+		"# para\n\n" + skillRoute + "\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
+
+// skillRoute reads the skill's arguments. Other subcommands can come here.
+const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. With no arguments, work as below."
+
+// SkillImportFile is the name of the import steps, beside SKILL.md.
+const SkillImportFile = "import.md"
+
+// SkillImport is the import reference file of the skill, loaded only when import
+// is asked.
+func SkillImport() string { return trim(importSteps) + "\n\n" + Rule() + "\n" }
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.

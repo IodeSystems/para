@@ -217,7 +217,7 @@ var ReceiptRevert = defineSafe("receipt_revert", "Put a document back to the tex
 		return ReceiptRevertOutput{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
 	if e, ok := registry[r.Op]; ok && e.Risk() == RiskReview && agentSurface(d) {
-		return ReceiptRevertOutput{}, needsProposal("receipt_revert of " + r.Op)
+		return ReceiptRevertOutput{}, fmt.Errorf("reverting %s: %w", r.Op, ErrNeedsProposal)
 	}
 	cur, err := d.Store.Get(ctx, r.Doc)
 	if err != nil {
@@ -249,8 +249,3 @@ var ReceiptRevert = defineSafe("receipt_revert", "Put a document back to the tex
 	}
 	return ReceiptRevertOutput{Doc: saved.ID, Rev: saved.Rev}, nil
 })
-
-// needsProposal is the refusal that sends an agent to a proposal.
-func needsProposal(what string) error {
-	return fmt.Errorf("%s needs the owner: file a proposal with proposal_add, kind para", what)
-}

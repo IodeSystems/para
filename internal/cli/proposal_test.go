@@ -89,6 +89,7 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_note":     {`{"id":"proposal-pb","item":"i1","quote":"Hi","note":"No."}`, []string{"proposal", "note", "proposal-pb", "i1", "--quote", "Hi", "No."}, false},
 		"proposal_edit":     {`{"id":"proposal-pa","item":"i9","draft":"Changed."}`, []string{"proposal", "edit", "proposal-pa", "i9", "--draft", "Changed again."}, false},
 		"proposal_sendback": {`{"id":"proposal-pb","item":"i2"}`, []string{"proposal", "sendback", "proposal-pb", "i1"}, false},
+		"similar":           {`{"type":"task","title":"Sample"}`, []string{"similar", "task", "Sample"}, false},
 		"receipt_list":      {`{}`, []string{"receipt", "list"}, false},
 		"receipt_show":      {`{"id":"receipt-rc-a"}`, []string{"receipt", "show", "receipt-rc-a"}, false},
 		"receipt_check":     {`{"id":"receipt-rc-a","verdict":"verified"}`, []string{"receipt", "check", "receipt-rc-b", "verified"}, false},

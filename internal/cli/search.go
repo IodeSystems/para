@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/iodesystems/parasolve/internal/index"
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
@@ -75,6 +76,24 @@ func newSearchCmd(l *loader) *cobra.Command {
 				}
 			}
 			return nil
+		},
+	})
+}
+
+func newSimilarCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.SimilarOp, binding[ops.SimilarInput, ops.SimilarOutput]{
+		Use:  "similar <type> <title>",
+		Args: cobra.MinimumNArgs(2),
+		Bind: func(args []string, in *ops.SimilarInput) error {
+			in.Type, in.Title = model.Type(args[0]), strings.Join(args[1:], " ")
+			return nil
+		},
+		Text: func(w io.Writer, out ops.SimilarOutput) error {
+			p := &printer{w: w}
+			for _, s := range out.Items {
+				p.f("%s\t%s\t%s\t%s\t%s\n", s.ID, s.Type, s.Match, s.Action, s.Title)
+			}
+			return p.err
 		},
 	})
 }

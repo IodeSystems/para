@@ -36,7 +36,8 @@ const rules = `Rules:
 6. A no is recorded with its reason, who said it, and a source URL (rfx_reply with outcome no). Do not record a no without a reason.
 7. Triage the inbox with inbox_triage. It archives the capture; nothing is deleted.
 8. Take no public or external action without an accepted proposal item. File one with proposal_add, show the owner review_command and review_url, and wait for the decision. Only a person can approve.
-9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.`
+9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.
+10. An op that changes what the owner decides (close, drop, status on goals, policy, people, move) is refused from you, as is any write with confidence low: file a proposal. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.`
 
 // Options configures a Server.
 type Options struct {

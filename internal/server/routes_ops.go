@@ -118,6 +118,7 @@ func registerRecords(r *registrar) {
 	// journal_summary changes one marked section of a journal and nothing else.
 	reg(r, ops.JournalSummary, post, write)
 	reg(r, ops.Search, get, read)
+	reg(r, ops.SimilarOp, get, read)
 }
 
 func registerRequests(r *registrar) {

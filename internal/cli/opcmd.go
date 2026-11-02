@@ -58,6 +58,9 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		if err != nil {
 			return err
 		}
+		for _, s := range ops.SimilarFor(cmd.Context(), deps.Store, op.Name(), in) {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "similar: %s\n", s.Title)
+		}
 		out, err := op.Run(cmd.Context(), deps, in)
 		if err != nil {
 			return err

@@ -181,7 +181,7 @@ func (t *Tenant) apiError(err error) error {
 	var lint *model.LintError
 	var path *fs.PathError
 	switch {
-	case errors.Is(err, ops.ErrPersonOnly):
+	case errors.Is(err, ops.ErrPersonOnly), errors.Is(err, ops.ErrNeedsProposal):
 		return huma.Error403Forbidden(t.public(err))
 	case errors.Is(err, model.ErrNotFound):
 		return huma.Error404NotFound(t.public(err))

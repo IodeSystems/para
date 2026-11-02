@@ -199,11 +199,12 @@ func addFields(t reflect.Type, depth int, props map[string]any, required *[]stri
 
 // metaProps are the fields a write tool takes beside the op's own input.
 var metaProps = map[string]schema{
-	"why":        {"type": "string", "description": "Why you make this write. Required. Stored in the receipt"},
-	"sources":    {"type": "array", "items": schema{"type": "string"}, "description": "URLs or document ids this write rests on"},
-	"verify":     {"type": "string", "description": "How the owner can check it: a link, or a check they can do"},
-	"confidence": {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. A low-confidence write is refused: file a proposal"},
-	"request":    {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
+	"why":           {"type": "string", "description": "Why you make this write. Required. Stored in the receipt"},
+	"sources":       {"type": "array", "items": schema{"type": "string"}, "description": "URLs or document ids this write rests on"},
+	"verify":        {"type": "string", "description": "How the owner can check it: a link, or a check they can do"},
+	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. A low-confidence write is refused: file a proposal"},
+	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
+	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
 }
 
 // toolSchema is the input schema of a tool: the op's Input and, on a write, the
@@ -272,6 +273,7 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (con
 		return ctx, input, fmt.Errorf("confidence %q: want low, medium, or high", c)
 	}
 	m.Request, _ = take("request").(string)
+	m.NotDuplicate, _ = take("not_duplicate").(string)
 	b, err := json.Marshal(args)
 	if err != nil {
 		return ctx, input, errors.New("input: not JSON")

@@ -134,11 +134,16 @@ func (m *Model) loadExportList() tea.Cmd {
 func (m *Model) capture(text string) tea.Cmd {
 	env := m.env
 	return func() tea.Msg {
+		hint := ops.SimilarFor(context.Background(), env.Deps.Store, "task_add", ops.TaskAddInput{Title: text})
 		_, err := ops.InboxAdd.Run(context.Background(), env.Deps, ops.InboxAddInput{Text: text})
 		if err != nil {
 			return doneMsg{err: err}
 		}
-		return doneMsg{text: "Captured: " + truncate(oneLine(text), 60), reload: true}
+		said := "Captured: " + truncate(oneLine(text), 60)
+		if len(hint) > 0 {
+			said += ". similar: " + truncate(hint[0].Title, 40)
+		}
+		return doneMsg{text: said, reload: true}
 	}
 }
 

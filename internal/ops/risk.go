@@ -2,6 +2,7 @@ package ops
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -33,6 +34,8 @@ type WriteMeta struct {
 	Verify     string // a link, or a check the owner can do
 	Confidence model.Confidence
 	Request    string // the request this write serves; default the one the actor holds
+	// NotDuplicate is why this create is not one of the likely matches.
+	NotDuplicate string
 }
 
 type (
@@ -72,6 +75,16 @@ func needsRecord(ctx context.Context, d Deps) bool {
 // receipt for each document. A failed op may have written: its receipts are
 // still filed.
 func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, error) {
+	if agentSurface(d) && !o.person && !slices.Contains(FlowOps, o.name) {
+		if err := checkGate(d, o.name, o.risk, writeMeta(ctx)); err != nil {
+			var zero O
+			return zero, fmt.Errorf("%s: %w", o.name, err)
+		}
+		if err := checkCreate(ctx, d.Store, o.name, inputMap(in), writeMeta(ctx).NotDuplicate); err != nil {
+			var zero O
+			return zero, fmt.Errorf("%s: %w", o.name, err)
+		}
+	}
 	rec := newRecorder(d.Store)
 	inner := d
 	inner.Store = rec
@@ -83,6 +96,55 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		return out, errors.Join(err, fmt.Errorf("%s: the write happened, but its receipt failed: %w", o.name, ferr))
 	}
 	return out, err
+}
+
+// agentReview is the vault.properties key that tightens the gate: all sends every
+// write to a proposal, and op names are let through. Example: all,task_done.
+const agentReview = "agent.review"
+
+// ErrNeedsProposal is an agent write the gate refused.
+var ErrNeedsProposal = errors.New("this needs the owner: file a proposal with proposal_add, kind para")
+
+// checkGate is the review gate, in para and not in the prompt. From an agent, a
+// review op or a low-confidence write is refused with a way forward. External
+// actions are always proposals: para has no op that sends.
+func checkGate(d Deps, op string, risk Risk, m WriteMeta) error {
+	conf, err := d.Store.Config(agentReview)
+	if err != nil {
+		return err
+	}
+	all, allow := false, false
+	for _, w := range strings.Split(conf, ",") {
+		switch w = strings.TrimSpace(w); w {
+		case "all":
+			all = true
+		case op:
+			allow = true
+		}
+	}
+	switch {
+	case m.Confidence == model.ConfidenceLow:
+		return fmt.Errorf("a low-confidence write: %w", ErrNeedsProposal)
+	case allow:
+		return nil
+	case all:
+		return fmt.Errorf("%s=all: %w", agentReview, ErrNeedsProposal)
+	case risk == RiskReview:
+		return fmt.Errorf("%s changes what the owner decides: %w", op, ErrNeedsProposal)
+	}
+	return nil
+}
+
+func inputMap(in any) map[string]any {
+	b, err := json.Marshal(in)
+	if err != nil {
+		return nil
+	}
+	var m map[string]any
+	if json.Unmarshal(b, &m) != nil {
+		return nil
+	}
+	return m
 }
 
 // touched is one document a write changed.
@@ -188,7 +250,7 @@ func createReceipt(ctx context.Context, d Deps, in receiptInput) (string, error)
 		Meta: &model.Receipt{
 			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request,
 			Why: strings.TrimSpace(in.meta.Why), Sources: in.meta.Sources, Verify: strings.TrimSpace(in.meta.Verify), Confidence: conf,
-			Check: model.ReceiptUnchecked, SelfReported: in.selfReported,
+			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate),
 		},
 	})
 	if err != nil {

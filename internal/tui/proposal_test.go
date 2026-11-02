@@ -31,7 +31,7 @@ func mailItem(draft string) ops.ItemInput {
 }
 
 func (v *testVault) taskItem(title string) ops.ItemInput {
-	return ops.ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": v.ids["project"], "title": title, "done_when": "It exists."}, Evidence: tuiEvidence}
+	return ops.ItemInput{NotDuplicate: "test", Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": v.ids["project"], "title": title, "done_when": "It exists."}, Evidence: tuiEvidence}
 }
 
 func (d *drv) item(v *testVault, id, item string) ops.ItemView {

@@ -69,7 +69,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.HealthTriage()} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.SkillImport(), guide.HealthTriage()} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {
@@ -208,6 +208,12 @@ func TestSkillInstall(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(dir, "para", "SKILL.md"))
 	if err != nil || string(b) != guide.Skill() {
 		t.Fatalf("installed skill differs: %v", err)
+	}
+	if !strings.Contains(guide.Skill(), "`import <path>`") || !strings.Contains(guide.Skill(), guide.SkillImportFile) {
+		t.Fatal("the skill does not route import")
+	}
+	if b, err = os.ReadFile(filepath.Join(dir, "para", guide.SkillImportFile)); err != nil || string(b) != guide.SkillImport() {
+		t.Fatalf("installed import steps differ: %v", err)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -726,5 +727,100 @@ func TestPersonWriteLeavesNoReceipt(t *testing.T) {
 	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{})
 	if len(list.Items) != 0 {
 		t.Fatalf("receipts = %+v", list.Items)
+	}
+}
+
+func TestReviewGate(t *testing.T) {
+	f := newPropFix(t)
+	ctx := writeCtx(t)
+	if _, err := ProjectClose.Run(ctx, f.agent, ProjectCloseInput{ID: f.proj, Force: true}); !errors.Is(err, ErrNeedsProposal) {
+		t.Fatalf("review op from an agent: %v", err)
+	}
+	low := WithWrite(t.Context(), WriteMeta{Why: "Guess.", Confidence: model.ConfidenceLow})
+	if _, err := InboxAdd.Run(low, f.agent, InboxAddInput{Text: "low"}); !errors.Is(err, ErrNeedsProposal) {
+		t.Fatalf("low confidence: %v", err)
+	}
+	if _, err := InboxAdd.Run(ctx, f.agent, InboxAddInput{Text: "fine"}); err != nil {
+		t.Fatalf("safe write: %v", err)
+	}
+	if _, err := ProjectClose.Run(t.Context(), f.owner, ProjectCloseInput{ID: f.proj, Force: true}); err != nil {
+		t.Fatalf("a person: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(f.root, ".para", "vault.properties"), []byte("agent.review=all,note_add\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := InboxAdd.Run(ctx, f.agent, InboxAddInput{Text: "tight"}); !errors.Is(err, ErrNeedsProposal) {
+		t.Fatalf("agent.review=all: %v", err)
+	}
+	if _, err := NoteAdd.Run(ctx, f.agent, NoteAddInput{Title: "Allowed note"}); err != nil {
+		t.Fatalf("listed op: %v", err)
+	}
+	if _, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "Still filed", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{reviewItem("x")}}); err != nil {
+		t.Fatalf("a proposal is always the way: %v", err)
+	}
+}
+
+func TestEveryOpHasARisk(t *testing.T) {
+	want := map[string]Risk{"task_list": RiskRead, "inbox_add": RiskSafe, "project_close": RiskReview, "org_person_add": RiskReview, "proposal_approve": RiskReview}
+	for _, e := range All() {
+		if !slices.Contains([]Risk{RiskRead, RiskSafe, RiskReview}, e.Risk()) {
+			t.Errorf("%s: risk %q", e.Name(), e.Risk())
+		}
+		if w, ok := want[e.Name()]; ok && e.Risk() != w {
+			t.Errorf("%s: risk %s, want %s", e.Name(), e.Risk(), w)
+		}
+	}
+}
+
+func TestSearchBeforeCreate(t *testing.T) {
+	f := newPropFix(t)
+	ctx := writeCtx(t)
+	first, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys", DoneWhen: "Keys are new."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Exact title.
+	_, err = TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "rotate the  staging keys", DoneWhen: "x"})
+	if err == nil || !strings.Contains(err.Error(), first.ID) || !strings.Contains(err.Error(), "Rotate the staging keys") {
+		t.Fatalf("duplicate: %v", err)
+	}
+	// Near title, and a near type.
+	_, err = QuestionAdd.Run(ctx, f.agent, QuestionAddInput{Text: "Rotate staging keys", Project: f.proj})
+	if err == nil || !strings.Contains(err.Error(), first.ID) {
+		t.Fatalf("near type: %v", err)
+	}
+	// An override with a reason passes and lands in the receipt.
+	over := WithWrite(t.Context(), WriteMeta{Why: "w", NotDuplicate: "This one is for production."})
+	dup, err := TaskAdd.Run(over, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys", DoneWhen: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{Doc: dup.ID})
+	if len(list.Items) != 1 || list.Items[0].NotDuplicate != "This one is for production." {
+		t.Fatalf("receipt = %+v", list.Items)
+	}
+	// A person is never refused.
+	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys"}); err != nil {
+		t.Fatalf("person: %v", err)
+	}
+	if hint := SimilarFor(t.Context(), f.owner.Store, "task_add", TaskAddInput{Title: "Rotate the staging keys"}); len(hint) == 0 {
+		t.Fatal("no hint")
+	}
+	// A proposal item that creates is held to the same rule.
+	item := paraTask(f, "Rotate the staging keys")
+	if _, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{item}}); err == nil || !strings.Contains(err.Error(), "may already exist") {
+		t.Fatalf("proposal item: %v", err)
+	}
+	item.NotDuplicate = "Another environment."
+	f.add(item)
+	// A closed match is not a match.
+	if _, err := TaskDone.Run(t.Context(), f.owner, TaskDoneInput{ID: first.ID}); err != nil {
+		t.Fatal(err)
+	}
+	near, _ := SimilarOp.Run(t.Context(), f.owner, SimilarInput{Type: model.TypeTask, Title: "Rotate the staging keys"})
+	for _, s := range near.Items {
+		if s.ID == first.ID {
+			t.Fatalf("closed match: %+v", near.Items)
+		}
 	}
 }

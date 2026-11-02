@@ -85,6 +85,8 @@ type ItemInput struct {
 	Choice          string           `json:"choice,omitempty"`
 	For             string           `json:"for,omitempty"`
 	Group           string           `json:"group,omitempty"`
+	// NotDuplicate says why a para item that creates is not a likely match.
+	NotDuplicate string `json:"not_duplicate,omitempty"`
 	// Medium and Draft are the old names of subtype and body.
 	Medium string `json:"medium,omitempty"`
 	Draft  string `json:"draft,omitempty"`
@@ -164,9 +166,14 @@ func newItem(ctx context.Context, d Deps, in ItemInput, id string, rules Proposa
 		if err := checkOpItem(in.Op, in.Input); err != nil {
 			return it, err
 		}
-		it.Op, it.Input = in.Op, in.Input
+		it.Op, it.Input, it.NotDuplicate = in.Op, in.Input, strings.TrimSpace(in.NotDuplicate)
 		if err := checkProposedAnswer(ctx, d, it); err != nil {
 			return it, err
+		}
+		if agentSurface(d) {
+			if err := checkCreate(ctx, d.Store, in.Op, in.Input, in.NotDuplicate); err != nil {
+				return it, err
+			}
 		}
 	case model.ItemExternal:
 		it.Kind = model.ItemAction

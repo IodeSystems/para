@@ -59,7 +59,11 @@ func newSkillCmd() *cobra.Command {
 			if err := atomicfile.Write(file, []byte(guide.Skill()), 0o644); err != nil {
 				return fmt.Errorf("skill: %w", err)
 			}
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), "installed", file)
+			extra := filepath.Join(target, guide.SkillImportFile)
+			if err := atomicfile.Write(extra, []byte(guide.SkillImport()), 0o644); err != nil {
+				return fmt.Errorf("skill: %w", err)
+			}
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), "installed", file, extra)
 			return err
 		},
 	}

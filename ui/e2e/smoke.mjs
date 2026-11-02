@@ -914,6 +914,16 @@ try {
   await receiptCard.waitFor({ state: 'hidden' })
   check(written.id !== '', 'one click marks a receipt verified')
 
+  // The review gate is in para: from an agent a review op is gateNo, with the way forward.
+  const gateNo = await agent
+    .call('project_close', { id: proj, force: true })
+    .catch((e) => e.message)
+  check(/file a proposal/.test(String(gateNo)), 'a review op from an agent is refused')
+  const dup = await agent
+    .call('note_add', { title: 'Quota numbers', why: 'Again.' })
+    .catch((e) => e.message)
+  check(/may already exist/.test(String(dup)), 'an agent create with a match is refused')
+
   // A decision from an agent is weighed; the owner reads a comparison table.
   const weighed = await agent.call('question_add', {
     text: 'Which quota size?',

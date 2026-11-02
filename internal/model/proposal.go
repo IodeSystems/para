@@ -333,6 +333,8 @@ type ProposalItem struct {
 	// Group is a label for bulk approve, such as a type in an import. It only
 	// groups; unlike Bundle it ties nothing together.
 	Group string `yaml:"group,omitempty" json:"group,omitempty"`
+	// NotDuplicate says why a create is not a likely match. It goes to the receipt.
+	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
 
 	State        ItemState `yaml:"state" json:"state"`
 	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`

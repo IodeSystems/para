@@ -20,6 +20,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useAreas } from '@/api/areas'
 import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
+import { SimilarHint } from '@/components/SimilarHint'
 import { usePeople } from '@/api/people'
 import { useOpenProposals } from '@/api/proposals'
 import { useWork } from '@/api/work'
@@ -105,6 +106,7 @@ function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => 
           autoFocus
           fullWidth
         />
+        <SimilarHint type="task" title={text} />
         <Typography variant="caption" color="text.secondary">
           Goes to the inbox. Sort it later. Ctrl+Enter captures.
         </Typography>

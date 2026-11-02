@@ -75,7 +75,7 @@ func (f *fixture) sampleToken() string { return f.key(f.keyA, "agent", allScopes
 // so it goes through a browser session of the same key.
 func (f *fixture) sign(c *call, e ops.Entry, tok string) {
 	f.t.Helper()
-	if !e.PersonOnly() {
+	if !e.PersonOnly() && e.Risk() != ops.RiskReview {
 		c.token = tok
 		return
 	}
