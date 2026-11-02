@@ -163,3 +163,35 @@ func TestMCPHarnessHelpNoVault(t *testing.T) {
 		t.Errorf("no vault:\n%s", out)
 	}
 }
+
+func TestDefaultVault(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	e.init("globex")
+	if _, _, err := e.run("inbox", "add", "x"); err == nil {
+		t.Fatal("two vaults and no default must fail")
+	}
+	if out := e.ok("vault", "set-default", "globex"); !strings.Contains(out, "globex") {
+		t.Fatal(out)
+	}
+	e.ok("inbox", "add", "x")
+	if out := e.ok("vault", "list"); !strings.Contains(out, "default") {
+		t.Fatalf("list: %s", out)
+	}
+	if out := e.ok("--vault", "acme", "vault", "use-check"); !strings.Contains(out, "acme") {
+		t.Fatalf("flag must beat the default: %s", out)
+	}
+	if _, _, err := e.run("mcp"); err == nil || !strings.Contains(err.Error(), "--vault") {
+		t.Fatalf("mcp must refuse the default: %v", err)
+	}
+	if _, _, err := e.run("vault", "set-default", "nope"); err == nil {
+		t.Fatal("unknown vault must fail")
+	}
+	e.ok("vault", "set-default", "--clear")
+	if _, _, err := e.run("inbox", "add", "x"); err == nil {
+		t.Fatal("cleared default must fail")
+	}
+	if _, _, err := e.run("tui", "acme", "--vault", "globex"); err == nil {
+		t.Fatal("disagreeing vaults must fail")
+	}
+}

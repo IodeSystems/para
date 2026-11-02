@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/parasolve/internal/tui"
@@ -11,10 +13,18 @@ import (
 // sends anything.
 func newTUICmd(l *loader) *cobra.Command {
 	return &cobra.Command{
-		Use:   "tui",
+		Use:   "tui [vault]",
 		Short: "Review and status in the terminal (also: para with no arguments)",
-		Args:  cobra.NoArgs,
-		RunE:  func(*cobra.Command, []string) error { return runTUI(l) },
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 {
+				if l.vaultFlag != "" && l.vaultFlag != args[0] {
+					return fmt.Errorf("tui: --vault %s and vault %s disagree", l.vaultFlag, args[0])
+				}
+				l.vaultFlag = args[0]
+			}
+			return runTUI(l)
+		},
 	}
 }
 

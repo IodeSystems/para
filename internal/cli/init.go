@@ -111,6 +111,36 @@ func newVaultCmd(l *loader) *cobra.Command {
 	cmd.Flags().BoolVar(&prune, "prune", false, "remove registry entries whose vault directory no longer exists (keeps keys and state)")
 	cmd.Flags().BoolVar(&dry, "dry-run", false, "with --prune: print what would be pruned and change nothing")
 	addJSONFlag(cmd)
+	var clearDefault bool
+	setDefault := &cobra.Command{
+		Use:   "set-default [vault]",
+		Short: "Set the vault commands use on this machine when none is named",
+		Long: `Set the vault used on this machine when --vault and PARA_VAULT are unset.
+It applies to you, not to agents: para mcp still needs --vault.`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := l.load(); err != nil {
+				return err
+			}
+			if clearDefault == (len(args) == 1) {
+				return errors.New("vault set-default: give a vault id, or --clear")
+			}
+			id := ""
+			if len(args) == 1 {
+				id = args[0]
+			}
+			if err := l.install.SetDefault(id); err != nil {
+				return err
+			}
+			if id == "" {
+				id = "(none)"
+			}
+			_, err := fmt.Fprintf(cmd.OutOrStdout(), "default vault: %s\n", id)
+			return err
+		},
+	}
+	setDefault.Flags().BoolVar(&clearDefault, "clear", false, "remove the default")
+	cmd.AddCommand(setDefault)
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List registered vaults",
@@ -124,10 +154,14 @@ func newVaultCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			def, err := l.install.Default()
+			if err != nil {
+				return err
+			}
 			out := vaultListOutput{Vaults: []vaultListEntry{}}
 			problems := 0
 			for _, e := range entries {
-				v := vaultListEntry{Entry: e}
+				v := vaultListEntry{Entry: e, Default: e.ID == def}
 				if e.Err == "" {
 					if _, err := os.Stat(e.Path); errors.Is(err, fs.ErrNotExist) {
 						v.Missing = true
@@ -147,7 +181,11 @@ func newVaultCmd(l *loader) *cobra.Command {
 					case v.Missing:
 						_, err = fmt.Fprintf(w, "%s\t%s\tmissing\n", v.ID, v.Path)
 					default:
-						_, err = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Path)
+						mark := ""
+						if v.Default {
+							mark = "\tdefault"
+						}
+						_, err = fmt.Fprintf(w, "%s\t%s%s\n", v.ID, v.Path, mark)
 					}
 					if err != nil {
 						return err
@@ -198,6 +236,7 @@ type vaultPruneOutput struct {
 type vaultListEntry struct {
 	registry.Entry
 	Missing bool `json:"missing,omitempty"`
+	Default bool `json:"default,omitempty"`
 }
 
 type vaultListOutput struct {

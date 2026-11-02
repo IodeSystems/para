@@ -44,9 +44,10 @@ type Vault struct {
 
 // How a vault was selected.
 const (
-	ViaFlag   = "flag"
-	ViaEnv    = "env"
-	ViaSingle = "single"
+	ViaFlag    = "flag"
+	ViaEnv     = "env"
+	ViaDefault = "default"
+	ViaSingle  = "single"
 )
 
 // Selection is the outcome of Select.
@@ -140,6 +141,11 @@ func (in Install) Prune(dry bool) ([]Pruned, error) {
 			if err := os.Remove(ref); err != nil {
 				return out, fmt.Errorf("registry: prune: %w", err)
 			}
+			if def, err := in.Default(); err == nil && def == e.ID {
+				if err := in.SetDefault(""); err != nil {
+					return out, fmt.Errorf("registry: prune: %w", err)
+				}
+			}
 		}
 		out = append(out, Pruned{ID: e.ID, Path: e.Path})
 	}
@@ -170,6 +176,9 @@ func (in Install) Add(id, path string) error {
 	return nil
 }
 
+// keyDefaultVault names the default vault in install.properties.
+const keyDefaultVault = "vault.default"
+
 // ID returns the install id, adding one to install.properties when the file
 // has none.
 func (in Install) ID() (string, error) {
@@ -189,6 +198,58 @@ func (in Install) ID() (string, error) {
 		return "", fmt.Errorf("registry: install id: %w", err)
 	}
 	return cfg["install.id"], nil
+}
+
+// Default returns the default vault id of this install, or "".
+func (in Install) Default() (string, error) {
+	cfg, err := props.Load(filepath.Join(in.Home, "install.properties"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("registry: default vault: %w", err)
+	}
+	return cfg[keyDefaultVault], nil
+}
+
+// SetDefault sets the default vault of this install. An empty id clears it. It
+// is per machine and never in a vault.
+func (in Install) SetDefault(id string) error {
+	if err := in.ensure(); err != nil {
+		return err
+	}
+	if id != "" {
+		entries, err := in.Entries()
+		if err != nil {
+			return fmt.Errorf("registry: default vault: %w", err)
+		}
+		found := false
+		for _, e := range entries {
+			if e.ID == id {
+				if e.Err != "" {
+					return fmt.Errorf("registry: default vault: %q is broken: %s", id, e.Err)
+				}
+				found = true
+			}
+		}
+		if !found {
+			return fmt.Errorf("registry: default vault: unknown vault %q", id)
+		}
+	}
+	file := filepath.Join(in.Home, "install.properties")
+	cfg, err := props.Load(file)
+	if err != nil {
+		return fmt.Errorf("registry: default vault: %w", err)
+	}
+	if id == "" {
+		delete(cfg, keyDefaultVault)
+	} else {
+		cfg[keyDefaultVault] = id
+	}
+	if err := atomicfile.Write(file, props.Format(cfg), 0o600); err != nil {
+		return fmt.Errorf("registry: default vault: %w", err)
+	}
+	return nil
 }
 
 func (in Install) ensure() error {
@@ -229,7 +290,11 @@ func (in Install) Select(flag, env string) (Selection, error) {
 	}
 	// A broken entry only matters when it is the choice, or when there is no
 	// choice: it could be the vault the user meant.
-	for _, c := range []struct{ id, via string }{{flag, ViaFlag}, {env, ViaEnv}} {
+	def, err := in.Default()
+	if err != nil {
+		return Selection{}, fmt.Errorf("registry: select: %w", err)
+	}
+	for _, c := range []struct{ id, via string }{{flag, ViaFlag}, {env, ViaEnv}, {def, ViaDefault}} {
 		if c.id == "" {
 			continue
 		}
@@ -249,7 +314,7 @@ func (in Install) Select(flag, env string) (Selection, error) {
 	case 1:
 		return Selection{Vault: vaults[0], Via: ViaSingle}, nil
 	}
-	return Selection{}, fmt.Errorf("registry: select: %d vaults (%s); choose with --vault or PARA_VAULT", len(vaults), ids(vaults))
+	return Selection{}, fmt.Errorf("registry: select: %d vaults (%s); choose with --vault or PARA_VAULT, or run para vault set-default <id>", len(vaults), ids(vaults))
 }
 
 func pick(vaults []Vault, id, via string) (Selection, error) {

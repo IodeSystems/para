@@ -14,6 +14,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/mcpserver"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/store/local"
 	"github.com/iodesystems/parasolve/internal/vault"
 )
@@ -53,6 +54,10 @@ server entries for this install. They write nothing.`,
 			sel, err := l.selectVault()
 			if err != nil {
 				return err
+			}
+			// A changed default must not move a running agent to another vault.
+			if sel.Via == registry.ViaDefault {
+				return fmt.Errorf("mcp: name the vault with --vault; the default vault does not apply to agents")
 			}
 			install, err := l.install.ID()
 			if err != nil {

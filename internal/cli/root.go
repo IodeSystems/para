@@ -72,7 +72,7 @@ func (l *loader) load() error {
 	return nil
 }
 
-// selectVault applies --vault, PARA_VAULT, then the single vault.
+// selectVault applies --vault, PARA_VAULT, the default vault, then the single vault.
 func (l *loader) selectVault() (registry.Selection, error) {
 	return l.install.Select(l.vaultFlag, l.env("PARA_VAULT"))
 }
