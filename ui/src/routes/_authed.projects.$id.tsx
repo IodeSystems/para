@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
 import Typography from '@mui/material/Typography'
 import { useProject } from '@/api/areas'
+import Stack from '@mui/material/Stack'
+import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { useLooking } from '@/api/requests'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoneWhen } from '@/components/DoneWhen'
@@ -16,11 +20,24 @@ export const Route = createFileRoute('/_authed/projects/$id')({ component: Proje
 function ProjectPage() {
   const { id } = Route.useParams()
   const q = useProject(id)
+  const looking = useLooking()
   return (
     <DataState q={q}>
       {(d) => (
         <>
-          <PageTitle action={<StateChip state={d.project.status} />}>
+          <PageTitle
+            action={
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <AgentLooking id={id} />
+                <StateChip state={d.project.status} />
+                <RowMenu
+                  label={`More actions for ${d.project.title || id}`}
+                  always
+                  items={[findContextItem(id, looking.has(id))]}
+                />
+              </Stack>
+            }
+          >
             {d.project.title || id}
           </PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>

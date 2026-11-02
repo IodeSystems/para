@@ -902,6 +902,27 @@ try {
   await deployRow.getByText(/waiting on question/).waitFor({ state: 'detached' })
   check(true, 'the task is unblocked after the answer')
 
+  // Find context: an optional hint, one open run per item, and the row says an agent is looking.
+  const findRow = rp.getByRole('listitem').filter({ hasText: 'Deploy the service' }).first()
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Find context/ }).click()
+  const fc = rp.getByRole('dialog', { name: 'Find context' })
+  await fc.getByRole('button', { name: 'Send to an agent' }).click()
+  await fc.waitFor({ state: 'hidden' })
+  await findRow.getByText('Agent looking').waitFor()
+  check(true, 'Find context with an empty hint queues work and the row says Agent looking')
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Find context/ }).click()
+  const fc2 = rp.getByRole('dialog', { name: 'Find context' })
+  await fc2.getByText('An agent is looking already').waitFor()
+  await fc2.getByLabel(/^Hint/).fill('check the wiki')
+  await fc2.getByRole('button', { name: 'Add the hint' }).click()
+  await fc2.waitFor({ state: 'hidden' })
+  const findWork = JSON.parse(para(...v, 'request', 'list', '--json')).items.filter((r) =>
+    r.title.startsWith('Find context: Deploy the service'),
+  )
+  check(findWork.length === 1, 'a second press adds the hint to the open work, not a new request')
+
   // Triage an inbox item into a question with a scope; finish a task with a note.
   await rp.goto(`${base}/today`)
   await rp

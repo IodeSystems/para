@@ -13,13 +13,14 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import { useInbox } from '@/api/inbox'
 import { useOpenProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
-import { useRequests } from '@/api/requests'
+import { useLooking, useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
 import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
 import { DueChip, TaskInline } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
@@ -107,6 +108,7 @@ function AgendaLink({ x }: { x: AgendaItem }) {
 // AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
 // A question has the question actions; a task has Done and Later.
 function AgendaRows({ items }: { items: AgendaItem[] }) {
+  const looking = useLooking()
   return (
     <List dense disablePadding>
       {items.map((x) => (
@@ -117,6 +119,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
             slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
           />
           {x.kind && <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />}
+          <AgentLooking id={x.id} />
           {x.due && <DueChip due={x.due} />}
           {x.kind === 'question' && (
             <>
@@ -137,11 +140,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
                     hint: 'Send this question to a person as an ask',
                     search: { ask: x.id },
                   },
-                  {
-                    label: 'Find evidence',
-                    hint: 'Send this to an agent to look for evidence',
-                    search: { find: x.id },
-                  },
+                  findContextItem(x.id, looking.has(x.id)),
                   {
                     label: 'Later',
                     hint: 'Put this off. It still blocks what depends on it',
@@ -172,6 +171,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
                 label={`More actions for ${x.title || x.id}`}
                 always
                 items={[
+                  findContextItem(x.id, looking.has(x.id)),
                   {
                     label: 'Later',
                     hint: 'Put this off. It leaves Today and next',
@@ -185,6 +185,13 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
                 ]}
               />
             </>
+          )}
+          {(x.kind === 'meeting' || x.kind === 'ask') && (
+            <RowMenu
+              label={`More actions for ${x.title || x.id}`}
+              always
+              items={[findContextItem(x.id, looking.has(x.id))]}
+            />
           )}
         </ListItem>
       ))}

@@ -17,6 +17,8 @@ import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { useLooking } from '@/api/requests'
 import { dueLabel, dueState } from '@/lib/due'
 import { nameList, nameOr } from '@/lib/names'
 
@@ -65,6 +67,7 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
 export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
   const questions = useQuestions({ deferred: true })
   const undefer = useUndefer()
+  const looking = useLooking()
   // task id -> titles of the open questions it waits on
   const waits = new Map<string, string[]>()
   for (const q of questions.data ?? [])
@@ -101,6 +104,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                   label={`Actions for ${t.title || t.id}`}
                   items={[
                     { label: 'Done', hint: 'Mark this task finished', search: { done: t.id } },
+                    findContextItem(t.id, looking.has(t.id)),
                     {
                       label: 'Set done when',
                       hint: 'Say how we know this task is done',
@@ -135,6 +139,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                   label={`Later: back ${!t.deferUntil || t.deferUntil === 'someday' ? 'someday' : `on ${t.deferUntil}`}`}
                 />
               )}
+              <AgentLooking id={t.id} />
               {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
               {t.assignee && (
                 <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />

@@ -18,6 +18,7 @@ const RequestListDoc = graphql(/* GraphQL */ `
             leaseUntil
             linkNames
             links
+            investigates
           }
         }
       }
@@ -43,6 +44,15 @@ export function useRequests() {
     queryFn: async () =>
       need((await gqlClient.request(RequestListDoc)).para.v1.requestList, 'requests').items,
   })
+}
+
+// useLooking is the ids of the items that open agent work looks into. It reads the request list
+// once; every row reads the same cached query, so lists do not slow down.
+export function useLooking(): Set<string> {
+  const q = useRequests()
+  const out = new Set<string>()
+  for (const r of q.data ?? []) if (r.investigates) for (const l of r.links ?? []) out.add(l)
+  return out
 }
 
 export function useRequestAdd() {

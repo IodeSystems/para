@@ -14,6 +14,8 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { useLooking } from '@/api/requests'
 import { errorText } from '@/client/gqlClient'
 import { downloadText } from '@/lib/download'
 import { meetingWhen, viewerZone } from '@/lib/meeting'
@@ -33,6 +35,7 @@ function Agenda() {
   const [days, setDays] = useState(7)
   const zone = viewerZone()
   const q = useAgenda(days, zone)
+  const looking = useLooking()
   const exp = useCalendarExport()
   const [said, setSaid] = useState('')
   const doExport = () =>
@@ -140,11 +143,20 @@ function Agenda() {
                             tone={i.overdue ? 'bad' : 'quiet'}
                             label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
                           />
+                          <AgentLooking id={i.id} />
+                          {(i.kind === 'meeting' || i.kind === 'nudge') && (
+                            <RowMenu
+                              label={`More actions for ${i.title}`}
+                              always
+                              items={[findContextItem(i.id, looking.has(i.id))]}
+                            />
+                          )}
                           {i.kind === 'due' && (
                             <RowMenu
                               label={`More actions for ${i.title}`}
                               always
                               items={[
+                                findContextItem(i.id, looking.has(i.id)),
                                 {
                                   label: 'Done',
                                   hint: 'Mark this task finished',

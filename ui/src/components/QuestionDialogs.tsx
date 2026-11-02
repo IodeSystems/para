@@ -29,6 +29,8 @@ import { useTaskDone, useTaskEdit } from '@/api/tasks'
 import { Pick } from '@/components/Pick'
 import { doneConfirm } from '@/lib/answer'
 import { useWork } from '@/api/work'
+import { useDoc } from '@/api/doc'
+import { useLooking } from '@/api/requests'
 import { errorText } from '@/client/gqlClient'
 import { joinNames, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
@@ -418,17 +420,23 @@ function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => vo
 function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
   const close = useClose()
   const find = useInvestigate()
-  const q = useQuestion(id)
-  const [how, setHow] = useState('')
+  const doc = useDoc(id)
+  const looking = useLooking().has(id)
+  const [hint, setHint] = useState('')
+  const isQuestion = id.startsWith('question-')
   return (
     <Frame
-      title="Find evidence"
+      title="Find context"
       onSubmit={() =>
         find.mutate(
-          { id, how: how.trim() },
+          { id, hint: hint.trim() },
           {
-            onSuccess: () => {
-              onDone('Queued agent work to find evidence. The question stays open.')
+            onSuccess: (o) => {
+              onDone(
+                o.appended
+                  ? 'Added your hint to the agent work that is open.'
+                  : 'Queued agent work to find context.',
+              )
               close()
             },
           },
@@ -437,34 +445,32 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={find.isPending || how.trim() === '' || q.data?.question.agentLooking}
-          >
-            Send to an agent
+          <Button type="submit" variant="contained" disabled={find.isPending}>
+            {looking ? 'Add the hint' : 'Send to an agent'}
           </Button>
         </>
       }
     >
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {find.isError && <Alert severity="error">{errorText(find.error)}</Alert>}
-        {q.data?.question.agentLooking && (
-          <Alert severity="info">An agent is looking already.</Alert>
+        {looking && (
+          <Alert severity="info">An agent is looking already. Your hint goes into its work.</Alert>
         )}
-        <Typography sx={{ overflowWrap: 'anywhere' }}>{q.data?.question.title ?? ''}</Typography>
+        <Typography sx={{ overflowWrap: 'anywhere' }}>{doc.data?.title ?? ''}</Typography>
         <TextField
-          label="Where to look (for example: check the wiki, search #platform)"
-          value={how}
-          onChange={(e) => setHow(e.target.value)}
+          label="Hint: where to look (optional; for example: check the wiki, search #platform)"
+          value={hint}
+          onChange={(e) => setHint(e.target.value)}
           multiline
           minRows={2}
           autoFocus
           fullWidth
         />
         <Typography variant="caption" color="text.secondary">
-          The agent proposes an answer with its sources. You check it as you check any answer. Needs
-          a runner set up on this machine; otherwise the work waits under Agent work.
+          {isQuestion
+            ? 'The agent proposes an answer with its sources. You check it as you check any answer.'
+            : 'The agent files a proposal that adds context and sources to the item. You check it as you check any proposal.'}{' '}
+          Needs a runner set up on this machine; otherwise the work waits under Agent work.
         </Typography>
       </Stack>
     </Frame>

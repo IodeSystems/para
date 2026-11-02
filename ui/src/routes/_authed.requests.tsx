@@ -5,7 +5,9 @@ import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
-import { useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
+import { useLooking, useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
+import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
 import { Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { errorText } from '@/client/gqlClient'
@@ -26,6 +28,7 @@ const STATUS_WORDS: Record<string, string> = {
 export const Route = createFileRoute('/_authed/requests')({ component: Requests })
 
 function Requests() {
+  const looking = useLooking()
   const q = useRequests()
   const accept = useRequestAccept()
   const cancel = useRequestCancel()
@@ -81,6 +84,14 @@ function Requests() {
                     slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
                   <StateChip state={r.status} label={STATUS_WORDS[r.status]} />
+                  <AgentLooking id={r.id} />
+                  {!r.investigates && (
+                    <RowMenu
+                      label={`More actions for ${r.title || r.id}`}
+                      always
+                      items={[findContextItem(r.id, looking.has(r.id))]}
+                    />
+                  )}
                   {r.status === 'proposed' && (
                     <>
                       <Button

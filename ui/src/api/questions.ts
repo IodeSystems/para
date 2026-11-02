@@ -227,14 +227,15 @@ const UndeferDoc = graphql(/* GraphQL */ `
 `)
 
 const InvestigateDoc = graphql(/* GraphQL */ `
-  mutation QuestionInvestigate($body: para_QuestionInvestigateInputInput!) {
+  mutation Investigate($body: para_InvestigateInputInput!) {
     para {
       v1 {
-        questionInvestigate(body: $body) {
+        investigate(body: $body) {
           id
           request
           status
           runner
+          appended
         }
       }
     }
@@ -431,15 +432,13 @@ export function useUndefer() {
   })
 }
 
-// useInvestigate queues agent work that looks for evidence. The question stays open.
+// useInvestigate queues agent work that finds context for an item, or adds the hint to the open
+// work. The item stays as it is.
 export function useInvestigate() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (b: { id: string; how: string }) =>
-      need(
-        (await gqlClient.request(InvestigateDoc, { body: b })).para.v1.questionInvestigate,
-        'result',
-      ),
+    mutationFn: async (b: { id: string; hint: string }) =>
+      need((await gqlClient.request(InvestigateDoc, { body: b })).para.v1.investigate, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

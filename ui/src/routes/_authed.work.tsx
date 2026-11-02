@@ -17,6 +17,9 @@ import { LinkButton, TextLink } from '@/components/links'
 import { DocLink } from '@/components/DocLink'
 import { QuestionsSection } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
+import { RowMenu } from '@/components/RowMenu'
+import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { useLooking } from '@/api/requests'
 import { Mermaid } from '@/components/Mermaid'
 import { GRAPH_CLASSES, graphClass, graphToMermaid } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
@@ -64,6 +67,7 @@ function Work() {
 type WorkData = NonNullable<ReturnType<typeof useWork>['data']>
 
 function Tasks({ w }: { w: WorkData }) {
+  const looking = useLooking()
   const tasks = w.tasks
   const byProject = new Map<string, typeof tasks>()
   for (const t of tasks) byProject.set(t.project, [...(byProject.get(t.project) ?? []), t])
@@ -84,6 +88,12 @@ function Tasks({ w }: { w: WorkData }) {
             action={
               <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                 <StateChip state={p.status} />
+                <AgentLooking id={p.id} />
+                <RowMenu
+                  label={`More actions for ${p.title || p.id}`}
+                  always
+                  items={[findContextItem(p.id, looking.has(p.id))]}
+                />
                 <LinkButton size="small" to="/projects/$id" params={{ id: p.id }}>
                   Open
                 </LinkButton>

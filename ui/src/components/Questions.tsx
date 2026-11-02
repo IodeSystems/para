@@ -12,6 +12,7 @@ import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
+import { findContextItem } from '@/components/FindContext'
 
 // Open questions in a scope, in the order the server gives: the ones that block most come first.
 export function QuestionsSection({
@@ -116,15 +117,7 @@ export function QuestionRows({ list }: { list: Rows }) {
                         search: { ask: x.id },
                       },
                     ]),
-                ...(x.agentLooking
-                  ? []
-                  : [
-                      {
-                        label: 'Find evidence',
-                        hint: 'Send this to an agent to look for evidence; you check the answer',
-                        search: { find: x.id },
-                      },
-                    ]),
+                findContextItem(x.id, x.agentLooking),
                 x.deferred
                   ? {
                       label: 'Not later',
