@@ -65,7 +65,7 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, requests to people, areas, policies, and proposals for review.\"\n---\n\n" +
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review.\"\n---\n\n" +
 		"# para\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
 

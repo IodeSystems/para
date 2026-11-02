@@ -126,12 +126,28 @@ An agent files items with evidence, and para changes nothing until you approve. 
 op runs under the agent's name. An external item (an email, a PR, a ticket) never runs: para
 records the hash of the exact text you approved, and the agent or you send it.
 
+14. Questions: unknowns, decisions, and inputs are not tasks
+  $ para question add "Which config path does prod use?" --project project-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
+  $ para question add "Who signs off on the window?" --root
+  $ para task add "Deploy to prod" -p project-move --depends-on question-example
+  $ para questions
+  $ para answer question-example --choice 1 --why "Matches the container image"
+  $ para question ask question-example --to person-ada-example --via slack --route domain-billing
+  $ para question show question-example
+  $ para question drop question-example --reason "Out of scope now"
+  $ para task to-question task-example --kind decision --option "Nov 14" --option "Nov 21"
+  $ para task done task-example --note "Rolled out; old keys revoked"
+A question has exactly one scope: --project, --task, --area, or --root for the whole vault. An open question blocks the tasks that depend on it in graph, next, and task start; an answer frees them. A decision needs its reason. para questions lists what is open, the ones that block the most first. An answer is stored in the question under "## Answer", with who and when; never put a secret in it, say where it is kept. rfx reply with outcome answered or no answers a question that was asked with question ask. task to-question moves the tasks that waited on a task to the new question and drops the old task.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
   an ongoing responsibility (no end)         an area
   a bounded outcome                          a project (in an area)
   something you wait on a person for         an rfx, with a reason if refused
+  something unknown, or a decision only you  a question, in one scope; para answer (not a task: a task is work)
+  can make, or an input only you can give
+  a question for a person                    para question ask: it makes the rfx and links both ways
   a task a person or an agent owes you       a task with --assignee; para waiting lists it
   a chore that repeats                       a task with --recur
   a fault in a system you run                an incident, with follow-up tasks (alerts stay in monitoring)

@@ -3,7 +3,7 @@ Fill a new para vault by interviewing its owner. Ask one question at a time. Wri
 In this order:
 1. Areas: the ongoing responsibilities (health, money, home, a system the owner runs). Use `area_add`. For each, ask where its plan or docs live, and record them with `area_link_add`; for a system, that means the runbook and the dashboards. Ask what repeats (backups, certificate renewals) and keep the list for step 3.
 2. Active projects: bounded outcomes the owner is working on now, each in an area. Use `project_add` with the area. Link its plan with `project_link_add`.
-3. Tasks: for each project or area, what is owed next. Use `task_add`; a task that repeats gets a recur of daily, weekly, monthly, or "every 90 days". Ask for a due date and set it with `task_due`. Ask what must happen first and record it with `task_depends_add`.
+3. Tasks: for each project or area, what is owed next. Use `task_add`; a task that repeats gets a recur of daily, weekly, monthly, or "every 90 days". Ask for a due date and set it with `task_due`. Ask what must happen first and record it with `task_depends_add`. If something is unknown, or the owner must decide or give an input before work can go on, that is a question, not a task: file it with `question_add`, scoped to the project or area (or root), and make the work wait on it with `task_depends_add`.
 4. People: whom the owner waits on or owes. Use `org_person_add` and `org_person_contact_add`. Ask only what the owner says freely; no health, pay, or immigration details.
 5. Finish: run `lint` and fix every error. Read `next` back to the owner and ask if the order is right.
 

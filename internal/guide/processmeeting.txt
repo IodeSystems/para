@@ -6,7 +6,8 @@ Turn a meeting transcript into one proposal. Para does not record or transcribe;
    - an answer to an open request: `rfx_reply`.
    - a no: `rfx_reply` with outcome no, why, and who said it. That records the constraint.
    - an action item: `task_add`, with the assignee.
-   - a new question: `rfx_add`, with no target yet.
+   - a new unknown, or a decision or input the owner owes: `question_add`, with a scope (project, task, area, or root). Do not file an rfx with no target.
+   - a question the meeting answered: `question_answer`, with the choice or text and the reason; for a question already asked of a person, `rfx_reply`.
    - a person you do not have: `org_person_add`.
    - who you met: `interaction_add`, as a short summary.
 4. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
