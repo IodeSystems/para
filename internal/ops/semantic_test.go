@@ -22,9 +22,10 @@ import (
 // search tool that returns reply (after delay). It records the queries.
 type fakeRaglit struct {
 	*httptest.Server
-	reply   string
-	delay   time.Duration
-	queries atomic.Int32
+	reply     string
+	noMeaning bool
+	delay     time.Duration
+	queries   atomic.Int32
 }
 
 func newFakeRaglit(t *testing.T, reply string) *fakeRaglit {
@@ -40,6 +41,10 @@ func newFakeRaglit(t *testing.T, reply string) *fakeRaglit {
 			}
 			return mcp.NewToolResultText(f.reply), nil
 		})
+	s.AddTool(mcp.NewTool("list_indexes"), func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		b, _ := json.Marshal(map[string]any{"indexes": []raglit.Index{{Name: "life__default", Documents: 3, Meaning: !f.noMeaning}}})
+		return mcp.NewToolResultText(string(b)), nil
+	})
 	h := server.NewStreamableHTTPServer(s, server.WithStateLess(true))
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp/life", func(w http.ResponseWriter, r *http.Request) {
@@ -234,5 +239,18 @@ func TestResolveID(t *testing.T) {
 		if id != c.id || via != c.via {
 			t.Errorf("resolveID(%q) = %q, %q; want %q, %q", c.rel, id, via, c.id, c.via)
 		}
+	}
+}
+
+func TestSearchKeywordOnlyRaglitIsExactOnly(t *testing.T) {
+	d := newDeps(t)
+	addNote(t, d, "inbox-a", "Heron count", "count the heron")
+	addNote(t, d, "inbox-b", "Wading birds", "egrets")
+	f := newFakeRaglit(t, `{"hits":[{"rel":"inbox/inbox-b.md","snippet":"egrets"}]}`)
+	f.noMeaning = true
+	connect(t, d, f.URL, "secret")
+	out, err := Search.Run(ctx, d, SearchInput{Query: "heron"})
+	if err != nil || out.Degraded != "exact only: raglit has no embedding model" || len(out.Hits) != 1 || out.Hits[0].Match != MatchExact {
+		t.Fatalf("%+v %v", out, err)
 	}
 }

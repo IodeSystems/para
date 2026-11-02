@@ -27,8 +27,9 @@ type semantic struct {
 }
 
 type result struct {
-	hits []raglit.Hit
-	err  error
+	hits    []raglit.Hit
+	meaning bool
+	err     error
 }
 
 // startSemantic starts the raglit search when this machine has a config for
@@ -60,8 +61,8 @@ func startSemantic(ctx context.Context, d Deps, query string, limit int) *semant
 	go func() {
 		// Fragments, not documents: ask for more than the limit so that
 		// deduplication still leaves enough documents.
-		hits, err := cfg.Search(cctx, query, limit*3)
-		s.done <- result{hits: hits, err: err}
+		hits, meaning, err := cfg.Search(cctx, query, limit*3)
+		s.done <- result{hits: hits, meaning: meaning, err: err}
 	}()
 	return s
 }
@@ -77,6 +78,12 @@ func (s *semantic) merge(ctx context.Context, d Deps, q index.Query, limit int, 
 	}
 	if r.err != nil {
 		out.Degraded = "exact only: " + degradedReason(r.err)
+		return out
+	}
+	if !r.meaning {
+		// Keyword-only raglit adds little over FTS5, and its hits would carry
+		// a "meaning" tag they did not earn.
+		out.Degraded = "exact only: raglit has no embedding model"
 		return out
 	}
 	out.Hits = mergeMeaning(ctx, d, q, limit, out.Hits, r.hits)
