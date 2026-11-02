@@ -69,7 +69,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill()} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit()} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {
@@ -208,5 +208,13 @@ func TestSkillInstall(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join(dir, "para", "SKILL.md"))
 	if err != nil || string(b) != guide.Skill() {
 		t.Fatalf("installed skill differs: %v", err)
+	}
+}
+
+func TestMCPHelpRaglit(t *testing.T) {
+	e := newEnv(t)
+	out := e.ok("mcp", "--help-raglit")
+	if strings.TrimSpace(out) != guide.Raglit() {
+		t.Errorf("--help-raglit prints:\n%s", out)
 	}
 }

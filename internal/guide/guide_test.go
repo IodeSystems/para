@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "raglit": Raglit()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -86,5 +86,15 @@ func TestSkillFrontmatterParses(t *testing.T) {
 	}
 	if fm["name"] != "para" || fm["description"] == "" {
 		t.Fatalf("frontmatter = %v", fm)
+	}
+}
+
+func TestRaglitHelpCoversWhatItMust(t *testing.T) {
+	text := strings.Join(strings.Fields(Raglit()), " ")
+	for _, want := range []string{"para raglit connect", "embedding model", "--embed", "One daemon per trust domain",
+		"local or company-approved models", "polls the vault every 5 seconds", "exact only", "vault close --destroy", "untrusted"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("raglit help lacks %q", want)
+		}
 	}
 }

@@ -27,15 +27,21 @@ const mcpSurface = "mcp"
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor string
 	var helpClaude, helpDun, channel bool
+	var helpClaude, helpDun, helpRaglit bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
 		Long: `Serve ops as MCP tools over stdio, for one vault.
 --help-claude and --help-dun print setup steps for that harness, with the
-server entries for this install. They write nothing.`,
+server entries for this install. They write nothing.
+--help-raglit prints how to add meaning search with a raglit daemon.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
+				return err
+			}
+			if helpRaglit {
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Raglit())
 				return err
 			}
 			if helpClaude || helpDun {
@@ -83,6 +89,7 @@ server entries for this install. They write nothing.`,
 	cmd.Flags().StringVar(&actor, "actor", "agent", "actor name recorded in events")
 	cmd.Flags().BoolVar(&channel, "channel", false, "also send notifications as Claude Code channel events (research preview; Claude Code needs --dangerously-load-development-channels)")
 	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
+	cmd.Flags().BoolVar(&helpRaglit, "help-raglit", false, "print how to connect a raglit daemon for meaning search")
 	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
 	cmd.AddCommand(newMCPConfigCmd(l))
 	return cmd

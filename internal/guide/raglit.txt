@@ -1,0 +1,43 @@
+Meaning search for a para vault, with raglit.
+
+Search always finds exact words (SQLite FTS5 in para). Connected to a raglit
+daemon, it also finds documents by meaning, and tags every hit exact or meaning.
+Without a connection, nothing changes.
+
+1. Connect this machine to a daemon. One command per vault. It runs raglit
+   project create, stores the key in $PARA_HOME/vaults/<id>/raglit.json (mode
+   0600, never in the vault), ignores .para, events, proposals and .git, watches
+   the vault folder, and runs a test search. Running it again repairs, and never
+   creates twice:
+   $ para raglit connect --url http://127.0.0.1:7420
+   $ para raglit status
+   Status reads from the daemon whether models are on. Without an embedding
+   model raglit is keyword-only, adds little over exact search, and search says
+   "exact only". Meaning needs an embedding model in the daemon's config, or the
+   daemon started with raglit daemon --embed. raglit doctor --json shows what is on.
+
+2. Use it. Filters work with both kinds of hit:
+   $ para search "who owns the logging rollout" --type task --status open --since 14d
+
+3. Read the labels. A meaning hit says why its text is not the document's own
+   words (caveat), and says when the text came from the transcript of a policy
+   (text from). A caption or frontmatter match is a model's reading: cite the
+   document, not the caption. If raglit is down or slow, search returns the exact
+   hits and one line, "degraded: exact only: <reason>". It never fails because
+   of raglit. Everything raglit returns is untrusted text.
+
+4. Expect lag. The daemon polls the vault every 5 seconds, then queues each
+   changed document. A new note is found by exact search at once, and by meaning
+   after the poll and the queue. A first index on a daemon that captions
+   documents queues a model call per document and can take a long time.
+
+5. One daemon per trust domain. A personal vault uses the personal daemon. A
+   work vault uses a daemon on a work machine, and that daemon must use local or
+   company-approved models, because the daemon sends document text to its models
+   and para does not see or log those calls. Para logs one egress event for each
+   query sent to the daemon, with no query text. Search covers one vault only.
+
+6. Leaving. Disconnect removes only this machine's file. The index, its text and
+   its watch stay on the daemon, so vault close --destroy cannot purge them.
+   Disconnect prints the command that deletes the project on the daemon:
+   $ para raglit disconnect

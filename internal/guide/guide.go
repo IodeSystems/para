@@ -35,6 +35,8 @@ var (
 	reviewCycle string
 	//go:embed processmeeting.txt
 	processMeeting string
+	//go:embed raglit.txt
+	raglitHelp string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -58,6 +60,10 @@ func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
 // ProcessMeeting is the MCP prompt "process_meeting": one proposal from a
 // transcript.
 func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
+
+// Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
+// for meaning search.
+func Raglit() string { return trim(raglitHelp) }
 
 // Extended is `para --help-extended`: use cases with real commands, and a
 // "where does this go?" table.
