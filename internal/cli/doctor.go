@@ -78,7 +78,8 @@ func doctorInstall(l *loader, r *report) {
 		r.fail("server config", err.Error()+"; fix "+filepath.Join(l.install.Home, serverConfig))
 	}
 	doctorTools(r)
-	doctorService(r, vaults)
+	doctorService(r)
+	doctorDaemon(l, r, vaults)
 }
 
 func doctorVault(l *loader, r *report, id string) {
@@ -130,7 +131,7 @@ func line(r *report, what string, it export.Item) {
 	r.warn(what, "needs "+strings.Join(it.Needs, " or ")+" on PATH")
 }
 
-func doctorService(r *report, vaults []registry.Vault) {
+func doctorService(r *report) {
 	args, installed := installedArgs(service.DefaultName)
 	if !installed {
 		r.warn("service", "not installed: para service install")
@@ -152,15 +153,6 @@ func doctorService(r *report, vaults []registry.Vault) {
 			r.warn("service PATH", "no git on the service's PATH: reinstall from a shell that has it: para service install")
 		}
 	}
-	if len(vaults) == 0 {
-		return
-	}
-	base := localBase(vaults[0].ID, addr)
-	if err := probeHealth(base); err != nil {
-		r.warn("daemon", "nothing answers at "+base+" ("+err.Error()+"): para service start")
-		return
-	}
-	r.ok("daemon", "answers at "+base)
 }
 
 func onPath(tool, path string) bool {
@@ -251,4 +243,38 @@ func isLoopbackHost(h string) bool {
 	}
 	a, err := netip.ParseAddr(h)
 	return err == nil && a.IsLoopback()
+}
+
+// doctorDaemon checks the running server, found from its runtime record, then
+// the installed service, then the default.
+func doctorDaemon(l *loader, r *report, vaults []registry.Vault) {
+	at := l.findServer()
+	if at.Source == "default" {
+		return
+	}
+	if at.Rec != nil {
+		r.ok("server", fmt.Sprintf("pid %d at %s, version %s", at.Rec.PID, at.Rec.Addr, at.Rec.Version))
+	}
+	id := ""
+	switch {
+	case at.Rec != nil && at.Rec.Vault != "":
+		id = at.Rec.Vault
+	case len(vaults) > 0:
+		id = vaults[0].ID
+	default:
+		return
+	}
+	base, err := clientBase(id, at)
+	if err != nil {
+		r.warn("daemon", err.Error())
+		return
+	}
+	switch err := probeHealth(base); {
+	case err == nil:
+		r.ok("daemon", "answers at "+base)
+	case errors.Is(err, errRefused):
+		r.warn("daemon", base+" refused this machine (403): para serve login says which net.rules line to add")
+	default:
+		r.warn("daemon", "nothing answers at "+base+" ("+err.Error()+"): para service start")
+	}
 }

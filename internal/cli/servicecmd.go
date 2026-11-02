@@ -67,10 +67,9 @@ func localBase(id, addr string) string {
 	return "http://" + id + ".localhost:" + port
 }
 
-// vaultBase is the local URL of a vault, from the installed service's address.
+// vaultBase is the local URL of a vault, from the address the server listens on.
 func (l *loader) vaultBase(id string) string {
-	args, _ := installedArgs(service.DefaultName)
-	return localBase(id, service.FlagValue(args, "--addr"))
+	return localBase(id, l.findServer().Addr)
 }
 
 // signInURL puts the token in the fragment, which a browser never sends. The
@@ -80,7 +79,11 @@ func signInURL(base, token string) string {
 }
 
 // localClient reaches *.localhost names at loopback, whatever the resolver does.
-func localClient(timeout time.Duration) *http.Client {
+func localClient(timeout time.Duration) *http.Client { return localClientNoting(timeout, nil) }
+
+// localClientNoting also calls note with the local address of each connection,
+// which is the address the server sees as the client.
+func localClientNoting(timeout time.Duration, note func(net.Addr)) *http.Client {
 	d := &net.Dialer{Timeout: timeout}
 	return &http.Client{Timeout: timeout, Transport: &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -88,7 +91,11 @@ func localClient(timeout time.Duration) *http.Client {
 			if err == nil && (host == "localhost" || strings.HasSuffix(host, ".localhost")) {
 				addr = net.JoinHostPort("127.0.0.1", port)
 			}
-			return d.DialContext(ctx, network, addr)
+			c, err := d.DialContext(ctx, network, addr)
+			if err == nil && note != nil {
+				note(c.LocalAddr())
+			}
+			return c, err
 		},
 	}}
 }
@@ -106,7 +113,7 @@ func newServiceCmd(l *loader) *cobra.Command {
 	for _, verb := range []string{"start", "stop", "restart", "status", "logs"} {
 		cmd.AddCommand(newServiceCtlCmd(verb, &run))
 	}
-	cmd.AddCommand(newLoginAdminCmd(l))
+	cmd.AddCommand(newLoginCmd(l, "login-admin"))
 	return cmd
 }
 
@@ -270,76 +277,6 @@ func serviceCtl(w io.Writer, run runner, verb, name, file string) error {
 		return fmt.Errorf("service: logs: %w", err)
 	}
 	return run(w, "tail", "-n", "200", service.LogPath(home, name))
-}
-
-// newLoginAdminCmd opens the vault's UI signed in with its admin token. The
-// admin token works from this machine only, so --url is for another local name
-// or port, not another host.
-func newLoginAdminCmd(l *loader) *cobra.Command {
-	var (
-		base    string
-		printIt bool
-	)
-	cmd := &cobra.Command{
-		Use:   "login-admin",
-		Short: "Open the UI signed in with the vault's admin token",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			store, id, err := l.keyStore()
-			if err != nil {
-				return err
-			}
-			tok, err := store.AdminToken()
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					return fmt.Errorf("service: login-admin: vault %s has no admin token: para serve creates it on first start", id)
-				}
-				return err
-			}
-			if base == "" {
-				base = l.vaultBase(id)
-			}
-			if err := probeHealth(base); errors.Is(err, errRefused) {
-				return fmt.Errorf("service: login-admin: %s refused this address: its net.rules does not allow it. Add an allow line to %s", base, filepath.Join(l.install.Home, "vaults", id, "server", "net.rules"))
-			} else if err != nil {
-				return fmt.Errorf("service: login-admin: nothing answers at %s (%v): is it running? para service status", base, err)
-			}
-			target := signInURL(base, tok)
-			w := cmd.OutOrStdout()
-			if printIt {
-				_, err := fmt.Fprintln(w, target)
-				return err
-			}
-			if err := openBrowser(l, target); err != nil {
-				_, err = fmt.Fprintf(w, "could not open a browser (%v); open this:\n%s\n", err, target)
-				return err
-			}
-			_, err = fmt.Fprintf(w, "opened %s in the browser\n", base)
-			return err
-		},
-	}
-	f := cmd.Flags()
-	f.StringVar(&base, "url", "", "base URL (default: http://<vault>.localhost:<port of the service>)")
-	f.BoolVar(&printIt, "print", false, "print the sign-in URL (it holds the token) instead of opening it")
-	return cmd
-}
-
-// errRefused means the server answered and its request gate said no.
-var errRefused = errors.New("refused")
-
-func probeHealth(base string) error {
-	resp, err := localClient(5 * time.Second).Get(strings.TrimRight(base, "/") + "/healthz")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode == http.StatusForbidden {
-		return errRefused
-	}
-	if resp.StatusCode != http.StatusOK {
-		return errors.New(resp.Status)
-	}
-	return nil
 }
 
 func openBrowser(l *loader, u string) error {

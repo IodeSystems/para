@@ -94,16 +94,21 @@ Para is not a pager: alerts stay in monitoring (your pager, Alertmanager, a stat
   $ para copy policy-logging --as email
 
 13. Browser and phone: the server, keys, and the service
-  $ para key create phone --scope vault:read --scope vault:write --ttl 30d --print-url --url http://127.0.0.1:7700
+  $ para serve login
+  $ para serve status
+  $ para key create phone --scope vault:read --scope vault:write --ttl 30d --print-url --url http://192.168.1.76:7700
   $ para key list
   $ para serve --check
   $ para serve
   $ para service install
   $ para service start
   $ para service status
-  $ para service login-admin
   $ para key revoke phone
 The server listens on 127.0.0.1:7700 by default and every request needs a token.
+"para serve login" opens the UI on this machine, signed in as admin. It finds the running
+server itself (var/serve.json in the para home), so it needs no URL. The admin token works
+from this machine only. For a phone or another machine, make a key with --print-url and
+give the URL of that machine.
 
 11. Proposals: an agent suggests, you decide
   $ para proposal list

@@ -74,6 +74,7 @@ func newServeCmd(l *loader) *cobra.Command {
 			return runServe(cmd.Context(), l, f, cmd.ErrOrStderr())
 		},
 	}
+	cmd.AddCommand(newLoginCmd(l, "login"), newServeStatusCmd(l))
 	fs := cmd.Flags()
 	fs.StringVar(&f.addr, "addr", defaultAddr, "listen address")
 	fs.StringArrayVar(&f.proxies, "trusted-proxy", nil, "exact IP of a proxy whose X-Forwarded-For is read (repeatable)")
@@ -173,7 +174,10 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	if len(ids) == 0 {
 		log.Warn("no vaults: every host gets 421 until para init")
 	}
-	release, err := server.LockPID(filepath.Join(l.install.Home, "serve.pid"))
+	if err := server.EnsureVarDir(l.install.Home); err != nil {
+		return err
+	}
+	release, err := server.LockPID(server.LockPath(l.install.Home))
 	if err != nil {
 		return err
 	}
@@ -202,6 +206,12 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return fmt.Errorf("serve: %w", err)
 	}
 	defer func() { _ = ln.Close() }()
+	rec := server.Record{PID: os.Getpid(), Addr: ln.Addr().String(), Version: l.version, Vault: cfg.bare,
+		Vaults: ids, BaseHosts: cfg.bases, Started: time.Now().UTC()}
+	if err := server.WriteRecord(l.install.Home, rec); err != nil {
+		return err
+	}
+	defer server.RemoveRecord(l.install.Home)
 	if !bind.Addr().IsLoopback() {
 		log.Warn("plain HTTP on a non-loopback address: tokens and documents cross the network in the clear; token auth stays on", "addr", f.addr)
 	}
@@ -218,6 +228,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	done := make(chan error, 1)
 	go func() { done <- hs.Serve(ln) }()
 	log.Info("para serving", "addr", ln.Addr().String(), "vaults", strings.Join(ids, ","), "version", l.version)
+	log.Info("to sign in as admin, run: para serve login" + loginVaultHint(cfg.bare, ids) + " (the token is never logged)")
 	select {
 	case err := <-done:
 		return fmt.Errorf("serve: %w", err)
@@ -234,4 +245,12 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return fmt.Errorf("serve: %w", err)
 	}
 	return nil
+}
+
+// loginVaultHint adds --vault when a bare `para serve login` could not pick.
+func loginVaultHint(bare string, ids []string) string {
+	if bare != "" || len(ids) < 2 {
+		return ""
+	}
+	return " --vault <id>"
 }

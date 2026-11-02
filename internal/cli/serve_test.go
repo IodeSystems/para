@@ -287,8 +287,10 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 	if err := stop(); err != nil {
 		t.Errorf("SIGTERM did not stop cleanly: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(e.home, "serve.pid")); err == nil {
-		t.Error("pidfile left behind")
+	for _, f := range []string{"serve.json", "serve.lock"} {
+		if _, err := os.Stat(filepath.Join(e.home, "var", f)); err == nil {
+			t.Errorf("var/%s left behind", f)
+		}
 	}
 }
 

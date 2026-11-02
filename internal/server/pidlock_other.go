@@ -8,3 +8,6 @@ import "errors"
 func LockPID(string) (func(), error) {
 	return nil, errors.New("server: para serve needs a unix platform")
 }
+
+// PIDAlive reports false: no server runs here.
+func PIDAlive(int) bool { return false }
