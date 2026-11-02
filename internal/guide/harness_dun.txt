@@ -5,17 +5,21 @@ Use para from dun.
 
 {{config}}
 
-2. Check with /mcp.
+2. Install the skill, so agents load the rules when they need them:
+   $ para skill install
+   Reinstall after upgrading para.
 
-3. Start with a prompt, as a slash command:
+3. Check with /mcp.
+
+4. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
    /para-<vault>:review_cycle   how to file a proposal and act on the review
    /para-<vault>:process_meeting   turn a transcript into one proposal
 
-4. Events record the actor `dun`. Change "--actor" to tell agents apart.
+5. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
-5. A session can wait for queued work with no token cost. This blocks until a
+6. A session can wait for queued work with no token cost. This blocks until a
    request can be claimed, so run it as a background job, then call `request_next`:
    $ para request wait --timeout 1h
    To wake it when the owner decides a proposal:

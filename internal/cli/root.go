@@ -143,6 +143,7 @@ func newRoot(l *loader) *cobra.Command {
 	root.AddCommand(
 		newVersionCmd(l),
 		newGuideCmd(),
+		newSkillCmd(),
 		newInitCmd(l),
 		newVaultCmd(l),
 		newLintCmd(l),

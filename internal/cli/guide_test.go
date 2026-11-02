@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -67,7 +69,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", "")} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill()} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {
@@ -193,5 +195,18 @@ func TestDefaultVault(t *testing.T) {
 	}
 	if _, _, err := e.run("tui", "acme", "--vault", "globex"); err == nil {
 		t.Fatal("disagreeing vaults must fail")
+	}
+}
+
+func TestSkillInstall(t *testing.T) {
+	e := newEnv(t)
+	dir := t.TempDir()
+	if out := e.ok("skill"); !strings.HasPrefix(out, "---\nname: para\n") {
+		t.Fatalf("skill: %q", out[:40])
+	}
+	e.ok("skill", "install", "--dir", dir)
+	b, err := os.ReadFile(filepath.Join(dir, "para", "SKILL.md"))
+	if err != nil || string(b) != guide.Skill() {
+		t.Fatalf("installed skill differs: %v", err)
 	}
 }

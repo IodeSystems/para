@@ -25,6 +25,8 @@ var (
 	bootstrap string
 	//go:embed extended.txt
 	extended string
+	//go:embed skill.txt
+	skill string
 	//go:embed harness_claude.txt
 	harnessClaude string
 	//go:embed harness_dun.txt
@@ -60,6 +62,12 @@ func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 // Extended is `para --help-extended`: use cases with real commands, and a
 // "where does this go?" table.
 func Extended() string { return Intro() + "\n\n" + trim(extended) }
+
+// Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
+func Skill() string {
+	return "---\nname: para\ndescription: Track what the owner owes and who they wait on, in para vaults: tasks, blockers, requests to people, areas, policies, and proposals for review.\n---\n\n" +
+		"# para\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
+}
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.
