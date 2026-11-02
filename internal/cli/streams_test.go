@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -521,5 +522,86 @@ func TestLinks(t *testing.T) {
 	e.json(&lint, "lint")
 	if lint.Errors != 0 {
 		t.Fatalf("lint = %+v", lint)
+	}
+}
+
+func TestMCPConfig(t *testing.T) {
+	e := newEnv(t)
+	e.init("life")
+	e.init("iode")
+	snapshot := func() []string {
+		var out []string
+		_ = filepath.WalkDir(e.dir, func(p string, d os.DirEntry, err error) error {
+			if err == nil {
+				info, _ := d.Info()
+				out = append(out, p+"|"+info.ModTime().String())
+			}
+			return nil
+		})
+		return out
+	}
+	before := snapshot()
+
+	var cfg struct {
+		MCPServers map[string]struct {
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"mcpServers"`
+	}
+	e.jsonOut(&cfg, "mcp", "config")
+	if len(cfg.MCPServers) != 2 {
+		t.Fatalf("all vaults: %+v", cfg)
+	}
+	life := cfg.MCPServers["para-life"]
+	if !filepath.IsAbs(life.Command) || !reflect.DeepEqual(life.Args, []string{"mcp", "--vault", "life"}) {
+		t.Errorf("para-life = %+v", life)
+	}
+	var one = cfg
+	one.MCPServers = nil
+	e.jsonOut(&one, "mcp", "config", "--vault", "iode")
+	if _, ok := one.MCPServers["para-iode"]; !ok || len(one.MCPServers) != 1 {
+		t.Errorf("one vault: %+v", one)
+	}
+
+	var dun struct {
+		Servers []struct {
+			ID      string   `json:"id"`
+			Command string   `json:"command"`
+			Args    []string `json:"args"`
+		} `json:"servers"`
+	}
+	e.jsonOut(&dun, "mcp", "config", "--client", "dun")
+	if len(dun.Servers) != 2 || dun.Servers[0].ID != "para-iode" || dun.Servers[0].Args[2] != "iode" {
+		t.Errorf("dun: %+v", dun)
+	}
+
+	out := e.ok("mcp", "config", "--client", "claude", "--vault", "life")
+	if !strings.HasPrefix(out, "claude mcp add para-life -- /") || !strings.HasSuffix(out, " mcp --vault life\n") {
+		t.Errorf("claude: %q", out)
+	}
+
+	for _, bad := range [][]string{
+		{"mcp", "config", "--client", "vim"},
+		{"mcp", "config", "--vault", "nope"},
+	} {
+		if _, _, err := e.run(bad...); err == nil {
+			t.Errorf("para %v must fail", bad)
+		}
+	}
+	// A path with a quote is quoted for the shell.
+	if got := shellQuote("it's here"); got != `'it'\''s here'` {
+		t.Errorf("shellQuote = %q", got)
+	}
+	if !reflect.DeepEqual(before, snapshot()) {
+		t.Error("mcp config changed files")
+	}
+}
+
+// jsonOut decodes the stdout of a command whose output is JSON with no --json flag.
+func (e *env) jsonOut(v any, args ...string) {
+	e.t.Helper()
+	out := e.ok(args...)
+	if err := json.Unmarshal([]byte(out), v); err != nil {
+		e.t.Fatalf("para %v: stdout is not JSON: %v\n%s", args, err, out)
 	}
 }

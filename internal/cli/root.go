@@ -34,6 +34,25 @@ type loader struct {
 	vaultFlag string
 
 	install registry.Install
+
+	// exe returns the path of this binary; nil means os.Executable. Tests set it.
+	exe func() (string, error)
+}
+
+// executable is the absolute path of this binary, symlinks resolved.
+func (l *loader) executable() (string, error) {
+	get := l.exe
+	if get == nil {
+		get = os.Executable
+	}
+	p, err := get()
+	if err != nil {
+		return "", err
+	}
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		p = r
+	}
+	return filepath.Abs(p)
 }
 
 // load resolves the install home: --home, then PARA_HOME, then ~/.para.
