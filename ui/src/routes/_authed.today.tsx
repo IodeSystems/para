@@ -524,6 +524,11 @@ function Today() {
                   </LinkButton>
                 )}
               </Section>
+              {t.health > 0 && (
+                <LinkButton size="small" color="inherit" to="/health">
+                  {t.health} health finding{t.health === 1 ? '' : 's'}
+                </LinkButton>
+              )}
               <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
                 {inboxOf(inboxRows)}
               </Section>

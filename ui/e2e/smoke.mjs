@@ -940,6 +940,29 @@ try {
   await rp.goto(`${base}/today`)
   await rp.getByRole('link', { name: 'Disk full on build host' }).waitFor()
   check(true, 'Today lists the open incident')
+  // Health: one line on Today with a count, a page with the groups, and dismiss with a reason.
+  const healthLine = rp.getByRole('link', { name: /health finding/ })
+  await healthLine.waitFor()
+  check(true, 'Today has a health line with the count')
+  await healthLine.click()
+  await rp.getByRole('heading', { name: 'Health', exact: true }).waitFor()
+  const dismissButtons = rp.getByRole('button', { name: 'Dismiss', exact: true })
+  await dismissButtons.first().waitFor()
+  const healthBefore = await dismissButtons.count()
+  check(healthBefore >= 1, `the Health page lists findings (${healthBefore})`)
+  await dismissButtons.first().click()
+  await rp.getByLabel('Why it can stay as it is').fill('Fine as it is.')
+  await rp.getByRole('dialog').getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await rp.getByRole('dialog').waitFor({ state: 'hidden' })
+  await rp.waitForFunction(
+    (n) =>
+      [...document.querySelectorAll('button')].filter((b) => b.textContent === 'Dismiss').length <
+      n,
+    healthBefore,
+  )
+  check(true, 'dismissing a finding takes it off the Health page')
+  await rp.goto(`${base}/today`)
+  await rp.getByRole('link', { name: 'Disk full on build host' }).waitFor()
   check(
     (await rp.getByRole('button', { name: /^Done: / }).count()) >= 1,
     'Today task rows have Done in place',
