@@ -35,6 +35,13 @@ Use para from Claude Code.
    $ para proposal wait proposal-example --timeout 1h
    Each blocks with no token cost, then call `request_next` or `proposal_show`.
 
+7. Optional: server push into a session. Claude Code channels are a research
+   preview. A custom channel such as para is not on the approved list, so start
+   the session with:
+   claude --dangerously-load-development-channels server:para-<vault>
+   Team and Enterprise organizations must enable channels first. Para works
+   without it: use step 6 or call the wait tools.
+
 Para cannot stop an agent from using other tools. To enforce "no external action
 without approval", use Claude Code permission rules or a hook. A hook can run
 para proposal approved with the sha256 of the target, one NUL byte, and the draft;
