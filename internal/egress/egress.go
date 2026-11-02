@@ -34,6 +34,12 @@ const (
 	DestExport = "export:"
 )
 
+// DestRaglit is a query to the vault's raglit daemon (raglit:search). The
+// owner opts in per machine with `para raglit connect`, so the destination
+// stays allowed under egress.default=deny, like copy and export. The record
+// holds no query text.
+const DestRaglit = "raglit:"
+
 // Decision is the outcome of Check.
 type Decision struct {
 	Default string `json:"default"` // egress.default as applied: "allow" or "deny"
@@ -51,7 +57,7 @@ func Check(cfg map[string]string, dest string) Decision {
 	if m := strings.TrimSpace(cfg[KeyMarking]); m != "" {
 		d.Marking = m
 	}
-	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy)
+	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit)
 	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
 		d.Allowed = exportAllowed(cfg[KeyExport], kind)
 	}

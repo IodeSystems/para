@@ -8,6 +8,7 @@ const SearchDoc = graphql(/* GraphQL */ `
     para {
       v1 {
         search(query: $query, limit: 30) {
+          degraded
           hits {
             id
             title
@@ -15,6 +16,9 @@ const SearchDoc = graphql(/* GraphQL */ `
             passage
             unverified
             sourceUrl
+            match
+            via
+            caveat
           }
         }
       }
@@ -26,7 +30,9 @@ export function useSearch(query: string) {
   return useQuery({
     queryKey: ['search', query],
     enabled: query.trim() !== '',
-    queryFn: async () =>
-      need((await gqlClient.request(SearchDoc, { query })).para.v1.search, 'hits').hits,
+    queryFn: async () => {
+      const r = need((await gqlClient.request(SearchDoc, { query })).para.v1.search, 'hits')
+      return { hits: r.hits, degraded: r.degraded ?? '' }
+    },
   })
 }

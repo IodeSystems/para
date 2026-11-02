@@ -40,9 +40,10 @@ type (
 		err   error
 	}
 	searchMsg struct {
-		query string
-		hits  []index.Hit
-		err   error
+		query    string
+		hits     []index.Hit
+		degraded string
+		err      error
 	}
 	exportListMsg struct {
 		out ops.ExportListOutput
@@ -111,7 +112,7 @@ func (m *Model) loadSearch(q string) tea.Cmd {
 		in := ops.ParseQuery(q)
 		in.Limit = 30
 		o, err := ops.Search.Run(context.Background(), env.Deps, in)
-		return searchMsg{query: q, hits: o.Hits, err: err}
+		return searchMsg{query: q, hits: o.Hits, degraded: o.Degraded, err: err}
 	}
 }
 

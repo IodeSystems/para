@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
+import Alert from '@mui/material/Alert'
 import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -44,29 +45,45 @@ function Search() {
       />
       {q !== '' && (
         <DataState q={hits}>
-          {(list) =>
-            list.length === 0 ? (
-              <Empty>No hit for {q}.</Empty>
-            ) : (
-              <List disablePadding>
-                {list.map((h) => (
-                  <ListItem
-                    key={`${h.id}-${h.passage.slice(0, 20)}`}
-                    disableGutters
-                    divider
-                    alignItems="flex-start"
-                  >
-                    <ListItemText
-                      primary={<DocLink id={h.id}>{h.title || h.id}</DocLink>}
-                      secondary={h.passage}
-                      slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-                    />
-                    {h.unverified && <Chip size="small" color="warning" label="unverified" />}
-                  </ListItem>
-                ))}
-              </List>
-            )
-          }
+          {({ hits: list, degraded }) => (
+            <>
+              {degraded !== '' && (
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  {degraded}
+                </Alert>
+              )}
+              {list.length === 0 ? (
+                <Empty>No hit for {q}.</Empty>
+              ) : (
+                <List disablePadding>
+                  {list.map((h) => (
+                    <ListItem
+                      key={`${h.id}-${h.passage.slice(0, 20)}`}
+                      disableGutters
+                      divider
+                      alignItems="flex-start"
+                    >
+                      <ListItemText
+                        primary={<DocLink id={h.id}>{h.title || h.id}</DocLink>}
+                        secondary={
+                          <>
+                            {h.passage}
+                            {h.via && <> (text from {h.via})</>}
+                            {h.caveat && <> [{h.caveat}]</>}
+                          </>
+                        }
+                        slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+                      />
+                      {h.match && (
+                        <Chip size="small" variant="outlined" label={h.match} sx={{ mr: 0.5 }} />
+                      )}
+                      {h.unverified && <Chip size="small" color="warning" label="unverified" />}
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </>
+          )}
         </DataState>
       )}
     </>

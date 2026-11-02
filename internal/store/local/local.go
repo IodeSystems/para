@@ -48,7 +48,7 @@ func (s *Store) ActAs(actor, surface string) store.Store { return s.As(actor, su
 func (s *Store) VaultID() string { return s.v.ID() }
 
 func (s *Store) Info() store.Info {
-	return store.Info{Actor: s.v.Actor(), Surface: s.v.Surface(), Install: s.v.Install()}
+	return store.Info{Actor: s.v.Actor(), Surface: s.v.Surface(), Install: s.v.Install(), StateDir: s.v.StateDir()}
 }
 
 func (s *Store) Now() time.Time { return s.v.Now() }

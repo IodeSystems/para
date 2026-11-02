@@ -573,12 +573,24 @@ func (m *Model) rowsWho(p *page, w int) []row {
 
 func (m *Model) rowsResults(p *page, w int) []row {
 	r := []row{head(fmt.Sprintf("%s (%d)", p.title, len(p.hits)))}
+	if p.degraded != "" {
+		r = append(r, dim("  degraded: "+p.degraded))
+	}
 	for _, h := range p.hits {
 		flag := ""
 		if h.Unverified {
 			flag = "  " + state("unverified")
 		}
+		if h.Match != "" {
+			flag += "  " + stDim.Render(h.Match)
+		}
 		r = append(r, link("doc:"+h.ID, "  "+stDim.Render(h.Kind)+"  ", titleOr(h.Title, h.ID), flag, w))
+		if h.Via != "" {
+			r = append(r, dim("      text from "+h.Via))
+		}
+		if h.Caveat != "" {
+			r = append(r, dim("      caveat: "+truncate(oneLine(h.Caveat), max(w-16, 10))))
+		}
 		if h.Passage != "" {
 			r = append(r, dim("      "+truncate(oneLine(h.Passage), max(w-8, 10))))
 		}

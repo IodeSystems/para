@@ -827,14 +827,17 @@ type para_GroupShowOutput {
 }
 
 type para_Hit {
+  caveat: String
   id: String!
   kind: String!
+  match: String
   passage: String!
   path: String!
   score: Float!
   sourceUrl: String!
   title: String!
   unverified: Boolean!
+  via: String
 }
 
 input para_InboxAddInputInput {
@@ -2729,6 +2732,7 @@ type para_RuleListOutput {
 }
 
 type para_SearchOutput {
+  degraded: String
   hits: [para_Hit!]!
 }
 

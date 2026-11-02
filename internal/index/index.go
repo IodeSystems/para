@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strings"
 
 	_ "modernc.org/sqlite" // registers the "sqlite" driver
@@ -59,6 +60,14 @@ type Hit struct {
 	SourceURL  string  `json:"source_url"`
 	Unverified bool    `json:"unverified"` // a summary no person reviewed
 	Score      float64 `json:"score"`      // lower is better (bm25)
+	// Match says how the hit was found: "exact" (words, FTS5) or "meaning"
+	// (a raglit daemon). Set by ops.Search.
+	Match string `json:"match,omitempty"`
+	// Via names the document the text came from when it is not the hit itself:
+	// a meaning hit on a transcript is shown under its summary.
+	Via string `json:"via,omitempty"`
+	// Caveat says why a meaning hit's text is not the document's own words.
+	Caveat string `json:"caveat,omitempty"`
 }
 
 // Stats says what a Rebuild or sync did.
@@ -256,6 +265,34 @@ func newRow(d model.Document) row {
 		r.url = m.Source.URL
 	}
 	return r
+}
+
+// HitFor builds the hit of a document found outside the index, with the given
+// passage.
+func HitFor(d model.Document, passage string) Hit {
+	r := newRow(d)
+	return Hit{ID: r.id, Title: r.title, Path: r.path, Kind: r.kind, Passage: passage, SourceURL: r.url, Unverified: r.unverified}
+}
+
+// Match reports whether a document passes the filters of q, as the index
+// applies them.
+func (q Query) Match(d model.Document) bool {
+	r := newRow(d)
+	switch {
+	case q.Type != "" && r.typ != q.Type,
+		q.Area != "" && r.area != model.Link(q.Area).Target(),
+		q.Project != "" && r.project != model.Link(q.Project).Target(),
+		q.Since != "" && r.updated < q.Since:
+		return false
+	}
+	switch q.Status {
+	case "":
+	case StatusOpen:
+		return r.status != "" && !slices.Contains(finalStatuses, r.status)
+	default:
+		return r.status == q.Status
+	}
+	return true
 }
 
 // metaString reads a string-kinded field of a document's typed frontmatter,

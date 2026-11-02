@@ -24,6 +24,9 @@ type Info struct {
 	Actor   string
 	Surface string
 	Install string
+	// StateDir is this machine's directory for the vault, or empty. Per-machine
+	// config such as raglit.json lives there, never in the vault.
+	StateDir string
 }
 
 // Store is one open vault.

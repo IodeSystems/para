@@ -55,6 +55,8 @@ type page struct {
 
 	who  ops.WhoOutput
 	hits []index.Hit
+	// degraded is the search's "exact only: <reason>" line.
+	degraded string
 
 	prop  ops.ProposalDetail // proposal and history pages
 	lines []string           // text pages
@@ -220,7 +222,7 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 			m.setStatus("search: "+msg.err.Error(), true)
 			return nil
 		}
-		m.push(page{kind: pageResults, id: msg.query, title: "search: " + msg.query, hits: msg.hits})
+		m.push(page{kind: pageResults, id: msg.query, title: "search: " + msg.query, hits: msg.hits, degraded: msg.degraded})
 		return nil
 	case exportListMsg:
 		if msg.err != nil {

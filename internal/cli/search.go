@@ -42,13 +42,31 @@ func newSearchCmd(l *loader) *cobra.Command {
 			return nil
 		},
 		Text: func(w io.Writer, out ops.SearchOutput) error {
+			if out.Degraded != "" {
+				if _, err := fmt.Fprintf(w, "degraded: %s\n", out.Degraded); err != nil {
+					return err
+				}
+			}
 			for _, h := range out.Hits {
 				label := h.Kind
 				if h.Unverified {
 					label += ", unverified"
 				}
+				if h.Match != "" {
+					label += ", " + h.Match
+				}
 				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t[%s]\n    %s\n", h.ID, h.Title, h.Path, label, h.Passage); err != nil {
 					return err
+				}
+				if h.Via != "" {
+					if _, err := fmt.Fprintf(w, "    text from: %s\n", h.Via); err != nil {
+						return err
+					}
+				}
+				if h.Caveat != "" {
+					if _, err := fmt.Fprintf(w, "    caveat: %s\n", h.Caveat); err != nil {
+						return err
+					}
 				}
 				if h.SourceURL != "" {
 					if _, err := fmt.Fprintf(w, "    source: %s\n", h.SourceURL); err != nil {

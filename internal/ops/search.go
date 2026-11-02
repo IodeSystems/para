@@ -69,9 +69,13 @@ func ParseQuery(text string) SearchInput {
 // SearchOutput is the output of search.
 type SearchOutput struct {
 	Hits []index.Hit `json:"hits"`
+	// Degraded is set when meaning search is configured and did not answer:
+	// "exact only: <reason>". The hits are the exact ones, and complete.
+	Degraded string `json:"degraded,omitempty"`
 }
 
-// Search finds documents by text. A hit says whether it is a transcript or a
+// Search finds documents by text, and by meaning when the vault is connected
+// to a raglit daemon on this machine. A hit says whether it is a transcript or a
 // summary, and carries the source URL, so a reader can cite the original.
 var Search = define("search", "Search documents, transcripts and summaries by text", func(ctx context.Context, d Deps, in SearchInput) (SearchOutput, error) {
 	q := index.Query{Text: in.Query, Limit: in.Limit, Type: in.Type, Status: in.Status, Area: in.Area, Project: in.Project}
@@ -83,14 +87,29 @@ var Search = define("search", "Search documents, transcripts and summaries by te
 		return SearchOutput{}, err
 	}
 	q.Since = since
+	limit := q.Limit
+	if limit <= 0 {
+		limit = defaultSearchLimit
+	}
+	// The exact search always runs. The meaning search, when configured,
+	// runs beside it and may only add hits.
+	sem := startSemantic(ctx, d, in.Query, limit)
 	hits, err := d.Store.Search(ctx, q)
 	if err != nil {
+		sem.cancel()
 		return SearchOutput{}, err
 	}
 	if hits == nil {
 		hits = []index.Hit{}
 	}
-	return SearchOutput{Hits: hits}, nil
+	for i := range hits {
+		hits[i].Match = MatchExact
+	}
+	out := SearchOutput{Hits: hits}
+	if sem != nil {
+		out = sem.merge(ctx, d, q, limit, out)
+	}
+	return out, nil
 })
 
 // IndexRebuildInput is the input of index_rebuild.

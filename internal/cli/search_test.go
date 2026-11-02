@@ -83,7 +83,7 @@ func TestSearchEndToEnd(t *testing.T) {
 			t.Errorf("hit = %+v", h)
 		}
 	}
-	if txt := e.ok("search", "authentication"); !strings.Contains(txt, "[summary, unverified]") || !strings.Contains(txt, "[transcript]") {
+	if txt := e.ok("search", "authentication"); !strings.Contains(txt, "[summary, unverified, exact]") || !strings.Contains(txt, "[transcript, exact]") {
 		t.Errorf("text output:\n%s", txt)
 	}
 
