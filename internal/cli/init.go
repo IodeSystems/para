@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -118,15 +119,43 @@ func newVaultCmd(l *loader) *cobra.Command {
 			if err := l.load(); err != nil {
 				return err
 			}
-			vaults, err := l.install.List()
+			// Entries, not List: a broken entry must show, not hide the others.
+			entries, err := l.install.Entries()
 			if err != nil {
 				return err
 			}
-			return emit(cmd, vaultListOutput{Vaults: vaults}, func(w io.Writer, o vaultListOutput) error {
+			out := vaultListOutput{Vaults: []vaultListEntry{}}
+			problems := 0
+			for _, e := range entries {
+				v := vaultListEntry{Entry: e}
+				if e.Err == "" {
+					if _, err := os.Stat(e.Path); errors.Is(err, fs.ErrNotExist) {
+						v.Missing = true
+					}
+				}
+				if e.Err != "" || v.Missing {
+					problems++
+				}
+				out.Vaults = append(out.Vaults, v)
+			}
+			return emit(cmd, out, func(w io.Writer, o vaultListOutput) error {
 				for _, v := range o.Vaults {
-					if _, err := fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Path); err != nil {
+					var err error
+					switch {
+					case v.Err != "":
+						_, err = fmt.Fprintf(w, "%s\tbroken: %s\n", v.ID, v.Err)
+					case v.Missing:
+						_, err = fmt.Fprintf(w, "%s\t%s\tmissing\n", v.ID, v.Path)
+					default:
+						_, err = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Path)
+					}
+					if err != nil {
 						return err
 					}
+				}
+				if problems > 0 {
+					_, err := fmt.Fprintln(cmd.ErrOrStderr(), "para: some entries are missing or broken; para vault --prune --dry-run lists the ones it can drop")
+					return err
 				}
 				return nil
 			})
@@ -164,6 +193,13 @@ type vaultPruneOutput struct {
 	Pruned []registry.Pruned `json:"pruned"`
 }
 
+// vaultListEntry is a registry entry. Missing means the path does not exist
+// (an unmounted drive looks the same); Err means vault.ref is unreadable.
+type vaultListEntry struct {
+	registry.Entry
+	Missing bool `json:"missing,omitempty"`
+}
+
 type vaultListOutput struct {
-	Vaults []registry.Vault `json:"vaults"`
+	Vaults []vaultListEntry `json:"vaults"`
 }

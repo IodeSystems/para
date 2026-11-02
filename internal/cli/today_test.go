@@ -219,3 +219,50 @@ func TestVaultPrune(t *testing.T) {
 		t.Errorf("second prune = %q", out)
 	}
 }
+
+func TestVaultListShowsBrokenAndMissing(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	gone := e.init("gone")
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(e.home, "vaults", "broken")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "vault.ref"), []byte("nonsense\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := e.run("vault", "list")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"acme\t", "gone\t" + gone + "\tmissing\n", "broken\tbroken: "} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list lacks %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "acme\t"+filepath.Join(e.dir, "acme")+"\tmissing") {
+		t.Errorf("a healthy vault is marked missing:\n%s", out)
+	}
+	if !strings.Contains(errOut, "--prune --dry-run") {
+		t.Errorf("no hint on stderr: %q", errOut)
+	}
+	var js struct {
+		Vaults []struct {
+			ID      string `json:"id"`
+			Error   string `json:"error"`
+			Missing bool   `json:"missing"`
+		} `json:"vaults"`
+	}
+	e.json(&js, "vault", "list")
+	if len(js.Vaults) != 3 || js.Vaults[0].ID != "acme" || js.Vaults[1].Error == "" || !js.Vaults[2].Missing {
+		t.Errorf("json = %+v", js)
+	}
+	// Prune drops the missing one; the broken one stays and still shows.
+	e.ok("vault", "--prune")
+	if out = e.ok("vault", "list"); strings.Contains(out, "gone") || !strings.Contains(out, "broken\tbroken: ") {
+		t.Errorf("after prune:\n%s", out)
+	}
+}
