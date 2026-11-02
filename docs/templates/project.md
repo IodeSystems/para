@@ -4,6 +4,10 @@ created: 2026-11-01
 status: active
 owner: Jordan Example
 area: "[[health]]"
+links:
+  - label: Plan
+    kind: plan
+    target: https://wiki.acme.example/plans/portal
 tags: []
 ---
 

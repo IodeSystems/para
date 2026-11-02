@@ -260,10 +260,16 @@ func (m *Model) rowsWork(w int) []row {
 		tx.id = t.ID
 		return tx
 	}
+	linkRows := func(indent string, links []model.Pointer) {
+		for _, k := range links {
+			r = append(r, dim(truncate(fmt.Sprintf("%s%s: %s  %s", indent, k.Kind, k.Label, k.Target), w)))
+		}
+	}
 	projectRows := func(p ops.ProjectView) {
 		x := link("doc:"+p.ID, "  ", titleOr(p.Title, p.ID), "  "+state(string(p.Status))+stDim.Render(fmt.Sprintf("  %d tasks", len(byProject[p.ID]))), w)
 		x.id = p.ID
 		r = append(r, x)
+		linkRows("      ", p.Links)
 		for _, t := range byProject[p.ID] {
 			r = append(r, taskRow(t))
 		}
@@ -276,6 +282,7 @@ func (m *Model) rowsWork(w int) []row {
 		x := link("doc:"+a.ID, "  ", titleOr(a.Title, a.ID), "  "+state(string(a.Status)), w)
 		x.id = a.ID
 		r = append(r, x)
+		linkRows("    ", a.Links)
 		for _, p := range s.Projects {
 			if p.Area == a.ID {
 				projectRows(p)

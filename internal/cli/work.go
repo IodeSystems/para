@@ -45,6 +45,7 @@ func scope(t ops.TaskView) string {
 func newProjectCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "project", Short: "Projects", Args: cobra.NoArgs}
 	cmd.AddCommand(
+		newLinkCmd(l, ops.ProjectLinkAdd, ops.ProjectLinkRemove),
 		opCommand(l, ops.ProjectAdd, binding[ops.ProjectAddInput, ops.ProjectAddOutput]{
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),
@@ -82,6 +83,11 @@ func newProjectCmd(l *loader) *cobra.Command {
 				p := out.Project
 				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", p.ID, p.Status, p.Owner, p.Folder, p.Title); err != nil {
 					return err
+				}
+				pr := &printer{w: w}
+				writeLinks(pr, p.Links)
+				if pr.err != nil {
+					return pr.err
 				}
 				return writeTasks(w, out.Tasks)
 			},

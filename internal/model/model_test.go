@@ -28,6 +28,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"fidelity", strs(Fidelities), paramd.Fidelities()},
 		{"project.status", strs(ProjectStatuses), paramd.FieldEnum("project", "status")},
 		{"area.status", strs(AreaStatuses), paramd.FieldEnum("area", "status")},
+		{"pointer.kind", strs(PointerKinds), paramd.ItemFieldEnum("area", "links", "kind")},
 		{"task.status", strs(TaskStatuses), paramd.FieldEnum("task", "status")},
 		{"rfx.direction", strs(RFXDirections), paramd.FieldEnum("rfx", "direction")},
 		{"rfx.status", strs(RFXStatuses), paramd.FieldEnum("rfx", "status")},
@@ -67,9 +68,11 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		meta Meta
 		body string
 	}{
-		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health")}, ""},
+		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health"),
+			Links: []Pointer{{Label: "Plan", Kind: PointerPlan, Target: "/srv/plans/portal.md"}}}, ""},
 		{"note-one", &Note{Common: c(TypeNote), Area: LinkTo("health"), Project: LinkTo("acme-portal")}, "Reference text."},
-		{"health", &Area{c(TypeArea), AreaActive}, "Standard."},
+		{"health", &Area{Common: c(TypeArea), Status: AreaActive, Links: []Pointer{
+			{Label: "Runbook", Kind: PointerRunbook, Target: "~/doc/runbook.md"}, {Label: "Repo", Kind: PointerRepo, Target: "https://git.acme.example/atlas"}}}, "Standard."},
 		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Project: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
 		{"task-area", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health")}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},

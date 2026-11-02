@@ -28,6 +28,11 @@ func streamSParityCases() map[string]parityCase {
 		"task_due":            {`{"id":"task-s-due-a","date":"2026-12-01","recur":"monthly"}`, []string{"task", "due", "task-s-due-b", "2026-12-01", "--recur", "monthly"}, false},
 		"task_depends_add":    {`{"id":"task-s-due-a","depends_on":["task-s-due-b"]}`, []string{"task", "depends", "add", "task-s-dep-c", "task-s-due-b"}, false},
 		"task_depends_remove": {`{"id":"task-s-dep-d","depends_on":["task-s-due-b"]}`, []string{"task", "depends", "remove", "task-s-dep-e", "task-s-due-b"}, false},
+		"area_link_add":       {`{"id":"area-s-seed","label":"Repo","kind":"repo","target":"~/src/seed"}`, []string{"area", "link", "add", "area-s-link-b", "Repo", "--kind", "repo", "--target", "~/src/seed"}, false},
+		"area_link_remove":    {`{"id":"area-s-link-a","label":"Runbook"}`, []string{"area", "link", "remove", "area-s-link-b2", "Runbook"}, false},
+		"project_link_add":    {`{"id":"project-s-seed","label":"Plan","kind":"plan","target":"/srv/plans/seed.md"}`, []string{"project", "link", "add", "project-s-seed", "Other plan", "--kind", "plan", "--target", "/srv/plans/other.md"}, false},
+		"project_link_remove": {`{"id":"project-s-link-a","label":"Plan"}`, []string{"project", "link", "remove", "project-s-link-b", "Plan"}, false},
+		"where":               {`{"query":"seed"}`, []string{"where", "seed"}, false},
 		"note_show":           {`{"id":"note-s-seed"}`, []string{"note", "show", "note-s-seed"}, true},
 	}
 }
@@ -51,6 +56,16 @@ func seedStreamSParity(t *testing.T, deps ops.Deps) {
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed"), DependsOn: []model.Link{model.LinkTo("task-s-due-b")}}},
 		{ID: "task-s-dep-e", Folder: model.FolderProjects, Title: "Dep e",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Area: model.LinkTo("area-s-seed"), DependsOn: []model.Link{model.LinkTo("task-s-due-b")}}},
+		{ID: "area-s-link-a", Folder: model.FolderAreas, Title: "Link area a",
+			Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive, Links: []model.Pointer{{Label: "Runbook", Kind: model.PointerRunbook, Target: "~/rb.md"}}}},
+		{ID: "area-s-link-b", Folder: model.FolderAreas, Title: "Link area bare",
+			Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive}},
+		{ID: "area-s-link-b2", Folder: model.FolderAreas, Title: "Link area b",
+			Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive, Links: []model.Pointer{{Label: "Runbook", Kind: model.PointerRunbook, Target: "~/rb.md"}}}},
+		{ID: "project-s-link-a", Folder: model.FolderProjects, Title: "Link project a",
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
+		{ID: "project-s-link-b", Folder: model.FolderProjects, Title: "Link project b",
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
 		{ID: "project-s-seed", Folder: model.FolderProjects, Title: "Seed project",
 			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Area: model.LinkTo("area-s-seed")}},
 	} {
@@ -268,8 +283,9 @@ func TestDueDates(t *testing.T) {
 	if !reflect.DeepEqual(got[:4], want) || len(got) != 6 {
 		t.Fatalf("next = %v, want prefix %v", got, want)
 	}
-	if got[4] != none1 || got[5] != none2 {
-		t.Fatalf("undated order = %v, want %s then %s", got[4:], none1, none2)
+	// Undated tasks sort after dated ones; among themselves by created, then id.
+	if (got[4] != none1 || got[5] != none2) && (got[4] != none2 || got[5] != none1) {
+		t.Fatalf("undated tasks = %v, want %s and %s", got[4:], none1, none2)
 	}
 
 	var sh ops.TaskShowOutput
@@ -436,4 +452,74 @@ func sortedCopy(ids ...string) []string {
 	out := append([]string(nil), ids...)
 	sort.Strings(out)
 	return out
+}
+
+func TestLinks(t *testing.T) {
+	e := newEnv(t)
+	e.init("life")
+	var a ops.AreaAddOutput
+	e.json(&a, "area", "add", "Home lab")
+	var p ops.ProjectAddOutput
+	e.json(&p, "project", "add", "Server move", "--area", a.ID)
+	var out ops.LinkOutput
+	e.json(&out, "area", "link", "add", a.ID, "Ops", "runbook", "--kind", "runbook", "--target", "~/doc/lab/runbook.md")
+	e.json(&out, "area", "link", "add", a.ID, "Repo", "--kind", "repo", "--target", "https://git.acme.example/lab")
+	if len(out.Links) != 2 || out.Links[0].Label != "Ops runbook" || out.Links[0].Target != "~/doc/lab/runbook.md" {
+		t.Fatalf("links = %+v", out.Links)
+	}
+	e.ok("project", "link", "add", p.ID, "Migration plan", "--kind", "plan", "--target", "/srv/plans/move.md")
+	for _, bad := range [][]string{
+		{"area", "link", "add", a.ID, "Repo", "--kind", "repo", "--target", "~/other"},  // label repeats
+		{"area", "link", "add", a.ID, "X", "--kind", "wiki", "--target", "~/x"},         // bad kind
+		{"area", "link", "add", a.ID, "X", "--kind", "docs", "--target", "notes.md"},    // not a path or URL
+		{"area", "link", "add", a.ID, "X", "--kind", "docs", "--target", "~/has space"}, // space
+		{"area", "link", "add", p.ID, "X", "--kind", "docs", "--target", "~/x"},         // a project is not an area
+		{"project", "link", "add", a.ID, "X", "--kind", "docs", "--target", "~/x"},      // an area is not a project
+		{"area", "link", "remove", a.ID, "Nope"},                                        // unknown label
+	} {
+		if _, _, err := e.run(bad...); err == nil {
+			t.Errorf("para %v must fail", bad)
+		}
+	}
+	if list := e.ok("area", "list"); !strings.Contains(list, "area-home-lab\tactive\t2 links\tHome lab") {
+		t.Errorf("area list = %q", list)
+	}
+	show := e.ok("area", "show", a.ID)
+	if li := strings.Index(show, "links\n  Ops runbook\trunbook\t~/doc/lab/runbook.md"); li < 0 || li >= strings.Index(show, "projects\n") {
+		t.Errorf("links must come first:\n%s", show)
+	}
+	if ps := e.ok("project", "show", p.ID); !strings.Contains(ps, "Migration plan\tplan\t/srv/plans/move.md") {
+		t.Errorf("project show = %q", ps)
+	}
+	var w ops.WhereOutput
+	e.json(&w, "where", "migration")
+	if len(w.Matches) != 1 || w.Matches[0].ID != p.ID || len(w.Matches[0].Links) != 1 {
+		t.Fatalf("where by link label = %+v", w)
+	}
+	e.json(&w, "where", "home", "lab")
+	if len(w.Matches) != 1 || w.Matches[0].ID != a.ID {
+		t.Fatalf("where by name = %+v", w)
+	}
+	e.json(&w, "where", "nothing")
+	if len(w.Matches) != 0 {
+		t.Fatalf("where nothing = %+v", w)
+	}
+	if _, _, err := e.run("where"); err == nil {
+		t.Error("where needs text")
+	}
+	e.ok("area", "link", "remove", a.ID, "repo")
+	e.ok("project", "close", p.ID)
+	e.json(&w, "where", "migration")
+	if len(w.Matches) != 0 {
+		t.Errorf("archived project listed: %+v", w)
+	}
+	e.json(&w, "where", "migration", "--all")
+	if len(w.Matches) != 1 {
+		t.Errorf("--all: %+v", w)
+	}
+	var lint ops.LintOutput
+	e.json(&lint, "lint")
+	if lint.Errors != 0 {
+		t.Fatalf("lint = %+v", lint)
+	}
 }

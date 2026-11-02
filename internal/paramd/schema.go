@@ -13,6 +13,7 @@ const (
 	kSourceMap // source block
 	kLinkList  // list of "[[name]]"
 	kContacts  // list of contact maps
+	kPointers  // list of {label, kind, target} maps
 	kTargets   // list of rfx target maps
 	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
 )
@@ -39,6 +40,7 @@ var (
 	interDirections = []string{"in", "out", "observed"}
 	visibilities    = []string{"public", "private"}
 	journalScopes   = []string{"day", "week", "month", "project"}
+	pointerKinds    = []string{"repo", "plan", "docs", "runbook", "tracker", "dashboard", "other"}
 	areaStatus      = []string{"active", "paused"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 )
@@ -64,9 +66,11 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
 		{Name: "owner", Kind: kString, Required: true},
 		{Name: "area", Kind: kLink},
+		{Name: "links", Kind: kPointers},
 	},
 	"area": {
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
+		{Name: "links", Kind: kPointers},
 	},
 	"note": {
 		{Name: "area", Kind: kLink},
@@ -171,6 +175,11 @@ var (
 		{Name: "label", Kind: kString},
 		{Name: "preferred", Kind: kBool},
 	}
+	pointerFields = []field{
+		{Name: "label", Kind: kString, Required: true},
+		{Name: "kind", Kind: kEnum, Enum: pointerKinds, Required: true},
+		{Name: "target", Kind: kString, Required: true},
+	}
 	targetFields = []field{
 		{Name: "to", Kind: kLink, Required: true},
 		{Name: "medium", Kind: kEnum, Enum: mediums, Required: true},
@@ -199,6 +208,8 @@ func ItemFieldEnum(typ, list, name string) []string {
 	for _, fd := range typeFields[typ] {
 		if fd.Name == list {
 			switch fd.Kind {
+			case kPointers:
+				items = pointerFields
 			case kContacts:
 				items = contactFields
 			case kTargets:

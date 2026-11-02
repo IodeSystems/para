@@ -63,6 +63,15 @@ type Source struct {
 	Checked string `yaml:"checked,omitempty" json:"checked,omitempty"`
 }
 
+// Pointer points at material that lives outside the vault: a repo, a plan, a
+// runbook. Para stores the pointer and never reads or copies the target.
+// Target is a URL or a path; a ~/ path is stored as written.
+type Pointer struct {
+	Label  string      `yaml:"label" json:"label"`
+	Kind   PointerKind `yaml:"kind" json:"kind"`
+	Target string      `yaml:"target" json:"target"`
+}
+
 // Project is type: project.
 type Project struct {
 	Common `yaml:",inline"`
@@ -70,12 +79,16 @@ type Project struct {
 	Owner  string        `yaml:"owner" json:"owner"`
 	// Area is the area of life or work the project belongs to; optional.
 	Area Link `yaml:"area,omitempty" json:"area,omitempty"`
+	// Links point at plans, repos, and docs that live elsewhere.
+	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
 
 // Area is type: area, an ongoing responsibility with no end date (PARA).
 type Area struct {
 	Common `yaml:",inline"`
 	Status AreaStatus `yaml:"status" json:"status"`
+	// Links point at plans, repos, and docs that live elsewhere.
+	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
 
 // Note is type: note, reference material kept in resources/. Area and Project

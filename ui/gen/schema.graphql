@@ -26,6 +26,8 @@ type ParaV1MutationNamespace {
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
+  areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
+  areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
@@ -58,6 +60,8 @@ type ParaV1MutationNamespace {
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
+  projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
+  projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
@@ -129,6 +133,7 @@ type ParaV1QueryNamespace {
   search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
   taskList(area: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
+  where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
   who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
 }
 
@@ -185,6 +190,7 @@ type para_AreaShowOutput {
 type para_AreaView {
   folder: para_AreaViewFolder!
   id: String!
+  links: [para_Pointer!]!
   rev: String!
   status: para_AreaViewStatus!
   title: String!
@@ -981,6 +987,34 @@ type para_KeyView {
   scopes: [String!]!
 }
 
+input para_LinkAddInputInput {
+  id: String!
+  kind: para_LinkAddInputKind!
+  label: String!
+  target: String!
+}
+
+enum para_LinkAddInputKind {
+  dashboard
+  docs
+  other
+  plan
+  repo
+  runbook
+  tracker
+}
+
+type para_LinkOutput {
+  id: String!
+  links: [para_Pointer!]!
+  rev: String!
+}
+
+input para_LinkRemoveInputInput {
+  id: String!
+  label: String!
+}
+
 type para_LintOutput {
   errors: Int!
   findings: [para_Finding!]!
@@ -1004,7 +1038,7 @@ type para_Meta {
   groups: [String!]
   kind: String
   leaseUntil: String
-  links: [String!]
+  links: JSON
   medium: para_MetaMedium
   nextNudge: String
   notIn: [String!]
@@ -1250,6 +1284,22 @@ type para_PersonNoteOutput {
   rev: String!
 }
 
+type para_Pointer {
+  kind: para_PointerKind!
+  label: String!
+  target: String!
+}
+
+enum para_PointerKind {
+  dashboard
+  docs
+  other
+  plan
+  repo
+  runbook
+  tracker
+}
+
 type para_PolicyListOutput {
   policies: [para_PolicyView!]!
 }
@@ -1404,6 +1454,7 @@ type para_ProjectView {
   area: String
   folder: para_ProjectViewFolder!
   id: String!
+  links: [para_Pointer!]
   owner: String!
   rev: String!
   status: para_ProjectViewStatus!
@@ -2156,6 +2207,56 @@ enum para_WaitingItemStatus {
   closed
   declined
   open
+}
+
+type para_WhereMatch {
+  folder: para_WhereMatchFolder!
+  id: String!
+  links: [para_Pointer!]!
+  title: String!
+  type: para_WhereMatchType!
+}
+
+enum para_WhereMatchFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_WhereMatchType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  interaction
+  journal
+  note
+  person
+  policy
+  policy_exception
+  project
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+type para_WhereOutput {
+  matches: [para_WhereMatch!]!
 }
 
 type para_WhoOutput {

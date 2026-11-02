@@ -47,7 +47,9 @@ func (jsonValue) Schema(huma.Registry) *huma.Schema { return &huma.Schema{} }
 // Meta is the frontmatter of every document type, flattened into one object:
 // gat has no sealed union. `type` says which fields apply. A field that holds
 // different enums per type is a plain string. `with` is a link on an exception
-// and a list of links on an interaction, so it is the JSON scalar.
+// and a list of links on an interaction, so it is the JSON scalar. `links` is
+// a list of wikilinks on a request and a list of {label, kind, target}
+// pointers on an area and a project, so it is the JSON scalar too.
 type Meta struct {
 	Type           model.Type       `json:"type"`
 	Created        string           `json:"created"`
@@ -96,7 +98,7 @@ type Meta struct {
 	QueuedAt       string           `json:"queued_at,omitempty"`
 	ClaimedBy      string           `json:"claimed_by,omitempty"`
 	LeaseUntil     string           `json:"lease_until,omitempty"`
-	Links          []string         `json:"links,omitempty"`
+	Links          *jsonValue       `json:"links,omitempty"`
 	ResultLinks    []string         `json:"result_links,omitempty"`
 }
 
@@ -114,6 +116,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Folders)
 	addEnum(reg, model.ProjectStatuses)
 	addEnum(reg, model.AreaStatuses)
+	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
 	addEnum(reg, model.RFXDirections)
 	addEnum(reg, model.RFXStatuses)

@@ -16,6 +16,7 @@ type AreaView struct {
 	Folder model.Folder     `json:"folder"`
 	Title  string           `json:"title"`
 	Status model.AreaStatus `json:"status"`
+	Links  []model.Pointer  `json:"links"`
 	Rev    string           `json:"rev"`
 }
 
@@ -24,7 +25,7 @@ func areaView(d model.Document) (AreaView, error) {
 	if !ok {
 		return AreaView{}, fmt.Errorf("%s is a %s, not an area", d.ID, d.Meta.Header().Type)
 	}
-	return AreaView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: a.Status, Rev: d.Rev}, nil
+	return AreaView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: a.Status, Links: nonNilPointers(a.Links), Rev: d.Rev}, nil
 }
 
 // getArea reads a document that must be an area.

@@ -84,6 +84,27 @@ const (
 // ProjectStatuses lists every ProjectStatus.
 var ProjectStatuses = []ProjectStatus{ProjectActive, ProjectPaused, ProjectDone, ProjectDropped}
 
+// PointerKind is pointers[].kind: what a pointer to outside material is.
+type PointerKind string
+
+const (
+	PointerRepo      PointerKind = "repo"
+	PointerPlan      PointerKind = "plan"
+	PointerDocs      PointerKind = "docs"
+	PointerRunbook   PointerKind = "runbook"
+	PointerTracker   PointerKind = "tracker"
+	PointerDashboard PointerKind = "dashboard"
+	PointerOther     PointerKind = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (PointerKind) Enum() []string { return enumStrings(PointerKinds) }
+
+// PointerKinds lists every PointerKind.
+var PointerKinds = []PointerKind{
+	PointerRepo, PointerPlan, PointerDocs, PointerRunbook, PointerTracker, PointerDashboard, PointerOther,
+}
+
 // AreaStatus is area.status.
 type AreaStatus string
 

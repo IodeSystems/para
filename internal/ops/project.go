@@ -18,6 +18,7 @@ type ProjectView struct {
 	Status model.ProjectStatus `json:"status"`
 	Owner  string              `json:"owner"`
 	Area   string              `json:"area,omitempty"`
+	Links  []model.Pointer     `json:"links,omitempty"`
 	Rev    string              `json:"rev"`
 }
 
@@ -26,7 +27,7 @@ func projectView(d model.Document) (ProjectView, error) {
 	if !ok {
 		return ProjectView{}, fmt.Errorf("%s is a %s, not a project", d.ID, d.Meta.Header().Type)
 	}
-	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), Rev: d.Rev}, nil
+	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), Links: p.Links, Rev: d.Rev}, nil
 }
 
 // getProject reads a document that must be a project.

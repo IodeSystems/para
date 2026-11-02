@@ -74,18 +74,20 @@ func (f Finding) String() string {
 }
 
 var (
-	stemRe     = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.source)?$`)
-	blockIDRe  = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
-	ruleIDRe   = regexp.MustCompile(`^R\d+$`)
-	dateRe     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	linkValRe  = regexp.MustCompile(`^\[\[([^\[\]|#]+)(?:#\^([A-Za-z0-9-]+))?\]\]$`)
-	hashRe     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-	htmlTagRe  = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>|<!--|<![A-Za-z]|<\?`)
-	imageRe    = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]*)`)
-	urlRe      = regexp.MustCompile(`https?://[^\s)>\]"'<]+`)
-	sepRowRe   = regexp.MustCompile(`^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$`)
-	mdSuffixRe = regexp.MustCompile(`(?i)\.md$`)
-	journalRe  = regexp.MustCompile(`^%%\s*para:(begin|end)\s+([a-z0-9][a-z0-9-]*)\s*%%$`)
+	stemRe    = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.source)?$`)
+	blockIDRe = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+	ruleIDRe  = regexp.MustCompile(`^R\d+$`)
+	dateRe    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	linkValRe = regexp.MustCompile(`^\[\[([^\[\]|#]+)(?:#\^([A-Za-z0-9-]+))?\]\]$`)
+	hashRe    = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	// pointerTargetRe accepts a URL with any scheme, or a path. ~/ is kept as written.
+	pointerTargetRe = regexp.MustCompile(`^(?:[a-z][a-z0-9+.-]*://\S+|(?:/|~/|\./|\.\./)\S*)$`)
+	htmlTagRe       = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>|<!--|<![A-Za-z]|<\?`)
+	imageRe         = regexp.MustCompile(`!\[([^\]]*)\]\(([^)\s]*)`)
+	urlRe           = regexp.MustCompile(`https?://[^\s)>\]"'<]+`)
+	sepRowRe        = regexp.MustCompile(`^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?\s*$`)
+	mdSuffixRe      = regexp.MustCompile(`(?i)\.md$`)
+	journalRe       = regexp.MustCompile(`^%%\s*para:(begin|end)\s+([a-z0-9][a-z0-9-]*)\s*%%$`)
 )
 
 // signedQueryKeys are query parameters that carry a credential or signature.
@@ -280,10 +282,13 @@ func (l *linter) checkValue(fd field, v any) {
 				return
 			}
 		}
-	case kContacts, kTargets:
+	case kContacts, kTargets, kPointers:
 		items := contactFields
-		if fd.Kind == kTargets {
+		switch fd.Kind {
+		case kTargets:
 			items = targetFields
+		case kPointers:
+			items = pointerFields
 		}
 		list, ok := v.([]any)
 		if !ok {
@@ -305,6 +310,11 @@ func (l *linter) checkValue(fd field, v any) {
 					continue
 				}
 				l.checkValue(field{Name: fmt.Sprintf("%s[%d].%s", fd.Name, i+1, sub.Name), Kind: sub.Kind, Enum: sub.Enum, Required: sub.Required}, sv)
+				if fd.Kind == kPointers && sub.Name == "target" {
+					if s, ok := sv.(string); ok && !pointerTargetRe.MatchString(s) {
+						bad("item %d: target %q must be a URL (scheme://...) or a path starting with /, ~/, ./ or ../", i+1, s)
+					}
+				}
 			}
 		}
 	}
