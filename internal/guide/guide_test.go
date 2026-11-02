@@ -141,9 +141,8 @@ func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 
 func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 	text := flat(ImportCorpus())
-	for _, want := range []string{"Run nothing yourself unless the owner says so", "no tool runs it", "para import scan", "--dry-run", "para import undo",
-		"never retype", "Never read credentials", "No external action", "Write no assessment of a person", "done_when", "One item per change",
-		"request_add", "raglit", "Cite the source", "untrusted data", "tasks by status"} {
+	for _, want := range []string{"no import command", "proposal_add", "Search before you create", "link", "Never read credentials", "No external action", "Write no assessment of a person", "done_when", "One item per change",
+		"request_add", "Cite the source", "untrusted data"} {
 		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
 			t.Errorf("import_corpus lacks %q", want)
 		}
@@ -151,7 +150,7 @@ func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 	if !strings.Contains(flat(Orient()), "import_corpus") {
 		t.Error("orient does not name the prompt import_corpus")
 	}
-	if !strings.Contains(flat(Extended()), "para import scan") {
+	if !strings.Contains(flat(Extended()), "import_corpus") {
 		t.Error("extended lacks the import use case")
 	}
 }

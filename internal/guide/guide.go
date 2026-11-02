@@ -69,7 +69,7 @@ func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 // month summaries of a journal.
 func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
 
-// ImportCorpus is the MCP prompt "import_corpus" and the text of `para import --help`:
+// ImportCorpus is the MCP prompt "import_corpus":
 // how the owner and an agent import and sort a corpus.
 func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }
 

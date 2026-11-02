@@ -182,14 +182,8 @@ Dispatch is off unless this machine has $PARA_HOME/vaults/<vault>/agent.json. It
   $ para journal daily 2026-11-01
 Para keeps a journal of the day, the week, and the month, built from events: counts and links. para tick makes them: the previous local day once it has ended, the previous ISO week after Sunday, the previous month after its last day. It catches up on missed periods after downtime, up to 14 days back, and never rewrites one that exists. This part is mechanical and spends no tokens. Run para tick from cron, for example "5 * * * * para tick --all" (hourly is enough; it is idempotent), or let para serve run it. It still needs request.runner in .para/vault.properties.
 For prose, set journal.agent=<name> in .para/vault.properties. Tick then queues one request per journal, linked to it, for that agent: a day summary from the events, a week from the day summaries, a month from the week summaries. THE NARRATIVE SPENDS TOKENS: one agent run per day, week, and month that had events. A period with no events gets no request. Requests follow request.surfaces: from tick they are only proposed until you add tick to that list (request.surfaces=cli,tui,pwa,tick) or run para request accept. Nothing starts an agent unless dispatch is set up (use case 18) or an agent loops on request_next. The agent uses the prompt journal_lod and the op journal_summary, which writes one marked section of the journal, recorded under its actor. Your own text in the journal is never touched. Without journal.agent you get the mechanical journals only.
-20. Import: bring in a folder of markdown or the owner's old vault (the owner runs it; an agent sorts it after)
-  $ para import scan ~/old-notes --plan import-plan.yaml
-  $ para import scan ~/old-notes --json
-  $ para import run import-plan.yaml --dry-run
-  $ para import run import-plan.yaml
-  $ para import undo imp-example
-  $ para events tail
-scan reads a folder and writes nothing to the vault; it detects the adapter (markdown for any folder, legacy for the old PARA layout with events.jsonl) and writes a plan file you or an agent edit. run copies the files in one batch: each document keeps a source (file path and hash), links are rewritten to the new ids, a rerun skips what is imported, and the event log gets one line per document with no text. undo removes the batch unless a document changed since. A file that cannot be made to lint (raw HTML, a broken table) is refused with a line in the report, never dropped silently. An agent then uses the prompt import_corpus to file a proposal that sorts the documents.
+20. Bring in what you already have (an agent does it, you review)
+There is no import command. Ask your agent to use the prompt import_corpus. It reads the source with its own tools, confirms what it is with you, links docs instead of copying them, searches for what already exists, and files one proposal per source for you to review.
 
 Where does this go?
   You have                                   It goes in
@@ -208,8 +202,7 @@ Where does this go?
   a refusal with its reason                  a constraint (para rfx reply --outcome no)
   who someone is, how to reach them          org person, contacts, interactions
   reference facts you will look up           a note
-  a plan, doc, runbook, or repository        stays where it lives; link it from the area or project
-  a folder of notes or an old vault          para import scan, then run (import_corpus sorts it after)
+  a folder of notes or an old vault          ask an agent: import_corpus, then review its proposal
   a plan, doc, runbook, or repository        stays where it lives; link it from the area or goal
   a phone or browser view of the vault       para serve, with a key from para key create
   a change an agent suggests                 a proposal: you approve each item
