@@ -95,6 +95,9 @@ func newRoot(l *loader) *cobra.Command {
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),
+		newRFXCmd(l),
+		newOrgCmd(l),
+		newRouteCmd(l),
 	)
 	return root
 }

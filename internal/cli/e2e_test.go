@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -386,6 +387,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		"graph":         {`{"project":"project-a"}`, []string{"graph", "project-a"}, false},
 		"next":          {`{"project":"project-a"}`, []string{"next", "project-a"}, false},
 	}
+	seedRFXParity(t, deps)
+	maps.Copy(cases, rfxParityCases)
 	all := ops.All()
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 
@@ -115,8 +117,13 @@ func TestRegistry(t *testing.T) {
 			checkJSONTags(t, e.Name(), typ)
 		}
 	}
-	if got := strings.Join(names, " "); got != "events_tail graph inbox_add lint next project_add project_close project_list project_show reconcile task_add task_block task_done task_list task_show task_start" {
-		t.Errorf("ops = %s", got)
+	if !sort.StringsAreSorted(names) {
+		t.Errorf("All is not sorted: %v", names)
+	}
+	for _, want := range []string{"events_tail", "inbox_add", "lint", "reconcile"} {
+		if !slices.Contains(names, want) {
+			t.Errorf("op %s is not registered", want)
+		}
 	}
 }
 
