@@ -118,12 +118,22 @@ func journalHit(h *index.Hit) {
 	h.Snippet, h.Marks = "Activity in the journal of "+h.ID, nil
 }
 
+// proposalHit rewrites a hit on a proposal: its file is a block of YAML with ids
+// in it, so the hit says what it is and where to read it.
+func proposalHit(h *index.Hit) {
+	h.Snippet, h.Marks = "A proposal from an agent. Open it to review its items.", nil
+}
+
 // readableHits fills the snippets of hits, and puts journal hits after the
 // rest: a journal is a log of everything else.
 func readableHits(hits []index.Hit, name func(string) string) {
 	for i := range hits {
 		if hits[i].Kind == string(model.TypeJournal) {
 			journalHit(&hits[i])
+			continue
+		}
+		if hits[i].Kind == string(model.TypeProposal) {
+			proposalHit(&hits[i])
 			continue
 		}
 		readable(&hits[i], name)

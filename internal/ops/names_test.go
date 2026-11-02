@@ -146,12 +146,16 @@ func TestSearchJournalHitsRankLastAndShowADate(t *testing.T) {
 	hits := []index.Hit{
 		{ID: "2026-11-01", Kind: "journal", Passage: "- 09:12 task_add <<heron>>"},
 		{ID: "note-a", Kind: "note", Passage: "a <<heron>> note"},
+		{ID: "proposal-x", Kind: "proposal", Passage: "project: project-1m6 <<heron>>"},
 	}
 	readableHits(hits, nil)
-	if hits[0].ID != "note-a" || hits[1].ID != "2026-11-01" {
-		t.Fatalf("order %s, %s", hits[0].ID, hits[1].ID)
+	if hits[0].ID != "note-a" || hits[1].ID != "proposal-x" || hits[2].ID != "2026-11-01" {
+		t.Fatalf("order %s, %s, %s", hits[0].ID, hits[1].ID, hits[2].ID)
 	}
-	if got := hits[1].Snippet; got != "Activity in the journal of 2026-11-01" {
+	if strings.Contains(hits[1].Snippet, "project-1m6") {
+		t.Errorf("raw proposal text in %q", hits[1].Snippet)
+	}
+	if got := hits[2].Snippet; got != "Activity in the journal of 2026-11-01" {
 		t.Errorf("journal snippet %q", got)
 	}
 }
