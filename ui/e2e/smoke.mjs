@@ -310,7 +310,7 @@ try {
     'no session lands on /login',
   )
   // A wrong token is refused with a message.
-  await page.getByLabel('Token').fill('not-a-token')
+  await page.getByLabel('Access key').fill('not-a-token')
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.getByRole('alert').first().waitFor()
   check(true, 'a bad token shows an error')
@@ -362,11 +362,8 @@ try {
   check(true, 'Back closes the help overlay')
 
   // Review: the agent's change is listed; accept clears it.
-  await page
-    .getByText('Added by an agent')
-    .first()
-    .waitFor({ state: 'detached' })
-    .catch(() => {})
+  await page.getByText('Added by an agent').first().waitFor()
+  check(true, 'Review names the item an agent added, not its id')
   const accept = page.getByRole('button', { name: 'Accept all' })
   check(await accept.isEnabled(), 'Review lists changes by others')
   await accept.click()
@@ -382,17 +379,25 @@ try {
   const dlg = page.getByRole('dialog', { name: 'Capture' })
   await dlg.waitFor()
   await dlg.getByLabel('What is on your mind?').fill('Captured from the browser')
+  const closeFrom = Date.now()
   await page.keyboard.press('Control+Enter')
   await dlg.waitFor({ state: 'hidden' })
-  await page.getByText('Captured from the browser').waitFor()
+  const closeMs = Date.now() - closeFrom
+  // The dialog must not wait for the pages to refetch.
+  check(closeMs < 1000, `capture dialog closes at once (${closeMs} ms)`)
+  await page.getByText('Captured from the browser').first().waitFor()
   check(true, 'capture adds an inbox item')
+  check(
+    await page.getByRole('status').or(page.getByText('Captured to the inbox')).first().isVisible(),
+    'the capture toast shows',
+  )
   check(!page.url().includes('capture'), 'capture overlay closed in the URL')
 
   // Inbox triage.
   await page.getByRole('link', { name: 'Sort' }).first().click()
   const tri = page.getByRole('dialog', { name: 'Sort inbox item' })
   await tri.waitFor()
-  await tri.getByRole('combobox').click()
+  await tri.getByRole('combobox', { name: 'Turn into' }).click()
   await page.getByRole('option', { name: /Drop/ }).click()
   await tri.getByRole('button', { name: 'Sort', exact: true }).click()
   await tri.waitFor({ state: 'hidden' })
@@ -470,7 +475,7 @@ try {
   await page.getByRole('link', { name: 'Record reply' }).click()
   const rep = page.getByRole('dialog', { name: /Record a reply/ })
   await rep.waitFor()
-  await rep.getByLabel('From (person id or name)').fill(person)
+  await rep.getByLabel('Who replied (name)').fill(person)
   await rep.getByLabel('What they said').fill('Raised to 20.')
   await rep.getByRole('button', { name: 'Record' }).click()
   await rep.waitFor({ state: 'hidden' })
@@ -505,9 +510,27 @@ try {
   check(true, 'search hit opens the document')
 
   // Work graph.
+  await page.setViewportSize({ width: 1000, height: 800 })
   await page.goto(`${base}/work?view=graph`)
   await page.locator('[role="img"] svg').first().waitFor({ timeout: 15000 })
   check(true, 'work graph renders with mermaid')
+  check(await page.getByLabel('Legend').isVisible(), 'the graph has a legend')
+  check(
+    (await page.locator('[role="img"] svg').first().innerHTML()).includes('Which region first?'),
+    'the graph shows a question node with its full text',
+  )
+  // On a phone the graph is a list: one row per item, with what it waits for.
+  await page.setViewportSize({ width: 390, height: 800 })
+  await page.reload()
+  await page.getByRole('link', { name: 'Get approval' }).waitFor()
+  check(
+    (await page.locator('[role="img"] svg').count()) === 0,
+    'a narrow screen gets a list, not a diagram',
+  )
+  check(
+    await page.getByText(/after Write the plan/).isVisible(),
+    'the list says what each item waits for',
+  )
 
   // ---- Stream AB: proposals, questions, areas, incidents, waiting, search filters. ----
   // A key made by `para key create --print-url` signs in a second browser context. It carries
@@ -578,7 +601,7 @@ try {
   await rp.getByRole('heading', { name: 'Today' }).waitFor()
   await rp.goto(`${base}/review`)
   await rp.getByRole('heading', { name: 'Proposals' }).waitFor()
-  await rp.getByRole('link', { name: 'Quota follow-ups' }).click()
+  await rp.getByRole('link', { name: 'Quota follow-ups' }).first().click()
   await rp.waitForURL(new RegExp(`/proposals/${filed.id}$`))
   await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
   check(true, 'Review lists the proposal and links to /proposals/$id')
@@ -704,7 +727,7 @@ try {
 
   // The old page learns of it without a reload.
   await rp.getByText('The agent filed a newer revision').waitFor({ timeout: 10000 })
-  await rp.getByRole('link', { name: `Review ${revised.id}` }).click()
+  await rp.getByRole('link', { name: 'Open the newer revision' }).click()
   await rp.waitForURL(new RegExp(`/proposals/${revised.id}$`))
   await rp.getByRole('heading', { name: 'Changes since the last revision' }).waitFor()
   check(
@@ -804,7 +827,7 @@ try {
     .getByRole('link', { name: 'Sort' })
     .click()
   const tq = rp.getByRole('dialog', { name: 'Sort inbox item' })
-  await tq.getByRole('combobox', { name: 'Becomes' }).click()
+  await tq.getByRole('combobox', { name: 'Turn into' }).click()
   await rp.getByRole('option', { name: /^Question/ }).click()
   await tq.getByRole('combobox', { name: /Scope/ }).click()
   await rp.getByRole('option', { name: 'The whole vault' }).click()
@@ -817,6 +840,7 @@ try {
   await rp
     .getByRole('listitem')
     .filter({ hasText: 'Write the plan' })
+    .first()
     .getByRole('link', { name: 'Done' })
     .click()
   const dd = rp.getByRole('dialog', { name: 'Finish task' })
@@ -865,16 +889,159 @@ try {
   // Search filters and tags.
   await rp.goto(`${base}/search?q=Logs&type=policy`)
   await rp.getByRole('link', { name: 'Logging policy' }).first().waitFor()
+  check((await rp.getByText('exact', { exact: true }).count()) === 0, 'a hit has no exact chip')
   check(
-    await rp.getByText('exact', { exact: true }).first().isVisible(),
-    'a hit carries its match tag',
+    (await rp.locator('mark').first().innerText()).toLowerCase().startsWith('log'),
+    'the matched word is highlighted',
   )
+  check(!(await rp.locator('main').innerText()).includes('<<'), 'no raw match markers in a snippet')
+  check(await rp.getByText(/\d+ results? for/).isVisible(), 'the result count says results')
   await rp.goto(`${base}/search?q=Logs&type=task`)
-  await rp.getByText('No hit for Logs.').waitFor()
+  await rp.getByText('No results for \u201cLogs\u201d.').waitFor()
   check(true, 'the type filter narrows the search')
+  await rp.getByRole('link', { name: 'Capture this' }).click()
+  const seeded = rp.getByRole('dialog', { name: 'Capture' })
+  check(
+    (await seeded.getByLabel('What is on your mind?').inputValue()) === 'Logs',
+    'Capture this starts with the search text',
+  )
+  await seeded.getByRole('button', { name: 'Cancel' }).click()
+  await seeded.waitFor({ state: 'hidden' })
+  // Live results while typing, and / returns to the field.
+  await rp.goto(`${base}/search`)
+  await rp.keyboard.type('retention is', { delay: 20 })
+  await rp.keyboard.press('Control+a')
+  await rp.keyboard.type('Logs', { delay: 20 })
+  await rp.getByRole('link', { name: 'Logging policy' }).first().waitFor({ timeout: 8000 })
+  check(rp.url().includes('q=Logs'), 'results follow the typing, without Enter')
+  await rp.locator('main h1').click()
+  await rp.keyboard.press('/')
+  check(
+    await rp.evaluate(() => document.activeElement?.id === 'search-input'),
+    '/ puts the cursor in the search field',
+  )
   check(
     await rp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     'no horizontal page scroll on the search page at 390 px',
+  )
+
+  // Names before ids: no screen shows a raw document id. An id has a type word, a dash, and a slug.
+  const rawId =
+    /\b(task|project|person|policy|rfx|area|question|proposal|request|incident|constraint|domain)-[a-z0-9]+(-[a-z0-9]+)*/
+  for (const path of [
+    '/today',
+    '/work',
+    '/rfx',
+    `/rfx/${rfx}`,
+    '/review',
+    '/policy',
+    '/policy?tab=rules',
+    '/policy?tab=constraints',
+    '/requests',
+    '/questions',
+    '/people',
+    `/people/${person}`,
+    `/proposals/${filed.id}`,
+    `/search?q=Logs`,
+  ]) {
+    await rp.goto(`${base}${path}`)
+    await rp.locator('main h1').first().waitFor()
+    await rp.waitForTimeout(400)
+    // A proposal page also prints the untrusted source text as it is: only the items are checked.
+    const text = path.startsWith('/proposals/')
+      ? (await rp.locator('[data-item]').allInnerTexts()).join('\n')
+      : await rp.locator('main').innerText()
+    const hit = rawId.exec(text)
+    check(!hit, `no raw id on ${path}${hit ? `: ${hit[0]}` : ''}`)
+  }
+  await rp.goto(`${base}/rfx`)
+  await rp
+    .getByText(/Sam Rivera, /)
+    .first()
+    .waitFor()
+  check(true, 'an RFX row names the person with the state: Sam Rivera, state')
+  await rp.goto(`${base}/policy?tab=rules`)
+  await rp.getByText('Logs are kept 30 days').waitFor()
+  check(await rp.getByText(/R1 in Logging policy/).isVisible(), 'a rule names its policy')
+  await rp.goto(`${base}/doc/${pol}`)
+  await rp.getByRole('heading', { name: 'Logging policy' }).waitFor()
+  const polText = await rp.locator('main').innerText()
+  check(
+    !/\^R\d|policy-[a-z]/.test(polText),
+    'a policy document shows rules without block ids or policy ids',
+  )
+  check(
+    !/fidelity/i.test(await rp.locator('main').innerText()) ||
+      !(await rp.getByText(/Fidelity:/).isVisible()),
+    'fidelity sits behind Details',
+  )
+
+  // PARA_E2E_SHOTS=<dir> saves a screenshot of each main screen at 390 and 1440 px, to read.
+  if (process.env.PARA_E2E_SHOTS) {
+    const dir = process.env.PARA_E2E_SHOTS
+    const shots = [
+      ['today', '/today'],
+      ['work', '/work'],
+      ['graph', '/work?view=graph'],
+      ['rfx', '/rfx'],
+      ['review', '/review'],
+      ['policy', '/policy'],
+      ['requests', '/requests'],
+      ['search', '/search?q=Logs'],
+      ['doc-table', `/doc/${docId}`],
+      ['proposal', `/proposals/${filed.id}`],
+    ]
+    for (const [w, h] of [
+      [390, 844],
+      [1440, 900],
+    ]) {
+      await rp.setViewportSize({ width: w, height: h })
+      for (const [name, path] of shots) {
+        await rp.goto(`${base}${path}`)
+        await rp.locator('main h1').first().waitFor()
+        await rp.waitForTimeout(name === 'graph' ? 1500 : 500)
+        await rp.screenshot({ path: join(dir, `${name}-${w}.png`), fullPage: true })
+      }
+    }
+    await rp.setViewportSize({ width: 390, height: 800 })
+  }
+
+  // Phone: the tabs fold into a menu, and every screen is in it.
+  await rp.goto(`${base}/today`)
+  await rp.getByRole('link', { name: 'Menu' }).click()
+  const nav = rp.getByRole('navigation')
+  await nav.getByText('Questions', { exact: true }).waitFor()
+  check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
+  check((await nav.getByRole('link').count()) === 9, 'the menu lists all nine screens')
+  await rp.goBack()
+  await nav.waitFor({ state: 'hidden' })
+  check(true, 'Back closes the menu')
+  check(
+    await rp.getByRole('link', { name: /^Capture/ }).isVisible(),
+    'the capture button is labeled Capture',
+  )
+  // Help holds the build, the vault, and the key list; the page has no footer stamp.
+  await rp.keyboard.press('?')
+  const help = rp.getByRole('dialog', { name: 'Keyboard' })
+  await help.waitFor()
+  check(await help.getByText(/Build /).isVisible(), 'the build hash is in the help overlay')
+  await rp.keyboard.press('Escape')
+  await help.waitFor({ state: 'hidden' })
+  check(
+    !(await rp.locator('body').innerText()).includes('ui '),
+    'no build stamp in the page footer',
+  )
+
+  // A wide table scrolls, says so, and right-aligns numbers, on a phone too.
+  await rp.goto(`${base}/doc/${docId}`)
+  await rp.getByText('Scroll sideways for more columns.').waitFor()
+  check(true, 'a wide table says it scrolls sideways')
+  check(
+    (await rp
+      .locator('td')
+      .first()
+      .evaluate((e) => getComputedStyle(e).textAlign)) === 'right',
+    'numbers in a table are right-aligned',
   )
   await rctx.close()
 
@@ -925,6 +1092,13 @@ try {
   await page.getByRole('button', { name: /Sign out/ }).click()
   await page.waitForURL(/\/login/)
   check(true, 'sign out returns to /login')
+  await page.getByText('You are signed out.').waitFor()
+  check(true, 'sign out says you are signed out')
+  check(
+    await page.getByText('para serve login', { exact: true }).isVisible(),
+    'sign-in shows the CLI hint as code',
+  )
+  check(!(await page.locator('body').innerText()).includes('`'), 'sign-in has no literal backticks')
 
   // Mermaid injects KaTeX CSS with data: fonts, which the CSP (font-src 'self') blocks. Only math
   // labels would use them, so the message is expected.
