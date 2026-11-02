@@ -40,6 +40,7 @@ const (
 	pageHistory // the revisions of a proposal
 	pageText    // plain lines: a diff, one item in full
 	pageAgenda  // dated items from Today: meetings, due tasks, nudges
+	pageHealth  // health findings by goal, with dismiss
 )
 
 // page is a screen above the tabs on the back stack.
@@ -447,6 +448,10 @@ func (m *Model) act(name string) tea.Cmd {
 		m.push(page{kind: pageGraph, id: m.graphProject(), title: "graph"})
 	case "agenda":
 		m.push(page{kind: pageAgenda, title: "Agenda"})
+	case "health":
+		m.push(page{kind: pageHealth, title: "Health"})
+	case "dismiss":
+		return m.dismissHealth()
 	case "answer":
 		return m.answer()
 	case "reject":

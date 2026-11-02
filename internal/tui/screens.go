@@ -29,6 +29,7 @@ type row struct {
 	// accepted or rejected.
 	proposed bool
 	event    model.Event
+	hkind    string // finding kind, on a health row
 	draw     func(k KeyFn) string
 }
 
@@ -244,6 +245,9 @@ func (m *Model) rowsToday(w int) []row {
 			}
 			return x
 		})
+	}
+	if n := s.Today.Health; n > 0 {
+		r = append(r, link("act:health", "  ", plural(n, "health finding"), stDim.Render("  review"), w))
 	}
 	if n := s.Today.OtherOpen; n > 0 {
 		r = append(r, link("tab:2", "  ", plural(n, "other open question"), stDim.Render("  on Work"), w))

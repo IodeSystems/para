@@ -77,6 +77,8 @@ func (m *Model) rows(w int) ([]row, []Target) {
 			return m.rowsHistory(p, w), acts
 		case pageAgenda:
 			return m.rowsAgenda(w), acts
+		case pageHealth:
+			return m.rowsHealth(w), append([]Target{actDismiss}, acts...)
 		}
 		return nil, acts
 	}

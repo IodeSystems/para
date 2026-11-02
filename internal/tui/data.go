@@ -87,6 +87,7 @@ type Snapshot struct {
 	Later      []ops.QuestionView // open and put off; they still block what depends on them
 	Domains    []model.Ref
 	Agenda     ops.AgendaOutput // dated items, the next AgendaDays days
+	Health     ops.HealthOutput // gaps in the vault, by goal
 	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
 	Tasks      []ops.TaskView
@@ -168,6 +169,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.Agenda.Run(ctx, e.Deps, ops.AgendaInput{Days: AgendaDays}); note("agenda", err) {
 		s.Agenda = o
+	}
+	if o, err := ops.HealthOp.Run(ctx, e.Deps, ops.HealthInput{}); note("health", err) {
+		s.Health = o
 	}
 	if o, err := ops.AreaList.Run(ctx, e.Deps, ops.AreaListInput{}); note("areas", err) {
 		s.Areas = o.Areas
