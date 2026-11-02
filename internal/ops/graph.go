@@ -1,9 +1,11 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -91,7 +93,8 @@ type NextOutput struct {
 func (o NextOutput) Failed() error { return cyclesError(o.Cycles) }
 
 // Next lists tasks that can start now: todo or doing, not blocked, every
-// dependency resolved.
+// dependency resolved. Order: due date first (earliest first, undated last),
+// then oldest created, then id.
 var Next = define("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
 	w, err := loadWork(ctx, d.Store, in.Project)
 	if err != nil {
@@ -106,8 +109,22 @@ var Next = define("next", "List tasks that are ready to work", func(ctx context.
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
+	sortNext(out.Tasks)
 	return out, nil
 })
+
+// sortNext orders tasks by due date, undated last, then created, then id.
+func sortNext(tasks []TaskView) {
+	slices.SortStableFunc(tasks, func(a, b TaskView) int {
+		if (a.Due == "") != (b.Due == "") {
+			if a.Due == "" {
+				return 1
+			}
+			return -1
+		}
+		return cmp.Or(cmp.Compare(a.Due, b.Due), cmp.Compare(a.Created, b.Created), cmp.Compare(a.ID, b.ID))
+	})
+}
 
 type work struct {
 	g     *graph.Graph

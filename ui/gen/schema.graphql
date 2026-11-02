@@ -76,6 +76,7 @@ type ParaV1MutationNamespace {
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
   taskDone(body: para_TaskDoneInputInput!): para_TaskChangeOutput @derived(operationId: "taskDone")
+  taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
 }
 
@@ -996,6 +997,7 @@ type para_Meta {
   date: String
   dependsOn: [String!]
   direction: String
+  due: String
   groups: [String!]
   kind: String
   leaseUntil: String
@@ -1010,6 +1012,7 @@ type para_Meta {
   policy: String
   project: String
   queuedAt: String
+  recur: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
@@ -1995,7 +1998,9 @@ input para_TaskAddInputInput {
   area: String
   body: String
   dependsOn: [String!]
+  due: String
   project: String
+  recur: String
   title: String!
 }
 
@@ -2045,6 +2050,20 @@ input para_TaskDoneInputInput {
   id: String!
 }
 
+input para_TaskDueInputInput {
+  clear: Boolean
+  date: String
+  id: String!
+  recur: String
+}
+
+type para_TaskDueOutput {
+  due: String
+  id: String!
+  recur: String
+  rev: String!
+}
+
 type para_TaskListOutput {
   tasks: [para_TaskView!]!
 }
@@ -2062,10 +2081,13 @@ input para_TaskStartInputInput {
 type para_TaskView {
   area: String
   blockedBy: [String!]!
+  created: String!
   dependsOn: [String!]!
+  due: String
   folder: para_TaskViewFolder!
   id: String!
   project: String!
+  recur: String
   rev: String!
   status: para_TaskViewStatus!
   title: String!

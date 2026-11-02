@@ -16,7 +16,7 @@ import (
 func newTodayCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "today",
-		Short: "Due, expiring, blocked, unverified, and inbox counts across all vaults (CLI only)",
+		Short: "Overdue and due-soon tasks, due, expiring, blocked, unverified, and inbox counts across all vaults (CLI only)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
@@ -34,8 +34,8 @@ func newTodayCmd(l *loader) *cobra.Command {
 						}
 						continue
 					}
-					if _, err := fmt.Fprintf(w, "%s\tdue %d\tnudges %d\texpiring %d\tblocked %d\tunverified %d\tinbox %d\n",
-						v.Vault, v.Due.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Unverified, v.Inbox); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\tunverified %d\tinbox %d\n",
+						v.Vault, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Unverified, v.Inbox); err != nil {
 						return err
 					}
 					for _, d := range v.LostUpdates {
@@ -51,9 +51,9 @@ func newTodayCmd(l *loader) *cobra.Command {
 					for _, g := range []struct {
 						name string
 						g    today.Group
-					}{{"due", v.Due}, {"nudge", v.Nudges}, {"expiring", v.Expiring}, {"blocked", v.Blocked}} {
+					}{{"overdue", v.Overdue}, {"soon", v.DueSoon}, {"due", v.Due}, {"nudge", v.Nudges}, {"expiring", v.Expiring}, {"blocked", v.Blocked}} {
 						for _, it := range g.g.Items {
-							if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\n", g.name, it.ID, it.Title); err != nil {
+							if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", g.name, it.ID, dash(it.Due), it.Title); err != nil {
 								return err
 							}
 						}

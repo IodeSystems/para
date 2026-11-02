@@ -57,6 +57,8 @@ type Meta struct {
 	Owner          string           `json:"owner,omitempty"`
 	Project        string           `json:"project,omitempty"`
 	Area           string           `json:"area,omitempty"`
+	Due            string           `json:"due,omitempty"`
+	Recur          string           `json:"recur,omitempty"`
 	BlockedBy      []string         `json:"blocked_by,omitempty"`
 	DependsOn      []string         `json:"depends_on,omitempty"`
 	Direction      string           `json:"direction,omitempty"`

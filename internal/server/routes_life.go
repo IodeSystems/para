@@ -11,4 +11,5 @@ func registerLife(r *registrar) {
 	reg(r, ops.NoteAdd, post, write)
 	reg(r, ops.NoteList, get, read)
 	reg(r, ops.NoteShow, get, read)
+	reg(r, ops.TaskDue, post, write)
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/store"
@@ -19,6 +20,9 @@ type TaskView struct {
 	Status    model.TaskStatus `json:"status"`
 	Project   string           `json:"project"`
 	Area      string           `json:"area,omitempty"`
+	Created   model.Date       `json:"created"`
+	Due       model.Date       `json:"due,omitempty"`
+	Recur     string           `json:"recur,omitempty"`
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
@@ -31,7 +35,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -96,6 +100,8 @@ type TaskAddInput struct {
 	Area      string   `json:"area,omitempty"`    // area id
 	Title     string   `json:"title"`
 	Body      string   `json:"body,omitempty"`
+	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
+	Recur     string   `json:"recur,omitempty"`      // free text, stored only
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
 }
 
@@ -112,6 +118,10 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return TaskAddOutput{}, errors.New("title is empty")
+	}
+	due, err := parseDue(in.Due)
+	if err != nil {
+		return TaskAddOutput{}, err
 	}
 	in.Project = normID(in.Project)
 	if in.Project == "" && normID(in.Area) == "" {
@@ -155,6 +165,8 @@ var TaskAdd = define("task_add", "Create a task in a project or an area (at leas
 			Status:    model.TaskTodo,
 			Project:   project,
 			Area:      area,
+			Due:       due,
+			Recur:     strings.Join(strings.Fields(in.Recur), " "),
 			DependsOn: deps,
 		},
 	})
@@ -304,4 +316,63 @@ var TaskBlock = define("task_block", "Block a task with a reason", func(ctx cont
 		}
 		return nil
 	})
+})
+
+// parseDue checks a YYYY-MM-DD date. Empty gives no date.
+func parseDue(s string) (model.Date, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	if _, err := time.Parse("2006-01-02", s); err != nil {
+		return "", fmt.Errorf("due %q: want a date YYYY-MM-DD", s)
+	}
+	return model.Date(s), nil
+}
+
+// TaskDueInput is the input of task_due.
+type TaskDueInput struct {
+	ID    string `json:"id"`
+	Date  string `json:"date,omitempty"`  // YYYY-MM-DD; empty with Clear removes the date
+	Clear bool   `json:"clear,omitempty"` // remove the due date
+	Recur string `json:"recur,omitempty"` // free text, such as "weekly"; stored only
+}
+
+// TaskDueOutput is the output of task_due.
+type TaskDueOutput struct {
+	ID    string     `json:"id"`
+	Due   model.Date `json:"due,omitempty"`
+	Recur string     `json:"recur,omitempty"`
+	Rev   string     `json:"rev"`
+}
+
+// TaskDue sets or clears the due date of an open task, and optionally its
+// recurrence text. Para never schedules from the recurrence.
+var TaskDue = define("task_due", "Set or clear the due date of a task", func(ctx context.Context, d Deps, in TaskDueInput) (TaskDueOutput, error) {
+	date, err := parseDue(in.Date)
+	if err != nil {
+		return TaskDueOutput{}, err
+	}
+	if (date == "") == !in.Clear {
+		return TaskDueOutput{}, errors.New("give a date, or clear to remove it")
+	}
+	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
+	if err != nil {
+		return TaskDueOutput{}, err
+	}
+	if taskTerminal(t.Status) {
+		return TaskDueOutput{}, fmt.Errorf("%s is already %s", doc.ID, t.Status)
+	}
+	t.Due = date
+	if recur := strings.Join(strings.Fields(in.Recur), " "); recur != "" {
+		t.Recur = recur
+	}
+	if in.Clear {
+		t.Recur = ""
+	}
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return TaskDueOutput{}, err
+	}
+	return TaskDueOutput{ID: doc.ID, Due: t.Due, Recur: t.Recur, Rev: saved.Rev}, nil
 })

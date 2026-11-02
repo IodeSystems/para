@@ -75,6 +75,7 @@ var Inputs = map[string]string{
 	"rule_add":                  `{"policy":"policy-sample","text":"Services log every failure."}`,
 	"task_add":                  `{"project":"project-sample","title":"Write parser"}`,
 	"task_block":                `{"id":"task-sample","reason":"waiting on legal"}`,
+	"task_due":                  `{"id":"task-sample","date":"2026-12-01","recur":"monthly"}`,
 	"task_done":                 `{"id":"task-sample"}`,
 	"task_show":                 `{"id":"task-sample"}`,
 	"task_start":                `{"id":"task-sample"}`,

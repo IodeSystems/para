@@ -9,6 +9,7 @@ import (
 
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/today"
 )
 
 // KeyFn marks a link label with its key, or returns the label when the link
@@ -94,6 +95,15 @@ func (m *Model) rowsToday(w int) []row {
 		}
 		r = append(r, items...)
 	}
+	dated := func(items []today.Item) []row {
+		var rows []row
+		for _, it := range items {
+			rows = append(rows, link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "  "+stDim.Render(it.Due), w))
+		}
+		return rows
+	}
+	section("Overdue", dated(s.Today.Overdue.Items))
+	section("Due soon", dated(s.Today.DueSoon.Items))
 	var nudge []row
 	for _, it := range s.Today.Nudges.Items {
 		nudge = append(nudge, link("doc:"+it.ID, "  ", titleOr(it.Title, it.ID), "", w))

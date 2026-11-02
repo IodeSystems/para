@@ -27,7 +27,7 @@ func joinOrDash(s []string) string {
 
 func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 	for _, t := range tasks {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", t.ID, t.Status, scope(t), t.Title); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", t.ID, t.Status, scope(t), dash(string(t.Due)), t.Title); err != nil {
 			return err
 		}
 	}
@@ -117,6 +117,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
 				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
+				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence as free text, such as weekly (stored only)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
@@ -142,8 +144,27 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.TaskShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\ndepends_on\t%s\nblocked_by\t%s\n%s\n",
+					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), out.Body)
+				return err
+			},
+		}),
+		opCommand(l, ops.TaskDue, binding[ops.TaskDueInput, ops.TaskDueOutput]{
+			Use:  "due <id> [date]",
+			Args: cobra.RangeArgs(1, 2),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskDueInput) {
+				fs.BoolVar(&in.Clear, "clear", false, "remove the due date (and the recurrence)")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence as free text, such as weekly (stored only)")
+			},
+			Bind: func(args []string, in *ops.TaskDueInput) error {
+				in.ID = args[0]
+				if len(args) == 2 {
+					in.Date = args[1]
+				}
+				return nil
+			},
+			Text: func(w io.Writer, out ops.TaskDueOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, dash(string(out.Due)), dash(out.Recur))
 				return err
 			},
 		}),

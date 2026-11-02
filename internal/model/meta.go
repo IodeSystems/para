@@ -88,12 +88,16 @@ type Note struct {
 
 // Task is type: task.
 type Task struct {
-	Common    `yaml:",inline"`
-	Status    TaskStatus `yaml:"status" json:"status"`
-	Project   Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
-	Area      Link       `yaml:"area,omitempty" json:"area,omitempty"`
-	BlockedBy []string   `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
-	DependsOn []Link     `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
+	Common  `yaml:",inline"`
+	Status  TaskStatus `yaml:"status" json:"status"`
+	Project Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
+	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
+	// Due is the date the task is due. Recur is free text such as "weekly";
+	// para stores it and never schedules from it.
+	Due       Date     `yaml:"due,omitempty" json:"due,omitempty"`
+	Recur     string   `yaml:"recur,omitempty" json:"recur,omitempty"`
+	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
+	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 }
 
 // RFX is type: rfx.

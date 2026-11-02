@@ -76,6 +76,8 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},
 		{Name: "project", Kind: kLink}, // project or area: at least one (lint)
 		{Name: "area", Kind: kLink},
+		{Name: "due", Kind: kDate},
+		{Name: "recur", Kind: kString},
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 	},

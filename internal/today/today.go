@@ -22,6 +22,7 @@ const dateLayout = "2006-01-02"
 type Item struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
+	Due   string `json:"due,omitempty"` // tasks: the due date
 }
 
 // Group is a counted list.
@@ -36,6 +37,10 @@ type VaultToday struct {
 	Due     Group  `json:"due"`     // constraints whose review_by is today or earlier
 	Blocked Group  `json:"blocked"` // open tasks with status blocked or a blocked_by entry
 	Nudges  Group  `json:"nudges"`  // open RFX whose next_nudge is today or earlier
+	// Overdue holds open tasks due before today; DueSoon holds open tasks due
+	// from today through DueSoonDays days ahead. Both are ordered by due date.
+	Overdue Group `json:"overdue"`
+	DueSoon Group `json:"due_soon"`
 	// Expiring holds unresolved policy exceptions whose review_by is overdue or
 	// within ExpiringDays of today.
 	Expiring Group `json:"expiring"`
@@ -50,6 +55,9 @@ type VaultToday struct {
 	LostUpdates []string `json:"lost_updates"`
 	Error       string   `json:"error,omitempty"`
 }
+
+// DueSoonDays is how far ahead a task due date counts as due soon.
+const DueSoonDays = 7
 
 // ExpiringDays is the window for exceptions, the same as exception_expiring.
 const ExpiringDays = 30
@@ -84,7 +92,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
 		vt := VaultToday{Vault: rv.ID, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
-			Nudges: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
+			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
 			rep.Vaults = append(rep.Vaults, vt)
@@ -117,9 +125,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	if err != nil {
 		return err
 	}
-	limit := ""
+	limit, soon := "", ""
 	if t, err := time.Parse(dateLayout, date); err == nil {
 		limit = t.AddDate(0, 0, ExpiringDays).Format(dateLayout)
+		soon = t.AddDate(0, 0, DueSoonDays).Format(dateLayout)
 	}
 	for _, r := range refs {
 		switch r.Type {
@@ -159,10 +168,24 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			if open && (m.Status == model.TaskBlocked || len(m.BlockedBy) > 0) {
 				vt.Blocked.Items = append(vt.Blocked.Items, item)
 			}
+			if open && m.Due != "" {
+				item.Due = string(m.Due)
+				switch {
+				case string(m.Due) < date:
+					vt.Overdue.Items = append(vt.Overdue.Items, item)
+				case soon != "" && string(m.Due) <= soon:
+					vt.DueSoon.Items = append(vt.DueSoon.Items, item)
+				}
+			}
 		}
 	}
-	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring} {
-		sort.Slice(g.Items, func(i, j int) bool { return g.Items[i].ID < g.Items[j].ID })
+	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon} {
+		sort.Slice(g.Items, func(i, j int) bool {
+			if a, b := g.Items[i], g.Items[j]; a.Due != b.Due {
+				return a.Due < b.Due
+			}
+			return g.Items[i].ID < g.Items[j].ID
+		})
 		g.Count = len(g.Items)
 	}
 	return nil
