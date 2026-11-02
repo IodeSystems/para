@@ -26,7 +26,7 @@ const (
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Today", "Review", "Work", "Asks", "People", "Policy"}
+var tabNames = [numTabs]string{"Agenda", "Review", "Work", "Asks", "People", "Policy"}
 
 type pageKind int
 
@@ -39,7 +39,6 @@ const (
 	pageProposal
 	pageHistory  // the revisions of a proposal
 	pageText     // plain lines: a diff, one item in full
-	pageAgenda   // dated items from Today: meetings, due tasks, nudges
 	pageHealth   // health findings by goal, with dismiss
 	pageActivity // what agents did
 )
@@ -129,6 +128,8 @@ type Model struct {
 	tab   int
 	tabs  [numTabs]tabState
 	stack []page
+	// byDate groups the Agenda tab by day instead of value order.
+	byDate bool
 
 	snap      Snapshot
 	loaded    bool
@@ -424,6 +425,9 @@ func (m *Model) act(name string) tea.Cmd {
 		m.ov = overlay{kind: ovCapture, input: newInput("capture: ", "")}
 		return m.ov.input.Focus()
 	case "vault":
+		if m.tab != tabToday || len(m.stack) > 0 {
+			return nil
+		}
 		vs, err := m.env.Install.List()
 		if err != nil {
 			m.setStatus(err.Error(), true)
@@ -455,8 +459,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.reopen()
 	case "graph":
 		m.push(page{kind: pageGraph, id: m.graphProject(), title: "graph"})
-	case "agenda":
-		m.push(page{kind: pageAgenda, title: "Agenda"})
+	case "bydate":
+		m.byDate = !m.byDate
 	case "health":
 		m.push(page{kind: pageHealth, title: "Health"})
 	case "dismiss":

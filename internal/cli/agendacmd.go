@@ -75,7 +75,8 @@ func writeAgenda(w io.Writer, out ops.AgendaOutput) error {
 }
 
 func newAgendaCmd(l *loader) *cobra.Command {
-	return opCommand(l, ops.Agenda, binding[ops.AgendaInput, ops.AgendaOutput]{
+	var byDate bool
+	cmd := opCommand(l, ops.Agenda, binding[ops.AgendaInput, ops.AgendaOutput]{
 		Use:  "agenda [--days n]",
 		Args: cobra.NoArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.AgendaInput) {
@@ -84,6 +85,16 @@ func newAgendaCmd(l *loader) *cobra.Command {
 		},
 		Text: writeAgenda,
 	})
+	cmd.Flags().BoolVar(&byDate, "by-date", false, "group by day: dated items of the next days, one vault (also set by --days or --zone)")
+	cmd.Short = "What needs you in value order across all vaults; with --by-date, --days, or --zone, the dated items of one vault by day"
+	dated := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if byDate || cmd.Flags().Changed("days") || cmd.Flags().Changed("zone") {
+			return dated(cmd, args)
+		}
+		return runAgendaHome(l, cmd)
+	}
+	return cmd
 }
 
 // newCalendarCmd is `para calendar export`. The op renders and logs; this

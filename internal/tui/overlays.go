@@ -282,12 +282,14 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 
 // actionHelp says what each action does, for the help sheet.
 var actionHelp = map[string]string{
+	"act:vault":     "switch vault, for this session only (Agenda only; other screens show the vault read only)",
+	"act:bydate":    "group by date: dated items by day with meeting hours; again for value order",
 	"act:answer":    "answer the question; then give sources (a URL, a document id, or words such as a meeting) if you have them",
 	"act:reject":    "reject the proposed answer, with a reason the agent reads",
 	"act:drop":      "drop the question, with a reason: tasks that waited on it stop waiting",
 	"act:ask":       "ask a person: makes an ask; para sends nothing",
 	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to find context; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
-	"act:later":     "put it off until a date or someday; it leaves Today and next and still blocks what depends on it. On a put-off row it brings it back",
+	"act:later":     "put it off until a date or someday; it leaves the Agenda and next and still blocks what depends on it. On a put-off row it brings it back",
 	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
 	"act:graph":     "graph of the goal or area under the cursor",
 	"act:accept":    "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
@@ -318,12 +320,11 @@ func (m *Model) helpLines() []string {
 	}
 	out := []string{
 		stHead.Render("Keys"),
-		"  1-6        tabs: Today Review Work Asks People Policy",
+		"  1-6        tabs: Agenda Review Work Asks People Policy",
 		"  j k        move the cursor      g G  top, bottom      space  page down",
 		"  enter      open the row         esc  back",
 		"  /          search as you type; person:<name> finds a person",
 		"  c          capture a note to the inbox",
-		"  v          switch vault, for this session only",
 		"  q          quit",
 		"  ;ab        two-letter keys start with ;",
 		"  letter     the dim letter at the left of a row opens it",
@@ -348,7 +349,7 @@ func (m *Model) helpLines() []string {
 	case m.tab == tabReview:
 		add("act:accept", "act:reopen", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabToday:
-		add("act:editnote", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
+		add("act:vault", "act:bydate", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabWork:
 		add("act:graph", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	}

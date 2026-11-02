@@ -158,11 +158,11 @@ func TestZoomHidesFrameAndKeepsKeys(t *testing.T) {
 	d := newDrv(t, v, 100, 40)
 	d.send(keyMsg("6"))
 	d.key(d.keyFor("doc:policy-logging"))
-	if !d.has("1 Today") {
+	if !d.has("1 Agenda") {
 		t.Fatal("frame missing before zoom")
 	}
 	d.key("z")
-	if d.has("1 Today") || d.has("Zoom") {
+	if d.has("1 Agenda") || d.has("Zoom") {
 		t.Fatalf("frame still shown:\n%s", d.plainFrame())
 	}
 	if n := len(strings.Split(d.m.frame, "\n")); n != 40 {

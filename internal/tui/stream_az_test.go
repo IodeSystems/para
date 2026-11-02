@@ -269,7 +269,7 @@ func TestQuestionActionKeysDoNotClash(t *testing.T) {
 				}
 			}
 		}
-		for tab, name := range map[string]string{"1": "Today", "2": "Review", "3": "Work"} {
+		for tab, name := range map[string]string{"1": "Agenda", "2": "Review", "3": "Work"} {
 			d.key(tab)
 			check(name)
 		}

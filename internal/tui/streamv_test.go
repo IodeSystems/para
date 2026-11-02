@@ -9,8 +9,8 @@ import (
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
-// The Agenda is a page reached from Today, not a tab.
-func TestAgendaPageFromToday(t *testing.T) {
+// The Agenda tab is the home screen; By date groups it by day.
+func TestAgendaByDateToggle(t *testing.T) {
 	v := newTestVault(t)
 	v.seed()
 	ctx := context.Background()
@@ -26,14 +26,14 @@ func TestAgendaPageFromToday(t *testing.T) {
 	}
 	dr := newDrv(t, v, 120, 40)
 	if len(tabNames) != 6 {
-		t.Fatalf("Agenda must not be a tab: %v", tabNames)
+		t.Fatalf("Agenda has no tab of its own: %v", tabNames)
 	}
-	if dr.has("Agenda:") || !dr.has("Agenda") {
-		t.Fatalf("Today has an Agenda sentence, or no Agenda key:\n%s", dr.plainFrame())
+	if tabNames[tabToday] != "Agenda" || dr.has("Today") {
+		t.Fatalf("home tab is not Agenda:\n%s", dr.plainFrame())
 	}
-	dr.key(dr.keyFor("act:agenda"))
+	dr.key(dr.keyFor("act:bydate"))
 	f := dr.plainFrame()
-	for _, want := range []string{"Agenda ", soon.Format("15:04") + "-" + soon.Add(30*time.Minute).Format("15:04"), "Launch window sync", "with Ada Example", "Write the parser", "today"} {
+	for _, want := range []string{"Agenda by date", soon.Format("15:04") + "-" + soon.Add(30*time.Minute).Format("15:04"), "Launch window sync", "with Ada Example", "Write the parser", "today"} {
 		if !strings.Contains(f, want) {
 			t.Errorf("agenda page lacks %q:\n%s", want, f)
 		}
@@ -47,20 +47,53 @@ func TestAgendaPageFromToday(t *testing.T) {
 	if !dr.has("Launch window sync") {
 		t.Errorf("esc did not return to the agenda:\n%s", dr.plainFrame())
 	}
-	dr.key("esc")
-	if !dr.has("Today") {
-		t.Errorf("esc did not return to Today:\n%s", dr.plainFrame())
+	dr.key(dr.keyFor("act:bydate"))
+	if dr.has("Agenda by date") {
+		t.Errorf("By date did not toggle off:\n%s", dr.plainFrame())
 	}
 }
 
 func TestAgendaPageEmpty(t *testing.T) {
 	v := newTestVault(t)
 	dr := newDrv(t, v, 100, 30)
-	if dr.has("Agenda:") {
-		t.Errorf("Today shows an Agenda summary with nothing dated:\n%s", dr.plainFrame())
-	}
-	dr.key(dr.keyFor("act:agenda"))
+	dr.key(dr.keyFor("act:bydate"))
 	if !dr.has("Nothing is dated") {
 		t.Errorf("an empty agenda says nothing:\n%s", dr.plainFrame())
+	}
+}
+
+// Switching vault is an Agenda-tab action; elsewhere the vault is read only.
+func TestVaultSwitchOnlyOnAgenda(t *testing.T) {
+	v := newTestVault(t)
+	v.seed()
+	d := newDrv(t, v, 120, 36)
+	if d.keyFor("act:vault") == "" {
+		t.Fatalf("Agenda has no vault switch:\n%s", d.plainFrame())
+	}
+	for _, tab := range []string{"2", "3", "4", "5", "6"} {
+		d.key(tab)
+		if id, ok := d.m.keymap["v"]; ok && id == "act:vault" {
+			t.Errorf("tab %s binds v to the vault switch", tab)
+		}
+		for _, id := range d.m.keymap {
+			if id == "act:vault" {
+				t.Errorf("tab %s offers the vault switch", tab)
+			}
+		}
+		d.key("v")
+		if d.m.ov.kind != ovNone {
+			t.Errorf("tab %s: v opened an overlay", tab)
+			d.key("esc")
+		}
+		if !d.has(v.env.Vault.ID) {
+			t.Errorf("tab %s does not name the vault", tab)
+		}
+	}
+	d.key("6")
+	d.key(d.keyFor("doc:policy-logging"))
+	for _, id := range d.m.keymap {
+		if id == "act:vault" {
+			t.Error("an opened document offers the vault switch")
+		}
 	}
 }

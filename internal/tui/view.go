@@ -23,7 +23,7 @@ var (
 	actAnswer   = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
 	actReject   = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
 	actMeta     = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
-	actAgenda   = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
+	actByDate   = Target{ID: "act:bydate", Label: "By date", Pref: 'b'}
 	actRespond  = Target{ID: "act:respond", Label: "Respond", Pref: 'p'}
 	actActivity = Target{ID: "act:activity", Label: "Activity", Pref: 'i'}
 )
@@ -74,7 +74,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 }
 
 func (m *Model) rowsRaw(w int) ([]row, []Target) {
-	acts := []Target{actCapture, actVault}
+	acts := []Target{actCapture}
 	if p := m.top(); p != nil {
 		switch p.kind {
 		case pagePerson:
@@ -91,8 +91,6 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 			return m.rowsText(p), append(m.textActs(p), acts...)
 		case pageHistory:
 			return m.rowsHistory(p, w), acts
-		case pageAgenda:
-			return m.rowsAgenda(w), acts
 		case pageHealth:
 			return m.rowsHealth(w), append([]Target{actDismiss}, acts...)
 		case pageActivity:
@@ -112,7 +110,8 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), append(append(append(append([]Target{}, questionActs...), actFind), actAgenda), acts...)
+	// Switching vault is an Agenda-tab action only; the vault is read only elsewhere.
+	return m.rowsToday(w), append(append(append(append([]Target{}, questionActs...), actFind, actByDate), acts...), actVault)
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -264,7 +263,7 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 // actEditNote edits the title and body of an opened note.
 var actEditNote = Target{ID: "act:editnote", Label: "Edit", Pref: 'e'}
 
-var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture, actVault}
+var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture}
 
 // docActionsFor are the actions of a document page: an opened question also
 // has the question actions.
@@ -353,7 +352,7 @@ func (m *Model) relayout() {
 }
 
 // shortNames are the tab names for a narrow screen: three letters keep a name.
-var shortNames = [numTabs]string{"Tdy", "Rev", "Wrk", "Ask", "Ppl", "Pol"}
+var shortNames = [numTabs]string{"Agd", "Rev", "Wrk", "Ask", "Ppl", "Pol"}
 
 // topLine is the vault name, the tabs, and the refresh clock. A narrow screen
 // shortens the tab names before it drops them, then drops the vault name and

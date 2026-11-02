@@ -327,7 +327,7 @@ func (m *Model) later() tea.Cmd {
 		{label: "place for a new when task: goal or area id (optional): ", optional: true},
 	}
 	lines := []string{
-		"  It leaves Today and next. It still blocks what depends on it.",
+		"  It leaves the Agenda and next. It still blocks what depends on it.",
 		"  after <item>: waits until a task, question, ask, goal, or agent work is done.",
 		"  when <condition>: makes a task with that done-when, in this goal or area, and waits on it.",
 	}

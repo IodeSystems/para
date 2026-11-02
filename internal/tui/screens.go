@@ -161,11 +161,14 @@ func (m *Model) rowsToday(w int) []row {
 	if !m.loaded {
 		return []row{dim("loading...")}
 	}
+	if m.byDate {
+		return append(m.rowsAgenda(w), m.vaultRows(w)...)
+	}
 	inbox := "inbox 0"
 	if n := len(s.Inbox); n > 0 {
 		inbox = fmt.Sprintf("inbox %d to sort", n)
 	}
-	title := fmt.Sprintf("Today, %s", dateWords(s.Date, s.Loaded))
+	title := fmt.Sprintf("Agenda, %s", dateWords(s.Date, s.Loaded))
 	if w >= 60 {
 		title += "   vault " + s.Vault
 	}
@@ -1034,7 +1037,7 @@ func hasQuestion(ns []ops.GraphNode) bool {
 // with their hours, and a link to the document on each.
 func (m *Model) rowsAgenda(w int) []row {
 	a := m.snap.Agenda
-	r := []row{head(fmt.Sprintf("Agenda %s to %s   %s", dateWords(a.From, m.snap.Loaded), dateWords(a.To, m.snap.Loaded), a.Zone))}
+	r := []row{head(fmt.Sprintf("Agenda by date, %s to %s   %s", dateWords(a.From, m.snap.Loaded), dateWords(a.To, m.snap.Loaded), a.Zone))}
 	if len(a.Items) == 0 {
 		return append(r, dim("  Nothing is dated in the next "+fmt.Sprint(AgendaDays)+" days."))
 	}
@@ -1075,7 +1078,14 @@ func (m *Model) rowsAgenda(w int) []row {
 		if it.Kind == ops.AgendaDue && it.Detail != "" {
 			post += "  " + stWarn.Render(it.Detail)
 		}
-		r = append(r, link("doc:"+it.ID, pre, titleOr(it.Title, it.ID), post, w))
+		x := link("doc:"+it.ID, pre, titleOr(it.Title, it.ID), post, w)
+		// A dated row keeps the actions of its kind: the same as in value order.
+		if q, ok := m.findQuestion(it.ID); ok {
+			x.kind, x.id, x.proposed = "question", it.ID, q.HasProposal
+		} else if _, ok := m.findTask(it.ID); ok {
+			x.kind, x.id = "task", it.ID
+		}
+		r = append(r, x)
 	}
 	return r
 }

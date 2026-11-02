@@ -15,64 +15,73 @@ import (
 // bound to one vault must not see another's titles. A test enforces this.
 func newTodayCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "today",
-		Short: "What needs you in value order (incidents, then by effective due date and impact), plus due, expiring, blocked, unverified, and inbox counts across all vaults (CLI only)",
-		Args:  cobra.NoArgs,
+		Use:    "today",
+		Short:  "Alias of `para agenda`: what needs you in value order across all vaults (CLI only)",
+		Args:   cobra.NoArgs,
+		Hidden: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := l.load(); err != nil {
-				return err
-			}
-			rep, err := today.Read(cmd.Context(), l.install, cliActor, cliSurface, time.Now().Format("2006-01-02"))
-			if err != nil {
-				return err
-			}
-			return emit(cmd, rep, func(w io.Writer, r today.Report) error {
-				for _, v := range r.Vaults {
-					if v.Error != "" {
-						if _, err := fmt.Fprintf(w, "%s\terror: %s\n", v.Vault, v.Error); err != nil {
-							return err
-						}
-						continue
-					}
-					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tagenda %d\tother questions %d\tlater %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\thealth %d\tinbox %d\n",
-						v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Health, v.Inbox); err != nil {
-						return err
-					}
-					for _, it := range v.Agenda.Items {
-						if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", it.Kind, it.ID, it.Why, it.Title); err != nil {
-							return err
-						}
-					}
-					if v.OtherOpen > 0 {
-						if _, err := fmt.Fprintf(w, "  %d other open questions: para question list\n", v.OtherOpen); err != nil {
-							return err
-						}
-					}
-					for _, d := range v.LostUpdates {
-						if _, err := fmt.Fprintf(w, "  lost-update\t%s\n", d); err != nil {
-							return err
-						}
-					}
-					for _, c := range v.SyncConflicts {
-						if _, err := fmt.Fprintf(w, "  sync-conflict\t%s\n", c); err != nil {
-							return err
-						}
-					}
-					for _, g := range []struct {
-						name string
-						g    today.Group
-					}{{"overdue", v.Overdue}, {"soon", v.DueSoon}, {"due", v.Due}, {"nudge", v.Nudges}, {"expiring", v.Expiring}, {"blocked", v.Blocked}} {
-						for _, it := range g.g.Items {
-							if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", g.name, it.ID, dash(it.Due), it.Title); err != nil {
-								return err
-							}
-						}
-					}
-				}
-				return nil
-			})
+			return runAgendaHome(l, cmd)
 		},
 	}
 	addJSONFlag(cmd)
 	return cmd
+}
+
+// runAgendaHome prints the home view: what needs you in value order
+// (incidents, then by effective due date and impact), plus due, expiring,
+// blocked, unverified, and inbox counts across all vaults. `para agenda` runs
+// it without a date flag.
+func runAgendaHome(l *loader, cmd *cobra.Command) error {
+	if err := l.load(); err != nil {
+		return err
+	}
+	rep, err := today.Read(cmd.Context(), l.install, cliActor, cliSurface, time.Now().Format("2006-01-02"))
+	if err != nil {
+		return err
+	}
+	return emit(cmd, rep, func(w io.Writer, r today.Report) error {
+		for _, v := range r.Vaults {
+			if v.Error != "" {
+				if _, err := fmt.Fprintf(w, "%s\terror: %s\n", v.Vault, v.Error); err != nil {
+					return err
+				}
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "%s\tincidents %d\tagenda %d\tother questions %d\tlater %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\thealth %d\tinbox %d\n",
+				v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Health, v.Inbox); err != nil {
+				return err
+			}
+			for _, it := range v.Agenda.Items {
+				if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", it.Kind, it.ID, it.Why, it.Title); err != nil {
+					return err
+				}
+			}
+			if v.OtherOpen > 0 {
+				if _, err := fmt.Fprintf(w, "  %d other open questions: para question list\n", v.OtherOpen); err != nil {
+					return err
+				}
+			}
+			for _, d := range v.LostUpdates {
+				if _, err := fmt.Fprintf(w, "  lost-update\t%s\n", d); err != nil {
+					return err
+				}
+			}
+			for _, c := range v.SyncConflicts {
+				if _, err := fmt.Fprintf(w, "  sync-conflict\t%s\n", c); err != nil {
+					return err
+				}
+			}
+			for _, g := range []struct {
+				name string
+				g    today.Group
+			}{{"overdue", v.Overdue}, {"soon", v.DueSoon}, {"due", v.Due}, {"nudge", v.Nudges}, {"expiring", v.Expiring}, {"blocked", v.Blocked}} {
+				for _, it := range g.g.Items {
+					if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", g.name, it.ID, dash(it.Due), it.Title); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	})
 }
