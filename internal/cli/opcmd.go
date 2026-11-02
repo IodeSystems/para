@@ -21,6 +21,8 @@ type binding[I, O any] struct {
 	Args  cobra.PositionalArgs
 	Flags func(fs *pflag.FlagSet, in *I)   // optional
 	Bind  func(args []string, in *I) error // optional
+	// Stdin reads the command's standard input into the Input; optional.
+	Stdin func(r io.Reader, in *I) error
 	Text  func(w io.Writer, out O) error
 }
 
@@ -44,6 +46,11 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		}
 		if b.Bind != nil {
 			if err := b.Bind(args, &in); err != nil {
+				return err
+			}
+		}
+		if b.Stdin != nil {
+			if err := b.Stdin(cmd.InOrStdin(), &in); err != nil {
 				return err
 			}
 		}

@@ -22,6 +22,8 @@ type env struct {
 	home string
 	dir  string
 	vars map[string]string
+	// stdin is read by the next run, then cleared.
+	stdin string
 }
 
 func newEnv(t *testing.T) *env {
@@ -44,6 +46,8 @@ func (e *env) run(args ...string) (stdout, stderr string, err error) {
 	root.SetOut(&out)
 	root.SetErr(&errb)
 	root.SetArgs(args)
+	root.SetIn(strings.NewReader(e.stdin))
+	e.stdin = ""
 	err = root.Execute()
 	return out.String(), errb.String(), err
 }
@@ -331,6 +335,13 @@ func TestEveryOpHasACommand(t *testing.T) {
 	}
 }
 
+// parityCase is one op of TestInvokeMatchesCLIJSON.
+type parityCase struct {
+	input    string
+	args     []string
+	sameData bool
+}
+
 func jsonKeys(t *testing.T, raw []byte) []string {
 	t.Helper()
 	var m map[string]any
@@ -365,11 +376,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedWork(t, deps)
-	cases := map[string]struct {
-		input    string
-		args     []string
-		sameData bool
-	}{
+	cases := map[string]parityCase{
 		"inbox_add":     {`{"text":"synthetic"}`, []string{"inbox", "add", "synthetic"}, false},
 		"lint":          {``, []string{"lint"}, true},
 		"reconcile":     {`{}`, []string{"reconcile"}, true},
@@ -389,6 +396,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	}
 	seedRFXParity(t, deps)
 	maps.Copy(cases, rfxParityCases)
+	govCases, stdins := governanceParityCases(e)
+	maps.Copy(cases, govCases)
 	all := ops.All()
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))
@@ -407,6 +416,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			e.stdin = stdins[entry.Name()]
 			viaCLI := e.ok(append(c.args, "--json")...)
 			if a, b := jsonKeys(t, viaInvoke), jsonKeys(t, []byte(viaCLI)); !reflect.DeepEqual(a, b) {
 				t.Fatalf("keys: invoke %v, cli %v", a, b)

@@ -59,7 +59,7 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if err != nil {
 		return RFXAddOutput{}, fmt.Errorf("ask: %w", err)
 	}
-	if err := checkDate(in.NextNudge); err != nil {
+	if err := optionalDate(in.NextNudge); err != nil {
 		return RFXAddOutput{}, fmt.Errorf("next_nudge: %w", err)
 	}
 	blocks, err := existingLinks(ctx, d, "blocks", in.Blocks)
@@ -199,7 +199,7 @@ var RFXWaiting = define("rfx_waiting", "List open requests by next nudge", func(
 	if today == "" {
 		today = time.Now().Format(dateLayout)
 	}
-	if err := checkDate(today); err != nil {
+	if err := optionalDate(today); err != nil {
 		return RFXWaitingOutput{}, fmt.Errorf("today: %w", err)
 	}
 	all, err := loadRFX(ctx, d)
@@ -433,14 +433,11 @@ func existingLinks(ctx context.Context, d Deps, field string, ids []string) ([]m
 	return out, nil
 }
 
-func checkDate(s string) error {
+func optionalDate(s string) error {
 	if s == "" {
 		return nil
 	}
-	if _, err := time.Parse(dateLayout, s); err != nil {
-		return fmt.Errorf("%q: want YYYY-MM-DD", s)
-	}
-	return nil
+	return checkDate("date", s)
 }
 
 func validDirection(v model.RFXDirection) bool {

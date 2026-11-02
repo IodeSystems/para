@@ -99,5 +99,6 @@ func newRoot(l *loader) *cobra.Command {
 		newOrgCmd(l),
 		newRouteCmd(l),
 	)
+	addGovernanceCmds(root, l)
 	return root
 }

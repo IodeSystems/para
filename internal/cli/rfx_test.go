@@ -10,13 +10,6 @@ import (
 	"github.com/iodesystems/paradize/internal/ops"
 )
 
-// parityCase is one row of TestInvokeMatchesCLIJSON.
-type parityCase = struct {
-	input    string
-	args     []string
-	sameData bool
-}
-
 // rfxParityCases are the rfx, org, and route rows of the parity table. Names
 // differ between input and args so the add rows do not collide. Ids come from
 // seedRFXParity.

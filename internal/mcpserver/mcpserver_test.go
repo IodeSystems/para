@@ -42,6 +42,18 @@ var sampleInputs = map[string]string{
 	"rfx_show":        `{"id":"rfx-sample"}`,
 	"rfx_status":      `{"id":"rfx-sample","status":"answered"}`,
 	"route":           `{"query":"domain-sample"}`,
+	"ingest":          `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
+	"policy_show":     `{"id":"policy-sample"}`,
+	"policy_review":   `{"id":"policy-sample","by":"Jordan Example"}`,
+	"policy_refresh":  `{"id":"policy-sample","text":"Sample policy text."}`,
+	"rule_add":        `{"policy":"policy-sample","text":"Services log every failure."}`,
+	"exception_add":   `{"policy":"policy-sample","kind":"bug","by":"Jordan Example"}`,
+	"exception_show":  `{"id":"exception-sample"}`,
+	"constraint_add":  `{"says":"No prod access","why":"Audit scope","by":"Jordan Example","source":"https://wiki.acme.example/access","review_by":"2027-01-01"}`,
+	"constraint_show": `{"id":"constraint-sample"}`,
+	"convention_add":  `{"title":"Branch names"}`,
+	"convention_show": `{"id":"convention-sample"}`,
+	"copy":            `{"id":"policy-sample","as":"slack"}`,
 	"project_add":     `{"title":"Portal","owner":"Jordan Example"}`,
 	"project_close":   `{"id":"project-sample","force":true}`,
 	"project_show":    `{"id":"project-sample"}`,
@@ -50,6 +62,11 @@ var sampleInputs = map[string]string{
 	"task_done":       `{"id":"task-sample"}`,
 	"task_show":       `{"id":"task-sample"}`,
 	"task_start":      `{"id":"task-sample"}`,
+}
+
+func sampleSource() model.Source {
+	return model.Source{URL: "https://wiki.acme.example/policies/sample", Retrieved: "2026-11-01T09:00:00Z",
+		Hash: "sha256:" + strings.Repeat("ab", 32), Fidelity: model.FidelityExact}
 }
 
 // seedSamples creates the documents that sampleInputs name.
@@ -70,6 +87,19 @@ func seedSamples(t *testing.T, s store.Store) {
 			Meta: &model.Domain{Common: model.Common{Type: model.TypeDomain}, Owner: model.LinkTo("role-sample")}},
 		{ID: "rfx-sample", Folder: model.FolderRFX, Title: "Sample request",
 			Meta: &model.RFX{Common: model.Common{Type: model.TypeRFX}, Direction: model.RFXOut, Status: model.RFXOpen, Route: "domain-sample", SelfServeCheck: "policy read"}},
+		{ID: "policy-sample", Folder: model.FolderPolicies, Title: "Sample policy",
+			Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: sampleSource()}},
+		{ID: "policy-sample.source", Folder: model.FolderPolicies, Title: "Sample policy (transcript)",
+			Body: "Source: https://wiki.acme.example/policies/sample\n\nSample policy text.",
+			Meta: &model.Transcript{Common: model.Common{Type: model.TypeTranscript}, Of: model.LinkTo("policy-sample"), Source: sampleSource()}},
+		{ID: "exception-sample", Folder: model.FolderPolicies, Title: "Sample exception",
+			Meta: &model.PolicyException{Common: model.Common{Type: model.TypePolicyException}, Policy: model.LinkTo("policy-sample"),
+				Kind: model.ExceptionBug, Status: model.ExceptionOpen, By: "Jordan Example"}},
+		{ID: "constraint-sample", Folder: model.FolderConstraints, Title: "Sample no",
+			Meta: &model.Constraint{Common: model.Common{Type: model.TypeConstraint}, Why: "w", By: "Jordan Example",
+				Source: model.Source{URL: "https://wiki.acme.example/a", Retrieved: "2026-11-01", Fidelity: model.FidelityNone}, ReviewBy: "2027-01-01"}},
+		{ID: "convention-sample", Folder: model.FolderConventions, Title: "Sample convention",
+			Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: model.ConventionDraft}},
 	} {
 		if _, err := s.Create(t.Context(), d); err != nil {
 			t.Fatal(err)
