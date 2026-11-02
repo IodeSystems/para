@@ -160,6 +160,18 @@ func changeText(w io.Writer, out ops.TaskChangeOutput) error {
 func newTaskCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "task", Short: "Tasks", Args: cobra.NoArgs}
 	cmd.AddCommand(
+		opCommand(l, ops.TaskMove, binding[ops.TaskMoveInput, ops.TaskMoveOutput]{
+			Use: "move <id>... (--project <id> | --area <id>)", Args: cobra.MinimumNArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskMoveInput) {
+				fs.StringVarP(&in.Project, "project", "p", "", "move to this goal (project id)")
+				fs.StringVar(&in.Area, "area", "", "move to this area id")
+			},
+			Bind: func(args []string, in *ops.TaskMoveInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.TaskMoveOutput) error {
+				_, err := fmt.Fprintln(w, strings.Join(out.Moved, "\n"))
+				return err
+			},
+		}),
 		opCommand(l, ops.TaskAdd, binding[ops.TaskAddInput, ops.TaskAddOutput]{
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),

@@ -101,7 +101,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"no-prod-logs", &Constraint{c(TypeConstraint), "PII", "Jordan", source(), []string{"prod"}, []string{"dev"}, "2027-01-01"}, ""},
 		{"policy-logging", &Policy{c(TypePolicy), source(), false, ""}, "R1 policy-logging: Log failures. ^R1"},
 		{"policy-logging.source", &Transcript{c(TypeTranscript), LinkTo("policy-logging"), source()}, "Source: https://wiki.acme.example/policies/logging"},
-		{"exception-one", &PolicyException{c(TypePolicyException), LinkTo("policy-logging"), RuleLink("policy-logging", "R1"), ExceptionBug, ExceptionOpen, "Jordan", "", ""}, ""},
+		{"exception-one", &PolicyException{c(TypePolicyException), LinkTo("policy-logging"), "", RuleLink("policy-logging", "R1"), ExceptionBug, ExceptionOpen, "Jordan", "", ""}, ""},
 		{"jordan-example", &Person{Common: c(TypePerson), Org: "acme.example", Role: LinkTo("platform-engineer"), Team: LinkTo("atlas-team"),
 			Aliases:  []string{"Jo"},
 			Contacts: []Contact{{Method: MediumSlack, Value: "@jordan", Label: "day to day", Preferred: true}, {Method: MediumEmail, Value: "jordan@acme.example"}},
@@ -296,5 +296,31 @@ func TestRenderOntoIgnoresUnusableOld(t *testing.T) {
 		if err != nil || string(got) != string(want) {
 			t.Errorf("old %q: %v\n%s", old, err, got)
 		}
+	}
+}
+
+func TestRetypeKeepsExtrasAndRewriteLinks(t *testing.T) {
+	d, err := Decode("note-x", FolderResources, []byte("type: note\ncreated: 2026-11-01\nproject: \"[[project-a]]\"\nlegacy_kind: established example\n"), "T", "See [[project-a#h|a]] and [[project-b]].")
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := Retype(d, TypePolicyException, map[string]any{"kind": "wide_enough_for", "status": "open", "by": "unknown", "policy_text": "P"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Folder != FolderPolicies || r.Meta.Header().Type != TypePolicyException {
+		t.Fatalf("retype = %+v", r)
+	}
+	text, _ := r.FieldText()
+	if text["project"] != "[[project-a]]" || text["legacy_kind"] != "established example" || text["kind"] != "wide_enough_for" {
+		t.Fatalf("fields = %v", text)
+	}
+	w, changed, err := d.RewriteLinks("project-a", "project-z")
+	if err != nil || !changed || w.Body != "See [[project-z#h|a]] and [[project-b]]." {
+		t.Fatalf("rewrite = %q %v %v", w.Body, changed, err)
+	}
+	ft, _ := w.FieldText()
+	if ft["project"] != "[[project-z]]" {
+		t.Fatalf("frontmatter link = %v", ft)
 	}
 }

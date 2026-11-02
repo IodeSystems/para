@@ -198,13 +198,23 @@ const (
 	ExceptionUnenforced     ExceptionKind = "unenforced"
 	ExceptionConflictWith   ExceptionKind = "conflict_with"
 	ExceptionInterpretedAs  ExceptionKind = "interpreted_as"
+	// ExceptionEstablishedExample: precedent shows how the text is applied. It
+	// is a record of practice, not a ruling.
+	ExceptionEstablishedExample ExceptionKind = "established_example"
+	// ExceptionWideEnoughFor: on a plain reading, the text already covers the case.
+	ExceptionWideEnoughFor ExceptionKind = "wide_enough_for"
 )
 
 // ExceptionKinds lists every ExceptionKind.
 var ExceptionKinds = []ExceptionKind{
 	ExceptionUnderspecified, ExceptionOverlyBroad, ExceptionBug,
 	ExceptionUnenforced, ExceptionConflictWith, ExceptionInterpretedAs,
+	ExceptionEstablishedExample, ExceptionWideEnoughFor,
 }
+
+// ByUnknown is the policy_exception.by value for an exception whose author nobody
+// recorded. It is valid; health flags it.
+const ByUnknown = "unknown"
 
 // ExceptionStatus is policy_exception.status.
 type ExceptionStatus string

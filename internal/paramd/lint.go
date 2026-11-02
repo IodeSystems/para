@@ -186,6 +186,9 @@ func (l *linter) frontmatter() {
 			l.errf(1, CodeField, "type policy_exception: kind conflict_with requires field %q", "with")
 		}
 	}
+	if typ == "policy_exception" && str(f.Frontmatter["policy"]) == "" && str(f.Frontmatter["policy_text"]) == "" {
+		l.errf(1, CodeField, "type policy_exception: needs field %q or %q", "policy", "policy_text")
+	}
 	if typ == "task" && f.Frontmatter["project"] == nil && f.Frontmatter["area"] == nil {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
 	}

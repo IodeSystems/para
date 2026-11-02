@@ -152,6 +152,7 @@ type touched struct {
 	id     string
 	before string
 	folder model.Folder
+	forced bool // the id changed: a receipt is filed though the text is the same
 }
 
 // recorder is a store that keeps the before text of each document it writes.
@@ -190,6 +191,19 @@ func (r *recorder) Update(ctx context.Context, d model.Document) (model.Document
 	return r.Store.Update(ctx, d)
 }
 
+func (r *recorder) Rename(ctx context.Context, id, newID string) (model.Document, error) {
+	r.note(ctx, id)
+	out, err := r.Store.Rename(ctx, id, newID)
+	if err == nil && id != newID {
+		for i := range *r.list {
+			if t := &(*r.list)[i]; t.id == id {
+				t.id, t.forced = newID, true
+			}
+		}
+	}
+	return out, err
+}
+
 func (r *recorder) Move(ctx context.Context, id string, to model.Folder) (model.Document, error) {
 	r.note(ctx, id)
 	return r.Store.Move(ctx, id, to)
@@ -213,7 +227,7 @@ func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) err
 			continue
 		}
 		after := renderText(doc)
-		if after == t.before && (t.folder == "" || t.folder == doc.Folder) {
+		if after == t.before && !t.forced && (t.folder == "" || t.folder == doc.Folder) {
 			continue
 		}
 		if err := fileReceipt(ctx, d, receiptInput{op: op, doc: t.id, title: doc.Title, meta: m, content: model.ReceiptContent{Folder: t.folder, Before: t.before, After: after}}); err != nil {

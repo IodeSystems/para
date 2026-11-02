@@ -18,20 +18,21 @@ const expiringDefault = 30
 
 // ExceptionView is a policy exception as list and show report it.
 type ExceptionView struct {
-	ID       string                `json:"id"`
-	Title    string                `json:"title"`
-	Policy   string                `json:"policy"`
-	Rule     string                `json:"rule"` // rule id such as R4, or empty
-	Kind     model.ExceptionKind   `json:"kind"`
-	Status   model.ExceptionStatus `json:"status"`
-	By       string                `json:"by"`
-	With     string                `json:"with"` // document id, or empty
-	ReviewBy model.Date            `json:"review_by"`
+	ID         string                `json:"id"`
+	Title      string                `json:"title"`
+	Policy     string                `json:"policy"`
+	PolicyText string                `json:"policy_text,omitempty"` // the policy in words, when it is not a vault document
+	Rule       string                `json:"rule"`                  // rule id such as R4, or empty
+	Kind       model.ExceptionKind   `json:"kind"`
+	Status     model.ExceptionStatus `json:"status"`
+	By         string                `json:"by"`
+	With       string                `json:"with"` // document id, or empty
+	ReviewBy   model.Date            `json:"review_by"`
 }
 
 func exceptionView(doc model.Document, e *model.PolicyException) ExceptionView {
 	v := ExceptionView{
-		ID: doc.ID, Title: doc.Title, Policy: e.Policy.Target(), Kind: e.Kind,
+		ID: doc.ID, Title: doc.Title, Policy: e.Policy.Target(), PolicyText: e.PolicyText, Kind: e.Kind,
 		Status: e.Status, By: e.By, With: e.With.Target(), ReviewBy: e.ReviewBy,
 	}
 	if _, id, ok := strings.Cut(strings.TrimSuffix(string(e.Rule), "]]"), "#^"); ok {
@@ -70,14 +71,15 @@ func allExceptions(ctx context.Context, d Deps) ([]ExceptionView, error) {
 
 // ExceptionAddInput is the input of exception_add.
 type ExceptionAddInput struct {
-	Policy   string              `json:"policy"`
-	Rule     string              `json:"rule,omitempty"` // optional rule id such as R4
-	Kind     model.ExceptionKind `json:"kind"`
-	By       string              `json:"by"`                  // who raised or decided it
-	With     string              `json:"with,omitempty"`      // document id; required for conflict_with
-	ReviewBy string              `json:"review_by,omitempty"` // optional YYYY-MM-DD
-	Title    string              `json:"title,omitempty"`     // empty: "Exception: <kind>"
-	Text     string              `json:"text,omitempty"`      // body: what is unclear or wrong
+	Policy     string              `json:"policy,omitempty"`      // required unless policy_text is given
+	PolicyText string              `json:"policy_text,omitempty"` // the policy in words, for one not in the vault
+	Rule       string              `json:"rule,omitempty"`        // optional rule id such as R4
+	Kind       model.ExceptionKind `json:"kind"`
+	By         string              `json:"by"`                  // who raised or decided it
+	With       string              `json:"with,omitempty"`      // document id; required for conflict_with
+	ReviewBy   string              `json:"review_by,omitempty"` // optional YYYY-MM-DD
+	Title      string              `json:"title,omitempty"`     // empty: "Exception: <kind>"
+	Text       string              `json:"text,omitempty"`      // body: what is unclear or wrong
 }
 
 // ExceptionAddOutput is the output of exception_add.
@@ -96,13 +98,27 @@ var ExceptionAdd = define("exception_add", "Record a policy exception", func(ctx
 	if err != nil {
 		return ExceptionAddOutput{}, err
 	}
-	pol, _, err := getPolicy(ctx, d, in.Policy)
-	if err != nil {
-		return ExceptionAddOutput{}, err
-	}
 	e := &model.PolicyException{
-		Common: model.Common{Type: model.TypePolicyException},
-		Policy: model.LinkTo(pol.ID), Kind: kind, Status: model.ExceptionOpen, By: by,
+		Common: model.Common{Type: model.TypePolicyException}, Kind: kind, Status: model.ExceptionOpen, By: by,
+	}
+	var pol model.Document
+	switch text := strings.TrimSpace(in.PolicyText); {
+	case in.Policy != "":
+		var err error
+		if pol, _, err = getPolicy(ctx, d, in.Policy); err != nil {
+			return ExceptionAddOutput{}, err
+		}
+		e.Policy, e.PolicyText = model.LinkTo(pol.ID), text
+	case text != "":
+		if strings.ContainsAny(text, "\r\n") {
+			return ExceptionAddOutput{}, errors.New("policy_text must be one line")
+		}
+		e.PolicyText = text
+	default:
+		return ExceptionAddOutput{}, errors.New("give policy (a policy id) or policy_text (the policy in words)")
+	}
+	if in.Rule != "" && pol.ID == "" {
+		return ExceptionAddOutput{}, errors.New("rule needs policy: a rule belongs to a policy document")
 	}
 	if in.Rule != "" {
 		if !ruleIDRe.MatchString(in.Rule) || !slices.ContainsFunc(parseRules(pol.ID, pol.Body), func(r Rule) bool { return r.ID == in.Rule }) {

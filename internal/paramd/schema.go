@@ -34,7 +34,7 @@ var (
 	rfxDirection       = []string{"in", "out"}
 	rfxStatus          = []string{"open", "answered", "closed", "declined"}
 	fidelities         = []string{"exact", "ocr", "partial", "none"}
-	exceptionKinds     = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as"}
+	exceptionKinds     = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as", "established_example", "wide_enough_for"}
 	exceptionStatus    = []string{"open", "resolved", "accepted"}
 	conventionState    = []string{"draft", "adopted", "retired"}
 	mediums            = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
@@ -162,7 +162,8 @@ var typeFields = map[string][]field{
 		{Name: "source", Kind: kSourceMap, Required: true},
 	},
 	"policy_exception": {
-		{Name: "policy", Kind: kLink, Required: true},
+		{Name: "policy", Kind: kLink}, // required unless policy_text is set (lint)
+		{Name: "policy_text", Kind: kString},
 		{Name: "rule", Kind: kRuleLink},
 		{Name: "kind", Kind: kEnum, Enum: exceptionKinds, Required: true},
 		{Name: "status", Kind: kEnum, Enum: exceptionStatus, Required: true},
@@ -300,3 +301,75 @@ func ItemFieldEnum(typ, list, name string) []string {
 
 // Fidelities lists the allowed source.fidelity values.
 func Fidelities() []string { return fidelities }
+
+// FieldInfo describes one frontmatter field a person may edit.
+type FieldInfo struct {
+	Name     string   `json:"name"`
+	Kind     string   `json:"kind"` // string, date, bool, enum, list, link, links, ...
+	Enum     []string `json:"enum,omitempty"`
+	Required bool     `json:"required,omitempty"`
+}
+
+var kindNames = map[kind]string{
+	kString: "string", kDate: "date", kBool: "bool", kEnum: "enum", kList: "list", kLink: "link",
+	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
+	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
+	kScope: "scope", kSources: "sources",
+}
+
+// editableTypes are the types doc_edit changes. A proposal, receipt, question,
+// and note keep their own ops; a note goes through note_edit.
+var editableTypes = []string{
+	"task", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
+	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript",
+}
+
+// editLocked are fields a lifecycle op, a recurrence chain, or a fetched source
+// owns, per type. status is locked for every type.
+var editLocked = map[string][]string{
+	"request":    {"queued_at", "claimed_by", "lease_until", "resolution", "result_links", "followed"},
+	"task":       {"previous"},
+	"rfx":        {"targets", "question"},
+	"policy":     {"source", "verified"},
+	"transcript": {"source", "of"},
+	"constraint": {"source"},
+}
+
+// EditableTypes lists the types doc_edit accepts.
+func EditableTypes() []string { return append([]string(nil), editableTypes...) }
+
+// EditableFields returns the declared fields of a type that doc_edit may set:
+// not type, created, updated, or status, and not a locked field. It returns nil
+// for a type doc_edit does not edit.
+func EditableFields(typ string) []FieldInfo {
+	ok := false
+	for _, t := range editableTypes {
+		ok = ok || t == typ
+	}
+	if !ok {
+		return nil
+	}
+	var out []FieldInfo
+next:
+	for _, fd := range typeFields[typ] {
+		if fd.Name == "status" {
+			continue
+		}
+		for _, l := range editLocked[typ] {
+			if l == fd.Name {
+				continue next
+			}
+		}
+		out = append(out, FieldInfo{Name: fd.Name, Kind: kindNames[fd.Kind], Enum: fd.Enum, Required: fd.Required})
+	}
+	return out
+}
+
+// TypeFields returns every declared field of a type, in schema order.
+func TypeFields(typ string) []FieldInfo {
+	var out []FieldInfo
+	for _, fd := range typeFields[typ] {
+		out = append(out, FieldInfo{Name: fd.Name, Kind: kindNames[fd.Kind], Enum: fd.Enum, Required: fd.Required})
+	}
+	return out
+}

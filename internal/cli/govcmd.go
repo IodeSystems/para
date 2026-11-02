@@ -193,12 +193,13 @@ func newExceptionCmd(l *loader) *cobra.Command {
 	cmd := group("exception", "Policy exceptions")
 	cmd.AddCommand(
 		opCommand(l, ops.ExceptionAdd, binding[ops.ExceptionAddInput, ops.ExceptionAddOutput]{
-			Use: "add --policy <id> --kind <kind> --by <who> [--rule R4] [--with <id>] [--review-by YYYY-MM-DD] [--title ..] [--text ..]", Args: cobra.NoArgs,
+			Use: "add (--policy <id> | --policy-text <words>) --kind <kind> --by <who> [--rule R4] [--with <id>] [--review-by YYYY-MM-DD] [--title ..] [--text ..]", Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.ExceptionAddInput) {
-				fs.StringVar(&in.Policy, "policy", "", "policy id")
+				fs.StringVar(&in.Policy, "policy", "", "policy id (optional when --policy-text is given)")
+				fs.StringVar(&in.PolicyText, "policy-text", "", "the policy in words, when it is not a vault document")
 				fs.StringVar(&in.Rule, "rule", "", "rule id such as R4")
-				fs.StringVar((*string)(&in.Kind), "kind", "", "underspecified|overly_broad|bug|unenforced|conflict_with|interpreted_as")
-				fs.StringVar(&in.By, "by", "", "who raised or decided it")
+				fs.StringVar((*string)(&in.Kind), "kind", "", "underspecified|overly_broad|bug|unenforced|conflict_with|interpreted_as|established_example (precedent, not a ruling)|wide_enough_for (a plain reading covers it)")
+				fs.StringVar(&in.By, "by", "", "who raised or decided it, or unknown")
 				fs.StringVar(&in.With, "with", "", "document it conflicts with (conflict_with)")
 				fs.StringVar(&in.ReviewBy, "review-by", "", "date to look again, YYYY-MM-DD")
 				fs.StringVar(&in.Title, "title", "", "title (default from kind)")

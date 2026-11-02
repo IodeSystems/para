@@ -78,6 +78,10 @@ func (s *Store) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 	return s.v.Move(ctx, id, to)
 }
 
+func (s *Store) Rename(ctx context.Context, id, newID string) (model.Document, error) {
+	return s.v.Rename(ctx, id, newID)
+}
+
 func (s *Store) Lint(ctx context.Context) ([]model.Finding, error) { return s.v.Check(ctx) }
 
 func (s *Store) Reconcile(ctx context.Context) (model.ReconcileResult, error) {

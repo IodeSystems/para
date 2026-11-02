@@ -24,6 +24,7 @@ const (
 	OpCreate       = "create"
 	OpUpdate       = "update"
 	OpMove         = "move"
+	OpRename       = "rename"
 	OpExternalEdit = "external_edit"
 )
 

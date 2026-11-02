@@ -198,6 +198,15 @@ There is no import command. Ask your agent to use the prompt import_corpus. It r
 Para fetches nothing. Ask your agent for /para ingest followed by a URL, a file, or pasted text: it reads that one thing with its own tools, finds what it touches in the vault, and files one proposal. Each item carries its source: a fact, a task, a question answered as a proposed answer, an ask resolved, a date moved. Ask for /para align followed by a goal, an area, or vault: it compares the vault with gh, jira, slack, or a calendar, and files one proposal of differences, each with both sides and a source. The prompts are ingest_source and align_vault. align scope lists what the agent walks; align record keeps a receipt with the counts checked, matched, differ, and unreachable, and names the sources it could not reach. A run with no change is recorded too. The goal page shows the date it was last aligned.
 To align on a schedule, make it a recurring task for the agent, as above. When it is done, the next one is made; para tick makes the agent work item when one is due (use cases 7 and 17). Title it with the command so the agent knows what to run. Nothing else recurs and no new scheduler exists. To have health name goals that were not aligned lately, set align.days=14 in .para/vault.properties. Unset, health says nothing about it.
 
+22. Repair a vault (an agent proposes it, you review the before and after)
+  $ para doc rename note-old note-new
+  $ para doc retype note-example --to policy_exception --field kind=established_example --field status=open --field by=unknown --field policy_text="Logging standard"
+  $ para task move task-a task-b --project project-portal
+  $ para doc edit project-portal --field done_when="Every check passes."
+  $ para rfx nudge rfx-example 2026-12-01
+  $ para attempt add task-a --what "Asked in chat" --result "No reply"
+doc rename rewrites every link to the file and refuses an id that is taken. doc retype moves the document to its type's folder and keeps keys that do not apply as extra frontmatter. Agents file these in a proposal; a script would go around the review.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due

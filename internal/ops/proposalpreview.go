@@ -46,10 +46,12 @@ type overlay struct {
 	store.Store
 	docs  map[string]model.Document
 	order *[]string
+	gone  map[string]bool   // ids a rename vacated
+	from  map[string]string // new id to old id, for a renamed document
 }
 
 func newOverlay(s store.Store) *overlay {
-	return &overlay{Store: s, docs: map[string]model.Document{}, order: &[]string{}}
+	return &overlay{Store: s, docs: map[string]model.Document{}, order: &[]string{}, gone: map[string]bool{}, from: map[string]string{}}
 }
 
 func (o *overlay) put(d model.Document) model.Document {
@@ -62,7 +64,7 @@ func (o *overlay) put(d model.Document) model.Document {
 }
 
 func (o *overlay) ActAs(actor, surface string) store.Store {
-	return &overlay{Store: o.Store.ActAs(actor, surface), docs: o.docs, order: o.order}
+	return &overlay{Store: o.Store.ActAs(actor, surface), docs: o.docs, order: o.order, gone: o.gone, from: o.from}
 }
 
 func (o *overlay) Create(ctx context.Context, d model.Document) (model.Document, error) {
@@ -81,7 +83,40 @@ func (o *overlay) Get(ctx context.Context, id string) (model.Document, error) {
 	if d, ok := o.docs[id]; ok {
 		return d, nil
 	}
+	if o.gone[id] {
+		return model.Document{}, fmt.Errorf("%w: %s", model.ErrNotFound, id)
+	}
 	return o.Store.Get(ctx, id)
+}
+
+func (o *overlay) Rename(ctx context.Context, id, newID string) (model.Document, error) {
+	d, err := o.Get(ctx, id)
+	if err != nil {
+		return d, err
+	}
+	refs, err := o.List(ctx, store.Filter{})
+	if err != nil {
+		return d, err
+	}
+	for _, r := range refs {
+		if r.ID != id && strings.EqualFold(r.ID, newID) {
+			return d, fmt.Errorf("%w: %s", model.ErrExists, r.ID)
+		}
+	}
+	if id == newID {
+		return d, nil
+	}
+	delete(o.docs, id)
+	*o.order = slices.DeleteFunc(*o.order, func(x string) bool { return x == id })
+	o.gone[id] = true
+	origin := id
+	if prev, ok := o.from[id]; ok {
+		origin = prev
+	}
+	delete(o.from, id)
+	o.from[newID] = origin
+	d.ID = newID
+	return o.put(d), nil
 }
 
 func (o *overlay) Update(_ context.Context, d model.Document) (model.Document, error) {
@@ -102,6 +137,7 @@ func (o *overlay) List(ctx context.Context, f store.Filter) ([]model.Ref, error)
 	if err != nil {
 		return nil, err
 	}
+	refs = slices.DeleteFunc(refs, func(r model.Ref) bool { return o.gone[r.ID] })
 	for _, id := range *o.order {
 		d := o.docs[id]
 		if (f.Folder != "" && d.Folder != f.Folder) || (f.Type != "" && d.Meta.Header().Type != f.Type) {
@@ -160,12 +196,19 @@ func previewItem(ctx context.Context, d Deps, actor string, it model.ProposalIte
 		after := ov.docs[id]
 		change := DocChange{Doc: id, Title: after.Title, Type: string(after.Meta.Header().Type)}
 		var before string
-		if doc, err := d.Store.Get(ctx, id); err == nil {
+		origin, renamed := ov.from[id]
+		if !renamed {
+			origin = id
+		}
+		if doc, err := d.Store.Get(ctx, origin); err == nil {
 			before = renderText(doc)
 		} else {
 			change.New = true
 		}
 		change.Lines = trimContext(diffLines(before, renderText(after)), 2)
+		if renamed {
+			change.Lines = append([]string{"- file: " + origin + ".md", "+ file: " + id + ".md"}, change.Lines...)
+		}
 		for i, l := range change.Lines {
 			change.Lines[i] = plainTitle(ctx, ov, l)
 		}

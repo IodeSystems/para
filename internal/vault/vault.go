@@ -314,6 +314,66 @@ func (v *Vault) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 	return v.Get(ctx, id)
 }
 
+// Rename changes the id of a document, which is its file name. The folder and
+// content stay. It refuses a new id that another document holds (ids compare
+// without case). Links to the old id are not rewritten here; the caller
+// updates each document that names it.
+func (v *Vault) Rename(ctx context.Context, id, newID string) (model.Document, error) {
+	if !paramd.ValidStem(newID) {
+		return model.Document{}, fmt.Errorf("vault: rename: invalid id %q", newID)
+	}
+	err := v.withLock(ctx, func(m *events.Manifest) error {
+		files, err := v.docFiles()
+		if err != nil {
+			return err
+		}
+		var f docFile
+		found := false
+		for _, x := range files {
+			if x.id == id {
+				f, found = x, true
+			}
+		}
+		if !found {
+			return fmt.Errorf("%w: %s", model.ErrNotFound, id)
+		}
+		for _, x := range files {
+			if x.id != id && strings.EqualFold(x.id, newID) {
+				return fmt.Errorf("%w: %s", model.ErrExists, x.rel)
+			}
+		}
+		if id == newID {
+			return nil
+		}
+		data, err := os.ReadFile(v.abs(f.rel))
+		if err != nil {
+			return err
+		}
+		hash := events.Hash(data)
+		if err := v.noteExternalEdit(m, f.rel, hash); err != nil {
+			return err
+		}
+		rel := path.Join(path.Dir(f.rel), newID+".md")
+		if err := os.Rename(v.abs(f.rel), v.abs(rel)); err != nil {
+			return err
+		}
+		if err := atomicfile.SyncDir(filepath.Dir(v.abs(rel))); err != nil {
+			return err
+		}
+		undo := func() error { return os.Rename(v.abs(rel), v.abs(f.rel)) }
+		if err := v.logOrUndo(undo, events.OpRename, id, id, newID, hash); err != nil {
+			return err
+		}
+		delete(m.Files, f.rel)
+		m.Files[rel] = hash
+		return v.saveManifest(*m)
+	})
+	if err != nil {
+		return model.Document{}, fmt.Errorf("vault: rename: %w", err)
+	}
+	return v.Get(ctx, newID)
+}
+
 // Get reads a document.
 func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 	f, err := v.find(id)

@@ -227,12 +227,16 @@ type Transcript struct {
 // PolicyException is type: policy_exception.
 type PolicyException struct {
 	Common `yaml:",inline"`
-	Policy Link            `yaml:"policy" json:"policy"`
-	Rule   Link            `yaml:"rule,omitempty" json:"rule,omitempty"`
-	Kind   ExceptionKind   `yaml:"kind" json:"kind"`
-	Status ExceptionStatus `yaml:"status" json:"status"`
-	By     string          `yaml:"by" json:"by"`
-	With   Link            `yaml:"with,omitempty" json:"with,omitempty"`
+	// Policy is the policy the exception is about. It may be empty when
+	// PolicyText names the text instead (lint needs one of the two).
+	Policy Link `yaml:"policy,omitempty" json:"policy,omitempty"`
+	// PolicyText names the policy text in words, for a policy not in the vault.
+	PolicyText string          `yaml:"policy_text,omitempty" json:"policy_text,omitempty"`
+	Rule       Link            `yaml:"rule,omitempty" json:"rule,omitempty"`
+	Kind       ExceptionKind   `yaml:"kind" json:"kind"`
+	Status     ExceptionStatus `yaml:"status" json:"status"`
+	By         string          `yaml:"by" json:"by"`
+	With       Link            `yaml:"with,omitempty" json:"with,omitempty"`
 	// ReviewBy is when to look at the exception again (para exception expiring).
 	ReviewBy Date `yaml:"review_by,omitempty" json:"review_by,omitempty"`
 }

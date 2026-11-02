@@ -348,3 +348,27 @@ func TestParseFileMissing(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestLintExceptionPolicyOptionalAndLegacyKind(t *testing.T) {
+	base := "type: policy_exception\ncreated: 2026-11-01\nstatus: open\nby: unknown\n"
+	cases := []struct {
+		name, fm string
+		bad      bool
+	}{
+		{"policy_text only, new kinds", base + "kind: established_example\npolicy_text: Logging standard\n", false},
+		{"wide_enough_for with a link", base + "kind: wide_enough_for\npolicy: \"[[policy-logging]]\"\n", false},
+		{"neither policy nor policy_text", base + "kind: bug\n", true},
+		{"an old vault with legacy_kind", base + "kind: interpreted_as\npolicy_text: Logging standard\nlegacy_kind: established example\n", false},
+	}
+	for _, c := range cases {
+		var errs []string
+		for _, f := range Lint(Parse("policies/exception-x.md", []byte(doc(c.fm, "# X\n")))) {
+			if f.Severity == Error {
+				errs = append(errs, f.Msg)
+			}
+		}
+		if (len(errs) > 0) != c.bad {
+			t.Errorf("%s: errors = %v", c.name, errs)
+		}
+	}
+}

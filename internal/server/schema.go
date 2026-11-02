@@ -98,6 +98,7 @@ type Meta struct {
 	With            *jsonValue         `json:"with,omitempty"`
 	Scope           string             `json:"scope,omitempty"`
 	Policy          string             `json:"policy,omitempty"`
+	PolicyText      string             `json:"policy_text,omitempty"`
 	Rule            string             `json:"rule,omitempty"`
 	ReviewedBy      string             `json:"reviewed_by,omitempty"`
 	Verified        *bool              `json:"verified,omitempty"`

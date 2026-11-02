@@ -37,6 +37,8 @@ const (
 	HealthPolicyReviewDue    = "policy_review_due"
 	HealthQuestionStale      = "question_stale"
 	HealthNotAligned         = "not_aligned"
+	HealthExceptionNoPolicy  = "exception_no_policy"
+	HealthByUnknown          = "by_unknown"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -46,6 +48,7 @@ var HealthKinds = []string{
 	HealthGoalNoDoneWhen, HealthTaskNoDoneWhen, HealthAskNoTarget, HealthPersonNoContact,
 	HealthBlockerIncomplete, HealthAreaNoLinks,
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
+	HealthExceptionNoPolicy, HealthByUnknown,
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -387,7 +390,7 @@ func (h *healther) scan() {
 				continue
 			}
 			if m.NextNudge == "" {
-				h.add(HealthAskNoFollowup, id, goal, "ask has no follow-up date", "ask the owner for a date; rfx_add sets next_nudge when the ask is made")
+				h.add(HealthAskNoFollowup, id, goal, "ask has no follow-up date", fmt.Sprintf("ask the owner for a date, then rfx_nudge {id: %s, date: YYYY-MM-DD}; rfx_add sets next_nudge when the ask is made", id))
 			}
 			if len(m.Targets) == 0 {
 				h.add(HealthAskNoTarget, id, goal, "ask has no target person or medium", fmt.Sprintf("rfx_target_add {id: %s, to: person-..., medium: ...}", id))
@@ -407,10 +410,19 @@ func (h *healther) scan() {
 			}
 		case *model.Constraint:
 			// A constraint always has a source: lint refuses one without.
+			if strings.EqualFold(m.By, model.ByUnknown) {
+				h.add(HealthByUnknown, id, "", "constraint does not say who set it (by: unknown)", fmt.Sprintf("ask the owner who, then doc_edit {id: %s, fields: {by: ...}}", id))
+			}
 			if m.ReviewBy != "" && string(m.ReviewBy) <= h.today {
 				h.add(HealthPolicyReviewDue, id, "", "constraint review date is "+string(m.ReviewBy), "ask the owner to confirm it, or constraint_add again with a new review_by")
 			}
 		case *model.PolicyException:
+			if m.Policy == "" {
+				h.add(HealthExceptionNoPolicy, id, "", "exception names its policy in words only: no policy document is linked", fmt.Sprintf("find the policy with search; doc_edit {id: %s, fields: {policy: \"[[policy-...]]\"}}, or ingest it first", id))
+			}
+			if strings.EqualFold(m.By, model.ByUnknown) {
+				h.add(HealthByUnknown, id, "", "exception does not say who raised or decided it (by: unknown)", fmt.Sprintf("ask the owner who, then doc_edit {id: %s, fields: {by: ...}}", id))
+			}
 			if m.Status == model.ExceptionOpen && m.ReviewBy != "" && string(m.ReviewBy) <= h.today {
 				h.add(HealthPolicyReviewDue, id, "", "policy exception review date is "+string(m.ReviewBy), fmt.Sprintf("exception_show {id: %s}, then ask the owner", id))
 			}

@@ -7,8 +7,8 @@ Ingest one thing the owner points at: a document, a thread, a transcript, a tick
    - a task someone now owes: `task_add`, with done_when, a project or area, and the assignee.
    - a question the source answers: `question_answer` with the choice or text, the reason, and sources. It stays a proposed answer until the owner accepts it.
    - an Ask the source resolves: `rfx_reply`, with the outcome, who said it, and sources. A no records the constraint.
-   - an attempt, something tried and what came of it: `note_add` on the goal or area, with the task or Ask id in its body. Para has no separate attempt op.
-   - a date that moved: `task_due` for a task, `project_edit` for a goal, `meeting_schedule` for a meeting.
+   - an attempt, something tried and what came of it: `attempt_add`, with the task or Ask as target, what was tried, the result, and sources.
+   - a date that moved: `task_due` for a task, `project_edit` for a goal, `meeting_schedule` for a meeting, `rfx_nudge` for the follow-up date of an Ask.
    - an unknown that blocks work and that the source does not settle: `question_add`, with one scope.
    - a person the vault lacks: `org_person_add`.
 4. A source is required on every item: its quote, and a locator (a URL with an anchor, a file path and line, a message link). No source, no item. A guess is not a source. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.

@@ -17,6 +17,17 @@ func newRFXCmd(l *loader) *cobra.Command {
 	var to, via []string
 	cmd := &cobra.Command{Use: "rfx", Short: "Asks: requests for something, in or out", Args: cobra.NoArgs}
 	cmd.AddCommand(
+		opCommand(l, ops.RFXNudge, binding[ops.RFXNudgeInput, ops.RFXNudgeOutput]{
+			Use: "nudge <id> [YYYY-MM-DD]", Args: cobra.RangeArgs(1, 2),
+			Bind: func(args []string, in *ops.RFXNudgeInput) error {
+				in.ID = args[0]
+				if len(args) == 2 {
+					in.Date = args[1]
+				}
+				return nil
+			},
+			Text: printID(func(o ops.RFXNudgeOutput) string { return o.ID + "\t" + o.NextNudge }),
+		}),
 		opCommand(l, ops.RFXAdd, binding[ops.RFXAddInput, ops.RFXAddOutput]{
 			Use:  "add <ask>",
 			Args: cobra.MinimumNArgs(1),

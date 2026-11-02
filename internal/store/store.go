@@ -58,6 +58,10 @@ type Store interface {
 	Update(ctx context.Context, d model.Document) (model.Document, error)
 	// Move changes the folder of a document. The id does not change.
 	Move(ctx context.Context, id string, to model.Folder) (model.Document, error)
+	// Rename changes a document's id and file name; folder and content stay.
+	// It returns model.ErrExists for an id another document holds. Links to the
+	// old id are the caller's to rewrite.
+	Rename(ctx context.Context, id, newID string) (model.Document, error)
 
 	// Lint checks every document in the vault.
 	Lint(ctx context.Context) ([]model.Finding, error)
