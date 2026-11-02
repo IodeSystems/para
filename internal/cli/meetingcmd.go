@@ -1,6 +1,10 @@
 package cli
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -40,6 +44,112 @@ func changeMeetingText(w io.Writer, out ops.MeetingChangeOutput) error {
 		p.f("warning: %s\n", wn)
 	}
 	return p.err
+}
+
+// holdFlags holds the flags of meeting hold that build structured input.
+type holdFlags struct {
+	actions, answers []string
+	stdin            bool
+}
+
+// parseAction reads "title", "title | assignee", or "title | assignee | YYYY-MM-DD".
+func parseAction(s string) (ops.HoldAction, error) {
+	parts := strings.Split(s, "|")
+	if len(parts) > 3 {
+		return ops.HoldAction{}, fmt.Errorf("--action %q: want title | assignee | YYYY-MM-DD", s)
+	}
+	a := ops.HoldAction{Title: strings.TrimSpace(parts[0])}
+	if len(parts) > 1 {
+		a.Assignee = strings.TrimSpace(parts[1])
+	}
+	if len(parts) > 2 {
+		a.Due = strings.TrimSpace(parts[2])
+	}
+	return a, nil
+}
+
+func newMeetingHoldCmd(l *loader) *cobra.Command {
+	var hf holdFlags
+	cmd := opCommand(l, ops.MeetingHold, binding[ops.MeetingHoldInput, ops.MeetingHoldOutput]{
+		Use:  "hold <id>",
+		Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.MeetingHoldInput) {
+			fs.StringVar(&in.Notes, "notes", "", "what was said, in your words (never a transcript)")
+			fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone; only for a meeting that was never scheduled")
+			fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone; as --start")
+			fs.StringVar(&in.Project, "project", "", "project of the action items")
+			fs.StringVar(&in.Area, "area", "", "area of the action items")
+			fs.StringArrayVar(&hf.actions, "action", nil, `action item "title | assignee | YYYY-MM-DD" (repeatable); assignee is self, a person id, or agent:<name>`)
+			fs.StringArrayVar(&hf.answers, "answer", nil, `answer "<question-id>=<text>" (repeatable)`)
+			fs.BoolVar(&hf.stdin, "stdin-json", false, "read the whole input (replies, answers, actions, notes) as JSON on stdin; the flags above are then not allowed")
+		},
+		Bind: func(args []string, in *ops.MeetingHoldInput) error {
+			in.ID = args[0]
+			in.Actions, in.Answers = nil, nil
+			for _, a := range hf.actions {
+				act, err := parseAction(a)
+				if err != nil {
+					return err
+				}
+				in.Actions = append(in.Actions, act)
+			}
+			for _, a := range hf.answers {
+				id, text, ok := strings.Cut(a, "=")
+				if !ok || strings.TrimSpace(id) == "" || strings.TrimSpace(text) == "" {
+					return fmt.Errorf("--answer %q: want <question-id>=<text>", a)
+				}
+				in.Answers = append(in.Answers, ops.QuestionAnswerInput{ID: strings.TrimSpace(id), Text: strings.TrimSpace(text)})
+			}
+			return nil
+		},
+		Stdin: func(r io.Reader, in *ops.MeetingHoldInput) error {
+			if !hf.stdin {
+				return nil
+			}
+			if in.Notes != "" || len(in.Actions) > 0 || len(in.Answers) > 0 || in.Start != "" || in.Project != "" || in.Area != "" {
+				return errors.New("--stdin-json takes the whole input: leave out the other flags")
+			}
+			id := in.ID
+			raw, err := io.ReadAll(r)
+			if err != nil {
+				return err
+			}
+			dec := json.NewDecoder(bytes.NewReader(raw))
+			dec.DisallowUnknownFields()
+			if err := dec.Decode(in); err != nil {
+				return fmt.Errorf("--stdin-json: %w", err)
+			}
+			if in.ID != "" && in.ID != id {
+				return fmt.Errorf("--stdin-json: id %q differs from the argument %q", in.ID, id)
+			}
+			in.ID = id
+			return nil
+		},
+		Text: func(w io.Writer, out ops.MeetingHoldOutput) error {
+			p := &printer{w: w}
+			p.f("%s\t%s\n", out.ID, out.Status)
+			for _, id := range out.Replied {
+				p.f("replied\t%s\n", id)
+			}
+			for _, id := range out.Constraints {
+				p.f("constraint\t%s\n", id)
+			}
+			for _, id := range out.Answered {
+				p.f("answered\t%s\n", id)
+			}
+			for _, id := range out.Tasks {
+				p.f("task\t%s\n", id)
+			}
+			for _, id := range out.Waiting {
+				p.f("still waiting\t%s\n", id)
+			}
+			for _, wn := range out.Warnings {
+				p.f("warning: %s\n", wn)
+			}
+			return p.err
+		},
+	})
+	return cmd
 }
 
 func newMeetingCmd(l *loader) *cobra.Command {
@@ -109,6 +219,7 @@ func newMeetingCmd(l *loader) *cobra.Command {
 			Bind: func(args []string, in *ops.MeetingScheduleInput) error { in.ID = args[0]; return nil },
 			Text: changeMeetingText,
 		}),
+		newMeetingHoldCmd(l),
 		opCommand(l, ops.MeetingCancel, binding[ops.MeetingCancelInput, ops.MeetingChangeOutput]{
 			Use:  "cancel <id>",
 			Args: cobra.ExactArgs(1),

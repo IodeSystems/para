@@ -18,6 +18,7 @@ func streamVParityCases() map[string]parityCase {
 		"meeting_list":     {`{"all":true}`, []string{"meeting", "list", "--all"}, false},
 		"meeting_show":     {`{"id":"meeting-v-show"}`, []string{"meeting", "show", "meeting-v-show"}, true},
 		"meeting_schedule": {`{"id":"meeting-v-a","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`, []string{"meeting", "schedule", "meeting-v-b", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
+		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","project":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--project", "project-v-seed"}, false},
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
 	}
 }
@@ -29,8 +30,10 @@ func seedStreamVParity(t *testing.T, deps ops.Deps) {
 	docs := []model.Document{
 		{ID: "person-v-seed", Folder: model.FolderOrg, Title: "Vera Example",
 			Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}},
+		{ID: "project-v-seed", Folder: model.FolderProjects, Title: "V project",
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Vera Example"}},
 	}
-	for _, id := range []string{"meeting-v-show", "meeting-v-a", "meeting-v-b", "meeting-v-c", "meeting-v-d"} {
+	for _, id := range []string{"meeting-v-show", "meeting-v-a", "meeting-v-b", "meeting-v-c", "meeting-v-d", "meeting-v-e", "meeting-v-f"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderMeetings, Title: "V meeting " + id,
 			Body: "## Questions\n\nNone yet.\n\n## Notes\n",
 			Meta: &model.Meeting{Common: model.Common{Type: model.TypeMeeting}, Status: model.MeetingScheduled,
@@ -70,4 +73,49 @@ func TestMeetingCLI(t *testing.T) {
 		t.Fatalf("list --all = %q", out)
 	}
 	e.ok("lint")
+}
+
+func TestMeetingHoldCLI(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	var person ops.OrgAddOutput
+	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
+	var project ops.ProjectAddOutput
+	e.json(&project, "project", "add", "Portal", "--owner", "Jordan Example")
+	var q ops.QuestionAddOutput
+	e.json(&q, "question", "add", "Which window?", "--project", project.ID)
+	var m ops.MeetingAddOutput
+	e.json(&m, "meeting", "add", "Sync", "--with", person.ID, "--scope", project.ID,
+		"--start", "2026-11-04T10:00:00-05:00", "--end", "2026-11-04T10:30:00-05:00")
+	if out := e.ok("meeting", "show", m.ID); !strings.Contains(out, q.ID) {
+		t.Fatalf("the open question in scope is not on the agenda: %q", out)
+	}
+	var h ops.MeetingHoldOutput
+	e.json(&h, "meeting", "hold", m.ID, "--notes", "Window is December.",
+		"--answer", q.ID+"=December", "--action", "Send the plan | "+person.ID+" | 2026-11-10", "--project", project.ID)
+	if h.Status != model.MeetingHeld || len(h.Answered) != 1 || len(h.Tasks) != 1 {
+		t.Fatalf("hold = %+v", h)
+	}
+	var task ops.TaskShowOutput
+	e.json(&task, "task", "show", h.Tasks[0])
+	if task.Task.Assignee != person.ID || string(task.Task.Due) != "2026-11-10" {
+		t.Fatalf("task = %+v", task.Task)
+	}
+	e.ok("lint")
+
+	// The whole input as JSON on stdin; mixing it with flags is refused.
+	var m2 ops.MeetingAddOutput
+	e.json(&m2, "meeting", "add", "Second", "--with", person.ID, "--start", "2026-11-05T10:00:00Z", "--end", "2026-11-05T10:30:00Z")
+	e.stdin = `{"notes":"Done.","actions":[{"title":"Follow up","project":"` + project.ID + `"}]}`
+	var h2 ops.MeetingHoldOutput
+	e.json(&h2, "meeting", "hold", m2.ID, "--stdin-json")
+	if len(h2.Tasks) != 1 {
+		t.Fatalf("stdin hold = %+v", h2)
+	}
+	var m3 ops.MeetingAddOutput
+	e.json(&m3, "meeting", "add", "Third", "--with", person.ID, "--start", "2026-11-06T10:00:00Z", "--end", "2026-11-06T10:30:00Z")
+	e.stdin = `{"notes":"x"}`
+	if _, _, err := e.run("meeting", "hold", m3.ID, "--stdin-json", "--notes", "y"); err == nil || !strings.Contains(err.Error(), "leave out") {
+		t.Fatalf("err = %v", err)
+	}
 }

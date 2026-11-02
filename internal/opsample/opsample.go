@@ -26,6 +26,7 @@ var Inputs = map[string]string{
 	"meeting_add":               `{"title":"Launch sync","with":["person-sample"],"rfx":["rfx-sample"],"start":"2026-11-04T10:00:00-05:00","end":"2026-11-04T10:30:00-05:00"}`,
 	"meeting_show":              `{"id":"meeting-sample"}`,
 	"meeting_schedule":          `{"id":"meeting-sample","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,
+	"meeting_hold":              `{"id":"meeting-sample","notes":"Agreed to ship in January.","replies":[{"id":"rfx-sample","from":"person-sample","outcome":"answered","text":"January works."}],"answers":[{"id":"question-sample","text":"Window is 2026-12-05."}],"actions":[{"title":"Send the plan","assignee":"person-sample","project":"project-sample"}]}`,
 	"meeting_cancel":            `{"id":"meeting-sample","reason":"Not needed."}`,
 	"note_add":                  `{"title":"Recipe","area":"area-sample"}`,
 	"note_show":                 `{"id":"note-sample"}`,

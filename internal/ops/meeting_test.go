@@ -255,3 +255,24 @@ func TestTargetStateRequestedNeedsMeetingMedium(t *testing.T) {
 	}
 	mustLintClean(t, f.d)
 }
+
+// A meeting with several people puts a meeting target on a request only for
+// the people that request already goes to.
+func TestMeetingTargetsFollowTheRequest(t *testing.T) {
+	f := newMeetingFixture(t)
+	d := f.d
+	other := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Second ask", Route: "domain-logging", SelfServe: "x",
+		Targets: []TargetInput{{To: "person-bo-example", Medium: model.MediumEmail}}}).ID
+	must(t, MeetingAdd, d, MeetingAddInput{Title: "Both", With: []string{f.person, "person-bo-example"}, RFX: []string{f.rfx, other}})
+	_, m, _ := getRFX(ctx, d, f.rfx)
+	for _, tg := range m.Targets {
+		if tg.Medium == model.MediumMeeting && tg.To.Target() != f.person {
+			t.Errorf("%s got a meeting target for %s", f.rfx, tg.To)
+		}
+	}
+	targetOf(t, d, other, "person-bo-example", model.MediumMeeting)
+	// A request that goes to nobody in the meeting asks everyone in it.
+	third := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Third ask", Route: "domain-logging", SelfServe: "x"}).ID
+	must(t, MeetingAdd, d, MeetingAddInput{Title: "Third", With: []string{f.person}, RFX: []string{third}})
+	targetOf(t, d, third, f.person, model.MediumMeeting)
+}

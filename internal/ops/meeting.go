@@ -170,10 +170,18 @@ func syncTargets(ctx context.Context, d Deps, rfx, with []model.Link, add bool, 
 			continue
 		}
 		dirty := false
+		// A new meeting target goes to the people this request already goes to
+		// that are in the meeting; if none is, to everyone in it.
+		asked := slices.DeleteFunc(slices.Clone(with), func(w model.Link) bool {
+			return !slices.ContainsFunc(m.Targets, func(t model.Target) bool { return t.To == w })
+		})
+		if len(asked) == 0 {
+			asked = with
+		}
 		for _, w := range with {
 			i := slices.IndexFunc(m.Targets, func(t model.Target) bool { return t.To == w && t.Medium == model.MediumMeeting })
 			if i < 0 {
-				if !add {
+				if !add || !slices.Contains(asked, w) {
 					continue
 				}
 				st, ok := next("")

@@ -123,6 +123,17 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return "Add area: " + str("title")
 	case "incident_add":
 		return with("Open "+str("severity")+" incident: "+str("title"), prefixed("in ", ref("area")))
+	case "meeting_add":
+		if str("start") != "" {
+			return with("Book a meeting: "+str("title"), "with "+z.people(in["with"]))
+		}
+		return with("Ask for a meeting: "+str("title"), "with "+z.people(in["with"]))
+	case "meeting_schedule":
+		return "Set the time of " + ref("id") + " to " + str("start")
+	case "meeting_cancel":
+		return "Cancel meeting: " + ref("id")
+	case "meeting_hold":
+		return with("Record the meeting as held: "+ref("id"), prefixed("notes: ", first(str("notes"))))
 	case "interaction_add":
 		return "Record " + mediumWordsOr(model.Medium(str("medium"))) + " with " + z.people(in["with"]) + ": " + first(str("summary"))
 	}

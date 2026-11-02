@@ -50,6 +50,7 @@ type ParaV1MutationNamespace {
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
   meetingAdd(body: para_MeetingAddInputInput!): para_MeetingAddOutput @derived(operationId: "meetingAdd")
   meetingCancel(body: para_MeetingCancelInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingCancel")
+  meetingHold(body: para_MeetingHoldInputInput!): para_MeetingHoldOutput @derived(operationId: "meetingHold")
   meetingSchedule(body: para_MeetingScheduleInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingSchedule")
   noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
@@ -854,6 +855,15 @@ type para_Hit {
   via: String
 }
 
+input para_HoldActionInput {
+  area: String
+  assignee: String
+  body: String
+  due: String
+  project: String
+  title: String!
+}
+
 input para_InboxAddInputInput {
   text: String!
 }
@@ -1479,6 +1489,39 @@ type para_MeetingChangeOutput {
 }
 
 enum para_MeetingChangeOutputStatus {
+  cancelled
+  held
+  requested
+  scheduled
+}
+
+input para_MeetingHoldInputInput {
+  actions: [para_HoldActionInput!]
+  answers: [para_QuestionAnswerInputInput!]
+  area: String
+  end: String
+  id: String!
+  notes: String
+  project: String
+  replies: [para_RFXReplyInputInput!]
+  start: String
+}
+
+type para_MeetingHoldOutput {
+  answered: [String!]!
+  constraints: [String!]!
+  id: String!
+  interactions: [String!]!
+  replied: [String!]!
+  requests: [String!]!
+  rev: String!
+  status: para_MeetingHoldOutputStatus!
+  tasks: [String!]!
+  waiting: [String!]!
+  warnings: [String!]!
+}
+
+enum para_MeetingHoldOutputStatus {
   cancelled
   held
   requested
