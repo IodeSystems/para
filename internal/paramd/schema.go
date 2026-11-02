@@ -32,7 +32,6 @@ var (
 	exceptionKinds  = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as"}
 	exceptionStatus = []string{"open", "resolved", "accepted"}
 	conventionState = []string{"draft", "adopted", "retired"}
-	journalScopes   = []string{"day", "week", "project"}
 	mediums         = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
 	groupKinds      = []string{"team", "department", "channel", "list", "other"}
 	targetStates    = []string{"drafted", "sent", "replied", "no_reply"}

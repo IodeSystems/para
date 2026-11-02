@@ -72,8 +72,6 @@ func newPeriod(scope model.JournalScope, day time.Time) period {
 	}
 }
 
-const dateLayout = "2006-01-02"
-
 // children are the journals one level down that the period rolls up.
 func (p period) children() []period {
 	var out []period

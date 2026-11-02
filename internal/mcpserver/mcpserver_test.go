@@ -28,6 +28,7 @@ import (
 // An op added by another stream is called with {}; if that fails,
 // TestParity fails and names the op: add its entry here.
 var sampleInputs = map[string]string{
+	"search":                    `{"query":"sample"}`,
 	"constraint_add":            `{"says":"No prod access","why":"Audit scope","by":"Jordan Example","source":"https://wiki.acme.example/access","review_by":"2027-01-01"}`,
 	"constraint_show":           `{"id":"constraint-sample"}`,
 	"convention_add":            `{"title":"Branch names"}`,
@@ -137,7 +138,7 @@ func newVault(t *testing.T) (store.Store, string) {
 	if err := vault.Init(root, "test", templates); err != nil {
 		t.Fatal(err)
 	}
-	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp"})
+	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}

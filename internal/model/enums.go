@@ -190,7 +190,7 @@ const (
 )
 
 // JournalScopes lists every JournalScope.
-var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalProject}
+var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalMonth, JournalProject}
 
 // Medium is how people are reached: a contact method, an RFX target medium,
 // and an interaction medium.
@@ -287,4 +287,3 @@ func enumStrings[T ~string](in []T) []string {
 	}
 	return out
 }
-var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalMonth, JournalProject}
