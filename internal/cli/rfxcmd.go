@@ -13,6 +13,7 @@ import (
 )
 
 func newRFXCmd(l *loader) *cobra.Command {
+	var to, via []string
 	cmd := &cobra.Command{Use: "rfx", Short: "Requests for something, in or out", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.RFXAdd, binding[ops.RFXAddInput, ops.RFXAddOutput]{
@@ -20,9 +21,9 @@ func newRFXCmd(l *loader) *cobra.Command {
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.RFXAddInput) {
 				fs.StringVar((*string)(&in.Direction), "direction", "out", "in (someone asks you) or out (you ask)")
-				fs.StringVar(&in.To, "to", "", "who is asked (out) or who asked (in)")
+				fs.StringArrayVar(&to, "to", nil, "person or group id asked (out) or who asked (in); pairs with --via, repeatable")
+				fs.StringArrayVar(&via, "via", nil, "medium for the matching --to: "+mediumList)
 				fs.StringVar(&in.Route, "route", "", "domain id (see `para route`)")
-				fs.StringVar(&in.Channel, "channel", "", "where the ask goes")
 				fs.StringVar(&in.SelfServe, "self-serve", "", "what you checked before asking")
 				fs.StringVar(&in.Project, "project", "", "project id")
 				fs.StringSliceVar(&in.Blocks, "blocks", nil, "ids this blocks")
@@ -31,6 +32,13 @@ func newRFXCmd(l *loader) *cobra.Command {
 			},
 			Bind: func(args []string, in *ops.RFXAddInput) error {
 				in.Ask = strings.Join(args, " ")
+				if len(to) != len(via) {
+					return fmt.Errorf("%d --to and %d --via: give one --via for each --to", len(to), len(via))
+				}
+				in.Targets = nil
+				for i := range to {
+					in.Targets = append(in.Targets, ops.TargetInput{To: to[i], Medium: model.Medium(via[i])})
+				}
 				return nil
 			},
 			Text: func(w io.Writer, out ops.RFXAddOutput) error {
@@ -63,8 +71,11 @@ func newRFXCmd(l *loader) *cobra.Command {
 				m := d.Meta.(*model.RFX)
 				p := &printer{w: w}
 				p.f("%s\t%s\n", d.ID, d.Title)
-				p.f("direction\t%s\nstatus\t%s\nroute\t%s\nto\t%s\nchannel\t%s\nnext_nudge\t%s\nplaybook\t%s\nself_serve_check\t%s\n",
-					m.Direction, m.Status, m.Route, m.To, m.Channel, m.NextNudge, m.Playbook.Target(), m.SelfServeCheck)
+				p.f("direction\t%s\nstatus\t%s\nroute\t%s\nnext_nudge\t%s\nplaybook\t%s\nself_serve_check\t%s\n",
+					m.Direction, m.Status, m.Route, m.NextNudge, m.Playbook.Target(), m.SelfServeCheck)
+				for _, t := range m.Targets {
+					p.f("target\t%s\n", targetText(t))
+				}
 				for _, c := range out.Chain {
 					p.f("%sdepends_on\t%s\t%s\t%s\n", strings.Repeat("  ", c.Depth-1), c.ID, c.Status, c.Title)
 				}
@@ -108,15 +119,77 @@ func newRFXCmd(l *loader) *cobra.Command {
 					case it.Due:
 						mark = "due"
 					}
-					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", it.NextNudge, it.ID, it.Direction, it.To, it.Title, mark); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", it.NextNudge, it.ID, it.Direction, it.Title, mark); err != nil {
 						return err
+					}
+					for _, t := range it.Targets {
+						if _, err := fmt.Fprintf(w, "\ttarget\t%s\n", targetText(t)); err != nil {
+							return err
+						}
 					}
 				}
 				return nil
 			},
 		}),
+		newRFXTargetCmd(l),
 	)
 	return cmd
+}
+
+func newRFXTargetCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "target", Short: "Who a request goes to, and by what medium", Args: cobra.NoArgs}
+	cmd.AddCommand(
+		opCommand(l, ops.RFXTargetAdd, binding[ops.RFXTargetAddInput, ops.RFXTargetOutput]{
+			Use:  "add <rfx-id> <to> <medium>",
+			Args: cobra.ExactArgs(3),
+			Flags: func(fs *pflag.FlagSet, in *ops.RFXTargetAddInput) {
+				fs.StringVar(&in.Value, "value", "", "address or handle; default the person's preferred contact for the medium")
+			},
+			Bind: func(args []string, in *ops.RFXTargetAddInput) error {
+				in.ID, in.To, in.Medium = args[0], args[1], model.Medium(args[2])
+				return nil
+			},
+			Text: writeTargets,
+		}),
+		opCommand(l, ops.RFXTargetState, binding[ops.RFXTargetStateInput, ops.RFXTargetOutput]{
+			Use:  "state <rfx-id> <to> <drafted|sent|replied|no_reply>",
+			Args: cobra.ExactArgs(3),
+			Flags: func(fs *pflag.FlagSet, in *ops.RFXTargetStateInput) {
+				fs.StringVar((*string)(&in.Medium), "via", "", "medium, when the target has several")
+				fs.StringVar(&in.Ref, "ref", "", "thread or ticket URL or id")
+				fs.StringVar(&in.Date, "date", "", "YYYY-MM-DD it was sent; default today")
+			},
+			Bind: func(args []string, in *ops.RFXTargetStateInput) error {
+				in.ID, in.To, in.State = args[0], args[1], model.TargetState(args[2])
+				return nil
+			},
+			Text: writeTargets,
+		}),
+	)
+	return cmd
+}
+
+// mediumList is the list of media for flag help.
+var mediumList = strings.Join(strs(model.Mediums), ", ")
+
+func strs[T ~string](in []T) []string {
+	out := make([]string, len(in))
+	for i, v := range in {
+		out[i] = string(v)
+	}
+	return out
+}
+
+func targetText(t model.Target) string {
+	return fmt.Sprintf("%s\t%s\t%s\t%s\t%s\t%s", t.To.Target(), t.Medium, t.State, t.Value, t.Sent, t.Ref)
+}
+
+func writeTargets(w io.Writer, out ops.RFXTargetOutput) error {
+	p := &printer{w: w}
+	for _, t := range out.Targets {
+		p.f("%s\n", targetText(t))
+	}
+	return p.err
 }
 
 func writeStatus(w io.Writer, out ops.RFXStatusOutput) error {
@@ -126,7 +199,7 @@ func writeStatus(w io.Writer, out ops.RFXStatusOutput) error {
 
 func writeRFX(w io.Writer, items []ops.RFXSummary) error {
 	for _, s := range items {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, s.Direction, s.Status, s.Route, s.To, s.NextNudge, s.Title); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, s.Direction, s.Status, s.Route, s.NextNudge, s.Title); err != nil {
 			return err
 		}
 	}
@@ -150,6 +223,7 @@ func newOrgCmd(l *loader) *cobra.Command {
 					if name == "person" {
 						fs.StringVar(&in.Role, "role", "", "id of the role they hold")
 						fs.StringVar(&in.Team, "team", "", "id of their team")
+						fs.StringArrayVar(&in.Aliases, "alias", nil, "another name for the person (repeatable)")
 					}
 					fs.StringArrayVar(&in.Said, "said", nil, "what was said, as stated (repeatable); needs --source")
 					fs.StringVar(&in.Source, "source", "", "who said it, where, when, or a URL")
@@ -185,8 +259,12 @@ func newOrgCmd(l *loader) *cobra.Command {
 				},
 			}),
 		)
+		if name == "person" {
+			sub.AddCommand(newPersonContactCmd(l), newPersonGroupCmd(l), newPersonNoteCmd(l))
+		}
 		cmd.AddCommand(sub)
 	}
+	cmd.AddCommand(newOrgGroupCmd(l))
 	kind("person", ops.OrgPersonAdd, ops.OrgPersonList, ops.OrgPersonShow)
 	kind("team", ops.OrgTeamAdd, ops.OrgTeamList, ops.OrgTeamShow)
 	kind("role", ops.OrgRoleAdd, ops.OrgRoleList, ops.OrgRoleShow)
@@ -215,6 +293,9 @@ func newRouteCmd(l *loader) *cobra.Command {
 			ref("convention", out.SelfServe.Conventions)
 			for _, s := range out.SelfServe.PriorRFX {
 				p.f("rfx\t%s\t%s\t%s\n", s.ID, s.Status, s.Title)
+				for _, t := range s.Targets {
+					p.f("\ttarget\t%s\n", targetText(t))
+				}
 			}
 			p.f("# Then ask\n")
 			if out.Domain == nil {

@@ -43,12 +43,18 @@ const (
 	CodeLinkBroken   = "link-unresolved"
 	CodeBlockBroken  = "block-unresolved"
 	CodeNoTranscript = "transcript-missing"
+	CodeSummaryLong  = "summary-long"
 )
 
 // MaxRuleLen is the longest allowed rule line, in characters. raglit
 // fragments are 1000-character windows that ignore headings, so a rule must
 // be understood inside one window.
 const MaxRuleLen = 500
+
+// MaxSummaryLen is the longest interaction body that lints clean, in
+// characters. An interaction holds a summary in the user's words and a link,
+// not a copy of the message.
+const MaxSummaryLen = 500
 
 // Finding is one lint result.
 type Finding struct {
@@ -107,6 +113,7 @@ func Lint(f *File) []Finding {
 	l.blocksAndRules()
 	l.transcript()
 	l.journal()
+	l.interaction()
 	sort.SliceStable(l.out, func(i, j int) bool { return l.out[i].Line < l.out[j].Line })
 	return l.out
 }
@@ -247,6 +254,46 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
+	case kLinkList:
+		list, ok := v.([]any)
+		if !ok || (fd.Required && len(list) == 0) {
+			bad("must be a non-empty list of quoted wikilinks")
+			return
+		}
+		for _, e := range list {
+			s, _ := e.(string)
+			if m := linkValRe.FindStringSubmatch(s); m == nil || m[2] != "" {
+				bad("%v is not a wikilink like \"[[name]]\"", e)
+				return
+			}
+		}
+	case kContacts, kTargets:
+		items := contactFields
+		if fd.Kind == kTargets {
+			items = targetFields
+		}
+		list, ok := v.([]any)
+		if !ok {
+			bad("must be a list of mappings")
+			return
+		}
+		for i, e := range list {
+			m, ok := e.(map[string]any)
+			if !ok {
+				bad("item %d must be a mapping", i+1)
+				continue
+			}
+			for _, sub := range items {
+				sv, present := m[sub.Name]
+				if !present || sv == nil {
+					if sub.Required {
+						bad("item %d: missing %q", i+1, sub.Name)
+					}
+					continue
+				}
+				l.checkValue(field{Name: fmt.Sprintf("%s[%d].%s", fd.Name, i+1, sub.Name), Kind: sub.Kind, Enum: sub.Enum, Required: sub.Required}, sv)
+			}
+		}
 	}
 }
 
@@ -593,5 +640,22 @@ func (l *linter) journal() {
 	}
 	if open != "" {
 		l.errf(openLine, CodeJournalMark, "marker %q is never closed", open)
+	}
+}
+
+// interaction warns when the summary is long: it should be the user's words
+// and a link, not a copy of the message.
+func (l *linter) interaction() {
+	if l.f.Type() != "interaction" {
+		return
+	}
+	var b []string
+	for _, ln := range l.f.Lines {
+		if !ln.FM && l.f.TitleLine > 0 && ln.N > l.f.TitleLine {
+			b = append(b, ln.Text)
+		}
+	}
+	if n := utf8.RuneCountInString(strings.TrimSpace(strings.Join(b, "\n"))); n > MaxSummaryLen {
+		l.add(l.f.TitleLine, CodeSummaryLong, Warn, "summary is %d characters (over %d): write it in your own words and link the original", n, MaxSummaryLen)
 	}
 }

@@ -91,7 +91,7 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 			Common: model.Common{Type: model.TypeConstraint},
 			Why:    f[1], By: f[2],
 			Source:    model.Source{URL: u, Retrieved: timestamp(), Fidelity: model.FidelityNone, Backend: backendManual},
-			AppliesIn: cleanList(in.AppliesIn), NotIn: cleanList(in.NotIn),
+			AppliesIn: splitList(in.AppliesIn), NotIn: splitList(in.NotIn),
 			ReviewBy: model.Date(in.ReviewBy),
 		},
 	})

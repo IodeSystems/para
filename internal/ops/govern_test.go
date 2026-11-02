@@ -146,7 +146,7 @@ func TestCheckHelpers(t *testing.T) {
 			t.Errorf("%q: %v", c.in, err)
 		}
 	}
-	got := cleanList([]string{"a, b", "", " c ", "a"})
+	got := splitList([]string{"a, b", "", " c ", "a"})
 	if strings.Join(got, "|") != "a|b|c|a" {
 		t.Errorf("cleanList = %v", got)
 	}

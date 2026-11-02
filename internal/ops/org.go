@@ -18,14 +18,15 @@ import (
 // OrgAddInput is the input of org_<kind>_add. Which fields apply depends on
 // the kind: Owner for domain; Role and Team for person.
 type OrgAddInput struct {
-	Name   string   `json:"name"`
-	Org    string   `json:"org,omitempty"`    // organization the entry belongs to (person, team, role)
-	ID     string   `json:"id,omitempty"`     // optional; default <kind>-<slug of name>
-	Owner  string   `json:"owner,omitempty"`  // domain: id of the owning role, team, or person
-	Role   string   `json:"role,omitempty"`   // person: id of the role they hold
-	Team   string   `json:"team,omitempty"`   // person: id of their team
-	Said   []string `json:"said,omitempty"`   // what was said, as stated
-	Source string   `json:"source,omitempty"` // where it was said: URL, or "who, where, date"
+	Name    string   `json:"name"`
+	Org     string   `json:"org,omitempty"`     // organization the entry belongs to (person, team, role)
+	ID      string   `json:"id,omitempty"`      // optional; default <kind>-<slug of name>
+	Owner   string   `json:"owner,omitempty"`   // domain: id of the owning role, team, or person
+	Role    string   `json:"role,omitempty"`    // person: id of the role they hold
+	Team    string   `json:"team,omitempty"`    // person: id of their team
+	Aliases []string `json:"aliases,omitempty"` // person: other names
+	Said    []string `json:"said,omitempty"`    // what was said, as stated
+	Source  string   `json:"source,omitempty"`  // where it was said: URL, or "who, where, date"
 }
 
 // OrgAddOutput is the output of org_<kind>_add.
@@ -118,6 +119,9 @@ func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (mode
 	if kind != model.TypePerson && (in.Role != "" || in.Team != "") {
 		return nil, fmt.Errorf("role and team apply to a person, not a %s", kind)
 	}
+	if kind != model.TypePerson && len(in.Aliases) > 0 {
+		return nil, fmt.Errorf("aliases apply to a person, not a %s", kind)
+	}
 	if kind != model.TypeDomain && in.Owner != "" {
 		return nil, fmt.Errorf("owner applies to a domain, not a %s", kind)
 	}
@@ -140,13 +144,28 @@ func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (mode
 		if err != nil {
 			return nil, err
 		}
-		return &model.Person{Common: common, Org: org, Role: role, Team: team}, nil
+		return &model.Person{Common: common, Org: org, Role: role, Team: team, Aliases: cleanList(in.Aliases)}, nil
 	case model.TypeTeam:
 		return &model.Team{Common: common, Org: org}, nil
 	case model.TypeRole:
 		return &model.Role{Common: common, Org: org}, nil
 	}
 	return nil, fmt.Errorf("not an org type: %s", kind)
+}
+
+// cleanList trims each item, drops empty and repeated ones (case-insensitive),
+// and returns nil for an empty result.
+func cleanList(in []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, s := range in {
+		s = strings.Join(strings.Fields(s), " ")
+		if k := strings.ToLower(s); s != "" && !seen[k] {
+			seen[k] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // linkTo returns the link to an existing document of one of the given types.

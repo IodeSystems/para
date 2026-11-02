@@ -11,6 +11,9 @@ const (
 	kLink      // "[[name]]"
 	kRuleLink  // "[[name#^R4]]"
 	kSourceMap // source block
+	kLinkList  // list of "[[name]]"
+	kContacts  // list of contact maps
+	kTargets   // list of rfx target maps
 )
 
 type field struct {
@@ -30,12 +33,18 @@ var (
 	exceptionStatus = []string{"open", "resolved", "accepted"}
 	conventionState = []string{"draft", "adopted", "retired"}
 	journalScopes   = []string{"day", "week", "project"}
+	mediums         = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
+	groupKinds      = []string{"team", "department", "channel", "list", "other"}
+	targetStates    = []string{"drafted", "sent", "replied", "no_reply"}
+	interDirections = []string{"in", "out", "observed"}
+	visibilities    = []string{"public", "private"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
+	"group", "interaction",
 }
 
 // commonFields apply to every type.
@@ -64,6 +73,7 @@ var typeFields = map[string][]field{
 		{Name: "route", Kind: kString, Required: true},
 		{Name: "self_serve_check", Kind: kString, Required: true},
 		{Name: "project", Kind: kLink},
+		{Name: "targets", Kind: kTargets},
 	},
 	"constraint": {
 		{Name: "why", Kind: kString, Required: true},
@@ -92,6 +102,23 @@ var typeFields = map[string][]field{
 	},
 	"person": {
 		{Name: "org", Kind: kString, Required: true},
+		{Name: "role", Kind: kLink},
+		{Name: "team", Kind: kLink},
+		{Name: "aliases", Kind: kList},
+		{Name: "contacts", Kind: kContacts},
+		{Name: "groups", Kind: kLinkList},
+	},
+	"group": {
+		{Name: "org", Kind: kString, Required: true},
+		{Name: "kind", Kind: kEnum, Enum: groupKinds, Required: true},
+	},
+	"interaction": {
+		{Name: "date", Kind: kDate, Required: true},
+		{Name: "with", Kind: kLinkList, Required: true},
+		{Name: "medium", Kind: kEnum, Enum: mediums, Required: true},
+		{Name: "direction", Kind: kEnum, Enum: interDirections, Required: true},
+		{Name: "visibility", Kind: kEnum, Enum: visibilities, Required: true},
+		{Name: "url", Kind: kString},
 	},
 	"team": {
 		{Name: "org", Kind: kString, Required: true},
@@ -113,10 +140,50 @@ var typeFields = map[string][]field{
 	"inbox": {},
 }
 
+// Item fields of a contact and of an rfx target.
+var (
+	contactFields = []field{
+		{Name: "method", Kind: kEnum, Enum: mediums, Required: true},
+		{Name: "value", Kind: kString, Required: true},
+		{Name: "label", Kind: kString},
+		{Name: "preferred", Kind: kBool},
+	}
+	targetFields = []field{
+		{Name: "to", Kind: kLink, Required: true},
+		{Name: "medium", Kind: kEnum, Enum: mediums, Required: true},
+		{Name: "value", Kind: kString},
+		{Name: "state", Kind: kEnum, Enum: targetStates, Required: true},
+		{Name: "ref", Kind: kString},
+		{Name: "sent", Kind: kDate},
+	}
+)
+
 // FieldEnum returns the allowed values of an enum field of a type, or nil.
 // model's enums are tested against it.
 func FieldEnum(typ, name string) []string {
 	for _, fd := range typeFields[typ] {
+		if fd.Name == name {
+			return fd.Enum
+		}
+	}
+	return nil
+}
+
+// ItemFieldEnum returns the allowed values of an enum field inside the items
+// of a list field (contacts, targets), or nil.
+func ItemFieldEnum(typ, list, name string) []string {
+	var items []field
+	for _, fd := range typeFields[typ] {
+		if fd.Name == list {
+			switch fd.Kind {
+			case kContacts:
+				items = contactFields
+			case kTargets:
+				items = targetFields
+			}
+		}
+	}
+	for _, fd := range items {
 		if fd.Name == name {
 			return fd.Enum
 		}

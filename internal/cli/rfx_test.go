@@ -87,7 +87,7 @@ func TestRFXCommands(t *testing.T) {
 	e.ok("org", "domain", "add", "Logging", "--owner", "role-platform-lead")
 
 	var noCheck ops.RFXAddOutput
-	e.json(&noCheck, "rfx", "add", "need log access", "--route", "domain-logging", "--to", "Ada Example")
+	e.json(&noCheck, "rfx", "add", "need log access", "--route", "domain-logging", "--to", "person-ada-example", "--via", "slack")
 	if len(noCheck.Warnings) != 1 || noCheck.Warnings[0] != ops.WarnNoSelfServe {
 		t.Fatalf("warnings = %v", noCheck.Warnings)
 	}
@@ -109,6 +109,11 @@ func TestRFXCommands(t *testing.T) {
 	e.ok("rfx", "close", in.ID, "--playbook", "role-platform-lead")
 
 	var wait ops.RFXWaitingOutput
+	e.json(&wait, "rfx", "waiting", "--today", "2026-11-01")
+	if len(wait.Items) != 2 {
+		t.Fatalf("a drafted target is not waiting: %+v", wait.Items)
+	}
+	e.ok("rfx", "target", "state", noCheck.ID, "person-ada-example", "sent")
 	e.json(&wait, "rfx", "waiting", "--today", "2026-11-01")
 	if len(wait.Items) != 3 || wait.Items[0].NextNudge != "2026-11-09" {
 		t.Fatalf("waiting = %+v", wait.Items)

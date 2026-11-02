@@ -26,7 +26,12 @@ type Finder interface {
 // DefaultFinder is the Finder route uses.
 var DefaultFinder Finder = ScanFinder{}
 
-// ScanFinder matches terms against id, title, tags, and body of each document.
+// searchable is a Meta that offers frontmatter text to a Finder, such as a
+// person's aliases and contact values. An index Finder must match it too.
+type searchable interface{ SearchText() []string }
+
+// ScanFinder matches terms against id, title, tags, and body of each document,
+// and the SearchText of its Meta.
 type ScanFinder struct{}
 
 // Find implements Finder.
@@ -42,7 +47,11 @@ func (ScanFinder) Find(ctx context.Context, s store.Store, q Query) ([]model.Ref
 			if err != nil {
 				return nil, err
 			}
-			hay := strings.ToLower(strings.Join(append([]string{doc.ID, doc.Title, doc.Body}, doc.Meta.Header().Tags...), "\n"))
+			parts := append([]string{doc.ID, doc.Title, doc.Body}, doc.Meta.Header().Tags...)
+			if st, ok := doc.Meta.(searchable); ok {
+				parts = append(parts, st.SearchText()...)
+			}
+			hay := strings.ToLower(strings.Join(parts, "\n"))
 			for _, term := range q.Terms {
 				if term != "" && strings.Contains(hay, term) {
 					out = append(out, r)

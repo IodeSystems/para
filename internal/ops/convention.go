@@ -63,7 +63,7 @@ var ConventionAdd = define("convention_add", "Record a convention", func(ctx con
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderConventions, Title: title, Body: strings.TrimSpace(in.Text),
-		Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: status, AppliesIn: cleanList(in.AppliesIn)},
+		Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: status, AppliesIn: splitList(in.AppliesIn)},
 	})
 	if err != nil {
 		return ConventionAddOutput{}, err

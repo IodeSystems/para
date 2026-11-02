@@ -228,7 +228,7 @@ func checkDate(name, v string) error {
 	return nil
 }
 
-func cleanList(in []string) []string {
+func splitList(in []string) []string {
 	out := []string{}
 	for _, s := range in {
 		for _, p := range strings.Split(s, ",") {

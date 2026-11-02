@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -25,16 +26,22 @@ const (
 
 // RFXAddInput is the input of rfx_add.
 type RFXAddInput struct {
-	Direction model.RFXDirection `json:"direction"`    // in | out
-	Ask       string             `json:"ask"`          // first line is the title
-	To        string             `json:"to,omitempty"` // who is asked (out) or who asked (in)
-	Route     string             `json:"route"`        // domain id
-	Channel   string             `json:"channel,omitempty"`
+	Direction model.RFXDirection `json:"direction"`            // in | out
+	Ask       string             `json:"ask"`                  // first line is the title
+	Route     string             `json:"route"`                // domain id
+	Targets   []TargetInput      `json:"targets,omitempty"`    // who is asked (out) or who asked (in)
 	SelfServe string             `json:"self_serve,omitempty"` // what was checked first
 	Project   string             `json:"project,omitempty"`
 	Blocks    []string           `json:"blocks,omitempty"`     // ids this RFX blocks
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
+}
+
+// TargetInput names one target of an RFX.
+type TargetInput struct {
+	To     string       `json:"to"`              // person or group id
+	Medium model.Medium `json:"medium"`          // how it goes
+	Value  string       `json:"value,omitempty"` // address or handle; default the person's preferred contact for the medium
 }
 
 // RFXAddOutput is the output of rfx_add.
@@ -70,14 +77,17 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if err != nil {
 		return RFXAddOutput{}, err
 	}
+	tgts, err := buildTargets(ctx, d, nil, in.Targets)
+	if err != nil {
+		return RFXAddOutput{}, err
+	}
 	meta := &model.RFX{
 		Common:         model.Common{Type: model.TypeRFX},
 		Direction:      in.Direction,
 		Status:         model.RFXOpen,
 		Route:          strings.TrimSpace(in.Route),
 		SelfServeCheck: strings.TrimSpace(in.SelfServe),
-		To:             strings.TrimSpace(in.To),
-		Channel:        strings.TrimSpace(in.Channel),
+		Targets:        tgts,
 		Blocks:         blocks,
 		DependsOn:      deps,
 		NextNudge:      model.Date(in.NextNudge),
@@ -114,16 +124,18 @@ type RFXSummary struct {
 	Direction model.RFXDirection `json:"direction"`
 	Status    model.RFXStatus    `json:"status"`
 	Route     string             `json:"route"`
-	To        string             `json:"to"`
-	Channel   string             `json:"channel"`
 	NextNudge string             `json:"next_nudge"`
 	DependsOn []string           `json:"depends_on"`
+	Targets   []model.Target     `json:"targets"`
+	// Waiting is true while any target is sent and not answered.
+	Waiting bool `json:"waiting"`
 }
 
 func summarize(id, title string, m *model.RFX) RFXSummary {
+	tg := append([]model.Target{}, m.Targets...)
 	return RFXSummary{
 		ID: id, Title: title, Direction: m.Direction, Status: m.Status, Route: m.Route,
-		To: m.To, Channel: m.Channel, NextNudge: string(m.NextNudge), DependsOn: targets(m.DependsOn),
+		NextNudge: string(m.NextNudge), DependsOn: targets(m.DependsOn), Targets: tg, Waiting: isWaiting(m),
 	}
 }
 
@@ -173,6 +185,11 @@ var RFXList = define("rfx_list", "List requests", func(ctx context.Context, d De
 	return out, nil
 })
 
+// isWaiting reports whether any target is sent and not yet answered.
+func isWaiting(m *model.RFX) bool {
+	return slices.ContainsFunc(m.Targets, func(t model.Target) bool { return t.State == model.TargetSent })
+}
+
 // RFXWaitingInput is the input of rfx_waiting.
 type RFXWaitingInput struct {
 	Direction model.RFXDirection `json:"direction,omitempty"` // empty means both
@@ -192,9 +209,10 @@ type RFXWaitingOutput struct {
 	Items []WaitingItem `json:"items"`
 }
 
-// RFXWaiting lists outstanding (open) RFX, earliest next_nudge first. An RFX
-// with no next_nudge sorts last.
-var RFXWaiting = define("rfx_waiting", "List open requests by next nudge", func(ctx context.Context, d Deps, in RFXWaitingInput) (RFXWaitingOutput, error) {
+// RFXWaiting lists open RFX that wait on someone, earliest next_nudge first:
+// any target is sent, or no target is recorded. An RFX with no next_nudge sorts
+// last. Each item carries its per-target state.
+var RFXWaiting = define("rfx_waiting", "List open requests waiting on someone, by next nudge", func(ctx context.Context, d Deps, in RFXWaitingInput) (RFXWaitingOutput, error) {
 	today := in.Today
 	if today == "" {
 		today = time.Now().Format(dateLayout)
@@ -212,7 +230,8 @@ var RFXWaiting = define("rfx_waiting", "List open requests by next nudge", func(
 	}
 	out := RFXWaitingOutput{Today: today, Items: []WaitingItem{}}
 	for _, s := range all {
-		if s.Status != model.RFXOpen || (in.Direction != "" && s.Direction != in.Direction) {
+		if s.Status != model.RFXOpen || (in.Direction != "" && s.Direction != in.Direction) ||
+			(len(s.Targets) > 0 && !s.Waiting) {
 			continue
 		}
 		it := WaitingItem{RFXSummary: s, Due: s.NextNudge != "" && s.NextNudge <= today, BlockedOn: []string{}}

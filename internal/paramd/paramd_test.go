@@ -25,6 +25,33 @@ source:
   fidelity: exact
 `
 
+const personFM = `
+type: person
+created: 2026-11-01
+org: acme.example
+`
+
+const rfxFM = `
+type: rfx
+created: 2026-11-01
+direction: out
+status: open
+route: domain-a
+self_serve_check: searched
+`
+
+const interactionFM = `
+type: interaction
+created: 2026-11-01
+date: 2026-11-01
+with:
+  - "[[jo]]"
+medium: slack
+direction: in
+visibility: private
+url: https://acme.example/m/1
+`
+
 func TestParse(t *testing.T) {
 	src := doc(policyFM, "# Logging\n\nSee [[policy-logging.source]] and [[acme-portal#Goals|goals]] and [[policy-logging#^R1]].\n\n```\n[[in-code]] ^R9\n```\n\nUse `[[inline]]` here.\n\nR1 policy-logging: Log failures. ^R1\n\n## Page 2\n")
 	f := Parse("vault/policy-logging.md", []byte(src))
@@ -118,6 +145,29 @@ func TestLint(t *testing.T) {
 		{"journal unclosed", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin tasks %%\nx\n"), []string{"journal-marker:10"}},
 		{"journal mismatched end", "2026-11-01.md", doc("type: journal\ncreated: 2026-11-01\ndate: 2026-11-01\nscope: day\n", "# Day\n\n%% para:begin a %%\n%% para:end b %%\n"), []string{"journal-marker:11"}},
 		{"marker outside journal", "jo.md", doc("type: person\ncreated: 2026-11-01\norg: acme.example\n", "# Jo\n\n%% para:begin a %%\n%% para:end a %%\n"), []string{"journal-marker:9", "journal-marker:10"}},
+		{"person directory ok", "jo.md", doc(personFM, "# Jo\n\n## Notes\n\n- 2026-11-01: Prefers Slack.\n"), nil},
+		{"contact bad method", "jo.md", doc(personFM+"contacts:\n  - method: fax\n    value: x\n", "# Jo\n"), []string{"field-value:1"}},
+		{"contact missing value", "jo.md", doc(personFM+"contacts:\n  - method: email\n", "# Jo\n"), []string{"field-value:1"}},
+		{"contact preferred not bool", "jo.md", doc(personFM+"contacts:\n  - method: email\n    value: a@acme.example\n    preferred: yes please\n", "# Jo\n"), []string{"field-value:1"}},
+		{"contacts not a list", "jo.md", doc(personFM+"contacts: email\n", "# Jo\n"), []string{"field-value:1"}},
+		{"groups unquoted", "jo.md", doc(personFM+"groups:\n  - [[group-a]]\n", "# Jo\n"), []string{"field-value:1"}},
+		{"group ok", "group-a.md", doc("type: group\ncreated: 2026-11-01\norg: Any text\nkind: channel\n", "# A\n"), nil},
+		{"group bad kind", "group-a.md", doc("type: group\ncreated: 2026-11-01\norg: o\nkind: club\n", "# A\n"), []string{"field-value:1"}},
+		{"group missing kind", "group-a.md", doc("type: group\ncreated: 2026-11-01\norg: o\n", "# A\n"), []string{"field:1"}},
+		{"rfx targets ok", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    medium: slack\n    state: sent\n    sent: 2026-11-01\n", "# A\n"), nil},
+		{"rfx target bad state", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    medium: slack\n    state: waiting\n", "# A\n"), []string{"field-value:1"}},
+		{"rfx target missing medium", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    state: sent\n", "# A\n"), []string{"field-value:1"}},
+		{"rfx target unquoted to", "rfx-a.md", doc(rfxFM+"targets:\n  - to: [[jo]]\n    medium: slack\n    state: sent\n", "# A\n"), []string{"field-value:1"}},
+		{"rfx target bad sent date", "rfx-a.md", doc(rfxFM+"targets:\n  - to: \"[[jo]]\"\n    medium: slack\n    state: sent\n    sent: today\n", "# A\n"), []string{"field-value:1"}},
+		{"interaction ok", "interaction-a.md", doc(interactionFM, "# A\n\nShort summary.\n"), nil},
+		{"interaction no with", "interaction-a.md", doc(strings.Replace(interactionFM, "with:\n  - \"[[jo]]\"\n", "with: []\n", 1), "# A\n"), []string{"field-value:1"}},
+		{"interaction missing with", "interaction-a.md", doc(strings.Replace(interactionFM, "with:\n  - \"[[jo]]\"\n", "", 1), "# A\n"), []string{"field:1"}},
+		{"interaction bad direction", "interaction-a.md", doc(strings.Replace(interactionFM, "direction: in", "direction: sideways", 1), "# A\n"), []string{"field-value:1"}},
+		{"interaction bad visibility", "interaction-a.md", doc(strings.Replace(interactionFM, "visibility: private", "visibility: secret", 1), "# A\n"), []string{"field-value:1"}},
+		{"interaction summary at limit", "interaction-a.md", doc(interactionFM, "# A\n\n"+strings.Repeat("x", MaxSummaryLen)+"\n"), nil},
+		{"interaction summary over limit", "interaction-a.md", doc(interactionFM, "# A\n\n"+strings.Repeat("x", MaxSummaryLen+1)+"\n"), []string{"summary-long:13"}},
+		{"long body on other types is fine", "jo.md", doc(personFM, "# Jo\n\n"+strings.Repeat("x", 2*MaxSummaryLen)+"\n"), nil},
+		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

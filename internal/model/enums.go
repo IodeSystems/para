@@ -20,36 +20,40 @@ const (
 	TypeConvention      Type = "convention"
 	TypeJournal         Type = "journal"
 	TypeInbox           Type = "inbox"
+	TypeGroup           Type = "group"
+	TypeInteraction     Type = "interaction"
 )
 
 // Types lists every Type, in the order of paramd.Types.
 var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
-	TypeJournal, TypeInbox,
+	TypeJournal, TypeInbox, TypeGroup, TypeInteraction,
 }
 
 // Folder is a top-level vault folder that holds documents.
 type Folder string
 
 const (
-	FolderInbox       Folder = "inbox"
-	FolderProjects    Folder = "projects"
-	FolderAreas       Folder = "areas"
-	FolderResources   Folder = "resources"
-	FolderArchive     Folder = "archive"
-	FolderRFX         Folder = "rfx"
-	FolderConstraints Folder = "constraints"
-	FolderPolicies    Folder = "policies"
-	FolderConventions Folder = "conventions"
-	FolderOrg         Folder = "org"
-	FolderJournal     Folder = "journal"
+	FolderInbox        Folder = "inbox"
+	FolderProjects     Folder = "projects"
+	FolderAreas        Folder = "areas"
+	FolderResources    Folder = "resources"
+	FolderArchive      Folder = "archive"
+	FolderRFX          Folder = "rfx"
+	FolderConstraints  Folder = "constraints"
+	FolderPolicies     Folder = "policies"
+	FolderConventions  Folder = "conventions"
+	FolderOrg          Folder = "org"
+	FolderJournal      Folder = "journal"
+	FolderInteractions Folder = "interactions"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
+	FolderInteractions,
 }
 
 // Valid reports whether f is a document folder.
@@ -186,6 +190,94 @@ const (
 
 // JournalScopes lists every JournalScope.
 var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalProject}
+
+// Medium is how people are reached: a contact method, an RFX target medium,
+// and an interaction medium.
+type Medium string
+
+const (
+	MediumEmail      Medium = "email"
+	MediumSlack      Medium = "slack"
+	MediumJira       Medium = "jira"
+	MediumConfluence Medium = "confluence"
+	MediumGithub     Medium = "github"
+	MediumTeams      Medium = "teams"
+	MediumPhone      Medium = "phone"
+	MediumMeeting    Medium = "meeting"
+	MediumOther      Medium = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Medium) Enum() []string { return enumStrings(Mediums) }
+
+// Mediums lists every Medium.
+var Mediums = []Medium{
+	MediumEmail, MediumSlack, MediumJira, MediumConfluence, MediumGithub,
+	MediumTeams, MediumPhone, MediumMeeting, MediumOther,
+}
+
+// GroupKind is group.kind.
+type GroupKind string
+
+const (
+	GroupTeam       GroupKind = "team"
+	GroupDepartment GroupKind = "department"
+	GroupChannel    GroupKind = "channel"
+	GroupList       GroupKind = "list"
+	GroupOther      GroupKind = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (GroupKind) Enum() []string { return enumStrings(GroupKinds) }
+
+// GroupKinds lists every GroupKind.
+var GroupKinds = []GroupKind{GroupTeam, GroupDepartment, GroupChannel, GroupList, GroupOther}
+
+// TargetState is rfx.targets[].state.
+type TargetState string
+
+const (
+	TargetDrafted TargetState = "drafted"
+	TargetSent    TargetState = "sent"
+	TargetReplied TargetState = "replied"
+	TargetNoReply TargetState = "no_reply"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (TargetState) Enum() []string { return enumStrings(TargetStates) }
+
+// TargetStates lists every TargetState.
+var TargetStates = []TargetState{TargetDrafted, TargetSent, TargetReplied, TargetNoReply}
+
+// InteractionDirection is interaction.direction. Observed: the user saw it
+// and took no part.
+type InteractionDirection string
+
+const (
+	InteractionIn       InteractionDirection = "in"
+	InteractionOut      InteractionDirection = "out"
+	InteractionObserved InteractionDirection = "observed"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (InteractionDirection) Enum() []string { return enumStrings(InteractionDirections) }
+
+// InteractionDirections lists every InteractionDirection.
+var InteractionDirections = []InteractionDirection{InteractionIn, InteractionOut, InteractionObserved}
+
+// Visibility is interaction.visibility: where it happened.
+type Visibility string
+
+const (
+	VisibilityPublic  Visibility = "public"
+	VisibilityPrivate Visibility = "private"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Visibility) Enum() []string { return enumStrings(Visibilities) }
+
+// Visibilities lists every Visibility.
+var Visibilities = []Visibility{VisibilityPublic, VisibilityPrivate}
 
 func enumStrings[T ~string](in []T) []string {
 	out := make([]string, len(in))

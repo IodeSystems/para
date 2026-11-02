@@ -6,6 +6,16 @@ status: open
 route: domain-platform
 self_serve_check: "Searched policies and the wiki at https://wiki.acme.example/platform; no answer found"
 project: "[[acme-portal]]"
+targets:
+  - to: "[[jordan-example]]"
+    medium: slack
+    value: "@jordan"
+    state: drafted
+  - to: "[[group-atlas]]"
+    medium: email
+    value: atlas@acme.example
+    state: sent
+    sent: 2026-11-01
 ---
 
 # Request title

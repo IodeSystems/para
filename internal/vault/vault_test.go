@@ -69,7 +69,7 @@ func eventLog(t testing.TB, v *Vault) []model.Event {
 
 func TestInit(t *testing.T) {
 	v, root := newVault(t)
-	for _, d := range strings.Fields("inbox projects areas resources archive rfx constraints policies conventions org journal templates events .para .git") {
+	for _, d := range strings.Fields("inbox projects areas resources archive rfx constraints policies conventions org journal interactions templates events .para .git") {
 		if st, err := os.Stat(filepath.Join(root, d)); err != nil || !st.IsDir() {
 			t.Errorf("missing dir %s: %v", d, err)
 		}

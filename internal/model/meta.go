@@ -87,15 +87,26 @@ type RFX struct {
 	Route          string       `yaml:"route" json:"route"`
 	SelfServeCheck string       `yaml:"self_serve_check" json:"self_serve_check"`
 	Project        Link         `yaml:"project,omitempty" json:"project,omitempty"`
-	// To is who is asked (direction out) or who asked (direction in).
-	To        string `yaml:"to,omitempty" json:"to,omitempty"`
-	Channel   string `yaml:"channel,omitempty" json:"channel,omitempty"`
-	Blocks    []Link `yaml:"blocks,omitempty" json:"blocks,omitempty"`
-	DependsOn []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	NextNudge Date   `yaml:"next_nudge,omitempty" json:"next_nudge,omitempty"`
+	// Targets are who is asked (direction out) or who asked (direction in),
+	// each by one medium.
+	Targets   []Target `yaml:"targets,omitempty" json:"targets,omitempty"`
+	Blocks    []Link   `yaml:"blocks,omitempty" json:"blocks,omitempty"`
+	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	NextNudge Date     `yaml:"next_nudge,omitempty" json:"next_nudge,omitempty"`
 	// Playbook links the document that answers this ask for good. An inbound
 	// RFX closes by linking one.
 	Playbook Link `yaml:"playbook,omitempty" json:"playbook,omitempty"`
+}
+
+// Target is one person or group an RFX goes to, by one medium. Para records
+// it; it never sends.
+type Target struct {
+	To     Link        `yaml:"to" json:"to"` // person or group
+	Medium Medium      `yaml:"medium" json:"medium"`
+	Value  string      `yaml:"value,omitempty" json:"value,omitempty"` // address or handle used
+	State  TargetState `yaml:"state" json:"state"`
+	Ref    string      `yaml:"ref,omitempty" json:"ref,omitempty"`   // thread or ticket URL or id
+	Sent   Date        `yaml:"sent,omitempty" json:"sent,omitempty"` // date it was sent
 }
 
 // Constraint is type: constraint, a justified "no".
@@ -144,6 +155,49 @@ type Person struct {
 	Org    string `yaml:"org" json:"org"`
 	Role   Link   `yaml:"role,omitempty" json:"role,omitempty"`
 	Team   Link   `yaml:"team,omitempty" json:"team,omitempty"`
+	// Aliases are other names the person goes by.
+	Aliases []string `yaml:"aliases,omitempty" json:"aliases,omitempty"`
+	// Contacts are how to reach the person.
+	Contacts []Contact `yaml:"contacts,omitempty" json:"contacts,omitempty"`
+	// Groups are the groups the person belongs to. Membership lives here only.
+	Groups []Link `yaml:"groups,omitempty" json:"groups,omitempty"`
+}
+
+// Contact is one way to reach a person. At most one contact per method is
+// preferred.
+type Contact struct {
+	Method    Medium `yaml:"method" json:"method"`
+	Value     string `yaml:"value" json:"value"`
+	Label     string `yaml:"label,omitempty" json:"label,omitempty"`
+	Preferred bool   `yaml:"preferred,omitempty" json:"preferred,omitempty"`
+}
+
+// SearchText is the text a Finder matches besides id, title, tags, and body.
+func (p *Person) SearchText() []string {
+	out := append([]string(nil), p.Aliases...)
+	for _, c := range p.Contacts {
+		out = append(out, c.Value)
+	}
+	return out
+}
+
+// Group is type: group. Members are the people that link to it.
+type Group struct {
+	Common `yaml:",inline"`
+	Org    string    `yaml:"org" json:"org"` // free text
+	Kind   GroupKind `yaml:"kind" json:"kind"`
+}
+
+// Interaction is type: interaction, one logged contact with someone. The body
+// is a short summary in the user's words; url links to the original.
+type Interaction struct {
+	Common     `yaml:",inline"`
+	Date       Date                 `yaml:"date" json:"date"`
+	With       []Link               `yaml:"with" json:"with"` // people or groups
+	Medium     Medium               `yaml:"medium" json:"medium"`
+	Direction  InteractionDirection `yaml:"direction" json:"direction"`
+	Visibility Visibility           `yaml:"visibility" json:"visibility"`
+	URL        string               `yaml:"url,omitempty" json:"url,omitempty"`
 }
 
 // Team is type: team.
@@ -215,6 +269,10 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Journal{Common: c}, true
 	case TypeInbox:
 		return &Inbox{Common: c}, true
+	case TypeGroup:
+		return &Group{Common: c}, true
+	case TypeInteraction:
+		return &Interaction{Common: c}, true
 	}
 	return nil, false
 }

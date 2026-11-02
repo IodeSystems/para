@@ -98,6 +98,8 @@ func newRoot(l *loader) *cobra.Command {
 		newRFXCmd(l),
 		newOrgCmd(l),
 		newRouteCmd(l),
+		newWhoCmd(l),
+		newInteractionCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root
