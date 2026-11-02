@@ -98,3 +98,43 @@ func TestRaglitHelpCoversWhatItMust(t *testing.T) {
 		}
 	}
 }
+
+func flat(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// Dispatch is the one place para starts a process. The setup texts say so, show
+// the file, give the claude -p and dun -p examples marked untested, and say it
+// spends tokens.
+func TestHarnessTextsDescribeDispatch(t *testing.T) {
+	for client, example := range map[string]string{"claude": `"claude", "-p"`, "dun": `"dun", "-p"`} {
+		text := flat(Harness(client, ""))
+		for _, want := range []string{"agent.json", "THIS SPENDS TOKENS", "never in the vault", "argument list, not a shell string",
+			"PARA_REQUEST", "daily_limit", "max_concurrent", "untested", "request_next", example} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s setup lacks %q", client, want)
+			}
+		}
+	}
+}
+
+func TestExtendedHasTheStreamVAndXUseCases(t *testing.T) {
+	text := flat(Extended())
+	for _, want := range []string{"para meeting add", "para meeting hold", "para agenda", "para calendar export", "para tick",
+		"request.runner=<install id>", "tick.interval", "request.surfaces", "para agent status", "dispatch spends tokens",
+		"agent.json", "Para does not record or transcribe", "never writes an external calendar", "process_meeting"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("extended lacks %q", want)
+		}
+	}
+	if strings.Contains(text, "Para has no scheduler") {
+		t.Error("extended still says para has no scheduler")
+	}
+}
+
+func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
+	text := flat(Orient())
+	for _, want := range []string{"meeting_add", "meeting_hold", "meeting_schedule", "meeting_cancel", "agenda", "PARA_REQUEST", "request_next", "spends the owner's tokens"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("orient lacks %q", want)
+		}
+	}
+}

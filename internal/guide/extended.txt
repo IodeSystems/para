@@ -57,7 +57,7 @@ A task assigned to another person or to agent:<name> leaves para next. It shows 
   $ para task add "Check the UPS battery" --area area-home-lab --recur "every 90 days"
   $ para task done task-example
   $ para task done task-example --skip
-recur is daily, weekly, monthly, or every <n> days. Done creates the next task, due one step later (a late task moves to the next date that is not in the past) and linked back with previous. --skip advances without doing this one. Para has no scheduler: nothing recurs until you mark the task done. Any other recur value is a lint warning.
+recur is daily, weekly, monthly, or every <n> days. Done creates the next task, due one step later (a late task moves to the next date that is not in the past) and linked back with previous. --skip advances without doing this one. Nothing recurs until you mark the task done, except through para tick (use case 17). Any other recur value is a lint warning.
 
 8. An incident: the record, the timeline, the follow-ups
   $ para incident add "Atlas down" --severity sev1 --area area-home-lab
@@ -139,6 +139,36 @@ records the hash of the exact text you approved, and the agent or you send it.
   $ para task done task-example --note "Rolled out; old keys revoked"
 A question has exactly one scope: --project, --task, --area, or --root for the whole vault. An open question blocks the tasks that depend on it in graph, next, and task start; an answer frees them. A decision needs its reason. para questions lists what is open, the ones that block the most first. An answer is stored in the question under "## Answer", with who and when; never put a secret in it, say where it is kept. rfx reply with outcome answered or no answers a question that was asked with question ask. task to-question moves the tasks that waited on a task to the new question and drops the old task.
 
+15. Meetings: ask, book, hold
+  $ para rfx add "Can the portal launch before the audit?" --route domain-billing --self-serve "read policy-logging" --to person-ada-example --via email
+  $ para meeting add "Launch window sync" --with person-ada-example --rfx rfx-example --scope project-portal
+  $ para meeting schedule meeting-example --start 2026-11-04T10:00:00-05:00 --end 2026-11-04T10:30:00-05:00
+  $ para meeting list
+  $ para meeting show meeting-example
+  $ para meeting hold meeting-example --notes "Agreed to ship in January." --answer question-example="December" --action "Send the plan | person-ada-example | 2026-11-10" --project project-portal
+  $ para meeting cancel meeting-example --reason "Ada is out"
+Asking for a meeting is progress: the linked request gets a meeting target, requested and then scheduled, and stays on para waiting until the meeting is booked. The body lists the questions to settle: the linked requests and the open questions in scope. Times are RFC 3339 with the zone they were booked in, and show in your zone. hold records your notes, sends replies through rfx reply (a no still becomes a constraint), answers through question answer, and makes each action item a task with its assignee and a link to the meeting. A request asked in the meeting and not answered in it stays a wait. Para does not record or transcribe a meeting. For a transcript, an agent uses the prompt process_meeting and files a proposal for you to review.
+
+16. Agenda and calendar
+  $ para agenda
+  $ para agenda --days 14
+  $ para agenda --zone Europe/Berlin
+  $ para calendar export --days 30 --to file:/tmp/para.ics
+  $ para calendar export --to clipboard
+agenda lists meetings, tasks due, requests to nudge, and exceptions due for review, earliest first, in local time. A date is a calendar day in your zone, so a meeting at 01:00 UTC is the evening before in New York. Anything dated before today is overdue. In the TUI it is the Agenda page, reached from Today. calendar export writes an .ics of scheduled meetings and due tasks; it goes through the egress check and logs an event, like export. A calendar app reads the file. Para never writes an external calendar.
+
+17. Scheduled work: tick
+  $ para tick
+  $ para tick --all
+  $ para serve
+One idempotent pass per vault: it makes the next occurrence of a recurring task that was marked done by hand, makes the request for a due recurring task assigned to agent:<name> that has none, names the nudges that are due, and reconciles. It is safe to run twice. A synced vault lives on two machines, so tick runs only on the install named in the vault's .para/vault.properties: request.runner=<install id> (para tick prints the line to add). Run it from cron, or let para serve run it every minute (tick.interval in $PARA_HOME/server.properties; off turns the timer off). Tick acts as actor tick. A request it makes is queued only when request.surfaces in vault.properties lists tick (for example request.surfaces=cli,tui,pwa,tick); otherwise it is proposed and waits for para request accept.
+
+18. Dispatch: start an agent when a request is ready (off by default, spends tokens)
+  $ para agent status
+  $ para doctor
+  $ para request add "Summarize the portal project" --link project-portal
+Dispatch is off unless this machine has $PARA_HOME/vaults/<vault>/agent.json. It is never in the vault. With it, para serve starts the command when a request can be claimed on this install, with the request id in the environment variable PARA_REQUEST. The command claims the request itself, so a prompt that tells the agent to call request_next is enough. Every run starts an agent, so dispatch spends tokens; max_concurrent (default 1) and daily_limit (default 10) bound it, and the count survives a restart. The command is an argument list, never a shell string; the only vault-derived value it receives is the request id, which must be a plain id. A run's output goes to a log file in the state directory, mode 0600. para mcp --help-claude and para mcp --help-dun show the file.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -158,4 +188,6 @@ Where does this go?
   a phone or browser view of the vault       para serve, with a key from para key create
   a change an agent suggests                 a proposal: you approve each item
   an email or PR an agent wants to send      a proposal with an external item
-  a meeting, a reminder at a time, a page    not para: use a calendar or a pager
+  a conversation with people at a time      a meeting, linked to the requests it serves
+  what is dated this week                    para agenda
+  a reminder at a time, a page               not para: use a calendar or a pager

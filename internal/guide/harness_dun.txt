@@ -38,6 +38,29 @@ Use para from dun.
    $ para proposal wait proposal-example --timeout 1h
    Each blocks with no token cost, then call `request_next` or `proposal_show`.
 
+7. Optional: let para start the agent when a request can be claimed on this machine.
+   THIS SPENDS TOKENS: every run starts a dun session, billed to whatever model
+   account dun uses. Para starts nothing unless the file below exists on this
+   machine. It is never in the vault and never synced. Write it with mode 600:
+
+   $PARA_HOME/vaults/<vault>/agent.json
+   {
+     "command": ["dun", "-p", "Use the para tools: call request_next to claim a request, work only on that request, report with request_note, and finish with request_done or request_fail."],
+     "max_concurrent": 1,
+     "daily_limit": 10,
+     "cwd": "/home/you/work"
+   }
+
+   command is an argument list, not a shell string. daily_limit counts starts per
+   local day and survives a restart; max_concurrent is how many run at once. The
+   environment of the command has PARA_REQUEST (the request id that woke it),
+   PARA_HOME, and PARA_VAULT; nothing else from the vault is passed. Only the
+   machine that is the vault's request runner starts anything.
+   This example, dun -p with those words, is untested: it was not run against a
+   real session. Try the command by hand first, with PARA_REQUEST set.
+   $ para agent status
+   $ para doctor
+
 Para cannot stop an agent from using other tools. To enforce "no external action
 without approval", use a dun hook or server-level limits. A hook can run para
 proposal approved with the sha256 of the target, one NUL byte, and the draft; it

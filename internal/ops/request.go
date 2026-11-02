@@ -14,7 +14,9 @@ import (
 
 // The request queue holds asks for agents. A person queues a request; an
 // agent claims it with request_next and works under its own key scopes. Para
-// never starts an agent. Events carry ids and states, never request text.
+// starts an agent only when a person put a command in agent.json on this
+// machine (internal/dispatch); with no such file it starts nothing. Events
+// carry ids and states, never request text.
 //
 // A claim is atomic: Store.Update compares Rev inside the vault lock, so of
 // two agents that read the same queued request, one wins and the other

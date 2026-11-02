@@ -40,6 +40,31 @@ Use para from Claude Code.
    Team and Enterprise organizations must enable channels first. Para works
    without it: use step 6 or call the wait tools.
 
+8. Optional: let para start the agent when a request can be claimed on this machine.
+   THIS SPENDS TOKENS: every run starts a Claude Code session, billed to whatever
+   account claude uses. Para starts nothing unless the file below exists on this
+   machine. It is never in the vault and never synced. Write it with mode 600:
+
+   $PARA_HOME/vaults/<vault>/agent.json
+   {
+     "command": ["claude", "-p", "Use the para tools: call request_next to claim a request, work only on that request, report with request_note, and finish with request_done or request_fail."],
+     "max_concurrent": 1,
+     "daily_limit": 10,
+     "cwd": "/home/you/work"
+   }
+
+   command is an argument list, not a shell string. daily_limit counts starts per
+   local day and survives a restart; max_concurrent is how many run at once. The
+   environment of the command has PARA_REQUEST (the request id that woke it),
+   PARA_HOME, and PARA_VAULT; nothing else from the vault is passed. Only the
+   machine that is the vault's request runner starts anything.
+   This example, claude -p with those words, is untested: it was written from
+   the documented flags and was not run against a real session. Try the command
+   by hand first, with PARA_REQUEST set, and check that the para tools are
+   allowed for non-interactive runs.
+   $ para agent status
+   $ para doctor
+
 Para cannot stop an agent from using other tools. To enforce "no external action
 without approval", use Claude Code permission rules or a hook. A hook can run
 para proposal approved with the sha256 of the target, one NUL byte, and the draft;

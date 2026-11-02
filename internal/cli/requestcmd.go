@@ -15,9 +15,10 @@ import (
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
-// newRequestCmd builds `para request`: the agent request queue. Para never
-// starts an agent; `request wait` only blocks until a request can be claimed,
-// so a shell loop can start one.
+// newRequestCmd builds `para request`: the agent request queue. Para starts an
+// agent only when dispatch is configured on this machine (para agent status);
+// `request wait` only blocks until a request can be claimed, so a shell loop
+// can start one.
 func newRequestCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "request", Short: "Queue of asks for agents", Args: cobra.NoArgs}
 	cmd.AddCommand(
