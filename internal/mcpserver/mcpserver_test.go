@@ -67,6 +67,12 @@ var sampleInputs = map[string]string{
 	"rfx_status":                `{"id":"rfx-sample","status":"answered"}`,
 	"rfx_target_add":            `{"id":"rfx-sample","to":"person-sample","medium":"slack"}`,
 	"rfx_target_state":          `{"id":"rfx-sample","to":"person-sample","state":"sent","date":"2026-11-01"}`,
+	"request_add":               `{"ask":"Summarize the sample project","links":["project-sample"]}`,
+	"request_cancel":            `{"id":"request-sample"}`,
+	"request_done":              `{"id":"request-sample","result":"Summary written.","links":["project-sample"]}`,
+	"request_fail":              `{"id":"request-sample","reason":"No access."}`,
+	"request_note":              `{"id":"request-sample","text":"Read the project."}`,
+	"request_show":              `{"id":"request-sample"}`,
 	"route":                     `{"query":"domain-sample"}`,
 	"rule_add":                  `{"policy":"policy-sample","text":"Services log every failure."}`,
 	"task_add":                  `{"project":"project-sample","title":"Write parser"}`,
@@ -103,6 +109,12 @@ func seedSamples(t *testing.T, s store.Store) {
 		{ID: "interaction-sample", Folder: model.FolderInteractions, Title: "Sample interaction",
 			Meta: &model.Interaction{Common: model.Common{Type: model.TypeInteraction}, Date: "2026-11-01", With: []model.Link{model.LinkTo("person-sample")},
 				Medium: model.MediumSlack, Direction: model.InteractionIn, Visibility: model.VisibilityPrivate}},
+		{ID: "request-sample", Folder: model.FolderRequests, Title: "Sample request",
+			Meta: &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: model.RequestClaimed, Runner: "install-test",
+				Queued: "2026-11-01T09:00:00Z", Claimed: "agent", Lease: "2099-01-01T00:00:00Z"}},
+		{ID: "request-queued", Folder: model.FolderRequests, Title: "Queued sample request",
+			Meta: &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: model.RequestQueued, Runner: "install-test",
+				Queued: "2026-11-01T09:00:00Z"}},
 		{ID: "domain-sample", Folder: model.FolderOrg, Title: "Sample domain",
 			Meta: &model.Domain{Common: model.Common{Type: model.TypeDomain}, Owner: model.LinkTo("role-sample")}},
 		{ID: "rfx-sample", Folder: model.FolderRFX, Title: "Sample request",
@@ -138,7 +150,7 @@ func newVault(t *testing.T) (store.Store, string) {
 	if err := vault.Init(root, "test", templates); err != nil {
 		t.Fatal(err)
 	}
-	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", StateDir: t.TempDir()})
+	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", Install: "install-test", StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
 	}

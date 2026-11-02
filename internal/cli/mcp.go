@@ -34,7 +34,11 @@ func newMCPCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: actor, Surface: mcpSurface, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
+			install, err := l.install.ID()
+			if err != nil {
+				return err
+			}
+			s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: actor, Surface: mcpSurface, Install: install, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}

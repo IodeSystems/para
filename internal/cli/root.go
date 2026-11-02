@@ -62,7 +62,11 @@ func (l *loader) deps() (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, err
 	}
-	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
+	install, err := l.install.ID()
+	if err != nil {
+		return ops.Deps{}, err
+	}
+	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", sel.ID, err)
 	}
@@ -105,6 +109,7 @@ func newRoot(l *loader) *cobra.Command {
 		newSearchCmd(l),
 		newJournalCmd(l),
 		newTodayCmd(l),
+		newRequestCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root
