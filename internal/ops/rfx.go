@@ -204,9 +204,12 @@ var RFXList = define("rfx_list", "List requests", func(ctx context.Context, d De
 	return out, nil
 })
 
-// isWaiting reports whether any target is sent and not yet answered.
+// isWaiting reports whether any target is sent, or a meeting is asked for, and
+// not yet answered. A scheduled meeting is not waiting: the meeting is next.
 func isWaiting(m *model.RFX) bool {
-	return slices.ContainsFunc(m.Targets, func(t model.Target) bool { return t.State == model.TargetSent })
+	return slices.ContainsFunc(m.Targets, func(t model.Target) bool {
+		return t.State == model.TargetSent || t.State == model.TargetRequested
+	})
 }
 
 // allNoReply reports whether there are targets and each one is no_reply.

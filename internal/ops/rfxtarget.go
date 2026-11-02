@@ -111,6 +111,9 @@ var RFXTargetState = define("rfx_target_state", "Record that a request to one ta
 			return fmt.Errorf("%s has %d targets: pass medium", to, len(hit))
 		}
 		t := &m.Targets[hit[0]]
+		if (in.State == model.TargetRequested || in.State == model.TargetScheduled) && t.Medium != model.MediumMeeting {
+			return fmt.Errorf("state %s applies to a meeting target; this target is %s", in.State, t.Medium)
+		}
 		if in.State == model.TargetSent && t.State != model.TargetSent {
 			t.Sent = model.Date(date)
 		}

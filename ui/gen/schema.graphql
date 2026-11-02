@@ -48,6 +48,9 @@ type ParaV1MutationNamespace {
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
+  meetingAdd(body: para_MeetingAddInputInput!): para_MeetingAddOutput @derived(operationId: "meetingAdd")
+  meetingCancel(body: para_MeetingCancelInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingCancel")
+  meetingSchedule(body: para_MeetingScheduleInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingSchedule")
   noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
@@ -131,6 +134,8 @@ type ParaV1QueryNamespace {
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
   lint: para_LintOutput @derived(operationId: "lint")
+  meetingList(all: Boolean, status: para_meetingListStatus): para_MeetingListOutput @derived(operationId: "meetingList")
+  meetingShow(id: String!): para_MeetingShowOutput @derived(operationId: "meetingShow")
   next(project: String): para_NextOutput @derived(operationId: "next")
   noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
   noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
@@ -247,6 +252,7 @@ enum para_AreaAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -290,6 +296,7 @@ enum para_AreaViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -513,6 +520,7 @@ enum para_DocumentFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -787,6 +795,7 @@ enum para_GraphNodeType {
   incident
   interaction
   journal
+  meeting
   note
   person
   policy
@@ -864,6 +873,7 @@ enum para_InboxAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -890,6 +900,7 @@ enum para_InboxItemFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -966,6 +977,7 @@ enum para_InboxTriageOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1014,6 +1026,7 @@ enum para_IncidentAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1089,6 +1102,7 @@ enum para_IncidentViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1184,6 +1198,7 @@ enum para_InteractionAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1402,6 +1417,130 @@ type para_LintOutput {
   warnings: Int!
 }
 
+input para_MeetingAddInputInput {
+  body: String
+  end: String
+  rfx: [String!]
+  scope: [String!]
+  start: String
+  title: String!
+  with: [String!]
+}
+
+type para_MeetingAddOutput {
+  folder: para_MeetingAddOutputFolder!
+  id: String!
+  rev: String!
+  rfx: [String!]!
+  status: para_MeetingAddOutputStatus!
+  warnings: [String!]!
+}
+
+enum para_MeetingAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  meetings
+  org
+  policies
+  projects
+  proposals
+  questions
+  requests
+  resources
+  rfx
+}
+
+enum para_MeetingAddOutputStatus {
+  cancelled
+  held
+  requested
+  scheduled
+}
+
+input para_MeetingCancelInputInput {
+  id: String!
+  reason: String
+}
+
+type para_MeetingChangeOutput {
+  end: String
+  id: String!
+  rev: String!
+  rfx: [String!]!
+  start: String
+  status: para_MeetingChangeOutputStatus!
+  warnings: [String!]!
+}
+
+enum para_MeetingChangeOutputStatus {
+  cancelled
+  held
+  requested
+  scheduled
+}
+
+type para_MeetingListOutput {
+  meetings: [para_MeetingView!]!
+}
+
+input para_MeetingScheduleInputInput {
+  end: String!
+  id: String!
+  start: String!
+}
+
+type para_MeetingShowOutput {
+  body: String!
+  meeting: para_MeetingView!
+}
+
+type para_MeetingView {
+  end: String
+  folder: para_MeetingViewFolder!
+  id: String!
+  rev: String!
+  rfx: [String!]!
+  rfxNames: [String!]
+  start: String
+  status: para_MeetingViewStatus!
+  title: String!
+  with: [String!]!
+  withNames: [String!]
+}
+
+enum para_MeetingViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  meetings
+  org
+  policies
+  projects
+  proposals
+  questions
+  requests
+  resources
+  rfx
+}
+
+enum para_MeetingViewStatus {
+  cancelled
+  held
+  requested
+  scheduled
+}
+
 type para_Meta {
   aliases: [String!]
   answered: String
@@ -1420,6 +1559,7 @@ type para_Meta {
   dependsOn: [String!]
   direction: String
   due: String
+  end: String
   ended: String
   groups: [String!]
   incident: String
@@ -1446,7 +1586,7 @@ type para_Meta {
   reviewBy: String
   reviewedBy: String
   revision: Int
-  rfx: String
+  rfx: JSON
   role: String
   route: String
   rule: String
@@ -1456,6 +1596,7 @@ type para_Meta {
   severity: String
   source: para_Source
   sourceDoc: String
+  start: String
   started: String
   status: String
   supersedes: String
@@ -1493,6 +1634,7 @@ enum para_MetaType {
   incident
   interaction
   journal
+  meeting
   note
   person
   policy
@@ -1541,6 +1683,7 @@ enum para_NoteAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1579,6 +1722,7 @@ enum para_NoteViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1616,6 +1760,7 @@ enum para_OrgAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1807,6 +1952,7 @@ enum para_ProjectAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1839,6 +1985,7 @@ enum para_ProjectCloseOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -1888,6 +2035,7 @@ enum para_ProjectViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2111,6 +2259,7 @@ enum para_QuestionAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2219,6 +2368,7 @@ enum para_QuestionViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2275,6 +2425,7 @@ enum para_RFXAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2360,6 +2511,8 @@ enum para_RFXReplyOutputState {
   drafted
   no_reply
   replied
+  requested
+  scheduled
   sent
 }
 
@@ -2487,6 +2640,8 @@ enum para_RFXTargetStateInputState {
   drafted
   no_reply
   replied
+  requested
+  scheduled
   sent
 }
 
@@ -2517,6 +2672,7 @@ enum para_RefFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2537,6 +2693,7 @@ enum para_RefType {
   incident
   interaction
   journal
+  meeting
   note
   person
   policy
@@ -2575,6 +2732,7 @@ enum para_RequestAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -2881,6 +3039,8 @@ enum para_TargetState {
   drafted
   no_reply
   replied
+  requested
+  scheduled
   sent
 }
 
@@ -2913,6 +3073,7 @@ enum para_TaskAddOutputFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -3070,6 +3231,7 @@ enum para_TaskViewFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -3204,6 +3366,7 @@ enum para_WhereMatchFolder {
   incidents
   interactions
   journal
+  meetings
   org
   policies
   projects
@@ -3224,6 +3387,7 @@ enum para_WhereMatchType {
   incident
   interaction
   journal
+  meeting
   note
   person
   policy
@@ -3313,6 +3477,13 @@ enum para_interactionListMedium {
   phone
   slack
   teams
+}
+
+enum para_meetingListStatus {
+  cancelled
+  held
+  requested
+  scheduled
 }
 
 enum para_proposalListStatus {

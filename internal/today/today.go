@@ -297,7 +297,7 @@ func waitsOnSomeone(m *model.RFX) bool {
 	}
 	allNoReply := true
 	for _, t := range m.Targets {
-		if t.State == model.TargetSent {
+		if t.State == model.TargetSent || t.State == model.TargetRequested {
 			return true
 		}
 		if t.State != model.TargetNoReply {

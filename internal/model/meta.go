@@ -307,6 +307,21 @@ type Incident struct {
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
 
+// Meeting is type: meeting. Start and End are RFC 3339 times with a zone, as
+// written, so the zone the meeting was booked in survives. A requested meeting
+// has no time yet. With names the people or groups; RFX the requests the
+// meeting is meant to settle. The body holds "## Questions" (gathered from the
+// RFX and open questions in scope) and "## Notes". Para does not record or
+// transcribe: it stores what a person or an agent gives it.
+type Meeting struct {
+	Common `yaml:",inline"`
+	Status MeetingStatus `yaml:"status" json:"status"`
+	Start  string        `yaml:"start,omitempty" json:"start,omitempty"`
+	End    string        `yaml:"end,omitempty" json:"end,omitempty"`
+	With   []Link        `yaml:"with" json:"with"`
+	RFX    []Link        `yaml:"rfx,omitempty" json:"rfx,omitempty"`
+}
+
 // ScopeRoot is the question scope of a vault-level question.
 const ScopeRoot Link = "root"
 
@@ -391,6 +406,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Proposal{Common: c}, true
 	case TypeQuestion:
 		return &Question{Common: c}, true
+	case TypeMeeting:
+		return &Meeting{Common: c}, true
 	}
 	return nil, false
 }

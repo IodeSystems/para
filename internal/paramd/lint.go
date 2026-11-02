@@ -199,11 +199,48 @@ func (l *linter) frontmatter() {
 	if typ == "question" {
 		l.question()
 	}
+	if typ == "meeting" {
+		l.meeting()
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")
 		}
 	}
+}
+
+// meeting checks what the field kinds cannot: a booked or held meeting has a
+// start and an end, and the end is after the start.
+func (l *linter) meeting() {
+	fm := l.f.Frontmatter
+	status := str(fm["status"])
+	start, end := timestampOf(fm["start"]), timestampOf(fm["end"])
+	if status == "scheduled" || status == "held" {
+		for _, k := range []string{"start", "end"} {
+			if fm[k] == nil {
+				l.errf(1, CodeField, "type meeting: status %s requires field %q", status, k)
+			}
+		}
+	}
+	if (fm["start"] == nil) != (fm["end"] == nil) {
+		l.errf(1, CodeFieldValue, "fields %q and %q: give both or neither", "start", "end")
+	}
+	if !start.IsZero() && !end.IsZero() && !end.After(start) {
+		l.errf(1, CodeFieldValue, "field %q: must be after start", "end")
+	}
+}
+
+// timestampOf reads an RFC 3339 value that YAML gave as a time or a string;
+// the zero time when it is neither.
+func timestampOf(v any) time.Time {
+	switch x := v.(type) {
+	case time.Time:
+		return x
+	case string:
+		t, _ := time.Parse(time.RFC3339Nano, x)
+		return t
+	}
+	return time.Time{}
 }
 
 // question checks what the field kinds cannot: recommended names one option.
@@ -359,6 +396,9 @@ func (l *linter) checkValue(fd field, v any) {
 					continue
 				}
 				l.checkValue(field{Name: fmt.Sprintf("%s[%d].%s", fd.Name, i+1, sub.Name), Kind: sub.Kind, Enum: sub.Enum, Required: sub.Required}, sv)
+				if fd.Kind == kTargets && sub.Name == "state" && (sv == "requested" || sv == "scheduled") && m["medium"] != "meeting" {
+					bad("item %d: state %v applies to medium meeting only", i+1, sv)
+				}
 				if fd.Kind == kPointers && sub.Name == "target" {
 					if s, ok := sv.(string); ok && !pointerTargetRe.MatchString(s) {
 						bad("item %d: target %q must be a URL (scheme://...) or a path starting with /, ~/, ./ or ../", i+1, s)

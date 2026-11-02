@@ -49,7 +49,8 @@ func (jsonValue) Schema(huma.Registry) *huma.Schema { return &huma.Schema{} }
 // different enums per type is a plain string. `with` is a link on an exception
 // and a list of links on an interaction, so it is the JSON scalar. `links` is
 // a list of wikilinks on a request and a list of {label, kind, target}
-// pointers on an area and a project, so it is the JSON scalar too.
+// pointers on an area and a project, so it is the JSON scalar too. `rfx` is one
+// link on a question and a list of links on a meeting: the JSON scalar.
 type Meta struct {
 	Type           model.Type       `json:"type"`
 	Created        string           `json:"created"`
@@ -112,11 +113,13 @@ type Meta struct {
 	ProposedBy     string           `json:"proposed_by,omitempty"`
 	Options        []string         `json:"options,omitempty"`
 	Recommended    string           `json:"recommended,omitempty"`
-	RFX            string           `json:"rfx,omitempty"`
+	RFX            *jsonValue       `json:"rfx,omitempty"`
 	Question       string           `json:"question,omitempty"`
 	Choice         string           `json:"choice,omitempty"`
 	AnsweredBy     string           `json:"answered_by,omitempty"`
 	Answered       string           `json:"answered,omitempty"`
+	Start          string           `json:"start,omitempty"`
+	End            string           `json:"end,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.
@@ -154,6 +157,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.IncidentStatuses)
 	addEnum(reg, model.QuestionStatuses)
 	addEnum(reg, model.QuestionKinds)
+	addEnum(reg, model.MeetingStatuses)
 	addEnum(reg, model.ProposalStatuses)
 	addEnum(reg, model.ItemKinds)
 	addEnum(reg, model.ItemStates)

@@ -423,6 +423,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	maps.Copy(cases, streamUParityCases())
 	seedQuestionParity(t, deps)
 	maps.Copy(cases, questionParityCases())
+	seedStreamVParity(t, deps)
+	maps.Copy(cases, streamVParityCases())
 	seedProposalParity(t, deps)
 	proposalCases, proposalStdins := proposalParityCases()
 	maps.Copy(cases, proposalCases)

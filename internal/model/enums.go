@@ -28,6 +28,7 @@ const (
 	TypeIncident        Type = "incident"
 	TypeProposal        Type = "proposal"
 	TypeQuestion        Type = "question"
+	TypeMeeting         Type = "meeting"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -35,7 +36,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion,
+	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -58,13 +59,14 @@ const (
 	FolderIncidents    Folder = "incidents"
 	FolderProposals    Folder = "proposals"
 	FolderQuestions    Folder = "questions"
+	FolderMeetings     Folder = "meetings"
 )
 
 // Folders lists every document folder.
 var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
-	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions,
+	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
 }
 
 // Valid reports whether f is a document folder.
@@ -288,13 +290,17 @@ const (
 	TargetSent    TargetState = "sent"
 	TargetReplied TargetState = "replied"
 	TargetNoReply TargetState = "no_reply"
+	// TargetRequested and TargetScheduled apply to a target whose medium is
+	// meeting: the meeting is asked for, then booked.
+	TargetRequested TargetState = "requested"
+	TargetScheduled TargetState = "scheduled"
 )
 
 // Enum lists the allowed values, for schema generation.
 func (TargetState) Enum() []string { return enumStrings(TargetStates) }
 
 // TargetStates lists every TargetState.
-var TargetStates = []TargetState{TargetDrafted, TargetSent, TargetReplied, TargetNoReply}
+var TargetStates = []TargetState{TargetDrafted, TargetSent, TargetReplied, TargetNoReply, TargetRequested, TargetScheduled}
 
 // InteractionDirection is interaction.direction. Observed: the user saw it
 // and took no part.
@@ -416,3 +422,19 @@ func (QuestionKind) Enum() []string { return enumStrings(QuestionKinds) }
 
 // QuestionKinds lists every QuestionKind.
 var QuestionKinds = []QuestionKind{KindQuestion, KindDecision, KindInput}
+
+// MeetingStatus is meeting.status.
+type MeetingStatus string
+
+const (
+	MeetingRequested MeetingStatus = "requested"
+	MeetingScheduled MeetingStatus = "scheduled"
+	MeetingHeld      MeetingStatus = "held"
+	MeetingCancelled MeetingStatus = "cancelled"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (MeetingStatus) Enum() []string { return enumStrings(MeetingStatuses) }
+
+// MeetingStatuses lists every MeetingStatus.
+var MeetingStatuses = []MeetingStatus{MeetingRequested, MeetingScheduled, MeetingHeld, MeetingCancelled}

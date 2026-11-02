@@ -160,6 +160,7 @@ func newRoot(l *loader) *cobra.Command {
 		newWhereCmd(l),
 		newWaitingCmd(l),
 		newIncidentCmd(l),
+		newMeetingCmd(l),
 		newQuestionCmd(l),
 		newQuestionsCmd(l),
 		newAnswerCmd(l),

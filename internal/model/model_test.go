@@ -91,8 +91,12 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{
 			{To: LinkTo("jordan-example"), Medium: MediumSlack, Value: "@jordan", State: TargetSent, Ref: "https://acme.example.slack.com/archives/C0/p1", Sent: "2026-11-01"},
-			{To: LinkTo("atlas-group"), Medium: MediumEmail, State: TargetDrafted}},
+			{To: LinkTo("atlas-group"), Medium: MediumEmail, State: TargetDrafted},
+			{To: LinkTo("atlas-group"), Medium: MediumMeeting, State: TargetScheduled}},
 			Blocks: []Link{LinkTo("task-one")}, DependsOn: []Link{LinkTo("rfx-one")}, NextNudge: "2026-11-08", Playbook: LinkTo("branch-names")}, ""},
+		{"meeting-one", &Meeting{Common: c(TypeMeeting), Status: MeetingScheduled, Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00",
+			With: []Link{LinkTo("jordan-example")}, RFX: []Link{LinkTo("rfx-one")}}, "## Questions\n\n- [[rfx-one]]\n\n## Notes"},
+		{"meeting-ask", &Meeting{Common: c(TypeMeeting), Status: MeetingRequested, With: []Link{LinkTo("jordan-example")}}, ""},
 		{"no-prod-logs", &Constraint{c(TypeConstraint), "PII", "Jordan", source(), []string{"prod"}, []string{"dev"}, "2027-01-01"}, ""},
 		{"policy-logging", &Policy{c(TypePolicy), source(), false, ""}, "R1 policy-logging: Log failures. ^R1"},
 		{"policy-logging.source", &Transcript{c(TypeTranscript), LinkTo("policy-logging"), source()}, "Source: https://wiki.acme.example/policies/logging"},

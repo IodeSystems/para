@@ -38,7 +38,7 @@ var (
 	conventionState = []string{"draft", "adopted", "retired"}
 	mediums         = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
 	groupKinds      = []string{"team", "department", "channel", "list", "other"}
-	targetStates    = []string{"drafted", "sent", "replied", "no_reply"}
+	targetStates    = []string{"drafted", "sent", "replied", "no_reply", "requested", "scheduled"}
 	interDirections = []string{"in", "out", "observed"}
 	visibilities    = []string{"public", "private"}
 	journalScopes   = []string{"day", "week", "month", "project"}
@@ -50,13 +50,14 @@ var (
 	proposalStatus  = []string{"open", "sent_back", "closed", "superseded"}
 	questionStatus  = []string{"open", "answered", "dropped"}
 	questionKinds   = []string{"question", "decision", "input"}
+	meetingStatus   = []string{"requested", "scheduled", "held", "cancelled"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area", "note", "incident", "proposal", "question",
+	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting",
 }
 
 // commonFields apply to every type.
@@ -122,6 +123,13 @@ var typeFields = map[string][]field{
 		{Name: "choice", Kind: kString},
 		{Name: "answered_by", Kind: kString},
 		{Name: "answered", Kind: kDate},
+	},
+	"meeting": {
+		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},
+		{Name: "start", Kind: kTimestamp}, // required once scheduled (lint)
+		{Name: "end", Kind: kTimestamp},
+		{Name: "with", Kind: kLinkList, Required: true},
+		{Name: "rfx", Kind: kLinkList},
 	},
 	"constraint": {
 		{Name: "why", Kind: kString, Required: true},
