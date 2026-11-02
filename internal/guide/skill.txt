@@ -6,3 +6,7 @@ none is named, ask. Do not move work between vaults.
 
 Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
 empty vault, `process_meeting` for a transcript, and `review_cycle` for proposals.
+
+Arguments. If the request starts with the word health (as in /para health), use the
+`health_triage` prompt: run `health`, settle what evidence settles, and file one
+proposal. With no argument, start with `orient`.

@@ -41,6 +41,8 @@ var (
 	raglitHelp string
 	//go:embed importcorpus.txt
 	importCorpus string
+	//go:embed healthtriage.txt
+	healthTriage string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -72,6 +74,10 @@ func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
 // ImportCorpus is the MCP prompt "import_corpus":
 // how the owner and an agent import and sort a corpus.
 func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }
+
+// HealthTriage is the MCP prompt "health_triage": settle health findings with
+// evidence and file one proposal.
+func HealthTriage() string { return trim(healthTriage) + "\n\n" + Rule() }
 
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
