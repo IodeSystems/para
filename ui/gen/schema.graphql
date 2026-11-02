@@ -173,7 +173,11 @@ type ParaV1QueryNamespace {
   search(
     """id of an area; matches documents that link to it"""
     area: String
+    """skip the meaning search: nothing leaves this machine"""
+    exact_only: Boolean
     limit: Int
+    """the last word matches the start of a word, for a search box that runs as a person types"""
+    prefix: Boolean
     """id of a project; matches documents that link to it"""
     project: String
     query: String!

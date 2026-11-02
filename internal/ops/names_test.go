@@ -178,3 +178,23 @@ func TestSearchRanksWorkFirst(t *testing.T) {
 		t.Fatalf("order %v", got)
 	}
 }
+
+func TestSearchPrefixMatchesTheStartOfTheLastWord(t *testing.T) {
+	ctx := t.Context()
+	d := newDeps(t)
+	if _, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: "Replication rehearsal", Body: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	exact, err := Search.Run(ctx, d, SearchInput{Query: "repl"})
+	if err != nil || len(exact.Hits) != 0 {
+		t.Fatalf("exact repl = %v, %v", exact.Hits, err)
+	}
+	live, err := Search.Run(ctx, d, SearchInput{Query: "repl", Prefix: true})
+	if err != nil || len(live.Hits) != 1 {
+		t.Fatalf("prefix repl = %v, %v", live.Hits, err)
+	}
+	// An invalid or empty query is an error or no hits, never a panic.
+	if _, err := Search.Run(ctx, d, SearchInput{Query: `"`, Prefix: true}); err != nil {
+		t.Logf("quote: %v", err)
+	}
+}

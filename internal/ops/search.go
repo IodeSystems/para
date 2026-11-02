@@ -16,13 +16,15 @@ import (
 // SearchInput is the input of search. The filters narrow the hits; an empty
 // filter matches all.
 type SearchInput struct {
-	Query   string `json:"query" query:"query" required:"true"`
-	Limit   int    `json:"limit,omitempty" query:"limit"` // 0 means 10
-	Type    string `json:"type,omitempty" query:"type" doc:"document type, such as task, project, note, policy"`
-	Status  string `json:"status,omitempty" query:"status" doc:"document status, such as todo or active; open means any status that is not final"`
-	Area    string `json:"area,omitempty" query:"area" doc:"id of an area; matches documents that link to it"`
-	Project string `json:"project,omitempty" query:"project" doc:"id of a project; matches documents that link to it"`
-	Since   string `json:"since,omitempty" query:"since" doc:"updated on or after this date (YYYY-MM-DD), or within a span such as 7d or 2w"`
+	Query     string `json:"query" query:"query" required:"true"`
+	Limit     int    `json:"limit,omitempty" query:"limit"` // 0 means 10
+	Type      string `json:"type,omitempty" query:"type" doc:"document type, such as task, project, note, policy"`
+	Status    string `json:"status,omitempty" query:"status" doc:"document status, such as todo or active; open means any status that is not final"`
+	Area      string `json:"area,omitempty" query:"area" doc:"id of an area; matches documents that link to it"`
+	Project   string `json:"project,omitempty" query:"project" doc:"id of a project; matches documents that link to it"`
+	Since     string `json:"since,omitempty" query:"since" doc:"updated on or after this date (YYYY-MM-DD), or within a span such as 7d or 2w"`
+	Prefix    bool   `json:"prefix,omitempty" query:"prefix" doc:"the last word matches the start of a word, for a search box that runs as a person types"`
+	ExactOnly bool   `json:"exact_only,omitempty" query:"exact_only" doc:"skip the meaning search: nothing leaves this machine"`
 }
 
 var sinceSpan = regexp.MustCompile(`^(\d{1,4})([dw])$`)
@@ -78,7 +80,7 @@ type SearchOutput struct {
 // to a raglit daemon on this machine. A hit says whether it is a transcript or a
 // summary, and carries the source URL, so a reader can cite the original.
 var Search = define("search", "Search documents, transcripts and summaries by text", func(ctx context.Context, d Deps, in SearchInput) (SearchOutput, error) {
-	q := index.Query{Text: in.Query, Limit: in.Limit, Type: in.Type, Status: in.Status, Area: in.Area, Project: in.Project}
+	q := index.Query{Text: in.Query, Limit: in.Limit, Type: in.Type, Status: in.Status, Area: in.Area, Project: in.Project, Prefix: in.Prefix}
 	if in.Type != "" && !slices.Contains(model.Types, model.Type(in.Type)) {
 		return SearchOutput{}, fmt.Errorf("type %q: want one of %v", in.Type, model.Types)
 	}
@@ -93,10 +95,17 @@ var Search = define("search", "Search documents, transcripts and summaries by te
 	}
 	// The exact search always runs. The meaning search, when configured,
 	// runs beside it and may only add hits.
-	sem := startSemantic(ctx, d, in.Query, limit)
+	// An exact-only search stays on this machine: a box that runs on every
+	// pause in typing must not send partial words out or fill the egress log.
+	var sem *semantic
+	if !in.ExactOnly {
+		sem = startSemantic(ctx, d, in.Query, limit)
+	}
 	hits, err := d.Store.Search(ctx, q)
 	if err != nil {
-		sem.cancel()
+		if sem != nil {
+			sem.cancel()
+		}
 		return SearchOutput{}, err
 	}
 	if hits == nil {

@@ -372,6 +372,9 @@ type Query struct {
 	Area, Project string
 	// Since is YYYY-MM-DD: documents updated (else created) on or after it.
 	Since string
+	// Prefix makes the last word match the start of a word: "repl" finds
+	// "replication". It is for a search box that runs as a person types.
+	Prefix bool
 }
 
 // StatusOpen is the status filter that means "not finished".
@@ -392,7 +395,7 @@ func (ix *Index) Find(ctx context.Context, src Source, in Query) ([]Hit, error) 
 	if _, err := ix.Sync(ctx, src); err != nil {
 		return nil, err
 	}
-	q := ftsQuery(in.Text)
+	q := ftsQuery(in.Text, in.Prefix)
 	if q == "" {
 		return []Hit{}, nil
 	}
@@ -452,10 +455,15 @@ LIMIT ?`, args...)
 
 // ftsQuery turns free text into an FTS5 query that cannot be a syntax error:
 // each whitespace-separated word is a quoted string, and all must match.
-func ftsQuery(q string) string {
+func ftsQuery(q string, prefix bool) string {
 	var parts []string
-	for _, tok := range strings.Fields(q) {
-		parts = append(parts, `"`+strings.ReplaceAll(tok, `"`, `""`)+`"`)
+	toks := strings.Fields(q)
+	for i, tok := range toks {
+		part := `"` + strings.ReplaceAll(tok, `"`, `""`) + `"`
+		if prefix && i == len(toks)-1 {
+			part += "*"
+		}
+		parts = append(parts, part)
 	}
 	return strings.Join(parts, " ")
 }
