@@ -35,7 +35,7 @@ func newTestVault(t *testing.T) *testVault {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := vault.Init(root, "acme", tpl); err != nil {
+	if err := vault.Init(root, "acme", tpl, vault.InitOptions{NoGit: true}); err != nil {
 		t.Fatal(err)
 	}
 	in := registry.Install{Home: home}
@@ -166,8 +166,8 @@ func (d *drv) run(cmd tea.Cmd) {
 	var msg tea.Msg
 	select {
 	case msg = <-done:
-	case <-time.After(300 * time.Millisecond):
-		return // a timer command: not needed headless
+	case <-time.After(5 * time.Second):
+		return // a long timer command: not needed headless. Disk writes can take seconds.
 	}
 	switch msg := msg.(type) {
 	case nil, pollMsg:
