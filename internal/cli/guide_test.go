@@ -123,6 +123,9 @@ func TestHelpOpensWithIntro(t *testing.T) {
 
 func TestHelpExtendedAndBootstrapCommands(t *testing.T) {
 	e := newEnv(t) // no vault: neither command reads one
+	if out := e.ok("guide"); out != guide.Extended()+"\n" {
+		t.Errorf("guide differs from the guide text")
+	}
 	if out := e.ok("--help-extended"); out != guide.Extended()+"\n" {
 		t.Errorf("--help-extended differs from the guide text")
 	}

@@ -142,6 +142,7 @@ func newRoot(l *loader) *cobra.Command {
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
 	root.AddCommand(
 		newVersionCmd(l),
+		newGuideCmd(),
 		newInitCmd(l),
 		newVaultCmd(l),
 		newLintCmd(l),
