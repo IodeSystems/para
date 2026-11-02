@@ -6,13 +6,13 @@ import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
-import { useLooking, useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
 import { RowMenu } from '@/components/RowMenu'
 import { AgentLooking, findContextItem } from '@/components/FindContext'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import {
+  useLooking,
   useRequestAccept,
   useRequestCancel,
   useRequestChanges,
@@ -145,7 +145,6 @@ function Requests() {
                       .join(' - ')}
                     slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
-                  <StateChip state={r.status} label={STATUS_WORDS[r.status]} />
                   <AgentLooking id={r.id} />
                   {!r.investigates && (
                     <RowMenu

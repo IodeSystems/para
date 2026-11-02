@@ -102,9 +102,7 @@ func (m *Model) rowsRaw(w int) ([]row, []Target) {
 	}
 	switch m.tab {
 	case tabReview:
-		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen}, questionActs...), actFind), acts...)
-		return m.rowsReview(w), append(append([]Target{actAccept, actReopen, actActivity}, questionActs...), acts...)
-		return m.rowsReview(w), append(append([]Target{actAccept, actReopen, actActivity, actRespond}, questionActs...), acts...)
+		return m.rowsReview(w), append(append(append([]Target{actAccept, actReopen, actActivity, actRespond}, questionActs...), actFind), acts...)
 	case tabWork:
 		return m.rowsWork(w), append(append(append([]Target{actGraph}, questionActs...), actFind), acts...)
 	case tabRFX:

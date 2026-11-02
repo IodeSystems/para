@@ -52,8 +52,8 @@ type RequestView struct {
 	LinkNames []string `json:"link_names,omitempty" nameof:"Links"`
 	// Investigates is true while the request is open agent work made by
 	// investigate. The items in Links then show "Agent looking".
-	Investigates bool `json:"investigates"`
-	Kind      string   `json:"kind,omitempty"`
+	Investigates bool   `json:"investigates"`
+	Kind         string `json:"kind,omitempty"`
 	// Resolution is how the last turn ended. Turn counts responses.
 	Resolution model.RequestResolution `json:"resolution,omitempty"`
 	Turn       int                     `json:"turn,omitempty"`

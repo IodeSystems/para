@@ -375,6 +375,8 @@ func questionInvestigateCmd(l *loader) *cobra.Command {
 	})
 	cmd.Annotations = nil
 	return cmd
+}
+
 func writeOptionDetail(p *printer, o model.OptionDetail) {
 	for _, c := range o.Pros {
 		p.f("  pro\t%s [%s]\n", c.Text, c.Source)
