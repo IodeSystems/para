@@ -259,6 +259,10 @@ func serviceCtl(w io.Writer, run runner, verb, name, file string) error {
 		if verb == "logs" {
 			return run(w, "journalctl", "--user", "-u", name+".service", "-n", "200", "--no-pager")
 		}
+		if verb == "start" {
+			// A service that does not come back after a reboot is not a service.
+			return run(w, "systemctl", "--user", "enable", "--now", name+".service")
+		}
 		return run(w, "systemctl", "--user", verb, name+".service")
 	}
 	target := launchdTarget(name)

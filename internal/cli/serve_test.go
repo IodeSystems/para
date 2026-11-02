@@ -150,7 +150,7 @@ func TestServiceVerbsUseTheServiceManager(t *testing.T) {
 	if len(got) != 5 {
 		t.Fatalf("%v", got)
 	}
-	if !useLaunchd() && got[0] != "systemctl --user start para.service" {
+	if !useLaunchd() && got[0] != "systemctl --user enable --now para.service" {
 		t.Errorf("%v", got)
 	}
 }

@@ -254,3 +254,23 @@ func TestSearchKeywordOnlyRaglitIsExactOnly(t *testing.T) {
 		t.Fatalf("%+v %v", out, err)
 	}
 }
+
+// A full page of exact hits must not hide every meaning hit.
+func TestSearchKeepsRoomForMeaningHits(t *testing.T) {
+	d := newDeps(t)
+	for _, id := range []string{"inbox-a", "inbox-b", "inbox-c"} {
+		addNote(t, d, id, "Heron "+id, "count the heron")
+	}
+	addNote(t, d, "inbox-m", "Wading birds", "egrets and storks")
+	reply, _ := json.Marshal(map[string]any{"hits": []raglit.Hit{{Rel: "inbox/inbox-m.md", Snippet: "egrets"}}})
+	f := newFakeRaglit(t, string(reply))
+	connect(t, d, f.URL, "secret")
+
+	out, err := Search.Run(ctx, d, SearchInput{Query: "heron", Limit: 3})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Hits) != 3 || out.Hits[2].ID != "inbox-m" || out.Hits[2].Match != MatchMeaning {
+		t.Fatalf("hits = %+v", out.Hits)
+	}
+}

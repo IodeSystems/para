@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/iodesystems/parasolve/internal/egress"
@@ -137,9 +138,9 @@ func mergeMeaning(ctx context.Context, d Deps, q index.Query, limit int, exact [
 			p.hit, p.via, p.class = h, via, c
 		}
 	}
-	out := exact
+	var meaning []index.Hit
 	for _, id := range order {
-		if len(out) >= limit {
+		if len(meaning) >= limit {
 			break
 		}
 		p := best[id]
@@ -158,9 +159,12 @@ func mergeMeaning(ctx context.Context, d Deps, q index.Query, limit int, exact [
 				h.Caveat = "matched the frontmatter, not the text"
 			}
 		}
-		out = append(out, h)
+		meaning = append(meaning, h)
 	}
-	return out
+	// A full page of exact hits must not hide every meaning hit.
+	room := min(len(meaning), max(1, limit/3))
+	keep := min(len(exact), limit-room)
+	return append(slices.Clone(exact[:keep]), meaning[:min(len(meaning), limit-keep)]...)
 }
 
 // resolveID maps a raglit display path to a document id of this vault. The
