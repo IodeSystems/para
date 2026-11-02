@@ -192,8 +192,10 @@ type para_AreaListOutput {
 type para_AreaShowOutput {
   area: para_AreaView!
   body: String!
+  incidents: [para_IncidentView!]!
   notes: [para_NoteView!]!
   projects: [para_ProjectView!]!
+  recurring: [para_TaskView!]!
   tasks: [para_TaskView!]!
 }
 
@@ -2414,6 +2416,7 @@ type para_WaitingOutput {
 type para_WhereMatch {
   folder: para_WhereMatchFolder!
   id: String!
+  incidents: [para_IncidentView!]!
   links: [para_Pointer!]!
   title: String!
   type: para_WhereMatchType!

@@ -128,6 +128,22 @@ var AreaList = define("area_list", "List areas", func(ctx context.Context, d Dep
 	return out, nil
 })
 
+// areaIncidents returns the incidents of an area, open ones first. Without
+// resolved, resolved incidents are left out.
+func areaIncidents(ctx context.Context, s store.Store, area string, resolved bool) ([]IncidentView, error) {
+	all, err := loadIncidents(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+	out := []IncidentView{}
+	for _, v := range all {
+		if v.Area == area && (resolved || incidentOpen(v.Status)) {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
 // AreaShowInput is the input of area_show.
 type AreaShowInput struct {
 	ID string `json:"id" query:"id" required:"true"`
@@ -141,6 +157,10 @@ type AreaShowOutput struct {
 	Projects []ProjectView `json:"projects"`
 	Tasks    []TaskView    `json:"tasks"`
 	Notes    []NoteView    `json:"notes"`
+	// Incidents are the area's incidents, open ones first. Recurring are its
+	// open tasks with a recurrence.
+	Incidents []IncidentView `json:"incidents"`
+	Recurring []TaskView     `json:"recurring"`
 }
 
 // AreaShow returns an area with its projects and tasks.
@@ -153,7 +173,7 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
-	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}}
+	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}}
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
 	if err != nil {
 		return AreaShowOutput{}, err
@@ -180,7 +200,13 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 	for _, t := range tasks {
 		if t.Area == doc.ID || inArea[t.Project] {
 			out.Tasks = append(out.Tasks, t)
+			if t.Recur != "" && !taskTerminal(t.Status) {
+				out.Recurring = append(out.Recurring, t)
+			}
 		}
+	}
+	if out.Incidents, err = areaIncidents(ctx, d.Store, doc.ID, true); err != nil {
+		return AreaShowOutput{}, err
 	}
 	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Project] }); err != nil {
 		return AreaShowOutput{}, err

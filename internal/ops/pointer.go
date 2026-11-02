@@ -155,6 +155,8 @@ type WhereMatch struct {
 	Folder model.Folder    `json:"folder"`
 	Title  string          `json:"title"`
 	Links  []model.Pointer `json:"links"`
+	// Incidents are the open and mitigated incidents of a matching area.
+	Incidents []IncidentView `json:"incidents"`
 }
 
 // WhereOutput is the output of where.
@@ -163,7 +165,8 @@ type WhereOutput struct {
 }
 
 // Where finds areas and projects by name or link label and returns their
-// links, so "where does the plan for X live?" has one answer. Every word of
+// links, so "where does the plan for X live?" has one answer. An area also
+// lists its open incidents. Every word of
 // the query must appear in the id, title, or a link label (case-insensitive).
 // It reads no target.
 var Where = define("where", "Find areas and projects by name or link label and show their links", func(ctx context.Context, d Deps, in WhereInput) (WhereOutput, error) {
@@ -194,7 +197,13 @@ var Where = define("where", "Find areas and projects by name or link label and s
 				hay += " " + strings.ToLower(l.Label)
 			}
 			if !slices.ContainsFunc(words, func(w string) bool { return !strings.Contains(hay, w) }) {
-				out.Matches = append(out.Matches, WhereMatch{ID: doc.ID, Type: typ, Folder: doc.Folder, Title: doc.Title, Links: nonNilPointers(*links)})
+				m := WhereMatch{ID: doc.ID, Type: typ, Folder: doc.Folder, Title: doc.Title, Links: nonNilPointers(*links), Incidents: []IncidentView{}}
+				if typ == model.TypeArea {
+					if m.Incidents, err = areaIncidents(ctx, d.Store, doc.ID, false); err != nil {
+						return WhereOutput{}, err
+					}
+				}
+				out.Matches = append(out.Matches, m)
 			}
 		}
 	}
