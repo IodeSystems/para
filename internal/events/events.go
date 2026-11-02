@@ -37,9 +37,6 @@ type Source struct {
 	// Warn receives a note when a reader skips a partial last line. Nil means
 	// stderr.
 	Warn func(string)
-	// OnAppend is called after a record is on disk, still under the vault
-	// lock. It must return at once. The server uses it to wake live clients.
-	OnAppend func(model.Event)
 }
 
 // Log appends to and reads the event files in one directory. The caller
@@ -128,9 +125,6 @@ func (l *Log) AppendUpdate(op, doc, from, to, hash, prev string) error {
 	}
 	if err := f.Sync(); err != nil {
 		return fmt.Errorf("events: append: %w", err)
-	}
-	if l.src.OnAppend != nil {
-		l.src.OnAppend(rec)
 	}
 	return nil
 }

@@ -30,10 +30,12 @@ type Hub struct {
 	mu      sync.Mutex
 	open    map[string]*Tenant
 	live    *Live
+	stops   map[string]func() // event watchers by vault id
 }
 
-// SetLive makes vaults opened from now on wake live clients on each event.
-// Call it before Prepare.
+// SetLive makes vaults opened from now on push live events: a watcher on the
+// vault's events/ directory publishes each record, whatever process wrote it.
+// Call it before Prepare, and Close the Hub to stop the watchers.
 func (h *Hub) SetLive(l *Live) { h.live = l }
 
 // NewHub returns the Hub of an install.
@@ -41,7 +43,7 @@ func NewHub(in registry.Install, log *slog.Logger) *Hub {
 	if log == nil {
 		log = slog.New(slog.DiscardHandler)
 	}
-	return &Hub{install: in, log: log, open: map[string]*Tenant{}}
+	return &Hub{install: in, log: log, open: map[string]*Tenant{}, stops: map[string]func(){}}
 }
 
 // ServerDir is the per-machine server state of a vault: admin.token, net.rules,
@@ -73,6 +75,7 @@ func (h *Hub) tenant(id string) (*Tenant, error) {
 			return t, nil
 		}
 		delete(h.open, id)
+		h.stopWatch(id)
 		return nil, nil
 	}
 	vaults, err := h.install.List()
@@ -90,6 +93,23 @@ func (h *Hub) tenant(id string) (*Tenant, error) {
 		}
 	}
 	return nil, nil
+}
+
+func (h *Hub) stopWatch(id string) {
+	if stop := h.stops[id]; stop != nil {
+		stop()
+		delete(h.stops, id)
+	}
+}
+
+// Close stops every event watcher and waits for them. Requests after Close
+// still work, but push nothing for vaults opened before it.
+func (h *Hub) Close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id := range h.stops {
+		h.stopWatch(id)
+	}
 }
 
 // Prepare opens every registered vault and creates its server state, so a bad
@@ -117,9 +137,6 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 	state := filepath.Join(h.install.Home, "vaults", v.ID)
 	opt := vault.Options{ID: v.ID, Install: install, StateDir: state,
 		Warn: func(m string) { h.log.Warn("event log", "vault", v.ID, "note", m) }}
-	if h.live != nil {
-		opt.OnEvent = h.live.Notify(v.ID)
-	}
 	st, err := local.Open(v.Path, opt)
 	if err != nil {
 		return nil, fmt.Errorf("vault %s: %w", v.ID, err)
@@ -135,6 +152,11 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 	}
 	if err := EnsureRules(dir); err != nil {
 		return nil, err
+	}
+	if h.live != nil {
+		h.stopWatch(v.ID)
+		h.stops[v.ID] = h.live.Watch(v.ID, filepath.Join(v.Path, "events"),
+			func(m string) { h.log.Warn("event watch", "vault", v.ID, "note", m) })
 	}
 	return &Tenant{
 		id: v.ID, store: st, keys: ks, install: h.install, state: state, rulesPath: filepath.Join(dir, "net.rules"),

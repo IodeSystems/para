@@ -156,6 +156,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	}
 	hub := server.NewHub(l.install, log)
 	hub.SetLive(live)
+	defer hub.Close()
 	ids, err := hub.Prepare()
 	if err != nil {
 		return err

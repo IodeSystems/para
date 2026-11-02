@@ -119,6 +119,7 @@ func newFixture(t *testing.T) *fixture {
 		t.Fatal(err)
 	}
 	hub.SetLive(live)
+	t.Cleanup(hub.Close)
 	if _, err := hub.Prepare(); err != nil {
 		t.Fatal(err)
 	}

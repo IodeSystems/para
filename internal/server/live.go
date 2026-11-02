@@ -13,6 +13,7 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/relay"
 
+	"github.com/iodesystems/parasolve/internal/events"
 	"github.com/iodesystems/parasolve/internal/model"
 )
 
@@ -96,16 +97,39 @@ func NewLive() (*Live, error) {
 // Handler is the WebSocket endpoint.
 func (l *Live) Handler() http.Handler { return l.relay.Handler() }
 
-// Notify is the vault.Options.OnEvent of a vault. It runs under the vault lock
-// and returns at once.
-func (l *Live) Notify(vaultID string) func(model.Event) {
-	return func(e model.Event) {
-		b, err := json.Marshal(LiveEvent{Op: e.Op, Doc: e.Doc})
-		if err != nil {
-			return
+// maxPushes caps the messages one batch sends. A bulk write of more distinct
+// documents sends one message with Op "bulk" and an empty Doc: the client only
+// refetches on a message, so one is as good as many.
+const maxPushes = 20
+
+// Publish pushes one batch of vault events to the subscribers of the vault. It
+// carries ids and ops only, repeats of one (op, doc) pair collapse, and a large
+// batch collapses to one "bulk" message.
+func (l *Live) Publish(vaultID string, batch []model.Event) {
+	seen := map[LiveEvent]bool{}
+	var evs []LiveEvent
+	for _, e := range batch {
+		le := LiveEvent{Op: e.Op, Doc: e.Doc}
+		if !seen[le] {
+			seen[le] = true
+			evs = append(evs, le)
 		}
-		l.bus.publish(liveChannel(vaultID), b)
 	}
+	if len(evs) > maxPushes {
+		evs = []LiveEvent{{Op: "bulk"}}
+	}
+	for _, le := range evs {
+		if b, err := json.Marshal(le); err == nil {
+			l.bus.publish(liveChannel(vaultID), b)
+		}
+	}
+}
+
+// Watch publishes every record appended to eventsDir by any process, until stop
+// is called. See events.Watch.
+func (l *Live) Watch(vaultID, eventsDir string, warn func(string)) (stop func()) {
+	return events.Watch(context.Background(), eventsDir, events.PollInterval,
+		func(b []model.Event) { l.Publish(vaultID, b) }, warn)
 }
 
 // Mint signs a cap for one vault's channel.

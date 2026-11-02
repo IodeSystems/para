@@ -10,6 +10,7 @@ require (
 	github.com/IodeSystems/ashid/go v0.0.0-20260508000147-cc7785c7629a
 	github.com/charmbracelet/x/ansi v0.11.9
 	github.com/danielgtaylor/huma/v2 v2.40.0
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/iodesystems/gwag/v2 v2.9.0
