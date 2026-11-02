@@ -189,6 +189,17 @@ var ReportFriction = defineRead("report_friction", "Friction report: time to fir
 		asks = append(asks, f)
 	}
 	out.Asks = len(asks)
+	title := map[string]string{}
+	for _, f := range asks {
+		title[f.doc.ID] = f.doc.Title
+	}
+	titles := func(ids []string) []string {
+		out := make([]string, len(ids))
+		for i, id := range ids {
+			out[i] = title[id]
+		}
+		return out
+	}
 	policyOf := func(about model.Link) string {
 		if about == "" {
 			return ""
@@ -233,6 +244,9 @@ var ReportFriction = defineRead("report_friction", "Friction report: time to fir
 		}
 		slices.Sort(rp.Asks)
 		out.Repeats = append(out.Repeats, rp)
+	}
+	for i := range out.Repeats {
+		out.Repeats[i].AskNames = titles(out.Repeats[i].Asks)
 	}
 	slices.SortFunc(out.Repeats, func(a, b FrictionRepeat) int {
 		return cmp.Or(cmp.Compare(len(b.Asks), len(a.Asks)), cmp.Compare(a.Title, b.Title))
@@ -281,6 +295,9 @@ var ReportFriction = defineRead("report_friction", "Friction report: time to fir
 			for _, t := range f.m.Targets {
 				if p := policyOf(t.About); t.Reason != "" && p != "" {
 					keys[p] = p
+					if pd, err := d.Store.Get(ctx, p); err == nil {
+						keys[p] = pd.Title
+					}
 				}
 			}
 			if hasFriction && len(keys) == 0 {
@@ -322,6 +339,7 @@ var ReportFriction = defineRead("report_friction", "Friction report: time to fir
 		a.row.HopsPerAsk = math.Round(float64(a.targets)/float64(max(a.ask, 1))*10) / 10
 		a.row.FirstAnswerDays, a.row.ResolutionDays = median(a.first), median(a.res)
 		slices.Sort(a.row.Asks)
+		a.row.AskNames = titles(a.row.Asks)
 		out.Rows = append(out.Rows, a.row)
 	}
 	slices.SortFunc(out.Rows, func(a, b FrictionRow) int {
@@ -360,7 +378,7 @@ func frictionText(o FrictionOutput) string {
 	if o.Since != "" {
 		fmt.Fprintf(&b, " since %s", o.Since)
 	}
-	fmt.Fprintf(&b, ": %d asks, %d with a stall or redirect\n", o.Asks, o.WithFriction)
+	fmt.Fprintf(&b, ": %s, %d with a stall or redirect\n", plural(o.Asks, "ask"), o.WithFriction)
 	if len(o.Rows) == 0 {
 		b.WriteString("Nothing to report.\n")
 	}
@@ -369,7 +387,7 @@ func frictionText(o FrictionOutput) string {
 		if name == "" {
 			name = r.Label
 		}
-		fmt.Fprintf(&b, "\n%s (%d asks)\n", name, len(r.Asks))
+		fmt.Fprintf(&b, "\n%s (%s)\n", name, plural(len(r.Asks), "ask"))
 		fmt.Fprintf(&b, "  first answer %s d, resolution %s d, %.1f hops per ask, %d redirects, %d stalls, %d stalled days\n",
 			days(r.FirstAnswerDays), days(r.ResolutionDays), r.HopsPerAsk, r.Redirects, r.Stalls, r.StalledDays)
 		fmt.Fprintf(&b, "  %d policy conflicts, %d exceptions, %d repeat asks without a playbook\n", r.PolicyConflicts, r.ExceptionsHit, r.PlaybookCandidates)
@@ -382,8 +400,15 @@ func frictionText(o FrictionOutput) string {
 	if len(o.Repeats) > 0 {
 		b.WriteString("\nAsked more than once, no playbook:\n")
 		for _, r := range o.Repeats {
-			fmt.Fprintf(&b, "  %s (%d times)\n", r.Title, len(r.Asks))
+			fmt.Fprintf(&b, "  %s (%s)\n", r.Title, plural(len(r.Asks), "time"))
 		}
 	}
 	return b.String()
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }

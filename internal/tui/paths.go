@@ -73,7 +73,7 @@ func pathLines(o ops.RFXPathsOutput) []string {
 		if e.Reason != "" {
 			line += ", " + strings.ReplaceAll(string(e.Reason), "_", " ")
 		}
-		line += fmt.Sprintf("; asked %d times in all", e.Contacts)
+		line += "; asked " + times(e.Contacts) + " in all"
 		if e.Last != "" {
 			line += ", last " + e.Last
 		}
@@ -88,7 +88,7 @@ func pathLines(o ops.RFXPathsOutput) []string {
 		if mv.Hold != "" {
 			line += stWarn.Render("  held back: " + mv.Hold)
 		} else if mv.Contacts > 0 {
-			line += stDim.Render(fmt.Sprintf("  asked %d times, last %s", mv.Contacts, mv.Last))
+			line += stDim.Render("  asked " + times(mv.Contacts) + ", last " + mv.Last)
 		}
 		l = append(l, line, stDim.Render("      "+mv.Why))
 	}
@@ -126,7 +126,7 @@ func (m *Model) takeMove() tea.Cmd {
 			if _, err := ops.RFXPathAdd.Run(context.Background(), env.Deps, in); err != nil {
 				return doneMsg{err: err}
 			}
-			return doneMsg{text: fmt.Sprintf("Added %s by %s to the ask. Send it yourself; para sends nothing.", mv.To, mv.Medium), reload: true}
+			return doneMsg{text: fmt.Sprintf("Added %s by %s to the ask. Send it yourself; para sends nothing.", titleOr(mv.ToName, "someone"), mv.Medium), reload: true}
 		}
 	})
 }
@@ -199,4 +199,11 @@ func slicesIndex(s []string, v string) int {
 		}
 	}
 	return 0
+}
+
+func times(n int) string {
+	if n == 1 {
+		return "1 time"
+	}
+	return fmt.Sprintf("%d times", n)
 }

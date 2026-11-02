@@ -19,6 +19,8 @@ import { Empty, Section } from '@/components/Bits'
 import { errorText } from '@/client/gqlClient'
 import { plainState } from '@/lib/status'
 
+const times = (n: number) => (n === 1 ? '1 time' : `${n} times`)
+
 type Move = {
   kind: string
   label: string
@@ -64,7 +66,7 @@ export function NextMoves({ id }: { id: string }) {
                 }`}
                 secondary={[
                   e.sent && `sent ${e.sent}`,
-                  `asked ${e.contacts} time${e.contacts === 1 ? '' : 's'} in all`,
+                  `asked ${times(e.contacts)} in all`,
                   e.last && `last ${e.last}`,
                   e.why,
                 ]
@@ -96,7 +98,7 @@ export function NextMoves({ id }: { id: string }) {
               secondary={
                 m.hold
                   ? `Held back: ${m.hold}`
-                  : [m.why, m.contacts ? `asked ${m.contacts} times, last ${m.last}` : '']
+                  : [m.why, m.contacts ? `asked ${times(m.contacts)}, last ${m.last}` : '']
                       .filter(Boolean)
                       .join(' - ')
               }
