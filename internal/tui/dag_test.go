@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 	"testing"
 
@@ -94,5 +93,4 @@ func TestDAGWidthAndCJK(t *testing.T) {
 	if !strings.Contains(out, "日本語のタスク") {
 		t.Fatalf("\n%s", out)
 	}
-	fmt.Println(out)
 }
