@@ -666,14 +666,21 @@ enum para_DecisionState {
 }
 
 input para_DeferInputInput {
+  after: String
   ids: [String!]
+  new: Boolean
+  place: String
   reason: String
   scope: String
   until: String
+  when: String
 }
 
 type para_DeferOutput {
+  after: String
   changed: [String!]!
+  created: String
+  similar: [para_Similar!]
   skipped: [String!]!
   until: String
 }
@@ -2043,6 +2050,8 @@ type para_Meta {
   created: String!
   date: String
   deferUntil: String
+  deferredAdded: [String!]
+  deferredAfter: [String!]
   deferredReason: String
   dependsOn: [String!]
   direction: String
@@ -3027,6 +3036,7 @@ type para_QuestionView {
   proposedChoice: String
   proposedSources: [para_AnswerSource!]
   proposedWhy: String
+  readyWhy: String
   recommended: String
   rejectedBy: String
   rejectedReason: String
@@ -3038,6 +3048,8 @@ type para_QuestionView {
   status: para_QuestionViewStatus!
   title: String!
   waitingOn: [String!]!
+  waitsOn: [String!]!
+  waitsOnNames: [String!]
 }
 
 enum para_QuestionViewFolder {
@@ -4111,10 +4123,13 @@ type para_TaskView {
   previous: String
   project: String!
   projectName: String
+  readyWhy: String
   recur: String
   rev: String!
   status: para_TaskViewStatus!
   title: String!
+  waitsOn: [String!]!
+  waitsOnNames: [String!]
 }
 
 enum para_TaskViewFolder {

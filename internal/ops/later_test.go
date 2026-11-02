@@ -359,3 +359,120 @@ func TestOrderPutsABlockerOfADatedGoalFirst(t *testing.T) {
 		t.Errorf("why = %q", rows[0].Why)
 	}
 }
+
+func laterQuestion(t *testing.T, d Deps, id string) QuestionView {
+	t.Helper()
+	for _, q := range must(t, QuestionList, d, QuestionListInput{Deferred: true}).Questions {
+		if q.ID == id {
+			return q
+		}
+	}
+	t.Fatalf("%s not listed", id)
+	return QuestionView{}
+}
+
+func TestDeferAfterItemAndUndefer(t *testing.T) {
+	d, proj := laterVault(t)
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Project: proj}).ID
+	pol := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Policy notes updated"}).ID
+
+	must(t, Defer, d, DeferInput{IDs: []string{q}, After: pol})
+	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 0 {
+		t.Fatalf("waiting question listed: %v", got)
+	}
+	v := laterQuestion(t, d, q)
+	if !v.Deferred || len(v.WaitsOn) != 1 || v.WaitsOn[0] != pol || v.DeferUntil != "" || len(v.DependsOn) != 1 {
+		t.Fatalf("view = %+v", v)
+	}
+	// A cycle is refused with the depends message.
+	if _, err := Defer.Run(ctx, d, DeferInput{IDs: []string{pol}, After: q}); err == nil || !strings.Contains(err.Error(), "cycle") {
+		t.Errorf("cycle err = %v", err)
+	}
+	// Done dependency: the question returns, with a ready reason, then loses it after 7 days.
+	must(t, TaskDone, d, TaskDoneInput{ID: pol})
+	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 1 {
+		t.Fatalf("question did not return: %v", got)
+	}
+	o, err := Order(ctx, d.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range o.Rows {
+		if r.ID == q {
+			found = true
+			if !strings.HasPrefix(r.Why, "ready: Policy notes updated done") {
+				t.Errorf("why = %q", r.Why)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("ready question not in the order")
+	}
+	azClock = azNow.AddDate(0, 0, 9)
+	o, _ = Order(ctx, d.Store)
+	for _, r := range o.Rows {
+		if r.ID == q && strings.Contains(r.Why, "ready") {
+			t.Errorf("ready reason after 9 days: %q", r.Why)
+		}
+	}
+}
+
+func TestDeferUndeferKeepsManualDependency(t *testing.T) {
+	d, proj := laterVault(t)
+	a := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "A"}).ID
+	b := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "B"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Project: proj}).ID
+	must(t, QuestionDependsAdd, d, QuestionDependsInput{ID: q, DependsOn: []string{a}})
+	must(t, Defer, d, DeferInput{IDs: []string{q}, After: a})
+	must(t, Defer, d, DeferInput{IDs: []string{q}, After: b})
+	must(t, Undefer, d, UndeferInput{IDs: []string{q}})
+	v := must(t, QuestionList, d, QuestionListInput{}).Questions
+	if len(v) != 1 || len(v[0].DependsOn) != 1 || v[0].DependsOn[0] != a {
+		t.Fatalf("after undefer: %+v", v)
+	}
+}
+
+func TestDeferWhenMakesTask(t *testing.T) {
+	d, proj := laterVault(t)
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Project: proj}).ID
+	out := must(t, Defer, d, DeferInput{IDs: []string{q}, When: "AI policy notes updated"})
+	if out.Created == "" || out.After != out.Created || len(out.Changed) != 1 {
+		t.Fatalf("out = %+v", out)
+	}
+	doc, tk, err := getTask(ctx, d.Store, out.Created)
+	if err != nil || tk.DoneWhen != "AI policy notes updated" || tk.Project.Target() != proj || doc.Title != "AI policy notes updated" {
+		t.Fatalf("task = %+v %v", tk, err)
+	}
+	// A similar open task is offered, nothing changes.
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another AI question", Project: proj}).ID
+	o2 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "AI policy notes updated"})
+	if len(o2.Similar) == 0 || len(o2.Changed) != 0 {
+		t.Fatalf("similar = %+v", o2)
+	}
+	o3 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "AI policy notes updated", New: true})
+	if len(o3.Changed) != 1 {
+		t.Fatalf("new = %+v", o3)
+	}
+	// A root question needs a place.
+	root := must(t, QuestionAdd, d, QuestionAddInput{Text: "Root one", Root: true}).ID
+	if _, err := Defer.Run(ctx, d, DeferInput{IDs: []string{root}, When: "Something else entirely"}); err == nil || !strings.Contains(err.Error(), "place") {
+		t.Errorf("root err = %v", err)
+	}
+	must(t, Defer, d, DeferInput{IDs: []string{root}, When: "Something else entirely", Place: proj})
+}
+
+func TestDeferAfterWithDateReturnsWhenBothMet(t *testing.T) {
+	d, proj := laterVault(t)
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Project: proj}).ID
+	pol := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Notes"}).ID
+	must(t, Defer, d, DeferInput{IDs: []string{q}, After: pol, Until: "2026-11-10"})
+	must(t, TaskDone, d, TaskDoneInput{ID: pol})
+	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 0 {
+		t.Errorf("returned before the date: %v", got)
+	}
+	azClock = azNow.AddDate(0, 0, 9)
+	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 1 {
+		t.Errorf("did not return on the date: %v", got)
+	}
+}

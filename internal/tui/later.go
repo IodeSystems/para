@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -321,27 +322,91 @@ func (m *Model) later() tea.Cmd {
 		}
 	}
 	steps := []promptStep{
-		{label: "until (YYYY-MM-DD, or someday): ", value: "someday"},
+		{label: "until: YYYY-MM-DD, someday, after <item id or words>, or when <condition>: ", value: "someday"},
 		{label: "why it can wait (optional): ", optional: true},
+		{label: "place for a new when task: goal or area id (optional): ", optional: true},
 	}
-	lines := []string{"  It leaves Today and next. It still blocks what depends on it."}
+	lines := []string{
+		"  It leaves Today and next. It still blocks what depends on it.",
+		"  after <item>: waits until a task, question, ask, goal, or agent work is done.",
+		"  when <condition>: makes a task with that done-when, in this goal or area, and waits on it.",
+	}
 	return m.askForLines("Later: "+titleOr(title, tg.id), lines, steps, func(v []string) tea.Cmd {
-		until := v[0]
-		if strings.EqualFold(until, model.SomedayWord) {
-			until = ""
+		in := ops.DeferInput{IDs: []string{tg.id}, Reason: v[1], Place: v[2]}
+		word, rest, _ := strings.Cut(strings.TrimSpace(v[0]), " ")
+		switch strings.ToLower(word) {
+		case "after":
+			id, err := m.resolveItem(rest)
+			if err != nil {
+				return func() tea.Msg { return doneMsg{err: err} }
+			}
+			in.After = id
+		case "when":
+			in.When = rest
+		case strings.ToLower(model.SomedayWord):
+		default:
+			in.Until = v[0]
 		}
 		return func() tea.Msg {
-			o, err := ops.Defer.Run(context.Background(), env.Deps, ops.DeferInput{IDs: []string{tg.id}, Until: until, Reason: v[1]})
+			o, err := ops.Defer.Run(context.Background(), env.Deps, in)
 			if err != nil {
 				return doneMsg{err: err}
 			}
-			when := "someday"
-			if o.Until != model.SomedayWord {
-				when = "on " + o.Until
+			if len(o.Similar) > 0 {
+				var sim []string
+				for _, x := range o.Similar {
+					sim = append(sim, x.ID+" "+x.Title)
+				}
+				return doneMsg{err: fmt.Errorf("a similar open task exists, nothing changed. Use: after <id> with one of: %s", strings.Join(sim, "; "))}
 			}
-			return doneMsg{text: fmt.Sprintf("%q is back %s.", titleOr(title, "It"), when), reload: true}
+			text := fmt.Sprintf("%q is back %s.", titleOr(title, "It"), laterWhen(o))
+			if o.After != "" {
+				text = fmt.Sprintf("%q waits for %q.", titleOr(title, "It"), titleOr(m.snap.name(o.After), o.After))
+				if o.Created != "" {
+					text = fmt.Sprintf("%q waits for new task %s.", titleOr(title, "It"), o.Created)
+				}
+			}
+			return doneMsg{text: text, reload: true}
 		}
 	})
+}
+
+func laterWhen(o ops.DeferOutput) string {
+	if o.Until != model.SomedayWord {
+		return "on " + o.Until
+	}
+	return "someday"
+}
+
+// resolveItem finds the item named by an id or by words of its title, among
+// tasks, questions, Asks, goals, and agent work. More than one match is an
+// error that lists them.
+func (m *Model) resolveItem(q string) (string, error) {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return "", fmt.Errorf("after: give an item id or words of its title")
+	}
+	if _, ok := m.snap.Titles[q]; ok && findableID(q) {
+		return q, nil
+	}
+	var hits []string
+	for id, title := range m.snap.Titles {
+		if findableID(id) && strings.Contains(strings.ToLower(title), strings.ToLower(q)) {
+			hits = append(hits, id)
+		}
+	}
+	sort.Strings(hits)
+	switch len(hits) {
+	case 0:
+		return "", fmt.Errorf("after: no task, question, ask, goal, or agent work matches %q", q)
+	case 1:
+		return hits[0], nil
+	}
+	var list []string
+	for _, id := range hits[:min(len(hits), 5)] {
+		list = append(list, id+" "+m.snap.Titles[id])
+	}
+	return "", fmt.Errorf("after: %d items match %q, give an id: %s", len(hits), q, strings.Join(list, "; "))
 }
 
 // cutPair is one dependency that can be cut: waiter stops waiting on dep.

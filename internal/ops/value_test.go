@@ -54,6 +54,25 @@ func TestRankValue(t *testing.T) {
 			},
 			// a: unblocks t1 and the goal (impact 3, due Nov 12); b: t2, t3 (impact 2, due Nov 12).
 			[]string{"a", "t1", "b", "g", "t2", "t3"}, nil, nil},
+		{"a question that waits on a policy task: the task rises with the dated work the question blocks",
+			[]ValueNode{
+				{ID: "policy", Kind: KindTask, Created: "2026-10-01"},
+				{ID: "q", Kind: KindQuestion, Deps: []string{"policy"}, Deferred: true, WaitOnly: true, WaitDeps: []string{"policy"}},
+				{ID: "ship", Title: "ship", Kind: KindTask, Due: "2026-11-08", Deps: []string{"q"}},
+				{ID: "other", Kind: KindTask, Due: "2026-11-20"},
+			},
+			[]string{"policy", "ship", "other"},
+			map[string]string{"policy": "blocks 2, ship due Nov 8"}, nil},
+		{"a wait plus a date does not pass the date through",
+			[]ValueNode{
+				{ID: "policy", Kind: KindTask},
+				{ID: "q", Kind: KindQuestion, Deps: []string{"policy"}, Deferred: true, DeferUntil: "2027-01-01", WaitDeps: []string{"policy"}},
+				{ID: "ship", Kind: KindTask, Due: "2026-11-08", Deps: []string{"q"}},
+			},
+			[]string{"ship", "policy"}, nil, []string{"q"}},
+		{"a ready question names what finished",
+			[]ValueNode{{ID: "q", Kind: KindQuestion, ReadyWhy: "ready: Policy notes updated done"}},
+			[]string{"q"}, map[string]string{"q": "ready: Policy notes updated done"}, nil},
 		{"a deferred item adds no impact and gives no date, and is not listed",
 			[]ValueNode{
 				{ID: "q", Kind: KindQuestion},

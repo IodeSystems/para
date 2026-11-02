@@ -80,6 +80,11 @@ type QuestionView struct {
 	Deferred       bool   `json:"deferred"`
 	DeferUntil     string `json:"defer_until,omitempty"`
 	DeferredReason string `json:"deferred_reason,omitempty"`
+	// WaitsOn is the part of DeferredAfter still open: the question is under
+	// Later until they resolve. ReadyWhy is set for 7 days once they have.
+	WaitsOn      []string `json:"waits_on"`
+	ReadyWhy     string   `json:"ready_why,omitempty"`
+	WaitsOnNames []string `json:"waits_on_names,omitempty" nameof:"WaitsOn"`
 	// AgentLooking is true while queued or claimed agent work looks for context
 	// for this question. The question stays open.
 	AgentLooking bool `json:"agent_looking"`
@@ -103,7 +108,7 @@ func questionView(d model.Document) (QuestionView, error) {
 		HasProposal: q.HasProposal(), ProposedAnswer: q.ProposedAnswer, ProposedChoice: q.ProposedChoice,
 		ProposedBy: q.ProposedBy, ProposedSources: q.ProposedSources, ProposedWhy: q.ProposedWhy, Proposed: q.Proposed,
 		RejectedReason: q.RejectedReason, RejectedBy: q.RejectedBy,
-		DeferUntil: q.DeferUntil, DeferredReason: q.DeferredReason,
+		DeferUntil: q.DeferUntil, DeferredReason: q.DeferredReason, WaitsOn: []string{},
 	}, nil
 }
 
@@ -268,7 +273,11 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 		if err != nil {
 			return nil, err
 		}
-		v.Deferred = deferred[v.ID]
+		v.Deferred = deferred[v.ID].any()
+		v.WaitsOn, v.ReadyWhy = deferred[v.ID].Waits, deferred[v.ID].Ready
+		if v.WaitsOn == nil {
+			v.WaitsOn = []string{}
+		}
 		v.AgentLooking = looking[v.ID] != ""
 		x := qrow{v: v}
 		sd, gerr := scopeDoc(ctx, s, v.Scope)

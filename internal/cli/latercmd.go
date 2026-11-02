@@ -13,10 +13,19 @@ import (
 // deferText prints what a defer or undefer changed.
 func deferText(w io.Writer, out ops.DeferOutput) error {
 	p := &printer{w: w}
+	if out.Created != "" {
+		p.f("created\t%s\n", out.Created)
+	}
+	for _, x := range out.Similar {
+		p.f("similar\t%s\t%s\t(use --after %s, or --new)\n", x.ID, x.Title, x.ID)
+	}
 	for _, id := range out.Changed {
-		if out.Until != "" {
+		switch {
+		case out.After != "":
+			p.f("deferred\t%s\tafter %s\t%s\n", id, out.After, out.Until)
+		case out.Until != "":
 			p.f("deferred\t%s\t%s\n", id, out.Until)
-		} else {
+		default:
 			p.f("back\t%s\n", id)
 		}
 	}
@@ -35,6 +44,10 @@ func newDeferCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Until, "until", "", "YYYY-MM-DD it comes back; leave out for someday")
 			fs.StringVar(&in.Reason, "reason", "", "why it can wait")
 			fs.StringVar(&in.Scope, "scope", "", "a goal or an area: put off every open question in it that blocks nothing")
+			fs.StringVar(&in.After, "after", "", "id of a task, question, ask, goal, or agent work: wait until it is done (adds a dependency)")
+			fs.StringVar(&in.When, "when", "", "a condition in words, such as \"AI policy notes updated\": makes a task with that done_when and waits on it")
+			fs.StringVar(&in.Place, "place", "", "goal or area for the task --when makes; default the item's own")
+			fs.BoolVar(&in.New, "new", false, "with --when: make the task even when a similar open task exists")
 		},
 		Bind: func(args []string, in *ops.DeferInput) error { in.IDs = args; return nil },
 		Text: deferText,

@@ -129,6 +129,7 @@ func TestLaterMovesAQuestionToItsSectionAndBack(t *testing.T) {
 	d.key(d.keyFor("act:later"))
 	d.key("enter") // someday
 	d.key("enter") // no reason
+	d.key("enter") // no place
 	if status(t, v, idle).Question.DeferUntil != model.SomedayWord {
 		t.Fatalf("not deferred: %+v", status(t, v, idle).Question)
 	}

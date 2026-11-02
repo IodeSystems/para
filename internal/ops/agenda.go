@@ -201,7 +201,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		return nil, err
 	}
 	for _, t := range tasks {
-		if taskTerminal(t.Status) || IsOther(t.Assignee) || t.Due == "" || deferred[t.ID] {
+		if taskTerminal(t.Status) || IsOther(t.Assignee) || t.Due == "" || deferred[t.ID].any() {
 			continue
 		}
 		late, ok := inWindow(string(t.Due))

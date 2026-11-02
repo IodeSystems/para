@@ -61,6 +61,13 @@ type ValueNode struct {
 	// or "someday".
 	Deferred   bool
 	DeferUntil string
+	// WaitOnly is true when open items in WaitDeps are the only reason the item
+	// is deferred. Its downstream still counts for those items, so the work it
+	// waits on rises with what the item blocks.
+	WaitOnly bool
+	WaitDeps []string
+	// ReadyWhy is "ready: X done" for the days after a wait resolved.
+	ReadyWhy string
 	// Hidden nodes shape the order but are not listed: work for someone else.
 	Hidden bool
 	// Proposal marks a question with an answer to check.
@@ -138,7 +145,7 @@ func RankValue(nodes []ValueNode) ValueOrder {
 					continue
 				}
 				seen[u] = true
-				if by[u].Deferred {
+				if by[u].Deferred && (!by[u].WaitOnly || !slices.Contains(by[u].WaitDeps, cur)) {
 					continue
 				}
 				out = append(out, by[u])
@@ -231,6 +238,9 @@ func RankValue(nodes []ValueNode) ValueOrder {
 // why says in words why a row is where it is.
 func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 	var parts []string
+	if n.ReadyWhy != "" {
+		parts = append(parts, n.ReadyWhy)
+	}
 	switch {
 	case n.Kind == KindIncident:
 		parts = append(parts, n.Sev+" open")
@@ -294,9 +304,11 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 		if err != nil {
 			return nil, err
 		}
-		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: deferred[doc.ID]}
+		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: deferred[doc.ID].any()}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil
+			h := deferred[doc.ID]
+			n.WaitOnly, n.WaitDeps, n.ReadyWhy = h.waitOnly(), h.Waits, h.Ready
 		}
 		switch m := doc.Meta.(type) {
 		case *model.Incident:

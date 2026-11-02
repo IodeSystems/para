@@ -35,6 +35,11 @@ type TaskView struct {
 	Deferred       bool   `json:"deferred"`
 	DeferUntil     string `json:"defer_until,omitempty"`
 	DeferredReason string `json:"deferred_reason,omitempty"`
+	// WaitsOn is the part of DeferredAfter still open: the item is under Later
+	// until they resolve. ReadyWhy is set for 7 days once they have, "ready: X done".
+	WaitsOn      []string `json:"waits_on"`
+	ReadyWhy     string   `json:"ready_why,omitempty"`
+	WaitsOnNames []string `json:"waits_on_names,omitempty" nameof:"WaitsOn"`
 	// Names are for people: the title of what the id fields point at, "" when
 	// unknown. DependsOnNames has one entry per DependsOn.
 	ProjectName    string   `json:"project_name,omitempty" nameof:"Project"`
@@ -52,7 +57,7 @@ func taskView(d model.Document) (TaskView, error) {
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
 		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
-		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason,
+		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -109,6 +114,10 @@ func resolved(d model.Document) bool {
 		return m.Status == model.RFXAnswered || m.Status == model.RFXClosed
 	case *model.Question:
 		return m.Status != model.QuestionOpen
+	case *model.Project:
+		return m.Status == model.ProjectDone || m.Status == model.ProjectDropped
+	case *model.Request:
+		return m.Status != model.RequestQueued && m.Status != model.RequestClaimed
 	}
 	return false
 }
@@ -446,8 +455,8 @@ func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link,
 	if err != nil {
 		return "", fmt.Errorf("depends_on %s: %w", id, err)
 	}
-	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX && typ != model.TypeQuestion {
-		return "", fmt.Errorf("depends_on %s is a %s: want a task, rfx, or question", id, typ)
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeProject && typ != model.TypeRequest {
+		return "", fmt.Errorf("depends_on %s is a %s: want a task, rfx, question, goal, or agent work", id, typ)
 	}
 	return model.LinkTo(id), nil
 }
@@ -619,7 +628,13 @@ func markDeferred(ctx context.Context, s store.Store, tasks []TaskView, keep boo
 	}
 	out := tasks[:0]
 	for _, t := range tasks {
-		t.Deferred = set[t.ID] && !taskTerminal(t.Status)
+		t.Deferred = set[t.ID].any() && !taskTerminal(t.Status)
+		if !taskTerminal(t.Status) {
+			if t.WaitsOn = set[t.ID].Waits; t.WaitsOn == nil {
+				t.WaitsOn = []string{}
+			}
+			t.ReadyWhy = set[t.ID].Ready
+		}
 		if t.Deferred && !keep {
 			continue
 		}

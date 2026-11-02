@@ -39,6 +39,9 @@ func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 // laterSuffix marks a task a person put off.
 func laterSuffix(t ops.TaskView) string {
 	if t.Deferred {
+		if len(t.WaitsOn) > 0 {
+			return "\t(later, waits on: " + strings.Join(namesOrIDs(t.WaitsOnNames, t.WaitsOn), ", ") + ")"
+		}
 		return "\t(later: " + t.DeferUntil + ")"
 	}
 	return ""
@@ -470,4 +473,18 @@ func confirmDone(l *loader, cmd *cobra.Command) *cobra.Command {
 		return run(c, args)
 	}
 	return cmd
+}
+
+// namesOrIDs prefers the titles of ids, one per id.
+func namesOrIDs(names, ids []string) []string {
+	if len(names) != len(ids) {
+		return ids
+	}
+	out := make([]string, len(ids))
+	for i := range ids {
+		if out[i] = names[i]; out[i] == "" {
+			out[i] = ids[i]
+		}
+	}
+	return out
 }

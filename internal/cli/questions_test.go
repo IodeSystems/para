@@ -153,3 +153,28 @@ func TestQuestionsInToday(t *testing.T) {
 		t.Fatalf("today after answer: %s", out)
 	}
 }
+
+func TestDeferAfterAndWhenLeaveToday(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	var area ops.AreaAddOutput
+	e.json(&area, "area", "add", "Policy")
+	var q ops.QuestionAddOutput
+	e.json(&q, "question", "add", "Which AI vendor?", "--area", area.ID)
+	var pol ops.TaskAddOutput
+	e.json(&pol, "task", "add", "Policy notes updated", "--area", area.ID)
+	if out := e.ok("defer", q.ID, "--after", pol.ID); !strings.Contains(out, "after "+pol.ID) {
+		t.Fatalf("defer: %s", out)
+	}
+	if out := e.ok("today"); strings.Contains(out, "Which AI vendor?") {
+		t.Fatalf("waiting question on today: %s", out)
+	}
+	e.ok("undefer", q.ID)
+	out := e.ok("defer", q.ID, "--when", "Vendor review recorded")
+	if !strings.Contains(out, "created\ttask-") {
+		t.Fatalf("defer --when: %s", out)
+	}
+	if _, _, err := e.run("defer", q.ID, "--after", pol.ID, "--when", "x"); err == nil {
+		t.Fatal("after and when together were accepted")
+	}
+}

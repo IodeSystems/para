@@ -329,6 +329,28 @@ func (m *Model) rowsToday(w int) []row {
 }
 
 // laterWords says when a put-off item returns.
+// laterNote is the Later note of a row: the open waits, then the date.
+func laterNote(until string, waits, names []string) string {
+	var parts []string
+	if len(waits) > 0 {
+		w := make([]string, len(waits))
+		for i, id := range waits {
+			w[i] = id
+			if i < len(names) && names[i] != "" {
+				w[i] = names[i]
+			}
+		}
+		parts = append(parts, "waits on: "+strings.Join(w, ", "))
+	}
+	if until != "" {
+		parts = append(parts, "back "+laterWords(until))
+	}
+	if len(parts) == 0 {
+		return "later"
+	}
+	return strings.Join(parts, ", ")
+}
+
 func laterWords(until string) string {
 	if until == model.SomedayWord {
 		return "someday"
@@ -402,7 +424,7 @@ func (m *Model) questionRows(w int, qs []ops.QuestionView) []row {
 			post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
 		}
 		if q.Deferred {
-			post += "  " + stDim.Render("back "+laterWords(q.DeferUntil))
+			post += "  " + stDim.Render(laterNote(q.DeferUntil, q.WaitsOn, q.WaitsOnNames))
 		}
 		x := link("doc:"+q.ID, pre, titleOr(q.Title, q.ID), post, w)
 		x.kind, x.id, x.proposed = "question", q.ID, q.HasProposal
@@ -562,7 +584,7 @@ func (m *Model) rowsWork(w int) []row {
 			label += stDim.Render("  due " + dateWords(string(t.Due), m.snap.Loaded))
 		}
 		if t.Deferred {
-			label += stDim.Render("  back " + laterWords(t.DeferUntil))
+			label += stDim.Render("  " + laterNote(t.DeferUntil, t.WaitsOn, t.WaitsOnNames))
 		}
 		tx := link("doc:"+t.ID, indent, titleOr(t.Title, t.ID), "  "+label, w)
 		tx.id = t.ID

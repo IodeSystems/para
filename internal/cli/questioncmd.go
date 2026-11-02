@@ -28,7 +28,11 @@ func stateText(v ops.QuestionView) string {
 		s = "proposed answer"
 	}
 	if v.Deferred {
-		s += " (later: " + v.DeferUntil + ")"
+		if len(v.WaitsOn) > 0 {
+			s += " (later, waits on: " + strings.Join(namesOrIDs(v.WaitsOnNames, v.WaitsOn), ", ") + ")"
+		} else {
+			s += " (later: " + v.DeferUntil + ")"
+		}
 	}
 	if v.AgentLooking {
 		s += " (agent looking)"

@@ -112,6 +112,11 @@ const SomedayWord = "someday"
 type Deferral struct {
 	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
 	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
+	// DeferredAfter lists ids of items the deferral waits on: it holds while one
+	// is open. DeferredAdded is the part of those that defer put in depends_on,
+	// so undefer removes only those and never a dependency a person made.
+	DeferredAfter []string `yaml:"deferred_after,omitempty" json:"deferred_after,omitempty"`
+	DeferredAdded []string `yaml:"deferred_added,omitempty" json:"deferred_added,omitempty"`
 }
 
 // IsDeferred reports whether the item is put off on the date today (YYYY-MM-DD,
