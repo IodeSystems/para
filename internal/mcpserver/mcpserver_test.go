@@ -165,6 +165,52 @@ func newVault(t *testing.T) (store.Store, string) {
 	return s, root
 }
 
+// seededTemplate builds one vault with seedSamples applied. Each parity case
+// copies it: building a vault per op costs a few seconds of fsync, a copy
+// costs milliseconds.
+func seededTemplate(t *testing.T) string {
+	t.Helper()
+	s, root := newVault(t)
+	seedSamples(t, s)
+	return root
+}
+
+// vaultFromTemplate copies a template vault and opens the copy.
+func vaultFromTemplate(t *testing.T, template string) store.Store {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "vault")
+	err := filepath.WalkDir(template, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(template, path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(root, rel)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return os.MkdirAll(dst, info.Mode().Perm())
+		}
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(dst, b, info.Mode().Perm())
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", StateDir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return s
+}
+
 func connect(t *testing.T, deps ops.Deps, hide ...string) *client.Client {
 	t.Helper()
 	srv, err := New(deps, Options{Version: "test", Hide: hide})
@@ -398,10 +444,10 @@ func TestInputEnums(t *testing.T) {
 // TestParity calls every op through a client session and checks the result is
 // the op Output as `para <cmd> --json` prints it.
 func TestParity(t *testing.T) {
+	template := seededTemplate(t)
 	for _, e := range ops.All() {
 		t.Run(e.Name(), func(t *testing.T) {
-			s, _ := newVault(t)
-			seedSamples(t, s)
+			s := vaultFromTemplate(t, template)
 			c := connect(t, ops.Deps{Store: s})
 			args, haveSample := sampleInputs[e.Name()]
 			if !haveSample {
@@ -431,8 +477,7 @@ func TestParity(t *testing.T) {
 			}
 			// A deterministic op gives the same bytes through Invoke.
 			if !haveSample {
-				s2, _ := newVault(t)
-				seedSamples(t, s2)
+				s2 := vaultFromTemplate(t, template)
 				out, err := e.Invoke(context.Background(), ops.Deps{Store: s2}, json.RawMessage(args))
 				if err != nil {
 					t.Fatal(err)
