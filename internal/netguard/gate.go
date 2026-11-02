@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -108,7 +109,10 @@ type Config struct {
 	Lookup func(id string) (Tenant, bool)
 	// Policy classifies a request.
 	Policy func(method, path string) Route
-	Log    *slog.Logger // nil discards
+	// Own reports whether an address belongs to this machine. Nil means the
+	// interfaces of this machine.
+	Own func(netip.Addr) bool
+	Log *slog.Logger // nil discards
 }
 
 // Gate is the request gate.
@@ -118,6 +122,9 @@ type Gate struct{ c Config }
 func New(c Config) *Gate {
 	if c.Log == nil {
 		c.Log = slog.New(slog.DiscardHandler)
+	}
+	if c.Own == nil {
+		c.Own = OwnAddr
 	}
 	return &Gate{c: c}
 }
@@ -159,7 +166,7 @@ func (g *Gate) Wrap(next http.Handler) http.Handler {
 		secureHeaders(w.Header())
 
 		// Stage 1: client IP.
-		client := g.c.Proxies.Resolve(r)
+		client := g.client(r)
 
 		// Stage 2: Host. One answer for every name, known or not.
 		id, ok := g.c.Router.Route(r.Host)
@@ -232,6 +239,17 @@ func (g *Gate) Wrap(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(WithRequest(r.Context(), res)))
 	})
+}
+
+// client resolves the client of r. A direct peer on one of this machine's own
+// addresses is local like a loopback peer: not a trusted proxy, no forwarding
+// header.
+func (g *Gate) client(r *http.Request) Client {
+	c := g.c.Proxies.Resolve(r)
+	if !c.Local && c.Peer.IsValid() && c.Addr == c.Peer && !g.c.Proxies.has(c.Peer) && !forwarded(r) && g.c.Own(c.Peer) {
+		c.Local = true
+	}
+	return c
 }
 
 func (g *Gate) unauthenticated(w http.ResponseWriter, r *http.Request, c Client, vault string) {

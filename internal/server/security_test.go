@@ -594,3 +594,35 @@ func TestServerGETRoutesAreOwned(t *testing.T) {
 		}
 	}
 }
+
+// A peer on one of this machine's own addresses is local: the default rules
+// (loopback only) let it in, and it may use the admin token. A header or a
+// remote peer cannot borrow that.
+func TestOwnAddressCountsAsLocal(t *testing.T) {
+	f := newFixture(t)
+	admin, err := f.keyA.AdminToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok := f.key(f.keyA, "k", allScopes...)
+	list := "/api/v1/task/list"
+	adminList := "/api/v1/admin/key/list"
+	wantStatus(t, f.do(call{target: list, token: tok, peer: ownPeer}), 200)
+	wantStatus(t, f.do(call{target: adminList, token: admin, peer: ownPeer}), 200)
+	// A remote peer is refused whatever it claims.
+	for _, claim := range []string{"127.0.0.1", ownIP, "::1"} {
+		hdr := map[string]string{"X-Forwarded-For": claim}
+		wantStatus(t, f.do(call{target: list, token: tok, peer: "203.0.113.9:1", header: hdr}), 403)
+		wantStatus(t, f.do(call{target: adminList, token: admin, peer: "203.0.113.9:1", header: hdr}), 403)
+	}
+	wantStatus(t, f.do(call{target: adminList, token: admin, peer: "203.0.113.9:1"}), 403)
+	// An own-address peer that forwards for someone is not local.
+	hdr := map[string]string{"X-Forwarded-For": "203.0.113.9"}
+	wantStatus(t, f.do(call{target: list, token: tok, peer: ownPeer, header: hdr}), 403)
+	wantStatus(t, f.do(call{target: adminList, token: admin, peer: ownPeer, header: hdr}), 403)
+	// The trusted proxy forwarding a claim of an own address is not local.
+	wantStatus(t, f.do(call{target: adminList, token: admin, peer: proxyPeer, header: map[string]string{"X-Forwarded-For": ownIP}}), 403)
+	// A rules file that names no loopback does not admit the own address.
+	f.rules("acme", "allow / 198.51.100.7\n")
+	wantStatus(t, f.do(call{target: list, token: tok, peer: ownPeer}), 403)
+}

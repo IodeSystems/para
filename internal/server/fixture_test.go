@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,6 +31,9 @@ const (
 	localPeer = "127.0.0.1:50000"
 	proxyIP   = "10.9.9.9"
 	proxyPeer = proxyIP + ":50000"
+	// ownIP stands for a LAN address of the machine that runs the server.
+	ownIP   = "192.168.77.5"
+	ownPeer = ownIP + ":50000"
 )
 
 var allScopes = netguard.Scopes
@@ -137,6 +141,7 @@ func newFixture(t *testing.T) *fixture {
 	gate := netguard.New(netguard.Config{
 		Proxies: proxies, Router: netguard.NewRouter([]string{"para.vpn.example"}, "", nil),
 		Lookup: hub.Lookup, Policy: srv.Policy,
+		Own: func(a netip.Addr) bool { return a.IsLoopback() || a == netip.MustParseAddr(ownIP) },
 	})
 	return &fixture{t: t, home: home, hub: hub, srv: srv, h: srv.Handler(gate),
 		keyA: keys.New(ServerDir(in, "acme")), keyB: keys.New(ServerDir(in, "beta"))}

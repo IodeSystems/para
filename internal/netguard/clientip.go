@@ -2,6 +2,7 @@ package netguard
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -15,10 +16,12 @@ type Client struct {
 	// Addr is the client address. It is invalid when the address is unknown,
 	// and every IP rule denies an unknown address.
 	Addr netip.Addr
-	// Local means the request came straight from a loopback peer: that peer is
-	// not a trusted proxy and the request carries no forwarding header. An
-	// unlisted proxy on this machine sets those headers, so its traffic is not
-	// local.
+	// Local means the request came straight from this machine: the peer is
+	// loopback or one of this machine's own addresses, is not a trusted proxy,
+	// and the request carries no forwarding header. An unlisted proxy on this
+	// machine sets those headers, so its traffic is not local. A remote host
+	// cannot take an own address as its TCP peer, and a header cannot make a
+	// remote peer local.
 	Local bool
 	// Proto is the scheme the browser used: "https" or "http".
 	Proto string
@@ -112,6 +115,26 @@ func forwarded(r *http.Request) bool {
 	for _, h := range []string{"X-Forwarded-For", "X-Real-Ip", "Forwarded", "X-Forwarded-Proto", "X-Forwarded-Host"} {
 		if len(r.Header.Values(h)) > 0 {
 			return true
+		}
+	}
+	return false
+}
+
+// OwnAddr reports whether a is an address of an interface of this machine.
+func OwnAddr(a netip.Addr) bool {
+	a = norm(a)
+	if a.IsLoopback() {
+		return true
+	}
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return false
+	}
+	for _, v := range addrs {
+		if p, ok := v.(*net.IPNet); ok {
+			if ip, ok := netip.AddrFromSlice(p.IP); ok && norm(ip) == a {
+				return true
+			}
 		}
 	}
 	return false

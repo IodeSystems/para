@@ -279,3 +279,35 @@ func TestOriginOK(t *testing.T) {
 		}
 	}
 }
+
+func TestOwnAddressIsLocalOnlyWhenDirect(t *testing.T) {
+	p, err := ParseProxies([]string{"10.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	own := func(a netip.Addr) bool { return a == netip.MustParseAddr("192.168.1.76") }
+	g := New(Config{Proxies: p, Own: own})
+	rules, err := ParseRules(DefaultRules)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name, remote, xff string
+		allow             bool
+	}{
+		{"own address", "192.168.1.76:1", "", true},
+		{"own address forwarding", "192.168.1.76:1", "203.0.113.9", false},
+		{"remote claiming own", "203.0.113.9:1", "192.168.1.76", false},
+		{"remote claiming loopback", "203.0.113.9:1", "127.0.0.1", false},
+		{"remote", "203.0.113.9:1", "", false},
+	} {
+		hdr := map[string]string{}
+		if tc.xff != "" {
+			hdr["X-Forwarded-For"] = tc.xff
+		}
+		r := req(tc.remote, hdr)
+		if got := g.client(r); rules.Allow("/", got) != tc.allow {
+			t.Errorf("%s: allow %v, want %v", tc.name, !tc.allow, tc.allow)
+		}
+	}
+}

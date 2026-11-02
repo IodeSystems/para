@@ -22,6 +22,11 @@ const DefaultRules = `# net.rules: who can reach which path. One rule per line.
 allow / 127.0.0.1 ::1
 `
 
+var (
+	loopback4 = netip.MustParseAddr("127.0.0.1")
+	loopback6 = netip.MustParseAddr("::1")
+)
+
 // Rules is a parsed net.rules file.
 type Rules struct {
 	byLen []rule // longest path first
@@ -139,7 +144,9 @@ func (r *Rules) Allow(p string, c Client) bool {
 			return false
 		}
 		for _, b := range v.blocks {
-			if b.Contains(c.Addr) {
+			// A rule that allows loopback allows this machine, whatever
+			// address it reached the server on.
+			if b.Contains(c.Addr) || (c.Local && (b.Contains(loopback4) || b.Contains(loopback6))) {
 				return true
 			}
 		}
