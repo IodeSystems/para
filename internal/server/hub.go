@@ -29,7 +29,12 @@ type Hub struct {
 	log     *slog.Logger
 	mu      sync.Mutex
 	open    map[string]*Tenant
+	live    *Live
 }
+
+// SetLive makes vaults opened from now on wake live clients on each event.
+// Call it before Prepare.
+func (h *Hub) SetLive(l *Live) { h.live = l }
 
 // NewHub returns the Hub of an install.
 func NewHub(in registry.Install, log *slog.Logger) *Hub {
@@ -110,8 +115,12 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 		return nil, err
 	}
 	state := filepath.Join(h.install.Home, "vaults", v.ID)
-	st, err := local.Open(v.Path, vault.Options{ID: v.ID, Install: install, StateDir: state,
-		Warn: func(m string) { h.log.Warn("event log", "vault", v.ID, "note", m) }})
+	opt := vault.Options{ID: v.ID, Install: install, StateDir: state,
+		Warn: func(m string) { h.log.Warn("event log", "vault", v.ID, "note", m) }}
+	if h.live != nil {
+		opt.OnEvent = h.live.Notify(v.ID)
+	}
+	st, err := local.Open(v.Path, opt)
 	if err != nil {
 		return nil, fmt.Errorf("vault %s: %w", v.ID, err)
 	}
@@ -128,7 +137,7 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 		return nil, err
 	}
 	return &Tenant{
-		id: v.ID, store: st, keys: ks, rulesPath: filepath.Join(dir, "net.rules"),
+		id: v.ID, store: st, keys: ks, install: h.install, state: state, rulesPath: filepath.Join(dir, "net.rules"),
 		ref: filepath.Join(state, "vault.ref"), hide: []string{filepath.Clean(v.Path), h.install.Home}, log: h.log,
 	}, nil
 }
@@ -150,6 +159,8 @@ func EnsureRules(dir string) error {
 // Tenant is one open vault with its keys and rules.
 type Tenant struct {
 	id        string
+	install   registry.Install
+	state     string // per-machine state directory of this vault
 	store     *local.Store
 	keys      *keys.Store
 	rulesPath string

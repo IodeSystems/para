@@ -32,6 +32,12 @@ func TestNamingRule(t *testing.T) {
 		"adminKeyList":      "/api/v1/admin/key/list",
 		"adminKeyCreate":    "/api/v1/admin/key/create",
 		"adminKeyRevoke":    "/api/v1/admin/key/revoke",
+		"uiToday":           "/api/v1/ui/today",
+		"uiReview":          "/api/v1/ui/review",
+		"uiReviewAccept":    "/api/v1/ui/review/accept",
+		"uiReviewReopen":    "/api/v1/ui/review/reopen",
+		"uiDoc":             "/api/v1/ui/doc",
+		"uiLiveSubscribe":   "/api/v1/ui/live/subscribe",
 	}
 	camel := regexp.MustCompile(`^[a-z]+(?:[A-Z][a-z]+)*$`)
 	s := schemaOnly(t)

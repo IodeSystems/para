@@ -6,13 +6,16 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
+	"reflect"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -41,6 +44,7 @@ type Options struct {
 	Version string
 	Web     http.Handler // the UI; nil answers 404
 	Log     *slog.Logger // nil discards
+	Live    *Live        // nil makes a private one
 }
 
 // Server holds the built API. Build it with New.
@@ -51,6 +55,7 @@ type Server struct {
 	gw     *gat.Gateway
 	api    huma.API
 	mux    chi.Router
+	live   *Live
 }
 
 // New registers every route. It touches no vault: `para schema dump` runs it
@@ -59,12 +64,22 @@ func New(o Options) (*Server, error) {
 	if o.Log == nil {
 		o.Log = slog.New(slog.DiscardHandler)
 	}
-	s := &Server{opt: o, log: o.Log, routes: newRouteTable(), mux: chi.NewRouter()}
+	s := &Server{opt: o, log: o.Log, routes: newRouteTable(), mux: chi.NewRouter(), live: o.Live}
+	if s.live == nil {
+		l, err := NewLive()
+		if err != nil {
+			return nil, err
+		}
+		s.live = l
+	}
 	if err := s.build(); err != nil {
 		return nil, fmt.Errorf("server: new: %w", err)
 	}
 	return s, nil
 }
+
+// Live returns the relay, for shutdown.
+func (s *Server) Live() *Live { return s.live }
 
 // SDL returns the GraphQL schema text.
 func (s *Server) SDL() string { return s.gw.GraphQLSDL() }
@@ -108,6 +123,11 @@ type statusWriter struct {
 
 func (w *statusWriter) WriteHeader(c int) { w.status = c; w.ResponseWriter.WriteHeader(c) }
 
+// Hijack lets the WebSocket upgrade take the connection.
+func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return http.NewResponseController(w.ResponseWriter).Hijack()
+}
+
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 // access writes one log line per request that passed the gate, and marks API
@@ -136,13 +156,13 @@ func isAPIPath(p string) bool {
 }
 
 // serverPrefixes are the paths the server owns. Anything else is the UI.
-var serverPrefixes = []string{"/api", "/auth", "/mcp", "/healthz"}
+var serverPrefixes = []string{"/api", "/auth", "/mcp", "/healthz", "/ws"}
 
 // ServerGETRoutes lists the paths a browser could navigate to that the server
 // answers and the UI must not. The PWA service worker's navigateFallback
 // denylist must cover each one.
 func ServerGETRoutes() []string {
-	return []string{"/api/", "/auth/", "/mcp", "/healthz"}
+	return []string{"/api/", "/auth/", "/mcp", "/healthz", "/ws"}
 }
 
 // build follows the gat order: humachi.New, gat.New, the two options, every
@@ -157,6 +177,14 @@ func (s *Server) build() error {
 		"application/json": jsonFormat,
 		"json":             jsonFormat,
 	}
+	// internal/today names Item and Group, which internal/export names too.
+	cfg.Components.Schemas = huma.NewMapRegistry("#/components/schemas/", func(t reflect.Type, hint string) string {
+		name := huma.DefaultSchemaNamer(t, hint)
+		if strings.HasSuffix(t.PkgPath(), "/internal/today") {
+			return "Today" + name
+		}
+		return name
+	})
 	registerAliases(cfg.Components.Schemas)
 	s.api = humachi.New(s.mux, cfg)
 	s.api.UseMiddleware(s.scopeMiddleware)
@@ -179,6 +207,7 @@ func (s *Server) build() error {
 	registerRecords(r)
 	registerRequests(r)
 	registerVault(r)
+	registerUI(r)
 	registerSession(r)
 	registerAdmin(r)
 
@@ -209,6 +238,10 @@ var jsonFormat = huma.Format{
 // answer JSON 404, never the SPA: a 200 HTML page from a mistyped API path
 // would make every existence check pass.
 func (s *Server) rawRoutes() {
+	// The relay gates each subscription by a signed cap. The connection itself
+	// needs a key, and the gate checks Origin on the upgrade.
+	s.routes.add(get, "/ws", netguard.ScopeAnyKey)
+	s.mux.Get("/ws", s.live.Handler().ServeHTTP)
 	s.mux.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}` + "\n"))

@@ -150,7 +150,12 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("serve: --addr: want ip:port: %w", err)
 	}
+	live, err := server.NewLive()
+	if err != nil {
+		return err
+	}
 	hub := server.NewHub(l.install, log)
+	hub.SetLive(live)
 	ids, err := hub.Prepare()
 	if err != nil {
 		return err
@@ -168,7 +173,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	}
 	defer release()
 
-	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log})
+	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live})
 	if err != nil {
 		return err
 	}
@@ -197,6 +202,8 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		IdleTimeout:       idleLimit,
 		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelWarn),
 	}
+	// http.Server.Shutdown leaves hijacked sockets alone; the relay closes them.
+	relayDone := live.RegisterShutdown(hs, shutdownTimeout, log)
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	done := make(chan error, 1)
@@ -213,6 +220,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	if err := hs.Shutdown(sctx); err != nil {
 		return fmt.Errorf("serve: shutdown: %w", err)
 	}
+	<-relayDone
 	if err := <-done; !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("serve: %w", err)
 	}

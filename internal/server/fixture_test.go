@@ -114,10 +114,15 @@ func newFixture(t *testing.T) *fixture {
 	in := registry.Install{Home: home}
 	log := slog.New(slog.DiscardHandler)
 	hub := NewHub(in, log)
+	live, err := NewLive()
+	if err != nil {
+		t.Fatal(err)
+	}
+	hub.SetLive(live)
 	if _, err := hub.Prepare(); err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(Options{Version: "test", Log: log,
+	srv, err := New(Options{Version: "test", Log: log, Live: live,
 		Web: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "<html>shell</html>") })})
 	if err != nil {
 		t.Fatal(err)

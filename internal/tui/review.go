@@ -99,8 +99,11 @@ type ReviewData struct {
 }
 
 // ownSurface reports whether an event is the owner's own action. The owner's
-// CLI and TUI work is not review material.
-func ownSurface(e model.Event) bool { return e.Surface == "cli" || e.Surface == Surface }
+// CLI, TUI, and browser work is not review material. A browser session is a
+// person: an agent holds a bearer key, whose surface is api.
+func ownSurface(e model.Event) bool {
+	return e.Surface == "cli" || e.Surface == Surface || e.Surface == "pwa"
+}
 
 // BuildReview derives the Review screen from a snapshot and a position.
 func BuildReview(s Snapshot, pos Position) ReviewData {
