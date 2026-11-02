@@ -103,6 +103,7 @@ func newRoot(l *loader) *cobra.Command {
 		newInteractionCmd(l),
 		newIndexCmd(l),
 		newSearchCmd(l),
+		newJournalCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root

@@ -38,6 +38,7 @@ var (
 	targetStates    = []string{"drafted", "sent", "replied", "no_reply"}
 	interDirections = []string{"in", "out", "observed"}
 	visibilities    = []string{"public", "private"}
+	journalScopes   = []string{"day", "week", "month", "project"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.

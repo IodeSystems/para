@@ -185,6 +185,7 @@ type JournalScope string
 const (
 	JournalDay     JournalScope = "day"
 	JournalWeek    JournalScope = "week"
+	JournalMonth   JournalScope = "month"
 	JournalProject JournalScope = "project"
 )
 
@@ -286,3 +287,4 @@ func enumStrings[T ~string](in []T) []string {
 	}
 	return out
 }
+var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalMonth, JournalProject}
