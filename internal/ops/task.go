@@ -139,7 +139,7 @@ type TaskAddOutput struct {
 
 // TaskAdd creates a todo task in a project, an area, or both. Tasks live in
 // projects/. A dependency may be any task or rfx, in any project or area.
-var TaskAdd = define("task_add", "Create a task in a project or an area (at least one)", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at least one)", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return TaskAddOutput{}, errors.New("title is empty")
@@ -244,7 +244,7 @@ type TaskListOutput struct {
 }
 
 // TaskList lists tasks.
-var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
+var TaskList = defineRead("task_list", "List tasks", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.TaskStatuses, in.Status) {
 		return TaskListOutput{}, fmt.Errorf("unknown status %q", in.Status)
 	}
@@ -286,7 +286,7 @@ type TaskShowOutput struct {
 }
 
 // TaskShow returns one task.
-var TaskShow = define("task_show", "Show a task", func(ctx context.Context, d Deps, in TaskShowInput) (TaskShowOutput, error) {
+var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, d Deps, in TaskShowInput) (TaskShowOutput, error) {
 	doc, _, err := getTask(ctx, d.Store, in.ID)
 	if err != nil {
 		return TaskShowOutput{}, err
@@ -334,7 +334,7 @@ type TaskStartInput struct {
 
 // TaskStart moves a todo or blocked task to doing and clears its blockers.
 // Unfinished dependencies refuse the start unless Force.
-var TaskStart = define("task_start", "Start a task", func(ctx context.Context, d Deps, in TaskStartInput) (TaskChangeOutput, error) {
+var TaskStart = defineSafe("task_start", "Start a task", func(ctx context.Context, d Deps, in TaskStartInput) (TaskChangeOutput, error) {
 	return transition(ctx, d, in.ID, func(_ model.Document, t *model.Task) error {
 		if t.Status == model.TaskDoing {
 			return fmt.Errorf("%s is already doing", in.ID)
@@ -365,7 +365,7 @@ type TaskBlockInput struct {
 
 // TaskBlock marks a task blocked and records the reason. Blocking a blocked
 // task adds a reason.
-var TaskBlock = define("task_block", "Block a task with a reason", func(ctx context.Context, d Deps, in TaskBlockInput) (TaskChangeOutput, error) {
+var TaskBlock = defineSafe("task_block", "Block a task with a reason", func(ctx context.Context, d Deps, in TaskBlockInput) (TaskChangeOutput, error) {
 	reason := strings.Join(strings.Fields(in.Reason), " ")
 	if reason == "" {
 		return TaskChangeOutput{}, errors.New("reason is empty")
@@ -409,7 +409,7 @@ type TaskDueOutput struct {
 
 // TaskDue sets or clears the due date of an open task, and optionally its
 // recurrence. The recurrence acts when the task is marked done.
-var TaskDue = define("task_due", "Set or clear the due date of a task", func(ctx context.Context, d Deps, in TaskDueInput) (TaskDueOutput, error) {
+var TaskDue = defineSafe("task_due", "Set or clear the due date of a task", func(ctx context.Context, d Deps, in TaskDueInput) (TaskDueOutput, error) {
 	date, err := parseDue(in.Date)
 	if err != nil {
 		return TaskDueOutput{}, err
@@ -508,7 +508,7 @@ type TaskDependsOutput struct {
 
 // TaskDependsAdd adds dependencies to an open task. An edge that would close a
 // cycle is refused, and nothing is changed.
-var TaskDependsAdd = define("task_depends_add", "Make a task wait on other tasks or rfx; a cycle is refused", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
+var TaskDependsAdd = defineSafe("task_depends_add", "Make a task wait on other tasks or rfx; a cycle is refused", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskDependsOutput{}, err
@@ -545,7 +545,7 @@ var TaskDependsAdd = define("task_depends_add", "Make a task wait on other tasks
 })
 
 // TaskDependsRemove removes dependencies from a task.
-var TaskDependsRemove = define("task_depends_remove", "Stop a task waiting on other tasks or rfx", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
+var TaskDependsRemove = defineSafe("task_depends_remove", "Stop a task waiting on other tasks or rfx", func(ctx context.Context, d Deps, in TaskDependsInput) (TaskDependsOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskDependsOutput{}, err
@@ -591,7 +591,7 @@ type TaskEditOutput struct {
 }
 
 // TaskEdit sets the done condition of an open task.
-var TaskEdit = define("task_edit", "Set how we know a task is done", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err

@@ -107,7 +107,11 @@ function startAgent() {
   })
   const call = async (name, args) => {
     await ready
-    const m = await rpc('tools/call', { name, arguments: args })
+    // Every write carries why; reads and the work flow ops take none.
+    const noWhy =
+      /_(list|show|wait|approved|diff|expiring)$|^(search|where|who|route|graph|next|waiting|agenda|lint|copy|export|calendar_export|events_tail|request_(next|note|done|fail|add)|proposal_(add|revise))$/
+    const withWhy = noWhy.test(name) ? args : { why: 'From the smoke test.', ...args }
+    const m = await rpc('tools/call', { name, arguments: withWhy })
     if (m.error) throw new Error(`mcp ${name}: ${JSON.stringify(m.error)}`)
     const text = m.result?.content?.[0]?.text ?? ''
     if (m.result?.isError) throw new Error(`mcp ${name}: ${text}`)
@@ -891,6 +895,24 @@ try {
   await rp.locator('[data-item="i2"]').getByRole('button', { name: 'Approve' }).click()
   await rp.locator('[data-item="i3"]').getByText('Not chosen: picked i2').waitFor()
   check(true, 'picking one choice closes the other, with the reason')
+
+  // Every agent write has a receipt: what changed, why, and how to verify; one click to check it.
+  const written = await agent.call('note_add', {
+    title: 'Quota numbers',
+    area: undefined,
+    why: 'Sam asked for the numbers in one place.',
+    verify: 'Open the note.',
+  })
+  await rp.goto(`${base}/review`)
+  const receiptCard = rp.locator('[data-receipt]', { hasText: 'Quota numbers' })
+  await receiptCard.getByText('Sam asked for the numbers in one place.').waitFor()
+  check(true, 'Review shows an agent write with its why')
+  await receiptCard.getByRole('button', { name: 'What changed' }).click()
+  await receiptCard.getByLabel('What this write changed').getByText('Open the note.').waitFor()
+  check(true, 'a receipt shows how to verify')
+  await receiptCard.getByRole('button', { name: 'Verified' }).click()
+  await receiptCard.waitFor({ state: 'hidden' })
+  check(written.id !== '', 'one click marks a receipt verified')
 
   // A decision from an agent is weighed; the owner reads a comparison table.
   const weighed = await agent.call('question_add', {

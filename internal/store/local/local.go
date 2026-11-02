@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/iodesystems/parasolve/internal/egress"
@@ -109,7 +110,15 @@ func (s *Store) indexPath() (string, error) {
 // source adapts the vault to index.Source.
 type source struct{ s *Store }
 
-func (a source) Refs(ctx context.Context) ([]model.Ref, error) { return a.s.v.List(ctx, "", "") }
+// Refs leaves receipts out: each holds the text of a document twice, and a search
+// must find the document.
+func (a source) Refs(ctx context.Context) ([]model.Ref, error) {
+	refs, err := a.s.v.List(ctx, "", "")
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(refs, func(r model.Ref) bool { return r.Folder == model.FolderReceipts }), nil
+}
 
 func (a source) Get(ctx context.Context, id string) (model.Document, error) {
 	return a.s.v.Get(ctx, id)

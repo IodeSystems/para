@@ -68,7 +68,7 @@ type ProjectAddOutput struct {
 }
 
 // ProjectAdd creates an active project.
-var ProjectAdd = define("project_add", "Create a project", func(ctx context.Context, d Deps, in ProjectAddInput) (ProjectAddOutput, error) {
+var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.Context, d Deps, in ProjectAddInput) (ProjectAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return ProjectAddOutput{}, errors.New("title is empty")
@@ -126,7 +126,7 @@ type ProjectListOutput struct {
 }
 
 // ProjectList lists projects, active folder only unless All.
-var ProjectList = define("project_list", "List projects", func(ctx context.Context, d Deps, in ProjectListInput) (ProjectListOutput, error) {
+var ProjectList = defineRead("project_list", "List projects", func(ctx context.Context, d Deps, in ProjectListInput) (ProjectListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
 	if err != nil {
 		return ProjectListOutput{}, err
@@ -164,7 +164,7 @@ type ProjectShowOutput struct {
 }
 
 // ProjectShow returns a project and its tasks.
-var ProjectShow = define("project_show", "Show a project and its tasks", func(ctx context.Context, d Deps, in ProjectShowInput) (ProjectShowOutput, error) {
+var ProjectShow = defineRead("project_show", "Show a project and its tasks", func(ctx context.Context, d Deps, in ProjectShowInput) (ProjectShowOutput, error) {
 	doc, _, err := getProject(ctx, d.Store, in.ID)
 	if err != nil {
 		return ProjectShowOutput{}, err

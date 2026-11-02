@@ -83,7 +83,7 @@ type NoteAddOutput struct {
 }
 
 // NoteAdd creates a note in resources/.
-var NoteAdd = define("note_add", "Create a note (reference material), optionally linked to an area or project", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
+var NoteAdd = defineSafe("note_add", "Create a note (reference material), optionally linked to an area or project", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return NoteAddOutput{}, errors.New("title is empty")
@@ -119,7 +119,7 @@ type NoteListOutput struct {
 }
 
 // NoteList lists notes.
-var NoteList = define("note_list", "List notes", func(ctx context.Context, d Deps, in NoteListInput) (NoteListOutput, error) {
+var NoteList = defineRead("note_list", "List notes", func(ctx context.Context, d Deps, in NoteListInput) (NoteListOutput, error) {
 	area, project, tag := normID(in.Area), normID(in.Project), strings.TrimSpace(in.Tag)
 	notes, err := listNotes(ctx, d.Store, func(n NoteView) bool {
 		return (area == "" || n.Area == area) && (project == "" || n.Project == project) &&
@@ -140,7 +140,7 @@ type NoteShowOutput struct {
 }
 
 // NoteShow returns one note.
-var NoteShow = define("note_show", "Show a note", func(ctx context.Context, d Deps, in NoteShowInput) (NoteShowOutput, error) {
+var NoteShow = defineRead("note_show", "Show a note", func(ctx context.Context, d Deps, in NoteShowInput) (NoteShowOutput, error) {
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
 		return NoteShowOutput{}, err

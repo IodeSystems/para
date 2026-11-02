@@ -128,6 +128,18 @@ type Meta struct {
 	Choice          string           `json:"choice,omitempty"`
 	AnsweredBy      string           `json:"answered_by,omitempty"`
 	Answered        string           `json:"answered,omitempty"`
+	Actor           string           `json:"actor,omitempty"`
+	Op              string           `json:"op,omitempty"`
+	Doc             string           `json:"doc,omitempty"`
+	Request         string           `json:"request,omitempty"`
+	Sources         []string         `json:"sources,omitempty"`
+	Verify          string           `json:"verify,omitempty"`
+	Confidence      string           `json:"confidence,omitempty"`
+	Check           string           `json:"check,omitempty"`
+	CheckedBy       string           `json:"checked_by,omitempty"`
+	CheckNote       string           `json:"check_note,omitempty"`
+	SelfReported    *bool            `json:"self_reported,omitempty"`
+	NotDuplicate    string           `json:"not_duplicate,omitempty"`
 	Start           string           `json:"start,omitempty"`
 	End             string           `json:"end,omitempty"`
 	DeferUntil      string           `json:"defer_until,omitempty"`
@@ -176,6 +188,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.ItemKinds)
 	addEnum(reg, model.ItemStates)
 	addEnum(reg, model.TurnKinds)
+	addEnum(reg, model.ReceiptChecks)
+	addEnum(reg, model.Confidences)
 	addEnum(reg, model.TurnStates)
 	addEnum(reg, model.Reversibles)
 	addEnum(reg, ops.NoteIntents)

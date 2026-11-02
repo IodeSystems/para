@@ -61,15 +61,15 @@ var (
 	OrgRoleAdd   = define("org_role_add", "Record a role (facts only)", orgAdd(model.TypeRole))
 	OrgDomainAdd = define("org_domain_add", "Record a domain and its owner (facts only)", orgAdd(model.TypeDomain))
 
-	OrgPersonList = define("org_person_list", "List people", orgList(model.TypePerson))
-	OrgTeamList   = define("org_team_list", "List teams", orgList(model.TypeTeam))
-	OrgRoleList   = define("org_role_list", "List roles", orgList(model.TypeRole))
-	OrgDomainList = define("org_domain_list", "List domains", orgList(model.TypeDomain))
+	OrgPersonList = defineRead("org_person_list", "List people", orgList(model.TypePerson))
+	OrgTeamList   = defineRead("org_team_list", "List teams", orgList(model.TypeTeam))
+	OrgRoleList   = defineRead("org_role_list", "List roles", orgList(model.TypeRole))
+	OrgDomainList = defineRead("org_domain_list", "List domains", orgList(model.TypeDomain))
 
-	OrgPersonShow = define("org_person_show", "Show a person", orgShow(model.TypePerson))
-	OrgTeamShow   = define("org_team_show", "Show a team", orgShow(model.TypeTeam))
-	OrgRoleShow   = define("org_role_show", "Show a role", orgShow(model.TypeRole))
-	OrgDomainShow = define("org_domain_show", "Show a domain", orgShow(model.TypeDomain))
+	OrgPersonShow = defineRead("org_person_show", "Show a person", orgShow(model.TypePerson))
+	OrgTeamShow   = defineRead("org_team_show", "Show a team", orgShow(model.TypeTeam))
+	OrgRoleShow   = defineRead("org_role_show", "Show a role", orgShow(model.TypeRole))
+	OrgDomainShow = defineRead("org_domain_show", "Show a domain", orgShow(model.TypeDomain))
 )
 
 var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)

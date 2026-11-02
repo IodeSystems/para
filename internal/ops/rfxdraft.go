@@ -26,7 +26,7 @@ type RFXDraftOutput struct {
 
 // RFXDraft stores the message to send under "## Draft" in the request body,
 // replacing an earlier draft. Para sends nothing: the user sends it.
-var RFXDraft = define("rfx_draft", "Store a draft message for a request under its Draft section; nothing is sent", func(ctx context.Context, d Deps, in RFXDraftInput) (RFXDraftOutput, error) {
+var RFXDraft = defineSafe("rfx_draft", "Store a draft message for a request under its Draft section; nothing is sent", func(ctx context.Context, d Deps, in RFXDraftInput) (RFXDraftOutput, error) {
 	doc, m, err := getRFX(ctx, d, normID(in.ID))
 	if err != nil {
 		return RFXDraftOutput{}, err

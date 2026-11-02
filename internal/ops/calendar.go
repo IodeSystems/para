@@ -46,7 +46,7 @@ func (o CalendarExportOutput) Rendered() export.Rendered {
 // days as an .ics feed and logs the egress for the transport. Like export, it
 // moves nothing: the CLI runs the transport. Para never writes an external
 // calendar; a calendar that wants the feed reads the file.
-var CalendarExport = define("calendar_export", "Render scheduled meetings and due tasks of the next days as an .ics feed for a transport and log the egress; the CLI runs the transport", func(ctx context.Context, d Deps, in CalendarExportInput) (CalendarExportOutput, error) {
+var CalendarExport = defineRead("calendar_export", "Render scheduled meetings and due tasks of the next days as an .ics feed for a transport and log the egress; the CLI runs the transport", func(ctx context.Context, d Deps, in CalendarExportInput) (CalendarExportOutput, error) {
 	days, err := agendaDays(in.Days, CalendarExportDefaultDays)
 	if err != nil {
 		return CalendarExportOutput{}, err

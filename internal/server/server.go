@@ -207,6 +207,7 @@ func (s *Server) build() error {
 	registerRecords(r)
 	registerRequests(r)
 	registerProposals(r)
+	registerReceipts(r)
 	registerVault(r)
 	registerUI(r)
 	registerSession(r)

@@ -203,7 +203,7 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 // ProposalRevise files the next revision as a new document that supersedes
 // this one. The old file stays as history. It marks the old revision first,
 // with Rev compared, so a review that got in first makes it fail and read again.
-var ProposalRevise = define("proposal_revise", "File the next revision of a proposal. Answer each open note as applied, or declined with a reason; a redirect you could not resolve is failed, with a reason. It fails if a note has no answer", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
+var ProposalRevise = defineSafe("proposal_revise", "File the next revision of a proposal. Answer each open note as applied, or declined with a reason; a redirect you could not resolve is failed, with a reason. It fails if a note has no answer", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
 	if len(in.Items) == 0 && len(in.Withdraw) == 0 && len(in.Answers) == 0 && in.TLDR == "" && in.Context == "" {
 		return ProposalFiled{}, errors.New("nothing to revise: give items, withdraw, or answers")
 	}

@@ -96,6 +96,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			Blocks: []Link{LinkTo("task-one")}, DependsOn: []Link{LinkTo("rfx-one")}, NextNudge: "2026-11-08", Playbook: LinkTo("branch-names")}, ""},
 		{"meeting-one", &Meeting{Common: c(TypeMeeting), Status: MeetingScheduled, Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00",
 			With: []Link{LinkTo("jordan-example")}, RFX: []Link{LinkTo("rfx-one")}}, "## Questions\n\n- [[rfx-one]]\n\n## Notes"},
+		{"receipt-one", &Receipt{Common: c(TypeReceipt), Actor: "claude", Op: "task_add", Doc: "task-one", Check: ReceiptUnchecked}, ""},
 		{"meeting-ask", &Meeting{Common: c(TypeMeeting), Status: MeetingRequested, With: []Link{LinkTo("jordan-example")}}, ""},
 		{"no-prod-logs", &Constraint{c(TypeConstraint), "PII", "Jordan", source(), []string{"prod"}, []string{"dev"}, "2027-01-01"}, ""},
 		{"policy-logging", &Policy{c(TypePolicy), source(), false, ""}, "R1 policy-logging: Log failures. ^R1"},

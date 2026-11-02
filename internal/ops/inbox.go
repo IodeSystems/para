@@ -24,7 +24,7 @@ type InboxAddOutput struct {
 }
 
 // InboxAdd captures text into inbox/.
-var InboxAdd = define("inbox_add", "Capture text into the inbox", inboxAdd)
+var InboxAdd = defineSafe("inbox_add", "Capture text into the inbox", inboxAdd)
 
 func inboxAdd(ctx context.Context, d Deps, in InboxAddInput) (InboxAddOutput, error) {
 	title, body, err := splitCapture(in.Text)

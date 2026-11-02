@@ -517,6 +517,9 @@ func (m *Model) showItem(id string) tea.Cmd {
 // draft has Copy draft.
 func (m *Model) textActs(p *page) []Target {
 	var out []Target
+	if p.receipt != "" {
+		out = append(out, actVerified, actWrong)
+	}
 	if p.raw != nil {
 		out = append(out, actSource)
 	}
@@ -645,6 +648,10 @@ func (m *Model) textAct(p *page, name string) tea.Cmd {
 	case "copydraft":
 		if p.draft != "" {
 			return m.copyText(p.id, p.draft)
+		}
+	case "verified", "wrong":
+		if p.receipt != "" {
+			return m.receiptAct(p.receipt, name)
 		}
 	}
 	return nil

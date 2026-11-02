@@ -68,6 +68,8 @@ type page struct {
 	raw   []string
 	draft string
 	item  string
+	// receipt is the id of the receipt a text page shows.
+	receipt string
 }
 
 type tabState struct{ cursor, offset int }
@@ -244,6 +246,8 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		return nil
 	case docMsg:
 		return m.onDoc(msg)
+	case receiptMsg:
+		return m.onReceipt(msg)
 	case proposalMsg:
 		return m.onProposal(msg)
 	case textMsg:
@@ -379,6 +383,8 @@ func (m *Model) follow(target string) tea.Cmd {
 		}
 	case "vault":
 		return m.openVault(id)
+	case "receipt":
+		return m.loadReceipt(id)
 	case "prop":
 		return m.loadProposal(id, false)
 	case "item":

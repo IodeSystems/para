@@ -482,6 +482,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Question{Common: c}, true
 	case TypeMeeting:
 		return &Meeting{Common: c}, true
+	case TypeReceipt:
+		return &Receipt{Common: c}, true
 	}
 	return nil, false
 }

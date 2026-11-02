@@ -125,11 +125,30 @@ func call(t *testing.T, c *client.Client, name, args string) *mcp.CallToolResult
 			t.Fatal(err)
 		}
 	}
+	a = withWhy(name, a)
 	res, err := c.CallTool(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{Name: name, Arguments: a}})
 	if err != nil {
 		t.Fatalf("%s: protocol error: %v", name, err)
 	}
 	return res
+}
+
+// withWhy adds the why a write tool needs, unless the test gave one.
+func withWhy(name string, a any) any {
+	for _, e := range ops.All() {
+		if e.Name() != name || !ops.NeedsWhy(e) {
+			continue
+		}
+		m, ok := a.(map[string]any)
+		if a == nil {
+			m, ok = map[string]any{}, true
+		}
+		if _, has := m["why"]; ok && !has {
+			m["why"] = "test"
+			return m
+		}
+	}
+	return a
 }
 
 func textOf(t *testing.T, res *mcp.CallToolResult) string {
@@ -588,7 +607,7 @@ func TestServeStdio(t *testing.T) {
 	in := strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"inbox_add","arguments":{"text":"hello"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"inbox_add","arguments":{"text":"hello","why":"test"}}}`,
 	}, "\n") + "\n"
 	var out bytes.Buffer
 	if err := srv.Serve(context.Background(), strings.NewReader(in), &out); err != nil {

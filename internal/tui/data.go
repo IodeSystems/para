@@ -103,9 +103,14 @@ type Snapshot struct {
 	Errs       []string
 	// Titles maps a document id to its title, so a row shows a name, not an id.
 	Titles map[string]string
+	// Receipts are agent writes nobody has checked yet.
+	Receipts []ops.ReceiptView
 }
 
 const eventWindow = 2000
+
+// receiptWindow is how many unchecked receipts Review reads.
+const receiptWindow = 50
 
 // AgendaDays is how far ahead the Agenda page looks.
 const AgendaDays = 14
@@ -157,6 +162,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 				}
 			}
 		}
+	}
+	if o, err := ops.ReceiptList.Run(ctx, e.Deps, ops.ReceiptListInput{Check: model.ReceiptUnchecked, Limit: receiptWindow}); note("receipts", err) {
+		s.Receipts = o.Items
 	}
 	if o, err := ops.ProposalList.Run(ctx, e.Deps, ops.ProposalListInput{}); note("proposals", err) {
 		s.Proposals = o.Items

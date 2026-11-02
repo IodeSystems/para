@@ -136,9 +136,9 @@ func editLinks(ctx context.Context, d Deps, kind model.Type, id string, fn func(
 
 // The link ops. Each kind shares one implementation.
 var (
-	AreaLinkAdd       = define("area_link_add", "Point an area at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeArea))
+	AreaLinkAdd       = defineSafe("area_link_add", "Point an area at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeArea))
 	AreaLinkRemove    = define("area_link_remove", "Remove a link from an area by label", linkRemove(model.TypeArea))
-	ProjectLinkAdd    = define("project_link_add", "Point a project at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeProject))
+	ProjectLinkAdd    = defineSafe("project_link_add", "Point a project at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeProject))
 	ProjectLinkRemove = define("project_link_remove", "Remove a link from a project by label", linkRemove(model.TypeProject))
 )
 
@@ -171,7 +171,7 @@ type WhereOutput struct {
 // lists its open incidents. Every word of
 // the query must appear in the id, title, or a link label (case-insensitive).
 // It reads no target.
-var Where = define("where", "Find areas and projects by name or link label and show their links", func(ctx context.Context, d Deps, in WhereInput) (WhereOutput, error) {
+var Where = defineRead("where", "Find areas and projects by name or link label and show their links", func(ctx context.Context, d Deps, in WhereInput) (WhereOutput, error) {
 	words := strings.Fields(strings.ToLower(in.Query))
 	if len(words) == 0 {
 		return WhereOutput{}, errors.New("query is empty")

@@ -110,7 +110,7 @@ type ConstraintListOutput struct {
 }
 
 // ConstraintList lists constraints.
-var ConstraintList = define("constraint_list", "List constraints", func(ctx context.Context, d Deps, _ ConstraintListInput) (ConstraintListOutput, error) {
+var ConstraintList = defineRead("constraint_list", "List constraints", func(ctx context.Context, d Deps, _ ConstraintListInput) (ConstraintListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeConstraint})
 	if err != nil {
 		return ConstraintListOutput{}, err
@@ -139,7 +139,7 @@ type ConstraintShowOutput struct {
 }
 
 // ConstraintShow shows one constraint.
-var ConstraintShow = define("constraint_show", "Show one constraint", func(ctx context.Context, d Deps, in ConstraintShowInput) (ConstraintShowOutput, error) {
+var ConstraintShow = defineRead("constraint_show", "Show one constraint", func(ctx context.Context, d Deps, in ConstraintShowInput) (ConstraintShowOutput, error) {
 	doc, c, err := getConstraint(ctx, d, in.ID)
 	if err != nil {
 		return ConstraintShowOutput{}, err

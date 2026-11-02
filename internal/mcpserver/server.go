@@ -35,7 +35,8 @@ const rules = `Rules:
 5. Quote policy transcripts (policy-x.source) word for word and cite the source URL. A policy summary is a paraphrase: never present it as the policy's words, and say when a summary is unverified.
 6. A no is recorded with its reason, who said it, and a source URL (rfx_reply with outcome no). Do not record a no without a reason.
 7. Triage the inbox with inbox_triage. It archives the capture; nothing is deleted.
-8. Take no public or external action without an accepted proposal item. File one with proposal_add, show the owner review_command and review_url, and wait for the decision. Only a person can approve.`
+8. Take no public or external action without an accepted proposal item. File one with proposal_add, show the owner review_command and review_url, and wait for the decision. Only a person can approve.
+9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.`
 
 // Options configures a Server.
 type Options struct {
@@ -104,7 +105,7 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	s.reqWatch = ops.NewRequestWatch(s.deps)
 	s.addPrompts()
 	for _, e := range ops.ForAgents() {
-		raw, err := inputSchema(e.InputType())
+		raw, err := toolSchema(e)
 		if err != nil {
 			return nil, fmt.Errorf("mcpserver: new: op %s: %w", e.Name(), err)
 		}
@@ -158,6 +159,12 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 				return mcp.NewToolResultError(e.Name() + ": input: not JSON"), nil
 			}
 			input = b
+		}
+		if ops.NeedsWhy(e) {
+			var err error
+			if ctx, input, err = takeWriteMeta(ctx, e, input); err != nil {
+				return mcp.NewToolResultError(e.Name() + ": " + err.Error()), nil
+			}
 		}
 		out, err := e.Invoke(ctx, s.deps, input)
 		if err != nil {

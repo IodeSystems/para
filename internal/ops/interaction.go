@@ -40,7 +40,7 @@ type InteractionAddOutput struct {
 }
 
 // InteractionAdd records an interaction.
-var InteractionAdd = define("interaction_add", "Log an interaction with people: a summary in your words and a link", func(ctx context.Context, d Deps, in InteractionAddInput) (InteractionAddOutput, error) {
+var InteractionAdd = defineSafe("interaction_add", "Log an interaction with people: a summary in your words and a link", func(ctx context.Context, d Deps, in InteractionAddInput) (InteractionAddOutput, error) {
 	title, body, err := splitCapture(in.Summary)
 	if err != nil {
 		return InteractionAddOutput{}, fmt.Errorf("summary: %w", err)
@@ -158,7 +158,7 @@ type InteractionListOutput struct {
 }
 
 // InteractionList lists interactions, newest first.
-var InteractionList = define("interaction_list", "List logged interactions, newest first", func(ctx context.Context, d Deps, in InteractionListInput) (InteractionListOutput, error) {
+var InteractionList = defineRead("interaction_list", "List logged interactions, newest first", func(ctx context.Context, d Deps, in InteractionListInput) (InteractionListOutput, error) {
 	if err := optionalDate(in.Since); err != nil {
 		return InteractionListOutput{}, fmt.Errorf("since: %w", err)
 	}
@@ -196,7 +196,7 @@ type InteractionShowOutput struct {
 }
 
 // InteractionShow shows one interaction.
-var InteractionShow = define("interaction_show", "Show one logged interaction", func(ctx context.Context, d Deps, in InteractionShowInput) (InteractionShowOutput, error) {
+var InteractionShow = defineRead("interaction_show", "Show one logged interaction", func(ctx context.Context, d Deps, in InteractionShowInput) (InteractionShowOutput, error) {
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
 		return InteractionShowOutput{}, err

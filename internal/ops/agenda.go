@@ -140,7 +140,7 @@ func newWindow(now time.Time, loc *time.Location, days int) window {
 // Agenda lists what is dated in the next days, earliest first. Items with only
 // a date come before the timed meetings of their day; an item dated before
 // today is overdue and comes first.
-var Agenda = define("agenda", "List meetings, tasks due, requests to nudge, and exceptions due for review in the next days, by local time", func(ctx context.Context, d Deps, in AgendaInput) (AgendaOutput, error) {
+var Agenda = defineRead("agenda", "List meetings, tasks due, requests to nudge, and exceptions due for review in the next days, by local time", func(ctx context.Context, d Deps, in AgendaInput) (AgendaOutput, error) {
 	days, err := agendaDays(in.Days, AgendaDefaultDays)
 	if err != nil {
 		return AgendaOutput{}, err

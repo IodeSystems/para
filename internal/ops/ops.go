@@ -43,6 +43,7 @@ type Op[I, O any] struct {
 	desc   string
 	fn     Func[I, O]
 	person bool
+	risk   Risk
 }
 
 // Entry is the untyped view of an Op, for surfaces that iterate All.
@@ -53,6 +54,8 @@ type Entry interface {
 	// PersonOnly marks an op no agent may call. It is refused inside the op, and
 	// MCP does not list it (ForAgents).
 	PersonOnly() bool
+	// Risk is the op's class: read, safe, or review.
+	Risk() Risk
 	InputType() reflect.Type
 	OutputType() reflect.Type
 	// Invoke decodes a JSON Input and returns the Output. An unknown field is
@@ -70,12 +73,20 @@ type Failing interface {
 func (o *Op[I, O]) Name() string        { return o.name }
 func (o *Op[I, O]) Description() string { return o.desc }
 func (o *Op[I, O]) PersonOnly() bool    { return o.person }
+func (o *Op[I, O]) Risk() Risk          { return o.risk }
 
 func (o *Op[I, O]) InputType() reflect.Type  { return reflect.TypeFor[I]() }
 func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }
 
 // Run calls the op.
 func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
+	if o.risk != RiskRead && needsRecord(ctx, d) {
+		return runRecorded(ctx, d, o, in)
+	}
+	return o.run(ctx, d, in)
+}
+
+func (o *Op[I, O]) run(ctx context.Context, d Deps, in I) (O, error) {
 	out, err := o.fn(ctx, d, in)
 	if err != nil {
 		return out, fmt.Errorf("%s: %w", o.name, err)
@@ -127,8 +138,9 @@ var (
 	nameRe   = regexp.MustCompile(`^[a-z]+(?:_[a-z]+)*$`)
 )
 
-// define registers an op at package initialization. It panics on a bad or
-// repeated name: that is a programming error.
+// define registers an op of risk review: the class that needs no thought to be
+// safe. defineSafe and defineRead state the lower classes, in the definition.
+// It panics on a bad or repeated name: that is a programming error.
 func define[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 	if !nameRe.MatchString(name) {
 		panic("ops: bad op name " + name)
@@ -136,8 +148,22 @@ func define[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 	if _, dup := registry[name]; dup {
 		panic("ops: duplicate op " + name)
 	}
-	op := &Op[I, O]{name: name, desc: desc, fn: fn}
+	op := &Op[I, O]{name: name, desc: desc, fn: fn, risk: RiskReview}
 	registry[name] = op
+	return op
+}
+
+// defineRead registers an op that changes no document.
+func defineRead[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
+	op := define(name, desc, fn)
+	op.risk = RiskRead
+	return op
+}
+
+// defineSafe registers an additive, reversible op: capture, note, draft.
+func defineSafe[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
+	op := define(name, desc, fn)
+	op.risk = RiskSafe
 	return op
 }
 

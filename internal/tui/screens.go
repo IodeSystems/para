@@ -444,6 +444,7 @@ func (m *Model) rowsReview(w int) []row {
 	var r []row
 	r = append(r, m.rowsAnswersToCheck(w)...)
 	r = append(r, m.rowsProposals(w)...)
+	r = append(r, m.rowsReceipts(w)...)
 	r = append(r, head(fmt.Sprintf("Needs you (%d)", len(rv.Needs))))
 	if len(rv.Needs) == 0 {
 		r = append(r, dim("  nothing"))

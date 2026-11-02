@@ -54,7 +54,7 @@ type RFXAddOutput struct {
 }
 
 // RFXAdd records a request.
-var RFXAdd = define("rfx_add", "Record a request for something (in or out)", rfxAdd)
+var RFXAdd = defineSafe("rfx_add", "Record a request for something (in or out)", rfxAdd)
 
 func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if !validDirection(in.Direction) {
@@ -188,7 +188,7 @@ type RFXListOutput struct {
 }
 
 // RFXList lists RFX.
-var RFXList = define("rfx_list", "List requests", func(ctx context.Context, d Deps, in RFXListInput) (RFXListOutput, error) {
+var RFXList = defineRead("rfx_list", "List requests", func(ctx context.Context, d Deps, in RFXListInput) (RFXListOutput, error) {
 	all, err := loadRFX(ctx, d)
 	if err != nil {
 		return RFXListOutput{}, err
@@ -243,7 +243,7 @@ type RFXWaitingOutput struct {
 // any target is sent, no target is recorded, or every target is no_reply
 // (flagged Stalled: it stays listed so it is not forgotten). An RFX with no
 // next_nudge sorts last. Each item carries its per-target state.
-var RFXWaiting = define("rfx_waiting", "List open requests waiting on someone, by next nudge", func(ctx context.Context, d Deps, in RFXWaitingInput) (RFXWaitingOutput, error) {
+var RFXWaiting = defineRead("rfx_waiting", "List open requests waiting on someone, by next nudge", func(ctx context.Context, d Deps, in RFXWaitingInput) (RFXWaitingOutput, error) {
 	today := in.Today
 	if today == "" {
 		today = time.Now().Format(dateLayout)
@@ -312,7 +312,7 @@ type RFXShowOutput struct {
 }
 
 // RFXShow shows one RFX with its dependency chain.
-var RFXShow = define("rfx_show", "Show a request and its dependency chain", func(ctx context.Context, d Deps, in RFXShowInput) (RFXShowOutput, error) {
+var RFXShow = defineRead("rfx_show", "Show a request and its dependency chain", func(ctx context.Context, d Deps, in RFXShowInput) (RFXShowOutput, error) {
 	doc, m, err := getRFX(ctx, d, normID(in.ID))
 	if err != nil {
 		return RFXShowOutput{}, err

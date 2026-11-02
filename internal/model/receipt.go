@@ -1,0 +1,140 @@
+package model
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"gopkg.in/yaml.v3"
+)
+
+// ReceiptCheck is receipt.check: what the owner said about a write.
+type ReceiptCheck string
+
+const (
+	ReceiptUnchecked ReceiptCheck = "unchecked"
+	ReceiptVerified  ReceiptCheck = "verified"
+	ReceiptWrong     ReceiptCheck = "wrong"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (ReceiptCheck) Enum() []string { return enumStrings(ReceiptChecks) }
+
+// ReceiptChecks lists every ReceiptCheck.
+var ReceiptChecks = []ReceiptCheck{ReceiptUnchecked, ReceiptVerified, ReceiptWrong}
+
+// Confidence is how sure an agent is of a write. A low-confidence write is
+// refused: it goes in a proposal.
+type Confidence string
+
+const (
+	ConfidenceLow    Confidence = "low"
+	ConfidenceMedium Confidence = "medium"
+	ConfidenceHigh   Confidence = "high"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Confidence) Enum() []string { return enumStrings(Confidences) }
+
+// Confidences lists every Confidence.
+var Confidences = []Confidence{ConfidenceLow, ConfidenceMedium, ConfidenceHigh}
+
+// Receipt is type: receipt, the record of one agent write to one document. It
+// holds content, so it lives in the vault under receipts/ and follows the
+// vault's retention, not events/. The before and after text is in the body
+// (ReceiptContent), so a revert depends on no git history.
+//
+// Doc is an id and not a link: the document it names may be archived or gone.
+type Receipt struct {
+	Common       `yaml:",inline"`
+	Actor        string       `yaml:"actor" json:"actor"`
+	Op           string       `yaml:"op" json:"op"`
+	Doc          string       `yaml:"doc" json:"doc"`
+	Request      string       `yaml:"request,omitempty" json:"request,omitempty"`
+	Why          string       `yaml:"why,omitempty" json:"why,omitempty"`
+	Sources      []string     `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Verify       string       `yaml:"verify,omitempty" json:"verify,omitempty"`
+	Confidence   Confidence   `yaml:"confidence,omitempty" json:"confidence,omitempty"`
+	Check        ReceiptCheck `yaml:"check" json:"check"`
+	CheckedBy    string       `yaml:"checked_by,omitempty" json:"checked_by,omitempty"`
+	CheckNote    string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
+	SelfReported bool         `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
+	NotDuplicate string       `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+}
+
+// ReceiptContent is the fenced block of a receipt's body. An empty Before means
+// the write created the document. Folder is where the document was before.
+type ReceiptContent struct {
+	Folder Folder `yaml:"folder,omitempty" json:"folder,omitempty"`
+	Before string `yaml:"before,omitempty" json:"before,omitempty"`
+	After  string `yaml:"after,omitempty" json:"after,omitempty"`
+}
+
+const receiptInfo = "yaml para-receipt"
+
+// RenderReceiptBody writes the body of a receipt file. It is built as a proposal
+// body is: text is indented in the YAML, so no document text can close the block.
+func RenderReceiptBody(c ReceiptContent) (string, error) {
+	raw, err := json.Marshal(c)
+	if err != nil {
+		return "", fmt.Errorf("model: receipt body: %w", err)
+	}
+	var node yaml.Node
+	if err := yaml.Unmarshal(raw, &node); err != nil {
+		return "", fmt.Errorf("model: receipt body: %w", err)
+	}
+	blockStyle(&node)
+	var b bytes.Buffer
+	enc := yaml.NewEncoder(&b)
+	enc.SetIndent(2)
+	if err := enc.Encode(&node); err != nil {
+		return "", fmt.Errorf("model: receipt body: %w", err)
+	}
+	if err := enc.Close(); err != nil {
+		return "", fmt.Errorf("model: receipt body: %w", err)
+	}
+	return "Written by para. The text below is the document before and after one write.\n\n" + proposalFence + receiptInfo + "\n" + b.String() + proposalFence, nil
+}
+
+// ParseReceiptBody reads the fenced block of a receipt's body.
+func ParseReceiptBody(body string) (ReceiptContent, error) {
+	var c ReceiptContent
+	open := "\n" + proposalFence + receiptInfo + "\n"
+	i := strings.Index("\n"+body, open)
+	if i < 0 {
+		return c, errors.New("model: receipt body: no para-receipt block")
+	}
+	rest := body[i+len(open)-1:]
+	end := strings.LastIndex(rest, "\n"+proposalFence)
+	if end < 0 {
+		end = strings.Index(rest, proposalFence)
+	}
+	if end < 0 {
+		return c, errors.New("model: receipt body: block is not closed")
+	}
+	if err := yaml.Unmarshal([]byte(rest[:end]), &c); err != nil {
+		return c, fmt.Errorf("model: receipt body: %w", err)
+	}
+	return c, nil
+}
+
+// ParseDocument reads text that Render wrote back into a Document.
+func ParseDocument(id string, folder Folder, text string) (Document, error) {
+	rest, ok := strings.CutPrefix(text, "---\n")
+	if !ok {
+		return Document{}, fmt.Errorf("model: parse %s: no frontmatter", id)
+	}
+	front, rest, ok := strings.Cut(rest, "\n---\n")
+	if !ok {
+		return Document{}, fmt.Errorf("model: parse %s: frontmatter is not closed", id)
+	}
+	rest = strings.TrimLeft(rest, "\n")
+	line, body, _ := strings.Cut(rest, "\n")
+	title, ok := strings.CutPrefix(line, "# ")
+	if !ok {
+		return Document{}, fmt.Errorf("model: parse %s: no title", id)
+	}
+	return Decode(id, folder, []byte(front), title, strings.Trim(body, "\n"))
+}

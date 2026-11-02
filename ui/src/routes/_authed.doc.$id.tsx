@@ -14,6 +14,7 @@ import { DataState } from '@/components/DataState'
 import { hitKindLabel } from '@/lib/hitkind'
 import { Markdown } from '@/components/Markdown'
 import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
+import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
@@ -85,6 +86,7 @@ function Doc() {
           )}
           {d.meta.type === 'question' && <QuestionPanel id={d.id} />}
           {d.meta.type === 'task' && <TaskPanel id={d.id} />}
+          <ReceiptSection doc={d.id} title="Agent writes" />
           {copy.isError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               The server refused the copy.

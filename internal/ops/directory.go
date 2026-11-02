@@ -33,9 +33,9 @@ type GroupShowOutput struct {
 var (
 	OrgGroupAdd = define("org_group_add", "Record a group: team, department, channel, or list", orgGroupAdd)
 
-	OrgGroupList = define("org_group_list", "List groups", orgList(model.TypeGroup))
+	OrgGroupList = defineRead("org_group_list", "List groups", orgList(model.TypeGroup))
 
-	OrgGroupShow = define("org_group_show", "Show a group and its members", func(ctx context.Context, d Deps, in OrgShowInput) (GroupShowOutput, error) {
+	OrgGroupShow = defineRead("org_group_show", "Show a group and its members", func(ctx context.Context, d Deps, in OrgShowInput) (GroupShowOutput, error) {
 		doc, err := d.Store.Get(ctx, normID(in.ID))
 		if err != nil {
 			return GroupShowOutput{}, err
@@ -305,7 +305,7 @@ type PersonNoteOutput struct {
 
 // OrgPersonNote appends a dated line under "## Notes" in the person's body.
 // Notes are for working well with someone. Para does not filter their content.
-var OrgPersonNote = define("org_person_note", "Add a dated working note about a person", func(ctx context.Context, d Deps, in PersonNoteInput) (PersonNoteOutput, error) {
+var OrgPersonNote = defineSafe("org_person_note", "Add a dated working note about a person", func(ctx context.Context, d Deps, in PersonNoteInput) (PersonNoteOutput, error) {
 	text := strings.Join(strings.Fields(in.Text), " ")
 	if text == "" {
 		return PersonNoteOutput{}, errors.New("text is empty")

@@ -164,7 +164,7 @@ type IncidentAddOutput struct {
 }
 
 // IncidentAdd opens an incident.
-var IncidentAdd = define("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring)", func(ctx context.Context, d Deps, in IncidentAddInput) (IncidentAddOutput, error) {
+var IncidentAdd = defineSafe("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring)", func(ctx context.Context, d Deps, in IncidentAddInput) (IncidentAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return IncidentAddOutput{}, err
@@ -211,7 +211,7 @@ type IncidentListOutput struct {
 
 // IncidentList lists open and mitigated incidents, worst first. All, or a
 // Status, includes resolved ones.
-var IncidentList = define("incident_list", "List incidents: open and mitigated by default, worst first", func(ctx context.Context, d Deps, in IncidentListInput) (IncidentListOutput, error) {
+var IncidentList = defineRead("incident_list", "List incidents: open and mitigated by default, worst first", func(ctx context.Context, d Deps, in IncidentListInput) (IncidentListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.IncidentStatuses, in.Status) {
 		return IncidentListOutput{}, fmt.Errorf("status %q must be one of %v", in.Status, model.IncidentStatuses)
 	}
@@ -246,7 +246,7 @@ type IncidentShowOutput struct {
 }
 
 // IncidentShow returns one incident with its timeline and follow-up tasks.
-var IncidentShow = define("incident_show", "Show an incident with its timeline and follow-up tasks", func(ctx context.Context, d Deps, in IncidentShowInput) (IncidentShowOutput, error) {
+var IncidentShow = defineRead("incident_show", "Show an incident with its timeline and follow-up tasks", func(ctx context.Context, d Deps, in IncidentShowInput) (IncidentShowOutput, error) {
 	doc, _, err := getIncident(ctx, d.Store, in.ID)
 	if err != nil {
 		return IncidentShowOutput{}, err
@@ -278,7 +278,7 @@ type IncidentChangeOutput struct {
 
 // IncidentNote appends a timestamped line to the timeline. It works on a
 // resolved incident too: the record may be written up afterward.
-var IncidentNote = define("incident_note", "Append a timestamped line to an incident timeline", func(ctx context.Context, d Deps, in IncidentNoteInput) (IncidentChangeOutput, error) {
+var IncidentNote = defineSafe("incident_note", "Append a timestamped line to an incident timeline", func(ctx context.Context, d Deps, in IncidentNoteInput) (IncidentChangeOutput, error) {
 	text := strings.Join(strings.Fields(in.Text), " ")
 	if text == "" {
 		return IncidentChangeOutput{}, errors.New("text is empty")
@@ -355,6 +355,6 @@ func saveIncident(ctx context.Context, d Deps, doc model.Document, m *model.Inci
 
 // The link ops of an incident share the area and project implementation.
 var (
-	IncidentLinkAdd    = define("incident_link_add", "Point an incident at a dashboard, runbook, or ticket that lives elsewhere", linkAdd(model.TypeIncident))
+	IncidentLinkAdd    = defineSafe("incident_link_add", "Point an incident at a dashboard, runbook, or ticket that lives elsewhere", linkAdd(model.TypeIncident))
 	IncidentLinkRemove = define("incident_link_remove", "Remove a link from an incident by label", linkRemove(model.TypeIncident))
 )

@@ -49,6 +49,16 @@ func callText(t *testing.T, c *client.Client, name string, args map[string]any) 
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
+	for _, e := range ops.All() {
+		if e.Name() == name && ops.NeedsWhy(e) {
+			if args == nil {
+				args = map[string]any{}
+			}
+			if _, has := args["why"]; !has {
+				args["why"] = "test"
+			}
+		}
+	}
 	res, err := c.CallTool(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{Name: name, Arguments: args}})
 	if err != nil {
 		t.Fatalf("%s: %v", name, err)

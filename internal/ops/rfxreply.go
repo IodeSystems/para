@@ -75,7 +75,7 @@ type RFXReplyOutput struct {
 // replied, an inbound interaction keeps the text, and the request body gets a
 // one-line summary that links it. A "no" must carry its reason and a source
 // URL, and also makes a constraint, so the no is documented and findable.
-var RFXReply = define("rfx_reply", "Record a reply to a request: target replied, interaction logged; a no also records a constraint with its reason", func(ctx context.Context, d Deps, in RFXReplyInput) (RFXReplyOutput, error) {
+var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target replied, interaction logged; a no also records a constraint with its reason", func(ctx context.Context, d Deps, in RFXReplyInput) (RFXReplyOutput, error) {
 	doc, m, err := getRFX(ctx, d, normID(in.ID))
 	if err != nil {
 		return RFXReplyOutput{}, err

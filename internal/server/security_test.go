@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -491,17 +492,27 @@ func TestActorAndSurfaceInEvents(t *testing.T) {
 	two := f.key(f.keyA, "two", allScopes...)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: one, body: `{"text":"from one"}`}), 200)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: two, body: `{"text":"from two"}`}), 200)
-	w := f.do(call{target: "/api/v1/events/tail?limit=2", token: one})
+	w := f.do(call{target: "/api/v1/events/tail?limit=6", token: one})
 	wantStatus(t, w, 200)
 	var out struct {
 		Events []struct {
 			Actor   string `json:"actor"`
 			Surface string `json:"surface"`
+			Doc     string `json:"doc"`
+			Op      string `json:"op"`
 		} `json:"events"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
 		t.Fatal(err)
 	}
+	out.Events = slices.DeleteFunc(out.Events, func(e struct {
+		Actor   string `json:"actor"`
+		Surface string `json:"surface"`
+		Doc     string `json:"doc"`
+		Op      string `json:"op"`
+	}) bool {
+		return e.Op == "receipt" || strings.HasPrefix(e.Doc, "receipt-")
+	})
 	if len(out.Events) != 2 || out.Events[0].Actor != "one" || out.Events[1].Actor != "two" || out.Events[0].Surface != surfaceAPI {
 		t.Errorf("%+v", out.Events)
 	}
@@ -527,7 +538,7 @@ func TestConcurrentWritersShareOneVault(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	w := f.do(call{target: fmt.Sprintf("/api/v1/events/tail?limit=%d", n), token: toks[0]})
+	w := f.do(call{target: fmt.Sprintf("/api/v1/events/tail?limit=%d", 3*n), token: toks[0]})
 	seen := map[string]bool{}
 	var out struct {
 		Events []struct {

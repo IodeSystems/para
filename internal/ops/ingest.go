@@ -34,7 +34,7 @@ type IngestOutput struct {
 
 // Ingest stores a source document as a policy: a summary stub marked
 // unverified, and a transcript.
-var Ingest = define("ingest", "Store a source document as a policy summary stub and transcript", ingest)
+var Ingest = defineSafe("ingest", "Store a source document as a policy summary stub and transcript", ingest)
 
 func ingest(ctx context.Context, d Deps, in IngestInput) (IngestOutput, error) {
 	u, err := checkURL(in.URL)

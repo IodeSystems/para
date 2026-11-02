@@ -140,7 +140,7 @@ func previewItem(ctx context.Context, d Deps, actor string, it model.ProposalIte
 		return pv
 	}
 	ov := newOverlay(d.Store)
-	out, err := e.Invoke(ctx, Deps{Store: ov.ActAs(actor, surfaceProposal)}, raw)
+	out, err := e.Invoke(context.WithValue(ctx, recordingKey{}, "preview"), Deps{Store: ov.ActAs(actor, surfaceProposal)}, raw)
 	if err == nil {
 		if f, isFailing := out.(Failing); isFailing {
 			err = f.Failed()

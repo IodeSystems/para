@@ -27,6 +27,7 @@ const (
 	TypeNote            Type = "note"
 	TypeIncident        Type = "incident"
 	TypeProposal        Type = "proposal"
+	TypeReceipt         Type = "receipt"
 	TypeQuestion        Type = "question"
 	TypeMeeting         Type = "meeting"
 )
@@ -36,7 +37,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting,
+	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -60,6 +61,7 @@ const (
 	FolderProposals    Folder = "proposals"
 	FolderQuestions    Folder = "questions"
 	FolderMeetings     Folder = "meetings"
+	FolderReceipts     Folder = "receipts"
 )
 
 // Folders lists every document folder.
@@ -67,6 +69,7 @@ var Folders = []Folder{
 	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
+	FolderReceipts,
 }
 
 // Valid reports whether f is a document folder.

@@ -15,6 +15,8 @@ import (
 )
 
 // fakeStore proves ops need only the interface.
+func (f *fakeStore) Info() store.Info { return store.Info{Surface: "cli"} }
+
 type fakeStore struct {
 	store.Store
 	created []model.Document

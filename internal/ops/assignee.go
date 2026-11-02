@@ -101,7 +101,7 @@ type WaitingOutput struct {
 
 // Waiting lists what you wait on: outbound RFX with a target to hear from, and
 // tasks assigned to other people or agents.
-var Waiting = define("waiting", "List what you wait on: outbound requests and tasks assigned to others", func(ctx context.Context, d Deps, in WaitingInput) (WaitingOutput, error) {
+var Waiting = defineRead("waiting", "List what you wait on: outbound requests and tasks assigned to others", func(ctx context.Context, d Deps, in WaitingInput) (WaitingOutput, error) {
 	today := in.Today
 	if today == "" {
 		today = time.Now().Format(dateLayout)

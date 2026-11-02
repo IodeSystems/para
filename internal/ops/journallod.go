@@ -110,7 +110,7 @@ type JournalSummaryOutput struct {
 }
 
 // JournalSummary writes the summary-agent section of one journal.
-var JournalSummary = define("journal_summary", "Write the agent summary of a day, week, or month journal into its marked section, or read what to summarize when text is empty", func(ctx context.Context, d Deps, in JournalSummaryInput) (JournalSummaryOutput, error) {
+var JournalSummary = defineSafe("journal_summary", "Write the agent summary of a day, week, or month journal into its marked section, or read what to summarize when text is empty", func(ctx context.Context, d Deps, in JournalSummaryInput) (JournalSummaryOutput, error) {
 	loc := d.Store.Now().Location()
 	p, err := periodFromID(in.ID, loc)
 	if err != nil {
@@ -265,7 +265,7 @@ type JournalShowOutput struct {
 }
 
 // JournalShow shows one journal by its period id.
-var JournalShow = define("journal_show", "Show a journal by period: 2026-11-01, 2026-w44, or 2026-11", func(ctx context.Context, d Deps, in JournalShowInput) (JournalShowOutput, error) {
+var JournalShow = defineRead("journal_show", "Show a journal by period: 2026-11-01, 2026-w44, or 2026-11", func(ctx context.Context, d Deps, in JournalShowInput) (JournalShowOutput, error) {
 	p, err := periodFromID(in.ID, d.Store.Now().Location())
 	if err != nil {
 		return JournalShowOutput{}, err
@@ -304,7 +304,7 @@ type JournalListOutput struct {
 }
 
 // JournalList lists journals, newest first, with their level.
-var JournalList = define("journal_list", "List journals by level (day, week, month), newest first, and whether an agent summary exists", func(ctx context.Context, d Deps, in JournalListInput) (JournalListOutput, error) {
+var JournalList = defineRead("journal_list", "List journals by level (day, week, month), newest first, and whether an agent summary exists", func(ctx context.Context, d Deps, in JournalListInput) (JournalListOutput, error) {
 	level := model.JournalScope(in.Level)
 	if level != "" && level != model.JournalDay && level != model.JournalWeek && level != model.JournalMonth {
 		return JournalListOutput{}, fmt.Errorf("level %q: want day, week, or month", in.Level)

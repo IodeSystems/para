@@ -152,6 +152,15 @@ func registerProposals(r *registrar) {
 	reg(r, ops.ProposalEdit, post, netguard.ScopeProposalReview)
 }
 
+// registerReceipts: a receipt is read with vault:read. Checking one is the
+// owner's, and revert is a write.
+func registerReceipts(r *registrar) {
+	reg(r, ops.ReceiptList, get, read)
+	reg(r, ops.ReceiptShow, get, read)
+	reg(r, ops.ReceiptCheck, post, netguard.ScopeProposalReview)
+	reg(r, ops.ReceiptRevert, post, write)
+}
+
 func registerVault(r *registrar) {
 	reg(r, ops.Lint, get, read)
 	reg(r, ops.Reconcile, post, write)

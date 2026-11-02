@@ -36,17 +36,17 @@ const (
 )
 
 // JournalDaily writes the journal of one day.
-var JournalDaily = define("journal_daily", "Generate the daily journal from events", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
+var JournalDaily = defineSafe("journal_daily", "Generate the daily journal from events", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
 	return journal(ctx, d, in, model.JournalDay)
 })
 
 // JournalWeekly writes the journal of one ISO week (Monday to Sunday) and rolls up its dailies.
-var JournalWeekly = define("journal_weekly", "Generate the weekly journal and roll up the dailies", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
+var JournalWeekly = defineSafe("journal_weekly", "Generate the weekly journal and roll up the dailies", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
 	return journal(ctx, d, in, model.JournalWeek)
 })
 
 // JournalMonthly writes the journal of one month and rolls up the weeklies that touch it.
-var JournalMonthly = define("journal_monthly", "Generate the monthly journal and roll up the weeklies", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
+var JournalMonthly = defineSafe("journal_monthly", "Generate the monthly journal and roll up the weeklies", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {
 	return journal(ctx, d, in, model.JournalMonth)
 })
 

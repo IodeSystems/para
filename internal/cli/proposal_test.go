@@ -49,6 +49,25 @@ func seedProposalParity(t *testing.T, deps ops.Deps) {
 	decided := mail("i1")
 	decided.State = model.ItemDenied
 	seed("proposal-wait-sample", decided)
+	for _, id := range []string{"a", "b", "c", "d"} {
+		note, err := deps.Store.Create(ctx, model.Document{ID: "note-rc-" + id, Folder: model.FolderResources, Title: "Receipted " + id, Body: "Text.",
+			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		after, err := model.Render(note)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := model.RenderReceiptBody(model.ReceiptContent{After: strings.TrimRight(string(after), "\n")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := deps.Store.Create(ctx, model.Document{ID: "receipt-rc-" + id, Folder: model.FolderReceipts, Title: "Note add", Body: body,
+			Meta: &model.Receipt{Common: model.Common{Type: model.TypeReceipt}, Actor: "agent", Op: "note_add", Doc: note.ID, Why: "Asked.", Check: model.ReceiptUnchecked}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func proposalParityCases() (map[string]parityCase, map[string]string) {
@@ -70,6 +89,10 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_note":     {`{"id":"proposal-pb","item":"i1","quote":"Hi","note":"No."}`, []string{"proposal", "note", "proposal-pb", "i1", "--quote", "Hi", "No."}, false},
 		"proposal_edit":     {`{"id":"proposal-pa","item":"i9","draft":"Changed."}`, []string{"proposal", "edit", "proposal-pa", "i9", "--draft", "Changed again."}, false},
 		"proposal_sendback": {`{"id":"proposal-pb","item":"i2"}`, []string{"proposal", "sendback", "proposal-pb", "i1"}, false},
+		"receipt_list":      {`{}`, []string{"receipt", "list"}, false},
+		"receipt_show":      {`{"id":"receipt-rc-a"}`, []string{"receipt", "show", "receipt-rc-a"}, false},
+		"receipt_check":     {`{"id":"receipt-rc-a","verdict":"verified"}`, []string{"receipt", "check", "receipt-rc-b", "verified"}, false},
+		"receipt_revert":    {`{"id":"receipt-rc-c"}`, []string{"receipt", "revert", "receipt-rc-d"}, false},
 	}, map[string]string{
 		"proposal_add":    file("Parity add by CLI"),
 		"proposal_revise": revise,
@@ -358,7 +381,7 @@ func TestProposalCycle(t *testing.T) {
 	e.json(&tail, "events", "tail", "--limit", "500")
 	var seen int
 	for _, ev := range tail.Events {
-		if ev.Actor == "claude-one" && ev.Surface == "proposal" && ev.Op == "create" {
+		if ev.Actor == "claude-one" && ev.Surface == "proposal" && ev.Op == "create" && !strings.HasPrefix(ev.Doc, "receipt-") {
 			seen++
 		}
 	}

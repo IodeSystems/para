@@ -505,7 +505,7 @@ func (h *healther) graphFindings(ctx context.Context, s store.Store) {
 }
 
 // HealthOp lists the gaps in a vault.
-var HealthOp = define("health", "Report gaps in the vault as warnings grouped by goal (cycles, missing dates, metadata, sources, stale questions), each with a suggested fix; never fails; dismissed findings are left out and counted", func(ctx context.Context, d Deps, _ HealthInput) (HealthOutput, error) {
+var HealthOp = defineRead("health", "Report gaps in the vault as warnings grouped by goal (cycles, missing dates, metadata, sources, stale questions), each with a suggested fix; never fails; dismissed findings are left out and counted", func(ctx context.Context, d Deps, _ HealthInput) (HealthOutput, error) {
 	return Health(ctx, d.Store)
 })
 

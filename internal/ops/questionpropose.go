@@ -248,7 +248,7 @@ func openQuestionDoc(ctx context.Context, d Deps, id string) (model.Document, *m
 
 // QuestionDependsAdd makes an open question wait on tasks, requests, or other
 // questions. A cycle is refused, as for tasks.
-var QuestionDependsAdd = define("question_depends_add", "Make an open question wait on tasks, rfx, or other questions; a cycle is refused", func(ctx context.Context, d Deps, in QuestionDependsInput) (QuestionDependsOutput, error) {
+var QuestionDependsAdd = defineSafe("question_depends_add", "Make an open question wait on tasks, rfx, or other questions; a cycle is refused", func(ctx context.Context, d Deps, in QuestionDependsInput) (QuestionDependsOutput, error) {
 	doc, q, err := openQuestionDoc(ctx, d, in.ID)
 	if err != nil {
 		return QuestionDependsOutput{}, err
@@ -285,7 +285,7 @@ var QuestionDependsAdd = define("question_depends_add", "Make an open question w
 })
 
 // QuestionDependsRemove removes dependencies from a question.
-var QuestionDependsRemove = define("question_depends_remove", "Stop a question waiting on other work", func(ctx context.Context, d Deps, in QuestionDependsInput) (QuestionDependsOutput, error) {
+var QuestionDependsRemove = defineSafe("question_depends_remove", "Stop a question waiting on other work", func(ctx context.Context, d Deps, in QuestionDependsInput) (QuestionDependsOutput, error) {
 	doc, q, err := getQuestion(ctx, d.Store, in.ID)
 	if err != nil {
 		return QuestionDependsOutput{}, err

@@ -59,7 +59,7 @@ type RuleListOutput struct {
 }
 
 // RuleList lists rules.
-var RuleList = define("rule_list", "List rules of one policy or of all policies", func(ctx context.Context, d Deps, in RuleListInput) (RuleListOutput, error) {
+var RuleList = defineRead("rule_list", "List rules of one policy or of all policies", func(ctx context.Context, d Deps, in RuleListInput) (RuleListOutput, error) {
 	ids := []string{in.Policy}
 	if in.Policy == "" {
 		refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicy})

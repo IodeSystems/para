@@ -14,6 +14,7 @@ import { useProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
 import { useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
 import { AnswerCard } from '@/components/AnswerCheck'
+import { ReceiptSection } from '@/components/Receipts'
 import { useAccept, useReopen, useReview } from '@/api/review'
 import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -185,6 +186,7 @@ function Review() {
       <AnswersSection />
       <AgentWorkSection />
       <ProposalsSection />
+      <ReceiptSection check="unchecked" title="Agent writes to check" />
       <DataState q={q}>
         {(r) => (
           <>

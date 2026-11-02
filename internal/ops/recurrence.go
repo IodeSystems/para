@@ -55,7 +55,7 @@ type TaskDoneOutput struct {
 // gets its next occurrence. It is safe to repeat on a recurring task: the next
 // occurrence is made once. With Skip the task is dropped, not done, and the
 // next occurrence is made all the same.
-var TaskDone = define("task_done", "Mark a task done; a recurring task also gets its next occurrence (skip advances without doing)", func(ctx context.Context, d Deps, in TaskDoneInput) (TaskDoneOutput, error) {
+var TaskDone = defineSafe("task_done", "Mark a task done; a recurring task also gets its next occurrence (skip advances without doing)", func(ctx context.Context, d Deps, in TaskDoneInput) (TaskDoneOutput, error) {
 	id := normID(in.ID)
 	doc, t, err := getTask(ctx, d.Store, id)
 	if err != nil {

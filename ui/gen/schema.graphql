@@ -96,6 +96,8 @@ type ParaV1MutationNamespace {
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
   questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
+  receiptCheck(body: para_ReceiptCheckInputInput!): para_ReceiptCheckOutput @derived(operationId: "receiptCheck")
+  receiptRevert(body: para_ReceiptRevertInputInput!): para_ReceiptRevertOutput @derived(operationId: "receiptRevert")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAccept(body: para_RequestAcceptInputInput!): para_RequestChangeOutput @derived(operationId: "requestAccept")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
@@ -181,6 +183,8 @@ type ParaV1QueryNamespace {
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
+  receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, request: String): para_ReceiptListOutput @derived(operationId: "receiptList")
+  receiptShow(id: String!): para_ReceiptDetail @derived(operationId: "receiptShow")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
   rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
@@ -294,6 +298,7 @@ enum para_AreaAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -338,6 +343,7 @@ enum para_AreaViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -623,6 +629,7 @@ enum para_DocumentFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -929,6 +936,7 @@ enum para_GraphNodeType {
   project
   proposal
   question
+  receipt
   request
   rfx
   role
@@ -1070,6 +1078,7 @@ enum para_InboxAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1097,6 +1106,7 @@ enum para_InboxItemFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1175,6 +1185,7 @@ enum para_InboxTriageOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1224,6 +1235,7 @@ enum para_IncidentAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1300,6 +1312,7 @@ enum para_IncidentViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1396,6 +1409,7 @@ enum para_InteractionAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1770,6 +1784,7 @@ enum para_MeetingAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1882,6 +1897,7 @@ enum para_MeetingViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -1895,6 +1911,7 @@ enum para_MeetingViewStatus {
 }
 
 type para_Meta {
+  actor: String
   aliases: [String!]
   answered: String
   answeredBy: String
@@ -1904,8 +1921,12 @@ type para_Meta {
   blockedBy: [String!]
   blocks: [String!]
   by: String
+  check: String
+  checkNote: String
+  checkedBy: String
   choice: String
   claimedBy: String
+  confidence: String
   contacts: [para_Contact!]
   context: String
   created: String!
@@ -1914,6 +1935,7 @@ type para_Meta {
   deferredReason: String
   dependsOn: [String!]
   direction: String
+  doc: String
   doneWhen: String
   due: String
   end: String
@@ -1926,8 +1948,10 @@ type para_Meta {
   links: JSON
   medium: para_MetaMedium
   nextNudge: String
+  notDuplicate: String
   notIn: [String!]
   of: String
+  op: String
   optionDetails: JSON
   options: [String!]
   org: String
@@ -1948,6 +1972,7 @@ type para_Meta {
   recur: String
   rejectedBy: String
   rejectedReason: String
+  request: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
@@ -1958,10 +1983,12 @@ type para_Meta {
   rule: String
   runner: String
   scope: String
+  selfReported: Boolean
   selfServeCheck: String
   severity: String
   source: para_Source
   sourceDoc: String
+  sources: [String!]
   start: String
   started: String
   status: String
@@ -1973,6 +2000,7 @@ type para_Meta {
   updated: String
   url: String
   verified: Boolean
+  verify: String
   visibility: para_MetaVisibility
   why: String
   with: JSON
@@ -2008,6 +2036,7 @@ enum para_MetaType {
   project
   proposal
   question
+  receipt
   request
   rfx
   role
@@ -2055,6 +2084,7 @@ enum para_NoteAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2108,6 +2138,7 @@ enum para_NoteViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2175,6 +2206,7 @@ enum para_OrgAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2369,6 +2401,7 @@ enum para_ProjectAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2402,6 +2435,7 @@ enum para_ProjectCloseOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2467,6 +2501,7 @@ enum para_ProjectViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2705,6 +2740,7 @@ enum para_QuestionAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2867,6 +2903,7 @@ enum para_QuestionViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -2924,6 +2961,7 @@ enum para_RFXAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3145,6 +3183,83 @@ type para_RFXWaitingOutput {
   today: String!
 }
 
+input para_ReceiptCheckInputInput {
+  id: String!
+  note: String
+  verdict: para_ReceiptCheckInputVerdict!
+}
+
+enum para_ReceiptCheckInputVerdict {
+  unchecked
+  verified
+  wrong
+}
+
+type para_ReceiptCheckOutput {
+  check: para_ReceiptCheckOutputCheck!
+  id: String!
+  request: String
+  rev: String!
+}
+
+enum para_ReceiptCheckOutputCheck {
+  unchecked
+  verified
+  wrong
+}
+
+type para_ReceiptDetail {
+  lines: [String!]!
+  receipt: para_ReceiptView!
+  rev: String!
+  revertible: Boolean!
+}
+
+type para_ReceiptListOutput {
+  items: [para_ReceiptView!]!
+}
+
+input para_ReceiptRevertInputInput {
+  id: String!
+}
+
+type para_ReceiptRevertOutput {
+  doc: String!
+  rev: String!
+}
+
+type para_ReceiptView {
+  actor: String!
+  check: para_ReceiptViewCheck!
+  checkNote: String
+  checkedBy: String
+  confidence: para_ReceiptViewConfidence
+  created: String!
+  doc: String!
+  docName: String
+  id: String!
+  notDuplicate: String
+  op: String!
+  request: String
+  selfReported: Boolean
+  sources: [String!]
+  title: String!
+  verify: String
+  why: String
+}
+
+enum para_ReceiptViewCheck {
+  unchecked
+  verified
+  wrong
+}
+
+enum para_ReceiptViewConfidence {
+  high
+  low
+  medium
+}
+
 type para_ReconcileResult {
   baseline: Boolean!
   changes: [para_Change!]!
@@ -3173,6 +3288,7 @@ enum para_RefFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3196,6 +3312,7 @@ enum para_RefType {
   project
   proposal
   question
+  receipt
   request
   rfx
   role
@@ -3238,6 +3355,7 @@ enum para_RequestAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3582,6 +3700,7 @@ enum para_TaskAddOutputFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3757,6 +3876,7 @@ enum para_TaskViewFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3944,6 +4064,7 @@ enum para_WhereMatchFolder {
   projects
   proposals
   questions
+  receipts
   requests
   resources
   rfx
@@ -3967,6 +4088,7 @@ enum para_WhereMatchType {
   project
   proposal
   question
+  receipt
   request
   rfx
   role
@@ -4069,6 +4191,12 @@ enum para_questionListStatus {
   answered
   dropped
   open
+}
+
+enum para_receiptListCheck {
+  unchecked
+  verified
+  wrong
 }
 
 enum para_requestListStatus {

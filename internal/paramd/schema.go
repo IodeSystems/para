@@ -49,6 +49,7 @@ var (
 	incidentStatus  = []string{"open", "mitigated", "resolved"}
 	requestStatus   = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 	proposalStatus  = []string{"open", "sent_back", "closed", "superseded"}
+	receiptChecks   = []string{"unchecked", "verified", "wrong"}
 	questionStatus  = []string{"open", "answered", "dropped"}
 	questionKinds   = []string{"question", "decision", "input"}
 	meetingStatus   = []string{"requested", "scheduled", "held", "cancelled"}
@@ -58,7 +59,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting",
+	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt",
 }
 
 // commonFields apply to every type.
@@ -203,6 +204,12 @@ var typeFields = map[string][]field{
 		{Name: "revision", Kind: kCount, Required: true},
 		{Name: "supersedes", Kind: kLink},
 		{Name: "proposed_by", Kind: kString, Required: true},
+	},
+	"receipt": {
+		{Name: "actor", Kind: kString, Required: true},
+		{Name: "op", Kind: kString, Required: true},
+		{Name: "doc", Kind: kString, Required: true},
+		{Name: "check", Kind: kEnum, Enum: receiptChecks, Required: true},
 	},
 	"team": {
 		{Name: "org", Kind: kString, Required: true},

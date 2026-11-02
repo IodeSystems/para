@@ -54,7 +54,7 @@ type CopyOutput struct {
 // classification marking. It logs an egress event with the doc id and
 // destination before it returns the text. The vault's egress.default never
 // blocks it; it is recorded.
-var Copy = define("copy", "Render a document for paste (plain, email, slack, jira) and log the egress", func(ctx context.Context, d Deps, in CopyInput) (CopyOutput, error) {
+var Copy = defineRead("copy", "Render a document for paste (plain, email, slack, jira) and log the egress", func(ctx context.Context, d Deps, in CopyInput) (CopyOutput, error) {
 	format := in.As
 	if format == "" {
 		format = CopyPlain

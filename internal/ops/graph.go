@@ -82,7 +82,7 @@ func cyclesError(c [][]string) error {
 // every task in the vault.
 // Dependency targets outside the project are included, with their own
 // dependencies, so readiness is right across projects.
-var Graph = define("graph", "Show task and rfx dependencies", func(ctx context.Context, d Deps, in GraphInput) (GraphOutput, error) {
+var Graph = defineRead("graph", "Show task and rfx dependencies", func(ctx context.Context, d Deps, in GraphInput) (GraphOutput, error) {
 	if in.Project != "" && in.Area != "" {
 		return GraphOutput{}, errors.New("give project or area, not both")
 	}
@@ -110,7 +110,7 @@ func (o NextOutput) Failed() error { return cyclesError(o.Cycles) }
 // Next lists tasks that can start now: todo or doing, not blocked, every
 // dependency resolved, and assigned to you (not to a person or an agent). Order: due date first (earliest first, undated last),
 // then oldest created, then id.
-var Next = define("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
+var Next = defineRead("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
 	w, err := loadWork(ctx, d.Store, in.Project, "")
 	if err != nil {
 		return NextOutput{}, err

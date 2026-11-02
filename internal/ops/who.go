@@ -51,7 +51,7 @@ type WhoOutput struct {
 const recentDefault = 5
 
 // Who finds a person by name, alias, or contact value and shows what is known.
-var Who = define("who", "Find a person by name, alias, or contact value", who)
+var Who = defineRead("who", "Find a person by name, alias, or contact value", who)
 
 func who(ctx context.Context, d Deps, in WhoInput) (WhoOutput, error) {
 	q := strings.Join(strings.Fields(in.Query), " ")

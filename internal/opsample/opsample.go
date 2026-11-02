@@ -125,6 +125,9 @@ var Inputs = map[string]string{
 	"proposal_add": `{"title":"Sample proposal","tldr":"Add a task and tell Sam.","context":"Sam asked in the sample note.","source":"note-sample","items":[` +
 		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
 		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
+	"receipt_show":      `{"id":"receipt-sample"}`,
+	"receipt_check":     `{"id":"receipt-sample","verdict":"verified"}`,
+	"receipt_revert":    `{"id":"receipt-sample"}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,
 	"proposal_wait":     `{"id":"proposal-decided"}`,
@@ -172,6 +175,23 @@ func sampleProposals() ([]model.Document, error) {
 	}, nil
 }
 
+// sampleReceipt records the creation of note-receipted.
+func sampleReceipt() (model.Document, model.Document, error) {
+	note := model.Document{ID: "note-receipted", Folder: model.FolderResources, Title: "Receipted note", Body: "Later text.",
+		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Created: "2026-11-01"}}}
+	after, err := model.Render(note)
+	if err != nil {
+		return note, model.Document{}, err
+	}
+	body, err := model.RenderReceiptBody(model.ReceiptContent{Folder: model.FolderResources, After: strings.TrimRight(string(after), "\n")})
+	if err != nil {
+		return note, model.Document{}, err
+	}
+	return note, model.Document{ID: "receipt-sample", Folder: model.FolderReceipts, Title: "Note add: Receipted note", Body: body,
+		Meta: &model.Receipt{Common: model.Common{Type: model.TypeReceipt}, Actor: "agent", Op: "note_add", Doc: "note-receipted",
+			Why: "The owner asked for it.", Sources: []string{"note-sample"}, Verify: "Open the note.", Confidence: model.ConfidenceMedium, Check: model.ReceiptUnchecked}}, nil
+}
+
 func source() model.Source {
 	return model.Source{URL: "https://wiki.acme.example/policies/sample", Retrieved: "2026-11-01T09:00:00Z",
 		Hash: "sha256:" + strings.Repeat("ab", 32), Fidelity: model.FidelityExact}
@@ -183,7 +203,12 @@ func Seed(ctx context.Context, s store.Store) error {
 	if err != nil {
 		return fmt.Errorf("opsample: seed: %w", err)
 	}
+	note, receipt, err := sampleReceipt()
+	if err != nil {
+		return fmt.Errorf("opsample: seed: %w", err)
+	}
 	for _, d := range append([]model.Document{
+		note, receipt,
 		{ID: "project-sample", Folder: model.FolderProjects, Title: "Sample project",
 			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example",
 				Links: []model.Pointer{{Label: "Docs", Kind: model.PointerDocs, Target: "https://wiki.acme.example/sample"}}}},

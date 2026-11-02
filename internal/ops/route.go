@@ -92,7 +92,7 @@ type SelfServe struct {
 
 // Route resolves a domain to a role to a person, and lists the policies,
 // constraints, and prior RFX first.
-var Route = define("route", "Find who to ask, after listing what already answers it", route)
+var Route = defineRead("route", "Find who to ask, after listing what already answers it", route)
 
 func route(ctx context.Context, d Deps, in RouteInput) (RouteOutput, error) {
 	q := strings.TrimSpace(in.Query)

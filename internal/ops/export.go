@@ -52,7 +52,7 @@ func (o ExportOutput) Rendered() (export.Rendered, error) {
 // touch the clipboard, or open a connection. The transport must pass the
 // vault's egress.export allowlist; a denied transport is logged and returns
 // no content. egress.default never blocks an export.
-var Export = define("export", "Render a document (plain, md, email, slack, jira, html, pdf, docx) for a transport and log the egress; the CLI runs the transport", func(ctx context.Context, d Deps, in ExportInput) (ExportOutput, error) {
+var Export = defineRead("export", "Render a document (plain, md, email, slack, jira, html, pdf, docx) for a transport and log the egress; the CLI runs the transport", func(ctx context.Context, d Deps, in ExportInput) (ExportOutput, error) {
 	format := in.As
 	if format == "" {
 		format = export.Plain
@@ -107,6 +107,6 @@ type ExportListOutput struct {
 // ExportList reports the formats and transports that work on the machine
 // that runs it, by looking for tools on PATH. It reads nothing from a vault
 // and changes nothing. It does not apply a vault's egress.export.
-var ExportList = define("export_list", "List the export formats and transports available on this machine", func(ctx context.Context, d Deps, in ExportListInput) (ExportListOutput, error) {
+var ExportList = defineRead("export_list", "List the export formats and transports available on this machine", func(ctx context.Context, d Deps, in ExportListInput) (ExportListOutput, error) {
 	return ExportListOutput{Formats: export.AvailableFormats(), Transports: export.AvailableTransports()}, nil
 })

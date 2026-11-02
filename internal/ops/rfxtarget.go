@@ -68,7 +68,7 @@ type RFXTargetOutput struct {
 }
 
 // RFXTargetAdd adds a target in state drafted.
-var RFXTargetAdd = define("rfx_target_add", "Add a person or group, and a medium, to a request", func(ctx context.Context, d Deps, in RFXTargetAddInput) (RFXTargetOutput, error) {
+var RFXTargetAdd = defineSafe("rfx_target_add", "Add a person or group, and a medium, to a request", func(ctx context.Context, d Deps, in RFXTargetAddInput) (RFXTargetOutput, error) {
 	return changeTargets(ctx, d, in.ID, func(m *model.RFX) error {
 		tg, err := buildTargets(ctx, d, m.Targets, []TargetInput{{To: in.To, Medium: in.Medium, Value: in.Value}})
 		m.Targets = tg
@@ -88,7 +88,7 @@ type RFXTargetStateInput struct {
 
 // RFXTargetState sets the state of one target. Moving to sent records the
 // date.
-var RFXTargetState = define("rfx_target_state", "Record that a request to one target was sent, answered, or left unanswered", func(ctx context.Context, d Deps, in RFXTargetStateInput) (RFXTargetOutput, error) {
+var RFXTargetState = defineSafe("rfx_target_state", "Record that a request to one target was sent, answered, or left unanswered", func(ctx context.Context, d Deps, in RFXTargetStateInput) (RFXTargetOutput, error) {
 	if !slices.Contains(model.TargetStates, in.State) {
 		return RFXTargetOutput{}, fmt.Errorf("state %q: want one of %v", in.State, model.TargetStates)
 	}

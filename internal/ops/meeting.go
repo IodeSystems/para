@@ -319,7 +319,7 @@ type MeetingAddOutput struct {
 
 // MeetingAdd asks for a meeting, or books one when it has a time. The body
 // gathers the questions to settle.
-var MeetingAdd = define("meeting_add", "Ask for or book a meeting with people: the body gathers the questions from linked requests and open questions in scope; linked requests move to requested or scheduled", func(ctx context.Context, d Deps, in MeetingAddInput) (MeetingAddOutput, error) {
+var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with people: the body gathers the questions from linked requests and open questions in scope; linked requests move to requested or scheduled", func(ctx context.Context, d Deps, in MeetingAddInput) (MeetingAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return MeetingAddOutput{}, err
@@ -404,7 +404,7 @@ type MeetingListOutput struct {
 
 // MeetingList lists requested and scheduled meetings, booked ones first by
 // start time. All, or a Status, includes held and cancelled ones.
-var MeetingList = define("meeting_list", "List meetings: requested and scheduled by default, booked ones first by start time", func(ctx context.Context, d Deps, in MeetingListInput) (MeetingListOutput, error) {
+var MeetingList = defineRead("meeting_list", "List meetings: requested and scheduled by default, booked ones first by start time", func(ctx context.Context, d Deps, in MeetingListInput) (MeetingListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.MeetingStatuses, in.Status) {
 		return MeetingListOutput{}, fmt.Errorf("status %q must be one of %v", in.Status, model.MeetingStatuses)
 	}
@@ -436,7 +436,7 @@ type MeetingShowOutput struct {
 }
 
 // MeetingShow returns one meeting with its questions and notes.
-var MeetingShow = define("meeting_show", "Show a meeting with its questions and notes", func(ctx context.Context, d Deps, in MeetingShowInput) (MeetingShowOutput, error) {
+var MeetingShow = defineRead("meeting_show", "Show a meeting with its questions and notes", func(ctx context.Context, d Deps, in MeetingShowInput) (MeetingShowOutput, error) {
 	doc, _, err := getMeeting(ctx, d.Store, in.ID)
 	if err != nil {
 		return MeetingShowOutput{}, err
@@ -465,7 +465,7 @@ type MeetingScheduleInput struct {
 
 // MeetingSchedule books a requested meeting, or moves a booked one. The linked
 // requests move to scheduled, and the questions list picks up new open ones.
-var MeetingSchedule = define("meeting_schedule", "Set or change the time of a requested or scheduled meeting; linked requests move to scheduled", func(ctx context.Context, d Deps, in MeetingScheduleInput) (MeetingChangeOutput, error) {
+var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of a requested or scheduled meeting; linked requests move to scheduled", func(ctx context.Context, d Deps, in MeetingScheduleInput) (MeetingChangeOutput, error) {
 	doc, m, err := getMeeting(ctx, d.Store, in.ID)
 	if err != nil {
 		return MeetingChangeOutput{}, err

@@ -213,7 +213,7 @@ type RequestAddInput struct {
 }
 
 // idWord finds a document id in text: a type word, a dash, and a slug.
-var idWord = regexp.MustCompile(`\b(?:project|task|rfx|constraint|policy|person|team|role|domain|convention|journal|inbox|group|interaction|request|area|note|incident|proposal|question|meeting|exception)-[a-z0-9][a-z0-9.-]*\b`)
+var idWord = regexp.MustCompile(`\b(?:project|task|rfx|constraint|policy|person|team|role|domain|convention|journal|inbox|group|interaction|request|area|note|incident|proposal|question|meeting|exception|receipt)-[a-z0-9][a-z0-9.-]*\b`)
 
 // requestTitle returns the title and body of a request. A given title is the
 // name and the whole ask is the body; no title is the first line of the ask,
@@ -264,7 +264,7 @@ type RequestAddOutput struct {
 }
 
 // RequestAdd queues a request, or proposes one from a surface that cannot queue.
-var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent surface it is only proposed until a person accepts it", func(ctx context.Context, d Deps, in RequestAddInput) (RequestAddOutput, error) {
+var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an agent surface it is only proposed until a person accepts it", func(ctx context.Context, d Deps, in RequestAddInput) (RequestAddOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestAddOutput{}, err
@@ -320,7 +320,7 @@ type RequestListOutput struct {
 }
 
 // RequestList lists requests, oldest queued first.
-var RequestList = define("request_list", "List agent requests, oldest first", func(ctx context.Context, d Deps, in RequestListInput) (RequestListOutput, error) {
+var RequestList = defineRead("request_list", "List agent requests, oldest first", func(ctx context.Context, d Deps, in RequestListInput) (RequestListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.RequestStatuses, in.Status) {
 		return RequestListOutput{}, fmt.Errorf("status %q: want one of %v", in.Status, model.RequestStatuses)
 	}
@@ -358,7 +358,7 @@ type RequestShowOutput struct {
 }
 
 // RequestShow shows one request.
-var RequestShow = define("request_show", "Show one agent request", func(ctx context.Context, d Deps, in RequestShowInput) (RequestShowOutput, error) {
+var RequestShow = defineRead("request_show", "Show one agent request", func(ctx context.Context, d Deps, in RequestShowInput) (RequestShowOutput, error) {
 	doc, _, err := getRequest(ctx, d.Store, in.ID)
 	return RequestShowOutput{Doc: doc}, err
 })
@@ -445,7 +445,7 @@ type RequestNextOutput struct {
 }
 
 // RequestNext claims the oldest queued request for the caller.
-var RequestNext = define("request_next", "Claim the oldest queued request for this actor, with a lease; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
+var RequestNext = defineSafe("request_next", "Claim the oldest queued request for this actor, with a lease; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestNextOutput{}, err
@@ -549,7 +549,7 @@ type RequestNoteInput struct {
 }
 
 // RequestNote adds a progress note to a claimed request and renews the lease.
-var RequestNote = define("request_note", "Add a progress note to a request you claimed, and renew its lease", func(ctx context.Context, d Deps, in RequestNoteInput) (RequestChangeOutput, error) {
+var RequestNote = defineSafe("request_note", "Add a progress note to a request you claimed, and renew its lease", func(ctx context.Context, d Deps, in RequestNoteInput) (RequestChangeOutput, error) {
 	text := strings.Join(strings.Fields(in.Text), " ")
 	if text == "" {
 		return RequestChangeOutput{}, errors.New("text is empty")
@@ -581,7 +581,7 @@ type RequestDoneInput struct {
 }
 
 // RequestDone finishes a claimed request with a result summary.
-var RequestDone = define("request_done", "Finish a request you claimed, with a result summary and links to what you made", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
+var RequestDone = defineSafe("request_done", "Finish a request you claimed, with a result summary and links to what you made", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
 	if strings.TrimSpace(in.Result) == "" {
 		return RequestChangeOutput{}, errors.New("result is empty")
 	}
@@ -606,7 +606,7 @@ type RequestFailInput struct {
 }
 
 // RequestFail ends a claimed request as failed. A person adds it again to retry.
-var RequestFail = define("request_fail", "Mark a request you claimed as failed, with the reason", func(ctx context.Context, d Deps, in RequestFailInput) (RequestChangeOutput, error) {
+var RequestFail = defineSafe("request_fail", "Mark a request you claimed as failed, with the reason", func(ctx context.Context, d Deps, in RequestFailInput) (RequestChangeOutput, error) {
 	if strings.TrimSpace(in.Reason) == "" {
 		return RequestChangeOutput{}, errors.New("reason is empty")
 	}

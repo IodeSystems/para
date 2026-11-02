@@ -52,7 +52,7 @@ type PolicyListOutput struct {
 }
 
 // PolicyList lists policies.
-var PolicyList = define("policy_list", "List policies with review and source state", func(ctx context.Context, d Deps, _ PolicyListInput) (PolicyListOutput, error) {
+var PolicyList = defineRead("policy_list", "List policies with review and source state", func(ctx context.Context, d Deps, _ PolicyListInput) (PolicyListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicy})
 	if err != nil {
 		return PolicyListOutput{}, err
@@ -96,7 +96,7 @@ type PolicyShowOutput struct {
 }
 
 // PolicyShow shows a policy summary, its rules, and its exceptions.
-var PolicyShow = define("policy_show", "Show a policy summary, rules, and exceptions", func(ctx context.Context, d Deps, in PolicyShowInput) (PolicyShowOutput, error) {
+var PolicyShow = defineRead("policy_show", "Show a policy summary, rules, and exceptions", func(ctx context.Context, d Deps, in PolicyShowInput) (PolicyShowOutput, error) {
 	doc, p, err := getPolicy(ctx, d, in.ID)
 	if err != nil {
 		return PolicyShowOutput{}, err

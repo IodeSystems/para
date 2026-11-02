@@ -69,7 +69,7 @@ type AreaAddOutput struct {
 }
 
 // AreaAdd creates an area. An area is an ongoing responsibility with no end.
-var AreaAdd = define("area_add", "Create an area (an ongoing responsibility, such as Health or Money)", func(ctx context.Context, d Deps, in AreaAddInput) (AreaAddOutput, error) {
+var AreaAdd = defineSafe("area_add", "Create an area (an ongoing responsibility, such as Health or Money)", func(ctx context.Context, d Deps, in AreaAddInput) (AreaAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return AreaAddOutput{}, err
@@ -108,7 +108,7 @@ type AreaListOutput struct {
 }
 
 // AreaList lists areas.
-var AreaList = define("area_list", "List areas", func(ctx context.Context, d Deps, _ AreaListInput) (AreaListOutput, error) {
+var AreaList = defineRead("area_list", "List areas", func(ctx context.Context, d Deps, _ AreaListInput) (AreaListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
 	if err != nil {
 		return AreaListOutput{}, err
@@ -167,7 +167,7 @@ type AreaShowOutput struct {
 }
 
 // AreaShow returns an area with its projects and tasks.
-var AreaShow = define("area_show", "Show an area with its projects and tasks", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
+var AreaShow = defineRead("area_show", "Show an area with its projects and tasks", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
 	doc, _, err := getArea(ctx, d.Store, in.ID)
 	if err != nil {
 		return AreaShowOutput{}, err

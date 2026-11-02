@@ -154,7 +154,7 @@ type ExceptionListOutput struct {
 }
 
 // ExceptionList lists exceptions.
-var ExceptionList = define("exception_list", "List policy exceptions", func(ctx context.Context, d Deps, in ExceptionListInput) (ExceptionListOutput, error) {
+var ExceptionList = defineRead("exception_list", "List policy exceptions", func(ctx context.Context, d Deps, in ExceptionListInput) (ExceptionListOutput, error) {
 	all, err := allExceptions(ctx, d)
 	if err != nil {
 		return ExceptionListOutput{}, err
@@ -181,7 +181,7 @@ type ExceptionShowOutput struct {
 }
 
 // ExceptionShow shows one exception.
-var ExceptionShow = define("exception_show", "Show one policy exception", func(ctx context.Context, d Deps, in ExceptionShowInput) (ExceptionShowOutput, error) {
+var ExceptionShow = defineRead("exception_show", "Show one policy exception", func(ctx context.Context, d Deps, in ExceptionShowInput) (ExceptionShowOutput, error) {
 	doc, e, err := getException(ctx, d, in.ID)
 	if err != nil {
 		return ExceptionShowOutput{}, err
@@ -207,7 +207,7 @@ type ExceptionExpiringOutput struct {
 
 // ExceptionExpiring lists exceptions that are not resolved and whose
 // review_by is overdue or within the window, soonest first.
-var ExceptionExpiring = define("exception_expiring", "List unresolved exceptions due for review", func(ctx context.Context, d Deps, in ExceptionExpiringInput) (ExceptionExpiringOutput, error) {
+var ExceptionExpiring = defineRead("exception_expiring", "List unresolved exceptions due for review", func(ctx context.Context, d Deps, in ExceptionExpiringInput) (ExceptionExpiringOutput, error) {
 	days := in.Days
 	if days <= 0 {
 		days = expiringDefault

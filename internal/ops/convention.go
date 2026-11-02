@@ -80,7 +80,7 @@ type ConventionListOutput struct {
 }
 
 // ConventionList lists conventions.
-var ConventionList = define("convention_list", "List conventions", func(ctx context.Context, d Deps, _ ConventionListInput) (ConventionListOutput, error) {
+var ConventionList = defineRead("convention_list", "List conventions", func(ctx context.Context, d Deps, _ ConventionListInput) (ConventionListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeConvention})
 	if err != nil {
 		return ConventionListOutput{}, err
@@ -109,7 +109,7 @@ type ConventionShowOutput struct {
 }
 
 // ConventionShow shows one convention.
-var ConventionShow = define("convention_show", "Show one convention", func(ctx context.Context, d Deps, in ConventionShowInput) (ConventionShowOutput, error) {
+var ConventionShow = defineRead("convention_show", "Show one convention", func(ctx context.Context, d Deps, in ConventionShowInput) (ConventionShowOutput, error) {
 	doc, c, err := getConvention(ctx, d, in.ID)
 	if err != nil {
 		return ConventionShowOutput{}, err

@@ -59,7 +59,7 @@ type InboxListOutput struct {
 }
 
 // InboxList lists captures not yet triaged, oldest id first.
-var InboxList = define("inbox_list", "List inbox captures not yet triaged", func(ctx context.Context, d Deps, in InboxListInput) (InboxListOutput, error) {
+var InboxList = defineRead("inbox_list", "List inbox captures not yet triaged", func(ctx context.Context, d Deps, in InboxListInput) (InboxListOutput, error) {
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeInbox})
 	if err != nil {
 		return InboxListOutput{}, err
@@ -89,7 +89,7 @@ type InboxShowOutput struct {
 }
 
 // InboxShow shows one capture.
-var InboxShow = define("inbox_show", "Show one inbox capture", func(ctx context.Context, d Deps, in InboxShowInput) (InboxShowOutput, error) {
+var InboxShow = defineRead("inbox_show", "Show one inbox capture", func(ctx context.Context, d Deps, in InboxShowInput) (InboxShowOutput, error) {
 	doc, _, err := getInbox(ctx, d, in.ID)
 	if err != nil {
 		return InboxShowOutput{}, err
@@ -157,7 +157,7 @@ type InboxTriageOutput struct {
 // gets a line that links forward, then moves to archive/. The new document is
 // made first: if the archive step fails, the item stays in the inbox and the
 // new document exists, so the error names it.
-var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, request, project, question (it needs a scope), or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
+var InboxTriage = defineSafe("inbox_triage", "Turn an inbox capture into a task, request, project, question (it needs a scope), or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
 	doc, _, err := getInbox(ctx, d, in.ID)
 	if err != nil {
 		return InboxTriageOutput{}, err

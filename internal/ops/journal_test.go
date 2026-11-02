@@ -20,6 +20,8 @@ type memStore struct {
 
 func newMemStore() *memStore { return &memStore{docs: map[string]model.Document{}} }
 
+func (m *memStore) Info() store.Info { return store.Info{Surface: "cli"} }
+
 func (m *memStore) emit(ts, op, doc string) {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {

@@ -148,6 +148,8 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 		}},
 		{"health_undismiss", func(d Deps) error {
 			_, err := HealthUndismiss.Run(t.Context(), d, HealthUndismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen})
+		{"receipt check", func(d Deps) error {
+			_, err := ReceiptCheck.Run(t.Context(), d, ReceiptCheckInput{ID: "x", Verdict: model.ReceiptVerified})
 			return err
 		}},
 		{"edit", func(d Deps) error {
@@ -637,5 +639,92 @@ func TestApproveByGroup(t *testing.T) {
 	}
 	if out.Status != model.ProposalOpen {
 		t.Fatalf("status = %s", out.Status)
+	}
+}
+
+func writeCtx(t *testing.T) context.Context {
+	return WithWrite(t.Context(), WriteMeta{Why: "The owner asked.", Sources: []string{"note-x"}, Verify: "Open the task.", Confidence: model.ConfidenceHigh})
+}
+
+func TestReceiptRecordsDiffAndWhy(t *testing.T) {
+	f := newPropFix(t)
+	ctx := writeCtx(t)
+	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Receipted", DoneWhen: "It exists."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TaskStart.Run(ctx, f.agent, TaskStartInput{ID: task.ID}); err != nil {
+		t.Fatal(err)
+	}
+	list, err := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{Doc: task.ID})
+	if err != nil || len(list.Items) != 2 {
+		t.Fatalf("receipts = %+v %v", list.Items, err)
+	}
+	start := list.Items[0]
+	if start.Op != "task_start" {
+		start = list.Items[1]
+	}
+	if start.Why != "The owner asked." || start.Verify == "" || start.Actor != "claude" || start.Check != model.ReceiptUnchecked {
+		t.Fatalf("receipt = %+v", start)
+	}
+	show, err := ReceiptShow.Run(t.Context(), f.owner, ReceiptIDInput{ID: start.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := strings.Join(show.Lines, "\n"); !strings.Contains(text, "- status: todo") || !strings.Contains(text, "+ status: doing") || !show.Revertible {
+		t.Fatalf("show = %+v", show)
+	}
+	// Events hold ids and point at the receipt.
+	evs, err := f.owner.Store.Events(t.Context(), 200)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range evs {
+		found = found || (e.Op == "receipt" && e.To == start.ID && e.Doc == task.ID)
+	}
+	if !found {
+		t.Fatal("no event points at the receipt")
+	}
+	// Revert uses the stored text.
+	if _, err := ReceiptRevert.Run(t.Context(), f.owner, ReceiptRevertInput{ID: start.ID}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := TaskShow.Run(t.Context(), f.owner, TaskShowInput{ID: task.ID})
+	if got.Task.Status != model.TaskTodo {
+		t.Fatalf("status = %s", got.Task.Status)
+	}
+	if _, err := ReceiptRevert.Run(t.Context(), f.owner, ReceiptRevertInput{ID: start.ID}); err == nil || !strings.Contains(err.Error(), "changed since") {
+		t.Fatalf("second revert: %v", err)
+	}
+}
+
+func TestReceiptWrongOpensWork(t *testing.T) {
+	f := newPropFix(t)
+	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Wrong one", DoneWhen: "It exists."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{Doc: task.ID})
+	if _, err := ReceiptCheck.Run(t.Context(), f.owner, ReceiptCheckInput{ID: list.Items[0].ID, Verdict: model.ReceiptWrong}); err == nil {
+		t.Fatal("wrong needs a note")
+	}
+	out, err := ReceiptCheck.Run(t.Context(), f.owner, ReceiptCheckInput{ID: list.Items[0].ID, Verdict: model.ReceiptWrong, Note: "Wrong project."})
+	if err != nil || out.Request == "" {
+		t.Fatalf("out = %+v %v", out, err)
+	}
+	if _, err := ReceiptCheck.Run(t.Context(), f.agent, ReceiptCheckInput{ID: list.Items[0].ID, Verdict: model.ReceiptVerified}); !errors.Is(err, ErrPersonOnly) {
+		t.Fatalf("agent check: %v", err)
+	}
+}
+
+func TestPersonWriteLeavesNoReceipt(t *testing.T) {
+	f := newPropFix(t)
+	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Mine"}); err != nil {
+		t.Fatal(err)
+	}
+	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{})
+	if len(list.Items) != 0 {
+		t.Fatalf("receipts = %+v", list.Items)
 	}
 }

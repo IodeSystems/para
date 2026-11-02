@@ -14,6 +14,8 @@ type failStore struct {
 	panics bool
 }
 
+func (f failStore) Info() store.Info { return store.Info{Surface: "cli"} }
+
 func (f failStore) Reconcile(context.Context) (model.ReconcileResult, error) {
 	if f.panics {
 		panic("boom")

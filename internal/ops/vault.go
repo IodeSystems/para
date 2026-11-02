@@ -42,7 +42,7 @@ func (o LintOutput) Failed() error {
 }
 
 // Lint checks every document in the vault.
-var Lint = define("lint", "Lint every document in the vault", func(ctx context.Context, d Deps, _ LintInput) (LintOutput, error) {
+var Lint = defineRead("lint", "Lint every document in the vault", func(ctx context.Context, d Deps, _ LintInput) (LintOutput, error) {
 	findings, err := d.Store.Lint(ctx)
 	if err != nil {
 		return LintOutput{}, err
@@ -54,7 +54,7 @@ var Lint = define("lint", "Lint every document in the vault", func(ctx context.C
 type ReconcileInput struct{}
 
 // Reconcile logs files changed outside the vault write path.
-var Reconcile = define("reconcile", "Detect and log files changed outside para", func(ctx context.Context, d Deps, _ ReconcileInput) (model.ReconcileResult, error) {
+var Reconcile = defineSafe("reconcile", "Detect and log files changed outside para", func(ctx context.Context, d Deps, _ ReconcileInput) (model.ReconcileResult, error) {
 	return d.Store.Reconcile(ctx)
 })
 
@@ -71,7 +71,7 @@ type EventsTailOutput struct {
 }
 
 // EventsTail returns the newest events, oldest first.
-var EventsTail = define("events_tail", "Show the newest events", func(ctx context.Context, d Deps, in EventsTailInput) (EventsTailOutput, error) {
+var EventsTail = defineRead("events_tail", "Show the newest events", func(ctx context.Context, d Deps, in EventsTailInput) (EventsTailOutput, error) {
 	n := in.Limit
 	if n <= 0 {
 		n = eventsTailDefault
