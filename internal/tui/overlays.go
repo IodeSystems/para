@@ -23,7 +23,22 @@ func (m *Model) onOverlayKey(k tea.KeyPressMsg) tea.Cmd {
 		case "esc":
 			m.ov = overlay{}
 			return nil
+		case "down", "ctrl+n":
+			if m.ov.kind == ovSearch {
+				m.ov.liveCur = min(m.ov.liveCur+1, min(len(m.ov.liveHits), liveRows)-1)
+				return nil
+			}
+		case "up", "ctrl+p":
+			if m.ov.kind == ovSearch {
+				m.ov.liveCur = max(m.ov.liveCur-1, -1)
+				return nil
+			}
 		case "enter":
+			if m.ov.kind == ovSearch && m.ov.liveCur >= 0 && m.ov.liveCur < len(m.ov.liveHits) {
+				id := m.ov.liveHits[m.ov.liveCur].ID
+				m.ov = overlay{}
+				return m.follow("doc:" + id)
+			}
 			text := strings.TrimSpace(m.ov.input.Value())
 			kind := m.ov.kind
 			m.ov = overlay{}
@@ -167,7 +182,7 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 	case ovCapture, ovSearch:
 		hint := "enter saves it to the inbox, esc cancels"
 		if m.ov.kind == ovSearch {
-			hint = "enter shows every result, esc cancels. person:<name> finds a person"
+			hint = "down picks a result, enter opens it or shows every result, esc cancels. person:<name> finds a person"
 		}
 		lines = []string{stPrompt.Render("▸ " + hint), m.ov.input.View()}
 		if m.ov.kind == ovSearch {
@@ -424,6 +439,7 @@ func (m *Model) onLive(msg liveMsg) {
 		return
 	}
 	m.ov.liveFor, m.ov.liveHits, m.ov.liveNote = msg.text, msg.hits, ""
+	m.ov.liveCur = -1
 	switch {
 	case msg.err != nil:
 		m.ov.liveNote = "search failed: " + oneLine(msg.err.Error())
@@ -442,7 +458,12 @@ func (m *Model) liveLines() []string {
 		if i >= liveRows {
 			break
 		}
-		out = append(out, "  "+stDim.Render(fmt.Sprintf("%-9s", truncate(h.Kind, 9)))+" "+titleOr(h.Title, "(untitled)"))
+		mark := "  "
+		title := titleOr(h.Title, "(untitled)")
+		if i == m.ov.liveCur {
+			mark, title = "▸ ", stPrompt.Render(title)
+		}
+		out = append(out, mark+stDim.Render(fmt.Sprintf("%-9s", truncate(h.Kind, 9)))+" "+title)
 	}
 	return out
 }

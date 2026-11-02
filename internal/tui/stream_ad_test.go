@@ -216,7 +216,7 @@ func TestPromptsSayWhatComesNext(t *testing.T) {
 	v.seed()
 	d := newDrv(t, v, 100, 30)
 	d.key("/")
-	if !d.has("enter shows every result") || d.has("enter saves") {
+	if !d.has("shows every result") || d.has("enter saves") {
 		t.Errorf("search prompt:\n%s", d.plainFrame())
 	}
 	d.key("esc")
@@ -298,5 +298,35 @@ func TestHelpListsAKeyOnce(t *testing.T) {
 			}
 			seen[f[0]] = true
 		}
+	}
+}
+
+// A search result can be opened from the live list and from the full list.
+func TestSearchResultsOpen(t *testing.T) {
+	v := newTestVault(t)
+	v.seed()
+	d := newDrv(t, v, 100, 30)
+	d.key("/")
+	d.typeText("pars")
+	d.run(d.m.onLiveTick(liveTickMsg{seq: d.m.ov.liveSeq, text: "pars"}))
+	d.key("down")
+	if !d.has("▸ ") || d.m.ov.liveCur != 0 {
+		t.Fatalf("no pick:\n%s", d.plainFrame())
+	}
+	d.key("enter")
+	if p := d.m.top(); p == nil || p.kind != pageDoc {
+		t.Fatalf("live pick did not open a document:\n%s", d.plainFrame())
+	}
+	d.key("esc")
+
+	d.key("/")
+	d.typeText("pars")
+	d.key("enter")
+	if p := d.m.top(); p == nil || p.kind != pageResults {
+		t.Fatalf("no results page:\n%s", d.plainFrame())
+	}
+	d.key("enter")
+	if p := d.m.top(); p == nil || p.kind != pageDoc {
+		t.Fatalf("enter on the results page did not open the first result:\n%s", d.plainFrame())
 	}
 }

@@ -117,7 +117,7 @@ func (m *Model) loadSearch(q string) tea.Cmd {
 	env := m.env
 	return func() tea.Msg {
 		in := ops.ParseQuery(q)
-		in.Limit = 30
+		in.Limit, in.Prefix = 30, true
 		o, err := ops.Search.Run(context.Background(), env.Deps, in)
 		return searchMsg{query: q, hits: o.Hits, degraded: o.Degraded, err: err}
 	}

@@ -110,6 +110,7 @@ type overlay struct {
 	liveSeq  int
 	liveFor  string // the text the hits are for
 	liveHits []index.Hit
+	liveCur  int    // the picked hit, -1 for none
 	liveNote string // "searching..." or why there are none
 }
 
