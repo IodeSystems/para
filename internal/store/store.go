@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/iodesystems/paradize/internal/egress"
+	"github.com/iodesystems/paradize/internal/index"
 	"github.com/iodesystems/paradize/internal/model"
 )
 
@@ -41,6 +42,12 @@ type Store interface {
 	// an egress event with the doc id and destination. Callers release content
 	// only after it returns.
 	Egress(ctx context.Context, doc, dest string) (egress.Decision, error)
+	// Search returns up to limit hits for query, best first. It first brings
+	// the search index up to date with the documents.
+	Search(ctx context.Context, query string, limit int) ([]index.Hit, error)
+	// IndexRebuild drops the search index and reads every document again.
+	IndexRebuild(ctx context.Context) (index.Stats, error)
+
 	// Events returns the last n events, oldest first.
 	Events(ctx context.Context, n int) ([]model.Event, error)
 }

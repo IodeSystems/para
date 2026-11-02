@@ -393,6 +393,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		"task_block":    {`{"id":"task-b1","reason":"waiting"}`, []string{"task", "block", "task-b2", "--reason", "waiting"}, false},
 		"graph":         {`{"project":"project-a"}`, []string{"graph", "project-a"}, false},
 		"next":          {`{"project":"project-a"}`, []string{"next", "project-a"}, false},
+		"index_rebuild": {`{}`, []string{"index", "rebuild"}, true},
+		"search":        {`{"query":"synthetic"}`, []string{"search", "synthetic"}, true},
 	}
 	seedRFXParity(t, deps)
 	maps.Copy(cases, rfxParityCases)

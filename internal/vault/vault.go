@@ -35,6 +35,11 @@ type Options struct {
 	Actor   string
 	Surface string
 	Now     func() time.Time // nil means time.Now
+	// StateDir holds machine-local caches (the search index). It must be
+	// outside the vault tree: a vault may sit in a file-synced folder, and
+	// SQLite corrupts under file sync. Empty means the caller has none and
+	// cache-backed features return an error.
+	StateDir string
 }
 
 // Vault is an open vault.
@@ -43,6 +48,8 @@ type Vault struct {
 	id   string
 	log  *events.Log
 	now  func() time.Time
+
+	stateDir string
 }
 
 // Open opens the vault at root and restores any missing folder.
@@ -67,8 +74,11 @@ func Open(root string, o Options) (*Vault, error) {
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
 		Vault: id, Actor: o.Actor, Surface: o.Surface, Now: o.Now,
 	})
-	return &Vault{root: root, id: id, log: log, now: o.Now}, nil
+	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir}, nil
 }
+
+// StateDir returns Options.StateDir.
+func (v *Vault) StateDir() string { return v.stateDir }
 
 // ID returns the vault id.
 func (v *Vault) ID() string { return v.id }

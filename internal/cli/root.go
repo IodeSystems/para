@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -61,7 +62,7 @@ func (l *loader) deps() (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, err
 	}
-	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface})
+	s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: cliActor, Surface: cliSurface, StateDir: filepath.Join(l.install.Home, "vaults", sel.ID)})
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", sel.ID, err)
 	}
@@ -100,6 +101,8 @@ func newRoot(l *loader) *cobra.Command {
 		newRouteCmd(l),
 		newWhoCmd(l),
 		newInteractionCmd(l),
+		newIndexCmd(l),
+		newSearchCmd(l),
 	)
 	addGovernanceCmds(root, l)
 	return root

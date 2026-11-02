@@ -3,10 +3,14 @@ package local
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/iodesystems/paradize/internal/egress"
 	"github.com/iodesystems/paradize/internal/events"
+	"github.com/iodesystems/paradize/internal/index"
 	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/store"
 	"github.com/iodesystems/paradize/internal/vault"
@@ -14,8 +18,9 @@ import (
 
 // Store is a vault on this machine.
 type Store struct {
-	v   *vault.Vault
-	log *events.Log
+	v    *vault.Vault
+	log  *events.Log
+	root string
 }
 
 var _ store.Store = (*Store)(nil)
@@ -26,7 +31,7 @@ func Open(root string, o vault.Options) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("local: open: %w", err)
 	}
-	return &Store{v: v, log: v.Log()}, nil
+	return &Store{v: v, log: v.Log(), root: root}, nil
 }
 
 func (s *Store) VaultID() string { return s.v.ID() }
@@ -61,4 +66,52 @@ func (s *Store) Events(_ context.Context, n int) ([]model.Event, error) { return
 
 func (s *Store) Egress(ctx context.Context, doc, dest string) (egress.Decision, error) {
 	return s.v.Egress(ctx, doc, dest)
+}
+
+// indexPath is the search cache, in the state dir and never in the vault
+// tree (a synced folder corrupts SQLite).
+func (s *Store) indexPath() (string, error) {
+	dir := s.v.StateDir()
+	if dir == "" {
+		return "", errors.New("local: no state dir configured for this vault")
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", fmt.Errorf("local: state dir: %w", err)
+	}
+	return filepath.Join(dir, "index.sqlite"), nil
+}
+
+// source adapts the vault to index.Source.
+type source struct{ s *Store }
+
+func (a source) Refs(ctx context.Context) ([]model.Ref, error) { return a.s.v.List(ctx, "", "") }
+
+func (a source) Get(ctx context.Context, id string) (model.Document, error) {
+	return a.s.v.Get(ctx, id)
+}
+
+func (s *Store) Search(ctx context.Context, query string, limit int) ([]index.Hit, error) {
+	p, err := s.indexPath()
+	if err != nil {
+		return nil, err
+	}
+	ix, err := index.Open(p)
+	if err != nil {
+		return nil, fmt.Errorf("local: search: %w", err)
+	}
+	defer func() { _ = ix.Close() }()
+	return ix.Search(ctx, source{s}, query, limit)
+}
+
+func (s *Store) IndexRebuild(ctx context.Context) (index.Stats, error) {
+	p, err := s.indexPath()
+	if err != nil {
+		return index.Stats{}, err
+	}
+	ix, err := index.Open(p)
+	if err != nil {
+		return index.Stats{}, fmt.Errorf("local: index rebuild: %w", err)
+	}
+	defer func() { _ = ix.Close() }()
+	return ix.Rebuild(ctx, source{s})
 }
