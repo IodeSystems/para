@@ -190,6 +190,13 @@ For prose, set journal.agent=<name> in .para/vault.properties. Tick then queues 
 20. Bring in what you already have (an agent does it, you review)
 There is no import command. Ask your agent to use the prompt import_corpus. It reads the source with its own tools, confirms what it is with you, links docs instead of copying them, searches for what already exists, and files one proposal per source for you to review.
 
+21. Ingest one source, and align with reality (an agent does it, you review)
+  $ para align scope project-portal
+  $ para align record project-portal --checked 6 --matched 6
+  $ para task add "Align the portal goal" --project project-portal --assignee agent:claude --recur weekly --due 2026-11-09 --done-when "align_record shows this week"
+Para fetches nothing. Ask your agent for /para ingest followed by a URL, a file, or pasted text: it reads that one thing with its own tools, finds what it touches in the vault, and files one proposal. Each item carries its source: a fact, a task, a question answered as a proposed answer, an ask resolved, a date moved. Ask for /para align followed by a goal, an area, or vault: it compares the vault with gh, jira, slack, or a calendar, and files one proposal of differences, each with both sides and a source. The prompts are ingest_source and align_vault. align scope lists what the agent walks; align record keeps a receipt with the counts checked, matched, differ, and unreachable, and names the sources it could not reach. A run with no change is recorded too. The goal page shows the date it was last aligned.
+To align on a schedule, make it a recurring task for the agent, as above. When it is done, the next one is made; para tick makes the agent work item when one is due (use cases 7 and 17). Title it with the command so the agent knows what to run. Nothing else recurs and no new scheduler exists. To have health name goals that were not aligned lately, set align.days=14 in .para/vault.properties. Unset, health says nothing about it.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due

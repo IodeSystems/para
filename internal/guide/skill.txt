@@ -10,3 +10,5 @@ empty vault, `process_meeting` for a transcript, and `review_cycle` for proposal
 Arguments. If the request starts with the word health (as in /para health), use the
 `health_triage` prompt: run `health`, settle what evidence settles, and file one
 proposal. With no argument, start with `orient`.
+
+If the request starts with the word ingest or align, the skill points to the reference file for it. The same text is the prompt `ingest_source` or `align_vault`.

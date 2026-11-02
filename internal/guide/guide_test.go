@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
