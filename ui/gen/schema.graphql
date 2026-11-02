@@ -25,6 +25,9 @@ type ParaQueryNamespace {
 type ParaV1MutationNamespace {
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
+  areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
+  areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
@@ -40,6 +43,7 @@ type ParaV1MutationNamespace {
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
+  noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
@@ -56,6 +60,8 @@ type ParaV1MutationNamespace {
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
+  projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
+  projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
@@ -73,7 +79,10 @@ type ParaV1MutationNamespace {
   ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
+  taskDependsAdd(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsAdd")
+  taskDependsRemove(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsRemove")
   taskDone(body: para_TaskDoneInputInput!): para_TaskChangeOutput @derived(operationId: "taskDone")
+  taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
@@ -82,6 +91,8 @@ type ParaV1MutationNamespace {
 
 type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
+  areaList: para_AreaListOutput @derived(operationId: "areaList")
+  areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
@@ -92,13 +103,15 @@ type ParaV1QueryNamespace {
   exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
   exceptionShow(id: String!): para_ExceptionShowOutput @derived(operationId: "exceptionShow")
   exportList: para_ExportListOutput @derived(operationId: "exportList")
-  graph(project: String): para_GraphOutput @derived(operationId: "graph")
+  graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
   lint: para_LintOutput @derived(operationId: "lint")
   next(project: String): para_NextOutput @derived(operationId: "next")
+  noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
+  noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
   orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
@@ -121,16 +134,93 @@ type ParaV1QueryNamespace {
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
   search(limit: Int, query: String!): para_SearchOutput @derived(operationId: "search")
-  taskList(project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
   uiToday: para_UITodayBody @derived(operationId: "uiToday")
+  where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
   who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
 }
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+input para_AreaAddInputInput {
+  body: String
+  id: String
+  status: para_AreaAddInputStatus
+  title: String!
+}
+
+enum para_AreaAddInputStatus {
+  active
+  paused
+}
+
+type para_AreaAddOutput {
+  folder: para_AreaAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_AreaAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_AreaListOutput {
+  areas: [para_AreaView!]!
+}
+
+type para_AreaShowOutput {
+  area: para_AreaView!
+  body: String!
+  notes: [para_NoteView!]!
+  projects: [para_ProjectView!]!
+  tasks: [para_TaskView!]!
+}
+
+type para_AreaView {
+  folder: para_AreaViewFolder!
+  id: String!
+  links: [para_Pointer!]!
+  rev: String!
+  status: para_AreaViewStatus!
+  title: String!
+}
+
+enum para_AreaViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_AreaViewStatus {
+  active
+  paused
 }
 
 type para_ChainNode {
@@ -544,6 +634,7 @@ type para_GraphEdge {
 }
 
 type para_GraphNode {
+  area: String
   blockedBy: [String!]!
   id: String!
   project: String
@@ -555,6 +646,7 @@ type para_GraphNode {
 }
 
 enum para_GraphNodeType {
+  area
   constraint
   convention
   domain
@@ -562,6 +654,7 @@ enum para_GraphNodeType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
@@ -675,6 +768,7 @@ enum para_InboxTriageInputDirection {
 }
 
 input para_InboxTriageInputInput {
+  area: String
   date: String
   direction: para_InboxTriageInputDirection
   id: String!
@@ -899,6 +993,34 @@ type para_KeyView {
   scopes: [String!]!
 }
 
+input para_LinkAddInputInput {
+  id: String!
+  kind: para_LinkAddInputKind!
+  label: String!
+  target: String!
+}
+
+enum para_LinkAddInputKind {
+  dashboard
+  docs
+  other
+  plan
+  repo
+  runbook
+  tracker
+}
+
+type para_LinkOutput {
+  id: String!
+  links: [para_Pointer!]!
+  rev: String!
+}
+
+input para_LinkRemoveInputInput {
+  id: String!
+  label: String!
+}
+
 type para_LintOutput {
   errors: Int!
   findings: [para_Finding!]!
@@ -908,6 +1030,7 @@ type para_LintOutput {
 type para_Meta {
   aliases: [String!]
   appliesIn: [String!]
+  area: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -917,10 +1040,11 @@ type para_Meta {
   date: String
   dependsOn: [String!]
   direction: String
+  due: String
   groups: [String!]
   kind: String
   leaseUntil: String
-  links: [String!]
+  links: JSON
   medium: para_MetaMedium
   nextNudge: String
   notIn: [String!]
@@ -931,6 +1055,7 @@ type para_Meta {
   policy: String
   project: String
   queuedAt: String
+  recur: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
@@ -967,6 +1092,7 @@ enum para_MetaMedium {
 }
 
 enum para_MetaType {
+  area
   constraint
   convention
   domain
@@ -974,6 +1100,7 @@ enum para_MetaType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
@@ -994,6 +1121,71 @@ enum para_MetaVisibility {
 type para_NextOutput {
   cycles: JSON!
   tasks: [para_TaskView!]!
+}
+
+input para_NoteAddInputInput {
+  area: String
+  body: String
+  project: String
+  tags: [String!]
+  title: String!
+}
+
+type para_NoteAddOutput {
+  folder: para_NoteAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_NoteAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_NoteListOutput {
+  notes: [para_NoteView!]!
+}
+
+type para_NoteShowOutput {
+  body: String!
+  note: para_NoteView!
+}
+
+type para_NoteView {
+  area: String
+  folder: para_NoteViewFolder!
+  id: String!
+  project: String
+  rev: String!
+  tags: [String!]!
+  title: String!
+}
+
+enum para_NoteViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
 }
 
 input para_OrgAddInputInput {
@@ -1098,6 +1290,22 @@ type para_PersonNoteOutput {
   rev: String!
 }
 
+type para_Pointer {
+  kind: para_PointerKind!
+  label: String!
+  target: String!
+}
+
+enum para_PointerKind {
+  dashboard
+  docs
+  other
+  plan
+  repo
+  runbook
+  tracker
+}
+
 type para_PolicyListOutput {
   policies: [para_PolicyView!]!
 }
@@ -1174,8 +1382,9 @@ enum para_PolicyViewFidelity {
 }
 
 input para_ProjectAddInputInput {
+  area: String
   body: String
-  owner: String!
+  owner: String
   title: String!
 }
 
@@ -1248,8 +1457,10 @@ type para_ProjectShowOutput {
 }
 
 type para_ProjectView {
+  area: String
   folder: para_ProjectViewFolder!
   id: String!
+  links: [para_Pointer!]
   owner: String!
   rev: String!
   status: para_ProjectViewStatus!
@@ -1550,6 +1761,7 @@ enum para_RefFolder {
 }
 
 enum para_RefType {
+  area
   constraint
   convention
   domain
@@ -1557,6 +1769,7 @@ enum para_RefType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
@@ -1853,9 +2066,12 @@ enum para_TargetState {
 }
 
 input para_TaskAddInputInput {
+  area: String
   body: String
   dependsOn: [String!]
-  project: String!
+  due: String
+  project: String
+  recur: String
   title: String!
 }
 
@@ -1901,8 +2117,33 @@ enum para_TaskChangeOutputStatus {
   todo
 }
 
+input para_TaskDependsInputInput {
+  dependsOn: [String!]
+  id: String!
+}
+
+type para_TaskDependsOutput {
+  dependsOn: [String!]!
+  id: String!
+  rev: String!
+}
+
 input para_TaskDoneInputInput {
   id: String!
+}
+
+input para_TaskDueInputInput {
+  clear: Boolean
+  date: String
+  id: String!
+  recur: String
+}
+
+type para_TaskDueOutput {
+  due: String
+  id: String!
+  recur: String
+  rev: String!
 }
 
 type para_TaskListOutput {
@@ -1920,11 +2161,15 @@ input para_TaskStartInputInput {
 }
 
 type para_TaskView {
+  area: String
   blockedBy: [String!]!
+  created: String!
   dependsOn: [String!]!
+  due: String
   folder: para_TaskViewFolder!
   id: String!
   project: String!
+  recur: String
   rev: String!
   status: para_TaskViewStatus!
   title: String!
@@ -1960,6 +2205,7 @@ type para_TodayGroup {
 }
 
 type para_TodayItem {
+  due: String
   id: String!
   title: String!
 }
@@ -1967,11 +2213,13 @@ type para_TodayItem {
 type para_TodayVaultToday {
   blocked: para_TodayGroup!
   due: para_TodayGroup!
+  dueSoon: para_TodayGroup!
   error: String
   expiring: para_TodayGroup!
   inbox: Int!
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
+  overdue: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
   vault: String!
@@ -2025,6 +2273,56 @@ enum para_WaitingItemStatus {
   closed
   declined
   open
+}
+
+type para_WhereMatch {
+  folder: para_WhereMatchFolder!
+  id: String!
+  links: [para_Pointer!]!
+  title: String!
+  type: para_WhereMatchType!
+}
+
+enum para_WhereMatchFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+enum para_WhereMatchType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  interaction
+  journal
+  note
+  person
+  policy
+  policy_exception
+  project
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+type para_WhereOutput {
+  matches: [para_WhereMatch!]!
 }
 
 type para_WhoOutput {
