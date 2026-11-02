@@ -10,15 +10,14 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import EventIcon from '@mui/icons-material/Event'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuestions, useUndefer } from '@/api/questions'
+import { useQuestions } from '@/api/questions'
 import { useWork } from '@/api/work'
 import { useTaskDone, useTaskDue } from '@/api/tasks'
 import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
-import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, findContextItem } from '@/components/FindContext'
-import { useLooking } from '@/api/requests'
+import { TaskMenu } from '@/components/TaskMenu'
+import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { dueLabel, dueState } from '@/lib/due'
 import { laterLabel, nameList, nameOr } from '@/lib/names'
 
@@ -36,6 +35,7 @@ export type TaskRow = {
   dependsOnNames?: string[] | null
   blockedBy: string[]
   doneWhen?: string | null
+  outcome?: string | null
   deferred?: boolean
   deferUntil?: string | null
   waitsOn?: string[]
@@ -68,8 +68,6 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
 // showProject adds the project name under each task, for lists that mix projects.
 export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
   const questions = useQuestions({ deferred: true })
-  const undefer = useUndefer()
-  const looking = useLooking()
   // task id -> titles of the open questions it waits on
   const waits = new Map<string, string[]>()
   for (const q of questions.data ?? [])
@@ -102,27 +100,17 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                 slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
               />
               {open && (
-                <RowMenu
-                  label={`Actions for ${t.title || t.id}`}
-                  items={[
-                    { label: 'Done', hint: 'Mark this task finished', search: { done: t.id } },
-                    findContextItem(t.id, looking.has(t.id)),
+                <TaskMenu
+                  id={t.id}
+                  title={t.title}
+                  status={t.status}
+                  deferred={t.deferred}
+                  extra={[
                     {
                       label: 'Set done when',
                       hint: 'Say how we know this task is done',
                       search: { taskdw: t.id },
                     },
-                    t.deferred
-                      ? {
-                          label: 'Not later',
-                          hint: 'Bring this back to the Agenda and next',
-                          onSelect: () => undefer.mutate([t.id]),
-                        }
-                      : {
-                          label: 'Later',
-                          hint: 'Put this off. It leaves the Agenda and next',
-                          search: { later: t.id },
-                        },
                     {
                       label: 'To question',
                       hint: 'Turn this into a question you need answered first',
@@ -138,10 +126,16 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
               {t.deferred && (
                 <StatusChip
                   tone="quiet"
-                  label={laterLabel(t.deferUntil || (t.waitsOn?.length ? null : 'someday'), t.waitsOn, t.waitsOnNames)}
+                  label={laterLabel(
+                    t.deferUntil || (t.waitsOn?.length ? null : 'someday'),
+                    t.waitsOn,
+                    t.waitsOnNames,
+                  )}
                 />
               )}
+              {t.outcome && t.outcome !== 'done' && <StatusChip tone="quiet" label={t.outcome} />}
               <AgentLooking id={t.id} />
+              <AgentWorking id={t.id} />
               {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
               {t.assignee && (
                 <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />

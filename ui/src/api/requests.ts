@@ -19,6 +19,7 @@ const RequestListDoc = graphql(/* GraphQL */ `
             linkNames
             links
             investigates
+            delegates
             resolution
             turn
           }
@@ -102,6 +103,14 @@ export function useLooking(): Set<string> {
   const q = useRequests()
   const out = new Set<string>()
   for (const r of q.data ?? []) if (r.investigates) for (const l of r.links ?? []) out.add(l)
+  return out
+}
+
+// useWorking is the ids of the tasks that open delegated agent work serves.
+export function useWorking(): Set<string> {
+  const q = useRequests()
+  const out = new Set<string>()
+  for (const r of q.data ?? []) if (r.delegates) for (const l of r.links ?? []) out.add(l)
   return out
 }
 

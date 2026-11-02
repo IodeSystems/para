@@ -31,9 +31,8 @@ import {
   useTaskToQuestion,
 } from '@/api/questions'
 import { useGoalEdit } from '@/api/areas'
-import { useTaskDone, useTaskEdit } from '@/api/tasks'
+import { useTaskEdit } from '@/api/tasks'
 import { Pick } from '@/components/Pick'
-import { doneConfirm } from '@/lib/answer'
 import { useSearch } from '@/api/search'
 import { useWork } from '@/api/work'
 import { useDoc } from '@/api/doc'
@@ -56,7 +55,6 @@ export function QuestionDialogs({ s, onDone }: Props) {
       {s.later && <LaterDialog ids={s.later.split(',')} onDone={onDone} />}
       {s.find && <FindDialog id={s.find} onDone={onDone} />}
       {s.cut && <CutDialog id={s.cut} onDone={onDone} />}
-      {s.done && <DoneDialog id={s.done} onDone={onDone} />}
       {s.toq && <ToQuestionDialog id={s.toq} onDone={onDone} />}
       {s.reject && <RejectDialog id={s.reject} onDone={onDone} />}
       {s.qedit && <QuestionEditDialog id={s.qedit} onDone={onDone} />}
@@ -388,8 +386,8 @@ function LaterDialog({ ids, onDone }: { ids: string[]; onDone: (m: string) => vo
   const [cond, setCond] = useState('')
   const [place, setPlace] = useState('')
   const hits = useSearch(find)
-  const items = (hits.data?.hits ?? []).filter((h) =>
-    /^(task|question|rfx|project|request)-/.test(h.id) && !ids.includes(h.id),
+  const items = (hits.data?.hits ?? []).filter(
+    (h) => /^(task|question|rfx|project|request)-/.test(h.id) && !ids.includes(h.id),
   )
   const similar = later.data?.similar ?? []
   const submit = (force = false, pick = '') => {
@@ -677,56 +675,6 @@ function CutDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) 
         <Typography variant="caption" color="text.secondary">
           The reason is recorded on the task as an assumption, and shows in its history.
         </Typography>
-      </Stack>
-    </Frame>
-  )
-}
-
-function DoneDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
-  const close = useClose()
-  const done = useTaskDone()
-  const work = useWork()
-  const task = work.data?.tasks.find((t) => t.id === id)
-  const title = task?.title
-  const confirm = doneConfirm(task?.doneWhen)
-  const [note, setNote] = useState('')
-  return (
-    <Frame
-      title="Finish task"
-      onSubmit={() =>
-        done.mutate(
-          { id, note: note.trim() || undefined },
-          {
-            onSuccess: (r) => {
-              onDone(
-                `Finished ${title ? `"${title}"` : 'the task'}.${r.next ? ` Next recurrence ${dateWords(r.next)}.` : ''}`,
-              )
-              close()
-            },
-          },
-        )
-      }
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={done.isPending}>
-            {confirm ? 'Yes, done' : 'Done'}
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {done.isError && <Alert severity="error">{errorText(done.error)}</Alert>}
-        {confirm && <Typography sx={{ overflowWrap: 'anywhere' }}>{confirm}</Typography>}
-        <TextField
-          label="Note (what was done or decided)"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          multiline
-          minRows={2}
-          autoFocus
-          fullWidth
-        />
       </Stack>
     </Frame>
   )

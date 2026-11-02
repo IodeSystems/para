@@ -1101,6 +1101,47 @@ try {
   )
   check(findWork.length === 1, 'a second press adds the hint to the open work, not a new request')
 
+  // Give to agent: queues work linked to the task, the row says Agent working, a second press
+  // adds the hint. Then Resolve as partial with a follow-up.
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Give to agent/ }).click()
+  const ga = rp.getByRole('dialog', { name: 'Give to agent' })
+  await ga.getByLabel(/^Hint/).fill('start with the runbook')
+  await ga.getByRole('button', { name: 'Give to agent' }).click()
+  await ga.waitFor({ state: 'hidden' })
+  await findRow.getByText('Agent working').waitFor()
+  check(true, 'Give to agent queues work and the row says Agent working')
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Give to agent/ }).click()
+  const ga2 = rp.getByRole('dialog', { name: 'Give to agent' })
+  await ga2.getByText('An agent is working on it already').waitFor()
+  await ga2.getByLabel(/^Hint/).fill('and the wiki')
+  await ga2.getByRole('button', { name: 'Give to agent' }).click()
+  await ga2.waitFor({ state: 'hidden' })
+  const delegated = JSON.parse(para(...v, 'request', 'list', '--json')).items.filter((r) =>
+    r.title.startsWith('Work on: Deploy the service'),
+  )
+  check(delegated.length === 1, 'a second Give to agent adds the hint to the open work')
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Resolve/ }).click()
+  const rs = rp.getByRole('dialog', { name: 'Resolve task' })
+  await rs.getByRole('combobox', { name: 'Outcome' }).click()
+  await rp.getByRole('option', { name: 'Partly done' }).click()
+  await rs.getByLabel(/^What was done/).fill('The service is up; the checks are not.')
+  await rs.getByLabel(/^Follow-up tasks/).fill('Verify the deploy checks')
+  await rs.getByRole('button', { name: 'Resolve', exact: true }).click()
+  await rs.waitFor({ state: 'hidden' })
+  const deployTasks = JSON.parse(para(...v, 'task', 'list', '--json')).tasks
+  const partial = deployTasks.find((t) => t.title === 'Deploy the service')
+  check(
+    partial?.outcome === 'partial' && partial.status === 'done',
+    'Resolve as partial closes the task with the outcome',
+  )
+  check(
+    deployTasks.some((t) => t.title === 'Verify the deploy checks' && t.status === 'todo'),
+    'Resolve as partial makes the follow-up task',
+  )
+
   // Triage an inbox item into a question with a scope; finish a task with a note.
   await rp.goto(`${base}/agenda`)
   await rp
@@ -1125,10 +1166,10 @@ try {
     .first()
     .getByRole('button', { name: /^Actions for/ })
     .click()
-  await rp.getByRole('menuitem', { name: /^Done/ }).click()
-  const dd = rp.getByRole('dialog', { name: 'Finish task' })
+  await rp.getByRole('menuitem', { name: /^Resolve/ }).click()
+  const dd = rp.getByRole('dialog', { name: 'Resolve task' })
   await dd.getByLabel(/Note/).fill('Plan written and shared')
-  await dd.getByRole('button', { name: 'Done' }).click()
+  await dd.getByRole('button', { name: 'Resolve', exact: true }).click()
   await dd.waitFor({ state: 'hidden' })
   check(
     para(...v, 'task', 'show', t1).includes('Plan written and shared'),
@@ -1426,11 +1467,12 @@ try {
   )
   // The Done dialog shows the condition first.
   await gRow.getByRole('button', { name: /^Actions for/ }).click()
-  await rp.getByRole('menuitem', { name: /^Done/ }).click()
-  const gd = rp.getByRole('dialog', { name: 'Finish task' })
+  await rp.getByRole('menuitem', { name: /^Resolve/ }).click()
+  const gd = rp.getByRole('dialog', { name: 'Resolve task' })
+  await gd.getByText('Done when: The note is published. Is it done?').waitFor()
   check(
     await gd.getByText('Done when: The note is published. Is it done?').isVisible(),
-    'Done asks "Done when: ... Is it done?" for a task with a condition',
+    'Resolve asks "Done when: ... Is it done?" for a task with a condition',
   )
   await gd.getByRole('button', { name: 'Yes, done' }).click()
   await gd.waitFor({ state: 'hidden' })

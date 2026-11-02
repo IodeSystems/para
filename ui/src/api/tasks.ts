@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import type { Para_TaskResolveInputOutcome } from '@/gql/graphql'
 
 const TaskDoneDoc = graphql(/* GraphQL */ `
   mutation TaskDone($body: para_TaskDoneInputInput!) {
@@ -86,6 +87,8 @@ const TaskShowDoc = graphql(/* GraphQL */ `
             title
             status
             doneWhen
+            outcome
+            assignee
             project
             projectName
           }
@@ -100,5 +103,135 @@ export function useTask(id: string) {
     queryKey: ['task', id],
     queryFn: async () =>
       need((await gqlClient.request(TaskShowDoc, { id })).para.v1.taskShow, 'task').task,
+  })
+}
+
+const TaskResolveDoc = graphql(/* GraphQL */ `
+  mutation TaskResolve($body: para_TaskResolveInputInput!) {
+    para {
+      v1 {
+        taskResolve(body: $body) {
+          id
+          status
+          outcome
+          followUps
+          moved
+          released
+          next
+          warnings
+        }
+      }
+    }
+  }
+`)
+
+// useTaskResolve closes a task with an outcome: done, partial, dropped, duplicate, or superseded.
+export function useTaskResolve() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: {
+      id: string
+      outcome: Para_TaskResolveInputOutcome
+      note?: string
+      link?: string
+      followUps?: string[]
+      doneWhen?: string
+    }) =>
+      need((await gqlClient.request(TaskResolveDoc, { body: b })).para.v1.taskResolve, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const TaskStartDoc = graphql(/* GraphQL */ `
+  mutation TaskStart($body: para_TaskStartInputInput!) {
+    para {
+      v1 {
+        taskStart(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+export function useTaskStart() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string }) =>
+      need((await gqlClient.request(TaskStartDoc, { body: b })).para.v1.taskStart, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const TaskBlockDoc = graphql(/* GraphQL */ `
+  mutation TaskBlock($body: para_TaskBlockInputInput!) {
+    para {
+      v1 {
+        taskBlock(body: $body) {
+          id
+          status
+        }
+      }
+    }
+  }
+`)
+
+export function useTaskBlock() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; reason: string }) =>
+      need((await gqlClient.request(TaskBlockDoc, { body: b })).para.v1.taskBlock, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const TaskAssignDoc = graphql(/* GraphQL */ `
+  mutation TaskAssign($body: para_TaskAssignInputInput!) {
+    para {
+      v1 {
+        taskAssign(body: $body) {
+          id
+          assignee
+        }
+      }
+    }
+  }
+`)
+
+export function useTaskAssign() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; assignee: string }) =>
+      need((await gqlClient.request(TaskAssignDoc, { body: b })).para.v1.taskAssign, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+const TaskDelegateDoc = graphql(/* GraphQL */ `
+  mutation TaskDelegate($body: para_TaskDelegateInputInput!) {
+    para {
+      v1 {
+        taskDelegate(body: $body) {
+          id
+          request
+          status
+          assignee
+          appended
+          note
+        }
+      }
+    }
+  }
+`)
+
+// useTaskDelegate gives a task to an agent: queues agent work linked to it, or adds the hint to
+// the work that is open.
+export function useTaskDelegate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; agent?: string; hint?: string }) =>
+      need((await gqlClient.request(TaskDelegateDoc, { body: b })).para.v1.taskDelegate, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

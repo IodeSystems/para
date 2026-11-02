@@ -20,6 +20,10 @@ export type OverlaySearch = {
   drop?: string // question id to drop
   done?: string // task id to finish
   toq?: string // task id to turn into a question
+  resolve?: string // task id to close with an outcome
+  block?: string // task id to block
+  assign?: string // task id to assign
+  delegate?: string // task id to give to an agent
   reject?: string // question id whose proposed answer is rejected
   qedit?: string // question id to edit
   qdeps?: string // question id whose dependencies are edited
@@ -53,6 +57,10 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     drop: id(s.drop),
     done: id(s.done),
     toq: id(s.toq),
+    resolve: id(s.resolve),
+    block: id(s.block),
+    assign: id(s.assign),
+    delegate: id(s.delegate),
     reject: id(s.reject),
     qedit: id(s.qedit),
     qdeps: id(s.qdeps),
@@ -82,6 +90,10 @@ export const NO_OVERLAYS: OverlaySearch = {
   drop: undefined,
   done: undefined,
   toq: undefined,
+  resolve: undefined,
+  block: undefined,
+  assign: undefined,
+  delegate: undefined,
   reject: undefined,
   qedit: undefined,
   qdeps: undefined,

@@ -8,6 +8,7 @@ import { Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoneWhen } from '@/components/DoneWhen'
 import { LinkButton } from '@/components/links'
+import { TaskMenu } from '@/components/TaskMenu'
 import { questionState } from '@/lib/answer'
 import { nameList, nameOr } from '@/lib/names'
 
@@ -81,11 +82,17 @@ export function TaskPanel({ id }: { id: string }) {
           size="small"
           variant="outlined"
           to="."
-          search={(p) => ({ ...p, done: id })}
-          sx={{ mb: 2 }}
+          search={(p) => ({ ...p, resolve: id })}
+          sx={{ mb: 2, mr: 1 }}
         >
-          Done
+          Resolve
         </LinkButton>
+      )}
+      {open && <TaskMenu id={id} title="this task" status={q.data.status} always />}
+      {!open && q.data.outcome && q.data.outcome !== 'done' && (
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          Closed as {q.data.outcome}.
+        </Typography>
       )}
     </>
   )

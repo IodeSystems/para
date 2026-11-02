@@ -1,5 +1,5 @@
 import { StatusChip } from '@/components/Bits'
-import { useLooking } from '@/api/requests'
+import { useLooking, useWorking } from '@/api/requests'
 import type { RowMenuItem } from '@/components/RowMenu'
 
 // findContextItem is the "Find context" entry of a row menu. It opens the hint dialog on the
@@ -18,4 +18,10 @@ export function findContextItem(id: string, looking: boolean): RowMenuItem {
 export function AgentLooking({ id }: { id: string }) {
   const looking = useLooking()
   return looking.has(id) ? <StatusChip tone="good" label="Agent looking" /> : null
+}
+
+// AgentWorking is the chip a task row shows while delegated agent work serves it.
+export function AgentWorking({ id }: { id: string }) {
+  const working = useWorking()
+  return working.has(id) ? <StatusChip tone="good" label="Agent working" /> : null
 }

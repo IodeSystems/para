@@ -13,7 +13,8 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { AgentLooking, AgentWorking, findContextItem } from '@/components/FindContext'
+import { TaskMenu } from '@/components/TaskMenu'
 import { useLooking } from '@/api/requests'
 import { errorText } from '@/client/gqlClient'
 import { downloadText } from '@/lib/download'
@@ -132,6 +133,7 @@ export function DatedAgenda() {
                             label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
                           />
                           <AgentLooking id={i.id} />
+                          <AgentWorking id={i.id} />
                           {(i.kind === 'meeting' || i.kind === 'nudge') && (
                             <RowMenu
                               label={`More actions for ${i.title}`}
@@ -139,30 +141,7 @@ export function DatedAgenda() {
                               items={[findContextItem(i.id, looking.has(i.id))]}
                             />
                           )}
-                          {i.kind === 'due' && (
-                            <RowMenu
-                              label={`More actions for ${i.title}`}
-                              always
-                              items={[
-                                findContextItem(i.id, looking.has(i.id)),
-                                {
-                                  label: 'Done',
-                                  hint: 'Mark this task finished',
-                                  search: { done: i.id },
-                                },
-                                {
-                                  label: 'Later',
-                                  hint: 'Put this off. It leaves the Agenda and next',
-                                  search: { later: i.id },
-                                },
-                                {
-                                  label: 'Cut a dependency',
-                                  hint: 'Let it go ahead without something it waits on',
-                                  search: { cut: i.id },
-                                },
-                              ]}
-                            />
-                          )}
+                          {i.kind === 'due' && <TaskMenu id={i.id} title={i.title} always />}
                         </ListItem>
                       ))}
                     </List>

@@ -37,6 +37,7 @@ const WorkDoc = graphql(/* GraphQL */ `
             dependsOnNames
             blockedBy
             doneWhen
+            outcome
           }
         }
       }

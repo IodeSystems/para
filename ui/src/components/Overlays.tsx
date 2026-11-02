@@ -32,6 +32,7 @@ import { Frame, useClose } from '@/components/OverlayFrame'
 import { NoteDialogs } from '@/components/NoteDialogs'
 import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
+import { TaskDialogs } from '@/components/TaskDialogs'
 import { EXTRA_SCREENS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
@@ -52,6 +53,7 @@ export function Overlays() {
       <ProposalDialogs s={s} onDone={setToast} />
       <NoteDialogs s={s} onDone={setToast} />
       <QuestionDialogs s={s} onDone={setToast} />
+      <TaskDialogs s={s} onDone={setToast} />
       {/* The toast sits under the top bar, where Capture is, and never over page text. */}
       <Snackbar
         open={toast !== ''}

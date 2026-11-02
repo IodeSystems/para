@@ -21,7 +21,8 @@ import { DatedAgenda } from '@/components/DatedAgenda'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, findContextItem } from '@/components/FindContext'
+import { AgentLooking, AgentWorking, findContextItem } from '@/components/FindContext'
+import { TaskMenu } from '@/components/TaskMenu'
 import { DueChip, TaskInline } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
@@ -126,6 +127,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
           />
           {x.kind && <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />}
           <AgentLooking id={x.id} />
+          <AgentWorking id={x.id} />
           {x.due && <DueChip due={x.due} />}
           {x.kind === 'question' && (
             <>
@@ -173,23 +175,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
           {x.kind === 'task' && (
             <>
               <TaskInline id={x.id} title={x.title || nameOr('', x.id)} />
-              <RowMenu
-                label={`More actions for ${x.title || x.id}`}
-                always
-                items={[
-                  findContextItem(x.id, looking.has(x.id)),
-                  {
-                    label: 'Later',
-                    hint: 'Put this off. It leaves the Agenda and next',
-                    search: { later: x.id },
-                  },
-                  {
-                    label: 'Cut a dependency',
-                    hint: 'Let it go ahead without something it waits on',
-                    search: { cut: x.id },
-                  },
-                ]}
-              />
+              <TaskMenu id={x.id} title={x.title || x.id} always />
             </>
           )}
           {(x.kind === 'meeting' || x.kind === 'ask') && (
