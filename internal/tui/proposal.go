@@ -18,12 +18,11 @@ import (
 
 // Item actions on a proposal page. Only what the review rule allows for the
 // item under the cursor is shown or bound: ops.ItemView.Actions is the rule.
-// The verbs are Approve, Deny, Send back, Needs first, Note, Edit.
+// The verbs are Approve, Deny, Request, Needs first, Edit.
 var (
 	actApprove   = Target{ID: "act:approve", Label: "Approve", Pref: 'a'}
 	actDeny      = Target{ID: "act:deny", Label: "Deny", Pref: 'd'}
-	actSendBack  = Target{ID: "act:sendback", Label: "Send back", Pref: 's'}
-	actNote      = Target{ID: "act:note", Label: "Note", Pref: 'n'}
+	actRequest   = Target{ID: "act:request", Label: "Request", Pref: 'r'}
 	actHold      = Target{ID: "act:hold", Label: "Needs first", Pref: 'f'}
 	actEdit      = Target{ID: "act:edit", Label: "Edit", Pref: 'e'}
 	actSource    = Target{ID: "act:source", Label: "Source", Pref: 'o'}
@@ -33,11 +32,10 @@ var (
 
 	// itemActs is every action of a proposal page, in the one order that
 	// gives their keys. The footer shows the ones that apply.
-	itemActs = []Target{actApprove, actDeny, actSendBack, actNote, actHold, actEdit, actSource, actDiff, actHistory, actCopyDraft}
+	itemActs = []Target{actApprove, actDeny, actRequest, actHold, actEdit, actSource, actDiff, actHistory, actCopyDraft}
 )
 
 // itemAction is the rule's action behind a footer action, or "" for a view.
-// Send back maps to both ops.
 func applies(it ops.ItemView, t Target) bool {
 	has := func(a string) bool { return slices.Contains(it.Actions, a) }
 	switch t.ID {
@@ -45,10 +43,8 @@ func applies(it ops.ItemView, t Target) bool {
 		return has(ops.ActionApprove)
 	case actDeny.ID:
 		return has(ops.ActionDeny)
-	case actSendBack.ID:
-		return has(ops.ActionSendBack)
-	case actNote.ID:
-		return has(ops.ActionNote)
+	case actRequest.ID:
+		return has(ops.ActionRequest)
 	case actHold.ID:
 		return has(ops.ActionHold)
 	case actEdit.ID:
@@ -68,12 +64,11 @@ const (
 
 // whyNot says why an item action is not available, in words.
 var whyNot = map[string]string{
-	"approve":  "Approve is not available: the item was edited, has an open note, or is already decided.",
-	"deny":     "Deny is not available: the item was edited or has an open note, or is already decided.",
-	"sendback": "Send back is not available: the item is already decided.",
-	"hold":     "Needs first is not available for this item now.",
-	"note":     "Note is not available for this item now.",
-	"edit":     "Edit is not available for this item now.",
+	"approve": "Approve is not available: the item was edited, has an open request, or is already decided.",
+	"deny":    "Deny is not available: the item was edited or has an open request, or is already decided.",
+	"hold":    "Needs first is not available for this item now.",
+	"request": "Request is not available for this item now.",
+	"edit":    "Edit is not available for this item now.",
 }
 
 type (
@@ -247,7 +242,7 @@ func (m *Model) rowsProposal(p *page, w int) []row {
 			flag = "  " + stWarn.Render("edited")
 		}
 		if it.OpenNotes > 0 {
-			flag += "  " + stWarn.Render(plural(it.OpenNotes, "open note"))
+			flag += "  " + stWarn.Render(plural(it.OpenNotes, "open request"))
 		}
 		x := link("item:"+it.ID, "  "+stDim.Render(itemNo(it.ID))+"  ", itemLine(it), "  "+state(string(it.State))+flag, w)
 		x.kind, x.id = "item", it.ID
@@ -408,7 +403,7 @@ func (m *Model) proposalActs(p *page, w int) []Target {
 	}
 	var out []Target
 	for _, t := range itemActs {
-		if t.ID == actNote.ID || t.ID == actSendBack.ID || t.ID == actApprove.ID || t.ID == actDeny.ID || t.ID == actCopyDraft.ID {
+		if t.ID == actRequest.ID || t.ID == actApprove.ID || t.ID == actDeny.ID || t.ID == actCopyDraft.ID {
 			if applies(it, t) {
 				out = append(out, t)
 			}
@@ -580,7 +575,7 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 		}
 		return m.copyText(id, it.GateBody())
 	}
-	if t, known := map[string]Target{"approve": actApprove, "deny": actDeny, "sendback": actSendBack, "hold": actHold, "note": actNote, "edit": actEdit}[name]; known && !applies(it, t) {
+	if t, known := map[string]Target{"approve": actApprove, "deny": actDeny, "request": actRequest, "hold": actHold, "edit": actEdit}[name]; known && !applies(it, t) {
 		m.setHint(whyNot[name])
 		return nil
 	}
@@ -595,22 +590,15 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 				return ops.ProposalDeny.Run(ctx, d, ops.ProposalReasonInput{ID: id, Item: item, Reason: v[0]})
 			})
 		})
-	case "sendback":
-		if it.Edited || it.OpenNotes > 0 { // an edit or a note is the message
-			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item})
-			})
-		}
-		return m.askFor("Send back: "+itemLine(it), []promptStep{{label: "what should change: "}}, func(v []string) tea.Cmd {
-			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalSendback.Run(ctx, d, ops.ProposalSendbackInput{ID: id, Item: item, Reason: v[0]})
-			})
-		})
-	case "note":
-		steps := []promptStep{{label: "note (what is wrong or missing): "}, {label: "clarify, or redirect to change the path: ", value: "clarify"}}
-		return m.askFor("Note: "+itemLine(it), steps, func(v []string) tea.Cmd {
+	case "request":
+		steps := []promptStep{{label: "changes, clarification, or investigation: ", value: "changes"}, {label: "text: "}}
+		return m.askFor("Request: "+itemLine(it), steps, func(v []string) tea.Cmd {
+			intent, err := requestIntent(v[0])
+			if err != nil {
+				return func() tea.Msg { return doneMsg{err: err} }
+			}
 			return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalNote.Run(ctx, d, ops.ProposalNoteInput{ID: id, Item: item, Note: v[0], Intent: ops.NoteIntent(strings.TrimSpace(v[1]))})
+				return ops.ProposalRequest.Run(ctx, d, ops.ProposalRequestInput{ID: id, Item: item, Note: v[1], Intent: intent})
 			})
 		})
 	case "hold":
@@ -635,6 +623,21 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 		return m.openEditor(id, it)
 	}
 	return nil
+}
+
+// requestIntent reads the type a person typed for a request: changes (the
+// default), clarification, or investigation. A prefix is enough.
+func requestIntent(s string) (ops.NoteIntent, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	switch {
+	case s == "" || strings.HasPrefix("changes", s):
+		return ops.IntentChange, nil
+	case strings.HasPrefix("clarification", s):
+		return ops.IntentClarify, nil
+	case strings.HasPrefix("investigation", s):
+		return ops.IntentInvestigate, nil
+	}
+	return "", fmt.Errorf("request type %q: want changes, clarification, or investigation", s)
 }
 
 // textAct runs an action of an item in full: Source shows the raw input, and
@@ -663,7 +666,7 @@ var reviewVerbs = map[model.ItemState]string{
 	model.ItemDenied:    "Denied",
 	model.ItemDone:      "Done",
 	model.ItemHalted:    "Halted",
-	model.ItemSentBack:  "Sent back",
+	model.ItemSentBack:  "Returned",
 	model.ItemHeld:      "Holding",
 	model.ItemRunning:   "Approved, running",
 	model.ItemPending:   "Updated",
@@ -824,13 +827,22 @@ func (m *Model) onPromptKey(k tea.KeyPressMsg) tea.Cmd {
 // its input as JSON, so repointing a person or a project is a field change.
 const (
 	editTarget = "target: "
+	editTitle  = "title: "   // an action's title
+	editSubj   = "subject: " // a message's subject
 	editSplit  = "---"
 )
 
 // editBuffer writes an item for $EDITOR.
 func editBuffer(it ops.ItemView) (string, error) {
 	if it.Kind.Outward() {
-		return editTarget + it.GateTarget() + "\n" + editSplit + "\n" + it.Body, nil
+		head := editTarget + it.GateTarget() + "\n"
+		switch it.Kind {
+		case model.ItemAction:
+			head += editTitle + it.Title + "\n"
+		case model.ItemMessage:
+			head += editSubj + it.Subject + "\n"
+		}
+		return head + editSplit + "\n" + it.Body, nil
 	}
 	b, err := json.MarshalIndent(it.Input, "", "  ")
 	if err != nil {
@@ -852,9 +864,22 @@ func parseEditBuffer(it ops.ItemView, text string) (ops.ProposalEditInput, error
 		return in, nil
 	}
 	head, draft, ok := strings.Cut(text, "\n"+editSplit+"\n")
-	target, isTarget := strings.CutPrefix(head, editTarget)
-	if !ok || !isTarget || strings.Contains(head, "\n") {
+	first, rest, _ := strings.Cut(head, "\n")
+	target, isTarget := strings.CutPrefix(first, editTarget)
+	if !ok || !isTarget {
 		return in, fmt.Errorf("want a first line %q and a line %q before the draft", editTarget+"...", editSplit)
+	}
+	if rest != "" {
+		switch {
+		case it.Kind == model.ItemAction && strings.HasPrefix(rest, editTitle) && !strings.Contains(rest, "\n"):
+			v := strings.TrimSpace(strings.TrimPrefix(rest, editTitle))
+			in.Title = &v
+		case it.Kind == model.ItemMessage && strings.HasPrefix(rest, editSubj) && !strings.Contains(rest, "\n"):
+			v := strings.TrimSpace(strings.TrimPrefix(rest, editSubj))
+			in.Subject = &v
+		default:
+			return in, fmt.Errorf("want a first line %q and a line %q before the draft", editTarget+"...", editSplit)
+		}
 	}
 	if !strings.HasSuffix(it.Body, "\n") {
 		draft = strings.TrimSuffix(draft, "\n")
@@ -912,4 +937,87 @@ func (m *Model) onEdited(msg editedMsg) tea.Cmd {
 	return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
 		return ops.ProposalEdit.Run(ctx, d, in)
 	})
+}
+
+// noteEditedMsg is the end of an $EDITOR run on a note.
+type noteEditedMsg struct {
+	id, path string
+	doc      model.Document
+	err      error
+}
+
+// noteBuffer is a note as the editor shows it: the title, a split line, the body.
+func noteBuffer(d model.Document) string {
+	return editTitle + d.Title + "\n" + editSplit + "\n" + d.Body
+}
+
+// parseNoteBuffer reads an edited note buffer back into an edit.
+func parseNoteBuffer(d model.Document, text string) (ops.NoteEditInput, error) {
+	head, body, ok := strings.Cut(text, "\n"+editSplit+"\n")
+	title, isTitle := strings.CutPrefix(head, editTitle)
+	if !ok || !isTitle || strings.Contains(head, "\n") {
+		return ops.NoteEditInput{}, fmt.Errorf("want a first line %q and a line %q before the body", editTitle+"...", editSplit)
+	}
+	if !strings.HasSuffix(d.Body, "\n") {
+		body = strings.TrimSuffix(body, "\n")
+	}
+	title = strings.TrimSpace(title)
+	return ops.NoteEditInput{ID: d.ID, Title: &title, Body: &body}, nil
+}
+
+// editNote runs $EDITOR on the note of the page showing.
+func (m *Model) editNote() tea.Cmd {
+	p := m.top()
+	if p == nil || p.kind != pageDoc {
+		return nil
+	}
+	if _, ok := p.doc.Meta.(*model.Note); !ok {
+		m.setStatus("Edit is for notes.", true)
+		return nil
+	}
+	f, err := os.CreateTemp(m.env.StateDir, "edit-*.txt")
+	if err != nil {
+		m.setStatus(err.Error(), true)
+		return nil
+	}
+	path := f.Name()
+	_, werr := f.WriteString(noteBuffer(p.doc))
+	if err := errors.Join(werr, f.Close()); err != nil {
+		_ = os.Remove(path)
+		m.setStatus(err.Error(), true)
+		return nil
+	}
+	editor := strings.Fields(m.env.getenv("EDITOR"))
+	if len(editor) == 0 {
+		editor = []string{"vi"}
+	}
+	doc := p.doc
+	c := exec.Command(editor[0], append(editor[1:], path)...)
+	return tea.ExecProcess(c, func(err error) tea.Msg { return noteEditedMsg{id: doc.ID, path: path, doc: doc, err: err} })
+}
+
+func (m *Model) onNoteEdited(msg noteEditedMsg) tea.Cmd {
+	defer func() { _ = os.Remove(msg.path) }()
+	if msg.err != nil {
+		m.setStatus("editor: "+msg.err.Error(), true)
+		return nil
+	}
+	b, err := os.ReadFile(msg.path)
+	if err != nil {
+		m.setStatus(err.Error(), true)
+		return nil
+	}
+	in, err := parseNoteBuffer(msg.doc, string(b))
+	if err != nil {
+		m.setStatus(err.Error(), true)
+		return nil
+	}
+	env := m.env
+	load := m.loadDoc(msg.id, true)
+	return func() tea.Msg {
+		if _, err := ops.NoteEdit.Run(context.Background(), env.Deps, in); err != nil {
+			return doneMsg{err: err}
+		}
+		return load()
+	}
 }

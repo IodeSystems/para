@@ -12,7 +12,43 @@ import (
 
 func newNoteCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "note", Short: "Notes: reference material in resources/", Args: cobra.NoArgs}
+	var title, body string
+	var tags []string
 	cmd.AddCommand(
+		opCommand(l, ops.NoteEdit, binding[ops.NoteEditInput, ops.NoteEditOutput]{
+			Use:  "edit <id> [--title <title>] [--body <text>] [--tag <tag>]... (or the new body on stdin)",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, _ *ops.NoteEditInput) {
+				fs.StringVar(&title, "title", "", "the new title")
+				fs.StringVar(&body, "body", "", "the new body")
+				fs.StringSliceVar(&tags, "tag", nil, "the new tags, replacing the old (repeatable)")
+			},
+			Bind: func(args []string, in *ops.NoteEditInput) error {
+				in.ID = args[0]
+				if title != "" {
+					in.Title = &title
+				}
+				if body != "" {
+					in.Body = &body
+				}
+				if tags != nil {
+					in.Tags = &tags
+				}
+				return nil
+			},
+			Stdin: func(r io.Reader, in *ops.NoteEditInput) error {
+				if in.Title != nil || in.Body != nil || in.Tags != nil {
+					return nil
+				}
+				text, err := readStdin(r)
+				if err != nil {
+					return err
+				}
+				in.Body = &text
+				return nil
+			},
+			Text: printID(func(o ops.NoteEditOutput) string { return o.ID }),
+		}),
 		opCommand(l, ops.NoteAdd, binding[ops.NoteAddInput, ops.NoteAddOutput]{
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),

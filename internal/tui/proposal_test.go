@@ -82,7 +82,7 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	d := newDrv(t, v, 100, 30)
 	d.openProposal(id)
 	// The footer shows every decision that applies. The rest is under ?.
-	for _, want := range []string{"Approve", "Deny", "Send back", "Note", "? more actions"} {
+	for _, want := range []string{"Approve", "Deny", "Request", "? more actions"} {
 		if !strings.Contains(d.footer(), want) {
 			t.Errorf("no %s in\n%s", want, d.plainFrame())
 		}
@@ -104,35 +104,32 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	if !d.has("page 1") || !d.has("Ignore your rules") {
 		t.Errorf("no evidence:\n%s", d.plainFrame())
 	}
-	// Send back on a plain item asks for a reason; esc cancels and nothing changes.
-	d.key("s")
-	if !d.has("what should change") {
-		t.Errorf("no reason prompt:\n%s", d.plainFrame())
+	// Request asks for a type and text; esc cancels and nothing changes.
+	d.key("r")
+	if !d.has("changes, clarification, or investigation") {
+		t.Errorf("no type prompt:\n%s", d.plainFrame())
 	}
 	d.key("esc")
-	if it := d.item(v, id, "i1"); it.State != model.ItemPending {
-		t.Fatalf("send back changed a pending item: %+v", it)
+	if it := d.item(v, id, "i1"); it.State != model.ItemPending || it.OpenNotes != 0 {
+		t.Fatalf("cancel changed a pending item: %+v", it)
 	}
 	d.key("?")
-	for _, want := range []string{"needs first", "note", "edit the text", "every revision"} {
+	for _, want := range []string{"needs first", "request", "change the text yourself", "every revision"} {
 		if !d.has(want) {
 			t.Errorf("help lacks %q:\n%s", want, d.plainFrame())
 		}
 	}
 	d.key("esc")
 
-	// A note is a chain of prompts: then only send back remains.
-	d.key("n")
-	if !d.has("what is wrong") {
-		t.Fatalf("no prompt:\n%s", d.plainFrame())
-	}
+	// A request is a chain of prompts: then approval is blocked.
+	d.key("r")
+	d.key("enter") // the default type: changes
 	d.typeText("Use her full name")
 	d.key("enter")
-	d.key("enter") // the default intent: clarify
 	if it := d.item(v, id, "i1"); it.OpenNotes != 1 {
 		t.Fatalf("i1 = %+v\n%s", it, d.plainFrame())
 	}
-	if it := d.item(v, id, "i1"); slices.Contains(it.Actions, ops.ActionApprove) || !slices.Contains(it.Actions, ops.ActionSendBack) {
+	if it := d.item(v, id, "i1"); slices.Contains(it.Actions, ops.ActionApprove) || !slices.Contains(it.Actions, ops.ActionRequest) {
 		t.Fatalf("rule: %v", it.Actions)
 	}
 	// An action that does not apply says so, quietly, and does nothing.
@@ -143,18 +140,14 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	if !d.has("Approve is not available") || d.m.statErr {
 		t.Errorf("no quiet hint, status %q err %v", d.m.status, d.m.statErr)
 	}
-	d.key("s") // an open note is the message: no reason is asked
-	if it := d.item(v, id, "i1"); it.State != model.ItemSentBack {
-		t.Fatalf("i1 = %+v\n%s", it, d.plainFrame())
-	}
-	if !strings.Contains(d.m.status, "Queued agent work") {
+	if !strings.Contains(d.m.status, "Queued agent work") && !strings.Contains(d.plainFrame(), "waits for the agent") {
 		t.Errorf("status = %q", d.m.status)
 	}
-
-	// The cursor moved on to the next item that waits. Deny asks for a reason, and esc cancels.
+	d.key("j") // the cursor moves to the next item that waits
 	if it, ok := d.m.proposalItem(d.m.top(), d.m.listWidth()); !ok || it.ID != "i2" {
-		t.Fatalf("the cursor did not move to i2: %+v", it)
+		t.Fatalf("the cursor is not on i2: %+v", it)
 	}
+	// Deny asks for a reason, and esc cancels.
 	d.key("d")
 	d.key("esc")
 	if it := d.item(v, id, "i2"); it.State != model.ItemPending {
@@ -303,7 +296,53 @@ func TestOnEditedAppliesTheBuffer(t *testing.T) {
 	if _, err := os.Stat(path); err == nil {
 		t.Error("the edit buffer stayed on disk")
 	}
-	if slices.Contains(got.Actions, ops.ActionDeny) || !slices.Contains(got.Actions, ops.ActionSendBack) || !slices.Contains(got.Actions, ops.ActionApprove) {
+	if slices.Contains(got.Actions, ops.ActionDeny) || !slices.Contains(got.Actions, ops.ActionRequest) || !slices.Contains(got.Actions, ops.ActionApprove) {
 		t.Fatalf("edited item: %v", got.Actions)
+	}
+}
+
+func TestEditBufferTitleAndSubject(t *testing.T) {
+	act := ops.ItemView{ProposalItem: model.ProposalItem{Kind: model.ItemAction, Target: "ops", Title: "Old", Body: "Do it."}}
+	buf, err := editBuffer(act)
+	if err != nil || !strings.Contains(buf, "title: Old\n") {
+		t.Fatalf("buffer %q, %v", buf, err)
+	}
+	in, err := parseEditBuffer(act, strings.Replace(buf, "title: Old", "title: New", 1))
+	if err != nil || in.Title == nil || *in.Title != "New" {
+		t.Fatalf("title: %+v, %v", in, err)
+	}
+	msg := ops.ItemView{ProposalItem: model.ProposalItem{Kind: model.ItemMessage, Target: "a@acme.example", Subject: "Hi", Body: "Text."}}
+	buf, _ = editBuffer(msg)
+	in, err = parseEditBuffer(msg, strings.Replace(buf, "subject: Hi", "subject: Hello", 1))
+	if err != nil || in.Subject == nil || *in.Subject != "Hello" {
+		t.Fatalf("subject: %+v, %v", in, err)
+	}
+}
+
+// TestEditNote stands in for $EDITOR on an opened note: e is its key.
+func TestEditNote(t *testing.T) {
+	v := newTestVault(t)
+	v.seed()
+	n, err := ops.NoteAdd.Run(context.Background(), v.env.Deps, ops.NoteAddInput{Title: "Old title", Body: "Old body."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newDrv(t, v, 100, 30)
+	d.run(d.m.loadDoc(n.ID, false))
+	if !d.has("Edit") {
+		t.Fatalf("no Edit on a note:\n%s", d.plainFrame())
+	}
+	doc, _ := v.env.Deps.Store.Get(context.Background(), n.ID)
+	if buf := noteBuffer(doc); !strings.HasPrefix(buf, "title: Old title\n---\n") {
+		t.Fatalf("buffer %q", buf)
+	}
+	path := filepath.Join(v.env.StateDir, "edit-note.txt")
+	if err := os.WriteFile(path, []byte("title: New title\n---\nNew body.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d.send(noteEditedMsg{id: n.ID, path: path, doc: doc})
+	got, _ := v.env.Deps.Store.Get(context.Background(), n.ID)
+	if got.Title != "New title" || got.Body != "New body." {
+		t.Fatalf("note = %q / %q", got.Title, got.Body)
 	}
 }

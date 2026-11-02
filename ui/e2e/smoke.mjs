@@ -691,8 +691,13 @@ try {
     (await i1.getByRole('button', { name: 'Approve' }).count()) === 1,
     'a clean item offers approve',
   )
-  check((await menuCount(i1, 'Send back')) === 1, 'a clean item offers send back in the menu')
-  check((await menuCount(i1, 'Rework')) === 0, 'there is no separate rework')
+  check(
+    (await i1.getByRole('link', { name: 'Request' }).count()) === 1,
+    'Request is a visible button, with no text selected',
+  )
+  check((await menuCount(i1, 'Send back')) === 0, 'there is no Send back')
+  check((await menuCount(i1, 'Note')) === 0, 'there is no Note')
+  check((await menuCount(i1, 'Edit')) === 1, 'a clean item offers Edit in the menu')
   check(
     (await i1.getByRole('link', { name: 'Deny' }).count()) === 1,
     'Deny is visible beside Approve',
@@ -714,39 +719,22 @@ try {
   await dctx.close()
   watched = rp
 
-  // Annotate on a text selection: the quote anchors to what was selected.
-  await rp.evaluate(() => {
-    const node = document.querySelector('[data-item="i1"] pre').firstChild
-    const at = node.textContent.indexOf('raise the quota')
-    const r = document.createRange()
-    r.setStart(node, at)
-    r.setEnd(node, at + 'raise the quota'.length)
-    const sel = getSelection()
-    sel.removeAllRanges()
-    sel.addRange(r)
-  })
-  await more(i1, 'Note')
-  const note = rp.getByRole('dialog', { name: /Note on/ })
+  // Request: a type and text, no selection needed.
+  await i1.getByRole('link', { name: 'Request' }).click()
+  const note = rp.getByRole('dialog', { name: /Request on/ })
   await note.waitFor()
-  check(rp.url().includes('note=i1'), 'the note dialog is a URL overlay')
-  check(
-    (await note.getByLabel('Quoted text').inputValue()) === 'raise the quota',
-    'the selection is the quote',
-  )
-  await note.getByLabel('Your note').fill('Say which quota and how much')
-  await note.getByRole('button', { name: 'Add note' }).click()
+  check(rp.url().includes('itemreq=i1'), 'the request dialog is a URL overlay')
+  check((await note.getByLabel('Quoted text').count()) === 0, 'a request has no quote field')
+  await note.getByRole('textbox', { name: /^Request/ }).fill('Say which quota and how much')
+  await note.getByRole('button', { name: 'Request' }).click()
   await note.waitFor({ state: 'hidden' })
   await i1.getByText('Say which quota and how much').waitFor()
   check(
     (await i1.getByRole('button', { name: 'Approve' }).count()) === 0,
-    'an annotated item cannot be approved',
-  )
-  check(
-    (await i1.getByRole('link', { name: 'Send back' }).count()) === 1,
-    'an annotated item offers send back',
+    'an item with an open request cannot be approved',
   )
 
-  // An edit without a note: approve as edited, or send back. Deny is gone.
+  // An edit without a request: approve as edited. Deny is gone.
   await more(i2, 'Edit')
   const edit = rp.getByRole('dialog', { name: /^Edit/ })
   await edit.getByLabel('Input (JSON, in full)').fill(
@@ -764,14 +752,6 @@ try {
     'an edited item cannot be denied',
   )
 
-  // Deny and rework need a reason; try rework on nothing here, check the form on a fresh proposal below.
-  await i1.getByRole('link', { name: 'Send back' }).click()
-  const sb = rp.getByRole('dialog', { name: /Send back/ })
-  await sb.getByLabel('Reason').fill('Name the number')
-  await sb.getByRole('button', { name: 'Send back' }).click()
-  await sb.waitFor({ state: 'hidden' })
-  await i1.getByText('sent back').first().waitFor()
-  check(true, 'send back moves the item to the agent')
   check(
     await rp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     'no horizontal page scroll on the proposal page at 390 px',
@@ -780,7 +760,7 @@ try {
   // The agent reads the note over MCP and files revision 2, answering it.
   const shown = await agent.call('proposal_show', { id: filed.id })
   const ann = shown.items.find((a) => a.id === 'i1').thread.find((t) => t.state === 'open')
-  check(!!ann && ann.quote === 'raise the quota', 'MCP sees the note on the item thread')
+  check(!!ann && ann.kind === 'change', 'MCP sees the request on the item thread')
   const revised = await agent.call('proposal_revise', {
     id: filed.id,
     items: [
@@ -807,7 +787,7 @@ try {
     'revision 2 shows the diff',
   )
   check(await rp.getByText('Revision 1').isVisible(), 'history lists revision 1')
-  check(await rp.getByText('applied').first().isVisible(), 'the agent answer to the note shows')
+  check(await rp.getByText('applied').first().isVisible(), 'the agent answer to the request shows')
 
   // Approve as edited: the hash binds to the owner's final text.
   const r2i1 = rp.locator('[data-item="i1"]')

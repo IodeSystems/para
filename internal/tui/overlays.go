@@ -298,10 +298,10 @@ var actionHelp = map[string]string{
 	"act:meta":      "show or hide the details strip (type, dates, status)",
 	"act:approve":   "approve this item",
 	"act:deny":      "deny, with a reason the agent reads",
-	"act:sendback":  "send back to the agent: with your reason, or with your edits and notes",
 	"act:hold":      "needs first: hold this until something else is done",
-	"act:note":      "note: say what is wrong, or redirect the path",
-	"act:edit":      "edit the text in your editor",
+	"act:request":   "request changes, a clarification, or an investigation from the agent",
+	"act:editnote":  "edit the title and body of this note in your editor",
+	"act:edit":      "change the text yourself before approving",
 	"act:source":    "the source the agent worked from (untrusted)",
 	"act:diff":      "what changed since the previous revision",
 	"act:history":   "every revision",
@@ -338,17 +338,17 @@ func (m *Model) helpLines() []string {
 	}
 	switch p := m.top(); {
 	case p != nil && p.kind == pageProposal:
-		add("act:approve", "act:deny", "act:sendback", "act:hold", "act:note", "act:edit", "act:copydraft", "act:source", "act:diff", "act:history")
+		add("act:approve", "act:deny", "act:request", "act:hold", "act:edit", "act:copydraft", "act:source", "act:diff", "act:history")
 		here = append(here, "  enter      the item in full")
 	case p != nil && p.kind == pageDoc:
-		add("act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut", "act:zoom", "act:export", "act:copy", "act:meta")
+		add("act:editnote", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut", "act:zoom", "act:export", "act:copy", "act:meta")
 	case p != nil && p.kind == pageText:
 		add("act:source", "act:copydraft")
 	case p != nil:
 	case m.tab == tabReview:
 		add("act:accept", "act:reopen", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabToday:
-		add("act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
+		add("act:editnote", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	case m.tab == tabWork:
 		add("act:graph", "act:answer", "act:reject", "act:drop", "act:ask", "act:find", "act:later", "act:cut")
 	}

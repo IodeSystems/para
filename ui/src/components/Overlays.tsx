@@ -29,6 +29,7 @@ import { useRfxReply } from '@/api/rfx'
 import { errorText } from '@/client/gqlClient'
 import { Pick, type Option } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
+import { NoteDialogs } from '@/components/NoteDialogs'
 import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
 import { EXTRA_SCREENS, TABS } from '@/lib/keys'
@@ -49,6 +50,7 @@ export function Overlays() {
       {s.triage && <TriageDialog id={s.triage} onDone={setToast} />}
       {s.reply && <ReplyDialog id={s.reply} onDone={setToast} />}
       <ProposalDialogs s={s} onDone={setToast} />
+      <NoteDialogs s={s} onDone={setToast} />
       <QuestionDialogs s={s} onDone={setToast} />
       {/* The toast sits under the top bar, where Capture is, and never over page text. */}
       <Snackbar

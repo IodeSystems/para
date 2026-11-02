@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_ProposalHoldInputKind, Para_ProposalNoteInputIntent } from '@/gql/graphql'
+import type { Para_ProposalHoldInputKind, Para_ProposalRequestInputIntent } from '@/gql/graphql'
 
 const ProposalListDoc = graphql(/* GraphQL */ `
   query ProposalList {
@@ -227,17 +227,6 @@ const DenyDoc = graphql(/* GraphQL */ `
     }
   }
 `)
-const SendbackDoc = graphql(/* GraphQL */ `
-  mutation ProposalSendback($body: para_ProposalSendbackInputInput!) {
-    para {
-      v1 {
-        proposalSendback(body: $body) {
-          ...ProposalReviewFields
-        }
-      }
-    }
-  }
-`)
 const HoldDoc = graphql(/* GraphQL */ `
   mutation ProposalHold($body: para_ProposalHoldInputInput!) {
     para {
@@ -249,11 +238,11 @@ const HoldDoc = graphql(/* GraphQL */ `
     }
   }
 `)
-const NoteDoc = graphql(/* GraphQL */ `
-  mutation ProposalNote($body: para_ProposalNoteInputInput!) {
+const RequestDoc = graphql(/* GraphQL */ `
+  mutation ProposalRequest($body: para_ProposalRequestInputInput!) {
     para {
       v1 {
-        proposalNote(body: $body) {
+        proposalRequest(body: $body) {
           ...ProposalReviewFields
         }
       }
@@ -321,10 +310,6 @@ export const useDeny = () =>
   useReviewMutation(async (v: { id: string; item: string; reason: string }) =>
     need((await gqlClient.request(DenyDoc, { body: v })).para.v1.proposalDeny, 'result'),
   )
-export const useSendback = () =>
-  useReviewMutation(async (v: { id: string; item: string; reason?: string }) =>
-    need((await gqlClient.request(SendbackDoc, { body: v })).para.v1.proposalSendback, 'result'),
-  )
 export const useHold = () =>
   useReviewMutation(
     async (v: {
@@ -336,15 +321,14 @@ export const useHold = () =>
       area?: string
     }) => need((await gqlClient.request(HoldDoc, { body: v })).para.v1.proposalHold, 'result'),
   )
-export const useNote = () =>
+export const useItemRequest = () =>
   useReviewMutation(
     async (v: {
       id: string
       item: string
-      quote?: string
       note: string
-      intent?: Para_ProposalNoteInputIntent
-    }) => need((await gqlClient.request(NoteDoc, { body: v })).para.v1.proposalNote, 'result'),
+      intent?: Para_ProposalRequestInputIntent
+    }) => need((await gqlClient.request(RequestDoc, { body: v })).para.v1.proposalRequest, 'result'),
   )
 export const useEdit = () =>
   useReviewMutation(
@@ -353,6 +337,8 @@ export const useEdit = () =>
       item: string
       body?: string
       target?: string
+      title?: string
+      subject?: string
       input?: Record<string, unknown>
     }) => need((await gqlClient.request(EditDoc, { body: v })).para.v1.proposalEdit, 'result'),
   )

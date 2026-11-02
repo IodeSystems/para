@@ -12,7 +12,7 @@ import (
 )
 
 // NoteAnswer answers one open note. Outcome is applied, declined, or failed: a
-// redirect the agent could not resolve. Declined and failed need a reason.
+// change or investigation the agent could not complete. Declined and failed need a reason.
 type NoteAnswer struct {
 	Annotation string          `json:"annotation"` // the note's id
 	Outcome    model.TurnState `json:"outcome"`
@@ -37,7 +37,7 @@ func revisable(s model.ItemState) bool {
 
 // answerNotes applies answers to a copy of items. It fails on any open note left
 // unanswered, and on an answer to anything but an open note. Resolved lists the
-// redirects answered, with their items.
+// changes and investigations answered, with their items.
 func answerNotes(list []model.ProposalItem, answers []NoteAnswer) ([]model.ProposalItem, []resolvedTurn, error) {
 	out := make([]model.ProposalItem, len(list))
 	for i, it := range list {
@@ -66,14 +66,14 @@ func answerNotes(list []model.ProposalItem, answers []NoteAnswer) ([]model.Propo
 			return nil, nil, fmt.Errorf("note %s is already %s", ans.Annotation, t.State)
 		case !slices.Contains([]model.TurnState{model.TurnApplied, model.TurnDeclined, model.TurnFailed}, ans.Outcome):
 			return nil, nil, fmt.Errorf("note %s: outcome %q: want applied, declined, or failed", ans.Annotation, ans.Outcome)
-		case ans.Outcome == model.TurnFailed && t.Kind != model.TurnRedirect:
-			return nil, nil, fmt.Errorf("note %s: failed is for a redirect", ans.Annotation)
+		case ans.Outcome == model.TurnFailed && !isDirective(t.Kind):
+			return nil, nil, fmt.Errorf("note %s: failed is for a change or an investigation", ans.Annotation)
 		case ans.Outcome != model.TurnApplied && reason == "":
 			return nil, nil, fmt.Errorf("note %s: %s needs a reason", ans.Annotation, ans.Outcome)
 		}
 		seen[ans.Annotation] = true
 		t.State, t.Answer = ans.Outcome, reason
-		if t.Kind == model.TurnRedirect {
+		if isDirective(t.Kind) {
 			done = append(done, resolvedTurn{item: holder.ID, target: holder.For, turn: *t})
 		}
 	}
@@ -89,6 +89,12 @@ func answerNotes(list []model.ProposalItem, answers []NoteAnswer) ([]model.Propo
 		return nil, nil, fmt.Errorf("open notes have no answer: %s: answer each as applied, or declined with a reason", strings.Join(open, ", "))
 	}
 	return out, done, nil
+}
+
+// isDirective reports whether a turn asks the agent to do something, not to
+// explain. Redirect is the old word for change.
+func isDirective(k model.TurnKind) bool {
+	return k == model.TurnChange || k == model.TurnRedirect || k == model.TurnInvestigate
 }
 
 // resolvedTurn is a redirect the agent answered.
@@ -117,7 +123,7 @@ func recordAttempts(ctx context.Context, d Deps, source string, list []resolvedT
 		if t := doc.Meta.Header().Type; t != model.TypeTask && t != model.TypeRFX {
 			continue
 		}
-		line := fmt.Sprintf("- %s %s: redirect %q on %s: %s", d.Store.Now().UTC().Format(time.RFC3339), d.Store.Info().Actor,
+		line := fmt.Sprintf("- %s %s: %s %q on %s: %s", d.Store.Now().UTC().Format(time.RFC3339), d.Store.Info().Actor, r.turn.Kind,
 			strings.Join(strings.Fields(r.turn.Text), " "), r.item, r.turn.State)
 		if r.turn.Answer != "" {
 			line += ": " + strings.Join(strings.Fields(r.turn.Answer), " ")
@@ -203,7 +209,7 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 // ProposalRevise files the next revision as a new document that supersedes
 // this one. The old file stays as history. It marks the old revision first,
 // with Rev compared, so a review that got in first makes it fail and read again.
-var ProposalRevise = defineSafe("proposal_revise", "File the next revision of a proposal. Answer each open note as applied, or declined with a reason; a redirect you could not resolve is failed, with a reason. It fails if a note has no answer", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
+var ProposalRevise = defineSafe("proposal_revise", "File the next revision of a proposal. Answer each open note as applied, or declined with a reason; a change or an investigation you could not complete is failed, with a reason. It fails if a note has no answer", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
 	if len(in.Items) == 0 && len(in.Withdraw) == 0 && len(in.Answers) == 0 && in.TLDR == "" && in.Context == "" {
 		return ProposalFiled{}, errors.New("nothing to revise: give items, withdraw, or answers")
 	}

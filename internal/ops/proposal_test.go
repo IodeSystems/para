@@ -16,7 +16,7 @@ import (
 
 // TestReviewRule is the rule, row by row.
 func TestReviewRule(t *testing.T) {
-	const a, d, b, f, n, e = ActionApprove, ActionDeny, ActionSendBack, ActionHold, ActionNote, ActionEdit
+	const a, d, r, f, e = ActionApprove, ActionDeny, ActionRequest, ActionHold, ActionEdit
 	cases := []struct {
 		name   string
 		state  model.ItemState
@@ -25,12 +25,12 @@ func TestReviewRule(t *testing.T) {
 		held   bool
 		want   []string
 	}{
-		{"no edits, no annotations", model.ItemPending, false, 0, false, []string{a, d, b, f, n, e}},
-		{"edits only", model.ItemPending, true, 0, false, []string{a, b, f, n, e}},
-		{"annotation", model.ItemPending, false, 1, false, []string{b, f, n, e}},
-		{"annotation and edits", model.ItemPending, true, 2, false, []string{b, f, n, e}},
-		{"held", model.ItemHeld, false, 0, true, []string{d, b, n, e}},
-		{"held and edited", model.ItemHeld, true, 0, true, []string{b, n, e}},
+		{"no edits, no annotations", model.ItemPending, false, 0, false, []string{a, d, r, f, e}},
+		{"edits only", model.ItemPending, true, 0, false, []string{a, r, f, e}},
+		{"annotation", model.ItemPending, false, 1, false, []string{r, f, e}},
+		{"annotation and edits", model.ItemPending, true, 2, false, []string{r, f, e}},
+		{"held", model.ItemHeld, false, 0, true, []string{d, r, e}},
+		{"held and edited", model.ItemHeld, true, 0, true, []string{r, e}},
 		{"approved", model.ItemApproved, false, 0, false, []string{}},
 		{"denied", model.ItemDenied, false, 0, false, []string{}},
 		{"sent back", model.ItemSentBack, false, 0, false, []string{}},
@@ -103,16 +103,12 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ProposalDeny.Run(t.Context(), d, ProposalReasonInput{ID: id, Item: "i1", Reason: "r"})
 			return err
 		}},
-		{"sendback", func(d Deps) error {
-			_, err := ProposalSendback.Run(t.Context(), d, ProposalSendbackInput{ID: id, Item: "i1"})
-			return err
-		}},
 		{"hold", func(d Deps) error {
 			_, err := ProposalHold.Run(t.Context(), d, ProposalHoldInput{ID: id, Item: "i1", Kind: HoldRequest, Text: "x"})
 			return err
 		}},
 		{"annotate", func(d Deps) error {
-			_, err := ProposalNote.Run(t.Context(), d, ProposalNoteInput{ID: id, Item: "i1", Quote: "Hi", Note: "n"})
+			_, err := ProposalRequest.Run(t.Context(), d, ProposalRequestInput{ID: id, Item: "i1", Note: "n"})
 			return err
 		}},
 		{"request accept", func(d Deps) error {
@@ -315,27 +311,19 @@ func TestHoldOnRequest(t *testing.T) {
 	}
 }
 
-func TestSendBackQueuesOneRequest(t *testing.T) {
+func TestRequestQueuesOneRequest(t *testing.T) {
 	f := newPropFix(t)
 	id := f.file(mailItem("One."), mailItem("Two."))
-	for _, n := range []struct{ item, quote string }{{"i1", "One"}, {"i2", "Two"}} {
-		if _, err := ProposalNote.Run(t.Context(), f.owner, ProposalNoteInput{ID: id, Item: n.item, Quote: n.quote, Note: "n"}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	a, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i1"})
+	a, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i1", Note: "n"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i2"})
+	c, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i2", Intent: IntentClarify, Note: "n"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a.Request == "" || a.Request != c.Request {
 		t.Fatalf("requests %s and %s", a.Request, c.Request)
-	}
-	if c.Status != model.ProposalSentBack {
-		t.Errorf("status = %s", c.Status)
 	}
 	r, err := RequestShow.Run(t.Context(), f.agent, RequestShowInput{ID: a.Request})
 	if err != nil {
@@ -620,10 +608,7 @@ func TestRedirectRecordsAttempt(t *testing.T) {
 	it := reviewItem("Ask Ada.")
 	it.For = task.ID
 	id := f.add(it)
-	if _, err := ProposalNote.Run(t.Context(), f.owner, ProposalNoteInput{ID: id, Item: "i1", Note: "Check the wiki first", Intent: IntentRedirect}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ProposalSendback.Run(t.Context(), f.owner, ProposalSendbackInput{ID: id, Item: "i1"}); err != nil {
+	if _, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i1", Note: "Check the wiki first", Intent: IntentRedirect}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ProposalRevise.Run(t.Context(), f.agent, ProposalReviseInput{ID: id, Answers: []NoteAnswer{{Annotation: "a1", Outcome: model.TurnFailed, Reason: "The wiki has no page."}}}); err != nil {
@@ -966,5 +951,74 @@ func TestAgentWorkTurns(t *testing.T) {
 	out, err := ReceiptCheck.Run(t.Context(), f.owner, ReceiptCheckInput{ID: list.Items[0].ID, Verdict: model.ReceiptWrong, Note: "Wrong goal."})
 	if err != nil || out.Request != add.ID {
 		t.Fatalf("wrong = %+v %v", out, err)
+	}
+}
+
+func TestRequestTypes(t *testing.T) {
+	f := newPropFix(t)
+	id := f.file(mailItem("One."), mailItem("Two."))
+	if _, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i1", Note: "x", Intent: "bogus"}); err == nil {
+		t.Fatal("bogus type accepted")
+	}
+	chg, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i1", Note: "Shorter."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	show, err := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k := show.Items[0].Thread; len(k) == 0 || k[len(k)-1].Kind != model.TurnChange {
+		t.Fatalf("default type: %+v", show.Items[0].Thread)
+	}
+	inv, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i2", Note: "Who owns it? Check the wiki.", Intent: IntentInvestigate})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.Request == "" || inv.Request == chg.Request {
+		t.Fatalf("investigation request %q, follow-up %q", inv.Request, chg.Request)
+	}
+	r, err := RequestShow.Run(t.Context(), f.agent, RequestShowInput{ID: inv.Request})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isFindTitle(r.Doc.Title) || !strings.Contains(r.Doc.Body, "Check the wiki") || r.Doc.Meta.(*model.Request).Links[0] != model.LinkTo(id) {
+		t.Fatalf("find work: %q\n%s", r.Doc.Title, r.Doc.Body)
+	}
+	show, err = ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if show.Items[1].OpenNotes != 1 || slices.Contains(show.Items[1].Actions, ActionApprove) {
+		t.Fatalf("item: %+v", show.Items[1])
+	}
+}
+
+func TestNoteEdit(t *testing.T) {
+	f := newPropFix(t)
+	n, err := NoteAdd.Run(t.Context(), f.owner, NoteAddInput{Title: "Old title", Body: "Old."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	title := "New title"
+	if _, err := NoteEdit.Run(t.Context(), f.agent, NoteEditInput{ID: n.ID, Title: &title}); err == nil || !strings.Contains(err.Error(), "proposal_add") {
+		t.Fatalf("agent call: %v", err)
+	}
+	body := "New."
+	if _, err := NoteEdit.Run(t.Context(), f.owner, NoteEditInput{ID: n.ID, Title: &title, Body: &body}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := NoteShow.Run(t.Context(), f.owner, NoteShowInput{ID: n.ID})
+	if got.Note.Title != title || got.Body != body {
+		t.Fatalf("got %+v", got)
+	}
+	id := f.add(ItemInput{Kind: model.ItemPara, Op: "note_edit", Input: map[string]any{"id": n.ID, "body": "Via proposal."},
+		How: "Edits it.", Impact: "One note.", Reversible: model.ReversibleYes, Evidence: ev})
+	if _, err := ProposalApprove.Run(t.Context(), f.owner, ProposalApproveInput{ID: id, Items: []string{"i1"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = NoteShow.Run(t.Context(), f.owner, NoteShowInput{ID: n.ID})
+	if got.Body != "Via proposal." {
+		t.Fatalf("body = %q", got.Body)
 	}
 }

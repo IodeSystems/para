@@ -260,6 +260,8 @@ func (m *Model) update(msg tea.Msg) tea.Cmd {
 		return nil
 	case editedMsg:
 		return m.onEdited(msg)
+	case noteEditedMsg:
+		return m.onNoteEdited(msg)
 	case whoMsg:
 		return m.onWho(msg)
 	case liveTickMsg:
@@ -473,6 +475,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.askPerson()
 	case "find":
 		return m.findContext()
+	case "editnote":
+		return m.editNote()
 	case "later":
 		return m.later()
 	case "cut":

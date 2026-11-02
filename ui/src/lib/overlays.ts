@@ -10,10 +10,10 @@ export type OverlaySearch = {
   request?: true
   triage?: string // inbox item id
   reply?: string // rfx id
-  decide?: string // proposal dialog: `<deny|rework|sendback|hold>:<item id>`
-  note?: string // proposal item id being annotated
-  quote?: string // the text the annotation is anchored to
+  decide?: string // proposal dialog: `<deny|hold>:<item id>`
+  itemreq?: string // proposal item id being asked for changes, a clarification, or an investigation
   edit?: string // proposal item id being edited
+  noteedit?: string // note id whose title and body are edited
   answer?: string // question id
   ask?: string // question id to ask someone about
   drop?: string // question id to drop
@@ -43,9 +43,9 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     triage: id(s.triage),
     reply: id(s.reply),
     decide: id(s.decide),
-    note: id(s.note),
-    quote: id(s.quote),
+    itemreq: id(s.itemreq),
     edit: id(s.edit),
+    noteedit: id(s.noteedit),
     answer: id(s.answer),
     ask: id(s.ask),
     drop: id(s.drop),
@@ -71,9 +71,9 @@ export const NO_OVERLAYS: OverlaySearch = {
   triage: undefined,
   reply: undefined,
   decide: undefined,
-  note: undefined,
-  quote: undefined,
+  itemreq: undefined,
   edit: undefined,
+  noteedit: undefined,
   answer: undefined,
   ask: undefined,
   drop: undefined,

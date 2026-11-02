@@ -244,6 +244,9 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	}
 	src := withOverview(docSource(p.doc), p.doc.Title, p.ov)
 	reserved := docActionLetters
+	if _, ok := p.doc.Meta.(*model.Note); ok {
+		reserved += "e"
+	}
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		reserved += questionActLetters
 	} else if findableID(p.id) {
@@ -258,6 +261,9 @@ func (m *Model) renderDoc(p *page) RenderedDoc {
 	return rd
 }
 
+// actEditNote edits the title and body of an opened note.
+var actEditNote = Target{ID: "act:editnote", Label: "Edit", Pref: 'e'}
+
 var docActions = []Target{actZoom, actExport, actCopy, actMeta, actCapture, actVault}
 
 // docActionsFor are the actions of a document page: an opened question also
@@ -266,6 +272,9 @@ func (m *Model) docActionsFor(p *page) []Target {
 	acts := docActions
 	if _, ok := p.doc.Meta.(*model.Question); ok {
 		acts = append(append([]Target{}, questionActs...), docActions...)
+	}
+	if _, ok := p.doc.Meta.(*model.Note); ok {
+		acts = append([]Target{actEditNote}, acts...)
 	}
 	if findableID(p.id) {
 		acts = append(append([]Target{}, actFind), acts...)

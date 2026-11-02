@@ -151,3 +151,52 @@ var NoteShow = defineRead("note_show", "Show a note", func(ctx context.Context, 
 	}
 	return NoteShowOutput{Note: v, Body: doc.Body}, nil
 })
+
+// NoteEditInput is the input of note_edit. Fields left out stay as they are.
+// Tags replaces the list; an empty list clears it.
+type NoteEditInput struct {
+	ID    string    `json:"id"`
+	Title *string   `json:"title,omitempty"`
+	Body  *string   `json:"body,omitempty"`
+	Tags  *[]string `json:"tags,omitempty"`
+}
+
+// NoteEditOutput is the output of note_edit.
+type NoteEditOutput struct {
+	ID  string `json:"id"`
+	Rev string `json:"rev"`
+}
+
+// NoteEdit changes the title, body, or tags of a note. It is risk review: an
+// agent files a proposal item that names it, and approval runs it.
+var NoteEdit = define("note_edit", "Change the title, body, or tags of a note (reference material)", func(ctx context.Context, d Deps, in NoteEditInput) (NoteEditOutput, error) {
+	if in.Title == nil && in.Body == nil && in.Tags == nil {
+		return NoteEditOutput{}, errors.New("nothing to edit: give title, body, or tags")
+	}
+	doc, err := d.Store.Get(ctx, normID(in.ID))
+	if err != nil {
+		return NoteEditOutput{}, fmt.Errorf("note_edit: %w", err)
+	}
+	n, ok := doc.Meta.(*model.Note)
+	if !ok {
+		return NoteEditOutput{}, fmt.Errorf("%s is a %s, not a note", doc.ID, doc.Meta.Header().Type)
+	}
+	if in.Title != nil {
+		title := strings.Join(strings.Fields(*in.Title), " ")
+		if title == "" {
+			return NoteEditOutput{}, errors.New("title is empty")
+		}
+		doc.Title = title
+	}
+	if in.Body != nil {
+		doc.Body = strings.TrimSpace(*in.Body)
+	}
+	if in.Tags != nil {
+		n.Tags = cleanList(*in.Tags)
+	}
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return NoteEditOutput{}, fmt.Errorf("note_edit: %w", err)
+	}
+	return NoteEditOutput{ID: saved.ID, Rev: saved.Rev}, nil
+})

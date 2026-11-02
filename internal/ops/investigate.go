@@ -152,3 +152,33 @@ func appendHint(ctx context.Context, d Deps, id, rid, hint string) (InvestigateO
 	}
 	return InvestigateOutput{ID: id, Request: doc.ID, Status: r.Status, Runner: r.Runner, Appended: true}, nil
 }
+
+// queueInvestigation queues find work linked to a proposal, for an investigation
+// requested on one of its items. The text is the hint. The agent answers in a
+// revision, with sources. One open find per proposal: a second request adds its
+// hint to the open one.
+func queueInvestigation(ctx context.Context, d Deps, p *proposal, item, text string) (string, error) {
+	hint := strings.Join(strings.Fields(text), " ")
+	if err := lintText("hint", hint); err != nil {
+		return "", err
+	}
+	hint = "item " + item + ": " + hint
+	looking, err := investigating(ctx, d.Store)
+	if err != nil {
+		return "", err
+	}
+	if rid := looking[p.doc.ID]; rid != "" {
+		out, err := appendHint(ctx, d, p.doc.ID, rid, hint)
+		return out.Request, err
+	}
+	body := fmt.Sprintf("Find context for %s.\n\nThe owner asked for an investigation of an item of this proposal; the hint says which. "+
+		"Gather context and sources with your own tools; stay read-only outside para. "+
+		"Answer in a revision: call proposal_revise with an answer for the open request and the findings in the item. "+
+		"No source, no finding: a guess is not a source. If you find nothing, answer declined and say so.", p.doc.ID)
+	body = appendSection(body, hintsHeading, "- "+hint)
+	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: findContextPrefix + p.doc.Title, Ask: body, Links: []string{p.doc.ID}})
+	if err != nil {
+		return "", err
+	}
+	return out.ID, nil
+}

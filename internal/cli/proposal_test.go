@@ -99,9 +99,8 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_wait":     {`{"id":"proposal-wait-sample"}`, []string{"proposal", "wait", "proposal-wait-sample"}, false},
 		"proposal_deny":     {`{"id":"proposal-pa","item":"i3","reason":"No."}`, []string{"proposal", "deny", "proposal-pa", "i4", "--reason", "No."}, false},
 		"proposal_hold":     {`{"id":"proposal-pa","item":"i7","kind":"request","text":"Check first"}`, []string{"proposal", "hold", "proposal-pa", "i8", "--kind", "request", "--text", "Check first"}, false},
-		"proposal_note":     {`{"id":"proposal-pb","item":"i1","quote":"Hi","note":"No."}`, []string{"proposal", "note", "proposal-pb", "i1", "--quote", "Hi", "No."}, false},
+		"proposal_request":  {`{"id":"proposal-pb","item":"i1","note":"No."}`, []string{"proposal", "request", "proposal-pb", "i1", "No."}, false},
 		"proposal_edit":     {`{"id":"proposal-pa","item":"i9","draft":"Changed."}`, []string{"proposal", "edit", "proposal-pa", "i9", "--draft", "Changed again."}, false},
-		"proposal_sendback": {`{"id":"proposal-pb","item":"i2"}`, []string{"proposal", "sendback", "proposal-pb", "i1"}, false},
 		"similar":           {`{"type":"task","title":"Sample"}`, []string{"similar", "task", "Sample"}, false},
 		"proposal_undone":   {`{}`, []string{"proposal", "undone"}, false},
 		"proposal_executed": {`{"id":"proposal-pe","item":"i1","result":"done","url":"https://acme.example/1"}`, []string{"proposal", "executed", "proposal-pe", "i2", "done", "--url", "https://acme.example/2"}, false},
@@ -232,24 +231,23 @@ func TestProposalCycle(t *testing.T) {
 	}
 
 	// No agent can decide, even by name, over real MCP.
-	for _, name := range []string{"proposal_approve", "proposal_deny", "proposal_edit", "proposal_note"} {
+	for _, name := range []string{"proposal_approve", "proposal_deny", "proposal_edit", "proposal_request"} {
 		if _, err := e.agent.CallTool(context.Background(), toolRequest(name, map[string]any{"id": id})); err == nil {
 			t.Errorf("%s is reachable over MCP", name)
 		}
 	}
 
-	// Annotation: send back only.
-	e.ok("proposal", "note", id, "i1", "--quote", "Write the parser", "Say which parser")
+	// An open request blocks approval.
+	e.ok("proposal", "request", id, "i1", "Say which parser")
 	e.fails("not allowed", "proposal", "approve", id, "i1")
 	e.fails("not allowed", "proposal", "deny", id, "i1", "--reason", "no")
-	e.fails("does not contain", "proposal", "note", id, "i2", "--quote", "not there", "x")
 	var sent ops.ProposalReviewOutput
-	e.json(&sent, "proposal", "sendback", id, "i1")
+	e.json(&sent, "proposal", "request", id, "i1", "--intent", "clarify", "Why?")
 	if sent.Request == "" {
 		t.Fatalf("no request: %+v", sent)
 	}
 
-	// Edit: send back or approve as edited. No deny, no rework.
+	// Edit: approve as edited, or request more. No deny.
 	const edited = "Hi Ada,\n\nthe parser is due Monday.\n"
 	e.ok("proposal", "edit", id, "i2", "--draft", edited)
 	e.fails("not allowed", "proposal", "deny", id, "i2", "--reason", "no")
@@ -340,7 +338,7 @@ func TestProposalCycle(t *testing.T) {
 	if !strings.Contains(show.SourceDoc.Body, "Ada will write") || !strings.Contains(show.Untrusted, "untrusted") {
 		t.Fatalf("source = %+v, note %q", show.SourceDoc, show.Untrusted)
 	}
-	if th := decision(t, show, "i1").Thread; len(th) != 1 || th[0].State != model.TurnOpen || th[0].ID != "a1" {
+	if th := decision(t, show, "i1").Thread; len(th) != 2 || th[0].State != model.TurnOpen || th[0].ID != "a1" {
 		t.Fatalf("thread = %+v", th)
 	}
 	if got := decision(t, show, "i2"); !got.Edited || got.Body != edited {
@@ -352,9 +350,9 @@ func TestProposalCycle(t *testing.T) {
 	replacement["id"] = "i1"
 	revise := map[string]any{"id": id, "items": []any{replacement}}
 	toolFails(t, second, "proposal_revise", revise, "a1")
-	revise["answers"] = []any{map[string]any{"annotation": "a1", "outcome": "declined"}}
+	revise["answers"] = []any{map[string]any{"annotation": "a1", "outcome": "declined"}, map[string]any{"annotation": "a2", "outcome": "applied"}}
 	toolFails(t, second, "proposal_revise", revise, "needs a reason")
-	revise["answers"] = []any{map[string]any{"annotation": "a1", "outcome": "applied"}}
+	revise["answers"] = []any{map[string]any{"annotation": "a1", "outcome": "applied"}, map[string]any{"annotation": "a2", "outcome": "applied"}}
 	bad2 := map[string]any{"id": id, "items": []any{map[string]any{"id": "i5", "kind": "op", "op": "task_add", "input": task("again"), "evidence": map[string]any{"quote": "q", "locator": "l"}}}, "answers": revise["answers"]}
 	toolFails(t, second, "proposal_revise", bad2, "owner has decided")
 	rev := tool[ops.ProposalFiled](t, second, "proposal_revise", revise)
@@ -382,7 +380,7 @@ func TestProposalCycle(t *testing.T) {
 	if len(cur.History) != 2 || cur.History[0].ID != id || cur.History[1].ID != rev.ID {
 		t.Fatalf("history = %+v", cur.History)
 	}
-	if th := decision(t, cur, "i1").Thread; len(th) != 1 || th[0].State != model.TurnApplied {
+	if th := decision(t, cur, "i1").Thread; len(th) != 2 || th[0].State != model.TurnApplied {
 		t.Fatalf("carried thread = %+v", th)
 	}
 	if got := decision(t, cur, "i1"); got.State != model.ItemPending || len(got.Actions) == 0 || got.Actions[0] != ops.ActionApprove {

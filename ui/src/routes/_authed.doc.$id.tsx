@@ -8,6 +8,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
 import { useCopyText, useDoc } from '@/api/doc'
+import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
@@ -38,6 +39,17 @@ function Doc() {
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                {d.meta.type === 'note' && (
+                  <LinkButton
+                    size="small"
+                    variant="outlined"
+                    to="."
+                    title="Change the text yourself"
+                    search={(p) => ({ ...p, noteedit: d.id })}
+                  >
+                    Edit
+                  </LinkButton>
+                )}
                 <TextField
                   select
                   size="small"

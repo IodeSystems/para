@@ -153,9 +153,8 @@ func registerProposals(r *registrar) {
 	reg(r, ops.AgentActivity, get, read)
 	reg(r, ops.ProposalApprove, post, netguard.ScopeProposalReview)
 	reg(r, ops.ProposalDeny, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalSendback, post, netguard.ScopeProposalReview)
 	reg(r, ops.ProposalHold, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalNote, post, netguard.ScopeProposalReview)
+	reg(r, ops.ProposalRequest, post, netguard.ScopeProposalReview)
 	reg(r, ops.ProposalEdit, post, netguard.ScopeProposalReview)
 }
 

@@ -29,6 +29,7 @@ var Inputs = map[string]string{
 	"meeting_schedule":          `{"id":"meeting-sample","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,
 	"meeting_hold":              `{"id":"meeting-sample","notes":"Agreed to ship in January.","replies":[{"id":"rfx-sample","from":"person-sample","outcome":"answered","text":"January works."}],"answers":[{"id":"question-sample","text":"Window is 2026-12-05.","sources":[{"ref":"note-sample","quote":"Sample text."}]}],"actions":[{"title":"Send the plan","assignee":"person-sample","project":"project-sample","done_when":"The plan is in the shared folder."}]}`,
 	"meeting_cancel":            `{"id":"meeting-sample","reason":"Not needed."}`,
+	"note_edit":                 `{"id":"note-sample","title":"Sample note, revised"}`,
 	"note_add":                  `{"title":"Recipe","area":"area-sample"}`,
 	"note_show":                 `{"id":"note-sample"}`,
 	"constraint_add":            `{"says":"No prod access","why":"Audit scope","by":"Jordan Example","source":"https://wiki.acme.example/access","review_by":"2027-01-01"}`,
@@ -142,9 +143,8 @@ var Inputs = map[string]string{
 	"proposal_revise":   `{"id":"proposal-sample","answers":[{"annotation":"a1","outcome":"applied"}]}`,
 	"proposal_approve":  `{"id":"proposal-sample","items":["i1"]}`,
 	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
-	"proposal_sendback": `{"id":"proposal-sample","item":"i3"}`,
 	"proposal_hold":     `{"id":"proposal-sample","item":"i1","kind":"request","text":"Check the budget first"}`,
-	"proposal_note":     `{"id":"proposal-sample","item":"i2","quote":"Hi Sam","note":"Use the full name."}`,
+	"proposal_request":  `{"id":"proposal-sample","item":"i2","intent":"change","note":"Use the full name."}`,
 	"proposal_edit":     `{"id":"proposal-sample","item":"i2","draft":"Hi Sample."}`,
 }
 

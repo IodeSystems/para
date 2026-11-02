@@ -62,6 +62,7 @@ type ParaV1MutationNamespace {
   meetingHold(body: para_MeetingHoldInputInput!): para_MeetingHoldOutput @derived(operationId: "meetingHold")
   meetingSchedule(body: para_MeetingScheduleInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingSchedule")
   noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
+  noteEdit(body: para_NoteEditInputInput!): para_NoteEditOutput @derived(operationId: "noteEdit")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
@@ -87,9 +88,8 @@ type ParaV1MutationNamespace {
   proposalEdit(body: para_ProposalEditInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalEdit")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
   proposalHold(body: para_ProposalHoldInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalHold")
-  proposalNote(body: para_ProposalNoteInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalNote")
+  proposalRequest(body: para_ProposalRequestInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalRequest")
   proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
-  proposalSendback(body: para_ProposalSendbackInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalSendback")
   questionAccept(body: para_QuestionAcceptInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAccept")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
@@ -2228,6 +2228,18 @@ enum para_NoteAnswerOutcome {
   open
 }
 
+input para_NoteEditInputInput {
+  body: String
+  id: String!
+  tags: [String!]
+  title: String
+}
+
+type para_NoteEditOutput {
+  id: String!
+  rev: String!
+}
+
 type para_NoteListOutput {
   notes: [para_NoteView!]!
 }
@@ -2763,23 +2775,24 @@ type para_ProposalListOutput {
   items: [para_ProposalView!]!
 }
 
-input para_ProposalNoteInputInput {
-  id: String!
-  intent: para_ProposalNoteInputIntent
-  item: String!
-  note: String!
-  quote: String
-}
-
-enum para_ProposalNoteInputIntent {
-  clarify
-  redirect
-}
-
 input para_ProposalReasonInputInput {
   id: String!
   item: String!
   reason: String!
+}
+
+input para_ProposalRequestInputInput {
+  id: String!
+  intent: para_ProposalRequestInputIntent
+  item: String!
+  note: String!
+}
+
+enum para_ProposalRequestInputIntent {
+  change
+  clarify
+  investigate
+  redirect
 }
 
 type para_ProposalReviewOutput {
@@ -2805,12 +2818,6 @@ input para_ProposalReviseInputInput {
   items: [para_ItemInputInput!]
   tldr: String
   withdraw: [String!]
-}
-
-input para_ProposalSendbackInputInput {
-  id: String!
-  item: String!
-  reason: String
 }
 
 type para_ProposalUndoneOutput {
@@ -4218,9 +4225,11 @@ type para_Turn {
 }
 
 enum para_TurnKind {
+  change
   clarify
   close
   edit
+  investigate
   redirect
   send_back
 }

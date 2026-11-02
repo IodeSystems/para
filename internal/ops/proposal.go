@@ -24,7 +24,7 @@ import (
 //
 // Agent ops are here. Review ops, which only a person can call, are in
 // proposalreview.go. proposal_revise is in proposalrevise.go. Each item has one conversation, its
-// thread: the owner's notes, edits, and send backs, each with the agent's answer.
+// thread: the owner's requests, edits, and denials, each with the agent's answer.
 //
 // Events carry ids, states, and hashes. Evidence, drafts, and notes never do.
 
@@ -385,10 +385,16 @@ func readProposal(ctx context.Context, d Deps, id string) (*proposal, error) {
 // proposalStatus derives the status from the items. See model.ProposalStatus.
 func proposalStatus(items []model.ProposalItem) model.ProposalStatus {
 	waits, back := false, false
-	for _, it := range items {
+	for i := range items {
+		it := &items[i]
 		switch it.State {
 		case model.ItemPending, model.ItemHeld, model.ItemRunning:
-			waits = true
+			// An item with an open request waits for the agent, not for the owner.
+			if openNotes(it) > 0 {
+				back = true
+			} else {
+				waits = true
+			}
 		case model.ItemSentBack, model.ItemHalted:
 			back = true
 		}
@@ -619,23 +625,22 @@ var ProposalList = defineRead("proposal_list", "List proposals, oldest first; su
 
 // Item actions. Actions says which of them the review rule allows.
 const (
-	ActionApprove  = "approve"
-	ActionDeny     = "deny"
-	ActionSendBack = "send_back"
-	ActionHold     = "needs_first"
-	ActionNote     = "note"
-	ActionEdit     = "edit"
+	ActionApprove = "approve"
+	ActionDeny    = "deny"
+	ActionHold    = "needs_first"
+	ActionRequest = "request"
+	ActionEdit    = "edit"
 )
 
 // allowedActions is the review rule. One function serves the ops, the TUI, and
 // the API, so no surface can state it differently.
 //
-//	No edits, no open notes: approve, deny, send back.
-//	Edits only:              send back, or approve as edited.
-//	Any open note:           send back only.
-//	Held:                    as above, with no approve until held_by closes.
+//	No edits, no open requests: approve, deny, request.
+//	Edits only:                 request, or approve as edited.
+//	Any open request:           request only.
+//	Held:                       as above, with no approve until held_by closes.
 //
-// Needs first, note, and edit are allowed with each of these.
+// Needs first and edit are allowed with each of these.
 func allowedActions(state model.ItemState, edited bool, openNotes int, held bool) []string {
 	if state != model.ItemPending && state != model.ItemHeld {
 		return []string{}
@@ -643,18 +648,18 @@ func allowedActions(state model.ItemState, edited bool, openNotes int, held bool
 	var out []string
 	switch {
 	case openNotes > 0:
-		out = append(out, ActionSendBack)
 	case edited:
-		out = append(out, ActionApprove, ActionSendBack)
+		out = append(out, ActionApprove)
 	default:
-		out = append(out, ActionApprove, ActionDeny, ActionSendBack)
+		out = append(out, ActionApprove, ActionDeny)
 	}
+	out = append(out, ActionRequest)
 	if held {
 		out = slices.DeleteFunc(out, func(a string) bool { return a == ActionApprove })
 	} else {
 		out = append(out, ActionHold)
 	}
-	return append(out, ActionNote, ActionEdit)
+	return append(out, ActionEdit)
 }
 
 func (p *proposal) actions(it *model.ProposalItem) []string {
@@ -679,21 +684,11 @@ func (p *proposal) allow(it *model.ProposalItem, action string) error {
 	case p.held[it.ID]:
 		why = "held by " + it.HeldBy.Target()
 	case openNotes(it) > 0:
-		why = "it has open notes"
+		why = "it has open requests"
 	case it.Edited:
 		why = "it was edited"
 	}
 	return fmt.Errorf("item %s: %s is not allowed: %s; allowed: %s", it.ID, action, why, strings.Join(acts, ", "))
-}
-
-// itemText is the text a note can quote.
-func itemText(it model.ProposalItem) string {
-	var b strings.Builder
-	for _, x := range []string{it.Target, it.Channel, it.Subject, it.What, it.How, it.Impact, it.Title, it.Body, it.Diff, it.Op, it.Evidence.Quote, it.Evidence.Locator} {
-		b.WriteString(x + "\n")
-	}
-	b.WriteString(inputJSON(it.Input))
-	return b.String()
 }
 
 // ItemView is an item with what the review rule allows now.
@@ -892,8 +887,9 @@ func ProposalPoll(ctx context.Context, d Deps, id string) (ProposalWaitOutput, e
 		out.SupersededBy, err = supersededBy(ctx, d, p.doc.ID)
 		return out, err
 	}
-	for _, it := range p.content.Items {
-		out.Pending = out.Pending || it.State == model.ItemPending || it.State == model.ItemRunning
+	for i := range p.content.Items {
+		it := &p.content.Items[i]
+		out.Pending = out.Pending || (it.State == model.ItemPending && openNotes(it) == 0) || it.State == model.ItemRunning
 	}
 	return out, nil
 }

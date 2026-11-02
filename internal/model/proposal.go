@@ -83,23 +83,26 @@ func (ItemState) Enum() []string { return enumStrings(ItemStates) }
 // ItemStates lists every ItemState.
 var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn}
 
-// TurnKind is thread[].kind. Clarify and redirect wait for the agent's answer;
-// the others are the record of what the owner did.
+// TurnKind is thread[].kind. Change, clarify, investigate, and redirect wait for
+// the agent's answer; the others are the record of what the owner did. Redirect
+// is the old word for change, and send_back is only read from older files.
 type TurnKind string
 
 const (
-	TurnClarify  TurnKind = "clarify"
-	TurnRedirect TurnKind = "redirect"
-	TurnEdit     TurnKind = "edit"
-	TurnSendBack TurnKind = "send_back"
-	TurnClose    TurnKind = "close"
+	TurnChange      TurnKind = "change"
+	TurnClarify     TurnKind = "clarify"
+	TurnInvestigate TurnKind = "investigate"
+	TurnRedirect    TurnKind = "redirect"
+	TurnEdit        TurnKind = "edit"
+	TurnSendBack    TurnKind = "send_back"
+	TurnClose       TurnKind = "close"
 )
 
 // Enum lists the allowed values, for schema generation.
 func (TurnKind) Enum() []string { return enumStrings(TurnKinds) }
 
 // TurnKinds lists every TurnKind.
-var TurnKinds = []TurnKind{TurnClarify, TurnRedirect, TurnEdit, TurnSendBack, TurnClose}
+var TurnKinds = []TurnKind{TurnChange, TurnClarify, TurnInvestigate, TurnRedirect, TurnEdit, TurnSendBack, TurnClose}
 
 // TurnState is thread[].state. Failed is a redirect the agent could not resolve.
 type TurnState string

@@ -42,6 +42,7 @@ A "no" with its reason becomes a constraint, so nobody asks the same question tw
   $ para area link add area-home-lab "Runbook" --kind runbook --target ~/doc/lab/runbook.md
   $ para task add "Renew the TLS certificate" --area area-home-lab --due 2026-12-01 --recur "every 365 days"
   $ para note add "Switch ports" --area area-home-lab --tag network --body "Port 3 is the uplink."
+  $ para note edit note-example --title "Switch ports and uplink"
   $ para where lab
   $ para area show area-home-lab
 area show lists the area's incidents and recurring tasks; where lists its open incidents.
@@ -121,10 +122,10 @@ give the URL of that machine.
   $ para proposal show proposal-example
   $ para proposal approve proposal-example i1
   $ para proposal deny proposal-example i2 --reason "Not this quarter"
-  $ para proposal sendback proposal-example i3 --reason "Name the owner"
-  $ para proposal note proposal-example i4 --quote "Friday" "Monday works better"
-  $ para proposal note proposal-example i4 --intent redirect "Check the wiki first"
-  $ para proposal sendback proposal-example i4
+  $ para proposal request proposal-example i3 "Name the owner"
+  $ para proposal request proposal-example i4 --intent clarify "Why Friday?"
+  $ para proposal request proposal-example i4 --intent investigate "Check the wiki first"
+  $ para proposal edit proposal-example i4 --body "Monday works better."
   $ para proposal approve proposal-example --group tasks
   $ para proposal hold proposal-example i5 --kind task --text "Check the budget" --project project-portal
   $ para proposal wait proposal-example --timeout 1h

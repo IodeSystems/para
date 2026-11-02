@@ -51,7 +51,7 @@ func TestProposalFooterShowsDecisions(t *testing.T) {
 	for _, size := range [][2]int{{120, 36}, {80, 24}} {
 		d := newDrv(t, v, size[0], size[1])
 		d.openProposal(id)
-		for _, want := range []string{"Approve", "Deny", "Send back", "Note"} {
+		for _, want := range []string{"Approve", "Deny", "Request"} {
 			if !strings.Contains(d.footer(), want) {
 				t.Errorf("%dx%d: footer lacks %s: %q", size[0], size[1], want, d.footer())
 			}

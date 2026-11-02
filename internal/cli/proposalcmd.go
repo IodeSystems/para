@@ -101,18 +101,6 @@ func newProposalCmd(l *loader) *cobra.Command {
 			Text: proposalReviewText,
 		}),
 		reasonCmd(l, ops.ProposalDeny, "deny <id> <item>"),
-		opCommand(l, ops.ProposalSendback, binding[ops.ProposalSendbackInput, ops.ProposalReviewOutput]{
-			Use:  "sendback <id> <item>",
-			Args: cobra.ExactArgs(2),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProposalSendbackInput) {
-				fs.StringVar(&in.Reason, "reason", "", "why; optional when an edit or a note already says")
-			},
-			Bind: func(args []string, in *ops.ProposalSendbackInput) error {
-				in.ID, in.Item = args[0], args[1]
-				return nil
-			},
-			Text: proposalReviewText,
-		}),
 		opCommand(l, ops.ProposalHold, binding[ops.ProposalHoldInput, ops.ProposalReviewOutput]{
 			Use:  "hold <id> <item> --kind task|request --text <text>",
 			Args: cobra.ExactArgs(2),
@@ -128,14 +116,13 @@ func newProposalCmd(l *loader) *cobra.Command {
 			},
 			Text: proposalReviewText,
 		}),
-		opCommand(l, ops.ProposalNote, binding[ops.ProposalNoteInput, ops.ProposalReviewOutput]{
-			Use:  "note <id> <item> <text>",
+		opCommand(l, ops.ProposalRequest, binding[ops.ProposalRequestInput, ops.ProposalReviewOutput]{
+			Use:  "request <id> <item> <text>",
 			Args: cobra.MinimumNArgs(3),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProposalNoteInput) {
-				fs.StringVar((*string)(&in.Intent), "intent", "", "clarify (default), or redirect: change the path")
-				fs.StringVar(&in.Quote, "quote", "", "text from the item the note is about")
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalRequestInput) {
+				fs.StringVar((*string)(&in.Intent), "intent", "", "change (default), clarify, or investigate")
 			},
-			Bind: func(args []string, in *ops.ProposalNoteInput) error {
+			Bind: func(args []string, in *ops.ProposalRequestInput) error {
 				in.ID, in.Item, in.Note = args[0], args[1], strings.Join(args[2:], " ")
 				return nil
 			},

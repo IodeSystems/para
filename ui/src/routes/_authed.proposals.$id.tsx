@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -322,36 +322,12 @@ function ItemCard({
   canReview: boolean
 }) {
   const approve = useApprove()
-  const navigate = useNavigate()
-  const body = useRef<HTMLDivElement>(null)
-  const picked = useRef('')
-  // selectedQuote is the text selected inside this card, trimmed.
-  const selectedQuote = () => {
-    const sel = window.getSelection()
-    const root = body.current
-    if (!sel || sel.isCollapsed || !root || !sel.anchorNode || !root.contains(sel.anchorNode))
-      return ''
-    return sel.toString().trim()
-  }
   const can = (a: string) => canReview && it.actions.includes(a)
   const external = isOutward(it.kind)
   const notes = it.thread ?? []
   const input: unknown = it.input
   const decided = it.state === 'approved' || it.state === 'failed' || it.state === 'done'
-  // With edits or notes they are the message; otherwise a reason is asked.
-  const sendBack = can('send_back')
-  // One primary per item: Approve, or Send back when the item was edited or has an open note.
-  const primary = can('approve') ? 'approve' : sendBack ? 'send_back' : ''
   const more: RowMenuItem[] = [
-    ...(sendBack && primary !== 'send_back'
-      ? [
-          {
-            label: 'Send back',
-            hint: 'Return it to the agent, with a reason',
-            search: { decide: `sendback:${it.id}` },
-          },
-        ]
-      : []),
     ...(can('needs_first')
       ? [
           {
@@ -367,22 +343,6 @@ function ItemCard({
             label: 'Edit',
             hint: 'Change the text yourself before approving',
             search: { edit: it.id },
-          },
-        ]
-      : []),
-    ...(can('note')
-      ? [
-          {
-            label: 'Note',
-            hint: 'Attach a note to the words you selected',
-            onSelect: () => {
-              const quote = picked.current || selectedQuote()
-              picked.current = ''
-              void navigate({
-                to: '.',
-                search: (p) => ({ ...p, note: it.id, quote: quote || undefined }),
-              })
-            },
           },
         ]
       : []),
@@ -408,12 +368,12 @@ function ItemCard({
         {it.openNotes > 0 && (
           <StatusChip
             tone="attn"
-            label={`${it.openNotes} open ${it.openNotes === 1 ? 'note' : 'notes'}`}
+            label={`${it.openNotes} open ${it.openNotes === 1 ? 'request' : 'requests'}`}
           />
         )}
         {it.heldBy && <StatusChip tone="attn" label="needs something first" />}
       </Stack>
-      <Box ref={body}>
+      <Box>
         {external ? (
           <>
             <Typography variant="body2" sx={{ mb: 0.5 }}>
@@ -574,7 +534,7 @@ function ItemCard({
       )}
       {it.actions.length > 0 && canReview && (
         <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center' }}>
-          {primary === 'approve' && (
+          {can('approve') && (
             <Button
               size="small"
               variant="contained"
@@ -584,14 +544,15 @@ function ItemCard({
               {it.edited ? 'Approve as edited' : 'Approve'}
             </Button>
           )}
-          {primary === 'send_back' && (
+          {can('request') && (
             <LinkButton
               size="small"
-              variant="contained"
+              variant="outlined"
               to="."
-              search={(p) => ({ ...p, decide: `sendback:${it.id}` })}
+              title="Ask the agent to change, clarify, or look into this"
+              search={(p) => ({ ...p, itemreq: it.id })}
             >
-              Send back
+              Request
             </LinkButton>
           )}
           {can('deny') && (
@@ -605,12 +566,7 @@ function ItemCard({
               Deny
             </LinkButton>
           )}
-          <RowMenu
-            items={more}
-            label="More decisions for this item"
-            text="More"
-            beforeOpen={() => (picked.current = selectedQuote())}
-          />
+          <RowMenu items={more} label="More decisions for this item" text="More" />
         </Stack>
       )}
     </Paper>

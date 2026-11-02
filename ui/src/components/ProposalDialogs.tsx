@@ -2,20 +2,19 @@ import { useState } from 'react'
 import { useParams } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import Checkbox from '@mui/material/Checkbox'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useNote, useDeny, useEdit, useHold, useProposal, useSendback } from '@/api/proposals'
+import type { Para_ProposalRequestInputIntent } from '@/gql/graphql'
+import { useItemRequest, useDeny, useEdit, useHold, useProposal } from '@/api/proposals'
 import { useAreas } from '@/api/areas'
 import { useWork } from '@/api/work'
 import { errorText } from '@/client/gqlClient'
 import { Pick } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { parseDecide, type OverlaySearch } from '@/lib/overlays'
-import { isOutward, parseInputObject, quoteAnchors } from '@/lib/proposal'
+import { isOutward, parseInputObject } from '@/lib/proposal'
 
 type Props = { s: OverlaySearch; onDone: (m: string) => void }
 
@@ -27,7 +26,7 @@ export function ProposalDialogs({ s, onDone }: Props) {
   return (
     <>
       {decide && <DecideDialog id={id} action={decide.action} item={decide.item} onDone={onDone} />}
-      {s.note && <NoteDialog id={id} item={s.note} quote={s.quote ?? ''} onDone={onDone} />}
+      {s.itemreq && <RequestDialog id={id} item={s.itemreq} onDone={onDone} />}
       {s.edit && <EditDialog id={id} item={s.edit} onDone={onDone} />}
     </>
   )
@@ -35,7 +34,6 @@ export function ProposalDialogs({ s, onDone }: Props) {
 
 const ACTION_TITLE: Record<string, string> = {
   deny: 'Deny',
-  sendback: 'Send back',
   hold: 'Needs first',
 }
 
@@ -50,15 +48,11 @@ function DecideDialog({
   item: string
   onDone: (m: string) => void
 }) {
-  // An old link that says rework still works.
-  const action = asked === 'rework' ? 'sendback' : asked
+  const action = asked
   const p = useProposal(id)
   const it = p.data?.items.find((x) => x.id === item)
-  // With edits or notes the item goes back as it is; without, the reason is the message.
-  const hasEdits = !!it && (it.edited || it.openNotes > 0)
   const close = useClose()
   const deny = useDeny()
-  const sendback = useSendback()
   const hold = useHold()
   const [reason, setReason] = useState('')
   const [kind, setKind] = useState<'task' | 'request'>('task')
@@ -66,11 +60,10 @@ function DecideDialog({
   const [area, setArea] = useState('')
   const work = useWork()
   const areas = useAreas()
-  const m =
-    action === 'deny' ? deny : action === 'sendback' ? sendback : action === 'hold' ? hold : null
+  const m = action === 'deny' ? deny : action === 'hold' ? hold : null
   const title = ACTION_TITLE[action]
   if (!title || !m) return null
-  const reasonRequired = action === 'deny' || (action === 'sendback' && !hasEdits)
+  const reasonRequired = action === 'deny'
   const ok = !reasonRequired && action !== 'hold' ? true : reason.trim() !== ''
   const done = (msg: string) => {
     onDone(msg)
@@ -79,11 +72,6 @@ function DecideDialog({
   const submit = () => {
     const r = reason.trim()
     if (action === 'deny') deny.mutate({ id, item, reason: r }, { onSuccess: () => done('Denied') })
-    else if (action === 'sendback')
-      sendback.mutate(
-        { id, item, reason: r || undefined },
-        { onSuccess: () => done('Sent back to the agent') },
-      )
     else
       hold.mutate(
         {
@@ -133,11 +121,7 @@ function DecideDialog({
           autoFocus
           fullWidth
           helperText={
-            reasonRequired
-              ? 'Required. The agent reads it.'
-              : action === 'sendback'
-                ? 'Optional. Your edits and notes go with it.'
-                : undefined
+            reasonRequired ? 'Required. The agent reads it.' : undefined
           }
         />
         {action === 'hold' && kind === 'task' && (
@@ -163,41 +147,40 @@ function DecideDialog({
   )
 }
 
-function NoteDialog({
+const REQUEST_TYPES: { value: Para_ProposalRequestInputIntent; label: string; help: string }[] = [
+  { value: 'change', label: 'Changes', help: 'The agent revises the item as you say.' },
+  { value: 'clarify', label: 'Clarification', help: 'The agent answers your question in a revision.' },
+  {
+    value: 'investigate',
+    label: 'Investigation',
+    help: 'The agent looks into it, and answers in a revision with sources.',
+  },
+]
+
+function RequestDialog({
   id,
   item,
-  quote: initial,
   onDone,
 }: {
   id: string
   item: string
-  quote: string
   onDone: (m: string) => void
 }) {
   const close = useClose()
-  const annotate = useNote()
+  const request = useItemRequest()
   const p = useProposal(id)
-  const [quote, setQuote] = useState(initial)
-  const [note, setNote] = useState('')
-  const [redirect, setRedirect] = useState(false)
+  const [type, setType] = useState<Para_ProposalRequestInputIntent>('change')
+  const [text, setText] = useState('')
   const it = p.data?.items.find((x) => x.id === item)
-  // Wait for the item: until it is loaded the anchor cannot be judged.
-  const anchored = it && quote.trim() !== '' ? quoteAnchors(it, quote) : true
   return (
     <Frame
-      title={`Note on: ${it?.summary ?? 'this item'}`}
+      title={`Request on: ${it?.summary ?? 'this item'}`}
       onSubmit={() =>
-        annotate.mutate(
-          {
-            id,
-            item,
-            quote: quote.trim() || undefined,
-            note: note.trim(),
-            intent: redirect ? 'redirect' : undefined,
-          },
+        request.mutate(
+          { id, item, note: text.trim(), intent: type },
           {
             onSuccess: () => {
-              onDone('Note added. The item can now be sent back.')
+              onDone('Requested. The agent will answer in a revision.')
               close()
             },
           },
@@ -209,46 +192,41 @@ function NoteDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={annotate.isPending || note.trim() === ''}
+            disabled={request.isPending || text.trim() === ''}
           >
-            Add note
+            Request
           </Button>
         </>
       }
     >
       <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {annotate.isError && <Alert severity="error">{errorText(annotate.error)}</Alert>}
+        {request.isError && <Alert severity="error">{errorText(request.error)}</Alert>}
         <TextField
-          label="Quoted text"
-          value={quote}
-          onChange={(e) => setQuote(e.target.value)}
-          multiline
-          minRows={1}
-          fullWidth
-          error={!anchored}
-          helperText={
-            anchored
-              ? 'Select text on the item before you press Note, or type the words here.'
-              : 'This text is not in the item. The note will not anchor.'
-          }
-        />
+          select
+          label="Type"
+          value={type}
+          onChange={(e) => setType(e.target.value as Para_ProposalRequestInputIntent)}
+          helperText={REQUEST_TYPES.find((t) => t.value === type)?.help}
+        >
+          {REQUEST_TYPES.map((t) => (
+            <MenuItem key={t.value} value={t.value}>
+              {t.label}
+            </MenuItem>
+          ))}
+        </TextField>
         <TextField
-          label="Your note"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
+          label="Request"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
           required
           multiline
           minRows={3}
           autoFocus
           fullWidth
         />
-        <FormControlLabel
-          control={<Checkbox checked={redirect} onChange={(e) => setRedirect(e.target.checked)} />}
-          label="Redirect: change the path, such as check the wiki first"
-        />
         <Typography variant="caption" color="text.secondary">
-          The agent must answer every note: applied, or declined with a reason. An item with a note
-          can only be sent back.
+          The agent must answer every request: applied, or declined with a reason. An item with an
+          open request cannot be approved.
         </Typography>
       </Stack>
     </Frame>
@@ -286,6 +264,8 @@ type EditItem = {
   kind: string
   body?: string | null
   target?: string | null
+  title?: string | null
+  subject?: string | null
   input?: unknown
 }
 
@@ -305,15 +285,20 @@ function EditForm({
   const external = isOutward(it.kind)
   const [draft, setDraft] = useState(it.body ?? '')
   const [target, setTarget] = useState(it.target ?? '')
+  const [title, setTitle] = useState(it.title ?? '')
+  const [subject, setSubject] = useState(it.subject ?? '')
+  const isAction = it.kind === 'action'
   const [input, setInput] = useState(JSON.stringify(it.input ?? {}, null, 2))
   const parsed = external ? null : parseInputObject(input)
   const changed = external
-    ? draft !== (it.body ?? '') || target !== (it.target ?? '')
+    ? draft !== (it.body ?? '') ||
+      target !== (it.target ?? '') ||
+      (isAction ? title !== (it.title ?? '') : subject !== (it.subject ?? ''))
     : input !== JSON.stringify(it.input ?? {}, null, 2)
   const ok = changed && (parsed === null || parsed.ok)
   const submit = () => {
     const done = () => {
-      onDone('Edited. Send it back, or approve it as edited.')
+      onDone('Edited. Approve it as edited, or request more.')
       close()
     }
     if (external) {
@@ -323,6 +308,8 @@ function EditForm({
           item,
           body: draft !== (it.body ?? '') ? draft : undefined,
           target: target !== (it.target ?? '') ? target : undefined,
+          title: isAction && title !== (it.title ?? '') ? title : undefined,
+          subject: !isAction && subject !== (it.subject ?? '') ? subject : undefined,
         },
         { onSuccess: done },
       )
@@ -353,6 +340,21 @@ function EditForm({
               onChange={(e) => setTarget(e.target.value)}
               fullWidth
             />
+            {isAction ? (
+              <TextField
+                label="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                fullWidth
+              />
+            ) : (
+              <TextField
+                label="Subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                fullWidth
+              />
+            )}
             <TextField
               label="Draft"
               value={draft}
@@ -378,8 +380,7 @@ function EditForm({
           />
         )}
         <Typography variant="caption" color="text.secondary">
-          An edited item can be sent back to the agent, or approved as edited. Approval binds to
-          your text.
+          Change the text yourself before approving. Approval binds to your text.
         </Typography>
       </Stack>
     </Frame>
