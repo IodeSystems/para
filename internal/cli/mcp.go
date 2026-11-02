@@ -26,8 +26,7 @@ const mcpSurface = "mcp"
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor string
-	var helpClaude, helpDun, channel bool
-	var helpClaude, helpDun, helpRaglit bool
+	var helpClaude, helpDun, channel, helpRaglit bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
