@@ -1,14 +1,14 @@
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import { useQuestions } from '@/api/questions'
 import { localDate } from '@/api/today'
-import { Empty, StateChip } from '@/components/Bits'
+import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
 import { dueLabel, dueState } from '@/lib/due'
+import { nameList, nameOr } from '@/lib/names'
 
 export type TaskRow = {
   id: string
@@ -17,19 +17,21 @@ export type TaskRow = {
   due?: string | null
   recur?: string | null
   assignee?: string | null
+  assigneeName?: string | null
+  project?: string | null
+  projectName?: string | null
   dependsOn: string[]
+  dependsOnNames?: string[] | null
   blockedBy: string[]
 }
 
-// DueChip shows a due date. An overdue task is red, one due today or soon is amber.
+// DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
 export function DueChip({ due, today = localDate() }: { due: string; today?: string }) {
   const s = dueState(due, today)
   return (
-    <Chip
-      size="small"
+    <StatusChip
+      tone={s === 'overdue' ? 'bad' : s === 'today' || s === 'soon' ? 'attn' : 'quiet'}
       label={dueLabel(due, today)}
-      color={s === 'overdue' ? 'error' : s === 'today' || s === 'soon' ? 'warning' : 'default'}
-      variant={s === 'overdue' ? 'filled' : 'outlined'}
     />
   )
 }
@@ -40,11 +42,14 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
   const qs = open.get(t.id)
   if (qs?.length) return `waiting on question: ${qs.join('; ')}`
   if (t.blockedBy.length) return `blocked by ${t.blockedBy.join(', ')}`
-  const after = t.dependsOn.filter((d) => !d.startsWith('question-'))
+  const after = nameList(t.dependsOn, t.dependsOnNames).filter(
+    (_n, i) => !t.dependsOn[i]?.startsWith('question-'),
+  )
   return after.length ? `after ${after.join(', ')}` : undefined
 }
 
-export function TaskRows({ tasks }: { tasks: TaskRow[] }) {
+// showProject adds the project name under each task, for lists that mix projects.
+export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
   const questions = useQuestions()
   // task id -> titles of the open questions it waits on
   const waits = new Map<string, string[]>()
@@ -60,15 +65,24 @@ export function TaskRows({ tasks }: { tasks: TaskRow[] }) {
             <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
               <ListItemText
                 primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
-                secondary={waitingOn(t, waits)}
+                secondary={
+                  [
+                    showProject && t.project ? nameOr(t.projectName, t.project) : undefined,
+                    waitingOn(t, waits),
+                  ]
+                    .filter(Boolean)
+                    .join(' - ') || undefined
+                }
                 slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
               />
-              <StateChip state={t.status} />
+              {t.status !== 'todo' && <StateChip state={t.status} />}
             </Stack>
             <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
               {t.due && open && <DueChip due={t.due} />}
-              {t.recur && <Chip size="small" variant="outlined" label={`repeats ${t.recur}`} />}
-              {t.assignee && <Chip size="small" variant="outlined" label={`with ${t.assignee}`} />}
+              {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
+              {t.assignee && (
+                <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
+              )}
               {open && (
                 <>
                   <LinkButton size="small" to="." search={(p) => ({ ...p, done: t.id })}>

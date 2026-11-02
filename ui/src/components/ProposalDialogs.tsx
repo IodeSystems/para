@@ -15,7 +15,10 @@ import {
   useRework,
   useSendback,
 } from '@/api/proposals'
+import { useAreas } from '@/api/areas'
+import { useWork } from '@/api/work'
 import { errorText } from '@/client/gqlClient'
+import { Pick } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { parseDecide, type OverlaySearch } from '@/lib/overlays'
 import { parseInputObject, quoteAnchors } from '@/lib/proposal'
@@ -63,6 +66,8 @@ function DecideDialog({
   const [kind, setKind] = useState<'task' | 'request'>('task')
   const [project, setProject] = useState('')
   const [area, setArea] = useState('')
+  const work = useWork()
+  const areas = useAreas()
   const m =
     action === 'deny'
       ? deny
@@ -149,15 +154,19 @@ function DecideDialog({
         />
         {action === 'hold' && kind === 'task' && (
           <>
-            <TextField
-              label="Project id (optional)"
+            <Pick
+              label="Project (optional)"
               value={project}
-              onChange={(e) => setProject(e.target.value)}
+              onChange={setProject}
+              options={work.data?.projects ?? []}
+              none="No project"
             />
-            <TextField
-              label="Area id (optional)"
+            <Pick
+              label="Area (optional)"
               value={area}
-              onChange={(e) => setArea(e.target.value)}
+              onChange={setArea}
+              options={areas.data ?? []}
+              none="No area"
             />
           </>
         )}

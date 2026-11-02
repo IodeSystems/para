@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
@@ -8,15 +7,20 @@ import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import { useAreas } from '@/api/areas'
 import { useGraph, useWork } from '@/api/work'
-import { Empty, PageTitle, Section } from '@/components/Bits'
+import { Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { LinkButton, TextLink } from '@/components/links'
+import { DocLink } from '@/components/DocLink'
 import { QuestionsSection } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
 import { Mermaid } from '@/components/Mermaid'
-import { graphToMermaid } from '@/lib/markdown'
+import { GRAPH_CLASSES, graphClass, graphToMermaid } from '@/lib/markdown'
+import { nameOr } from '@/lib/names'
+import { plainState } from '@/lib/status'
 
 type View = 'tasks' | 'graph'
 
@@ -64,32 +68,44 @@ function Tasks({ w }: { w: WorkData }) {
   const byProject = new Map<string, typeof tasks>()
   for (const t of tasks) byProject.set(t.project, [...(byProject.get(t.project) ?? []), t])
   const loose = byProject.get('') ?? []
+  const bare = w.projects.filter((p) => (byProject.get(p.id)?.length ?? 0) === 0)
   return (
     <>
-      <QuestionsSection />
+      <QuestionsSection hideEmpty />
       <AreasSection />
       {w.projects.length === 0 && <Empty>No projects yet.</Empty>}
-      {w.projects.map((p) => (
-        <Section
-          key={p.id}
-          title={p.title || p.id}
-          count={byProject.get(p.id)?.length ?? 0}
-          action={
-            <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-              <Chip
-                size="small"
-                label={`${p.status}${p.owner ? ` - ${p.owner}` : ''}`}
-                variant="outlined"
-              />
-              <LinkButton size="small" to="/projects/$id" params={{ id: p.id }}>
-                Open
-              </LinkButton>
-            </Stack>
-          }
-        >
-          <TaskRows tasks={byProject.get(p.id) ?? []} />
-        </Section>
-      ))}
+      {w.projects
+        .filter((p) => (byProject.get(p.id)?.length ?? 0) > 0)
+        .map((p) => (
+          <Section
+            key={p.id}
+            title={p.title || p.id}
+            count={byProject.get(p.id)?.length ?? 0}
+            action={
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+                <StateChip state={p.status} />
+                <LinkButton size="small" to="/projects/$id" params={{ id: p.id }}>
+                  Open
+                </LinkButton>
+              </Stack>
+            }
+          >
+            <TaskRows tasks={byProject.get(p.id) ?? []} />
+          </Section>
+        ))}
+      {bare.length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          No tasks yet in:{' '}
+          {bare.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && ', '}
+              <TextLink to="/projects/$id" params={{ id: p.id }} underline="hover">
+                {p.title || nameOr('', p.id)}
+              </TextLink>
+            </span>
+          ))}
+        </Typography>
+      )}
       {loose.length > 0 && (
         <Section title="No project" count={loose.length}>
           <TaskRows tasks={loose} />
@@ -103,10 +119,8 @@ function AreasSection() {
   const q = useAreas()
   const areas = q.data ?? []
   return (
-    <Section title="Areas" count={areas.length}>
-      {areas.length === 0 ? (
-        <Empty>No area. An area is long-running work with no end.</Empty>
-      ) : (
+    <Section title="Areas" count={areas.length} hideEmpty>
+      {
         <List dense disablePadding>
           {areas.map((a) => (
             <ListItem key={a.id} disableGutters>
@@ -117,33 +131,111 @@ function AreasSection() {
                   </TextLink>
                 }
               />
-              <Chip size="small" variant="outlined" label={a.status} />
+              <StateChip state={a.status} />
             </ListItem>
           ))}
         </List>
-      )}
+      }
     </Section>
+  )
+}
+
+const NODE_KIND: Record<string, string> = { question: 'Question', rfx: 'RFX', task: 'Task' }
+
+function GraphLegend() {
+  return (
+    <Stack
+      direction="row"
+      useFlexGap
+      sx={{ flexWrap: 'wrap', gap: 1.5, mb: 1.5, alignItems: 'center' }}
+      aria-label="Legend"
+    >
+      {Object.values(GRAPH_CLASSES).map((c) => (
+        <Stack key={c.label} direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <Box
+            sx={{
+              width: 16,
+              height: 12,
+              borderRadius: 0.5,
+              bgcolor: c.fill,
+              border: `2px solid ${c.stroke}`,
+            }}
+          />
+          <Typography variant="caption">{c.label}</Typography>
+        </Stack>
+      ))}
+      <Typography variant="caption" color="text.secondary">
+        Box: task. Dashed hexagon: question. Pill: request to someone.
+      </Typography>
+    </Stack>
+  )
+}
+
+type GraphData = NonNullable<ReturnType<typeof useGraph>['data']>
+
+// GraphList is the graph for a narrow screen: one row per item, with what it waits for.
+function GraphList({ g }: { g: GraphData }) {
+  const byId = new Map(g.nodes.map((n) => [n.id, n]))
+  const after = new Map<string, string[]>()
+  for (const e of g.edges) {
+    const dep = byId.get(e.to)
+    after.set(e.from, [...(after.get(e.from) ?? []), dep?.title || nameOr('', e.to)])
+  }
+  const ordered = [...g.order.map((id) => byId.get(id)), ...g.nodes]
+    .filter((n): n is NonNullable<typeof n> => !!n)
+    .filter((n, i, all) => all.indexOf(n) === i)
+  return (
+    <List dense disablePadding>
+      {ordered.map((n) => (
+        <ListItem key={n.id} disableGutters divider sx={{ display: 'block' }}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+            <ListItemText
+              primary={<DocLink id={n.id}>{n.title || nameOr('', n.id)}</DocLink>}
+              secondary={[
+                NODE_KIND[n.type] ?? n.type,
+                n.projectName,
+                after.get(n.id)?.length && `after ${after.get(n.id)?.join(', ')}`,
+              ]
+                .filter(Boolean)
+                .join(' - ')}
+              slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+            />
+            <StatusChip
+              tone={GRAPH_CLASSES[graphClass(n.state, n.status)].tone}
+              label={plainState(n.state || n.status)}
+            />
+          </Stack>
+        </ListItem>
+      ))}
+    </List>
   )
 }
 
 function GraphView({ project }: { project: string | undefined }) {
   const q = useGraph(project)
+  const narrow = useMediaQuery('(max-width: 719px)')
   return (
     <DataState q={q}>
       {(g) => {
+        const titles = new Map(g.nodes.map((n) => [n.id, n.title]))
         const cycles = Array.isArray(g.cycles) ? (g.cycles as string[][]) : []
         return (
           <>
             {cycles.length > 0 && (
               <Alert severity="warning" sx={{ mb: 2 }}>
                 {cycles.length} dependency cycle{cycles.length === 1 ? '' : 's'}:{' '}
-                {cycles.map((c) => c.join(' > ')).join('; ')}
+                {cycles
+                  .map((c) => c.map((id) => titles.get(id) || nameOr('', id)).join(' > '))
+                  .join('; ')}
               </Alert>
             )}
             {g.nodes.length === 0 ? (
               <Empty>No tasks or requests to draw.</Empty>
+            ) : narrow ? (
+              <GraphList g={g} />
             ) : (
               <>
+                <GraphLegend />
                 <Mermaid
                   source={graphToMermaid(g.nodes, g.edges)}
                   label={`Dependency graph of ${g.nodes.length} items`}

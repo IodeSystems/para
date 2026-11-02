@@ -85,7 +85,7 @@ export function useCapture() {
   return useMutation({
     mutationFn: async (text: string) =>
       need((await gqlClient.request(InboxAddDoc, { body: { text } })).para.v1.inboxAdd, 'capture'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 
@@ -130,6 +130,6 @@ export function useTriage() {
         ).para.v1.inboxTriage,
         'result',
       ),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

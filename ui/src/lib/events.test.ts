@@ -21,3 +21,14 @@ describe('events', () => {
     expect(ago('bad', now)).toBe('')
   })
 })
+
+describe('opPhrase', () => {
+  it('says ops in words', async () => {
+    const { opPhrase, needWords } = await import('@/lib/events')
+    expect(opPhrase('task_add')).toBe('Added task')
+    expect(opPhrase('rfx_reply')).toBe('Recorded a reply to rfx')
+    expect(opPhrase('external_edit')).toBe('Edited outside para')
+    expect(opPhrase('mystery_thing')).toBe('mystery thing')
+    expect(needWords('draft RFX')).toBe('Message ready to send')
+  })
+})

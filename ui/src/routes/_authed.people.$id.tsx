@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useWho } from '@/api/people'
-import { Empty, PageTitle, Section } from '@/components/Bits'
+import { nameOr } from '@/lib/names'
+import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 
@@ -35,13 +35,15 @@ function Person() {
             </Typography>
             <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
               {p.aliases.map((a) => (
-                <Chip key={a} size="small" label={a} variant="outlined" />
+                <StatusChip key={a} tone="quiet" label={a} />
               ))}
               {p.groups.map((g) => (
-                <Chip key={g.id} size="small" label={g.title || g.id} />
+                <StatusChip key={g.id} tone="quiet" label={g.title || nameOr('', g.id)} />
               ))}
             </Stack>
-            <Section title="Contact" count={p.contacts.length}>
+            {p.contacts.length + p.openRfx.length + p.interactions.length + p.notes.length ===
+              0 && <Empty>Nothing recorded about this person yet.</Empty>}
+            <Section title="Contact" count={p.contacts.length} hideEmpty>
               {p.contacts.length === 0 ? (
                 <Empty>No contact method recorded.</Empty>
               ) : (
@@ -59,7 +61,7 @@ function Person() {
                 </List>
               )}
             </Section>
-            <Section title="Waiting on them" count={p.openRfx.length}>
+            <Section title="Waiting on them" count={p.openRfx.length} hideEmpty>
               {p.openRfx.length === 0 ? (
                 <Empty>No open request.</Empty>
               ) : (
@@ -72,7 +74,7 @@ function Person() {
                 </List>
               )}
             </Section>
-            <Section title="Recent contact" count={p.interactions.length}>
+            <Section title="Recent contact" count={p.interactions.length} hideEmpty>
               {p.interactions.length === 0 ? (
                 <Empty>No interaction logged.</Empty>
               ) : (

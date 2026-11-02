@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import Typography from '@mui/material/Typography'
-import { useIncident, useIncidentNote, useIncidentStatus } from '@/api/areas'
+import { useAreas, useIncident, useIncidentNote, useIncidentStatus } from '@/api/areas'
 import { errorText } from '@/client/gqlClient'
-import { Empty, PageTitle, Section } from '@/components/Bits'
+import { Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { PointerLinks } from '@/components/PointerLinks'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
+import { nameOr } from '@/lib/names'
+import { toneOfSeverity } from '@/lib/status'
 import { TaskRows } from '@/components/TaskRows'
 import type { Para_IncidentStatusInputStatus } from '@/gql/graphql'
 
@@ -33,6 +33,7 @@ const NEXT: Record<string, { to: Para_IncidentStatusInputStatus; label: string }
 function IncidentPage() {
   const { id } = Route.useParams()
   const q = useIncident(id)
+  const areas = useAreas()
   const note = useIncidentNote()
   const status = useIncidentStatus()
   const [text, setText] = useState('')
@@ -45,19 +46,13 @@ function IncidentPage() {
           <>
             <PageTitle>{i.title || id}</PageTitle>
             <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-              <Chip
-                size="small"
-                label={i.severity}
-                color={
-                  i.severity === 'sev1' ? 'error' : i.severity === 'sev2' ? 'warning' : 'default'
-                }
-              />
-              <Chip size="small" variant="outlined" label={i.status} />
-              <Chip size="small" variant="outlined" label={`started ${i.started}`} />
-              {i.ended && <Chip size="small" variant="outlined" label={`ended ${i.ended}`} />}
+              <StatusChip tone={toneOfSeverity(i.severity)} label={i.severity} />
+              <StateChip state={i.status} tone={i.status === 'open' ? 'attn' : undefined} />
+              <StatusChip tone="quiet" label={`started ${i.started}`} />
+              {i.ended && <StatusChip tone="quiet" label={`ended ${i.ended}`} />}
               {i.area && (
                 <LinkButton size="small" to="/areas/$id" params={{ id: i.area }}>
-                  area {i.area}
+                  area {nameOr(areas.data?.find((a) => a.id === i.area)?.title, i.area)}
                 </LinkButton>
               )}
             </Stack>
@@ -109,14 +104,8 @@ function IncidentPage() {
               </Stack>
             </Section>
             <PointerLinks links={i.links} />
-            <Section title="Follow-ups" count={d.followUps.length}>
-              {d.followUps.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  No task follows from this incident.
-                </Typography>
-              ) : (
-                <TaskRows tasks={d.followUps} />
-              )}
+            <Section title="Follow-ups" count={d.followUps.length} hideEmpty>
+              <TaskRows tasks={d.followUps} />
             </Section>
           </>
         )

@@ -10,11 +10,15 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     title
     status
     project
+    projectName
     area
+    areaName
     due
     recur
     assignee
+    assigneeName
     dependsOn
+    dependsOnNames
     blockedBy
   }
 `)
@@ -103,6 +107,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
             status
             owner
             area
+            areaName
             links {
               kind
               label
@@ -195,9 +200,13 @@ const WaitingDoc = graphql(/* GraphQL */ `
             id
             title
             route
+            routeName
             nextNudge
             due
             stalled
+            targetNames
+            blockedOn
+            blockedOnNames
             targets {
               to
               state
@@ -258,7 +267,7 @@ export function useIncidentNote() {
   return useMutation({
     mutationFn: async (b: { id: string; text: string }) =>
       need((await gqlClient.request(IncidentNoteDoc, { body: b })).para.v1.incidentNote, 'result'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 
@@ -270,7 +279,7 @@ export function useIncidentStatus() {
         (await gqlClient.request(IncidentStatusDoc, { body: b })).para.v1.incidentStatus,
         'result',
       ),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 

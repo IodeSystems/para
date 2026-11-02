@@ -3,6 +3,24 @@ import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 
+export const TodayGroupFields = graphql(/* GraphQL */ `
+  fragment TodayGroupFields on para_TodayGroup {
+    count
+    items {
+      id
+      title
+      due
+      detail
+      blocks
+      project
+      projectName
+      scope
+      scopeName
+      with
+    }
+  }
+`)
+
 const TodayDoc = graphql(/* GraphQL */ `
   query Today {
     para {
@@ -14,35 +32,32 @@ const TodayDoc = graphql(/* GraphQL */ `
             error
             inbox
             unverified
+            waiting
             syncConflicts
             lostUpdates
-            due {
-              count
-              items {
-                id
-                title
-              }
+            incidents {
+              ...TodayGroupFields
             }
-            blocked {
-              count
-              items {
-                id
-                title
-              }
+            questions {
+              ...TodayGroupFields
+            }
+            overdue {
+              ...TodayGroupFields
+            }
+            dueSoon {
+              ...TodayGroupFields
             }
             nudges {
-              count
-              items {
-                id
-                title
-              }
+              ...TodayGroupFields
+            }
+            due {
+              ...TodayGroupFields
+            }
+            blocked {
+              ...TodayGroupFields
             }
             expiring {
-              count
-              items {
-                id
-                title
-              }
+              ...TodayGroupFields
             }
           }
         }
@@ -52,6 +67,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             title
             status
             project
+            projectName
             due
           }
         }

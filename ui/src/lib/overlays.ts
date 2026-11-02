@@ -5,6 +5,8 @@
 export type OverlaySearch = {
   capture?: true
   help?: true
+  menu?: true // the screen list on a narrow window
+  seed?: string // text to start a capture with
   request?: true
   triage?: string // inbox item id
   reply?: string // rfx id
@@ -27,6 +29,8 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
   return {
     capture: flag(s.capture),
     help: flag(s.help),
+    menu: flag(s.menu),
+    seed: id(s.seed),
     request: flag(s.request),
     triage: id(s.triage),
     reply: id(s.reply),
@@ -45,6 +49,8 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
 export const NO_OVERLAYS: OverlaySearch = {
   capture: undefined,
   help: undefined,
+  menu: undefined,
+  seed: undefined,
   request: undefined,
   triage: undefined,
   reply: undefined,

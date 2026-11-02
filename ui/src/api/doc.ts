@@ -52,6 +52,7 @@ const CopyDoc = graphql(/* GraphQL */ `
 export function useDoc(id: string) {
   return useQuery({
     queryKey: ['doc', id],
+    retry: false,
     queryFn: async () => need((await gqlClient.request(DocDoc, { id })).para.v1.uiDoc, 'document'),
   })
 }

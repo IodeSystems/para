@@ -2,18 +2,17 @@ import Link from '@mui/material/Link'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
-import { Empty, Section } from '@/components/Bits'
+import { Section } from '@/components/Bits'
 
 type Pointer = { kind: string; label: string; target: string }
 
 // PointerLinks lists where plans and docs live. Para holds the pointer, not the document.
 export function PointerLinks({ links }: { links: Pointer[] | null | undefined }) {
   const list = links ?? []
+  if (list.length === 0) return null
   return (
     <Section title="Links" count={list.length}>
-      {list.length === 0 ? (
-        <Empty>No link. Para points to plans and docs; it does not hold them.</Empty>
-      ) : (
+      {
         <List dense disablePadding>
           {list.map((l) => (
             <ListItem key={`${l.kind}-${l.target}`} disableGutters>
@@ -33,7 +32,7 @@ export function PointerLinks({ links }: { links: Pointer[] | null | undefined })
             </ListItem>
           ))}
         </List>
-      )}
+      }
     </Section>
   )
 }

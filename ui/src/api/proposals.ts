@@ -18,6 +18,7 @@ const ProposalListDoc = graphql(/* GraphQL */ `
             pending
             proposedBy
             created
+            sourceName
             error
           }
         }
@@ -46,6 +47,7 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             proposedBy
             created
             sourceDoc
+            sourceName
             error
           }
           source {
@@ -57,6 +59,7 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
           items {
             id
             kind
+            summary
             op
             input
             medium
@@ -247,7 +250,7 @@ function useReviewMutation<V>(call: (v: V) => Promise<unknown>) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: call,
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 

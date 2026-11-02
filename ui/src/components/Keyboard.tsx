@@ -17,14 +17,20 @@ export function Keyboard() {
         target: t,
       })
       if (!a) return
+      // A dialog or menu is open: its own keys rule, except that ? and Esc still work.
+      if (document.querySelector('[role="dialog"], .MuiDrawer-root') && a.kind !== 'help') return
       e.preventDefault()
       switch (a.kind) {
         case 'tab':
           void navigate({ href: a.to })
           break
-        case 'search':
-          void navigate({ to: '/search' })
+        case 'search': {
+          // Already on Search: put the cursor back in the field.
+          const field = document.getElementById('search-input')
+          if (field) field.focus()
+          else void navigate({ to: '/search' })
           break
+        }
         case 'capture':
           void navigate({ to: '.', search: (prev) => ({ ...prev, capture: true }) })
           break

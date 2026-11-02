@@ -16,6 +16,8 @@ const RequestListDoc = graphql(/* GraphQL */ `
             queuedAt
             claimedBy
             leaseUntil
+            linkNames
+            links
           }
         }
       }
@@ -51,6 +53,6 @@ export function useRequestAdd() {
         (await gqlClient.request(RequestAddDoc, { body: { ask } })).para.v1.requestAdd,
         'request',
       ),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

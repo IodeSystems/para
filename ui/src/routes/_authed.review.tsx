@@ -14,7 +14,8 @@ import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { StateChip } from '@/components/Bits'
 import { errorText } from '@/client/gqlClient'
-import { ago, newestTS, transition } from '@/lib/events'
+import { ago, needWords, newestTS, opPhrase, transition } from '@/lib/events'
+import { nameOr, stripIds } from '@/lib/names'
 
 export const Route = createFileRoute('/_authed/review')({ component: Review })
 
@@ -23,11 +24,9 @@ function ProposalsSection() {
   // A closed proposal has been decided. Everything else is waiting on someone.
   const items = (q.data ?? []).filter((p) => p.status !== 'closed' || p.error)
   return (
-    <Section title="Proposals" count={items.length}>
+    <Section title="Proposals" count={q.isError ? undefined : items.length} hideEmpty>
       {q.isError ? (
         <Alert severity="error">{errorText(q.error)}</Alert>
-      ) : items.length === 0 ? (
-        <Empty>No agent proposal waits for you.</Empty>
       ) : (
         <List dense disablePadding>
           {items.map((p) => (
@@ -35,13 +34,20 @@ function ProposalsSection() {
               <ListItemText
                 primary={
                   <TextLink to="/proposals/$id" params={{ id: p.id }} underline="hover">
-                    {p.title || p.id}
+                    {p.title || nameOr('', p.id)}
                   </TextLink>
                 }
                 secondary={
                   p.error
                     ? p.error
-                    : `revision ${p.revision} - ${p.pending} of ${p.itemCount} open - by ${p.proposedBy}`
+                    : [
+                        p.sourceName && `from ${p.sourceName}`,
+                        `${p.pending} of ${p.itemCount} to decide`,
+                        `by ${p.proposedBy}`,
+                        p.revision > 1 && `revision ${p.revision}`,
+                      ]
+                        .filter(Boolean)
+                        .join(' - ')
                 }
                 slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
               />
@@ -68,22 +74,26 @@ function Review() {
       <PageTitle
         action={
           <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              size="small"
-              disabled={!q.data?.canUndo || reopen.isPending}
-              onClick={() => reopen.mutate()}
-            >
-              Reopen last
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              disabled={!q.data?.count || accept.isPending}
-              onClick={() => accept.mutate('')}
-            >
-              Accept all
-            </Button>
+            {q.data?.canUndo && (
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={reopen.isPending}
+                onClick={() => reopen.mutate()}
+              >
+                Reopen last
+              </Button>
+            )}
+            {!!q.data?.count && (
+              <Button
+                variant="contained"
+                size="small"
+                disabled={accept.isPending}
+                onClick={() => accept.mutate('')}
+              >
+                Accept all
+              </Button>
+            )}
           </Stack>
         }
       >
@@ -103,21 +113,21 @@ function Review() {
               {r.position ? ` since you accepted ${ago(r.position)}` : ''}. Your own CLI, TUI, and
               browser work is not listed.
             </Typography>
-            <Section title="Needs you" count={r.needs.length}>
-              {r.needs.length === 0 ? (
-                <Empty>Nothing waits for you.</Empty>
-              ) : (
+            <Section title="Needs you" count={r.needs.length} hideEmpty>
+              {
                 <List dense disablePadding>
                   {r.needs.map((n) => (
                     <ListItem key={`${n.kind}-${n.id}`} disableGutters>
                       <ListItemText
-                        primary={<DocLink id={n.id}>{n.title || n.id}</DocLink>}
-                        secondary={n.kind}
+                        primary={
+                          <DocLink id={n.id}>{stripIds(n.title) || nameOr('', n.id)}</DocLink>
+                        }
+                        secondary={needWords(n.kind)}
                       />
                     </ListItem>
                   ))}
                 </List>
-              )}
+              }
             </Section>
             {r.groups.length === 0 ? (
               <Empty>Nothing changed since the last accept.</Empty>
@@ -128,13 +138,15 @@ function Review() {
                   title={g.actor || 'unknown actor'}
                   count={g.events.length}
                   action={
-                    <Button
-                      size="small"
-                      disabled={accept.isPending}
-                      onClick={() => accept.mutate(newestTS(g.events))}
-                    >
-                      Accept up to here
-                    </Button>
+                    r.groups.length > 1 ? (
+                      <Button
+                        size="small"
+                        disabled={accept.isPending}
+                        onClick={() => accept.mutate(newestTS(g.events))}
+                      >
+                        Accept up to here
+                      </Button>
+                    ) : undefined
                   }
                 >
                   <List dense disablePadding>
@@ -143,10 +155,14 @@ function Review() {
                         <ListItemText
                           primary={
                             <>
-                              {e.op} <DocLink id={e.doc} />
+                              {opPhrase(e.op)}{' '}
+                              <DocLink id={e.doc}>{e.docName || nameOr('', e.doc)}</DocLink>
                             </>
                           }
-                          secondary={[transition(e), ago(e.ts), `via ${e.surface}`]
+                          secondary={[
+                            e.op === 'create' ? (e.to ? `in ${e.to}` : '') : transition(e),
+                            ago(e.ts),
+                          ]
                             .filter(Boolean)
                             .join(' - ')}
                         />

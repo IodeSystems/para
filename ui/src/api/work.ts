@@ -21,11 +21,15 @@ const WorkDoc = graphql(/* GraphQL */ `
             title
             status
             project
+            projectName
             area
+            areaName
             due
             recur
             assignee
+            assigneeName
             dependsOn
+            dependsOnNames
             blockedBy
           }
         }
@@ -51,7 +55,11 @@ const GraphDoc = graphql(/* GraphQL */ `
             type
             status
             state
+            kind
             project
+            projectName
+            scope
+            scopeName
             blockedBy
             waitingOn
           }

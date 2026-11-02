@@ -9,6 +9,7 @@ import { errorText } from '@/client/gqlClient'
 import { Empty, Section, StateChip } from '@/components/Bits'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { DueChip } from '@/components/TaskRows'
+import { joinNames, nameList, nameOr } from '@/lib/names'
 
 // What you wait on: requests you sent, and tasks assigned to someone else.
 export function WaitingSection() {
@@ -27,13 +28,20 @@ export function WaitingSection() {
               <ListItemText
                 primary={<RfxLink id={x.id}>{x.title || x.id}</RfxLink>}
                 secondary={
-                  [x.route, x.nextNudge && `nudge ${x.nextNudge}`].filter(Boolean).join(' - ') ||
-                  undefined
+                  [
+                    x.targetNames?.length ? `to ${joinNames(x.targetNames)}` : '',
+                    x.route && `via ${nameOr(x.routeName, x.route)}`,
+                    x.nextNudge && `nudge ${x.nextNudge}`,
+                    x.blockedOn.length > 0 &&
+                      `after ${joinNames(nameList(x.blockedOn, x.blockedOnNames))}`,
+                  ]
+                    .filter(Boolean)
+                    .join(' - ') || undefined
                 }
               />
               <Stack direction="row" spacing={0.5}>
                 {x.stalled && <StateChip state="stalled" />}
-                {x.due && <StateChip state="blocked" label="nudge due" />}
+                {x.due && <StateChip state="stalled" label="nudge due" />}
               </Stack>
             </ListItem>
           ))}
@@ -41,7 +49,7 @@ export function WaitingSection() {
             <ListItem key={t.id} disableGutters>
               <ListItemText
                 primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
-                secondary={t.assignee ? `with ${t.assignee}` : undefined}
+                secondary={t.assignee ? `with ${nameOr(t.assigneeName, t.assignee)}` : undefined}
               />
               {t.due && <DueChip due={t.due} today={w.today} />}
             </ListItem>

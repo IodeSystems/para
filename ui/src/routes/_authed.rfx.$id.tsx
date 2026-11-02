@@ -14,6 +14,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
+import { nameList, nameOr } from '@/lib/names'
 
 export const Route = createFileRoute('/_authed/rfx/$id')({ component: RfxPage })
 
@@ -43,18 +44,18 @@ function RfxPage() {
           </PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {r.doc.meta.direction === 'in' ? 'Asked of you' : 'You ask'} - {r.doc.meta.status}
-            {r.doc.meta.route ? ` - route ${r.doc.meta.route}` : ''}
+            {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}
             {r.doc.meta.nextNudge ? ` - nudge ${r.doc.meta.nextNudge}` : ''}
           </Typography>
-          <Section title="Targets" count={r.doc.meta.targets?.length ?? 0}>
-            {(r.doc.meta.targets ?? []).length === 0 ? (
-              <Empty>No target yet.</Empty>
+          <Section title="Asked of" count={r.targets.length}>
+            {r.targets.length === 0 ? (
+              <Empty>Nobody is named yet.</Empty>
             ) : (
               <List dense disablePadding>
-                {(r.doc.meta.targets ?? []).map((t) => (
+                {r.targets.map((t, i) => (
                   <ListItem key={`${t.to}-${t.medium}`} disableGutters>
                     <ListItemText
-                      primary={t.to}
+                      primary={nameOr(r.targetNames?.[i], t.to)}
                       secondary={[t.medium, t.value, t.sent && `sent ${t.sent}`]
                         .filter(Boolean)
                         .join(' - ')}
@@ -65,44 +66,44 @@ function RfxPage() {
               </List>
             )}
           </Section>
-          <Section title="Chain" count={r.chain.length}>
-            {r.chain.length <= 1 ? (
-              <Empty>Nothing else depends on or blocks this request.</Empty>
-            ) : (
+          {(r.chain.length > 0 || r.dependedOnBy.length > 0) && (
+            <Section title="Chain" count={r.chain.length}>
               <List dense disablePadding>
                 {r.chain.map((n) => (
                   <ListItem key={n.id} disableGutters sx={{ pl: n.depth * 2 }}>
                     <ListItemText
-                      primary={<DocLink id={n.id}>{n.title || n.id}</DocLink>}
+                      primary={<DocLink id={n.id}>{n.title || nameOr('', n.id)}</DocLink>}
                       secondary={`${n.type} - ${n.status}`}
                     />
                   </ListItem>
                 ))}
               </List>
-            )}
-            {r.dependedOnBy.length > 0 && (
-              <Typography variant="caption" color="text.secondary">
-                Needed by {r.dependedOnBy.join(', ')}
-              </Typography>
-            )}
-          </Section>
-          <Section
-            title="Draft"
-            action={
-              r.draft ? (
-                <CopyButton
-                  label="Copy for chair swivel"
-                  getText={async () => (await copy.mutateAsync({ id, as: 'plain' })).text}
-                />
-              ) : undefined
-            }
-          >
-            {r.draft ? (
-              <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.draft}</Box>
-            ) : (
-              <Empty>No draft. An agent can prepare one with rfx draft.</Empty>
-            )}
-          </Section>
+              {r.dependedOnBy.length > 0 && (
+                <Typography variant="caption" color="text.secondary">
+                  Needed by {nameList(r.dependedOnBy, r.dependedOnByNames).join(', ')}
+                </Typography>
+              )}
+            </Section>
+          )}
+          {(r.draft || r.doc.meta.direction !== 'in') && (
+            <Section
+              title="Draft"
+              action={
+                r.draft ? (
+                  <CopyButton
+                    label="Copy for chair swivel"
+                    getText={async () => (await copy.mutateAsync({ id, as: 'plain' })).text}
+                  />
+                ) : undefined
+              }
+            >
+              {r.draft ? (
+                <Box sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{r.draft}</Box>
+              ) : (
+                <Empty>No message is drafted yet.</Empty>
+              )}
+            </Section>
+          )}
           {withoutSection(r.doc.body, 'Draft') && (
             <Section title="Request">
               <Markdown source={withoutSection(r.doc.body, 'Draft')} />

@@ -19,6 +19,7 @@ export const ReviewFields = graphql(`
         ts
         op
         doc
+        docName
         from
         to
         surface
@@ -79,7 +80,7 @@ export function useAccept() {
         (await gqlClient.request(AcceptDoc, { body: at ? { at } : {} })).para.v1.uiReviewAccept,
         'review',
       ),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['review'] }),
   })
 }
 
@@ -88,6 +89,6 @@ export function useReopen() {
   return useMutation({
     mutationFn: async () =>
       need((await gqlClient.request(ReopenDoc)).para.v1.uiReviewReopen, 'review'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['review'] }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ['review'] }),
   })
 }

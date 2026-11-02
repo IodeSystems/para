@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
+import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { plainState, toneOf, type Tone } from '@/lib/status'
 
 // Small shared pieces of layout.
 
@@ -10,26 +12,23 @@ export function Section({
   title,
   count,
   action,
+  hideEmpty,
   children,
 }: {
   title: string
   count?: number
   action?: ReactNode
+  // hideEmpty drops the whole card when count is 0: an empty card says nothing.
+  hideEmpty?: boolean
   children: ReactNode
 }) {
+  if (hideEmpty && count === 0) return null
   return (
     <Paper component="section" variant="outlined" sx={{ p: 1.5, mb: 2 }}>
       <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
         <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 600, flexGrow: 1 }}>
           {title}
-          {count !== undefined && (
-            <Chip
-              size="small"
-              label={count}
-              sx={{ ml: 1 }}
-              color={count > 0 ? 'primary' : 'default'}
-            />
-          )}
+          {count !== undefined && <Chip size="small" label={count} sx={{ ml: 1 }} />}
         </Typography>
         {action}
       </Stack>
@@ -46,35 +45,65 @@ export function Empty({ children }: { children: ReactNode }) {
   )
 }
 
-export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
+export function PageTitle({
+  children,
+  action,
+  subtitle,
+}: {
+  children: ReactNode
+  action?: ReactNode
+  // subtitle says in a line what the screen is for.
+  subtitle?: string
+}) {
   return (
-    <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
-      <Typography variant="h5" component="h1" sx={{ flexGrow: 1 }}>
-        {children}
-      </Typography>
-      {action}
-    </Stack>
+    <Box sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography variant="h5" component="h1" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
+          {children}
+        </Typography>
+        {action}
+      </Stack>
+      {subtitle && (
+        <Typography variant="body2" color="text.secondary">
+          {subtitle}
+        </Typography>
+      )}
+    </Box>
   )
 }
 
-const STATE_COLOR: Record<string, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
-  replied: 'success',
-  done: 'success',
-  answered: 'success',
-  sent: 'info',
-  drafted: 'default',
-  no_reply: 'warning',
-  blocked: 'error',
-  stalled: 'warning',
+const TONE_COLOR: Record<Tone, 'default' | 'success' | 'warning' | 'error' | 'info'> = {
+  good: 'success',
+  wait: 'info',
+  attn: 'warning',
+  bad: 'error',
+  quiet: 'default',
 }
 
-export function StateChip({ state, label }: { state: string; label?: string }) {
+// The one status chip. Color is the tone (see lib/status.ts), never chosen per screen.
+export function StatusChip({ tone, label }: { tone: Tone; label: string }) {
+  return <Chip size="small" label={label} color={TONE_COLOR[tone]} variant="outlined" />
+}
+
+// StateChip shows a state in words, with the tone the state has everywhere.
+export function StateChip({ state, label, tone }: { state: string; label?: string; tone?: Tone }) {
+  return <StatusChip tone={tone ?? toneOf(state)} label={label ?? plainState(state)} />
+}
+
+// Details hides fields that matter to few people behind a plain "Details" toggle.
+export function Details({
+  summary = 'Details',
+  children,
+}: {
+  summary?: string
+  children: ReactNode
+}) {
   return (
-    <Chip
-      size="small"
-      label={label ?? state.replace(/_/g, ' ')}
-      color={STATE_COLOR[state] ?? 'default'}
-      variant="outlined"
-    />
+    <Box component="details" sx={{ mt: 0.5, fontSize: '0.8125rem', color: 'text.secondary' }}>
+      <Box component="summary" sx={{ cursor: 'pointer', width: 'fit-content' }}>
+        {summary}
+      </Box>
+      <Box sx={{ pl: 1.5, pt: 0.25, overflowWrap: 'anywhere' }}>{children}</Box>
+    </Box>
   )
 }

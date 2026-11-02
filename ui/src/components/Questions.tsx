@@ -2,11 +2,11 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Alert from '@mui/material/Alert'
-import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import { useQuestions, type QuestionScope } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
-import { Empty, Section } from '@/components/Bits'
+import { Empty, Section, StatusChip } from '@/components/Bits'
+import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
 
@@ -14,16 +14,19 @@ import { LinkButton } from '@/components/links'
 export function QuestionsSection({
   scope,
   title = 'Questions',
+  hideEmpty,
 }: {
   scope?: QuestionScope
   title?: string
+  hideEmpty?: boolean
 }) {
   const q = useQuestions(scope)
   const list = q.data ?? []
   return (
     <Section
       title={title}
-      count={list.length}
+      count={q.isError ? undefined : list.length}
+      hideEmpty={hideEmpty}
       action={
         <LinkButton size="small" to="/questions">
           All
@@ -41,6 +44,12 @@ export function QuestionsSection({
   )
 }
 
+// scopeWords says what a question is about: "about Launch", or "about the whole vault".
+export function scopeWords(type: string, name: string | null | undefined, id: string): string {
+  if (type === 'root' || id === 'root') return 'about the whole vault'
+  return `${type} ${nameOr(name, id)}`
+}
+
 type Rows = NonNullable<ReturnType<typeof useQuestions>['data']>
 
 export function QuestionRows({ list }: { list: Rows }) {
@@ -50,18 +59,18 @@ export function QuestionRows({ list }: { list: Rows }) {
         <ListItem key={x.id} disableGutters divider sx={{ display: 'block' }}>
           <ListItemText
             primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>}
-            secondary={
-              <>
-                {x.scopeType} {x.scope}
-                {x.recommended ? ` - recommended: ${x.recommended}` : ''}
-                {x.rfx ? ` - asked in ${x.rfx}` : ''}
-              </>
-            }
+            secondary={[
+              scopeWords(x.scopeType, x.scopeName, x.scope),
+              x.recommended ? `recommended: ${x.recommended}` : '',
+              x.rfx ? 'already asked' : '',
+            ]
+              .filter(Boolean)
+              .join(' - ')}
             slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
           />
           <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-            <Chip size="small" variant="outlined" label={x.kind} />
-            {x.blocking > 0 && <Chip size="small" color="warning" label={`blocks ${x.blocking}`} />}
+            <StatusChip tone="quiet" label={x.kind} />
+            {x.blocking > 0 && <StatusChip tone="attn" label={`blocks ${x.blocking}`} />}
             <LinkButton size="small" to="." search={(p) => ({ ...p, answer: x.id })}>
               Answer
             </LinkButton>

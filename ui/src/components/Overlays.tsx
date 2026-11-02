@@ -1,6 +1,12 @@
 import { useState } from 'react'
-import { useSearch } from '@tanstack/react-router'
+import { useNavigate, useRouteContext, useRouterState, useSearch } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Drawer from '@mui/material/Drawer'
+import List from '@mui/material/List'
+import ListItemButton from '@mui/material/ListItemButton'
+import ListItemText from '@mui/material/ListItemText'
+import Divider from '@mui/material/Divider'
 import Button from '@mui/material/Button'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -11,14 +17,21 @@ import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { useAreas } from '@/api/areas'
 import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
+import { usePeople } from '@/api/people'
+import { useWork } from '@/api/work'
 import { useRequestAdd } from '@/api/requests'
 import { useRfxReply } from '@/api/rfx'
 import { errorText } from '@/client/gqlClient'
+import { Pick, type Option } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
 import { TABS } from '@/lib/keys'
+import { UI_COMMIT } from '@/buildStamp'
+import { StatusChip } from '@/components/Bits'
+
 import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
 
 export function Overlays() {
@@ -26,27 +39,34 @@ export function Overlays() {
   const [toast, setToast] = useState('')
   return (
     <>
-      {s.capture && <CaptureDialog onDone={setToast} />}
+      {s.menu && <NavDrawer />}
+      {s.capture && <CaptureDialog seed={s.seed ?? ''} onDone={setToast} />}
       {s.request && <RequestDialog onDone={setToast} />}
       {s.help && <HelpDialog />}
       {s.triage && <TriageDialog id={s.triage} onDone={setToast} />}
       {s.reply && <ReplyDialog id={s.reply} onDone={setToast} />}
       <ProposalDialogs s={s} onDone={setToast} />
       <QuestionDialogs s={s} onDone={setToast} />
+      {/* The toast sits under the top bar, where Capture is, and never over page text. */}
       <Snackbar
         open={toast !== ''}
         autoHideDuration={3000}
         onClose={() => setToast('')}
-        message={toast}
-      />
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ top: { xs: 60, md: 108 } }}
+      >
+        <Alert severity="success" variant="filled" onClose={() => setToast('')}>
+          {toast}
+        </Alert>
+      </Snackbar>
     </>
   )
 }
 
-function CaptureDialog({ onDone }: { onDone: (m: string) => void }) {
+function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => void }) {
   const close = useClose()
   const cap = useCapture()
-  const [text, setText] = useState('')
+  const [text, setText] = useState(seed)
   const submit = () => {
     if (text.trim() === '') return
     cap.mutate(text.trim(), {
@@ -137,6 +157,7 @@ function RequestDialog({ onDone }: { onDone: (m: string) => void }) {
 
 function HelpDialog() {
   const close = useClose()
+  const { session } = useRouteContext({ from: '/_authed' })
   return (
     <Dialog open onClose={close} fullWidth maxWidth="xs" aria-labelledby="help-title">
       <DialogTitle id="help-title">Keyboard</DialogTitle>
@@ -150,14 +171,70 @@ function HelpDialog() {
           <Row k="?" v="This help" />
           <Row k="Esc" v="Close a dialog" />
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           Keys do nothing while you type in a field.
+        </Typography>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5 }}>
+          Colors
+        </Typography>
+        <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+          <StatusChip tone="good" label="finished" />
+          <StatusChip tone="wait" label="in progress or with someone" />
+          <StatusChip tone="attn" label="needs a look" />
+          <StatusChip tone="bad" label="blocked or late" />
+          <StatusChip tone="quiet" label="plain state" />
+        </Stack>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5 }}>
+          About
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Vault {session.vault}. Signed in with key {session.key}. Build {UI_COMMIT}.
         </Typography>
       </DialogContent>
       <DialogActions>
         <Button onClick={close}>Close</Button>
       </DialogActions>
     </Dialog>
+  )
+}
+
+// NavDrawer lists every screen when the tab bar is folded away. It is a URL overlay like the rest.
+function NavDrawer() {
+  const close = useClose()
+  const path = useRouterState({ select: (st) => st.location.pathname })
+  const navigate = useNavigate()
+  return (
+    <Drawer open onClose={close} anchor="left" aria-label="Screens">
+      <Box sx={{ width: 280 }} role="navigation">
+        <List>
+          {TABS.map((t) => (
+            <ListItemButton
+              key={t.to}
+              component="a"
+              href={t.to}
+              selected={path === t.to || path.startsWith(`${t.to}/`)}
+              onClick={(e) => {
+                // Let the router do it: a plain navigation here would reload the app.
+                e.preventDefault()
+                void navigate({ href: t.to })
+              }}
+            >
+              <ListItemText primary={t.label} secondary={t.hint} />
+              <Typography
+                component="kbd"
+                variant="caption"
+                color="text.secondary"
+                sx={{ fontFamily: 'ui-monospace, monospace' }}
+              >
+                {t.key}
+              </Typography>
+            </ListItemButton>
+          ))}
+        </List>
+      </Box>
+    </Drawer>
   )
 }
 
@@ -189,6 +266,13 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const close = useClose()
   const item = useInboxItem(id)
   const triage = useTriage()
+  const work = useWork()
+  const areas = useAreas()
+  const people = usePeople()
+  const projects: Option[] = (work.data?.projects ?? []).filter((p) => p.status !== 'done')
+  const openTasks: Option[] = (work.data?.tasks ?? []).filter(
+    (t) => t.status !== 'done' && t.status !== 'dropped',
+  )
   const [to, setTo] = useState<Para_InboxTriageInputTo>('task')
   const [project, setProject] = useState('')
   const [person, setPerson] = useState('')
@@ -201,6 +285,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const question = to === 'question'
   // A question has exactly one scope: a project, an area, a task, or the vault itself.
   const scopeOk = !question || scope === 'root' || scopeId.trim() !== ''
+  const personOk = to !== 'note' || person !== ''
   const submit = () =>
     triage.mutate(
       {
@@ -229,6 +314,8 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
         },
       },
     )
+  const scopeOptions: Option[] =
+    scope === 'project' ? projects : scope === 'area' ? (areas.data ?? []) : openTasks
   return (
     <Frame
       title="Sort inbox item"
@@ -236,7 +323,11 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={triage.isPending || !scopeOk}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={triage.isPending || !scopeOk || !personOk}
+          >
             Sort
           </Button>
         </>
@@ -249,7 +340,7 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
         {triage.isError && <Alert severity="error">{errorText(triage.error)}</Alert>}
         <TextField
           select
-          label="Becomes"
+          label="Turn into"
           value={to}
           onChange={(e) => setTo(e.target.value as Para_InboxTriageInputTo)}
         >
@@ -260,10 +351,12 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
           ))}
         </TextField>
         {to === 'task' && (
-          <TextField
-            label="Project id (optional)"
+          <Pick
+            label="Project (optional)"
             value={project}
-            onChange={(e) => setProject(e.target.value)}
+            onChange={setProject}
+            options={projects}
+            none="No project"
           />
         )}
         {question && (
@@ -272,7 +365,10 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
               select
               label="Scope (what this question is about)"
               value={scope}
-              onChange={(e) => setScope(e.target.value as QuestionScopeType)}
+              onChange={(e) => {
+                setScope(e.target.value as QuestionScopeType)
+                setScopeId('')
+              }}
             >
               <MenuItem value="project">A project</MenuItem>
               <MenuItem value="area">An area</MenuItem>
@@ -280,10 +376,17 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
               <MenuItem value="root">The whole vault</MenuItem>
             </TextField>
             {scope !== 'root' && (
-              <TextField
-                label={`${scope[0]?.toUpperCase()}${scope.slice(1)} id`}
+              <Pick
+                label={
+                  scope === 'project'
+                    ? 'Which project'
+                    : scope === 'area'
+                      ? 'Which area'
+                      : 'Which task'
+                }
                 value={scopeId}
-                onChange={(e) => setScopeId(e.target.value)}
+                onChange={setScopeId}
+                options={scopeOptions}
                 required
               />
             )}
@@ -312,10 +415,11 @@ function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
           </>
         )}
         {to === 'note' && (
-          <TextField
-            label="Person id"
+          <Pick
+            label="Which person"
             value={person}
-            onChange={(e) => setPerson(e.target.value)}
+            onChange={setPerson}
+            options={people.data ?? []}
             required
           />
         )}
@@ -341,7 +445,7 @@ function ReplyDialog({ id, onDone }: { id: string; onDone: (m: string) => void }
   const ok = from.trim() !== '' && text.trim() !== '' && (outcome !== 'no' || why.trim() !== '')
   return (
     <Frame
-      title={`Record a reply to ${id}`}
+      title="Record a reply"
       onSubmit={() =>
         reply.mutate(
           { id, from: from.trim(), outcome, text: text.trim(), why: why.trim() },
@@ -369,7 +473,7 @@ function ReplyDialog({ id, onDone }: { id: string; onDone: (m: string) => void }
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {reply.isError && <Alert severity="error">{errorText(reply.error)}</Alert>}
         <TextField
-          label="From (person id or name)"
+          label="Who replied (name)"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
           required

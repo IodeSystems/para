@@ -1,12 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import Stack from '@mui/material/Stack'
+import Typography from '@mui/material/Typography'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
 import { usePolicy } from '@/api/policy'
-import { Empty, PageTitle, StateChip } from '@/components/Bits'
+import { useAreas } from '@/api/areas'
+import { useWork } from '@/api/work'
+import { nameOr } from '@/lib/names'
+import { Details, Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 
@@ -24,6 +28,14 @@ function Policy() {
   const { tab = 'policies' } = Route.useSearch()
   const navigate = Route.useNavigate()
   const q = usePolicy()
+  const work = useWork()
+  const areas = useAreas()
+  // title is the name of a document an exception or constraint points at.
+  const known = new Map<string, string>()
+  for (const p of q.data?.policies ?? []) known.set(p.id, p.title)
+  for (const p of work.data?.projects ?? []) known.set(p.id, p.title)
+  for (const a of areas.data ?? []) known.set(a.id, a.title)
+  const title = (id: string) => nameOr(known.get(id), id)
   return (
     <>
       <PageTitle>Policy</PageTitle>
@@ -51,17 +63,39 @@ function Policy() {
               (d.policies.length === 0 ? (
                 <Empty>No policies.</Empty>
               ) : (
-                <List disablePadding>
-                  {d.policies.map((p) => (
-                    <ListItem key={p.id} disableGutters divider>
-                      <ListItemText
-                        primary={<DocLink id={p.id}>{p.title || p.id}</DocLink>}
-                        secondary={`${p.rules} rules - source ${p.sourceStatus} - fidelity ${p.fidelity}`}
-                      />
-                      {!p.verified && <Chip size="small" color="warning" label="unverified" />}
-                    </ListItem>
-                  ))}
-                </List>
+                <>
+                  {d.policies.some((p) => !p.verified) && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Unverified means no person has checked the summary against its source. Open
+                      it, compare, then confirm it.
+                    </Typography>
+                  )}
+                  <List disablePadding>
+                    {d.policies.map((p) => (
+                      <ListItem key={p.id} disableGutters divider sx={{ display: 'block' }}>
+                        <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                          <ListItemText
+                            primary={<DocLink id={p.id}>{p.title || nameOr('', p.id)}</DocLink>}
+                            secondary={`${p.rules} ${p.rules === 1 ? 'rule' : 'rules'}`}
+                          />
+                          {!p.verified && (
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              sx={{ fontStyle: 'italic', pt: 0.5 }}
+                            >
+                              unverified
+                            </Typography>
+                          )}
+                        </Stack>
+                        <Details>
+                          Source: {p.sourceStatus}. How closely the summary follows it: {p.fidelity}
+                          .{p.url ? ` From ${p.url}.` : ''}
+                        </Details>
+                      </ListItem>
+                    ))}
+                  </List>
+                </>
               ))}
             {tab === 'rules' &&
               (d.rules.length === 0 ? (
@@ -72,7 +106,11 @@ function Policy() {
                     <ListItem key={`${r.policy}-${r.id}`} disableGutters divider>
                       <ListItemText
                         primary={r.text}
-                        secondary={<DocLink id={r.policy}>{`${r.id} in ${r.policy}`}</DocLink>}
+                        secondary={
+                          <DocLink id={r.policy}>
+                            {`${r.id} in ${nameOr(r.policyName, r.policy)}`}
+                          </DocLink>
+                        }
                         slotProps={{ primary: { sx: { overflowWrap: 'anywhere' } } }}
                       />
                     </ListItem>
@@ -90,7 +128,7 @@ function Policy() {
                         primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>}
                         secondary={[
                           x.kind.replace(/_/g, ' '),
-                          x.policy,
+                          x.policy && title(x.policy),
                           x.rule,
                           x.reviewBy && `review by ${x.reviewBy}`,
                         ]
@@ -114,8 +152,9 @@ function Policy() {
                         secondary={[
                           `why: ${c.why}`,
                           `by ${c.by}`,
-                          c.appliesIn.length > 0 && `applies in ${c.appliesIn.join(', ')}`,
-                          c.notIn.length > 0 && `not in ${c.notIn.join(', ')}`,
+                          c.appliesIn.length > 0 &&
+                            `applies in ${c.appliesIn.map(title).join(', ')}`,
+                          c.notIn.length > 0 && `not in ${c.notIn.map(title).join(', ')}`,
                           c.reviewBy && `review by ${c.reviewBy}`,
                         ]
                           .filter(Boolean)

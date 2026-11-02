@@ -27,3 +27,49 @@ export function ago(iso: string, now = Date.now()): string {
   if (s < 86400) return `${Math.floor(s / 3600)} h ago`
   return `${Math.floor(s / 86400)} d ago`
 }
+
+const VERB: Record<string, string> = {
+  add: 'Added',
+  create: 'Created',
+  update: 'Changed',
+  edit: 'Edited',
+  done: 'Finished',
+  drop: 'Dropped',
+  start: 'Started',
+  answer: 'Answered',
+  assign: 'Assigned',
+  block: 'Blocked',
+  link: 'Linked',
+  draft: 'Drafted',
+  reply: 'Recorded a reply to',
+  status: 'Changed the status of',
+  note: 'Noted on',
+  approve: 'Approved',
+  deny: 'Denied',
+  resolve: 'Resolved',
+}
+
+// opPhrase says an event's op in words: task_add is "Added task", external_edit is "Edited outside para".
+export function opPhrase(op: string): string {
+  if (op === 'external_edit') return 'Edited outside para'
+  const parts = op.split('_').filter(Boolean)
+  const verb = parts[parts.length - 1] ?? ''
+  const noun = parts.slice(0, -1).join(' ')
+  const v = VERB[verb]
+  if (!v) return op.replace(/_/g, ' ')
+  return noun ? `${v} ${noun}` : v
+}
+
+// needWords says what a Review "needs you" kind asks of the person.
+export function needWords(kind: string): string {
+  switch (kind) {
+    case 'draft RFX':
+      return 'Message ready to send'
+    case 'unverified summary':
+      return 'Summary to verify'
+    case 'proposed request':
+      return 'Request an agent proposed'
+    default:
+      return kind
+  }
+}

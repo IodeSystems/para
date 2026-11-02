@@ -11,6 +11,7 @@ export const QuestionFields = graphql(/* GraphQL */ `
     kind
     status
     scope
+    scopeName
     scopeType
     options
     recommended
@@ -151,7 +152,7 @@ export function useAnswer() {
   return useMutation({
     mutationFn: async (b: AnswerInput) =>
       need((await gqlClient.request(AnswerDoc, { body: b })).para.v1.questionAnswer, 'answer'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 
@@ -160,7 +161,7 @@ export function useDropQuestion() {
   return useMutation({
     mutationFn: async (b: { id: string; reason?: string }) =>
       need((await gqlClient.request(DropDoc, { body: b })).para.v1.questionDrop, 'result'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 
@@ -173,7 +174,7 @@ export function useAskQuestion() {
       route: string
       via: Para_QuestionAskInputVia
     }) => need((await gqlClient.request(AskDoc, { body: b })).para.v1.questionAsk, 'result'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 
@@ -187,6 +188,6 @@ export function useTaskToQuestion() {
       recommended?: string
     }) =>
       need((await gqlClient.request(ToQuestionDoc, { body: b })).para.v1.taskToQuestion, 'result'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

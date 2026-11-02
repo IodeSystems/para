@@ -25,6 +25,6 @@ export function useTaskDone() {
   return useMutation({
     mutationFn: async (b: { id: string; note?: string }) =>
       need((await gqlClient.request(TaskDoneDoc, { body: b })).para.v1.taskDone, 'result'),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

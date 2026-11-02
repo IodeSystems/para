@@ -1,13 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
-import Chip from '@mui/material/Chip'
+import Box from '@mui/material/Box'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
 import { useCopyText, useDoc } from '@/api/doc'
-import { PageTitle } from '@/components/Bits'
+import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { Markdown } from '@/components/Markdown'
@@ -53,15 +53,24 @@ function Doc() {
             {d.title || d.id}
           </PageTitle>
           <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
-            <Chip size="small" label={d.meta.type} />
-            <Chip size="small" label={d.folder} variant="outlined" />
-            {d.meta.status && <Chip size="small" label={d.meta.status} variant="outlined" />}
-            {d.meta.verified === false && <Chip size="small" color="warning" label="unverified" />}
+            <StatusChip tone="quiet" label={d.meta.type} />
+            {d.meta.status && <StateChip state={d.meta.status} />}
+            {d.meta.verified === false && (
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                unverified: no person has checked this summary against its source
+              </Typography>
+            )}
           </Stack>
           {d.meta.source?.url && (
-            <Typography variant="body2" sx={{ mb: 2, overflowWrap: 'anywhere' }}>
-              Source: {d.meta.source.url} ({d.meta.source.fidelity})
-            </Typography>
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                Source: {d.meta.source.url}
+              </Typography>
+              <Details>
+                Fidelity: {d.meta.source.fidelity}. Source state: {d.meta.source.status}.
+                {d.meta.source.checked ? ` Last checked ${d.meta.source.checked}.` : ''}
+              </Details>
+            </Box>
           )}
           {copy.isError && (
             <Alert severity="error" sx={{ mb: 2 }}>

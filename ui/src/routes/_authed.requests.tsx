@@ -7,6 +7,18 @@ import { useRequests } from '@/api/requests'
 import { Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
+import { ago } from '@/lib/events'
+import { joinNames, nameList, stripIds, withNames } from '@/lib/names'
+
+// What each status says to a person.
+const STATUS_WORDS: Record<string, string> = {
+  queued: 'waiting for an agent',
+  claimed: 'an agent has it',
+  proposed: 'proposal ready',
+  done: 'done',
+  failed: 'failed',
+  cancelled: 'cancelled',
+}
 
 export const Route = createFileRoute('/_authed/requests')({ component: Requests })
 
@@ -15,6 +27,7 @@ function Requests() {
   return (
     <>
       <PageTitle
+        subtitle="Work you queue for an agent to pick up. Not the same as RFX, which are asks to people."
         action={
           <LinkButton
             variant="contained"
@@ -37,16 +50,22 @@ function Requests() {
               {items.map((r) => (
                 <ListItem key={r.id} disableGutters divider>
                   <ListItemText
-                    primary={<DocLink id={r.id}>{r.title || r.id}</DocLink>}
+                    primary={
+                      <DocLink id={r.id}>
+                        {stripIds(withNames(r.title, r.links, r.linkNames)) || 'Request'}
+                      </DocLink>
+                    }
                     secondary={[
-                      `runner ${r.runner}`,
-                      r.claimedBy && `claimed by ${r.claimedBy}`,
-                      r.leaseUntil && `lease until ${r.leaseUntil}`,
+                      `queued ${ago(r.queuedAt)}`,
+                      r.claimedBy && `taken by ${r.claimedBy}`,
+                      (r.links ?? []).length > 0 &&
+                        `about ${joinNames(nameList(r.links, r.linkNames))}`,
                     ]
                       .filter(Boolean)
                       .join(' - ')}
+                    slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
-                  <StateChip state={r.status} />
+                  <StateChip state={r.status} label={STATUS_WORDS[r.status]} />
                 </ListItem>
               ))}
             </List>

@@ -22,6 +22,7 @@ const PolicyDoc = graphql(/* GraphQL */ `
           rules {
             id
             policy
+            policyName
             text
             link
           }

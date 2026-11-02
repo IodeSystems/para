@@ -11,7 +11,8 @@ import { HttpBanner } from '@/components/Banners'
 import { ensureSession, lastSignInError, signIn } from '@/client/auth'
 
 export const Route = createFileRoute('/login')({
-  validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { redirect?: string; signedout?: true } => ({
+    signedout: s.signedout === true || s.signedout === 'true' ? true : undefined,
     redirect:
       typeof s.redirect === 'string' && s.redirect.startsWith('/') && !s.redirect.startsWith('//')
         ? s.redirect
@@ -25,7 +26,7 @@ export const Route = createFileRoute('/login')({
 })
 
 function Login() {
-  const { redirect } = Route.useSearch()
+  const { redirect, signedout } = Route.useSearch()
   const navigate = useNavigate()
   const [token, setToken] = useState('')
   const [error, setError] = useState(lastSignInError)
@@ -60,13 +61,27 @@ function Login() {
             <Typography variant="h5" component="h1">
               Sign in to para
             </Typography>
+            {signedout && !error && <Alert severity="success">You are signed out.</Alert>}
             <Typography variant="body2" color="text.secondary">
-              Paste a key or the admin token for this vault. `para service login-admin` prints a
-              link that signs in by itself.
+              Paste your access key to sign in. To get a key, run{' '}
+              <Box
+                component="code"
+                sx={{
+                  px: 0.75,
+                  py: 0.25,
+                  borderRadius: 0.5,
+                  bgcolor: 'action.hover',
+                  fontFamily: 'ui-monospace, monospace',
+                  fontSize: '0.9em',
+                }}
+              >
+                para serve login
+              </Box>{' '}
+              on the computer that runs para. It opens para already signed in.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField
-              label="Token"
+              label="Access key"
               type="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}

@@ -3,7 +3,6 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
@@ -12,7 +11,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useApprove, useProposal, useProposalDiff } from '@/api/proposals'
 import { errorText } from '@/client/gqlClient'
-import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
+import { Details, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
@@ -37,9 +36,9 @@ function ProposalPage() {
             <PageTitle>{p.title || id}</PageTitle>
             <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
               <StateChip state={p.status} />
-              <Chip size="small" variant="outlined" label={`revision ${p.revision}`} />
-              <Chip size="small" variant="outlined" label={`by ${p.proposedBy}`} />
-              <Chip size="small" variant="outlined" label={`${p.pending} of ${p.itemCount} open`} />
+              <StatusChip tone="quiet" label={`revision ${p.revision}`} />
+              <StatusChip tone="quiet" label={`by ${p.proposedBy}`} />
+              <StatusChip tone="quiet" label={`${p.pending} of ${p.itemCount} to decide`} />
             </Stack>
             {p.error && (
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -50,7 +49,7 @@ function ProposalPage() {
               <Alert severity="info" sx={{ mb: 2 }}>
                 The agent filed a newer revision.{' '}
                 <TextLink to="/proposals/$id" params={{ id: d.supersededBy }}>
-                  Review {d.supersededBy}
+                  Open the newer revision
                 </TextLink>
               </Alert>
             )}
@@ -136,7 +135,7 @@ function ProposalPage() {
                 </Box>
               )}
             </Section>
-            <Section title="Wake or resume an agent">
+            <Details summary="Wake or resume an agent">
               <Stack spacing={1}>
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <Typography sx={{ ...mono, overflowWrap: 'anywhere', flexGrow: 1 }}>
@@ -150,7 +149,7 @@ function ProposalPage() {
                   </Typography>
                 )}
               </Stack>
-            </Section>
+            </Details>
           </>
         )
       }}
@@ -191,27 +190,27 @@ function ItemCard({
   return (
     <Paper variant="outlined" sx={{ p: 1.5 }} data-item={it.id}>
       <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 1, flexWrap: 'wrap' }}>
-        <Typography variant="subtitle2" component="h3" sx={{ mr: 1 }}>
-          {it.id}
+        <Typography
+          variant="subtitle2"
+          component="h3"
+          sx={{ mr: 1, flexBasis: '100%', overflowWrap: 'anywhere' }}
+        >
+          {it.summary}
         </Typography>
-        <Chip size="small" variant="outlined" label={external ? 'external' : (it.op ?? 'op')} />
+        <StatusChip tone="quiet" label={external ? 'message to send' : 'change in the vault'} />
         <StateChip state={it.state} />
-        {it.edited && <Chip size="small" color="info" label="edited by you" />}
+        {it.edited && <StatusChip tone="wait" label="edited by you" />}
         {it.openAnnotations > 0 && (
-          <Chip size="small" color="warning" label={`${it.openAnnotations} open note(s)`} />
+          <StatusChip
+            tone="attn"
+            label={`${it.openAnnotations} open ${it.openAnnotations === 1 ? 'note' : 'notes'}`}
+          />
         )}
-        {it.heldBy && <Chip size="small" color="warning" label={`held by ${it.heldBy}`} />}
+        {it.heldBy && <StatusChip tone="attn" label={`held by ${it.heldBy}`} />}
       </Stack>
       <Box ref={body}>
         {external ? (
           <>
-            <Typography variant="body2" color="text.secondary">
-              {it.medium}
-              {it.target ? ' to ' : ''}
-              <Box component="span" sx={{ color: 'text.primary' }}>
-                {it.target}
-              </Box>
-            </Typography>
             <Box
               component="pre"
               sx={{
@@ -233,22 +232,24 @@ function ItemCard({
           </>
         ) : (
           <>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {it.op}
-            </Typography>
-            <Box
-              component="pre"
-              sx={{
-                ...mono,
-                my: 1,
-                p: 1,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                overflowX: 'auto',
-              }}
-            >
-              {JSON.stringify(input ?? {}, null, 2)}
-            </Box>
+            <Details summary="Exact change">
+              <Typography variant="caption" component="div">
+                {it.op}
+              </Typography>
+              <Box
+                component="pre"
+                sx={{
+                  ...mono,
+                  my: 0.5,
+                  p: 1,
+                  bgcolor: 'action.hover',
+                  borderRadius: 1,
+                  overflowX: 'auto',
+                }}
+              >
+                {JSON.stringify(input ?? {}, null, 2)}
+              </Box>
+            </Details>
           </>
         )}
         <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 1.5, my: 1 }}>

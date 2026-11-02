@@ -1,16 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router'
-import Chip from '@mui/material/Chip'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import { useArea } from '@/api/areas'
-import { Empty, PageTitle, Section } from '@/components/Bits'
+import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { IncidentRows } from '@/components/IncidentRows'
 import { PointerLinks } from '@/components/PointerLinks'
 import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
+import { nameOr } from '@/lib/names'
 import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
 
@@ -23,14 +23,10 @@ function AreaPage() {
     <DataState q={q}>
       {(d) => (
         <>
-          <PageTitle action={<Chip size="small" variant="outlined" label={d.area.status} />}>
-            {d.area.title || id}
-          </PageTitle>
+          <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
           <PointerLinks links={d.area.links} />
-          <Section title="Projects" count={d.projects.length}>
-            {d.projects.length === 0 ? (
-              <Empty>No project in this area.</Empty>
-            ) : (
+          <Section title="Projects" count={d.projects.length} hideEmpty>
+            {
               <List dense disablePadding>
                 {d.projects.map((p) => (
                   <ListItem key={p.id} disableGutters>
@@ -40,37 +36,25 @@ function AreaPage() {
                           {p.title || p.id}
                         </TextLink>
                       }
-                      secondary={p.owner ? `owner ${p.owner}` : undefined}
+                      secondary={p.owner ? `owner ${nameOr('', p.owner)}` : undefined}
                     />
-                    <Chip size="small" variant="outlined" label={p.status} />
+                    <StateChip state={p.status} />
                   </ListItem>
                 ))}
               </List>
-            )}
+            }
           </Section>
-          <Section title="Tasks" count={d.tasks.length}>
-            <TaskRows tasks={d.tasks} />
+          <Section title="Tasks" count={d.tasks.length} hideEmpty>
+            <TaskRows tasks={d.tasks} showProject />
           </Section>
-          <Section title="Recurring" count={d.recurring.length}>
-            {d.recurring.length === 0 ? (
-              <Empty>Nothing repeats here.</Empty>
-            ) : (
-              <TaskRows tasks={d.recurring} />
-            )}
+          <Section title="Recurring" count={d.recurring.length} hideEmpty>
+            <TaskRows tasks={d.recurring} />
           </Section>
-          <Section title="Questions" count={d.questions.length}>
-            {d.questions.length === 0 ? (
-              <Empty>No open question.</Empty>
-            ) : (
-              <QuestionRows list={d.questions} />
-            )}
+          <Section title="Questions" count={d.questions.length} hideEmpty>
+            <QuestionRows list={d.questions} />
           </Section>
-          <Section title="Incidents" count={d.incidents.length}>
-            {d.incidents.length === 0 ? (
-              <Empty>No incident.</Empty>
-            ) : (
-              <IncidentRows list={d.incidents} />
-            )}
+          <Section title="Incidents" count={d.incidents.length} hideEmpty>
+            <IncidentRows list={d.incidents} />
           </Section>
           {d.notes.length > 0 && (
             <Section title="Notes" count={d.notes.length}>

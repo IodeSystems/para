@@ -14,8 +14,12 @@ const RfxListDoc = graphql(/* GraphQL */ `
             direction
             status
             route
+            routeName
             nextNudge
             waiting
+            targetNames
+            dependsOn
+            dependsOnNames
             targets {
               to
               state
@@ -35,6 +39,17 @@ const RfxShowDoc = graphql(/* GraphQL */ `
         rfxShow(id: $id) {
           draft
           dependedOnBy
+          dependedOnByNames
+          route
+          routeName
+          targetNames
+          targets {
+            to
+            state
+            medium
+            sent
+            value
+          }
           chain {
             id
             title
@@ -119,6 +134,6 @@ export function useRfxReply() {
           .rfxReply,
         'reply',
       ),
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }

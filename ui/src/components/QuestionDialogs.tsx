@@ -223,7 +223,7 @@ function AskDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) 
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {ask.isError && <Alert severity="error">{errorText(ask.error)}</Alert>}
         <TextField
-          label="Who (person id or name)"
+          label="Who (name)"
           value={to}
           onChange={(e) => setTo(e.target.value)}
           required
