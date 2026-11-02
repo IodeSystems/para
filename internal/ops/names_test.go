@@ -159,3 +159,22 @@ func TestSearchJournalHitsRankLastAndShowADate(t *testing.T) {
 		t.Errorf("journal snippet %q", got)
 	}
 }
+
+func TestSearchRanksWorkFirst(t *testing.T) {
+	hits := []index.Hit{
+		{ID: "2026-11-01", Kind: "journal", Passage: "- 09:12 task_add <<heron>>"},
+		{ID: "domain-a", Kind: "domain", Title: "Heron domain", Passage: "<<heron>>"},
+		{ID: "note-a", Kind: "note", Title: "Heron note", Passage: "<<heron>>"},
+		{ID: "task-a", Kind: "task", Title: "Heron task", Passage: "<<heron>>"},
+		{ID: "rfx-a", Kind: "rfx", Title: "Heron ask", Passage: "<<heron>>"},
+	}
+	readableHits(hits, nil)
+	var got []string
+	for _, h := range hits {
+		got = append(got, h.ID)
+	}
+	want := []string{"task-a", "rfx-a", "note-a", "2026-11-01", "domain-a"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("order %v", got)
+	}
+}

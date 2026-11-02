@@ -138,6 +138,19 @@ func readableHits(hits []index.Hit, name func(string) string) {
 		}
 		readable(&hits[i], name)
 	}
-	isJournal := func(h index.Hit) bool { return h.Kind == string(model.TypeJournal) }
-	sort.SliceStable(hits, func(i, j int) bool { return !isJournal(hits[i]) && isJournal(hits[j]) })
+	sort.SliceStable(hits, func(i, j int) bool { return hitClass(hits[i]) < hitClass(hits[j]) })
+}
+
+// hitClass ranks a hit by what the owner looks for: the work itself first
+// (tasks, questions, RFX, policies and their summaries), then other documents,
+// and last the documents that only record that something happened (domains,
+// journal days). Within a class the order of the index stands.
+func hitClass(h index.Hit) int {
+	switch h.Kind {
+	case string(model.TypeTask), string(model.TypeQuestion), string(model.TypeRFX), string(model.TypePolicy), index.KindSummary:
+		return 0
+	case string(model.TypeDomain), string(model.TypeJournal):
+		return 2
+	}
+	return 1
 }
