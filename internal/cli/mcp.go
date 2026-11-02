@@ -68,9 +68,10 @@ server entries for this install. They write nothing.`,
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
 			srv, err := mcpserver.New(ops.Deps{Store: s}, mcpserver.Options{
-				Version: l.version,
-				Hide:    []string{filepath.Clean(sel.Path), l.install.Home},
-				Log:     cmd.ErrOrStderr(),
+				Version:   l.version,
+				Hide:      []string{filepath.Clean(sel.Path), l.install.Home},
+				Log:       cmd.ErrOrStderr(),
+				EventsDir: filepath.Join(sel.Path, "events"),
 			})
 			if err != nil {
 				return err

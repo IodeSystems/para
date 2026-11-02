@@ -28,6 +28,10 @@ type Deps struct {
 	// keep the approver's own scopes in force. Nil allows every op: the CLI and
 	// the TUI are the owner on this machine.
 	Authorize func(op string) error
+	// Changed, when set, returns a channel that closes at the next change of
+	// the vault, from any process. A waiting op blocks on it instead of
+	// polling files. Take it before reading state, so no change is missed.
+	Changed func() <-chan struct{}
 }
 
 // Func is the shape of every op.

@@ -156,8 +156,12 @@ func TestToolsMatchOps(t *testing.T) {
 		got[tl.Name] = tl
 	}
 	all := ops.ForAgents()
-	if len(got) != len(all) {
-		t.Errorf("tools = %d, ops = %d", len(got), len(all))
+	// request_wait is a tool of this surface only: it needs the session watcher.
+	if _, ok := got[requestWaitTool]; !ok {
+		t.Errorf("no %s tool", requestWaitTool)
+	}
+	if len(got) != len(all)+1 {
+		t.Errorf("tools = %d, ops = %d plus %s", len(got), len(all), requestWaitTool)
 	}
 	for _, e := range ops.All() {
 		if _, ok := got[e.Name()]; ok && e.PersonOnly() {

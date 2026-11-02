@@ -93,8 +93,9 @@ func TestMCPSubprocess(t *testing.T) {
 					t.Errorf("admin command %s is a tool", admin)
 				}
 			}
-			if len(have) != len(ops.ForAgents()) {
-				t.Errorf("tools = %d, ops = %d", len(have), len(ops.ForAgents()))
+			// request_wait is a tool of this surface only; it blocks on the session watcher.
+			if !have["request_wait"] || len(have) != len(ops.ForAgents())+1 {
+				t.Errorf("tools = %d, ops = %d plus request_wait", len(have), len(ops.ForAgents()))
 			}
 
 			if out, isErr := callText(t, c, "inbox_add", map[string]any{"text": "synthetic capture"}); isErr {

@@ -702,7 +702,8 @@ func ProposalPoll(ctx context.Context, d Deps, id string) (ProposalWaitOutput, e
 }
 
 // ProposalWait waits a short time for a decision, then returns pending. A
-// harness with background jobs uses `para proposal wait`, which costs no tokens.
+// harness with background jobs uses `para proposal wait`, which costs no
+// tokens. With Deps.Changed set, it blocks on that, not on a timer.
 var ProposalWait = define("proposal_wait", "Wait a short time for the owner's decision on a proposal; returns pending true if there is none yet. Prefer a background `para proposal wait` where the harness supports it", func(ctx context.Context, d Deps, in ProposalWaitInput) (ProposalWaitOutput, error) {
 	limit := DefaultProposalWait
 	switch {
@@ -715,9 +716,17 @@ var ProposalWait = define("proposal_wait", "Wait a short time for the owner's de
 		return ProposalWaitOutput{}, fmt.Errorf("timeout_seconds is over %d", int(MaxProposalWait/time.Second))
 	}
 	deadline := time.After(limit)
-	tick := time.NewTicker(proposalPoll)
-	defer tick.Stop()
+	var tick <-chan time.Time
+	if d.Changed == nil {
+		t := time.NewTicker(proposalPoll)
+		defer t.Stop()
+		tick = t.C
+	}
 	for {
+		var changed <-chan struct{}
+		if d.Changed != nil {
+			changed = d.Changed()
+		}
 		out, err := ProposalPoll(ctx, d, in.ID)
 		if err != nil || !out.Pending {
 			return out, err
@@ -727,7 +736,8 @@ var ProposalWait = define("proposal_wait", "Wait a short time for the owner's de
 			return out, ctx.Err()
 		case <-deadline:
 			return out, nil
-		case <-tick.C:
+		case <-tick:
+		case <-changed:
 		}
 	}
 })

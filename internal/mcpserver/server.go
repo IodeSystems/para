@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"sync"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -42,6 +44,11 @@ type Options struct {
 	// Log receives a line and a stack for each op panic. Nil discards them. It
 	// is for the operator (stderr), never sent to the client.
 	Log io.Writer
+	// EventsDir is the vault's events/ directory. When set, Start watches it
+	// and the wait tools block on that watcher instead of polling files.
+	EventsDir string
+	// Poll is the watcher's fallback scan period; zero means events.PollInterval.
+	Poll time.Duration
 }
 
 // Server is an MCP server over one vault.
@@ -50,6 +57,12 @@ type Server struct {
 	deps ops.Deps
 	hide []string
 	log  io.Writer
+
+	eventsDir string
+	poll      time.Duration
+	changed   change
+	reqMu     sync.Mutex // guards reqWatch, which keeps a cache
+	reqWatch  *ops.RequestWatch
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -67,7 +80,12 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
+
+		eventsDir: o.EventsDir,
+		poll:      o.Poll,
 	}
+	s.deps.Changed = s.changed.wait
+	s.reqWatch = ops.NewRequestWatch(s.deps)
 	s.addPrompts()
 	for _, e := range ops.ForAgents() {
 		raw, err := inputSchema(e.InputType())
@@ -75,6 +93,9 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 			return nil, fmt.Errorf("mcpserver: new: op %s: %w", e.Name(), err)
 		}
 		s.mcp.AddTool(mcp.NewToolWithRawSchema(e.Name(), e.Description(), raw), s.handler(e))
+	}
+	if err := s.addRequestWait(); err != nil {
+		return nil, err
 	}
 	return s, nil
 }
@@ -84,6 +105,7 @@ func (s *Server) MCP() *server.MCPServer { return s.mcp }
 
 // Serve reads JSON-RPC from in and writes to out until in closes or ctx ends.
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
+	defer s.Start(ctx)()
 	return server.NewStdioServer(s.mcp).Listen(ctx, in, out)
 }
 
