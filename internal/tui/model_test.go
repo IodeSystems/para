@@ -58,7 +58,7 @@ func TestEveryVisibleLinkRowHasAUniqueKey(t *testing.T) {
 				t.Errorf("tab %d: action %s has no key", tab, a.ID)
 			}
 		}
-		// Every visible row that holds a link shows the reverse video.
+		// Every visible row that holds a link shows the key style.
 		for i, ln := range l.lines {
 			if i+d.m.tabs[tab].offset < len(rows) && rows[i+d.m.tabs[tab].offset].sel && !strings.Contains(ln, KeyStyle.On) {
 				t.Errorf("tab %d line %d has no key: %q", tab, i, stripSGR(ln))

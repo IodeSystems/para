@@ -7,10 +7,11 @@ import (
 	"unicode"
 )
 
-// KeyStyle is the one style constant for a key letter. Reverse video, as raw
-// SGR so that it nests inside any other style without a full reset: swapping
-// it for colors changes every key on every screen.
-var KeyStyle = struct{ On, Off string }{On: "\x1b[7m", Off: "\x1b[27m"}
+// KeyStyle is the one style constant for a key letter: bold and underlined, as
+// raw SGR so that it nests inside any other style without a full reset. Off
+// clears only these two attributes. Changing it changes every key on every
+// screen.
+var KeyStyle = struct{ On, Off string }{On: "\x1b[1;4m", Off: "\x1b[22;24m"}
 
 // keyed renders s as a key letter.
 func keyed(s string) string { return KeyStyle.On + s + KeyStyle.Off }
@@ -93,7 +94,7 @@ func Assign(actions, links []Target, reserved string) map[string]Key {
 	return out
 }
 
-// Mark renders label with its key shown: reverse video on the key letter, or
+// Mark renders label with its key shown: bold and underline on the key letter, or
 // the code after the label when the label holds no letter for it.
 func Mark(label string, k Key) string {
 	lab := []rune(label)

@@ -246,7 +246,7 @@ func helpLines() []string {
 	return []string{
 		stHead.Render("Keys"),
 		"  1-6        tabs: Today Review Work RFX People Policy",
-		"  " + keyed("x") + "          each link and action shows one reversed letter; press it to follow",
+		"  " + keyed("x") + "          each link and action shows one marked letter; press it to follow",
 		"  j k        move the cursor, enter opens the row",
 		"  g G        top, bottom        space, ctrl+d  page down",
 		"  esc        back (or leave full screen)",

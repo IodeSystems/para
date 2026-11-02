@@ -299,7 +299,9 @@ func newLoginAdminCmd(l *loader) *cobra.Command {
 			if base == "" {
 				base = l.vaultBase(id)
 			}
-			if err := probeHealth(base); err != nil {
+			if err := probeHealth(base); errors.Is(err, errRefused) {
+				return fmt.Errorf("service: login-admin: %s refused this address: its net.rules does not allow it. Add an allow line to %s", base, filepath.Join(l.install.Home, "vaults", id, "server", "net.rules"))
+			} else if err != nil {
 				return fmt.Errorf("service: login-admin: nothing answers at %s (%v): is it running? para service status", base, err)
 			}
 			target := signInURL(base, tok)
@@ -322,12 +324,18 @@ func newLoginAdminCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+// errRefused means the server answered and its request gate said no.
+var errRefused = errors.New("refused")
+
 func probeHealth(base string) error {
 	resp, err := localClient(5 * time.Second).Get(strings.TrimRight(base, "/") + "/healthz")
 	if err != nil {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusForbidden {
+		return errRefused
+	}
 	if resp.StatusCode != http.StatusOK {
 		return errors.New(resp.Status)
 	}
