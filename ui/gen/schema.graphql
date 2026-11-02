@@ -82,10 +82,15 @@ type ParaV1MutationNamespace {
   proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
   proposalRework(body: para_ProposalReasonInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalRework")
   proposalSendback(body: para_ProposalSendbackInputInput!): para_ProposalReviewOutput @derived(operationId: "proposalSendback")
+  questionAccept(body: para_QuestionAcceptInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAccept")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
   questionAsk(body: para_QuestionAskInputInput!): para_QuestionAskOutput @derived(operationId: "questionAsk")
+  questionDependsAdd(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsAdd")
+  questionDependsRemove(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsRemove")
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
+  questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
+  questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
   requestCancel(body: para_RequestCancelInputInput!): para_RequestChangeOutput @derived(operationId: "requestCancel")
@@ -263,6 +268,16 @@ enum para_AnnotationViewState {
   applied
   declined
   open
+}
+
+type para_AnswerSource {
+  quote: String
+  ref: String!
+}
+
+input para_AnswerSourceInput {
+  quote: String
+  ref: String!
 }
 
 input para_AreaAddInputInput {
@@ -1614,6 +1629,7 @@ type para_MeetingHoldOutput {
   constraints: [String!]!
   id: String!
   interactions: [String!]!
+  proposed: [String!]!
   replied: [String!]!
   requests: [String!]!
   rev: String!
@@ -1722,11 +1738,18 @@ type para_Meta {
   policy: String
   previous: String
   project: String
+  proposed: String
+  proposedAnswer: String
   proposedBy: String
+  proposedChoice: String
+  proposedSources: JSON
+  proposedWhy: String
   question: String
   queuedAt: String
   recommended: String
   recur: String
+  rejectedBy: String
+  rejectedReason: String
   resultLinks: [String!]
   reviewBy: String
   reviewedBy: String
@@ -2372,6 +2395,13 @@ enum para_ProposalWaitOutputStatus {
   superseded
 }
 
+input para_QuestionAcceptInputInput {
+  choice: String
+  id: String!
+  text: String
+  why: String
+}
+
 input para_QuestionAddInputInput {
   area: String
   kind: para_QuestionAddInputKind
@@ -2420,6 +2450,7 @@ input para_QuestionAnswerInputInput {
   choice: String
   id: String!
   source: String
+  sources: [para_AnswerSourceInput!]
   text: String
   why: String
 }
@@ -2429,6 +2460,7 @@ type para_QuestionAnswerOutput {
   answeredBy: String
   choice: String
   id: String!
+  proposed: Boolean
   rev: String!
   status: para_QuestionAnswerOutputStatus!
   unblocked: [String!]!
@@ -2469,13 +2501,46 @@ type para_QuestionAskOutput {
   warnings: [String!]!
 }
 
+input para_QuestionDependsInputInput {
+  dependsOn: [String!]
+  id: String!
+}
+
+type para_QuestionDependsOutput {
+  dependsOn: [String!]!
+  id: String!
+  rev: String!
+}
+
 input para_QuestionDropInputInput {
   id: String!
   reason: String
 }
 
+input para_QuestionEditInputInput {
+  clearOptions: Boolean
+  clearRecommended: Boolean
+  id: String!
+  options: [String!]
+  recommended: String
+  title: String
+}
+
+type para_QuestionEditOutput {
+  id: String!
+  options: [String!]!
+  recommended: String
+  rev: String!
+  title: String!
+}
+
 type para_QuestionListOutput {
   questions: [para_QuestionView!]!
+}
+
+input para_QuestionRejectInputInput {
+  id: String!
+  reason: String!
 }
 
 type para_QuestionShowOutput {
@@ -2490,11 +2555,21 @@ type para_QuestionView {
   blocks: [String!]!
   choice: String
   created: String!
+  dependsOn: [String!]!
   folder: para_QuestionViewFolder!
+  hasProposal: Boolean!
   id: String!
   kind: para_QuestionViewKind!
   options: [String!]!
+  proposed: String
+  proposedAnswer: String
+  proposedBy: String
+  proposedChoice: String
+  proposedSources: [para_AnswerSource!]
+  proposedWhy: String
   recommended: String
+  rejectedBy: String
+  rejectedReason: String
   rev: String!
   rfx: String
   scope: String!
@@ -2502,6 +2577,7 @@ type para_QuestionView {
   scopeType: String!
   status: para_QuestionViewStatus!
   title: String!
+  waitingOn: [String!]!
 }
 
 enum para_QuestionViewFolder {
@@ -2610,6 +2686,7 @@ input para_RFXReplyInputInput {
   outcome: para_RFXReplyInputOutcome!
   reviewBy: String
   says: String
+  sources: [para_AnswerSourceInput!]
   text: String!
   url: String
   via: para_RFXReplyInputVia
@@ -2640,6 +2717,7 @@ type para_RFXReplyOutput {
   id: String!
   interaction: String!
   outcome: para_RFXReplyOutputOutcome!
+  proposed: Boolean
   question: String
   rev: String!
   state: para_RFXReplyOutputState!
@@ -3329,6 +3407,7 @@ input para_TaskToQuestionInputInput {
   kind: para_TaskToQuestionInputKind
   options: [String!]
   recommended: String
+  title: String
 }
 
 enum para_TaskToQuestionInputKind {

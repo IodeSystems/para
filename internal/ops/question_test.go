@@ -111,7 +111,7 @@ func TestQuestionBlocksTasksUntilAnswered(t *testing.T) {
 	}
 	doc, _, _ := getQuestion(ctx, d.Store, q)
 	if !strings.Contains(doc.Body, "## Answer") || !strings.Contains(doc.Body, "Saturday 2026-12-05.") ||
-		!strings.Contains(doc.Body, "- Source: Review on 2026-11-01") || !strings.Contains(doc.Body, "- By: user, via test, on ") {
+		!strings.Contains(doc.Body, "- Source: Review on 2026-11-01") || !strings.Contains(doc.Body, "- By: user, via cli, on ") {
 		t.Fatalf("body = %q", doc.Body)
 	}
 	_ = b

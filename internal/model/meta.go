@@ -345,6 +345,34 @@ type Question struct {
 	Choice     string `yaml:"choice,omitempty" json:"choice,omitempty"`
 	AnsweredBy string `yaml:"answered_by,omitempty" json:"answered_by,omitempty"`
 	Answered   Date   `yaml:"answered,omitempty" json:"answered,omitempty"`
+	// DependsOn lists what must close before this question can be answered: a
+	// task, a request, or another question.
+	DependsOn []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	// An agent never answers: it proposes. ProposedAnswer and ProposedChoice
+	// wait for a person to accept, change, or reject them. ProposedSources are
+	// the citations; ProposedWhy is the agent's reason. After an accept the
+	// proposer and sources stay as the record. A reject clears the proposal
+	// and keeps Rejected* so the agent can read why.
+	ProposedAnswer  string         `yaml:"proposed_answer,omitempty" json:"proposed_answer,omitempty"`
+	ProposedChoice  string         `yaml:"proposed_choice,omitempty" json:"proposed_choice,omitempty"`
+	ProposedBy      string         `yaml:"proposed_by,omitempty" json:"proposed_by,omitempty"`
+	ProposedSources []AnswerSource `yaml:"proposed_sources,omitempty" json:"proposed_sources,omitempty"`
+	ProposedWhy     string         `yaml:"proposed_why,omitempty" json:"proposed_why,omitempty"`
+	Proposed        Date           `yaml:"proposed,omitempty" json:"proposed,omitempty"`
+	RejectedReason  string         `yaml:"rejected_reason,omitempty" json:"rejected_reason,omitempty"`
+	RejectedBy      string         `yaml:"rejected_by,omitempty" json:"rejected_by,omitempty"`
+}
+
+// AnswerSource is where an agent's proposed answer came from: a URL or the id
+// of a vault document, with an optional quote.
+type AnswerSource struct {
+	Ref   string `yaml:"ref" json:"ref"`
+	Quote string `yaml:"quote,omitempty" json:"quote,omitempty"`
+}
+
+// HasProposal reports whether an agent's answer waits for a person.
+func (q *Question) HasProposal() bool {
+	return q.Status == QuestionOpen && q.ProposedBy != ""
 }
 
 // IsRoot reports whether the scope is the whole vault.

@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"bufio"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,8 +15,21 @@ import (
 
 func writeQuestions(p *printer, indent string, list []ops.QuestionView) {
 	for _, v := range list {
-		p.f("%s%s\t%s\t%s\t%s\tblocks %d\t%s\n", indent, v.ID, v.Kind, v.Status, scopeText(v), v.Blocking, v.Title)
+		p.f("%s%s\t%s\t%s\t%s\tblocks %d\t%s\n", indent, v.ID, v.Kind, stateText(v), scopeText(v), v.Blocking, v.Title)
 	}
+}
+
+// stateText is the status, or "proposed answer" while an agent's answer waits
+// for a person, with "waiting" when the question waits on other work.
+func stateText(v ops.QuestionView) string {
+	s := string(v.Status)
+	if v.HasProposal {
+		s = "proposed answer"
+	}
+	if len(v.WaitingOn) > 0 {
+		s += " (waiting)"
+	}
+	return s
 }
 
 func scopeText(v ops.QuestionView) string {
@@ -25,7 +41,11 @@ func scopeText(v ops.QuestionView) string {
 
 func answerText(w io.Writer, out ops.QuestionAnswerOutput) error {
 	p := &printer{w: w}
-	p.f("%s\t%s\t%s\n", out.ID, out.Status, dash(out.Choice))
+	status := string(out.Status)
+	if out.Proposed {
+		status = "proposed answer (a person must accept it)"
+	}
+	p.f("%s\t%s\t%s\n", out.ID, status, dash(out.Choice))
 	for _, id := range out.Unblocked {
 		p.f("unblocked\t%s\n", id)
 	}
@@ -108,8 +128,21 @@ func newQuestionCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.QuestionShowOutput) error {
 				p := &printer{w: w}
 				v := out.Question
-				p.f("%s\t%s\t%s\t%s\n", v.ID, v.Kind, v.Status, v.Title)
+				p.f("%s\t%s\t%s\t%s\n", v.ID, v.Kind, stateText(v), v.Title)
 				p.f("scope\t%s\n", scopeText(v))
+				p.f("depends on\t%s\nwaiting on\t%s\n", joinOrDash(v.DependsOn), joinOrDash(v.WaitingOn))
+				if v.HasProposal {
+					p.f("proposed by\t%s\nproposed\t%s %s\n", v.ProposedBy, v.ProposedChoice, v.ProposedAnswer)
+					if v.ProposedWhy != "" {
+						p.f("why\t%s\n", v.ProposedWhy)
+					}
+					for _, s := range v.ProposedSources {
+						p.f("source\t%s\t%s\n", s.Ref, s.Quote)
+					}
+				}
+				if v.RejectedReason != "" {
+					p.f("rejected\t%s: %s\n", v.RejectedBy, v.RejectedReason)
+				}
 				if len(v.Options) > 0 {
 					for i, o := range v.Options {
 						mark := ""
@@ -123,7 +156,45 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
-		opCommand(l, ops.QuestionAnswer, answerBinding()),
+		offerAccept(l, opCommand(l, ops.QuestionAnswer, answerBinding())),
+		opCommand(l, ops.QuestionAccept, binding[ops.QuestionAcceptInput, ops.QuestionAnswerOutput]{
+			Use:  "accept <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.QuestionAcceptInput) {
+				fs.StringVar(&in.Text, "text", "", "change the proposed text; the sources stay")
+				fs.StringVar(&in.Choice, "choice", "", "change the proposed choice")
+				fs.StringVar(&in.Why, "why", "", "change the proposed reason")
+			},
+			Bind: func(args []string, in *ops.QuestionAcceptInput) error { in.ID = args[0]; return nil },
+			Text: answerText,
+		}),
+		opCommand(l, ops.QuestionReject, binding[ops.QuestionRejectInput, ops.QuestionAnswerOutput]{
+			Use:  "reject <id> --reason <text>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.QuestionRejectInput) {
+				fs.StringVar(&in.Reason, "reason", "", "why; the agent reads it (required)")
+			},
+			Bind: func(args []string, in *ops.QuestionRejectInput) error { in.ID = args[0]; return nil },
+			Text: answerText,
+		}),
+		opCommand(l, ops.QuestionEdit, binding[ops.QuestionEditInput, ops.QuestionEditOutput]{
+			Use:  "edit <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.QuestionEditInput) {
+				fs.StringVar(&in.Title, "title", "", "new title")
+				fs.StringArrayVar(&in.Options, "option", nil, "replace the options; repeatable")
+				fs.BoolVar(&in.ClearOptions, "clear-options", false, "remove all options")
+				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
+				fs.BoolVar(&in.ClearRecommended, "clear-recommended", false, "remove the recommendation")
+			},
+			Bind: func(args []string, in *ops.QuestionEditInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.QuestionEditOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\n", out.ID, out.Title, joinOrDash(out.Options))
+				return p.err
+			},
+		}),
+		newQuestionDependsCmd(l),
 		opCommand(l, ops.QuestionDrop, binding[ops.QuestionDropInput, ops.QuestionAnswerOutput]{
 			Use:  "drop <id>",
 			Args: cobra.ExactArgs(1),
@@ -168,5 +239,78 @@ func newQuestionsCmd(l *loader) *cobra.Command {
 
 // newAnswerCmd is `para answer <id>`: question_answer.
 func newAnswerCmd(l *loader) *cobra.Command {
-	return withoutOp(opCommand(l, ops.QuestionAnswer, answerBinding()), "answer <id>")
+	return offerAccept(l, withoutOp(opCommand(l, ops.QuestionAnswer, answerBinding()), "answer <id>"))
+}
+
+func newQuestionDependsCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "depends", Short: "Edit what a question waits on", Args: cobra.NoArgs}
+	text := func(w io.Writer, out ops.QuestionDependsOutput) error {
+		_, err := fmt.Fprintf(w, "%s\t%s\n", out.ID, joinOrDash(out.DependsOn))
+		return err
+	}
+	bind := func(args []string, in *ops.QuestionDependsInput) error {
+		in.ID, in.DependsOn = args[0], args[1:]
+		return nil
+	}
+	cmd.AddCommand(
+		opCommand(l, ops.QuestionDependsAdd, binding[ops.QuestionDependsInput, ops.QuestionDependsOutput]{
+			Use: "add <id> <depends-on>...", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+		opCommand(l, ops.QuestionDependsRemove, binding[ops.QuestionDependsInput, ops.QuestionDependsOutput]{
+			Use: "remove <id> <depends-on>...", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
+		}),
+	)
+	return cmd
+}
+
+// offerAccept makes `para answer <id>` on a question with a proposed answer,
+// and no answer given, show the proposal and offer to accept it. On a terminal
+// it asks; otherwise it names the command.
+func offerAccept(l *loader, cmd *cobra.Command) *cobra.Command {
+	run := cmd.RunE
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if c.Flags().Changed("text") || c.Flags().Changed("choice") || len(args) != 1 || !isTerminal(c.InOrStdin()) {
+			return run(c, args)
+		}
+		if err := l.load(); err != nil {
+			return err
+		}
+		deps, err := l.deps()
+		if err != nil {
+			return err
+		}
+		sh, err := ops.QuestionShow.Run(c.Context(), deps, ops.QuestionShowInput{ID: args[0]})
+		if err != nil || !sh.Question.HasProposal {
+			return run(c, args)
+		}
+		v := sh.Question
+		p := &printer{w: c.ErrOrStderr()}
+		p.f("%s has an answer proposed by %s:\n  %s %s\n", v.ID, v.ProposedBy, v.ProposedChoice, v.ProposedAnswer)
+		for _, s := range v.ProposedSources {
+			p.f("  source: %s %s\n", s.Ref, s.Quote)
+		}
+		p.f("Accept it? [y/N] ")
+		if p.err != nil {
+			return p.err
+		}
+		line, _ := bufio.NewReader(c.InOrStdin()).ReadString('\n')
+		if strings.ToLower(strings.TrimSpace(line)) != "y" {
+			return fmt.Errorf("not accepted: give the answer with --text or --choice, or reject it with: para question reject %s --reason <why>", v.ID)
+		}
+		out, err := ops.QuestionAccept.Run(c.Context(), deps, ops.QuestionAcceptInput{ID: v.ID})
+		if err != nil {
+			return err
+		}
+		return emit(c, out, answerText)
+	}
+	return cmd
+}
+
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false
+	}
+	st, err := f.Stat()
+	return err == nil && st.Mode()&os.ModeCharDevice != 0
 }

@@ -119,6 +119,14 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ProposalAnnotate.Run(t.Context(), d, ProposalAnnotateInput{ID: id, Item: "i1", Quote: "Hi", Note: "n"})
 			return err
 		}},
+		{"accept", func(d Deps) error {
+			_, err := QuestionAccept.Run(t.Context(), d, QuestionAcceptInput{ID: "question-x"})
+			return err
+		}},
+		{"reject", func(d Deps) error {
+			_, err := QuestionReject.Run(t.Context(), d, QuestionRejectInput{ID: "question-x", Reason: "no"})
+			return err
+		}},
 		{"edit", func(d Deps) error {
 			s := "x"
 			_, err := ProposalEdit.Run(t.Context(), d, ProposalEditInput{ID: id, Item: "i1", Draft: &s})

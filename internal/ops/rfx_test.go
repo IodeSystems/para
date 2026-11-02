@@ -28,7 +28,7 @@ func newDeps(t *testing.T) Deps {
 	if err := vault.Init(root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	s, err := local.Open(root, vault.Options{ID: "acme", Actor: "user", Surface: "test", Install: "m1", StateDir: filepath.Join(filepath.Dir(root), "state")})
+	s, err := local.Open(root, vault.Options{ID: "acme", Actor: "user", Surface: "cli", Install: "m1", StateDir: filepath.Join(filepath.Dir(root), "state")})
 	if err != nil {
 		t.Fatal(err)
 	}

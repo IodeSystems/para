@@ -195,6 +195,26 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 			queue = append(queue, t.ID)
 		}
 	}
+	// An open question that waits on something belongs in the graph, so the wait
+	// shows: in the whole vault graph, and in the graph of its scope.
+	qrefs, err := s.List(ctx, store.Filter{Type: model.TypeQuestion})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range qrefs {
+		doc, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		q, ok := doc.Meta.(*model.Question)
+		if !ok || q.Status != model.QuestionOpen || len(q.DependsOn) == 0 {
+			continue
+		}
+		sc := scopeID(q)
+		if project == "" && area == "" || sc == project && project != "" || (area != "" && (sc == area || inArea[sc])) {
+			queue = append(queue, r.ID)
+		}
+	}
 	for len(queue) > 0 {
 		id := queue[0]
 		queue = queue[1:]
@@ -233,6 +253,7 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 				}
 			}
 			add(gn, resolved(doc), false)
+			deps = targets(m.DependsOn)
 		default:
 			add(GraphNode{ID: id, Type: doc.Meta.Header().Type, Title: doc.Title}, false, false)
 		}

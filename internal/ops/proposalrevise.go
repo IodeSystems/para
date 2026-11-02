@@ -68,7 +68,7 @@ func answerAnnotations(list []model.Annotation, answers []AnnotationAnswer) ([]m
 // reviseItems builds the items of the next revision. Items sent back or
 // returned for rework wait for the owner again. A replaced item keeps its hold,
 // and a replaced or carried item loses its edited mark: the agent has read it.
-func reviseItems(prev []model.ProposalItem, in ProposalReviseInput) ([]model.ProposalItem, error) {
+func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in ProposalReviseInput) ([]model.ProposalItem, error) {
 	out := slices.Clone(prev)
 	n := 0
 	for _, it := range out {
@@ -93,7 +93,7 @@ func reviseItems(prev []model.ProposalItem, in ProposalReviseInput) ([]model.Pro
 	for _, raw := range in.Items {
 		if raw.ID == "" {
 			n++
-			it, err := newItem(raw, itemID(n))
+			it, err := newItem(ctx, d, raw, itemID(n))
 			if err != nil {
 				return nil, fmt.Errorf("new item: %w", err)
 			}
@@ -107,7 +107,7 @@ func reviseItems(prev []model.ProposalItem, in ProposalReviseInput) ([]model.Pro
 		if !revisable(out[i].State) {
 			return nil, fmt.Errorf("item %s is %s: the owner has decided it", raw.ID, out[i].State)
 		}
-		it, err := newItem(raw, raw.ID)
+		it, err := newItem(ctx, d, raw, raw.ID)
 		if err != nil {
 			return nil, fmt.Errorf("item %s: %w", raw.ID, err)
 		}
@@ -145,7 +145,7 @@ var ProposalRevise = define("proposal_revise", "File the next revision of a prop
 		if next.Annotations, err = answerAnnotations(p.content.Annotations, in.Answers); err != nil {
 			return ProposalFiled{}, err
 		}
-		if next.Items, err = reviseItems(p.content.Items, in); err != nil {
+		if next.Items, err = reviseItems(ctx, d, p.content.Items, in); err != nil {
 			return ProposalFiled{}, err
 		}
 		body, err := model.RenderProposalBody(next)

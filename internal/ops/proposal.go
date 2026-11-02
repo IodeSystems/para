@@ -94,7 +94,7 @@ func checkItemTarget(s string) error {
 }
 
 // newItem checks an item and returns it as pending.
-func newItem(in ItemInput, id string) (model.ProposalItem, error) {
+func newItem(ctx context.Context, d Deps, in ItemInput, id string) (model.ProposalItem, error) {
 	it := model.ProposalItem{ID: id, Kind: in.Kind, State: model.ItemPending, Evidence: in.Evidence}
 	if strings.TrimSpace(in.Evidence.Quote) == "" || strings.TrimSpace(in.Evidence.Locator) == "" {
 		return it, errors.New("evidence needs a quote and a locator")
@@ -108,6 +108,9 @@ func newItem(in ItemInput, id string) (model.ProposalItem, error) {
 			return it, err
 		}
 		it.Op, it.Input = in.Op, in.Input
+		if err := checkProposedAnswer(ctx, d, it); err != nil {
+			return it, err
+		}
 	case model.ItemExternal:
 		if in.Op != "" || in.Input != nil {
 			return it, errors.New("an external item takes medium, target, and draft, not op or input")
@@ -319,7 +322,7 @@ var ProposalAdd = define("proposal_add", "File a proposal: items the owner revie
 		if raw.ID != "" {
 			return ProposalFiled{}, fmt.Errorf("item %d: para assigns item ids", i+1)
 		}
-		it, err := newItem(raw, itemID(i+1))
+		it, err := newItem(ctx, d, raw, itemID(i+1))
 		if err != nil {
 			return ProposalFiled{}, fmt.Errorf("item %d: %w", i+1, err)
 		}

@@ -220,6 +220,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "to-question <id>",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskToQuestionInput) {
+				fs.StringVar(&in.Title, "title", "", "retitle the question; default the task's title")
 				fs.StringVar((*string)(&in.Kind), "kind", "", "question (default), decision, or input")
 				fs.StringArrayVar(&in.Options, "option", nil, "a choice; repeatable")
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")

@@ -161,7 +161,7 @@ func approveOne(ctx context.Context, d Deps, id, item string) (*proposal, Decisi
 	if run.Op == "" {
 		return p, decisions([]model.ProposalItem{*it})[0], nil
 	}
-	result, opErr := runItem(ctx, d, run, by)
+	result, opErr := runItem(withReviewer(ctx, d.Store.Info().Actor), d, run, by)
 	p, err = changeProposal(ctx, d, id, func(p *proposal) error {
 		it, err := p.item(item)
 		if err != nil {

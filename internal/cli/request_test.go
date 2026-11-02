@@ -84,7 +84,7 @@ func TestRequestFlow(t *testing.T) {
 // accept is for people only: it is not an op, so no MCP tool carries it.
 func TestRequestAcceptIsCLIOnly(t *testing.T) {
 	for _, op := range ops.All() {
-		if strings.Contains(op.Name(), "accept") || op.Name() == "request_wait" {
+		if (strings.Contains(op.Name(), "accept") && !op.PersonOnly()) || op.Name() == "request_wait" {
 			t.Errorf("op %s is reachable from an agent surface", op.Name())
 		}
 	}

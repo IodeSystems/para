@@ -368,13 +368,15 @@ func (l *linter) checkValue(fd field, v any) {
 				return
 			}
 		}
-	case kContacts, kTargets, kPointers:
+	case kContacts, kTargets, kPointers, kSources:
 		items := contactFields
 		switch fd.Kind {
 		case kTargets:
 			items = targetFields
 		case kPointers:
 			items = pointerFields
+		case kSources:
+			items = sourceFields
 		}
 		list, ok := v.([]any)
 		if !ok {

@@ -13,6 +13,7 @@ import (
 // TaskToQuestionInput is the input of task_to_question.
 type TaskToQuestionInput struct {
 	ID          string             `json:"id"`
+	Title       string             `json:"title,omitempty"`       // retitle the question; default the task title
 	Kind        model.QuestionKind `json:"kind,omitempty"`        // question (default), decision, or input
 	Options     []string           `json:"options,omitempty"`     // the choices, for a decision
 	Recommended string             `json:"recommended,omitempty"` // one of the options
@@ -60,18 +61,17 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 		kind = ""
 	}
 	body := joinBody(doc.Body, "Converted from [["+doc.ID+"]].")
-	if len(t.DependsOn) > 0 {
-		var ids []string
-		for _, l := range t.DependsOn {
-			ids = append(ids, "[["+l.Target()+"]]")
+	title := doc.Title
+	if strings.TrimSpace(in.Title) != "" {
+		if title, err = oneLine("title", in.Title); err != nil {
+			return TaskToQuestionOutput{}, err
 		}
-		body = joinBody(body, "The task waited on "+strings.Join(ids, ", ")+".")
 	}
 	q, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderQuestions, Title: doc.Title, Body: body,
+		Folder: model.FolderQuestions, Title: title, Body: body,
 		Meta: &model.Question{
 			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: kind,
-			Scope: scope, Options: opts, Recommended: rec,
+			Scope: scope, Options: opts, Recommended: rec, DependsOn: slices.Clone(t.DependsOn),
 		},
 	})
 	if err != nil {
@@ -130,6 +130,8 @@ func relinkDependents(ctx context.Context, s store.Store, from, to string) ([]st
 		case *model.Task:
 			m.DependsOn = swap(m.DependsOn)
 		case *model.RFX:
+			m.DependsOn = swap(m.DependsOn)
+		case *model.Question:
 			m.DependsOn = swap(m.DependsOn)
 		default:
 			continue

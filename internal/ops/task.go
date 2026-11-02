@@ -460,6 +460,8 @@ func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]stri
 			links = m.DependsOn
 		case *model.RFX:
 			links = m.DependsOn
+		case *model.Question:
+			links = m.DependsOn
 		}
 		for _, l := range links {
 			path, err := walk(l.Target())

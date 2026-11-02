@@ -48,6 +48,7 @@ type MeetingHoldOutput struct {
 	Constraints  []string            `json:"constraints"`  // made by a "no"
 	Interactions []string            `json:"interactions"` // logged by the replies
 	Answered     []string            `json:"answered"`     // questions answered
+	Proposed     []string            `json:"proposed"`     // questions whose answer an agent proposed; a person accepts them
 	Tasks        []string            `json:"tasks"`        // action items
 	Requests     []string            `json:"requests"`     // agent requests queued for tasks
 	Waiting      []string            `json:"waiting"`      // requests asked in the meeting and still unanswered
@@ -119,6 +120,9 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 		if q := rm.Question.Target(); q != "" {
 			replyQuestion[q] = true
 		}
+		if _, err := replySources(ctx, d, rm, r); err != nil {
+			return MeetingHoldOutput{}, fmt.Errorf("replies[%d]: %w", i, err)
+		}
 		for f, v := range map[string]string{"text": r.Text, "why": r.Why} {
 			if err := lintText(fmt.Sprintf("replies[%d].%s", i, f), v); err != nil {
 				return MeetingHoldOutput{}, err
@@ -141,6 +145,9 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 			return MeetingHoldOutput{}, fmt.Errorf("answers[%d]: %s is answered twice", i, id)
 		}
 		answered[id] = true
+		if _, err := answerSources(ctx, d, a.Sources, agentSurface(d) || d.Store.Info().Surface == surfaceProposal); err != nil {
+			return MeetingHoldOutput{}, fmt.Errorf("answers[%d]: %w", i, err)
+		}
 		for f, v := range map[string]string{"text": a.Text, "why": a.Why} {
 			if err := lintText(fmt.Sprintf("answers[%d].%s", i, f), v); err != nil {
 				return MeetingHoldOutput{}, err
@@ -196,7 +203,7 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 	}
 
 	out := MeetingHoldOutput{ID: doc.ID, Replied: []string{}, Constraints: []string{}, Interactions: []string{},
-		Answered: []string{}, Tasks: []string{}, Requests: []string{}, Waiting: []string{}, Warnings: []string{}}
+		Answered: []string{}, Proposed: []string{}, Tasks: []string{}, Requests: []string{}, Waiting: []string{}, Warnings: []string{}}
 	partial := func(what string, err error) (MeetingHoldOutput, error) {
 		return out, fmt.Errorf("%s: %w; recorded so far: replied %v, answered %v, tasks %v; the meeting is not marked held", what, err, out.Replied, out.Answered, out.Tasks)
 	}
@@ -214,7 +221,11 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 			line += ", [[" + o.Constraint + "]]"
 		}
 		lines = append(lines, line+")")
-		if o.Question != "" {
+		switch {
+		case o.Question != "" && o.Proposed:
+			out.Proposed = append(out.Proposed, o.Question)
+			lines = append(lines, "- Proposed answer: [["+o.Question+"]]")
+		case o.Question != "":
 			out.Answered = append(out.Answered, o.Question)
 			lines = append(lines, "- Answered: [["+o.Question+"]]")
 		}
@@ -230,12 +241,17 @@ var MeetingHold = define("meeting_hold", "Record a held meeting: notes, replies 
 		}
 	}
 	for i, a := range in.Answers {
-		if strings.TrimSpace(a.Source) == "" {
+		if strings.TrimSpace(a.Source) == "" && !agentSurface(d) {
 			a.Source = "[[" + doc.ID + "]]"
 		}
 		o, err := QuestionAnswer.Run(ctx, d, a)
 		if err != nil {
 			return partial(fmt.Sprintf("answers[%d]", i), err)
+		}
+		if o.Proposed {
+			out.Proposed = append(out.Proposed, o.ID)
+			lines = append(lines, "- Proposed answer: [["+o.ID+"]]")
+			continue
 		}
 		out.Answered = append(out.Answered, o.ID)
 		lines = append(lines, "- Answered: [["+o.ID+"]]")

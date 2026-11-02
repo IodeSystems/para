@@ -21,6 +21,13 @@ func questionParityCases() map[string]parityCase {
 		"question_drop":   {`{"id":"question-q-drop-a","reason":"Not needed."}`, []string{"question", "drop", "question-q-drop-b", "--reason", "Not needed."}, false},
 		"question_ask": {`{"id":"question-q-ask-a","to":"person-q-seed","via":"slack","route":"domain-seed","value":"@quinn"}`,
 			[]string{"question", "ask", "question-q-ask-b", "--to", "person-q-seed", "--via", "slack", "--route", "domain-seed", "--value", "@quinn"}, false},
+		"question_accept": {`{"id":"question-q-acc-a","text":"Changed."}`, []string{"question", "accept", "question-q-acc-b", "--text", "Changed."}, false},
+		"question_reject": {`{"id":"question-q-rej-a","reason":"No."}`, []string{"question", "reject", "question-q-rej-b", "--reason", "No."}, false},
+		"question_edit":   {`{"id":"question-q-edit-a","title":"Renamed"}`, []string{"question", "edit", "question-q-edit-b", "--title", "Renamed"}, false},
+		"question_depends_add": {`{"id":"question-q-dep-a","depends_on":["task-q-dep"]}`,
+			[]string{"question", "depends", "add", "question-q-dep-b", "task-q-dep"}, false},
+		"question_depends_remove": {`{"id":"question-q-undep-a","depends_on":["task-q-dep"]}`,
+			[]string{"question", "depends", "remove", "question-q-undep-b", "task-q-dep"}, false},
 		"task_to_question": {`{"id":"task-q-conv-a","kind":"decision","options":["A","B"]}`, []string{"task", "to-question", "task-q-conv-b", "--kind", "decision", "--option", "A", "--option", "B"}, false},
 	}
 }
@@ -38,7 +45,21 @@ func seedQuestionParity(t *testing.T, deps ops.Deps) {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderQuestions, Title: "Q " + id,
 			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: model.KindDecision, Scope: model.LinkTo("project-q-seed")}})
 	}
-	for _, id := range []string{"task-q-conv-a", "task-q-conv-b"} {
+	proposed := func(id string) model.Document {
+		return model.Document{ID: id, Folder: model.FolderQuestions, Title: "Q " + id, Meta: &model.Question{
+			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Scope: model.LinkTo("project-q-seed"),
+			ProposedAnswer: "Proposed.", ProposedBy: "claude", ProposedSources: []model.AnswerSource{{Ref: "https://wiki.example/x"}}}}
+	}
+	docs = append(docs, proposed("question-q-acc-a"), proposed("question-q-acc-b"), proposed("question-q-rej-a"), proposed("question-q-rej-b"))
+	for _, id := range []string{"question-q-edit-a", "question-q-edit-b", "question-q-dep-a", "question-q-dep-b"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderQuestions, Title: "Q " + id,
+			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Scope: model.LinkTo("project-q-seed")}})
+	}
+	for _, id := range []string{"question-q-undep-a", "question-q-undep-b"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderQuestions, Title: "Q " + id,
+			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Scope: model.LinkTo("project-q-seed"), DependsOn: []model.Link{model.LinkTo("task-q-dep")}}})
+	}
+	for _, id := range []string{"task-q-conv-a", "task-q-conv-b", "task-q-dep"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "Q " + id,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-q-seed")}})
 	}

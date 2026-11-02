@@ -18,6 +18,7 @@ const (
 	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
 	kCount     // integer, 1 or more
 	kScope     // "[[name]]" or the word root
+	kSources   // list of {ref, quote} maps
 )
 
 type field struct {
@@ -123,6 +124,15 @@ var typeFields = map[string][]field{
 		{Name: "choice", Kind: kString},
 		{Name: "answered_by", Kind: kString},
 		{Name: "answered", Kind: kDate},
+		{Name: "depends_on", Kind: kList},
+		{Name: "proposed_answer", Kind: kString},
+		{Name: "proposed_choice", Kind: kString},
+		{Name: "proposed_by", Kind: kString},
+		{Name: "proposed_sources", Kind: kSources},
+		{Name: "proposed_why", Kind: kString},
+		{Name: "proposed", Kind: kDate},
+		{Name: "rejected_reason", Kind: kString},
+		{Name: "rejected_by", Kind: kString},
 	},
 	"meeting": {
 		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},
@@ -224,6 +234,10 @@ var (
 		{Name: "label", Kind: kString, Required: true},
 		{Name: "kind", Kind: kEnum, Enum: pointerKinds, Required: true},
 		{Name: "target", Kind: kString, Required: true},
+	}
+	sourceFields = []field{
+		{Name: "ref", Kind: kString, Required: true},
+		{Name: "quote", Kind: kString},
 	}
 	targetFields = []field{
 		{Name: "to", Kind: kLink, Required: true},

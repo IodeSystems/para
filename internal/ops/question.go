@@ -54,7 +54,23 @@ type QuestionView struct {
 	Created     model.Date           `json:"created"`
 	Blocks      []string             `json:"blocks"`
 	Blocking    int                  `json:"blocking"`
-	Rev         string               `json:"rev"`
+	// DependsOn are the tasks, requests, and questions this one waits on.
+	// WaitingOn is the part of DependsOn not yet resolved.
+	DependsOn []string `json:"depends_on"`
+	WaitingOn []string `json:"waiting_on"`
+	// HasProposal is true when an agent proposed an answer that no person has
+	// accepted yet. The question stays open and what waits on it stays blocked.
+	HasProposal     bool                 `json:"has_proposal"`
+	ProposedAnswer  string               `json:"proposed_answer,omitempty"`
+	ProposedChoice  string               `json:"proposed_choice,omitempty"`
+	ProposedBy      string               `json:"proposed_by,omitempty"`
+	ProposedSources []model.AnswerSource `json:"proposed_sources,omitempty"`
+	ProposedWhy     string               `json:"proposed_why,omitempty"`
+	Proposed        model.Date           `json:"proposed,omitempty"`
+	// RejectedReason is why a person rejected the last proposed answer.
+	RejectedReason string `json:"rejected_reason,omitempty"`
+	RejectedBy     string `json:"rejected_by,omitempty"`
+	Rev            string `json:"rev"`
 	// ScopeName is the title of Scope, for people. A root question has none.
 	ScopeName string `json:"scope_name,omitempty" nameof:"Scope"`
 }
@@ -70,7 +86,10 @@ func questionView(d model.Document) (QuestionView, error) {
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Kind: q.AsKind(), Status: q.Status,
 		Scope: scopeID(q), Options: append([]string{}, q.Options...), Recommended: q.Recommended,
 		RFX: q.RFX.Target(), Choice: q.Choice, AnsweredBy: q.AnsweredBy, Answered: q.Answered,
-		Created: q.Created, Blocks: []string{}, Rev: d.Rev,
+		Created: q.Created, Blocks: []string{}, DependsOn: targets(q.DependsOn), WaitingOn: []string{}, Rev: d.Rev,
+		HasProposal: q.HasProposal(), ProposedAnswer: q.ProposedAnswer, ProposedChoice: q.ProposedChoice,
+		ProposedBy: q.ProposedBy, ProposedSources: q.ProposedSources, ProposedWhy: q.ProposedWhy, Proposed: q.Proposed,
+		RejectedReason: q.RejectedReason, RejectedBy: q.RejectedBy,
 	}, nil
 }
 
@@ -109,10 +128,12 @@ type dependents struct {
 	by   map[string][]string
 	open map[string]bool
 	task map[string]TaskView
+	// deps holds the dependencies of open requests and questions.
+	deps map[string][]string
 }
 
 func loadDependents(ctx context.Context, s store.Store) (dependents, error) {
-	dp := dependents{by: map[string][]string{}, open: map[string]bool{}, task: map[string]TaskView{}}
+	dp := dependents{by: map[string][]string{}, open: map[string]bool{}, task: map[string]TaskView{}, deps: map[string][]string{}}
 	tasks, err := listTasks(ctx, s, "", "")
 	if err != nil {
 		return dp, err
@@ -144,6 +165,26 @@ func loadDependents(ctx context.Context, s store.Store) (dependents, error) {
 		for _, l := range m.DependsOn {
 			dp.by[l.Target()] = append(dp.by[l.Target()], r.ID)
 		}
+		dp.deps[r.ID] = targets(m.DependsOn)
+	}
+	qrefs, err := s.List(ctx, store.Filter{Type: model.TypeQuestion})
+	if err != nil {
+		return dp, err
+	}
+	for _, r := range qrefs {
+		doc, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return dp, err
+		}
+		m, ok := doc.Meta.(*model.Question)
+		if !ok || m.Status != model.QuestionOpen {
+			continue
+		}
+		dp.open[r.ID] = true
+		for _, l := range m.DependsOn {
+			dp.by[l.Target()] = append(dp.by[l.Target()], r.ID)
+		}
+		dp.deps[r.ID] = targets(m.DependsOn)
 	}
 	return dp, nil
 }
@@ -228,6 +269,11 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			}
 		}
 		if questionOpen(x.v) {
+			for _, to := range x.v.DependsOn {
+				if dep, err := s.Get(ctx, to); err != nil || !resolved(dep) {
+					x.v.WaitingOn = append(x.v.WaitingOn, to)
+				}
+			}
 			x.v.Blocks = append(x.v.Blocks, dp.by[v.ID]...)
 			slices.Sort(x.v.Blocks)
 			x.v.Blocking = len(dp.chain(v.ID))
@@ -238,6 +284,7 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 	slices.SortStableFunc(out, func(a, b qrow) int {
 		return cmp.Or(
 			cmp.Compare(status(a.v), status(b.v)),
+			cmp.Compare(min(len(a.v.WaitingOn), 1), min(len(b.v.WaitingOn), 1)), // ready before waiting
 			cmp.Compare(b.v.Blocking, a.v.Blocking),
 			cmp.Compare(a.v.Created, b.v.Created),
 			cmp.Compare(a.v.ID, b.v.ID))
@@ -461,6 +508,9 @@ type QuestionAnswerInput struct {
 	Why    string `json:"why,omitempty"`    // the reason; required for a decision
 	Source string `json:"source,omitempty"` // where the answer came from: a URL, a meeting, a person
 	By     string `json:"by,omitempty"`     // who answered; default the acting user
+	// Sources is required from an agent: one or more URLs or vault document
+	// ids, each with an optional quote. An agent's answer is only proposed.
+	Sources []model.AnswerSource `json:"sources,omitempty"`
 }
 
 // QuestionAnswerOutput is the output of question_answer and question_drop.
@@ -473,10 +523,60 @@ type QuestionAnswerOutput struct {
 	// Unblocked lists the open tasks and requests that had waited only on this
 	// question and can now start.
 	Unblocked []string `json:"unblocked"`
-	Rev       string   `json:"rev"`
+	// Proposed is true when an agent's answer was recorded as a proposal: the
+	// question is still open until a person accepts it.
+	Proposed bool   `json:"proposed,omitempty"`
+	Rev      string `json:"rev"`
+}
+
+// QuestionAnswerInput gets Sources for an agent: see answerSources.
+
+// reviewerKey carries the person who approved a proposal item to the op the
+// item runs, so the answer it records names that person.
+type reviewerKey struct{}
+
+func withReviewer(ctx context.Context, actor string) context.Context {
+	return context.WithValue(ctx, reviewerKey{}, actor)
+}
+
+// agentSurface reports whether the caller is an agent: a surface that is not a
+// person's. An approved proposal item is not an agent: a person approved it.
+func agentSurface(d Deps) bool {
+	s := d.Store.Info().Surface
+	return !slices.Contains(PersonSurfaces, s) && s != surfaceProposal
+}
+
+// answerParts checks choice, text, and why against the question and returns
+// them in their stored form.
+func answerParts(q *model.Question, in QuestionAnswerInput) (choice, text, why string, err error) {
+	choice = strings.Join(strings.Fields(in.Choice), " ")
+	text = strings.TrimSpace(in.Text)
+	why = strings.Join(strings.Fields(in.Why), " ")
+	switch {
+	case choice != "":
+		if len(q.Options) == 0 {
+			return "", "", "", errors.New("this question has no options: answer with text")
+		}
+		i := slices.IndexFunc(q.Options, func(o string) bool { return strings.EqualFold(o, choice) })
+		if n, err := strconv.Atoi(choice); i < 0 && err == nil && n >= 1 && n <= len(q.Options) {
+			i = n - 1 // the number of an option, as listed
+		}
+		if i < 0 {
+			return "", "", "", fmt.Errorf("choice %q is not one of the options: %s (or answer with text)", choice, strings.Join(q.Options, " | "))
+		}
+		choice = q.Options[i]
+	case text == "":
+		return "", "", "", errors.New("an answer needs a choice or text")
+	}
+	if q.AsKind() == model.KindDecision && why == "" {
+		return "", "", "", errors.New("a decision needs its reason: pass why")
+	}
+	return choice, text, why, nil
 }
 
 // resolveQuestion applies the answer to a question that is open and saves it.
+// From an agent it records a proposed answer instead, and the question stays
+// open. From an approved proposal item it answers, naming the approver.
 func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	doc, q, err := getQuestion(ctx, d.Store, in.ID)
 	if err != nil {
@@ -485,50 +585,90 @@ func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (Quest
 	if q.Status != model.QuestionOpen {
 		return QuestionAnswerOutput{}, fmt.Errorf("%s is already %s", doc.ID, q.Status)
 	}
-	choice := strings.Join(strings.Fields(in.Choice), " ")
-	text := strings.TrimSpace(in.Text)
-	why := strings.Join(strings.Fields(in.Why), " ")
-	switch {
-	case choice != "":
-		if len(q.Options) == 0 {
-			return QuestionAnswerOutput{}, errors.New("this question has no options: answer with text")
-		}
-		i := slices.IndexFunc(q.Options, func(o string) bool { return strings.EqualFold(o, choice) })
-		if n, err := strconv.Atoi(choice); i < 0 && err == nil && n >= 1 && n <= len(q.Options) {
-			i = n - 1 // the number of an option, as listed
-		}
-		if i < 0 {
-			return QuestionAnswerOutput{}, fmt.Errorf("choice %q is not one of the options: %s (or answer with text)", choice, strings.Join(q.Options, " | "))
-		}
-		choice = q.Options[i]
-	case text == "":
-		return QuestionAnswerOutput{}, errors.New("an answer needs a choice or text")
-	}
-	if q.AsKind() == model.KindDecision && why == "" {
-		return QuestionAnswerOutput{}, errors.New("a decision needs its reason: pass why")
+	choice, text, why, err := answerParts(q, in)
+	if err != nil {
+		return QuestionAnswerOutput{}, err
 	}
 	info := d.Store.Info()
+	agent := agentSurface(d)
+	sources, err := answerSources(ctx, d, in.Sources, agent || info.Surface == surfaceProposal)
+	if err != nil {
+		return QuestionAnswerOutput{}, err
+	}
+	if err := lintText("text", text); err != nil {
+		return QuestionAnswerOutput{}, err
+	}
+	today := d.Store.Now().Format(dateLayout)
+	if agent {
+		q.ProposedAnswer, q.ProposedChoice, q.ProposedBy = text, choice, info.Actor
+		q.ProposedSources, q.ProposedWhy, q.Proposed = sources, why, model.Date(today)
+		q.RejectedReason, q.RejectedBy = "", ""
+		out, err := saveQuestion(ctx, d, doc, q)
+		out.Proposed = true
+		return out, err
+	}
 	by := strings.Join(strings.Fields(in.By), " ")
 	if by == "" {
 		by = info.Actor
 	}
+	if info.Surface == surfaceProposal {
+		// A person approved the item: they answer, the agent proposed.
+		q.ProposedBy, q.ProposedSources, q.Proposed = info.Actor, sources, model.Date(today)
+		by, _ = ctx.Value(reviewerKey{}).(string)
+		if by == "" {
+			by = "owner"
+		}
+	}
+	return writeAnswer(ctx, d, doc, q, answerRecord{choice: choice, text: text, why: why, source: in.Source, sources: sources, by: by})
+}
+
+type answerRecord struct {
+	choice, text, why, source string
+	sources                   []model.AnswerSource
+	by                        string
+}
+
+// sourceLine is one cited source as a body line.
+func sourceLine(s model.AnswerSource) string {
+	ref := s.Ref
+	if !strings.HasPrefix(ref, "http") {
+		ref = "[[" + ref + "]]"
+	}
+	if s.Quote != "" {
+		ref += `: "` + s.Quote + `"`
+	}
+	return "- Source: " + ref
+}
+
+// writeAnswer marks q answered by the person in r.by and writes the answer
+// block. A proposal that was accepted stays on the question as the record of
+// who proposed it and from what, apart from its text.
+func writeAnswer(ctx context.Context, d Deps, doc model.Document, q *model.Question, r answerRecord) (QuestionAnswerOutput, error) {
+	info := d.Store.Info()
 	today := d.Store.Now().Format(dateLayout)
 	block := []string{}
-	if text != "" {
-		block = append(block, text, "")
+	if r.text != "" {
+		block = append(block, r.text, "")
 	}
-	if choice != "" {
-		block = append(block, "- Choice: "+choice)
+	if r.choice != "" {
+		block = append(block, "- Choice: "+r.choice)
 	}
-	if why != "" {
-		block = append(block, "- Why: "+why)
+	if r.why != "" {
+		block = append(block, "- Why: "+r.why)
 	}
-	if src := strings.Join(strings.Fields(in.Source), " "); src != "" {
+	if src := strings.Join(strings.Fields(r.source), " "); src != "" {
 		block = append(block, "- Source: "+src)
 	}
-	block = append(block, fmt.Sprintf("- By: %s, via %s, on %s", by, info.Surface, today))
+	for _, s := range r.sources {
+		block = append(block, sourceLine(s))
+	}
+	if q.ProposedBy != "" {
+		block = append(block, "- Proposed by: "+q.ProposedBy)
+	}
+	block = append(block, fmt.Sprintf("- By: %s, via %s, on %s", r.by, info.Surface, today))
 	doc.Body = appendToSection(doc.Body, answerHeading, strings.Join(block, "\n"))
-	q.Status, q.Choice, q.AnsweredBy, q.Answered = model.QuestionAnswered, choice, by, model.Date(today)
+	q.Status, q.Choice, q.AnsweredBy, q.Answered = model.QuestionAnswered, r.choice, r.by, model.Date(today)
+	q.ProposedAnswer, q.ProposedChoice, q.ProposedWhy = "", "", ""
 	return saveQuestion(ctx, d, doc, q)
 }
 
@@ -555,17 +695,9 @@ func unblockedBy(ctx context.Context, s store.Store, id string) ([]string, error
 	}
 	out := []string{}
 	for _, u := range dp.by[id] {
-		deps := dp.task[u].DependsOn
-		if t, ok := dp.task[u]; !ok || taskTerminal(t.Status) {
-			doc, err := s.Get(ctx, u)
-			if err != nil {
-				return nil, err
-			}
-			m, ok := doc.Meta.(*model.RFX)
-			if !ok {
-				continue
-			}
-			deps = targets(m.DependsOn)
+		deps := dp.deps[u]
+		if t, ok := dp.task[u]; ok {
+			deps = t.DependsOn
 		}
 		waiting := false
 		for _, to := range deps {
@@ -585,7 +717,7 @@ func unblockedBy(ctx context.Context, s store.Store, id string) ([]string, error
 
 // QuestionAnswer records the answer of an open question and marks it answered.
 // Tasks that depend on it can start at once.
-var QuestionAnswer = define("question_answer", "Answer an open question with a choice or text; a decision needs its reason. Tasks that depended on it can start", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
+var QuestionAnswer = define("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent this only proposes an answer: cite at least one source (a URL or vault document id, with a quote); the owner accepts or rejects it, and the question stays open until then", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	return resolveQuestion(ctx, d, in)
 })
 
@@ -695,17 +827,18 @@ func askBody(body string) string {
 }
 
 // answerFromReply answers the question of an RFX when a reply came in. A
-// partial reply leaves the question open.
-func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXReplyInput) (string, error) {
+// partial reply leaves the question open. From an agent the answer is only
+// proposed; proposed says so.
+func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXReplyInput, sources []model.AnswerSource) (id string, proposed bool, err error) {
 	if in.Outcome == ReplyPartial {
-		return "", nil
+		return "", false, nil
 	}
 	doc, q, err := getQuestion(ctx, d.Store, question)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if q.Status != model.QuestionOpen {
-		return "", nil
+		return "", false, nil
 	}
 	text := strings.TrimSpace(in.Text)
 	why := strings.Join(strings.Fields(in.Why), " ")
@@ -715,6 +848,6 @@ func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXR
 	if in.Outcome == ReplyNo {
 		text = "No. " + text
 	}
-	out, err := resolveQuestion(ctx, d, QuestionAnswerInput{ID: doc.ID, Text: text, Why: why, Source: in.URL, By: from})
-	return out.ID, err
+	out, err := resolveQuestion(ctx, d, QuestionAnswerInput{ID: doc.ID, Text: text, Why: why, Source: in.URL, By: from, Sources: sources})
+	return out.ID, out.Proposed, err
 }
