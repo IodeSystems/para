@@ -61,6 +61,8 @@ type AgendaItem struct {
 	Until   string     `json:"until,omitempty"` // RFC 3339 in the zone; meetings only
 	Overdue bool       `json:"overdue"`
 	Detail  string     `json:"detail,omitempty"` // task status, meeting status, exception kind
+	// Why is the reason in value order (see RankValue), when the item is in it.
+	Why string `json:"why,omitempty"`
 	// Who is the people of a meeting, or the targets of a nudge.
 	Who      []string `json:"who"`
 	WhoNames []string `json:"who_names,omitempty" nameof:"Who"`
@@ -194,8 +196,12 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	if err != nil {
 		return nil, err
 	}
+	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
+	if err != nil {
+		return nil, err
+	}
 	for _, t := range tasks {
-		if taskTerminal(t.Status) || IsOther(t.Assignee) || t.Due == "" {
+		if taskTerminal(t.Status) || IsOther(t.Assignee) || t.Due == "" || deferred[t.ID] {
 			continue
 		}
 		late, ok := inWindow(string(t.Due))
@@ -242,14 +248,29 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		items = append(items, AgendaItem{Kind: AgendaException, ID: e.ID, Title: e.Title, Date: string(e.ReviewBy), Overdue: late,
 			Detail: string(e.Kind), Who: []string{}})
 	}
-	sortAgenda(items)
+	order, err := Order(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	pos := map[string]int{}
+	for i, r := range order.Rows {
+		if r.Kind != KindMeeting { // meetings keep their time order
+			pos[r.ID] = i
+		}
+		for j := range items {
+			if items[j].ID == r.ID {
+				items[j].Why = r.Why
+			}
+		}
+	}
+	sortAgenda(items, pos)
 	return items, nil
 }
 
 // sortAgenda orders by day, date-only items before timed ones, timed items by
 // instant (so two meetings at "01:30" on the day the clocks go back keep their
 // real order), then kind and id.
-func sortAgenda(items []AgendaItem) {
+func sortAgenda(items []AgendaItem, pos map[string]int) {
 	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaMeeting: 3}
 	instant := func(it AgendaItem) time.Time {
 		t, _ := time.Parse(time.RFC3339, it.At)
@@ -259,7 +280,15 @@ func sortAgenda(items []AgendaItem) {
 		return cmp.Or(
 			cmp.Compare(a.Date, b.Date),
 			cmp.Compare(rank[a.Kind], rank[b.Kind]),
+			cmp.Compare(posOf(pos, a.ID), posOf(pos, b.ID)), // value order within a day
 			instant(a).Compare(instant(b)),
 			cmp.Compare(a.ID, b.ID))
 	})
+}
+
+func posOf(pos map[string]int, id string) int {
+	if p, ok := pos[id]; ok {
+		return p
+	}
+	return 1 << 30
 }

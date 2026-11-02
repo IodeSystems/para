@@ -71,6 +71,15 @@ type QuestionView struct {
 	RejectedReason string `json:"rejected_reason,omitempty"`
 	RejectedBy     string `json:"rejected_by,omitempty"`
 	Rev            string `json:"rev"`
+	// Deferred is true while a person has put the question off (itself, or its
+	// goal or task): it keeps blocking what depends on it. DeferUntil is the
+	// date or "someday".
+	Deferred       bool   `json:"deferred"`
+	DeferUntil     string `json:"defer_until,omitempty"`
+	DeferredReason string `json:"deferred_reason,omitempty"`
+	// AgentLooking is true while queued or claimed agent work looks for evidence
+	// for this question. The question stays open.
+	AgentLooking bool `json:"agent_looking"`
 	// ScopeName is the title of Scope, for people. A root question has none.
 	ScopeName string `json:"scope_name,omitempty" nameof:"Scope"`
 }
@@ -90,6 +99,7 @@ func questionView(d model.Document) (QuestionView, error) {
 		HasProposal: q.HasProposal(), ProposedAnswer: q.ProposedAnswer, ProposedChoice: q.ProposedChoice,
 		ProposedBy: q.ProposedBy, ProposedSources: q.ProposedSources, ProposedWhy: q.ProposedWhy, Proposed: q.Proposed,
 		RejectedReason: q.RejectedReason, RejectedBy: q.RejectedBy,
+		DeferUntil: q.DeferUntil, DeferredReason: q.DeferredReason,
 	}, nil
 }
 
@@ -236,6 +246,14 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			projArea[r.ID] = p.Area.Target()
 		}
 	}
+	deferred, err := deferredSet(ctx, s, s.Now().Format(dateLayout))
+	if err != nil {
+		return nil, err
+	}
+	looking, err := investigating(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]qrow, 0, len(refs))
 	for _, r := range refs {
 		doc, err := s.Get(ctx, r.ID)
@@ -246,6 +264,8 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 		if err != nil {
 			return nil, err
 		}
+		v.Deferred = deferred[v.ID]
+		v.AgentLooking = looking[v.ID]
 		x := qrow{v: v}
 		sd, gerr := scopeDoc(ctx, s, v.Scope)
 		switch {
@@ -437,6 +457,9 @@ type QuestionListInput struct {
 	Area    string               `json:"area,omitempty" query:"area"`       // scoped to the area, to one of its projects, or to one of their tasks
 	Root    bool                 `json:"root,omitempty" query:"root"`       // only vault-level questions
 	All     bool                 `json:"all,omitempty" query:"all"`         // include answered and dropped questions
+	// Deferred includes the questions a person put off (Later). They are left
+	// out by default, as the agent lists leave them out; each is marked.
+	Deferred bool `json:"deferred,omitempty" query:"deferred"`
 }
 
 // QuestionListOutput is the output of question_list.
@@ -462,7 +485,8 @@ var QuestionList = define("question_list", "List open questions, ordered by what
 			project != "" && x.project != project,
 			task != "" && x.v.Scope != task,
 			area != "" && x.area != area,
-			in.Root && x.v.ScopeType != ScopeRoot:
+			in.Root && x.v.ScopeType != ScopeRoot,
+			!in.Deferred && x.v.Deferred && questionOpen(x.v):
 			continue
 		}
 		out.Questions = append(out.Questions, x.v)
@@ -631,7 +655,7 @@ type answerRecord struct {
 // sourceLine is one cited source as a body line.
 func sourceLine(s model.AnswerSource) string {
 	ref := s.Ref
-	if !strings.HasPrefix(ref, "http") {
+	if !strings.HasPrefix(ref, "http") && !strings.ContainsAny(ref, " \t") {
 		ref = "[[" + ref + "]]"
 	}
 	if s.Quote != "" {
@@ -717,7 +741,7 @@ func unblockedBy(ctx context.Context, s store.Store, id string) ([]string, error
 
 // QuestionAnswer records the answer of an open question and marks it answered.
 // Tasks that depend on it can start at once.
-var QuestionAnswer = define("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent this only proposes an answer: cite at least one source (a URL or vault document id, with a quote); the owner accepts or rejects it, and the question stays open until then", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
+var QuestionAnswer = define("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent this only proposes an answer: cite at least one source (a URL or vault document id, with a quote); the owner accepts or rejects it, and the question stays open until then. A person may add sources too, and may use free text such as a meeting", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	return resolveQuestion(ctx, d, in)
 })
 

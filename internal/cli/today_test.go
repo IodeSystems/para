@@ -280,7 +280,8 @@ func TestTodayNamesProjectAndScope(t *testing.T) {
 	if len(v.Overdue.Items) != 1 || v.Overdue.Items[0].Project != "p" || v.Overdue.Items[0].ProjectName != "Portal rebuild" {
 		t.Errorf("overdue = %+v", v.Overdue.Items)
 	}
-	if len(v.Questions.Items) != 1 || v.Questions.Items[0].Scope != "p" || v.Questions.Items[0].ScopeName != "Portal rebuild" {
-		t.Errorf("questions = %+v", v.Questions.Items)
+	// One list: the dated task comes before the question that blocks nothing.
+	if len(v.Agenda.Items) != 2 || v.Agenda.Items[0].ID != "t" || v.Agenda.Items[1].ID != "q" || v.Agenda.Items[1].Kind != "question" {
+		t.Errorf("agenda = %+v", v.Agenda.Items)
 	}
 }

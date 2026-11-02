@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/store/local"
 	"github.com/iodesystems/parasolve/internal/vault"
 )
 
@@ -28,6 +30,12 @@ type Item struct {
 	Detail string `json:"detail,omitempty"`
 	// Blocks counts what waits on an open question, through any chain.
 	Blocks int `json:"blocks,omitempty"`
+	// Kind and Why are set on an Agenda item: what it is (incident, task,
+	// question, ask, meeting) and why it is where it is, in words.
+	Kind string `json:"kind,omitempty"`
+	Why  string `json:"why,omitempty"`
+	// Proposal marks a question with an answer to check.
+	Proposal bool `json:"proposal,omitempty"`
 	// Names, for people. Project is a task's project id, Scope a question's
 	// scope id ("root" for the vault); each has the title of what it points at.
 	// With is who a request goes to, by name.
@@ -50,12 +58,21 @@ type VaultToday struct {
 	// Incidents holds incidents not resolved (open or mitigated), worst first.
 	// They are shown before everything else.
 	Incidents Group `json:"incidents"`
-	// Questions holds the open questions of the vault, the ones that block the
-	// most first. A vault-level question has the scope root.
-	Questions Group `json:"questions"`
-	Due       Group `json:"due"`     // constraints whose review_by is today or earlier
-	Blocked   Group `json:"blocked"` // open tasks with status blocked or a blocked_by entry
-	Nudges    Group `json:"nudges"`  // open RFX whose next_nudge is today or earlier
+	// Agenda is the one list of what needs the owner, in value order
+	// (ops.RankValue): incidents, then items with an effective due date, then
+	// the rest. Questions are in it like any other item. Goals shape the order
+	// and are not listed.
+	Agenda Group `json:"agenda"`
+	// OtherOpen counts open questions that block nothing and have no date,
+	// left out of Agenda while it is long. The Questions page lists them.
+	OtherOpen int `json:"other_open"`
+	// Deferred counts open questions and tasks put off (Later).
+	Deferred int `json:"deferred"`
+	// HeldUp lists put-off items that hold up work due before they return.
+	HeldUp  []ops.HeldUp `json:"held_up"`
+	Due     Group        `json:"due"`     // constraints whose review_by is today or earlier
+	Blocked Group        `json:"blocked"` // open tasks with status blocked or a blocked_by entry
+	Nudges  Group        `json:"nudges"`  // open RFX whose next_nudge is today or earlier
 	// Overdue holds open tasks due before today; DueSoon holds open tasks due
 	// from today through DueSoonDays days ahead. Both are ordered by due date.
 	Overdue Group `json:"overdue"`
@@ -116,7 +133,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	}
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
-		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Questions: Group{Items: []Item{}}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
+		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Agenda: Group{Items: []Item{}}, HeldUp: []ops.HeldUp{}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
 			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
@@ -159,7 +176,6 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	for _, r := range refs {
 		titles[r.ID] = r.Title
 	}
-	users := map[string][]string{} // id -> open tasks and requests that depend on it
 	for _, r := range refs {
 		switch r.Type {
 		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
@@ -179,17 +195,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		switch m := d.Meta.(type) {
 		case *model.Question:
 			if m.Status == model.QuestionOpen {
-				scope := m.Scope.Target()
-				if m.IsRoot() {
-					scope = "root"
-				}
-				item.Detail = string(m.AsKind()) + " " + scope
 				if m.HasProposal() {
-					item.Detail += ", proposed answer from " + m.ProposedBy
 					vt.AnswersToCheck++
 				}
-				item.Scope, item.ScopeName = scope, titles[scope]
-				vt.Questions.Items = append(vt.Questions.Items, item)
 			}
 		case *model.Incident:
 			if m.Status != model.IncidentResolved {
@@ -201,11 +209,6 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 				vt.Due.Items = append(vt.Due.Items, item)
 			}
 		case *model.RFX:
-			if m.Status == model.RFXOpen {
-				for _, l := range m.DependsOn {
-					users[l.Target()] = append(users[l.Target()], d.ID)
-				}
-			}
 			for _, t := range m.Targets {
 				if n := titles[t.To.Target()]; n != "" {
 					item.With = append(item.With, n)
@@ -231,11 +234,6 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			}
 			item.ProjectName = titles[item.Project]
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
-			if open {
-				for _, l := range m.DependsOn {
-					users[l.Target()] = append(users[l.Target()], d.ID)
-				}
-			}
 			if open && m.Assignee != "" && m.Assignee != "self" {
 				vt.Waiting++
 			}
@@ -262,28 +260,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		return a.ID < b.ID
 	})
 	vt.Incidents.Count = len(vt.Incidents.Items)
-	for i := range vt.Questions.Items {
-		it := &vt.Questions.Items[i]
-		seen, queue := map[string]bool{it.ID: true}, []string{it.ID}
-		for len(queue) > 0 {
-			for _, u := range users[queue[0]] {
-				if !seen[u] {
-					seen[u] = true
-					queue = append(queue, u)
-					it.Blocks++
-				}
-			}
-			queue = queue[1:]
-		}
+	if err := fillAgenda(ctx, rv, date, vt); err != nil {
+		return err
 	}
-	sort.Slice(vt.Questions.Items, func(i, j int) bool {
-		a, b := vt.Questions.Items[i], vt.Questions.Items[j]
-		if a.Blocks != b.Blocks {
-			return a.Blocks > b.Blocks
-		}
-		return a.ID < b.ID
-	})
-	vt.Questions.Count = len(vt.Questions.Items)
 	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon} {
 		sort.Slice(g.Items, func(i, j int) bool {
 			if a, b := g.Items[i], g.Items[j]; a.Due != b.Due {
@@ -312,4 +291,95 @@ func waitsOnSomeone(m *model.RFX) bool {
 		}
 	}
 	return allNoReply
+}
+
+// AgendaDays is how far ahead a date counts as near for a task that cannot be
+// worked yet, an ask, or a meeting.
+const AgendaDays = 14
+
+// AgendaLimit is how many items Agenda holds before the open questions that
+// block nothing and have no date move behind the OtherOpen count.
+const AgendaLimit = 12
+
+// fillAgenda sets the Agenda, OtherOpen, Deferred, and HeldUp of the vault
+// from the shared value order.
+func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultToday) error {
+	st, err := local.Open(rv.Path, vault.Options{ID: rv.ID, ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("today: agenda: %w", err)
+	}
+	o, err := ops.OrderAt(ctx, st, date)
+	if err != nil {
+		return fmt.Errorf("today: agenda: %w", err)
+	}
+	ready, err := ops.Next.Run(ctx, ops.Deps{Store: st}, ops.NextInput{})
+	if err != nil {
+		return fmt.Errorf("today: agenda: %w", err)
+	}
+	isReady := map[string]bool{}
+	for _, t := range ready.Tasks {
+		isReady[t.ID] = true
+	}
+	soon := date
+	if t, err := time.Parse(dateLayout, date); err == nil {
+		soon = t.AddDate(0, 0, AgendaDays).Format(dateLayout)
+	}
+	// Goals shape the order and are not listed. A task shows when it can be
+	// worked or its date is near; the rest of the tasks wait behind what blocks
+	// them, which is listed. Asks and meetings show when their date is near.
+	var rows []ops.ValueRow
+	for _, r := range o.Rows {
+		switch r.Kind {
+		case ops.KindIncident, ops.KindQuestion:
+		case ops.KindTask:
+			if !isReady[r.ID] && (r.EffDue == "" || r.EffDue > soon) {
+				continue
+			}
+		case ops.KindAsk, ops.KindMeeting:
+			if r.EffDue == "" || r.EffDue > soon {
+				continue
+			}
+		default:
+			continue
+		}
+		rows = append(rows, r)
+	}
+	other := func(r ops.ValueRow) bool {
+		return r.Kind == ops.KindQuestion && r.Group == ops.GroupUndated && r.Impact == 0 && !r.Proposal
+	}
+	if len(rows) > AgendaLimit {
+		keep := rows[:0:0]
+		for _, r := range rows {
+			if other(r) {
+				vt.OtherOpen++
+			} else {
+				keep = append(keep, r)
+			}
+		}
+		rows = keep
+	}
+	for _, r := range rows {
+		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Blocks: r.Blocks, Proposal: r.Proposal})
+	}
+	vt.Agenda.Count = len(vt.Agenda.Items)
+	vt.HeldUp = o.Held
+	qs, err := ops.QuestionList.Run(ctx, ops.Deps{Store: st}, ops.QuestionListInput{Deferred: true})
+	if err != nil {
+		return err
+	}
+	for _, q := range qs.Questions {
+		if q.Deferred {
+			vt.Deferred++
+		}
+	}
+	ts, err := ops.TaskList.Run(ctx, ops.Deps{Store: st}, ops.TaskListInput{Deferred: true})
+	if err != nil {
+		return err
+	}
+	for _, t := range ts.Tasks {
+		if t.Deferred {
+			vt.Deferred++
+		}
+	}
+	return nil
 }

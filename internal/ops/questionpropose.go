@@ -24,9 +24,13 @@ const (
 // ErrNoSource is the refusal for an agent answer with no source.
 var ErrNoSource = errors.New("an answer from an agent needs a source: cite at least one URL or vault document id in sources, or ask the owner (question_ask). If you cannot find the answer, say you could not find it")
 
+// maxFreeSource is the longest free-text source a person may give.
+const maxFreeSource = 200
+
 // answerSources checks sources. When need is set (an agent, or an item an
 // agent proposed) at least one is required. Each is an http(s) URL or the id of
-// a document that exists in the vault.
+// a document that exists in the vault. A person may also give free text, such
+// as the name of a meeting.
 func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bool) ([]model.AnswerSource, error) {
 	if len(in) == 0 && need {
 		return nil, ErrNoSource
@@ -47,10 +51,22 @@ func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bo
 			ref = u
 		} else {
 			id := normID(ref)
-			if _, err := d.Store.Get(ctx, id); err != nil {
+			_, err := d.Store.Get(ctx, id)
+			switch {
+			case err == nil:
+				ref = id
+			case !need && !agentSurface(d):
+				// A person may cite free text, such as a meeting.
+				ref = strings.Join(strings.Fields(ref), " ")
+				if len([]rune(ref)) > maxFreeSource {
+					return nil, fmt.Errorf("sources[%d]: the text is over %d characters", i, maxFreeSource)
+				}
+				if err := lintText(fmt.Sprintf("sources[%d].ref", i), ref); err != nil {
+					return nil, err
+				}
+			default:
 				return nil, fmt.Errorf("sources[%d]: %s is not a URL and not a document in this vault: %w", i, ref, err)
 			}
-			ref = id
 		}
 		quote := strings.Join(strings.Fields(s.Quote), " ")
 		if len([]rune(quote)) > maxQuote {

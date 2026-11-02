@@ -30,6 +30,11 @@ type TaskView struct {
 	DependsOn []string         `json:"depends_on"`
 	BlockedBy []string         `json:"blocked_by"`
 	Rev       string           `json:"rev"`
+	// Deferred is true while a person has put the task off (itself, or its
+	// goal). DeferUntil is the date or "someday". It still blocks its dependents.
+	Deferred       bool   `json:"deferred"`
+	DeferUntil     string `json:"defer_until,omitempty"`
+	DeferredReason string `json:"deferred_reason,omitempty"`
 	// Names are for people: the title of what the id fields point at, "" when
 	// unknown. DependsOnNames has one entry per DependsOn.
 	ProjectName    string   `json:"project_name,omitempty" nameof:"Project"`
@@ -47,6 +52,7 @@ func taskView(d model.Document) (TaskView, error) {
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
 		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -227,6 +233,9 @@ type TaskListInput struct {
 	// keeps the tasks with no assignee.
 	Assignee string `json:"assignee,omitempty" query:"assignee"`
 	Incident string `json:"incident,omitempty" query:"incident"` // follow-ups of this incident
+	// Deferred includes the tasks a person put off (Later). They are left out
+	// by default; each is marked.
+	Deferred bool `json:"deferred,omitempty" query:"deferred"`
 }
 
 // TaskListOutput is the output of task_list.
@@ -256,6 +265,9 @@ var TaskList = define("task_list", "List tasks", func(ctx context.Context, d Dep
 			return TaskListOutput{}, err
 		}
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Assignee != want })
+	}
+	if tasks, err = markDeferred(ctx, d.Store, tasks, in.Deferred); err != nil {
+		return TaskListOutput{}, err
 	}
 	return TaskListOutput{Tasks: tasks}, nil
 })
@@ -598,3 +610,20 @@ var TaskEdit = define("task_edit", "Set how we know a task is done", func(ctx co
 	}
 	return TaskEditOutput{ID: doc.ID, DoneWhen: dw, Rev: saved.Rev}, nil
 })
+
+// markDeferred sets Deferred on open tasks, and drops them unless keep is set.
+func markDeferred(ctx context.Context, s store.Store, tasks []TaskView, keep bool) ([]TaskView, error) {
+	set, err := deferredSet(ctx, s, s.Now().Format(dateLayout))
+	if err != nil {
+		return nil, err
+	}
+	out := tasks[:0]
+	for _, t := range tasks {
+		t.Deferred = set[t.ID] && !taskTerminal(t.Status)
+		if t.Deferred && !keep {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out, nil
+}

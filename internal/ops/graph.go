@@ -124,7 +124,35 @@ var Next = define("next", "List tasks that are ready to work", func(ctx context.
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
+	var err2 error
+	if out.Tasks, err2 = markDeferred(ctx, d.Store, out.Tasks, false); err2 != nil {
+		return NextOutput{}, err2
+	}
 	sortNext(out.Tasks)
+	// The value order decides: effective due date, then impact. Undated and
+	// unlisted tasks keep the order above.
+	order, err := Order(ctx, d.Store)
+	if err != nil {
+		return NextOutput{}, err
+	}
+	pos := map[string]int{}
+	for i, r := range order.Rows {
+		pos[r.ID] = i
+	}
+	slices.SortStableFunc(out.Tasks, func(a, b TaskView) int {
+		pa, oka := pos[a.ID]
+		pb, okb := pos[b.ID]
+		switch {
+		case oka && okb:
+			return cmp.Compare(pa, pb)
+		case oka != okb:
+			if oka {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
 	return out, nil
 })
 

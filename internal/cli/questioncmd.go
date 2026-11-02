@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
@@ -25,6 +26,12 @@ func stateText(v ops.QuestionView) string {
 	s := string(v.Status)
 	if v.HasProposal {
 		s = "proposed answer"
+	}
+	if v.Deferred {
+		s += " (later: " + v.DeferUntil + ")"
+	}
+	if v.AgentLooking {
+		s += " (agent looking)"
 	}
 	if len(v.WaitingOn) > 0 {
 		s += " (waiting)"
@@ -59,6 +66,7 @@ func listFlags(fs *pflag.FlagSet, in *ops.QuestionListInput) {
 	fs.BoolVar(&in.Root, "root", false, "only vault-level questions")
 	fs.StringVar((*string)(&in.Status), "status", "", "only open, answered, or dropped")
 	fs.BoolVar(&in.All, "all", false, "include answered and dropped questions")
+	fs.BoolVar(&in.Deferred, "deferred", false, "include the questions put off with defer (Later); they are marked")
 }
 
 func listText(w io.Writer, out ops.QuestionListOutput) error {
@@ -68,6 +76,7 @@ func listText(w io.Writer, out ops.QuestionListOutput) error {
 }
 
 func answerBinding() binding[ops.QuestionAnswerInput, ops.QuestionAnswerOutput] {
+	var refs, quotes []string
 	return binding[ops.QuestionAnswerInput, ops.QuestionAnswerOutput]{
 		Use:  "answer <id>",
 		Args: cobra.ExactArgs(1),
@@ -77,8 +86,24 @@ func answerBinding() binding[ops.QuestionAnswerInput, ops.QuestionAnswerOutput] 
 			fs.StringVar(&in.Why, "why", "", "the reason; required for a decision")
 			fs.StringVar(&in.Source, "source", "", "where the answer came from: a URL, a meeting, a person")
 			fs.StringVar(&in.By, "by", "", "who answered; default you")
+			fs.StringArrayVar(&refs, "ref", nil, "a source: a URL, a document id, or free text such as a meeting; repeatable (an agent must give one)")
+			fs.StringArrayVar(&quotes, "quote", nil, "the quote for the ref at the same position; repeatable")
 		},
-		Bind: func(args []string, in *ops.QuestionAnswerInput) error { in.ID = args[0]; return nil },
+		Bind: func(args []string, in *ops.QuestionAnswerInput) error {
+			in.ID = args[0]
+			if len(quotes) > len(refs) {
+				return fmt.Errorf("--quote given %d times, --ref %d: each quote goes with a ref", len(quotes), len(refs))
+			}
+			in.Sources = nil
+			for i, r := range refs {
+				s := model.AnswerSource{Ref: r}
+				if i < len(quotes) {
+					s.Quote = quotes[i]
+				}
+				in.Sources = append(in.Sources, s)
+			}
+			return nil
+		},
 		Stdin: func(r io.Reader, in *ops.QuestionAnswerInput) (err error) {
 			if in.Text == "" && in.Choice == "" {
 				in.Text, err = readPiped(r)
@@ -203,6 +228,19 @@ func newQuestionCmd(l *loader) *cobra.Command {
 			},
 			Bind: func(args []string, in *ops.QuestionDropInput) error { in.ID = args[0]; return nil },
 			Text: answerText,
+		}),
+		opCommand(l, ops.QuestionInvestigate, binding[ops.QuestionInvestigateInput, ops.QuestionInvestigateOutput]{
+			Use:  "investigate <id> --how <text>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.QuestionInvestigateInput) {
+				fs.StringVar(&in.How, "how", "", "where the agent should look, in words, such as \"check the wiki\" (required)")
+				fs.StringVar(&in.Runner, "runner", "", "install id that may claim the work; default as request add")
+			},
+			Bind: func(args []string, in *ops.QuestionInvestigateInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.QuestionInvestigateOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\trunner %s\n", out.ID, out.Request, out.Status, out.Runner)
+				return err
+			},
 		}),
 		opCommand(l, ops.QuestionAsk, binding[ops.QuestionAskInput, ops.QuestionAskOutput]{
 			Use:  "ask <id> --to <person> --via <medium> --route <domain>",

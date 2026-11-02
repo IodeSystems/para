@@ -34,6 +34,8 @@ type ParaV1MutationNamespace {
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
   conventionAdd(body: para_ConventionAddInputInput!): para_ConventionAddOutput @derived(operationId: "conventionAdd")
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
+  defer(body: para_DeferInputInput!): para_DeferOutput @derived(operationId: "defer")
+  dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
@@ -91,6 +93,7 @@ type ParaV1MutationNamespace {
   questionDependsRemove(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsRemove")
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
+  questionInvestigate(body: para_QuestionInvestigateInputInput!): para_QuestionInvestigateOutput @derived(operationId: "questionInvestigate")
   questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAccept(body: para_RequestAcceptInputInput!): para_RequestChangeOutput @derived(operationId: "requestAccept")
@@ -121,6 +124,7 @@ type ParaV1MutationNamespace {
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
+  undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
 }
 
 type ParaV1QueryNamespace {
@@ -153,6 +157,7 @@ type ParaV1QueryNamespace {
   next(project: String): para_NextOutput @derived(operationId: "next")
   noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
   noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
+  order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
   orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
@@ -172,7 +177,7 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
-  questionList(all: Boolean, area: String, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
+  questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
@@ -199,7 +204,7 @@ type ParaV1QueryNamespace {
     """document type, such as task, project, note, policy"""
     type: String
   ): para_SearchOutput @derived(operationId: "search")
-  taskList(area: String, assignee: String, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, deferred: Boolean, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
@@ -227,6 +232,7 @@ type para_AgendaItem {
   until: String
   who: [String!]!
   whoNames: [String!]
+  why: String
 }
 
 enum para_AgendaItemKind {
@@ -577,6 +583,31 @@ enum para_DecisionState {
   withdrawn
 }
 
+input para_DeferInputInput {
+  ids: [String!]
+  reason: String
+  scope: String
+  until: String
+}
+
+type para_DeferOutput {
+  changed: [String!]!
+  skipped: [String!]!
+  until: String
+}
+
+input para_DependsCutInputInput {
+  dep: String!
+  id: String!
+  reason: String!
+}
+
+type para_DependsCutOutput {
+  dependsOn: [String!]!
+  id: String!
+  rev: String!
+}
+
 type para_Document {
   body: String!
   folder: para_DocumentFolder!
@@ -911,6 +942,15 @@ enum para_GroupAddInputKind {
 type para_GroupShowOutput {
   doc: para_Document!
   members: [para_Ref!]!
+}
+
+type para_HeldUp {
+  deferUntil: String!
+  due: String!
+  holds: String!
+  holdsTitle: String!
+  id: String!
+  title: String!
 }
 
 type para_Hit {
@@ -1722,6 +1762,8 @@ type para_Meta {
   contacts: [para_Contact!]
   created: String!
   date: String
+  deferUntil: String
+  deferredReason: String
   dependsOn: [String!]
   direction: String
   doneWhen: String
@@ -1905,6 +1947,11 @@ enum para_NoteViewFolder {
   requests
   resources
   rfx
+}
+
+type para_OrderOutput {
+  heldUp: [para_HeldUp!]!
+  rows: [para_ValueRow!]!
 }
 
 input para_OrgAddInputInput {
@@ -2108,6 +2155,7 @@ input para_ProjectAddInputInput {
   area: String
   body: String
   doneWhen: String!
+  due: String
   owner: String
   title: String!
 }
@@ -2179,7 +2227,9 @@ enum para_ProjectCloseOutputStatus {
 }
 
 input para_ProjectEditInputInput {
-  doneWhen: String!
+  clearDue: Boolean
+  doneWhen: String
+  due: String
   id: String!
 }
 
@@ -2204,6 +2254,7 @@ type para_ProjectView {
   area: String
   areaName: String
   doneWhen: String
+  due: String
   folder: para_ProjectViewFolder!
   id: String!
   links: [para_Pointer!]
@@ -2553,6 +2604,28 @@ type para_QuestionEditOutput {
   title: String!
 }
 
+input para_QuestionInvestigateInputInput {
+  how: String!
+  id: String!
+  runner: String
+}
+
+type para_QuestionInvestigateOutput {
+  id: String!
+  request: String!
+  runner: String!
+  status: para_QuestionInvestigateOutputStatus!
+}
+
+enum para_QuestionInvestigateOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
 type para_QuestionListOutput {
   questions: [para_QuestionView!]!
 }
@@ -2568,12 +2641,16 @@ type para_QuestionShowOutput {
 }
 
 type para_QuestionView {
+  agentLooking: Boolean!
   answered: String
   answeredBy: String
   blocking: Int!
   blocks: [String!]!
   choice: String
   created: String!
+  deferUntil: String
+  deferred: Boolean!
+  deferredReason: String
   dependsOn: [String!]!
   folder: para_QuestionViewFolder!
   hasProposal: Boolean!
@@ -3467,6 +3544,9 @@ type para_TaskView {
   assigneeName: String
   blockedBy: [String!]!
   created: String!
+  deferUntil: String
+  deferred: Boolean!
+  deferredReason: String
   dependsOn: [String!]!
   dependsOnNames: [String!]
   doneWhen: String
@@ -3522,27 +3602,33 @@ type para_TodayItem {
   detail: String
   due: String
   id: String!
+  kind: String
   project: String
   projectName: String
+  proposal: Boolean
   scope: String
   scopeName: String
   title: String!
+  why: String
   with: [String!]
 }
 
 type para_TodayVaultToday {
+  agenda: para_TodayGroup!
   answersToCheck: Int!
   blocked: para_TodayGroup!
+  deferred: Int!
   due: para_TodayGroup!
   dueSoon: para_TodayGroup!
   error: String
   expiring: para_TodayGroup!
+  heldUp: [para_HeldUp!]!
   inbox: Int!
   incidents: para_TodayGroup!
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
+  otherOpen: Int!
   overdue: para_TodayGroup!
-  questions: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
   vault: String!
@@ -3570,6 +3656,23 @@ type para_UIReviewBody {
 type para_UITodayBody {
   date: String!
   today: para_TodayVaultToday!
+}
+
+input para_UndeferInputInput {
+  ids: [String!]
+}
+
+type para_ValueRow {
+  blocks: Int!
+  due: String
+  effDue: String
+  group: String!
+  id: String!
+  impact: Int!
+  kind: String!
+  proposal: Boolean
+  title: String!
+  why: String!
 }
 
 type para_WaitingItem {

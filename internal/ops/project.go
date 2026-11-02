@@ -20,6 +20,7 @@ type ProjectView struct {
 	Area   string              `json:"area,omitempty"`
 	// DoneWhen is how we know the goal is reached; empty on an older goal.
 	DoneWhen string          `json:"done_when,omitempty"`
+	Due      model.Date      `json:"due,omitempty"`
 	Links    []model.Pointer `json:"links,omitempty"`
 	Rev      string          `json:"rev"`
 	// AreaName is the title of Area, for people.
@@ -31,7 +32,7 @@ func projectView(d model.Document) (ProjectView, error) {
 	if !ok {
 		return ProjectView{}, fmt.Errorf("%s is a %s, not a project", d.ID, d.Meta.Header().Type)
 	}
-	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Links: p.Links, Rev: d.Rev}, nil
+	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Due: p.Due, Links: p.Links, Rev: d.Rev}, nil
 }
 
 // getProject reads a document that must be a project.
@@ -56,6 +57,7 @@ type ProjectAddInput struct {
 	// DoneWhen is required: how we know the goal is reached, in one line. A
 	// goal that never finishes is an area.
 	DoneWhen string `json:"done_when"`
+	Due      string `json:"due,omitempty"` // YYYY-MM-DD the goal is due; work leading to it inherits the date
 }
 
 // ProjectAddOutput is the output of project_add.
@@ -89,6 +91,11 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 	if err != nil {
 		return ProjectAddOutput{}, err
 	}
+	if in.Due != "" {
+		if err := checkDate("due", in.Due); err != nil {
+			return ProjectAddOutput{}, err
+		}
+	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProjects,
 		Title:  title,
@@ -99,6 +106,7 @@ var ProjectAdd = define("project_add", "Create a project", func(ctx context.Cont
 			Owner:    owner,
 			Area:     area,
 			DoneWhen: doneWhen,
+			Due:      model.Date(in.Due),
 		},
 	})
 	if err != nil {
@@ -253,7 +261,9 @@ func checkDoneWhen(s string, need bool) (string, error) {
 // ProjectEditInput is the input of project_edit.
 type ProjectEditInput struct {
 	ID       string `json:"id"`
-	DoneWhen string `json:"done_when"` // how we know the goal is reached
+	DoneWhen string `json:"done_when,omitempty"` // how we know the goal is reached; required unless only the date changes
+	Due      string `json:"due,omitempty"`       // YYYY-MM-DD the goal is due
+	ClearDue bool   `json:"clear_due,omitempty"` // remove the due date
 }
 
 // ProjectEditOutput is the output of project_edit.
@@ -264,16 +274,29 @@ type ProjectEditOutput struct {
 }
 
 // ProjectEdit sets the done condition of a goal.
-var ProjectEdit = define("project_edit", "Set the done condition of a project (a goal): how we know it is finished", func(ctx context.Context, d Deps, in ProjectEditInput) (ProjectEditOutput, error) {
+var ProjectEdit = define("project_edit", "Set the done condition or the due date of a project (a goal)", func(ctx context.Context, d Deps, in ProjectEditInput) (ProjectEditOutput, error) {
 	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return ProjectEditOutput{}, err
 	}
-	dw, err := checkDoneWhen(in.DoneWhen, true)
-	if err != nil {
-		return ProjectEditOutput{}, err
+	dw := p.DoneWhen
+	if in.DoneWhen != "" || (in.Due == "" && !in.ClearDue) {
+		if dw, err = checkDoneWhen(in.DoneWhen, true); err != nil {
+			return ProjectEditOutput{}, err
+		}
+		p.DoneWhen = dw
 	}
-	p.DoneWhen = dw
+	switch {
+	case in.Due != "" && in.ClearDue:
+		return ProjectEditOutput{}, errors.New("give due or clear_due, not both")
+	case in.Due != "":
+		if err := checkDate("due", in.Due); err != nil {
+			return ProjectEditOutput{}, err
+		}
+		p.Due = model.Date(in.Due)
+	case in.ClearDue:
+		p.Due = ""
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return ProjectEditOutput{}, err

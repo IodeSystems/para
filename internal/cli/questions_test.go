@@ -145,11 +145,11 @@ func TestQuestionsInToday(t *testing.T) {
 	e.json(&area, "area", "add", "Atlas")
 	e.json(&task, "task", "add", "Ship", "--area", area.ID, "--depends-on", q.ID)
 	out := e.ok("today")
-	if !strings.Contains(out, "questions 1") || !strings.Contains(out, "question\t"+q.ID+"\tquestion root\tblocks 1") {
+	if !strings.Contains(out, "agenda 1") || !strings.Contains(out, "question\t"+q.ID+"\tblocks 1\tWho signs off?") {
 		t.Fatalf("today: %s", out)
 	}
 	e.ok("answer", q.ID, "--text", "Sam.")
-	if out := e.ok("today"); !strings.Contains(out, "questions 0") {
+	if out := e.ok("today"); strings.Contains(out, q.ID) {
 		t.Fatalf("today after answer: %s", out)
 	}
 }

@@ -128,6 +128,8 @@ type Meta struct {
 	Answered        string           `json:"answered,omitempty"`
 	Start           string           `json:"start,omitempty"`
 	End             string           `json:"end,omitempty"`
+	DeferUntil      string           `json:"defer_until,omitempty"`
+	DeferredReason  string           `json:"deferred_reason,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.

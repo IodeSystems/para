@@ -204,7 +204,7 @@ type RequestAddInput struct {
 	// person may leave it out; the first line of ask is then the title.
 	Title  string   `json:"title,omitempty"`
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
-	Links  []string `json:"links,omitempty"`  // task, project, or proposal ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, question, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 }
 
@@ -269,7 +269,7 @@ var RequestAdd = define("request_add", "Queue an ask for an agent; from an agent
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

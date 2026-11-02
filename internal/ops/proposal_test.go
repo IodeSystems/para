@@ -131,6 +131,22 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := QuestionReject.Run(t.Context(), d, QuestionRejectInput{ID: "question-x", Reason: "no"})
 			return err
 		}},
+		{"investigate", func(d Deps) error {
+			_, err := QuestionInvestigate.Run(t.Context(), d, QuestionInvestigateInput{ID: "question-x", How: "wiki"})
+			return err
+		}},
+		{"defer", func(d Deps) error {
+			_, err := Defer.Run(t.Context(), d, DeferInput{IDs: []string{"task-x"}})
+			return err
+		}},
+		{"undefer", func(d Deps) error {
+			_, err := Undefer.Run(t.Context(), d, UndeferInput{IDs: []string{"task-x"}})
+			return err
+		}},
+		{"cut", func(d Deps) error {
+			_, err := DependsCut.Run(t.Context(), d, DependsCutInput{ID: "task-x", Dep: "task-y", Reason: "no"})
+			return err
+		}},
 		{"edit", func(d Deps) error {
 			s := "x"
 			_, err := ProposalEdit.Run(t.Context(), d, ProposalEditInput{ID: id, Item: "i1", Draft: &s})

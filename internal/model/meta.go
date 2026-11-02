@@ -82,8 +82,32 @@ type Project struct {
 	// DoneWhen says how we know the goal is reached. Optional in a file, so
 	// older files stay valid; project_add requires it.
 	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
+	// Due is the date the goal is due, optional. Work that leads to the goal
+	// inherits the date (internal/ops value order).
+	Due Date `yaml:"due,omitempty" json:"due,omitempty"`
+	// DeferUntil and DeferredReason: see Deferral. A deferred goal pushes out
+	// its tasks and questions.
+	Deferral `yaml:",inline"`
 	// Links point at plans, repos, and docs that live elsewhere.
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+}
+
+// SomedayWord is the defer_until value for deferred with no date.
+const SomedayWord = "someday"
+
+// Deferral is the later state of a task, question, or goal: a person put it
+// off. DeferUntil is a YYYY-MM-DD date, or SomedayWord for no date. It leaves
+// Today, next, and agent lists until its date, and keeps blocking what
+// depends on it.
+type Deferral struct {
+	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
+	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
+}
+
+// IsDeferred reports whether the item is put off on the date today (YYYY-MM-DD,
+// local time): someday, or a date after today.
+func (d Deferral) IsDeferred(today string) bool {
+	return d.DeferUntil == SomedayWord || d.DeferUntil != "" && d.DeferUntil > today
 }
 
 // Area is type: area, an ongoing responsibility with no end date (PARA).
@@ -123,6 +147,7 @@ type Task struct {
 	DoneWhen  string   `yaml:"done_when,omitempty" json:"done_when,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
+	Deferral  `yaml:",inline"`
 }
 
 // RFX is type: rfx.
@@ -367,6 +392,7 @@ type Question struct {
 	Proposed        Date           `yaml:"proposed,omitempty" json:"proposed,omitempty"`
 	RejectedReason  string         `yaml:"rejected_reason,omitempty" json:"rejected_reason,omitempty"`
 	RejectedBy      string         `yaml:"rejected_by,omitempty" json:"rejected_by,omitempty"`
+	Deferral        `yaml:",inline"`
 }
 
 // AnswerSource is where an agent's proposed answer came from: a URL or the id

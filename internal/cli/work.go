@@ -29,11 +29,19 @@ func joinOrDash(s []string) string {
 
 func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 	for _, t := range tasks {
-		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s%s\n", t.ID, t.Status, scope(t), dash(string(t.Due)), t.Title, assigneeSuffix(t)); err != nil {
+		if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s%s\n", t.ID, t.Status, scope(t), dash(string(t.Due)), t.Title, assigneeSuffix(t)+laterSuffix(t)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// laterSuffix marks a task a person put off.
+func laterSuffix(t ops.TaskView) string {
+	if t.Deferred {
+		return "\t(later: " + t.DeferUntil + ")"
+	}
+	return ""
 }
 
 // assigneeSuffix marks a task that is someone else's.
@@ -64,6 +72,7 @@ func newProjectCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a goal that never finishes is an area")
+				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 			},
 			Bind: func(args []string, in *ops.ProjectAddInput) error {
 				in.Title = strings.Join(args, " ")
@@ -72,10 +81,12 @@ func newProjectCmd(l *loader) *cobra.Command {
 			Text: printID(func(o ops.ProjectAddOutput) string { return o.ID }),
 		}),
 		opCommand(l, ops.ProjectEdit, binding[ops.ProjectEditInput, ops.ProjectEditOutput]{
-			Use:  "edit <id> --done-when <text>",
+			Use:  "edit <id> [--done-when <text>] [--due <date>]",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ProjectEditInput) {
-				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required)")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you only change the date)")
+				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
+				fs.BoolVar(&in.ClearDue, "clear-due", false, "remove the due date")
 			},
 			Bind: func(args []string, in *ops.ProjectEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.ProjectEditOutput) string { return o.ID }),
@@ -185,6 +196,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 				fs.StringVar(&in.Assignee, "assignee", "", "only tasks assigned to this person id or agent:<name>; self for your own")
 				fs.StringVar(&in.Incident, "incident", "", "only follow-ups of this incident")
+				fs.BoolVar(&in.Deferred, "deferred", false, "include the tasks put off with defer (Later); they are marked")
 			},
 			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
 		}),

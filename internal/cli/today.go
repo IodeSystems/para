@@ -16,7 +16,7 @@ import (
 func newTodayCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "today",
-		Short: "Overdue and due-soon tasks, due, expiring, blocked, unverified, and inbox counts across all vaults (CLI only)",
+		Short: "What needs you in value order (incidents, then by effective due date and impact), plus due, expiring, blocked, unverified, and inbox counts across all vaults (CLI only)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
@@ -34,17 +34,17 @@ func newTodayCmd(l *loader) *cobra.Command {
 						}
 						continue
 					}
-					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tquestions %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\tinbox %d\n",
-						v.Vault, v.Incidents.Count, v.Questions.Count, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Inbox); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tagenda %d\tother questions %d\tlater %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\tinbox %d\n",
+						v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Inbox); err != nil {
 						return err
 					}
-					for _, it := range v.Incidents.Items {
-						if _, err := fmt.Fprintf(w, "  incident\t%s\t%s\t%s\n", it.ID, it.Detail, it.Title); err != nil {
+					for _, it := range v.Agenda.Items {
+						if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", it.Kind, it.ID, it.Why, it.Title); err != nil {
 							return err
 						}
 					}
-					for _, it := range v.Questions.Items {
-						if _, err := fmt.Fprintf(w, "  question\t%s\t%s\tblocks %d\t%s\n", it.ID, it.Detail, it.Blocks, it.Title); err != nil {
+					if v.OtherOpen > 0 {
+						if _, err := fmt.Fprintf(w, "  %d other open questions: para question list\n", v.OtherOpen); err != nil {
 							return err
 						}
 					}
