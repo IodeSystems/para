@@ -591,14 +591,22 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			})
 		})
 	case "request":
-		steps := []promptStep{{label: "changes, clarification, or investigation: ", value: "changes"}, {label: "text: "}}
-		return m.askFor("Request: "+itemLine(it), steps, func(v []string) tea.Cmd {
+		isChange := func(v []string) bool {
+			intent, err := requestIntent(v[0])
+			return err == nil && intent == ops.IntentChange
+		}
+		steps := []promptStep{
+			{label: "changes, clarification, or investigation (c, l, i; enter for changes): ", optional: true},
+			{label: "what to change: ", skip: func(v []string) bool { return !isChange(v) }},
+			{label: "anything to add (enter to send): ", optional: true, skip: isChange},
+		}
+		return m.askForLines("Request: "+itemLine(it), requestLines(it), steps, func(v []string) tea.Cmd {
 			intent, err := requestIntent(v[0])
 			if err != nil {
 				return func() tea.Msg { return doneMsg{err: err} }
 			}
 			return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalRequest.Run(ctx, d, ops.ProposalRequestInput{ID: id, Item: item, Note: v[1], Intent: intent})
+				return ops.ProposalRequest.Run(ctx, d, ops.ProposalRequestInput{ID: id, Item: item, Note: v[1] + v[2], Intent: intent})
 			})
 		})
 	case "hold":
@@ -632,12 +640,23 @@ func requestIntent(s string) (ops.NoteIntent, error) {
 	switch {
 	case s == "" || strings.HasPrefix("changes", s):
 		return ops.IntentChange, nil
-	case strings.HasPrefix("clarification", s):
+	case s == "l" || strings.HasPrefix("clarification", s):
 		return ops.IntentClarify, nil
 	case strings.HasPrefix("investigation", s):
 		return ops.IntentInvestigate, nil
 	}
 	return "", fmt.Errorf("request type %q: want changes, clarification, or investigation", s)
+}
+
+// requestLines keeps the item in view while the owner writes a request.
+func requestLines(it ops.ItemView) []string {
+	var out []string
+	for _, l := range strings.Split(strings.TrimSpace(strings.Join([]string{it.What, it.How, it.Impact, it.Body}, "\n")), "\n") {
+		if l = strings.TrimSpace(l); l != "" && len(out) < 5 {
+			out = append(out, "  "+l)
+		}
+	}
+	return out
 }
 
 // textAct runs an action of an item in full: Source shows the raw input, and

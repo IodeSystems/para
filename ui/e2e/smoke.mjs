@@ -739,7 +739,7 @@ try {
   await note.waitFor()
   check(rp.url().includes('itemreq=i1'), 'the request dialog is a URL overlay')
   check((await note.getByLabel('Quoted text').count()) === 0, 'a request has no quote field')
-  await note.getByRole('textbox', { name: /^Request/ }).fill('Say which quota and how much')
+  await note.getByRole('textbox', { name: /^What to change/ }).fill('Say which quota and how much')
   await note.getByRole('button', { name: 'Request' }).click()
   await note.waitFor({ state: 'hidden' })
   await i1.getByText('Say which quota and how much').waitFor()

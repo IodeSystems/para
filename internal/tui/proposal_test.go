@@ -124,6 +124,9 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	// A request is a chain of prompts: then approval is blocked.
 	d.key("r")
 	d.key("enter") // the default type: changes
+	if !d.has("what to change") {
+		t.Errorf("no text prompt:\n%s", d.plainFrame())
+	}
 	d.typeText("Use her full name")
 	d.key("enter")
 	if it := d.item(v, id, "i1"); it.OpenNotes != 1 {

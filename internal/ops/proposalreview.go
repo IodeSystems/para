@@ -722,7 +722,7 @@ func (NoteIntent) Enum() []string {
 type ProposalRequestInput struct {
 	ID     string     `json:"id"`
 	Item   string     `json:"item"`
-	Note   string     `json:"note"`             // the request, in words
+	Note   string     `json:"note,omitempty"`   // the request, in words; required for a change
 	Intent NoteIntent `json:"intent,omitempty"` // change (default), clarify, or investigate; redirect is the old word for change
 }
 
@@ -733,9 +733,6 @@ type ProposalRequestInput struct {
 // is recorded as an attempt on the item's task or Ask when the agent answers.
 var ProposalRequest = definePerson("proposal_request", "Request changes, a clarification, or an investigation on a proposal item. The agent answers in a revision; the item cannot be approved until it does. People only", func(ctx context.Context, d Deps, in ProposalRequestInput) (ProposalReviewOutput, error) {
 	note := strings.TrimSpace(in.Note)
-	if note == "" {
-		return ProposalReviewOutput{}, errors.New("request is empty")
-	}
 	var kind model.TurnKind
 	switch in.Intent {
 	case "", IntentChange, IntentRedirect:
@@ -746,6 +743,17 @@ var ProposalRequest = definePerson("proposal_request", "Request changes, a clari
 		kind = model.TurnInvestigate
 	default:
 		return ProposalReviewOutput{}, fmt.Errorf("intent %q: want change, clarify, or investigate", in.Intent)
+	}
+	if note == "" {
+		// Only a change needs words; the agent knows what to do with the other two.
+		switch kind {
+		case model.TurnClarify:
+			note = "Explain why you propose this and what it is based on."
+		case model.TurnInvestigate:
+			note = "Look into this and come back with sources."
+		default:
+			return ProposalReviewOutput{}, errors.New("say what to change")
+		}
 	}
 	info := d.Store.Info()
 	var made string

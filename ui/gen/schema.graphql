@@ -2943,7 +2943,7 @@ input para_ProposalRequestInputInput {
   id: String!
   intent: para_ProposalRequestInputIntent
   item: String!
-  note: String!
+  note: String
 }
 
 enum para_ProposalRequestInputIntent {

@@ -315,6 +315,20 @@ func TestHoldOnRequest(t *testing.T) {
 	}
 }
 
+func TestRequestNeedsWordsOnlyForChanges(t *testing.T) {
+	f := newPropFix(t)
+	id := f.file(mailItem("One."), mailItem("Two."), mailItem("Three."))
+	if _, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i1"}); err == nil {
+		t.Error("a change with no words was accepted")
+	}
+	if _, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i2", Intent: IntentClarify}); err != nil {
+		t.Errorf("clarify with no words: %v", err)
+	}
+	if _, err := ProposalRequest.Run(t.Context(), f.owner, ProposalRequestInput{ID: id, Item: "i3", Intent: IntentInvestigate}); err != nil {
+		t.Errorf("investigate with no words: %v", err)
+	}
+}
+
 func TestRequestQueuesOneRequest(t *testing.T) {
 	f := newPropFix(t)
 	id := f.file(mailItem("One."), mailItem("Two."))

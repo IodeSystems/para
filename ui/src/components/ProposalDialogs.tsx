@@ -192,7 +192,7 @@ function RequestDialog({
           <Button
             type="submit"
             variant="contained"
-            disabled={request.isPending || text.trim() === ''}
+            disabled={request.isPending || (type === 'change' && text.trim() === '')}
           >
             Request
           </Button>
@@ -215,10 +215,10 @@ function RequestDialog({
           ))}
         </TextField>
         <TextField
-          label="Request"
+          label={type === 'change' ? 'What to change' : 'Anything to add (optional)'}
           value={text}
           onChange={(e) => setText(e.target.value)}
-          required
+          required={type === 'change'}
           multiline
           minRows={3}
           autoFocus
