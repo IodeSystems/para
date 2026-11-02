@@ -4,6 +4,8 @@ How to work a vault:
 3. An area is an ongoing responsibility with no end (`area_add`). A project is a bounded outcome (`project_add`, with an area when it has one). A task needs a project or an area (`task_add`). Set a due date with `task_due`. Order work with `task_depends_add`; a cycle is refused.
 4. Point at plans, repos, and docs with `area_link_add` and `project_link_add`. Para never reads the target.
 5. A blocker is `task_block` with a reason: who said it, and where it applies.
-6. To ask a person, search first, then `rfx_add` with what you checked, `rfx_draft` for the message, and `rfx_reply` when they answer. A no keeps its reason.
-7. Facts about people go in `org_person_add`, `org_person_contact_add`, and `org_person_note`.
-8. Run `lint` after a batch of writes and fix every error.
+6. Hand a task to a person with `task_assign`, or to an agent as agent:<name>. It leaves `next` and shows under `waiting` and in `who`. A recurring task (recur is daily, weekly, monthly, or "every 3 days") makes its next one when `task_done` runs; `task_done` with skip advances without doing it. Para has no scheduler: nothing recurs until someone marks it done.
+7. For a system you run, make an area and link its runbook and dashboards. When it breaks, `incident_add`; add timeline lines with `incident_note`; move it with `incident_status`; file follow-ups with `task_add` and the incident. Para is not a pager: alerts stay in monitoring, and para keeps the record and the follow-ups.
+8. To ask a person, search first, then `rfx_add` with what you checked, `rfx_draft` for the message, and `rfx_reply` when they answer. A no keeps its reason.
+9. Facts about people go in `org_person_add`, `org_person_contact_add`, and `org_person_note`.
+10. Run `lint` after a batch of writes and fix every error.

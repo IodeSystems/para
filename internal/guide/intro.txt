@@ -5,3 +5,4 @@ Plans, docs, and runbooks stay where they live; para links to them.
 
 It is not a documentation system, a long-running engineering plan, a pager,
 a scheduler, a calendar, or a sync tool. Those stay where they live.
+Alerts stay in monitoring; para keeps the incident record and its follow-up tasks.

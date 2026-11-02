@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/recur"
@@ -412,5 +413,37 @@ func TestIncidentFlow(t *testing.T) {
 	e.json(&lint, "lint")
 	if lint.Errors != 0 || lint.Warnings != 0 {
 		t.Fatalf("lint = %+v", lint)
+	}
+}
+
+// Every recur value and incident severity the guide shows is one para accepts.
+func TestGuideStreamUExamples(t *testing.T) {
+	var recurs, incidents int
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap()} {
+		for _, words := range guideCommands(text) {
+			for i, w := range words {
+				switch {
+				case w == "--recur" && i+1 < len(words):
+					recurs++
+					if _, err := recur.Parse(words[i+1]); err != nil {
+						t.Errorf("guide: %v", err)
+					}
+				case len(words) > 2 && words[1] == "incident" && words[2] == "add":
+					incidents++
+				}
+			}
+		}
+	}
+	if recurs < 3 || incidents < 1 {
+		t.Errorf("guide shows %d recur values and %d incident add lines: want recurrence and incident examples", recurs, incidents)
+	}
+	text := strings.Join(strings.Fields(guide.Orient()), " ")
+	for _, want := range []string{"alerts stay in monitoring", "task_assign", "incident_add", "incident_note", "incident_status"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("orient lacks %q", want)
+		}
+	}
+	if !strings.Contains(strings.Join(strings.Fields(guide.Intro()), " "), "Alerts stay in monitoring") {
+		t.Error("intro lacks the monitoring line")
 	}
 }
