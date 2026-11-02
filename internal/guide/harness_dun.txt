@@ -30,6 +30,9 @@ Use para from dun.
    dun adds the message to the conversation at the next tool result or turn. It
    does not start a turn on an idle session: this is read from dun's code, not
    run.
+   To let a notification start a turn on an idle session, add "wake": true to
+   the server in dun's config. It is off by default, because each wake is a paid
+   turn; dun allows one wake per 30 seconds and 20 an hour per server.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
    $ para proposal wait proposal-example --timeout 1h
