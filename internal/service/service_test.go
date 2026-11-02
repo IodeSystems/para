@@ -67,3 +67,12 @@ func TestEnvValue(t *testing.T) {
 		}
 	}
 }
+
+// Stop waits for the server to drain and for a dispatched command to end after
+// SIGTERM; the unit must allow for both before systemd kills the group.
+func TestUnitAllowsTimeToStopADispatchedCommand(t *testing.T) {
+	text := Unit{Name: "para", Exec: "/opt/para"}.Render()
+	if !strings.Contains(text, "TimeoutStopSec=30\n") {
+		t.Errorf("unit:\n%s", text)
+	}
+}

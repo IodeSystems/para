@@ -78,7 +78,9 @@ func (u Unit) Render() string {
 	for _, e := range u.Env {
 		fmt.Fprintf(&b, "Environment=%s\n", quote(e))
 	}
-	b.WriteString("TimeoutStopSec=15\nRestart=on-failure\nRestartSec=2\n\n[Install]\nWantedBy=default.target\n")
+	// Stopping waits up to 10 s for requests to finish, and up to 10 s more for a
+	// dispatched command to end after SIGTERM; the two overlap, and 30 s leaves margin.
+	b.WriteString("TimeoutStopSec=30\nRestart=on-failure\nRestartSec=2\n\n[Install]\nWantedBy=default.target\n")
 	return b.String()
 }
 

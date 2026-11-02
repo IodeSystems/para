@@ -15,9 +15,11 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/parasolve/internal/dispatch"
 	"github.com/iodesystems/parasolve/internal/export"
 	"github.com/iodesystems/parasolve/internal/keys"
 	"github.com/iodesystems/parasolve/internal/netguard"
+	"github.com/iodesystems/parasolve/internal/props"
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/server"
 	"github.com/iodesystems/parasolve/internal/service"
@@ -73,6 +75,8 @@ func doctorInstall(l *loader, r *report) {
 	}
 	for _, v := range vaults {
 		doctorVault(l, r, v.ID)
+		doctorTick(l, r, v.ID, v.Path)
+		doctorDispatch(l, r, v.ID)
 	}
 	if _, err := loadServeConfig(l, serveFlags{}); err != nil {
 		r.fail("server config", err.Error()+"; fix "+filepath.Join(l.install.Home, serverConfig))
@@ -107,6 +111,65 @@ func doctorVault(l *loader, r *report, id string) {
 		return
 	}
 	r.ok(what+" keys", fmt.Sprintf("%d", len(list)))
+}
+
+// doctorTick reports whether tick runs on this install for the vault: it does
+// only where request.runner names this install.
+func doctorTick(l *loader, r *report, id, path string) {
+	what := "vault " + id + " tick"
+	cfg, err := props.Load(filepath.Join(path, ".para", "vault.properties"))
+	if err != nil {
+		r.fail(what, err.Error())
+		return
+	}
+	install, err := l.install.ID()
+	if err != nil {
+		r.fail(what, err.Error())
+		return
+	}
+	switch runner := strings.TrimSpace(cfg["request.runner"]); runner {
+	case "":
+		r.warn(what, "no runner named: para tick refuses. To tick here, add request.runner="+install+" to .para/vault.properties")
+	case install:
+		r.ok(what, "this install is the runner")
+	default:
+		r.ok(what, "the runner is "+runner+", not this install: tick skips here")
+	}
+}
+
+// doctorDispatch reports the per-machine dispatch config of a vault. Dispatch
+// is off without agent.json, and a run of it spends tokens.
+func doctorDispatch(l *loader, r *report, id string) {
+	what := "vault " + id + " dispatch"
+	state := l.stateDir(id)
+	cfg, err := dispatch.LoadConfig(state)
+	if err != nil {
+		r.fail(what, err.Error()+"; fix "+dispatch.ConfigPath(state))
+		return
+	}
+	if cfg == nil {
+		r.ok(what, "off: no "+dispatch.FileName+", para starts nothing")
+		return
+	}
+	r.ok(what, fmt.Sprintf("on: %s (%d arguments), %d at a time, %d starts a day. A run starts an agent and spends tokens", cfg.Command[0], len(cfg.Command)-1, cfg.MaxConcurrent, cfg.DailyLimit))
+	if _, err := cfg.Program(); err != nil {
+		r.warn(what+" command", err.Error()+"; nothing can start until it is on PATH")
+	}
+	if err := cfg.CheckCwd(state); err != nil {
+		r.warn(what+" cwd", err.Error())
+	}
+	if p, err := unitPath(service.DefaultName); err == nil {
+		if _, installed := installedArgs(service.DefaultName); installed && !filepath.IsAbs(cfg.Command[0]) {
+			if !onPath(cfg.Command[0], service.EnvValue(p, "PATH")) {
+				r.warn(what+" service PATH", cfg.Command[0]+" is not on the service's PATH: reinstall from a shell that has it (para service install), or use an absolute path")
+			}
+		}
+	}
+	if s, err := dispatch.LoadState(state); err != nil {
+		r.fail(what+" state", err.Error())
+	} else {
+		r.ok(what+" state", fmt.Sprintf("%d runs in flight recorded, %d started on %s", len(s.Running), s.Started, s.Day))
+	}
 }
 
 func doctorTools(r *report) {
