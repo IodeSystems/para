@@ -1,0 +1,21 @@
+# build artifacts
+/dist/
+/tmp/
+*.test
+
+# vault runtime state
+.para/
+
+# secrets
+*.secret.properties
+*.secret.env
+
+# JS
+node_modules
+dist
+*.tsbuildinfo
+ui/.tanstack/
+
+# editor
+.idea/
+.DS_Store

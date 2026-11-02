@@ -1,0 +1,23 @@
+{
+  "name": "para-chrome",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.27.0",
+  "scripts": {
+    "build": "vite build",
+    "lint": "oxlint --type-aware",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.7",
+    "@types/node": "^26.4.1",
+    "oxlint": "^1.89.0",
+    "oxlint-tsgolint": "^7.0.2005",
+    "prettier": "^3.9.6",
+    "typescript": "~7.0.2",
+    "vite": "^8.2.2"
+  }
+}

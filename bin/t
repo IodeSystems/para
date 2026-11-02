@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# bin/t — the single test entry point (X-TEST-3).
+#
+#   bin/t             full suite
+#   bin/t <pattern>   filter by test name (go test -run)
+#   bin/t -l|--list   list test names without running
+#
+# Thin dispatcher over `go test`. stdout = results, stderr = diagnostics.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+case "${1:-}" in
+  -h|--help) sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
+  -l|--list) go test ./... -list '.*' | grep -E '^(Test|Benchmark|Example|Fuzz)[A-Za-z0-9_]*$' ;;
+  "")        go test ./... ;;
+  *)         go test ./... -run "$1" -v ;;
+esac

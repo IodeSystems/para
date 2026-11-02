@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# bin/dev — local dev stack (DEV-1..5). Plain bash.
+#
+#   bin/dev            foreground; Ctrl-C tears down
+#   bin/dev -d         detached (setsid, pgid in tmp/dev.pid, log in tmp/dev.log)
+#   bin/dev --stop     stop the detached stack
+#   bin/dev --status   running or not, with pgid and ports
+#
+# No server exists yet, so this runs Vite only. When `para serve` lands, add
+# air for the Go side here (DEV-7); API_PORT is already exported for the proxy.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+API_PORT="${API_PORT:-7700}"   # para serve
+UI_PORT=$((API_PORT + 1))      # DEV-2
+export API_PORT UI_PORT
+
+PIDFILE=tmp/dev.pid
+LOG=tmp/dev.log
+
+running() { [ -f "$PIDFILE" ] && kill -0 -- "-$(cat "$PIDFILE")" 2>/dev/null; }
+
+free_port() { # DEV-3
+  local pids
+  pids="$(lsof -ti "tcp:$1" -sTCP:LISTEN 2>/dev/null || true)"
+  [ -n "$pids" ] || return 0
+  kill $pids 2>/dev/null || true
+  sleep 0.3
+  pids="$(lsof -ti "tcp:$1" -sTCP:LISTEN 2>/dev/null || true)"
+  if [ -n "$pids" ]; then kill -9 $pids 2>/dev/null || true; fi
+}
+
+need() { # DEV-8: print the install line, never sudo
+  command -v "$1" >/dev/null 2>&1 && return 0
+  case "$(uname -s)" in
+    Linux)  echo "bin/dev: missing '$1' — install: sudo apt install -y $2" >&2 ;;
+    Darwin) echo "bin/dev: missing '$1' — install: brew install $3" >&2 ;;
+    *)      echo "bin/dev: missing '$1'" >&2 ;;
+  esac
+  exit 1
+}
+
+stop() {
+  if running; then
+    local pgid; pgid="$(cat "$PIDFILE")"
+    echo "==> stopping dev stack (pgid $pgid)" >&2
+    kill -- "-$pgid" 2>/dev/null || true
+    for _ in $(seq 1 50); do kill -0 -- "-$pgid" 2>/dev/null || break; sleep 0.1; done
+    if kill -0 -- "-$pgid" 2>/dev/null; then kill -9 -- "-$pgid" 2>/dev/null || true; fi
+  else
+    echo "==> dev stack: not running" >&2
+  fi
+  rm -f "$PIDFILE"
+  free_port "$UI_PORT"
+}
+
+detach=0 child=0
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \?//'; exit 0 ;;
+    -d|--detach|--detatch) detach=1 ;;
+    --run) child=1 ;;
+    --stop) stop; exit 0 ;;
+    --status)
+      if running; then echo "running (pgid $(cat "$PIDFILE"))  ui :$UI_PORT  api :$API_PORT (not started yet)"
+      else echo "not running  (ui :$UI_PORT)"; fi
+      exit 0 ;;
+    *) echo "bin/dev: unknown option '$arg'" >&2; exit 2 ;;
+  esac
+done
+
+mkdir -p tmp
+if [ "$child" = 0 ]; then
+  running && { echo "bin/dev: already running; --stop first" >&2; exit 1; }
+  need node nodejs node
+  need pnpm '' pnpm
+  need lsof lsof lsof
+  need setsid util-linux util-linux
+  echo "==> ui :$UI_PORT (vite). api :$API_PORT: no server yet." >&2
+fi
+
+if [ "$detach" = 1 ]; then # DEV-4
+  setsid bash "$0" --run >"$LOG" 2>&1 </dev/null &
+  for _ in $(seq 1 20); do running && break; sleep 0.2; done
+  running || { echo "bin/dev: failed to start; see $LOG" >&2; exit 1; }
+  echo "==> detached (pgid $(cat "$PIDFILE"))  logs: tail -f $LOG  stop: bin/dev --stop" >&2
+  exit 0
+fi
+
+ps -o pgid= -p $$ | tr -d ' ' > "$PIDFILE"
+trap 'rm -f "$PIDFILE"; kill 0 2>/dev/null || true' EXIT INT TERM
+free_port "$UI_PORT"
+cd ui
+[ -d node_modules ] || pnpm install # DEV-6
+pnpm dev
