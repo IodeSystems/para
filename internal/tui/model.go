@@ -393,6 +393,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.reopen()
 	case "graph":
 		m.push(page{kind: pageGraph, id: m.graphProject(), title: "graph"})
+	case "answer":
+		return m.answer()
 	default:
 		return m.proposalAct(name)
 	}

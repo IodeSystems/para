@@ -82,6 +82,7 @@ type Snapshot struct {
 	Requests   []ops.RequestView
 	Proposals  []ops.ProposalView // current revisions
 	Inbox      []ops.InboxItem
+	Questions  []ops.QuestionView // open, the ones that block the most first
 	Areas      []ops.AreaView
 	Projects   []ops.ProjectView
 	Tasks      []ops.TaskView
@@ -143,6 +144,9 @@ func Load(ctx context.Context, e Env) Snapshot {
 	}
 	if o, err := ops.InboxList.Run(ctx, e.Deps, ops.InboxListInput{}); note("inbox", err) {
 		s.Inbox = o.Items
+	}
+	if o, err := ops.QuestionList.Run(ctx, e.Deps, ops.QuestionListInput{}); note("questions", err) {
+		s.Questions = o.Questions
 	}
 	if o, err := ops.AreaList.Run(ctx, e.Deps, ops.AreaListInput{}); note("areas", err) {
 		s.Areas = o.Areas

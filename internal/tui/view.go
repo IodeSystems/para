@@ -19,6 +19,7 @@ var (
 	actAccept  = Target{ID: "act:accept", Label: "Accept", Pref: 'a'}
 	actReopen  = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
 	actGraph   = Target{ID: "act:graph", Label: "Graph"}
+	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
 )
 
 // markFor shows a key on a label. The label may differ from the one the key
@@ -94,7 +95,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	case tabReview:
 		return m.rowsReview(w), append([]Target{actAccept, actReopen}, acts...)
 	case tabWork:
-		return m.rowsWork(w), append([]Target{actGraph}, acts...)
+		return m.rowsWork(w), append([]Target{actGraph, actAnswer}, acts...)
 	case tabRFX:
 		return m.rowsRFX(w), acts
 	case tabPeople:
@@ -102,7 +103,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), acts
+	return m.rowsToday(w), append([]Target{actAnswer}, acts...)
 }
 
 // drawList draws the visible rows and assigns keys to the actions and to the

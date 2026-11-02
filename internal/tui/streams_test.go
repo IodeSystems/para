@@ -85,3 +85,97 @@ func TestTodayShowsIncidentsFirstAndWaiting(t *testing.T) {
 		t.Errorf("a resolved incident is still on Today:\n%s", text)
 	}
 }
+
+func TestTodayAnswersAQuestion(t *testing.T) {
+	v := newTestVault(t)
+	v.seed()
+	ctx := context.Background()
+	deps := v.env.Deps
+	a, err := ops.AreaAdd.Run(ctx, deps, ops.AreaAddInput{Title: "Atlas service"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	q, err := ops.QuestionAdd.Run(ctx, deps, ops.QuestionAddInput{Text: "Decide B-1: config path for prod", Area: a.ID,
+		Kind: model.KindDecision, Options: []string{"/etc/atlas", "/opt/atlas"}, Recommended: "/opt/atlas"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := ops.QuestionAdd.Run(ctx, deps, ops.QuestionAddInput{Text: "Who signs off?", Root: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task, err := ops.TaskAdd.Run(ctx, deps, ops.TaskAddInput{Area: a.ID, Title: "Deploy to prod", DependsOn: []string{q.ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := newDrv(t, v, 120, 60)
+	text := rowText(d.m.rowsToday(120))
+	for _, want := range []string{"Questions (2)", "Decide B-1: config path for prod", "decision", "blocks 1", "Who signs off?", "root"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("Today lacks %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(rowText(d.m.rowsToday(120)), "Deploy to prod") {
+		t.Error("a task waiting on a question is ready")
+	}
+	onQuestion := func(id string) {
+		t.Helper()
+		for i := 0; i < 60; i++ {
+			if r, ok := d.m.current(); ok && r.kind == "question" && r.id == id {
+				return
+			}
+			d.key("j")
+		}
+		t.Fatalf("cursor never reached %s", id)
+	}
+	// A decision: the recommended option is prefilled, the reason is required.
+	onQuestion(q.ID)
+	d.key(d.keyFor("act:answer"))
+	if !d.has("2  /opt/atlas") || !d.has("recommended") {
+		t.Fatalf("no options shown:\n%s", d.plainFrame())
+	}
+	d.key("enter") // accept the prefilled 2
+	d.key("enter") // no reason: stays
+	if !d.has("why:") {
+		t.Fatalf("a decision went through with no reason:\n%s", d.plainFrame())
+	}
+	d.typeText("Matches the image.")
+	d.key("enter")
+	got, err := ops.QuestionShow.Run(ctx, deps, ops.QuestionShowInput{ID: q.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Question.Status != model.QuestionAnswered || got.Question.Choice != "/opt/atlas" || !strings.Contains(got.Body, "- Why: Matches the image.") ||
+		!strings.Contains(got.Body, "via tui") {
+		t.Fatalf("question = %+v\n%s", got.Question, got.Body)
+	}
+	// The dependent is ready at once, and the answered question left the list.
+	text = rowText(d.m.rowsToday(120))
+	if !strings.Contains(text, "Questions (1)") || !strings.Contains(text, "Deploy to prod") {
+		t.Fatalf("Today after the answer:\n%s", text)
+	}
+	// Free text for a question with no options.
+	onQuestion(root.ID)
+	d.key(d.keyFor("act:answer"))
+	d.typeText("Sam Example")
+	d.key("enter")
+	got, err = ops.QuestionShow.Run(ctx, deps, ops.QuestionShowInput{ID: root.ID})
+	if err != nil || got.Question.Status != model.QuestionAnswered || !strings.Contains(got.Body, "Sam Example") {
+		t.Fatalf("root = %+v, %v", got.Question, err)
+	}
+	_ = task
+}
+
+func TestAnswerInput(t *testing.T) {
+	q := ops.QuestionView{ID: "question-x", Options: []string{"Nov 14", "Nov 21"}}
+	for typed, want := range map[string]ops.QuestionAnswerInput{
+		"2":       {ID: "question-x", Choice: "Nov 21"},
+		"nov 14":  {ID: "question-x", Choice: "Nov 14"},
+		"3":       {ID: "question-x", Text: "3"},
+		"Dec 5th": {ID: "question-x", Text: "Dec 5th"},
+	} {
+		if got := answerInput(q, typed, ""); got.Choice != want.Choice || got.Text != want.Text {
+			t.Errorf("%q: got %+v, want %+v", typed, got, want)
+		}
+	}
+}

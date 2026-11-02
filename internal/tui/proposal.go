@@ -406,6 +406,7 @@ type promptStep struct {
 // promptState is the prompt overlay: steps run in order, then done.
 type promptState struct {
 	title string
+	lines []string // shown between the title and the input
 	steps []promptStep
 	vals  []string
 	done  func(vals []string) tea.Cmd

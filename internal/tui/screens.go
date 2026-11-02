@@ -109,6 +109,7 @@ func (m *Model) rowsToday(w int) []row {
 		}
 		section("Incidents", inc)
 	}
+	section("Questions", m.questionRows(w))
 	section("Overdue", dated(s.Today.Overdue.Items))
 	section("Due soon", dated(s.Today.DueSoon.Items))
 	var nudge []row
@@ -168,6 +169,30 @@ func (m *Model) rowsToday(w int) []row {
 		r = append(r, dim(fmt.Sprintf("  vault %s: incidents %d, due %d, nudges %d, blocked %d, inbox %d", o.Vault, o.Incidents.Count, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
 	}
 	return r
+}
+
+// questionRows lists the open questions: kind, scope, and what each blocks.
+// Answer acts on the row under the cursor.
+func (m *Model) questionRows(w int) []row {
+	var rows []row
+	for _, q := range m.snap.Questions {
+		pre := "  " + stWarn.Render(string(q.Kind)) + "  "
+		post := "  " + stDim.Render(scopeLabel(q))
+		if q.Blocking > 0 {
+			post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
+		}
+		x := link("doc:"+q.ID, pre, titleOr(q.Title, q.ID), post, w)
+		x.kind, x.id = "question", q.ID
+		rows = append(rows, x)
+	}
+	return rows
+}
+
+func scopeLabel(q ops.QuestionView) string {
+	if q.ScopeType == ops.ScopeRoot {
+		return "root"
+	}
+	return q.Scope
 }
 
 // review returns the derived Review data for the current snapshot.
@@ -310,6 +335,10 @@ func (m *Model) rowsWork(w int) []row {
 		if !inArea[p.Area] {
 			projectRows(p)
 		}
+	}
+	if len(s.Questions) > 0 {
+		r = append(r, head(fmt.Sprintf("Open questions (%d)", len(s.Questions))))
+		r = append(r, m.questionRows(w)...)
 	}
 	if len(s.Cycles) > 0 {
 		r = append(r, head("Cycles"))
