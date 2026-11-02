@@ -169,6 +169,14 @@ One idempotent pass per vault: it makes the next occurrence of a recurring task 
   $ para request add "Summarize the portal project" --link project-portal
 Dispatch is off unless this machine has $PARA_HOME/vaults/<vault>/agent.json. It is never in the vault. With it, para serve starts the command when a request can be claimed on this install, with the request id in the environment variable PARA_REQUEST. The command claims the request itself, so a prompt that tells the agent to call request_next is enough. Every run starts an agent, so dispatch spends tokens; max_concurrent (default 1) and daily_limit (default 10) bound it, and the count survives a restart. The command is an argument list, never a shell string; the only vault-derived value it receives is the request id, which must be a plain id. A run's output goes to a log file in the state directory, mode 0600. para mcp --help-claude and para mcp --help-dun show the file.
 
+19. Journals by level: day, week, month
+  $ para journal
+  $ para journal show 2026-w44
+  $ para journal summary 2026-11-01
+  $ para journal daily 2026-11-01
+Para keeps a journal of the day, the week, and the month, built from events: counts and links. para tick makes them: the previous local day once it has ended, the previous ISO week after Sunday, the previous month after its last day. It catches up on missed periods after downtime, up to 14 days back, and never rewrites one that exists. This part is mechanical and spends no tokens. Run para tick from cron, for example "5 * * * * para tick --all" (hourly is enough; it is idempotent), or let para serve run it. It still needs request.runner in .para/vault.properties.
+For prose, set journal.agent=<name> in .para/vault.properties. Tick then queues one request per journal, linked to it, for that agent: a day summary from the events, a week from the day summaries, a month from the week summaries. THE NARRATIVE SPENDS TOKENS: one agent run per day, week, and month that had events. A period with no events gets no request. Requests follow request.surfaces: from tick they are only proposed until you add tick to that list (request.surfaces=cli,tui,pwa,tick) or run para request accept. Nothing starts an agent unless dispatch is set up (use case 18) or an agent loops on request_next. The agent uses the prompt journal_lod and the op journal_summary, which writes one marked section of the journal, recorded under its actor. Your own text in the journal is never touched. Without journal.agent you get the mechanical journals only.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -190,4 +198,5 @@ Where does this go?
   an email or PR an agent wants to send      a proposal with an external item
   a conversation with people at a time      a meeting, linked to the requests it serves
   what is dated this week                    para agenda
+  what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens
   a reminder at a time, a page               not para: use a calendar or a pager

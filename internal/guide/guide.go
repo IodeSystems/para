@@ -35,6 +35,8 @@ var (
 	reviewCycle string
 	//go:embed processmeeting.txt
 	processMeeting string
+	//go:embed journallod.txt
+	journalLOD string
 	//go:embed raglit.txt
 	raglitHelp string
 )
@@ -60,6 +62,10 @@ func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
 // ProcessMeeting is the MCP prompt "process_meeting": one proposal from a
 // transcript.
 func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
+
+// JournalLOD is the MCP prompt "journal_lod": how to write the day, week, and
+// month summaries of a journal.
+func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
 
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.

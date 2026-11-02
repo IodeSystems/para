@@ -16,6 +16,7 @@ Use para from Claude Code.
    /mcp__para-<vault>__bootstrap   an interview that fills a new vault
    /mcp__para-<vault>__review_cycle   how to file a proposal and act on the review
    /mcp__para-<vault>__process_meeting   turn a transcript into one proposal
+   /mcp__para-<vault>__journal_lod   write a day, week, or month journal summary
 
 5. Events record the actor `claude`. Change `--actor` to tell agents apart.
 

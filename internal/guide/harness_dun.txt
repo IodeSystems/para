@@ -16,6 +16,7 @@ Use para from dun.
    /para-<vault>:bootstrap   an interview that fills a new vault
    /para-<vault>:review_cycle   how to file a proposal and act on the review
    /para-<vault>:process_meeting   turn a transcript into one proposal
+   /para-<vault>:journal_lod   write a day, week, or month journal summary
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
