@@ -90,6 +90,7 @@ func newRoot(l *loader) *cobra.Command {
 		newReconcileCmd(l),
 		newEventsCmd(l),
 		newInboxCmd(l),
+		newMCPCmd(l),
 	)
 	return root
 }

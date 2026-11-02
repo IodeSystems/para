@@ -62,7 +62,7 @@ const eventsTailDefault = 20
 
 // EventsTailInput is the input of events_tail.
 type EventsTailInput struct {
-	Limit int `json:"limit"` // 0 means 20
+	Limit int `json:"limit,omitempty"` // 0 means 20
 }
 
 // EventsTailOutput is the output of events_tail.
