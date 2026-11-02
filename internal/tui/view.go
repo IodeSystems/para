@@ -22,6 +22,7 @@ var (
 	actGraph    = Target{ID: "act:graph", Label: "Graph", Pref: 'h'}
 	actAnswer   = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
 	actReject   = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
+	actReword   = Target{ID: "act:reword", Label: "Reword", Pref: 'w'}
 	actMeta     = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
 	actByDate   = Target{ID: "act:bydate", Label: "By date", Pref: 'b'}
 	actRespond  = Target{ID: "act:respond", Label: "Respond", Pref: 'p'}

@@ -254,7 +254,7 @@ func TestQuestionActionKeysDoNotClash(t *testing.T) {
 					seen[code] = id
 				}
 			}
-			for _, id := range []string{"act:answer", "act:drop", "act:ask", "act:find", "act:later", "act:cut"} {
+			for _, id := range []string{"act:answer", "act:reword", "act:drop", "act:ask", "act:find", "act:later", "act:cut"} {
 				found := false
 				for _, got := range seen {
 					found = found || got == id

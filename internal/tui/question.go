@@ -184,3 +184,39 @@ func (m *Model) runAnswer(q ops.QuestionView, typed, why string, sources []model
 		return doneMsg{text: text, reload: true}
 	}
 }
+
+// rewordQuestion changes the title and the context of an open question through
+// question_edit. It is the question's edit: e is Reject answer on a question.
+func (m *Model) rewordQuestion() tea.Cmd {
+	q, ok := m.targetQuestion("reword")
+	if !ok {
+		return nil
+	}
+	if q.Status != model.QuestionOpen {
+		m.setHint("Only an open question can be reworded.")
+		return nil
+	}
+	steps := []promptStep{
+		{label: "title: ", value: q.Title},
+		{label: "context, what is needed to decide (empty keeps it): ", value: strings.ReplaceAll(q.Context, "\n", " "), optional: true},
+	}
+	return m.askForLines("Reword", []string{"  Options and the recommendation stay as they are."}, steps, func(v []string) tea.Cmd {
+		env := m.env
+		return func() tea.Msg {
+			in := ops.QuestionEditInput{ID: q.ID}
+			if t := strings.TrimSpace(v[0]); t != q.Title {
+				in.Title = t
+			}
+			if c := strings.TrimSpace(v[1]); c != strings.TrimSpace(strings.ReplaceAll(q.Context, "\n", " ")) {
+				in.Context = c
+			}
+			if in.Title == "" && in.Context == "" {
+				return doneMsg{text: "Nothing changed."}
+			}
+			if _, err := ops.QuestionEdit.Run(context.Background(), env.Deps, in); err != nil {
+				return doneMsg{err: err}
+			}
+			return doneMsg{text: "Reworded " + titleOr(in.Title, q.Title) + ".", reload: true}
+		}
+	})
+}

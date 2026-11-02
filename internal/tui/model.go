@@ -486,6 +486,8 @@ func (m *Model) act(name string) tea.Cmd {
 		return m.answer()
 	case "reject":
 		return m.rejectAnswer()
+	case "reword":
+		return m.rewordQuestion()
 	case "drop":
 		return m.dropQuestion()
 	case "ask":

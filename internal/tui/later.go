@@ -25,10 +25,10 @@ var (
 
 // questionActLetters are the preferred letters of the question actions. A
 // document page keeps its link keys off them.
-const questionActLetters = "aepsflu"
+const questionActLetters = "aepsfluw"
 
 // questionActs are the actions of a question row, in footer order.
-var questionActs = []Target{actAnswer, actReject, actDrop, actAsk, actLater, actCut}
+var questionActs = []Target{actAnswer, actReject, actReword, actDrop, actAsk, actLater, actCut}
 
 // actTarget is what a row action applies to: an open question or a task.
 type actTarget struct {
