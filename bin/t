@@ -9,6 +9,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Vault writes fsync, and that is most of the test time on a real disk: tests
+# run about 30x faster on tmpfs. PARA_TEST_DISK=1 keeps them on disk.
+if [[ -d /dev/shm && -w /dev/shm && -z "${PARA_TEST_DISK:-}" ]]; then
+  TMPDIR="$(mktemp -d /dev/shm/para-t.XXXXXX)"
+  export TMPDIR
+  trap 'rm -rf "$TMPDIR"' EXIT
+fi
+
 case "${1:-}" in
   -h|--help) sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
   -l|--list) go test ./... -list '.*' | grep -E '^(Test|Benchmark|Example|Fuzz)[A-Za-z0-9_]*$' ;;
