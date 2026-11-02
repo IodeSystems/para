@@ -1,8 +1,16 @@
+import { useState } from 'react'
+import Button from '@mui/material/Button'
+import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import Menu from '@mui/material/Menu'
+import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import EventIcon from '@mui/icons-material/Event'
 import { useQuestions } from '@/api/questions'
+import { useTaskDone, useTaskDue } from '@/api/tasks'
 import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
@@ -107,5 +115,59 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
         )
       })}
     </List>
+  )
+}
+
+// plusDays is the date `n` days after an ISO date, as an ISO date.
+function plusDays(date: string, n: number): string {
+  const [y, m, d] = date.split('-').map(Number)
+  return localDate(new Date(y ?? 1970, (m ?? 1) - 1, (d ?? 1) + n))
+}
+
+// TaskInline is Done and a date action on a task row, in place: no dialog. The date menu offers
+// today, tomorrow, next week, or any day.
+export function TaskInline({ id, title }: { id: string; title: string }) {
+  const done = useTaskDone()
+  const due = useTaskDue()
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const today = localDate()
+  const set = (date: string) => {
+    setAnchor(null)
+    due.mutate({ id, date })
+  }
+  return (
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', flexShrink: 0 }}>
+      <Button
+        size="small"
+        disabled={done.isPending}
+        aria-label={`Done: ${title}`}
+        onClick={() => done.mutate({ id })}
+      >
+        Done
+      </Button>
+      <IconButton
+        size="small"
+        aria-label={`Change the date of ${title}`}
+        aria-haspopup="menu"
+        onClick={(e) => setAnchor(e.currentTarget)}
+      >
+        <EventIcon fontSize="small" />
+      </IconButton>
+      <Menu anchorEl={anchor} open={!!anchor} onClose={() => setAnchor(null)}>
+        <MenuItem onClick={() => set(today)}>Today</MenuItem>
+        <MenuItem onClick={() => set(plusDays(today, 1))}>Tomorrow</MenuItem>
+        <MenuItem onClick={() => set(plusDays(today, 7))}>In a week</MenuItem>
+        <MenuItem disableRipple sx={{ '&:hover': { bgcolor: 'transparent' } }}>
+          <TextField
+            type="date"
+            size="small"
+            label="Another day"
+            slotProps={{ inputLabel: { shrink: true } }}
+            onKeyDown={(e) => e.stopPropagation()}
+            onChange={(e) => e.target.value && set(e.target.value)}
+          />
+        </MenuItem>
+      </Menu>
+    </Stack>
   )
 }

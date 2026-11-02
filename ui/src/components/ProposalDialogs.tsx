@@ -41,14 +41,13 @@ export function ProposalDialogs({ s, onDone }: Props) {
 
 const ACTION_TITLE: Record<string, string> = {
   deny: 'Deny',
-  rework: 'Rework',
   sendback: 'Send back',
   hold: 'Needs first',
 }
 
 function DecideDialog({
   id,
-  action,
+  action: asked,
   item,
   onDone,
 }: {
@@ -57,6 +56,12 @@ function DecideDialog({
   item: string
   onDone: (m: string) => void
 }) {
+  // Rework and Send back are one action here. An old link that says rework still works.
+  const action = asked === 'rework' ? 'sendback' : asked
+  const p = useProposal(id)
+  const it = p.data?.items.find((x) => x.id === item)
+  // With edits or notes the item goes back as it is; without, the reason is the message.
+  const hasEdits = !!it?.actions.includes('send_back')
   const close = useClose()
   const deny = useDeny()
   const rework = useRework()
@@ -71,17 +76,17 @@ function DecideDialog({
   const m =
     action === 'deny'
       ? deny
-      : action === 'rework'
-        ? rework
-        : action === 'sendback'
+      : action === 'sendback'
+        ? hasEdits
           ? sendback
-          : action === 'hold'
-            ? hold
-            : null
+          : rework
+        : action === 'hold'
+          ? hold
+          : null
   const title = ACTION_TITLE[action]
   if (!title || !m) return null
-  const reasonRequired = action === 'deny' || action === 'rework'
-  const ok = action === 'sendback' || reason.trim() !== ''
+  const reasonRequired = action === 'deny' || (action === 'sendback' && !hasEdits)
+  const ok = !reasonRequired && action !== 'hold' ? true : reason.trim() !== ''
   const done = (msg: string) => {
     onDone(msg)
     close()
@@ -89,8 +94,8 @@ function DecideDialog({
   const submit = () => {
     const r = reason.trim()
     if (action === 'deny') deny.mutate({ id, item, reason: r }, { onSuccess: () => done('Denied') })
-    else if (action === 'rework')
-      rework.mutate({ id, item, reason: r }, { onSuccess: () => done('Returned for rework') })
+    else if (action === 'sendback' && !hasEdits)
+      rework.mutate({ id, item, reason: r }, { onSuccess: () => done('Sent back to the agent') })
     else if (action === 'sendback')
       sendback.mutate(
         { id, item, reason: r || undefined },
@@ -111,7 +116,7 @@ function DecideDialog({
   }
   return (
     <Frame
-      title={`${title} ${item}`}
+      title={`${title}: ${it?.summary ?? 'this item'}`}
       onSubmit={submit}
       actions={
         <>
@@ -139,7 +144,7 @@ function DecideDialog({
           label={action === 'hold' ? (kind === 'task' ? 'Task title' : 'Ask') : 'Reason'}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          required={action !== 'sendback'}
+          required={reasonRequired || action === 'hold'}
           multiline
           minRows={2}
           autoFocus
@@ -196,7 +201,7 @@ function NoteDialog({
   const anchored = it ? quoteAnchors(it, quote) : true
   return (
     <Frame
-      title={`Note on ${item}`}
+      title={`Note on: ${it?.summary ?? 'this item'}`}
       onSubmit={() =>
         annotate.mutate(
           { id, item, quote: quote.trim(), note: note.trim() },
@@ -270,7 +275,7 @@ function EditDialog({
   const it = p.data?.items.find((x) => x.id === item)
   if (!it) {
     return (
-      <Frame title={`Edit ${item}`} actions={<CloseOnly />}>
+      <Frame title="Edit" actions={<CloseOnly />}>
         <Typography>{p.isError ? errorText(p.error) : 'Loading'}</Typography>
       </Frame>
     )
@@ -284,6 +289,7 @@ function CloseOnly() {
 }
 
 type EditItem = {
+  summary?: string | null
   kind: string
   draft?: string | null
   target?: string | null
@@ -333,7 +339,7 @@ function EditForm({
   }
   return (
     <Frame
-      title={`Edit ${item}`}
+      title={`Edit: ${it.summary ?? 'this item'}`}
       onSubmit={submit}
       actions={
         <>

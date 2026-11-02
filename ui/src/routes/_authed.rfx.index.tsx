@@ -4,7 +4,7 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import { useRfxList } from '@/api/rfx'
-import { Empty, PageTitle, StateChip } from '@/components/Bits'
+import { CHIP_ROW, Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { RfxLink } from '@/components/DocLink'
 import { nameList, nameOr } from '@/lib/names'
@@ -27,7 +27,12 @@ function RfxList() {
           ) : (
             <List disablePadding>
               {items.map((x) => (
-                <ListItem key={x.id} disableGutters divider alignItems="flex-start">
+                <ListItem
+                  key={x.id}
+                  disableGutters
+                  divider
+                  sx={{ ...CHIP_ROW, alignItems: { xs: 'flex-start', sm: 'flex-start' } }}
+                >
                   <ListItemText
                     primary={<RfxLink id={x.id}>{x.title || x.id}</RfxLink>}
                     secondary={[
@@ -43,7 +48,12 @@ function RfxList() {
                   />
                   <Stack
                     direction="row"
-                    sx={{ maxWidth: '45%', flexWrap: 'wrap', gap: 0.5, justifyContent: 'flex-end' }}
+                    sx={{
+                      maxWidth: { xs: '100%', sm: '45%' },
+                      flexWrap: 'wrap',
+                      gap: 0.5,
+                      justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+                    }}
                   >
                     {x.targets.map((t, i) => (
                       <StateChip

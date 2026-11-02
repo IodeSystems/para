@@ -49,3 +49,10 @@ export function parseInputObject(
   }
   return { ok: true, value: v as Record<string, unknown> }
 }
+
+// UNTRUSTED_WORDS is what the untrusted mark means, in one sentence.
+export const UNTRUSTED_WORDS = 'This text came from a document, not from you.'
+
+// EXTERNAL_PROMISE says what approving an email does.
+export const EXTERNAL_PROMISE =
+  'Approving marks this OK to send. Para does not send it: send it yourself, or tell the agent to.'

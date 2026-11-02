@@ -376,10 +376,10 @@ try {
   await page.keyboard.press('2')
   await page.waitForURL(/\/review/)
   await page.keyboard.press('?')
-  await page.getByRole('dialog', { name: 'Keyboard' }).waitFor()
+  await page.getByRole('dialog', { name: 'Help' }).waitFor()
   check(page.url().includes('help=true'), 'help is a URL overlay')
   await page.goBack()
-  await page.getByRole('dialog', { name: 'Keyboard' }).waitFor({ state: 'hidden' })
+  await page.getByRole('dialog', { name: 'Help' }).waitFor({ state: 'hidden' })
   check(true, 'Back closes the help overlay')
 
   // Review: the agent's change is listed; accept clears it.
@@ -518,9 +518,12 @@ try {
     await page.getByText('unverified').first().isVisible(),
     'policy list marks an unverified summary',
   )
-  await page.getByRole('tab', { name: /Constraints/ }).click()
+  // On a phone the four tabs are one select.
+  check((await page.getByRole('tab').count()) === 0, 'a phone shows Policy as a select, not tabs')
+  await page.getByRole('combobox', { name: 'Show' }).click()
+  await page.getByRole('option', { name: /Constraints/ }).click()
   await page.getByText('No prod access').waitFor()
-  check(true, 'constraints tab lists the constraint')
+  check(true, 'constraints list the constraint')
   await page.keyboard.press('/')
   await page.getByLabel(/Search documents/).fill('Logs')
   await page.keyboard.press('Enter')
@@ -626,11 +629,22 @@ try {
   await rp.waitForURL(new RegExp(`/proposals/${filed.id}$`))
   await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
   check(true, 'Review lists the proposal and links to /proposals/$id')
+  check(
+    await rp.getByText('This text came from a document, not from you.').isVisible(),
+    'the first proposal a browser opens explains untrusted text',
+  )
   await rp.goto(`${base}/today`)
-  await rp.getByText(/Needs you: 1 proposal to decide/).waitFor()
-  check(true, 'Today puts the proposal first in the needs-you line')
+  await rp.getByText(/Start here - Proposal from/).waitFor()
+  check(
+    (await rp.getByText(/Needs you:/).count()) === 0,
+    'Today puts the proposal first, with no Needs you sentence',
+  )
   await rp.getByRole('link', { name: 'Menu' }).click()
-  await rp.getByRole('navigation').getByText('1 proposal to decide').waitFor()
+  await rp
+    .getByRole('navigation')
+    .filter({ hasText: 'Questions' })
+    .getByText('1 proposal to decide')
+    .waitFor()
   check(true, 'the menu marks Review with the proposal count')
   await rp.goto(`${base}/proposals/${filed.id}`)
   await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
@@ -638,19 +652,13 @@ try {
     (await rp.getByText('untrusted', { exact: true }).count()) >= 1,
     'evidence carries a small untrusted mark',
   )
-  const note1 = rp.getByText(/Evidence is marked/)
-  check(await note1.isVisible(), 'the untrusted explanation shows once')
-  await rp.getByRole('button', { name: 'Close' }).first().click()
-  check((await note1.count()) === 0, 'the untrusted explanation can be dismissed')
-  await rp.reload()
-  await rp.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
   check(
-    (await rp.getByText(/Evidence is marked/).count()) === 0,
-    'a dismissed explanation stays dismissed',
+    (await rp.getByText('This text came from a document, not from you.').count()) === 0,
+    'the untrusted explanation does not return on the next visit',
   )
   check(
-    await rp.getByText('Para never sends this').isVisible(),
-    'external item says para never sends it',
+    await rp.getByText('Approving marks this OK to send. Para does not send it').isVisible(),
+    'a pending email says what approving does',
   )
   check(
     await rp.getByText('Sam will look at the quota').first().isVisible(),
@@ -662,8 +670,12 @@ try {
     (await i1.getByRole('button', { name: 'Approve' }).count()) === 1,
     'a clean item offers approve',
   )
-  check((await menuCount(i1, 'Send back')) === 0, 'a clean item offers no send back')
-  check((await menuCount(i1, 'Rework')) === 1, 'rework sits in the item menu')
+  check((await menuCount(i1, 'Send back')) === 1, 'a clean item offers send back in the menu')
+  check((await menuCount(i1, 'Rework')) === 0, 'there is no separate rework')
+  check(
+    (await i1.getByRole('link', { name: 'Deny' }).count()) === 1,
+    'Deny is visible beside Approve',
+  )
   check((await rp.getByRole('menu').count()) === 0, 'the menu is closed again')
 
   // A read-only key sees no decisions.
@@ -692,8 +704,8 @@ try {
     sel.removeAllRanges()
     sel.addRange(r)
   })
-  await more(i1, 'Note on selection')
-  const note = rp.getByRole('dialog', { name: /Note on i1/ })
+  await more(i1, 'Note')
+  const note = rp.getByRole('dialog', { name: /Note on/ })
   await note.waitFor()
   check(rp.url().includes('note=i1'), 'the note dialog is a URL overlay')
   check(
@@ -715,18 +727,21 @@ try {
 
   // An edit without a note: approve as edited, or send back. Deny is gone.
   await more(i2, 'Edit')
-  const edit = rp.getByRole('dialog', { name: /Edit i2/ })
+  const edit = rp.getByRole('dialog', { name: /^Edit/ })
   await edit
     .getByLabel('Input (JSON, in full)')
     .fill(JSON.stringify({ title: 'Follow up on the quota ticket', project: proj }))
   await edit.getByRole('button', { name: 'Save edit' }).click()
   await edit.waitFor({ state: 'hidden' })
   await i2.getByRole('button', { name: 'Approve as edited' }).waitFor()
-  check((await menuCount(i2, 'Deny')) === 0, 'an edited item cannot be denied')
+  check(
+    (await i2.getByRole('link', { name: 'Deny' }).count()) === 0,
+    'an edited item cannot be denied',
+  )
 
   // Deny and rework need a reason; try rework on nothing here, check the form on a fresh proposal below.
   await i1.getByRole('link', { name: 'Send back' }).click()
-  const sb = rp.getByRole('dialog', { name: /Send back i1/ })
+  const sb = rp.getByRole('dialog', { name: /Send back/ })
   await sb.getByLabel('Reason').fill('Name the number')
   await sb.getByRole('button', { name: 'Send back' }).click()
   await sb.waitFor({ state: 'hidden' })
@@ -775,19 +790,23 @@ try {
   // Approve as edited: the hash binds to the owner's final text.
   const r2i1 = rp.locator('[data-item="i1"]')
   await more(r2i1, 'Edit')
-  const ed2 = rp.getByRole('dialog', { name: /Edit i1/ })
+  const ed2 = rp.getByRole('dialog', { name: /^Edit/ })
   await ed2.getByLabel('Draft').fill('Hi Sam, could you raise the staging quota to 20? Thanks.')
   await ed2.getByRole('button', { name: 'Save edit' }).click()
   await ed2.waitFor({ state: 'hidden' })
   await r2i1.getByRole('button', { name: 'Approve as edited' }).click()
-  await r2i1.getByText('Approved. Para has sent nothing.').waitFor()
+  await r2i1.getByText('Approved. Not sent yet.').waitFor()
+  check(
+    (await r2i1.getByRole('button', { name: 'Copy draft' }).count()) === 1,
+    'an approved email offers Copy draft',
+  )
   await r2i1.getByText('Details', { exact: true }).click()
   await r2i1.getByText(/Approved as hash/).waitFor()
   const hash = (await r2i1.locator('code').first().innerText()).trim()
   check(/^sha256:[0-9a-f]{64}$/.test(hash), 'approval shows the hash')
   check(
-    await r2i1.getByText('Para has sent nothing').isVisible(),
-    'an external approval says nothing was sent',
+    await r2i1.getByText('Not sent yet').isVisible(),
+    'an external approval says it is not sent',
   )
   const verdict = await agent.call('proposal_approved', { hash })
   check(verdict.approved === true, 'MCP proposal_approved confirms the approved hash')
@@ -814,8 +833,8 @@ try {
     ],
   })
   await rp.goto(`${base}/proposals/${second.id}`)
-  await more(rp.locator('[data-item="i1"]'), 'Deny')
-  const dn = rp.getByRole('dialog', { name: /Deny i1/ })
+  await rp.locator('[data-item="i1"]').getByRole('link', { name: 'Deny' }).click()
+  const dn = rp.getByRole('dialog', { name: /^Deny/ })
   check(
     await dn.getByRole('button', { name: 'Deny' }).isDisabled(),
     'deny is disabled without a reason',
@@ -837,12 +856,20 @@ try {
   check(true, 'the question shows what it blocks')
   await qrow.getByRole('link', { name: 'Answer' }).click()
   const ans = rp.getByRole('dialog', { name: 'Answer' })
-  await ans.getByLabel('eu (recommended)').check()
+  await ans.getByLabel('eu (recommended)').waitFor()
+  check(
+    await ans.getByLabel('eu (recommended)').isChecked(),
+    'the recommended option is preselected',
+  )
+  check(
+    (await ans.getByLabel('Who told you (optional)').count()) === 0,
+    'Who told you is under More',
+  )
   check(
     await ans.getByRole('button', { name: 'Record answer' }).isDisabled(),
     'a decision needs a reason',
   )
-  await ans.getByLabel(/Why \(required/).fill('Closest to the users')
+  await ans.getByLabel(/Reason \(required/).fill('Closest to the users')
   await ans.getByRole('button', { name: 'Record answer' }).click()
   await ans.waitFor({ state: 'hidden' })
   check(
@@ -892,6 +919,14 @@ try {
   await rp.goto(`${base}/today`)
   await rp.getByRole('link', { name: 'Disk full on build host' }).waitFor()
   check(true, 'Today lists the open incident')
+  check(
+    (await rp.getByRole('button', { name: /^Done: / }).count()) >= 1,
+    'Today task rows have Done in place',
+  )
+  check(
+    (await rp.getByRole('button', { name: /^Change the date of/ }).count()) >= 1,
+    'Today task rows have a date action in place',
+  )
   const waitRow = rp.getByRole('listitem').filter({ hasText: 'Review the contract' })
   await waitRow.waitFor()
   check(
@@ -1045,7 +1080,7 @@ try {
   // Phone: the tabs fold into a menu, and every screen is in it.
   await rp.goto(`${base}/today`)
   await rp.getByRole('link', { name: 'Menu' }).click()
-  const nav = rp.getByRole('navigation')
+  const nav = rp.getByRole('navigation').filter({ hasText: 'Questions' })
   await nav.getByText('Questions', { exact: true }).waitFor()
   check(rp.url().includes('menu=true'), 'the menu is a URL overlay')
   check((await nav.getByRole('link').count()) === 9, 'the menu lists all nine screens')
@@ -1056,10 +1091,26 @@ try {
     await rp.getByRole('link', { name: /^Capture/ }).isVisible(),
     'the capture button is labeled Capture',
   )
+  const quick = rp.getByRole('navigation', { name: 'Quick screens' })
+  const quickNames = (await quick.getByRole('link').allInnerTexts()).map((t) =>
+    t.replace(/\d+/g, '').replace(/\s+/g, ' ').trim(),
+  )
+  check(
+    quickNames.join('|') === 'Today|Review|Search|Menu',
+    `a phone has a bottom bar: Today, Review, Search, Menu (got ${quickNames.join('|')})`,
+  )
+  await quick.getByRole('link', { name: 'Search' }).click()
+  await rp.waitForURL(/\/search/)
+  check(true, 'the bottom bar opens Search in one tap')
+  await rp.goto(`${base}/today`)
+  await rp.getByRole('heading', { name: 'Today' }).waitFor()
   // Help holds the build, the vault, and the key list; the page has no footer stamp.
   await rp.keyboard.press('?')
-  const help = rp.getByRole('dialog', { name: 'Keyboard' })
+  const help = rp.getByRole('dialog', { name: 'Help' })
   await help.waitFor()
+  check((await help.getByText('Esc', { exact: true }).count()) === 0, 'a phone has no key list')
+  check(!(await help.getByText(/Build /).isVisible()), 'the About line is hidden until opened')
+  await help.getByText('About', { exact: true }).click()
   check(await help.getByText(/Build /).isVisible(), 'the build hash is in the help overlay')
   await rp.keyboard.press('Escape')
   await help.waitFor({ state: 'hidden' })
@@ -1070,6 +1121,15 @@ try {
 
   // A wide table scrolls, says so, and right-aligns numbers, on a phone too.
   await rp.goto(`${base}/doc/${docId}`)
+  await rp.locator('td').first().waitFor()
+  check(
+    (await rp
+      .locator('td')
+      .first()
+      .evaluate((e) => getComputedStyle(e).display)) === 'block',
+    'a wide table is cards below 600 px',
+  )
+  await rp.setViewportSize({ width: 700, height: 800 })
   await rp.getByText('Scroll sideways for more columns.').waitFor()
   check(true, 'a wide table says it scrolls sideways')
   check(

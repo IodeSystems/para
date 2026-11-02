@@ -45,14 +45,17 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const q = useQuestion(id)
   const answer = useAnswer()
   const work = useWork()
-  const [choice, setChoice] = useState('')
+  // null means the person has not picked: the recommended option stands until they do.
+  const [picked, setPicked] = useState<string | null>(null)
   const [text, setText] = useState('')
   const [why, setWhy] = useState('')
   const [by, setBy] = useState('')
   const [source, setSource] = useState('')
+  const [more, setMore] = useState(false)
   const question = q.data?.question
   const decision = question?.kind === 'decision'
   const options = question?.options ?? []
+  const choice = text.trim() !== '' ? '' : (picked ?? question?.recommended ?? '')
   const ok = (choice !== '' || text.trim() !== '') && (!decision || why.trim() !== '')
 
   return (
@@ -107,7 +110,10 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
             <RadioGroup
               aria-labelledby="options-label"
               value={choice}
-              onChange={(e) => setChoice(e.target.value)}
+              onChange={(e) => {
+                setPicked(e.target.value)
+                setText('')
+              }}
             >
               {options.map((o) => (
                 <FormControlLabel
@@ -130,26 +136,37 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
           helperText="Never a secret: record where it is kept."
         />
         <TextField
-          label={decision ? 'Why (required for a decision)' : 'Why (optional)'}
+          label={decision ? 'Reason (required for a decision)' : 'Reason (optional)'}
           value={why}
           onChange={(e) => setWhy(e.target.value)}
           required={decision}
-          multiline
-          minRows={2}
           fullWidth
         />
-        <TextField
-          label="Who told you (optional)"
-          value={by}
-          onChange={(e) => setBy(e.target.value)}
-          fullWidth
-        />
-        <TextField
-          label="Source (optional)"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-          fullWidth
-        />
+        <Button
+          size="small"
+          color="inherit"
+          onClick={() => setMore(!more)}
+          aria-expanded={more}
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          More
+        </Button>
+        {more && (
+          <>
+            <TextField
+              label="Who told you (optional)"
+              value={by}
+              onChange={(e) => setBy(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Source (optional)"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              fullWidth
+            />
+          </>
+        )}
       </Stack>
     </Frame>
   )

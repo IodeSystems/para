@@ -32,7 +32,7 @@ import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
 import { TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
-import { StatusChip } from '@/components/Bits'
+import { Details, StatusChip } from '@/components/Bits'
 
 import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
 
@@ -161,7 +161,7 @@ function HelpDialog() {
   const close = useClose()
   const { session } = useRouteContext({ from: '/_authed' })
   // A touch screen has no keyboard to show: the section is left out.
-  const touch = useMediaQuery('(hover: none)')
+  const touch = useMediaQuery('(hover: none), (pointer: coarse), (max-width: 599px)')
   return (
     <Dialog open onClose={close} fullWidth maxWidth="xs" aria-labelledby="help-title">
       <DialogTitle id="help-title">{touch ? 'Help' : 'Keyboard'}</DialogTitle>
@@ -194,12 +194,9 @@ function HelpDialog() {
           <StatusChip tone="quiet" label="plain state" />
         </Stack>
         <Divider sx={{ my: 2 }} />
-        <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5 }}>
-          About
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Details summary="About">
           Vault {session.vault}. Signed in with key {session.key}. Build {UI_COMMIT}.
-        </Typography>
+        </Details>
       </DialogContent>
       <DialogActions>
         <Button onClick={close}>Close</Button>

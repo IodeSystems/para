@@ -4,7 +4,10 @@ import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import IconButton from '@mui/material/IconButton'
 import Stack from '@mui/material/Stack'
+import Tooltip from '@mui/material/Tooltip'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Typography from '@mui/material/Typography'
 import { useProposals } from '@/api/proposals'
 import { useAccept, useReopen, useReview } from '@/api/review'
@@ -99,14 +102,20 @@ function Review() {
       <DataState q={q}>
         {(r) => (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {r.count} logged change{r.count === 1 ? '' : 's'} by others
-              {r.position
-                ? ` since you last marked changes reviewed (${humanTime(r.position)})`
-                : ' since the start'}
-              . Your own CLI, TUI, and browser work is not listed. Proposals are decided item by
-              item; marking changes reviewed does not touch them.
-            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ mb: 2, alignItems: 'center' }}>
+              <Typography variant="body2" color="text.secondary">
+                {r.count} logged change{r.count === 1 ? '' : 's'} by others
+                {r.position
+                  ? ` since you last marked changes reviewed (${humanTime(r.position)})`
+                  : ' since the start'}
+                .
+              </Typography>
+              <Tooltip title="Your own CLI, TUI, and browser work is not listed. Proposals are decided item by item; marking changes reviewed does not touch them.">
+                <IconButton size="small" aria-label="What is listed here">
+                  <InfoOutlinedIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
             <Section title="Needs you" count={r.needs.length} hideEmpty>
               {
                 <List dense disablePadding>

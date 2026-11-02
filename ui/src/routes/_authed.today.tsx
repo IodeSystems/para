@@ -19,7 +19,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { QuestionRows, scopeWords } from '@/components/Questions'
-import { DueChip } from '@/components/TaskRows'
+import { DueChip, TaskInline } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
@@ -63,7 +63,7 @@ function aboutItem(kind: Kind, i: Item): string {
   return parts.join(' - ')
 }
 
-function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
+function ItemRows({ kind, items, tasks }: { kind: Kind; items: Item[]; tasks?: boolean }) {
   return (
     <List dense disablePadding>
       {items.map((i) => (
@@ -80,6 +80,7 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
             />
           )}
           {i.due && <DueChip due={i.due} />}
+          {tasks && <TaskInline id={i.id} title={i.title || nameOr('', i.id)} />}
         </ListItem>
       ))}
     </List>
@@ -87,13 +88,6 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
 }
 
 type Lead = { why: string; title: ReactNode; action: ReactNode }
-
-function leadLine(parts: [number, string, string][]): string {
-  return parts
-    .filter(([n]) => n > 0)
-    .map(([n, one, many]) => `${n} ${n === 1 ? one : many}`)
-    .join(', ')
-}
 
 function Today() {
   const q = useToday()
@@ -261,15 +255,6 @@ function Today() {
           const soonRows = mark(t.dueSoon.items)
           const nextRows = d.next.filter((x) => !seen.has(x.id)).slice(0, 8)
 
-          const heading = leadLine([
-            [props.length, 'proposal to decide', 'proposals to decide'],
-            [incidents.length, 'incident', 'incidents'],
-            [qs.length, 'question', 'questions'],
-            [overdue.length, 'late task', 'late tasks'],
-            [nudges.length, 'follow-up', 'follow-ups'],
-            [inboxItems.length, 'capture to sort', 'captures to sort'],
-          ])
-
           const inboxOf = (list: typeof inboxRows) => (
             <List dense disablePadding>
               {list.map((i) => (
@@ -300,6 +285,7 @@ function Today() {
                     secondary={x.project ? nameOr(x.projectName, x.project) : undefined}
                   />
                   {x.due && <DueChip due={x.due} />}
+                  <TaskInline id={x.id} title={x.title || nameOr('', x.id)} />
                 </ListItem>
               ))}
             </List>
@@ -317,7 +303,7 @@ function Today() {
                   key: 'soon',
                   label: 'Due this week',
                   count: soonRows.length,
-                  body: <ItemRows kind="doc" items={soonRows} />,
+                  body: <ItemRows kind="doc" items={soonRows} tasks />,
                 },
                 { key: 'next', label: 'Next tasks', count: nextRows.length, body: nextList },
               ]
@@ -363,9 +349,11 @@ function Today() {
                   lost updates.
                 </Alert>
               )}
-              <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 600 }}>
-                {need === 0 ? 'Nothing needs you right now.' : `Needs you: ${heading}.`}
-              </Typography>
+              {need === 0 && (
+                <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 600 }}>
+                  Nothing needs you right now.
+                </Typography>
+              )}
               {lead && (
                 <Paper
                   variant="outlined"
@@ -386,48 +374,6 @@ function Today() {
                   </Stack>
                 </Paper>
               )}
-              <Section title="Proposals" count={propRows.length} hideEmpty>
-                <List dense disablePadding>
-                  {propRows.map((x) => (
-                    <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
-                      <ListItemText
-                        primary={
-                          <TextLink to="/proposals/$id" params={{ id: x.id }} underline="hover">
-                            {x.title || nameOr('', x.id)}
-                          </TextLink>
-                        }
-                        secondary={`${x.pending} of ${x.itemCount} to decide, from ${x.proposedBy}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Section>
-              <Section title="Incidents" count={incidentRows.length} hideEmpty>
-                <ItemRows kind="incident" items={incidentRows} />
-              </Section>
-              <Section title="Questions" count={questionRows.length} hideEmpty>
-                <QuestionRows list={questionRows} />
-              </Section>
-              <Section title="Overdue" count={overdueRows.length} hideEmpty>
-                <ItemRows kind="overdue" items={overdueRows} />
-              </Section>
-              <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
-                {inboxOf(inboxRows)}
-              </Section>
-              {!narrow && (
-                <>
-                  <Section title="Follow up" count={nudgeRows.length} hideEmpty>
-                    <ItemRows kind="nudge" items={nudgeRows} />
-                  </Section>
-                  <Section title="Due this week" count={soonRows.length} hideEmpty>
-                    <ItemRows kind="doc" items={soonRows} />
-                  </Section>
-                  <Section title="Next tasks" count={nextRows.length} hideEmpty>
-                    {nextList}
-                  </Section>
-                </>
-              )}
-              {need === 0 && nextRows.length === 0 && <Empty>No task is ready.</Empty>}
               {(rest.length > 0 || t.unverified > 0) && (
                 <Box sx={{ mt: 1 }}>
                   <Stack
@@ -457,6 +403,48 @@ function Today() {
                   {rest.find((r) => r.key === more)?.body}
                 </Box>
               )}
+              <Section title="Proposals" count={propRows.length} hideEmpty>
+                <List dense disablePadding>
+                  {propRows.map((x) => (
+                    <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
+                      <ListItemText
+                        primary={
+                          <TextLink to="/proposals/$id" params={{ id: x.id }} underline="hover">
+                            {x.title || nameOr('', x.id)}
+                          </TextLink>
+                        }
+                        secondary={`${x.pending} of ${x.itemCount} to decide, from ${x.proposedBy}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Section>
+              <Section title="Incidents" count={incidentRows.length} hideEmpty>
+                <ItemRows kind="incident" items={incidentRows} />
+              </Section>
+              <Section title="Questions" count={questionRows.length} hideEmpty>
+                <QuestionRows list={questionRows} />
+              </Section>
+              <Section title="Overdue" count={overdueRows.length} hideEmpty>
+                <ItemRows kind="overdue" items={overdueRows} tasks />
+              </Section>
+              <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
+                {inboxOf(inboxRows)}
+              </Section>
+              {!narrow && (
+                <>
+                  <Section title="Follow up" count={nudgeRows.length} hideEmpty>
+                    <ItemRows kind="nudge" items={nudgeRows} />
+                  </Section>
+                  <Section title="Due this week" count={soonRows.length} hideEmpty>
+                    <ItemRows kind="doc" items={soonRows} tasks />
+                  </Section>
+                  <Section title="Next tasks" count={nextRows.length} hideEmpty>
+                    {nextList}
+                  </Section>
+                </>
+              )}
+              {need === 0 && nextRows.length === 0 && <Empty>No task is ready.</Empty>}
             </>
           )
         }}

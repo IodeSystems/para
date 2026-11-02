@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   docPath,
+  dropHeading,
   graphToMermaid,
   isInternalHref,
   linkWikilinks,
@@ -104,5 +105,12 @@ describe('withoutSection', () => {
   })
   it('keeps everything when the section is absent', () => {
     expect(withoutSection('a\n## B\nc', 'Draft')).toBe('a\n## B\nc')
+  })
+})
+
+describe('dropHeading', () => {
+  it('removes a heading of that name and keeps the rest', () => {
+    expect(dropHeading('Lead.\n\n## Timeline\n\n- one', 'Timeline')).toBe('Lead.\n\n\n\n- one')
+    expect(dropHeading('## Other\ntext', 'Timeline')).toBe('## Other\ntext')
   })
 })

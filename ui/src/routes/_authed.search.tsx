@@ -24,7 +24,7 @@ import { Empty, PageTitle, StatusChip } from '@/components/Bits'
 import { SearchState } from '@/components/SearchState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
-import { highlight } from '@/lib/highlight'
+import { highlight, readable } from '@/lib/highlight'
 import { hitKindLabel } from '@/lib/hitkind'
 import { nameOr } from '@/lib/names'
 
@@ -290,10 +290,10 @@ function Search() {
                                 px: 0.25,
                               }}
                             >
-                              {p.text}
+                              {readable(p.text)}
                             </Box>
                           ) : (
-                            <span key={i}>{p.text}</span>
+                            <span key={i}>{readable(p.text)}</span>
                           ),
                         )}
                         {h.via && <> (text from {nameOr('', h.via)})</>}

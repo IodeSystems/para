@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
 import { useNavigate, useRouterState } from '@tanstack/react-router'
 import AppBar from '@mui/material/AppBar'
+import BottomNavigation from '@mui/material/BottomNavigation'
+import Paper from '@mui/material/Paper'
 import Box from '@mui/material/Box'
 import IconButton from '@mui/material/IconButton'
 import Tabs from '@mui/material/Tabs'
@@ -11,10 +13,13 @@ import AddIcon from '@mui/icons-material/Add'
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
+import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
+import SearchIcon from '@mui/icons-material/Search'
+import TodayIcon from '@mui/icons-material/Today'
 import Badge from '@mui/material/Badge'
 import { useOpenProposals } from '@/api/proposals'
 import { HttpBanner } from '@/components/Banners'
-import { LinkButton, LinkIconButton, LinkTab } from '@/components/links'
+import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
 import type { SessionView } from '@/client/session'
@@ -28,7 +33,8 @@ export function AppShell({ session, children }: { session: SessionView; children
   const current = TABS.find((t) => path === t.to || path.startsWith(`${t.to}/`))
   const { open } = useOpenProposals()
   const wide = { xs: 'none', md: 'flex' }
-  const narrow = { xs: 'inline-flex', md: 'none' }
+  // On a phone the bottom bar holds Menu, so the top bar shows it only between 600 and 900 px.
+  const narrow = { xs: 'none', sm: 'inline-flex', md: 'none' }
 
   const out = async () => {
     await signOut()
@@ -36,7 +42,7 @@ export function AppShell({ session, children }: { session: SessionView; children
   }
 
   return (
-    <Box sx={{ minHeight: '100dvh', pb: 4 }}>
+    <Box sx={{ minHeight: '100dvh', pb: { xs: 10, sm: 4 } }}>
       <AppBar position="sticky" color="primary" enableColorOnDark>
         <Toolbar variant="dense" sx={{ gap: 1, pl: 'max(8px, env(safe-area-inset-left))' }}>
           <LinkButton
@@ -141,6 +147,50 @@ export function AppShell({ session, children }: { session: SessionView; children
       <Box component="main" sx={{ px: { xs: 1.5, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
         {children}
       </Box>
+      {/* On a phone the four screens you open most are one tap away. */}
+      <Paper
+        component="nav"
+        aria-label="Quick screens"
+        elevation={8}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: (t) => t.zIndex.appBar,
+          pb: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <BottomNavigation
+          showLabels
+          value={
+            current?.to === '/search' || current?.to === '/today' || current?.to === '/review'
+              ? current.to
+              : false
+          }
+        >
+          <LinkBottomNavAction value="/today" label="Today" icon={<TodayIcon />} to="/today" />
+          <LinkBottomNavAction
+            value="/review"
+            label="Review"
+            icon={
+              <Badge color="warning" badgeContent={open.length}>
+                <RateReviewOutlinedIcon />
+              </Badge>
+            }
+            to="/review"
+          />
+          <LinkBottomNavAction value="/search" label="Search" icon={<SearchIcon />} to="/search" />
+          <LinkBottomNavAction
+            value="menu"
+            label="Menu"
+            icon={<MenuIcon />}
+            to="."
+            search={(p) => ({ ...p, menu: true })}
+          />
+        </BottomNavigation>
+      </Paper>
     </Box>
   )
 }

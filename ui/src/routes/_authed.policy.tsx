@@ -4,7 +4,11 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import MenuItem from '@mui/material/MenuItem'
 import Tab from '@mui/material/Tab'
+import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
+import useMediaQuery from '@mui/material/useMediaQuery'
 import Tabs from '@mui/material/Tabs'
 import { usePolicy } from '@/api/policy'
 import { useAreas } from '@/api/areas'
@@ -36,40 +40,53 @@ function Policy() {
   for (const p of work.data?.projects ?? []) known.set(p.id, p.title)
   for (const a of areas.data ?? []) known.set(a.id, a.title)
   const title = (id: string) => nameOr(known.get(id), id)
+  const narrow = useMediaQuery('(max-width: 599px)')
+  const go = (v: PolicyTab) =>
+    void navigate({
+      search: (p) => ({ ...p, tab: v === 'policies' ? undefined : v }),
+      replace: true,
+    })
+  const labels: [PolicyTab, string][] = [
+    ['policies', `Policies (${q.data?.policies.length ?? 0})`],
+    ['rules', `Rules (${q.data?.rules.length ?? 0})`],
+    ['exceptions', `Exceptions (${q.data?.exceptions.length ?? 0})`],
+    ['constraints', `Constraints (${q.data?.constraints.length ?? 0})`],
+  ]
   return (
     <>
       <PageTitle>Policy</PageTitle>
       <DataState q={q}>
         {(d) => (
           <>
-            <Tabs
-              value={tab}
-              variant="scrollable"
-              scrollButtons="auto"
-              onChange={(_e, v: PolicyTab) =>
-                void navigate({
-                  search: (p) => ({ ...p, tab: v === 'policies' ? undefined : v }),
-                  replace: true,
-                })
-              }
-              sx={{ mb: 2 }}
-            >
-              <Tab value="policies" label={`Policies (${d.policies.length})`} />
-              <Tab value="rules" label={`Rules (${d.rules.length})`} />
-              <Tab value="exceptions" label={`Exceptions (${d.exceptions.length})`} />
-              <Tab value="constraints" label={`Constraints (${d.constraints.length})`} />
-            </Tabs>
+            {narrow ? (
+              // Four tabs do not fit a phone: a select shows all four and the current one.
+              <TextField
+                select
+                size="small"
+                label="Show"
+                value={tab}
+                onChange={(e) => go(e.target.value as PolicyTab)}
+                fullWidth
+                sx={{ mb: 2 }}
+              >
+                {labels.map(([v, l]) => (
+                  <MenuItem key={v} value={v}>
+                    {l}
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <Tabs value={tab} onChange={(_e, v: PolicyTab) => go(v)} sx={{ mb: 2 }}>
+                {labels.map(([v, l]) => (
+                  <Tab key={v} value={v} label={l} />
+                ))}
+              </Tabs>
+            )}
             {tab === 'policies' &&
               (d.policies.length === 0 ? (
                 <Empty>No policies.</Empty>
               ) : (
                 <>
-                  {d.policies.some((p) => !p.verified) && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Unverified means no person has checked the summary against its source. Open
-                      it, compare, then confirm it.
-                    </Typography>
-                  )}
                   <List disablePadding>
                     {d.policies.map((p) => (
                       <ListItem key={p.id} disableGutters divider sx={{ display: 'block' }}>
@@ -79,13 +96,16 @@ function Policy() {
                             secondary={`${p.rules} ${p.rules === 1 ? 'rule' : 'rules'}`}
                           />
                           {!p.verified && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              sx={{ fontStyle: 'italic', pt: 0.5 }}
-                            >
-                              unverified
-                            </Typography>
+                            <Tooltip title="No person has checked the summary against its source. Open it, compare, then confirm it.">
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                tabIndex={0}
+                                sx={{ fontStyle: 'italic', pt: 0.5 }}
+                              >
+                                unverified
+                              </Typography>
+                            </Tooltip>
                           )}
                         </Stack>
                         <Details>

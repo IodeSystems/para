@@ -1,3 +1,5 @@
+import { humanTime, ISO_TS } from '@/lib/when'
+
 // A search hit marks spans of its snippet. Offsets count Unicode code points, not UTF-16 units.
 
 export type Span = { start: number; end: number }
@@ -20,4 +22,14 @@ export function highlight(snippet: string, marks: readonly Span[] | null | undef
   }
   if (at < cps.length) out.push({ text: cps.slice(at).join(''), mark: false })
   return out
+}
+
+// readable makes a piece of an excerpt fit for a person: table pipes and rules go, and an ISO
+// timestamp shows local, in words. Marks are cut before this runs, so offsets stay right.
+export function readable(text: string, now = Date.now()): string {
+  return text
+    .replace(ISO_TS, (t) => humanTime(t, now))
+    .replace(/\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?/g, ' ')
+    .replace(/\s*\|\s*/g, ' ')
+    .replace(/[ \t]{2,}/g, ' ')
 }

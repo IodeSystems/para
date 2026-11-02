@@ -64,6 +64,18 @@ function ScrollTable({ children }: { children?: ReactNode }) {
     if (!t) return
     const rows = Array.from(t.rows)
     const width = Math.max(0, ...rows.map((r) => r.cells.length))
+    // Below 600 px a table of three or more columns shows as cards: each cell carries its column
+    // name (see the data-cards rules in the style below).
+    const head = t.tHead?.rows[0]
+    if (width >= 3 && head) {
+      t.dataset.cards = 'true'
+      for (const r of rows) {
+        if (r.parentElement?.tagName === 'THEAD') continue
+        Array.from(r.cells).forEach((cell, c) => {
+          cell.dataset.label = head.cells[c]?.textContent ?? ''
+        })
+      }
+    }
     for (let c = 0; c < width; c++) {
       const body = rows.filter((r) => r.parentElement?.tagName !== 'THEAD')
       const cells = body.map((r) => r.cells[c]).filter((x): x is HTMLTableCellElement => !!x)
@@ -102,6 +114,30 @@ function ScrollTable({ children }: { children?: ReactNode }) {
                 verticalAlign: 'top',
               },
               '& th': { bgcolor: 'action.hover' },
+              '@media (max-width: 599px)': {
+                '&[data-cards="true"]': {
+                  display: 'block',
+                  minWidth: 0,
+                  width: '100%',
+                  '& thead': {
+                    position: 'absolute',
+                    width: 1,
+                    height: 1,
+                    overflow: 'hidden',
+                    clip: 'rect(0 0 0 0)',
+                  },
+                  '& tbody, & tr, & td': { display: 'block' },
+                  '& tr': { border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 },
+                  '& td': { border: 0, borderBottom: 1, borderColor: 'divider', textAlign: 'left' },
+                  '& td:last-child': { borderBottom: 0 },
+                  '& td::before': {
+                    content: 'attr(data-label)',
+                    display: 'block',
+                    fontSize: '0.75rem',
+                    color: 'text.secondary',
+                  },
+                },
+              },
             }}
           >
             {children}

@@ -18,7 +18,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu, type RowMenuItem } from '@/components/RowMenu'
-import { diffKind } from '@/lib/proposal'
+import { diffKind, EXTERNAL_PROMISE, UNTRUSTED_WORDS } from '@/lib/proposal'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/$id')({ component: ProposalPage })
@@ -67,7 +67,7 @@ function ProposalPage() {
                 .
               </Alert>
             )}
-            <UntrustedNote text={d.untrusted} />
+            <UntrustedNote />
             {p.status === 'sent_back' && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 Sent back. The agent revises it and files a new revision. Wake an agent with{' '}
@@ -83,7 +83,6 @@ function ProposalPage() {
                     it={it}
                     notes={d.annotations.filter((a) => a.item === it.id)}
                     canReview={canReview}
-                    untrusted={d.untrusted}
                   />
                 ))}
                 {d.items.length === 0 && <Empty>This revision has no items.</Empty>}
@@ -166,50 +165,23 @@ type Note = ProposalData['annotations'][number]
 const NOTE_KEY = 'para.untrustedNoteSeen'
 
 // UntrustedNote explains once per browser why evidence is marked. Dismissing it is remembered.
-function UntrustedNote({ text }: { text: string }) {
+function UntrustedNote() {
+  // Shown on the first proposal a browser opens, then never again: opening it counts as reading it.
   const [seen, setSeen] = useState(() => {
     try {
-      return window.localStorage.getItem(NOTE_KEY) === '1'
+      const was = window.localStorage.getItem(NOTE_KEY) === '1'
+      if (!was) window.localStorage.setItem(NOTE_KEY, '1')
+      return was
     } catch {
-      return false
+      return true
     }
   })
   if (seen) return null
   return (
-    <Alert
-      severity="info"
-      sx={{ mb: 2 }}
-      onClose={() => {
-        setSeen(true)
-        try {
-          window.localStorage.setItem(NOTE_KEY, '1')
-        } catch {
-          // The note comes back next time; nothing else is lost.
-        }
-      }}
-    >
-      Evidence is marked <strong>untrusted</strong>: it is text from the source. {text}.
+    <Alert severity="info" sx={{ mb: 2 }} onClose={() => setSeen(true)}>
+      {UNTRUSTED_WORDS} Evidence is marked <strong>untrusted</strong> on every item.
     </Alert>
   )
-}
-
-const MORE: Record<string, { label: string; hint: string; key: string }> = {
-  rework: {
-    label: 'Rework',
-    hint: 'Ask the agent to redo this, with your reason',
-    key: 'rework',
-  },
-  needs_first: {
-    label: 'Needs first',
-    hint: 'Hold this until something else is done',
-    key: 'hold',
-  },
-  send_back: {
-    label: 'Send back',
-    hint: 'Return it to the agent with your edits and notes',
-    key: 'sendback',
-  },
-  deny: { label: 'Deny', hint: 'Reject this item, with a reason', key: 'deny' },
 }
 
 function ItemCard({
@@ -217,13 +189,11 @@ function ItemCard({
   it,
   notes,
   canReview,
-  untrusted,
 }: {
   proposalId: string
   it: Item
   notes: Note[]
   canReview: boolean
-  untrusted: string
 }) {
   const approve = useApprove()
   const navigate = useNavigate()
@@ -241,15 +211,29 @@ function ItemCard({
   const external = it.kind === 'external'
   const input: unknown = it.input
   const decided = it.state === 'approved' || it.state === 'failed'
+  // Send back is one action. With edits or notes they are the message; otherwise a reason is asked.
+  const sendBack = can('send_back') || can('rework')
   // One primary per item: Approve, or Send back when the item was edited or has an open note.
-  const primary = can('approve') ? 'approve' : can('send_back') ? 'send_back' : ''
+  const primary = can('approve') ? 'approve' : sendBack ? 'send_back' : ''
   const more: RowMenuItem[] = [
-    ...['rework', 'needs_first', 'send_back', 'deny']
-      .filter((a) => a !== primary && can(a))
-      .map((a) => {
-        const m = MORE[a]
-        return { label: m.label, hint: m.hint, search: { decide: `${m.key}:${it.id}` } }
-      }),
+    ...(sendBack && primary !== 'send_back'
+      ? [
+          {
+            label: 'Send back',
+            hint: 'Return it to the agent, with a reason',
+            search: { decide: `sendback:${it.id}` },
+          },
+        ]
+      : []),
+    ...(can('needs_first')
+      ? [
+          {
+            label: 'Needs first',
+            hint: 'Hold this until something else is done',
+            search: { decide: `hold:${it.id}` },
+          },
+        ]
+      : []),
     ...(can('edit')
       ? [
           {
@@ -262,7 +246,7 @@ function ItemCard({
     ...(can('annotate')
       ? [
           {
-            label: 'Note on selection',
+            label: 'Note',
             hint: 'Attach a note to the words you selected',
             onSelect: () => {
               const quote = picked.current || selectedQuote()
@@ -291,7 +275,7 @@ function ItemCard({
             label={`${it.openAnnotations} open ${it.openAnnotations === 1 ? 'note' : 'notes'}`}
           />
         )}
-        {it.heldBy && <StatusChip tone="attn" label={`held by ${it.heldBy}`} />}
+        {it.heldBy && <StatusChip tone="attn" label="needs something first" />}
       </Stack>
       <Box ref={body}>
         {external ? (
@@ -313,10 +297,11 @@ function ItemCard({
             >
               {it.draft}
             </Box>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Para never sends this. Approving records the hash of the target and draft; you or the
-              agent sends it. Any edit needs approval again.
-            </Typography>
+            {it.state === 'pending' && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {EXTERNAL_PROMISE}
+              </Typography>
+            )}
           </>
         ) : (
           <>
@@ -342,7 +327,7 @@ function ItemCard({
             <Typography variant="caption" color="text.secondary">
               Evidence{it.evidence.locator ? ` (${it.evidence.locator})` : ''}
             </Typography>
-            <Tooltip title={untrusted}>
+            <Tooltip title={UNTRUSTED_WORDS}>
               <span>
                 <StatusChip tone="attn" label="untrusted" />
               </span>
@@ -372,43 +357,50 @@ function ItemCard({
           )}
         </Alert>
       )}
-      {it.state === 'approved' && !it.result && (
-        <Alert severity="success" sx={{ my: 1 }}>
-          {external ? 'Approved. Para has sent nothing.' : 'Approved.'}
+      {it.state === 'approved' && external && (
+        <Alert
+          severity="success"
+          sx={{ my: 1 }}
+          action={<CopyButton getText={() => it.draft ?? ''} label="Copy draft" />}
+        >
+          Approved. Not sent yet.
         </Alert>
       )}
-      {(it.approvedHash || !external) && (
-        <Details summary="Details">
-          {it.approvedHash && (
-            <Typography variant="caption" component="div">
-              Approved as hash <code>{it.approvedHash}</code>
-            </Typography>
-          )}
-          <Typography variant="caption" component="div">
-            Approval binds to hash <code>{it.hash}</code>
-          </Typography>
-          {!external && (
-            <>
-              <Typography variant="caption" component="div">
-                {it.op}
-              </Typography>
-              <Box
-                component="pre"
-                sx={{
-                  ...mono,
-                  my: 0.5,
-                  p: 1,
-                  bgcolor: 'action.hover',
-                  borderRadius: 1,
-                  overflowX: 'auto',
-                }}
-              >
-                {JSON.stringify(input ?? {}, null, 2)}
-              </Box>
-            </>
-          )}
-        </Details>
+      {it.state === 'approved' && !external && !it.result && (
+        <Alert severity="success" sx={{ my: 1 }}>
+          Approved.
+        </Alert>
       )}
+      <Details summary="Details">
+        {it.approvedHash && (
+          <Typography variant="caption" component="div">
+            Approved as hash <code>{it.approvedHash}</code>
+          </Typography>
+        )}
+        <Typography variant="caption" component="div">
+          Approval covers this exact text. Hash <code>{it.hash}</code>
+        </Typography>
+        {!external && (
+          <>
+            <Typography variant="caption" component="div">
+              {it.op}
+            </Typography>
+            <Box
+              component="pre"
+              sx={{
+                ...mono,
+                my: 0.5,
+                p: 1,
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                overflowX: 'auto',
+              }}
+            >
+              {JSON.stringify(input ?? {}, null, 2)}
+            </Box>
+          </>
+        )}
+      </Details>
       {notes.length > 0 && (
         <List dense disablePadding sx={{ my: 1 }}>
           {notes.map((n) => (
@@ -454,6 +446,17 @@ function ItemCard({
               search={(p) => ({ ...p, decide: `sendback:${it.id}` })}
             >
               Send back
+            </LinkButton>
+          )}
+          {can('deny') && (
+            <LinkButton
+              size="small"
+              variant="outlined"
+              color="inherit"
+              to="."
+              search={(p) => ({ ...p, decide: `deny:${it.id}` })}
+            >
+              Deny
             </LinkButton>
           )}
           <RowMenu

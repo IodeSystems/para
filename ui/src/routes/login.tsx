@@ -63,7 +63,7 @@ function Login() {
             </Typography>
             {signedout && !error && <Alert severity="success">You are signed out.</Alert>}
             <Typography variant="body2" color="text.secondary">
-              Open the sign-in link para gave you. To get one, run{' '}
+              You need a sign-in link. On the machine running para, run{' '}
               <Box
                 component="code"
                 sx={{
@@ -77,8 +77,8 @@ function Login() {
                 }}
               >
                 para key create &lt;name&gt; --print-url
-              </Box>{' '}
-              on the machine running para. Or paste an access key below.
+              </Box>
+              , or ask whoever set it up. If you have an access key, paste it below.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField

@@ -28,3 +28,26 @@ export function useTaskDone() {
     onSuccess: () => void qc.invalidateQueries(),
   })
 }
+
+const TaskDueDoc = graphql(/* GraphQL */ `
+  mutation TaskDue($body: para_TaskDueInputInput!) {
+    para {
+      v1 {
+        taskDue(body: $body) {
+          id
+          due
+        }
+      }
+    }
+  }
+`)
+
+// useTaskDue sets a task's due date (an ISO date), or clears it.
+export function useTaskDue() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; date?: string; clear?: boolean }) =>
+      need((await gqlClient.request(TaskDueDoc, { body: b })).para.v1.taskDue, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}

@@ -11,6 +11,7 @@ import { DataState } from '@/components/DataState'
 import { PointerLinks } from '@/components/PointerLinks'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
+import { dropHeading } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
 import { humanTime } from '@/lib/when'
 import { toneOfSeverity } from '@/lib/status'
@@ -76,7 +77,11 @@ function IncidentPage() {
               ))}
             </Stack>
             <Section title="Timeline">
-              {d.body.trim() === '' ? <Empty>No entry yet.</Empty> : <Markdown source={d.body} />}
+              {d.body.trim() === '' ? (
+                <Empty>No entry yet.</Empty>
+              ) : (
+                <Markdown source={dropHeading(d.body, 'Timeline')} />
+              )}
               <Stack
                 component="form"
                 direction="row"

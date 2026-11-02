@@ -186,3 +186,13 @@ export function withoutSection(md: string, name: string): string {
   }
   return out.join('\n').trim()
 }
+
+// dropHeading removes a heading line of the given name. A section already called Timeline should
+// not start with a second heading that says Timeline.
+export function dropHeading(body: string, name: string): string {
+  const re = new RegExp(
+    `^#{1,6}[ \\t]+${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[ \\t]*$`,
+    'gim',
+  )
+  return body.replace(re, '').trim()
+}
