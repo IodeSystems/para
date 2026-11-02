@@ -3,7 +3,7 @@ type: rfx
 created: 2026-11-01
 direction: out
 status: open
-route: "Ask the platform team through the acme.example service desk"
+route: domain-platform
 self_serve_check: "Searched policies and the wiki at https://wiki.acme.example/platform; no answer found"
 project: "[[acme-portal]]"
 ---
@@ -12,7 +12,7 @@ project: "[[acme-portal]]"
 
 ## Ask
 
-What is requested, from whom, and by when.
+What is requested, from whom, and by when. Facts only.
 
 ## Why now
 

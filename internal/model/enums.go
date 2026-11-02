@@ -98,6 +98,9 @@ const (
 	RFXOut RFXDirection = "out"
 )
 
+// Enum lists the allowed values, for schema generation.
+func (RFXDirection) Enum() []string { return enumStrings(RFXDirections) }
+
 // RFXDirections lists every RFXDirection.
 var RFXDirections = []RFXDirection{RFXIn, RFXOut}
 
@@ -110,6 +113,9 @@ const (
 	RFXClosed   RFXStatus = "closed"
 	RFXDeclined RFXStatus = "declined"
 )
+
+// Enum lists the allowed values, for schema generation.
+func (RFXStatus) Enum() []string { return enumStrings(RFXStatuses) }
 
 // RFXStatuses lists every RFXStatus.
 var RFXStatuses = []RFXStatus{RFXOpen, RFXAnswered, RFXClosed, RFXDeclined}
@@ -180,3 +186,11 @@ const (
 
 // JournalScopes lists every JournalScope.
 var JournalScopes = []JournalScope{JournalDay, JournalWeek, JournalProject}
+
+func enumStrings[T ~string](in []T) []string {
+	out := make([]string, len(in))
+	for i, v := range in {
+		out[i] = string(v)
+	}
+	return out
+}

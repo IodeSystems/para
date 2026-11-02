@@ -83,6 +83,15 @@ type RFX struct {
 	Route          string       `yaml:"route" json:"route"`
 	SelfServeCheck string       `yaml:"self_serve_check" json:"self_serve_check"`
 	Project        Link         `yaml:"project,omitempty" json:"project,omitempty"`
+	// To is who is asked (direction out) or who asked (direction in).
+	To        string `yaml:"to,omitempty" json:"to,omitempty"`
+	Channel   string `yaml:"channel,omitempty" json:"channel,omitempty"`
+	Blocks    []Link `yaml:"blocks,omitempty" json:"blocks,omitempty"`
+	DependsOn []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	NextNudge Date   `yaml:"next_nudge,omitempty" json:"next_nudge,omitempty"`
+	// Playbook links the document that answers this ask for good. An inbound
+	// RFX closes by linking one.
+	Playbook Link `yaml:"playbook,omitempty" json:"playbook,omitempty"`
 }
 
 // Constraint is type: constraint, a justified "no".
@@ -125,6 +134,8 @@ type PolicyException struct {
 type Person struct {
 	Common `yaml:",inline"`
 	Org    string `yaml:"org" json:"org"`
+	Role   Link   `yaml:"role,omitempty" json:"role,omitempty"`
+	Team   Link   `yaml:"team,omitempty" json:"team,omitempty"`
 }
 
 // Team is type: team.

@@ -6,4 +6,4 @@ org: acme.example
 
 # Name
 
-Who or what this is, and how to reach them.
+Facts only: role, team, what they own, what they said (quote, date, source). No opinions or impressions.
