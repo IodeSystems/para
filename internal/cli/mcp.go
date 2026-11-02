@@ -202,7 +202,8 @@ func writeMCPConfig(w io.Writer, client string, entries []mcpServerEntry) error 
 	switch client {
 	case "claude":
 		for _, e := range entries {
-			parts := append([]string{"claude", "mcp", "add", e.Name, "--", e.Command}, e.Args...)
+			// User scope: the vault is the same in every project.
+			parts := append([]string{"claude", "mcp", "add", "--scope", "user", e.Name, "--", e.Command}, e.Args...)
 			for i, p := range parts {
 				parts[i] = shellQuote(p)
 			}

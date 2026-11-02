@@ -1,7 +1,7 @@
 Use para from Claude Code.
 
-1. Add one MCP server per vault. Run these commands, and add `--scope user` after
-   `add` to use a vault in every project:
+1. Add one MCP server per vault. Run these commands. `--scope user` makes the vault
+   available in every project; drop it to keep one to this directory:
 
 {{config}}
 

@@ -146,7 +146,7 @@ func TestMCPHarnessHelp(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	for flag, want := range map[string]string{
-		"--help-claude": "claude mcp add para-acme",
+		"--help-claude": "claude mcp add --scope user para-acme",
 		"--help-dun":    `"id": "para-acme"`,
 	} {
 		out := e.ok("mcp", flag)
