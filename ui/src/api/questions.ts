@@ -35,14 +35,30 @@ export const QuestionFields = graphql(/* GraphQL */ `
     }
     rejectedReason
     rejectedBy
+    deferred
+    deferUntil
+    deferredReason
+    agentLooking
   }
 `)
 
 const QuestionListDoc = graphql(/* GraphQL */ `
-  query QuestionList($project: String, $area: String, $task: String, $root: Boolean) {
+  query QuestionList(
+    $project: String
+    $area: String
+    $task: String
+    $root: Boolean
+    $deferred: Boolean
+  ) {
     para {
       v1 {
-        questionList(project: $project, area: $area, task: $task, root: $root) {
+        questionList(
+          project: $project
+          area: $area
+          task: $task
+          root: $root
+          deferred: $deferred
+        ) {
           questions {
             ...QuestionFields
           }
@@ -183,6 +199,61 @@ const AskDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const DeferDoc = graphql(/* GraphQL */ `
+  mutation Defer($body: para_DeferInputInput!) {
+    para {
+      v1 {
+        defer(body: $body) {
+          changed
+          skipped
+          until
+        }
+      }
+    }
+  }
+`)
+
+const UndeferDoc = graphql(/* GraphQL */ `
+  mutation Undefer($body: para_UndeferInputInput!) {
+    para {
+      v1 {
+        undefer(body: $body) {
+          changed
+          skipped
+        }
+      }
+    }
+  }
+`)
+
+const InvestigateDoc = graphql(/* GraphQL */ `
+  mutation QuestionInvestigate($body: para_QuestionInvestigateInputInput!) {
+    para {
+      v1 {
+        questionInvestigate(body: $body) {
+          id
+          request
+          status
+          runner
+        }
+      }
+    }
+  }
+`)
+
+const CutDoc = graphql(/* GraphQL */ `
+  mutation DependsCut($body: para_DependsCutInputInput!) {
+    para {
+      v1 {
+        dependsCut(body: $body) {
+          id
+          dependsOn
+        }
+      }
+    }
+  }
+`)
+
 const ToQuestionDoc = graphql(/* GraphQL */ `
   mutation TaskToQuestion($body: para_TaskToQuestionInputInput!) {
     para {
@@ -202,6 +273,8 @@ export type QuestionScope = {
   area?: string
   task?: string
   root?: boolean
+  // deferred includes the questions put off with Later; each is marked.
+  deferred?: boolean
 }
 
 // useQuestions lists open questions in a scope, ordered by the server by what they block.
@@ -229,6 +302,8 @@ export type AnswerInput = {
   why?: string
   by?: string
   source?: string
+  // sources are optional for a person: a URL, a document id, or words such as a meeting.
+  sources?: { ref: string; quote?: string }[]
 }
 
 // An answer unblocks tasks and requests anywhere, so every query refetches.
@@ -333,6 +408,48 @@ export function useQuestionDepends() {
             'result',
           )
     },
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+// useDefer puts questions, tasks, or goals off (Later). They keep blocking what depends on them.
+export function useDefer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { ids: string[]; until?: string; reason?: string }) =>
+      need((await gqlClient.request(DeferDoc, { body: b })).para.v1.defer, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+export function useUndefer() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (ids: string[]) =>
+      need((await gqlClient.request(UndeferDoc, { body: { ids } })).para.v1.undefer, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+// useInvestigate queues agent work that looks for evidence. The question stays open.
+export function useInvestigate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; how: string }) =>
+      need(
+        (await gqlClient.request(InvestigateDoc, { body: b })).para.v1.questionInvestigate,
+        'result',
+      ),
+    onSuccess: () => void qc.invalidateQueries(),
+  })
+}
+
+// useCut removes one dependency so the work can go ahead, with the reason recorded on it.
+export function useCut() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; dep: string; reason: string }) =>
+      need((await gqlClient.request(CutDoc, { body: b })).para.v1.dependsCut, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

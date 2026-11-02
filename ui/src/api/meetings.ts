@@ -111,6 +111,7 @@ const AgendaDoc = graphql(/* GraphQL */ `
             until
             overdue
             detail
+            why
             project
             projectName
             who

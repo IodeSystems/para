@@ -17,6 +17,9 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       scope
       scopeName
       with
+      kind
+      why
+      proposal
     }
   }
 `)
@@ -39,9 +42,11 @@ const TodayDoc = graphql(/* GraphQL */ `
             incidents {
               ...TodayGroupFields
             }
-            questions {
+            agenda {
               ...TodayGroupFields
             }
+            otherOpen
+            deferred
             overdue {
               ...TodayGroupFields
             }

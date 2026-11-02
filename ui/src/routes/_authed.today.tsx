@@ -19,7 +19,7 @@ import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bi
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
-import { QuestionRows, scopeWords } from '@/components/Questions'
+import { RowMenu } from '@/components/RowMenu'
 import { DueChip, TaskInline } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
@@ -90,6 +90,108 @@ function ItemRows({ kind, items, tasks }: { kind: Kind; items: Item[]; tasks?: b
 
 type Lead = { why: string; title: ReactNode; action: ReactNode }
 
+type AgendaItem = Item & { kind?: string | null; why?: string | null; proposal?: boolean | null }
+
+function AgendaLink({ x }: { x: AgendaItem }) {
+  const title = x.title || nameOr('', x.id)
+  if (x.kind === 'incident')
+    return (
+      <TextLink to="/incidents/$id" params={{ id: x.id }} underline="hover">
+        {title}
+      </TextLink>
+    )
+  if (x.kind === 'ask') return <RfxLink id={x.id}>{title}</RfxLink>
+  return <DocLink id={x.id}>{title}</DocLink>
+}
+
+// AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
+// A question has the question actions; a task has Done and Later.
+function AgendaRows({ items }: { items: AgendaItem[] }) {
+  return (
+    <List dense disablePadding>
+      {items.map((x) => (
+        <ListItem key={x.id} disableGutters sx={CHIP_ROW} className="row-with-menu">
+          <ListItemText
+            primary={<AgendaLink x={x} />}
+            secondary={x.why || undefined}
+            slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+          />
+          {x.kind && <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />}
+          {x.due && <DueChip due={x.due} />}
+          {x.kind === 'question' && (
+            <>
+              <LinkButton
+                size="small"
+                variant="outlined"
+                to="."
+                search={(p) => ({ ...p, answer: x.id })}
+              >
+                Answer
+              </LinkButton>
+              <RowMenu
+                label={`More actions for ${x.title || x.id}`}
+                always
+                items={[
+                  {
+                    label: 'Ask someone',
+                    hint: 'Send this question to a person as an ask',
+                    search: { ask: x.id },
+                  },
+                  {
+                    label: 'Find evidence',
+                    hint: 'Send this to an agent to look for evidence',
+                    search: { find: x.id },
+                  },
+                  {
+                    label: 'Later',
+                    hint: 'Put this off. It still blocks what depends on it',
+                    search: { later: x.id },
+                  },
+                  ...((x.blocks ?? 0) > 0
+                    ? [
+                        {
+                          label: 'Cut a dependency',
+                          hint: 'Let the work go ahead without this, and say why',
+                          search: { cut: x.id },
+                        },
+                      ]
+                    : []),
+                  {
+                    label: 'Drop',
+                    hint: 'Close this question without answering it',
+                    search: { drop: x.id },
+                  },
+                ]}
+              />
+            </>
+          )}
+          {x.kind === 'task' && (
+            <>
+              <TaskInline id={x.id} title={x.title || nameOr('', x.id)} />
+              <RowMenu
+                label={`More actions for ${x.title || x.id}`}
+                always
+                items={[
+                  {
+                    label: 'Later',
+                    hint: 'Put this off. It leaves Today and next',
+                    search: { later: x.id },
+                  },
+                  {
+                    label: 'Cut a dependency',
+                    hint: 'Let it go ahead without something it waits on',
+                    search: { cut: x.id },
+                  },
+                ]}
+              />
+            </>
+          )}
+        </ListItem>
+      ))}
+    </List>
+  )
+}
+
 function Today() {
   const q = useToday()
   const inbox = useInbox()
@@ -119,35 +221,20 @@ function Today() {
           const t = d.today
           // An answer an agent proposed is to check, not to answer.
           const checks = (questions.data ?? []).filter((x) => x.hasProposal)
-          const qs = (questions.data ?? []).filter((x) => !x.hasProposal)
+          const agenda: AgendaItem[] = t.agenda.items.filter((x) => !x.proposal)
           const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
           const inboxItems = inbox.data ?? []
-          const incidents = t.incidents.items
-          const overdue = t.overdue.items
-          const nudges = t.nudges.items
           const props = proposals.open
           const need =
-            props.length +
-            t.answersToCheck +
-            agentWork.length +
-            incidents.length +
-            qs.length +
-            overdue.length +
-            nudges.length +
-            inboxItems.length
+            props.length + t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
 
-          // The lead is the one thing to do first: an incident, then a decision that blocks
-          // work, then something late, then a follow-up, then a sort. It is not listed again.
+          // The lead is the one thing to do first: a proposal, an answer to check, then the top
+          // of the agenda, then a sort. It is not listed again.
           let lead: Lead | null = null
-          let leadKind:
-            'proposal' | 'answers' | 'incident' | 'question' | 'overdue' | 'nudge' | 'inbox' | '' =
-            ''
+          let leadKind: 'proposal' | 'answers' | 'agenda' | 'inbox' | '' = ''
           const firstProp = props[0]
           const firstCheck = checks[0]
-          const first = incidents[0]
-          const firstQ = qs[0]
-          const firstLate = overdue[0]
-          const firstNudge = nudges[0]
+          const firstA = agenda[0]
           const firstIn = inboxItems[0]
           if (firstProp) {
             leadKind = 'proposal'
@@ -180,69 +267,41 @@ function Today() {
                 </LinkButton>
               ),
             }
-          } else if (first) {
-            leadKind = 'incident'
-            lead = {
-              why: `Open incident${first.detail ? `, ${first.detail}` : ''}`,
-              title: <ItemLink kind="incident" item={first} />,
-              action: (
+          } else if (firstA) {
+            leadKind = 'agenda'
+            const action =
+              firstA.kind === 'question' ? (
+                <LinkButton
+                  size="small"
+                  variant="contained"
+                  to="."
+                  search={(p) => ({ ...p, answer: firstA.id })}
+                >
+                  Answer
+                </LinkButton>
+              ) : firstA.kind === 'task' ? (
+                <LinkButton
+                  size="small"
+                  variant="contained"
+                  to="."
+                  search={(p) => ({ ...p, done: firstA.id })}
+                >
+                  Done
+                </LinkButton>
+              ) : firstA.kind === 'incident' ? (
                 <LinkButton
                   size="small"
                   variant="contained"
                   to="/incidents/$id"
-                  params={{ id: first.id }}
+                  params={{ id: firstA.id }}
                 >
                   Open
                 </LinkButton>
-              ),
-            }
-          } else if (firstQ) {
-            leadKind = 'question'
+              ) : null
             lead = {
-              why: `${firstQ.kind === 'decision' ? 'Decision' : 'Question'} ${scopeWords(firstQ.scopeType, firstQ.scopeName, firstQ.scope)}${firstQ.blocking > 0 ? `, blocks ${firstQ.blocking}` : ''}`,
-              title: <DocLink id={firstQ.id}>{firstQ.title}</DocLink>,
-              action: (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="."
-                  search={(p) => ({ ...p, answer: firstQ.id })}
-                >
-                  Answer
-                </LinkButton>
-              ),
-            }
-          } else if (firstLate) {
-            leadKind = 'overdue'
-            lead = {
-              why: `Overdue${firstLate.due ? `, was due ${firstLate.due}` : ''}`,
-              title: <ItemLink kind="overdue" item={firstLate} />,
-              action: (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="."
-                  search={(p) => ({ ...p, done: firstLate.id })}
-                >
-                  Done
-                </LinkButton>
-              ),
-            }
-          } else if (firstNudge) {
-            leadKind = 'nudge'
-            lead = {
-              why: 'Time to follow up',
-              title: <ItemLink kind="nudge" item={firstNudge} />,
-              action: (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="/rfx/$id"
-                  params={{ id: firstNudge.id }}
-                >
-                  Open
-                </LinkButton>
-              ),
+              why: firstA.why || firstA.kind || 'First in order',
+              title: <AgendaLink x={firstA} />,
+              action,
             }
           } else if (firstIn) {
             leadKind = 'inbox'
@@ -262,32 +321,12 @@ function Today() {
             }
           }
 
-          // No item twice: everything shown is remembered, and later lists skip it.
-          const seen = new Set<string>()
-          const mark = (items: Item[]) => {
-            const out = items.filter((i) => !seen.has(i.id))
-            for (const i of out) seen.add(i.id)
-            return out
-          }
-          if (leadKind === 'incident' && first) seen.add(first.id)
           const checkRows = checks.slice(leadKind === 'answers' ? 1 : 0)
-          if (leadKind === 'question' && firstQ) seen.add(firstQ.id)
-          if (leadKind === 'overdue' && firstLate) seen.add(firstLate.id)
-          if (leadKind === 'nudge' && firstNudge) seen.add(firstNudge.id)
           const propRows = props.slice(leadKind === 'proposal' ? 1 : 0)
-          const incidentRows = mark(incidents)
-          const questionRows = qs.filter((x) => {
-            if (seen.has(x.id)) return false
-            seen.add(x.id)
-            return true
-          })
-          const overdueRows = mark(overdue)
+          const agendaRows = agenda.slice(leadKind === 'agenda' ? 1 : 0)
           const inboxRows = inboxItems.filter(
             (x) => !(leadKind === 'inbox' && x.id === firstIn?.id),
           )
-          const nudgeRows = mark(nudges)
-          const soonRows = mark(t.dueSoon.items)
-          const nextRows = d.next.filter((x) => !seen.has(x.id)).slice(0, 8)
 
           const inboxOf = (list: typeof inboxRows) => (
             <List dense disablePadding>
@@ -310,40 +349,7 @@ function Today() {
               ))}
             </List>
           )
-          const nextList = (
-            <List dense disablePadding>
-              {nextRows.map((x) => (
-                <ListItem key={x.id} disableGutters>
-                  <ListItemText
-                    primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
-                    secondary={x.project ? nameOr(x.projectName, x.project) : undefined}
-                  />
-                  {x.due && <DueChip due={x.due} />}
-                  <TaskInline id={x.id} title={x.title || nameOr('', x.id)} />
-                </ListItem>
-              ))}
-            </List>
-          )
-          // On a phone the lower sections fold into the buttons at the bottom, so the page is short.
-          const lower: { key: string; label: string; count: number; body: ReactNode }[] = narrow
-            ? [
-                {
-                  key: 'follow',
-                  label: 'Follow up',
-                  count: nudgeRows.length,
-                  body: <ItemRows kind="nudge" items={nudgeRows} />,
-                },
-                {
-                  key: 'soon',
-                  label: 'Due this week',
-                  count: soonRows.length,
-                  body: <ItemRows kind="doc" items={soonRows} tasks />,
-                },
-                { key: 'next', label: 'Next tasks', count: nextRows.length, body: nextList },
-              ]
-            : []
           const rest: { key: string; label: string; count: number; body: ReactNode }[] = [
-            ...lower,
             {
               key: 'waiting',
               label: 'Waiting on others',
@@ -494,32 +500,34 @@ function Today() {
                   ))}
                 </List>
               </Section>
-              <Section title="Incidents" count={incidentRows.length} hideEmpty>
-                <ItemRows kind="incident" items={incidentRows} />
-              </Section>
-              <Section title="Questions" count={questionRows.length} hideEmpty>
-                <QuestionRows list={questionRows} />
-              </Section>
-              <Section title="Overdue" count={overdueRows.length} hideEmpty>
-                <ItemRows kind="overdue" items={overdueRows} tasks />
+              <Section
+                title="What needs you, in order"
+                count={agendaRows.length}
+                hideEmpty
+                action={
+                  narrow ? undefined : (
+                    <LinkButton size="small" to="/agenda">
+                      Agenda
+                    </LinkButton>
+                  )
+                }
+              >
+                <AgendaRows items={agendaRows} />
+                {t.otherOpen > 0 && (
+                  <LinkButton size="small" color="inherit" to="/questions">
+                    {t.otherOpen} other open question{t.otherOpen === 1 ? '' : 's'}
+                  </LinkButton>
+                )}
+                {t.deferred > 0 && (
+                  <LinkButton size="small" color="inherit" to="/questions">
+                    {t.deferred} put off (Later)
+                  </LinkButton>
+                )}
               </Section>
               <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
                 {inboxOf(inboxRows)}
               </Section>
-              {!narrow && (
-                <>
-                  <Section title="Follow up" count={nudgeRows.length} hideEmpty>
-                    <ItemRows kind="nudge" items={nudgeRows} />
-                  </Section>
-                  <Section title="Due this week" count={soonRows.length} hideEmpty>
-                    <ItemRows kind="doc" items={soonRows} tasks />
-                  </Section>
-                  <Section title="Next tasks" count={nextRows.length} hideEmpty>
-                    {nextList}
-                  </Section>
-                </>
-              )}
-              {need === 0 && nextRows.length === 0 && <Empty>No task is ready.</Empty>}
+              {need === 0 && <Empty>No task is ready.</Empty>}
             </>
           )
         }}

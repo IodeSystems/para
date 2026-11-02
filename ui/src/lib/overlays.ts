@@ -22,6 +22,9 @@ export type OverlaySearch = {
   reject?: string // question id whose proposed answer is rejected
   qedit?: string // question id to edit
   qdeps?: string // question id whose dependencies are edited
+  later?: string // comma-separated ids of questions or tasks to put off
+  find?: string // question id to send to an agent to find evidence
+  cut?: string // question or task id whose dependency is cut
   taskdw?: string // task id whose done-when is set
   goaldw?: string // goal (project) id whose done-when is set
 }
@@ -51,6 +54,9 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     reject: id(s.reject),
     qedit: id(s.qedit),
     qdeps: id(s.qdeps),
+    later: id(s.later),
+    find: id(s.find),
+    cut: id(s.cut),
     taskdw: id(s.taskdw),
     goaldw: id(s.goaldw),
   }
@@ -76,6 +82,9 @@ export const NO_OVERLAYS: OverlaySearch = {
   reject: undefined,
   qedit: undefined,
   qdeps: undefined,
+  later: undefined,
+  find: undefined,
+  cut: undefined,
   taskdw: undefined,
   goaldw: undefined,
 }

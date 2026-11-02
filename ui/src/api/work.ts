@@ -15,9 +15,11 @@ const WorkDoc = graphql(/* GraphQL */ `
             owner
           }
         }
-        taskList {
+        taskList(deferred: true) {
           tasks {
             id
+            deferred
+            deferUntil
             title
             status
             project

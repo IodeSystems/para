@@ -372,8 +372,7 @@ try {
     await page.getByText('Seed: ask platform about the quota').isVisible(),
     'Today lists the inbox item',
   )
-  // On a phone the lower sections fold away: Next tasks is behind its button.
-  await page.getByRole('button', { name: /^Next tasks/ }).click()
+  // Ready work is in the one list in value order, with the reason on the row.
   check(await page.getByText('Write the plan').first().isVisible(), 'Today lists a ready task')
 
   // Live refresh over /ws: a write by another client shows up without a reload or the 60 s poll.
@@ -949,6 +948,7 @@ try {
     (await rp.getByRole('button', { name: /^Change the date of/ }).count()) >= 1,
     'Today task rows have a date action in place',
   )
+  await rp.getByRole('button', { name: /^Waiting on others/ }).click()
   const waitRow = rp.getByRole('listitem').filter({ hasText: 'Review the contract' })
   await waitRow.waitFor()
   check(

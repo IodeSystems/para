@@ -3,7 +3,7 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
-import { useQuestions, type QuestionScope } from '@/api/questions'
+import { useQuestions, useUndefer, type QuestionScope } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
 import { Empty, Section, StateChip, StatusChip } from '@/components/Bits'
 import { questionState } from '@/lib/answer'
@@ -55,28 +55,40 @@ export function scopeWords(type: string, name: string | null | undefined, id: st
 
 type Rows = NonNullable<ReturnType<typeof useQuestions>['data']>
 
+// laterWords says when a put-off item is back.
+export function laterWords(until: string | null | undefined): string {
+  return !until || until === 'someday' ? 'someday' : `on ${until}`
+}
+
 export function QuestionRows({ list }: { list: Rows }) {
+  const undefer = useUndefer()
   return (
     <List dense disablePadding>
       {list.map((x) => (
         <ListItem key={x.id} disableGutters divider sx={{ display: 'block' }}>
-          <ListItemText
-            primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>}
-            secondary={[
-              scopeWords(x.scopeType, x.scopeName, x.scope),
-              x.recommended ? `recommended: ${x.recommended}` : '',
-              x.rfx ? 'already asked' : '',
-              !x.hasProposal && x.waitingOn.length > 0
-                ? `waiting on ${nameList(x.waitingOn, null).join(', ')}`
-                : '',
-              x.rejectedReason ? `Rejected: ${x.rejectedReason}` : '',
-            ]
-              .filter(Boolean)
-              .join(' - ')}
-            slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-          />
+          <Stack direction="row" sx={{ alignItems: 'flex-start' }}>
+            <ListItemText
+              primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>}
+              secondary={[
+                scopeWords(x.scopeType, x.scopeName, x.scope),
+                x.recommended ? `recommended: ${x.recommended}` : '',
+                x.rfx ? 'already asked' : '',
+                !x.hasProposal && x.waitingOn.length > 0
+                  ? `waiting on ${nameList(x.waitingOn, null).join(', ')}`
+                  : '',
+                x.rejectedReason ? `Rejected: ${x.rejectedReason}` : '',
+              ]
+                .filter(Boolean)
+                .join(' - ')}
+              slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+            />
+          </Stack>
           <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
             <StatusChip tone="quiet" label={x.kind} />
+            {x.agentLooking && <StatusChip tone="good" label="Agent looking" />}
+            {x.deferred && (
+              <StatusChip tone="quiet" label={`Later: back ${laterWords(x.deferUntil)}`} />
+            )}
             {(x.hasProposal || x.waitingOn.length > 0) && <StateChip {...questionState(x)} />}
             {x.blocking > 0 && <StatusChip tone="attn" label={`blocks ${x.blocking}`} />}
             {x.hasProposal && (
@@ -104,6 +116,35 @@ export function QuestionRows({ list }: { list: Rows }) {
                         search: { ask: x.id },
                       },
                     ]),
+                ...(x.agentLooking
+                  ? []
+                  : [
+                      {
+                        label: 'Find evidence',
+                        hint: 'Send this to an agent to look for evidence; you check the answer',
+                        search: { find: x.id },
+                      },
+                    ]),
+                x.deferred
+                  ? {
+                      label: 'Not later',
+                      hint: 'Bring this back to Today',
+                      onSelect: () => undefer.mutate([x.id]),
+                    }
+                  : {
+                      label: 'Later',
+                      hint: 'Put this off. It still blocks what depends on it',
+                      search: { later: x.id },
+                    },
+                ...(x.blocks.length > 0 || x.waitingOn.length > 0
+                  ? [
+                      {
+                        label: 'Cut a dependency',
+                        hint: 'Let the work go ahead without this, and say why',
+                        search: { cut: x.id },
+                      },
+                    ]
+                  : []),
                 {
                   label: 'Drop',
                   hint: 'Close this question without answering it',

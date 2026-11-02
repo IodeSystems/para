@@ -13,6 +13,7 @@ import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
+import { RowMenu } from '@/components/RowMenu'
 import { errorText } from '@/client/gqlClient'
 import { downloadText } from '@/lib/download'
 import { meetingWhen, viewerZone } from '@/lib/meeting'
@@ -127,6 +128,7 @@ function Agenda() {
                             secondary={[
                               i.kind === 'meeting' ? meetingWhen(i.at, i.until) : i.time,
                               i.detail,
+                              i.why,
                               i.who.length > 0 && `with ${joinNames(nameList(i.who, i.whoNames))}`,
                               i.projectName && `goal ${i.projectName}`,
                             ]
@@ -138,6 +140,29 @@ function Agenda() {
                             tone={i.overdue ? 'bad' : 'quiet'}
                             label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
                           />
+                          {i.kind === 'due' && (
+                            <RowMenu
+                              label={`More actions for ${i.title}`}
+                              always
+                              items={[
+                                {
+                                  label: 'Done',
+                                  hint: 'Mark this task finished',
+                                  search: { done: i.id },
+                                },
+                                {
+                                  label: 'Later',
+                                  hint: 'Put this off. It leaves Today and next',
+                                  search: { later: i.id },
+                                },
+                                {
+                                  label: 'Cut a dependency',
+                                  hint: 'Let it go ahead without something it waits on',
+                                  search: { cut: i.id },
+                                },
+                              ]}
+                            />
+                          )}
                         </ListItem>
                       ))}
                     </List>

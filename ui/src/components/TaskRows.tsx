@@ -10,7 +10,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import EventIcon from '@mui/icons-material/Event'
 import { useNavigate } from '@tanstack/react-router'
-import { useQuestions } from '@/api/questions'
+import { useQuestions, useUndefer } from '@/api/questions'
 import { useWork } from '@/api/work'
 import { useTaskDone, useTaskDue } from '@/api/tasks'
 import { localDate } from '@/api/today'
@@ -34,6 +34,8 @@ export type TaskRow = {
   dependsOnNames?: string[] | null
   blockedBy: string[]
   doneWhen?: string | null
+  deferred?: boolean
+  deferUntil?: string | null
 }
 
 // DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
@@ -61,7 +63,8 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
 
 // showProject adds the project name under each task, for lists that mix projects.
 export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
-  const questions = useQuestions()
+  const questions = useQuestions({ deferred: true })
+  const undefer = useUndefer()
   // task id -> titles of the open questions it waits on
   const waits = new Map<string, string[]>()
   for (const q of questions.data ?? [])
@@ -103,6 +106,17 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                       hint: 'Say how we know this task is done',
                       search: { taskdw: t.id },
                     },
+                    t.deferred
+                      ? {
+                          label: 'Not later',
+                          hint: 'Bring this back to Today and next',
+                          onSelect: () => undefer.mutate([t.id]),
+                        }
+                      : {
+                          label: 'Later',
+                          hint: 'Put this off. It leaves Today and next',
+                          search: { later: t.id },
+                        },
                     {
                       label: 'To question',
                       hint: 'Turn this into a question you need answered first',
@@ -115,6 +129,12 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
             <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
               {t.status !== 'todo' && <StateChip state={t.status} />}
               {t.due && open && <DueChip due={t.due} />}
+              {t.deferred && (
+                <StatusChip
+                  tone="quiet"
+                  label={`Later: back ${!t.deferUntil || t.deferUntil === 'someday' ? 'someday' : `on ${t.deferUntil}`}`}
+                />
+              )}
               {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
               {t.assignee && (
                 <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
