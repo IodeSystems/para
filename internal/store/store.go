@@ -6,6 +6,7 @@ package store
 import (
 	"context"
 
+	"github.com/iodesystems/paradize/internal/egress"
 	"github.com/iodesystems/paradize/internal/model"
 )
 
@@ -36,6 +37,10 @@ type Store interface {
 	Lint(ctx context.Context) ([]model.Finding, error)
 	// Reconcile logs changes made outside the store.
 	Reconcile(ctx context.Context) (model.ReconcileResult, error)
+	// Egress checks a path out of the vault against its configuration and logs
+	// an egress event with the doc id and destination. Callers release content
+	// only after it returns.
+	Egress(ctx context.Context, doc, dest string) (egress.Decision, error)
 	// Events returns the last n events, oldest first.
 	Events(ctx context.Context, n int) ([]model.Event, error)
 }

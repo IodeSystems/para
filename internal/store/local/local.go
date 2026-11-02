@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iodesystems/paradize/internal/egress"
 	"github.com/iodesystems/paradize/internal/events"
 	"github.com/iodesystems/paradize/internal/model"
 	"github.com/iodesystems/paradize/internal/store"
@@ -57,3 +58,7 @@ func (s *Store) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 }
 
 func (s *Store) Events(_ context.Context, n int) ([]model.Event, error) { return s.log.Tail(n) }
+
+func (s *Store) Egress(ctx context.Context, doc, dest string) (egress.Decision, error) {
+	return s.v.Egress(ctx, doc, dest)
+}

@@ -88,6 +88,7 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: exceptionStatus, Required: true},
 		{Name: "by", Kind: kString, Required: true},
 		{Name: "with", Kind: kLink}, // required when kind is conflict_with
+		{Name: "review_by", Kind: kDate},
 	},
 	"person": {
 		{Name: "org", Kind: kString, Required: true},

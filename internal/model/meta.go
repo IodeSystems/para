@@ -57,6 +57,10 @@ type Source struct {
 	Complete  *bool    `yaml:"complete,omitempty" json:"complete,omitempty"`
 	Untrusted *bool    `yaml:"untrusted,omitempty" json:"untrusted,omitempty"`
 	Backend   string   `yaml:"backend,omitempty" json:"backend,omitempty"`
+	// Status is "current" or "changed" and Checked is the last refresh time.
+	// Both are set on transcripts only (para policy refresh).
+	Status  string `yaml:"status,omitempty" json:"status,omitempty"`
+	Checked string `yaml:"checked,omitempty" json:"checked,omitempty"`
 }
 
 // Project is type: project.
@@ -110,6 +114,8 @@ type Policy struct {
 	Common   `yaml:",inline"`
 	Source   Source `yaml:"source" json:"source"`
 	Verified bool   `yaml:"verified" json:"verified"`
+	// ReviewedBy names who reviewed the summary against the source.
+	ReviewedBy string `yaml:"reviewed_by,omitempty" json:"reviewed_by,omitempty"`
 }
 
 // Transcript is type: transcript, the .source.md file.
@@ -128,6 +134,8 @@ type PolicyException struct {
 	Status ExceptionStatus `yaml:"status" json:"status"`
 	By     string          `yaml:"by" json:"by"`
 	With   Link            `yaml:"with,omitempty" json:"with,omitempty"`
+	// ReviewBy is when to look at the exception again (para exception expiring).
+	ReviewBy Date `yaml:"review_by,omitempty" json:"review_by,omitempty"`
 }
 
 // Person is type: person.
