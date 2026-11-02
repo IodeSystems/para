@@ -58,9 +58,10 @@ func newServeCmd(l *loader) *cobra.Command {
 		Use:   "serve",
 		Short: "Serve the API and UI for every vault, routed by host name",
 		Long: "Serve the API and UI. One process serves every vault of this install:\n" +
-			"<vault>.localhost:<port> and <vault>.<base> for each --base. With --vault,\n" +
-			"that vault is also served at the bare host: localhost, 127.0.0.1, ::1, and\n" +
-			"each --base. Any other Host gets 421. Token auth is always on.\n\n" +
+			"<vault>.localhost:<port> and <vault>.<base> for each --base. The vault named\n" +
+			"by --vault, PARA_VAULT, the default vault, or the only vault is also served\n" +
+			"at the bare host: the listen address, localhost, 127.0.0.1, ::1, and each\n" +
+			"--base. Any other Host gets 421. Token auth is always on.\n\n" +
 			"$PARA_HOME/server.properties can set net.trusted_proxies and net.base_hosts\n" +
 			"(comma separated). Each vault's net.rules is in\n" +
 			"$PARA_HOME/vaults/<id>/server/ and starts with loopback only.\n\n" +
@@ -114,6 +115,10 @@ func loadServeConfig(l *loader, f serveFlags) (serveConfig, error) {
 		if _, err := l.install.Select(out.bare, ""); err != nil {
 			return serveConfig{}, fmt.Errorf("serve: --vault: %w", err)
 		}
+	} else if sel, err := l.selectVault(); err == nil {
+		// PARA_VAULT, the default vault, or the only vault. With no choice,
+		// a bare address answers 421, and runServe says how to fix that.
+		out.bare = sel.ID
 	}
 	webFS := ui.Dist()
 	if f.webRoot != "" {
@@ -181,6 +186,9 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	bare := []string{"127.0.0.1", "::1"}
 	if !bind.Addr().IsUnspecified() {
 		bare = append(bare, bind.Addr().String())
+	}
+	if cfg.bare == "" {
+		log.Warn("no vault for a bare address: it answers 421. Use --vault <id>, run para vault set-default <id>, or open <vault>.localhost", "addr", f.addr)
 	}
 	gate := netguard.New(netguard.Config{
 		Proxies: cfg.proxies,

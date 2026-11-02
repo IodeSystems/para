@@ -291,12 +291,27 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 	}
 }
 
-func TestBareHostNeedsVaultFlag(t *testing.T) {
+func TestBareHostNeedsAChosenVault(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
+	e.init("globex")
 	port, _ := runningServer(t, e)
 	if code, _ := fetch(t, port, "127.0.0.1:"+port, "/healthz", ""); code != http.StatusMisdirectedRequest {
-		t.Errorf("no --vault: %d", code)
+		t.Errorf("two vaults, no choice: %d", code)
+	}
+	one := newEnv(t)
+	one.init("acme")
+	port, _ = runningServer(t, one)
+	if code, _ := fetch(t, port, "127.0.0.1:"+port, "/healthz", ""); code != 200 {
+		t.Errorf("only vault: %d", code)
+	}
+	def := newEnv(t)
+	def.init("acme")
+	def.init("globex")
+	def.ok("vault", "set-default", "globex")
+	port, _ = runningServer(t, def)
+	if code, _ := fetch(t, port, "127.0.0.1:"+port, "/healthz", ""); code != 200 {
+		t.Errorf("default vault: %d", code)
 	}
 	e2 := newEnv(t)
 	e2.init("acme")
