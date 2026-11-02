@@ -54,6 +54,10 @@ type Options struct {
 	// notifications/claude/channel, and declares the claude/channel capability.
 	// It is a research preview of Claude Code, so it is off by default.
 	Channel bool
+	// Executable is the path of the running binary. When set, each tool call
+	// first checks that the file is unchanged since New, and if not, answers
+	// with StaleMessage. Empty turns the check off.
+	Executable string
 }
 
 // Server is an MCP server over one vault.
@@ -71,6 +75,7 @@ type Server struct {
 	notes     *notifier
 	channel   bool
 	runCtx    atomic.Pointer[context.Context] // the context of Start, for the watcher's checks
+	binary    *binaryStamp
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -93,6 +98,7 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		channel:   o.Channel,
 		eventsDir: o.EventsDir,
 		poll:      o.Poll,
+		binary:    stampBinary(o.Executable),
 	}
 	s.deps.Changed = s.changed.wait
 	s.reqWatch = ops.NewRequestWatch(s.deps)
@@ -142,6 +148,9 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 				res = mcp.NewToolResultError(e.Name() + ": internal error")
 			}
 		}()
+		if s.binary.changed() {
+			return mcp.NewToolResultError(e.Name() + ": " + StaleMessage), nil
+		}
 		var input json.RawMessage
 		if args := req.GetRawArguments(); args != nil {
 			b, err := json.Marshal(args)
