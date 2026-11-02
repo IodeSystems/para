@@ -24,6 +24,7 @@ const (
 	TypeInteraction     Type = "interaction"
 	TypeRequest         Type = "request"
 	TypeArea            Type = "area"
+	TypeNote            Type = "note"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -31,7 +32,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea,
+	TypeArea, TypeNote,
 }
 
 // Folder is a top-level vault folder that holds documents.

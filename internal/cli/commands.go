@@ -63,7 +63,7 @@ func newInboxTriageCmd(l *loader) *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.InboxTriageInput) {
 			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, or drop (required)")
-			fs.StringVar(&in.Project, "project", "", "task: project id (required); rfx: optional")
+			fs.StringVar(&in.Project, "project", "", "task: project id (required); rfx, note: optional")
 			fs.StringVar(&in.Owner, "owner", "", "project: owner (required)")
 			fs.StringVar((*string)(&in.Direction), "direction", "", "rfx: in or out (default out)")
 			fs.StringVar(&in.Route, "route", "", "rfx: domain id (required)")
@@ -71,7 +71,8 @@ func newInboxTriageCmd(l *loader) *cobra.Command {
 			fs.StringArrayVar(&via, "via", nil, "rfx: medium for the matching --target: "+mediumList)
 			fs.StringVar(&in.SelfServe, "self-serve", "", "rfx: what you checked before asking")
 			fs.StringVar(&in.NextNudge, "next-nudge", "", "rfx: YYYY-MM-DD")
-			fs.StringVar(&in.Person, "person", "", "note: person id (required)")
+			fs.StringVar(&in.Area, "area", "", "note: area id")
+			fs.StringVar(&in.Person, "person", "", "note: person id; makes a dated line in their notes, not a note document")
 			fs.StringVar(&in.Date, "date", "", "note: YYYY-MM-DD; default today")
 		},
 		Bind: func(args []string, in *ops.InboxTriageInput) error {

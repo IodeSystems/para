@@ -47,7 +47,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
-	"group", "interaction", "request", "area",
+	"group", "interaction", "request", "area", "note",
 }
 
 // commonFields apply to every type.
@@ -67,6 +67,10 @@ var typeFields = map[string][]field{
 	},
 	"area": {
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
+	},
+	"note": {
+		{Name: "area", Kind: kLink},
+		{Name: "project", Kind: kLink},
 	},
 	"task": {
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},

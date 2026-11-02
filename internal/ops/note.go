@@ -1,0 +1,153 @@
+package ops
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+
+	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
+)
+
+// NoteView is a note without its body.
+type NoteView struct {
+	ID      string       `json:"id"`
+	Folder  model.Folder `json:"folder"`
+	Title   string       `json:"title"`
+	Area    string       `json:"area,omitempty"`
+	Project string       `json:"project,omitempty"`
+	Tags    []string     `json:"tags"`
+	Rev     string       `json:"rev"`
+}
+
+func noteView(d model.Document) (NoteView, error) {
+	n, ok := d.Meta.(*model.Note)
+	if !ok {
+		return NoteView{}, fmt.Errorf("%s is a %s, not a note", d.ID, d.Meta.Header().Type)
+	}
+	return NoteView{ID: d.ID, Folder: d.Folder, Title: d.Title, Area: n.Area.Target(), Project: n.Project.Target(),
+		Tags: nonNil(n.Tags), Rev: d.Rev}, nil
+}
+
+// listNotes returns the notes that match keep, sorted by id.
+func listNotes(ctx context.Context, s store.Store, keep func(NoteView) bool) ([]NoteView, error) {
+	refs, err := s.List(ctx, store.Filter{Type: model.TypeNote})
+	if err != nil {
+		return nil, err
+	}
+	out := []NoteView{}
+	for _, r := range refs {
+		doc, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		v, err := noteView(doc)
+		if err != nil {
+			return nil, err
+		}
+		if keep == nil || keep(v) {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
+// projectLink returns the link to an existing project; an empty id gives no link.
+func projectLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
+	id := normID(raw)
+	if id == "" {
+		return "", nil
+	}
+	if _, _, err := getProject(ctx, s, id); err != nil {
+		return "", fmt.Errorf("project %s: %w", id, err)
+	}
+	return model.LinkTo(id), nil
+}
+
+// NoteAddInput is the input of note_add.
+type NoteAddInput struct {
+	Title   string   `json:"title"`
+	Body    string   `json:"body,omitempty"`
+	Area    string   `json:"area,omitempty"`    // area id
+	Project string   `json:"project,omitempty"` // project id
+	Tags    []string `json:"tags,omitempty"`
+}
+
+// NoteAddOutput is the output of note_add.
+type NoteAddOutput struct {
+	ID     string       `json:"id"`
+	Folder model.Folder `json:"folder"`
+	Rev    string       `json:"rev"`
+}
+
+// NoteAdd creates a note in resources/.
+var NoteAdd = define("note_add", "Create a note (reference material), optionally linked to an area or project", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
+	title := strings.Join(strings.Fields(in.Title), " ")
+	if title == "" {
+		return NoteAddOutput{}, errors.New("title is empty")
+	}
+	area, err := areaLink(ctx, d.Store, in.Area)
+	if err != nil {
+		return NoteAddOutput{}, err
+	}
+	project, err := projectLink(ctx, d.Store, in.Project)
+	if err != nil {
+		return NoteAddOutput{}, err
+	}
+	doc, err := d.Store.Create(ctx, model.Document{
+		Folder: model.FolderResources, Title: title, Body: strings.TrimSpace(in.Body),
+		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Project: project},
+	})
+	if err != nil {
+		return NoteAddOutput{}, err
+	}
+	return NoteAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
+})
+
+// NoteListInput is the input of note_list.
+type NoteListInput struct {
+	Area    string `json:"area,omitempty" query:"area"`
+	Project string `json:"project,omitempty" query:"project"`
+	Tag     string `json:"tag,omitempty" query:"tag"`
+}
+
+// NoteListOutput is the output of note_list.
+type NoteListOutput struct {
+	Notes []NoteView `json:"notes"`
+}
+
+// NoteList lists notes.
+var NoteList = define("note_list", "List notes", func(ctx context.Context, d Deps, in NoteListInput) (NoteListOutput, error) {
+	area, project, tag := normID(in.Area), normID(in.Project), strings.TrimSpace(in.Tag)
+	notes, err := listNotes(ctx, d.Store, func(n NoteView) bool {
+		return (area == "" || n.Area == area) && (project == "" || n.Project == project) &&
+			(tag == "" || slices.Contains(n.Tags, tag))
+	})
+	return NoteListOutput{Notes: notes}, err
+})
+
+// NoteShowInput is the input of note_show.
+type NoteShowInput struct {
+	ID string `json:"id" query:"id" required:"true"`
+}
+
+// NoteShowOutput is the output of note_show.
+type NoteShowOutput struct {
+	Note NoteView `json:"note"`
+	Body string   `json:"body"`
+}
+
+// NoteShow returns one note.
+var NoteShow = define("note_show", "Show a note", func(ctx context.Context, d Deps, in NoteShowInput) (NoteShowOutput, error) {
+	doc, err := d.Store.Get(ctx, normID(in.ID))
+	if err != nil {
+		return NoteShowOutput{}, err
+	}
+	v, err := noteView(doc)
+	if err != nil {
+		return NoteShowOutput{}, err
+	}
+	return NoteShowOutput{Note: v, Body: doc.Body}, nil
+})

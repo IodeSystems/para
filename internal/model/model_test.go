@@ -68,6 +68,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		body string
 	}{
 		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health")}, ""},
+		{"note-one", &Note{Common: c(TypeNote), Area: LinkTo("health"), Project: LinkTo("acme-portal")}, "Reference text."},
 		{"health", &Area{c(TypeArea), AreaActive}, "Standard."},
 		{"task-one", &Task{c(TypeTask), TaskBlocked, LinkTo("acme-portal"), []string{"waiting on rfx-one"}, []Link{LinkTo("rfx-one")}}, ""},
 		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},

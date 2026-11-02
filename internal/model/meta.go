@@ -78,6 +78,14 @@ type Area struct {
 	Status AreaStatus `yaml:"status" json:"status"`
 }
 
+// Note is type: note, reference material kept in resources/. Area and Project
+// say what it is for; both are optional.
+type Note struct {
+	Common  `yaml:",inline"`
+	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+}
+
 // Task is type: task.
 type Task struct {
 	Common    `yaml:",inline"`
@@ -298,6 +306,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Request{Common: c}, true
 	case TypeArea:
 		return &Area{Common: c}, true
+	case TypeNote:
+		return &Note{Common: c}, true
 	}
 	return nil, false
 }

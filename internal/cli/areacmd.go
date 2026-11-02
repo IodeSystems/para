@@ -54,6 +54,10 @@ func newAreaCmd(l *loader) *cobra.Command {
 				if p.err == nil {
 					p.err = writeTasks(w, out.Tasks)
 				}
+				p.f("notes\n")
+				if p.err == nil {
+					p.err = writeNotes(w, out.Notes)
+				}
 				return p.err
 			},
 		}),

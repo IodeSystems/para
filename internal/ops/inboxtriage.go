@@ -11,8 +11,9 @@ import (
 	"github.com/iodesystems/parasolve/internal/store"
 )
 
-// An inbox item is sorted once: it becomes a task, request, project, or
-// person note, or it is dropped. Either way the item is archived, never
+// An inbox item is sorted once: it becomes a task, request, project, or note,
+// or it is dropped. A note is a note document; with a person it is a dated line
+// in that person's notes. Either way the item is archived, never
 // deleted, so a link to it keeps resolving and the history stays.
 
 // TriageTarget is where an inbox item goes.
@@ -22,7 +23,7 @@ const (
 	TriageTask    TriageTarget = "task"
 	TriageRFX     TriageTarget = "rfx"
 	TriageProject TriageTarget = "project"
-	TriageNote    TriageTarget = "note" // a dated line in a person's notes
+	TriageNote    TriageTarget = "note" // a note document; with Person, a dated line in a person's notes
 	TriageDrop    TriageTarget = "drop" // archive with no new document
 )
 
@@ -126,7 +127,8 @@ type InboxTriageInput struct {
 	Targets   []TargetInput      `json:"targets,omitempty"`
 	SelfServe string             `json:"self_serve,omitempty"`
 	NextNudge string             `json:"next_nudge,omitempty"`
-	// note
+	// note: a note document (Area, Project), or with Person a person note (Date)
+	Area   string `json:"area,omitempty"`   // note: area id
 	Person string `json:"person,omitempty"` // person id
 	Date   string `json:"date,omitempty"`   // YYYY-MM-DD; default the local date
 }
@@ -146,7 +148,7 @@ type InboxTriageOutput struct {
 // gets a line that links forward, then moves to archive/. The new document is
 // made first: if the archive step fails, the item stays in the inbox and the
 // new document exists, so the error names it.
-var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, request, project, or person note, or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
+var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, request, project, or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
 	doc, _, err := getInbox(ctx, d, in.ID)
 	if err != nil {
 		return InboxTriageOutput{}, err
@@ -187,6 +189,14 @@ var InboxTriage = define("inbox_triage", "Turn an inbox capture into a task, req
 		}
 		out.Created, out.Warnings = r.ID, r.Warnings
 	case TriageNote:
+		if in.Person == "" {
+			r, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: doc.Title, Body: joinBody(doc.Body, back), Area: in.Area, Project: in.Project})
+			if err != nil {
+				return out, err
+			}
+			out.Created = r.ID
+			break
+		}
 		if _, err := OrgPersonNote.Run(ctx, d, PersonNoteInput{ID: in.Person, Text: text + " (" + strings.TrimSuffix(back, ".") + ")", Date: in.Date}); err != nil {
 			return out, err
 		}
@@ -235,6 +245,7 @@ func checkTriageFields(in InboxTriageInput) error {
 		"targets":    len(in.Targets) > 0,
 		"self_serve": in.SelfServe != "",
 		"next_nudge": in.NextNudge != "",
+		"area":       in.Area != "",
 		"person":     in.Person != "",
 		"date":       in.Date != "",
 	}
@@ -242,12 +253,20 @@ func checkTriageFields(in InboxTriageInput) error {
 		TriageTask:    {"project"},
 		TriageProject: {"owner"},
 		TriageRFX:     {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
-		TriageNote:    {"person", "date"},
+		TriageNote:    {"person", "date", "area", "project"},
 		TriageDrop:    {},
 	}[in.To]
 	required := map[TriageTarget][]string{
-		TriageTask: {"project"}, TriageProject: {"owner"}, TriageRFX: {"route"}, TriageNote: {"person"},
+		TriageTask: {"project"}, TriageProject: {"owner"}, TriageRFX: {"route"},
 	}[in.To]
+	if in.To == TriageNote {
+		if in.Person != "" && (in.Area != "" || in.Project != "") {
+			return errors.New("area and project apply to a note document: drop person, or drop area and project")
+		}
+		if in.Person == "" && in.Date != "" {
+			return errors.New("date applies to a person note: give person")
+		}
+	}
 	for _, f := range required {
 		if !have[f] {
 			return fmt.Errorf("to %s needs %s", in.To, f)

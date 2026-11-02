@@ -11,6 +11,7 @@ func TestInboxTriage(t *testing.T) {
 	d := newDeps(t)
 	seedOrg(t, d)
 	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", Owner: "Jordan Example"})
+	area := must(t, AreaAdd, d, AreaAddInput{Title: "Home"})
 	add := func(text string) string { return must(t, InboxAdd, d, InboxAddInput{Text: text}).ID }
 
 	cases := []struct {
@@ -45,7 +46,18 @@ func TestInboxTriage(t *testing.T) {
 		{"task needs project", "x", InboxTriageInput{To: TriageTask}, "needs project", nil},
 		{"project needs owner", "x", InboxTriageInput{To: TriageProject}, "needs owner", nil},
 		{"rfx needs route", "x", InboxTriageInput{To: TriageRFX}, "needs route", nil},
-		{"note needs person", "x", InboxTriageInput{To: TriageNote}, "needs person", nil},
+		{"note document", "keep this recipe", InboxTriageInput{To: TriageNote, Area: area.ID, Project: proj.ID}, "", func(t *testing.T, id string) {
+			doc, err := d.Store.Get(ctx, id)
+			n, _ := doc.Meta.(*model.Note)
+			if err != nil || n == nil || doc.Folder != model.FolderResources || n.Area != model.LinkTo(area.ID) ||
+				n.Project != model.LinkTo(proj.ID) || !strings.Contains(doc.Body, "From [[inbox-") {
+				t.Fatalf("note = %+v, %v", doc, err)
+			}
+		}},
+		{"bare note document", "no links", InboxTriageInput{To: TriageNote}, "", nil},
+		{"person note refuses area", "x", InboxTriageInput{To: TriageNote, Person: "person-bo-example", Area: area.ID}, "area and project apply", nil},
+		{"note date needs person", "x", InboxTriageInput{To: TriageNote, Date: "2026-11-01"}, "date applies", nil},
+		{"note unknown area", "x", InboxTriageInput{To: TriageNote, Area: "area-none"}, "area-none", nil},
 		{"stray field", "x", InboxTriageInput{To: TriageDrop, Project: proj.ID}, "does not apply", nil},
 		{"bad target", "x", InboxTriageInput{To: "file"}, "want one of", nil},
 		{"unknown project", "x", InboxTriageInput{To: TriageTask, Project: "project-none"}, "project-none", nil},

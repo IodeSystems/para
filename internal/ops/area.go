@@ -40,6 +40,18 @@ func getArea(ctx context.Context, s store.Store, id string) (model.Document, *mo
 	return d, a, nil
 }
 
+// areaLink returns the link to an existing area; an empty id gives no link.
+func areaLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
+	if normID(raw) == "" {
+		return "", nil
+	}
+	d, _, err := getArea(ctx, s, raw)
+	if err != nil {
+		return "", fmt.Errorf("area %s: %w", normID(raw), err)
+	}
+	return model.LinkTo(d.ID), nil
+}
+
 // AreaAddInput is the input of area_add.
 type AreaAddInput struct {
 	Title  string           `json:"title"`
@@ -121,12 +133,13 @@ type AreaShowInput struct {
 }
 
 // AreaShowOutput is the output of area_show. Tasks holds the area's own tasks
-// and the tasks of its projects.
+// and the tasks of its projects; Notes likewise.
 type AreaShowOutput struct {
 	Area     AreaView      `json:"area"`
 	Body     string        `json:"body"`
 	Projects []ProjectView `json:"projects"`
 	Tasks    []TaskView    `json:"tasks"`
+	Notes    []NoteView    `json:"notes"`
 }
 
 // AreaShow returns an area with its projects and tasks.
@@ -139,7 +152,7 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
-	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}}
+	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}}
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
 	if err != nil {
 		return AreaShowOutput{}, err
@@ -167,6 +180,9 @@ var AreaShow = define("area_show", "Show an area with its projects and tasks", f
 		if inArea[t.Project] {
 			out.Tasks = append(out.Tasks, t)
 		}
+	}
+	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Project] }); err != nil {
+		return AreaShowOutput{}, err
 	}
 	return out, nil
 })

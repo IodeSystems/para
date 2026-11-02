@@ -41,6 +41,7 @@ type ParaV1MutationNamespace {
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
+  noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
@@ -99,6 +100,8 @@ type ParaV1QueryNamespace {
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
   lint: para_LintOutput @derived(operationId: "lint")
   next(project: String): para_NextOutput @derived(operationId: "next")
+  noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
+  noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
   orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
@@ -171,6 +174,7 @@ type para_AreaListOutput {
 type para_AreaShowOutput {
   area: para_AreaView!
   body: String!
+  notes: [para_NoteView!]!
   projects: [para_ProjectView!]!
   tasks: [para_TaskView!]!
 }
@@ -634,6 +638,7 @@ enum para_GraphNodeType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
@@ -747,6 +752,7 @@ enum para_InboxTriageInputDirection {
 }
 
 input para_InboxTriageInputInput {
+  area: String
   date: String
   direction: para_InboxTriageInputDirection
   id: String!
@@ -1048,6 +1054,7 @@ enum para_MetaType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
@@ -1068,6 +1075,71 @@ enum para_MetaVisibility {
 type para_NextOutput {
   cycles: JSON!
   tasks: [para_TaskView!]!
+}
+
+input para_NoteAddInputInput {
+  area: String
+  body: String
+  project: String
+  tags: [String!]
+  title: String!
+}
+
+type para_NoteAddOutput {
+  folder: para_NoteAddOutputFolder!
+  id: String!
+  rev: String!
+}
+
+enum para_NoteAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
+}
+
+type para_NoteListOutput {
+  notes: [para_NoteView!]!
+}
+
+type para_NoteShowOutput {
+  body: String!
+  note: para_NoteView!
+}
+
+type para_NoteView {
+  area: String
+  folder: para_NoteViewFolder!
+  id: String!
+  project: String
+  rev: String!
+  tags: [String!]!
+  title: String!
+}
+
+enum para_NoteViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  interactions
+  journal
+  org
+  policies
+  projects
+  requests
+  resources
+  rfx
 }
 
 input para_OrgAddInputInput {
@@ -1633,6 +1705,7 @@ enum para_RefType {
   inbox
   interaction
   journal
+  note
   person
   policy
   policy_exception
