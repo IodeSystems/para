@@ -180,6 +180,15 @@ func writeHarnessHelp(cmd *cobra.Command, l *loader, client string) error {
 }
 
 func writeMCPConfig(w io.Writer, client string, entries []mcpServerEntry) error {
+	// A named harness gets its own actor, so events show who wrote what.
+	if client == "claude" || client == "dun" {
+		named := make([]mcpServerEntry, len(entries))
+		for i, e := range entries {
+			e.Args = append(slices.Clone(e.Args), "--actor", client)
+			named[i] = e
+		}
+		entries = named
+	}
 	switch client {
 	case "claude":
 		for _, e := range entries {

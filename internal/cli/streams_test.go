@@ -576,7 +576,7 @@ func TestMCPConfig(t *testing.T) {
 	}
 
 	out := e.ok("mcp", "config", "--client", "claude", "--vault", "life")
-	if !strings.HasPrefix(out, "claude mcp add para-life -- /") || !strings.HasSuffix(out, " mcp --vault life\n") {
+	if !strings.HasPrefix(out, "claude mcp add para-life -- /") || !strings.HasSuffix(out, " mcp --vault life --actor claude\n") {
 		t.Errorf("claude: %q", out)
 	}
 
