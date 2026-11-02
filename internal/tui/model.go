@@ -26,7 +26,7 @@ const (
 	numTabs
 )
 
-var tabNames = [numTabs]string{"Today", "Review", "Work", "RFX", "People", "Policy"}
+var tabNames = [numTabs]string{"Today", "Review", "Work", "Asks", "People", "Policy"}
 
 type pageKind int
 
@@ -449,6 +449,8 @@ func (m *Model) act(name string) tea.Cmd {
 		m.push(page{kind: pageAgenda, title: "Agenda"})
 	case "answer":
 		return m.answer()
+	case "reject":
+		return m.rejectAnswer()
 	default:
 		return m.proposalAct(name)
 	}

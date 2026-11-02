@@ -72,9 +72,9 @@ func (p Position) Reopen() Position {
 
 // Need kinds: things that wait for a person before anything else.
 const (
-	NeedDraft      = "draft RFX"
+	NeedDraft      = "draft ask"
 	NeedUnverified = "unverified summary"
-	NeedProposed   = "proposed request"
+	NeedProposed   = "proposed agent work"
 )
 
 // Need is an item that needs the owner.

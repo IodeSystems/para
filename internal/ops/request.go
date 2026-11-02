@@ -397,10 +397,12 @@ var RequestCancel = define("request_cancel", "Cancel an agent request that is no
 	return changeOutput(doc), err
 })
 
-// RequestAccept moves a proposed request to the queue. It is a plain function,
-// not an op: no agent surface can reach it, so an agent cannot accept its own
-// proposal. A person's surface (the CLI, later the TUI and PWA) calls it, and
-// the surface check inside still applies.
+// RequestAcceptOp is request_accept: a person-only op. No agent surface can
+// call it or list it, so an agent cannot accept its own proposal.
+var RequestAcceptOp = definePerson("request_accept", "Accept a proposed agent request into the queue. People only", RequestAccept)
+
+// RequestAccept moves a proposed request to the queue. The surface check for
+// queuing still applies.
 func RequestAccept(ctx context.Context, d Deps, in RequestAcceptInput) (RequestChangeOutput, error) {
 	info, err := identity(d)
 	if err != nil {

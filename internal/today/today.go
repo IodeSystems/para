@@ -68,6 +68,9 @@ type VaultToday struct {
 	// Waiting counts what you wait on: open tasks assigned to someone else, and
 	// open outbound RFX with a target to hear from (the list `para waiting` shows).
 	Waiting int `json:"waiting"`
+	// AnswersToCheck counts open questions with an answer an agent proposed
+	// that no person has accepted yet.
+	AnswersToCheck int `json:"answers_to_check"`
 	// Inbox counts captures not yet triaged.
 	Inbox int `json:"inbox"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
@@ -181,6 +184,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 					scope = "root"
 				}
 				item.Detail = string(m.AsKind()) + " " + scope
+				if m.HasProposal() {
+					item.Detail += ", proposed answer from " + m.ProposedBy
+					vt.AnswersToCheck++
+				}
 				item.Scope, item.ScopeName = scope, titles[scope]
 				vt.Questions.Items = append(vt.Questions.Items, item)
 			}

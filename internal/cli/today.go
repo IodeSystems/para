@@ -34,8 +34,8 @@ func newTodayCmd(l *loader) *cobra.Command {
 						}
 						continue
 					}
-					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tquestions %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tinbox %d\n",
-						v.Vault, v.Incidents.Count, v.Questions.Count, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.Inbox); err != nil {
+					if _, err := fmt.Fprintf(w, "%s\tincidents %d\tquestions %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\tinbox %d\n",
+						v.Vault, v.Incidents.Count, v.Questions.Count, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Inbox); err != nil {
 						return err
 					}
 					for _, it := range v.Incidents.Items {

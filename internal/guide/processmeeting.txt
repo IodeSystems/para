@@ -5,9 +5,9 @@ Turn a meeting transcript into one proposal. Para does not record or transcribe;
 3. File one `proposal_add` with that source. Each item quotes the line that backs it, with its locator. Use op items:
    - an answer to an open request: `rfx_reply`.
    - a no: `rfx_reply` with outcome no, why, and who said it. That records the constraint.
-   - an action item: `task_add`, with the assignee and the wikilink of the meeting in the body when there is one (double square brackets around the meeting id).
+   - an action item: `task_add`, with done_when (how we know it is done), the assignee and the wikilink of the meeting in the body when there is one (double square brackets around the meeting id).
    - a new unknown, or a decision or input the owner owes: `question_add`, with a scope (project, task, area, or root). Do not file an rfx with no target.
-   - a question the meeting answered: `question_answer`, with the choice or text and the reason; for a question already asked of a person, `rfx_reply`.
+   - a question the meeting answered: `question_answer`, with the choice or text, the reason, and sources: the note that holds the transcript (its id) with the line that backs the answer as the quote. No source, no item: say "I could not find it" and leave the question open. For a question already asked of a person, `rfx_reply`, also with sources. The owner accepts each one in review; an answer stays a proposal until then.
    - a person you do not have: `org_person_add`.
    - who you met: `interaction_add`, as a short summary.
    - when there is a meeting: one last item, `meeting_hold`, with only the notes (a few lines in the owner's words, never a transcript) and, for a meeting that was never scheduled, the start and end. Put the replies, answers, and tasks in their own items, as above, so the owner reviews each one; `meeting_hold` then marks the meeting held, and a request asked in it and not answered stays a wait.

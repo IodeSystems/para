@@ -1,5 +1,5 @@
 para tracks what you owe and who you wait on.
-It keeps bounded projects, areas for ongoing responsibilities, tasks with
+It keeps goals (bounded outcomes), areas for ongoing responsibilities, tasks with
 dependencies and due dates, blockers with reasons, and people.
 Plans, docs, and runbooks stay where they live; para links to them.
 

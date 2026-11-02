@@ -20,6 +20,7 @@ var (
 	actReopen  = Target{ID: "act:reopen", Label: "Reopen", Pref: 'r'}
 	actGraph   = Target{ID: "act:graph", Label: "Graph"}
 	actAnswer  = Target{ID: "act:answer", Label: "Answer", Pref: 'a'}
+	actReject  = Target{ID: "act:reject", Label: "Reject answer", Pref: 'e'}
 	actMeta    = Target{ID: "act:meta", Label: "Details", Pref: 'd'}
 	actAgenda  = Target{ID: "act:agenda", Label: "Agenda", Pref: 'n'}
 )
@@ -80,9 +81,9 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	}
 	switch m.tab {
 	case tabReview:
-		return m.rowsReview(w), append([]Target{actAccept, actReopen}, acts...)
+		return m.rowsReview(w), append([]Target{actAccept, actReopen, actAnswer, actReject}, acts...)
 	case tabWork:
-		return m.rowsWork(w), append([]Target{actGraph, actAnswer}, acts...)
+		return m.rowsWork(w), append([]Target{actGraph, actAnswer, actReject}, acts...)
 	case tabRFX:
 		return m.rowsRFX(w), acts
 	case tabPeople:
@@ -90,7 +91,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	case tabPolicy:
 		return m.rowsPolicy(w), acts
 	}
-	return m.rowsToday(w), append([]Target{actAnswer, actAgenda}, acts...)
+	return m.rowsToday(w), append([]Target{actAnswer, actReject, actAgenda}, acts...)
 }
 
 // listWidth is the width rows may use: the screen less the key gutter.
@@ -139,7 +140,9 @@ func (m *Model) drawListOnce(h int) (listing, int) {
 	keys := Assign(append(append([]Target{}, m.extraActs()...), acts...), links, "")
 	footer := acts
 	if *cur >= 0 && *cur < len(rows) && rows[*cur].kind != "question" {
-		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actAnswer.ID })
+		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actAnswer.ID || t.ID == actReject.ID })
+	} else if *cur >= 0 && *cur < len(rows) && !rows[*cur].proposed {
+		footer = slices.DeleteFunc(slices.Clone(acts), func(t Target) bool { return t.ID == actReject.ID })
 	}
 	inGutter := map[string]string{} // target id -> key code
 	use := func(id, label string) string {
@@ -304,7 +307,7 @@ func (m *Model) relayout() {
 }
 
 // shortNames are the tab names for a narrow screen: three letters keep a name.
-var shortNames = [numTabs]string{"Tdy", "Rev", "Wrk", "RFX", "Ppl", "Pol"}
+var shortNames = [numTabs]string{"Tdy", "Rev", "Wrk", "Ask", "Ppl", "Pol"}
 
 // topLine is the vault name, the tabs, and the refresh clock. A narrow screen
 // shortens the tab names before it drops them, then drops the vault name and

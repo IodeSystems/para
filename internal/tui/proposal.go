@@ -531,9 +531,9 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 	case "hold":
 		place, _ := it.Input["project"].(string)
 		steps := []promptStep{
-			{label: "task or request: ", value: "task"},
+			{label: "task or agent work: ", value: "task"},
 			{label: "text: "},
-			{label: "project or area id: ", value: place, skip: func(v []string) bool { return v[0] != "task" }},
+			{label: "goal or area id: ", value: place, skip: func(v []string) bool { return v[0] != "task" }},
 		}
 		return m.askFor("Needs first: "+itemLine(it), steps, func(v []string) tea.Cmd {
 			return m.runReview(item, true, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
@@ -628,7 +628,7 @@ func (m *Model) runReview(item string, advance bool, fn func(context.Context, op
 		}
 		text := strings.Join(parts, "; ")
 		if o.Request != "" {
-			text += ". Queued a request for the agent"
+			text += ". Queued agent work"
 		}
 		msg := doneMsg{text: text, reload: true}
 		if advance {

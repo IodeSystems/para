@@ -25,8 +25,11 @@ type row struct {
 	kind   string // "need", "event", "head", ""
 	id     string // document id for accept and reopen
 	need   Need
-	event  model.Event
-	draw   func(k KeyFn) string
+	// proposed marks a question row whose answer an agent proposed: it can be
+	// accepted or rejected.
+	proposed bool
+	event    model.Event
+	draw     func(k KeyFn) string
 }
 
 var (
@@ -165,6 +168,9 @@ func (m *Model) rowsToday(w int) []row {
 	if w >= 60 {
 		title += "   vault " + s.Vault
 	}
+	if n := m.answersToCheck(); n > 0 {
+		inbox += fmt.Sprintf(", %s to check", plural(n, "answer"))
+	}
 	r := []row{head(title + stDim.Render("   "+inbox))}
 	shown := map[string]bool{}
 	// add builds a row for an item the first time it appears on the screen.
@@ -204,8 +210,15 @@ func (m *Model) rowsToday(w int) []row {
 			if q.Blocking > 0 {
 				post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
 			}
-			x := linkKeep("doc:"+q.ID, "  "+todayTag("question", stWarn)+" ", titleOr(q.Title, q.ID), post, w)
-			x.kind, x.id = "question", q.ID
+			tag := "question"
+			if q.HasProposal {
+				tag = "check"
+				post += "  " + stDim.Render("answer from "+q.ProposedBy)
+			} else if len(q.WaitingOn) > 0 {
+				post += "  " + stDim.Render("waiting")
+			}
+			x := linkKeep("doc:"+q.ID, "  "+todayTag(tag, stWarn)+" ", titleOr(q.Title, q.ID), post, w)
+			x.kind, x.id, x.proposed = "question", q.ID, q.HasProposal
 			return x
 		})
 	}
@@ -225,9 +238,9 @@ func (m *Model) rowsToday(w int) []row {
 			if len(x.TargetNames) > 0 {
 				post += "  " + stDim.Render("to "+joinNames(x.TargetNames))
 			}
-			post += "  " + stDim.Render("nudge "+dateWords(x.NextNudge, s.Loaded))
+			post += "  " + stDim.Render("follow up "+dateWords(x.NextNudge, s.Loaded))
 		}
-		item(it.ID, "nudge", stWarn, it.Title, post)
+		item(it.ID, "follow up", stWarn, it.Title, post)
 	}
 	for _, it := range s.Today.DueSoon.Items {
 		dated(it, "due", stDim)
@@ -249,7 +262,7 @@ func (m *Model) rowsToday(w int) []row {
 			post = "  " + stDim.Render("to "+joinNames(it.TargetNames))
 		}
 		if it.NextNudge != "" {
-			post += "  " + stDim.Render("nudge "+dateWords(it.NextNudge, s.Loaded))
+			post += "  " + stDim.Render("follow up "+dateWords(it.NextNudge, s.Loaded))
 		}
 		item(it.ID, "waiting", stDim, it.Title, post)
 	}
@@ -329,7 +342,7 @@ func (m *Model) vaultRows(w int) []row {
 			bad("vault " + o.Vault + ": " + o.Error)
 			continue
 		}
-		r = append(r, dim(fmt.Sprintf("  vault %s: incidents %d, due %d, nudges %d, blocked %d, inbox %d", o.Vault, o.Incidents.Count, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
+		r = append(r, dim(fmt.Sprintf("  vault %s: incidents %d, due %d, follow-ups %d, blocked %d, inbox %d", o.Vault, o.Incidents.Count, o.Due.Count, o.Nudges.Count, o.Blocked.Count, o.Inbox)))
 	}
 	return r
 }
@@ -348,7 +361,7 @@ func (m *Model) questionRows(w int) []row {
 			post += "  " + stBad.Render(fmt.Sprintf("blocks %d", q.Blocking))
 		}
 		x := link("doc:"+q.ID, pre, titleOr(q.Title, q.ID), post, w)
-		x.kind, x.id = "question", q.ID
+		x.kind, x.id, x.proposed = "question", q.ID, q.HasProposal
 		rows = append(rows, x)
 	}
 	return rows
@@ -363,6 +376,7 @@ func (m *Model) rowsReview(w int) []row {
 	}
 	rv := m.review()
 	var r []row
+	r = append(r, m.rowsAnswersToCheck(w)...)
 	r = append(r, m.rowsProposals(w)...)
 	r = append(r, head(fmt.Sprintf("Needs you (%d)", len(rv.Needs))))
 	if len(rv.Needs) == 0 {
@@ -408,7 +422,7 @@ func (m *Model) rowsReview(w int) []row {
 			reqs++
 		}
 	}
-	r = append(r, head(fmt.Sprintf("Requests (%d open)", reqs)))
+	r = append(r, head(fmt.Sprintf("Agent work (%d open)", reqs)))
 	for _, q := range m.snap.Requests {
 		if q.Status == model.RequestDone || q.Status == model.RequestCancelled {
 			continue
@@ -488,7 +502,7 @@ func (m *Model) rowsWork(w int) []row {
 			}
 		}
 		if own := byArea[a.ID]; len(own) > 0 {
-			r = append(r, dim("    tasks in the area itself, with no project"))
+			r = append(r, dim("    tasks in the area itself, with no goal"))
 			for _, t := range own {
 				r = append(r, taskRow("      ", t))
 			}
@@ -499,7 +513,7 @@ func (m *Model) rowsWork(w int) []row {
 		inArea[a.ID] = true
 	}
 	if n := countNoArea(s.Projects, inArea); n > 0 {
-		r = append(r, head(fmt.Sprintf("Projects with no area (%d)", n)))
+		r = append(r, head(fmt.Sprintf("Goals with no area (%d)", n)))
 		for _, p := range s.Projects {
 			if !inArea[p.Area] {
 				projectRows("  ", p)
@@ -594,7 +608,7 @@ func (m *Model) rowsRFX(w int) []row {
 			flags += "  " + state("due")
 		}
 		if it.NextNudge != "" {
-			flags += stDim.Render("  nudge " + dateWords(it.NextNudge, m.snap.Loaded))
+			flags += stDim.Render("  follow up " + dateWords(it.NextNudge, m.snap.Loaded))
 		}
 		if _, ok := s.Drafts[it.ID]; ok {
 			flags += "  " + state("drafted")
@@ -636,7 +650,7 @@ func (m *Model) rowsRFX(w int) []row {
 		other = append(other, o)
 	}
 	if len(other) > 0 {
-		r = append(r, head(fmt.Sprintf("Other requests (%d)", len(other))))
+		r = append(r, head(fmt.Sprintf("Other agent work (%d)", len(other))))
 		r = append(r, other...)
 	}
 	return r
@@ -738,7 +752,7 @@ func (m *Model) rowsPerson(p *page, w int) []row {
 		r = append(r, plain("  "+truncate(n, w-4)))
 	}
 	if len(wp.OpenRFX) > 0 {
-		r = append(r, head(fmt.Sprintf("Open RFX (%d)", len(wp.OpenRFX))))
+		r = append(r, head(fmt.Sprintf("Open asks (%d)", len(wp.OpenRFX))))
 	}
 	for _, x := range wp.OpenRFX {
 		var ts []string
@@ -863,7 +877,7 @@ func (m *Model) rowsGraph(p *page, w int) []row {
 	}
 	title := "Graph: all tasks"
 	if p.id != "" {
-		title = "Graph: " + titleOr(m.snap.name(p.id), "one project")
+		title = "Graph: " + titleOr(m.snap.name(p.id), "one goal")
 	}
 	r := []row{head(title)}
 	if len(nodes) == 0 {

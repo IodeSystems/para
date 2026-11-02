@@ -17,6 +17,7 @@ var requestParityCases = map[string]parityCase{
 	"request_list":   {`{}`, []string{"request", "list"}, true},
 	"request_show":   {`{"id":"request-show"}`, []string{"request", "show", "request-show"}, true},
 	"request_cancel": {`{"id":"request-c1"}`, []string{"request", "cancel", "request-c2"}, false},
+	"request_accept": {`{"id":"request-p1"}`, []string{"request", "accept", "request-p2"}, false},
 	"request_next":   {`{}`, []string{"request", "next"}, false},
 	"request_note":   {`{"id":"request-n1","text":"progress"}`, []string{"request", "note", "request-n2", "progress"}, false},
 	"request_done":   {`{"id":"request-d1","result":"Done."}`, []string{"request", "done", "request-d2", "Done."}, false},
@@ -40,6 +41,8 @@ func seedRequestParity(t *testing.T, deps ops.Deps) {
 		}
 	}
 	mk("request-show", model.RequestCancelled, false)
+	mk("request-p1", model.RequestProposed, false)
+	mk("request-p2", model.RequestProposed, false)
 	for _, id := range []string{"request-c1", "request-c2", "request-q1", "request-q2"} {
 		mk(id, model.RequestQueued, false)
 	}

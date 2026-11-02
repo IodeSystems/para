@@ -198,3 +198,15 @@ func TestSearchPrefixMatchesTheStartOfTheLastWord(t *testing.T) {
 		t.Logf("quote: %v", err)
 	}
 }
+
+func TestExcerptDropsTablePipesAndTimes(t *testing.T) {
+	h := index.Hit{Passage: "| id | queued_at | " + index.MarkOpen + "status" + index.MarkClose + " |\n|---|---|---|\n| request-1 | 2026-11-01T09:00:00Z | queued |"}
+	readable(&h, func(string) string { return "" })
+	want := "id · queued_at · status · request-1 · 2026-11-01 · queued"
+	if h.Snippet != want {
+		t.Fatalf("snippet = %q, want %q", h.Snippet, want)
+	}
+	if len(h.Marks) != 1 || string([]rune(h.Snippet)[h.Marks[0].Start:h.Marks[0].End]) != "status" {
+		t.Fatalf("marks = %+v in %q", h.Marks, h.Snippet)
+	}
+}

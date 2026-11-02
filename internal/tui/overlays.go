@@ -283,9 +283,9 @@ func (m *Model) exportLines() ([]string, map[string]string) {
 // actionHelp says what each action does, for the help sheet.
 var actionHelp = map[string]string{
 	"act:answer":    "answer the question under the cursor",
-	"act:graph":     "graph of the project or area under the cursor",
+	"act:graph":     "graph of the goal or area under the cursor",
 	"act:accept":    "mark reviewed: logged changes up to the event under the cursor. Proposals are decided one item at a time",
-	"act:reopen":    "reopen: undo the last mark, or reopen a closed request",
+	"act:reopen":    "reopen: undo the last mark, or reopen closed agent work",
 	"act:zoom":      "full screen",
 	"act:export":    "export menu",
 	"act:copy":      "copy with the last format",
@@ -312,7 +312,7 @@ func (m *Model) helpLines() []string {
 	}
 	out := []string{
 		stHead.Render("Keys"),
-		"  1-6        tabs: Today Review Work RFX People Policy",
+		"  1-6        tabs: Today Review Work Asks People Policy",
 		"  j k        move the cursor      g G  top, bottom      space  page down",
 		"  enter      open the row         esc  back",
 		"  /          search as you type; person:<name> finds a person",

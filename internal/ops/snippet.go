@@ -9,7 +9,13 @@ import (
 	"github.com/iodesystems/parasolve/internal/model"
 )
 
-var wikiLink = regexp.MustCompile(`\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]`)
+// noise finds what makes an excerpt hard to read: a wiki link (groups 1 and 2),
+// an RFC 3339 time stamp (group 3 is its day), a table separator row (group 4),
+// and a run of table pipes.
+var noise = regexp.MustCompile(`\[\[([^\]|#]*)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]` +
+	`|(\d{4}-\d\d-\d\d)T\d\d:\d\d(?::\d\d)?(?:\.\d+)?(?:Z|[+-]\d\d:?\d\d)?` +
+	`|((?:\s*\|)+(?:\s*:?-{3,}:?\s*\|)+)` +
+	`|(?:\s*\|)+\s*`)
 
 // readable fills Snippet and Marks of a hit from its Passage: the match markers
 // come out and are kept as spans, and a link [[id]] becomes the title of what
@@ -50,20 +56,30 @@ func readable(h *index.Hit, name func(string) string) {
 	var out strings.Builder
 	last, outRunes := 0, 0
 	runeAt := func(byteOff int) int { return len([]rune(text[:byteOff])) }
-	for _, m := range wikiLink.FindAllStringSubmatchIndex(text, -1) {
+	for _, m := range noise.FindAllStringSubmatchIndex(text, -1) {
 		before := text[last:m[0]]
 		out.WriteString(before)
 		outRunes += len([]rune(before))
-		label := ""
-		if m[4] >= 0 {
-			label = strings.TrimSpace(text[m[4]:m[5]])
-		}
-		id := strings.TrimSpace(text[m[2]:m[3]])
-		if label == "" && name != nil {
-			label = name(id)
-		}
-		if label == "" {
-			label = id
+		var label string
+		switch {
+		case m[2] >= 0: // [[id]] or [[id|label]]: the title
+			if m[4] >= 0 {
+				label = strings.TrimSpace(text[m[4]:m[5]])
+			}
+			id := strings.TrimSpace(text[m[2]:m[3]])
+			if label == "" && name != nil {
+				label = name(id)
+			}
+			if label == "" {
+				label = id
+			}
+		case m[6] >= 0: // a time stamp: the day it names
+			label = text[m[6]:m[7]]
+		case m[8] >= 0: // a table separator row: nothing
+		default: // table pipes: one dot between cells, none at an edge
+			if m[0] > 0 && m[1] < len(text) {
+				label = " \u00b7 "
+			}
 		}
 		sw := swap{from: runeAt(m[0]), to: runeAt(m[1]), newFrom: outRunes, newTo: outRunes + len([]rune(label))}
 		swaps = append(swaps, sw)

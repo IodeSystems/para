@@ -147,7 +147,7 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	if it := d.item(v, id, "i1"); it.State != model.ItemSentBack {
 		t.Fatalf("i1 = %+v\n%s", it, d.plainFrame())
 	}
-	if !strings.Contains(d.m.status, "Queued a request") {
+	if !strings.Contains(d.m.status, "Queued agent work") {
 		t.Errorf("status = %q", d.m.status)
 	}
 

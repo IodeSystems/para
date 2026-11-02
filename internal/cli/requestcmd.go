@@ -121,7 +121,12 @@ func newRequestCmd(l *loader) *cobra.Command {
 			},
 			Text: requestChangeText,
 		}),
-		newRequestAcceptCmd(l),
+		opCommand(l, ops.RequestAcceptOp, binding[ops.RequestAcceptInput, ops.RequestChangeOutput]{
+			Use:  "accept <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.RequestAcceptInput) error { in.ID = args[0]; return nil },
+			Text: requestChangeText,
+		}),
 		newRequestWaitCmd(l),
 	)
 	return cmd
@@ -173,31 +178,5 @@ func newRequestWaitCmd(l *loader) *cobra.Command {
 	}
 	cmd.Flags().DurationVar(&timeout, "timeout", 0, "give up after this long and exit non-zero; 0 waits forever")
 	cmd.Flags().DurationVar(&interval, "interval", waitFallback, "longest time between checks when no event arrives")
-	return cmd
-}
-
-// newRequestAcceptCmd is CLI-only on purpose and not an op: a proposal came
-// from an agent surface, and only a person's surface may queue it.
-func newRequestAcceptCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "accept <id>",
-		Short: "Accept a proposed request into the queue (CLI only)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := l.load(); err != nil {
-				return err
-			}
-			deps, err := l.deps()
-			if err != nil {
-				return err
-			}
-			out, err := ops.RequestAccept(cmd.Context(), deps, ops.RequestAcceptInput{ID: args[0]})
-			if err != nil {
-				return err
-			}
-			return emit(cmd, out, requestChangeText)
-		},
-	}
-	addJSONFlag(cmd)
 	return cmd
 }

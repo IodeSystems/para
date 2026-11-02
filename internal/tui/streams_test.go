@@ -41,7 +41,7 @@ func TestWorkShowsAreasAndAreaTasks(t *testing.T) {
 	}
 	d := newDrv(t, v, 120, 50)
 	text := rowText(d.m.rowsWork(120))
-	for _, want := range []string{"Areas (1)", "Home", "Paint the hall", "Water plants", "runbook: House runbook", "due " + dateWords(due, time.Time{}), "Projects with no area (1)", "Portal launch"} {
+	for _, want := range []string{"Areas (1)", "Home", "Paint the hall", "Water plants", "runbook: House runbook", "due " + dateWords(due, time.Time{}), "Goals with no area (1)", "Portal launch"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("Work lacks %q:\n%s", want, text)
 		}

@@ -123,6 +123,7 @@ func registerRecords(r *registrar) {
 func registerRequests(r *registrar) {
 	reg(r, ops.RequestAdd, post, netguard.ScopeRequestQueue)
 	reg(r, ops.RequestCancel, post, netguard.ScopeRequestQueue)
+	reg(r, ops.RequestAcceptOp, post, netguard.ScopeProposalReview)
 	reg(r, ops.RequestList, get, read)
 	reg(r, ops.RequestShow, get, read)
 	reg(r, ops.RequestNext, post, netguard.ScopeRequestRun)

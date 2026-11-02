@@ -50,7 +50,7 @@ func TestTodayShowsEachItemOnce(t *testing.T) {
 		t.Errorf("the inbox count is not shown:\n%s", text)
 	}
 	// Late comes before the nudge, the nudge before ready, ready before the inbox, and a divider sits before ready.
-	o, nu, r, ib, dv := strings.Index(text, "late "), strings.Index(text, "nudge "), strings.Index(text, "ready "), strings.Index(text, "inbox  "), strings.Index(text, "──")
+	o, nu, r, ib, dv := strings.Index(text, "late "), strings.Index(text, "follow up "), strings.Index(text, "ready "), strings.Index(text, "inbox  "), strings.Index(text, "──")
 	if o < 0 || nu < 0 || r < 0 || ib < 0 || o > nu || nu > dv || dv > r || r > ib {
 		t.Errorf("order:\n%s", text)
 	}
@@ -63,7 +63,7 @@ func TestTodayWaitingRowsAndCount(t *testing.T) {
 	d := newDrv(t, v, 120, 60)
 	text := rowText(d.m.rowsToday(120))
 	// The seeded request is also past its nudge date: it shows once, as a nudge.
-	if !strings.Contains(text, "nudge ") || !strings.Contains(text, "Can we launch the portal?") {
+	if !strings.Contains(text, "follow up ") || !strings.Contains(text, "Can we launch the portal?") {
 		t.Errorf("waiting:\n%s", text)
 	}
 	if got := len(d.m.snap.Waiting); got != 1 {
@@ -188,7 +188,7 @@ func TestDetailPagesHoldTheirRows(t *testing.T) {
 	d := newDrv(t, v, 120, 40)
 	d.run(d.m.loadDoc(a.ID, false))
 	f := d.plainFrame()
-	for _, want := range []string{"Paint the hall", "Water plants", "Roof leak", "Projects (1)", "Incidents (1)"} {
+	for _, want := range []string{"Paint the hall", "Water plants", "Roof leak", "Goals (1)", "Incidents (1)"} {
 		if !strings.Contains(f, want) {
 			t.Errorf("area page lacks %q:\n%s", want, f)
 		}

@@ -17,7 +17,7 @@ import (
 // is the number of an option or free text. A decision also asks for its reason.
 // Dependents change at once because they read the question's state.
 func (m *Model) answer() tea.Cmd {
-	if len(m.stack) > 0 || (m.tab != tabToday && m.tab != tabWork) {
+	if len(m.stack) > 0 || (m.tab != tabToday && m.tab != tabWork && m.tab != tabReview) {
 		return nil
 	}
 	r, ok := m.current()
@@ -33,6 +33,9 @@ func (m *Model) answer() tea.Cmd {
 	}
 	if q.ID == "" {
 		return nil
+	}
+	if q.HasProposal {
+		return m.acceptAnswer(q)
 	}
 	label, value := "answer: ", ""
 	var lines []string

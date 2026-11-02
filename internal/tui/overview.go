@@ -127,7 +127,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 			}
 			ps = append(ps, wl(p.ID, p.Title)+" · "+stateWord(string(p.Status))+" · "+n)
 		}
-		section(&b, "Projects", ps)
+		section(&b, "Goals", ps)
 		section(&b, "Tasks in the area itself", loose)
 		var inc []string
 		for _, i := range o.Incidents {
@@ -144,7 +144,12 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if err != nil {
 			return ov
 		}
-		ov.glance = glanceLine("Project", stateWord(string(m.Status)), prefixed("Area ", wlOrName(m.Area.Target(), name(m.Area.Target()))))
+		ov.glance = glanceLine("Goal", stateWord(string(m.Status)), prefixed("Area ", wlOrName(m.Area.Target(), name(m.Area.Target()))))
+		if m.DoneWhen != "" {
+			section(&b, "Done when", []string{m.DoneWhen})
+		} else {
+			section(&b, "Done when", []string{stDim.Render("not set: para project edit " + d.ID + " --done-when <how we know>")})
+		}
 		section(&b, "Links", pointerLines(o.Project.Links))
 		var ts []string
 		for _, t := range o.Tasks {
@@ -173,6 +178,9 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		}
 		ov.glance = glanceLine("Task", stateWord(string(m.Status)), prefixed("due ", dateWords(string(m.Due), time.Time{})), prefixed("in ", wlOrName(proj, name(proj))), assignee,
 			prefixed("needs ", strings.Join(deps, ", ")))
+		if m.DoneWhen != "" {
+			section(&b, "Done when", []string{m.DoneWhen})
+		}
 		if len(m.BlockedBy) > 0 {
 			section(&b, "Blocked by", m.BlockedBy)
 		}
@@ -187,6 +195,27 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 			opts = append(opts, o)
 		}
 		section(&b, "Options", opts)
+		var waits []string
+		for _, l := range m.DependsOn {
+			if w := wlOrName(l.Target(), name(l.Target())); w != "" {
+				waits = append(waits, w)
+			}
+		}
+		section(&b, "Waits on", waits)
+		if m.HasProposal() {
+			lines := []string{strings.TrimSpace(m.ProposedChoice+" "+m.ProposedAnswer) + " (from " + m.ProposedBy + ", not yet accepted)"}
+			for _, s := range m.ProposedSources {
+				ref := s.Ref
+				if !strings.HasPrefix(ref, "http") {
+					ref = wlOrName(ref, name(ref))
+				}
+				lines = append(lines, "source "+ref+" "+s.Quote)
+			}
+			section(&b, "Answer to check", lines)
+		}
+		if m.RejectedReason != "" {
+			section(&b, "Last answer rejected", []string{m.RejectedBy + ": " + m.RejectedReason})
+		}
 	case *model.RFX:
 		o, err := ops.RFXShow.Run(ctx, e.Deps, ops.RFXShowInput{ID: d.ID})
 		if err != nil {
@@ -196,7 +225,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if m.Direction == model.RFXIn {
 			dir = "Asks you"
 		}
-		ov.glance = glanceLine(dir, stateWord(string(m.Status)), prefixed("route ", name(m.Route)), prefixed("nudge ", dateWords(string(m.NextNudge), time.Time{})))
+		ov.glance = glanceLine(dir, stateWord(string(m.Status)), prefixed("route ", name(m.Route)), prefixed("follow up ", dateWords(string(m.NextNudge), time.Time{})))
 		var ts []string
 		for _, t := range m.Targets {
 			who := firstNonEmpty(wlOrName(t.To.Target(), name(t.To.Target())), "someone")
