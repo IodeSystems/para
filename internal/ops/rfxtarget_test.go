@@ -185,3 +185,27 @@ func TestRFXWaitingRules(t *testing.T) {
 		t.Errorf("waiting = %v, want %v (drafted %s, replied %s are not waiting)", got, want, drafted, replied)
 	}
 }
+
+func TestRFXWaitingStalled(t *testing.T) {
+	d := targetDeps(t)
+	stalled := addRFX(t, d, RFXAddInput{Ask: "stalled", Targets: []TargetInput{{To: "person-bo-example", Medium: "email"}, {To: "person-ada-example", Medium: "slack"}}})
+	partial := addRFX(t, d, RFXAddInput{Ask: "partial", Targets: []TargetInput{{To: "person-bo-example", Medium: "email"}, {To: "person-ada-example", Medium: "slack"}}})
+	for _, to := range []string{"person-bo-example", "person-ada-example"} {
+		must(t, RFXTargetState, d, RFXTargetStateInput{ID: stalled, To: to, State: "no_reply"})
+	}
+	must(t, RFXTargetState, d, RFXTargetStateInput{ID: partial, To: "person-bo-example", State: "no_reply"})
+	must(t, RFXTargetState, d, RFXTargetStateInput{ID: partial, To: "person-ada-example", State: "replied"})
+	out, err := RFXWaiting.Run(ctx, d, RFXWaitingInput{Today: "2026-11-01"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Items) != 1 || out.Items[0].ID != stalled || !out.Items[0].Stalled {
+		t.Fatalf("items = %+v, want only %s, stalled", out.Items, stalled)
+	}
+	// Closing it removes it.
+	must(t, RFXClose, d, RFXCloseInput{ID: stalled})
+	out, err = RFXWaiting.Run(ctx, d, RFXWaitingInput{Today: "2026-11-01"})
+	if err != nil || len(out.Items) != 0 {
+		t.Fatalf("after close: %+v, %v", out.Items, err)
+	}
+}

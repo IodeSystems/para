@@ -119,6 +119,9 @@ func newRFXCmd(l *loader) *cobra.Command {
 					case it.Due:
 						mark = "due"
 					}
+					if it.Stalled {
+						mark = strings.TrimSpace("stalled " + mark)
+					}
 					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", it.NextNudge, it.ID, it.Direction, it.Title, mark); err != nil {
 						return err
 					}

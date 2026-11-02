@@ -190,6 +190,11 @@ func isWaiting(m *model.RFX) bool {
 	return slices.ContainsFunc(m.Targets, func(t model.Target) bool { return t.State == model.TargetSent })
 }
 
+// allNoReply reports whether there are targets and each one is no_reply.
+func allNoReply(ts []model.Target) bool {
+	return len(ts) > 0 && !slices.ContainsFunc(ts, func(t model.Target) bool { return t.State != model.TargetNoReply })
+}
+
 // RFXWaitingInput is the input of rfx_waiting.
 type RFXWaitingInput struct {
 	Direction model.RFXDirection `json:"direction,omitempty"` // empty means both
@@ -200,6 +205,7 @@ type RFXWaitingInput struct {
 type WaitingItem struct {
 	RFXSummary
 	Due       bool     `json:"due"`        // next_nudge is today or earlier
+	Stalled   bool     `json:"stalled"`    // every target is no_reply: nobody answered, nobody is left to wait on
 	BlockedOn []string `json:"blocked_on"` // open RFX it depends on: do not nudge yet
 }
 
@@ -210,8 +216,9 @@ type RFXWaitingOutput struct {
 }
 
 // RFXWaiting lists open RFX that wait on someone, earliest next_nudge first:
-// any target is sent, or no target is recorded. An RFX with no next_nudge sorts
-// last. Each item carries its per-target state.
+// any target is sent, no target is recorded, or every target is no_reply
+// (flagged Stalled: it stays listed so it is not forgotten). An RFX with no
+// next_nudge sorts last. Each item carries its per-target state.
 var RFXWaiting = define("rfx_waiting", "List open requests waiting on someone, by next nudge", func(ctx context.Context, d Deps, in RFXWaitingInput) (RFXWaitingOutput, error) {
 	today := in.Today
 	if today == "" {
@@ -231,10 +238,10 @@ var RFXWaiting = define("rfx_waiting", "List open requests waiting on someone, b
 	out := RFXWaitingOutput{Today: today, Items: []WaitingItem{}}
 	for _, s := range all {
 		if s.Status != model.RFXOpen || (in.Direction != "" && s.Direction != in.Direction) ||
-			(len(s.Targets) > 0 && !s.Waiting) {
+			(len(s.Targets) > 0 && !s.Waiting && !allNoReply(s.Targets)) {
 			continue
 		}
-		it := WaitingItem{RFXSummary: s, Due: s.NextNudge != "" && s.NextNudge <= today, BlockedOn: []string{}}
+		it := WaitingItem{RFXSummary: s, Due: s.NextNudge != "" && s.NextNudge <= today, Stalled: allNoReply(s.Targets), BlockedOn: []string{}}
 		for _, dep := range s.DependsOn {
 			if status[dep] == model.RFXOpen {
 				it.BlockedOn = append(it.BlockedOn, dep)
