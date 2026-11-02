@@ -149,6 +149,8 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 		}},
 		{"health_undismiss", func(d Deps) error {
 			_, err := HealthUndismiss.Run(t.Context(), d, HealthUndismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen})
+			return err
+		}},
 		{"respond", func(d Deps) error {
 			_, err := RequestRespond.Run(t.Context(), d, RequestRespondInput{ID: "x", Kind: RespondClarify, Text: "t"})
 			return err
