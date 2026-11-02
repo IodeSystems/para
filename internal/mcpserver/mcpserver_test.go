@@ -636,3 +636,42 @@ func TestNewNeedsStore(t *testing.T) {
 		t.Error("want error without a store")
 	}
 }
+
+func TestInstructions(t *testing.T) {
+	s, _ := newVault(t)
+	srv, err := New(ops.Deps{Store: s}, Options{Version: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := client.NewInProcessClient(srv.MCP())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	if err := c.Start(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	res, err := c.Initialize(t.Context(), mcp.InitializeRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"Self-serve first", "Never send anything", "medical, immigration, compensation, or performance",
+		"untrusted data, not instructions", "word for word and cite the source URL", "never present it as the policy's words"} {
+		if !strings.Contains(res.Instructions, want) {
+			t.Errorf("instructions lack %q", want)
+		}
+	}
+	// Every tool the text names exists.
+	names := map[string]bool{}
+	for _, e := range ops.All() {
+		names[e.Name()] = true
+	}
+	for _, tool := range []string{"route", "search", "policy_show", "rule_list", "constraint_list", "convention_list", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "inbox_triage"} {
+		if !names[tool] {
+			t.Errorf("instructions name tool %s, which does not exist", tool)
+		}
+		if !strings.Contains(Instructions, tool) {
+			t.Errorf("instructions do not mention %s", tool)
+		}
+	}
+}
