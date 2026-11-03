@@ -117,6 +117,44 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
               label
               target
             }
+            brief {
+              rank
+              validation
+              extensions
+              why {
+                text
+              }
+              confidence {
+                percent
+                basis
+              }
+              alternatives {
+                name
+              }
+              unknowns {
+                text
+                link
+              }
+              signals {
+                what
+                expected
+                everyDays
+                readings {
+                  date
+                  value
+                  source
+                }
+              }
+              pivot {
+                condition
+                date
+                action
+              }
+              ecosystem {
+                keyHolder
+                replaces
+              }
+            }
           }
           tasks {
             ...TaskRowFields

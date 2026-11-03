@@ -8,6 +8,7 @@ import { useLooking } from '@/api/requests'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoneWhen } from '@/components/DoneWhen'
+import { GoalBrief } from '@/components/GoalBrief'
 import { PointerLinks } from '@/components/PointerLinks'
 import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
@@ -60,6 +61,7 @@ function ProjectPage() {
             id={d.project.id}
             prompt="Say how we know it is done"
           />
+          <GoalBrief brief={d.project.brief} />
           <PointerLinks links={d.project.links} />
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
             <TaskRows tasks={d.tasks} />

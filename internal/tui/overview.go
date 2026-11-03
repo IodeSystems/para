@@ -150,6 +150,7 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		} else {
 			section(&b, "Done when", []string{stDim.Render("not set: para project edit " + d.ID + " --done-when <how we know>")})
 		}
+		section(&b, "Brief", briefLines(o.Project.Brief))
 		section(&b, "Links", pointerLines(o.Project.Links))
 		var ts []string
 		for _, t := range o.Tasks {
@@ -316,4 +317,49 @@ func withOverview(src, title string, ov overview) string {
 		src = strings.TrimRight(src, "\n") + "\n" + ov.extra
 	}
 	return src
+}
+
+// briefLines is the brief of a goal in a line per part; none when it has none.
+func briefLines(b *model.GoalBrief) []string {
+	if b == nil {
+		return nil
+	}
+	var out []string
+	if b.Validation != "" {
+		out = append(out, "State: "+stateWord(string(b.Validation)))
+	}
+	if b.Rank > 0 {
+		out = append(out, fmt.Sprintf("Rank: %d", b.Rank))
+	}
+	if b.Why != nil {
+		out = append(out, "Why: "+b.Why.Text)
+	}
+	if c := b.Confidence; c != nil {
+		out = append(out, strings.TrimSpace(fmt.Sprintf("Confidence: %d%% %s", c.Percent, c.Basis)))
+	}
+	if len(b.Alternatives) > 0 {
+		var names []string
+		for _, a := range b.Alternatives {
+			names = append(names, a.Name)
+		}
+		out = append(out, "Alternatives: "+strings.Join(names, ", "))
+	}
+	for _, u := range b.Unknowns {
+		out = append(out, "Unknown: "+u.Text)
+	}
+	for _, s := range b.Signals {
+		read := "not read yet"
+		if r := s.Latest(); r != nil {
+			read = fmt.Sprintf("read %s on %s", r.Value, r.Date)
+		}
+		out = append(out, fmt.Sprintf("Signal: %s, expected %s, %s", s.What, firstNonEmpty(s.Expected, "not stated"), read))
+	}
+	if pv := b.Pivot; pv != nil {
+		by := ""
+		if pv.Date != "" {
+			by = " by " + string(pv.Date)
+		}
+		out = append(out, fmt.Sprintf("Pivot: %s%s if %s", pv.Action, by, pv.Condition))
+	}
+	return out
 }
