@@ -155,6 +155,9 @@ type Task struct {
 	Previous Link   `yaml:"previous,omitempty" json:"previous,omitempty"`
 	// Incident links the incident this task follows up.
 	Incident Link `yaml:"incident,omitempty" json:"incident,omitempty"`
+	// Parent links the task this one is an action item of. The parent does not
+	// wait on it: it is not a dependency.
+	Parent Link `yaml:"parent,omitempty" json:"parent,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
 	Assignee string `yaml:"assignee,omitempty" json:"assignee,omitempty"`
 	// DoneWhen says how we know the task is done. Optional for a person;

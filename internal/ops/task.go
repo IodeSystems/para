@@ -27,6 +27,12 @@ type TaskView struct {
 	Previous string           `json:"previous,omitempty"`  // the task this one recurred from
 	Incident string           `json:"incident,omitempty"`  // the incident this task follows up
 	DoneWhen string           `json:"done_when,omitempty"` // how we know it is done
+	// Parent is the task this one is an action item of. The parent does not wait
+	// on it. Items counts this task's open action items; Commitment is true for
+	// a task tagged commitment.
+	Parent     string `json:"parent,omitempty"`
+	Items      int    `json:"items"`
+	Commitment bool   `json:"commitment,omitempty"`
 	// Outcome is how a closed task ended: done, partial, dropped, duplicate, or
 	// superseded. Empty on an open task and on one closed before outcomes.
 	Outcome   model.TaskOutcome `json:"outcome,omitempty"`
@@ -49,6 +55,7 @@ type TaskView struct {
 	AreaName       string   `json:"area_name,omitempty" nameof:"Area"`
 	AssigneeName   string   `json:"assignee_name,omitempty" nameof:"Assignee"`
 	IncidentName   string   `json:"incident_name,omitempty" nameof:"Incident"`
+	ParentName     string   `json:"parent_name,omitempty" nameof:"Parent"`
 	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
 }
 
@@ -59,7 +66,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: slices.Contains(t.Tags, CommitmentTag), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
 	}
 	for _, l := range t.DependsOn {
@@ -91,7 +98,8 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 	if err != nil {
 		return nil, err
 	}
-	out := []TaskView{}
+	all := make([]TaskView, 0, len(refs))
+	items := map[string]int{} // parent id -> open action items
 	for _, r := range refs {
 		doc, err := s.Get(ctx, r.ID)
 		if err != nil {
@@ -101,6 +109,14 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 		if err != nil {
 			return nil, err
 		}
+		if v.Parent != "" && !taskTerminal(v.Status) {
+			items[v.Parent]++
+		}
+		all = append(all, v)
+	}
+	out := []TaskView{}
+	for _, v := range all {
+		v.Items = items[v.ID]
 		if (project == "" || v.Project == project) && (status == "" || v.Status == status) {
 			out = append(out, v)
 		}
@@ -137,6 +153,23 @@ type TaskAddInput struct {
 	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
+	// Parent is the id of an open task this one is an action item of. The parent
+	// does not wait on it. With no project or area the task takes the parent's.
+	Parent string `json:"parent,omitempty"`
+	// Commitment tags the task commitment: something owed to someone. It needs a
+	// due date; the owner is the assignee (default self).
+	Commitment bool `json:"commitment,omitempty"`
+}
+
+// CommitmentTag marks a task as a commitment: something owed, with an owner
+// (the assignee) and a due date. A kind field will replace it.
+const CommitmentTag = "commitment"
+
+func commitmentTags(on bool) []string {
+	if on {
+		return []string{CommitmentTag}
+	}
+	return nil
 }
 
 // TaskAddOutput is the output of task_add.
@@ -165,6 +198,23 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		return TaskAddOutput{}, fmt.Errorf("%w (every task an agent writes says how we know it is done)", err)
 	}
 	in.Project = normID(in.Project)
+	var parent model.Link
+	if id := normID(in.Parent); id != "" {
+		pdoc, pt, err := getTask(ctx, d.Store, id)
+		if err != nil {
+			return TaskAddOutput{}, fmt.Errorf("parent %s: %w", id, err)
+		}
+		if taskTerminal(pt.Status) {
+			return TaskAddOutput{}, fmt.Errorf("parent %s is already %s", id, pt.Status)
+		}
+		parent = model.LinkTo(pdoc.ID)
+		if in.Project == "" && normID(in.Area) == "" {
+			in.Project, in.Area = pt.Project.Target(), pt.Area.Target()
+		}
+	}
+	if in.Commitment && due == "" {
+		return TaskAddOutput{}, errors.New("a commitment needs a due date")
+	}
 	var incident model.Link
 	if id := normID(in.Incident); id != "" {
 		idoc, im, err := getIncident(ctx, d.Store, id)
@@ -213,8 +263,9 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		Title:  title,
 		Body:   strings.TrimSpace(in.Body),
 		Meta: &model.Task{
-			Common:    model.Common{Type: model.TypeTask},
+			Common:    model.Common{Type: model.TypeTask, Tags: commitmentTags(in.Commitment)},
 			Status:    model.TaskTodo,
+			Parent:    parent,
 			Project:   project,
 			Area:      area,
 			Due:       due,
@@ -295,6 +346,10 @@ type TaskShowOutput struct {
 	Body string   `json:"body"`
 	// Questions are the open questions scoped to this task.
 	Questions []QuestionView `json:"questions"`
+	// Parts are the sections computed from links. Updates is the owner's text
+	// under ## Updates, as written.
+	Parts   TaskParts `json:"parts"`
+	Updates string    `json:"updates,omitempty"`
 }
 
 // TaskShow returns one task.
@@ -308,7 +363,24 @@ var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, 
 		return TaskShowOutput{}, err
 	}
 	qs, err := openQuestions(ctx, d.Store, func(x qrow) bool { return x.v.Scope == doc.ID })
-	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs}, err
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	parts, err := taskParts(ctx, d.Store, doc.ID)
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	for _, a := range parts.ActionItems {
+		if a.Status != string(model.TaskDone) && a.Status != string(model.TaskDropped) {
+			v.Items++
+		}
+	}
+	for _, a := range parts.Commitments {
+		if a.Status != string(model.TaskDone) && a.Status != string(model.TaskDropped) {
+			v.Items++
+		}
+	}
+	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body)}, nil
 })
 
 // TaskChangeOutput is the output of task_start, task_done, and task_block.

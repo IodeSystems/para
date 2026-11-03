@@ -65,6 +65,7 @@ type Meta struct {
 	Assignee        string             `json:"assignee,omitempty"`
 	Previous        string             `json:"previous,omitempty"`
 	Incident        string             `json:"incident,omitempty"`
+	Parent          string             `json:"parent,omitempty"`
 	Severity        string             `json:"severity,omitempty"`
 	Started         string             `json:"started,omitempty"`
 	Ended           string             `json:"ended,omitempty"`

@@ -25,7 +25,7 @@ import (
 // Instructions is the text every client receives at initialize. It states
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
-	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and file one proposal), ingest_source (read one source with your own tools and file one proposal), align_vault (compare a goal, an area, or the vault with reality and file one proposal of differences).\n\n" + rules
+	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and file one proposal), ingest_source (read one source with your own tools and file one proposal), align_vault (compare a goal, an area, or the vault with reality and file one proposal of differences), sort_update (sort the owner's update on a task into one proposal of action items, questions, commitments, policy, and follow-ups).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
@@ -225,6 +225,7 @@ func (s *Server) addPrompts() {
 		{"health_triage", "Run health, settle the findings that evidence settles, and file one proposal grouped by kind with a short list of the rest", guide.HealthTriage()},
 		{"ingest_source", "Read one source (a URL, a file, or text) with your own tools, find what it touches, and file one proposal with a source on every item", guide.IngestSource()},
 		{"align_vault", "Compare a goal, an area, or the vault with reality using your own tools, file one proposal of differences, and record the run with align_record", guide.AlignVault()},
+		{"sort_update", "Sort the owner's free-text update on a task into one proposal: action items, open questions, answers, commitments, resolved policy, follow-up tasks, each quoting its words", guide.SortUpdate()},
 	} {
 		s.mcp.AddPrompt(mcp.NewPrompt(p.name, mcp.WithPromptDescription(p.desc)),
 			func(context.Context, mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

@@ -13,6 +13,7 @@ import (
 func streamBIParityCases() map[string]parityCase {
 	return map[string]parityCase{
 		"task_resolve":  {`{"id":"task-bi-r-a","outcome":"partial","note":"Half done.","follow_ups":["Finish it"]}`, []string{"task", "resolve", "task-bi-r-b", "--outcome", "partial", "--note", "Half done.", "--follow-up", "Finish it"}, false},
+		"task_update":   {`{"id":"task-bi-d-a","text":"Met Sam; he will review."}`, []string{"task", "update", "task-bi-d-b", "Met", "Sam;", "he", "will", "review."}, false},
 		"task_delegate": {`{"id":"task-bi-d-a","agent":"scribe","hint":"start here"}`, []string{"task", "delegate", "task-bi-d-b", "--agent", "scribe", "--hint", "start here"}, false},
 	}
 }

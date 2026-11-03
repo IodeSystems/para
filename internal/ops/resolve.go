@@ -43,7 +43,11 @@ type TaskResolveOutput struct {
 	Released []string `json:"released"`
 	Next     string   `json:"next,omitempty"`
 	Request  string   `json:"request,omitempty"`
-	Warnings []string `json:"warnings"`
+	// OpenItems and OpenQuestions are open action items and open questions of
+	// the task. They stay open; decide each.
+	OpenItems     []string `json:"open_items"`
+	OpenQuestions []string `json:"open_questions"`
+	Warnings      []string `json:"warnings"`
 }
 
 // TaskResolve closes a task with an outcome. done is task_done, recurrence
@@ -124,7 +128,15 @@ var TaskResolve = defineSafe("task_resolve", "Close a task with an outcome: done
 			}
 		}
 	}
-	out := TaskResolveOutput{ID: id, Outcome: outcome, FollowUps: []string{}, Moved: []string{}, Released: []string{}, Warnings: []string{}}
+	out := TaskResolveOutput{ID: id, Outcome: outcome, FollowUps: []string{}, Moved: []string{}, Released: []string{}, Warnings: []string{}, OpenItems: []string{}, OpenQuestions: []string{}}
+	if items, qs, err := openChildren(ctx, d.Store, id); err != nil {
+		return TaskResolveOutput{}, err
+	} else {
+		out.OpenItems, out.OpenQuestions = append(out.OpenItems, items...), append(out.OpenQuestions, qs...)
+		if len(items)+len(qs) > 0 {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("%s has %d open action items and %d open questions; they stay open: finish, drop, or move each", id, len(items), len(qs)))
+		}
+	}
 	if _, recurring := recurRule(t); outcome == model.OutcomeDone || (recurring && outcome == model.OutcomeDropped) {
 		r, err := finishTask(ctx, d, TaskDoneInput{ID: id, Note: note, Skip: outcome == model.OutcomeDropped}, outcome)
 		if err != nil {

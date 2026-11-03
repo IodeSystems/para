@@ -183,6 +183,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
+				fs.StringVar(&in.Parent, "parent", "", "task id this is an action item of (the parent does not wait on it)")
+				fs.BoolVar(&in.Commitment, "commitment", false, "tag it a commitment: owed to someone; needs --due")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")
 			},
@@ -370,6 +372,33 @@ func newTaskCmd(l *loader) *cobra.Command {
 				p.f("%s\t%s\t%s\t%s\n", out.ID, out.Request, out.Status, dash(out.Assignee))
 				if out.Appended {
 					p.f("hint added to open work\n")
+				}
+				if out.Note != "" {
+					p.f("note: %s\n", out.Note)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.TaskUpdate, binding[ops.TaskUpdateInput, ops.TaskUpdateOutput]{
+			Use:  "update <id> [text]",
+			Args: cobra.MinimumNArgs(1),
+			Bind: func(args []string, in *ops.TaskUpdateInput) error {
+				in.ID, in.Text = args[0], strings.Join(args[1:], " ")
+				return nil
+			},
+			Stdin: func(r io.Reader, in *ops.TaskUpdateInput) error {
+				if in.Text != "" {
+					return nil
+				}
+				text, err := readStdin(r)
+				in.Text = text
+				return err
+			},
+			Text: func(w io.Writer, out ops.TaskUpdateOutput) error {
+				p := &printer{w: w}
+				p.f("%s\tsaved\t%s\n", out.ID, dash(out.Request))
+				if out.Appended {
+					p.f("added to open sort work\n")
 				}
 				if out.Note != "" {
 					p.f("note: %s\n", out.Note)

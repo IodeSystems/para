@@ -106,6 +106,7 @@ var typeFields = map[string][]field{
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, every <n> days; another value is a warning
 		{Name: "previous", Kind: kLink},
 		{Name: "incident", Kind: kLink},
+		{Name: "parent", Kind: kLink}, // the task this is an action item of; not a dependency
 		{Name: "assignee", Kind: kString},
 		{Name: "done_when", Kind: kString},
 		{Name: "blocked_by", Kind: kList},

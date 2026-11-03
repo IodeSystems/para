@@ -39,6 +39,7 @@ const (
 	HealthNotAligned         = "not_aligned"
 	HealthExceptionNoPolicy  = "exception_no_policy"
 	HealthByUnknown          = "by_unknown"
+	HealthClosedWithOpen     = "closed_with_open_items"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -48,7 +49,7 @@ var HealthKinds = []string{
 	HealthGoalNoDoneWhen, HealthTaskNoDoneWhen, HealthAskNoTarget, HealthPersonNoContact,
 	HealthBlockerIncomplete, HealthAreaNoLinks,
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
-	HealthExceptionNoPolicy, HealthByUnknown,
+	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -210,6 +211,8 @@ type healther struct {
 	stale   string
 	goalDue map[string]string
 	out     []HealthFinding
+	// openKids maps a task id to its open action items.
+	openKids map[string][]string
 	// openGoals are active goals that are not deferred.
 	openGoals map[string]bool
 	// openTasks counts open tasks per goal.
@@ -271,6 +274,7 @@ func (h *healther) goalOf(d model.Document) (goal string, skip bool) {
 
 func (h *healther) index() {
 	h.openGoals, h.openTasks, h.dependents = map[string]bool{}, map[string]int{}, map[string][]string{}
+	h.openKids = map[string][]string{}
 	for id, d := range h.docs {
 		switch m := d.Meta.(type) {
 		case *model.Project:
@@ -279,6 +283,9 @@ func (h *healther) index() {
 				h.goalDue[id] = string(m.Due)
 			}
 		case *model.Task:
+			if p := m.Parent.Target(); p != "" && !taskTerminal(m.Status) {
+				h.openKids[p] = append(h.openKids[p], id)
+			}
 			if !taskTerminal(m.Status) {
 				for _, dep := range targets(m.DependsOn) {
 					h.dependents[dep] = append(h.dependents[dep], id)
@@ -373,6 +380,10 @@ func (h *healther) scan() {
 				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {project: %s, ...}, or project_close {id: %s}", id, id))
 			}
 		case *model.Task:
+			if taskTerminal(m.Status) && len(h.openKids[id]) > 0 {
+				slices.Sort(h.openKids[id])
+				h.add(HealthClosedWithOpen, id, goal, fmt.Sprintf("task is closed with %d open action items", len(h.openKids[id])), fmt.Sprintf("finish, drop, or move %s; or reopen the parent", strings.Join(h.openKids[id], " ")))
+			}
 			if taskTerminal(m.Status) || IsOther(m.Assignee) {
 				continue
 			}

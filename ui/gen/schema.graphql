@@ -137,6 +137,7 @@ type ParaV1MutationNamespace {
   taskResolve(body: para_TaskResolveInputInput!): para_TaskResolveOutput @derived(operationId: "taskResolve")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
+  taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
@@ -2267,6 +2268,7 @@ type para_Meta {
   org: String
   outcome: para_MetaOutcome
   owner: String
+  parent: String
   playbook: String
   policy: String
   policyText: String
@@ -2554,6 +2556,15 @@ type para_OrgListOutput {
 
 type para_OrgShowOutput {
   doc: para_Document!
+}
+
+type para_PartRef {
+  due: String
+  id: String!
+  kind: String!
+  owner: String
+  status: String
+  title: String!
 }
 
 type para_PathEntry {
@@ -4316,10 +4327,12 @@ input para_TaskAddInputInput {
   area: String
   assignee: String
   body: String
+  commitment: Boolean
   dependsOn: [String!]
   doneWhen: String
   due: String
   incident: String
+  parent: String
   project: String
   recur: String
   title: String!
@@ -4486,6 +4499,14 @@ type para_TaskMoveOutput {
   moved: [String!]!
 }
 
+type para_TaskParts {
+  actionItems: [para_PartRef!]!
+  answered: [para_QuestionView!]!
+  commitments: [para_PartRef!]!
+  followUps: [para_PartRef!]!
+  policy: [para_PartRef!]!
+}
+
 input para_TaskResolveInputInput {
   doneWhen: String
   due: String
@@ -4509,6 +4530,8 @@ type para_TaskResolveOutput {
   id: String!
   moved: [String!]!
   next: String
+  openItems: [String!]!
+  openQuestions: [String!]!
   outcome: para_TaskResolveOutputOutcome!
   released: [String!]!
   request: String
@@ -4535,8 +4558,10 @@ enum para_TaskResolveOutputStatus {
 
 type para_TaskShowOutput {
   body: String!
+  parts: para_TaskParts!
   questions: [para_QuestionView!]!
   task: para_TaskView!
+  updates: String
 }
 
 input para_TaskStartInputInput {
@@ -4565,12 +4590,37 @@ type para_TaskToQuestionOutput {
   task: String!
 }
 
+input para_TaskUpdateInputInput {
+  id: String!
+  text: String!
+}
+
+type para_TaskUpdateOutput {
+  appended: Boolean!
+  id: String!
+  note: String
+  request: String
+  rev: String!
+  saved: Boolean!
+  status: para_TaskUpdateOutputStatus
+}
+
+enum para_TaskUpdateOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
 type para_TaskView {
   area: String
   areaName: String
   assignee: String
   assigneeName: String
   blockedBy: [String!]!
+  commitment: Boolean
   created: String!
   deferUntil: String
   deferred: Boolean!
@@ -4583,7 +4633,10 @@ type para_TaskView {
   id: String!
   incident: String
   incidentName: String
+  items: Int!
   outcome: para_TaskViewOutcome
+  parent: String
+  parentName: String
   previous: String
   project: String!
   projectName: String
@@ -4762,7 +4815,9 @@ type para_ValueRow {
   group: String!
   id: String!
   impact: Int!
+  items: Int
   kind: String!
+  parent: String
   proposal: Boolean
   title: String!
   why: String!

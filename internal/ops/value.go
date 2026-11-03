@@ -23,7 +23,8 @@ import (
 // open item downstream of it (anything that waits on it, through depends_on,
 // and the goal a task belongs to). Ties: higher impact first, then the oldest,
 // then the id. Impact is the number of open items it unblocks, through any
-// chain; a goal counts twice. A deferred item, and everything reachable only
+// chain; a goal counts twice. A task also counts toward its parent task (an
+// action item is not a dependency: the parent does not wait on it). A deferred item, and everything reachable only
 // through one, adds no impact and gives no effective due.
 
 // Kinds of ValueRow.
@@ -56,6 +57,7 @@ type ValueNode struct {
 	Created string   // for the tie-break
 	Deps    []string // ids this waits on
 	Goal    string   // for a task: the goal it belongs to
+	Parent  string   // for a task: the task it is an action item of; not a dependency
 	Sev     string   // for an incident: sev1, sev2, sev3
 	// Deferred is true when the item is put off today. DeferUntil is its date
 	// or "someday".
@@ -84,6 +86,8 @@ type ValueRow struct {
 	EffDue   string `json:"eff_due,omitempty"`  // effective date
 	Impact   int    `json:"impact"`             // weighted count
 	Blocks   int    `json:"blocks"`             // open items it unblocks, goals not counted
+	Items    int    `json:"items,omitempty"`    // open action items (children) of a task
+	Parent   string `json:"parent,omitempty"`   // the task this is an action item of
 	Why      string `json:"why"`                // in words
 	Proposal bool   `json:"proposal,omitempty"` // an answer waits to be checked
 }
@@ -121,6 +125,9 @@ func RankValue(nodes []ValueNode) ValueOrder {
 		by[nodes[i].ID] = &nodes[i]
 	}
 	down := map[string][]string{} // id -> items waiting on it
+	// parentEdge marks "child parent" pairs: the parent does not wait on the
+	// child, so it counts toward impact and the due date but not toward blocks.
+	parentEdge := map[string]bool{}
 	for _, n := range nodes {
 		for _, dep := range n.Deps {
 			if by[dep] != nil {
@@ -130,11 +137,16 @@ func RankValue(nodes []ValueNode) ValueOrder {
 		if n.Goal != "" && by[n.Goal] != nil {
 			down[n.ID] = append(down[n.ID], n.Goal)
 		}
+		if n.Parent != "" && by[n.Parent] != nil {
+			down[n.ID] = append(down[n.ID], n.Parent)
+			parentEdge[n.ID+" "+n.Parent] = true
+		}
 	}
 	// reach walks downstream of id. A deferred item is not visited and its own
 	// downstream is not followed.
-	reach := func(id string) []*ValueNode {
+	reach := func(id string) ([]*ValueNode, map[string]bool) {
 		seen := map[string]bool{id: true}
+		viaParent := map[string]bool{}
 		queue := []string{id}
 		var out []*ValueNode
 		for len(queue) > 0 {
@@ -149,13 +161,20 @@ func RankValue(nodes []ValueNode) ValueOrder {
 					continue
 				}
 				out = append(out, by[u])
+				viaParent[u] = parentEdge[cur+" "+u]
 				queue = append(queue, u)
 			}
 		}
-		return out
+		return out, viaParent
 	}
 	var rows []ValueRow
 	var held []HeldUp
+	items := map[string]int{}
+	for _, n := range nodes {
+		if n.Parent != "" && by[n.Parent] != nil {
+			items[n.Parent]++
+		}
+	}
 	for _, n := range nodes {
 		if n.Hidden {
 			continue
@@ -164,7 +183,8 @@ func RankValue(nodes []ValueNode) ValueOrder {
 			// Deferred items are not listed. One that holds up earlier work is
 			// reported.
 			var worst *ValueNode
-			for _, u := range reach(n.ID) {
+			reached, _ := reach(n.ID)
+			for _, u := range reached {
 				if u.Due != "" && (n.DeferUntil == model.SomedayWord || u.Due < n.DeferUntil) && (worst == nil || u.Due < worst.Due) {
 					worst = u
 				}
@@ -174,13 +194,17 @@ func RankValue(nodes []ValueNode) ValueOrder {
 			}
 			continue
 		}
-		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal}
+		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID]}
+		if by[n.Parent] != nil {
+			r.Parent = n.Parent
+		}
 		eff, from := n.Due, (*ValueNode)(nil)
-		for _, u := range reach(n.ID) {
+		reached, viaParent := reach(n.ID)
+		for _, u := range reached {
 			r.Impact++
 			if u.Kind == KindGoal {
 				r.Impact += goalWeight - 1
-			} else {
+			} else if !viaParent[u.ID] {
 				r.Blocks++
 			}
 			if u.Due != "" && (eff == "" || u.Due < eff) {
@@ -254,6 +278,9 @@ func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 	if r.Blocks > 0 {
 		parts = append(parts, fmt.Sprintf("blocks %d", r.Blocks))
 	}
+	if r.Items > 0 {
+		parts = append(parts, fmt.Sprintf("%d items", r.Items))
+	}
 	if from != nil && n.Kind != KindIncident {
 		name := shorten(from.Title)
 		if from.Kind == KindGoal {
@@ -326,6 +353,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee)
+			n.Parent = m.Parent.Target()
 			n.Deps = targets(m.DependsOn)
 		case *model.Question:
 			if m.Status != model.QuestionOpen {
