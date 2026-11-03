@@ -132,8 +132,13 @@ func TestServeRunsTickAndDispatch(t *testing.T) {
 		t.Error("vault text ran in a shell")
 	}
 	// The tick ran at start: the done recurring task has a next one.
+	// The tick and the dispatch run apart, so the command can start first.
 	var tasks ops.TaskListOutput
-	e.json(&tasks, "task", "list", "-p", project.ID)
+	waitFor("the next task", func() bool {
+		tasks = ops.TaskListOutput{}
+		e.json(&tasks, "task", "list", "-p", project.ID)
+		return len(tasks.Tasks) == 2
+	})
 	if len(tasks.Tasks) != 2 {
 		t.Errorf("tasks after the start tick = %d, want 2", len(tasks.Tasks))
 	}

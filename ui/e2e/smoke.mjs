@@ -384,6 +384,7 @@ try {
     (await page.getByRole('link', { name: 'Today', exact: true }).count()) === 0,
     'there is no Today link',
   )
+  await page.getByLabel('Vault').first().waitFor({ timeout: 8000 }).catch(() => {})
   check(await page.getByLabel('Vault').first().isVisible(), 'the bar names the vault as text')
   await page.getByRole('link', { name: 'Group by date' }).click()
   await page.waitForURL(/by=date/)
