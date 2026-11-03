@@ -51,6 +51,8 @@ var (
 	alignVault string
 	//go:embed sortupdate.txt
 	sortUpdate string
+	//go:embed validategoal.txt
+	validateGoal string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -99,6 +101,10 @@ func AlignVault() string { return trim(alignVault) + "\n\n" + Rule() }
 // into one proposal of typed items.
 func SortUpdate() string { return trim(sortUpdate) + "\n\n" + Rule() }
 
+// ValidateGoal is the MCP prompt "validate_goal": draft or challenge a goal's
+// brief with sources, argue against it, and file one proposal.
+func ValidateGoal() string { return trim(validateGoal) + "\n\n" + Rule() }
+
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
 func Raglit() string { return trim(raglitHelp) }
@@ -109,12 +115,12 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, and `/para update <task>` to sort the owner's update on a task.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | health]\"\n---\n\n" +
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, and `/para validate <goal>` to draft or challenge a goal's brief.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | health]\"\n---\n\n" +
 		"# para\n\n" + skillRoute + "\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
 
 // skillRoute reads the skill's arguments. Other subcommands can come here.
-const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. If they are `update <task>`, read `update.md` beside this file and follow it for that task. With no arguments, work as below."
+const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. If they are `update <task>`, read `update.md` beside this file and follow it for that task. If they are `validate <goal>`, read `validate.md` beside this file and follow it for that goal. With no arguments, work as below."
 
 // SkillImportFile is the name of the import steps, beside SKILL.md.
 const SkillImportFile = "import.md"
@@ -126,9 +132,10 @@ func SkillImport() string { return trim(importSteps) + "\n\n" + Rule() + "\n" }
 // SkillIngestFile and SkillAlignFile are the names of the ingest and align
 // steps, beside SKILL.md.
 const (
-	SkillIngestFile = "ingest.md"
-	SkillAlignFile  = "align.md"
-	SkillUpdateFile = "update.md"
+	SkillIngestFile   = "ingest.md"
+	SkillAlignFile    = "align.md"
+	SkillUpdateFile   = "update.md"
+	SkillValidateFile = "validate.md"
 )
 
 // SkillIngest is the ingest reference file of the skill. It is the text of the
@@ -142,6 +149,10 @@ func SkillAlign() string { return AlignVault() + "\n" }
 // SkillUpdate is the update reference file of the skill. It is the text of the
 // prompt sort_update.
 func SkillUpdate() string { return SortUpdate() + "\n" }
+
+// SkillValidate is the validate reference file of the skill. It is the text of
+// the prompt validate_goal.
+func SkillValidate() string { return ValidateGoal() + "\n" }
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.
