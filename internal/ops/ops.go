@@ -25,8 +25,8 @@ type Deps struct {
 	Store store.Store
 	// Authorize says whether the caller may cause op to run. An approved
 	// proposal item runs under the proposing agent, so the server uses this to
-	// keep the approver's own scopes in force. Nil allows every op: the CLI and
-	// the TUI are the owner on this machine.
+	// keep the approver's own scopes in force. Nil allows every op: the CLI is
+	// the owner on this machine.
 	Authorize func(op string) error
 	// Changed, when set, returns a channel that closes at the next change of
 	// the vault, from any process. A waiting op blocks on it instead of
@@ -175,7 +175,7 @@ var ErrPersonOnly = errors.New("only a person can do this: use the terminal or a
 
 // PersonSurfaces can call a person-only op. A bearer key is surface api and an
 // MCP server is surface mcp: both are agents here, whatever their scopes.
-var PersonSurfaces = []string{"cli", "tui", "pwa"}
+var PersonSurfaces = []string{"cli", "pwa"}
 
 // definePerson registers an op that refuses every surface but a person's. The
 // check sits in the op, so no surface can forget it.

@@ -199,7 +199,7 @@ function Review() {
                   : ' since the start'}
                 .
               </Typography>
-              <Tooltip title="Your own CLI, TUI, and browser work is not listed. Proposals are decided item by item; marking changes reviewed does not touch them.">
+              <Tooltip title="Your own CLI and browser work is not listed. Proposals are decided item by item; marking changes reviewed does not touch them.">
                 <IconButton size="small" aria-label="What is listed here">
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>

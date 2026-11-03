@@ -632,7 +632,7 @@ const (
 	ActionEdit    = "edit"
 )
 
-// allowedActions is the review rule. One function serves the ops, the TUI, and
+// allowedActions is the review rule. One function serves the ops and
 // the API, so no surface can state it differently.
 //
 //	No edits, no open requests: approve, deny, request.

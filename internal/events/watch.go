@@ -25,7 +25,7 @@ const (
 )
 
 // Watch reports every record appended to the event files of dir by any
-// process: this one, `para mcp`, the CLI, the TUI, or a sync tool. It starts at
+// process: this one, `para mcp`, the CLI, or a sync tool. It starts at
 // the end of the existing files, so history is not replayed. Each scan sends
 // the new records of all files as one batch, in file order.
 //

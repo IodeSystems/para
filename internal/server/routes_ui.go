@@ -10,9 +10,9 @@ import (
 	"github.com/iodesystems/parasolve/internal/netguard"
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/parasolve/internal/review"
 	"github.com/iodesystems/parasolve/internal/store"
 	"github.com/iodesystems/parasolve/internal/today"
-	"github.com/iodesystems/parasolve/internal/tui"
 )
 
 // Routes for the PWA that are not ops. An op is something an agent can also do
@@ -159,7 +159,7 @@ func registerUI(r *registrar) {
 			if err := mustBeSession(b); err != nil {
 				return nil, err
 			}
-			pos, err := tui.LoadPosition(b.t.state)
+			pos, err := review.LoadPosition(b.t.state)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("internal error")
 			}
@@ -182,7 +182,7 @@ func registerUI(r *registrar) {
 					}
 				}
 			}
-			if err := tui.SavePosition(b.t.state, pos.Accept(at)); err != nil {
+			if err := review.SavePosition(b.t.state, pos.Accept(at)); err != nil {
 				b.t.log.Error("review accept", "vault", b.t.id, "error", err)
 				return nil, huma.Error500InternalServerError("internal error")
 			}
@@ -201,11 +201,11 @@ func registerUI(r *registrar) {
 			if err := mustBeSession(b); err != nil {
 				return nil, err
 			}
-			pos, err := tui.LoadPosition(b.t.state)
+			pos, err := review.LoadPosition(b.t.state)
 			if err != nil {
 				return nil, huma.Error500InternalServerError("internal error")
 			}
-			if err := tui.SavePosition(b.t.state, pos.Reopen()); err != nil {
+			if err := review.SavePosition(b.t.state, pos.Reopen()); err != nil {
 				b.t.log.Error("review reopen", "vault", b.t.id, "error", err)
 				return nil, huma.Error500InternalServerError("internal error")
 			}
@@ -287,10 +287,10 @@ func mustBeSession(b *boundVault) error {
 	return nil
 }
 
-// review builds the Review screen from the same rules as the TUI.
+// review builds the Review screen from the same rules as the CLI.
 func (s *Server) review(ctx context.Context, b *boundVault) (UIReviewBody, error) {
 	deps := b.deps()
-	var snap tui.Snapshot
+	var snap review.Input
 	snap.Drafts = map[string]string{}
 	fail := func(what string, err error) (UIReviewBody, error) {
 		b.t.log.Error("ui review", "vault", b.t.id, "section", what, "error", b.t.public(err))
@@ -324,11 +324,11 @@ func (s *Server) review(ctx context.Context, b *boundVault) (UIReviewBody, error
 		return fail("events", err)
 	}
 	snap.Events = ev.Events
-	pos, err := tui.LoadPosition(b.t.state)
+	pos, err := review.LoadPosition(b.t.state)
 	if err != nil {
 		return fail("position", err)
 	}
-	rd := tui.BuildReview(snap, pos)
+	rd := review.Build(snap, pos)
 	out := UIReviewBody{Needs: []ReviewNeed{}, Groups: []ReviewGroup{}, Count: rd.Count, CanUndo: !pos.Previous.Equal(pos.At)}
 	if !pos.At.IsZero() {
 		out.Position = pos.At.UTC().Format(time.RFC3339Nano)
@@ -352,5 +352,5 @@ func (s *Server) review(ctx context.Context, b *boundVault) (UIReviewBody, error
 	return out, nil
 }
 
-// reviewWindow is how many recent events Review reads, as in the TUI.
+// reviewWindow is how many recent events Review reads, .
 const reviewWindow = 2000

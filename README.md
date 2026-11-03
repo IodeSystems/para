@@ -14,7 +14,7 @@ Needs Go 1.26 or later, and pnpm for the web UI.
 
     para init life ~/para/life
     para vault set-default life
-    para                # opens the TUI
+    para                # prints the agenda
 
 ## With an agent
 

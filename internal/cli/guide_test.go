@@ -193,9 +193,6 @@ func TestDefaultVault(t *testing.T) {
 	if _, _, err := e.run("inbox", "add", "x"); err == nil {
 		t.Fatal("cleared default must fail")
 	}
-	if _, _, err := e.run("tui", "acme", "--vault", "globex"); err == nil {
-		t.Fatal("disagreeing vaults must fail")
-	}
 }
 
 func TestSkillInstall(t *testing.T) {

@@ -249,7 +249,7 @@ func TestRequestRunner(t *testing.T) {
 func TestRequestSurfaceGate(t *testing.T) {
 	ctx := context.Background()
 	rv := newReqVault(t)
-	for _, s := range []string{"cli", "tui", "pwa"} {
+	for _, s := range []string{"cli", "pwa"} {
 		if out := addReq(t, rv.as("user", s, "inst-a"), "From "+s); out.Status != model.RequestQueued {
 			t.Errorf("%s: status %s", s, out.Status)
 		}
@@ -297,8 +297,8 @@ func TestRequestSurfaceGate(t *testing.T) {
 	if err := os.WriteFile(cfg, append(raw, []byte("request.surfaces=cli\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if out := addReq(t, rv.as("user", "tui", "inst-a"), "Now barred"); out.Status != model.RequestProposed {
-		t.Errorf("tui after override: %s", out.Status)
+	if out := addReq(t, rv.as("user", "pwa", "inst-a"), "Now barred"); out.Status != model.RequestProposed {
+		t.Errorf("pwa after override: %s", out.Status)
 	}
 }
 

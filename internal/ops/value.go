@@ -13,7 +13,7 @@ import (
 )
 
 // Value order. One function orders everything that needs the owner, for
-// Today, next, agenda, the TUI, and the PWA. The rule, with no weights:
+// Today, next, agenda, and the PWA. The rule, with no weights:
 //
 //  1. Open incidents, worst severity first.
 //  2. Items with an effective due date, soonest first.

@@ -36,7 +36,7 @@ const (
 
 // DefaultQueueSurfaces can queue a request by default. An agent surface is not
 // among them, so hostile text an agent reads cannot queue work.
-var DefaultQueueSurfaces = []string{"cli", "tui", "pwa"}
+var DefaultQueueSurfaces = []string{"cli", "pwa"}
 
 // RequestView is one request in a list.
 type RequestView struct {

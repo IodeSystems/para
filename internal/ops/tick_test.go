@@ -252,7 +252,7 @@ func TestTickRequestsForAgentTasks(t *testing.T) {
 	}
 
 	// Opting tick in to the queue makes the next one queued. The first two keep their state.
-	tv.addProps("request.surfaces=cli,tui,pwa,tick")
+	tv.addProps("request.surfaces=cli,pwa,tick")
 	tv.now = tv.now.Add(24 * time.Hour) // Nov 3: "Tomorrow" is due
 	out = tick(t, d)
 	if len(out.Requests) != 1 || out.Proposed != 0 {

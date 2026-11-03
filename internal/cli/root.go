@@ -142,7 +142,7 @@ func newRoot(l *loader) *cobra.Command {
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Extended())
 				return err
 			}
-			return runTUI(l)
+			return runAgendaHome(l, cmd)
 		},
 	}
 	root.Flags().Bool("help-extended", false, "print use cases with real commands, and where each kind of thing goes")
@@ -202,8 +202,6 @@ func newRoot(l *loader) *cobra.Command {
 		newGateCmd(l),
 		newHookCmd(l),
 		newSimilarCmd(l),
-		newReviewCmd(l),
-		newTUICmd(l),
 		newServeCmd(l),
 		newKeyCmd(l),
 		newSchemaCmd(l),

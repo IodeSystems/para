@@ -1,7 +1,7 @@
 How to work a vault:
 0. Words. The owner sees "Goal", "Ask", and "Agent work"; the tools keep their names. A goal is a project in tools. An ask is an rfx in tools. Agent work is the request queue (`request_add`, `request_next`). A follow-up is a nudge.
 1. Look before you write. Use `search`, `where`, `who`, and `route`. Read `next` and `graph` to see what is owed and what waits.
-2. Add to the inbox with `inbox_add` (the TUI and PWA call this "Add to inbox"; the key is c). Sort with `inbox_triage` (to task, project, note, rfx, or drop). Nothing is deleted.
+2. Add to the inbox with `inbox_add`. Sort with `inbox_triage` (to task, project, note, rfx, or drop). Nothing is deleted.
 3. A goal finishes; an area never finishes. Anything that never finishes is an area (`area_add`). A goal is a bounded outcome and needs a done condition: `project_add` fails without done_when, one line a person can check (`project_edit` sets it later). A task is one thing to do and needs a project or an area (`task_add`). Every task you write says how we know it is done: `task_add` fails without done_when (`task_edit` sets it later). Only a person may omit it, to capture fast. Set a due date with `task_due`. Order work with `task_depends_add`; a cycle is refused.
 4. Point at plans, repos, and docs with `area_link_add` and `project_link_add`. Para never reads the target.
 5. A blocker is `task_block` with a reason: who said it, and where it applies.

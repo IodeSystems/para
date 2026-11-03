@@ -18,8 +18,7 @@ Task and blocker tracker for a single contributor. Vaults of markdown (Obsidian 
 - `X-Forwarded-For` only from exact `net.trusted_proxies`. Do not use chi `RealIP` or joko's `resolveClientIP`.
 - No OAuth, inbound or outbound.
 - Work and personal never share a machine. Para has no sync feature, but a vault must stay correct under any file-sync tool: per-machine state lives in `$PARA_HOME/vaults/<id>/`, never in the vault.
-- TUI is for review and status. Agents write through MCP. Agents get rendered text only; export transports are CLI only.
-- Tests that use tmux use a private socket (`tmux -L <name>`). Never touch the default tmux server.
+- Agents write through MCP. Agents get rendered text only; export transports are CLI only.
 - SQLite is a rebuildable cache, not the source of truth.
 - Para does not fetch from outside systems. Agents compose it with other MCP servers and pass a URL and text.
 - Policy summaries are never rewritten by `para policy refresh`.

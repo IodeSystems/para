@@ -1,4 +1,6 @@
-package tui
+// Package review is the per-machine review position and the grouping of what
+// others changed since it. The PWA Review page reads it.
+package review
 
 import (
 	"encoding/json"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/iodesystems/parasolve/internal/atomicfile"
 	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Position is this machine's review position for one vault: events at or
@@ -34,11 +37,11 @@ func LoadPosition(stateDir string) (Position, error) {
 		return Position{}, nil
 	}
 	if err != nil {
-		return Position{}, fmt.Errorf("tui: review position: %w", err)
+		return Position{}, fmt.Errorf("review: position: %w", err)
 	}
 	var p Position
 	if err := json.Unmarshal(b, &p); err != nil {
-		return Position{}, fmt.Errorf("tui: review position: %w", err)
+		return Position{}, fmt.Errorf("review: position: %w", err)
 	}
 	return p, nil
 }
@@ -46,14 +49,14 @@ func LoadPosition(stateDir string) (Position, error) {
 // SavePosition writes the position.
 func SavePosition(stateDir string, p Position) error {
 	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		return fmt.Errorf("tui: review position: %w", err)
+		return fmt.Errorf("review: position: %w", err)
 	}
 	b, err := json.Marshal(p)
 	if err != nil {
-		return fmt.Errorf("tui: review position: %w", err)
+		return fmt.Errorf("review: position: %w", err)
 	}
 	if err := atomicfile.Write(filepath.Join(stateDir, positionFile), b, 0o600); err != nil {
-		return fmt.Errorf("tui: review position: %w", err)
+		return fmt.Errorf("review: position: %w", err)
 	}
 	return nil
 }
@@ -101,14 +104,24 @@ type ReviewData struct {
 }
 
 // ownSurface reports whether an event is the owner's own action. The owner's
-// CLI, TUI, and browser work is not review material. A browser session is a
+// CLI and browser work is not review material. A browser session is a
 // person: an agent holds a bearer key, whose surface is api.
 func ownSurface(e model.Event) bool {
-	return e.Surface == "cli" || e.Surface == Surface || e.Surface == "pwa"
+	return e.Surface == "cli" || e.Surface == "pwa"
 }
 
-// BuildReview derives the Review screen from a snapshot and a position.
-func BuildReview(s Snapshot, pos Position) ReviewData {
+// Input is what Build reads: open asks with drafts, policies, agent work, and
+// recent events.
+type Input struct {
+	RFX      []ops.RFXSummary
+	Drafts   map[string]string // open RFX id -> draft text
+	Policies []ops.PolicyView
+	Requests []ops.RequestView
+	Events   []model.Event
+}
+
+// Build derives the Review screen from the input and a position.
+func Build(s Input, pos Position) ReviewData {
 	var r ReviewData
 	for _, x := range s.RFX {
 		if _, ok := s.Drafts[x.ID]; ok {
