@@ -133,33 +133,38 @@ func isLocalURL(base string) bool {
 	return true
 }
 
-// newLoginCmd opens the vault's UI signed in with its admin token. `para serve
-// login` and `para service login-admin` are this one command.
+// newLoginCmd opens the vault's UI signed in. The web app is a read-only
+// viewer, so the key is a new vault:read key that ends in a day; --admin signs
+// in with the admin token instead. `para serve login` and `para service
+// login-admin` are this one command.
 func newLoginCmd(l *loader, use string) *cobra.Command {
 	var (
 		base    string
 		printIt bool
+		admin   bool
 	)
 	cmd := &cobra.Command{
 		Use:   use,
-		Short: "Open the UI signed in with the vault's admin token",
-		Long: "Open the UI signed in with the vault's admin token. The server is found from\n" +
-			"$PARA_HOME/var/serve.json, then the installed service, then 127.0.0.1:7700.\n" +
-			"The token goes in the URL fragment, which a browser never sends. The admin\n" +
-			"token works from this machine only; for another machine use\n" +
-			"para key create <name> --print-url.",
+		Short: "Open the read-only UI signed in with a new vault:read key (--admin: the admin token)",
+		Long: "Open the UI signed in with a new vault:read key that ends in 24 hours. The\n" +
+			"web app only reads. The server is found from $PARA_HOME/var/serve.json, then\n" +
+			"the installed service, then 127.0.0.1:7700. The token goes in the URL\n" +
+			"fragment, which a browser never sends. This works from this machine only;\n" +
+			"for another machine use para key create <name> --scope vault:read --print-url.\n" +
+			"--admin signs in with the admin token instead.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLogin(l, cmd, base, printIt)
+			return runLogin(l, cmd, base, printIt, admin)
 		},
 	}
 	f := cmd.Flags()
 	f.StringVar(&base, "url", "", "base URL (default: found from the running server)")
 	f.BoolVar(&printIt, "print", false, "print the sign-in URL (it holds the token) instead of opening it")
+	f.BoolVar(&admin, "admin", false, "sign in with the admin token instead of a read-only key")
 	return cmd
 }
 
-func runLogin(l *loader, cmd *cobra.Command, base string, printIt bool) error {
+func runLogin(l *loader, cmd *cobra.Command, base string, printIt, admin bool) error {
 	store, id, err := l.keyStore()
 	if err != nil {
 		return err
@@ -170,6 +175,14 @@ func runLogin(l *loader, cmd *cobra.Command, base string, printIt bool) error {
 			return fmt.Errorf("serve: login: vault %s has no admin token: para serve creates it on first start", id)
 		}
 		return err
+	}
+	var mint func() (string, error)
+	if !admin {
+		mint = func() (string, error) {
+			name := "viewer-" + time.Now().UTC().Format("20060102-150405")
+			_, t, err := store.Create(name, []string{netguard.ScopeVaultRead}, nil, 24*time.Hour)
+			return t, err
+		}
 	}
 	at := l.findServer()
 	if base == "" {
@@ -193,6 +206,11 @@ func runLogin(l *loader, cmd *cobra.Command, base string, printIt bool) error {
 		return fmt.Errorf("serve: login: %s answered 421: its host does not name a vault. Use --vault <id> with a vault the server has, or restart the server with --vault <id>", base)
 	case err != nil:
 		return fmt.Errorf("serve: login: nothing answers at %s (%v). No running server was found in %s (looked at: %s). Start it: para service start, or para serve", base, err, server.RecordPath(l.install.Home), at.Source)
+	}
+	if mint != nil {
+		if tok, err = mint(); err != nil {
+			return fmt.Errorf("serve: login: %w", err)
+		}
 	}
 	target := signInURL(base, tok)
 	w := cmd.OutOrStdout()

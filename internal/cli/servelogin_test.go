@@ -92,8 +92,21 @@ func TestServeRecordAndLogin(t *testing.T) {
 	if !strings.HasPrefix(got, "http://acme.localhost:"+port+"/#token=") {
 		t.Errorf("login: %s", got)
 	}
-	if again := e.ok("service", "login-admin", "--print"); again != got {
-		t.Errorf("login-admin differs from login: %s", again)
+	// The default key reads only; --admin signs in with the admin token.
+	tok := strings.TrimPrefix(got[strings.Index(got, "#token=")+len("#token="):], "")
+	if strings.TrimSpace(tok) == strings.TrimSpace(string(admin)) {
+		t.Error("login used the admin token")
+	}
+	var keys []struct {
+		Name   string   `json:"name"`
+		Scopes []string `json:"scopes"`
+	}
+	e.json(&keys, "key", "list")
+	if len(keys) != 1 || !strings.HasPrefix(keys[0].Name, "viewer-") || len(keys[0].Scopes) != 1 || keys[0].Scopes[0] != "vault:read" {
+		t.Errorf("login key = %+v", keys)
+	}
+	if adm := e.ok("serve", "login", "--print", "--admin"); !strings.Contains(adm, strings.TrimSpace(string(admin))) {
+		t.Errorf("login --admin: %s", adm)
 	}
 
 	// A remote name cannot use the admin token.
