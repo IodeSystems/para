@@ -1167,6 +1167,17 @@ try {
     r.title.startsWith('Work on: Deploy the service'),
   )
   check(delegated.length === 1, 'a second Give to agent adds the hint to the open work')
+  // Update: the text is kept whole under Updates and sort work is queued, once.
+  await findRow.getByRole('button', { name: /^Actions for/ }).click()
+  await rp.getByRole('menuitem', { name: /^Update/ }).click()
+  const up = rp.getByRole('dialog', { name: 'Update' })
+  await up.getByLabel(/^What happened/).fill('Met Sam. He will review by Friday.')
+  await up.getByRole('button', { name: 'Save update' }).click()
+  await up.waitFor({ state: 'hidden' })
+  const sorting = JSON.parse(para(...v, 'request', 'list', '--json')).items.filter((r) =>
+    r.title.startsWith('Sort update: Deploy the service'),
+  )
+  check(sorting.length === 1, 'Update saves the text and queues one sort request')
   await findRow.getByRole('button', { name: /^Actions for/ }).click()
   await rp.getByRole('menuitem', { name: /^Resolve/ }).click()
   const rs = rp.getByRole('dialog', { name: 'Resolve task' })

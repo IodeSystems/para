@@ -91,6 +91,46 @@ const TaskShowDoc = graphql(/* GraphQL */ `
             assignee
             project
             projectName
+            parent
+            parentName
+            items
+          }
+          updates
+          questions {
+            id
+            title
+            kind
+          }
+          parts {
+            actionItems {
+              id
+              title
+              status
+              due
+            }
+            commitments {
+              id
+              title
+              status
+              due
+              owner
+            }
+            answered {
+              id
+              title
+              choice
+            }
+            policy {
+              id
+              title
+              kind
+            }
+            followUps {
+              id
+              title
+              status
+              due
+            }
           }
         }
       }
@@ -103,6 +143,41 @@ export function useTask(id: string) {
     queryKey: ['task', id],
     queryFn: async () =>
       need((await gqlClient.request(TaskShowDoc, { id })).para.v1.taskShow, 'task').task,
+  })
+}
+
+// useTaskParts is the task page: its sections, computed from links, and the update text.
+export function useTaskParts(id: string) {
+  return useQuery({
+    queryKey: ['task', id, 'parts'],
+    queryFn: async () =>
+      need((await gqlClient.request(TaskShowDoc, { id })).para.v1.taskShow, 'task'),
+  })
+}
+
+const TaskUpdateDoc = graphql(/* GraphQL */ `
+  mutation TaskUpdate($body: para_TaskUpdateInputInput!) {
+    para {
+      v1 {
+        taskUpdate(body: $body) {
+          id
+          saved
+          request
+          appended
+          note
+        }
+      }
+    }
+  }
+`)
+
+// useTaskUpdate adds free text to a task and queues agent work to sort it.
+export function useTaskUpdate() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (b: { id: string; text: string }) =>
+      need((await gqlClient.request(TaskUpdateDoc, { body: b })).para.v1.taskUpdate, 'result'),
+    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 

@@ -5,7 +5,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useTask, useTaskAssign, useTaskBlock, useTaskDelegate, useTaskResolve } from '@/api/tasks'
+import { useTask, useTaskAssign, useTaskBlock, useTaskDelegate, useTaskResolve, useTaskUpdate } from '@/api/tasks'
 import { useWorking } from '@/api/requests'
 import { doneConfirm } from '@/lib/answer'
 import { errorText } from '@/client/gqlClient'
@@ -16,7 +16,7 @@ import type { Para_TaskResolveInputOutcome } from '@/gql/graphql'
 
 type Props = { s: OverlaySearch; onDone: (m: string) => void }
 
-// TaskDialogs are the dialogs of the task actions: Resolve, Block, Assign, Give to agent.
+// TaskDialogs are the dialogs of the task actions: Resolve, Block, Assign, Give to agent, Update.
 export function TaskDialogs({ s, onDone }: Props) {
   return (
     <>
@@ -24,6 +24,7 @@ export function TaskDialogs({ s, onDone }: Props) {
       {s.block && <BlockDialog id={s.block} onDone={onDone} />}
       {s.assign && <AssignDialog id={s.assign} onDone={onDone} />}
       {s.delegate && <DelegateDialog id={s.delegate} onDone={onDone} />}
+      {s.update && <UpdateDialog id={s.update} onDone={onDone} />}
     </>
   )
 }
@@ -333,6 +334,57 @@ function DelegateDialog({ id, onDone }: { id: string; onDone: (m: string) => voi
           onChange={(e) => setHint(e.target.value)}
           multiline
           minRows={2}
+          autoFocus
+          fullWidth
+        />
+      </Stack>
+    </Frame>
+  )
+}
+
+function UpdateDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
+  const close = useClose()
+  const update = useTaskUpdate()
+  const task = useTask(id).data
+  const [text, setText] = useState('')
+  return (
+    <Frame
+      title="Update"
+      onSubmit={() =>
+        update.mutate(
+          { id, text },
+          {
+            onSuccess: (r) => {
+              onDone(
+                `Saved your update.${r.request ? (r.appended ? ' Added to the open sort work.' : ' Queued agent work to sort it.') : ''}${r.note ? ` ${r.note}` : ''}`,
+              )
+              close()
+            },
+          },
+        )
+      }
+      actions={
+        <>
+          <Button onClick={close}>Cancel</Button>
+          <Button type="submit" variant="contained" disabled={update.isPending || !text.trim()}>
+            Save update
+          </Button>
+        </>
+      }
+    >
+      <Stack spacing={1.5} sx={{ pt: 1 }}>
+        {update.isError && <Alert severity="error">{errorText(update.error)}</Alert>}
+        {task?.title && <Typography sx={{ overflowWrap: 'anywhere' }}>{task.title}</Typography>}
+        <Typography variant="body2" color="text.secondary">
+          Kept whole under Updates. An agent sorts it into action items, questions, commitments,
+          policy, and follow-ups for you to approve.
+        </Typography>
+        <TextField
+          label="What happened"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          multiline
+          minRows={4}
           autoFocus
           fullWidth
         />

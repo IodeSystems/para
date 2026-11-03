@@ -6,7 +6,7 @@ import { useTaskStart } from '@/api/tasks'
 import { useLooking, useWorking } from '@/api/requests'
 
 // TaskMenu is the action menu of an open task, wherever it shows: Resolve, Start, Block, Assign,
-// Give to agent, Investigate, Later, Cut. extra adds entries that only some lists have.
+// Give to agent, Update, Investigate, Later, Cut. extra adds entries that only some lists have.
 export function TaskMenu({
   id,
   title,
@@ -53,6 +53,11 @@ export function TaskMenu({
         ? 'An agent is working on it already. A hint goes into its work'
         : 'Queue agent work for this task; you check what it reports',
       search: { delegate: id },
+    },
+    {
+      label: 'Update',
+      hint: 'Write what happened. An agent sorts it into items for you to approve',
+      search: { update: id },
     },
     findContextItem(id, looking.has(id)),
     deferred
