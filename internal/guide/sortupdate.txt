@@ -11,3 +11,5 @@ Sort an update the owner wrote on a task into typed items. The owner writes free
    - follow-up tasks: `task_add` with the wikilink of the task in body; depends_on the task or another item when it waits.
 4. Say in your reply what you left unsorted, with the words, so nothing is lost silently. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
 5. Name the receipts. The owner can undo one with `receipt_undo`.
+
+Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.

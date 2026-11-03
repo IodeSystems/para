@@ -75,7 +75,8 @@ server entries for this install. They write nothing.
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
-			srv, err := mcpserver.New(ops.Deps{Store: s}, mcpserver.Options{
+			base, open := l.viewer(sel.ID)
+			srv, err := mcpserver.New(ops.Deps{Store: s, ViewerBase: base, OpenURL: open}, mcpserver.Options{
 				Version:          l.version,
 				Hide:             []string{filepath.Clean(sel.Path), l.install.Home},
 				Log:              cmd.ErrOrStderr(),

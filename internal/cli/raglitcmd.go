@@ -18,7 +18,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/raglit"
 )
 
-// ignorePatterns keep para's own state, events and legacy proposals out of the index.
+// ignorePatterns keep para's own state, events and proposals out of the index.
 // They are set before the watch starts, so nothing in them is ever read.
 var ignorePatterns = []string{"**/.para/**", "**/events/**", "**/proposals/**", "**/.git/**"}
 

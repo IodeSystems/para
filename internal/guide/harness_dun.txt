@@ -14,18 +14,21 @@ Use para from dun.
 4. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
+   /para-<vault>:review_cycle   file a proposal, open it, and record the owner's decision
    /para-<vault>:process_meeting   turn a transcript into vault updates
    /para-<vault>:journal_lod   write a day, week, or month journal summary
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
-6. Agents change the vault with ops and tell the owner in the chat. Nothing has
+6. Agents change the vault with ops and tell the owner in the chat. Before an
+   outward action they file a proposal, open it, and ask in the chat. Nothing has
    to wait. The rest of this step is only for unattended work.
    `para mcp` watches the vault for the session, with no polling. It sends a
-   short message (notifications/message, logger "para") when a request can be
-   claimed by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and
-   names the tool to call next. The tool `request_wait`
-   blocks up to 60 seconds and return as soon as the state changes.
+   short message (notifications/message, logger "para") when a proposal you filed
+   is decided at a terminal, a request can be claimed by this install, or a request
+   you claimed is cancelled. It holds ids and states only, never vault text, and
+   names the tool to call next. The tools `proposal_wait` and `request_wait`
+   block up to 60 seconds and return as soon as the state changes.
    dun adds the message to the conversation at the next tool result or turn. It
    does not start a turn on an idle session: this is read from dun's code, not
    run.
@@ -34,7 +37,8 @@ Use para from dun.
    turn; dun allows one wake per 30 seconds and 20 an hour per server.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
-   Each blocks with no token cost, then call `request_next`.
+   $ para proposal wait proposal-example --timeout 1h
+   Each blocks with no token cost, then call `request_next` or `proposal_show`.
 
 7. Optional: let para start the agent when a request can be claimed on this machine.
    THIS SPENDS TOKENS: every run starts a dun session, billed to whatever model
@@ -59,9 +63,6 @@ Use para from dun.
    $ para agent status
    $ para doctor
 
-Para cannot stop an agent from using other tools. To enforce "no external action
-without approval", add the hook from para hook print: it blocks gh pr create, gh
-issue create, slack, acli writes, and browser form input unless the owner approved
-that exact text. A hook can also call para gate check --target <t> --body-file <f>,
-which exits 0 only for approved text. What an agent reports without a hook is marked
-self-reported.
+Para cannot stop an agent from using other tools. The rule is in the prompts: no
+outward action without a proposal the owner approved in the chat. Para records the
+owner's words with the decision, and what an agent reports is marked self-reported.

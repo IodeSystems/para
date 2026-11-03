@@ -334,3 +334,29 @@ func TestExportOverAPIRendersAndMovesNothing(t *testing.T) {
 		t.Error("the server ran a transport")
 	}
 }
+
+// TestProposalsReadInTheWebAndDecideByAgentKey: the web app reads proposals;
+// an agent key with vault:write records the owner's decision from the chat;
+// the person ops are not served.
+func TestProposalsReadInTheWebAndDecideByAgentKey(t *testing.T) {
+	f := newFixture(t)
+	body := `{"id":"proposal-sample","items":[{"item":"i1","decision":"approve"}],"owner_said":"Yes, add it."}`
+	ro := f.key(f.keyA, "reader", netguard.ScopeVaultRead)
+	wantStatus(t, f.do(call{target: "/api/v1/proposal/show?id=proposal-sample", token: ro}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/proposal/decide", token: ro, body: body}), 403)
+	rw := f.key(f.keyA, "agent", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
+	for _, path := range []string{"/api/v1/proposal/approve", "/api/v1/proposal/deny", "/api/v1/proposal/open"} {
+		if w := f.do(call{method: post, target: path, token: rw, body: `{"id":"proposal-sample","items":["i1"]}`}); w.Code == 200 {
+			t.Errorf("%s is served", path)
+		}
+	}
+	w := f.do(call{method: post, target: "/api/v1/proposal/decide", token: rw, body: body})
+	wantStatus(t, w, 200)
+	if !strings.Contains(w.Body.String(), `"state": "approved"`) || !strings.Contains(w.Body.String(), "Yes, add it.") {
+		t.Fatalf("decide = %s", w.Body)
+	}
+	// A browser session reads; it does not decide.
+	h := map[string]string{"Cookie": netguard.CookieName + "=" + f.session(f.key(f.keyA, "browser", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)), "Origin": "http://" + hostA}
+	w = f.do(call{method: post, target: "/api/v1/proposal/decide", header: h, body: `{"id":"proposal-sample","items":[{"item":"i2","decision":"approve"}],"owner_said":"Yes."}`})
+	wantStatus(t, w, 403)
+}

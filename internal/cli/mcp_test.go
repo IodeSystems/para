@@ -17,6 +17,9 @@ import (
 // TestMain lets a test run the para binary: the test executable re-runs
 // itself as `para` when PARA_TEST_BINARY is set.
 func TestMain(m *testing.M) {
+	// No test opens a browser: proposal_open gets a fake opener, here and in
+	// the para binary a test starts.
+	openURL = func(url string) (string, error) { return "test-open " + url, nil }
 	if os.Getenv("PARA_TEST_BINARY") == "1" {
 		if err := Execute("test", ""); err != nil {
 			os.Stderr.WriteString("para: " + err.Error() + "\n")

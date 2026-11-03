@@ -38,6 +38,9 @@ type WriteMeta struct {
 	Request    string // the request this write serves; default the one the actor holds
 	// NotDuplicate is why this create is not one of the likely matches.
 	NotDuplicate string
+	// OwnerSaid is the owner's words from a chat that approved this write, as
+	// an agent relayed them. A receipt with them is self-reported.
+	OwnerSaid string
 }
 
 type (
@@ -57,7 +60,8 @@ func writeMeta(ctx context.Context) WriteMeta {
 
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
-var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record"}
+var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record",
+	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed"}
 
 // NeedsWhy reports whether an MCP call of the op must carry why.
 func NeedsWhy(e Entry) bool {
@@ -171,7 +175,7 @@ func (r *recorder) Move(ctx context.Context, id string, to model.Folder) (model.
 }
 
 // noReceipt lists the types that are their own record.
-var noReceipt = []model.Type{model.TypeReceipt}
+var noReceipt = []model.Type{model.TypeReceipt, model.TypeProposal}
 
 // file writes one receipt per document that changed.
 func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) error {
@@ -191,7 +195,8 @@ func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) err
 		if after == t.before && !t.forced && (t.folder == "" || t.folder == doc.Folder) {
 			continue
 		}
-		if err := fileReceipt(ctx, d, receiptInput{op: op, doc: t.id, title: doc.Title, meta: m, content: model.ReceiptContent{Folder: t.folder, Before: t.before, After: after}}); err != nil {
+		if err := fileReceipt(ctx, d, receiptInput{op: op, doc: t.id, title: doc.Title, meta: m, content: model.ReceiptContent{Folder: t.folder, Before: t.before, After: after},
+			selfReported: m.OwnerSaid != "", ownerSaid: m.OwnerSaid}); err != nil {
 			return err
 		}
 	}

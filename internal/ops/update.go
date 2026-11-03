@@ -80,7 +80,7 @@ const sortInstruction = "Sort the newest update on %s.\n\nRead the task and its 
 	"commitments (task_add with commitment, a due date, the owner as assignee), resolved policy (constraint_add or exception_add, " +
 	"with a link to the task in text), follow-up tasks (task_add, depends_on when it waits). " +
 	"Cite the owner's words as the source of each change. Say in your result what you left unsorted. Never rewrite the owner's text. " +
-	"Take no external action without the owner's go-ahead in chat."
+	"Take no external action: an outward action needs a proposal the owner approved (proposal_add)."
 
 // TaskUpdate appends the owner's text under ## Updates, whole, and queues agent
 // work "Sort update: <title>" linked to the task. One open run per task: another

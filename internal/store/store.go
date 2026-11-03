@@ -41,7 +41,7 @@ type Store interface {
 	// Config returns a vault.properties value, or "" when the key is unset.
 	Config(key string) (string, error)
 	// ConfigFile returns a file of the vault's .para directory, or nil when
-	// there is none, such as work.yaml.
+	// there is none, such as proposals.yaml.
 	ConfigFile(name string) ([]byte, error)
 
 	// SetConfig sets one key of vault.properties and keeps the other lines.

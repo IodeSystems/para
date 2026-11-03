@@ -127,7 +127,17 @@ The web app can show browser notifications while a tab or the installed app is o
   $ para receipt undo receipt-example
   $ para action record --what "Opened the PR" --where github.example/acme/portal --url https://github.example/acme/portal/pull/1 --owner-said "yes, open it"
   $ para agent activity --since 2026-11-01
-Agents change the vault with ops. Each write leaves a receipt: who, which op, why, sources, how to verify, and the document before and after. You read receipts in the web app under Recent agent writes, newest first, each with its undo command to copy. receipt undo puts the document back if nothing changed it since, and refuses with the reason if something did. An email, a PR, a ticket, or a message is the agent's own tool work after you say go in the chat; the agent records it with the action_record tool, with your words. Para sends nothing. Old proposal documents stay in vaults as read-only records.
+Agents change the vault with ops. Each write leaves a receipt: who, which op, why, sources, how to verify, and the document before and after. You read receipts in the web app under Recent agent writes, newest first, each with its undo command to copy. receipt undo puts the document back if nothing changed it since, and refuses with the reason if something did. Ordinary vault edits need no proposal. Para sends nothing.
+
+12. Proposals: an agent asks, you decide in the chat
+  $ para proposal list
+  $ para proposal show proposal-example
+  $ para open proposal-example
+  $ para proposal approve proposal-example i1
+  $ para proposal deny proposal-example i2 --reason "Not this quarter"
+  $ para proposal wait proposal-example --timeout 1h
+  $ para proposal undone
+Before an outward action (an email, a PR, a ticket, a message), always, and before a large or risky vault change (for example a bulk merge of duplicates) when it judges so, an agent files a proposal: a tldr, context, and items, each a message, an action, or a para change, with evidence, pros and cons, and for a para change the before and after. It opens the page for you (para open, the tool proposal_open: a browser on the machine para runs on, or the URL to copy when none opens), gives you the tldr in the chat, and asks. You answer in the chat: approve, deny, or change each item. The agent records your words with proposal_decide; they are stored on the item and marked self-reported. An approved para change runs at once under the agent's name, with a receipt. An approved message or action stays "approved, not done" until the agent sends it with its own tool and reports it (proposal executed, or action record with the proposal and item). A change makes a new revision for you to read. The web app shows proposals and decides nothing; at a terminal you can approve and deny. Background agent work cannot ask you: it files the proposal and stops.
 
 14. Questions: unknowns, decisions, and inputs are not tasks
   $ para question add "Which config path does prod use?" --project project-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
@@ -246,7 +256,8 @@ Where does this go?
   a plan, doc, runbook, or repository        stays where it lives; link it from the area or goal
   a phone or browser view of the vault       para serve, with a key from para key create
   a change an agent suggests                 the agent changes it and leaves a receipt; undo with receipt undo
-  an email or PR an agent wants to send      the agent shows you the text in chat; after your go it sends it with its own tool
+  a large or risky change an agent suggests  a proposal: you read it with para open and decide in the chat
+  an email or PR an agent wants to send      a proposal with a message or an action; after your go it sends it
   a conversation with people at a time      a meeting, linked to the asks it serves
   what is dated this week                    para agenda
   what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens

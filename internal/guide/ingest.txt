@@ -14,3 +14,5 @@ Ingest one thing the owner points at: a document, a thread, a transcript, a tick
 4. A source is required on every write: its quote, and a locator (a URL with an anchor, a file path and line, a message link). No source, no change. A guess is not a source. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
 5. Say in your reply what you read, what you matched, and what you left out and why.
 6. Name the receipts. The owner can undo one with `receipt_undo`.
+
+Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.

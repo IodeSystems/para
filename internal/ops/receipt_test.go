@@ -174,7 +174,7 @@ func TestSearchBeforeCreate(t *testing.T) {
 
 func TestAgentWorkTurns(t *testing.T) {
 	f := newAgentFix(t)
-	if err := os.WriteFile(filepath.Join(f.root, ".para", "work.yaml"), []byte("work:\n  release:\n    require: ["+f.source+"]\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(f.root, ".para", "proposals.yaml"), []byte("work:\n  release:\n    require: ["+f.source+"]\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	add, err := RequestAdd.Run(t.Context(), f.owner, RequestAddInput{Ask: "Ship it", Kind: "release", Context: []string{f.proj}})

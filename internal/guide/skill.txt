@@ -5,7 +5,8 @@ Each vault is an MCP server named para-<vault>. Use the vault the owner names. I
 none is named, ask. Do not move work between vaults.
 
 Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
-empty vault and `process_meeting` for a transcript.
+empty vault, `process_meeting` for a transcript, and `review_cycle` before an outward
+action or a large or risky change.
 
 Arguments. If the request starts with the word health (as in /para health), use the
 `health_triage` prompt: run `health`, settle what evidence settles with ops. With no argument, start with `orient`.

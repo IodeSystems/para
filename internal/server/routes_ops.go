@@ -145,8 +145,22 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
 }
 
-// registerActivity: what agents did is read with vault:read.
-func registerActivity(r *registrar) {
+// registerProposals: the web app reads proposals; the owner decides in the
+// chat, and the agent records it with proposal_decide. Filing, revising,
+// deciding, and reporting take vault:write. Any op an approval runs is checked
+// against the caller's own scopes (boundVault.deps). The person ops
+// proposal_approve and proposal_deny, and proposal_open, are not served.
+func registerProposals(r *registrar) {
+	reg(r, ops.ProposalList, get, read)
+	reg(r, ops.ProposalShow, get, read)
+	reg(r, ops.ProposalDiff, get, read)
+	reg(r, ops.ProposalWait, get, read)
+	reg(r, ops.ProposalApproved, get, read)
+	reg(r, ops.ProposalUndone, get, read)
+	reg(r, ops.ProposalAdd, post, write)
+	reg(r, ops.ProposalRevise, post, write)
+	reg(r, ops.ProposalDecide, post, write)
+	reg(r, ops.ProposalExecuted, post, write)
 	reg(r, ops.AgentActivity, get, read)
 }
 

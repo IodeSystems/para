@@ -23,6 +23,19 @@ import (
 // Deps is what an op may use. A surface builds it per call or per session.
 type Deps struct {
 	Store store.Store
+	// Authorize says whether the caller may cause op to run. An approved
+	// proposal item runs under the proposing agent, so the server uses this to
+	// keep the caller's own scopes in force. Nil allows every op: the CLI is
+	// the owner on this machine.
+	Authorize func(op string) error
+	// ViewerBase returns the base URL of the para serve that serves this vault
+	// on this machine, such as http://acme.localhost:7700, or an error that says
+	// how to start one. Nil: no server is known here.
+	ViewerBase func() (string, error)
+	// OpenURL opens a URL in a browser on the machine para runs on and returns
+	// the command it ran. Nil: nothing can be opened here; the URL is still
+	// returned.
+	OpenURL func(url string) (command string, err error)
 	// Changed, when set, returns a channel that closes at the next change of
 	// the vault, from any process. A waiting op blocks on it instead of
 	// polling files. Take it before reading state, so no change is missed.

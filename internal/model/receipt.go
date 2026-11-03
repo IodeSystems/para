@@ -78,7 +78,7 @@ type Receipt struct {
 
 // AlignResult is the outcome of one align run. Checked, Matched, and Differ
 // count items of the vault; Unreachable names the sources the agent could not
-// read. Proposal is the legacy proposal that held the differences; it is read, never written.
+// read. Proposal is the proposal that held the differences, from older runs.
 type AlignResult struct {
 	Checked     int      `yaml:"checked" json:"checked"`
 	Matched     int      `yaml:"matched" json:"matched"`

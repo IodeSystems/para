@@ -170,7 +170,7 @@ func TestTaskDelegate(t *testing.T) {
 	rm := r.Meta.(*model.Request)
 	if r.Title != "Work on: Draft the notes" || len(rm.Links) != 1 || rm.Links[0].Target() != id ||
 		!strings.Contains(r.Body, "- Start with the old runbook.") || !strings.Contains(r.Body, "Notes are in the wiki.") ||
-		!strings.Contains(r.Body, "no external action without the owner") || !strings.Contains(r.Body, "sources") ||
+		!strings.Contains(r.Body, "no external action without a proposal the owner approved") || !strings.Contains(r.Body, "sources") ||
 		!strings.Contains(r.Body, "request.runner") {
 		t.Errorf("request = %q\n%s", r.Title, r.Body)
 	}

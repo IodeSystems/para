@@ -147,14 +147,52 @@ var Inputs = map[string]string{
 	"similar":                   `{"type":"task","title":"Sample task"}`,
 	"request_respond":           `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,
 	"request_changes":           `{"id":"request-finished"}`,
+	"proposal_add": `{"title":"Sample proposal","tldr":"Add a task and tell Sam.","context":"Sam asked in the sample note.","source":"note-sample","items":[` +
+		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
+		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
+	"proposal_executed": `{"id":"proposal-decided","item":"i1","result":"done","url":"https://acme.example/m/2"}`,
+	"proposal_show":     `{"id":"proposal-sample"}`,
+	"proposal_diff":     `{"id":"proposal-sample"}`,
+	"proposal_wait":     `{"id":"proposal-decided"}`,
+	"proposal_approved": `{"hash":"` + model.ExternalHash(sampleTarget, sampleDraft) + `"}`,
+	"proposal_revise":   `{"id":"proposal-sample","tldr":"Add a task only."}`,
+	"proposal_approve":  `{"id":"proposal-sample","items":["i1"]}`,
+	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
+	"proposal_decide":   `{"id":"proposal-sample","items":[{"item":"i2","decision":"approve"}],"owner_said":"Yes, send it."}`,
+	"proposal_open":     `{"id":"proposal-sample"}`,
 }
 
-// sampleProposals is a legacy proposal document: para no longer writes them,
-// and the tests check that a vault holding one still reads and lints.
+const (
+	sampleTarget = "sample@acme.example"
+	sampleDraft  = "Hi Sam."
+)
+
 func sampleProposals() ([]model.Document, error) {
+	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
+	open, err := model.RenderProposalBody(model.ProposalContent{
+		TLDR: "Add a task and tell Sam.", Context: "Sam asked in the sample note.",
+		Items: []model.ProposalItem{
+			{ID: "i1", Kind: model.ItemPara, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending},
+			{ID: "i2", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft, Evidence: ev, State: model.ItemPending},
+			{ID: "i3", Kind: model.ItemMessage, Subtype: "slack", Channel: "#sample", Body: "Sample note.", Evidence: ev, State: model.ItemPending},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	closed, err := model.RenderProposalBody(model.ProposalContent{
+		Items: []model.ProposalItem{{ID: "i1", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft,
+			Evidence: ev, State: model.ItemApproved, ApprovedHash: model.ExternalHash(sampleTarget, sampleDraft)}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	meta := func(s model.ProposalStatus) *model.Proposal {
+		return &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo("note-sample"), Status: s, Revision: 1, ProposedBy: "claude-agent"}
+	}
 	return []model.Document{
-		{ID: "proposal-sample", Folder: model.FolderProposals, Title: "Legacy proposal", Body: "A legacy proposal kept as a record.",
-			Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo("note-sample"), Status: "closed", Revision: 1, ProposedBy: "claude-agent"}},
+		{ID: "proposal-sample", Folder: model.FolderProposals, Title: "Sample proposal", Body: open, Meta: meta(model.ProposalOpen)},
+		{ID: "proposal-decided", Folder: model.FolderProposals, Title: "Decided proposal", Body: closed, Meta: meta(model.ProposalClosed)},
 	}, nil
 }
 

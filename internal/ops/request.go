@@ -243,11 +243,11 @@ type RequestAddInput struct {
 	// person may leave it out; the first line of ask is then the title.
 	Title  string   `json:"title,omitempty"`
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
-	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, or request ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, request, or proposal ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 	// Context links what the work must follow: policies, conventions, a goal, documents.
 	Context []string `json:"context,omitempty"`
-	// Kind is free text. A rule in .para/work.yaml can require a policy or
+	// Kind is free text. A rule in .para/proposals.yaml can require a policy or
 	// a convention for a kind.
 	Kind string `json:"kind,omitempty"`
 }
@@ -313,7 +313,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
@@ -335,7 +335,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	} else if ok {
 		status = model.RequestQueued
 	}
-	rules, err := loadWorkRules(d)
+	rules, err := loadProposalRules(d)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

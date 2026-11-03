@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -169,7 +169,7 @@ func TestExtendedAndOrientNameInvestigate(t *testing.T) {
 
 func TestGuideNamesResolveAndDelegate(t *testing.T) {
 	for name, want := range map[string][]string{
-		"orient":   {"task_resolve", "partial", "superseded", "task_delegate", "Work on:", "go-ahead in chat"},
+		"orient":   {"task_resolve", "partial", "superseded", "task_delegate", "Work on:", "without a proposal the owner approved", "proposal_decide", "proposal_open"},
 		"extended": {"para task resolve", "para task delegate", "--follow-up", "## Outcome", "Agent working", "request.runner"},
 	} {
 		text := flat(texts()[name])

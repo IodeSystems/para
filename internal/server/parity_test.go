@@ -415,7 +415,11 @@ func TestGraphQLEveryOp(t *testing.T) {
 // TestEveryOpIsRegistered: an op with no route fails here.
 func TestEveryOpIsRegistered(t *testing.T) {
 	// ops that are deliberately not served. Keep it short and give the reason.
-	excluded := map[string]string{}
+	excluded := map[string]string{
+		"proposal_approve": "a person decides at a terminal or in the chat; the web app only reads proposals",
+		"proposal_deny":    "a person decides at a terminal or in the chat; the web app only reads proposals",
+		"proposal_open":    "opens a browser on the machine para runs on: CLI and MCP only",
+	}
 	f := newFixture(t)
 	seen := map[string]bool{}
 	for _, r := range f.srv.Routes() {

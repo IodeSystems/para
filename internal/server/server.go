@@ -212,7 +212,7 @@ func (s *Server) build() error {
 	registerGovernance(r)
 	registerRecords(r)
 	registerRequests(r)
-	registerActivity(r)
+	registerProposals(r)
 	registerReceipts(r)
 	registerVault(r)
 	registerUI(r)

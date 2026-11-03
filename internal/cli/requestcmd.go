@@ -30,7 +30,7 @@ func newRequestCmd(l *loader) *cobra.Command {
 				fs.StringSliceVar(&in.Links, "link", nil, "task or project id the ask is about (repeatable)")
 				fs.StringVar(&in.Runner, "runner", "", "install id that may claim; default vault.properties request.runner, else this install")
 				fs.StringSliceVar(&in.Context, "context", nil, "id of a policy, convention, goal, or document the work must follow (repeatable)")
-				fs.StringVar(&in.Kind, "kind", "", "kind of work; a rule in .para/work.yaml can require context for a kind")
+				fs.StringVar(&in.Kind, "kind", "", "kind of work; a rule in .para/proposals.yaml can require context for a kind")
 			},
 			Bind: func(args []string, in *ops.RequestAddInput) error { in.Ask = strings.Join(args, " "); return nil },
 			Text: func(w io.Writer, out ops.RequestAddOutput) error {

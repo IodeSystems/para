@@ -23,6 +23,8 @@ func newActionCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.URL, "url", "", "where the result can be seen")
 				fs.StringVar(&in.OwnerSaid, "owner-said", "", "the owner's go-ahead, in their words")
 				fs.StringArrayVar(&in.Sources, "source", nil, "a document id or URL the action rests on (repeat)")
+				fs.StringVar(&in.Proposal, "proposal", "", "the proposal whose approved item this carries out (with --item)")
+				fs.StringVar(&in.Item, "item", "", "the approved item this carries out (with --proposal)")
 			},
 			Text: func(w io.Writer, out ops.ActionRecordOutput) error {
 				p := &printer{w: w}

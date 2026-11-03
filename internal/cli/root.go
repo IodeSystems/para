@@ -99,7 +99,8 @@ func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}
-	return ops.Deps{Store: s}, nil
+	base, open := l.viewer(id)
+	return ops.Deps{Store: s, ViewerBase: base, OpenURL: open}, nil
 }
 
 // stateDir is this machine's state for a vault: lock, manifest, index.
@@ -195,6 +196,8 @@ func newRoot(l *loader) *cobra.Command {
 		newJournalCmd(l),
 		newTodayCmd(l),
 		newRequestCmd(l),
+		newProposalCmd(l),
+		newTopOpenCmd(l),
 		newReceiptCmd(l),
 		newAlignCmd(l),
 		newActionCmd(l),

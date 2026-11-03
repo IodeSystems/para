@@ -13,3 +13,5 @@ Turn a meeting transcript into vault updates. Para does not record or transcribe
    - when there is a meeting: one last item, `meeting_hold`, with only the notes (a few lines in the owner's words, never a transcript) and, for a meeting that was never scheduled, the start and end. Put the replies, answers, and tasks in their own items, as above, so each has its own receipt; `meeting_hold` then marks the meeting held, and a request asked in it and not answered stays a wait.
 4. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
 5. Name the receipts. The owner can undo one with `receipt_undo`.
+
+Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.

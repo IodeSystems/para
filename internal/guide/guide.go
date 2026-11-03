@@ -31,6 +31,8 @@ var (
 	harnessClaude string
 	//go:embed harness_dun.txt
 	harnessDun string
+	//go:embed reviewcycle.txt
+	reviewCycle string
 	//go:embed processmeeting.txt
 	processMeeting string
 	//go:embed journallod.txt
@@ -66,6 +68,10 @@ func Orient() string { return Intro() + "\n\n" + Rule() + "\n\n" + trim(orient) 
 // Bootstrap is the interview an agent runs to fill a new vault. Both the MCP
 // prompt "bootstrap" and `para bootstrap` print it.
 func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
+
+// ReviewCycle is the MCP prompt "review_cycle": how an agent asks the owner
+// through a proposal and records the decision from the chat.
+func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
 
 // ProcessMeeting is the MCP prompt "process_meeting": vault updates from a
 // transcript.
