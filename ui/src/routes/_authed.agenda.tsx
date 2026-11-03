@@ -550,6 +550,11 @@ function Agenda() {
                   {t.health} health finding{t.health === 1 ? '' : 's'}
                 </LinkButton>
               )}
+              {t.upgradeSteps > 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  {t.upgradeSteps} vault upgrade step{t.upgradeSteps === 1 ? '' : 's'} pending. Run para vault upgrade --status.
+                </Typography>
+              )}
               <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
                 {inboxOf(inboxRows)}
               </Section>

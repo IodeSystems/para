@@ -252,6 +252,9 @@ func (m *Model) rowsToday(w int) []row {
 	if n := s.Today.Health; n > 0 {
 		r = append(r, link("act:health", "  ", plural(n, "health finding"), stDim.Render("  review"), w))
 	}
+	if n := s.Today.UpgradeSteps; n > 0 {
+		r = append(r, plain("  "+plural(n, "vault upgrade step")+" pending"+stDim.Render("  run para vault upgrade --status")))
+	}
 	if n := s.Today.OtherOpen; n > 0 {
 		r = append(r, link("tab:2", "  ", plural(n, "other open question"), stDim.Render("  on Work"), w))
 	}

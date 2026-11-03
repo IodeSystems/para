@@ -15,6 +15,7 @@ import (
 	"github.com/iodesystems/parasolve/internal/ops"
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/upgrade"
 	"github.com/iodesystems/parasolve/internal/vault"
 )
 
@@ -91,6 +92,9 @@ type VaultToday struct {
 	// Health counts health findings (para health) not dismissed. It is a line
 	// on Today, not part of the agenda.
 	Health int `json:"health"`
+	// UpgradeSteps counts vault upgrade steps (para vault upgrade --status) that
+	// still have documents to change. It shows beside the health line.
+	UpgradeSteps int `json:"upgrade_steps"`
 	// ApprovedNotDone counts messages and actions the owner approved that nobody
 	// has reported done.
 	ApprovedNotDone int `json:"approved_not_done"`
@@ -326,6 +330,9 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 	// Health never fails Today: a vault it cannot read shows no count.
 	if h, err := ops.HealthAt(ctx, st, date); err == nil {
 		vt.Health = h.Count
+	}
+	if us, err := upgrade.StatusOf(ctx, st); err == nil {
+		vt.UpgradeSteps = len(us.Pending)
 	}
 	ready, err := ops.Next.Run(ctx, ops.Deps{Store: st}, ops.NextInput{})
 	if err != nil {

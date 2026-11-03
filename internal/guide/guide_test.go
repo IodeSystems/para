@@ -198,3 +198,15 @@ func TestGuideNamesFrictionReport(t *testing.T) {
 		}
 	}
 }
+
+func TestGuideNamesUpgrades(t *testing.T) {
+	text := flat(texts()["extended"])
+	for _, w := range []string{"para upgrade", "git pull --ff-only", "para changes", "para vault upgrade --dry-run", "format_version", "--undo", "judgement step"} {
+		if !strings.Contains(text, w) {
+			t.Errorf("extended lacks %q", w)
+		}
+	}
+	if o := flat(Orient()); !strings.Contains(o, "`changes`") || !strings.Contains(o, "Vault upgrade:") {
+		t.Error("orient lacks changes or the vault upgrade work")
+	}
+}

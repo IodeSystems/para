@@ -222,6 +222,16 @@ An ask keeps a path log: each target is a try, with the medium, when it was adde
   $ para report friction --by reason --to file:/tmp/friction.txt
 The friction report counts what slows asks down, from the asks and the event log. Each stall and redirect carries a reason code (see rfx path add), and may link the policy, exception, or domain it is about. Rows group by reason (the default), domain (the ask's route), or policy; there is no per-person view and no ranking of people. Each row shows the median time to first answer and to resolution, targets per ask, redirects, stalls, stalled days of asks stalled now, policy conflicts, exceptions hit, and repeat asks that a playbook could answer, and lists its asks as evidence. --to sends the text through the same egress check as export, and logs it. TUI: Friction report (r) on the Asks tab, Group by (b) on the page. Web app: Friction.
 
+24. Upgrades: the binary, the notes, the vault format
+  $ para upgrade
+  $ para changes --since 0.1.0
+  $ para vault upgrade --status
+  $ para vault upgrade --dry-run
+  $ para vault upgrade
+  $ para vault upgrade --undo up-meeting-as-task-20261103120000
+From a git checkout (the one the binary was built from, or --src), para upgrade refuses when tracked files have uncommitted changes, runs git pull --ff-only, then make install, which restarts the para service. It never commits or pushes. Without a checkout it prints the go install line. It then prints the changes between the old and new versions, and files each vault's judgement steps as agent work. The notes are embedded in the binary, one file per version with two sections: People and Agents. An agent that sees "para changed since your last session; call changes" in the server instructions calls `changes`. An MCP server keeps running the binary it started with, so after an upgrade it refuses tool calls with both versions named and the steps to reconnect; para doctor warns about an MCP server or a service that runs a replaced binary.
+A vault records format_version in .para/vault.properties. Each upgrade step is one of two kinds. An automated step is a deterministic rewrite through the vault: --dry-run lists the documents, a real run is one batch with one event per document, and --undo restores the files on the machine that ran it (the backup is in $PARA_HOME, never the vault). The first step rewrites type: meeting files as tasks of kind meeting and keeps content and links. A second machine that sees the new format_version does nothing. A judgement step is a change no program can make, such as a done_when for each open goal and task; --file queues it as agent work titled "Vault upgrade: ...", with instructions and the list of documents, and `vault_upgrade_status` lists what is pending. The agent files a proposal, the owner reviews it, and the step clears when no document is left to change. Old documents stay readable until then. Pending steps show on the Agenda and in the orient prompt.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due

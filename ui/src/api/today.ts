@@ -48,6 +48,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             }
             otherOpen
             health
+            upgradeSteps
             deferred
             overdue {
               ...TodayGroupFields

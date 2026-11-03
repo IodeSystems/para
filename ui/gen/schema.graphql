@@ -143,6 +143,7 @@ type ParaV1MutationNamespace {
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
   undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
+  vaultUpgrade(body: para_VaultUpgradeInputInput!): para_VaultUpgradeOutput @derived(operationId: "vaultUpgrade")
 }
 
 type ParaV1QueryNamespace {
@@ -153,6 +154,7 @@ type ParaV1QueryNamespace {
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
+  changes: para_ChangesOutput @derived(operationId: "changes")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
@@ -238,6 +240,7 @@ type ParaV1QueryNamespace {
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
   uiToday: para_UITodayBody @derived(operationId: "uiToday")
+  vaultUpgradeStatus: para_Status @derived(operationId: "vaultUpgradeStatus")
   waiting(today: String): para_WaitingOutput @derived(operationId: "waiting")
   where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
   who(query: String!, recent: Int): para_WhoOutput @derived(operationId: "who")
@@ -466,6 +469,13 @@ type para_AttemptAddOutput {
   rev: String!
 }
 
+type para_BatchResult {
+  batch: String!
+  docs: [String!]!
+  dryRun: Boolean
+  skipped: [String!]
+}
+
 input para_CalendarExportInputInput {
   days: Int
   to: String
@@ -507,6 +517,13 @@ enum para_ChangeOutcome {
   logged
   pending
   synced
+}
+
+type para_ChangesOutput {
+  current: String!
+  releases: [para_Release!]!
+  since: String
+  text: String!
 }
 
 type para_Claim {
@@ -2643,6 +2660,14 @@ enum para_PathMoveMedium {
   teams
 }
 
+type para_Pending {
+  auto: Boolean!
+  count: Int!
+  docs: [String!]!
+  id: String!
+  title: String!
+}
+
 input para_PersonAliasInputInput {
   alias: String!
   id: String!
@@ -3861,6 +3886,12 @@ enum para_RefType {
   transcript
 }
 
+type para_Release {
+  agents: [String!]!
+  people: [String!]!
+  version: String!
+}
+
 input para_RequestAcceptInputInput {
   id: String!
 }
@@ -4151,6 +4182,12 @@ type para_RuleListOutput {
   rules: [para_Rule!]!
 }
 
+type para_RunResult {
+  dryRun: Boolean
+  formatVersion: Int!
+  steps: [para_StepOutcome!]!
+}
+
 type para_SearchOutput {
   degraded: String
   hits: [para_Hit!]!
@@ -4259,6 +4296,21 @@ type para_Stats {
   documents: Int!
   removed: Int!
   updated: Int!
+}
+
+type para_Status {
+  formatVersion: Int!
+  latest: Int!
+  pending: [para_Pending!]!
+}
+
+type para_StepOutcome {
+  auto: Boolean!
+  batch: String
+  count: Int!
+  docs: [String!]!
+  id: String!
+  title: String!
 }
 
 type para_Target {
@@ -4773,6 +4825,7 @@ type para_TodayVaultToday {
   overdue: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
+  upgradeSteps: Int!
   vault: String!
   waiting: Int!
 }
@@ -4867,6 +4920,19 @@ type para_ValueRow {
   proposal: Boolean
   title: String!
   why: String!
+}
+
+input para_VaultUpgradeInputInput {
+  dryRun: Boolean
+  file: Boolean
+  undo: String
+}
+
+type para_VaultUpgradeOutput {
+  filed: [String!]!
+  run: para_RunResult
+  status: para_Status!
+  undo: para_BatchResult
 }
 
 type para_WaitingItem {
