@@ -96,6 +96,9 @@ var TaskResolve = defineSafe("task_resolve", "Close a task with an outcome: done
 	if err != nil {
 		return TaskResolveOutput{}, err
 	}
+	if err := closeGuard(doc, t, outcome); err != nil {
+		return TaskResolveOutput{}, err
+	}
 	if taskTerminal(t.Status) && outcome != model.OutcomeDone {
 		return TaskResolveOutput{}, fmt.Errorf("%s is already %s", id, t.Status)
 	}

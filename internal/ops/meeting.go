@@ -45,15 +45,17 @@ type MeetingView struct {
 }
 
 func meetingView(d model.Document) (MeetingView, error) {
-	m, ok := d.Meta.(*model.Meeting)
+	m, ok := readMeeting(d)
 	if !ok {
-		return MeetingView{}, fmt.Errorf("%s is a %s, not a meeting", d.ID, d.Meta.Header().Type)
+		return MeetingView{}, notMeeting(d)
 	}
 	return MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
 		With: targets(m.With), RFX: targets(m.RFX), Rev: d.Rev}, nil
 }
 
-func getMeeting(ctx context.Context, s store.Store, id string) (model.Document, *model.Meeting, error) {
+// getMeeting reads a meeting in either shape: a task of kind meeting, or a
+// `type: meeting` document.
+func getMeeting(ctx context.Context, s store.Store, id string) (model.Document, *mtg, error) {
 	id = normID(id)
 	if id == "" {
 		return model.Document{}, nil, errors.New("id is empty")
@@ -62,9 +64,9 @@ func getMeeting(ctx context.Context, s store.Store, id string) (model.Document, 
 	if err != nil {
 		return d, nil, err
 	}
-	m, ok := d.Meta.(*model.Meeting)
+	m, ok := readMeeting(d)
 	if !ok {
-		return d, nil, fmt.Errorf("%s is a %s, not a meeting", id, d.Meta.Header().Type)
+		return d, nil, notMeeting(d)
 	}
 	return d, m, nil
 }
@@ -77,21 +79,26 @@ func meetingOpen(s model.MeetingStatus) bool {
 // loadMeetings returns every meeting. Open ones come first: booked by start
 // time, then requested; then held and cancelled, latest first.
 func loadMeetings(ctx context.Context, s store.Store) ([]MeetingView, error) {
-	refs, err := s.List(ctx, store.Filter{Type: model.TypeMeeting})
-	if err != nil {
-		return nil, err
-	}
 	out := []MeetingView{}
-	for _, r := range refs {
-		doc, err := s.Get(ctx, r.ID)
+	for _, typ := range []model.Type{model.TypeMeeting, model.TypeTask} {
+		refs, err := s.List(ctx, store.Filter{Type: typ})
 		if err != nil {
 			return nil, err
 		}
-		v, err := meetingView(doc)
-		if err != nil {
-			return nil, err
+		for _, r := range refs {
+			doc, err := s.Get(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			if _, ok := readMeeting(doc); !ok {
+				continue
+			}
+			v, err := meetingView(doc)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, v)
 		}
-		out = append(out, v)
 	}
 	rank := func(v MeetingView) int {
 		switch v.Status {
@@ -358,33 +365,34 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			return MeetingAddOutput{}, err
 		}
 	}
-	meta := &model.Meeting{Common: model.Common{Type: model.TypeMeeting}, Status: model.MeetingRequested, With: with, RFX: rfx}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx}
+	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":
 	case in.Start == "" || in.End == "":
 		return MeetingAddOutput{}, errors.New("start and end: give both or neither")
 	default:
-		if meta.Start, meta.End, err = checkSlot(in.Start, in.End); err != nil {
+		if meta.Scheduled, meta.End, err = checkSlot(in.Start, in.End); err != nil {
 			return MeetingAddOutput{}, err
 		}
-		meta.Status = model.MeetingScheduled
+		status = model.MeetingScheduled
 	}
 	qs, err := gatherQuestions(ctx, d, rfx, in.Scope)
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderMeetings, Title: title, Body: meetingBody(in.Body, qs), Meta: meta,
+		Folder: model.FolderProjects, Title: title, Body: meetingBody(in.Body, qs), Meta: meta,
 	})
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
 	to := model.TargetRequested
-	if meta.Status == model.MeetingScheduled {
+	if status == model.MeetingScheduled {
 		to = model.TargetScheduled
 	}
 	changed, warns, err := syncTargets(ctx, d, rfx, with, true, askState(to))
-	out := MeetingAddOutput{ID: doc.ID, Folder: doc.Folder, Status: meta.Status, RFX: nonNil(changed), Warnings: nonNil(warns), Rev: doc.Rev}
+	out := MeetingAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, RFX: nonNil(changed), Warnings: nonNil(warns), Rev: doc.Rev}
 	if err != nil {
 		return out, fmt.Errorf("meeting %s was made but its requests were not all updated: %w", doc.ID, err)
 	}
@@ -477,10 +485,15 @@ var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of 
 	if err != nil {
 		return MeetingChangeOutput{}, err
 	}
+	if m.Status == model.MeetingScheduled && m.Start != "" && (m.Start != start || m.End != end) {
+		// A move keeps the old time in the notes.
+		doc.Body = appendToSection(doc.Body, notesHeading, fmt.Sprintf("- %s: Rescheduled from %s to %s.", d.Store.Now().Format(dateLayout), shortWhen(m.Start), start))
+	}
 	m.Status, m.Start, m.End = model.MeetingScheduled, start, end
 	if qs, err := gatherQuestions(ctx, d, m.RFX, nil); err == nil {
 		doc.Body = addQuestionLines(doc.Body, qs)
 	}
+	m.sync()
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return MeetingChangeOutput{}, err
@@ -515,6 +528,7 @@ var MeetingCancel = define("meeting_cancel", "Cancel a requested or scheduled me
 		line += " " + r
 	}
 	doc.Body = appendToSection(doc.Body, notesHeading, line)
+	m.sync()
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return MeetingChangeOutput{}, err

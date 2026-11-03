@@ -1663,7 +1663,7 @@ try {
   await tg.waitFor({ state: 'hidden' })
   check(true, 'a new goal is made with done when')
 
-  // ---- Meetings, agenda, calendar export, ask target states, agent work accept. ----
+  // ---- Meetings (tasks of kind meeting; `para meeting` commands and these pages read them), agenda, calendar export, ask target states, agent work accept. ----
   const iso = (daysAhead, hh) => {
     const d = new Date(Date.now() + daysAhead * 86400_000)
     return `${d.toISOString().slice(0, 10)}T${hh}:00:00Z`

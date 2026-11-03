@@ -60,7 +60,7 @@ func taskParts(ctx context.Context, s store.Store, id string) (TaskParts, error)
 		case *model.Task:
 			ref := PartRef{ID: doc.ID, Title: doc.Title, Kind: "task", Status: string(m.Status), Due: string(m.Due), Owner: m.Assignee}
 			switch {
-			case m.Parent.Target() == id && slices.Contains(m.Tags, CommitmentTag):
+			case m.Parent.Target() == id && m.EffectiveKind() == model.KindCommitment:
 				out.Commitments = append(out.Commitments, ref)
 			case m.Parent.Target() == id:
 				out.ActionItems = append(out.ActionItems, ref)

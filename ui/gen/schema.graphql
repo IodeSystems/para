@@ -126,6 +126,7 @@ type ParaV1MutationNamespace {
   ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskAssign(body: para_TaskAssignInputInput!): para_TaskAssignOutput @derived(operationId: "taskAssign")
+  taskAttempt(body: para_TaskAttemptInputInput!): para_TaskAttemptOutput @derived(operationId: "taskAttempt")
   taskBlock(body: para_TaskBlockInputInput!): para_TaskChangeOutput @derived(operationId: "taskBlock")
   taskDelegate(body: para_TaskDelegateInputInput!): para_TaskDelegateOutput @derived(operationId: "taskDelegate")
   taskDependsAdd(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsAdd")
@@ -2299,6 +2300,7 @@ type para_Meta {
   route: String
   rule: String
   runner: String
+  scheduled: String
   scope: String
   selfReported: Boolean
   selfServeCheck: String
@@ -4331,11 +4333,23 @@ input para_TaskAddInputInput {
   dependsOn: [String!]
   doneWhen: String
   due: String
+  end: String
   incident: String
+  kind: para_TaskAddInputKind
   parent: String
   project: String
   recur: String
+  scheduled: String
   title: String!
+  with: [String!]
+}
+
+enum para_TaskAddInputKind {
+  call
+  commitment
+  meeting
+  task
+  work_with
 }
 
 type para_TaskAddOutput {
@@ -4376,6 +4390,22 @@ type para_TaskAssignOutput {
   assignee: String
   id: String!
   rev: String!
+}
+
+input para_TaskAttemptInputInput {
+  id: String!
+  note: String
+  result: String!
+  retry: String
+}
+
+type para_TaskAttemptOutput {
+  attempts: Int!
+  id: String!
+  result: String!
+  rev: String!
+  scheduled: String
+  stuck: Boolean!
 }
 
 input para_TaskBlockInputInput {
@@ -4619,6 +4649,7 @@ type para_TaskView {
   areaName: String
   assignee: String
   assigneeName: String
+  attempts: Int
   blockedBy: [String!]!
   commitment: Boolean
   created: String!
@@ -4629,11 +4660,14 @@ type para_TaskView {
   dependsOnNames: [String!]
   doneWhen: String
   due: String
+  end: String
   folder: para_TaskViewFolder!
   id: String!
   incident: String
   incidentName: String
   items: Int!
+  kind: para_TaskViewKind!
+  lastAttempt: String
   outcome: para_TaskViewOutcome
   parent: String
   parentName: String
@@ -4643,10 +4677,14 @@ type para_TaskView {
   readyWhy: String
   recur: String
   rev: String!
+  scheduled: String
   status: para_TaskViewStatus!
+  stuck: Boolean
   title: String!
   waitsOn: [String!]!
   waitsOnNames: [String!]
+  with: [String!]!
+  withNames: [String!]
 }
 
 enum para_TaskViewFolder {
@@ -4668,6 +4706,14 @@ enum para_TaskViewFolder {
   requests
   resources
   rfx
+}
+
+enum para_TaskViewKind {
+  call
+  commitment
+  meeting
+  task
+  work_with
 }
 
 enum para_TaskViewOutcome {

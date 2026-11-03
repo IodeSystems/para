@@ -201,18 +201,31 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		return nil, err
 	}
 	for _, t := range tasks {
-		if taskTerminal(t.Status) || IsOther(t.Assignee) || t.Due == "" || deferred[t.ID].any() {
+		// A call or work with someone shows on the day it is scheduled, apart
+		// from its due date. A meeting shows above, with its time.
+		date := string(t.Due)
+		if (t.Kind == model.KindCall || t.Kind == model.KindWorkWith) && t.Scheduled != "" {
+			if day, ok := meetingDay(t.Scheduled); ok {
+				date = day
+			}
+		}
+		if taskTerminal(t.Status) || IsOther(t.Assignee) || date == "" || t.Kind == model.KindMeeting || deferred[t.ID].any() {
 			continue
 		}
-		late, ok := inWindow(string(t.Due))
+		late, ok := inWindow(date)
 		if !ok {
 			continue
 		}
 		detail := ""
-		if t.Status == model.TaskBlocked || len(t.BlockedBy) > 0 {
+		switch {
+		case t.Stuck:
+			detail = "stuck"
+		case t.Status == model.TaskBlocked || len(t.BlockedBy) > 0:
 			detail = "blocked"
+		case t.Kind == model.KindCall || t.Kind == model.KindWorkWith:
+			detail = string(t.Kind)
 		}
-		items = append(items, AgendaItem{Kind: AgendaDue, ID: t.ID, Title: t.Title, Date: string(t.Due), Overdue: late,
+		items = append(items, AgendaItem{Kind: AgendaDue, ID: t.ID, Title: t.Title, Date: date, Overdue: late,
 			Detail: detail, Who: []string{}, Project: cmp.Or(t.Project, t.Area)})
 	}
 	rfx, err := loadRFX(ctx, d)

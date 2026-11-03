@@ -33,6 +33,19 @@ type TaskView struct {
 	Parent     string `json:"parent,omitempty"`
 	Items      int    `json:"items"`
 	Commitment bool   `json:"commitment,omitempty"`
+	// Kind is task, meeting, call, work_with, or commitment (the older
+	// commitment tag reads as commitment). Scheduled is a date or a start with
+	// its zone; End is the end of a timed one; With names the people.
+	Kind      model.TaskKind `json:"kind"`
+	Scheduled string         `json:"scheduled,omitempty"`
+	End       string         `json:"end,omitempty"`
+	With      []string       `json:"with"`
+	// Attempts counts the call attempts in ## Attempts; LastAttempt is the
+	// result of the latest (no_answer, left_message, reached). Stuck is true
+	// for an open call at the attempt cap.
+	Attempts    int    `json:"attempts,omitempty"`
+	LastAttempt string `json:"last_attempt,omitempty"`
+	Stuck       bool   `json:"stuck,omitempty"`
 	// Outcome is how a closed task ended: done, partial, dropped, duplicate, or
 	// superseded. Empty on an open task and on one closed before outcomes.
 	Outcome   model.TaskOutcome `json:"outcome,omitempty"`
@@ -57,22 +70,28 @@ type TaskView struct {
 	IncidentName   string   `json:"incident_name,omitempty" nameof:"Incident"`
 	ParentName     string   `json:"parent_name,omitempty" nameof:"Parent"`
 	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
+	WithNames      []string `json:"with_names,omitempty" nameof:"With"`
 }
 
 func taskView(d model.Document) (TaskView, error) {
+	d, _ = meetingAsTask(d) // an older `type: meeting` document reads as a task of kind meeting
 	t, ok := d.Meta.(*model.Task)
 	if !ok {
 		return TaskView{}, fmt.Errorf("%s is a %s, not a task", d.ID, d.Meta.Header().Type)
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: slices.Contains(t.Tags, CommitmentTag), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
 	}
 	v.BlockedBy = append(v.BlockedBy, t.BlockedBy...)
+	if v.Kind == model.KindCall {
+		v.Attempts, v.LastAttempt = callAttempts(d.Body)
+		v.Stuck = v.Attempts >= CallAttemptCap && !taskTerminal(t.Status) && v.LastAttempt != CallReached
+	}
 	return v, nil
 }
 
@@ -98,6 +117,12 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 	if err != nil {
 		return nil, err
 	}
+	// Older `type: meeting` documents are tasks of kind meeting.
+	old, err := s.List(ctx, store.Filter{Type: model.TypeMeeting})
+	if err != nil {
+		return nil, err
+	}
+	refs = append(refs, old...)
 	all := make([]TaskView, 0, len(refs))
 	items := map[string]int{} // parent id -> open action items
 	for _, r := range refs {
@@ -156,20 +181,18 @@ type TaskAddInput struct {
 	// Parent is the id of an open task this one is an action item of. The parent
 	// does not wait on it. With no project or area the task takes the parent's.
 	Parent string `json:"parent,omitempty"`
-	// Commitment tags the task commitment: something owed to someone. It needs a
-	// due date; the owner is the assignee (default self).
+	// Commitment is kind commitment: something owed to someone. It needs a due
+	// date; the owner is the assignee (default self).
 	Commitment bool `json:"commitment,omitempty"`
-}
-
-// CommitmentTag marks a task as a commitment: something owed, with an owner
-// (the assignee) and a due date. A kind field will replace it.
-const CommitmentTag = "commitment"
-
-func commitmentTags(on bool) []string {
-	if on {
-		return []string{CommitmentTag}
-	}
-	return nil
+	// Kind is task (default), meeting, call, work_with, or commitment. A
+	// meeting, call, or work_with is with someone (With) and needs no project
+	// or area for a meeting or call; work_with needs done_when.
+	Kind model.TaskKind `json:"kind,omitempty"`
+	// Scheduled is when it happens: a date, or a start time with a zone. End is
+	// the end time, with a timed Scheduled. They are not Due.
+	Scheduled string   `json:"scheduled,omitempty"`
+	End       string   `json:"end,omitempty"`
+	With      []string `json:"with,omitempty"` // person or group ids
 }
 
 // TaskAddOutput is the output of task_add.
@@ -212,8 +235,13 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			in.Project, in.Area = pt.Project.Target(), pt.Area.Target()
 		}
 	}
-	if in.Commitment && due == "" {
-		return TaskAddOutput{}, errors.New("a commitment needs a due date")
+	kind, err := kindOf(in)
+	if err != nil {
+		return TaskAddOutput{}, err
+	}
+	scheduled, end, with, err := checkKindFields(ctx, d, kind, in, due)
+	if err != nil {
+		return TaskAddOutput{}, err
 	}
 	var incident model.Link
 	if id := normID(in.Incident); id != "" {
@@ -226,7 +254,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			in.Area = im.Area.Target()
 		}
 	}
-	if in.Project == "" && normID(in.Area) == "" {
+	if in.Project == "" && normID(in.Area) == "" && kind != model.KindMeeting && kind != model.KindCall {
 		return TaskAddOutput{}, errors.New("a task needs a project or an area")
 	}
 	var project model.Link
@@ -263,7 +291,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		Title:  title,
 		Body:   strings.TrimSpace(in.Body),
 		Meta: &model.Task{
-			Common:    model.Common{Type: model.TypeTask, Tags: commitmentTags(in.Commitment)},
+			Common:    model.Common{Type: model.TypeTask},
 			Status:    model.TaskTodo,
 			Parent:    parent,
 			Project:   project,
@@ -274,6 +302,10 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			Incident:  incident,
 			DoneWhen:  doneWhen,
 			DependsOn: deps,
+			Kind:      kind,
+			Scheduled: scheduled,
+			End:       end,
+			With:      with,
 		},
 	})
 	if err != nil {
@@ -354,9 +386,14 @@ type TaskShowOutput struct {
 
 // TaskShow returns one task.
 var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, d Deps, in TaskShowInput) (TaskShowOutput, error) {
-	doc, _, err := getTask(ctx, d.Store, in.ID)
+	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
 		return TaskShowOutput{}, err
+	}
+	switch doc.Meta.(type) {
+	case *model.Task, *model.Meeting:
+	default:
+		return TaskShowOutput{}, fmt.Errorf("%s is a %s, not a task", doc.ID, doc.Meta.Header().Type)
 	}
 	v, err := taskView(doc)
 	if err != nil {

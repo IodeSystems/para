@@ -67,6 +67,9 @@ func finishTask(ctx context.Context, d Deps, in TaskDoneInput, outcome model.Tas
 	if err != nil {
 		return TaskDoneOutput{}, err
 	}
+	if err := closeGuard(doc, t, outcome); err != nil {
+		return TaskDoneOutput{}, err
+	}
 	rule, recurring := recurRule(t)
 	if in.Skip && !recurring {
 		return TaskDoneOutput{}, fmt.Errorf("%s does not recur: skip is for a recurring task (recur: %s)", id, recur.Forms)
@@ -210,3 +213,19 @@ func dashOr(s string) string {
 }
 
 func parseDay(s string) (time.Time, error) { return time.ParseInLocation(recur.Layout, s, time.Local) }
+
+// closeGuard refuses to close a task the plain way when its kind has a closing
+// flow of its own. An open meeting closes through meeting_hold (replies,
+// answers, action items) or meeting_cancel. Work with someone and a commitment
+// close with an outcome, so task_done is not enough: use task_resolve.
+func closeGuard(doc model.Document, t *model.Task, outcome model.TaskOutcome) error {
+	switch {
+	case taskTerminal(t.Status):
+		return nil
+	case t.EffectiveKind() == model.KindMeeting:
+		return fmt.Errorf("%s is a meeting: close it with meeting_hold (what came of it) or meeting_cancel", doc.ID)
+	case needsOutcome(t) && outcome == "":
+		return fmt.Errorf("%s is a %s: close it with task_resolve and say how it ended (outcome)", doc.ID, t.EffectiveKind())
+	}
+	return nil
+}

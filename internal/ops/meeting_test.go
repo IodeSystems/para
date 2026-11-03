@@ -220,6 +220,7 @@ func TestMeetingListOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	m.Status = model.MeetingHeld
+	m.sync()
 	if _, err := d.Store.Update(ctx, doc); err != nil {
 		t.Fatal(err)
 	}

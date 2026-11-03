@@ -288,6 +288,7 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 		}
 	}
 	m.Status = model.MeetingHeld
+	m.sync()
 	block := "- " + d.Store.Now().Format(dateLayout) + ": Held."
 	if notes != "" {
 		block += "\n\n" + notes

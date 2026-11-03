@@ -61,6 +61,7 @@ type Meta struct {
 	Project         string             `json:"project,omitempty"`
 	Area            string             `json:"area,omitempty"`
 	Due             string             `json:"due,omitempty"`
+	Scheduled       string             `json:"scheduled,omitempty"`
 	Recur           string             `json:"recur,omitempty"`
 	Assignee        string             `json:"assignee,omitempty"`
 	Previous        string             `json:"previous,omitempty"`
@@ -198,6 +199,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.QuestionStatuses)
 	addEnum(reg, model.QuestionKinds)
 	addEnum(reg, model.MeetingStatuses)
+	addEnum(reg, model.TaskKinds)
 	addEnum(reg, model.ProposalStatuses)
 	addEnum(reg, model.ItemKinds)
 	addEnum(reg, model.ItemStates)

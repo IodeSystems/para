@@ -184,7 +184,11 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Parent, "parent", "", "task id this is an action item of (the parent does not wait on it)")
-				fs.BoolVar(&in.Commitment, "commitment", false, "tag it a commitment: owed to someone; needs --due")
+				fs.BoolVar(&in.Commitment, "commitment", false, "same as --kind commitment: owed to someone; needs --due")
+				fs.StringVar((*string)(&in.Kind), "kind", "", "task (default), meeting, call, work_with, or commitment; all but task are with someone (--with)")
+				fs.StringVar(&in.Scheduled, "scheduled", "", "when it happens: a date YYYY-MM-DD, or a start with a zone such as 2026-11-04T10:00:00-05:00 (not --due)")
+				fs.StringVar(&in.End, "end", "", "end time with a zone; needs a timed --scheduled")
+				fs.StringSliceVar(&in.With, "with", nil, "person or group id the work is with (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")
 			},
@@ -326,6 +330,24 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		})),
+		opCommand(l, ops.TaskAttempt, binding[ops.TaskAttemptInput, ops.TaskAttemptOutput]{
+			Use:  "attempt <id> --result no_answer|left_message|reached [--retry <when>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskAttemptInput) {
+				fs.StringVar(&in.Result, "result", "", "no_answer, left_message, or reached")
+				fs.StringVar(&in.Retry, "retry", "", "when to try again: a date, or a time with a zone; needed unless reached")
+				fs.StringVar(&in.Note, "note", "", "one line to keep with the attempt")
+			},
+			Bind: func(args []string, in *ops.TaskAttemptInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.TaskAttemptOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%d\t%s\t%s\n", out.ID, out.Attempts, out.Result, out.Scheduled)
+				if out.Stuck {
+					p.f("stuck: %d attempts without reaching them\n", out.Attempts)
+				}
+				return p.err
+			},
+		}),
 		opCommand(l, ops.TaskResolve, binding[ops.TaskResolveInput, ops.TaskResolveOutput]{
 			Use:  "resolve <id>",
 			Args: cobra.ExactArgs(1),

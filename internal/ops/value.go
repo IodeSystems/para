@@ -337,6 +337,26 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 			h := deferred[doc.ID]
 			n.WaitOnly, n.WaitDeps, n.ReadyWhy = h.waitOnly(), h.Waits, h.Ready
 		}
+		// A booked meeting, in either shape, is a meeting node. A task meeting
+		// that is not booked is a task below; an older one that is not booked
+		// is left out.
+		if mt, ok := readMeeting(doc); ok && mt.Status == model.MeetingScheduled {
+			day, ok := meetingDay(mt.Start)
+			if !ok {
+				continue
+			}
+			n.Kind, n.Due = KindMeeting, day
+			n.Hidden = n.Due > horizon
+			if t, isTask := doc.Meta.(*model.Task); isTask {
+				n.Hidden = n.Hidden || IsOther(t.Assignee)
+				n.Parent, n.Deps = t.Parent.Target(), targets(t.DependsOn)
+			}
+			for _, l := range mt.RFX {
+				meetingOf[l.Target()] = append(meetingOf[l.Target()], doc.ID)
+			}
+			nodes = append(nodes, n)
+			continue
+		}
 		switch m := doc.Meta.(type) {
 		case *model.Incident:
 			if m.Status == model.IncidentResolved {
@@ -370,18 +390,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
 			}
 		case *model.Meeting:
-			if m.Status != model.MeetingScheduled {
-				continue
-			}
-			t, err := time.Parse(time.RFC3339, m.Start)
-			if err != nil {
-				continue
-			}
-			n.Kind, n.Due = KindMeeting, t.In(time.Local).Format(dateLayout)
-			n.Hidden = n.Due > horizon
-			for _, l := range m.RFX {
-				meetingOf[l.Target()] = append(meetingOf[l.Target()], doc.ID)
-			}
+			continue
 		case *model.Request:
 			if m.Status != model.RequestQueued && m.Status != model.RequestClaimed {
 				continue
@@ -457,4 +466,16 @@ func shorten(s string) string {
 		return string(r[:31]) + "…"
 	}
 	return s
+}
+
+// meetingDay is the local calendar day of a meeting's start: a time with a
+// zone, or a date.
+func meetingDay(start string) (string, bool) {
+	if t, err := time.Parse(time.RFC3339, start); err == nil {
+		return t.In(time.Local).Format(dateLayout), true
+	}
+	if _, err := time.Parse(dateLayout, start); err == nil {
+		return start, true
+	}
+	return "", false
 }

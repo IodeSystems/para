@@ -157,7 +157,9 @@ func TestMeetingHoldChecksBeforeWriting(t *testing.T) {
 			if _, qm, _ := getQuestion(ctx, d.Store, f.inScope); qm.Status != model.QuestionOpen {
 				t.Error("a refused hold answered a question")
 			}
-			if tasks, _ := listTasks(ctx, d.Store, "", ""); len(tasks) != 0 {
+			// The meeting is itself a task of kind meeting; a refused hold made no other.
+			tasks, _ := listTasks(ctx, d.Store, "", "")
+			if tasks = slices.DeleteFunc(tasks, func(v TaskView) bool { return v.Kind == model.KindMeeting }); len(tasks) != 0 {
 				t.Errorf("a refused hold made %d tasks", len(tasks))
 			}
 		})
