@@ -150,6 +150,10 @@ type Meta struct {
 	CheckNote       string             `json:"check_note,omitempty"`
 	SelfReported    *bool              `json:"self_reported,omitempty"`
 	NotDuplicate    string             `json:"not_duplicate,omitempty"`
+	OwnerSaid       string             `json:"owner_said,omitempty"`
+	Surface         string             `json:"surface,omitempty"`
+	At              string             `json:"at,omitempty"`
+	Background      *bool              `json:"background,omitempty"`
 	Align           *model.AlignResult `json:"align,omitempty"`
 	Start           string             `json:"start,omitempty"`
 	End             string             `json:"end,omitempty"`

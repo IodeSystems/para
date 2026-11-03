@@ -1,7 +1,6 @@
 package server
 
 import (
-	"github.com/iodesystems/parasolve/internal/netguard"
 	"github.com/iodesystems/parasolve/internal/ops"
 )
 
@@ -49,10 +48,6 @@ func registerLife(r *registrar) {
 	reg(r, ops.QuestionEdit, post, write)
 	reg(r, ops.QuestionDependsAdd, post, write)
 	reg(r, ops.QuestionDependsRemove, post, write)
-	// An agent answer may be proposed; only a person's browser session can
-	// accept or reject it, and the ops refuse a bearer key.
-	reg(r, ops.QuestionAccept, post, netguard.ScopeVaultWrite)
-	reg(r, ops.QuestionReject, post, netguard.ScopeVaultWrite)
 	reg(r, ops.QuestionAsk, post, write)
 	reg(r, ops.MeetingAdd, post, write)
 	reg(r, ops.MeetingList, get, read)

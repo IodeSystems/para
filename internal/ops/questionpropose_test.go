@@ -11,19 +11,21 @@ import (
 
 func agentOf(d Deps) Deps { return Deps{Store: d.Store.ActAs("claude", "mcp")} }
 
-func TestAgentAnswerIsOnlyProposed(t *testing.T) {
+func TestAgentAnswerNeedsSources(t *testing.T) {
 	d, proj, _ := questionVault(t)
 	agent := agentOf(d)
 	note := must(t, NoteAdd, d, NoteAddInput{Title: "Runbook", Body: "Window is Saturday."}).ID
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj, Options: []string{"Sat", "Sun"}}).ID
 	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Schedule", DependsOn: []string{q}}).ID
 
-	// No source, no record.
+	// No source, no answer.
 	for name, src := range map[string][]model.AnswerSource{
-		"none":    nil,
-		"empty":   {{Ref: " "}},
-		"missing": {{Ref: "note-nope"}},
-		"bad url": {{Ref: "https://"}},
+		"none":           nil,
+		"empty":          {{Ref: " "}},
+		"missing":        {{Ref: "note-nope"}},
+		"bad url":        {{Ref: "https://"}},
+		"chat, no quote": {{Ref: OwnerInChat}},
+		"chat, blank":    {{Ref: OwnerInChat, Quote: "  "}},
 	} {
 		_, err := QuestionAnswer.Run(ctx, agent, QuestionAnswerInput{ID: q, Choice: "Sat", Sources: src})
 		if err == nil {
@@ -33,62 +35,29 @@ func TestAgentAnswerIsOnlyProposed(t *testing.T) {
 			t.Fatalf("none: %v", err)
 		}
 	}
-	if v := must(t, QuestionShow, d, QuestionShowInput{ID: q}).Question; v.HasProposal {
-		t.Fatalf("a refused answer left a proposal: %+v", v)
+	if v := must(t, QuestionShow, d, QuestionShowInput{ID: q}).Question; v.Status != model.QuestionOpen {
+		t.Fatalf("a refused answer changed the question: %+v", v)
 	}
 
+	// With sources the answer is final and frees what waited on it.
 	out := must(t, QuestionAnswer, agent, QuestionAnswerInput{ID: q, Choice: "sat", Why: "Runbook says so",
 		Sources: []model.AnswerSource{{Ref: note, Quote: "Window is Saturday."}, {Ref: "https://wiki.acme.example/window"}}})
-	if !out.Proposed || out.Status != model.QuestionOpen || len(out.Unblocked) != 0 {
+	if out.Status != model.QuestionAnswered || out.AnsweredBy != "claude" || len(out.Unblocked) != 1 || out.Unblocked[0] != task {
 		t.Fatalf("out = %+v", out)
 	}
-	v := must(t, QuestionShow, d, QuestionShowInput{ID: q}).Question
-	if !v.HasProposal || v.ProposedBy != "claude" || v.ProposedChoice != "Sat" || len(v.ProposedSources) != 2 || v.Status != model.QuestionOpen {
-		t.Fatalf("view = %+v", v)
-	}
-	if got := must(t, Next, d, NextInput{}); len(got.Tasks) != 0 {
-		t.Fatalf("the task started on a proposal: %+v", got.Tasks)
-	}
-
-	// An agent cannot accept or reject, and a person can.
-	for _, s := range []string{"mcp", "api", ""} {
-		a := Deps{Store: d.Store.ActAs("claude", s)}
-		if _, err := QuestionAccept.Run(ctx, a, QuestionAcceptInput{ID: q}); !errors.Is(err, ErrPersonOnly) {
-			t.Errorf("accept on %q: %v", s, err)
-		}
-		if _, err := QuestionReject.Run(ctx, a, QuestionRejectInput{ID: q, Reason: "x"}); !errors.Is(err, ErrPersonOnly) {
-			t.Errorf("reject on %q: %v", s, err)
-		}
-	}
-	if _, err := QuestionReject.Run(ctx, d, QuestionRejectInput{ID: q}); err == nil {
-		t.Fatal("rejected with no reason")
-	}
-	rej := must(t, QuestionReject, d, QuestionRejectInput{ID: q, Reason: "Saturday is the freeze"})
-	if rej.Status != model.QuestionOpen {
-		t.Fatalf("reject = %+v", rej)
-	}
-	v = must(t, QuestionShow, d, QuestionShowInput{ID: q}).Question
-	if v.HasProposal || v.RejectedReason != "Saturday is the freeze" || v.RejectedBy != "user" {
-		t.Fatalf("after reject = %+v", v)
-	}
-
-	// Propose again, then the person changes the text and accepts.
-	must(t, QuestionAnswer, agent, QuestionAnswerInput{ID: q, Choice: "Sun", Text: "Sunday works.", Sources: []model.AnswerSource{{Ref: note}}})
-	acc := must(t, QuestionAccept, d, QuestionAcceptInput{ID: q, Text: "Sunday, after the freeze."})
-	if acc.Status != model.QuestionAnswered || acc.AnsweredBy != "user" || acc.Choice != "Sun" || len(acc.Unblocked) != 1 || acc.Unblocked[0] != task {
-		t.Fatalf("accept = %+v", acc)
-	}
 	sh := must(t, QuestionShow, d, QuestionShowInput{ID: q})
-	for _, want := range []string{"Sunday, after the freeze.", "- Source: [[" + note + "]]", "- Proposed by: claude", "- By: user, via cli"} {
+	for _, want := range []string{"- Source: [[" + note + "]]", "- By: claude"} {
 		if !strings.Contains(sh.Body, want) {
 			t.Errorf("body lacks %q:\n%s", want, sh.Body)
 		}
 	}
-	if sh.Question.ProposedBy != "claude" || len(sh.Question.ProposedSources) != 1 || sh.Question.HasProposal {
-		t.Fatalf("record = %+v", sh.Question)
-	}
-	if _, err := QuestionAccept.Run(ctx, d, QuestionAcceptInput{ID: q}); err == nil {
-		t.Fatal("accepted twice")
+
+	// The owner's words in the chat are a source.
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which team", Project: proj}).ID
+	must(t, QuestionAnswer, agent, QuestionAnswerInput{ID: q2, Text: "Platform.", Sources: []model.AnswerSource{{Ref: "Owner in chat", Quote: "It is the platform team."}}})
+	sh = must(t, QuestionShow, d, QuestionShowInput{ID: q2})
+	if sh.Question.Status != model.QuestionAnswered || !strings.Contains(sh.Body, OwnerInChat) || !strings.Contains(sh.Body, "It is the platform team.") {
+		t.Fatalf("chat source = %+v\n%s", sh.Question, sh.Body)
 	}
 	// Events hold ids and states, never the answer, the reason, or a quote.
 	evs, err := d.Store.Events(ctx, 1000)
@@ -97,7 +66,7 @@ func TestAgentAnswerIsOnlyProposed(t *testing.T) {
 	}
 	for _, e := range evs {
 		blob := fmt.Sprintf("%+v", e)
-		for _, secret := range []string{"Sunday", "Saturday is the freeze", "Runbook says so", "Window is Saturday"} {
+		for _, secret := range []string{"Platform.", "Runbook says so", "Window is Saturday", "platform team"} {
 			if strings.Contains(blob, secret) {
 				t.Errorf("event holds content %q: %s", secret, blob)
 			}
@@ -122,12 +91,12 @@ func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 	}
 	in.URL = "https://chat.acme.example/t/9"
 	out := must(t, RFXReply, agent, in)
-	if !out.Proposed || out.Question != q {
+	if out.Question != q {
 		t.Fatalf("out = %+v", out)
 	}
-	v := must(t, QuestionShow, d, QuestionShowInput{ID: q}).Question
-	if v.Status != model.QuestionOpen || !v.HasProposal || v.ProposedSources[0].Ref != in.URL {
-		t.Fatalf("question = %+v", v)
+	sh := must(t, QuestionShow, d, QuestionShowInput{ID: q})
+	if sh.Question.Status != model.QuestionAnswered || !strings.Contains(sh.Body, in.URL) {
+		t.Fatalf("question = %+v\n%s", sh.Question, sh.Body)
 	}
 
 	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Who owns it?", Project: proj}).ID
@@ -136,7 +105,7 @@ func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 		t.Fatalf("hold err = %v", err)
 	}
 	held := must(t, MeetingHold, agent, MeetingHoldInput{ID: m.ID, Answers: []QuestionAnswerInput{{ID: q2, Text: "Ada", Sources: []model.AnswerSource{{Ref: m.ID}}}}})
-	if len(held.Proposed) != 1 || len(held.Answered) != 0 {
+	if len(held.Answered) != 1 {
 		t.Fatalf("held = %+v", held)
 	}
 }

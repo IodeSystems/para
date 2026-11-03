@@ -23,6 +23,7 @@ type ParaQueryNamespace {
 }
 
 type ParaV1MutationNamespace {
+  actionRecord(body: para_ActionRecordInputInput!): para_ActionRecordOutput @derived(operationId: "actionRecord")
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
   alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
@@ -87,7 +88,6 @@ type ParaV1MutationNamespace {
   projectEdit(body: para_ProjectEditInputInput!): para_ProjectEditOutput @derived(operationId: "projectEdit")
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
-  questionAccept(body: para_QuestionAcceptInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAccept")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
   questionAsk(body: para_QuestionAskInputInput!): para_QuestionAskOutput @derived(operationId: "questionAsk")
@@ -95,7 +95,6 @@ type ParaV1MutationNamespace {
   questionDependsRemove(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsRemove")
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
-  questionReject(body: para_QuestionRejectInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionReject")
   receiptCheck(body: para_ReceiptCheckInputInput!): para_ReceiptCheckOutput @derived(operationId: "receiptCheck")
   receiptUndo(body: para_ReceiptUndoInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptUndo")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
@@ -236,6 +235,18 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+input para_ActionRecordInputInput {
+  ownerSaid: String
+  sources: [String!]
+  url: String
+  what: String!
+  where: String!
+}
+
+type para_ActionRecordOutput {
+  receipt: String!
 }
 
 type para_ActivityRow {
@@ -2048,7 +2059,6 @@ type para_MeetingHoldOutput {
   constraints: [String!]!
   id: String!
   interactions: [String!]!
-  proposed: [String!]!
   replied: [String!]!
   requests: [String!]!
   rev: String!
@@ -2132,7 +2142,9 @@ type para_Meta {
   appliesIn: [String!]
   area: String
   assignee: String
+  at: String
   awayUntil: String
+  background: Boolean
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -2177,6 +2189,7 @@ type para_Meta {
   org: String
   outcome: para_MetaOutcome
   owner: String
+  ownerSaid: String
   parent: String
   pivot: JSON
   playbook: String
@@ -2223,6 +2236,7 @@ type para_Meta {
   started: String
   status: String
   supersedes: String
+  surface: String
   tags: [String!]
   targets: [para_Target!]
   team: String
@@ -2846,13 +2860,6 @@ enum para_ProjectViewStatus {
   paused
 }
 
-input para_QuestionAcceptInputInput {
-  choice: String
-  id: String!
-  text: String
-  why: String
-}
-
 input para_QuestionAddInputInput {
   area: String
   context: String
@@ -2914,7 +2921,6 @@ type para_QuestionAnswerOutput {
   answeredBy: String
   choice: String
   id: String!
-  proposed: Boolean
   rev: String!
   status: para_QuestionAnswerOutputStatus!
   unblocked: [String!]!
@@ -2991,11 +2997,6 @@ type para_QuestionEditOutput {
 
 type para_QuestionListOutput {
   questions: [para_QuestionView!]!
-}
-
-input para_QuestionRejectInputInput {
-  id: String!
-  reason: String!
 }
 
 type para_QuestionShowOutput {
@@ -3249,7 +3250,6 @@ type para_RFXReplyOutput {
   id: String!
   interaction: String!
   outcome: para_RFXReplyOutputOutcome!
-  proposed: Boolean
   question: String
   rev: String!
   state: para_RFXReplyOutputState!
@@ -3474,6 +3474,8 @@ type para_ReceiptUndone {
 type para_ReceiptView {
   actor: String!
   align: para_AlignResult
+  at: String
+  background: Boolean
   check: para_ReceiptViewCheck!
   checkNote: String
   checkedBy: String
@@ -3484,9 +3486,11 @@ type para_ReceiptView {
   id: String!
   notDuplicate: String
   op: String!
+  ownerSaid: String
   request: String
   selfReported: Boolean
   sources: [String!]
+  surface: String
   title: String!
   verify: String
   why: String

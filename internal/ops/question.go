@@ -607,7 +607,8 @@ type QuestionAnswerInput struct {
 	Source string `json:"source,omitempty"` // where the answer came from: a URL, a meeting, a person
 	By     string `json:"by,omitempty"`     // who answered; default the acting user
 	// Sources is required from an agent: one or more URLs or vault document
-	// ids, each with an optional quote. An agent's answer is only proposed.
+	// ids, each with an optional quote, or the owner's words in the chat (ref
+	// "owner in chat" with the quote).
 	Sources []model.AnswerSource `json:"sources,omitempty"`
 }
 
@@ -621,10 +622,7 @@ type QuestionAnswerOutput struct {
 	// Unblocked lists the open tasks and requests that had waited only on this
 	// question and can now start.
 	Unblocked []string `json:"unblocked"`
-	// Proposed is true when an agent's answer was recorded as a proposal: the
-	// question is still open until a person accepts it.
-	Proposed bool   `json:"proposed,omitempty"`
-	Rev      string `json:"rev"`
+	Rev       string   `json:"rev"`
 }
 
 // QuestionAnswerInput gets Sources for an agent: see answerSources.
@@ -665,8 +663,7 @@ func answerParts(q *model.Question, in QuestionAnswerInput) (choice, text, why s
 }
 
 // resolveQuestion applies the answer to a question that is open and saves it.
-// From an agent it records a proposed answer instead, and the question stays
-// open. From an approved proposal item it answers, naming the approver.
+// An agent answers too, and must cite sources.
 func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	doc, q, err := getQuestion(ctx, d.Store, in.ID)
 	if err != nil {
@@ -687,15 +684,6 @@ func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (Quest
 	}
 	if err := lintText("text", text); err != nil {
 		return QuestionAnswerOutput{}, err
-	}
-	today := d.Store.Now().Format(dateLayout)
-	if agent {
-		q.ProposedAnswer, q.ProposedChoice, q.ProposedBy = text, choice, info.Actor
-		q.ProposedSources, q.ProposedWhy, q.Proposed = sources, why, model.Date(today)
-		q.RejectedReason, q.RejectedBy = "", ""
-		out, err := saveQuestion(ctx, d, doc, q)
-		out.Proposed = true
-		return out, err
 	}
 	by := strings.Join(strings.Fields(in.By), " ")
 	if by == "" {
@@ -909,18 +897,17 @@ func askBody(body string) string {
 }
 
 // answerFromReply answers the question of an RFX when a reply came in. A
-// partial reply leaves the question open. From an agent the answer is only
-// proposed; proposed says so.
-func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXReplyInput, sources []model.AnswerSource) (id string, proposed bool, err error) {
+// partial reply leaves the question open.
+func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXReplyInput, sources []model.AnswerSource) (id string, err error) {
 	if in.Outcome == ReplyPartial {
-		return "", false, nil
+		return "", nil
 	}
 	doc, q, err := getQuestion(ctx, d.Store, question)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	if q.Status != model.QuestionOpen {
-		return "", false, nil
+		return "", nil
 	}
 	text := strings.TrimSpace(in.Text)
 	why := strings.Join(strings.Fields(in.Why), " ")
@@ -931,5 +918,5 @@ func answerFromReply(ctx context.Context, d Deps, question, from string, in RFXR
 		text = "No. " + text
 	}
 	out, err := resolveQuestion(ctx, d, QuestionAnswerInput{ID: doc.ID, Text: text, Why: why, Source: in.URL, By: from, Sources: sources})
-	return out.ID, out.Proposed, err
+	return out.ID, err
 }

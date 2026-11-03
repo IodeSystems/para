@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"errors"
 	"maps"
 	"slices"
 	"strings"
@@ -69,14 +68,6 @@ func trimContext(lines []string, n int) []string {
 	return out
 }
 
-func requireReason(s string) (string, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return "", errors.New("reason is empty")
-	}
-	return s, nil
-}
-
 func renderText(d model.Document) string {
 	b, err := model.Render(d)
 	if err != nil {
@@ -99,4 +90,22 @@ func closesDoc(d model.Document) bool {
 		return slices.Contains([]model.RequestStatus{model.RequestDone, model.RequestFailed, model.RequestCancelled}, m.Status)
 	}
 	return false
+}
+
+// sameText compares two rendered documents without the updated: line, which
+// every write refreshes, so a document undone to an older text still matches
+// the receipt that wrote it.
+func sameText(a, b string) bool { return withoutUpdated(a) == withoutUpdated(b) }
+
+func withoutUpdated(s string) string {
+	lines := strings.Split(s, "\n")
+	if len(lines) == 0 || lines[0] != "---" {
+		return s
+	}
+	for i := 1; i < len(lines) && lines[i] != "---"; i++ {
+		if strings.HasPrefix(lines[i], "updated:") {
+			return strings.Join(slices.Delete(slices.Clone(lines), i, i+1), "\n")
+		}
+	}
+	return s
 }

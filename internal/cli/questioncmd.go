@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"os"
@@ -20,8 +19,8 @@ func writeQuestions(p *printer, indent string, list []ops.QuestionView) {
 	}
 }
 
-// stateText is the status, or "proposed answer" while an agent's answer waits
-// for a person, with "waiting" when the question waits on other work.
+// stateText is the status, or "proposed answer" for an old agent answer that
+// still waits for a person, with "waiting" when the question waits on other work.
 func stateText(v ops.QuestionView) string {
 	s := string(v.Status)
 	if v.HasProposal {
@@ -52,11 +51,7 @@ func scopeText(v ops.QuestionView) string {
 
 func answerText(w io.Writer, out ops.QuestionAnswerOutput) error {
 	p := &printer{w: w}
-	status := string(out.Status)
-	if out.Proposed {
-		status = "proposed answer (a person must accept it)"
-	}
-	p.f("%s\t%s\t%s\n", out.ID, status, dash(out.Choice))
+	p.f("%s\t%s\t%s\n", out.ID, out.Status, dash(out.Choice))
 	for _, id := range out.Unblocked {
 		p.f("unblocked\t%s\n", id)
 	}
@@ -192,27 +187,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
-		offerAccept(l, opCommand(l, ops.QuestionAnswer, answerBinding())),
-		opCommand(l, ops.QuestionAccept, binding[ops.QuestionAcceptInput, ops.QuestionAnswerOutput]{
-			Use:  "accept <id>",
-			Args: cobra.ExactArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.QuestionAcceptInput) {
-				fs.StringVar(&in.Text, "text", "", "change the proposed text; the sources stay")
-				fs.StringVar(&in.Choice, "choice", "", "change the proposed choice")
-				fs.StringVar(&in.Why, "why", "", "change the proposed reason")
-			},
-			Bind: func(args []string, in *ops.QuestionAcceptInput) error { in.ID = args[0]; return nil },
-			Text: answerText,
-		}),
-		opCommand(l, ops.QuestionReject, binding[ops.QuestionRejectInput, ops.QuestionAnswerOutput]{
-			Use:  "reject <id> --reason <text>",
-			Args: cobra.ExactArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.QuestionRejectInput) {
-				fs.StringVar(&in.Reason, "reason", "", "why; the agent reads it (required)")
-			},
-			Bind: func(args []string, in *ops.QuestionRejectInput) error { in.ID = args[0]; return nil },
-			Text: answerText,
-		}),
+		opCommand(l, ops.QuestionAnswer, answerBinding()),
 		opCommand(l, ops.QuestionEdit, binding[ops.QuestionEditInput, ops.QuestionEditOutput]{
 			Use:  "edit <id>",
 			Args: cobra.ExactArgs(1),
@@ -277,7 +252,7 @@ func newQuestionsCmd(l *loader) *cobra.Command {
 
 // newAnswerCmd is `para answer <id>`: question_answer.
 func newAnswerCmd(l *loader) *cobra.Command {
-	return offerAccept(l, withoutOp(opCommand(l, ops.QuestionAnswer, answerBinding()), "answer <id>"))
+	return withoutOp(opCommand(l, ops.QuestionAnswer, answerBinding()), "answer <id>")
 }
 
 func newQuestionDependsCmd(l *loader) *cobra.Command {
@@ -298,49 +273,6 @@ func newQuestionDependsCmd(l *loader) *cobra.Command {
 			Use: "remove <id> <depends-on>...", Args: cobra.MinimumNArgs(2), Bind: bind, Text: text,
 		}),
 	)
-	return cmd
-}
-
-// offerAccept makes `para answer <id>` on a question with a proposed answer,
-// and no answer given, show the proposal and offer to accept it. On a terminal
-// it asks; otherwise it names the command.
-func offerAccept(l *loader, cmd *cobra.Command) *cobra.Command {
-	run := cmd.RunE
-	cmd.RunE = func(c *cobra.Command, args []string) error {
-		if c.Flags().Changed("text") || c.Flags().Changed("choice") || len(args) != 1 || !isTerminal(c.InOrStdin()) {
-			return run(c, args)
-		}
-		if err := l.load(); err != nil {
-			return err
-		}
-		deps, err := l.deps()
-		if err != nil {
-			return err
-		}
-		sh, err := ops.QuestionShow.Run(c.Context(), deps, ops.QuestionShowInput{ID: args[0]})
-		if err != nil || !sh.Question.HasProposal {
-			return run(c, args)
-		}
-		v := sh.Question
-		p := &printer{w: c.ErrOrStderr()}
-		p.f("%s has an answer proposed by %s:\n  %s %s\n", v.ID, v.ProposedBy, v.ProposedChoice, v.ProposedAnswer)
-		for _, s := range v.ProposedSources {
-			p.f("  source: %s %s\n", s.Ref, s.Quote)
-		}
-		p.f("Accept it? [y/N] ")
-		if p.err != nil {
-			return p.err
-		}
-		line, _ := bufio.NewReader(c.InOrStdin()).ReadString('\n')
-		if strings.ToLower(strings.TrimSpace(line)) != "y" {
-			return fmt.Errorf("not accepted: give the answer with --text or --choice, or reject it with: para question reject %s --reason <why>", v.ID)
-		}
-		out, err := ops.QuestionAccept.Run(c.Context(), deps, ops.QuestionAcceptInput{ID: v.ID})
-		if err != nil {
-			return err
-		}
-		return emit(c, out, answerText)
-	}
 	return cmd
 }
 

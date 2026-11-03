@@ -29,6 +29,10 @@ type ReceiptView struct {
 	CheckNote    string             `json:"check_note,omitempty"`
 	SelfReported bool               `json:"self_reported,omitempty"`
 	NotDuplicate string             `json:"not_duplicate,omitempty"`
+	OwnerSaid    string             `json:"owner_said,omitempty"`
+	Surface      string             `json:"surface,omitempty"`
+	At           string             `json:"at,omitempty"`
+	Background   bool               `json:"background,omitempty"`
 	Align        *model.AlignResult `json:"align,omitempty"`
 	Created      model.Date         `json:"created"`
 }
@@ -36,7 +40,7 @@ type ReceiptView struct {
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
 	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
 		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote,
-		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, Align: r.Align, Created: r.Created}
+		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Created: r.Created}
 }
 
 func getReceipt(ctx context.Context, s store.Store, id string) (model.Document, *model.Receipt, error) {
@@ -80,6 +84,9 @@ func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
 		out = append(out, receiptView(doc, r))
 	}
 	slices.SortStableFunc(out, func(a, b ReceiptView) int {
+		if c := strings.Compare(b.At, a.At); c != 0 && a.At != "" && b.At != "" {
+			return c
+		}
 		if c := strings.Compare(string(b.Created), string(a.Created)); c != 0 {
 			return c
 		}
@@ -137,7 +144,7 @@ var ReceiptShow = defineRead("receipt_show", "Show a receipt: what changed, why,
 		out.Lines[i] = plainTitle(ctx, d.Store, l)
 	}
 	if cur, err := d.Store.Get(ctx, r.Doc); err == nil {
-		out.Revertible = renderText(cur) == c.After
+		out.Revertible = sameText(renderText(cur), c.After)
 	}
 	return out, nil
 })
@@ -248,6 +255,9 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 	if err != nil {
 		return ReceiptUndone{}, err
 	}
+	if r.Op == opAlignRecord || r.Op == opActionRecord {
+		return ReceiptUndone{}, fmt.Errorf("%s records %s: there is nothing in the vault to undo", doc.ID, r.Op)
+	}
 	c, err := model.ParseReceiptBody(doc.Body)
 	if err != nil {
 		return ReceiptUndone{}, fmt.Errorf("%s: %w", doc.ID, err)
@@ -256,7 +266,7 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 	if err != nil {
 		return ReceiptUndone{}, err
 	}
-	if renderText(cur) != c.After {
+	if !sameText(renderText(cur), c.After) {
 		return ReceiptUndone{}, fmt.Errorf("%s changed since this write: undo the later receipt first, or fix it by hand", r.Doc)
 	}
 	if c.Before == "" {

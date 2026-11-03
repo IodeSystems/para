@@ -225,3 +225,53 @@ func TestAgentWorkTurns(t *testing.T) {
 		t.Fatalf("wrong = %+v %v", out, err)
 	}
 }
+
+func TestActionRecordKeepsAReceipt(t *testing.T) {
+	f := newAgentFix(t)
+	if _, err := ActionRecord.Run(t.Context(), f.agent, ActionRecordInput{What: "Opened a PR"}); err == nil {
+		t.Fatal("recorded with no where")
+	}
+	if _, err := ActionRecord.Run(t.Context(), f.agent, ActionRecordInput{What: "Opened a PR", Where: "repo", URL: "javascript:alert(1)"}); err == nil {
+		t.Fatal("recorded a bad url")
+	}
+	out := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Opened a PR", Where: "github.example/acme/portal", URL: "https://github.example/acme/portal/pull/1", OwnerSaid: "yes, open it", Sources: []string{f.source}})
+	sh := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: out.Receipt})
+	r := sh.Receipt
+	if r.Op != "action_record" || !r.SelfReported || r.OwnerSaid != "yes, open it" || r.Surface != "mcp" || r.Background || r.Verify != "https://github.example/acme/portal/pull/1" {
+		t.Fatalf("receipt = %+v", r)
+	}
+	if _, err := ReceiptUndo.Run(t.Context(), f.owner, ReceiptUndoInput{ID: out.Receipt}); err == nil || !strings.Contains(err.Error(), "nothing in the vault to undo") {
+		t.Fatalf("undo of an action: %v", err)
+	}
+}
+
+func TestReceiptUndoManyNewestFirst(t *testing.T) {
+	f := newAgentFix(t)
+	ctx := writeCtx(t)
+	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Undo me", DoneWhen: "It exists."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := TaskStart.Run(ctx, f.agent, TaskStartInput{ID: task.ID}); err != nil {
+		t.Fatal(err)
+	}
+	rl := must(t, ReceiptList, f.owner, ReceiptListInput{Doc: task.ID})
+	if len(rl.Items) != 2 {
+		t.Fatalf("receipts = %+v", rl.Items)
+	}
+	newest, oldest := rl.Items[0].ID, rl.Items[1].ID
+	if rl.Items[0].Op != "task_start" {
+		newest, oldest = oldest, newest
+	}
+	// Oldest first is refused: the document changed after it.
+	if _, err := ReceiptUndo.Run(t.Context(), f.owner, ReceiptUndoInput{IDs: []string{oldest, newest}}); err == nil || !strings.Contains(err.Error(), "changed since") {
+		t.Fatalf("oldest first: %v", err)
+	}
+	out := must(t, ReceiptUndo, f.agent, ReceiptUndoInput{IDs: []string{newest, oldest}})
+	if len(out.Undone) != 2 {
+		t.Fatalf("undone = %+v", out)
+	}
+	if got, err := f.owner.Store.Get(t.Context(), task.ID); err != nil || got.Folder != model.FolderArchive {
+		t.Fatalf("the created task is not archived: %+v %v", got.Folder, err)
+	}
+}

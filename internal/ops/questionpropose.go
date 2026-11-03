@@ -10,17 +10,20 @@ import (
 	"github.com/iodesystems/parasolve/internal/model"
 )
 
-// An agent never answers a question for the owner. It proposes an answer with
-// the sources it found, and a person accepts, changes, or rejects it. Until
-// then the question is open and what waits on it stays blocked.
+// An agent answers a question with the sources it found. The owner's words in
+// the chat are a source too (ref "owner in chat", with the quote). Answers an
+// agent proposed before this rule stay readable on the question.
 
 const (
 	maxQuote        = 400
 	rejectedHeading = "## Rejected answers"
+	// OwnerInChat is the source ref for the owner's words in the chat. The
+	// quote holds the words; para cannot see the chat, so it is self-reported.
+	OwnerInChat = "owner in chat"
 )
 
 // ErrNoSource is the refusal for an agent answer with no source.
-var ErrNoSource = errors.New("an answer from an agent needs a source: cite at least one URL or vault document id in sources, or ask the owner (question_ask). If you cannot find the answer, say you could not find it")
+var ErrNoSource = errors.New("an answer from an agent needs a source: cite at least one URL or vault document id in sources, or the owner's words in the chat (ref \"owner in chat\" with the quote), or ask the owner (question_ask). If you cannot find the answer, say you could not find it")
 
 // maxFreeSource is the longest free-text source a person may give.
 const maxFreeSource = 200
@@ -41,7 +44,12 @@ func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bo
 		if ref == "" {
 			return nil, fmt.Errorf("sources[%d]: ref is empty: give a URL or a vault document id", i)
 		}
-		if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+		if need && strings.EqualFold(ref, OwnerInChat) {
+			ref = OwnerInChat
+			if strings.TrimSpace(s.Quote) == "" {
+				return nil, fmt.Errorf("sources[%d]: %q needs the quote: the owner's words, verbatim", i, OwnerInChat)
+			}
+		} else if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
 			u, err := checkURL(ref)
 			if err != nil {
 				return nil, fmt.Errorf("sources[%d]: %w", i, err)
@@ -105,94 +113,6 @@ func replySources(ctx context.Context, d Deps, m *model.RFX, in RFXReplyInput) (
 	}
 	return srcs, nil
 }
-
-// checkProposer refuses a browser session of the key that proposed the answer.
-func checkProposer(d Deps, q *model.Question) error {
-	info := d.Store.Info()
-	if info.Surface == "pwa" && info.Actor == q.ProposedBy {
-		return fmt.Errorf("%w: %s proposed this answer", ErrPersonOnly, info.Actor)
-	}
-	return nil
-}
-
-// QuestionAcceptInput is the input of question_accept.
-type QuestionAcceptInput struct {
-	ID     string `json:"id"`
-	Text   string `json:"text,omitempty"`   // change the proposed text; sources stay
-	Choice string `json:"choice,omitempty"` // change the proposed choice
-	Why    string `json:"why,omitempty"`    // change the proposed reason
-}
-
-// QuestionAccept accepts the proposed answer of a question: the answer is
-// recorded with the agent as proposer and the person as answerer, and what
-// waited on the question can start.
-var QuestionAccept = definePerson("question_accept", "Accept an agent's proposed answer, optionally changing its text first; the sources stay. Answers the question and frees what waited on it. People only", func(ctx context.Context, d Deps, in QuestionAcceptInput) (QuestionAnswerOutput, error) {
-	doc, q, err := getQuestion(ctx, d.Store, in.ID)
-	if err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	if !q.HasProposal() {
-		return QuestionAnswerOutput{}, fmt.Errorf("%s has no proposed answer to accept", doc.ID)
-	}
-	if err := checkProposer(d, q); err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	pick := QuestionAnswerInput{Choice: in.Choice, Text: in.Text, Why: in.Why}
-	if strings.TrimSpace(pick.Choice) == "" && strings.TrimSpace(pick.Text) == "" {
-		pick.Choice, pick.Text = q.ProposedChoice, q.ProposedAnswer
-	} else if strings.TrimSpace(pick.Choice) == "" {
-		pick.Choice = q.ProposedChoice
-	} else if strings.TrimSpace(pick.Text) == "" {
-		pick.Text = q.ProposedAnswer
-	}
-	if strings.TrimSpace(pick.Why) == "" {
-		pick.Why = q.ProposedWhy
-	}
-	choice, text, why, err := answerParts(q, pick)
-	if err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	if err := lintText("text", text); err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	r := answerRecord{choice: choice, text: text, why: why, sources: q.ProposedSources, by: d.Store.Info().Actor}
-	q.RejectedReason, q.RejectedBy = "", ""
-	return writeAnswer(ctx, d, doc, q, r)
-})
-
-// QuestionRejectInput is the input of question_reject.
-type QuestionRejectInput struct {
-	ID     string `json:"id"`
-	Reason string `json:"reason"` // required; the agent reads it
-}
-
-// QuestionReject rejects the proposed answer. The question stays open, and the
-// reason stays on it for the agent.
-var QuestionReject = definePerson("question_reject", "Reject an agent's proposed answer, with a reason the agent can read. The question stays open. People only", func(ctx context.Context, d Deps, in QuestionRejectInput) (QuestionAnswerOutput, error) {
-	doc, q, err := getQuestion(ctx, d.Store, in.ID)
-	if err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	if !q.HasProposal() {
-		return QuestionAnswerOutput{}, fmt.Errorf("%s has no proposed answer to reject", doc.ID)
-	}
-	if err := checkProposer(d, q); err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	reason, err := requireReason(strings.Join(strings.Fields(in.Reason), " "))
-	if err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	if err := lintText("reason", reason); err != nil {
-		return QuestionAnswerOutput{}, err
-	}
-	by := d.Store.Info().Actor
-	line := fmt.Sprintf("- %s: %s rejected the answer proposed by %s: %s", d.Store.Now().Format(dateLayout), by, q.ProposedBy, reason)
-	doc.Body = appendToSection(doc.Body, rejectedHeading, line)
-	q.RejectedReason, q.RejectedBy = reason, by
-	q.ProposedAnswer, q.ProposedChoice, q.ProposedBy, q.ProposedSources, q.ProposedWhy, q.Proposed = "", "", "", nil, "", ""
-	return saveQuestion(ctx, d, doc, q)
-})
 
 // QuestionDependsInput is the input of question_depends_add and _remove.
 type QuestionDependsInput struct {
@@ -335,9 +255,6 @@ var QuestionEdit = define("question_edit", "Change the title, options, or recomm
 	opts, rec, err := checkOptions(q.Kind, options, rec)
 	if err != nil {
 		return QuestionEditOutput{}, err
-	}
-	if q.ProposedChoice != "" && !slices.Contains(opts, q.ProposedChoice) {
-		return QuestionEditOutput{}, fmt.Errorf("the proposed answer picks %q, which is not in the new options: reject the proposal first", q.ProposedChoice)
 	}
 	q.Options, q.Recommended = opts, rec
 	if c := strings.TrimSpace(in.Context); c != "" {

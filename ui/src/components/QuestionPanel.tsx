@@ -4,7 +4,7 @@ import Typography from '@mui/material/Typography'
 import { useQuestion } from '@/api/questions'
 import { useTask, useTaskParts } from '@/api/tasks'
 import { DocLink } from '@/components/DocLink'
-import { AnswerCard, SourceList } from '@/components/AnswerCheck'
+import { ProposedAnswer, SourceList } from '@/components/AnswerCheck'
 import { Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoneWhen } from '@/components/DoneWhen'
@@ -49,7 +49,7 @@ export function QuestionPanel({ id }: { id: string }) {
                 )}
               </Stack>
               {x.rejectedReason && <Alert severity="warning">Rejected: {x.rejectedReason}</Alert>}
-              {x.hasProposal && x.status === 'open' && <AnswerCard q={x} />}
+              {x.hasProposal && x.status === 'open' && <ProposedAnswer q={x} />}
               {x.status === 'answered' && (x.choice || x.answeredBy) && (
                 <Typography variant="body2">
                   Answered{x.choice ? `: ${x.choice}` : ''}

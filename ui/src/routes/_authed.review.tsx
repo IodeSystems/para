@@ -1,5 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import List from '@mui/material/List'
@@ -10,9 +9,7 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Typography from '@mui/material/Typography'
-import { useQuestions } from '@/api/questions'
 import { useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
-import { AnswerCard } from '@/components/AnswerCheck'
 import { ReceiptSection } from '@/components/Receipts'
 import { useAccept, useReopen, useReview } from '@/api/review'
 import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
@@ -24,36 +21,6 @@ import { needWords, newestTS, opPhrase, transition } from '@/lib/events'
 import { nameOr, stripIds } from '@/lib/names'
 
 export const Route = createFileRoute('/_authed/review')({ component: Review })
-
-// Agent answers wait here until a person accepts or rejects them. Until then the question stays
-// open and whatever waits on it stays blocked.
-function AnswersSection() {
-  const q = useQuestions()
-  const [said, setSaid] = useState('')
-  const items = (q.data ?? []).filter((x) => x.hasProposal)
-  return (
-    <Section title="Answers to check" count={q.isError ? undefined : items.length} hideEmpty>
-      {q.isError ? (
-        <Alert severity="error">{errorText(q.error)}</Alert>
-      ) : (
-        <>
-          {said && (
-            <Alert severity="success" onClose={() => setSaid('')} sx={{ mb: 1 }}>
-              {said}
-            </Alert>
-          )}
-          <List dense disablePadding>
-            {items.map((x) => (
-              <ListItem key={x.id} disableGutters divider sx={{ display: 'block' }}>
-                <AnswerCard q={x} onAccepted={setSaid} />
-              </ListItem>
-            ))}
-          </List>
-        </>
-      )}
-    </Section>
-  )
-}
 
 // Requests an agent proposed stay proposed until a person accepts them. Only a browser session
 // can accept; an agent key is refused.
@@ -135,7 +102,6 @@ function Review() {
           {errorText(err)}
         </Alert>
       )}
-      <AnswersSection />
       <AgentWorkSection />
       <ReceiptSection check="unchecked" title="Agent writes to check" />
       <DataState q={q}>

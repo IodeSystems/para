@@ -22,7 +22,6 @@ export type OverlaySearch = {
   assign?: string // task id to assign
   delegate?: string // task id to give to an agent
   update?: string // task id to add an update to
-  reject?: string // question id whose proposed answer is rejected
   qedit?: string // question id to edit
   qdeps?: string // question id whose dependencies are edited
   later?: string // comma-separated ids of questions or tasks to put off
@@ -57,7 +56,6 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     assign: id(s.assign),
     delegate: id(s.delegate),
     update: id(s.update),
-    reject: id(s.reject),
     qedit: id(s.qedit),
     qdeps: id(s.qdeps),
     later: id(s.later),
@@ -88,7 +86,6 @@ export const NO_OVERLAYS: OverlaySearch = {
   assign: undefined,
   delegate: undefined,
   update: undefined,
-  reject: undefined,
   qedit: undefined,
   qdeps: undefined,
   later: undefined,

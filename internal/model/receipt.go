@@ -25,8 +25,7 @@ func (ReceiptCheck) Enum() []string { return enumStrings(ReceiptChecks) }
 // ReceiptChecks lists every ReceiptCheck.
 var ReceiptChecks = []ReceiptCheck{ReceiptUnchecked, ReceiptVerified, ReceiptWrong}
 
-// Confidence is how sure an agent is of a write. A low-confidence write is
-// refused: it goes in a proposal.
+// Confidence is how sure an agent is of a write. It is a label on the receipt.
 type Confidence string
 
 const (
@@ -62,6 +61,16 @@ type Receipt struct {
 	CheckNote    string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
 	SelfReported bool         `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
 	NotDuplicate string       `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+	// OwnerSaid is the owner's words from the chat, when the agent gives them
+	// (action_record). Para cannot see the chat: it is self-reported.
+	OwnerSaid string `yaml:"owner_said,omitempty" json:"owner_said,omitempty"`
+	// Surface is where the write came from (mcp, api, tick). Background is true
+	// for a write made by background agent work: tick, or an agent that holds a
+	// request.
+	Surface string `yaml:"surface,omitempty" json:"surface,omitempty"`
+	// At is when the write happened, RFC 3339 UTC, to the nanosecond. Created is only the day.
+	At         string `yaml:"at,omitempty" json:"at,omitempty"`
+	Background bool   `yaml:"background,omitempty" json:"background,omitempty"`
 	// Align is set on an align_record receipt: what one comparison of a scope with
 	// reality checked. Doc is then the goal or area aligned, or "vault".
 	Align *AlignResult `yaml:"align,omitempty" json:"align,omitempty"`

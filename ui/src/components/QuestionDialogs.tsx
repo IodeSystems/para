@@ -27,7 +27,6 @@ import {
   useQuestion,
   useQuestionDepends,
   useQuestions,
-  useRejectAnswer,
   useTaskToQuestion,
 } from '@/api/questions'
 import { useGoalEdit } from '@/api/areas'
@@ -56,7 +55,6 @@ export function QuestionDialogs({ s, onDone }: Props) {
       {s.find && <FindDialog id={s.find} onDone={onDone} />}
       {s.cut && <CutDialog id={s.cut} onDone={onDone} />}
       {s.toq && <ToQuestionDialog id={s.toq} onDone={onDone} />}
-      {s.reject && <RejectDialog id={s.reject} onDone={onDone} />}
       {s.qedit && <QuestionEditDialog id={s.qedit} onDone={onDone} />}
       {s.qdeps && <DependsDialog id={s.qdeps} onDone={onDone} />}
       {s.taskdw && <DoneWhenDialog kind="task" id={s.taskdw} onDone={onDone} />}
@@ -764,58 +762,6 @@ function ToQuestionDialog({ id, onDone }: { id: string; onDone: (m: string) => v
         <Typography variant="caption" color="text.secondary">
           Tasks that waited on this task wait on the question instead.
         </Typography>
-      </Stack>
-    </Frame>
-  )
-}
-
-function RejectDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
-  const close = useClose()
-  const reject = useRejectAnswer()
-  const q = useQuestion(id)
-  const [reason, setReason] = useState('')
-  return (
-    <Frame
-      title="Reject the proposed answer"
-      onSubmit={() =>
-        reject.mutate(
-          { id, reason: reason.trim() },
-          {
-            onSuccess: () => {
-              onDone('Rejected. The agent can read your reason.')
-              close()
-            },
-          },
-        )
-      }
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="error"
-            disabled={reject.isPending || reason.trim() === ''}
-          >
-            Reject
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {reject.isError && <Alert severity="error">{errorText(reject.error)}</Alert>}
-        <Typography sx={{ overflowWrap: 'anywhere' }}>{q.data?.question.title ?? ''}</Typography>
-        <TextField
-          label="Reason (required)"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          multiline
-          minRows={2}
-          autoFocus
-          required
-          fullWidth
-          helperText="The question stays open. The agent reads this."
-        />
       </Stack>
     </Frame>
   )

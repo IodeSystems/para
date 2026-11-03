@@ -131,36 +131,6 @@ const AnswerDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const AcceptDoc = graphql(/* GraphQL */ `
-  mutation QuestionAccept($body: para_QuestionAcceptInputInput!) {
-    para {
-      v1 {
-        questionAccept(body: $body) {
-          id
-          status
-          choice
-          answeredBy
-          answered
-          unblocked
-        }
-      }
-    }
-  }
-`)
-
-const RejectDoc = graphql(/* GraphQL */ `
-  mutation QuestionReject($body: para_QuestionRejectInputInput!) {
-    para {
-      v1 {
-        questionReject(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
 const EditDoc = graphql(/* GraphQL */ `
   mutation QuestionEdit($body: para_QuestionEditInputInput!) {
     para {
@@ -386,29 +356,6 @@ export function useTaskToQuestion() {
       recommended?: string
     }) =>
       need((await gqlClient.request(ToQuestionDoc, { body: b })).para.v1.taskToQuestion, 'result'),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-export type AcceptInput = { id: string; text?: string; choice?: string; why?: string }
-
-// useAcceptAnswer turns an agent's proposed answer into the answer. Dependents unblock, so every
-// query refetches.
-export function useAcceptAnswer() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: AcceptInput) =>
-      need((await gqlClient.request(AcceptDoc, { body: b })).para.v1.questionAccept, 'answer'),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-// useRejectAnswer sends a proposed answer back with a reason the agent can read.
-export function useRejectAnswer() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string; reason: string }) =>
-      need((await gqlClient.request(RejectDoc, { body: b })).para.v1.questionReject, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

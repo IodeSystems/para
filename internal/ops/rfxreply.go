@@ -53,7 +53,7 @@ type RFXReplyInput struct {
 	NotIn     []string     `json:"not_in,omitempty"`     // outcome no: scopes where it does not
 	ReviewBy  string       `json:"review_by,omitempty"`  // outcome no: YYYY-MM-DD; default 180 days out
 	// Sources is required from an agent when the request asks a question: the
-	// answer is then only proposed. With none, a url is cited as the source.
+	// answer cites them. With none, a url is cited as the source.
 	Sources []model.AnswerSource `json:"sources,omitempty"`
 }
 
@@ -65,8 +65,7 @@ type RFXReplyOutput struct {
 	State       model.TargetState `json:"state"`
 	Interaction string            `json:"interaction"`
 	Constraint  string            `json:"constraint"`         // empty unless outcome no
-	Question    string            `json:"question,omitempty"` // the question this reply answered, or proposed an answer for
-	Proposed    bool              `json:"proposed,omitempty"` // the question's answer is a proposal until a person accepts it
+	Question    string            `json:"question,omitempty"` // the question this reply answered
 	Warnings    []string          `json:"warnings"`
 	Rev         string            `json:"rev"`
 }
@@ -187,11 +186,11 @@ var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target repl
 	}
 	out.Rev = doc.Rev
 	if qid := m.Question.Target(); qid != "" {
-		answered, proposed, err := answerFromReply(ctx, d, qid, from, in, qsources)
+		answered, err := answerFromReply(ctx, d, qid, from, in, qsources)
 		if err != nil {
 			return out, fmt.Errorf("the reply was recorded but question %s was not answered: %w", qid, err)
 		}
-		out.Question, out.Proposed = answered, proposed
+		out.Question = answered
 	}
 	if out.Warnings == nil {
 		out.Warnings = []string{}

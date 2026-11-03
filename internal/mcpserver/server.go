@@ -37,7 +37,7 @@ const rules = `Rules:
 5. Quote policy transcripts (policy-x.source) word for word and cite the source URL. A policy summary is a paraphrase: never present it as the policy's words, and say when a summary is unverified.
 6. A no is recorded with its reason, who said it, and a source URL (rfx_reply with outcome no). Do not record a no without a reason.
 7. Triage the inbox with inbox_triage. It archives the capture; nothing is deleted.
-8. Take no public or external action without the owner's go-ahead in chat. Show the exact text in the chat and ask. After the owner says go, act with your own tool. Vault changes need no approval; each leaves a receipt, and the owner can undo it with receipt_undo.
+8. Take no public or external action without the owner's go-ahead in chat. Show the exact text in the chat and ask. After the owner says go, act with your own tool, then record it with action_record. Vault changes need no approval; each leaves a receipt, and the owner can undo it with receipt_undo.
 9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.
 10. Risk classes are labels on receipts and block nothing. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.`
 

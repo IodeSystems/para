@@ -49,7 +49,6 @@ type MeetingHoldOutput struct {
 	Constraints  []string            `json:"constraints"`  // made by a "no"
 	Interactions []string            `json:"interactions"` // logged by the replies
 	Answered     []string            `json:"answered"`     // questions answered
-	Proposed     []string            `json:"proposed"`     // questions whose answer an agent proposed; a person accepts them
 	Tasks        []string            `json:"tasks"`        // action items
 	Requests     []string            `json:"requests"`     // agent requests queued for tasks
 	Waiting      []string            `json:"waiting"`      // requests asked in the meeting and still unanswered
@@ -207,7 +206,7 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 	}
 
 	out := MeetingHoldOutput{ID: doc.ID, Replied: []string{}, Constraints: []string{}, Interactions: []string{},
-		Answered: []string{}, Proposed: []string{}, Tasks: []string{}, Requests: []string{}, Waiting: []string{}, Warnings: []string{}}
+		Answered: []string{}, Tasks: []string{}, Requests: []string{}, Waiting: []string{}, Warnings: []string{}}
 	partial := func(what string, err error) (MeetingHoldOutput, error) {
 		return out, fmt.Errorf("%s: %w; recorded so far: replied %v, answered %v, tasks %v; the meeting is not marked held", what, err, out.Replied, out.Answered, out.Tasks)
 	}
@@ -226,9 +225,6 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 		}
 		lines = append(lines, line+")")
 		switch {
-		case o.Question != "" && o.Proposed:
-			out.Proposed = append(out.Proposed, o.Question)
-			lines = append(lines, "- Proposed answer: [["+o.Question+"]]")
 		case o.Question != "":
 			out.Answered = append(out.Answered, o.Question)
 			lines = append(lines, "- Answered: [["+o.Question+"]]")
@@ -251,11 +247,6 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 		o, err := QuestionAnswer.Run(ctx, d, a)
 		if err != nil {
 			return partial(fmt.Sprintf("answers[%d]", i), err)
-		}
-		if o.Proposed {
-			out.Proposed = append(out.Proposed, o.ID)
-			lines = append(lines, "- Proposed answer: [["+o.ID+"]]")
-			continue
 		}
 		out.Answered = append(out.Answered, o.ID)
 		lines = append(lines, "- Answered: [["+o.ID+"]]")
