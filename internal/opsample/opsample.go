@@ -16,6 +16,7 @@ import (
 // test fails and names the op: add its entry here.
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
+	"vault_upgrade":             `{"dry_run":true}`,
 	"area_add":                  `{"title":"Health"}`,
 	"area_show":                 `{"id":"area-sample"}`,
 	"area_link_add":             `{"id":"area-sample","label":"Repo","kind":"repo","target":"~/src/sample"}`,

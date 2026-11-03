@@ -208,6 +208,8 @@ func newRoot(l *loader) *cobra.Command {
 		newSchemaCmd(l),
 		newServiceCmd(l),
 		newDoctorCmd(l),
+		newUpgradeCmd(l),
+		newChangesCmd(l),
 		newTickCmd(l),
 		newAgentCmd(l),
 	)

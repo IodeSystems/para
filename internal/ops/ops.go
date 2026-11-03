@@ -32,6 +32,9 @@ type Deps struct {
 	// the vault, from any process. A waiting op blocks on it instead of
 	// polling files. Take it before reading state, so no change is missed.
 	Changed func() <-chan struct{}
+	// ChangesSince is the release this MCP session's agent last saw; the
+	// changes op uses it when it gets no since. Empty means the newest only.
+	ChangesSince string
 }
 
 // Func is the shape of every op.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/iodesystems/parasolve/docs"
 	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/parasolve/internal/upgrade"
 	"github.com/iodesystems/parasolve/internal/vault"
 )
 
@@ -47,7 +48,7 @@ func newInitCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("init: %w", err)
 			}
-			if err := vault.Init(abs, id, templates, vault.InitOptions{NoGit: noGit}); err != nil {
+			if err := vault.Init(abs, id, templates, vault.InitOptions{NoGit: noGit, FormatVersion: upgrade.Latest()}); err != nil {
 				return err
 			}
 			if err := l.install.Add(id, abs); err != nil {
@@ -140,7 +141,7 @@ It applies to you, not to agents: para mcp still needs --vault.`,
 		},
 	}
 	setDefault.Flags().BoolVar(&clearDefault, "clear", false, "remove the default")
-	cmd.AddCommand(setDefault)
+	cmd.AddCommand(setDefault, newVaultUpgradeCmd(l))
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List registered vaults",

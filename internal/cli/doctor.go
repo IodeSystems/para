@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -23,6 +24,9 @@ import (
 	"github.com/iodesystems/parasolve/internal/registry"
 	"github.com/iodesystems/parasolve/internal/server"
 	"github.com/iodesystems/parasolve/internal/service"
+	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/parasolve/internal/upgrade"
+	"github.com/iodesystems/parasolve/internal/vault"
 )
 
 // report prints one line per finding (CLI-13).
@@ -84,6 +88,10 @@ func doctorInstall(l *loader, r *report) {
 	doctorTools(r)
 	doctorService(r)
 	doctorDaemon(l, r, vaults)
+	doctorStaleMCP(r, "/proc")
+	for _, v := range vaults {
+		doctorUpgrade(l, r, v)
+	}
 }
 
 func doctorVault(l *loader, r *report, id string) {
@@ -317,6 +325,9 @@ func doctorDaemon(l *loader, r *report, vaults []registry.Vault) {
 	}
 	if at.Rec != nil {
 		r.ok("server", fmt.Sprintf("pid %d at %s, version %s", at.Rec.PID, at.Rec.Addr, at.Rec.Version))
+		if note := staleServerNote(at.Rec.Version, l.version); note != "" {
+			r.warn("server version", note)
+		}
 	}
 	id := ""
 	switch {
@@ -340,4 +351,23 @@ func doctorDaemon(l *loader, r *report, vaults []registry.Vault) {
 	default:
 		r.warn("daemon", "nothing answers at "+base+" ("+err.Error()+"): para service start")
 	}
+}
+
+// doctorUpgrade reports pending vault upgrade steps. It reads only.
+func doctorUpgrade(l *loader, r *report, v registry.Vault) {
+	what := "vault " + v.ID + " format"
+	st, err := local.Open(v.Path, vault.Options{ID: v.ID, ReadOnly: true})
+	if err != nil {
+		return
+	}
+	s, err := upgrade.StatusOf(context.Background(), st)
+	if err != nil {
+		r.warn(what, err.Error())
+		return
+	}
+	if len(s.Pending) == 0 {
+		r.ok(what, fmt.Sprintf("%d of %d", s.FormatVersion, s.Latest))
+		return
+	}
+	r.warn(what, fmt.Sprintf("%d upgrade steps pending: para --vault %s vault upgrade --status", len(s.Pending), v.ID))
 }

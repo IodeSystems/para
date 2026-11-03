@@ -1,6 +1,7 @@
 package mcpserver
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -17,8 +18,24 @@ type binaryStamp struct {
 	info os.FileInfo
 }
 
-// StaleMessage is the tool error returned after an upgrade.
+// StaleMessage is the tool error returned after an upgrade, without versions.
 const StaleMessage = "para was upgraded after this MCP server started. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server."
+
+// staleMessage names the version this server runs and the version now on disk,
+// when installed can say it, and what to do. After the reconnect, the changes
+// tool says what is new.
+func staleMessage(running string, installed func() string) string {
+	if running == "" {
+		running = "unknown"
+	}
+	now := "unknown"
+	if installed != nil {
+		if v := strings.TrimSpace(installed()); v != "" && !strings.ContainsAny(v, "\r\n") {
+			now = v
+		}
+	}
+	return fmt.Sprintf("para was upgraded after this MCP server started: it runs %s, the installed binary is %s. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server. Then call changes to see what is new.", running, now)
+}
 
 // ExecutablePath is the path of the running binary. Linux appends " (deleted)"
 // to the path of a binary that an upgrade replaced.

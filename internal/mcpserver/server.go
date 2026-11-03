@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"runtime/debug"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/iodesystems/parasolve/internal/guide"
 	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/parasolve/internal/upgrade"
 )
 
 // Instructions is the text every client receives at initialize. It states
@@ -60,6 +62,14 @@ type Options struct {
 	// first checks that the file is unchanged since New, and if not, answers
 	// with StaleMessage. Empty turns the check off.
 	Executable string
+	// InstalledVersion returns the version of the binary now on disk, for the
+	// stale error. It runs only after an upgrade. Nil reports it as unknown:
+	// this package starts no program.
+	InstalledVersion func() string
+	// SeenPath is the file in this machine's state directory that records the
+	// binary the last session ran. When it differs, the instructions gain
+	// ChangedLine. Empty turns it off.
+	SeenPath string
 }
 
 // Server is an MCP server over one vault.
@@ -78,6 +88,8 @@ type Server struct {
 	channel   bool
 	runCtx    atomic.Pointer[context.Context] // the context of Start, for the watcher's checks
 	binary    *binaryStamp
+	version   string
+	installed func() string
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -90,8 +102,10 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	if name == "" {
 		name = "para"
 	}
+	changed, since := checkSeen(o.SeenPath, o.Version)
+	deps.ChangesSince = since
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel)...),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
@@ -101,6 +115,8 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		eventsDir: o.EventsDir,
 		poll:      o.Poll,
 		binary:    stampBinary(o.Executable),
+		version:   o.Version,
+		installed: o.InstalledVersion,
 	}
 	s.deps.Changed = s.changed.wait
 	s.reqWatch = ops.NewRequestWatch(s.deps)
@@ -120,8 +136,11 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 
 // serverOptions are the MCP server options. logging is declared because the
 // session sends notifications/message; the channel capability only with --channel.
-func serverOptions(channel bool) []server.ServerOption {
+func serverOptions(channel, changed bool) []server.ServerOption {
 	instr := Instructions + "\n\n" + notifyRule
+	if changed {
+		instr += "\n\n" + ChangedLine
+	}
 	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging()}
 	if channel {
 		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}))
@@ -151,7 +170,7 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 			}
 		}()
 		if s.binary.changed() {
-			return mcp.NewToolResultError(e.Name() + ": " + StaleMessage), nil
+			return mcp.NewToolResultError(e.Name() + ": " + staleMessage(s.version, s.installed)), nil
 		}
 		var input json.RawMessage
 		if args := req.GetRawArguments(); args != nil {
@@ -216,7 +235,7 @@ func (s *Server) clean(err error) string { return ops.PublicError(err, s.hide) }
 // text `para --help-extended` and `para bootstrap` print.
 func (s *Server) addPrompts() {
 	for _, p := range []struct{ name, desc, text string }{
-		{"orient", "What para is and is not, the rule, and how to work a vault", guide.Orient()},
+		{"orient", "What para is and is not, the rule, and how to work a vault", ""},
 		{"bootstrap", "Interview the owner and fill a new vault: areas, projects, tasks, people", guide.Bootstrap()},
 		{"review_cycle", "File a proposal, wait for the owner's review, revise, and act on what is approved", guide.ReviewCycle()},
 		{"process_meeting", "Turn a meeting transcript into one proposal: answers, a no, action items, new questions, people", guide.ProcessMeeting()},
@@ -228,10 +247,34 @@ func (s *Server) addPrompts() {
 		{"sort_update", "Sort the owner's free-text update on a task into one proposal: action items, open questions, answers, commitments, resolved policy, follow-up tasks, each quoting its words", guide.SortUpdate()},
 	} {
 		s.mcp.AddPrompt(mcp.NewPrompt(p.name, mcp.WithPromptDescription(p.desc)),
-			func(context.Context, mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+			func(ctx context.Context, _ mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+				text := p.text
+				if p.name == "orient" {
+					text = guide.Orient() + s.upgradeNote(ctx)
+				}
 				return mcp.NewGetPromptResult(p.desc, []mcp.PromptMessage{
-					mcp.NewPromptMessage(mcp.RoleUser, mcp.NewTextContent(p.text)),
+					mcp.NewPromptMessage(mcp.RoleUser, mcp.NewTextContent(text)),
 				}), nil
 			})
 	}
+}
+
+// upgradeNote lists the vault's pending upgrade steps for the orient prompt.
+// It is empty when none is pending or the vault cannot be read.
+func (s *Server) upgradeNote(ctx context.Context) string {
+	st, err := upgrade.StatusOf(ctx, s.deps.Store)
+	if err != nil || len(st.Pending) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("\n\nThis vault has pending upgrade steps (vault_upgrade_status lists them):\n")
+	for _, p := range st.Pending {
+		kind := "the owner runs it with `para vault upgrade`"
+		if !p.Auto {
+			kind = "agent work titled \"" + "Vault upgrade: " + p.Title + "\""
+		}
+		fmt.Fprintf(&b, "- %s (%d documents): %s\n", p.Title, p.Count, kind)
+	}
+	b.WriteString("Old documents stay readable. Do not rewrite them yourself.")
+	return b.String()
 }

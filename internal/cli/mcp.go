@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -73,12 +76,14 @@ server entries for this install. They write nothing.
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
 			srv, err := mcpserver.New(ops.Deps{Store: s}, mcpserver.Options{
-				Version:    l.version,
-				Hide:       []string{filepath.Clean(sel.Path), l.install.Home},
-				Log:        cmd.ErrOrStderr(),
-				EventsDir:  filepath.Join(sel.Path, "events"),
-				Channel:    channel,
-				Executable: mcpserver.ExecutablePath(),
+				Version:          l.version,
+				Hide:             []string{filepath.Clean(sel.Path), l.install.Home},
+				Log:              cmd.ErrOrStderr(),
+				EventsDir:        filepath.Join(sel.Path, "events"),
+				Channel:          channel,
+				Executable:       mcpserver.ExecutablePath(),
+				InstalledVersion: installedVersion,
+				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
 			})
 			if err != nil {
 				return err
@@ -263,4 +268,16 @@ func newBootstrapCmd() *cobra.Command {
 			return err
 		},
 	}
+}
+
+// installedVersion asks the binary now on disk for its version. It gives up
+// after a few seconds and reports nothing.
+func installedVersion() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, mcpserver.ExecutablePath(), "version").Output()
+	if err != nil {
+		return ""
+	}
+	return string(out)
 }

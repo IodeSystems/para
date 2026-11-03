@@ -181,4 +181,7 @@ func registerVault(r *registrar) {
 	reg(r, ops.Reconcile, post, write)
 	reg(r, ops.EventsTail, get, read)
 	reg(r, ops.IndexRebuild, post, write)
+	reg(r, ops.Changes, get, read)
+	reg(r, ops.VaultUpgradeStatus, get, read)
+	reg(r, ops.VaultUpgrade, post, write)
 }
