@@ -21,15 +21,18 @@ var (
 	actAssign   = Target{ID: "act:assign", Label: "Assign", Pref: 'n'}
 	actDelegate = Target{ID: "act:delegate", Label: "Give to agent", Pref: 'i'}
 	actDue      = Target{ID: "act:due", Label: "Due", Pref: 'd'}
+	// Update has no free letter in its label: u is Cut. m is free on Today and
+	// Work, so the key shows after the label.
+	actUpdate = Target{ID: "act:update", Label: "Update", Pref: 'm', Fixed: true}
 )
 
 // taskActLetters are the preferred letters of the task actions. A document page
 // keeps its link keys off them.
-const taskActLetters = "rtonidu"
+const taskActLetters = "rtonidum"
 
 // taskActs are the task-only actions, in footer order. Later, Cut, and Find
 // context are shared with other rows.
-var taskActs = []Target{actResolve, actStart, actBlock, actAssign, actDelegate, actDue}
+var taskActs = []Target{actResolve, actStart, actBlock, actAssign, actDelegate, actDue, actUpdate}
 
 // keepTaskAct reports whether a task action applies to the task.
 func keepTaskAct(t Target, task ops.TaskView) bool {
@@ -68,6 +71,8 @@ func (m *Model) taskAct(name string) (tea.Cmd, bool) {
 		return m.delegateTask(), true
 	case "due":
 		return m.dueTask(), true
+	case "update":
+		return m.updateTask(), true
 	}
 	return nil, false
 }
@@ -186,6 +191,36 @@ func (m *Model) delegateTask() tea.Cmd {
 				verb = "Added your hint to " + o.Request + " for"
 			}
 			text := fmt.Sprintf("%s %q. It is listed under Agent work.", verb, titleOr(t.Title, t.ID))
+			if o.Note != "" {
+				text += " " + o.Note
+			}
+			return text, nil
+		})
+	})
+}
+
+// updateTask adds free text to a task. The agent sorts it into a proposal.
+func (m *Model) updateTask() tea.Cmd {
+	t, ok := m.taskTarget("add an update to")
+	if !ok {
+		return nil
+	}
+	env := m.env
+	lines := []string{"  " + titleOr(t.Title, t.ID), "  Kept whole under Updates. An agent sorts it into action items, questions, commitments, policy, and follow-ups for you to approve."}
+	steps := []promptStep{{label: "update: "}}
+	return m.askForLines("Update", lines, steps, func(v []string) tea.Cmd {
+		return m.runOp(func(ctx context.Context) (string, error) {
+			o, err := ops.TaskUpdate.Run(ctx, env.Deps, ops.TaskUpdateInput{ID: t.ID, Text: v[0]})
+			if err != nil {
+				return "", err
+			}
+			text := fmt.Sprintf("Saved your update on %q.", titleOr(t.Title, t.ID))
+			switch {
+			case o.Appended:
+				text += " Added to the open sort work " + o.Request + "."
+			case o.Request != "":
+				text += " Queued agent work " + o.Request + " to sort it."
+			}
 			if o.Note != "" {
 				text += " " + o.Note
 			}

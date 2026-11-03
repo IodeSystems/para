@@ -184,6 +184,44 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		if len(m.BlockedBy) > 0 {
 			section(&b, "Blocked by", m.BlockedBy)
 		}
+		if p := m.Parent.Target(); p != "" {
+			if w := wlOrName(p, name(p)); w != "" {
+				ov.glance = glanceLine(ov.glance, "item of "+w)
+			}
+		}
+		if o, err := ops.TaskShow.Run(ctx, e.Deps, ops.TaskShowInput{ID: d.ID}); err == nil {
+			ref := func(r ops.PartRef) string {
+				return glanceLine(wl(r.ID, r.Title), stateWord(r.Status), prefixed("due ", dateWords(r.Due, time.Time{})))
+			}
+			var items, commits, answered, policy, follow []string
+			for _, r := range o.Parts.ActionItems {
+				items = append(items, ref(r))
+			}
+			for _, r := range o.Parts.Commitments {
+				commits = append(commits, ref(r))
+			}
+			for _, q := range o.Parts.Answered {
+				answered = append(answered, glanceLine(wl(q.ID, q.Title), q.Choice))
+			}
+			for _, r := range o.Parts.Policy {
+				policy = append(policy, glanceLine(wl(r.ID, r.Title), r.Kind))
+			}
+			for _, r := range o.Parts.FollowUps {
+				follow = append(follow, ref(r))
+			}
+			section(&b, "Action items", items)
+			section(&b, "Open questions", func() []string {
+				var l []string
+				for _, q := range o.Questions {
+					l = append(l, questionLine(q))
+				}
+				return l
+			}())
+			section(&b, "Answered", answered)
+			section(&b, "Commitments", commits)
+			section(&b, "Policy", policy)
+			section(&b, "Follow-ups", follow)
+		}
 	case *model.Question:
 		scope := m.Scope.Target()
 		ov.glance = glanceLine("Question", string(m.AsKind()), stateWord(string(m.Status)), prefixed("about ", wlOrName(scope, name(scope))))
