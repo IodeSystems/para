@@ -86,16 +86,7 @@ func meetingAsTask(d model.Document) (model.Document, bool) {
 	if !ok {
 		return d, false
 	}
-	t := &model.Task{Common: m.Common, Kind: model.KindMeeting, Scheduled: m.Start, End: m.End, With: m.With, RFX: m.RFX, Status: model.TaskTodo}
-	t.Type = model.TypeTask
-	switch m.Status {
-	case model.MeetingHeld:
-		t.Status, t.Outcome = model.TaskDone, model.OutcomeDone
-	case model.MeetingCancelled:
-		t.Status, t.Outcome = model.TaskDropped, model.OutcomeDropped
-	}
-	t.Tags = append([]string(nil), m.Tags...)
-	d.Meta = t
+	d.Meta = m.AsTask()
 	return d, true
 }
 

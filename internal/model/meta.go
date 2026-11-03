@@ -437,6 +437,22 @@ type Meeting struct {
 	RFX    []Link        `yaml:"rfx,omitempty" json:"rfx,omitempty"`
 }
 
+// AsTask is the task of kind meeting that holds the same meeting: the same
+// common fields, links, times, and tags. A meeting that was requested or
+// scheduled is a todo task; the time is what tells them apart.
+func (m *Meeting) AsTask() *Task {
+	t := &Task{Common: m.Common, Kind: KindMeeting, Scheduled: m.Start, End: m.End, With: m.With, RFX: m.RFX, Status: TaskTodo}
+	t.Type = TypeTask
+	switch m.Status {
+	case MeetingHeld:
+		t.Status, t.Outcome = TaskDone, OutcomeDone
+	case MeetingCancelled:
+		t.Status, t.Outcome = TaskDropped, OutcomeDropped
+	}
+	t.Tags = append([]string(nil), m.Tags...)
+	return t
+}
+
 // ScopeRoot is the question scope of a vault-level question.
 const ScopeRoot Link = "root"
 

@@ -82,6 +82,18 @@ func (s *Store) Rename(ctx context.Context, id, newID string) (model.Document, e
 	return s.v.Rename(ctx, id, newID)
 }
 
+func (s *Store) SetConfig(ctx context.Context, key, value string) error {
+	return s.v.SetConfig(ctx, key, value)
+}
+
+func (s *Store) Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error) {
+	return s.v.Rewrite(ctx, batch, dry, fn)
+}
+
+func (s *Store) UndoBatch(ctx context.Context, batch string) (model.BatchResult, error) {
+	return s.v.UndoBatch(ctx, batch)
+}
+
 func (s *Store) Lint(ctx context.Context) ([]model.Finding, error) { return s.v.Check(ctx) }
 
 func (s *Store) Reconcile(ctx context.Context) (model.ReconcileResult, error) {

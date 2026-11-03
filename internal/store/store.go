@@ -44,6 +44,15 @@ type Store interface {
 	// there is none, such as proposals.yaml.
 	ConfigFile(name string) ([]byte, error)
 
+	// SetConfig sets one key of vault.properties and keeps the other lines.
+	SetConfig(ctx context.Context, key, value string) error
+	// Rewrite applies fn to every document as one batch that UndoBatch can
+	// reverse on this machine, with one event per changed document. A dry run
+	// changes nothing and lists what would change.
+	Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error)
+	// UndoBatch restores the documents a batch changed, unless edited since.
+	UndoBatch(ctx context.Context, batch string) (model.BatchResult, error)
+
 	// VaultID returns the id of the open vault.
 	VaultID() string
 

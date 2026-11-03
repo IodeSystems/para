@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 
 	"github.com/iodesystems/parasolve/internal/atomicfile"
 	"github.com/iodesystems/parasolve/internal/model"
@@ -30,6 +31,9 @@ const gitignore = ".para/*\n!.para/vault.properties\n.*.tmp-*\n"
 type InitOptions struct {
 	// NoGit skips git init (and the need for git on PATH).
 	NoGit bool
+	// FormatVersion is recorded as format_version in vault.properties: a new
+	// vault holds nothing an upgrade step would rewrite. Zero records none.
+	FormatVersion int
 }
 
 // idRe limits a vault id to one DNS label: para serve routes vaults by
@@ -70,7 +74,11 @@ func Init(root, id string, templates fs.FS, o InitOptions) error {
 			return fmt.Errorf("vault: init: %w", err)
 		}
 	}
-	cfg := props.Format(map[string]string{"vault.id": id, "egress.default": "deny"})
+	vals := map[string]string{"vault.id": id, "egress.default": "deny"}
+	if o.FormatVersion > 0 {
+		vals["format_version"] = strconv.Itoa(o.FormatVersion)
+	}
+	cfg := props.Format(vals)
 	if err := atomicfile.Write(filepath.Join(root, dirState, "vault.properties"), cfg, 0o600); err != nil {
 		return fmt.Errorf("vault: init: %w", err)
 	}
