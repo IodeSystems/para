@@ -60,6 +60,11 @@ const DocFieldsDoc = graphql(/* GraphQL */ `
             enum
             required
             value
+            choices {
+              id
+              title
+              type
+            }
           }
         }
       }

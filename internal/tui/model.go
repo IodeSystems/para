@@ -379,8 +379,20 @@ func (m *Model) onWho(msg whoMsg) tea.Cmd {
 	return nil
 }
 
+// rowSep splits a row's target from what makes its key its own: two rows that
+// open one document each get a key, so a letter never names two rows.
+const rowSep = "#"
+
+// rowDoc is the document id of a row whose target is "doc:ID", or "" when it
+// names none.
+func rowDoc(target string) string {
+	target, _, _ = strings.Cut(target, rowSep)
+	return strings.TrimPrefix(target, "doc:")
+}
+
 // follow acts on a target: a tab, a document, a person, an action.
 func (m *Model) follow(target string) tea.Cmd {
+	target, _, _ = strings.Cut(target, rowSep)
 	kind, id, _ := strings.Cut(target, ":")
 	switch kind {
 	case "tab":
@@ -449,6 +461,10 @@ func (m *Model) act(name string) tea.Cmd {
 		ids := make([]string, len(vs))
 		for i, v := range vs {
 			ids[i] = v.ID
+		}
+		if len(ids) < 2 {
+			m.setHint("Only one vault. Nothing to switch to.")
+			return nil
 		}
 		m.ov = overlay{kind: ovVault, vaults: ids}
 	case "zoom":

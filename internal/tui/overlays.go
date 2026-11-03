@@ -34,6 +34,13 @@ func (m *Model) onOverlayKey(k tea.KeyPressMsg) tea.Cmd {
 				m.ov.liveCur = max(m.ov.liveCur-1, -1)
 				return nil
 			}
+		case "tab":
+			// With nothing found, tab files the typed text in the inbox.
+			if text := strings.TrimSpace(m.ov.input.Value()); m.ov.kind == ovSearch && len(m.ov.liveHits) == 0 && m.ov.liveNote != "" && text != "" {
+				m.ov = overlay{}
+				return m.capture(text)
+			}
+			return nil
 		case "enter":
 			if m.ov.kind == ovSearch && m.ov.liveCur >= 0 && m.ov.liveCur < len(m.ov.liveHits) {
 				id := m.ov.liveHits[m.ov.liveCur].ID
@@ -205,7 +212,26 @@ func (m *Model) drawOverlay(body []string, keymap map[string]string, h int) ([]s
 		}
 		lines = append(lines, m.inputLines()...)
 	case ovHelp:
-		lines = m.helpLines()
+		// Help wraps at the screen width, with a hanging indent, never cut with an ellipsis.
+		for _, l := range m.helpLines() {
+			if cells(l) <= m.w-2 {
+				lines = append(lines, l)
+				continue
+			}
+			// A help line is "  key        text": the text wraps under itself.
+			const pre = 13
+			if len(l) <= pre {
+				lines = append(lines, l)
+				continue
+			}
+			for n, w := range wrapText(l[pre:], max(m.w-2-pre, 10)) {
+				if n == 0 {
+					lines = append(lines, l[:pre]+w)
+				} else {
+					lines = append(lines, strings.Repeat(" ", pre)+w)
+				}
+			}
+		}
 	case ovOutput:
 		lines = append(strings.Split(strings.TrimRight(m.ov.output, "\n"), "\n"), "", stDim.Render("esc closes"))
 	case ovVault:
@@ -455,7 +481,7 @@ func (m *Model) onLive(msg liveMsg) {
 	case msg.err != nil:
 		m.ov.liveNote = "search failed: " + oneLine(msg.err.Error())
 	case len(msg.hits) == 0:
-		m.ov.liveNote = "nothing matches yet"
+		m.ov.liveNote = "nothing matches yet. tab adds this text to the inbox"
 	}
 }
 

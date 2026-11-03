@@ -245,7 +245,13 @@ func (z itemSummarizer) change(it model.ProposalItem) []string {
 	if it.Kind.Outward() {
 		out := []string{}
 		if t := it.GateTarget(); t != "" {
-			out = append(out, "Send to: "+t)
+			parts := strings.Split(t, ", ")
+			for i, x := range parts {
+				if n := z.name(x); n != "" {
+					parts[i] = n
+				}
+			}
+			out = append(out, "Send to: "+strings.Join(parts, ", "))
 		}
 		if w := mediumWords[model.Medium(it.Subtype)]; w != "" {
 			out = append(out, "By: "+w)

@@ -29,6 +29,7 @@ export function Frame({
   return (
     <Dialog open onClose={close} fullWidth maxWidth="sm" aria-labelledby="overlay-title">
       <form
+        style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}
         onSubmit={(e) => {
           e.preventDefault()
           onSubmit?.()

@@ -55,6 +55,32 @@ var HealthKinds = []string{
 	HealthGoalNoSignal, HealthPivotPassed,
 }
 
+// HealthKindWords names each finding kind in words, for a screen.
+var HealthKindWords = map[string]string{
+	HealthCycle:              "Circular dependency",
+	HealthNoPath:             "Tied to no goal or area",
+	HealthGoalNoOpenTask:     "Goal with no open task",
+	HealthDanglingDependency: "Depends on something missing",
+	HealthGoalNoDue:          "Goal with no due date",
+	HealthAskNoFollowup:      "Ask with no follow-up date",
+	HealthBlockerNoFollowup:  "Blocked, no follow-up date",
+	HealthGoalNoDoneWhen:     "Goal with no done-when",
+	HealthTaskNoDoneWhen:     "Task with no done-when",
+	HealthAskNoTarget:        "Ask with no one to ask",
+	HealthPersonNoContact:    "Person with no contact",
+	HealthBlockerIncomplete:  "Blocker reason too short",
+	HealthAreaNoLinks:        "Area with no links",
+	HealthNoSource:           "Answer with no source",
+	HealthPolicyReviewDue:    "Review date has come",
+	HealthQuestionStale:      "Stale question",
+	HealthNotAligned:         "Not checked against sources",
+	HealthExceptionNoPolicy:  "Exception with no policy linked",
+	HealthByUnknown:          "Who set it is unknown",
+	HealthClosedWithOpen:     "Closed with open items",
+	HealthGoalNoSignal:       "Goal signals not read",
+	HealthPivotPassed:        "Change-of-course date has come",
+}
+
 // HealthOtherGroup is the group of findings that belong to no goal.
 const HealthOtherGroup = "other"
 
@@ -68,6 +94,7 @@ const SeverityWarning = "warning"
 // HealthFinding is one gap.
 type HealthFinding struct {
 	Kind     string `json:"kind"`
+	Label    string `json:"label"` // the kind in words
 	Severity string `json:"severity"`
 	ID       string `json:"id"`
 	Title    string `json:"title"`
@@ -224,6 +251,18 @@ type healther struct {
 	dependents map[string][]string
 }
 
+// titles maps ids to titles, keeping the id of a document that is not there.
+func (h *healther) titles(ids []string) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id
+		if d, ok := h.docs[id]; ok && d.Title != "" {
+			out[i] = d.Title
+		}
+	}
+	return out
+}
+
 func (h *healther) deferred(m model.Meta) bool {
 	if df := deferralOf(m); df != nil {
 		return df.IsDeferred(h.today)
@@ -231,8 +270,15 @@ func (h *healther) deferred(m model.Meta) bool {
 	return false
 }
 
+func healthLabel(kind string) string {
+	if w, ok := HealthKindWords[kind]; ok {
+		return w
+	}
+	return kind
+}
+
 func (h *healther) add(kind, id, goal, msg, fix string) {
-	h.out = append(h.out, HealthFinding{Kind: kind, Severity: SeverityWarning, ID: id, Title: h.docs[id].Title, Goal: goal, Message: msg, Fix: fix})
+	h.out = append(h.out, HealthFinding{Kind: kind, Severity: SeverityWarning, ID: id, Label: healthLabel(kind), Title: h.docs[id].Title, Goal: goal, Message: msg, Fix: fix})
 }
 
 // goalOf returns the open goal an item belongs to, "" for none, and skip when
@@ -318,6 +364,12 @@ func (h *healther) index() {
 	}
 }
 
+// needsNoPath is true for a kind of task that stands alone: a meeting, a call,
+// or a commitment is not part of a goal's work.
+func needsNoPath(k model.TaskKind) bool {
+	return k == model.KindMeeting || k == model.KindCall || k == model.KindCommitment
+}
+
 // hasPath reports whether an open item leads to a goal or an area.
 func (h *healther) hasPath(id string, seen map[string]bool) bool {
 	if seen[id] {
@@ -377,7 +429,7 @@ func (h *healther) scan() {
 				h.add(HealthGoalNoDue, id, goal, "goal has no due date", fmt.Sprintf("project_edit {id: %s, due: YYYY-MM-DD}, or health_dismiss", id))
 			}
 			if strings.TrimSpace(m.DoneWhen) == "" {
-				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done_when", fmt.Sprintf("project_edit {id: %s, done_when: ...}", id))
+				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done-when line", fmt.Sprintf("project_edit {id: %s, done_when: ...}", id))
 			}
 			h.brief(id, goal, m)
 			if h.openTasks[id] == 0 {
@@ -392,9 +444,9 @@ func (h *healther) scan() {
 				continue
 			}
 			if strings.TrimSpace(m.DoneWhen) == "" {
-				h.add(HealthTaskNoDoneWhen, id, goal, "task has no done_when", fmt.Sprintf("task_edit {id: %s, done_when: ...}", id))
+				h.add(HealthTaskNoDoneWhen, id, goal, "task has no done-when line", fmt.Sprintf("task_edit {id: %s, done_when: ...}", id))
 			}
-			if !h.hasPath(id, map[string]bool{}) {
+			if !h.hasPath(id, map[string]bool{}) && !needsNoPath(m.Kind) {
 				h.add(HealthNoPath, id, goal, "open task leads to no goal or area", fmt.Sprintf("task_add again under a goal, or task_done {id: %s}", id))
 			}
 			if m.Status == model.TaskBlocked {
@@ -461,7 +513,7 @@ func (h *healther) brief(id, goal string, m *model.Project) {
 		}
 	}
 	if pv := m.Pivot; pv != nil && pv.Date != "" && string(pv.Date) <= h.today {
-		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("pivot date %s has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or project_close {id: %s}", id, id))
+		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("the date to decide on a change of course, %s, has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or project_close {id: %s}", id, id))
 	}
 }
 
@@ -531,7 +583,7 @@ func (h *healther) graphFindings(ctx context.Context, s store.Store) {
 				break
 			}
 		}
-		h.add(HealthCycle, id, goal, "dependency cycle: "+strings.Join(c, " -> "), fix)
+		h.add(HealthCycle, id, goal, "dependency cycle: "+strings.Join(h.titles(c), " -> "), fix)
 	}
 	missing := map[string]bool{}
 	for _, n := range w.nodes {

@@ -66,8 +66,15 @@ func pointerLines(ps []model.Pointer) []string {
 	return out
 }
 
-func taskLine(t ops.TaskView) string {
-	s := wl(t.ID, t.Title) + " · " + stateWord(string(t.Status))
+// taskLine is one task of a goal or area. states maps a task id to its state in
+// the work graph: a task that waits on an open question or task is "waiting",
+// never "ready". A task the graph does not list shows its own status.
+func taskLine(t ops.TaskView, states map[string]string) string {
+	word := stateWord(string(t.Status))
+	if st := states[t.ID]; st != "" && t.Status == model.TaskTodo {
+		word = st
+	}
+	s := wl(t.ID, t.Title) + " · " + word
 	if t.Due != "" {
 		s += " · due " + dateWords(string(t.Due), time.Time{})
 	}
@@ -110,13 +117,14 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		}
 		ov.glance = glanceLine("Area", stateWord(string(m.Status)))
 		section(&b, "Links", pointerLines(o.Area.Links))
+		states := graphStates(ctx, e, ops.GraphInput{Area: d.ID})
 		count := map[string]int{}
 		var loose []string
 		for _, t := range o.Tasks {
 			if t.Project != "" {
 				count[t.Project]++
 			} else {
-				loose = append(loose, taskLine(t))
+				loose = append(loose, taskLine(t, states))
 			}
 		}
 		var ps []string
@@ -152,9 +160,10 @@ func buildOverview(ctx context.Context, e Env, d model.Document) overview {
 		}
 		section(&b, "Brief", briefLines(o.Project.Brief))
 		section(&b, "Links", pointerLines(o.Project.Links))
+		states := graphStates(ctx, e, ops.GraphInput{Project: d.ID})
 		var ts []string
 		for _, t := range o.Tasks {
-			ts = append(ts, taskLine(t))
+			ts = append(ts, taskLine(t, states))
 		}
 		section(&b, "Tasks", ts)
 		var qs []string
@@ -360,6 +369,17 @@ func briefLines(b *model.GoalBrief) []string {
 			by = " by " + string(pv.Date)
 		}
 		out = append(out, fmt.Sprintf("Pivot: %s%s if %s", pv.Action, by, pv.Condition))
+	}
+	return out
+}
+
+// graphStates maps each task id in the work graph to its state.
+func graphStates(ctx context.Context, e Env, in ops.GraphInput) map[string]string {
+	out := map[string]string{}
+	if g, err := ops.Graph.Run(ctx, e.Deps, in); err == nil {
+		for _, n := range g.Nodes {
+			out[n.ID] = n.State
+		}
 	}
 	return out
 }

@@ -26,7 +26,9 @@ function AreaPage() {
         <>
           <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-            {d.lastAligned ? `last aligned ${d.lastAligned}` : 'never aligned'}
+            {d.lastAligned
+              ? `last checked against sources ${d.lastAligned}`
+              : 'not checked against sources yet'}
           </Typography>
           <PointerLinks links={d.area.links} />
           <Section title="Goals" count={d.projects.length} hideEmpty>

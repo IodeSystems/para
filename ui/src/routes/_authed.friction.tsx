@@ -10,10 +10,11 @@ import { useFriction } from '@/api/friction'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { RfxLink } from '@/components/DocLink'
+import { plural } from '@/lib/plural'
 
 export const Route = createFileRoute('/_authed/friction')({ component: Friction })
 
-const days = (v: number | null | undefined) => (v == null ? 'none yet' : `${v} days`)
+const days = (v: number | null | undefined) => (v == null ? 'none yet' : plural(v, 'day'))
 
 function Friction() {
   const [by, setBy] = useState('reason')
@@ -49,19 +50,20 @@ function Friction() {
         {(r) => (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {r.asks} asks, {r.withFriction} with a stall or redirect.
+              {plural(r.asks, 'ask')}, {r.withFriction} with a stall or redirect.
             </Typography>
             {r.rows.length === 0 && <Empty>Nothing to report.</Empty>}
             {r.rows.map((x) => (
               <Section key={x.key} title={x.name || x.label} count={x.asks.length}>
                 <Typography variant="body2">
                   First answer {days(x.firstAnswerDays)}, resolution {days(x.resolutionDays)},{' '}
-                  {x.hopsPerAsk} hops per ask, {x.redirects} redirects, {x.stalls} stalls,{' '}
-                  {x.stalledDays} stalled days.
+                  {plural(x.hopsPerAsk, 'hop')} per ask, {plural(x.redirects, 'redirect')},{' '}
+                  {plural(x.stalls, 'stall')}, {plural(x.stalledDays, 'stalled day')}.
                 </Typography>
                 <Typography variant="body2">
-                  {x.policyConflicts} policy conflicts, {x.exceptionsHit} exceptions,{' '}
-                  {x.playbookCandidates} repeat asks without a playbook.
+                  {plural(x.policyConflicts, 'policy conflict')},{' '}
+                  {plural(x.exceptionsHit, 'exception')},{' '}
+                  {plural(x.playbookCandidates, 'repeat ask')} without a playbook.
                 </Typography>
                 <Box sx={{ mt: 1 }}>
                   {x.asks.map((id, i) => (

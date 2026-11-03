@@ -10,10 +10,20 @@ import { plainState, toneOf, type Tone } from '@/lib/status'
 
 // CHIP_ROW is for a list row with text and a status chip: on a phone the chip goes under the
 // text, on its own line, so it is never clipped or squeezed.
+// On a phone the text takes a full line, then the chips and actions share one line under it, and
+// the second line of text is cut to one line, so a row is at most three lines.
 export const CHIP_ROW = {
-  flexDirection: { xs: 'column', sm: 'row' },
-  alignItems: { xs: 'flex-start', sm: 'center' },
+  flexWrap: { xs: 'wrap', sm: 'nowrap' },
+  alignItems: 'center',
   gap: 0.5,
+  '& > .MuiListItemText-root': {
+    flexBasis: { xs: '100%', sm: 'auto' },
+    '& .MuiListItemText-secondary': {
+      overflow: { xs: 'hidden', sm: 'visible' },
+      textOverflow: { xs: 'ellipsis', sm: 'clip' },
+      whiteSpace: { xs: 'nowrap', sm: 'normal' },
+    },
+  },
 } as const
 
 export function Section({
@@ -74,8 +84,12 @@ export function PageTitle({
 }) {
   return (
     <Box sx={{ mb: 2 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <Typography variant="h5" component="h1" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1}
+        sx={{ alignItems: { xs: 'flex-start', sm: 'center' } }}
+      >
+        <Typography variant="h5" component="h1" sx={{ flexGrow: 1, overflowWrap: 'break-word' }}>
           {children}
         </Typography>
         {action}

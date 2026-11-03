@@ -64,7 +64,7 @@ func (m *Model) listState() (cursor, offset *int) {
 func (m *Model) rows(w int) ([]row, []Target) {
 	rs, acts := m.rowsRaw(w)
 	for i, r := range rs {
-		id := strings.TrimPrefix(r.target, "doc:")
+		id := rowDoc(r.target)
 		if r.draw == nil || id == r.target || r.kind == "event" || (!m.snap.looking(id) && !m.snap.Working[id] && m.snap.replyLine(id) == "") {
 			continue
 		}

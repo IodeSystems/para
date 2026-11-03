@@ -11,7 +11,7 @@ import { useAgenda, useCalendarExport } from '@/api/meetings'
 import { Empty, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
+import { LinkButton, TextLink } from '@/components/links'
 import { RowMenu } from '@/components/RowMenu'
 import { AgentLooking, AgentWorking, findContextItem } from '@/components/FindContext'
 import { TaskMenu } from '@/components/TaskMenu'
@@ -28,7 +28,7 @@ const KIND_WORDS: Record<string, string> = {
   due: 'due',
   nudge: 'follow up',
   exception: 'review',
-  goal: 'goal check',
+  goal: 'time to review the goal',
 }
 
 export function DatedAgenda() {
@@ -135,6 +135,16 @@ export function DatedAgenda() {
                           />
                           <AgentLooking id={i.id} />
                           <AgentWorking id={i.id} />
+                          {i.kind === 'nudge' && (
+                            <LinkButton
+                              size="small"
+                              variant="outlined"
+                              to="."
+                              search={(p) => ({ ...p, reply: i.id })}
+                            >
+                              Record reply
+                            </LinkButton>
+                          )}
                           {(i.kind === 'meeting' || i.kind === 'nudge') && (
                             <RowMenu
                               label={`More actions for ${i.title}`}

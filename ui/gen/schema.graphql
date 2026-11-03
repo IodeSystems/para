@@ -1443,6 +1443,7 @@ type para_HealthFinding {
   goal: String
   id: String!
   kind: String!
+  label: String!
   message: String!
   severity: String!
   title: String!
@@ -5021,7 +5022,14 @@ enum para_TurnState {
   open
 }
 
+type para_UIDocChoice {
+  id: String!
+  title: String!
+  type: String!
+}
+
 type para_UIDocField {
+  choices: [para_UIDocChoice!]
   enum: [String!]
   kind: String!
   name: String!

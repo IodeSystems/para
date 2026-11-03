@@ -11,7 +11,8 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import TextField from '@mui/material/TextField'
 import { useDismissHealth, useHealth } from '@/api/health'
-import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
+import { Empty, PageTitle, Section } from '@/components/Bits'
+import { LinkButton } from '@/components/links'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { errorText } from '@/client/gqlClient'
@@ -19,7 +20,17 @@ import { dateWords } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/health')({ component: Health })
 
-type Finding = { id: string; kind: string; title: string }
+type Finding = { id: string; kind: string; label: string; title: string }
+
+// EDIT_KINDS are the findings a person fixes by changing a field on the document itself.
+const EDIT_KINDS = new Set([
+  'task_no_done_when',
+  'goal_no_done_when',
+  'goal_no_due',
+  'pivot_passed',
+  'by_unknown',
+  'exception_no_policy',
+])
 
 function Health() {
   const q = useHealth()
@@ -50,16 +61,25 @@ function Health() {
                 >
                   <List dense disablePadding>
                     {g.findings.map((f) => (
-                      <ListItem key={`${f.kind}-${f.id}`} disableGutters>
+                      <ListItem key={`${f.kind}-${f.id}`} disableGutters sx={{ flexWrap: 'wrap' }}>
                         <ListItemText
                           primary={<DocLink id={f.id}>{f.title || f.id}</DocLink>}
-                          secondary={`${f.message}. Fix: ${f.fix}`}
+                          secondary={`${f.label}: ${f.message}`}
                           slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                         />
-                        <StatusChip tone="quiet" label={f.kind} />
+                        <LinkButton
+                          size="small"
+                          to="/doc/$id"
+                          params={{ id: f.id }}
+                          search={EDIT_KINDS.has(f.kind) ? { docedit: f.id } : {}}
+                        >
+                          {EDIT_KINDS.has(f.kind) ? 'Fix' : 'Open'}
+                        </LinkButton>
                         <Button
                           size="small"
-                          onClick={() => setTarget({ id: f.id, kind: f.kind, title: f.title })}
+                          onClick={() =>
+                            setTarget({ id: f.id, kind: f.kind, label: f.label, title: f.title })
+                          }
                         >
                           Dismiss
                         </Button>
@@ -84,7 +104,7 @@ function Health() {
             )
           }}
         >
-          <DialogTitle>Dismiss {target?.kind}</DialogTitle>
+          <DialogTitle>Dismiss: {target?.label}</DialogTitle>
           <DialogContent>
             {dismiss.isError && <Alert severity="error">{errorText(dismiss.error)}</Alert>}
             <TextField

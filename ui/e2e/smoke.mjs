@@ -544,7 +544,7 @@ try {
   await page.goto(`${base}/rfx/${rfx}`)
   await page.getByRole('heading', { name: 'Need the staging quota raised' }).waitFor()
   await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base })
-  await page.getByRole('button', { name: 'Copy for chair swivel' }).click()
+  await page.getByRole('button', { name: 'Copy', exact: true }).click()
   await page.getByRole('button', { name: 'Copied' }).waitFor()
   check(
     (await page.evaluate(() => navigator.clipboard.readText())).includes('raise the staging quota'),
@@ -563,10 +563,10 @@ try {
     .first()
     .waitFor()
   check(true, 'plain-HTTP banner shows when the page is not a secure context')
-  await plain.getByRole('button', { name: 'Copy for chair swivel' }).click()
+  await plain.getByRole('button', { name: 'Copy', exact: true }).click()
   await plain.getByRole('button', { name: 'Copied' }).waitFor()
   await page.evaluate(() => navigator.clipboard.writeText('x')) // reset, then read what the fallback wrote
-  await plain.getByRole('button', { name: 'Copy for chair swivel' }).click()
+  await plain.getByRole('button', { name: 'Copy', exact: true }).click()
   await plain.getByRole('button', { name: 'Copied' }).waitFor()
   check(
     (await page.evaluate(() => navigator.clipboard.readText())).includes('raise the staging quota'),
@@ -857,6 +857,8 @@ try {
   await ed2.getByRole('button', { name: 'Save edit' }).click()
   await ed2.waitFor({ state: 'hidden' })
   await r2i1.getByRole('button', { name: 'Approve as edited' }).click()
+  // Decided items collapse below the pending ones.
+  await rp.getByText(/^Decided \(/).click()
   await r2i1.getByText('Approved. Not sent yet.').waitFor()
   check(
     (await r2i1.getByRole('button', { name: 'Copy draft' }).count()) === 1,
@@ -930,6 +932,7 @@ try {
   await rp.getByLabel('What changes').first().waitFor()
   check(true, 'a vault change shows what para computed')
   await rp.getByRole('button', { name: 'Approve all tasks (1)' }).click()
+  await rp.getByText(/^Decided \(/).click()
   await rp.locator('[data-item="i1"]').getByText('Done.').first().waitFor()
   check(true, 'bulk approve by group runs the item')
   await rp.locator('[data-item="i2"]').getByRole('button', { name: 'Approve' }).click()
@@ -975,6 +978,7 @@ try {
   })
   await rp.goto(`${base}/proposals/${act.id}`)
   await rp.locator('[data-item="i1"]').getByRole('button', { name: 'Approve' }).click()
+  await rp.getByText(/^Decided \(/).click()
   await rp.locator('[data-item="i1"]').getByText('Not sent yet').waitFor()
   await rp.goto(`${base}/review`)
   await rp.getByRole('heading', { name: /Approved, not done/ }).waitFor()
@@ -1087,6 +1091,7 @@ try {
   await dn.getByLabel('Reason').fill('Not needed')
   await dn.getByRole('button', { name: 'Deny' }).click()
   await dn.waitFor({ state: 'hidden' })
+  await rp.getByText(/^Decided \(/).click()
   await rp.getByText('Reason: Not needed').waitFor()
   check(true, 'deny with a reason is recorded')
 
@@ -1626,13 +1631,13 @@ try {
     'the goal done when is saved',
   )
   // Align: a goal shows when an agent last compared it with reality, and a clean run counts.
-  await rp.getByText('never aligned').waitFor()
+  await rp.getByText('not checked against sources yet').waitFor()
   const walk = await agent.call('align_scope', { scope: proj })
   check(walk.kind === 'goal' && walk.items.some((i) => i.id === proj), 'align_scope lists the goal')
   const aligned = await agent.call('align_record', { scope: proj, checked: 1, matched: 1 })
   check(aligned.summary.includes('no change'), 'a run with no change is recorded')
   await rp.goto(`${base}/projects/${proj}`)
-  await rp.getByText(/last aligned \d{4}-\d{2}-\d{2}/).waitFor()
+  await rp.getByText(/last checked against sources \d{4}-\d{2}-\d{2}/).waitFor()
   check(true, 'a goal page shows the date it was last aligned')
   const apprTask = idOf(para(...v, 'task', 'add', 'Check the done page', '-p', proj, '--json'))
   await rp.goto(`${base}/doc/${apprTask}`)

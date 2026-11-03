@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/iodesystems/parasolve/internal/ops"
 )
 
 // Today carries one health line with the count, outside the agenda; it opens
@@ -35,7 +37,7 @@ func TestHealthLineOpensPageAndDismisses(t *testing.T) {
 	}
 	d.key(d.keyFor("act:dismiss"))
 	d.key("enter") // a reason is required
-	if !d.has("Dismiss " + r.hkind) {
+	if !d.has("Dismiss: " + ops.HealthKindWords[r.hkind]) {
 		t.Fatalf("dismissed with no reason:\n%s", d.plainFrame())
 	}
 	d.typeText("Fine as it is.")

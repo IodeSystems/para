@@ -106,7 +106,7 @@ func TestItemKeysFollowTheRule(t *testing.T) {
 	}
 	// Request asks for a type and text; esc cancels and nothing changes.
 	d.key("r")
-	if !d.has("changes, clarification, or investigation") {
+	if !d.has("clarification, i investigation") {
 		t.Errorf("no type prompt:\n%s", d.plainFrame())
 	}
 	d.key("esc")

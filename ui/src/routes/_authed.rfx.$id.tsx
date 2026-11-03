@@ -128,7 +128,7 @@ function RfxPage() {
               action={
                 r.draft ? (
                   <CopyButton
-                    label="Copy for chair swivel"
+                    label="Copy"
                     getText={async () => (await copy.mutateAsync({ id, as: 'plain' })).text}
                   />
                 ) : undefined

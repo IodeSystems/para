@@ -85,6 +85,15 @@ type UIDocField struct {
 	Enum     []string `json:"enum,omitempty"`
 	Required bool     `json:"required,omitempty"`
 	Value    string   `json:"value"`
+	// Choices are the documents a link or links field may point at, by title.
+	Choices []UIDocChoice `json:"choices,omitempty"`
+}
+
+// UIDocChoice is one document a link field can point at.
+type UIDocChoice struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Type  string `json:"type"`
 }
 
 // UIDocFieldsBody lists the editable fields of a document. Editable is false
@@ -233,9 +242,26 @@ func registerUI(r *registrar) {
 				return nil, b.t.apiError(err)
 			}
 			out := UIDocFieldsBody{Fields: []UIDocField{}}
+			var choices []UIDocChoice
 			for _, f := range paramd.EditableFields(string(d.Meta.Header().Type)) {
 				out.Editable = true
-				out.Fields = append(out.Fields, UIDocField{Name: f.Name, Kind: f.Kind, Enum: f.Enum, Required: f.Required, Value: text[f.Name]})
+				uf := UIDocField{Name: f.Name, Kind: f.Kind, Enum: f.Enum, Required: f.Required, Value: text[f.Name]}
+				if f.Kind == "link" || f.Kind == "links" {
+					if choices == nil {
+						refs, err := b.t.store.List(ctx, store.Filter{})
+						if err != nil {
+							return nil, b.t.apiError(err)
+						}
+						choices = []UIDocChoice{}
+						for _, r := range refs {
+							if r.ID != in.ID && r.Title != "" {
+								choices = append(choices, UIDocChoice{ID: r.ID, Title: r.Title, Type: string(r.Type)})
+							}
+						}
+					}
+					uf.Choices = choices
+				}
+				out.Fields = append(out.Fields, uf)
 			}
 			return &uiDocFieldsOutput{Body: out}, nil
 		})

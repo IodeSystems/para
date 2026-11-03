@@ -178,6 +178,16 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
               <TaskMenu id={x.id} title={x.title || x.id} always />
             </>
           )}
+          {x.kind === 'ask' && (
+            <LinkButton
+              size="small"
+              variant="outlined"
+              to="."
+              search={(p) => ({ ...p, reply: x.id })}
+            >
+              Record reply
+            </LinkButton>
+          )}
           {(x.kind === 'meeting' || x.kind === 'ask') && (
             <RowMenu
               label={`More actions for ${x.title || x.id}`}

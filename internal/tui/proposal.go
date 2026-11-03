@@ -597,22 +597,26 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 			})
 		})
 	case "request":
+		// A first answer that is not a type is the text of a change request: it is
+		// kept, the type is changes, and the hint says so.
 		isChange := func(v []string) bool {
-			intent, err := requestIntent(v[0])
-			return err == nil && intent == ops.IntentChange
+			intent, ok := requestIntent(v[0])
+			return !ok || intent == ops.IntentChange
 		}
 		steps := []promptStep{
-			{short: true, label: "changes, clarification, or investigation (c, l, i; enter for changes): ", optional: true},
-			{label: "what to change: ", skip: func(v []string) bool { return !isChange(v) }},
+			{short: true, label: "enter changes, c or q clarification, i investigation, or type the change: ", optional: true},
+			{label: "what to change: ", skip: func(v []string) bool { _, ok := requestIntent(v[0]); return !ok || !isChange(v) }},
 			{label: "anything to add (enter to send): ", optional: true, skip: isChange},
 		}
 		return m.askForLines("Request: "+itemLine(it), requestLines(it), steps, func(v []string) tea.Cmd {
-			intent, err := requestIntent(v[0])
-			if err != nil {
-				return func() tea.Msg { return doneMsg{err: err} }
+			intent, ok := requestIntent(v[0])
+			note := v[1] + v[2]
+			if !ok {
+				intent, note = ops.IntentChange, strings.TrimSpace(v[0])
+				m.setHint("Kept what you typed as the change. The type is changes.")
 			}
 			return m.runReview("", false, func(ctx context.Context, d ops.Deps) (ops.ProposalReviewOutput, error) {
-				return ops.ProposalRequest.Run(ctx, d, ops.ProposalRequestInput{ID: id, Item: item, Note: v[1] + v[2], Intent: intent})
+				return ops.ProposalRequest.Run(ctx, d, ops.ProposalRequestInput{ID: id, Item: item, Note: note, Intent: intent})
 			})
 		})
 	case "hold":
@@ -639,19 +643,21 @@ func (m *Model) proposalAct(name string) tea.Cmd {
 	return nil
 }
 
-// requestIntent reads the type a person typed for a request: changes (the
-// default), clarification, or investigation. A prefix is enough.
-func requestIntent(s string) (ops.NoteIntent, error) {
+// requestIntent reads the type a person typed for a request: enter or h for
+// changes, c, q, or l for clarification (a question), i for investigation. A
+// longer prefix of a type name also counts. ok is false when the text is not a
+// type: the caller keeps it as the change text.
+func requestIntent(s string) (ops.NoteIntent, bool) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	switch {
-	case s == "" || strings.HasPrefix("changes", s):
-		return ops.IntentChange, nil
-	case s == "l" || strings.HasPrefix("clarification", s):
-		return ops.IntentClarify, nil
+	case s == "" || s == "h" || (len(s) > 1 && strings.HasPrefix("changes", s)):
+		return ops.IntentChange, true
+	case s == "c" || s == "q" || s == "l" || (len(s) > 1 && (strings.HasPrefix("clarification", s) || strings.HasPrefix("question", s))):
+		return ops.IntentClarify, true
 	case strings.HasPrefix("investigation", s):
-		return ops.IntentInvestigate, nil
+		return ops.IntentInvestigate, true
 	}
-	return "", fmt.Errorf("request type %q: want changes, clarification, or investigation", s)
+	return "", false
 }
 
 // requestLines keeps the item in view while the owner writes a request.

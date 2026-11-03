@@ -7,7 +7,9 @@ import Typography from '@mui/material/Typography'
 import MenuItem from '@mui/material/MenuItem'
 import { useDoc, useDocEdit, useDocFields, useNoteEdit } from '@/api/doc'
 import { errorText } from '@/client/gqlClient'
+import Autocomplete from '@mui/material/Autocomplete'
 import { Frame, useClose } from '@/components/OverlayFrame'
+import { fieldLabel, linkList, linkTarget, linkText } from '@/lib/fieldlabels'
 import type { OverlaySearch } from '@/lib/overlays'
 
 export function NoteDialogs({ s, onDone }: { s: OverlaySearch; onDone: (m: string) => void }) {
@@ -21,6 +23,7 @@ type EditField = {
   enum?: string[] | null
   required?: boolean | null
   value: string
+  choices?: { id: string; title: string; type: string }[] | null
 }
 
 // fieldValue reads the text of a field back into the value the server takes.
@@ -140,26 +143,73 @@ function DocEditForm({
           required
           fullWidth
         />
-        {fields.map((f) => (
-          <TextField
-            key={f.name}
-            label={f.name}
-            select={!!f.enum?.length}
-            value={vals[f.name] ?? ''}
-            onChange={(e) => setVals({ ...vals, [f.name]: e.target.value })}
-            multiline={!f.enum?.length && !['string', 'date', 'timestamp', 'link'].includes(f.kind)}
-            helperText={f.required ? 'required' : undefined}
-            fullWidth
-          >
-            {f.enum?.length
-              ? [...(f.required ? [] : ['']), ...f.enum].map((v) => (
-                  <MenuItem key={v} value={v}>
-                    {v || 'none'}
-                  </MenuItem>
-                ))
-              : undefined}
-          </TextField>
-        ))}
+        {fields.map((f) => {
+          const label = fieldLabel(f.name)
+          const choices = f.choices ?? []
+          if (f.kind === 'link') {
+            const cur = linkTarget(vals[f.name] ?? '')
+            const opt = choices.find((c) => c.id === cur) ?? null
+            return (
+              <Autocomplete
+                key={f.name}
+                options={choices}
+                value={opt}
+                getOptionLabel={(c) => c.title}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                onChange={(_, c) => setVals({ ...vals, [f.name]: c ? linkText(c.id) : '' })}
+                renderInput={(p) => (
+                  <TextField
+                    {...p}
+                    label={label}
+                    helperText={cur && !opt ? `Linked to ${cur}, not found` : undefined}
+                  />
+                )}
+              />
+            )
+          }
+          if (f.kind === 'links') {
+            const ids = linkList(vals[f.name] ?? '')
+            return (
+              <Autocomplete
+                key={f.name}
+                multiple
+                options={choices}
+                value={ids.map(
+                  (i) => choices.find((c) => c.id === i) ?? { id: i, title: i, type: '' },
+                )}
+                getOptionLabel={(c) => c.title}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                onChange={(_, cs) =>
+                  setVals({
+                    ...vals,
+                    [f.name]: cs.length ? JSON.stringify(cs.map((c) => linkText(c.id))) : '',
+                  })
+                }
+                renderInput={(p) => <TextField {...p} label={label} />}
+              />
+            )
+          }
+          return (
+            <TextField
+              key={f.name}
+              label={label}
+              select={!!f.enum?.length}
+              value={vals[f.name] ?? ''}
+              onChange={(e) => setVals({ ...vals, [f.name]: e.target.value })}
+              multiline={!f.enum?.length && !['string', 'date', 'timestamp'].includes(f.kind)}
+              helperText={f.required ? 'required' : undefined}
+              fullWidth
+            >
+              {f.enum?.length
+                ? [...(f.required ? [] : ['']), ...f.enum].map((v) => (
+                    <MenuItem key={v} value={v}>
+                      {v ? v.replace(/_/g, ' ') : 'none'}
+                    </MenuItem>
+                  ))
+                : undefined}
+            </TextField>
+          )
+        })}
         <TextField
           label="Body"
           value={body}

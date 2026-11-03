@@ -27,7 +27,7 @@ func (m *Model) rowsHealth(w int) []row {
 		}
 		r = append(r, head(name))
 		for _, f := range g.Findings {
-			x := link("doc:"+f.ID, "  "+stWarn.Render(pad(f.Kind, 20))+" ", titleOr(f.Title, f.ID), stDim.Render("  "+f.Message), w)
+			x := link("doc:"+f.ID+rowSep+f.Kind, "  "+stWarn.Render(pad(f.Label, 32))+" ", titleOr(f.Title, f.ID), stDim.Render("  "+f.Message), w)
 			x.kind, x.id, x.hkind = "health", f.ID, f.Kind
 			r = append(r, x)
 		}
@@ -44,7 +44,7 @@ func (m *Model) dismissHealth() tea.Cmd {
 	}
 	id, kind := r.id, r.hkind
 	steps := []promptStep{{label: "why it can stay as it is: "}}
-	return m.askForLines("Dismiss "+kind+": "+id, []string{"  It stays out of health until you bring it back."}, steps, func(v []string) tea.Cmd {
+	return m.askForLines("Dismiss: "+ops.HealthKindWords[kind]+": "+m.healthTitle(id), []string{"  It stays out of health until you bring it back."}, steps, func(v []string) tea.Cmd {
 		env := m.env
 		return func() tea.Msg {
 			if _, err := ops.HealthDismiss.Run(context.Background(), env.Deps, ops.HealthDismissInput{ID: id, Kind: kind, Reason: v[0]}); err != nil {
@@ -53,4 +53,16 @@ func (m *Model) dismissHealth() tea.Cmd {
 			return doneMsg{text: "Dismissed " + kind + ".", reload: true}
 		}
 	})
+}
+
+// healthTitle is the title of the document a finding names.
+func (m *Model) healthTitle(id string) string {
+	for _, g := range m.snap.Health.Groups {
+		for _, f := range g.Findings {
+			if f.ID == id {
+				return titleOr(f.Title, id)
+			}
+		}
+	}
+	return id
 }

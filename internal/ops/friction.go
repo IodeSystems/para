@@ -388,9 +388,13 @@ func frictionText(o FrictionOutput) string {
 			name = r.Label
 		}
 		fmt.Fprintf(&b, "\n%s (%s)\n", name, plural(len(r.Asks), "ask"))
-		fmt.Fprintf(&b, "  first answer %s d, resolution %s d, %.1f hops per ask, %d redirects, %d stalls, %d stalled days\n",
-			days(r.FirstAnswerDays), days(r.ResolutionDays), r.HopsPerAsk, r.Redirects, r.Stalls, r.StalledDays)
-		fmt.Fprintf(&b, "  %d policy conflicts, %d exceptions, %d repeat asks without a playbook\n", r.PolicyConflicts, r.ExceptionsHit, r.PlaybookCandidates)
+		hops := "hops"
+		if r.HopsPerAsk == 1 {
+			hops = "hop"
+		}
+		fmt.Fprintf(&b, "  first answer %s d, resolution %s d, %.1f %s per ask, %s, %s, %s\n",
+			days(r.FirstAnswerDays), days(r.ResolutionDays), r.HopsPerAsk, hops, plural(r.Redirects, "redirect"), plural(r.Stalls, "stall"), plural(r.StalledDays, "stalled day"))
+		fmt.Fprintf(&b, "  %s, %s, %s without a playbook\n", plural(r.PolicyConflicts, "policy conflict"), plural(r.ExceptionsHit, "exception"), plural(r.PlaybookCandidates, "repeat ask"))
 		n := r.AskNames
 		if len(n) != len(r.Asks) {
 			n = r.Asks

@@ -29,7 +29,7 @@ func (m *Model) pathsTarget() (string, bool) {
 	if !ok || !strings.HasPrefix(r.target, "doc:rfx-") {
 		return "", false
 	}
-	return strings.TrimPrefix(r.target, "doc:"), true
+	return rowDoc(r.target), true
 }
 
 // showPaths opens the path log and the next moves of an Ask.

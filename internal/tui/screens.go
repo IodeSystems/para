@@ -919,7 +919,7 @@ func (m *Model) rowsResults(p *page, w int) []row {
 		r = append(r, dim("  Meaning search did not answer: "+strings.TrimPrefix(p.degraded, "exact only: ")))
 	}
 	if len(p.hits) == 0 {
-		r = append(r, dim("  Nothing matches. Try fewer words, or search by a name."))
+		r = append(r, dim("  Nothing matches. Try fewer words, or search by a name. c adds it to the inbox."))
 	}
 	for _, h := range p.hits {
 		flag := ""
@@ -1084,7 +1084,11 @@ func (m *Model) rowsAgenda(w int) []row {
 		if it.Kind == ops.AgendaDue && it.Detail != "" {
 			post += "  " + stWarn.Render(it.Detail)
 		}
-		x := link("doc:"+it.ID, pre, titleOr(it.Title, it.ID), post, w)
+		// A goal date says which date it is: a goal can appear on two days.
+		if (it.Kind == ops.AgendaGoal || it.Kind == ops.AgendaException) && it.Detail != "" {
+			post += "  " + stDim.Render(it.Detail)
+		}
+		x := link("doc:"+it.ID+rowSep+string(it.Kind)+it.Date, pre, titleOr(it.Title, it.ID), post, w)
 		// A dated row keeps the actions of its kind: the same as in value order.
 		if q, ok := m.findQuestion(it.ID); ok {
 			x.kind, x.id, x.proposed = "question", it.ID, q.HasProposal

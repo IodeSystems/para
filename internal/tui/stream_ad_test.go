@@ -292,7 +292,8 @@ func TestHelpListsAKeyOnce(t *testing.T) {
 			continue
 		}
 		f := strings.Fields(l)
-		if section && len(f) > 1 && len(f[0]) == 1 {
+		// A wrapped line has nothing in the key column.
+		if section && len(f) > 1 && len(f[0]) == 1 && len(l) > 13 && strings.TrimSpace(l[:13]) != "" {
 			if seen[f[0]] {
 				t.Errorf("key %q listed twice on one screen:\n%s", f[0], d.plainFrame())
 			}

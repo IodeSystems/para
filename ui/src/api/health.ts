@@ -16,6 +16,7 @@ const HealthDoc = graphql(/* GraphQL */ `
             due
             findings {
               kind
+              label
               severity
               id
               title

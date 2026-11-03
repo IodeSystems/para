@@ -22,7 +22,7 @@ func TestFrictionReportPage(t *testing.T) {
 		d := newDrv(t, v, size[0], size[1])
 		d.key("4")
 		d.key(d.keyFor("act:friction"))
-		for _, want := range []string{"Friction by reason", "capacity (1 ask)", "hops per ask"} {
+		for _, want := range []string{"Friction by reason", "capacity (1 ask)", "per ask"} {
 			if !d.has(want) {
 				t.Fatalf("%v: no %q:\n%s", size, want, d.plainFrame())
 			}

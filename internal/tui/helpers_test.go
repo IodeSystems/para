@@ -228,7 +228,7 @@ func (d *drv) has(sub string) bool { return strings.Contains(d.plainFrame(), sub
 func (d *drv) keyFor(id string) string {
 	d.t.Helper()
 	for code, t := range d.m.keymap {
-		if t == id {
+		if t == id || strings.HasPrefix(t, id+rowSep) {
 			return code
 		}
 	}

@@ -85,6 +85,13 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
   const options = question?.options ?? []
   const choice = text.trim() !== '' ? '' : (picked ?? question?.recommended ?? '')
   const ok = (choice !== '' || text.trim() !== '') && (!decision || why.trim() !== '')
+  // blocked says why Record answer is off, so the button never looks dead.
+  const blocked =
+    choice === '' && text.trim() === ''
+      ? 'Pick an option or write an answer.'
+      : decision && why.trim() === ''
+        ? 'A decision needs a reason. Write it in the Reason box.'
+        : ''
 
   return (
     <Frame
@@ -123,9 +130,16 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
       actions={
         <>
           <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={answer.isPending || !ok}>
-            Record answer
-          </Button>
+          {blocked && (
+            <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1, pl: 1 }}>
+              {blocked}
+            </Typography>
+          )}
+          <span title={blocked || undefined}>
+            <Button type="submit" variant="contained" disabled={answer.isPending || !ok}>
+              Record answer
+            </Button>
+          </span>
         </>
       }
     >
@@ -177,6 +191,9 @@ function AnswerDialog({ id, onDone }: { id: string; onDone: (m: string) => void 
           value={why}
           onChange={(e) => setWhy(e.target.value)}
           required={decision}
+          helperText={
+            decision ? 'A decision keeps its reason, so it can be checked later.' : undefined
+          }
           fullWidth
         />
         <Typography variant="subtitle2">Sources (optional)</Typography>
@@ -585,8 +602,8 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
           {isQuestion
             ? 'With text the agent answers it in words or proposes a fix; empty, it proposes an answer with sources.'
             : 'With text the agent answers in words or proposes a fix: rewrite, retype, split, drop, or add context. Empty, it adds context and sources.'}{' '}
-          Every change is a proposal you check; every claim has a source.{' '}
-          Needs a runner set up on this machine; otherwise the work waits under Agent work.
+          Every change is a proposal you check; every claim has a source. Needs a runner set up on
+          this machine; otherwise the work waits under Agent work.
         </Typography>
       </Stack>
     </Frame>

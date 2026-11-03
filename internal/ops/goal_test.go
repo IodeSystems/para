@@ -128,7 +128,7 @@ func TestGoalWatchesHealthAndAgenda(t *testing.T) {
 	ag := must(t, Agenda, d, AgendaInput{Days: 3})
 	found := false
 	for _, it := range ag.Items {
-		if it.Kind == AgendaGoal && it.ID == proj && it.Overdue && strings.Contains(it.Detail, "pivot") {
+		if it.Kind == AgendaGoal && it.ID == proj && it.Overdue && strings.Contains(it.Detail, "change of course") {
 			found = true
 		}
 	}

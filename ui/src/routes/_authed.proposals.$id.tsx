@@ -34,6 +34,9 @@ function ProposalPage() {
     <DataState q={q}>
       {(d) => {
         const p = d.proposal
+        const isPending = (it: (typeof d.items)[number]) => it.state === 'pending'
+        const pending = d.items.filter(isPending)
+        const decided = d.items.filter((it) => !isPending(it))
         return (
           <>
             <PageTitle>{p.title || id}</PageTitle>
@@ -41,7 +44,10 @@ function ProposalPage() {
               <StateChip state={p.status} />
               <StatusChip tone="quiet" label={`revision ${p.revision}`} />
               <StatusChip tone="quiet" label={`by ${p.proposedBy}`} />
-              <StatusChip tone="quiet" label={`${p.pending} of ${p.itemCount} to decide`} />
+              <StatusChip
+                tone="quiet"
+                label={p.pending === 0 ? 'all decided' : `${p.pending} to decide`}
+              />
             </Stack>
             {p.error && (
               <Alert severity="error" sx={{ mb: 2 }}>
@@ -81,22 +87,34 @@ function ProposalPage() {
                 )}
               </Box>
             )}
-            <UntrustedNote />
+            <UntrustedNote id={id} />
             {p.status === 'sent_back' && (
               <Alert severity="info" sx={{ mb: 2 }}>
                 Sent back. The agent revises it and files a new revision. Wake an agent with{' '}
                 <code>{d.reviewCommand.replace(/^para review/, 'para proposal wait')}</code>.
               </Alert>
             )}
-            <Section title="Items" count={d.items.length}>
+            <Section title="To decide" count={pending.length}>
               <Stack spacing={1.5}>
                 <GroupApprove id={id} items={d.items} canReview={canReview} />
-                {d.items.map((it) => (
+                {pending.map((it) => (
                   <ItemCard key={it.id} proposalId={id} it={it} canReview={canReview} />
                 ))}
                 {d.items.length === 0 && <Empty>This revision has no items.</Empty>}
+                {d.items.length > 0 && pending.length === 0 && (
+                  <Empty>Nothing left to decide.</Empty>
+                )}
               </Stack>
             </Section>
+            {decided.length > 0 && (
+              <Details summary={`Decided (${decided.length})`}>
+                <Stack spacing={1.5}>
+                  {decided.map((it) => (
+                    <ItemCard key={it.id} proposalId={id} it={it} canReview={canReview} />
+                  ))}
+                </Stack>
+              </Details>
+            )}
             {p.revision > 1 && <DiffSection id={id} />}
             <Section title="History" count={d.history.length}>
               <List dense disablePadding>
@@ -124,7 +142,7 @@ function ProposalPage() {
               </Typography>
               {d.source.error ? (
                 <Alert severity="warning">The source could not be read: {d.source.error}</Alert>
-              ) : (
+              ) : (d.source.body ?? '').trim() === '' ? null : (
                 <Box
                   component="pre"
                   tabIndex={0}
@@ -171,6 +189,9 @@ type ProposalData = NonNullable<ReturnType<typeof useProposal>['data']>
 type Item = ProposalData['items'][number]
 type Claim = { text: string; source: string }
 
+// ID_LIKE matches a document id, which a person does not read.
+const ID_LIKE = /^[a-z][a-z_]*-[0-9a-z]{8,}$/
+
 // GroupApprove offers one button per group of items that can be approved.
 function GroupApprove({ id, items, canReview }: { id: string; items: Item[]; canReview: boolean }) {
   const approve = useApprove()
@@ -216,7 +237,11 @@ function ClaimRows({ label, list }: { label: string; list: Claim[] }) {
   return (
     <>
       {list.map((c) => (
-        <Row key={c.text} label={label} text={`${c.text} [${c.source}]`} />
+        <Row
+          key={c.text}
+          label={label}
+          text={ID_LIKE.test(c.source) ? c.text : `${c.text} [${c.source}]`}
+        />
       ))}
     </>
   )
@@ -227,7 +252,6 @@ function ItemContent({ it }: { it: Item }) {
   return (
     <Box sx={{ my: 1 }}>
       <Row label="Kind" text={it.subtype} />
-      <Row label="People" text={it.people?.join(', ')} />
       <Row label="Channel" text={it.channel} />
       <Row label="Subject" text={it.subject} />
       <Row label="What" text={it.what} />
@@ -263,24 +287,30 @@ function Preview({ pv }: { pv: NonNullable<Item['preview']> }) {
           <Typography variant="caption" color="text.secondary">
             {c.new ? 'New' : 'Changes'}: {c.title || c.doc}
           </Typography>
-          <Box component="pre" sx={{ ...mono, m: 0, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
-            {c.lines.map((l, n) => {
-              const k = diffKind(l)
-              return (
-                <Box
-                  component="span"
-                  key={n}
-                  sx={{
-                    display: 'block',
-                    color:
-                      k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
-                  }}
-                >
-                  {l}
-                </Box>
-              )
-            })}
-          </Box>
+          <Details summary="Details">
+            <Box component="pre" sx={{ ...mono, m: 0, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+              {c.lines.map((l, n) => {
+                const k = diffKind(l)
+                return (
+                  <Box
+                    component="span"
+                    key={n}
+                    sx={{
+                      display: 'block',
+                      color:
+                        k === 'add'
+                          ? 'success.main'
+                          : k === 'del'
+                            ? 'error.main'
+                            : 'text.secondary',
+                    }}
+                  >
+                    {l}
+                  </Box>
+                )
+              })}
+            </Box>
+          </Details>
         </Box>
       ))}
       {pv.downstream.map((x) => (
@@ -290,15 +320,14 @@ function Preview({ pv }: { pv: NonNullable<Item['preview']> }) {
   )
 }
 
-const NOTE_KEY = 'para.untrustedNoteSeen'
-
-// UntrustedNote explains once per browser why evidence is marked. Dismissing it is remembered.
-function UntrustedNote() {
-  // Shown on the first proposal a browser opens, then never again: opening it counts as reading it.
+// UntrustedNote explains once per proposal why evidence is marked: at the top of the page, never
+// on each item. Opening a proposal counts as reading it.
+function UntrustedNote({ id }: { id: string }) {
   const [seen, setSeen] = useState(() => {
     try {
-      const was = window.localStorage.getItem(NOTE_KEY) === '1'
-      if (!was) window.localStorage.setItem(NOTE_KEY, '1')
+      const key = `para.untrustedNoteSeen.${id}`
+      const was = window.localStorage.getItem(key) === '1'
+      if (!was) window.localStorage.setItem(key, '1')
       return was
     } catch {
       return true

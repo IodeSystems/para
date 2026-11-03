@@ -140,7 +140,7 @@ func (m *Model) respond() tea.Cmd {
 		if r.kind == "work" {
 			id = r.id
 		} else {
-			id = m.snap.Replies[strings.TrimPrefix(r.target, "doc:")].ID
+			id = m.snap.Replies[rowDoc(r.target)].ID
 		}
 	}
 	if id == "" {

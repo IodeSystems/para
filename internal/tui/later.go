@@ -20,7 +20,7 @@ var (
 	actFind  = Target{ID: "act:find", Label: "Ask agent", Pref: 'f', Fixed: true}
 	actLater = Target{ID: "act:later", Label: "Later", Pref: 'l'}
 	actBack  = Target{ID: "act:later", Label: "Not later", Pref: 'l'}
-	actCut   = Target{ID: "act:cut", Label: "Cut", Pref: 'u'}
+	actCut   = Target{ID: "act:cut", Label: "Go ahead without it", Pref: 'u'}
 )
 
 // questionActLetters are the preferred letters of the question actions. A
@@ -268,7 +268,7 @@ func (m *Model) findTarget() (id, title string, ok bool) {
 	if !found || r.kind == "event" || !strings.HasPrefix(r.target, "doc:") {
 		return "", "", false
 	}
-	id = strings.TrimPrefix(r.target, "doc:")
+	id = rowDoc(r.target)
 	if !findableID(id) {
 		return "", "", false
 	}

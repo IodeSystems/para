@@ -286,7 +286,7 @@ func goalWatches(ctx context.Context, s store.Store, today string) ([]GoalWatch,
 		}
 		if pv := p.Pivot; pv != nil && pv.Date != "" {
 			out = append(out, GoalWatch{ID: doc.ID, Title: doc.Title, Kind: WatchPivot, Date: string(pv.Date),
-				Reason: fmt.Sprintf("pivot date %s: %s (%s)", ShortDate(string(pv.Date)), pv.Condition, pv.Action)})
+				Reason: fmt.Sprintf("date to decide on a change of course, %s: %s (%s)", ShortDate(string(pv.Date)), pv.Condition, pv.Action)})
 		}
 		for _, sg := range p.Signals {
 			due, _ := signalDue(sg, doc.Meta.Header().Created, today)
