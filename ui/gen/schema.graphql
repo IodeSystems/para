@@ -44,6 +44,8 @@ type ParaV1MutationNamespace {
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   gateCheck(body: para_GateCheckInputInput!): para_GateCheckOutput @derived(operationId: "gateCheck")
+  goalRank(body: para_GoalRankInputInput!): para_GoalRankOutput @derived(operationId: "goalRank")
+  goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
@@ -164,6 +166,7 @@ type ParaV1QueryNamespace {
   exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
   exceptionShow(id: String!): para_ExceptionShowOutput @derived(operationId: "exceptionShow")
   exportList: para_ExportListOutput @derived(operationId: "exportList")
+  goalCompare(ids: String): para_GoalCompareOutput @derived(operationId: "goalCompare")
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   health: para_HealthOutput @derived(operationId: "health")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
@@ -282,6 +285,7 @@ type para_AgendaItem {
 enum para_AgendaItemKind {
   due
   exception
+  goal
   meeting
   nudge
 }
@@ -534,6 +538,12 @@ type para_Claim {
 input para_ClaimInput {
   source: String!
   text: String!
+}
+
+type para_ConfidenceReading {
+  basis: String
+  date: String!
+  percent: Int!
 }
 
 input para_ConstraintAddInputInput {
@@ -897,6 +907,14 @@ type para_Downstream {
   title: String!
 }
 
+type para_Ecosystem {
+  costs: [para_Claim!]
+  gains: [para_Claim!]
+  keyHolder: Boolean
+  replaces: [String!]
+  reusable: [String!]
+}
+
 type para_Event {
   actor: String!
   doc: String!
@@ -1210,6 +1228,114 @@ type para_GateCheckOutput {
   item: String
   proposal: String
   reason: String
+}
+
+type para_GoalBrief {
+  alternatives: [para_OptionDetail!]
+  confidence: para_GoalConfidence
+  ecosystem: para_Ecosystem
+  extensions: [String!]
+  pivot: para_GoalPivot
+  rank: Int
+  signals: [para_Signal!]
+  unknowns: [para_Unknown!]
+  validation: para_GoalBriefValidation
+  why: para_GoalWhy
+}
+
+enum para_GoalBriefValidation {
+  active
+  idea
+  pivoted
+  stopped
+  validated
+}
+
+type para_GoalCompareOutput {
+  goals: [para_GoalCompareRow!]!
+}
+
+type para_GoalCompareRow {
+  alternatives: Int
+  basis: String
+  benefit: String
+  confidence: Int
+  cost: String
+  due: String
+  id: String!
+  keyHolder: Boolean
+  pivotAction: String
+  pivotDate: String
+  rank: Int
+  signals: [para_SignalState!]
+  status: String!
+  title: String!
+  unknowns: Int
+  validation: String
+  why: String
+}
+
+type para_GoalConfidence {
+  basis: String
+  history: [para_ConfidenceReading!]
+  percent: Int!
+}
+
+type para_GoalPivot {
+  action: para_GoalPivotAction!
+  benefit: para_Claim
+  condition: String!
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_Claim!]
+  cost: para_Claim
+  date: String
+  pros: [para_Claim!]
+  recommendation: Int
+}
+
+enum para_GoalPivotAction {
+  ask
+  change
+  stop
+}
+
+input para_GoalRankInputInput {
+  id: String!
+  rank: Int!
+}
+
+type para_GoalRankOutput {
+  id: String!
+  rank: Int!
+  rev: String!
+}
+
+input para_GoalSignalAddInputInput {
+  date: String
+  id: String!
+  source: String!
+  value: String!
+  what: String!
+}
+
+type para_GoalSignalAddOutput {
+  date: String!
+  id: String!
+  readings: Int!
+  rev: String!
+  what: String!
+}
+
+type para_GoalWhy {
+  benefit: para_Claim
+  confidence: Int
+  confidenceBasis: String
+  cons: [para_Claim!]
+  cost: para_Claim
+  pros: [para_Claim!]
+  recommendation: Int
+  text: String!
 }
 
 type para_GraphEdge {
@@ -2238,6 +2364,7 @@ type para_Meta {
   actor: String
   aliases: [String!]
   align: para_AlignResult
+  alternatives: JSON
   answered: String
   answeredBy: String
   appliesIn: [String!]
@@ -2252,7 +2379,7 @@ type para_Meta {
   checkedBy: String
   choice: String
   claimedBy: String
-  confidence: String
+  confidence: JSON
   contacts: [para_Contact!]
   context: JSON
   created: String!
@@ -2266,8 +2393,10 @@ type para_Meta {
   doc: String
   doneWhen: String
   due: String
+  ecosystem: JSON
   end: String
   ended: String
+  extensions: [String!]
   followed: [String!]
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
@@ -2287,6 +2416,7 @@ type para_Meta {
   outcome: para_MetaOutcome
   owner: String
   parent: String
+  pivot: JSON
   playbook: String
   policy: String
   policyText: String
@@ -2301,6 +2431,7 @@ type para_Meta {
   question: String
   queuedAt: String
   quietDays: Int
+  rank: Int
   recommended: String
   recur: String
   rejectedBy: String
@@ -2322,6 +2453,7 @@ type para_Meta {
   selfReported: Boolean
   selfServeCheck: String
   severity: String
+  signals: JSON
   source: para_Source
   sourceDoc: String
   sources: [String!]
@@ -2334,12 +2466,14 @@ type para_Meta {
   team: String
   turn: Int
   type: para_MetaType!
+  unknowns: JSON
   updated: String
   url: String
+  validation: String
   verified: Boolean
   verify: String
   visibility: para_MetaVisibility
-  why: String
+  why: JSON
   with: JSON
 }
 
@@ -2924,6 +3058,7 @@ type para_ProjectShowOutput {
 type para_ProjectView {
   area: String
   areaName: String
+  brief: para_GoalBrief
   doneWhen: String
   due: String
   folder: para_ProjectViewFolder!
@@ -4221,6 +4356,31 @@ type para_SessionView {
   vault: String!
 }
 
+type para_Signal {
+  everyDays: Int
+  expected: String
+  how: String
+  readings: [para_SignalReading!]
+  what: String!
+}
+
+type para_SignalReading {
+  date: String!
+  source: String!
+  value: String!
+}
+
+type para_SignalState {
+  due: String
+  everyDays: Int
+  expected: String
+  last: String
+  lastValue: String
+  overdue: Boolean
+  source: String
+  what: String!
+}
+
 type para_Similar {
   action: String!
   id: String!
@@ -4905,6 +5065,11 @@ type para_UndoneItem {
   summary: String!
   target: String
   title: String!
+}
+
+type para_Unknown {
+  link: String
+  text: String!
 }
 
 type para_ValueRow {

@@ -155,6 +155,14 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := HealthUndismiss.Run(t.Context(), d, HealthUndismissInput{ID: "task-x", Kind: HealthTaskNoDoneWhen})
 			return err
 		}},
+		{"goal_rank", func(d Deps) error {
+			_, err := GoalRank.Run(t.Context(), d, GoalRankInput{ID: "project-x", Rank: 1})
+			return err
+		}},
+		{"vault_upgrade", func(d Deps) error {
+			_, err := VaultUpgrade.Run(t.Context(), d, VaultUpgradeInput{DryRun: true})
+			return err
+		}},
 		{"respond", func(d Deps) error {
 			_, err := RequestRespond.Run(t.Context(), d, RequestRespondInput{ID: "x", Kind: RespondClarify, Text: "t"})
 			return err

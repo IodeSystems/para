@@ -34,10 +34,13 @@ const (
 	AgendaDue       AgendaKind = "due"
 	AgendaNudge     AgendaKind = "nudge"
 	AgendaException AgendaKind = "exception"
+	// AgendaGoal is a goal date that has come: a pivot date, or a signal
+	// reading that is due. Detail says which and why.
+	AgendaGoal AgendaKind = "goal"
 )
 
 // AgendaKinds lists every AgendaKind.
-var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException}
+var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal}
 
 // Enum lists the allowed values, for schema generation.
 func (AgendaKind) Enum() []string {
@@ -261,6 +264,18 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		items = append(items, AgendaItem{Kind: AgendaException, ID: e.ID, Title: e.Title, Date: string(e.ReviewBy), Overdue: late,
 			Detail: string(e.Kind), Who: []string{}})
 	}
+	watches, err := goalWatches(ctx, d.Store, d.Store.Now().Format(dateLayout))
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range watches {
+		late, ok := inWindow(g.Date)
+		if !ok {
+			continue
+		}
+		items = append(items, AgendaItem{Kind: AgendaGoal, ID: g.ID, Title: g.Title, Date: g.Date, Overdue: late,
+			Detail: g.Reason, Who: []string{}})
+	}
 	order, err := Order(ctx, d.Store)
 	if err != nil {
 		return nil, err
@@ -284,7 +299,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 // instant (so two meetings at "01:30" on the day the clocks go back keep their
 // real order), then kind and id.
 func sortAgenda(items []AgendaItem, pos map[string]int) {
-	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaMeeting: 3}
+	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaGoal: 3, AgendaMeeting: 4}
 	instant := func(it AgendaItem) time.Time {
 		t, _ := time.Parse(time.RFC3339, it.At)
 		return t

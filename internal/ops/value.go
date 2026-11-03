@@ -74,6 +74,9 @@ type ValueNode struct {
 	Hidden bool
 	// Proposal marks a question with an answer to check.
 	Proposal bool
+	// Rank is the owner's rank of a goal, 1 first; 0 is none. It breaks ties
+	// between two goals after their dates.
+	Rank int
 }
 
 // ValueRow is one listed item with the reason it is where it is.
@@ -232,8 +235,12 @@ func RankValue(nodes []ValueNode) ValueOrder {
 	rank := map[string]int{GroupIncident: 0, GroupDated: 1, GroupUndated: 2}
 	created := map[string]string{}
 	sev := map[string]string{}
+	goalRank := map[string]int{}
 	for _, n := range nodes {
 		created[n.ID], sev[n.ID] = n.Created, n.Sev
+		if n.Kind == KindGoal && n.Rank > 0 {
+			goalRank[n.ID] = n.Rank
+		}
 	}
 	slices.SortStableFunc(rows, func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
@@ -244,6 +251,13 @@ func RankValue(nodes []ValueNode) ValueOrder {
 		}
 		if a.Group == GroupDated {
 			if c := cmp.Compare(a.EffDue, b.EffDue); c != 0 {
+				return c
+			}
+		}
+		if a.Kind == KindGoal && b.Kind == KindGoal {
+			// The owner's rank settles a tie between goals; an unranked goal
+			// goes after a ranked one.
+			if c := cmp.Compare(rankKey(goalRank[a.ID]), rankKey(goalRank[b.ID])); c != 0 {
 				return c
 			}
 		}
@@ -367,7 +381,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 			if m.Status != model.ProjectActive {
 				continue
 			}
-			n.Kind, n.Due = KindGoal, string(m.Due)
+			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
 		case *model.Task:
 			if taskTerminal(m.Status) {
 				continue

@@ -54,6 +54,9 @@ type TickOutput struct {
 	// Nudges lists open requests whose next_nudge is today or earlier. Today and
 	// agenda show them; tick only names them.
 	Nudges []string `json:"nudges"`
+	// Goals lists the goals whose pivot date has come or whose signal reading
+	// is due, as "<id>: <reason>". The agenda shows them with the reason.
+	Goals []string `json:"goals"`
 	// Changes counts the files reconcile found changed outside para.
 	Changes  int      `json:"changes"`
 	Warnings []string `json:"warnings"`
@@ -78,7 +81,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Goals: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -117,7 +120,26 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	if err := tickNudges(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: nudges: %w", err)
 	}
+	if err := tickGoals(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: goals: %w", err)
+	}
 	return out, nil
+}
+
+// tickGoals names the goals whose pivot date has come or whose signal reading
+// is due. Tick only names them, like nudges: the agenda holds the rows.
+func tickGoals(ctx context.Context, d Deps, out *TickOutput) error {
+	today := d.Store.Now().Local().Format(recur.Layout)
+	ws, err := goalWatches(ctx, d.Store, today)
+	if err != nil {
+		return err
+	}
+	for _, w := range ws {
+		if w.Date <= today {
+			out.Goals = append(out.Goals, w.ID+": "+w.Reason)
+		}
+	}
+	return nil
 }
 
 // tickRecurring makes the next occurrence of a recurring task that was marked

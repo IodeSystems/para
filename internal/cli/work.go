@@ -125,6 +125,7 @@ func newProjectCmd(l *loader) *cobra.Command {
 					pr.f("done when\t(none: set one with para project edit %s --done-when <text>)\n", p.ID)
 				}
 				writeLinks(pr, p.Links)
+				writeBrief(pr, p.Brief)
 				if len(out.Questions) > 0 {
 					pr.f("questions\n")
 					writeQuestions(pr, "  ", out.Questions)

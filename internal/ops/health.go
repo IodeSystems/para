@@ -40,6 +40,8 @@ const (
 	HealthExceptionNoPolicy  = "exception_no_policy"
 	HealthByUnknown          = "by_unknown"
 	HealthClosedWithOpen     = "closed_with_open_items"
+	HealthGoalNoSignal       = "goal_no_signal"
+	HealthPivotPassed        = "pivot_passed"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -50,6 +52,7 @@ var HealthKinds = []string{
 	HealthBlockerIncomplete, HealthAreaNoLinks,
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
 	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
+	HealthGoalNoSignal, HealthPivotPassed,
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -376,6 +379,7 @@ func (h *healther) scan() {
 			if strings.TrimSpace(m.DoneWhen) == "" {
 				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done_when", fmt.Sprintf("project_edit {id: %s, done_when: ...}", id))
 			}
+			h.brief(id, goal, m)
 			if h.openTasks[id] == 0 {
 				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {project: %s, ...}, or project_close {id: %s}", id, id))
 			}
@@ -438,6 +442,26 @@ func (h *healther) scan() {
 				h.add(HealthPolicyReviewDue, id, "", "policy exception review date is "+string(m.ReviewBy), fmt.Sprintf("exception_show {id: %s}, then ask the owner", id))
 			}
 		}
+	}
+}
+
+// brief flags an active goal whose brief defines signals and has read none, and
+// one whose pivot date has come. A goal that is stopped or pivoted is settled.
+func (h *healther) brief(id, goal string, m *model.Project) {
+	if m.Validation == model.ValidationStopped || m.Validation == model.ValidationPivoted {
+		return
+	}
+	if len(m.Signals) > 0 {
+		read := false
+		for _, s := range m.Signals {
+			read = read || len(s.Readings) > 0
+		}
+		if !read {
+			h.add(HealthGoalNoSignal, id, goal, "goal defines signals and none has a reading", fmt.Sprintf("read a signal with your own tools, then goal_signal_add {id: %s, what: ..., value: ..., source: ...}", id))
+		}
+	}
+	if pv := m.Pivot; pv != nil && pv.Date != "" && string(pv.Date) <= h.today {
+		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("pivot date %s has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or project_close {id: %s}", id, id))
 	}
 }
 

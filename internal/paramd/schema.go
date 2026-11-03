@@ -20,6 +20,8 @@ const (
 	kScope     // "[[name]]" or the word root
 	kSources   // list of {ref, quote} maps
 	kWhen      // a date YYYY-MM-DD, or an RFC 3339 time
+	kMap       // a mapping; its parts are checked by the goal brief rules (model.CheckBrief)
+	kMaps      // a list of mappings; its parts are checked by the goal brief rules
 )
 
 type field struct {
@@ -57,6 +59,7 @@ var (
 	questionKinds      = []string{"question", "decision", "input"}
 	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
+	validationStates   = []string{"idea", "validated", "active", "pivoted", "stopped"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
@@ -83,6 +86,17 @@ var typeFields = map[string][]field{
 		{Name: "area", Kind: kLink},
 		{Name: "done_when", Kind: kString},
 		{Name: "links", Kind: kPointers},
+		// The goal brief; all optional.
+		{Name: "why", Kind: kMap},
+		{Name: "confidence", Kind: kMap},
+		{Name: "alternatives", Kind: kMaps},
+		{Name: "unknowns", Kind: kMaps},
+		{Name: "signals", Kind: kMaps},
+		{Name: "pivot", Kind: kMap},
+		{Name: "extensions", Kind: kList},
+		{Name: "ecosystem", Kind: kMap},
+		{Name: "rank", Kind: kCount},
+		{Name: "validation", Kind: kEnum, Enum: validationStates},
 	},
 	"area": {
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
@@ -331,7 +345,7 @@ var kindNames = map[kind]string{
 	kString: "string", kDate: "date", kBool: "bool", kEnum: "enum", kList: "list", kLink: "link",
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
-	kScope: "scope", kSources: "sources", kWhen: "date_or_time",
+	kScope: "scope", kSources: "sources", kWhen: "date_or_time", kMap: "map", kMaps: "maps",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,

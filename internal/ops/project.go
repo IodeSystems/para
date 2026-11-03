@@ -22,7 +22,9 @@ type ProjectView struct {
 	DoneWhen string          `json:"done_when,omitempty"`
 	Due      model.Date      `json:"due,omitempty"`
 	Links    []model.Pointer `json:"links,omitempty"`
-	Rev      string          `json:"rev"`
+	// Brief is the goal brief, when the goal has one.
+	Brief *model.GoalBrief `json:"brief,omitempty"`
+	Rev   string           `json:"rev"`
 	// AreaName is the title of Area, for people.
 	AreaName string `json:"area_name,omitempty" nameof:"Area"`
 }
@@ -32,7 +34,11 @@ func projectView(d model.Document) (ProjectView, error) {
 	if !ok {
 		return ProjectView{}, fmt.Errorf("%s is a %s, not a project", d.ID, d.Meta.Header().Type)
 	}
-	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Due: p.Due, Links: p.Links, Rev: d.Rev}, nil
+	v := ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Due: p.Due, Links: p.Links, Rev: d.Rev}
+	if p.HasBrief() {
+		v.Brief = &p.GoalBrief
+	}
+	return v, nil
 }
 
 // getProject reads a document that must be a project.

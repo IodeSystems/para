@@ -38,6 +38,9 @@ func tickLine(v ops.TickOutput) string {
 		return fmt.Sprintf("%s\tskipped: %s", v.Vault, v.Skipped)
 	}
 	line := fmt.Sprintf("%s\tran\trevived %d\trequests %d\tjournals %d\tnudges %d\tchanges %d", v.Vault, len(v.Revived), len(v.Requests), len(v.Journals), len(v.Nudges), v.Changes)
+	if len(v.Goals) > 0 {
+		line += fmt.Sprintf("\tgoals %d", len(v.Goals))
+	}
 	if v.Proposed > 0 {
 		line += fmt.Sprintf("\t%d proposed: add tick to request.surfaces in .para/vault.properties to queue them, or run para request accept", v.Proposed)
 	}

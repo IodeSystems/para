@@ -198,6 +198,7 @@ func newRoot(l *loader) *cobra.Command {
 		newProposalCmd(l),
 		newReceiptCmd(l),
 		newAlignCmd(l),
+		newGoalCmd(l),
 		newGateCmd(l),
 		newHookCmd(l),
 		newSimilarCmd(l),

@@ -27,6 +27,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"type", strs(Types), paramd.Types},
 		{"fidelity", strs(Fidelities), paramd.Fidelities()},
 		{"project.status", strs(ProjectStatuses), paramd.FieldEnum("project", "status")},
+		{"project.validation", strs(Validations), paramd.FieldEnum("project", "validation")},
 		{"area.status", strs(AreaStatuses), paramd.FieldEnum("area", "status")},
 		{"pointer.kind", strs(PointerKinds), paramd.ItemFieldEnum("area", "links", "kind")},
 		{"task.status", strs(TaskStatuses), paramd.FieldEnum("task", "status")},

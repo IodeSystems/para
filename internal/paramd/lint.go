@@ -393,6 +393,21 @@ func (l *linter) checkValue(fd field, v any) {
 		case m[2] != "":
 			bad("%q must not carry a block id", s)
 		}
+	case kMap:
+		if _, ok := v.(map[string]any); !ok {
+			bad("must be a mapping")
+		}
+	case kMaps:
+		list, ok := v.([]any)
+		if !ok {
+			bad("must be a list of mappings")
+			return
+		}
+		for i, e := range list {
+			if _, ok := e.(map[string]any); !ok {
+				bad("item %d must be a mapping", i+1)
+			}
+		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
 	case kLinkList:

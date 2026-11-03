@@ -101,6 +101,8 @@ type Project struct {
 	Deferral `yaml:",inline"`
 	// Links point at plans, repos, and docs that live elsewhere.
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	// GoalBrief is the optional brief (goalbrief.go). A small goal needs none.
+	GoalBrief `yaml:",inline"`
 }
 
 // SomedayWord is the defer_until value for deferred with no date.

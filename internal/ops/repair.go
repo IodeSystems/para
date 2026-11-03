@@ -22,6 +22,11 @@ import (
 // check the vault makes at write time, run here so a preview and a refusal read
 // alike.
 func checkDoc(d model.Document) error {
+	if p, ok := d.Meta.(*model.Project); ok {
+		if err := p.CheckBrief(); err != nil {
+			return fmt.Errorf("%s: %w", d.ID, err)
+		}
+	}
 	b, err := model.Render(d)
 	if err != nil {
 		return err

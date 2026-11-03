@@ -80,7 +80,7 @@ type Meta struct {
 	Blocks          []string           `json:"blocks,omitempty"`
 	NextNudge       string             `json:"next_nudge,omitempty"`
 	Playbook        string             `json:"playbook,omitempty"`
-	Why             string             `json:"why,omitempty"`
+	Why             *jsonValue         `json:"why,omitempty"`
 	By              string             `json:"by,omitempty"`
 	Source          *model.Source      `json:"source,omitempty"`
 	AppliesIn       []string           `json:"applies_in,omitempty"`
@@ -144,7 +144,7 @@ type Meta struct {
 	Request         string             `json:"request,omitempty"`
 	Sources         []string           `json:"sources,omitempty"`
 	Verify          string             `json:"verify,omitempty"`
-	Confidence      string             `json:"confidence,omitempty"`
+	Confidence      *jsonValue         `json:"confidence,omitempty"`
 	Check           string             `json:"check,omitempty"`
 	CheckedBy       string             `json:"checked_by,omitempty"`
 	CheckNote       string             `json:"check_note,omitempty"`
@@ -157,6 +157,14 @@ type Meta struct {
 	DeferredReason  string             `json:"deferred_reason,omitempty"`
 	DeferredAfter   []string           `json:"deferred_after,omitempty"`
 	DeferredAdded   []string           `json:"deferred_added,omitempty"`
+	Alternatives    *jsonValue         `json:"alternatives,omitempty"`
+	Unknowns        *jsonValue         `json:"unknowns,omitempty"`
+	Signals         *jsonValue         `json:"signals,omitempty"`
+	Pivot           *jsonValue         `json:"pivot,omitempty"`
+	Extensions      []string           `json:"extensions,omitempty"`
+	Ecosystem       *jsonValue         `json:"ecosystem,omitempty"`
+	Rank            int                `json:"rank,omitempty"`
+	Validation      string             `json:"validation,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 }
@@ -176,6 +184,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Types)
 	addEnum(reg, model.Folders)
 	addEnum(reg, model.ProjectStatuses)
+	addEnum(reg, model.Validations)
+	addEnum(reg, model.PivotActions)
 	addEnum(reg, model.AreaStatuses)
 	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
