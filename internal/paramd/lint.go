@@ -189,8 +189,8 @@ func (l *linter) frontmatter() {
 	if typ == "policy_exception" && str(f.Frontmatter["policy"]) == "" && str(f.Frontmatter["policy_text"]) == "" {
 		l.errf(1, CodeField, "type policy_exception: needs field %q or %q", "policy", "policy_text")
 	}
-	if typ == "task" && f.Frontmatter["project"] == nil && f.Frontmatter["area"] == nil {
-		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	if typ == "task" {
+		l.task()
 	}
 	if typ == "task" {
 		if r := str(f.Frontmatter["recur"]); r != "" {
@@ -209,6 +209,39 @@ func (l *linter) frontmatter() {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")
 		}
+	}
+}
+
+// task checks what the field kinds cannot: a task has a project or an area,
+// except a meeting or a call; scheduled is a date or an RFC 3339 time; end
+// needs a timed scheduled and follows it.
+func (l *linter) task() {
+	fm := l.f.Frontmatter
+	kind := str(fm["kind"])
+	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" {
+		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	}
+	if fm["scheduled"] == nil {
+		if fm["end"] != nil {
+			l.errf(1, CodeFieldValue, "field %q: needs scheduled", "end")
+		}
+		return
+	}
+	switch x := fm["scheduled"].(type) {
+	case string:
+		if t, err := time.Parse(time.RFC3339Nano, x); err == nil {
+			if end := timestampOf(fm["end"]); !end.IsZero() && !end.After(t) {
+				l.errf(1, CodeFieldValue, "field %q: must be after scheduled", "end")
+			}
+			return
+		}
+	case time.Time:
+		if !isDate(x) {
+			return
+		}
+	}
+	if fm["end"] != nil {
+		l.errf(1, CodeFieldValue, "field %q: a date has no end; give scheduled a start time", "end")
 	}
 }
 
@@ -298,6 +331,10 @@ func (l *linter) checkValue(fd field, v any) {
 			}
 		default:
 			bad("must be an RFC 3339 time, got %v", v)
+		}
+	case kWhen:
+		if _, err := time.Parse(time.RFC3339Nano, str(v)); err != nil && !isDate(v) {
+			bad("must be a date YYYY-MM-DD or an RFC 3339 time such as 2026-11-01T09:00:00Z, got %v", v)
 		}
 	case kDate:
 		if !isDate(v) {

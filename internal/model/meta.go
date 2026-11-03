@@ -1,6 +1,7 @@
 package model
 
 import (
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -167,8 +168,35 @@ type Task struct {
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 	// Outcome says how a closed task ended (task_resolve). The note is under
 	// ## Outcome in the body.
-	Outcome  TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
+	Outcome TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
+	// Kind is what sort of work this is; empty means task. A kind commitment
+	// replaces the older commitment tag; both are read (EffectiveKind).
+	Kind TaskKind `yaml:"kind,omitempty" json:"kind,omitempty"`
+	// Scheduled is when the task happens, apart from Due: a date YYYY-MM-DD, or
+	// an RFC 3339 start with the zone it was booked in. End is the RFC 3339 end
+	// of a timed one. With names the people (person or group links) it is with.
+	Scheduled string `yaml:"scheduled,omitempty" json:"scheduled,omitempty"`
+	End       string `yaml:"end,omitempty" json:"end,omitempty"`
+	With      []Link `yaml:"with,omitempty" json:"with,omitempty"`
+	// RFX links the requests a meeting is meant to settle.
+	RFX      []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
 	Deferral `yaml:",inline"`
+}
+
+// CommitmentTag is the tag older vaults use for a commitment. Kind commitment
+// replaces it; both are read.
+const CommitmentTag = "commitment"
+
+// EffectiveKind is the kind of the task, reading the commitment tag as kind
+// commitment. An empty kind is task.
+func (t *Task) EffectiveKind() TaskKind {
+	switch {
+	case t.Kind != "":
+		return t.Kind
+	case slices.Contains(t.Tags, CommitmentTag):
+		return KindCommitment
+	}
+	return KindTask
 }
 
 // RFX is type: rfx.
@@ -390,6 +418,10 @@ type Incident struct {
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
 
+// Meeting is type: meeting, the older shape of a meeting. It is read, never
+// written: new meetings are tasks of kind meeting, and an adapter (internal/ops)
+// reads this type as one. A later vault upgrade rewrites the files.
+//
 // Meeting is type: meeting. Start and End are RFC 3339 times with a zone, as
 // written, so the zone the meeting was booked in survives. A requested meeting
 // has no time yet. With names the people or groups; RFX the requests the

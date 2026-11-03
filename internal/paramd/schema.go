@@ -19,6 +19,7 @@ const (
 	kCount     // integer, 1 or more
 	kScope     // "[[name]]" or the word root
 	kSources   // list of {ref, quote} maps
+	kWhen      // a date YYYY-MM-DD, or an RFC 3339 time
 )
 
 type field struct {
@@ -54,6 +55,7 @@ var (
 	receiptChecks      = []string{"unchecked", "verified", "wrong"}
 	questionStatus     = []string{"open", "answered", "dropped"}
 	questionKinds      = []string{"question", "decision", "input"}
+	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
@@ -112,6 +114,11 @@ var typeFields = map[string][]field{
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 		{Name: "outcome", Kind: kEnum, Enum: taskOutcome},
+		{Name: "kind", Kind: kEnum, Enum: taskKinds},
+		{Name: "scheduled", Kind: kWhen}, // a date, or an RFC 3339 start with a zone
+		{Name: "end", Kind: kTimestamp},
+		{Name: "with", Kind: kLinkList},
+		{Name: "rfx", Kind: kLinkList}, // kind meeting: the requests it settles
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},
@@ -324,7 +331,7 @@ var kindNames = map[kind]string{
 	kString: "string", kDate: "date", kBool: "bool", kEnum: "enum", kList: "list", kLink: "link",
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
-	kScope: "scope", kSources: "sources",
+	kScope: "scope", kSources: "sources", kWhen: "date_or_time",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,
@@ -338,7 +345,7 @@ var editableTypes = []string{
 // owns, per type. status is locked for every type.
 var editLocked = map[string][]string{
 	"request":    {"queued_at", "claimed_by", "lease_until", "resolution", "result_links", "followed"},
-	"task":       {"previous"},
+	"task":       {"previous", "rfx"},
 	"rfx":        {"targets", "question"},
 	"policy":     {"source", "verified"},
 	"transcript": {"source", "of"},

@@ -163,6 +163,25 @@ var TaskOutcomes = []TaskOutcome{OutcomeDone, OutcomePartial, OutcomeDropped, Ou
 // Enum lists the allowed values, for schema generation.
 func (TaskOutcome) Enum() []string { return enumStrings(TaskOutcomes) }
 
+// TaskKind is task.kind: what sort of work the task is. Empty means task.
+// A meeting is a task of kind meeting; a phone call, time worked with someone,
+// and something owed are kinds too.
+type TaskKind string
+
+const (
+	KindTask       TaskKind = "task"
+	KindMeeting    TaskKind = "meeting"
+	KindCall       TaskKind = "call"
+	KindWorkWith   TaskKind = "work_with"
+	KindCommitment TaskKind = "commitment"
+)
+
+// TaskKinds lists every TaskKind.
+var TaskKinds = []TaskKind{KindTask, KindMeeting, KindCall, KindWorkWith, KindCommitment}
+
+// Enum lists the allowed values, for schema generation.
+func (TaskKind) Enum() []string { return enumStrings(TaskKinds) }
+
 // RFXDirection is rfx.direction. Out: the user asks someone. In: someone asks
 // the user.
 type RFXDirection string
