@@ -20,7 +20,7 @@ const upgradePrefix = "Vault upgrade: "
 // ChangesInput is the input of changes. Since is a version; empty means the
 // versions after the one this session last saw, else the newest only.
 type ChangesInput struct {
-	Since string `json:"since,omitempty"`
+	Since string `json:"since,omitempty" query:"since"`
 }
 
 // ChangesOutput is the output of changes. Current is the newest version with

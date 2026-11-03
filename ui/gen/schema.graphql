@@ -154,7 +154,7 @@ type ParaV1QueryNamespace {
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
-  changes: para_ChangesOutput @derived(operationId: "changes")
+  changes(since: String): para_ChangesOutput @derived(operationId: "changes")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
