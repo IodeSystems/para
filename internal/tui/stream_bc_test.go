@@ -47,8 +47,8 @@ func TestFindContextOnATaskRowAndSecondPressAppends(t *testing.T) {
 	d := newDrv(t, v, 120, 36)
 	d.key("3")
 	d.onRow("task", task)
-	if !strings.Contains(d.footer(), "Investigate") {
-		t.Fatalf("no Investigate on a task row: %s", d.footer())
+	if !strings.Contains(d.footer(), "Ask agent") {
+		t.Fatalf("no Ask agent on a task row: %s", d.footer())
 	}
 	d.key(d.keyFor("act:find"))
 	d.key("enter") // an empty hint
@@ -87,8 +87,8 @@ func TestFindContextOnOpenedTaskAndToday(t *testing.T) {
 	d.key("1")
 	d.onRow("task", task)
 	d.key("enter")
-	if !strings.Contains(d.footer(), "Investigate") {
-		t.Fatalf("no Investigate on an opened task: %s", d.footer())
+	if !strings.Contains(d.footer(), "Ask agent") {
+		t.Fatalf("no Ask agent on an opened task: %s", d.footer())
 	}
 	d.key(d.keyFor("act:find"))
 	d.key("enter")
@@ -106,7 +106,7 @@ func TestFindContextOnOpenedTaskAndToday(t *testing.T) {
 	if r, _ := d.m.current(); r.target != "act:health" {
 		t.Fatalf("never reached the health row:\n%s", d.plainFrame())
 	}
-	if strings.Contains(d.footer(), "Investigate") {
-		t.Errorf("Investigate on a row that is no item: %s", d.footer())
+	if strings.Contains(d.footer(), "Ask agent") {
+		t.Errorf("Ask agent on a row that is no item: %s", d.footer())
 	}
 }

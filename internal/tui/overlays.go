@@ -313,7 +313,7 @@ var actionHelp = map[string]string{
 	"act:reject":    "reject the proposed answer, with a reason the agent reads",
 	"act:drop":      "drop the question, with a reason: tasks that waited on it stop waiting",
 	"act:ask":       "ask a person: makes an ask; para sends nothing",
-	"act:find":      "send the item (task, meeting, question, ask, goal, agent work) to an agent to investigate; the hint may be empty. You check the proposal. A second press adds the hint to the open work",
+	"act:find":      "ask an agent about the item (task, meeting, question, ask, goal, agent work); the text may be empty, then it investigates. The agent answers in words or proposes a fix; you check every proposal. A second press adds the text to the open work. When it replies, p responds",
 	"act:later":     "put it off until a date or someday; it leaves the Agenda and next and still blocks what depends on it. On a put-off row it brings it back",
 	"act:cut":       "cut one dependency so the work can go ahead without it; the reason is recorded as an assumption",
 	"act:resolve":   "close the task: done (enter keeps it), partial, dropped, duplicate, or superseded; partial and the last two can make follow-up tasks that waiting items move to",

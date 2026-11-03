@@ -65,7 +65,7 @@ func (m *Model) rows(w int) ([]row, []Target) {
 	rs, acts := m.rowsRaw(w)
 	for i, r := range rs {
 		id := strings.TrimPrefix(r.target, "doc:")
-		if r.draw == nil || id == r.target || r.kind == "event" || (!m.snap.looking(id) && !m.snap.Working[id]) {
+		if r.draw == nil || id == r.target || r.kind == "event" || (!m.snap.looking(id) && !m.snap.Working[id] && m.snap.replyLine(id) == "") {
 			continue
 		}
 		draw := r.draw
@@ -73,7 +73,11 @@ func (m *Model) rows(w int) ([]row, []Target) {
 			rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("Agent working") }
 			continue
 		}
-		rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("agent looking") }
+		if m.snap.looking(id) {
+			rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("agent looking") }
+			continue
+		}
+		rs[i].draw = func(k KeyFn) string { return draw(k) + "  " + stGood.Render("Agent replied") }
 	}
 	return rs, acts
 }
@@ -293,6 +297,9 @@ func (m *Model) docActionsFor(p *page) []Target {
 	}
 	if findableID(p.id) {
 		acts = append(append([]Target{}, actFind), acts...)
+		if _, ok := m.snap.Replies[p.id]; ok {
+			acts = append([]Target{actRespond}, acts...)
+		}
 	}
 	return acts
 }
@@ -311,6 +318,10 @@ func (m *Model) relayout() {
 
 	if p := m.docPage(); p != nil {
 		rd := m.renderDoc(p)
+		if line := m.snap.replyLine(p.id); line != "" && !m.zoom {
+			body = append(body, stGood.Render(truncate(line, max(m.w-2, 10)))+stDim.Render("  (p: respond)"))
+			h = max(h-1, 1)
+		}
 		p.scroll = max(0, min(p.scroll, max(len(rd.Lines)-h, 0)))
 		end := min(p.scroll+h, len(rd.Lines))
 		body = append(body, rd.Lines[p.scroll:end]...)

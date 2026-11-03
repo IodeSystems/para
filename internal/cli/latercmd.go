@@ -149,7 +149,7 @@ func newInvestigateCmd(l *loader) *cobra.Command {
 		Use:  "investigate <id> [--hint <text>]",
 		Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.InvestigateInput) {
-			fs.StringVar(&in.Hint, "hint", "", "where the agent should look, in words, such as \"check the wiki\" (optional)")
+			fs.StringVar(&in.Hint, "hint", "", "ask the agent about the item, or where to look (optional; empty: investigate)")
 			fs.StringVar(&in.Runner, "runner", "", "install id that may claim the work; default as request add")
 		},
 		Bind: func(args []string, in *ops.InvestigateInput) error { in.ID = args[0]; return nil },

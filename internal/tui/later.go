@@ -17,7 +17,7 @@ import (
 var (
 	actDrop  = Target{ID: "act:drop", Label: "Drop", Pref: 'p'}
 	actAsk   = Target{ID: "act:ask", Label: "Ask person", Pref: 's'}
-	actFind  = Target{ID: "act:find", Label: "Investigate", Pref: 'f', Fixed: true}
+	actFind  = Target{ID: "act:find", Label: "Ask agent", Pref: 'f', Fixed: true}
 	actLater = Target{ID: "act:later", Label: "Later", Pref: 'l'}
 	actBack  = Target{ID: "act:later", Label: "Not later", Pref: 'l'}
 	actCut   = Target{ID: "act:cut", Label: "Cut", Pref: 'u'}
@@ -278,24 +278,31 @@ func (m *Model) findTarget() (id, title string, ok bool) {
 // looking reports whether open agent work looks for context for the item.
 func (s Snapshot) looking(id string) bool { return s.Looking[id] }
 
-// findContext queues agent work that finds context for the item, or adds the
-// hint to the work that is open. The hint may be left empty.
+// replyLine is the "Agent replied" text of an item whose Ask-agent work is
+// finished, or "" when it has none and none is open.
+func (s Snapshot) replyLine(id string) string {
+	r, ok := s.Replies[id]
+	if !ok || s.Looking[id] {
+		return ""
+	}
+	return "Agent replied: " + truncate(oneLine(r.Reply), 200)
+}
+
+// findContext ("Ask agent") queues agent work about the item, or adds the
+// text to the work that is open. The text may be left empty: investigate.
 func (m *Model) findContext() tea.Cmd {
 	id, title, ok := m.findTarget()
 	if !ok {
-		m.setHint("Move to a task, meeting, question, ask, goal, or agent work to investigate it.")
+		m.setHint("Move to a task, meeting, question, ask, goal, or agent work to ask an agent about it.")
 		return nil
 	}
-	what := "The agent files a proposal that adds context and sources to it. You check it."
-	switch {
-	case strings.HasPrefix(id, "question-"):
-		what = "The agent proposes an answer with sources. You check it; the question stays open."
-	case m.snap.looking(id):
-		what = "An agent is looking already. The hint goes into its work."
+	what := "With text the agent answers in words or proposes a fix (rewrite, retype, split, drop, add context). Empty: it finds context and sources. You check every proposal."
+	if m.snap.looking(id) {
+		what = "An agent is looking already. Your text goes into its work."
 	}
 	lines := []string{"  " + titleOr(title, id), "  " + what}
-	steps := []promptStep{{label: "what should the agent look into? (optional; for example: check the wiki, search #platform): ", optional: true}}
-	return m.askForLines("Investigate", lines, steps, func(v []string) tea.Cmd {
+	steps := []promptStep{{label: "ask the agent about this (empty: investigate): ", optional: true}}
+	return m.askForLines("Ask agent", lines, steps, func(v []string) tea.Cmd {
 		env := m.env
 		return func() tea.Msg {
 			o, err := ops.Investigate.Run(context.Background(), env.Deps, ops.InvestigateInput{ID: id, Hint: v[0]})
@@ -304,7 +311,7 @@ func (m *Model) findContext() tea.Cmd {
 			}
 			verb := "Queued agent work " + o.Request + " for"
 			if o.Appended {
-				verb = "Added your hint to " + o.Request + " for"
+				verb = "Added your text to " + o.Request + " for"
 			}
 			return doneMsg{text: fmt.Sprintf("%s %q. It is listed under Agent work.", verb, titleOr(title, id)), reload: true}
 		}

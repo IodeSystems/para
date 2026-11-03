@@ -371,7 +371,7 @@ func questionInvestigateCmd(l *loader) *cobra.Command {
 		Use:  "investigate <id> [--how <text>]",
 		Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.InvestigateInput) {
-			fs.StringVar(&in.Hint, "how", "", "where the agent should look, in words, such as \"check the wiki\"")
+			fs.StringVar(&in.Hint, "how", "", "ask the agent about the question, or where to look (optional)")
 			fs.StringVar(&in.Runner, "runner", "", "install id that may claim the work; default as request add")
 		},
 		Bind: func(args []string, in *ops.InvestigateInput) error { in.ID = args[0]; return nil },

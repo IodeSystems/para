@@ -16,6 +16,7 @@ const (
 	findEvidencePrefix = "Find evidence: "
 	findContextPrefix  = "Find context: " // the old title, still read
 	investigatePrefix  = "Investigate: "
+	askPrefix          = "Ask: "
 	hintsHeading       = "Hints"
 )
 
@@ -26,7 +27,27 @@ var investigable = []model.Type{
 
 // isFindTitle reports whether a request title was made by investigate.
 func isFindTitle(title string) bool {
-	return strings.HasPrefix(title, findEvidencePrefix) || strings.HasPrefix(title, findContextPrefix) || strings.HasPrefix(title, investigatePrefix)
+	return strings.HasPrefix(title, findEvidencePrefix) || strings.HasPrefix(title, findContextPrefix) || strings.HasPrefix(title, investigatePrefix) || strings.HasPrefix(title, askPrefix)
+}
+
+// replyNote is the owner-facing note of finished find work: the text of its
+// last Result section, cut to a short length. Empty when the work is not a done
+// find or has no result.
+func replyNote(title, body string, r *model.Request) string {
+	if r.Status != model.RequestDone || !isFindTitle(title) {
+		return ""
+	}
+	var note string
+	for _, sec := range strings.Split("\n"+body, "\n## ")[1:] {
+		head, text, _ := strings.Cut(sec, "\n")
+		if strings.HasPrefix(head, "Result") {
+			note = strings.TrimSpace(text)
+		}
+	}
+	if rs := []rune(note); len(rs) > 400 {
+		note = string(rs[:400]) + "..."
+	}
+	return note
 }
 
 // investigating maps the id of each item that queued or claimed agent work
@@ -59,7 +80,7 @@ func openFind(title string, r *model.Request) bool {
 // InvestigateInput is the input of investigate.
 type InvestigateInput struct {
 	ID     string `json:"id"`
-	Hint   string `json:"hint,omitempty"`   // where to look, in words: "check the wiki", "search #platform"
+	Hint   string `json:"hint,omitempty"`   // the owner's text: a question, a correction, or where to look. Empty: investigate
 	Runner string `json:"runner,omitempty"` // install id that may claim; default as request_add
 }
 
@@ -73,7 +94,16 @@ type InvestigateOutput struct {
 	Appended bool                `json:"appended"`
 }
 
-func findInstruction(id string, question bool) string {
+func findInstruction(id string, question, asked bool) string {
+	if asked {
+		return "Ask about " + id + ".\n\nThe owner wrote text about this item (see Ask below); the item may be wrong, mistyped, or missing context. " +
+			"Read the item and the text. Gather context and sources with your own tools; stay read-only outside para. " +
+			"Answer the text in words in your result, or propose a fix: rewrite it (doc_edit), retype it (doc_retype, task_to_question), " +
+			"split it (task_add with parent), drop or duplicate it (task_resolve), or add context. " +
+			"Every change is a proposal for the owner to review; do not decide for the owner. " +
+			"Every claim cites a source (a URL or a document id, with a quote): a guess is not a source. " +
+			"If you find nothing, end the work and say so."
+	}
 	s := "Investigate " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
 		"stay read-only outside para. "
 	if question {
@@ -85,11 +115,11 @@ func findInstruction(id string, question bool) string {
 	return s + "No source, no item: a guess is not a source. If you find nothing, end the work and say so."
 }
 
-// Investigate queues agent work that finds context for an item. A question
+// Investigate ("Ask agent") queues agent work for an item. With text, the agent answers it or proposes a fix; without, it finds context. A question
 // gets a proposed answer with sources; any other item gets a proposal that adds
 // context and sources. The owner reviews it as always. One open run per item: a
 // second call adds its hint to the open request.
-var Investigate = definePerson("investigate", "Send an item (task, meeting, question, ask, goal, or agent work) to an agent to find context: queues agent work linked to the item, with an optional hint on where to look; if the item already has open work, the hint is added to it. The agent's result is a proposal for the owner to review", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
+var Investigate = definePerson("investigate", "Ask an agent about an item (task, meeting, question, ask, goal, or agent work): queues agent work linked to the item. With text the agent answers in words or proposes a fix (rewrite, retype, split, drop, add context); with no text it finds context and sources. If the item already has open work, the text is added to it. Changes are proposals for the owner to review", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
 	id := normID(in.ID)
 	if id == "" {
 		return InvestigateOutput{}, errors.New("id is empty")
@@ -119,12 +149,13 @@ var Investigate = definePerson("investigate", "Send an item (task, meeting, ques
 	if rid := looking[doc.ID]; rid != "" {
 		return appendHint(ctx, d, doc.ID, rid, hint)
 	}
-	body := findInstruction(doc.ID, typ == model.TypeQuestion)
-	if hint != "" {
-		body = appendSection(body, hintsHeading, "- "+hint)
-	}
+	body := findInstruction(doc.ID, typ == model.TypeQuestion, hint != "")
 	prefix := investigatePrefix
-	if typ == model.TypeQuestion {
+	switch {
+	case hint != "":
+		body = appendSection(body, "Ask", hint)
+		prefix = askPrefix
+	case typ == model.TypeQuestion:
 		prefix = findEvidencePrefix
 	}
 	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: prefix + doc.Title, Ask: body, Links: []string{doc.ID}, Runner: in.Runner})

@@ -133,13 +133,21 @@ func (m *Model) rowsActivity(w int) []row {
 // respond answers finished agent work under the cursor: change, clarify, or
 // revert. It reopens the work as the next turn.
 func (m *Model) respond() tea.Cmd {
-	r, ok := m.current()
-	if !ok || r.kind != "work" {
-		m.setHint("Move to finished agent work to respond.")
+	id := ""
+	if p := m.docPage(); p != nil {
+		id = m.snap.Replies[p.id].ID
+	} else if r, ok := m.current(); ok {
+		if r.kind == "work" {
+			id = r.id
+		} else {
+			id = m.snap.Replies[strings.TrimPrefix(r.target, "doc:")].ID
+		}
+	}
+	if id == "" {
+		m.setHint("Move to finished agent work, or an item the agent replied to, to respond.")
 		return nil
 	}
 	env := m.env
-	id := r.id
 	steps := []promptStep{{short: true, label: "change, clarify, or revert: ", value: "change"}, {label: "what to do: "}}
 	return m.askFor("Respond to agent work", steps, func(v []string) tea.Cmd {
 		return func() tea.Msg {

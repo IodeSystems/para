@@ -83,7 +83,7 @@ func TestQuestionActionsFromAnOpenedQuestion(t *testing.T) {
 		t.Fatalf("no document page:\n%s", d.plainFrame())
 	}
 	foot := d.footer()
-	for _, want := range []string{"Answer", "Drop", "Ask person", "Investigate", "Later", "Cut"} {
+	for _, want := range []string{"Answer", "Drop", "Ask person", "Ask agent", "Later", "Cut"} {
 		if !strings.Contains(foot, want) {
 			t.Errorf("footer lacks %q: %s", want, foot)
 		}
@@ -167,7 +167,7 @@ func TestFindContextQueuesAgentWork(t *testing.T) {
 	}
 	found := false
 	for _, r := range reqs.Items {
-		found = found || r.Title == "Find evidence: Which window?" && r.Status == model.RequestQueued
+		found = found || r.Title == "Ask: Which window?" && r.Status == model.RequestQueued
 	}
 	if !found {
 		t.Fatalf("no queued request: %+v", reqs.Items)

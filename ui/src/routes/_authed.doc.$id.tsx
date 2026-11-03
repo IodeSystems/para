@@ -10,6 +10,7 @@ import { useState } from 'react'
 import { useCopyText, useDoc, useDocFields } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
+import { AgentReplyNote } from '@/components/FindContext'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { hitKindLabel } from '@/lib/hitkind'
@@ -85,6 +86,7 @@ function Doc() {
               </Typography>
             )}
           </Stack>
+          <AgentReplyNote id={d.id} />
           {d.meta.source?.url && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>

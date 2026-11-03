@@ -188,8 +188,8 @@ func TestInvestigateQueuesLinkedWork(t *testing.T) {
 	}
 	r := must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
 	rm := r.Meta.(*model.Request)
-	if r.Title != "Find evidence: Which port does prod use?" || len(rm.Links) != 1 || rm.Links[0].Target() != q ||
-		!strings.Contains(r.Body, "- check the wiki, search #platform") || !strings.Contains(r.Body, "Propose an answer") ||
+	if r.Title != "Ask: Which port does prod use?" || len(rm.Links) != 1 || rm.Links[0].Target() != q ||
+		!strings.Contains(r.Body, "## Ask\n\ncheck the wiki, search #platform") || !strings.Contains(r.Body, "doc_retype") ||
 		!strings.Contains(r.Body, "a guess is not a source") {
 		t.Errorf("request = %+v %s", r.Title, r.Body)
 	}
@@ -207,7 +207,7 @@ func TestInvestigateQueuesLinkedWork(t *testing.T) {
 		t.Errorf("third = %+v", o3)
 	}
 	r = must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
-	if n := strings.Count(r.Body, "## Hints"); n != 1 || !strings.Contains(r.Body, "- check the wiki, search #platform\n- also ask in #ops") {
+	if n := strings.Count(r.Body, "## Hints"); n != 1 || !strings.Contains(r.Body, "- also ask in #ops") {
 		t.Errorf("body after second press:\n%s", r.Body)
 	}
 	if n := len(must(t, RequestList, d, RequestListInput{}).Items); n != 1 {
@@ -232,14 +232,11 @@ func TestInvestigateAcceptsEachType(t *testing.T) {
 		o := must(t, Investigate, d, InvestigateInput{ID: id, Hint: "wiki"})
 		r := must(t, RequestShow, d, RequestShowInput{ID: o.Request}).Doc
 		rm := r.Meta.(*model.Request)
-		want := "Investigate: "
-		if name == "question" {
-			want = "Find evidence: "
-		}
+		want := "Ask: "
 		if !strings.HasPrefix(r.Title, want) || len(rm.Links) != 1 || rm.Links[0].Target() != id {
 			t.Errorf("%s: request = %q %v", name, r.Title, rm.Links)
 		}
-		if name != "question" && !strings.Contains(r.Body, "File a proposal that adds") {
+		if !strings.Contains(r.Body, "propose a fix") {
 			t.Errorf("%s: body = %s", name, r.Body)
 		}
 	}
@@ -474,5 +471,45 @@ func TestDeferAfterWithDateReturnsWhenBothMet(t *testing.T) {
 	azClock = azNow.AddDate(0, 0, 9)
 	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 1 {
 		t.Errorf("did not return on the date: %v", got)
+	}
+}
+
+// With no text, investigate keeps its titles and instruction. The Ask title is
+// read as find work, and a done find shows its resolution note as a reply.
+func TestInvestigateEmptyAndReply(t *testing.T) {
+	d, proj := laterVault(t)
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Fix it"}).ID
+	oq := must(t, Investigate, d, InvestigateInput{ID: q})
+	ot := must(t, Investigate, d, InvestigateInput{ID: task})
+	if r := must(t, RequestShow, d, RequestShowInput{ID: oq.Request}).Doc; r.Title != "Find evidence: Which port?" {
+		t.Errorf("question title = %q", r.Title)
+	}
+	if r := must(t, RequestShow, d, RequestShowInput{ID: ot.Request}).Doc; r.Title != "Investigate: Fix it" || !strings.Contains(r.Body, "adds the context") {
+		t.Errorf("task = %q %s", r.Title, r.Body)
+	}
+	if !isFindTitle("Ask: x") || !isFindTitle("Find context: x") || isFindTitle("Work on: x") {
+		t.Error("isFindTitle")
+	}
+	ask := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Wrong type"}).ID, Hint: "should this be a question?"})
+	doc := must(t, RequestShow, d, RequestShowInput{ID: ask.Request}).Doc
+	for _, v := range must(t, RequestList, d, RequestListInput{}).Items {
+		if v.Reply != "" {
+			t.Errorf("open work has a reply: %+v", v)
+		}
+	}
+	doc.Body = appendSection(doc.Body, "Result", "Yes: retype it. Source: question-x.")
+	doc.Meta.(*model.Request).Status = model.RequestDone
+	if _, err := d.Store.Update(ctx, doc); err != nil {
+		t.Fatal(err)
+	}
+	var got RequestView
+	for _, v := range must(t, RequestList, d, RequestListInput{}).Items {
+		if v.ID == doc.ID {
+			got = v
+		}
+	}
+	if got.Reply != "Yes: retype it. Source: question-x." {
+		t.Errorf("reply = %q", got.Reply)
 	}
 }

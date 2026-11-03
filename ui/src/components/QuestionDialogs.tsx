@@ -541,7 +541,7 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
   const isQuestion = id.startsWith('question-')
   return (
     <Frame
-      title="Investigate"
+      title="Ask agent"
       onSubmit={() =>
         find.mutate(
           { id, hint: hint.trim() },
@@ -549,8 +549,8 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
             onSuccess: (o) => {
               onDone(
                 o.appended
-                  ? 'Added your hint to the agent work that is open.'
-                  : 'Queued agent work to investigate.',
+                  ? 'Added your text to the agent work that is open.'
+                  : 'Queued agent work to ask the agent.',
               )
               close()
             },
@@ -561,7 +561,7 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
         <>
           <Button onClick={close}>Cancel</Button>
           <Button type="submit" variant="contained" disabled={find.isPending}>
-            {looking ? 'Add the hint' : 'Send to an agent'}
+            {looking ? 'Add the text' : 'Ask the agent'}
           </Button>
         </>
       }
@@ -569,11 +569,11 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
       <Stack spacing={1.5} sx={{ pt: 1 }}>
         {find.isError && <Alert severity="error">{errorText(find.error)}</Alert>}
         {looking && (
-          <Alert severity="info">An agent is looking already. Your hint goes into its work.</Alert>
+          <Alert severity="info">An agent is looking already. Your text goes into its work.</Alert>
         )}
         <Typography sx={{ overflowWrap: 'anywhere' }}>{doc.data?.title ?? ''}</Typography>
         <TextField
-          label="What should the agent look into? (optional; for example: check the wiki, search #platform)"
+          label="Ask the agent about this (empty: investigate)"
           value={hint}
           onChange={(e) => setHint(e.target.value)}
           multiline
@@ -583,8 +583,9 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
         />
         <Typography variant="caption" color="text.secondary">
           {isQuestion
-            ? 'The agent proposes an answer with its sources. You check it as you check any answer.'
-            : 'The agent files a proposal that adds context and sources to the item. You check it as you check any proposal.'}{' '}
+            ? 'With text the agent answers it in words or proposes a fix; empty, it proposes an answer with sources.'
+            : 'With text the agent answers in words or proposes a fix: rewrite, retype, split, drop, or add context. Empty, it adds context and sources.'}{' '}
+          Every change is a proposal you check; every claim has a source.{' '}
           Needs a runner set up on this machine; otherwise the work waits under Agent work.
         </Typography>
       </Stack>

@@ -22,6 +22,7 @@ const RequestListDoc = graphql(/* GraphQL */ `
             delegates
             resolution
             turn
+            reply
           }
         }
       }
@@ -103,6 +104,19 @@ export function useLooking(): Set<string> {
   const q = useRequests()
   const out = new Set<string>()
   for (const r of q.data ?? []) if (r.investigates) for (const l of r.links ?? []) out.add(l)
+  return out
+}
+
+// useReplies maps an item id to the finished Ask-agent work that replied about it: the work's id
+// and its resolution note. Derived from the request list; an item with open work has no reply.
+export function useReplies(): Map<string, { request: string; reply: string }> {
+  const q = useRequests()
+  const open = useLooking()
+  const out = new Map<string, { request: string; reply: string }>()
+  for (const r of q.data ?? []) {
+    if (!r.reply) continue
+    for (const l of r.links ?? []) if (!open.has(l) && !out.has(l)) out.set(l, { request: r.id, reply: r.reply })
+  }
   return out
 }
 

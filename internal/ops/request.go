@@ -60,6 +60,9 @@ type RequestView struct {
 	// Resolution is how the last turn ended. Turn counts responses.
 	Resolution model.RequestResolution `json:"resolution,omitempty"`
 	Turn       int                     `json:"turn,omitempty"`
+	// Reply is the resolution note of finished Ask-agent or investigate work:
+	// the items in Links then show "Agent replied". Respond on this request.
+	Reply string `json:"reply,omitempty"`
 }
 
 // ContextDoc is one document a request links as context. Required says a rule
@@ -101,6 +104,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 	}
 	v.Investigates = openFind(d.Title, r)
 	v.Delegates = openWork(d.Title, r)
+	v.Reply = replyNote(d.Title, d.Body, r)
 	return v
 }
 

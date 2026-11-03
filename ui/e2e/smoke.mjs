@@ -1125,26 +1125,26 @@ try {
   await deployRow.getByText(/waiting on question/).waitFor({ state: 'detached' })
   check(true, 'the task is unblocked after the answer')
 
-  // Investigate: an optional hint, one open run per item, and the row says an agent is looking.
+  // Ask agent: optional text (empty: investigate), one open run per item, and the row says an agent is looking.
   const findRow = rp.getByRole('listitem').filter({ hasText: 'Deploy the service' }).first()
   await findRow.getByRole('button', { name: /^Actions for/ }).click()
-  await rp.getByRole('menuitem', { name: /^Investigate/ }).click()
-  const fc = rp.getByRole('dialog', { name: 'Investigate' })
-  await fc.getByRole('button', { name: 'Send to an agent' }).click()
+  await rp.getByRole('menuitem', { name: /^Ask agent/ }).click()
+  const fc = rp.getByRole('dialog', { name: 'Ask agent' })
+  await fc.getByRole('button', { name: 'Ask the agent' }).click()
   await fc.waitFor({ state: 'hidden' })
   await findRow.getByText('Agent looking').waitFor()
-  check(true, 'Investigate with an empty hint queues work and the row says Agent looking')
+  check(true, 'Ask agent with empty text queues work and the row says Agent looking')
   await findRow.getByRole('button', { name: /^Actions for/ }).click()
-  await rp.getByRole('menuitem', { name: /^Investigate/ }).click()
-  const fc2 = rp.getByRole('dialog', { name: 'Investigate' })
+  await rp.getByRole('menuitem', { name: /^Ask agent/ }).click()
+  const fc2 = rp.getByRole('dialog', { name: 'Ask agent' })
   await fc2.getByText('An agent is looking already').waitFor()
-  await fc2.getByLabel(/^What should the agent look into/).fill('check the wiki')
-  await fc2.getByRole('button', { name: 'Add the hint' }).click()
+  await fc2.getByLabel(/^Ask the agent about this/).fill('check the wiki')
+  await fc2.getByRole('button', { name: 'Add the text' }).click()
   await fc2.waitFor({ state: 'hidden' })
   const findWork = JSON.parse(para(...v, 'request', 'list', '--json')).items.filter((r) =>
     r.title.startsWith('Investigate: Deploy the service'),
   )
-  check(findWork.length === 1, 'a second press adds the hint to the open work, not a new request')
+  check(findWork.length === 1, 'a second press adds the text to the open work, not a new request')
 
   // Give to agent: queues work linked to the task, the row says Agent working, a second press
   // adds the hint. Then Resolve as partial with a follow-up.

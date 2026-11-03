@@ -4121,6 +4121,7 @@ type para_RequestDetail {
   linkNames: [String!]
   links: [String!]
   queuedAt: String!
+  reply: String
   resolution: para_RequestDetailResolution
   runner: String!
   status: para_RequestDetailStatus!
@@ -4215,6 +4216,7 @@ type para_RequestView {
   linkNames: [String!]
   links: [String!]
   queuedAt: String!
+  reply: String
   resolution: para_RequestViewResolution
   runner: String!
   status: para_RequestViewStatus!
