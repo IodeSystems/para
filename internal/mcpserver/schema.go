@@ -202,7 +202,7 @@ var metaProps = map[string]schema{
 	"why":           {"type": "string", "description": "Why you make this write. Required. Stored in the receipt"},
 	"sources":       {"type": "array", "items": schema{"type": "string"}, "description": "URLs or document ids this write rests on"},
 	"verify":        {"type": "string", "description": "How the owner can check it: a link, or a check they can do"},
-	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. A low-confidence write is refused: file a proposal"},
+	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. Say low when you doubt the write; it is stored in the receipt"},
 	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
 	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
 }

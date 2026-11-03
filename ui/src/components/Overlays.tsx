@@ -22,7 +22,6 @@ import { useAreas } from '@/api/areas'
 import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
 import { SimilarHint } from '@/components/SimilarHint'
 import { usePeople } from '@/api/people'
-import { useOpenProposals } from '@/api/proposals'
 import { useWork } from '@/api/work'
 import { useRequestAdd } from '@/api/requests'
 import { useRfxReply } from '@/api/rfx'
@@ -30,7 +29,6 @@ import { errorText } from '@/client/gqlClient'
 import { Pick, type Option } from '@/components/Pick'
 import { Frame, useClose } from '@/components/OverlayFrame'
 import { NoteDialogs } from '@/components/NoteDialogs'
-import { ProposalDialogs } from '@/components/ProposalDialogs'
 import { QuestionDialogs } from '@/components/QuestionDialogs'
 import { TaskDialogs } from '@/components/TaskDialogs'
 import { EXTRA_SCREENS, TABS } from '@/lib/keys'
@@ -51,7 +49,6 @@ export function Overlays() {
       {s.help && <HelpDialog />}
       {s.triage && <TriageDialog id={s.triage} onDone={setToast} />}
       {s.reply && <ReplyDialog id={s.reply} onDone={setToast} />}
-      <ProposalDialogs s={s} onDone={setToast} />
       <NoteDialogs s={s} onDone={setToast} />
       <QuestionDialogs s={s} onDone={setToast} />
       <TaskDialogs s={s} onDone={setToast} />
@@ -222,7 +219,6 @@ function NavDrawer() {
   const close = useClose()
   const path = useRouterState({ select: (st) => st.location.pathname })
   const navigate = useNavigate()
-  const { open } = useOpenProposals()
   return (
     <Drawer open onClose={close} anchor="left" aria-label="Screens">
       <Box sx={{ width: 280 }} role="navigation">
@@ -239,14 +235,7 @@ function NavDrawer() {
                 void navigate({ href: t.to })
               }}
             >
-              <ListItemText
-                primary={t.label}
-                secondary={
-                  t.to === '/review' && open.length > 0
-                    ? `${open.length} proposal${open.length === 1 ? '' : 's'} to decide`
-                    : t.hint
-                }
-              />
+              <ListItemText primary={t.label} secondary={t.hint} />
               {t.key && (
                 <Typography
                   component="kbd"

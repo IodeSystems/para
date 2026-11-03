@@ -98,28 +98,27 @@ func findInstruction(id string, question, asked bool) string {
 	if asked {
 		return "Ask about " + id + ".\n\nThe owner wrote text about this item (see Ask below); the item may be wrong, mistyped, or missing context. " +
 			"Read the item and the text. Gather context and sources with your own tools; stay read-only outside para. " +
-			"Answer the text in words in your result, or propose a fix: rewrite it (doc_edit), retype it (doc_retype, task_to_question), " +
+			"Answer the text in words in your result, or fix it: rewrite it (doc_edit), retype it (doc_retype, task_to_question), " +
 			"split it (task_add with parent), drop or duplicate it (task_resolve), or add context. " +
-			"Every change is a proposal for the owner to review; do not decide for the owner. " +
+			"Every change leaves a receipt; do not decide for the owner. " +
 			"Every claim cites a source (a URL or a document id, with a quote): a guess is not a source. " +
 			"If you find nothing, end the work and say so."
 	}
 	s := "Investigate " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
 		"stay read-only outside para. "
 	if question {
-		s += "Propose an answer with question_answer and at least one source (a URL or a document id, with a quote). " +
-			"Do not decide for the owner. "
+		s += "Answer with question_answer and at least one source (a URL or a document id, with a quote). " +
+			"Cite every source. "
 	} else {
-		s += "File a proposal that adds the context and sources to the item. "
+		s += "Add the context and sources to the item. "
 	}
 	return s + "No source, no item: a guess is not a source. If you find nothing, end the work and say so."
 }
 
 // Investigate ("Ask agent") queues agent work for an item. With text, the agent answers it or proposes a fix; without, it finds context. A question
-// gets a proposed answer with sources; any other item gets a proposal that adds
-// context and sources. The owner reviews it as always. One open run per item: a
+// gets an answer with sources; any other item gets context and sources added. One open run per item: a
 // second call adds its hint to the open request.
-var Investigate = definePerson("investigate", "Ask an agent about an item (task, meeting, question, ask, goal, or agent work): queues agent work linked to the item. With text the agent answers in words or proposes a fix (rewrite, retype, split, drop, add context); with no text it finds context and sources. If the item already has open work, the text is added to it. Changes are proposals for the owner to review", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
+var Investigate = definePerson("investigate", "Ask an agent about an item (task, meeting, question, ask, goal, or agent work): queues agent work linked to the item. With text the agent answers in words or fixes the item (rewrite, retype, split, drop, add context); with no text it finds context and sources. If the item already has open work, the text is added to it. Changes leave receipts", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
 	id := normID(in.ID)
 	if id == "" {
 		return InvestigateOutput{}, errors.New("id is empty")
@@ -183,34 +182,4 @@ func appendHint(ctx context.Context, d Deps, id, rid, hint string) (InvestigateO
 		}
 	}
 	return InvestigateOutput{ID: id, Request: doc.ID, Status: r.Status, Runner: r.Runner, Appended: true}, nil
-}
-
-// queueInvestigation queues find work linked to a proposal, for an investigation
-// requested on one of its items. The text is the hint. The agent answers in a
-// revision, with sources. One open find per proposal: a second request adds its
-// hint to the open one.
-func queueInvestigation(ctx context.Context, d Deps, p *proposal, item, text string) (string, error) {
-	hint := strings.Join(strings.Fields(text), " ")
-	if err := lintText("hint", hint); err != nil {
-		return "", err
-	}
-	hint = "item " + item + ": " + hint
-	looking, err := investigating(ctx, d.Store)
-	if err != nil {
-		return "", err
-	}
-	if rid := looking[p.doc.ID]; rid != "" {
-		out, err := appendHint(ctx, d, p.doc.ID, rid, hint)
-		return out.Request, err
-	}
-	body := fmt.Sprintf("Investigate %s.\n\nThe owner asked for an investigation of an item of this proposal; the hint says which. "+
-		"Gather context and sources with your own tools; stay read-only outside para. "+
-		"Answer in a revision: call proposal_revise with an answer for the open request and the findings in the item. "+
-		"No source, no finding: a guess is not a source. If you find nothing, answer declined and say so.", p.doc.ID)
-	body = appendSection(body, hintsHeading, "- "+hint)
-	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: investigatePrefix + p.doc.Title, Ask: body, Links: []string{p.doc.ID}})
-	if err != nil {
-		return "", err
-	}
-	return out.ID, nil
 }

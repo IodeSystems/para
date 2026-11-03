@@ -243,11 +243,11 @@ type RequestAddInput struct {
 	// person may leave it out; the first line of ask is then the title.
 	Title  string   `json:"title,omitempty"`
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
-	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, request, or proposal ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, or request ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 	// Context links what the work must follow: policies, conventions, a goal, documents.
 	Context []string `json:"context,omitempty"`
-	// Kind is free text. A rule in .para/proposals.yaml can require a policy or
+	// Kind is free text. A rule in .para/work.yaml can require a policy or
 	// a convention for a kind.
 	Kind string `json:"kind,omitempty"`
 }
@@ -313,7 +313,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
@@ -335,7 +335,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	} else if ok {
 		status = model.RequestQueued
 	}
-	rules, err := loadProposalRules(d)
+	rules, err := loadWorkRules(d)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
@@ -463,7 +463,7 @@ var RequestCancel = define("request_cancel", "Cancel an agent request that is no
 })
 
 // RequestAcceptOp is request_accept: a person-only op. No agent surface can
-// call it or list it, so an agent cannot accept its own proposal.
+// call it or list it, so an agent cannot accept its own request.
 var RequestAcceptOp = definePerson("request_accept", "Accept a proposed agent request into the queue. People only", RequestAccept)
 
 // RequestAccept moves a proposed request to the queue. The surface check for
@@ -734,8 +734,7 @@ type RequestRespondInput struct {
 }
 
 // RequestRespond reopens finished work as the next turn in one thread. History
-// stays in the body. Revert is a turn the agent carries out through ops: a
-// write that took review goes through a proposal.
+// stays in the body. Revert is a turn the agent carries out through ops.
 var RequestRespond = definePerson("request_respond", "Respond to finished agent work: change, clarify, or revert. It reopens the work as the next turn, for an agent to pick up. People only", func(ctx context.Context, d Deps, in RequestRespondInput) (RequestChangeOutput, error) {
 	if !slices.Contains(RespondKinds, in.Kind) {
 		return RequestChangeOutput{}, fmt.Errorf("kind %q: want change, clarify, or revert", in.Kind)
@@ -758,7 +757,7 @@ func respondTo(ctx context.Context, d Deps, in RequestRespondInput) (model.Docum
 	r.Turn++
 	text := strings.TrimSpace(in.Text)
 	if in.Kind == RespondRevert {
-		text += "\n\nRevert with receipt_revert, newest receipt first: receipt_list names them. A write that took review goes through a proposal."
+		text += "\n\nRevert with receipt_undo, newest receipt first: receipt_list names them."
 	}
 	doc.Body = appendSection(doc.Body, fmt.Sprintf("Response %d (%s)", r.Turn, in.Kind), text)
 	r.Status, r.Claimed, r.Lease, r.Resolution, r.Queued = model.RequestQueued, "", "", "", nowString(d.Store)

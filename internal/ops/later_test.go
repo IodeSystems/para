@@ -236,7 +236,7 @@ func TestInvestigateAcceptsEachType(t *testing.T) {
 		if !strings.HasPrefix(r.Title, want) || len(rm.Links) != 1 || rm.Links[0].Target() != id {
 			t.Errorf("%s: request = %q %v", name, r.Title, rm.Links)
 		}
-		if !strings.Contains(r.Body, "propose a fix") {
+		if !strings.Contains(r.Body, "fix it") {
 			t.Errorf("%s: body = %s", name, r.Body)
 		}
 	}
@@ -485,7 +485,7 @@ func TestInvestigateEmptyAndReply(t *testing.T) {
 	if r := must(t, RequestShow, d, RequestShowInput{ID: oq.Request}).Doc; r.Title != "Find evidence: Which port?" {
 		t.Errorf("question title = %q", r.Title)
 	}
-	if r := must(t, RequestShow, d, RequestShowInput{ID: ot.Request}).Doc; r.Title != "Investigate: Fix it" || !strings.Contains(r.Body, "adds the context") {
+	if r := must(t, RequestShow, d, RequestShowInput{ID: ot.Request}).Doc; r.Title != "Investigate: Fix it" || !strings.Contains(r.Body, "Add the context") {
 		t.Errorf("task = %q %s", r.Title, r.Body)
 	}
 	if !isFindTitle("Ask: x") || !isFindTitle("Find context: x") || isFindTitle("Work on: x") {

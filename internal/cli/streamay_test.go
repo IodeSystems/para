@@ -54,9 +54,6 @@ func TestAlignCommands(t *testing.T) {
 	if out := e.ok("align", "scope", proj.ID); !strings.Contains(out, task.ID) || !strings.Contains(out, "last aligned -") {
 		t.Fatalf("scope text = %q", out)
 	}
-	if _, _, err := e.run("align", "record", proj.ID, "--checked", "2", "--matched", "1", "--differ", "1"); err == nil {
-		t.Fatal("differ without a proposal was accepted")
-	}
 	out := e.ok("align", "record", proj.ID, "--checked", "2", "--matched", "2", "--unreachable", "jira")
 	if !strings.Contains(out, "Checked 2: 2 matched, 0 differ, 1 unreachable (jira)") {
 		t.Fatalf("record = %q", out)

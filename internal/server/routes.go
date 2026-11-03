@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"reflect"
@@ -163,16 +162,9 @@ type boundVault struct {
 	routes  *routeTable
 }
 
-// deps binds the caller. Authorize holds an approval to the approver's scopes:
-// proposal:review alone cannot cause a write the caller could not make.
+// deps binds the caller.
 func (b *boundVault) deps() ops.Deps {
-	return ops.Deps{Store: b.t.store.As(b.req.Principal.Name, b.surface), Authorize: func(op string) error {
-		scope, ok := b.routes.byOp[op]
-		if !ok || !b.req.Principal.Has(scope) {
-			return fmt.Errorf("%w: approving %s needs scope %s", ops.ErrPersonOnly, op, scope)
-		}
-		return nil
-	}}
+	return ops.Deps{Store: b.t.store.As(b.req.Principal.Name, b.surface)}
 }
 
 // apiError maps an op error to a status. Text reaches the client through the
@@ -181,7 +173,7 @@ func (t *Tenant) apiError(err error) error {
 	var lint *model.LintError
 	var path *fs.PathError
 	switch {
-	case errors.Is(err, ops.ErrPersonOnly), errors.Is(err, ops.ErrNeedsProposal):
+	case errors.Is(err, ops.ErrPersonOnly):
 		return huma.Error403Forbidden(t.public(err))
 	case errors.Is(err, model.ErrNotFound):
 		return huma.Error404NotFound(t.public(err))

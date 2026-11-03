@@ -88,7 +88,10 @@ export function QuestionRows({ list }: { list: Rows }) {
             <StatusChip tone="quiet" label={x.kind} />
             {x.agentLooking && <StatusChip tone="good" label="Agent looking" />}
             {x.deferred && (
-              <StatusChip tone="quiet" label={laterLabel(x.deferUntil, x.waitsOn, x.waitsOnNames)} />
+              <StatusChip
+                tone="quiet"
+                label={laterLabel(x.deferUntil, x.waitsOn, x.waitsOnNames)}
+              />
             )}
             {!x.deferred && x.readyWhy && <StatusChip tone="good" label={x.readyWhy} />}
             {(x.hasProposal || x.waitingOn.length > 0) && <StateChip {...questionState(x)} />}

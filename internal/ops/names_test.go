@@ -59,40 +59,6 @@ func TestNamesBesideIds(t *testing.T) {
 	}
 }
 
-func TestSummaryOfOpItem(t *testing.T) {
-	f := newPropFix(t)
-	person := must(t, OrgPersonAdd, f.owner, OrgAddInput{Name: "Priya Raman", Org: "acme.example"})
-	must(t, OrgPersonContactAdd, f.owner, PersonContactInput{ID: person.ID, Method: "email", Value: "priya@acme.example"})
-	id := f.file(
-		ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": "Order extra node pool", "assignee": person.ID, "due": "2026-11-03", "done_when": "The pool exists."}, Evidence: ev},
-		ItemInput{Kind: model.ItemOp, Op: "task_start", Input: map[string]any{"id": "x"}, Evidence: ev},
-		ItemInput{Kind: model.ItemOp, Op: "task_depends_add", Input: map[string]any{"id": "x"}, Evidence: ev},
-		mailItem("Hi."),
-		ItemInput{Kind: model.ItemExternal, Medium: "email", Target: "marcus.oyelaran@brightwater.example", Draft: "Hi.", Evidence: ev},
-	)
-	got := must(t, ProposalShow, f.owner, ProposalIDInput{ID: id})
-	want := []string{
-		"Add task: Order extra node pool, for Priya Raman, due Nov 3, in Portal",
-		"Start: x",
-		"Task depends add",
-		"Email to ada@acme.example",
-		"Email to Marcus Oyelaran",
-	}
-	for i, w := range want {
-		if got.Items[i].Summary != w {
-			t.Errorf("item %d summary %q, want %q", i+1, got.Items[i].Summary, w)
-		}
-	}
-	for _, it := range got.Items {
-		if strings.ContainsAny(it.Summary, "{}") {
-			t.Errorf("raw JSON in %q", it.Summary)
-		}
-	}
-	if got.Proposal.SourceName != "Sync notes" {
-		t.Errorf("source_name = %q", got.Proposal.SourceName)
-	}
-}
-
 func TestReadableSnippet(t *testing.T) {
 	name := func(id string) string {
 		if id == "person-priya-raman" {

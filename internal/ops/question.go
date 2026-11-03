@@ -629,19 +629,11 @@ type QuestionAnswerOutput struct {
 
 // QuestionAnswerInput gets Sources for an agent: see answerSources.
 
-// reviewerKey carries the person who approved a proposal item to the op the
-// item runs, so the answer it records names that person.
-type reviewerKey struct{}
-
-func withReviewer(ctx context.Context, actor string) context.Context {
-	return context.WithValue(ctx, reviewerKey{}, actor)
-}
-
 // agentSurface reports whether the caller is an agent: a surface that is not a
 // person's. An approved proposal item is not an agent: a person approved it.
 func agentSurface(d Deps) bool {
 	s := d.Store.Info().Surface
-	return !slices.Contains(PersonSurfaces, s) && s != surfaceProposal
+	return !slices.Contains(PersonSurfaces, s)
 }
 
 // answerParts checks choice, text, and why against the question and returns
@@ -689,7 +681,7 @@ func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (Quest
 	}
 	info := d.Store.Info()
 	agent := agentSurface(d)
-	sources, err := answerSources(ctx, d, in.Sources, agent || info.Surface == surfaceProposal)
+	sources, err := answerSources(ctx, d, in.Sources, agent)
 	if err != nil {
 		return QuestionAnswerOutput{}, err
 	}
@@ -708,14 +700,6 @@ func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (Quest
 	by := strings.Join(strings.Fields(in.By), " ")
 	if by == "" {
 		by = info.Actor
-	}
-	if info.Surface == surfaceProposal {
-		// A person approved the item: they answer, the agent proposed.
-		q.ProposedBy, q.ProposedSources, q.Proposed = info.Actor, sources, model.Date(today)
-		by, _ = ctx.Value(reviewerKey{}).(string)
-		if by == "" {
-			by = "owner"
-		}
 	}
 	return writeAnswer(ctx, d, doc, q, answerRecord{choice: choice, text: text, why: why, source: in.Source, sources: sources, by: by})
 }

@@ -41,12 +41,7 @@ func TestDoneWhen(t *testing.T) {
 		t.Fatalf("successor = %+v", v)
 	}
 
-	// A proposal item that names task_add must say it, and so must a hold action.
-	f := newPropFix(t)
-	item := ItemInput{Kind: model.ItemOp, Op: "task_add", Input: map[string]any{"project": f.proj, "title": "x"}, Evidence: ev}
-	if _, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "A", Source: f.source, Items: []ItemInput{item}}); err == nil {
-		t.Fatal("filed a task with no done_when")
-	}
+	// A hold action must say done_when.
 	mt := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{"person-ada-example"}, Start: "2026-11-05T10:00:00Z", End: "2026-11-05T10:30:00Z"}).ID
 	if _, err := MeetingHold.Run(ctx, agent, MeetingHoldInput{ID: mt, Actions: []HoldAction{{Title: "t", Project: proj}}}); err == nil {
 		t.Fatal("hold with an action lacking done_when")

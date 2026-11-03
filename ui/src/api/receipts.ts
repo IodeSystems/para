@@ -27,24 +27,6 @@ const ListDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const UndoneDoc = graphql(/* GraphQL */ `
-  query ProposalUndone {
-    para {
-      v1 {
-        proposalUndone {
-          items {
-            proposal
-            title
-            item
-            summary
-            target
-          }
-        }
-      }
-    }
-  }
-`)
-
 const ActivityDoc = graphql(/* GraphQL */ `
   query AgentActivity {
     para {
@@ -101,12 +83,16 @@ const CheckDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const RevertDoc = graphql(/* GraphQL */ `
-  mutation ReceiptRevert($body: para_ReceiptRevertInputInput!) {
+const UndoDoc = graphql(/* GraphQL */ `
+  mutation ReceiptUndo($body: para_ReceiptUndoInputInput!) {
     para {
       v1 {
-        receiptRevert(body: $body) {
-          doc
+        receiptUndo(body: $body) {
+          undone {
+            receipt
+            doc
+            rev
+          }
         }
       }
     }
@@ -139,20 +125,12 @@ export function useReceiptCheck() {
   })
 }
 
-export function useReceiptRevert() {
+export function useReceiptUndo() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (v: { id: string }) =>
-      need((await gqlClient.request(RevertDoc, { body: v })).para.v1.receiptRevert, 'result'),
+      need((await gqlClient.request(UndoDoc, { body: v })).para.v1.receiptUndo, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-export function useUndone() {
-  return useQuery({
-    queryKey: ['undone'],
-    queryFn: async () =>
-      need((await gqlClient.request(UndoneDoc)).para.v1.proposalUndone, 'undone').items,
   })
 }
 

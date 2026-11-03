@@ -8,6 +8,7 @@ const LABEL: Record<string, string> = {
   request: 'Agent work',
   inbox: 'Inbox',
   person: 'Person',
+  proposal: 'Legacy proposal',
 }
 
 export function hitKindLabel(kind: string): string {

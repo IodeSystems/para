@@ -9,36 +9,20 @@ import (
 	"github.com/iodesystems/parasolve/internal/paramd"
 )
 
-func TestRepairOpsRefuseAgent(t *testing.T) {
-	f := newPropFix(t)
+func TestRepairOpsRunFromAnAgent(t *testing.T) {
+	f := newAgentFix(t)
 	ctx := writeCtx(t)
-	for name, run := range map[string]func() error{
-		"doc_rename": func() error {
-			_, err := DocRename.Run(ctx, f.agent, DocRenameInput{ID: f.source, NewID: "note-new"})
-			return err
-		},
-		"doc_retype": func() error {
-			_, err := DocRetype.Run(ctx, f.agent, DocRetypeInput{ID: f.source, Type: model.TypeTeam, Fields: map[string]any{"org": "acme"}})
-			return err
-		},
-		"task_move": func() error {
-			_, err := TaskMove.Run(ctx, f.agent, TaskMoveInput{ID: "task-x", Project: f.proj})
-			return err
-		},
-		"doc_edit": func() error {
-			s := "x"
-			_, err := DocEdit.Run(ctx, f.agent, DocEditInput{ID: f.proj, Title: &s})
-			return err
-		},
-	} {
-		if err := run(); !errors.Is(err, ErrNeedsProposal) {
-			t.Errorf("%s from an agent: %v", name, err)
-		}
+	s := "Renamed goal"
+	if _, err := DocEdit.Run(ctx, f.agent, DocEditInput{ID: f.proj, Title: &s}); err != nil {
+		t.Fatalf("doc_edit from an agent: %v", err)
+	}
+	if rl := must(t, ReceiptList, f.owner, ReceiptListInput{Doc: f.proj}); len(rl.Items) != 1 || rl.Items[0].Op != "doc_edit" {
+		t.Fatalf("receipts = %+v", rl.Items)
 	}
 }
 
 func TestDocRenameRewritesLinks(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	other, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: "Other", Body: "See [[" + f.source + "]] and [[" + f.source + "#Heading|the sync]] and [[" + f.proj + "]]."})
 	if err != nil {
@@ -74,21 +58,8 @@ func TestDocRenameRewritesLinks(t *testing.T) {
 	mustLintClean(t, d)
 }
 
-func TestDocRenamePreview(t *testing.T) {
-	f := newPropFix(t)
-	other, _ := NoteAdd.Run(ctx, f.owner, NoteAddInput{Title: "Other", Body: "See [[" + f.source + "]]."})
-	pv := previewItem(ctx, f.owner, "claude", model.ProposalItem{ID: "i1", Op: "doc_rename", Input: map[string]any{"id": f.source, "new_id": "note-after"}})
-	if pv.Error != "" || len(pv.Changes) != 2 {
-		t.Fatalf("preview = %+v", pv)
-	}
-	if _, err := f.owner.Store.Get(ctx, f.source); err != nil {
-		t.Fatalf("preview wrote: %v", err)
-	}
-	_ = other
-}
-
 func TestDocRetypeKeepsExtras(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	n, _ := NoteAdd.Run(ctx, d, NoteAddInput{Title: "Logging rule", Body: "Text.", Area: ""})
 	// Missing required fields: refused.
@@ -142,7 +113,7 @@ func slicesHas(l []string, s string) bool {
 }
 
 func TestTaskMove(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	p2, _ := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: "Second", Owner: "Jordan Example", DoneWhen: "Done."})
 	a, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "A"})
@@ -166,7 +137,7 @@ func TestTaskMove(t *testing.T) {
 }
 
 func TestDocEditFieldLimitsAndConflict(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "Edit me"})
 	title, body := "Edited title", "Edited body."
@@ -202,7 +173,7 @@ func TestDocEditFieldLimitsAndConflict(t *testing.T) {
 }
 
 func TestDocEditJournalKeepsGenerated(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	createDoc(t, d, model.Document{ID: "2026-11-01", Folder: model.FolderJournal, Title: "2026-11-01",
 		Body: "Mine.\n\n%% para:begin events %%\nevents: 3\n%% para:end events %%",
@@ -232,7 +203,7 @@ func TestEditableFieldsNeverStatusOrIdentity(t *testing.T) {
 }
 
 func TestExceptionPolicyTextAndBy(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	if _, err := ExceptionAdd.Run(ctx, d, ExceptionAddInput{Kind: model.ExceptionWideEnoughFor, By: "x"}); err == nil {
 		t.Fatal("no policy and no policy_text")
@@ -259,7 +230,7 @@ func TestExceptionPolicyTextAndBy(t *testing.T) {
 }
 
 func TestAttemptAddAndNudge(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	d := f.owner
 	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "Chase"})
 	for i := 0; i < 2; i++ {

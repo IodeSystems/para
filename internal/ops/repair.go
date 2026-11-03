@@ -14,9 +14,8 @@ import (
 	"github.com/iodesystems/parasolve/internal/store"
 )
 
-// Repair ops. They exist so an agent never repairs a vault with a script: each is
-// risk review, so an agent files a proposal and the owner reads the computed
-// before and after. All writes go through the store.
+// Repair ops. They exist so an agent never repairs a vault with a script: each
+// leaves a receipt with the before and after. All writes go through the store.
 
 // checkDoc renders d and refuses it when lint reports an error. It is the same
 // check the vault makes at write time, run here so a preview and a refusal read
@@ -363,8 +362,7 @@ var journalBlockRe = regexp.MustCompile(`(?s)%% para:begin .*? %%.*?%% para:end 
 // ErrStale is an edit made from an old revision.
 var ErrStale = errors.New("the document changed since you opened it; open it again and redo the edit")
 
-// DocEdit changes the title, body, or declared fields of a document. It is risk
-// review: an agent files a proposal item that names it, and approval runs it.
+// DocEdit changes the title, body, or declared fields of a document.
 var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript); not id, type, status, or generated text. A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
 	if in.Title == nil && in.Body == nil && len(in.Fields) == 0 {
 		return DocEditOutput{}, errors.New("doc_edit: nothing to edit: give title, body, or fields")

@@ -31,7 +31,8 @@ export function laterLabel(
   waitsOnNames: readonly string[] | null | undefined,
 ): string {
   const parts: string[] = []
-  if (waitsOn && waitsOn.length > 0) parts.push(`waits on: ${nameList(waitsOn, waitsOnNames).join(', ')}`)
+  if (waitsOn && waitsOn.length > 0)
+    parts.push(`waits on: ${nameList(waitsOn, waitsOnNames).join(', ')}`)
   if (until) parts.push(`back ${until === 'someday' ? 'someday' : `on ${until}`}`)
   return `Later: ${parts.join(', ') || 'later'}`
 }

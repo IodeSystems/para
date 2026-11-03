@@ -39,9 +39,8 @@ func newAlignCmd(l *loader) *cobra.Command {
 			Flags: func(fs *pflag.FlagSet, in *ops.AlignRecordInput) {
 				fs.IntVar(&in.Checked, "checked", 0, "items compared with reality")
 				fs.IntVar(&in.Matched, "matched", 0, "items that matched")
-				fs.IntVar(&in.Differ, "differ", 0, "items that differ (needs --proposal)")
+				fs.IntVar(&in.Differ, "differ", 0, "items that differ ")
 				fs.StringArrayVar(&in.Unreachable, "unreachable", nil, "a source you could not reach (repeat)")
-				fs.StringVar(&in.Proposal, "proposal", "", "the proposal that holds the differences")
 			},
 			Bind: func(args []string, in *ops.AlignRecordInput) error { in.Scope = args[0]; return nil },
 			Text: func(w io.Writer, out ops.AlignRecordOutput) error {

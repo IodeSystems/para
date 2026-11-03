@@ -34,6 +34,7 @@ function Doc() {
   const copy = useCopyText()
   const fields = useDocFields(id)
   const [as, setAs] = useState<Para_CopyInputAs>('plain')
+  const legacy = q.data?.meta.type === 'proposal' // read-only: proposals no longer exist
   return (
     <DataState q={q}>
       {(d) => (
@@ -41,7 +42,7 @@ function Doc() {
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {(d.meta.type === 'note' || fields.data?.editable) && (
+                {!legacy && (d.meta.type === 'note' || fields.data?.editable) && (
                   <LinkButton
                     size="small"
                     variant="outlined"
@@ -54,24 +55,28 @@ function Doc() {
                     Edit
                   </LinkButton>
                 )}
-                <TextField
-                  select
-                  size="small"
-                  value={as}
-                  onChange={(e) => setAs(e.target.value as Para_CopyInputAs)}
-                  aria-label="Format to copy"
-                  sx={{ minWidth: 96 }}
-                >
-                  {FORMATS.map((f) => (
-                    <MenuItem key={f} value={f}>
-                      {f}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <CopyButton
-                  label="Copy"
-                  getText={async () => (await copy.mutateAsync({ id, as })).text}
-                />
+                {!legacy && (
+                  <>
+                    <TextField
+                      select
+                      size="small"
+                      value={as}
+                      onChange={(e) => setAs(e.target.value as Para_CopyInputAs)}
+                      aria-label="Format to copy"
+                      sx={{ minWidth: 96 }}
+                    >
+                      {FORMATS.map((f) => (
+                        <MenuItem key={f} value={f}>
+                          {f}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <CopyButton
+                      label="Copy"
+                      getText={async () => (await copy.mutateAsync({ id, as })).text}
+                    />
+                  </>
+                )}
               </Stack>
             }
           >

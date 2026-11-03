@@ -1,5 +1,4 @@
 import { useEffect, useRef, useSyncExternalStore } from 'react'
-import { useOpenProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
 import { useRequests } from '@/api/requests'
 import { useIncidents } from '@/api/areas'
@@ -24,13 +23,11 @@ export function useNotifications(vault: string): void {
     },
     () => notifyEnabled(vault) && notifySupported() && Notification.permission === 'granted',
   )
-  const { open, isSuccess: pOk } = useOpenProposals()
   const q = useQuestions()
   const r = useRequests()
   const inc = useIncidents()
-  const ready = pOk && q.isSuccess && r.isSuccess && inc.isSuccess
+  const ready = q.isSuccess && r.isSuccess && inc.isSuccess
   const prev = useRef<Counts | null>(null)
-  const proposals = open.length
   const answers = (q.data ?? []).filter((x) => x.status === 'open' && !!x.proposedAnswer).length
   const work = (r.data ?? []).filter((x) => workNeedsYou(x.resolution)).length
   const incidents = (inc.data ?? []).filter((x) => x.status === 'open').length
@@ -39,7 +36,6 @@ export function useNotifications(vault: string): void {
     if (!ready) return
     const next: Counts = {
       ...zeroCounts(),
-      proposal: proposals,
       answer: answers,
       work,
       incident: incidents,
@@ -54,5 +50,5 @@ export function useNotifications(vault: string): void {
         // Some browsers only allow notifications through a service worker; skip.
       }
     }
-  }, [ready, on, vault, proposals, answers, work, incidents])
+  }, [ready, on, vault, answers, work, incidents])
 }

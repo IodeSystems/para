@@ -23,11 +23,6 @@ import (
 // Deps is what an op may use. A surface builds it per call or per session.
 type Deps struct {
 	Store store.Store
-	// Authorize says whether the caller may cause op to run. An approved
-	// proposal item runs under the proposing agent, so the server uses this to
-	// keep the approver's own scopes in force. Nil allows every op: the CLI is
-	// the owner on this machine.
-	Authorize func(op string) error
 	// Changed, when set, returns a channel that closes at the next change of
 	// the vault, from any process. A waiting op blocks on it instead of
 	// polling files. Take it before reading state, so no change is missed.

@@ -146,7 +146,7 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 			return MeetingHoldOutput{}, fmt.Errorf("answers[%d]: %s is answered twice", i, id)
 		}
 		answered[id] = true
-		if _, err := answerSources(ctx, d, a.Sources, agentSurface(d) || d.Store.Info().Surface == surfaceProposal); err != nil {
+		if _, err := answerSources(ctx, d, a.Sources, agentSurface(d)); err != nil {
 			return MeetingHoldOutput{}, fmt.Errorf("answers[%d]: %w", i, err)
 		}
 		for f, v := range map[string]string{"text": a.Text, "why": a.Why} {

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"io"
 	"strings"
 
@@ -64,13 +63,16 @@ func newReceiptCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
-		opCommand(l, ops.ReceiptRevert, binding[ops.ReceiptRevertInput, ops.ReceiptRevertOutput]{
-			Use:  "revert <id>",
-			Args: cobra.ExactArgs(1),
-			Bind: func(args []string, in *ops.ReceiptRevertInput) error { in.ID = args[0]; return nil },
-			Text: func(w io.Writer, out ops.ReceiptRevertOutput) error {
-				_, err := fmt.Fprintf(w, "%s\treverted\n", out.Doc)
-				return err
+		opCommand(l, ops.ReceiptUndo, binding[ops.ReceiptUndoInput, ops.ReceiptUndoOutput]{
+			Use:  "undo <id>...",
+			Args: cobra.MinimumNArgs(1),
+			Bind: func(args []string, in *ops.ReceiptUndoInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.ReceiptUndoOutput) error {
+				p := &printer{w: w}
+				for _, u := range out.Undone {
+					p.f("%s\tundone\t%s\n", u.Doc, u.Receipt)
+				}
+				return p.err
 			},
 		}),
 	)

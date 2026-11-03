@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -369,12 +368,6 @@ func TestParity(t *testing.T) {
 			}
 			res := call(t, c, e.Name(), args)
 			text := textOf(t, res)
-			if e.Risk() == ops.RiskReview && !slices.Contains(ops.FlowOps, e.Name()) {
-				if !res.IsError || !strings.Contains(text, "file a proposal") {
-					t.Fatalf("a review op from an agent: %s", text)
-				}
-				return
-			}
 			if res.IsError {
 				if f := failingOutput(text, e); f {
 					return

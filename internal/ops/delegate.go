@@ -62,7 +62,7 @@ type TaskDelegateOutput struct {
 
 func delegateInstruction(id, doneWhen string) string {
 	s := "Work on " + id + ".\n\nRead the task. Do the work with your own tools. " +
-		"Take no external action without an approved proposal. " +
+		"Take no external action without the owner's go-ahead in chat. " +
 		"Report with a resolution and sources: end the work with request_done and say what you did, with the sources."
 	if doneWhen != "" {
 		s += "\n\n## Done when\n\n" + doneWhen

@@ -69,7 +69,7 @@ type Receipt struct {
 
 // AlignResult is the outcome of one align run. Checked, Matched, and Differ
 // count items of the vault; Unreachable names the sources the agent could not
-// read. Proposal is the proposal that holds the differences, when there were any.
+// read. Proposal is the legacy proposal that held the differences; it is read, never written.
 type AlignResult struct {
 	Checked     int      `yaml:"checked" json:"checked"`
 	Matched     int      `yaml:"matched" json:"matched"`
@@ -109,21 +109,21 @@ func RenderReceiptBody(c ReceiptContent) (string, error) {
 	if err := enc.Close(); err != nil {
 		return "", fmt.Errorf("model: receipt body: %w", err)
 	}
-	return "Written by para. The text below is the document before and after one write.\n\n" + proposalFence + receiptInfo + "\n" + b.String() + proposalFence, nil
+	return "Written by para. The text below is the document before and after one write.\n\n" + receiptFence + receiptInfo + "\n" + b.String() + receiptFence, nil
 }
 
 // ParseReceiptBody reads the fenced block of a receipt's body.
 func ParseReceiptBody(body string) (ReceiptContent, error) {
 	var c ReceiptContent
-	open := "\n" + proposalFence + receiptInfo + "\n"
+	open := "\n" + receiptFence + receiptInfo + "\n"
 	i := strings.Index("\n"+body, open)
 	if i < 0 {
 		return c, errors.New("model: receipt body: no para-receipt block")
 	}
 	rest := body[i+len(open)-1:]
-	end := strings.LastIndex(rest, "\n"+proposalFence)
+	end := strings.LastIndex(rest, "\n"+receiptFence)
 	if end < 0 {
-		end = strings.Index(rest, proposalFence)
+		end = strings.Index(rest, receiptFence)
 	}
 	if end < 0 {
 		return c, errors.New("model: receipt body: block is not closed")

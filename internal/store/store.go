@@ -33,15 +33,15 @@ type Info struct {
 type Store interface {
 	// Info returns the identity the Store was opened with.
 	Info() Info
-	// ActAs returns this Store acting for another actor and surface. An approved
-	// proposal item runs through it, under the actor that proposed it.
+	// ActAs returns this Store acting for another actor and surface. A background
+	// run uses it to act under the actor it serves.
 	ActAs(actor, surface string) Store
 	// Now returns the Store's clock, so lease times follow one clock.
 	Now() time.Time
 	// Config returns a vault.properties value, or "" when the key is unset.
 	Config(key string) (string, error)
 	// ConfigFile returns a file of the vault's .para directory, or nil when
-	// there is none, such as proposals.yaml.
+	// there is none, such as work.yaml.
 	ConfigFile(name string) ([]byte, error)
 
 	// SetConfig sets one key of vault.properties and keeps the other lines.
@@ -80,8 +80,7 @@ type Store interface {
 	// an egress event with the doc id and destination. Callers release content
 	// only after it returns.
 	Egress(ctx context.Context, doc, dest string) (egress.Decision, error)
-	// Record logs one event that no write logs by itself, such as a change of
-	// one item inside a proposal. It takes ids, states, and hashes, never content.
+	// Record logs one event that no write logs by itself, such as a receipt. It takes ids, states, and hashes, never content.
 	Record(ctx context.Context, op, doc, from, to, hash string) error
 	// Search returns up to q.Limit hits for q.Text that pass the filters, best
 	// first. It first brings

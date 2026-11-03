@@ -354,7 +354,7 @@ func TestQuestionsInScope(t *testing.T) {
 }
 
 func TestAgentDecisionNeedsWeighing(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	base := QuestionAddInput{Text: "Which path?", Project: f.proj, Kind: model.KindDecision}
 	bad := []struct {
 		name string

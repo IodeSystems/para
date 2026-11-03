@@ -16,7 +16,7 @@ import (
 // The path log of an Ask is its targets: each one is a try, with the medium,
 // when it was added and sent, and how it went. When an Ask stalls, rfx_paths
 // lists the next moves; rfx_path_add takes one as a new target with a reason.
-// Para never sends. An agent may draft a move as a proposal.
+// Para never sends. An agent may add a move with rfx_path_add.
 
 // contactStat is how often and how lately a person was asked, across all Asks.
 type contactStat struct {

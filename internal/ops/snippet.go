@@ -137,7 +137,7 @@ func journalHit(h *index.Hit) {
 // proposalHit rewrites a hit on a proposal: its file is a block of YAML with ids
 // in it, so the hit says what it is and where to read it.
 func proposalHit(h *index.Hit) {
-	h.Snippet, h.Marks = "A proposal from an agent. Open it to review its items.", nil
+	h.Snippet, h.Marks = "A legacy proposal. Read only.", nil
 }
 
 // readableHits fills the snippets of hits, and puts journal hits after the

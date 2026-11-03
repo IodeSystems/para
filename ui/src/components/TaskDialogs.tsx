@@ -5,7 +5,14 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useTask, useTaskAssign, useTaskBlock, useTaskDelegate, useTaskResolve, useTaskUpdate } from '@/api/tasks'
+import {
+  useTask,
+  useTaskAssign,
+  useTaskBlock,
+  useTaskDelegate,
+  useTaskResolve,
+  useTaskUpdate,
+} from '@/api/tasks'
 import { useWorking } from '@/api/requests'
 import { doneConfirm } from '@/lib/answer'
 import { errorText } from '@/client/gqlClient'
@@ -320,7 +327,7 @@ function DelegateDialog({ id, onDone }: { id: string; onDone: (m: string) => voi
         <Typography variant="body2" color="text.secondary">
           {working
             ? 'An agent is working on it already. A hint goes into its work.'
-            : 'Queues agent work linked to this task, with its done condition. The agent reports with sources and cannot act outside para without an approved proposal. You check what it reports.'}
+            : 'Queues agent work linked to this task, with its done condition. The agent reports with sources. You check what it reports.'}
         </Typography>
         <TextField
           label="Agent name (optional; default is the vault runner)"

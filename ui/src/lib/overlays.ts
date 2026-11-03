@@ -10,9 +10,6 @@ export type OverlaySearch = {
   request?: true
   triage?: string // inbox item id
   reply?: string // rfx id
-  decide?: string // proposal dialog: `<deny|hold>:<item id>`
-  itemreq?: string // proposal item id being asked for changes, a clarification, or an investigation
-  edit?: string // proposal item id being edited
   noteedit?: string // note id whose title and body are edited
   docedit?: string // id of any other document whose title, body, and fields are edited
   answer?: string // question id
@@ -48,9 +45,6 @@ export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
     request: flag(s.request),
     triage: id(s.triage),
     reply: id(s.reply),
-    decide: id(s.decide),
-    itemreq: id(s.itemreq),
-    edit: id(s.edit),
     noteedit: id(s.noteedit),
     docedit: id(s.docedit),
     answer: id(s.answer),
@@ -82,9 +76,6 @@ export const NO_OVERLAYS: OverlaySearch = {
   request: undefined,
   triage: undefined,
   reply: undefined,
-  decide: undefined,
-  itemreq: undefined,
-  edit: undefined,
   noteedit: undefined,
   docedit: undefined,
   answer: undefined,
@@ -109,11 +100,4 @@ export const NO_OVERLAYS: OverlaySearch = {
 
 export function anyOverlay(s: OverlaySearch): boolean {
   return Object.values(s).some((v) => v !== undefined)
-}
-
-// parseDecide splits a `decide` param into its action and item id.
-export function parseDecide(v: string): { action: string; item: string } | null {
-  const i = v.indexOf(':')
-  if (i <= 0 || i === v.length - 1) return null
-  return { action: v.slice(0, i), item: v.slice(i + 1) }
 }

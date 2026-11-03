@@ -2,13 +2,13 @@
 // holds a kind and a count only, never document text. No outside service: the Notification API
 // works while a tab or the installed app is open.
 
-export type NoticeKind = 'proposal' | 'answer' | 'work' | 'incident'
+export type NoticeKind = 'answer' | 'work' | 'incident'
 
 export type Counts = Record<NoticeKind, number>
 
-export const NOTICE_KINDS: NoticeKind[] = ['proposal', 'answer', 'work', 'incident']
+export const NOTICE_KINDS: NoticeKind[] = ['answer', 'work', 'incident']
 
-export const zeroCounts = (): Counts => ({ proposal: 0, answer: 0, work: 0, incident: 0 })
+export const zeroCounts = (): Counts => ({ answer: 0, work: 0, incident: 0 })
 
 // A request ended in a way that waits for the owner.
 export function workNeedsYou(resolution: string | null | undefined): boolean {
@@ -28,13 +28,12 @@ export function rises(prev: Counts, next: Counts): Notice[] {
 }
 
 const WORDS: Record<NoticeKind, [string, string]> = {
-  proposal: ['proposal filed', 'proposals filed'],
   answer: ['answer to check', 'answers to check'],
   work: ['agent work needs you', 'agent work items need you'],
   incident: ['incident opened', 'incidents opened'],
 }
 
-// noticeText is the whole text of a notification: "2 proposals filed".
+// noticeText is the whole text of a notification: "2 answers to check".
 export function noticeText(n: Notice): string {
   const [one, many] = WORDS[n.kind]
   return `${n.count} ${n.count === 1 ? one : many}`

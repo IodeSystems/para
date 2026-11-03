@@ -128,14 +128,14 @@ func (s *Server) requestWait(ctx context.Context, req mcp.CallToolRequest) (*mcp
 			return mcp.NewToolResultError(requestWaitTool + ": input: " + err.Error()), nil
 		}
 	}
-	limit := ops.DefaultProposalWait
+	limit := ops.DefaultWait
 	switch {
 	case in.TimeoutSeconds < 0:
 		return mcp.NewToolResultError(requestWaitTool + ": timeout_seconds is negative"), nil
 	case in.TimeoutSeconds > 0:
 		limit = time.Duration(in.TimeoutSeconds) * time.Second
 	}
-	if limit > ops.MaxProposalWait {
+	if limit > ops.MaxWait {
 		return mcp.NewToolResultError(requestWaitTool + ": timeout_seconds is over 60"), nil
 	}
 	out, err := s.waitClaimable(ctx, limit)

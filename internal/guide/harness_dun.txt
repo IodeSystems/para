@@ -14,20 +14,18 @@ Use para from dun.
 4. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
-   /para-<vault>:review_cycle   how to file a proposal and act on the review
-   /para-<vault>:process_meeting   turn a transcript into one proposal
+   /para-<vault>:process_meeting   turn a transcript into vault updates
    /para-<vault>:journal_lod   write a day, week, or month journal summary
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
 
-6. Agents normally file a proposal, show the link, and end the turn. Nothing has
+6. Agents change the vault with ops and tell the owner in the chat. Nothing has
    to wait. The rest of this step is only for unattended work.
    `para mcp` watches the vault for the session, with no polling. It sends a
-   short message (notifications/message, logger "para") when a proposal you filed
-   is decided, a request can be claimed by this install, or a request you
-   claimed is cancelled. It holds ids and states only, never vault text, and
-   names the tool to call next. The tools `proposal_wait` and `request_wait`
-   block up to 60 seconds and return as soon as the state changes.
+   short message (notifications/message, logger "para") when a request can be
+   claimed by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and
+   names the tool to call next. The tool `request_wait`
+   blocks up to 60 seconds and return as soon as the state changes.
    dun adds the message to the conversation at the next tool result or turn. It
    does not start a turn on an idle session: this is read from dun's code, not
    run.
@@ -36,8 +34,7 @@ Use para from dun.
    turn; dun allows one wake per 30 seconds and 20 an hour per server.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
-   $ para proposal wait proposal-example --timeout 1h
-   Each blocks with no token cost, then call `request_next` or `proposal_show`.
+   Each blocks with no token cost, then call `request_next`.
 
 7. Optional: let para start the agent when a request can be claimed on this machine.
    THIS SPENDS TOKENS: every run starts a dun session, billed to whatever model

@@ -17,7 +17,8 @@ import (
 //	read:   changes no document.
 //	safe:   additive and reversible: capture, note, draft.
 //	review: changes the owner's decisions or state: close, drop, status on
-//	        goals, policy, people, delete, move.
+//	        goals, policy, people, delete, move. It is a label on the receipt;
+//	        an agent may run it.
 type Risk string
 
 const (
@@ -55,7 +56,7 @@ func writeMeta(ctx context.Context) WriteMeta {
 
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
-var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "proposal_add", "proposal_revise", "proposal_executed", "align_record"}
+var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record"}
 
 // NeedsWhy reports whether an MCP call of the op must carry why.
 func NeedsWhy(e Entry) bool {
@@ -68,7 +69,7 @@ func needsRecord(ctx context.Context, d Deps) bool {
 	if ctx.Value(recordingKey{}) != nil {
 		return false
 	}
-	return agentSurface(d) || d.Store.Info().Surface == surfaceProposal
+	return agentSurface(d)
 }
 
 // runRecorded runs a write with a store that keeps what it touched, and files a
@@ -76,10 +77,6 @@ func needsRecord(ctx context.Context, d Deps) bool {
 // still filed.
 func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, error) {
 	if agentSurface(d) && !o.person && !slices.Contains(FlowOps, o.name) {
-		if err := checkGate(d, o.name, o.risk, writeMeta(ctx)); err != nil {
-			var zero O
-			return zero, fmt.Errorf("%s: %w", o.name, err)
-		}
 		if err := checkCreate(ctx, d.Store, o.name, inputMap(in), writeMeta(ctx).NotDuplicate); err != nil {
 			var zero O
 			return zero, fmt.Errorf("%s: %w", o.name, err)
@@ -96,43 +93,6 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		return out, errors.Join(err, fmt.Errorf("%s: the write happened, but its receipt failed: %w", o.name, ferr))
 	}
 	return out, err
-}
-
-// agentReview is the vault.properties key that tightens the gate: all sends every
-// write to a proposal, and op names are let through. Example: all,task_done.
-const agentReview = "agent.review"
-
-// ErrNeedsProposal is an agent write the gate refused.
-var ErrNeedsProposal = errors.New("this needs the owner: file a proposal with proposal_add, kind para")
-
-// checkGate is the review gate, in para and not in the prompt. From an agent, a
-// review op or a low-confidence write is refused with a way forward. External
-// actions are always proposals: para has no op that sends.
-func checkGate(d Deps, op string, risk Risk, m WriteMeta) error {
-	conf, err := d.Store.Config(agentReview)
-	if err != nil {
-		return err
-	}
-	all, allow := false, false
-	for _, w := range strings.Split(conf, ",") {
-		switch w = strings.TrimSpace(w); w {
-		case "all":
-			all = true
-		case op:
-			allow = true
-		}
-	}
-	switch {
-	case m.Confidence == model.ConfidenceLow:
-		return fmt.Errorf("a low-confidence write: %w", ErrNeedsProposal)
-	case allow:
-		return nil
-	case all:
-		return fmt.Errorf("%s=all: %w", agentReview, ErrNeedsProposal)
-	case risk == RiskReview:
-		return fmt.Errorf("%s changes what the owner decides: %w", op, ErrNeedsProposal)
-	}
-	return nil
 }
 
 func inputMap(in any) map[string]any {
@@ -210,7 +170,7 @@ func (r *recorder) Move(ctx context.Context, id string, to model.Folder) (model.
 }
 
 // noReceipt lists the types that are their own record.
-var noReceipt = []model.Type{model.TypeReceipt, model.TypeProposal}
+var noReceipt = []model.Type{model.TypeReceipt}
 
 // file writes one receipt per document that changed.
 func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) error {

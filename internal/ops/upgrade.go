@@ -142,7 +142,7 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 			continue
 		}
 		ask := step.Instructions + "\n\n## Documents\n\n" + upgradeDocs(p) + "\n\n## Done when\n\n" + step.Done +
-			"\n\nThe step clears by itself when its done test finds nothing. Do not edit documents outside a proposal."
+			"\n\nThe step clears by itself when its done test finds nothing. Make the edits with ops, never with a script."
 		r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: upgradePrefix + p.Title, Ask: ask, Links: p.Docs, Kind: upgradeKind})
 		if err != nil {
 			return filed, fmt.Errorf("vault_upgrade: file %s: %w", p.ID, err)
@@ -158,7 +158,7 @@ func upgradeDocs(p upgrade.Pending) string {
 		b.WriteString("- " + id + "\n")
 	}
 	if p.Count > len(p.Docs) {
-		fmt.Fprintf(&b, "- and %d more: run vault_upgrade_status again after you file this proposal\n", p.Count-len(p.Docs))
+		fmt.Fprintf(&b, "- and %d more: run vault_upgrade_status again after you fix these\n", p.Count-len(p.Docs))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

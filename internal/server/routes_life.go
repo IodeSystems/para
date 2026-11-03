@@ -49,10 +49,10 @@ func registerLife(r *registrar) {
 	reg(r, ops.QuestionEdit, post, write)
 	reg(r, ops.QuestionDependsAdd, post, write)
 	reg(r, ops.QuestionDependsRemove, post, write)
-	// An agent's answer is a proposal; only a person's browser session can
+	// An agent answer may be proposed; only a person's browser session can
 	// accept or reject it, and the ops refuse a bearer key.
-	reg(r, ops.QuestionAccept, post, netguard.ScopeProposalReview)
-	reg(r, ops.QuestionReject, post, netguard.ScopeProposalReview)
+	reg(r, ops.QuestionAccept, post, netguard.ScopeVaultWrite)
+	reg(r, ops.QuestionReject, post, netguard.ScopeVaultWrite)
 	reg(r, ops.QuestionAsk, post, write)
 	reg(r, ops.MeetingAdd, post, write)
 	reg(r, ops.MeetingList, get, read)

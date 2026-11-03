@@ -134,8 +134,8 @@ func registerRecords(r *registrar) {
 func registerRequests(r *registrar) {
 	reg(r, ops.RequestAdd, post, netguard.ScopeRequestQueue)
 	reg(r, ops.RequestCancel, post, netguard.ScopeRequestQueue)
-	reg(r, ops.RequestAcceptOp, post, netguard.ScopeProposalReview)
-	reg(r, ops.RequestRespond, post, netguard.ScopeProposalReview)
+	reg(r, ops.RequestAcceptOp, post, netguard.ScopeVaultWrite)
+	reg(r, ops.RequestRespond, post, netguard.ScopeVaultWrite)
 	reg(r, ops.RequestChanges, get, read)
 	reg(r, ops.RequestList, get, read)
 	reg(r, ops.RequestShow, get, read)
@@ -145,27 +145,9 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
 }
 
-// registerProposals: a key with vault:read and proposal:add can suggest and
-// change nothing. Review routes take proposal:review, and the ops refuse a
-// bearer key, so a decision needs a browser session. Any op an approval runs
-// is checked against the approver's own scopes (boundVault.deps).
-func registerProposals(r *registrar) {
-	reg(r, ops.ProposalAdd, post, netguard.ScopeProposalAdd)
-	reg(r, ops.ProposalRevise, post, netguard.ScopeProposalAdd)
-	reg(r, ops.ProposalList, get, read)
-	reg(r, ops.ProposalShow, get, read)
-	reg(r, ops.ProposalDiff, get, read)
-	reg(r, ops.ProposalWait, get, read)
-	reg(r, ops.ProposalApproved, get, read)
-	reg(r, ops.ProposalUndone, get, read)
-	reg(r, ops.ProposalExecuted, post, netguard.ScopeProposalAdd)
-	reg(r, ops.GateCheck, post, read)
+// registerActivity: what agents did is read with vault:read.
+func registerActivity(r *registrar) {
 	reg(r, ops.AgentActivity, get, read)
-	reg(r, ops.ProposalApprove, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalDeny, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalHold, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalRequest, post, netguard.ScopeProposalReview)
-	reg(r, ops.ProposalEdit, post, netguard.ScopeProposalReview)
 }
 
 // registerReceipts: a receipt is read with vault:read. Checking one is the
@@ -173,10 +155,10 @@ func registerProposals(r *registrar) {
 func registerReceipts(r *registrar) {
 	reg(r, ops.ReceiptList, get, read)
 	reg(r, ops.ReceiptShow, get, read)
-	reg(r, ops.ReceiptCheck, post, netguard.ScopeProposalReview)
-	reg(r, ops.ReceiptRevert, post, write)
+	reg(r, ops.ReceiptCheck, post, netguard.ScopeVaultWrite)
+	reg(r, ops.ReceiptUndo, post, write)
 	reg(r, ops.AlignScope, get, read)
-	reg(r, ops.AlignRecord, post, netguard.ScopeProposalAdd)
+	reg(r, ops.AlignRecord, post, netguard.ScopeVaultWrite)
 }
 
 func registerVault(r *registrar) {

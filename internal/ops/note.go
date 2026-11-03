@@ -167,8 +167,7 @@ type NoteEditOutput struct {
 	Rev string `json:"rev"`
 }
 
-// NoteEdit changes the title, body, or tags of a note. It is risk review: an
-// agent files a proposal item that names it, and approval runs it.
+// NoteEdit changes the title, body, or tags of a note.
 var NoteEdit = define("note_edit", "Change the title, body, or tags of a note (reference material)", func(ctx context.Context, d Deps, in NoteEditInput) (NoteEditOutput, error) {
 	if in.Title == nil && in.Body == nil && in.Tags == nil {
 		return NoteEditOutput{}, errors.New("nothing to edit: give title, body, or tags")

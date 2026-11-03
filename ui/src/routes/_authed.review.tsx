@@ -10,17 +10,14 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
 import Typography from '@mui/material/Typography'
-import { useProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
 import { useRequestAccept, useRequestCancel, useRequests } from '@/api/requests'
 import { AnswerCard } from '@/components/AnswerCheck'
-import { ReceiptSection, UndoneSection } from '@/components/Receipts'
+import { ReceiptSection } from '@/components/Receipts'
 import { useAccept, useReopen, useReview } from '@/api/review'
 import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
-import { StateChip } from '@/components/Bits'
 import { errorText } from '@/client/gqlClient'
 import { humanTime } from '@/lib/when'
 import { needWords, newestTS, opPhrase, transition } from '@/lib/events'
@@ -108,51 +105,6 @@ function AgentWorkSection() {
   )
 }
 
-function ProposalsSection() {
-  const q = useProposals()
-  // A closed proposal has been decided. Everything else is waiting on someone.
-  const items = (q.data ?? []).filter((p) => p.status !== 'closed' || p.error)
-  return (
-    <Section title="Proposals" count={q.isError ? undefined : items.length} hideEmpty>
-      {q.isError ? (
-        <Alert severity="error">{errorText(q.error)}</Alert>
-      ) : (
-        <List dense disablePadding>
-          {items.map((p) => (
-            <ListItem key={p.id} disableGutters sx={CHIP_ROW}>
-              <ListItemText
-                primary={
-                  <TextLink to="/proposals/$id" params={{ id: p.id }} underline="hover">
-                    {p.title || nameOr('', p.id)}
-                  </TextLink>
-                }
-                secondary={
-                  p.error
-                    ? p.error
-                    : [
-                        p.sourceName && `from ${p.sourceName}`,
-                        `${p.pending} of ${p.itemCount} to decide`,
-                        `by ${p.proposedBy}`,
-                        p.revision > 1 && `revision ${p.revision}`,
-                      ]
-                        .filter(Boolean)
-                        .join(' - ')
-                }
-                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-              />
-              {p.error ? (
-                <StateChip state="blocked" label="broken file" />
-              ) : (
-                <StateChip state={p.status} />
-              )}
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </Section>
-  )
-}
-
 function Review() {
   const q = useReview()
   const accept = useAccept()
@@ -185,8 +137,6 @@ function Review() {
       )}
       <AnswersSection />
       <AgentWorkSection />
-      <ProposalsSection />
-      <UndoneSection />
       <ReceiptSection check="unchecked" title="Agent writes to check" />
       <DataState q={q}>
         {(r) => (
@@ -199,7 +149,7 @@ function Review() {
                   : ' since the start'}
                 .
               </Typography>
-              <Tooltip title="Your own CLI and browser work is not listed. Proposals are decided item by item; marking changes reviewed does not touch them.">
+              <Tooltip title="Your own CLI and browser work is not listed.">
                 <IconButton size="small" aria-label="What is listed here">
                   <InfoOutlinedIcon fontSize="small" />
                 </IconButton>

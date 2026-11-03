@@ -31,8 +31,6 @@ var (
 	harnessClaude string
 	//go:embed harness_dun.txt
 	harnessDun string
-	//go:embed reviewcycle.txt
-	reviewCycle string
 	//go:embed processmeeting.txt
 	processMeeting string
 	//go:embed journallod.txt
@@ -69,11 +67,7 @@ func Orient() string { return Intro() + "\n\n" + Rule() + "\n\n" + trim(orient) 
 // prompt "bootstrap" and `para bootstrap` print it.
 func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
 
-// ReviewCycle is the MCP prompt "review_cycle": how an agent works with the
-// owner through proposals.
-func ReviewCycle() string { return trim(reviewCycle) + "\n\n" + Rule() }
-
-// ProcessMeeting is the MCP prompt "process_meeting": one proposal from a
+// ProcessMeeting is the MCP prompt "process_meeting": vault updates from a
 // transcript.
 func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 
@@ -86,23 +80,23 @@ func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
 func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }
 
 // HealthTriage is the MCP prompt "health_triage": settle health findings with
-// evidence and file one proposal.
+// evidence and fix them.
 func HealthTriage() string { return trim(healthTriage) + "\n\n" + Rule() }
 
 // IngestSource is the MCP prompt "ingest_source": read one source with your own
-// tools and file one proposal.
+// tools and update the vault.
 func IngestSource() string { return trim(ingestSource) + "\n\n" + Rule() }
 
 // AlignVault is the MCP prompt "align_vault": compare a goal, an area, or the
-// vault with reality and file one proposal of differences.
+// vault with reality and fix the differences.
 func AlignVault() string { return trim(alignVault) + "\n\n" + Rule() }
 
 // SortUpdate is the MCP prompt "sort_update": sort an owner's update on a task
-// into one proposal of typed items.
+// into typed items.
 func SortUpdate() string { return trim(sortUpdate) + "\n\n" + Rule() }
 
 // ValidateGoal is the MCP prompt "validate_goal": draft or challenge a goal's
-// brief with sources, argue against it, and file one proposal.
+// brief with sources, and argue against it.
 func ValidateGoal() string { return trim(validateGoal) + "\n\n" + Rule() }
 
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
@@ -115,7 +109,7 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, policies, and proposals for review. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, and `/para validate <goal>` to draft or challenge a goal's brief.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | health]\"\n---\n\n" +
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, and policies. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, and `/para validate <goal>` to draft or challenge a goal's brief.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | health]\"\n---\n\n" +
 		"# para\n\n" + skillRoute + "\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
 

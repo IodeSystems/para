@@ -27,7 +27,7 @@ import (
 // Instructions is the text every client receives at initialize. It states
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
-	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (how to file a proposal and act on the owner's review), process_meeting (turn a transcript into one proposal), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and file one proposal), ingest_source (read one source with your own tools and file one proposal), align_vault (compare a goal, an area, or the vault with reality and file one proposal of differences), sort_update (sort the owner's update on a task into one proposal of action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it, and file one proposal).\n\n" + rules
+	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), process_meeting (turn a transcript into vault updates), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and fix them), ingest_source (read one source with your own tools and update the vault), align_vault (compare a goal, an area, or the vault with reality and fix the differences), sort_update (sort the owner's update on a task into action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
@@ -37,9 +37,9 @@ const rules = `Rules:
 5. Quote policy transcripts (policy-x.source) word for word and cite the source URL. A policy summary is a paraphrase: never present it as the policy's words, and say when a summary is unverified.
 6. A no is recorded with its reason, who said it, and a source URL (rfx_reply with outcome no). Do not record a no without a reason.
 7. Triage the inbox with inbox_triage. It archives the capture; nothing is deleted.
-8. Take no public or external action without an accepted proposal item. File one with proposal_add, show the owner review_command and review_url, and wait for the decision. Only a person can approve.
+8. Take no public or external action without the owner's go-ahead in chat. Show the exact text in the chat and ask. After the owner says go, act with your own tool. Vault changes need no approval; each leaves a receipt, and the owner can undo it with receipt_undo.
 9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.
-10. An op that changes what the owner decides (close, drop, status on goals, policy, people, move) is refused from you, as is any write with confidence low: file a proposal. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.`
+10. Risk classes are labels on receipts and block nothing. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.`
 
 // Options configures a Server.
 type Options struct {
@@ -150,7 +150,7 @@ func serverOptions(channel, changed bool) []server.ServerOption {
 }
 
 // notifyRule describes the session notifications to the agent.
-const notifyRule = "Notifications: this server may send a short message (logger para) when a proposal you filed is decided, a request becomes claimable by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (proposal_wait, request_next, request_show). A harness that cannot receive notifications uses proposal_wait and request_wait."
+const notifyRule = "Notifications: this server may send a short message (logger para) when a request becomes claimable by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (request_next, request_show). A harness that cannot receive notifications uses request_wait."
 
 // MCP returns the underlying server, for in-process clients.
 func (s *Server) MCP() *server.MCPServer { return s.mcp }
@@ -237,15 +237,14 @@ func (s *Server) addPrompts() {
 	for _, p := range []struct{ name, desc, text string }{
 		{"orient", "What para is and is not, the rule, and how to work a vault", ""},
 		{"bootstrap", "Interview the owner and fill a new vault: areas, projects, tasks, people", guide.Bootstrap()},
-		{"review_cycle", "File a proposal, wait for the owner's review, revise, and act on what is approved", guide.ReviewCycle()},
-		{"process_meeting", "Turn a meeting transcript into one proposal: answers, a no, action items, new questions, people", guide.ProcessMeeting()},
+		{"process_meeting", "Turn a meeting transcript into vault updates: answers, a no, action items, new questions, people", guide.ProcessMeeting()},
 		{"journal_lod", "Write the day, week, or month summary of a journal: facts with links, short, nothing sensitive", guide.JournalLOD()},
-		{"import_corpus", "Sort a corpus the owner imported: propose plan edits, then file one proposal that classifies the documents", guide.ImportCorpus()},
-		{"health_triage", "Run health, settle the findings that evidence settles, and file one proposal grouped by kind with a short list of the rest", guide.HealthTriage()},
-		{"ingest_source", "Read one source (a URL, a file, or text) with your own tools, find what it touches, and file one proposal with a source on every item", guide.IngestSource()},
-		{"align_vault", "Compare a goal, an area, or the vault with reality using your own tools, file one proposal of differences, and record the run with align_record", guide.AlignVault()},
-		{"sort_update", "Sort the owner's free-text update on a task into one proposal: action items, open questions, answers, commitments, resolved policy, follow-up tasks, each quoting its words", guide.SortUpdate()},
-		{"validate_goal", "Draft or challenge the brief of a goal with sources, argue the case against it, and file one proposal; choosing among alternatives is a decision question", guide.ValidateGoal()},
+		{"import_corpus", "Sort a corpus the owner imported: link what stays where it lives, then write the rest with ops", guide.ImportCorpus()},
+		{"health_triage", "Run health, settle the findings that evidence settles, and fix them with ops, grouped by kind, with a short list of the rest", guide.HealthTriage()},
+		{"ingest_source", "Read one source (a URL, a file, or text) with your own tools, find what it touches, and update the vault with ops, with a source on every write", guide.IngestSource()},
+		{"align_vault", "Compare a goal, an area, or the vault with reality using your own tools, fix the differences with ops, and record the run with align_record", guide.AlignVault()},
+		{"sort_update", "Sort the owner's free-text update on a task into typed items: action items, open questions, answers, commitments, resolved policy, follow-up tasks, each citing its words", guide.SortUpdate()},
+		{"validate_goal", "Draft or challenge the brief of a goal with sources, argue the case against it, and write it with doc_edit; choosing among alternatives is a decision question", guide.ValidateGoal()},
 	} {
 		s.mcp.AddPrompt(mcp.NewPrompt(p.name, mcp.WithPromptDescription(p.desc)),
 			func(ctx context.Context, _ mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {

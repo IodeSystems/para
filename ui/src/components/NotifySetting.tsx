@@ -35,8 +35,8 @@ export function NotifySetting({ vault }: { vault: string }) {
         label={`Notify me in this browser (vault ${vault})`}
       />
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-        Proposal filed, answer to check, agent work that needs you, incident. A notice names the
-        kind and the count only. It shows while a tab or the installed app is open.
+        Answer to check, agent work that needs you, incident. A notice names the kind and the count
+        only. It shows while a tab or the installed app is open.
       </Typography>
       {note && (
         <Typography variant="caption" color="error" sx={{ display: 'block' }}>

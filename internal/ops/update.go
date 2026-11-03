@@ -11,7 +11,7 @@ import (
 )
 
 // Updates are free text the owner writes on a task. They are kept whole under
-// this heading; an agent sorts them into typed items in a proposal.
+// this heading; an agent sorts them into typed items.
 const (
 	updatesHeading = "Updates"
 	sortPrefix     = "Sort update: "
@@ -75,17 +75,17 @@ func updatesBody(body, date, text string) string {
 }
 
 const sortInstruction = "Sort the newest update on %s.\n\nRead the task and its ## Updates. Run similar on each candidate. " +
-	"File ONE proposal (proposal_add) whose para items are grouped with group: action items (task_add with parent), " +
+	"Make these changes with ops, grouped by kind: action items (task_add with parent), " +
 	"open questions (question_add scoped to the task), questions answered (question_answer with the update as a source), " +
 	"commitments (task_add with commitment, a due date, the owner as assignee), resolved policy (constraint_add or exception_add, " +
 	"with a link to the task in text), follow-up tasks (task_add, depends_on when it waits). " +
-	"Each item quotes the words it came from in evidence. Say in the proposal what you left unsorted. Never rewrite the owner's text. " +
-	"Take no external action. The owner approves by group."
+	"Cite the owner's words as the source of each change. Say in your result what you left unsorted. Never rewrite the owner's text. " +
+	"Take no external action without the owner's go-ahead in chat."
 
 // TaskUpdate appends the owner's text under ## Updates, whole, and queues agent
 // work "Sort update: <title>" linked to the task. One open run per task: another
 // update adds a note to it. The text is saved even when nothing can run it.
-var TaskUpdate = definePerson("task_update", "Add free text to a task under ## Updates, kept whole, and queue agent work to sort it into action items, open questions, answered questions, commitments, resolved policy, and follow-up tasks (one proposal for the owner to approve); person only. If no runner is set the text is still saved and the output says so", func(ctx context.Context, d Deps, in TaskUpdateInput) (TaskUpdateOutput, error) {
+var TaskUpdate = definePerson("task_update", "Add free text to a task under ## Updates, kept whole, and queue agent work to sort it into action items, open questions, answered questions, commitments, resolved policy, and follow-up tasks ; person only. If no runner is set the text is still saved and the output says so", func(ctx context.Context, d Deps, in TaskUpdateInput) (TaskUpdateOutput, error) {
 	id := normID(in.ID)
 	if id == "" {
 		return TaskUpdateOutput{}, errors.New("id is empty")

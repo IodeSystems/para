@@ -14,7 +14,7 @@ import (
 )
 
 // Align. An agent compares the vault with reality using its own tools (gh,
-// jira, slack, a calendar) and files one proposal of the differences. Para
+// jira, slack, a calendar) and fixes the differences with ops, each leaving a receipt. Para
 // fetches nothing. align_scope tells the agent what to walk; align_record keeps
 // a receipt of the run, so a clean run ("no change") is on record too. The
 // date of the last record per goal is what Today's goal page and the optional
@@ -266,7 +266,6 @@ type AlignRecordInput struct {
 	Matched     int      `json:"matched"`
 	Differ      int      `json:"differ"`
 	Unreachable []string `json:"unreachable,omitempty"` // sources that could not be read
-	Proposal    string   `json:"proposal,omitempty"`    // the proposal that holds the differences
 }
 
 // AlignRecordOutput is the output of align_record.
@@ -313,27 +312,14 @@ var AlignRecord = defineSafe(opAlignRecord, "Record the outcome of an align run 
 	if in.Checked == 0 && len(unreachable) == 0 {
 		return AlignRecordOutput{}, errors.New("checked is 0 and no source is unreachable: nothing was compared, so there is nothing to record")
 	}
-	proposal := normID(in.Proposal)
-	if in.Differ > 0 && proposal == "" {
-		return AlignRecordOutput{}, fmt.Errorf("differ is %d: file the differences with proposal_add and pass its id as proposal", in.Differ)
-	}
-	if proposal != "" {
-		pd, err := d.Store.Get(ctx, proposal)
-		if err != nil {
-			return AlignRecordOutput{}, err
-		}
-		if _, ok := pd.Meta.(*model.Proposal); !ok {
-			return AlignRecordOutput{}, fmt.Errorf("%s is a %s, not a proposal", pd.ID, pd.Meta.Header().Type)
-		}
-	}
 	info, err := identity(d)
 	if err != nil {
 		return AlignRecordOutput{}, err
 	}
-	res := &model.AlignResult{Checked: in.Checked, Matched: in.Matched, Differ: in.Differ, Unreachable: unreachable, Proposal: proposal}
+	res := &model.AlignResult{Checked: in.Checked, Matched: in.Matched, Differ: in.Differ, Unreachable: unreachable}
 	summary := alignSummary(res)
 	id, err := createReceipt(ctx, d, receiptInput{op: opAlignRecord, doc: scope, title: title,
-		meta:    WriteMeta{Why: summary, Verify: proposal, Request: heldRequest(ctx, d.Store, info.Actor)},
+		meta:    WriteMeta{Why: summary, Request: heldRequest(ctx, d.Store, info.Actor)},
 		content: model.ReceiptContent{After: summary}, selfReported: true, align: res})
 	if err != nil {
 		return AlignRecordOutput{}, err

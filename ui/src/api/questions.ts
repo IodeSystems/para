@@ -462,8 +462,7 @@ export function useDefer() {
       when?: string
       place?: string
       new?: boolean
-    }) =>
-      need((await gqlClient.request(DeferDoc, { body: b })).para.v1.defer, 'result'),
+    }) => need((await gqlClient.request(DeferDoc, { body: b })).para.v1.defer, 'result'),
     onSuccess: () => void qc.invalidateQueries(),
   })
 }

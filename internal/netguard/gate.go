@@ -24,11 +24,6 @@ const (
 	ScopeRFXSend      = "rfx:send"
 	ScopeRequestQueue = "request:queue"
 	ScopeRequestRun   = "request:run"
-	// ScopeProposalAdd files and revises proposals, and writes nothing else.
-	ScopeProposalAdd = "proposal:add"
-	// ScopeProposalReview decides proposal items. The ops also refuse a bearer
-	// key, so it takes a browser session.
-	ScopeProposalReview = "proposal:review"
 
 	// ScopeAdmin is held by the admin token only and is never granted to a key.
 	ScopeAdmin = "admin"
@@ -39,7 +34,7 @@ const (
 )
 
 // Scopes lists every scope a key can be given.
-var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSend, ScopeRequestQueue, ScopeRequestRun, ScopeProposalAdd, ScopeProposalReview}
+var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSend, ScopeRequestQueue, ScopeRequestRun}
 
 // Errors a Tenant returns from Authenticate.
 var (

@@ -52,9 +52,8 @@ type TaskResolveOutput struct {
 
 // TaskResolve closes a task with an outcome. done is task_done, recurrence
 // included. The others close the task without claiming it was finished, and a
-// dependent never waits on a closed item that did not finish. From an agent only
-// done is allowed; the rest are for the owner, so an agent files a proposal.
-var TaskResolve = defineSafe("task_resolve", "Close a task with an outcome: done (default), partial, dropped, duplicate, or superseded. partial needs a follow-up or a note, dropped a note, duplicate and superseded a link (an id). follow_ups are titles of new tasks in the same goal or area; dependents move to the first one. Only done is allowed from an agent; for the others file a proposal", func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
+// dependent never waits on a closed item that did not finish.
+var TaskResolve = defineSafe("task_resolve", "Close a task with an outcome: done (default), partial, dropped, duplicate, or superseded. partial needs a follow-up or a note, dropped a note, duplicate and superseded a link (an id). follow_ups are titles of new tasks in the same goal or area; dependents move to the first one.", func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
 	id := normID(in.ID)
 	outcome := in.Outcome
 	if outcome == "" {
@@ -62,9 +61,6 @@ var TaskResolve = defineSafe("task_resolve", "Close a task with an outcome: done
 	}
 	if !slices.Contains(model.TaskOutcomes, outcome) {
 		return TaskResolveOutput{}, fmt.Errorf("unknown outcome %q: want one of %v", outcome, model.TaskOutcomes)
-	}
-	if outcome != model.OutcomeDone && agentSurface(d) {
-		return TaskResolveOutput{}, fmt.Errorf("task_resolve %s changes what the owner decides: %w", outcome, ErrNeedsProposal)
 	}
 	note := strings.TrimSpace(in.Note)
 	link := normID(in.Link)

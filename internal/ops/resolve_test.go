@@ -145,24 +145,12 @@ func TestTaskResolveFromAnAgent(t *testing.T) {
 	d, proj := laterVault(t)
 	agent := agentOf(d)
 	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Check"}).ID
-	for _, o := range []model.TaskOutcome{model.OutcomePartial, model.OutcomeDropped, model.OutcomeDuplicate, model.OutcomeSuperseded} {
-		_, err := TaskResolve.Run(ctx, agent, TaskResolveInput{ID: id, Outcome: o, Note: "x", Link: proj, FollowUps: []string{"y"}})
-		if !errors.Is(err, ErrNeedsProposal) {
-			t.Errorf("%s from an agent: %v", o, err)
-		}
+	// Every outcome is open to an agent; each leaves a receipt.
+	if o := must(t, TaskResolve, agent, TaskResolveInput{ID: id, Outcome: model.OutcomeDropped, Note: "x"}); o.Outcome != model.OutcomeDropped {
+		t.Errorf("agent drop = %+v", o)
 	}
-	if v, _ := taskOf(t, d, id); v.Status != model.TaskTodo {
-		t.Fatalf("a refused outcome changed the task: %+v", v)
-	}
-	if o := must(t, TaskResolve, agent, TaskResolveInput{ID: id}); o.Outcome != model.OutcomeDone || o.Status != model.TaskDone {
-		t.Errorf("agent done = %+v", o)
-	}
-	// An approved proposal item runs as the owner's decision.
-	f := newPropFix(t)
-	task := must(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Old"}).ID
-	if _, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "Drop it", Source: f.source, Items: []ItemInput{{
-		Kind: model.ItemOp, Op: "task_resolve", Input: map[string]any{"id": task, "outcome": "dropped", "note": "Not needed."}, Evidence: ev}}}); err != nil {
-		t.Errorf("a proposal item for task_resolve: %v", err)
+	if rl := must(t, ReceiptList, d, ReceiptListInput{Doc: id}); len(rl.Items) == 0 {
+		t.Error("no receipt for the agent's drop")
 	}
 }
 
@@ -182,7 +170,7 @@ func TestTaskDelegate(t *testing.T) {
 	rm := r.Meta.(*model.Request)
 	if r.Title != "Work on: Draft the notes" || len(rm.Links) != 1 || rm.Links[0].Target() != id ||
 		!strings.Contains(r.Body, "- Start with the old runbook.") || !strings.Contains(r.Body, "Notes are in the wiki.") ||
-		!strings.Contains(r.Body, "no external action without an approved proposal") || !strings.Contains(r.Body, "sources") ||
+		!strings.Contains(r.Body, "no external action without the owner") || !strings.Contains(r.Body, "sources") ||
 		!strings.Contains(r.Body, "request.runner") {
 		t.Errorf("request = %q\n%s", r.Title, r.Body)
 	}
@@ -210,10 +198,6 @@ func TestTaskDelegate(t *testing.T) {
 	}
 	if _, err := TaskDelegate.Run(ctx, d, TaskDelegateInput{ID: id, Agent: "bad name"}); err == nil {
 		t.Error("a bad agent name was accepted")
-	}
-	// The agent's close of a non-done outcome is refused; done goes through.
-	if _, err := TaskResolve.Run(ctx, agentOf(d), TaskResolveInput{ID: id, Outcome: model.OutcomeDropped, Note: "x"}); !errors.Is(err, ErrNeedsProposal) {
-		t.Errorf("agent drop: %v", err)
 	}
 	// Closed tasks are not delegated.
 	must(t, TaskResolve, d, TaskResolveInput{ID: id})

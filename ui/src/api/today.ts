@@ -19,7 +19,6 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       with
       kind
       why
-      proposal
     }
   }
 `)
@@ -37,7 +36,6 @@ const TodayDoc = graphql(/* GraphQL */ `
             unverified
             waiting
             answersToCheck
-            approvedNotDone
             syncConflicts
             lostUpdates
             incidents {

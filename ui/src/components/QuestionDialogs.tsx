@@ -602,8 +602,8 @@ function FindDialog({ id, onDone }: { id: string; onDone: (m: string) => void })
           {isQuestion
             ? 'With text the agent answers it in words or proposes a fix; empty, it proposes an answer with sources.'
             : 'With text the agent answers in words or proposes a fix: rewrite, retype, split, drop, or add context. Empty, it adds context and sources.'}{' '}
-          Every change is a proposal you check; every claim has a source. Needs a runner set up on
-          this machine; otherwise the work waits under Agent work.
+          Every claim has a source. Needs a runner set up on this machine; otherwise the work waits
+          under Agent work.
         </Typography>
       </Stack>
     </Frame>

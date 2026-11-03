@@ -69,7 +69,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.SkillImport(), guide.HealthTriage(), guide.SkillIngest(), guide.SkillAlign(), guide.SortUpdate(), guide.ValidateGoal()} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.SkillImport(), guide.HealthTriage(), guide.SkillIngest(), guide.SkillAlign(), guide.SortUpdate(), guide.ValidateGoal()} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {

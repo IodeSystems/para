@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -335,107 +333,4 @@ func TestExportOverAPIRendersAndMovesNothing(t *testing.T) {
 	if _, err := os.Stat(target); err == nil {
 		t.Error("the server ran a transport")
 	}
-}
-
-const proposalBody = `{"title":"From the key","source":"note-sample","items":[{"kind":"external","medium":"email","target":"sample@acme.example","draft":"Hi.","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`
-
-// A key with vault:read and proposal:add can suggest and change nothing.
-func TestProposeOnlyKey(t *testing.T) {
-	f := newFixture(t)
-	tok := f.key(f.keyA, "proposer", netguard.ScopeVaultRead, netguard.ScopeProposalAdd)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/proposal/add", token: tok, body: proposalBody}), 200)
-	wantStatus(t, f.do(call{target: "/api/v1/proposal/list", token: tok}), 200)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/task/add", token: tok, body: `{"project":"project-sample","title":"Direct"}`}), 403)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: tok, body: `{"text":"Direct"}`}), 403)
-	for _, r := range f.srv.Routes() {
-		if r.Scope == netguard.ScopeProposalReview {
-			wantStatus(t, f.do(call{method: r.Method, target: r.Path, token: tok, body: sample(r.Op)}), 403)
-		}
-	}
-	// proposal:add alone reads nothing: the agent's key also needs vault:read.
-	only := f.key(f.keyA, "bare", netguard.ScopeProposalAdd)
-	wantStatus(t, f.do(call{target: "/api/v1/proposal/list", token: only}), 403)
-}
-
-// TestReviewNeedsASession: a bearer key is an agent, whatever its scopes. The op
-// refuses it, on REST and on GraphQL, and nothing changes.
-func TestReviewNeedsASession(t *testing.T) {
-	f := newFixture(t)
-	tok := f.key(f.keyA, "reviewer", allScopes...)
-	before := f.do(call{target: "/api/v1/proposal/show?id=proposal-sample", token: tok}).Body.String()
-	for _, r := range f.srv.Routes() {
-		if r.Scope != netguard.ScopeProposalReview {
-			continue
-		}
-		w := f.do(call{method: post, target: r.Path, token: tok, body: sample(r.Op)})
-		wantStatus(t, w, 403)
-		if !strings.Contains(w.Body.String(), "only a person") {
-			t.Errorf("%s: %s", r.Op, w.Body)
-		}
-	}
-	types := f.gqlTypes(tok)
-	fields := fieldsOf(types)
-	got := fields["proposalApprove"]
-	doc, vars := gqlDoc(types, got.Kind, got.Field, sample("proposal_approve"), t)
-	_, res := f.graphql(tok, doc, vars)
-	if res["errors"] == nil || !strings.Contains(fmt.Sprint(res["errors"]), "only a person") {
-		t.Fatalf("GraphQL approve with a bearer key: %v", res)
-	}
-	if after := f.do(call{target: "/api/v1/proposal/show?id=proposal-sample", token: tok}).Body.String(); after != before {
-		t.Error("a refused review changed the proposal")
-	}
-}
-
-func session(f *fixture, name string, scopes ...string) map[string]string {
-	f.t.Helper()
-	return map[string]string{"Cookie": netguard.CookieName + "=" + f.session(f.key(f.keyA, name, scopes...)), "Origin": "http://" + hostA}
-}
-
-// TestApprovalKeepsTheApproversScopes: proposal:review alone cannot cause a
-// write the session could not make, though an external item needs no more.
-func TestApprovalKeepsTheApproversScopes(t *testing.T) {
-	f := newFixture(t)
-	h := session(f, "narrow", netguard.ScopeVaultRead, netguard.ScopeProposalReview)
-	w := f.do(call{method: post, target: "/api/v1/proposal/approve", header: h, body: `{"id":"proposal-sample","items":["i1"]}`})
-	wantStatus(t, w, 403)
-	if !strings.Contains(w.Body.String(), netguard.ScopeVaultWrite) {
-		t.Errorf("no scope named: %s", w.Body)
-	}
-	show := f.do(call{target: "/api/v1/proposal/show?id=proposal-sample", header: h})
-	wantStatus(t, show, 200)
-	if strings.Contains(show.Body.String(), `"state": "running"`) || strings.Contains(show.Body.String(), `"state": "approved"`) {
-		t.Fatalf("a refused approval changed the item: %s", show.Body)
-	}
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/proposal/approve", header: h, body: `{"id":"proposal-sample","items":["i2"]}`}), 200)
-
-	wide := session(f, "wide", netguard.ScopeVaultRead, netguard.ScopeVaultWrite, netguard.ScopeProposalReview)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/proposal/approve", header: wide, body: `{"id":"proposal-sample","items":["i1"]}`}), 200)
-	// The approved op ran under the proposing agent, not the approver.
-	st := f.store(t)
-	evs, err := st.Events(contextBackground(), 50)
-	if err != nil {
-		t.Fatal(err)
-	}
-	found := false
-	for _, e := range evs {
-		found = found || (e.Op == "create" && e.Actor == "claude-agent" && e.Surface == "proposal")
-	}
-	if !found {
-		t.Errorf("no create by the proposer: %+v", evs)
-	}
-}
-
-// TestSessionCannotReviewItsOwnProposal: an agent key that also holds
-// proposal:review, turned into a cookie, is still the actor that filed it.
-func TestSessionCannotReviewItsOwnProposal(t *testing.T) {
-	f := newFixture(t)
-	tok := f.key(f.keyA, "both", netguard.ScopeVaultRead, netguard.ScopeProposalAdd, netguard.ScopeProposalReview)
-	w := f.do(call{method: post, target: "/api/v1/proposal/add", token: tok, body: proposalBody})
-	wantStatus(t, w, 200)
-	var out ops.ProposalFiled
-	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
-		t.Fatal(err)
-	}
-	h := map[string]string{"Cookie": netguard.CookieName + "=" + f.session(tok), "Origin": "http://" + hostA}
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/proposal/approve", header: h, body: `{"id":"` + out.ID + `","items":["i1"]}`}), 403)
 }

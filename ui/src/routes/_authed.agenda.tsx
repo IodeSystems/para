@@ -11,7 +11,6 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useInbox } from '@/api/inbox'
-import { useOpenProposals } from '@/api/proposals'
 import { useQuestions } from '@/api/questions'
 import { useLooking, useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
@@ -98,7 +97,7 @@ function ItemRows({ kind, items, tasks }: { kind: Kind; items: Item[]; tasks?: b
 
 type Lead = { why: string; title: ReactNode; action: ReactNode }
 
-type AgendaItem = Item & { kind?: string | null; why?: string | null; proposal?: boolean | null }
+type AgendaItem = Item & { kind?: string | null; why?: string | null }
 
 function AgendaLink({ x }: { x: AgendaItem }) {
   const title = x.title || nameOr('', x.id)
@@ -206,7 +205,6 @@ function Agenda() {
   const q = useToday()
   const inbox = useInbox()
   const questions = useQuestions()
-  const proposals = useOpenProposals()
   const requests = useRequests()
   const narrow = useMediaQuery('(max-width: 599px)')
   const [more, setMore] = useState<string>('')
@@ -235,344 +233,293 @@ function Agenda() {
       {by === 'date' ? (
         <DatedAgenda />
       ) : (
-      <DataState q={q}>
-        {(d) => {
-          const t = d.today
-          // An answer an agent proposed is to check, not to answer.
-          const checks = (questions.data ?? []).filter((x) => x.hasProposal)
-          const agenda: AgendaItem[] = t.agenda.items.filter((x) => !x.proposal)
-          const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
-          const inboxItems = inbox.data ?? []
-          const props = proposals.open
-          const need =
-            props.length + t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
+        <DataState q={q}>
+          {(d) => {
+            const t = d.today
+            // An answer an agent proposed is to check, not to answer.
+            const checks = (questions.data ?? []).filter((x) => x.hasProposal)
+            const agenda: AgendaItem[] = t.agenda.items
+            const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
+            const inboxItems = inbox.data ?? []
+            const need = t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
 
-          // The lead is the one thing to do first: a proposal, an answer to check, then the top
-          // of the agenda, then a sort. It is not listed again.
-          let lead: Lead | null = null
-          let leadKind: 'proposal' | 'answers' | 'agenda' | 'inbox' | '' = ''
-          const firstProp = props[0]
-          const firstCheck = checks[0]
-          const firstA = agenda[0]
-          const firstIn = inboxItems[0]
-          if (firstProp) {
-            leadKind = 'proposal'
-            lead = {
-              why: `Proposal from ${firstProp.proposedBy}, ${firstProp.pending} of ${firstProp.itemCount} to decide`,
-              title: (
-                <TextLink to="/proposals/$id" params={{ id: firstProp.id }} underline="hover">
-                  {firstProp.title || nameOr('', firstProp.id)}
-                </TextLink>
-              ),
-              action: (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="/proposals/$id"
-                  params={{ id: firstProp.id }}
-                >
-                  Review
-                </LinkButton>
-              ),
+            // The lead is the one thing to do first: an answer to check, then the top
+            // of the agenda, then a sort. It is not listed again.
+            let lead: Lead | null = null
+            let leadKind: 'answers' | 'agenda' | 'inbox' | '' = ''
+            const firstCheck = checks[0]
+            const firstA = agenda[0]
+            const firstIn = inboxItems[0]
+            if (firstCheck) {
+              leadKind = 'answers'
+              lead = {
+                why: `${t.answersToCheck} answer${t.answersToCheck === 1 ? '' : 's'} to check, from ${firstCheck.proposedBy || 'an agent'}`,
+                title: <DocLink id={firstCheck.id}>{firstCheck.title}</DocLink>,
+                action: (
+                  <LinkButton size="small" variant="contained" to="/review">
+                    Check
+                  </LinkButton>
+                ),
+              }
+            } else if (firstA) {
+              leadKind = 'agenda'
+              const action =
+                firstA.kind === 'question' ? (
+                  <LinkButton
+                    size="small"
+                    variant="contained"
+                    to="."
+                    search={(p) => ({ ...p, answer: firstA.id })}
+                  >
+                    Answer
+                  </LinkButton>
+                ) : firstA.kind === 'task' ? (
+                  <LinkButton
+                    size="small"
+                    variant="contained"
+                    to="."
+                    search={(p) => ({ ...p, done: firstA.id })}
+                  >
+                    Done
+                  </LinkButton>
+                ) : firstA.kind === 'incident' ? (
+                  <LinkButton
+                    size="small"
+                    variant="contained"
+                    to="/incidents/$id"
+                    params={{ id: firstA.id }}
+                  >
+                    Open
+                  </LinkButton>
+                ) : null
+              lead = {
+                why: firstA.why || firstA.kind || 'First in order',
+                title: <AgendaLink x={firstA} />,
+                action,
+              }
+            } else if (firstIn) {
+              leadKind = 'inbox'
+              lead = {
+                why: 'Captured, not sorted',
+                title: <Box component="span">{firstIn.title || 'Untitled capture'}</Box>,
+                action: (
+                  <LinkButton
+                    size="small"
+                    variant="contained"
+                    to="."
+                    search={(p) => ({ ...p, triage: firstIn.id })}
+                  >
+                    Sort
+                  </LinkButton>
+                ),
+              }
             }
-          } else if (firstCheck) {
-            leadKind = 'answers'
-            lead = {
-              why: `${t.answersToCheck} answer${t.answersToCheck === 1 ? '' : 's'} to check, from ${firstCheck.proposedBy || 'an agent'}`,
-              title: <DocLink id={firstCheck.id}>{firstCheck.title}</DocLink>,
-              action: (
-                <LinkButton size="small" variant="contained" to="/review">
-                  Check
-                </LinkButton>
-              ),
-            }
-          } else if (firstA) {
-            leadKind = 'agenda'
-            const action =
-              firstA.kind === 'question' ? (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="."
-                  search={(p) => ({ ...p, answer: firstA.id })}
-                >
-                  Answer
-                </LinkButton>
-              ) : firstA.kind === 'task' ? (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="."
-                  search={(p) => ({ ...p, done: firstA.id })}
-                >
-                  Done
-                </LinkButton>
-              ) : firstA.kind === 'incident' ? (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="/incidents/$id"
-                  params={{ id: firstA.id }}
-                >
-                  Open
-                </LinkButton>
-              ) : null
-            lead = {
-              why: firstA.why || firstA.kind || 'First in order',
-              title: <AgendaLink x={firstA} />,
-              action,
-            }
-          } else if (firstIn) {
-            leadKind = 'inbox'
-            lead = {
-              why: 'Captured, not sorted',
-              title: <Box component="span">{firstIn.title || 'Untitled capture'}</Box>,
-              action: (
-                <LinkButton
-                  size="small"
-                  variant="contained"
-                  to="."
-                  search={(p) => ({ ...p, triage: firstIn.id })}
-                >
-                  Sort
-                </LinkButton>
-              ),
-            }
-          }
 
-          const checkRows = checks.slice(leadKind === 'answers' ? 1 : 0)
-          const propRows = props.slice(leadKind === 'proposal' ? 1 : 0)
-          const agendaRows = agenda.slice(leadKind === 'agenda' ? 1 : 0)
-          const inboxRows = inboxItems.filter(
-            (x) => !(leadKind === 'inbox' && x.id === firstIn?.id),
-          )
+            const checkRows = checks.slice(leadKind === 'answers' ? 1 : 0)
+            const agendaRows = agenda.slice(leadKind === 'agenda' ? 1 : 0)
+            const inboxRows = inboxItems.filter(
+              (x) => !(leadKind === 'inbox' && x.id === firstIn?.id),
+            )
 
-          const inboxOf = (list: typeof inboxRows) => (
-            <List dense disablePadding>
-              {list.map((i) => (
-                <ListItem
-                  key={i.id}
-                  disableGutters
-                  secondaryAction={
-                    <LinkButton size="small" to="." search={(p) => ({ ...p, triage: i.id })}>
-                      Sort
+            const inboxOf = (list: typeof inboxRows) => (
+              <List dense disablePadding>
+                {list.map((i) => (
+                  <ListItem
+                    key={i.id}
+                    disableGutters
+                    secondaryAction={
+                      <LinkButton size="small" to="." search={(p) => ({ ...p, triage: i.id })}>
+                        Sort
+                      </LinkButton>
+                    }
+                  >
+                    <ListItemText
+                      primary={i.title || 'Untitled capture'}
+                      secondary={humanTime(i.created)}
+                      sx={{ pr: 8, overflowWrap: 'anywhere' }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )
+            const rest: { key: string; label: string; count: number; body: ReactNode }[] = [
+              {
+                key: 'waiting',
+                label: 'Waiting on others',
+                count: t.waiting,
+                body: <WaitingSection />,
+              },
+              {
+                key: 'blocked',
+                label: 'Blocked',
+                count: t.blocked.count,
+                body: <ItemRows kind="doc" items={t.blocked.items} />,
+              },
+              {
+                key: 'due',
+                label: 'Constraints to review',
+                count: t.due.count,
+                body: <ItemRows kind="doc" items={t.due.items} />,
+              },
+              {
+                key: 'expiring',
+                label: 'Policy exceptions expiring',
+                count: t.expiring.count,
+                body: <ItemRows kind="doc" items={t.expiring.items} />,
+              },
+            ].filter((r) => r.count > 0)
+
+            return (
+              <>
+                {t.error && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {t.error}
+                  </Alert>
+                )}
+                {(t.syncConflicts.length > 0 || t.lostUpdates.length > 0) && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    File sync left {t.syncConflicts.length} conflict copies and{' '}
+                    {t.lostUpdates.length} lost updates.
+                  </Alert>
+                )}
+                {need === 0 && (
+                  <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 600 }}>
+                    Nothing needs you right now.
+                  </Typography>
+                )}
+                {lead && (
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 1.5, mb: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
+                  >
+                    <Typography variant="overline" color="text.secondary">
+                      Start here - {lead.why}
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+                      <Typography
+                        variant="h6"
+                        component="p"
+                        sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}
+                      >
+                        {lead.title}
+                      </Typography>
+                      {lead.action}
+                    </Stack>
+                  </Paper>
+                )}
+                {(rest.length > 0 || t.unverified > 0) && (
+                  <Box sx={{ mt: 1 }}>
+                    <Stack
+                      direction="row"
+                      useFlexGap
+                      sx={{ flexWrap: 'wrap', gap: 0.5 }}
+                      aria-label="Also"
+                    >
+                      {rest.map((r) => (
+                        <Button
+                          key={r.key}
+                          size="small"
+                          color="inherit"
+                          variant={more === r.key ? 'outlined' : 'text'}
+                          aria-expanded={more === r.key}
+                          onClick={() => setMore(more === r.key ? '' : r.key)}
+                        >
+                          {r.label} {r.count}
+                        </Button>
+                      ))}
+                      {t.unverified > 0 && (
+                        <LinkButton size="small" color="inherit" to="/policy">
+                          Summaries to verify {t.unverified}
+                        </LinkButton>
+                      )}
+                    </Stack>
+                    {rest.find((r) => r.key === more)?.body}
+                  </Box>
+                )}
+                <Section
+                  title="Answers to check"
+                  count={t.answersToCheck}
+                  hideEmpty
+                  action={
+                    <LinkButton size="small" to="/review">
+                      Check
                     </LinkButton>
                   }
                 >
-                  <ListItemText
-                    primary={i.title || 'Untitled capture'}
-                    secondary={humanTime(i.created)}
-                    sx={{ pr: 8, overflowWrap: 'anywhere' }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )
-          const rest: { key: string; label: string; count: number; body: ReactNode }[] = [
-            {
-              key: 'waiting',
-              label: 'Waiting on others',
-              count: t.waiting,
-              body: <WaitingSection />,
-            },
-            {
-              key: 'blocked',
-              label: 'Blocked',
-              count: t.blocked.count,
-              body: <ItemRows kind="doc" items={t.blocked.items} />,
-            },
-            {
-              key: 'due',
-              label: 'Constraints to review',
-              count: t.due.count,
-              body: <ItemRows kind="doc" items={t.due.items} />,
-            },
-            {
-              key: 'expiring',
-              label: 'Policy exceptions expiring',
-              count: t.expiring.count,
-              body: <ItemRows kind="doc" items={t.expiring.items} />,
-            },
-          ].filter((r) => r.count > 0)
-
-          return (
-            <>
-              {t.error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {t.error}
-                </Alert>
-              )}
-              {(t.syncConflicts.length > 0 || t.lostUpdates.length > 0) && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  File sync left {t.syncConflicts.length} conflict copies and {t.lostUpdates.length}{' '}
-                  lost updates.
-                </Alert>
-              )}
-              {need === 0 && (
-                <Typography variant="body1" sx={{ mb: 1.5, fontWeight: 600 }}>
-                  Nothing needs you right now.
-                </Typography>
-              )}
-              {lead && (
-                <Paper
-                  variant="outlined"
-                  sx={{ p: 1.5, mb: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
-                >
-                  <Typography variant="overline" color="text.secondary">
-                    Start here - {lead.why}
-                  </Typography>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                    <Typography
-                      variant="h6"
-                      component="p"
-                      sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}
-                    >
-                      {lead.title}
-                    </Typography>
-                    {lead.action}
-                  </Stack>
-                </Paper>
-              )}
-              {(rest.length > 0 || t.unverified > 0) && (
-                <Box sx={{ mt: 1 }}>
-                  <Stack
-                    direction="row"
-                    useFlexGap
-                    sx={{ flexWrap: 'wrap', gap: 0.5 }}
-                    aria-label="Also"
-                  >
-                    {rest.map((r) => (
-                      <Button
-                        key={r.key}
-                        size="small"
-                        color="inherit"
-                        variant={more === r.key ? 'outlined' : 'text'}
-                        aria-expanded={more === r.key}
-                        onClick={() => setMore(more === r.key ? '' : r.key)}
-                      >
-                        {r.label} {r.count}
-                      </Button>
+                  <List dense disablePadding>
+                    {checkRows.map((x) => (
+                      <ListItem key={x.id} disableGutters>
+                        <ListItemText
+                          primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
+                          secondary={`proposed by ${x.proposedBy || 'an agent'}`}
+                        />
+                      </ListItem>
                     ))}
-                    {t.unverified > 0 && (
-                      <LinkButton size="small" color="inherit" to="/policy">
-                        Summaries to verify {t.unverified}
-                      </LinkButton>
-                    )}
-                  </Stack>
-                  {rest.find((r) => r.key === more)?.body}
-                </Box>
-              )}
-              <Section title="Proposals" count={propRows.length} hideEmpty>
-                <List dense disablePadding>
-                  {propRows.map((x) => (
-                    <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
-                      <ListItemText
-                        primary={
-                          <TextLink to="/proposals/$id" params={{ id: x.id }} underline="hover">
-                            {x.title || nameOr('', x.id)}
-                          </TextLink>
-                        }
-                        secondary={`${x.pending} of ${x.itemCount} to decide, from ${x.proposedBy}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Section>
-              <Section
-                title="Approved, not done"
-                count={t.approvedNotDone}
-                hideEmpty
-                action={
-                  <LinkButton size="small" to="/review">
-                    Open
-                  </LinkButton>
-                }
-              >
-                {null}
-              </Section>
-              <Section
-                title="Answers to check"
-                count={t.answersToCheck}
-                hideEmpty
-                action={
-                  <LinkButton size="small" to="/review">
-                    Check
-                  </LinkButton>
-                }
-              >
-                <List dense disablePadding>
-                  {checkRows.map((x) => (
-                    <ListItem key={x.id} disableGutters>
-                      <ListItemText
-                        primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
-                        secondary={`proposed by ${x.proposedBy || 'an agent'}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Section>
-              <Section
-                title="Agent work to accept"
-                count={agentWork.length}
-                hideEmpty
-                action={
-                  <LinkButton size="small" to="/review">
-                    Review
-                  </LinkButton>
-                }
-              >
-                <List dense disablePadding>
-                  {agentWork.map((x) => (
-                    <ListItem key={x.id} disableGutters>
-                      <ListItemText
-                        primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              </Section>
-              <Section
-                title="What needs you, in order"
-                count={agendaRows.length}
-                hideEmpty
-                action={
-                  narrow ? undefined : (
-                    <LinkButton size="small" to="/agenda">
-                      Agenda
+                  </List>
+                </Section>
+                <Section
+                  title="Agent work to accept"
+                  count={agentWork.length}
+                  hideEmpty
+                  action={
+                    <LinkButton size="small" to="/review">
+                      Review
                     </LinkButton>
-                  )
-                }
-              >
-                <AgendaRows items={agendaRows} />
-                {t.otherOpen > 0 && (
-                  <LinkButton size="small" color="inherit" to="/questions">
-                    {t.otherOpen} other open question{t.otherOpen === 1 ? '' : 's'}
+                  }
+                >
+                  <List dense disablePadding>
+                    {agentWork.map((x) => (
+                      <ListItem key={x.id} disableGutters>
+                        <ListItemText
+                          primary={<DocLink id={x.id}>{x.title || nameOr('', x.id)}</DocLink>}
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Section>
+                <Section
+                  title="What needs you, in order"
+                  count={agendaRows.length}
+                  hideEmpty
+                  action={
+                    narrow ? undefined : (
+                      <LinkButton size="small" to="/agenda">
+                        Agenda
+                      </LinkButton>
+                    )
+                  }
+                >
+                  <AgendaRows items={agendaRows} />
+                  {t.otherOpen > 0 && (
+                    <LinkButton size="small" color="inherit" to="/questions">
+                      {t.otherOpen} other open question{t.otherOpen === 1 ? '' : 's'}
+                    </LinkButton>
+                  )}
+                  {t.deferred > 0 && (
+                    <LinkButton size="small" color="inherit" to="/questions">
+                      {t.deferred} put off (Later)
+                    </LinkButton>
+                  )}
+                </Section>
+                {t.health > 0 && (
+                  <LinkButton size="small" color="inherit" to="/health">
+                    {t.health} health finding{t.health === 1 ? '' : 's'}
                   </LinkButton>
                 )}
-                {t.deferred > 0 && (
-                  <LinkButton size="small" color="inherit" to="/questions">
-                    {t.deferred} put off (Later)
-                  </LinkButton>
+                {t.upgradeSteps > 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    {t.upgradeSteps} vault upgrade step{t.upgradeSteps === 1 ? '' : 's'} pending.
+                    Run para vault upgrade status.
+                  </Typography>
                 )}
-              </Section>
-              {t.health > 0 && (
-                <LinkButton size="small" color="inherit" to="/health">
-                  {t.health} health finding{t.health === 1 ? '' : 's'}
-                </LinkButton>
-              )}
-              {t.upgradeSteps > 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  {t.upgradeSteps} vault upgrade step{t.upgradeSteps === 1 ? '' : 's'} pending. Run para vault upgrade status.
-                </Typography>
-              )}
-              <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
-                {inboxOf(inboxRows)}
-              </Section>
-              {need === 0 && <Empty>No task is ready.</Empty>}
-            </>
-          )
-        }}
-      </DataState>
+                <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
+                  {inboxOf(inboxRows)}
+                </Section>
+                {need === 0 && <Empty>No task is ready.</Empty>}
+              </>
+            )
+          }}
+        </DataState>
       )}
     </>
   )

@@ -16,8 +16,6 @@ import MenuIcon from '@mui/icons-material/Menu'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import TodayIcon from '@mui/icons-material/Today'
-import Badge from '@mui/material/Badge'
-import { useOpenProposals } from '@/api/proposals'
 import { HttpBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
@@ -31,7 +29,6 @@ export function AppShell({ session, children }: { session: SessionView; children
   const navigate = useNavigate()
   const path = useRouterState({ select: (s) => s.location.pathname })
   const current = TABS.find((t) => path === t.to || path.startsWith(`${t.to}/`))
-  const { open } = useOpenProposals()
   const wide = { xs: 'none', md: 'flex' }
   // On a phone the bottom bar holds Menu, so the top bar shows it only between 600 and 900 px.
   const narrow = { xs: 'none', sm: 'inline-flex', md: 'none' }
@@ -48,11 +45,7 @@ export function AppShell({ session, children }: { session: SessionView; children
           <LinkButton
             color="inherit"
             aria-label="Menu"
-            startIcon={
-              <Badge color="warning" variant="dot" invisible={open.length === 0}>
-                <MenuIcon />
-              </Badge>
-            }
+            startIcon={<MenuIcon />}
             to="."
             search={(p) => ({ ...p, menu: true })}
             sx={{ display: narrow, minWidth: 0 }}
@@ -62,7 +55,11 @@ export function AppShell({ session, children }: { session: SessionView; children
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, pl: { md: 1 } }} noWrap>
             para
             {/* The vault is shown as plain text: the session is bound to one vault by its address. */}
-            <Box component="span" sx={{ ml: 1, opacity: 0.8, fontSize: '0.8em' }} aria-label="Vault">
+            <Box
+              component="span"
+              sx={{ ml: 1, opacity: 0.8, fontSize: '0.8em' }}
+              aria-label="Vault"
+            >
               {session.vault}
             </Box>
           </Typography>
@@ -122,26 +119,14 @@ export function AppShell({ session, children }: { session: SessionView; children
             <LinkTab
               key={t.to}
               value={t.to}
-              label={
-                t.to === '/review' && open.length > 0 ? (
-                  <Badge
-                    color="warning"
-                    badgeContent={open.length}
-                    sx={{ '& .MuiBadge-badge': { right: -14, top: 2 } }}
-                  >
-                    {t.label}
-                  </Badge>
-                ) : (
-                  t.label
-                )
-              }
+              label={t.label}
               title={t.hint}
               to={t.to}
               sx={{
                 minHeight: 44,
                 minWidth: 0,
                 px: 2,
-                pr: t.to === '/review' && open.length > 0 ? 3.5 : 2,
+                pr: 2,
               }}
             />
           ))}
@@ -178,11 +163,7 @@ export function AppShell({ session, children }: { session: SessionView; children
           <LinkBottomNavAction
             value="/review"
             label="Review"
-            icon={
-              <Badge color="warning" badgeContent={open.length}>
-                <RateReviewOutlinedIcon />
-              </Badge>
-            }
+            icon={<RateReviewOutlinedIcon />}
             to="/review"
           />
           <LinkBottomNavAction value="/search" label="Search" icon={<SearchIcon />} to="/search" />

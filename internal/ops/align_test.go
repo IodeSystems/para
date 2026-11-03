@@ -20,7 +20,7 @@ func alignIDs(out AlignScopeOutput) []string {
 }
 
 func TestAlignScopeListsOpenItemsOfOneScope(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	area := must(t, AreaAdd, f.owner, AreaAddInput{Title: "Platform"})
 	goal := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "Ship the portal", Owner: "Jordan Example", DoneWhen: "Live.", Due: "2026-11-20", Area: area.ID})
 	other := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "Unrelated goal", Owner: "Jordan Example", DoneWhen: "Done."})
@@ -77,21 +77,14 @@ func TestAlignScopeListsOpenItemsOfOneScope(t *testing.T) {
 }
 
 func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
-	f := newPropFix(t)
-	prop := f.file(mailItem("Hi."))
-
-	// Differences need the proposal that holds them.
-	if _, err := AlignRecord.Run(t.Context(), f.agent, AlignRecordInput{Scope: f.proj, Checked: 4, Matched: 3, Differ: 1}); err == nil || !strings.Contains(err.Error(), "proposal") {
-		t.Errorf("differ without a proposal: %v", err)
-	}
+	f := newAgentFix(t)
 	for name, in := range map[string]AlignRecordInput{
-		"no scope":       {Checked: 1, Matched: 1},
-		"unknown scope":  {Scope: "project-gone", Checked: 1, Matched: 1},
-		"a note scope":   {Scope: f.source, Checked: 1, Matched: 1},
-		"negative":       {Scope: f.proj, Checked: 1, Matched: -1},
-		"more than all":  {Scope: f.proj, Checked: 1, Matched: 1, Differ: 1, Proposal: prop},
-		"nothing":        {Scope: f.proj},
-		"not a proposal": {Scope: f.proj, Checked: 2, Matched: 1, Differ: 1, Proposal: f.source},
+		"no scope":      {Checked: 1, Matched: 1},
+		"unknown scope": {Scope: "project-gone", Checked: 1, Matched: 1},
+		"a note scope":  {Scope: f.source, Checked: 1, Matched: 1},
+		"negative":      {Scope: f.proj, Checked: 1, Matched: -1},
+		"more than all": {Scope: f.proj, Checked: 1, Matched: 1, Differ: 1},
+		"nothing":       {Scope: f.proj},
 	} {
 		if _, err := AlignRecord.Run(t.Context(), f.agent, in); err == nil {
 			t.Errorf("%s: accepted", name)
@@ -107,7 +100,7 @@ func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
 		t.Errorf("clean run = %+v", out)
 	}
 	// A run with differences and an unreachable source names it.
-	out2 := must(t, AlignRecord, f.agent, AlignRecordInput{Scope: AlignVault, Checked: 7, Matched: 5, Differ: 2, Unreachable: []string{"jira", " jira ", "slack"}, Proposal: prop})
+	out2 := must(t, AlignRecord, f.agent, AlignRecordInput{Scope: AlignVault, Checked: 7, Matched: 5, Differ: 2, Unreachable: []string{"jira", " jira ", "slack"}})
 	if !strings.Contains(out2.Summary, "2 unreachable (jira, slack)") {
 		t.Errorf("summary = %q", out2.Summary)
 	}
@@ -116,7 +109,7 @@ func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
 		t.Fatalf("receipts = %+v", rl.Items)
 	}
 	vl := must(t, ReceiptList, f.owner, ReceiptListInput{Doc: AlignVault})
-	if len(vl.Items) != 1 || !slices.Equal(vl.Items[0].Align.Unreachable, []string{"jira", "slack"}) || vl.Items[0].Align.Proposal != prop {
+	if len(vl.Items) != 1 || !slices.Equal(vl.Items[0].Align.Unreachable, []string{"jira", "slack"}) {
 		t.Fatalf("vault receipts = %+v", vl.Items)
 	}
 	// It shows on the activity view.
@@ -136,13 +129,13 @@ func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
 		t.Errorf("last aligned = %q", show.LastAligned)
 	}
 	// A receipt of this kind does not revert anything.
-	if _, err := ReceiptRevert.Run(t.Context(), f.owner, ReceiptRevertInput{ID: rl.Items[0].ID}); err == nil {
+	if _, err := ReceiptUndo.Run(t.Context(), f.owner, ReceiptUndoInput{ID: rl.Items[0].ID}); err == nil {
 		t.Error("an align receipt was reverted")
 	}
 }
 
 func TestAlignedDateComesFromTheGoalItsAreaOrTheVault(t *testing.T) {
-	f := newPropFix(t)
+	f := newAgentFix(t)
 	area := must(t, AreaAdd, f.owner, AreaAddInput{Title: "Platform"})
 	inArea := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "In the area", Owner: "Jordan Example", DoneWhen: "Done.", Area: area.ID})
 	if got, _ := LastAligned(t.Context(), f.owner.Store, inArea.ID); got != "" {

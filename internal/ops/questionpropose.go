@@ -1,9 +1,7 @@
 package ops
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -101,37 +99,11 @@ func replySources(ctx context.Context, d Deps, m *model.RFX, in RFXReplyInput) (
 	if len(src) == 0 && strings.TrimSpace(in.URL) != "" {
 		src = []model.AnswerSource{{Ref: in.URL}}
 	}
-	srcs, err := answerSources(ctx, d, src, agentSurface(d) || d.Store.Info().Surface == surfaceProposal)
+	srcs, err := answerSources(ctx, d, src, agentSurface(d))
 	if err != nil {
 		return nil, fmt.Errorf("the reply answers %s: %w", qid, err)
 	}
 	return srcs, nil
-}
-
-func decodeInput(input map[string]any, into any) error {
-	b, err := json.Marshal(input)
-	if err != nil {
-		return err
-	}
-	dec := json.NewDecoder(bytes.NewReader(b))
-	dec.DisallowUnknownFields()
-	return dec.Decode(into)
-}
-
-// checkProposedAnswer checks a proposal item that names question_answer: it
-// must carry sources that exist. Called at proposal_add and proposal_revise.
-func checkProposedAnswer(ctx context.Context, d Deps, it model.ProposalItem) error {
-	if it.Kind != model.ItemPara || it.Op != "question_answer" {
-		return nil
-	}
-	var in QuestionAnswerInput
-	if err := decodeInput(it.Input, &in); err != nil {
-		return err
-	}
-	if _, err := answerSources(ctx, d, in.Sources, true); err != nil {
-		return fmt.Errorf("question_answer: %w", err)
-	}
-	return nil
 }
 
 // checkProposer refuses a browser session of the key that proposed the answer.

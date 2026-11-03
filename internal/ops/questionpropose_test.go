@@ -51,7 +51,7 @@ func TestAgentAnswerIsOnlyProposed(t *testing.T) {
 	}
 
 	// An agent cannot accept or reject, and a person can.
-	for _, s := range []string{"mcp", "api", surfaceProposal, ""} {
+	for _, s := range []string{"mcp", "api", ""} {
 		a := Deps{Store: d.Store.ActAs("claude", s)}
 		if _, err := QuestionAccept.Run(ctx, a, QuestionAcceptInput{ID: q}); !errors.Is(err, ErrPersonOnly) {
 			t.Errorf("accept on %q: %v", s, err)
@@ -104,32 +104,6 @@ func TestAgentAnswerIsOnlyProposed(t *testing.T) {
 		}
 	}
 	mustLintClean(t, d)
-}
-
-func TestProposalItemAnswerNeedsSources(t *testing.T) {
-	f := newPropFix(t)
-	q := must(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which port?", Project: f.proj}).ID
-	item := func(src []any) ItemInput {
-		in := map[string]any{"id": q, "text": "7700"}
-		if src != nil {
-			in["sources"] = src
-		}
-		return ItemInput{Kind: model.ItemOp, Op: "question_answer", Input: in, Evidence: ev}
-	}
-	if _, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "A", Source: f.source, Items: []ItemInput{item(nil)}}); err == nil {
-		t.Fatal("filed an answer with no source")
-	}
-	if _, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "A", Source: f.source, Items: []ItemInput{item([]any{map[string]any{"ref": "note-nope"}})}}); err == nil {
-		t.Fatal("filed an answer with a missing source")
-	}
-	id := f.file(item([]any{map[string]any{"ref": f.source, "quote": "Ship it."}}))
-	if _, err := ProposalApprove.Run(ctx, f.owner, ProposalApproveInput{ID: id, Items: []string{"i1"}}); err != nil {
-		t.Fatal(err)
-	}
-	v := must(t, QuestionShow, f.owner, QuestionShowInput{ID: q}).Question
-	if v.Status != model.QuestionAnswered || v.AnsweredBy != "user" || v.ProposedBy != "claude" {
-		t.Fatalf("view = %+v", v)
-	}
 }
 
 func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {

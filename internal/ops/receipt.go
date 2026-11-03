@@ -195,65 +195,90 @@ func respondToWrong(ctx context.Context, d Deps, id string, r *model.Receipt, no
 			return doc.ID, nil
 		}
 	}
-	ask := fmt.Sprintf("Receipt %s is marked wrong: %s\n\nRead it with receipt_show. Fix the document %s, or revert the write with receipt_revert.", id, note, r.Doc)
+	ask := fmt.Sprintf("Receipt %s is marked wrong: %s\n\nRead it with receipt_show. Fix the document %s, or undo the write with receipt_undo.", id, note, r.Doc)
 	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: "Fix a write marked wrong", Ask: ask})
 	return out.ID, err
 }
 
-// ReceiptRevertInput is the input of receipt_revert.
-type ReceiptRevertInput struct {
-	ID string `json:"id"`
+// ReceiptUndoInput is the input of receipt_undo: one receipt, or several,
+// newest first.
+type ReceiptUndoInput struct {
+	ID  string   `json:"id,omitempty"`
+	IDs []string `json:"ids,omitempty"`
 }
 
-// ReceiptRevertOutput is the output of receipt_revert.
-type ReceiptRevertOutput struct {
-	Doc string `json:"doc"`
-	Rev string `json:"rev"`
+// ReceiptUndone is one write that was undone.
+type ReceiptUndone struct {
+	Receipt string `json:"receipt"`
+	Doc     string `json:"doc"`
+	Rev     string `json:"rev"`
 }
 
-// ReceiptRevert puts a document back to the text in a receipt. It needs no git.
-// A document the write created moves to the archive: nothing is deleted. It is
-// refused when the document changed since, so a revert never loses later work.
-// Undoing an op that took review is a review too: an agent proposes it.
-var ReceiptRevert = defineSafe("receipt_revert", "Put a document back to the text before a write, from its receipt. Refused if the document changed since. Reverting a review op from an agent needs a proposal", func(ctx context.Context, d Deps, in ReceiptRevertInput) (ReceiptRevertOutput, error) {
-	doc, r, err := getReceipt(ctx, d.Store, in.ID)
+// ReceiptUndoOutput is the output of receipt_undo. A refusal in the middle of
+// a list returns an error that names the receipt; the earlier ones stay undone.
+type ReceiptUndoOutput struct {
+	Undone []ReceiptUndone `json:"undone"`
+}
+
+// ReceiptUndo puts a document back to the text before a write, from its
+// receipt. It needs no git. A document the write created moves to the archive:
+// nothing is deleted. It is refused when the document changed since, so an
+// undo never loses later work. A person or an agent may call it.
+var ReceiptUndo = defineSafe("receipt_undo", "Undo agent writes from their receipts: put each document back to the text before the write. Refused, with the reason, if the document changed since; undo the later receipt first. Takes id or ids, newest first", func(ctx context.Context, d Deps, in ReceiptUndoInput) (ReceiptUndoOutput, error) {
+	ids := slices.Clone(in.IDs)
+	if in.ID != "" {
+		ids = append([]string{in.ID}, ids...)
+	}
+	if len(ids) == 0 {
+		return ReceiptUndoOutput{}, errors.New("give id or ids: the receipts to undo")
+	}
+	out := ReceiptUndoOutput{Undone: []ReceiptUndone{}}
+	for _, id := range ids {
+		u, err := undoReceipt(ctx, d, id)
+		if err != nil {
+			return out, fmt.Errorf("receipt %s: %w", normID(id), err)
+		}
+		out.Undone = append(out.Undone, u)
+	}
+	return out, nil
+})
+
+func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) {
+	doc, r, err := getReceipt(ctx, d.Store, id)
 	if err != nil {
-		return ReceiptRevertOutput{}, err
+		return ReceiptUndone{}, err
 	}
 	c, err := model.ParseReceiptBody(doc.Body)
 	if err != nil {
-		return ReceiptRevertOutput{}, fmt.Errorf("%s: %w", doc.ID, err)
-	}
-	if e, ok := registry[r.Op]; ok && e.Risk() == RiskReview && agentSurface(d) {
-		return ReceiptRevertOutput{}, fmt.Errorf("reverting %s: %w", r.Op, ErrNeedsProposal)
+		return ReceiptUndone{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
 	cur, err := d.Store.Get(ctx, r.Doc)
 	if err != nil {
-		return ReceiptRevertOutput{}, err
+		return ReceiptUndone{}, err
 	}
 	if renderText(cur) != c.After {
-		return ReceiptRevertOutput{}, fmt.Errorf("%s changed since this write: fix it by hand, or revert the later receipt first", r.Doc)
+		return ReceiptUndone{}, fmt.Errorf("%s changed since this write: undo the later receipt first, or fix it by hand", r.Doc)
 	}
 	if c.Before == "" {
 		moved, err := d.Store.Move(ctx, r.Doc, model.FolderArchive)
 		if err != nil {
-			return ReceiptRevertOutput{}, err
+			return ReceiptUndone{}, err
 		}
-		return ReceiptRevertOutput{Doc: moved.ID, Rev: moved.Rev}, nil
+		return ReceiptUndone{Receipt: doc.ID, Doc: moved.ID, Rev: moved.Rev}, nil
 	}
 	old, err := model.ParseDocument(r.Doc, cur.Folder, c.Before)
 	if err != nil {
-		return ReceiptRevertOutput{}, fmt.Errorf("%s: %w", doc.ID, err)
+		return ReceiptUndone{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
 	old.Rev = cur.Rev
 	saved, err := d.Store.Update(ctx, old)
 	if err != nil {
-		return ReceiptRevertOutput{}, err
+		return ReceiptUndone{}, err
 	}
 	if c.Folder != "" && c.Folder != saved.Folder {
 		if saved, err = d.Store.Move(ctx, r.Doc, c.Folder); err != nil {
-			return ReceiptRevertOutput{}, err
+			return ReceiptUndone{}, err
 		}
 	}
-	return ReceiptRevertOutput{Doc: saved.ID, Rev: saved.Rev}, nil
-})
+	return ReceiptUndone{Receipt: doc.ID, Doc: saved.ID, Rev: saved.Rev}, nil
+}

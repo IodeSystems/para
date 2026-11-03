@@ -28,9 +28,9 @@ func steps() []Step {
 			Select:  lacksDoneWhen,
 			Instructions: "Each document the selector lists is an open goal or task with no done_when. " +
 				"Read the document, its links, and its history. Where the vault or your own tools show what done means, " +
-				"propose a done_when in one sentence the owner can check. Where they do not, say so and do not guess. " +
-				"File one proposal with an item per document that sets done_when (doc_edit with fields {done_when}), " +
-				"each item carrying a source. Then follow the prompt review_cycle.",
+				"write a done_when in one sentence the owner can check. Where they do not, say so and do not guess. " +
+				"Set it with doc_edit (fields {done_when}) on each document, " +
+				"citing the source in sources.",
 			Done: "No open goal or task lacks done_when.",
 		},
 	}
