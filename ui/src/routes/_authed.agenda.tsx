@@ -552,7 +552,7 @@ function Agenda() {
               )}
               {t.upgradeSteps > 0 && (
                 <Typography variant="body2" color="text.secondary">
-                  {t.upgradeSteps} vault upgrade step{t.upgradeSteps === 1 ? '' : 's'} pending. Run para vault upgrade --status.
+                  {t.upgradeSteps} vault upgrade step{t.upgradeSteps === 1 ? '' : 's'} pending. Run para vault upgrade status.
                 </Typography>
               )}
               <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>

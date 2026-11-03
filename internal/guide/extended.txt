@@ -225,7 +225,7 @@ The friction report counts what slows asks down, from the asks and the event log
 24. Upgrades: the binary, the notes, the vault format
   $ para upgrade
   $ para changes --since 0.1.0
-  $ para vault upgrade --status
+  $ para vault upgrade status
   $ para vault upgrade --dry-run
   $ para vault upgrade
   $ para vault upgrade --undo up-meeting-as-task-20261103120000

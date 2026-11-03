@@ -14,7 +14,7 @@ import (
 func streamAXParityCases() map[string]parityCase {
 	return map[string]parityCase{
 		"changes":              {`{}`, []string{"changes"}, true},
-		"vault_upgrade_status": {`{}`, []string{"vault", "upgrade", "--status"}, true},
+		"vault_upgrade_status": {`{}`, []string{"vault", "upgrade", "status"}, true},
 		"vault_upgrade":        {`{"dry_run":true}`, []string{"vault", "upgrade", "--dry-run"}, true},
 	}
 }

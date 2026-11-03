@@ -369,5 +369,5 @@ func doctorUpgrade(l *loader, r *report, v registry.Vault) {
 		r.ok(what, fmt.Sprintf("%d of %d", s.FormatVersion, s.Latest))
 		return
 	}
-	r.warn(what, fmt.Sprintf("%d upgrade steps pending: para --vault %s vault upgrade --status", len(s.Pending), v.ID))
+	r.warn(what, fmt.Sprintf("%d upgrade steps pending: para --vault %s vault upgrade status", len(s.Pending), v.ID))
 }

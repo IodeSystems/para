@@ -92,7 +92,7 @@ type VaultToday struct {
 	// Health counts health findings (para health) not dismissed. It is a line
 	// on Today, not part of the agenda.
 	Health int `json:"health"`
-	// UpgradeSteps counts vault upgrade steps (para vault upgrade --status) that
+	// UpgradeSteps counts vault upgrade steps (para vault upgrade status) that
 	// still have documents to change. It shows beside the health line.
 	UpgradeSteps int `json:"upgrade_steps"`
 	// ApprovedNotDone counts messages and actions the owner approved that nobody

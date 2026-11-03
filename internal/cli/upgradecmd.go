@@ -36,52 +36,32 @@ func newChangesCmd(l *loader) *cobra.Command {
 	})
 }
 
-// newVaultUpgradeCmd is `para vault upgrade`. --status reads; the rest is the
-// person-only op.
+// newVaultUpgradeCmd is `para vault upgrade`: the person-only op, with
+// `status` as the read-only subcommand.
 func newVaultUpgradeCmd(l *loader) *cobra.Command {
-	var status bool
-	var in ops.VaultUpgradeInput
-	cmd := &cobra.Command{
-		Use:   "upgrade [--dry-run | --status | --file | --undo <batch>]",
-		Short: "Bring this vault to the current format: run pending automated steps as one undoable batch each",
-		Long: `Bring this vault to the format of this para. format_version in
+	cmd := opCommand(l, ops.VaultUpgrade, binding[ops.VaultUpgradeInput, ops.VaultUpgradeOutput]{
+		Use:  "upgrade [--dry-run | --file | --undo <batch>]",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.VaultUpgradeInput) {
+			fs.BoolVar(&in.DryRun, "dry-run", false, "list the documents each automated step would rewrite and change nothing")
+			fs.BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work; runs no automated step")
+			fs.StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
+		},
+		Text: writeVaultUpgrade,
+	})
+	cmd.Short = "Bring this vault to the current format: run pending automated steps as one undoable batch each"
+	cmd.Long = `Bring this vault to the format of this para. format_version in
 .para/vault.properties says which steps are done.
 
 An automated step rewrites documents through the vault: one batch, one event per
 document. Use --dry-run first. --undo <batch> restores the files on the machine
 that ran the batch. A judgement step needs an agent: --file queues each pending
-one as agent work and changes no document. --status lists what is pending.`,
+one as agent work and changes no document. "upgrade status" lists what is pending.`
+	cmd.AddCommand(opCommand(l, ops.VaultUpgradeStatus, binding[ops.VaultUpgradeStatusInput, upgrade.Status]{
+		Use:  "status",
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := l.load(); err != nil {
-				return err
-			}
-			deps, err := l.deps()
-			if err != nil {
-				return err
-			}
-			if status {
-				if in.DryRun || in.File || in.Undo != "" {
-					return errors.New("vault upgrade: --status takes no other flag")
-				}
-				out, err := ops.VaultUpgradeStatus.Run(cmd.Context(), deps, ops.VaultUpgradeStatusInput{})
-				if err != nil {
-					return err
-				}
-				return emit(cmd, out, func(w io.Writer, s upgrade.Status) error { return writeUpgradeStatus(w, s) })
-			}
-			out, err := ops.VaultUpgrade.Run(cmd.Context(), deps, in)
-			if err != nil {
-				return err
-			}
-			return emit(cmd, out, writeVaultUpgrade)
-		},
-	}
-	addJSONFlag(cmd)
-	cmd.Flags().BoolVar(&status, "status", false, "list the pending steps and change nothing")
-	cmd.Flags().BoolVar(&in.DryRun, "dry-run", false, "list the documents each automated step would rewrite and change nothing")
-	cmd.Flags().BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work; runs no automated step")
-	cmd.Flags().StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
+		Text: writeUpgradeStatus,
+	}))
 	return cmd
 }
 
@@ -222,7 +202,7 @@ func runUpgrade(ctx context.Context, w io.Writer, o upgradeOptions) error {
 }
 
 func printGoInstall(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "This para was not built from a git checkout. Run:\n  %s\nThat build has no version stamp. Then restart the service (para service restart) and any MCP server.\n", goInstallLine)
+	_, err := fmt.Fprintf(w, "This para was not built from a git checkout. Run:\n  %s\nThat build has no version stamp. This repo is private: go install needs GOPRIVATE set and git access to it; otherwise use a checkout.\nThen restart the service (para service restart) and any MCP server.\n", goInstallLine)
 	return err
 }
 
