@@ -126,7 +126,7 @@ func getQuestion(ctx context.Context, s store.Store, id string) (model.Document,
 	}
 	d, err := s.Get(ctx, id)
 	if err != nil {
-		return d, nil, err
+		return d, nil, missing("question", id, err)
 	}
 	q, ok := d.Meta.(*model.Question)
 	if !ok {
@@ -373,7 +373,7 @@ func scopeLink(ctx context.Context, s store.Store, project, task, area string, r
 	case project != "":
 		doc, _, err := getProject(ctx, s, project)
 		if err != nil {
-			return "", fmt.Errorf("project %s: %w", project, err)
+			return "", linkErr("project", project, err)
 		}
 		if doc.Folder == model.FolderArchive {
 			return "", fmt.Errorf("project %s is archived", project)
@@ -382,7 +382,7 @@ func scopeLink(ctx context.Context, s store.Store, project, task, area string, r
 	case task != "":
 		doc, _, err := getTask(ctx, s, task)
 		if err != nil {
-			return "", fmt.Errorf("task %s: %w", task, err)
+			return "", linkErr("task", task, err)
 		}
 		return model.LinkTo(doc.ID), nil
 	}

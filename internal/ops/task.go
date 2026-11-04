@@ -101,7 +101,7 @@ func taskTerminal(s model.TaskStatus) bool { return s == model.TaskDone || s == 
 func getTask(ctx context.Context, s store.Store, id string) (model.Document, *model.Task, error) {
 	d, err := s.Get(ctx, id)
 	if err != nil {
-		return d, nil, err
+		return d, nil, missing("task", id, err)
 	}
 	t, ok := d.Meta.(*model.Task)
 	if !ok {
@@ -225,7 +225,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if id := normID(in.Parent); id != "" {
 		pdoc, pt, err := getTask(ctx, d.Store, id)
 		if err != nil {
-			return TaskAddOutput{}, fmt.Errorf("parent %s: %w", id, err)
+			return TaskAddOutput{}, linkErr("parent", id, err)
 		}
 		if taskTerminal(pt.Status) {
 			return TaskAddOutput{}, fmt.Errorf("parent %s is already %s", id, pt.Status)
@@ -247,7 +247,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if id := normID(in.Incident); id != "" {
 		idoc, im, err := getIncident(ctx, d.Store, id)
 		if err != nil {
-			return TaskAddOutput{}, fmt.Errorf("incident %s: %w", id, err)
+			return TaskAddOutput{}, linkErr("incident", id, err)
 		}
 		incident = model.LinkTo(idoc.ID)
 		if in.Project == "" && normID(in.Area) == "" {
@@ -594,7 +594,7 @@ func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link,
 	id := normID(raw)
 	dep, err := s.Get(ctx, id)
 	if err != nil {
-		return "", fmt.Errorf("depends_on %s: %w", id, err)
+		return "", linkErr("depends_on", id, err)
 	}
 	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeProject && typ != model.TypeRequest {
 		return "", fmt.Errorf("depends_on %s is a %s: want a task, rfx, question, goal, or agent work", id, typ)

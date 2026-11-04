@@ -47,7 +47,7 @@ func projectView(d model.Document) (ProjectView, error) {
 func getProject(ctx context.Context, s store.Store, id string) (model.Document, *model.Project, error) {
 	d, err := s.Get(ctx, id)
 	if err != nil {
-		return d, nil, err
+		return d, nil, missing("project", id, err)
 	}
 	p, ok := d.Meta.(*model.Project)
 	if !ok {

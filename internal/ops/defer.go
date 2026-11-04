@@ -197,7 +197,7 @@ var Defer = definePerson("defer", "Put questions, tasks, or goals off until a da
 	if scope := normID(in.Scope); scope != "" {
 		sd, err := d.Store.Get(ctx, scope)
 		if err != nil {
-			return DeferOutput{}, fmt.Errorf("scope %s: %w", scope, err)
+			return DeferOutput{}, linkErr("scope", scope, err)
 		}
 		var qs []QuestionView
 		switch sd.Meta.(type) {

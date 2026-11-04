@@ -61,7 +61,7 @@ func projectLink(ctx context.Context, s store.Store, raw string) (model.Link, er
 		return "", nil
 	}
 	if _, _, err := getProject(ctx, s, id); err != nil {
-		return "", fmt.Errorf("project %s: %w", id, err)
+		return "", linkErr("project", id, err)
 	}
 	return model.LinkTo(id), nil
 }

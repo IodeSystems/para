@@ -42,7 +42,7 @@ func areaView(d model.Document) (AreaView, error) {
 func getArea(ctx context.Context, s store.Store, id string) (model.Document, *model.Area, error) {
 	d, err := s.Get(ctx, normID(id))
 	if err != nil {
-		return d, nil, err
+		return d, nil, missing("area", normID(id), err)
 	}
 	a, ok := d.Meta.(*model.Area)
 	if !ok {
@@ -58,7 +58,7 @@ func areaLink(ctx context.Context, s store.Store, raw string) (model.Link, error
 	}
 	d, _, err := getArea(ctx, s, raw)
 	if err != nil {
-		return "", fmt.Errorf("area %s: %w", normID(raw), err)
+		return "", linkErr("area", normID(raw), err)
 	}
 	return model.LinkTo(d.ID), nil
 }

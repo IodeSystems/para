@@ -96,7 +96,7 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if id := normID(in.Question); id != "" {
 		qd, q, err := getQuestion(ctx, d.Store, id)
 		if err != nil {
-			return RFXAddOutput{}, fmt.Errorf("question %s: %w", id, err)
+			return RFXAddOutput{}, linkErr("question", id, err)
 		}
 		if q.Status != model.QuestionOpen {
 			return RFXAddOutput{}, fmt.Errorf("question %s is already %s", id, q.Status)
@@ -418,7 +418,7 @@ var RFXClose = define("rfx_close", "Close a request; an inbound one needs a play
 	pb := normID(in.Playbook)
 	if pb != "" {
 		if _, err := d.Store.Get(ctx, pb); err != nil {
-			return RFXStatusOutput{}, fmt.Errorf("playbook %s: %w", pb, err)
+			return RFXStatusOutput{}, linkErr("playbook", pb, err)
 		}
 	}
 	return setRFX(ctx, d, normID(in.ID), func(m *model.RFX) error {
@@ -464,7 +464,7 @@ func getRFX(ctx context.Context, d Deps, id string) (model.Document, *model.RFX,
 	}
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
-		return doc, nil, err
+		return doc, nil, missing("rfx", id, err)
 	}
 	m, ok := doc.Meta.(*model.RFX)
 	if !ok {
@@ -493,7 +493,7 @@ func existingLinks(ctx context.Context, d Deps, field string, ids []string) ([]m
 			return nil, fmt.Errorf("%s: empty id", field)
 		}
 		if _, err := d.Store.Get(ctx, id); err != nil {
-			return nil, fmt.Errorf("%s %s: %w", field, id, err)
+			return nil, linkErr(field, id, err)
 		}
 		out = append(out, model.LinkTo(id))
 	}

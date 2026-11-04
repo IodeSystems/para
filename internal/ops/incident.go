@@ -47,7 +47,7 @@ func incidentView(d model.Document) (IncidentView, error) {
 func getIncident(ctx context.Context, s store.Store, id string) (model.Document, *model.Incident, error) {
 	d, err := s.Get(ctx, normID(id))
 	if err != nil {
-		return d, nil, err
+		return d, nil, missing("incident", normID(id), err)
 	}
 	m, ok := d.Meta.(*model.Incident)
 	if !ok {
