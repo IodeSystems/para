@@ -212,12 +212,16 @@ func registerProposals(r *registrar) {
 	reg(r, ops.AgentActivity, get, read)
 }
 
-// registerReceipts: a receipt is read with vault:read. Checking one is the
-// owner's, and revert is a write.
+// registerReceipts: a receipt is read with vault:read. Checking one and
+// reverting one from the receipts page are the owner's (review:decide, person
+// ops, so a bearer key is refused); an agent undoes with receipt_undo
+// (vault:write).
 func registerReceipts(r *registrar) {
 	reg(r, ops.ReceiptList, get, read)
 	reg(r, ops.ReceiptShow, get, read)
-	reg(r, ops.ReceiptCheck, post, netguard.ScopeVaultWrite)
+	reg(r, ops.ReportOutcomes, get, read)
+	reg(r, ops.ReceiptCheck, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ReceiptRevert, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ReceiptUndo, post, write)
 	reg(r, ops.ActionRecord, post, write)
 	reg(r, ops.AlignScope, get, read)

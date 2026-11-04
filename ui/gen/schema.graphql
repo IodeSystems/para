@@ -121,6 +121,7 @@ type ParaV1MutationNamespace {
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
   receiptCheck(body: para_ReceiptCheckInputInput!): para_ReceiptCheckOutput @derived(operationId: "receiptCheck")
+  receiptRevert(body: para_ReceiptIDInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptRevert")
   receiptUndo(body: para_ReceiptUndoInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptUndo")
   recheck(body: para_RecheckInputInput!): para_RecheckOutput @derived(operationId: "recheck")
   recheckRecord(body: para_RecheckRecordInputInput!): para_RecheckRecordOutput @derived(operationId: "recheckRecord")
@@ -246,9 +247,10 @@ type ParaV1QueryNamespace {
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
-  receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, request: String): para_ReceiptListOutput @derived(operationId: "receiptList")
+  receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
   receiptShow(id: String!): para_ReceiptDetail @derived(operationId: "receiptShow")
   reportFriction(by: String, since: String, to: String): para_FrictionOutput @derived(operationId: "reportFriction")
+  reportOutcomes(since: String, until: String): para_ReportOutcomesOutput @derived(operationId: "reportOutcomes")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   requestShow(id: String!): para_RequestShowOutput @derived(operationId: "requestShow")
@@ -340,6 +342,12 @@ type para_ActivityRow {
   selfReported: Boolean
   ts: String!
   why: String
+}
+
+type para_ActorOutcomes {
+  actor: String!
+  outcomes: [para_OutcomeCount!]!
+  total: Int!
 }
 
 type para_AgendaItem {
@@ -1127,6 +1135,28 @@ type para_DeferOutput {
   similar: [para_Similar!]
   skipped: [String!]!
   until: String
+}
+
+type para_DeniedItem {
+  actor: String!
+  at: String!
+  item: String!
+  kind: para_DeniedItemKind!
+  proposal: String!
+  reason: String!
+  summary: String!
+  title: String!
+}
+
+enum para_DeniedItemKind {
+  action
+  doc_edit
+  external
+  message
+  op
+  para
+  question
+  upstream
 }
 
 input para_DependsCutInputInput {
@@ -3947,6 +3977,11 @@ type para_OrgShowOutput {
   doc: para_Document!
 }
 
+type para_OutcomeCount {
+  count: Int!
+  key: String!
+}
+
 type para_ParaOnly {
   calendarUid: String
   end: String
@@ -5257,6 +5292,10 @@ type para_ReceiptDetail {
   revertible: Boolean!
 }
 
+input para_ReceiptIDInputInput {
+  id: String!
+}
+
 type para_ReceiptListOutput {
   items: [para_ReceiptView!]!
 }
@@ -5450,6 +5489,16 @@ type para_Release {
   agents: [String!]!
   people: [String!]!
   version: String!
+}
+
+type para_ReportOutcomesOutput {
+  byActor: [para_ActorOutcomes!]!
+  closes: Int!
+  denied: [para_DeniedItem!]!
+  outcomes: [para_OutcomeCount!]!
+  since: String!
+  undos: [para_UndoRow!]!
+  until: String!
 }
 
 input para_RequestAcceptInputInput {
@@ -7058,6 +7107,13 @@ type para_UITodayBody {
 
 input para_UndeferInputInput {
   ids: [String!]
+}
+
+type para_UndoRow {
+  at: String!
+  by: String!
+  doc: String!
+  receipt: String!
 }
 
 type para_UndoneItem {

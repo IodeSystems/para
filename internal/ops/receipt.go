@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
@@ -61,6 +62,9 @@ type ReceiptListInput struct {
 	Request string             `json:"request,omitempty" query:"request"`
 	Actor   string             `json:"actor,omitempty" query:"actor"`
 	Check   model.ReceiptCheck `json:"check,omitempty" query:"check"`
+	Op      string             `json:"op,omitempty" query:"op"`
+	Since   string             `json:"since,omitempty" query:"since"` // YYYY-MM-DD: made on or after
+	Until   string             `json:"until,omitempty" query:"until"` // YYYY-MM-DD: made on or before
 	Limit   int                `json:"limit,omitempty" query:"limit"` // 0 means all
 }
 
@@ -96,7 +100,12 @@ func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
 }
 
 // ReceiptList lists receipts, newest first.
-var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, newest first, by document, request, actor, or check", func(ctx context.Context, d Deps, in ReceiptListInput) (ReceiptListOutput, error) {
+var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, newest first, by document, request, actor, op, check, or date (since, until)", func(ctx context.Context, d Deps, in ReceiptListInput) (ReceiptListOutput, error) {
+	for name, v := range map[string]string{"since": in.Since, "until": in.Until} {
+		if _, err := parseDate(name, v); err != nil {
+			return ReceiptListOutput{}, err
+		}
+	}
 	all, err := listReceipts(ctx, d.Store)
 	if err != nil {
 		return ReceiptListOutput{}, err
@@ -104,7 +113,8 @@ var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, new
 	out := ReceiptListOutput{Items: []ReceiptView{}}
 	for _, r := range all {
 		if (in.Doc != "" && r.Doc != normID(in.Doc)) || (in.Request != "" && r.Request != normID(in.Request)) ||
-			(in.Actor != "" && r.Actor != in.Actor) || (in.Check != "" && r.Check != in.Check) {
+			(in.Actor != "" && r.Actor != in.Actor) || (in.Check != "" && r.Check != in.Check) || (in.Op != "" && r.Op != in.Op) ||
+			(in.Since != "" && receiptDay(r) < in.Since) || (in.Until != "" && receiptDay(r) > in.Until) {
 			continue
 		}
 		out.Items = append(out.Items, r)
@@ -239,6 +249,10 @@ var ReceiptUndo = defineSafe("receipt_undo", "Undo agent writes from their recei
 	if len(ids) == 0 {
 		return ReceiptUndoOutput{}, errors.New("give id or ids: the receipts to undo")
 	}
+	return undoReceipts(ctx, d, ids)
+})
+
+func undoReceipts(ctx context.Context, d Deps, ids []string) (ReceiptUndoOutput, error) {
 	out := ReceiptUndoOutput{Undone: []ReceiptUndone{}}
 	for _, id := range ids {
 		u, err := undoReceipt(ctx, d, id)
@@ -246,8 +260,17 @@ var ReceiptUndo = defineSafe("receipt_undo", "Undo agent writes from their recei
 			return out, fmt.Errorf("receipt %s: %w", normID(id), err)
 		}
 		out.Undone = append(out.Undone, u)
+		if err := d.Store.Record(ctx, opReceiptUndo, u.Receipt, "", u.Doc, ""); err != nil {
+			return out, err
+		}
 	}
 	return out, nil
+}
+
+// ReceiptRevert is receipt_undo for the owner in the web app: a person op,
+// so a review:decide session can undo a write it reads on the receipts page.
+var ReceiptRevert = definePerson("receipt_revert", "Undo one agent write from its receipt, as the owner (the receipts page). Refused when the document changed since. People only", func(ctx context.Context, d Deps, in ReceiptIDInput) (ReceiptUndoOutput, error) {
+	return undoReceipts(ctx, d, []string{in.ID})
 })
 
 func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) {
@@ -291,4 +314,12 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 		}
 	}
 	return ReceiptUndone{Receipt: doc.ID, Doc: saved.ID, Rev: saved.Rev}, nil
+}
+
+// receiptDay is the local day a receipt was made: from at, else created.
+func receiptDay(r ReceiptView) string {
+	if t, err := time.Parse(time.RFC3339Nano, r.At); err == nil {
+		return t.In(time.Local).Format(dateLayout)
+	}
+	return string(r.Created)
 }

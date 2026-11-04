@@ -23,6 +23,9 @@ func newReceiptCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Request, "request", "", "only writes for this agent work")
 				fs.StringVar(&in.Actor, "actor", "", "only this agent")
 				fs.StringVar((*string)(&in.Check), "check", "", "only unchecked, verified, or wrong")
+				fs.StringVar(&in.Op, "op", "", "only writes of this op")
+				fs.StringVar(&in.Since, "since", "", "only writes on or after this day, YYYY-MM-DD")
+				fs.StringVar(&in.Until, "until", "", "only writes on or before this day, YYYY-MM-DD")
 				fs.IntVar(&in.Limit, "limit", 0, "most to list; 0 means all")
 			},
 			Text: func(w io.Writer, out ops.ReceiptListOutput) error {
@@ -67,6 +70,18 @@ func newReceiptCmd(l *loader) *cobra.Command {
 			Use:  "undo <id>...",
 			Args: cobra.MinimumNArgs(1),
 			Bind: func(args []string, in *ops.ReceiptUndoInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.ReceiptUndoOutput) error {
+				p := &printer{w: w}
+				for _, u := range out.Undone {
+					p.f("%s\tundone\t%s\n", u.Doc, u.Receipt)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ReceiptRevert, binding[ops.ReceiptIDInput, ops.ReceiptUndoOutput]{
+			Use:  "revert <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.ReceiptIDInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.ReceiptUndoOutput) error {
 				p := &printer{w: w}
 				for _, u := range out.Undone {

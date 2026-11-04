@@ -172,6 +172,7 @@ var Inputs = map[string]string{
 	"receipt_show":              `{"id":"receipt-sample"}`,
 	"receipt_check":             `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_undo":              `{"id":"receipt-sample"}`,
+	"receipt_revert":            `{"id":"receipt-sample"}`,
 	"action_record":             `{"what":"Opened the sample PR","where":"github.example/acme/portal","url":"https://github.example/acme/portal/pull/1","owner_said":"yes, open it","sources":["note-sample"]}`,
 	"align_scope":               `{"scope":"project-sample"}`,
 	"align_record":              `{"scope":"project-sample","checked":4,"matched":3,"differ":1,"unreachable":["jira"]}`,

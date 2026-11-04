@@ -145,6 +145,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := DocSeen.Run(t.Context(), d, DocSeenInput{ID: "doc-none"})
 			return err
 		}},
+		{"receipt_revert", func(d Deps) error {
+			_, err := ReceiptRevert.Run(t.Context(), d, ReceiptIDInput{ID: "x"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}
