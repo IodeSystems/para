@@ -349,6 +349,10 @@ type SweepRecordInput struct {
 	// Request is the sweep request you claimed for the source; it is ended
 	// done (or failed) with the counts.
 	Request string `json:"request,omitempty"`
+	// Outward are acts scan_out saw (sent, posted, pushed) that match no
+	// draft, Ask, or interaction. Para keeps them; health names each one with
+	// no record (unreviewed_outward).
+	Outward []SweepOutward `json:"outward,omitempty"`
 }
 
 // SweepRecordOutput is the output of sweep_record.
@@ -358,13 +362,16 @@ type SweepRecordOutput struct {
 	Cursor   string `json:"cursor,omitempty"`
 	Due      string `json:"due,omitempty"` // the next sweep
 	Request  string `json:"request,omitempty"`
-	Rev      string `json:"rev"`
+	// Unreviewed are the URLs of outward acts seen at this source with no
+	// record in the vault: no approved item done, no action_record.
+	Unreviewed []string `json:"unreviewed"`
+	Rev        string   `json:"rev"`
 }
 
 const lastSweepHeading = "## Last sweep"
 
 // SweepRecord stores what one sweep of a source did.
-var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the new cursor your tool returned, when it ran, counts of what you wrote, and errors; failed keeps last_scan. Name the sweep request you claimed to end it", func(ctx context.Context, d Deps, in SweepRecordInput) (SweepRecordOutput, error) {
+var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the new cursor your tool returned, when it ran, counts of what you wrote, and errors; failed keeps last_scan. Name the sweep request you claimed to end it. outward lists acts scan_out saw (sent, posted, pushed) that match no draft, Ask, or interaction; the output's unreviewed are those with no record (health unreviewed_outward)", func(ctx context.Context, d Deps, in SweepRecordInput) (SweepRecordOutput, error) {
 	info := d.Store.Info()
 	doc, m, err := getSource(ctx, d.Store, in.Source)
 	if err != nil {
@@ -395,17 +402,36 @@ var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the 
 			m.Cursor = *in.Cursor
 		}
 	}
-	line := sweepLine(at, info.Actor, in)
-	body, _, _ := strings.Cut(doc.Body, "\n"+lastSweepHeading+"\n")
-	if strings.HasPrefix(doc.Body, lastSweepHeading+"\n") {
-		body = ""
+	add, err := checkOutward(in.Outward, at)
+	if err != nil {
+		return SweepRecordOutput{}, err
 	}
-	doc.Body = appendSection(strings.TrimRight(body, "\n"), "Last sweep", line)
+	line := sweepLine(at, info.Actor, in)
+	head, seen, _ := splitSourceBody(doc.Body)
+	doc.Body = joinSourceBody(head, mergeOutward(seen, add), line)
 	doc, err = d.Store.Update(ctx, doc)
 	if err != nil {
 		return SweepRecordOutput{}, err
 	}
-	out := SweepRecordOutput{Source: doc.ID, LastScan: m.LastScan, Cursor: m.Cursor, Due: sourceDue(m), Rev: doc.Rev}
+	out := SweepRecordOutput{Source: doc.ID, LastScan: m.LastScan, Cursor: m.Cursor, Due: sourceDue(m), Unreviewed: []string{}, Rev: doc.Rev}
+	if len(add) > 0 {
+		all, err := d.Store.List(ctx, store.Filter{})
+		if err != nil {
+			return out, err
+		}
+		docs := map[string]model.Document{}
+		for _, r := range all {
+			if r.Type != model.TypeReceipt && r.Type != model.TypeIO && r.Type != model.TypeInteraction {
+				continue
+			}
+			if x, err := d.Store.Get(ctx, r.ID); err == nil {
+				docs[r.ID] = x
+			}
+		}
+		for _, o := range unreviewedOutward(doc.Body, recordedURLs(docs)) {
+			out.Unreviewed = append(out.Unreviewed, o.url)
+		}
+	}
 	if in.Request != "" {
 		rq, r, err := ownClaim(ctx, d, in.Request)
 		if err != nil {

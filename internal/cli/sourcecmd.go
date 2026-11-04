@@ -181,7 +181,7 @@ func newSweepCmd(l *loader) *cobra.Command {
 			return p.err
 		},
 	})
-	var counts []string
+	var counts, outward []string
 	record := opCommand(l, ops.SweepRecord, binding[ops.SweepRecordInput, ops.SweepRecordOutput]{
 		Use:  "record <source> [--cursor <c>] [--count in=3]...",
 		Args: cobra.ExactArgs(1),
@@ -192,6 +192,7 @@ func newSweepCmd(l *loader) *cobra.Command {
 			fs.BoolVar(&in.Failed, "failed", false, "the scan did not finish: keep last_scan and cursor")
 			fs.StringVar(&in.ScannedAt, "scanned-at", "", "RFC 3339 time the scan ran; default now")
 			fs.StringVar(&in.Request, "request", "", "the sweep request you claimed: it is ended")
+			fs.StringArrayVar(&outward, "outward", nil, "\"<url> <what>\" of an act scan_out saw that matches no draft, Ask, or interaction; repeatable")
 		},
 		Bind: func(args []string, in *ops.SweepRecordInput) error {
 			in.Source = args[0]
@@ -206,11 +207,25 @@ func newSweepCmd(l *loader) *cobra.Command {
 				}
 				in.Counts[k] = n
 			}
+			for _, o := range outward {
+				u, what, ok := strings.Cut(strings.TrimSpace(o), " ")
+				if !ok {
+					return fmt.Errorf("--outward %q: want \"<url> <what>\"", o)
+				}
+				in.Outward = append(in.Outward, ops.SweepOutward{URL: u, What: what})
+			}
 			return nil
 		},
 		Text: func(w io.Writer, out ops.SweepRecordOutput) error {
-			_, err := fmt.Fprintf(w, "%s\tlast %s\tnext due %s\n", out.Source, firstNonEmpty(out.LastScan, "never"), firstNonEmpty(out.Due, "-"))
-			return err
+			if _, err := fmt.Fprintf(w, "%s\tlast %s\tnext due %s\n", out.Source, firstNonEmpty(out.LastScan, "never"), firstNonEmpty(out.Due, "-")); err != nil {
+				return err
+			}
+			for _, u := range out.Unreviewed {
+				if _, err := fmt.Fprintf(w, "unreviewed\t%s\n", u); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
 	})
 	cmd.AddCommand(plan, record)

@@ -6524,6 +6524,12 @@ type para_SweepItem {
   via: String
 }
 
+input para_SweepOutwardInput {
+  at: String
+  url: String!
+  what: String!
+}
+
 type para_SweepPlanOutput {
   declared: Boolean!
   next: String!
@@ -6536,6 +6542,7 @@ input para_SweepRecordInputInput {
   cursor: String
   errors: [String!]
   failed: Boolean
+  outward: [para_SweepOutwardInput!]
   request: String
   scannedAt: String
   source: String!
@@ -6548,6 +6555,7 @@ type para_SweepRecordOutput {
   request: String
   rev: String!
   source: String!
+  unreviewed: [String!]!
 }
 
 type para_SweepSource {

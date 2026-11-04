@@ -57,6 +57,9 @@ const (
 	// HealthTaskIsWaiting is an open task whose title reads like waiting on
 	// someone: that is an Ask (task_to_asks).
 	HealthTaskIsWaiting = "task_is_waiting"
+	// HealthUnreviewedOutward is an outward act a sweep saw with no record in
+	// the vault: no approved item reported done, no action_record.
+	HealthUnreviewedOutward = "unreviewed_outward"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -71,6 +74,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
+	HealthUnreviewedOutward,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -109,6 +113,7 @@ var HealthKindWords = map[string]string{
 	HealthSourceUnreached:    "No agent reaches the source",
 	HealthSourceOverdue:      "Source not swept on time",
 	HealthSourceMissing:      "Item cites a source not in the vault",
+	HealthUnreviewedOutward:  "Sent as the owner with no record",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.

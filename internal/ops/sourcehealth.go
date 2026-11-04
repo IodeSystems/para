@@ -50,6 +50,13 @@ func (h *healther) sources(s store.Store) error {
 				fmt.Sprintf("sweep it: sweep_plan {sources: [%s]}, or pause it with source_status", d.ID))
 		}
 	}
+	recorded := recordedURLs(h.docs)
+	for _, d := range srcs {
+		for _, o := range unreviewedOutward(d.Body, recorded) {
+			h.add(HealthUnreviewedOutward, d.ID, "", fmt.Sprintf("%s at %s (%s): no approved item and no record", o.what, o.url, firstOf(dayOf(o.at), o.at)),
+				"if an agent did it, record it with action_record (url, by the agent, on_behalf_of owner) and have the owner check it in receipts; if the owner did it, the owner records it with para action record")
+		}
+	}
 	res := newSourceResolver(srcs)
 	var ids []string
 	for id := range h.docs {
