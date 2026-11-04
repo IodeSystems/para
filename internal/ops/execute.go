@@ -39,7 +39,9 @@ type ProposalExecutedOutput struct {
 	Receipt      string          `json:"receipt"`
 	SelfReported bool            `json:"self_reported"`
 	Halted       []string        `json:"halted,omitempty"` // items of the bundle that will not run
-	Rev          string          `json:"rev"`
+	// IO is the io draft a done message named, now sent and filed.
+	IO  *IOSendOutput `json:"io,omitempty"`
+	Rev string        `json:"rev"`
 }
 
 // ProposalExecuted records that an agent carried out an approved item. What it
@@ -134,6 +136,13 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		return ProposalExecutedOutput{}, err
 	}
 	out := ProposalExecutedOutput{ID: p.doc.ID, Item: in.Item, State: it.State, Receipt: receipt, SelfReported: true}
+	if it.IO != "" && it.State == model.ItemDone {
+		sent, err := sendIO(ctx, d, IOSendInput{ID: it.IO, URL: exec.URL, Locator: exec.Locator, At: exec.At})
+		if err != nil {
+			return out, fmt.Errorf("item %s is done, but io %s was not marked sent: %w", it.ID, normID(it.IO), err)
+		}
+		out.IO = &sent
+	}
 	if it.State == model.ItemFailed {
 		if p, err = haltAfterFailure(ctx, d, in.ID, *it); err != nil {
 			return out, err

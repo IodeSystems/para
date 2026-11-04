@@ -106,6 +106,14 @@ func TestLint(t *testing.T) {
 		{"bad yaml", "a.md", "---\ntype: [\n---\n\n# A\n", []string{"frontmatter:1"}},
 		{"missing type", "a.md", doc("created: 2026-11-01\n", "# A\n"), []string{"type:1"}},
 		{"unknown type", "a.md", doc("type: widget\n", "# A\n"), []string{"type:1"}},
+		{"io in", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nfrom: \"[[jo]]\"\nto: [me@acme.example]\nat: 2026-11-01T09:00:00Z\nvia: {source: gmail, ref: x1}\n", "# A\n"), nil},
+		{"io in takes no out state", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: draft\n", "# A\n"), []string{"field-value:1"}},
+		{"io in takes no expects", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: read\nexpects: none\n", "# A\n"), []string{"field-value:1"}},
+		{"io out needs expects", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: out\nmedium: email\nstate: draft\n", "# A\n"), []string{"field:1"}},
+		{"io response needs route", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: out\nmedium: email\nstate: draft\nexpects: response\n", "# A\n"), []string{"field:1"}},
+		{"io sent needs became", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: out\nmedium: email\nstate: sent\nexpects: none\n", "# A\n"), []string{"field:1"}},
+		{"io bad via", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nvia: {source: gmail, id: x}\n", "# A\n"), []string{"field-value:1", "field-value:1"}},
+		{"io bad at", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nat: yesterday\n", "# A\n"), []string{"field-value:1"}},
 		{"person without org", "jo.md", doc("type: person\ncreated: 2026-11-01\n", "# Jo\n"), nil},
 		{"team missing org", "jo.md", doc("type: team\ncreated: 2026-11-01\n", "# Jo\n"), []string{"field:1"}},
 		{"bad date", "jo.md", doc("type: person\ncreated: yesterday\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
@@ -323,7 +331,7 @@ func TestTemplatesLintClean(t *testing.T) {
 		}
 	}
 	for _, typ := range Types {
-		if !seen[typ] {
+		if !seen[typ] && typ != "inbox" { // inbox is read until upgrade step io-folder; nothing makes one
 			t.Errorf("no template for type %s", typ)
 		}
 	}

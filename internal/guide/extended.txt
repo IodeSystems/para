@@ -7,12 +7,15 @@ id that the creating command prints.
   $ para project add "Paint the hall" --area area-home --done-when "The hall is painted and the room is back in use"
   $ para task add "Water the plants" --area area-home --due 2026-11-08 --recur weekly
 
-2. Add to inbox and triage
-  $ para inbox add "call the plumber about the leak"
-  $ para inbox list
-  $ para inbox triage inbox-example --to task --area area-home
-  $ para inbox triage inbox-example --to note --area area-home
-  $ para inbox triage inbox-example --to drop
+2. Inbox and outbox (io)
+  $ para io add --direction in "call the plumber about the leak"
+  $ para io inbox
+  $ para io file io-example --to task --area area-home
+  $ para io file io-example --to note --area area-home
+  $ para io drop io-example --reason "fixed it myself"
+  $ para io add --direction out --to person-example --medium email --expects none "Thanks for the quote"
+  $ para io outbox
+  $ para io send io-example --url https://mail.example/m/1
 
 3. A goal with a task DAG
   $ para project add "Move the server" --area area-home --done-when "The server runs in the new rack and the old one is off"

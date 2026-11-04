@@ -34,7 +34,7 @@ func TestBackticksAreTools(t *testing.T) {
 	}
 	// The tools the owner's workflow depends on must be named somewhere.
 	for _, want := range []string{"area_add", "area_link_add", "project_add", "project_link_add", "task_add", "task_due",
-		"task_depends_add", "org_person_add", "inbox_add", "inbox_triage", "rfx_add", "rfx_reply", "lint", "next", "where"} {
+		"task_depends_add", "org_person_add", "io_add", "io_file", "io_send", "rfx_add", "rfx_reply", "lint", "next", "where"} {
 		if !used[want] {
 			t.Errorf("no guide text names %s", want)
 		}

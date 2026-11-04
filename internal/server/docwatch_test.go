@@ -62,7 +62,7 @@ func TestServeReconcilesHandEdits(t *testing.T) {
 	p := subscribe(t, f.srv.live, "acme")
 	time.Sleep(300 * time.Millisecond) // the first reconcile runs at start
 
-	file := filepath.Join(root, "inbox", "inbox-by-hand.md")
+	file := filepath.Join(root, "io", "inbox-by-hand.md")
 	body := "---\ntype: inbox\n---\n# By hand\n"
 	start := time.Now()
 	if err := os.WriteFile(file, []byte(body), 0o600); err != nil {
@@ -96,7 +96,7 @@ func TestServeReconcileRespectsGrace(t *testing.T) {
 	setGrace(t, root, "1500ms")
 	time.Sleep(300 * time.Millisecond)
 	start := time.Now()
-	if err := os.WriteFile(filepath.Join(root, "inbox", "inbox-held.md"), []byte("---\ntype: inbox\n---\n# Held\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "io", "inbox-held.md"), []byte("---\ntype: inbox\n---\n# Held\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	time.Sleep(900 * time.Millisecond)

@@ -436,9 +436,48 @@ type Journal struct {
 	Scope  JournalScope `yaml:"scope" json:"scope"`
 }
 
-// Inbox is type: inbox, an unsorted capture.
+// Inbox is type: inbox, an unsorted capture. It is read, never written: upgrade
+// step io-folder turns it into an io item.
 type Inbox struct {
 	Common `yaml:",inline"`
+}
+
+// IO is type: io, one message not dealt with yet, in either direction. The
+// body is the message text; the title is the subject, or the first line.
+// State lives here, never in the folder: an item stays in io/ when it is
+// filed, sent, or dropped, and the inbox and outbox views leave it out.
+type IO struct {
+	Common    `yaml:",inline"`
+	Direction IODirection `yaml:"direction" json:"direction"`
+	Medium    Medium      `yaml:"medium" json:"medium"`
+	State     IOState     `yaml:"state" json:"state"`
+	// From and To are person or group links, or free text such as an address.
+	From string   `yaml:"from,omitempty" json:"from,omitempty"`
+	To   []string `yaml:"to,omitempty" json:"to,omitempty"`
+	// At is when it came or went, RFC 3339.
+	At      string `yaml:"at,omitempty" json:"at,omitempty"`
+	Subject string `yaml:"subject,omitempty" json:"subject,omitempty"`
+	// Ref is a public link a person can open. Via is the private connector
+	// reference an agent uses to read it again.
+	Ref string `yaml:"ref,omitempty" json:"ref,omitempty"`
+	Via *IOVia `yaml:"via,omitempty" json:"via,omitempty"`
+	// Expects is set on an outgoing message: response makes an Ask on send,
+	// none an interaction. Route is the domain of that Ask.
+	Expects IOExpects `yaml:"expects,omitempty" json:"expects,omitempty"`
+	Route   string    `yaml:"route,omitempty" json:"route,omitempty"`
+	// Became links what the item was filed into or turned into on send.
+	Became Link `yaml:"became,omitempty" json:"became,omitempty"`
+	// Thread links an earlier io item, interaction, or Ask this one answers.
+	Thread Link `yaml:"thread,omitempty" json:"thread,omitempty"`
+	// Reason says why the item was dropped.
+	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
+}
+
+// IOVia is a private source reference: the connector and its own id of the
+// message. Source names a source document or a connector, as free text.
+type IOVia struct {
+	Source string `yaml:"source" json:"source"`
+	Ref    string `yaml:"ref" json:"ref"`
 }
 
 // Incident is type: incident, the record of one outage or fault in a system
@@ -592,6 +631,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Journal{Common: c}, true
 	case TypeInbox:
 		return &Inbox{Common: c}, true
+	case TypeIO:
+		return &IO{Common: c}, true
 	case TypeGroup:
 		return &Group{Common: c}, true
 	case TypeInteraction:

@@ -378,6 +378,9 @@ func readProposal(ctx context.Context, d Deps, id string) (*proposal, error) {
 		}
 		p.content = c
 	}
+	if err := hydrateIO(ctx, d, p.content.Items, false); err != nil {
+		return nil, err
+	}
 	for i := range p.content.Items {
 		it := &p.content.Items[i]
 		if it.State == model.ItemHeld {
@@ -420,6 +423,9 @@ func proposalStatus(items []model.ProposalItem) model.ProposalStatus {
 // save writes a revision's items back. Rev is compared, so a change made since
 // the read fails with model.ErrConflict.
 func (p *proposal) save(ctx context.Context, d Deps) error {
+	if err := p.syncIO(ctx, d); err != nil {
+		return err
+	}
 	body, err := p.render()
 	if err != nil {
 		return err

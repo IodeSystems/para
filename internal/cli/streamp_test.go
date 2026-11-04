@@ -9,17 +9,20 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 )
 
-// streamPParityCases are the parity rows of stream P: inbox triage, RFX reply
+// streamPParityCases are the parity rows of stream P: io, RFX reply
 // and draft, person aliases. Mutating ops use one document for Invoke (a) and
 // one for the CLI (b). Ids come from seedStreamPParity, which runs after the
 // other seeds (person-seed, project-a, domain-seed exist). The second result
 // is the stdin of each CLI run.
 func streamPParityCases() (map[string]parityCase, map[string]string) {
 	return map[string]parityCase{
-		"inbox_list": {`{}`, []string{"inbox", "list"}, true},
-		"inbox_show": {`{"id":"inbox-p-show"}`, []string{"inbox", "show", "inbox-p-show"}, true},
-		"inbox_triage": {`{"id":"inbox-p-a","to":"task","project":"project-a"}`,
-			[]string{"inbox", "triage", "inbox-p-b", "--to", "task", "--project", "project-a"}, false},
+		"io_list": {`{}`, []string{"io", "list"}, true},
+		"io_show": {`{"id":"io-p-show"}`, []string{"io", "show", "io-p-show"}, true},
+		"io_file": {`{"id":"io-p-a","to":"task","project":"project-a"}`,
+			[]string{"io", "file", "io-p-b", "--to", "task", "--project", "project-a"}, false},
+		"io_edit": {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},
+		"io_drop": {`{"id":"io-p-e","reason":"Spam."}`, []string{"io", "drop", "io-p-f", "--reason", "Spam."}, false},
+		"io_send": {`{"id":"io-p-out-a","url":"https://mail.acme.example/1"}`, []string{"io", "send", "io-p-out-b", "--url", "https://mail.acme.example/2"}, false},
 		"rfx_reply": {`{"id":"rfx-p-a","from":"person-seed","outcome":"no","text":"Not this quarter.","why":"Audit freeze","url":"https://chat.acme.example/t/1"}`,
 			[]string{"rfx", "reply", "rfx-p-b", "--from", "person-seed", "--outcome", "no", "--why", "Audit freeze", "--url", "https://chat.acme.example/t/2"}, false},
 		"rfx_draft": {`{"id":"rfx-p-a","text":"Hi, can we launch X?"}`, []string{"rfx", "draft", "rfx-p-b"}, false},
@@ -34,10 +37,19 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 func seedStreamPParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
-	for _, id := range []string{"inbox-p-show", "inbox-p-a", "inbox-p-b"} {
+	for _, id := range []string{"io-p-show", "io-p-a", "io-p-b", "io-p-c", "io-p-d", "io-p-e", "io-p-f"} {
 		if _, err := deps.Store.Create(ctx, model.Document{
-			ID: id, Folder: model.FolderInbox, Title: "Capture " + id,
-			Meta: &model.Inbox{Common: model.Common{Type: model.TypeInbox}},
+			ID: id, Folder: model.FolderIO, Title: "Capture " + id, Body: "Capture " + id,
+			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOIn, Medium: model.MediumOther, State: model.IOUnread},
+		}); err != nil {
+			t.Fatalf("seed %s: %v", id, err)
+		}
+	}
+	for _, id := range []string{"io-p-out-a", "io-p-out-b"} {
+		if _, err := deps.Store.Create(ctx, model.Document{
+			ID: id, Folder: model.FolderIO, Title: "Draft " + id, Body: "Draft " + id,
+			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
+				To: []string{"[[person-seed]]"}, Expects: model.ExpectsNone},
 		}); err != nil {
 			t.Fatalf("seed %s: %v", id, err)
 		}
@@ -62,28 +74,28 @@ func seedStreamPParity(t *testing.T, deps ops.Deps) {
 	}
 }
 
-func TestInboxTriageCommand(t *testing.T) {
+func TestIOFileCommand(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	var proj ops.ProjectAddOutput
 	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
-	var add ops.InboxAddOutput
-	e.json(&add, "inbox", "add", "write the parser")
-	if out := e.ok("inbox", "list"); !strings.Contains(out, add.ID) {
+	var add ops.IOAddOutput
+	e.json(&add, "inbox", "add", "write the parser") // the old name, kept for one release
+	if out := e.ok("io", "inbox"); !strings.Contains(out, add.ID) || !strings.HasPrefix(add.ID, "io-") {
 		t.Fatalf("list:\n%s", out)
 	}
-	if _, _, err := e.run("inbox", "triage", add.ID, "--to", "task"); err == nil || !strings.Contains(err.Error(), "needs project") {
+	if _, _, err := e.run("io", "file", add.ID, "--to", "task"); err == nil || !strings.Contains(err.Error(), "needs project") {
 		t.Fatalf("err = %v", err)
 	}
-	var out ops.InboxTriageOutput
-	e.json(&out, "inbox", "triage", add.ID, "--to", "task", "--project", proj.ID)
-	if out.Folder != model.FolderArchive || !strings.HasPrefix(out.Created, "task-") {
+	var out ops.IOFileOutput
+	e.json(&out, "io", "file", add.ID, "--to", "task", "--project", proj.ID, "--done-when", "Parsed.")
+	if out.State != model.IOFiled || !strings.HasPrefix(out.Became, "task-") {
 		t.Fatalf("out = %+v", out)
 	}
-	if list := e.ok("inbox", "list"); strings.Contains(list, add.ID) {
-		t.Errorf("triaged item still listed:\n%s", list)
+	if list := e.ok("io", "inbox"); strings.Contains(list, add.ID) {
+		t.Errorf("filed item still listed:\n%s", list)
 	}
-	if all := e.ok("inbox", "list", "--all"); !strings.Contains(all, add.ID) {
+	if all := e.ok("io", "list", "--all"); !strings.Contains(all, add.ID) {
 		t.Errorf("--all lacks the item:\n%s", all)
 	}
 	var lint ops.LintOutput

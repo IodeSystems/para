@@ -280,20 +280,20 @@ func TestTaskDoneNote(t *testing.T) {
 	mustLintClean(t, d)
 }
 
-func TestInboxTriageToQuestionNeedsScope(t *testing.T) {
+func TestIOFileToQuestionNeedsScope(t *testing.T) {
 	d, proj, _ := questionVault(t)
-	in := must(t, InboxAdd, d, InboxAddInput{Text: "Which vendor for the audit?"}).ID
-	if _, err := InboxTriage.Run(ctx, d, InboxTriageInput{ID: in, To: TriageQuestion}); err == nil {
+	in := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Which vendor for the audit?"}).ID
+	if _, err := IOFile.Run(ctx, d, IOFileInput{ID: in, To: TriageQuestion}); err == nil {
 		t.Fatal("triaged to an unscoped question")
 	}
-	if _, err := InboxTriage.Run(ctx, d, InboxTriageInput{ID: in, To: TriageQuestion, Root: true, Project: proj}); err == nil {
+	if _, err := IOFile.Run(ctx, d, IOFileInput{ID: in, To: TriageQuestion, Root: true, Project: proj}); err == nil {
 		t.Fatal("triaged to a question with two scopes")
 	}
-	if _, err := InboxTriage.Run(ctx, d, InboxTriageInput{ID: in, To: TriageTask, Project: proj, Root: true}); err == nil {
+	if _, err := IOFile.Run(ctx, d, IOFileInput{ID: in, To: TriageTask, Project: proj, Root: true}); err == nil {
 		t.Fatal("root applies to a question only")
 	}
-	out := must(t, InboxTriage, d, InboxTriageInput{ID: in, To: TriageQuestion, Root: true})
-	if !strings.HasPrefix(out.Created, "question-") {
+	out := must(t, IOFile, d, IOFileInput{ID: in, To: TriageQuestion, Root: true})
+	if !strings.HasPrefix(out.Became, "question-") {
 		t.Fatalf("out = %+v", out)
 	}
 	if got := must(t, QuestionList, d, QuestionListInput{Root: true}); len(got.Questions) != 1 || got.Questions[0].ScopeType != ScopeRoot {

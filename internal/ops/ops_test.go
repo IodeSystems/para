@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
@@ -16,6 +17,8 @@ import (
 
 // fakeStore proves ops need only the interface.
 func (f *fakeStore) Info() store.Info { return store.Info{Surface: "cli"} }
+
+func (f *fakeStore) Now() time.Time { return time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC) }
 
 type fakeStore struct {
 	store.Store
@@ -28,7 +31,7 @@ func (f *fakeStore) Create(_ context.Context, d model.Document) (model.Document,
 		return d, f.err
 	}
 	f.created = append(f.created, d)
-	d.ID, d.Rev = "inbox-x", "sha256:x"
+	d.ID, d.Rev = "io-x", "sha256:x"
 	return d, nil
 }
 
@@ -60,24 +63,24 @@ func TestSplitCapture(t *testing.T) {
 	}
 }
 
-func TestInboxAdd(t *testing.T) {
+func TestIOAdd(t *testing.T) {
 	s := &fakeStore{}
-	out, err := InboxAdd.Run(context.Background(), Deps{Store: s}, InboxAddInput{Text: "buy milk"})
+	out, err := IOAdd.Run(context.Background(), Deps{Store: s}, IOAddInput{Direction: model.IOIn, Text: "buy milk"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.ID != "inbox-x" || len(s.created) != 1 || s.created[0].Folder != model.FolderInbox {
+	if out.ID != "io-x" || len(s.created) != 1 || s.created[0].Folder != model.FolderIO {
 		t.Fatalf("out %+v created %+v", out, s.created)
 	}
-	if s.created[0].Meta.Header().Type != model.TypeInbox {
+	if m, ok := s.created[0].Meta.(*model.IO); !ok || m.State != model.IOUnread || m.Medium != model.MediumOther || m.At == "" {
 		t.Errorf("meta = %+v", s.created[0].Meta)
 	}
 }
 
 func TestRunWrapsErrors(t *testing.T) {
 	s := &fakeStore{err: model.ErrExists}
-	_, err := InboxAdd.Run(context.Background(), Deps{Store: s}, InboxAddInput{Text: "x"})
-	if !errors.Is(err, model.ErrExists) || !strings.HasPrefix(err.Error(), "inbox_add: ") {
+	_, err := IOAdd.Run(context.Background(), Deps{Store: s}, IOAddInput{Direction: model.IOIn, Text: "x"})
+	if !errors.Is(err, model.ErrExists) || !strings.HasPrefix(err.Error(), "io_add: ") {
 		t.Fatalf("err = %v", err)
 	}
 }
@@ -87,19 +90,19 @@ func TestInvoke(t *testing.T) {
 		name, input string
 		wantErr     bool
 	}{
-		{"valid", `{"text":"buy milk"}`, false},
-		{"unknown field", `{"text":"x","nope":1}`, true},
-		{"wrong type", `{"text":1}`, true},
-		{"empty means zero input", ``, true}, // inbox_add refuses empty text
+		{"valid", `{"direction":"in","text":"buy milk"}`, false},
+		{"unknown field", `{"direction":"in","text":"x","nope":1}`, true},
+		{"wrong type", `{"direction":"in","text":1}`, true},
+		{"empty means zero input", ``, true}, // io_add refuses an empty direction
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got, err := InboxAdd.Invoke(context.Background(), Deps{Store: &fakeStore{}}, json.RawMessage(c.input))
+			got, err := IOAdd.Invoke(context.Background(), Deps{Store: &fakeStore{}}, json.RawMessage(c.input))
 			if (err != nil) != c.wantErr {
 				t.Fatalf("err = %v", err)
 			}
 			if err == nil {
-				if _, ok := got.(InboxAddOutput); !ok {
+				if _, ok := got.(IOAddOutput); !ok {
 					t.Fatalf("got %T", got)
 				}
 			}
@@ -122,7 +125,7 @@ func TestRegistry(t *testing.T) {
 	if !sort.StringsAreSorted(names) {
 		t.Errorf("All is not sorted: %v", names)
 	}
-	for _, want := range []string{"events_tail", "inbox_add", "lint", "reconcile"} {
+	for _, want := range []string{"events_tail", "io_add", "lint", "reconcile"} {
 		if !slices.Contains(names, want) {
 			t.Errorf("op %s is not registered", want)
 		}
@@ -147,7 +150,7 @@ func checkJSONTags(t *testing.T, op string, typ reflect.Type) {
 
 func TestDefinePanicsOnBadNames(t *testing.T) {
 	fn := func(context.Context, Deps, struct{}) (struct{}, error) { return struct{}{}, nil }
-	for _, name := range []string{"Bad", "has space", "inbox_add", "dotted.name"} {
+	for _, name := range []string{"Bad", "has space", "io_add", "dotted.name"} {
 		func() {
 			defer func() {
 				if recover() == nil {

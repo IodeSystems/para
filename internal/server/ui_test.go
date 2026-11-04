@@ -26,7 +26,7 @@ func (f *fixture) cookieHeader(tok string) map[string]string {
 func TestReviewAcceptNeedsSession(t *testing.T) {
 	f := newFixture(t)
 	agent := f.key(f.keyA, "claude", allScopes...)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: agent, body: `{"text":"from the agent"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: agent, body: `{"direction":"in","text":"from the agent"}`}), 200)
 
 	review := func(c call) UIReviewBody {
 		w := f.do(c)
@@ -61,7 +61,7 @@ func TestBrowserWritesAreNotReviewed(t *testing.T) {
 	f := newFixture(t)
 	h := f.cookieHeader(f.key(f.keyA, "owner", allScopes...))
 	h["Content-Type"] = "application/json"
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", header: h, body: `{"text":"mine"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", header: h, body: `{"direction":"in","text":"mine"}`}), 200)
 	w := f.do(call{target: "/api/v1/ui/review", header: h})
 	wantStatus(t, w, 200)
 	var b UIReviewBody
@@ -159,7 +159,7 @@ func TestLiveRelayPushesEvents(t *testing.T) {
 	}
 	// A write through the API publishes an event with ids only.
 	agent := f.key(f.keyA, "agent", allScopes...)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: agent, body: `{"text":"secret words"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: agent, body: `{"direction":"in","text":"secret words"}`}), 200)
 	m := read()
 	if m["op"] != "data" || m["id"] != "1" {
 		t.Fatalf("data: %v", m)

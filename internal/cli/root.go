@@ -199,6 +199,7 @@ func newRoot(l *loader) *cobra.Command {
 		newReconcileCmd(l),
 		newEventsCmd(l),
 		newInboxCmd(l),
+		newIOCmd(l),
 		newMCPCmd(l),
 		newBootstrapCmd(),
 		newProjectCmd(l),

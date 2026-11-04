@@ -159,23 +159,23 @@ func TestTriageToNoteDocument(t *testing.T) {
 	e.init("life")
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home")
-	var in ops.InboxAddOutput
-	e.json(&in, "inbox", "add", "Plumber: Sam, 555-0100")
-	var out ops.InboxTriageOutput
-	e.json(&out, "inbox", "triage", in.ID, "--to", "note", "--area", a.ID)
-	if !strings.HasPrefix(out.Created, "note-") || out.Folder != model.FolderArchive {
+	var in ops.IOAddOutput
+	e.json(&in, "io", "add", "--direction", "in", "Plumber: Sam, 555-0100")
+	var out ops.IOFileOutput
+	e.json(&out, "io", "file", in.ID, "--to", "note", "--area", a.ID)
+	if !strings.HasPrefix(out.Became, "note-") || out.State != model.IOFiled {
 		t.Fatalf("out = %+v", out)
 	}
 	var show ops.NoteShowOutput
-	e.json(&show, "note", "show", out.Created)
+	e.json(&show, "note", "show", out.Became)
 	if show.Note.Area != a.ID || show.Note.Folder != model.FolderResources {
 		t.Fatalf("note = %+v", show.Note)
 	}
 	// With a person the old behaviour stays.
 	e.ok("org", "person", "add", "Sam Example", "--org", "home")
-	e.json(&in, "inbox", "add", "Prefers calls")
-	e.json(&out, "inbox", "triage", in.ID, "--to", "note", "--person", "person-sam-example")
-	if out.Created != "person-sam-example" {
+	e.json(&in, "io", "add", "--direction", "in", "Prefers calls")
+	e.json(&out, "io", "file", in.ID, "--to", "note", "--person", "person-sam-example")
+	if out.Became != "person-sam-example" {
 		t.Fatalf("person note out = %+v", out)
 	}
 }

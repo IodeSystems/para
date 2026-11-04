@@ -178,6 +178,16 @@ type Meta struct {
 	Concepts        []string           `json:"concepts,omitempty"`
 	Refines         string             `json:"refines,omitempty"`
 	CalendarUID     string             `json:"calendar_uid,omitempty"`
+	State           string             `json:"state,omitempty"`
+	From            string             `json:"from,omitempty"`
+	To              []string           `json:"to,omitempty"`
+	Subject         string             `json:"subject,omitempty"`
+	Ref             string             `json:"ref,omitempty"`
+	Via             *model.IOVia       `json:"via,omitempty"`
+	Expects         string             `json:"expects,omitempty"`
+	Became          string             `json:"became,omitempty"`
+	Thread          string             `json:"thread,omitempty"`
+	Reason          string             `json:"reason,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
@@ -240,6 +250,9 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, ops.CopyFormats)
 	addEnum(reg, export.Formats)
 	addEnum(reg, ops.TriageTargets)
+	addEnum(reg, model.IODirections)
+	addEnum(reg, model.IOStates)
+	addEnum(reg, model.IOExpectsAll)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
 	addEnum(reg, model.Levels)

@@ -92,10 +92,10 @@ func TestGateStagesCLIAgentWrites(t *testing.T) {
 	}
 	var staged ops.Staged
 	e.json(&staged, "--actor", "claude", "--why", "Owner asked.", "inbox", "add", "Synthetic capture")
-	if !staged.Staged || staged.Op != "inbox_add" || staged.Item != "s1" {
+	if !staged.Staged || staged.Op != "io_add" || staged.Item != "s1" {
 		t.Fatalf("staged = %+v", staged)
 	}
-	var added ops.InboxAddOutput
+	var added ops.IOAddOutput
 	e.json(&added, "--actor", "claude", "--why", "Owner asked.", "--minor", "--obvious", "inbox", "add", "Another capture")
 	if added.ID == "" {
 		t.Fatalf("applied = %+v", added)

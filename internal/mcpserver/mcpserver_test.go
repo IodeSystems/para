@@ -477,10 +477,10 @@ func TestErrors(t *testing.T) {
 		name, tool, args string
 		want             string
 	}{
-		{"unknown field", "inbox_add", `{"text":"x","vault":"other"}`, ""},
-		{"empty text", "inbox_add", `{"text":""}`, "text is empty"},
-		{"wrong type", "inbox_add", `{"text":5}`, ""},
-		{"missing required", "inbox_add", `{}`, ""},
+		{"unknown field", "io_add", `{"direction":"in","text":"x","vault":"other"}`, ""},
+		{"empty text", "io_add", `{"direction":"in","text":""}`, "text is empty"},
+		{"wrong type", "io_add", `{"direction":"in","text":5}`, ""},
+		{"missing required", "io_add", `{}`, ""},
 	}
 	c := connect(t, ops.Deps{Store: s}, root)
 	for _, tc := range cases {
@@ -608,7 +608,7 @@ func TestServeStdio(t *testing.T) {
 	in := strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"inbox_add","arguments":{"text":"hello","why":"test"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"io_add","arguments":{"direction":"in","text":"hello","why":"test","minor":true,"obvious":true}}}`,
 	}, "\n") + "\n"
 	var out bytes.Buffer
 	if err := srv.Serve(context.Background(), strings.NewReader(in), &out); err != nil {
@@ -619,7 +619,7 @@ func TestServeStdio(t *testing.T) {
 		t.Fatalf("responses = %d:\n%s", len(lines), out.String())
 	}
 	// mcp-go answers concurrently: responses match requests by id, not order.
-	if !strings.Contains(out.String(), `inbox-`) {
+	if !strings.Contains(out.String(), `io-`) {
 		t.Errorf("no tool response: %s", out.String())
 	}
 }
@@ -659,7 +659,7 @@ func TestInstructions(t *testing.T) {
 	for _, e := range ops.All() {
 		names[e.Name()] = true
 	}
-	for _, tool := range []string{"route", "search", "policy_show", "rule_list", "constraint_list", "convention_list", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "inbox_triage"} {
+	for _, tool := range []string{"route", "search", "policy_show", "rule_list", "constraint_list", "convention_list", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "io_add", "io_file", "io_send", "io_list", "io_drop"} {
 		if !names[tool] {
 			t.Errorf("instructions name tool %s, which does not exist", tool)
 		}

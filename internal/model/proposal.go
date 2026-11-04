@@ -318,8 +318,12 @@ type ProposalItem struct {
 	People  []string `yaml:"people,omitempty" json:"people,omitempty"`
 	Channel string   `yaml:"channel,omitempty" json:"channel,omitempty"`
 	Subject string   `yaml:"subject,omitempty" json:"subject,omitempty"`
-	Target  string   `yaml:"target,omitempty" json:"target,omitempty"`
-	What    string   `yaml:"what,omitempty" json:"what,omitempty"`
+	// IO is the id of an outgoing io draft that holds a message's text. Para
+	// fills People, Subject, and Body from it when it reads the dossier, and
+	// writes an edit back to it; the block itself holds none of them.
+	IO     string `yaml:"io,omitempty" json:"io,omitempty"`
+	Target string `yaml:"target,omitempty" json:"target,omitempty"`
+	What   string `yaml:"what,omitempty" json:"what,omitempty"`
 	// Previous is a link to the state an action changes, when there is one.
 	Previous string         `yaml:"previous,omitempty" json:"previous,omitempty"`
 	How      string         `yaml:"how,omitempty" json:"how,omitempty"`

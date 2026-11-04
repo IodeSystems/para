@@ -139,6 +139,7 @@ type dossierItem struct {
 	People   []string       `yaml:"people,omitempty" json:"people,omitempty"`
 	Channel  string         `yaml:"channel,omitempty" json:"channel,omitempty"`
 	Subject  string         `yaml:"subject,omitempty" json:"subject,omitempty"`
+	IO       string         `yaml:"io,omitempty" json:"io,omitempty"`
 	Target   string         `yaml:"target,omitempty" json:"target,omitempty"`
 	What     string         `yaml:"what,omitempty" json:"what,omitempty"`
 	Previous string         `yaml:"previous,omitempty" json:"previous,omitempty"`
@@ -416,7 +417,7 @@ func yamlMsg(err error) string {
 
 func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 	it := ProposalItem{ID: id, Kind: kind, Title: b.Title, Subtype: b.Subtype, Group: b.Group, Bundle: b.Bundle, Choice: b.Choice,
-		After: b.After, For: b.For, People: b.People, Channel: b.Channel, Subject: b.Subject, Target: b.Target, What: b.What,
+		After: b.After, For: b.For, People: b.People, Channel: b.Channel, Subject: b.Subject, IO: b.IO, Target: b.Target, What: b.What,
 		Previous: b.Previous, Op: b.Op, Input: b.Input, How: b.How, Impact: b.Impact, Body: b.Body, Diff: b.Diff,
 		Multi: b.Multi, Options: b.Options, Recommended: b.Recommended, OptionDetails: b.OptionDetails,
 		Range: b.Range, Old: b.Old, New: b.New, Fields: b.Fields, NotDuplicate: b.NotDuplicate,
@@ -433,7 +434,7 @@ func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 
 func blockOf(it ProposalItem) dossierItem {
 	b := dossierItem{Title: it.Title, Subtype: it.Subtype, Group: it.Group, Bundle: it.Bundle, Choice: it.Choice,
-		After: it.After, For: it.For, People: it.People, Channel: it.Channel, Subject: it.Subject, Target: it.Target, What: it.What,
+		After: it.After, For: it.For, People: it.People, Channel: it.Channel, Subject: it.Subject, IO: it.IO, Target: it.Target, What: it.What,
 		Previous: it.Previous, Op: it.Op, Input: it.Input, How: it.How, Impact: it.Impact, Body: it.Body, Diff: it.Diff,
 		Multi: it.Multi, Options: it.Options, Recommended: it.Recommended, OptionDetails: it.OptionDetails,
 		Range: it.Range, Old: it.Old, New: it.New, Fields: it.Fields, NotDuplicate: it.NotDuplicate,
@@ -445,6 +446,9 @@ func blockOf(it ProposalItem) dossierItem {
 	if it.Evidence != (Evidence{}) {
 		e := it.Evidence
 		b.Evidence = &e
+	}
+	if it.IO != "" { // the io draft holds the text: one copy
+		b.People, b.Subject, b.Body = nil, "", ""
 	}
 	return b
 }
@@ -470,6 +474,12 @@ func checkBlock(it ProposalItem) [][2]string {
 			bad(CodeDossierBlock, "a change needs op and input")
 		}
 	case ItemMessage:
+		if it.IO != "" {
+			if len(it.People) > 0 || it.Subject != "" || it.Body != "" {
+				bad(CodeDossierBlock, "a message with io takes people, subject, and body from the io draft: leave them out")
+			}
+			break
+		}
 		if len(it.People) == 0 && blank(it.Channel) {
 			bad(CodeDossierBlock, "a message names people or a channel")
 		}
@@ -485,6 +495,9 @@ func checkBlock(it ProposalItem) [][2]string {
 		if blank(it.Target) || blank(it.New) {
 			bad(CodeDossierBlock, "a doc edit needs target and new")
 		}
+	}
+	if it.IO != "" && it.Kind != ItemMessage {
+		bad(CodeDossierBlock, "io is for a message")
 	}
 	if it.State != "" && !slices.Contains(ItemStates, it.State) {
 		bad(CodeDossierState, "state %q: want one of %v", it.State, ItemStates)

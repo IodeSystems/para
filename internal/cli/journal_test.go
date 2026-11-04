@@ -46,7 +46,7 @@ func TestJournalEndToEnd(t *testing.T) {
 	if !strings.Contains(string(got), "My own note.") {
 		t.Errorf("hand text lost:\n%s", got)
 	}
-	if !strings.Contains(string(got), "[[inbox-") {
+	if !strings.Contains(string(got), "[[io-") {
 		t.Errorf("no link to the capture:\n%s", got)
 	}
 	var lint ops.LintOutput

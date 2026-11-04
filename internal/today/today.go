@@ -98,8 +98,10 @@ type VaultToday struct {
 	// ApprovedNotDone counts messages and actions the owner approved that nobody
 	// has reported done.
 	ApprovedNotDone int `json:"approved_not_done"`
-	// Inbox counts captures not yet triaged.
+	// Inbox counts unread incoming messages (io), with captures still in inbox/.
 	Inbox int `json:"inbox"`
+	// Outbox counts outgoing messages ready to send.
+	Outbox int `json:"outbox"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
 	// sync-conflict in lint). They are not documents.
 	SyncConflicts []string `json:"sync_conflicts"`
@@ -197,6 +199,15 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		case model.TypeInbox:
 			if r.Folder == model.FolderInbox {
 				vt.Inbox++
+			}
+			continue
+		case model.TypeIO:
+			if d, err := v.Get(ctx, r.ID); err == nil {
+				if m, ok := d.Meta.(*model.IO); ok && m.State == model.IOUnread {
+					vt.Inbox++
+				} else if ok && m.State == model.IOReady {
+					vt.Outbox++
+				}
 			}
 			continue
 		default:

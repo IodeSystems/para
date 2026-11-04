@@ -67,6 +67,9 @@ func Init(root, id string, templates fs.FS, o InitOptions) error {
 	}
 	dirs := []string{filepath.Join(root, dirState), filepath.Join(root, dirEvents), filepath.Join(root, dirTemplates)}
 	for _, f := range model.Folders {
+		if f == model.FolderInbox { // read until upgrade step io-folder; new vaults use io/
+			continue
+		}
 		dirs = append(dirs, filepath.Join(root, string(f)))
 	}
 	for _, d := range dirs {

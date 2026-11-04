@@ -1,0 +1,668 @@
+package ops
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"slices"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/store"
+)
+
+// An io item is one message not dealt with yet, in either direction. Incoming:
+// unread, then read, then filed into a task, question, Ask, note, or
+// interaction (became links it), or dropped. Outgoing: a draft, then ready,
+// then sent, when it becomes an interaction (expects none) or an Ask (expects
+// response), or dropped. Para sends nothing: an agent sends with its own tools
+// and reports where the message is. The item stays in io/ with its state: the
+// inbox and outbox views show only open items.
+
+const ioTitleMax = 80
+
+// IOAddInput is the input of io_add.
+type IOAddInput struct {
+	Direction model.IODirection `json:"direction"` // in: it came to the owner; out: a draft to send
+	Text      string            `json:"text"`      // the message; with no subject its first line is the title
+	Medium    model.Medium      `json:"medium,omitempty"`
+	Subject   string            `json:"subject,omitempty"`
+	From      string            `json:"from,omitempty"` // person or group id, or free text such as an address
+	To        []string          `json:"to,omitempty"`   // person or group ids, or free text; out needs one person or group
+	At        string            `json:"at,omitempty"`   // RFC 3339; in: default now; out: set on send
+	Ref       string            `json:"ref,omitempty"`  // public link a person can open
+	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref}
+	Expects   model.IOExpects   `json:"expects,omitempty"`
+	Route     string            `json:"route,omitempty"`  // out with expects response: the domain the Ask goes to
+	Thread    string            `json:"thread,omitempty"` // id of the io item, interaction, or Ask this one answers
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
+}
+
+// IOAddOutput is the output of io_add.
+type IOAddOutput struct {
+	ID       string        `json:"id"`
+	Folder   model.Folder  `json:"folder"`
+	State    model.IOState `json:"state"`
+	Rev      string        `json:"rev"`
+	Warnings []string      `json:"warnings"`
+}
+
+// IOAdd captures an incoming message or drafts an outgoing one.
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Para sends nothing", ioAdd)
+
+func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
+	if !slices.Contains(model.IODirections, in.Direction) {
+		return IOAddOutput{}, fmt.Errorf("direction %q: want in or out", in.Direction)
+	}
+	text := cleanText(in.Text)
+	if text == "" {
+		return IOAddOutput{}, errors.New("text is empty")
+	}
+	m := &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: in.Direction, Medium: in.Medium,
+		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via}
+	if m.Medium == "" {
+		m.Medium = model.MediumOther
+	}
+	if err := checkMedium(m.Medium); err != nil {
+		return IOAddOutput{}, err
+	}
+	var err error
+	if m.From, err = ioParty(ctx, d, "from", in.From); err != nil {
+		return IOAddOutput{}, err
+	}
+	if m.To, err = ioParties(ctx, d, in.To); err != nil {
+		return IOAddOutput{}, err
+	}
+	if m.At, err = ioTime(in.At); err != nil {
+		return IOAddOutput{}, err
+	}
+	if m.Ref, err = ioRef(in.Ref); err != nil {
+		return IOAddOutput{}, err
+	}
+	if v := m.Via; v != nil {
+		v.Source, v.Ref = ioLine(v.Source), strings.TrimSpace(v.Ref)
+		if v.Source == "" || v.Ref == "" {
+			return IOAddOutput{}, errors.New("via: give source and ref, or leave via out")
+		}
+	}
+	if m.Thread, err = linkTo(ctx, d, "thread", in.Thread, model.TypeIO, model.TypeInteraction, model.TypeRFX); err != nil {
+		return IOAddOutput{}, err
+	}
+	switch in.Direction {
+	case model.IOIn:
+		m.State = model.IOUnread
+		if m.Expects != "" || m.Route != "" {
+			return IOAddOutput{}, errors.New("expects and route are for an outgoing message")
+		}
+		if m.At == "" {
+			m.At = d.Store.Now().UTC().Format(time.RFC3339)
+		}
+	case model.IOOut:
+		m.State = model.IODraft
+		if err := checkOut(m); err != nil {
+			return IOAddOutput{}, err
+		}
+	}
+	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderIO, Title: ioTitle(m.Subject, text), Body: text, Meta: m})
+	if err != nil {
+		return IOAddOutput{}, err
+	}
+	out := IOAddOutput{ID: doc.ID, Folder: doc.Folder, State: m.State, Rev: doc.Rev, Warnings: []string{}}
+	if m.Expects == model.ExpectsResponse {
+		if domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain}); err == nil {
+			if picked, _ := pickDomain(m.Route, domains); picked == nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text", m.Route))
+			}
+		}
+	}
+	return out, nil
+}
+
+// checkOut checks what an outgoing message needs to be sent and recorded.
+func checkOut(m *model.IO) error {
+	if !slices.Contains(model.IOExpectsAll, m.Expects) {
+		return fmt.Errorf("expects %q: want response (sending makes an Ask) or none (sending logs an interaction)", m.Expects)
+	}
+	if m.Expects == model.ExpectsResponse && m.Route == "" {
+		return errors.New("expects response needs route: the domain the Ask goes to")
+	}
+	if m.Expects == model.ExpectsNone && m.Route != "" {
+		return errors.New("route is for expects response")
+	}
+	if len(ioLinks(m.To)) == 0 {
+		return errors.New("to needs a person or group id: the interaction or Ask names them (org_person_add first)")
+	}
+	return nil
+}
+
+func cleanText(s string) string {
+	return strings.TrimSpace(strings.ReplaceAll(s, "\r\n", "\n"))
+}
+
+func ioLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// ioTitle is the subject, or else the first line of the text, cut to fit.
+func ioTitle(subject, text string) string {
+	t := ioLine(subject)
+	if t == "" {
+		first, _, _ := strings.Cut(text, "\n")
+		t = ioLine(first)
+	}
+	if utf8.RuneCountInString(t) > ioTitleMax {
+		t = string([]rune(t)[:ioTitleMax]) + "..."
+	}
+	return t
+}
+
+// ioText is the message as a reader needs it: the subject, when the body does
+// not start with it, then the body.
+func ioText(doc model.Document, m *model.IO) string {
+	if m.Subject != "" && !strings.HasPrefix(doc.Body, m.Subject) {
+		return joinBody(m.Subject, doc.Body)
+	}
+	return firstOf(doc.Body, doc.Title)
+}
+
+// ioParty turns an id of a person or group into a link and keeps other text as
+// it is. A "[[x]]" link must name a person or group.
+func ioParty(ctx context.Context, d Deps, field, raw string) (string, error) {
+	raw = ioLine(raw)
+	if raw == "" {
+		return "", nil
+	}
+	id := normID(raw)
+	linked := strings.HasPrefix(raw, "[[")
+	if !linked && !paramd.ValidStem(id) {
+		return raw, nil
+	}
+	doc, err := d.Store.Get(ctx, id)
+	switch {
+	case errors.Is(err, model.ErrNotFound) && !linked:
+		return raw, nil
+	case err != nil:
+		return "", fmt.Errorf("%s %s: %w", field, id, err)
+	}
+	if t := doc.Meta.Header().Type; t != model.TypePerson && t != model.TypeGroup {
+		return "", fmt.Errorf("%s %s is a %s: want a person, a group, or free text", field, id, t)
+	}
+	return string(model.LinkTo(doc.ID)), nil
+}
+
+func ioParties(ctx context.Context, d Deps, raw []string) ([]string, error) {
+	var out []string
+	for i, r := range raw {
+		p, err := ioParty(ctx, d, fmt.Sprintf("to[%d]", i), r)
+		if err != nil {
+			return nil, err
+		}
+		if p != "" && !slices.Contains(out, p) {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+// ioLinks are the person and group ids among parties.
+func ioLinks(parties []string) []string {
+	var out []string
+	for _, p := range parties {
+		if strings.HasPrefix(p, "[[") {
+			out = append(out, model.Link(p).Target())
+		}
+	}
+	return out
+}
+
+func ioTime(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	if _, err := time.Parse(time.RFC3339Nano, s); err != nil {
+		return "", fmt.Errorf("at %q: want an RFC 3339 time such as 2026-11-04T09:00:00Z", s)
+	}
+	return s, nil
+}
+
+func ioRef(s string) (string, error) {
+	if strings.TrimSpace(s) == "" {
+		return "", nil
+	}
+	u, err := checkURL(s)
+	if err != nil {
+		return "", fmt.Errorf("ref: %w", err)
+	}
+	return u, nil
+}
+
+// IOItem is one io item in a list.
+type IOItem struct {
+	ID        string            `json:"id"`
+	Title     string            `json:"title"`
+	Direction model.IODirection `json:"direction"`
+	Medium    model.Medium      `json:"medium"`
+	State     model.IOState     `json:"state"`
+	From      string            `json:"from,omitempty"`
+	To        []string          `json:"to"`
+	At        string            `json:"at,omitempty"`
+	Subject   string            `json:"subject,omitempty"`
+	Ref       string            `json:"ref,omitempty"`
+	Expects   model.IOExpects   `json:"expects,omitempty"`
+	Route     string            `json:"route,omitempty"`
+	Became    string            `json:"became,omitempty"` // id
+	Thread    string            `json:"thread,omitempty"` // id
+	Reason    string            `json:"reason,omitempty"`
+	Created   model.Date        `json:"created"`
+	// Legacy marks a type inbox capture that upgrade step io-folder has not
+	// moved yet. It reads as unread incoming; file it after the upgrade.
+	Legacy bool `json:"legacy,omitempty"`
+}
+
+func ioItem(doc model.Document, m *model.IO) IOItem {
+	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From,
+		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
+		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created}
+}
+
+// IOCounts counts open items: the inbox and the outbox.
+type IOCounts struct {
+	Unread int `json:"unread"`
+	Read   int `json:"read"`
+	Draft  int `json:"draft"`
+	Ready  int `json:"ready"`
+}
+
+// IOListInput is the input of io_list. Empty fields match all; with no state
+// and no all, only open items (unread, read, draft, ready) are listed.
+type IOListInput struct {
+	Direction model.IODirection `json:"direction,omitempty" query:"direction"`
+	State     model.IOState     `json:"state,omitempty" query:"state"`
+	Medium    model.Medium      `json:"medium,omitempty" query:"medium"`
+	Expects   model.IOExpects   `json:"expects,omitempty" query:"expects"`
+	All       bool              `json:"all,omitempty" query:"all"` // include filed, sent, and dropped items
+}
+
+// IOListOutput is the output of io_list. Counts covers every open item,
+// whatever the filters.
+type IOListOutput struct {
+	Items  []IOItem `json:"items"`
+	Counts IOCounts `json:"counts"`
+}
+
+// IOList lists io items, oldest first.
+var IOList = defineRead("io_list", "List io items, oldest first: the inbox (direction in: unread, read) and the outbox (direction out: draft, ready). all adds filed, sent, and dropped items", func(ctx context.Context, d Deps, in IOListInput) (IOListOutput, error) {
+	if in.Direction != "" && !slices.Contains(model.IODirections, in.Direction) {
+		return IOListOutput{}, fmt.Errorf("direction %q: want in or out", in.Direction)
+	}
+	if in.State != "" && !slices.Contains(model.IOStates, in.State) {
+		return IOListOutput{}, fmt.Errorf("state %q: want one of %v", in.State, model.IOStates)
+	}
+	if in.Expects != "" && !slices.Contains(model.IOExpectsAll, in.Expects) {
+		return IOListOutput{}, fmt.Errorf("expects %q: want response or none", in.Expects)
+	}
+	all, err := loadIO(ctx, d)
+	if err != nil {
+		return IOListOutput{}, err
+	}
+	out := IOListOutput{Items: []IOItem{}}
+	for _, it := range all {
+		switch it.State {
+		case model.IOUnread:
+			out.Counts.Unread++
+		case model.IORead:
+			out.Counts.Read++
+		case model.IODraft:
+			out.Counts.Draft++
+		case model.IOReady:
+			out.Counts.Ready++
+		}
+		switch {
+		case in.Direction != "" && it.Direction != in.Direction,
+			in.State != "" && it.State != in.State,
+			in.State == "" && !in.All && !it.State.Open(),
+			in.Medium != "" && it.Medium != in.Medium,
+			in.Expects != "" && it.Expects != in.Expects:
+			continue
+		}
+		out.Items = append(out.Items, it)
+	}
+	return out, nil
+})
+
+// loadIO reads every io item and every capture still in inbox/, oldest first.
+func loadIO(ctx context.Context, d Deps) ([]IOItem, error) {
+	var out []IOItem
+	for _, t := range []model.Type{model.TypeIO, model.TypeInbox} {
+		refs, err := d.Store.List(ctx, store.Filter{Type: t})
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range refs {
+			if t == model.TypeInbox && r.Folder != model.FolderInbox {
+				continue // triaged before io: history
+			}
+			doc, err := d.Store.Get(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			switch m := doc.Meta.(type) {
+			case *model.IO:
+				out = append(out, ioItem(doc, m))
+			case *model.Inbox:
+				out = append(out, IOItem{ID: doc.ID, Title: doc.Title, Direction: model.IOIn, Medium: model.MediumOther,
+					State: model.IOUnread, To: []string{}, Created: m.Created, Legacy: true})
+			}
+		}
+	}
+	key := func(it IOItem) string { return firstOf(it.At, string(it.Created)) }
+	slices.SortStableFunc(out, func(a, b IOItem) int {
+		if c := strings.Compare(key(a), key(b)); c != 0 {
+			return c
+		}
+		return strings.Compare(a.ID, b.ID)
+	})
+	return out, nil
+}
+
+// IOShowInput is the input of io_show.
+type IOShowInput struct {
+	ID string `json:"id" query:"id" required:"true"`
+}
+
+// IOShowOutput is the output of io_show.
+type IOShowOutput struct {
+	Doc  model.Document `json:"doc"`
+	Item IOItem         `json:"item"`
+}
+
+// IOShow shows one io item.
+var IOShow = defineRead("io_show", "Show one io item: the message and its state", func(ctx context.Context, d Deps, in IOShowInput) (IOShowOutput, error) {
+	id := normID(in.ID)
+	if id == "" {
+		return IOShowOutput{}, errors.New("id is empty")
+	}
+	doc, err := d.Store.Get(ctx, id)
+	if err != nil {
+		return IOShowOutput{}, err
+	}
+	switch m := doc.Meta.(type) {
+	case *model.IO:
+		return IOShowOutput{Doc: doc, Item: ioItem(doc, m)}, nil
+	case *model.Inbox:
+		return IOShowOutput{Doc: doc, Item: IOItem{ID: doc.ID, Title: doc.Title, Direction: model.IOIn, Medium: model.MediumOther,
+			State: model.IOUnread, To: []string{}, Created: m.Created, Legacy: doc.Folder == model.FolderInbox}}, nil
+	}
+	return IOShowOutput{}, fmt.Errorf("%s is %s, not io", id, doc.Meta.Header().Type)
+})
+
+// getIO reads an io item. A capture still in inbox/ is refused with the fix.
+func getIO(ctx context.Context, d Deps, id string) (model.Document, *model.IO, error) {
+	id = normID(id)
+	if id == "" {
+		return model.Document{}, nil, errors.New("id is empty")
+	}
+	doc, err := d.Store.Get(ctx, id)
+	if err != nil {
+		return doc, nil, err
+	}
+	switch m := doc.Meta.(type) {
+	case *model.IO:
+		return doc, m, nil
+	case *model.Inbox:
+		return doc, nil, fmt.Errorf("%s is an inbox capture from before io: run `para vault upgrade` (step io-folder), then file it", id)
+	}
+	return doc, nil, fmt.Errorf("%s is %s, not io", id, doc.Meta.Header().Type)
+}
+
+// getOpenIO reads an io item that is not dealt with yet.
+func getOpenIO(ctx context.Context, d Deps, id string) (model.Document, *model.IO, error) {
+	doc, m, err := getIO(ctx, d, id)
+	if err != nil {
+		return doc, m, err
+	}
+	if !m.State.Open() {
+		return doc, m, fmt.Errorf("%s is already %s", doc.ID, m.State)
+	}
+	return doc, m, nil
+}
+
+// IOEditInput is the input of io_edit. Empty fields stay as they are. An
+// incoming message takes only state (read or unread). An outgoing draft takes
+// the rest; changing its text, subject, or recipients makes a ready message a
+// draft again, unless state ready is given in the same call.
+type IOEditInput struct {
+	ID      string          `json:"id"`
+	State   model.IOState   `json:"state,omitempty"` // in: read or unread; out: draft or ready
+	Text    string          `json:"text,omitempty"`
+	Subject string          `json:"subject,omitempty"`
+	To      []string        `json:"to,omitempty"`
+	Medium  model.Medium    `json:"medium,omitempty"`
+	Expects model.IOExpects `json:"expects,omitempty"`
+	Route   string          `json:"route,omitempty"`
+}
+
+// IOEditOutput is the output of io_edit.
+type IOEditOutput struct {
+	ID    string        `json:"id"`
+	State model.IOState `json:"state"`
+	Rev   string        `json:"rev"`
+}
+
+// IOEdit changes an outgoing draft, or marks an incoming message read or unread.
+var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+	doc, m, err := getOpenIO(ctx, d, in.ID)
+	if err != nil {
+		return IOEditOutput{}, err
+	}
+	if in.State != "" && (!slices.Contains(model.IOStatesOf(m.Direction), in.State) || !in.State.Open()) {
+		return IOEditOutput{}, fmt.Errorf("state %q: an %s message takes %s here; file, send, or drop it with its own tool", in.State, m.Direction, openStates(m.Direction))
+	}
+	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Expects != "" || in.Route != ""
+	if m.Direction == model.IOIn && content {
+		return IOEditOutput{}, errors.New("an incoming message keeps its text and fields: give state, or file or drop it")
+	}
+	changed := false
+	if t := cleanText(in.Text); t != "" && t != doc.Body {
+		doc.Body, changed = t, true
+	}
+	if s := ioLine(in.Subject); s != "" && s != m.Subject {
+		m.Subject, changed = s, true
+	}
+	if in.To != nil {
+		to, err := ioParties(ctx, d, in.To)
+		if err != nil {
+			return IOEditOutput{}, err
+		}
+		if !slices.Equal(to, m.To) {
+			m.To, changed = to, true
+		}
+	}
+	if in.Medium != "" {
+		if err := checkMedium(in.Medium); err != nil {
+			return IOEditOutput{}, err
+		}
+		m.Medium = in.Medium
+	}
+	if in.Expects != "" {
+		m.Expects = in.Expects
+		if m.Expects == model.ExpectsNone {
+			m.Route = ""
+		}
+	}
+	if r := ioLine(in.Route); r != "" {
+		m.Route = r
+	}
+	if m.Direction == model.IOOut {
+		if err := checkOut(m); err != nil {
+			return IOEditOutput{}, err
+		}
+	}
+	doc.Title = ioTitle(m.Subject, doc.Body)
+	if changed && m.State == model.IOReady {
+		m.State = model.IODraft
+	}
+	if in.State != "" {
+		m.State = in.State
+	}
+	doc, err = d.Store.Update(ctx, doc)
+	if err != nil {
+		return IOEditOutput{}, err
+	}
+	return IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, nil
+})
+
+func openStates(dir model.IODirection) string {
+	if dir == model.IOOut {
+		return "draft or ready"
+	}
+	return "unread or read"
+}
+
+// IODropInput is the input of io_drop.
+type IODropInput struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason"` // why it needs nothing, or will not be sent
+}
+
+// IODropOutput is the output of io_drop.
+type IODropOutput struct {
+	ID    string        `json:"id"`
+	State model.IOState `json:"state"`
+	Rev   string        `json:"rev"`
+}
+
+// IODrop sets an open item aside with a reason. Nothing is deleted.
+var IODrop = define("io_drop", "Drop an open io item with a reason: an incoming message that needs nothing, or a draft that will not be sent. Nothing is deleted", func(ctx context.Context, d Deps, in IODropInput) (IODropOutput, error) {
+	reason := ioLine(in.Reason)
+	if reason == "" {
+		return IODropOutput{}, errors.New("reason is empty: say why it needs nothing")
+	}
+	doc, m, err := getOpenIO(ctx, d, in.ID)
+	if err != nil {
+		return IODropOutput{}, err
+	}
+	m.State, m.Reason = model.IODropped, reason
+	doc, err = d.Store.Update(ctx, doc)
+	if err != nil {
+		return IODropOutput{}, err
+	}
+	return IODropOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, nil
+})
+
+// IOSendInput is the input of io_send.
+type IOSendInput struct {
+	ID      string `json:"id"`
+	URL     string `json:"url,omitempty"`     // where the sent message is
+	Locator string `json:"locator,omitempty"` // where it is, when it has no URL
+	At      string `json:"at,omitempty"`      // RFC 3339; default now
+}
+
+// IOSendOutput is the output of io_send.
+type IOSendOutput struct {
+	ID         string        `json:"id"`
+	State      model.IOState `json:"state"`
+	Became     string        `json:"became"`      // id of the interaction or Ask
+	BecameType model.Type    `json:"became_type"` // interaction or rfx
+	Rev        string        `json:"rev"`
+	Warnings   []string      `json:"warnings"`
+}
+
+// IOSend records that an outgoing message was sent. Expects none logs an
+// interaction; expects response opens an Ask with each person or group as a
+// sent target, so follow-ups use the Ask tools.
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets. A draft in a dossier message block is reported with proposal_executed instead", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+	return sendIO(ctx, d, in)
+})
+
+// sendIO is io_send. A message already sent returns what it became, so a
+// report that comes twice changes nothing.
+func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+	doc, m, err := getIO(ctx, d, in.ID)
+	if err != nil {
+		return IOSendOutput{}, err
+	}
+	if m.Direction != model.IOOut {
+		return IOSendOutput{}, fmt.Errorf("%s is incoming: file it or drop it", doc.ID)
+	}
+	out := IOSendOutput{ID: doc.ID, State: m.State, Became: m.Became.Target(), Rev: doc.Rev, Warnings: []string{}}
+	if m.State == model.IOSent {
+		if b, err := d.Store.Get(ctx, out.Became); err == nil {
+			out.BecameType = b.Meta.Header().Type
+		}
+		return out, nil
+	}
+	if !m.State.Open() {
+		return out, fmt.Errorf("%s is %s", doc.ID, m.State)
+	}
+	link, locator := strings.TrimSpace(in.URL), ioLine(in.Locator)
+	if link == "" && locator == "" {
+		return out, errors.New("give url or locator: where the owner can see the sent message")
+	}
+	if link != "" {
+		if link, err = checkURL(link); err != nil {
+			return out, err
+		}
+	}
+	at, err := ioTime(in.At)
+	if err != nil {
+		return out, err
+	}
+	if at == "" {
+		at = d.Store.Now().UTC().Format(time.RFC3339)
+	}
+	if err := checkOut(m); err != nil {
+		return out, err
+	}
+	back := "Sent from [[" + doc.ID + "]]."
+	if locator != "" {
+		back += " Where: " + locator + "."
+	}
+	date := at[:10]
+	switch m.Expects {
+	case model.ExpectsNone:
+		r, err := InteractionAdd.Run(ctx, d, InteractionAddInput{Summary: joinBody(doc.Title, back), With: ioLinks(m.To),
+			Medium: m.Medium, Direction: model.InteractionOut, URL: link, Date: date})
+		if err != nil {
+			return out, err
+		}
+		out.Became, out.BecameType = r.ID, model.TypeInteraction
+		out.Warnings = append(out.Warnings, r.Warnings...)
+	case model.ExpectsResponse:
+		var tg []TargetInput
+		for _, id := range ioLinks(m.To) {
+			tg = append(tg, TargetInput{To: id, Medium: m.Medium})
+		}
+		r, err := RFXAdd.Run(ctx, d, RFXAddInput{Direction: model.RFXOut, Ask: joinBody(ioText(doc, m), back), Route: m.Route,
+			Targets: tg, SelfServe: "sent from " + doc.ID})
+		if err != nil {
+			return out, err
+		}
+		out.Became, out.BecameType = r.ID, model.TypeRFX
+		out.Warnings = append(out.Warnings, r.Warnings...)
+		if _, err := changeTargets(ctx, d, r.ID, func(x *model.RFX) error {
+			for i := range x.Targets {
+				x.Targets[i].State, x.Targets[i].Sent, x.Targets[i].Ref = model.TargetSent, model.Date(date), firstOf(link, locator)
+			}
+			return nil
+		}); err != nil {
+			return out, fmt.Errorf("%s was made but its targets were not marked sent: %w", r.ID, err)
+		}
+	}
+	doc, m, err = getIO(ctx, d, doc.ID)
+	if err != nil {
+		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, in.ID, err)
+	}
+	m.State, m.Became, m.At = model.IOSent, model.LinkTo(out.Became), at
+	if m.Ref == "" {
+		m.Ref = link
+	}
+	if doc, err = d.Store.Update(ctx, doc); err != nil {
+		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, doc.ID, err)
+	}
+	out.State, out.Rev = m.State, doc.Rev
+	return out, nil
+}

@@ -247,7 +247,7 @@ func TestRuleAndExceptionFailures(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	pol := e.ingest("Body.")
-	var inbox ops.InboxAddOutput
+	var inbox ops.IOAddOutput
 	e.json(&inbox, "inbox", "add", "synthetic")
 	long := strings.Repeat("x", 600)
 	cases := []struct {

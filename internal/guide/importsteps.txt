@@ -16,6 +16,7 @@ A PARA-style corpus (projects, areas, resources, plans) maps like this:
 - Plan items marked todo or in progress become tasks. A blocking decision becomes a question. A parked item becomes a task deferred with its reason (the owner defers it).
 - A checklist or routine with a cadence becomes a recurring task (recur daily, weekly, monthly, quarterly, yearly, or every <n> days).
 - An area's review cadence becomes the area's cadence, and the date of its last review its last_reviewed (`area_review` records a review). `health` reports an area past its review.
+- Unsorted captures (an inbox note, a scratch list) and messages not dealt with yet become io items: `io_add` direction in for what came, direction out for a draft not sent. An item already handled is filed where it belongs instead.
 - A large document store is linked by path (`area_link_add`, `project_link_add`), never copied.
 - An operating rule (a style guide, a filing rule) becomes a convention (`convention_add`), or a constraint for a justified no. Set applies_in to the area or goal it governs, as a link, and set refines to the general rule it specializes. `rules_in_effect` then lists the rules that hold for a task, goal, or area, with the more specific rule in place of the one it refines.
 

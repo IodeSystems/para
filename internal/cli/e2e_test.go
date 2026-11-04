@@ -84,12 +84,12 @@ func TestEndToEnd(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
 
-	var added ops.InboxAddOutput
+	var added ops.IOAddOutput
 	e.json(&added, "inbox", "add", capture)
-	if !strings.HasPrefix(added.ID, "inbox-") || added.Folder != "inbox" {
+	if !strings.HasPrefix(added.ID, "io-") || added.Folder != "io" {
 		t.Fatalf("added = %+v", added)
 	}
-	data, err := os.ReadFile(filepath.Join(path, "inbox", added.ID+".md"))
+	data, err := os.ReadFile(filepath.Join(path, "io", added.ID+".md"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,7 +109,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatalf("events = %+v", tail.Events)
 	}
 	r := tail.Events[0]
-	if r.Op != "create" || r.Doc != added.ID || r.Vault != "acme" || r.Actor != "user" || r.Surface != "cli" || r.To != "inbox" {
+	if r.Op != "create" || r.Doc != added.ID || r.Vault != "acme" || r.Actor != "user" || r.Surface != "cli" || r.To != "io" {
 		t.Fatalf("event = %+v", r)
 	}
 	if raw := e.ok("events", "tail", "--json"); strings.Contains(raw, "zebrafish") {
@@ -244,7 +244,7 @@ func TestVaultRefMustMatchVault(t *testing.T) {
 func TestLintFailsWithFindings(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	os.WriteFile(filepath.Join(path, "inbox", "hand-made.md"), []byte("no frontmatter\n"), 0o600)
+	os.WriteFile(filepath.Join(path, "io", "hand-made.md"), []byte("no frontmatter\n"), 0o600)
 	cases := []struct {
 		name string
 		args []string
@@ -262,7 +262,7 @@ func TestLintFailsWithFindings(t *testing.T) {
 			if jerr := json.Unmarshal([]byte(out), &got); jerr != nil {
 				t.Fatalf("stdout %q: %v", out, jerr)
 			}
-			if got.Errors == 0 || got.Findings[0].Path != "inbox/hand-made.md" {
+			if got.Errors == 0 || got.Findings[0].Path != "io/hand-made.md" {
 				t.Fatalf("got %+v", got)
 			}
 		})
@@ -284,7 +284,7 @@ func TestInboxAddRefusesBadText(t *testing.T) {
 	if _, _, err := e.run("inbox", "add", "see <b>this</b>"); err == nil || !strings.Contains(err.Error(), "raw-html") {
 		t.Fatalf("err = %v", err)
 	}
-	if entries, _ := os.ReadDir(filepath.Join(path, "inbox")); len(entries) != 0 {
+	if entries, _ := os.ReadDir(filepath.Join(path, "io")); len(entries) != 0 {
 		t.Fatalf("wrote %v", entries)
 	}
 	var tail ops.EventsTailOutput
@@ -297,9 +297,9 @@ func TestInboxAddRefusesBadText(t *testing.T) {
 func TestReconcileCommand(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	var added ops.InboxAddOutput
+	var added ops.IOAddOutput
 	e.json(&added, "inbox", "add", "synthetic")
-	file := filepath.Join(path, "inbox", added.ID+".md")
+	file := filepath.Join(path, "io", added.ID+".md")
 	raw, _ := os.ReadFile(file)
 	os.WriteFile(file, append(raw, []byte("By hand.\n")...), 0o600)
 	// One-machine vault: log a hand edit at once.
@@ -307,7 +307,7 @@ func TestReconcileCommand(t *testing.T) {
 	cfg, _ := os.ReadFile(propsFile)
 	os.WriteFile(propsFile, append(cfg, []byte("reconcile.grace=0s\n")...), 0o600)
 
-	if out := e.ok("reconcile"); !strings.Contains(out, "changed\tinbox/"+added.ID+".md") {
+	if out := e.ok("reconcile"); !strings.Contains(out, "changed\tio/"+added.ID+".md") {
 		t.Fatalf("out = %q", out)
 	}
 	var tail ops.EventsTailOutput
@@ -384,7 +384,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	}
 	seedWork(t, deps)
 	cases := map[string]parityCase{
-		"inbox_add":       {`{"text":"synthetic"}`, []string{"inbox", "add", "synthetic"}, false},
+		"io_add":          {`{"direction":"in","text":"synthetic"}`, []string{"io", "add", "--direction", "in", "synthetic"}, false},
 		"lint":            {``, []string{"lint"}, true},
 		"reconcile":       {`{}`, []string{"reconcile"}, true},
 		"events_tail":     {`{"limit":20}`, []string{"events", "tail"}, true},
@@ -524,8 +524,8 @@ func TestInitNoGit(t *testing.T) {
 func TestTodayShowsSyncConflicts(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	os.WriteFile(filepath.Join(path, "inbox", "x (1).md"), []byte("c"), 0o600)
-	if out := e.ok("today"); !strings.Contains(out, "sync-conflict\tinbox/x (1).md") {
+	os.WriteFile(filepath.Join(path, "io", "x (1).md"), []byte("c"), 0o600)
+	if out := e.ok("today"); !strings.Contains(out, "sync-conflict\tio/x (1).md") {
 		t.Fatalf("today = %q", out)
 	}
 	if out := e.ok("lint"); !strings.Contains(out, "sync-conflict") {

@@ -57,7 +57,36 @@ func steps() []Step {
 				return d, nil
 			},
 		},
+		{
+			ID:      "io-folder",
+			Version: 4,
+			Title:   "Move inbox captures to io/ as incoming io items",
+			Auto:    true,
+			Types:   []model.Type{model.TypeInbox},
+			Select:  openInbox,
+			Rewrite: inboxAsIO,
+		},
 	}
+}
+
+// openInbox selects a capture still in inbox/. A capture triaged before io
+// lives in archive/ as type inbox and stays as it is: it is history.
+func openInbox(d model.Document) bool {
+	_, ok := d.Meta.(*model.Inbox)
+	return ok && d.Folder == model.FolderInbox
+}
+
+// inboxAsIO makes a capture an unread incoming io item in io/. The id stays,
+// so links still resolve. The body becomes the whole capture: an io title is
+// the first line of the body, and inbox_add kept that line only in the title.
+func inboxAsIO(d model.Document) (model.Document, error) {
+	old := d.Meta.Header()
+	c := *old
+	c.Type = model.TypeIO
+	d.Meta = &model.IO{Common: c, Direction: model.IOIn, Medium: model.MediumOther, State: model.IOUnread}
+	d.Body = model.CaptureText(d.Title, d.Body)
+	d.Folder = model.FolderIO
+	return d, nil
 }
 
 // legacyOpenProposal selects the head revision of an open proposal whose body

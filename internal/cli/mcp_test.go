@@ -111,8 +111,8 @@ func TestMCPSubprocess(t *testing.T) {
 				t.Errorf("tools = %d, ops = %d plus request_wait", len(have), len(ops.ForAgents()))
 			}
 
-			if out, isErr := callText(t, c, "inbox_add", map[string]any{"text": "synthetic capture"}); isErr {
-				t.Fatalf("inbox_add: %s", out)
+			if out, isErr := callText(t, c, "io_add", map[string]any{"direction": "in", "text": "synthetic capture"}); isErr {
+				t.Fatalf("io_add: %s", out)
 			}
 
 			// The tool result is the --json output of the command.
@@ -151,7 +151,7 @@ func TestMCPSubprocess(t *testing.T) {
 func TestMCPLintFailureIsToolError(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	if err := os.WriteFile(path+"/inbox/bad.md", []byte("---\ntype: nonsense\n---\n# Bad\n"), 0o644); err != nil {
+	if err := os.WriteFile(path+"/io/bad.md", []byte("---\ntype: nonsense\n---\n# Bad\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	c := startMCP(t, e)
@@ -202,17 +202,17 @@ func TestMCPOnlyChosenVault(t *testing.T) {
 	acme := e.init("acme")
 	other := e.init("other")
 	c := startMCP(t, e, "--vault", "acme")
-	if out, isErr := callText(t, c, "inbox_add", map[string]any{"text": "only acme"}); isErr {
+	if out, isErr := callText(t, c, "io_add", map[string]any{"direction": "in", "text": "only acme"}); isErr {
 		t.Fatal(out)
 	}
 	for path, want := range map[string]int{acme: 1, other: 0} {
-		ents, err := os.ReadDir(path + "/inbox")
+		ents, err := os.ReadDir(path + "/io")
 		if err != nil {
 			t.Fatal(err)
 		}
 		n := 0
 		for _, de := range ents {
-			if strings.HasPrefix(de.Name(), "inbox-") {
+			if strings.HasPrefix(de.Name(), "io-") {
 				n++
 			}
 		}
@@ -220,7 +220,7 @@ func TestMCPOnlyChosenVault(t *testing.T) {
 			t.Errorf("%s: inbox files = %d, want %d", path, n, want)
 		}
 	}
-	if out, isErr := callText(t, c, "inbox_add", map[string]any{"text": "x", "vault": "other"}); !isErr || strings.Contains(out, other) {
+	if out, isErr := callText(t, c, "io_add", map[string]any{"direction": "in", "text": "x", "vault": "other"}); !isErr || strings.Contains(out, other) {
 		t.Errorf("vault argument: isErr=%v out=%q", isErr, out)
 	}
 }

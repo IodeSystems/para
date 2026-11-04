@@ -19,7 +19,8 @@ const (
 	TypeDomain          Type = "domain"
 	TypeConvention      Type = "convention"
 	TypeJournal         Type = "journal"
-	TypeInbox           Type = "inbox"
+	TypeInbox           Type = "inbox" // read until upgrade step io-folder; new captures are io
+	TypeIO              Type = "io"
 	TypeGroup           Type = "group"
 	TypeInteraction     Type = "interaction"
 	TypeRequest         Type = "request"
@@ -36,7 +37,7 @@ const (
 var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
-	TypeJournal, TypeInbox, TypeGroup, TypeInteraction, TypeRequest,
+	TypeJournal, TypeInbox, TypeIO, TypeGroup, TypeInteraction, TypeRequest,
 	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt,
 }
 
@@ -44,7 +45,8 @@ var Types = []Type{
 type Folder string
 
 const (
-	FolderInbox        Folder = "inbox"
+	FolderInbox        Folder = "inbox" // read until upgrade step io-folder; para init does not make it
+	FolderIO           Folder = "io"
 	FolderProjects     Folder = "projects"
 	FolderAreas        Folder = "areas"
 	FolderResources    Folder = "resources"
@@ -66,7 +68,7 @@ const (
 
 // Folders lists every document folder.
 var Folders = []Folder{
-	FolderInbox, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
+	FolderInbox, FolderIO, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
 	FolderReceipts,
@@ -416,6 +418,67 @@ func (InteractionDirection) Enum() []string { return enumStrings(InteractionDire
 
 // InteractionDirections lists every InteractionDirection.
 var InteractionDirections = []InteractionDirection{InteractionIn, InteractionOut, InteractionObserved}
+
+// IODirection is io.direction. In: it came to the owner. Out: the owner sends it.
+type IODirection string
+
+const (
+	IOIn  IODirection = "in"
+	IOOut IODirection = "out"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IODirection) Enum() []string { return enumStrings(IODirections) }
+
+// IODirections lists every IODirection.
+var IODirections = []IODirection{IOIn, IOOut}
+
+// IOState is io.state. In: unread, read, filed, dropped. Out: draft, ready,
+// sent, dropped. Filed, sent, and dropped items are dealt with.
+type IOState string
+
+const (
+	IOUnread  IOState = "unread"
+	IORead    IOState = "read"
+	IOFiled   IOState = "filed"
+	IODraft   IOState = "draft"
+	IOReady   IOState = "ready"
+	IOSent    IOState = "sent"
+	IODropped IOState = "dropped"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IOState) Enum() []string { return enumStrings(IOStates) }
+
+// IOStates lists every IOState.
+var IOStates = []IOState{IOUnread, IORead, IOFiled, IODraft, IOReady, IOSent, IODropped}
+
+// IOStatesOf lists the states of one direction.
+func IOStatesOf(dir IODirection) []IOState {
+	if dir == IOOut {
+		return []IOState{IODraft, IOReady, IOSent, IODropped}
+	}
+	return []IOState{IOUnread, IORead, IOFiled, IODropped}
+}
+
+// Open reports whether an item in state s is not dealt with yet.
+func (s IOState) Open() bool {
+	return s == IOUnread || s == IORead || s == IODraft || s == IOReady
+}
+
+// IOExpects is io.expects on an outgoing message: whether a reply is wanted.
+type IOExpects string
+
+const (
+	ExpectsResponse IOExpects = "response"
+	ExpectsNone     IOExpects = "none"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IOExpects) Enum() []string { return enumStrings(IOExpectsAll) }
+
+// IOExpectsAll lists every IOExpects.
+var IOExpectsAll = []IOExpects{ExpectsResponse, ExpectsNone}
 
 // Visibility is interaction.visibility: where it happened.
 type Visibility string

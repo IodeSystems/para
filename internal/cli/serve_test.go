@@ -258,7 +258,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		{"/api/v1/project/list", []string{"project", "list"}},
 		{"/api/v1/project/show?id=" + project.ID, []string{"project", "show", project.ID}},
 		{"/api/v1/task/list", []string{"task", "list"}},
-		{"/api/v1/inbox/list", []string{"inbox", "list"}},
+		{"/api/v1/io/list", []string{"io", "list"}},
 		{"/api/v1/next", []string{"next"}},
 		{"/api/v1/graph", []string{"graph"}},
 		{"/api/v1/rfx/list", []string{"rfx", "list"}},
@@ -398,7 +398,7 @@ func TestServeLogsHandEdits(t *testing.T) {
 	_, stop := runningServer(t, e)
 	time.Sleep(500 * time.Millisecond)
 	start := time.Now()
-	if err := os.WriteFile(filepath.Join(path, "inbox", "inbox-hand.md"), []byte("---\ntype: inbox\n---\n# By hand\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(path, "io", "inbox-hand.md"), []byte("---\ntype: inbox\n---\n# By hand\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	for {

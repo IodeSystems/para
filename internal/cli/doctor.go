@@ -301,7 +301,7 @@ func doctorExposure(base string, r *report) {
 		r.ok(what, resp.Status)
 	}
 	check("exposure no token read", http.MethodGet, "/api/v1/task/list", http.StatusUnauthorized, nil, "", "a route is open; do not expose this server")
-	check("exposure no token write", http.MethodPost, "/api/v1/inbox/add", http.StatusUnauthorized, nil, "", "a route is open; do not expose this server")
+	check("exposure no token write", http.MethodPost, "/api/v1/io/add", http.StatusUnauthorized, nil, "", "a route is open; do not expose this server")
 	check("exposure no token graphql", http.MethodPost, "/api/graphql", http.StatusUnauthorized, nil, "", "a route is open; do not expose this server")
 	check("exposure rebinding host", http.MethodGet, "/healthz", http.StatusMisdirectedRequest, nil, "rebinding.invalid", "the proxy rewrites Host; pass it through unchanged")
 	check("exposure path trick", http.MethodGet, "/api/v1/..%2fv1/task/list", http.StatusBadRequest, nil, "", "the proxy rewrites paths before para sees them; keep the raw path")

@@ -106,6 +106,9 @@ func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool
 	if err != nil {
 		return nil, err
 	}
+	if err := hydrateIO(ctx, d, dz.Items, true); err != nil {
+		return nil, err
+	}
 	for i := range dz.Items {
 		it := &dz.Items[i]
 		if owned := paraOwned(*it); len(owned) > 0 {

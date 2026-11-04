@@ -67,13 +67,16 @@ var (
 	validationStates   = []string{"idea", "validated", "active", "pivoted", "stopped"}
 	levels             = []string{"low", "medium", "high"}
 	assumptionStatus   = []string{"holds", "changed", "unknown"}
+	ioDirections       = []string{"in", "out"}
+	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped"}
+	ioExpects          = []string{"response", "none"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
-	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox",
+	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io",
 	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt",
 }
 
@@ -283,6 +286,22 @@ var typeFields = map[string][]field{
 		{Name: "scope", Kind: kEnum, Enum: journalScopes, Required: true},
 	},
 	"inbox": {},
+	"io": {
+		{Name: "direction", Kind: kEnum, Enum: ioDirections, Required: true},
+		{Name: "medium", Kind: kEnum, Enum: mediums, Required: true},
+		{Name: "state", Kind: kEnum, Enum: ioStates, Required: true}, // per direction: Lint io
+		{Name: "from", Kind: kString},
+		{Name: "to", Kind: kList},
+		{Name: "at", Kind: kTimestamp},
+		{Name: "subject", Kind: kString},
+		{Name: "ref", Kind: kString},
+		{Name: "via", Kind: kMap}, // {source, ref}: Lint io
+		{Name: "expects", Kind: kEnum, Enum: ioExpects},
+		{Name: "route", Kind: kString},
+		{Name: "became", Kind: kLink},
+		{Name: "thread", Kind: kLink},
+		{Name: "reason", Kind: kString},
+	},
 }
 
 // Item fields of a contact and of an rfx target.

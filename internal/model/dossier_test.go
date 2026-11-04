@@ -148,3 +148,28 @@ func TestNewDossierRenders(t *testing.T) {
 		t.Fatalf("back: %+v\n%s", back.Items[0], body)
 	}
 }
+
+// A message block that names an io draft holds no text of its own: it needs
+// no body, refuses one, and is written back without the text para filled in.
+func TestDossierMessageWithIO(t *testing.T) {
+	ev := "evidence: {quote: q, locator: l}\n"
+	head := "```yaml para-dossier\ntldr: T\n```\n\n"
+	body := head + "```yaml para-message id=m1\nio: \"[[io-a]]\"\n" + ev + "```\n"
+	d, err := ParseDossier(body)
+	if err != nil || len(d.Items) != 1 || d.Items[0].IO != "[[io-a]]" {
+		t.Fatalf("parse = %+v %v", d, err)
+	}
+	d.Items[0].Body, d.Items[0].Subject, d.Items[0].People = "Hi.", "S", []string{"[[ada]]"}
+	out, err := d.Render()
+	if err != nil || strings.TrimSpace(out) != strings.TrimSpace(body) {
+		t.Fatalf("render = %q %v, want %q", out, err, body)
+	}
+	both := head + "```yaml para-message id=m1\nio: \"[[io-a]]\"\nbody: Hi.\n" + ev + "```\n"
+	if f := LintDossier(both); len(f) != 1 || f[0].Code != CodeDossierBlock {
+		t.Fatalf("findings = %v", f)
+	}
+	action := head + "```yaml para-action id=a1\nwhat: w\nhow: h\nio: \"[[io-a]]\"\n" + ev + "```\n"
+	if f := LintDossier(action); len(f) != 1 || f[0].Code != CodeDossierBlock {
+		t.Fatalf("findings = %v", f)
+	}
+}

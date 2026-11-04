@@ -42,11 +42,11 @@ func TestGateOverREST(t *testing.T) {
 	}
 	agent := f.key(f.keyA, "claude", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
 	why := map[string]string{"X-Para-Why": "The owner asked."}
-	w := f.do(call{method: post, target: "/api/v1/inbox/add", token: agent, header: why, body: `{"text":"held capture"}`})
+	w := f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: why, body: `{"direction":"in","text":"held capture"}`})
 	wantStatus(t, w, 202)
-	if !strings.Contains(w.Body.String(), `"staged": true`) || !strings.Contains(w.Body.String(), `"op": "inbox_add"`) {
+	if !strings.Contains(w.Body.String(), `"staged": true`) || !strings.Contains(w.Body.String(), `"op": "io_add"`) {
 		t.Fatalf("body = %s", w.Body.String())
 	}
 	rated := map[string]string{"X-Para-Why": "The owner asked.", "X-Para-Minor": "true", "X-Para-Obvious": "true"}
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: agent, header: rated, body: `{"text":"rated capture"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: rated, body: `{"direction":"in","text":"rated capture"}`}), 200)
 }

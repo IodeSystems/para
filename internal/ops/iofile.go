@@ -4,32 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 )
 
-// An inbox item is sorted once: it becomes a task, request, project, or note,
-// or it is dropped. A note is a note document; with a person it is a dated line
-// in that person's notes. Either way the item is archived, never
-// deleted, so a link to it keeps resolving and the history stays.
+// An incoming io item is filed once: into a task, question, Ask, note,
+// interaction, or project that para makes from it, or into a document that
+// already holds it. became links what it was filed into, and the new document
+// links back. The item stays in io/ with state filed, so links keep resolving.
 
-// TriageTarget is where an inbox item goes.
+// TriageTarget is what an incoming io item is filed into.
 type TriageTarget string
 
 const (
-	TriageTask     TriageTarget = "task"
-	TriageRFX      TriageTarget = "rfx"
-	TriageProject  TriageTarget = "project"
-	TriageNote     TriageTarget = "note"     // a note document; with Person, a dated line in a person's notes
-	TriageQuestion TriageTarget = "question" // an open question; it needs a scope
-	TriageDrop     TriageTarget = "drop"     // archive with no new document
+	TriageTask        TriageTarget = "task"
+	TriageRFX         TriageTarget = "rfx"
+	TriageProject     TriageTarget = "project"
+	TriageNote        TriageTarget = "note"        // a note document; with Person, a dated line in a person's notes
+	TriageQuestion    TriageTarget = "question"    // an open question; it needs a scope
+	TriageInteraction TriageTarget = "interaction" // a logged contact; with names the people
 )
 
 // TriageTargets lists every TriageTarget.
-var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageDrop}
+var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageInteraction}
 
 // Enum implements the MCP enum hook.
 func (TriageTarget) Enum() []string {
@@ -40,90 +41,27 @@ func (TriageTarget) Enum() []string {
 	return out
 }
 
-// InboxItem is one inbox capture in a list.
-type InboxItem struct {
-	ID      string       `json:"id"`
-	Folder  model.Folder `json:"folder"`
-	Title   string       `json:"title"`
-	Created model.Date   `json:"created"`
+// triageTypes are the document types each target names, for existing.
+var triageTypes = map[TriageTarget][]model.Type{
+	TriageTask: {model.TypeTask}, TriageRFX: {model.TypeRFX}, TriageProject: {model.TypeProject},
+	TriageNote: {model.TypeNote, model.TypePerson}, TriageQuestion: {model.TypeQuestion}, TriageInteraction: {model.TypeInteraction},
 }
 
-// InboxListInput is the input of inbox_list.
-type InboxListInput struct {
-	All bool `json:"all,omitempty" query:"all"` // include triaged (archived) items
-}
-
-// InboxListOutput is the output of inbox_list.
-type InboxListOutput struct {
-	Items []InboxItem `json:"items"`
-}
-
-// InboxList lists captures not yet triaged, oldest id first.
-var InboxList = defineRead("inbox_list", "List inbox captures not yet triaged", func(ctx context.Context, d Deps, in InboxListInput) (InboxListOutput, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeInbox})
-	if err != nil {
-		return InboxListOutput{}, err
-	}
-	out := InboxListOutput{Items: []InboxItem{}}
-	for _, r := range refs {
-		if r.Folder != model.FolderInbox && !in.All {
-			continue
-		}
-		doc, err := d.Store.Get(ctx, r.ID)
-		if err != nil {
-			return InboxListOutput{}, err
-		}
-		out.Items = append(out.Items, InboxItem{ID: doc.ID, Folder: doc.Folder, Title: doc.Title, Created: doc.Meta.Header().Created})
-	}
-	return out, nil
-})
-
-// InboxShowInput is the input of inbox_show.
-type InboxShowInput struct {
-	ID string `json:"id" query:"id" required:"true"`
-}
-
-// InboxShowOutput is the output of inbox_show.
-type InboxShowOutput struct {
-	Doc model.Document `json:"doc"`
-}
-
-// InboxShow shows one capture.
-var InboxShow = defineRead("inbox_show", "Show one inbox capture", func(ctx context.Context, d Deps, in InboxShowInput) (InboxShowOutput, error) {
-	doc, _, err := getInbox(ctx, d, in.ID)
-	if err != nil {
-		return InboxShowOutput{}, err
-	}
-	return InboxShowOutput{Doc: doc}, nil
-})
-
-func getInbox(ctx context.Context, d Deps, id string) (model.Document, *model.Inbox, error) {
-	id = normID(id)
-	if id == "" {
-		return model.Document{}, nil, errors.New("id is empty")
-	}
-	doc, err := d.Store.Get(ctx, id)
-	if err != nil {
-		return doc, nil, err
-	}
-	m, ok := doc.Meta.(*model.Inbox)
-	if !ok {
-		return doc, nil, fmt.Errorf("%s is %s, not inbox", id, doc.Meta.Header().Type)
-	}
-	return doc, m, nil
-}
-
-// InboxTriageInput is the input of inbox_triage. Each target needs its own
-// fields; fields of another target are rejected, so a mistake is not silent.
-type InboxTriageInput struct {
+// IOFileInput is the input of io_file. Each target needs its own fields;
+// fields of another target are rejected, so a mistake is not silent. With
+// existing, no target field applies.
+type IOFileInput struct {
 	ID string       `json:"id"`
-	To TriageTarget `json:"to"`
+	To TriageTarget `json:"to,omitempty"` // required unless existing is given
+	// Existing is the id of a document that already holds the message; para
+	// links it and makes nothing.
+	Existing string `json:"existing,omitempty"`
 	// task
 	Project string `json:"project,omitempty"` // task: project id (or Area); rfx: optional project id
 	// project
 	Owner string `json:"owner,omitempty"`
 	// rfx
-	Direction model.RFXDirection `json:"direction,omitempty"` // default out
+	Direction model.RFXDirection `json:"direction,omitempty"` // default in: someone asks the owner
 	Route     string             `json:"route,omitempty"`     // domain id
 	Targets   []TargetInput      `json:"targets,omitempty"`
 	SelfServe string             `json:"self_serve,omitempty"`
@@ -140,120 +78,190 @@ type InboxTriageInput struct {
 	Kind        model.QuestionKind `json:"kind,omitempty"`
 	Options     []string           `json:"options,omitempty"`
 	Recommended string             `json:"recommended,omitempty"`
+	// interaction: person or group ids; default the sender when it is one
+	With       []string         `json:"with,omitempty"`
+	Visibility model.Visibility `json:"visibility,omitempty"`
 }
 
-// InboxTriageOutput is the output of inbox_triage.
-type InboxTriageOutput struct {
-	ID       string       `json:"id"` // the inbox item
-	To       TriageTarget `json:"to"`
-	Created  string       `json:"created"`  // id of the new document, or of the person for a note; empty for drop
-	Folder   model.Folder `json:"folder"`   // where the inbox item is now: archive
-	Rev      string       `json:"rev"`      // of the inbox item
-	Warnings []string     `json:"warnings"` // from the op that made the document
+// IOFileOutput is the output of io_file.
+type IOFileOutput struct {
+	ID       string        `json:"id"` // the io item
+	To       TriageTarget  `json:"to"`
+	Became   string        `json:"became"`  // id of the document it was filed into; the person for a person note
+	Created  bool          `json:"created"` // para made Became; false with existing
+	State    model.IOState `json:"state"`
+	Rev      string        `json:"rev"`      // of the io item
+	Warnings []string      `json:"warnings"` // from the op that made the document
 }
 
-// InboxTriage turns a capture into a task, request, project, or person note,
-// or drops it. The new document links back to the item in its body; the item
-// gets a line that links forward, then moves to archive/. The new document is
-// made first: if the archive step fails, the item stays in the inbox and the
-// new document exists, so the error names it.
-var InboxTriage = defineSafe("inbox_triage", "Turn an inbox capture into a task, request, project, question (it needs a scope), or note (a note document, or a person note with person), or drop it; the capture is archived", func(ctx context.Context, d Deps, in InboxTriageInput) (InboxTriageOutput, error) {
-	doc, _, err := getInbox(ctx, d, in.ID)
+// IOFile files an incoming message. The new document is made first: if the io
+// item then cannot be marked filed, the error names the new document.
+var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document with existing; the item is marked filed and leaves the inbox", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
+	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
-		return InboxTriageOutput{}, err
+		return IOFileOutput{}, err
 	}
-	if doc.Folder != model.FolderInbox {
-		return InboxTriageOutput{}, fmt.Errorf("%s is already triaged (in %s)", doc.ID, doc.Folder)
+	if m.Direction != model.IOIn {
+		return IOFileOutput{}, fmt.Errorf("%s is outgoing: send it with io_send or drop it", doc.ID)
 	}
-	if err := checkTriageFields(in); err != nil {
-		return InboxTriageOutput{}, err
+	out := IOFileOutput{ID: doc.ID, To: in.To, Warnings: []string{}}
+	if in.Existing != "" {
+		if out.To, out.Became, err = fileExisting(ctx, d, in); err != nil {
+			return out, err
+		}
+	} else {
+		if err := checkTriageFields(in); err != nil {
+			return out, err
+		}
+		if err := fileNew(ctx, d, doc, m, in, &out); err != nil {
+			return out, err
+		}
+		out.Created = true
 	}
-	text := captureText(doc)
+	// Re-read: the new document may link here, and the Rev must be current.
+	doc, m, err = getIO(ctx, d, doc.ID)
+	if err != nil {
+		return out, triageHalf(out, err)
+	}
+	m.State, m.Became = model.IOFiled, model.LinkTo(out.Became)
+	if doc, err = d.Store.Update(ctx, doc); err != nil {
+		return out, triageHalf(out, err)
+	}
+	out.State, out.Rev = m.State, doc.Rev
+	return out, nil
+})
+
+// fileExisting checks the document named by existing, and its type against to.
+func fileExisting(ctx context.Context, d Deps, in IOFileInput) (TriageTarget, string, error) {
+	other := in
+	other.ID, other.To, other.Existing = "", "", ""
+	if !reflect.ValueOf(other).IsZero() {
+		return "", "", errors.New("existing links a document as it is: leave out the fields that make one")
+	}
+	id := normID(in.Existing)
+	doc, err := d.Store.Get(ctx, id)
+	if err != nil {
+		return "", "", fmt.Errorf("existing %s: %w", id, err)
+	}
+	t := doc.Meta.Header().Type
+	if in.To != "" {
+		if !slices.Contains(triageTypes[in.To], t) {
+			return "", "", fmt.Errorf("existing %s is a %s, not a %s", id, t, in.To)
+		}
+		return in.To, doc.ID, nil
+	}
+	for _, to := range TriageTargets {
+		if slices.Contains(triageTypes[to], t) {
+			return to, doc.ID, nil
+		}
+	}
+	return "", "", fmt.Errorf("existing %s is a %s: file into a task, Ask, question, note, person, interaction, or project", id, t)
+}
+
+// fileNew makes the document the item is filed into.
+func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IOFileInput, out *IOFileOutput) error {
+	text := ioText(doc, m)
 	back := "From [[" + doc.ID + "]]."
-	out := InboxTriageOutput{ID: doc.ID, To: in.To, Warnings: []string{}}
 	switch in.To {
 	case TriageTask:
 		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
 		if err != nil {
-			return out, err
+			return err
 		}
-		out.Created = r.ID
+		out.Became = r.ID
 	case TriageProject:
 		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
 		if err != nil {
-			return out, err
+			return err
 		}
-		out.Created = r.ID
+		out.Became = r.ID
 	case TriageRFX:
 		dir := in.Direction
 		if dir == "" {
-			dir = model.RFXOut
+			dir = model.RFXIn
 		}
 		r, err := RFXAdd.Run(ctx, d, RFXAddInput{
 			Direction: dir, Ask: joinBody(text, back), Route: in.Route, Targets: in.Targets,
 			SelfServe: in.SelfServe, Project: in.Project, NextNudge: in.NextNudge,
 		})
 		if err != nil {
-			return out, err
+			return err
 		}
-		out.Created, out.Warnings = r.ID, r.Warnings
+		out.Became, out.Warnings = r.ID, r.Warnings
 	case TriageQuestion:
 		r, err := QuestionAdd.Run(ctx, d, QuestionAddInput{
 			Text: joinBody(text, back), Project: in.Project, Task: in.Task, Area: in.Area, Root: in.Root,
 			Kind: in.Kind, Options: in.Options, Recommended: in.Recommended,
 		})
 		if err != nil {
-			return out, err
+			return err
 		}
-		out.Created = r.ID
+		out.Became = r.ID
 	case TriageNote:
 		if in.Person == "" {
 			r, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: doc.Title, Body: joinBody(doc.Body, back), Area: in.Area, Project: in.Project})
 			if err != nil {
-				return out, err
+				return err
 			}
-			out.Created = r.ID
+			out.Became = r.ID
 			break
 		}
-		if _, err := OrgPersonNote.Run(ctx, d, PersonNoteInput{ID: in.Person, Text: text + " (" + strings.TrimSuffix(back, ".") + ")", Date: in.Date}); err != nil {
-			return out, err
+		if _, err := OrgPersonNote.Run(ctx, d, PersonNoteInput{ID: in.Person, Text: ioLine(text) + " (" + strings.TrimSuffix(back, ".") + ")", Date: in.Date}); err != nil {
+			return err
 		}
-		out.Created = normID(in.Person)
-	case TriageDrop:
+		out.Became = normID(in.Person)
+	case TriageInteraction:
+		with := in.With
+		if len(with) == 0 {
+			with = ioLinks([]string{m.From})
+		}
+		if len(with) == 0 {
+			return errors.New("to interaction needs with: the sender is not a person or group in the vault")
+		}
+		date := ""
+		if len(m.At) >= 10 {
+			date = m.At[:10]
+		}
+		link := ""
+		if strings.HasPrefix(m.Ref, "http") {
+			link = m.Ref
+		}
+		r, err := InteractionAdd.Run(ctx, d, InteractionAddInput{Summary: joinBody(doc.Title, back), With: with, Medium: m.Medium,
+			Direction: model.InteractionIn, Visibility: in.Visibility, URL: link, Date: date})
+		if err != nil {
+			return err
+		}
+		out.Became, out.Warnings = r.ID, r.Warnings
 	}
-	// Re-read: a note changes another document, not this one, but the Rev
-	// must be current for Update.
-	doc, _, err = getInbox(ctx, d, doc.ID)
-	if err != nil {
-		return out, triageHalf(out, err)
-	}
-	line := "Triaged: " + string(in.To)
-	if out.Created != "" {
-		line += " [[" + out.Created + "]]"
-	}
-	doc.Body = joinBody(doc.Body, line+".")
-	if doc, err = d.Store.Update(ctx, doc); err != nil {
-		return out, triageHalf(out, err)
-	}
-	moved, err := d.Store.Move(ctx, doc.ID, model.FolderArchive)
-	if err != nil {
-		return out, triageHalf(out, err)
-	}
-	out.Folder, out.Rev = moved.Folder, moved.Rev
-	return out, nil
-})
+	return nil
+}
 
-func triageHalf(out InboxTriageOutput, err error) error {
-	if out.Created == "" {
+func triageHalf(out IOFileOutput, err error) error {
+	if out.Became == "" {
 		return err
 	}
-	return fmt.Errorf("%s was made but the inbox item was not archived: %w", out.Created, err)
+	return fmt.Errorf("%s was filed into %s, but the io item was not marked filed: %w", out.ID, out.Became, err)
+}
+
+// splitCapture makes the first line the title and the rest the body. A long
+// first line is cut for the title and kept whole in the body.
+func splitCapture(text string) (title, body string, err error) {
+	text = cleanText(text)
+	if text == "" {
+		return "", "", errors.New("text is empty")
+	}
+	first, rest, _ := strings.Cut(text, "\n")
+	first = ioLine(first)
+	if utf8.RuneCountInString(first) <= ioTitleMax {
+		return first, strings.TrimSpace(rest), nil
+	}
+	return string([]rune(first)[:ioTitleMax]) + "...", text, nil
 }
 
 // checkTriageFields requires what the target needs and rejects the rest.
-func checkTriageFields(in InboxTriageInput) error {
+func checkTriageFields(in IOFileInput) error {
 	if !slices.Contains(TriageTargets, in.To) {
-		return fmt.Errorf("to %q: want one of %v", in.To, TriageTargets)
+		return fmt.Errorf("to %q: want one of %v, or give existing", in.To, TriageTargets)
 	}
 	have := map[string]bool{
 		"project":     in.Project != "",
@@ -271,20 +279,25 @@ func checkTriageFields(in InboxTriageInput) error {
 		"kind":        in.Kind != "",
 		"options":     len(in.Options) > 0,
 		"recommended": in.Recommended != "",
+		"with":        len(in.With) > 0,
+		"visibility":  in.Visibility != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:     {"project", "area"},
-		TriageProject:  {"owner", "area"},
-		TriageRFX:      {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
-		TriageNote:     {"person", "date", "area", "project"},
-		TriageQuestion: {"project", "area", "task", "root", "kind", "options", "recommended"},
-		TriageDrop:     {},
+		TriageTask:        {"project", "area"},
+		TriageProject:     {"owner", "area"},
+		TriageRFX:         {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
+		TriageNote:        {"person", "date", "area", "project"},
+		TriageQuestion:    {"project", "area", "task", "root", "kind", "options", "recommended"},
+		TriageInteraction: {"with", "visibility", "date"},
 	}[in.To]
 	required := map[TriageTarget][]string{
 		TriageRFX: {"route"},
 	}[in.To]
 	if in.To == TriageTask && in.Project == "" && in.Area == "" {
 		return errors.New("to task needs project or area")
+	}
+	if in.To == TriageInteraction && in.Date != "" {
+		return errors.New("date applies to a person note; an interaction takes the date of at")
 	}
 	if in.To == TriageNote {
 		if in.Person != "" && (in.Area != "" || in.Project != "") {
@@ -305,14 +318,6 @@ func checkTriageFields(in InboxTriageInput) error {
 		}
 	}
 	return nil
-}
-
-// captureText is the text of the capture as written.
-func captureText(doc model.Document) string {
-	if cut, ok := strings.CutSuffix(doc.Title, "..."); ok && strings.HasPrefix(doc.Body, cut) {
-		return doc.Body // inbox_add kept a long first line whole in the body
-	}
-	return joinBody(doc.Title, doc.Body)
 }
 
 func joinBody(parts ...string) string {

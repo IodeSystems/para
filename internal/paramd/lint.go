@@ -208,6 +208,9 @@ func (l *linter) frontmatter() {
 	if typ == "meeting" {
 		l.meeting()
 	}
+	if typ == "io" {
+		l.io()
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")
@@ -316,6 +319,46 @@ func (l *linter) question() {
 		}
 	}
 	l.errf(1, CodeFieldValue, "field %q: %q is not one of the options", "recommended", rec)
+}
+
+// io checks what the field kinds cannot: the state belongs to the direction,
+// an outgoing message says whether it expects a response, and via names a
+// source and a reference.
+func (l *linter) io() {
+	fm := l.f.Frontmatter
+	dir, state := str(fm["direction"]), str(fm["state"])
+	in := map[string]bool{"unread": true, "read": true, "filed": true, "dropped": true}
+	out := map[string]bool{"draft": true, "ready": true, "sent": true, "dropped": true}
+	switch {
+	case dir == "in" && state != "" && !in[state]:
+		l.errf(1, CodeFieldValue, "field %q: %q is for an outgoing message; incoming takes unread, read, filed, dropped", "state", state)
+	case dir == "out" && state != "" && !out[state]:
+		l.errf(1, CodeFieldValue, "field %q: %q is for an incoming message; outgoing takes draft, ready, sent, dropped", "state", state)
+	}
+	_, hasExp := fm["expects"]
+	switch {
+	case dir == "out" && !hasExp:
+		l.errf(1, CodeField, "type io: an outgoing message needs field %q (response or none)", "expects")
+	case dir == "in" && hasExp:
+		l.errf(1, CodeFieldValue, "field %q: only an outgoing message expects a response", "expects")
+	}
+	if str(fm["expects"]) == "response" && str(fm["route"]) == "" {
+		l.errf(1, CodeField, "type io: expects response needs field %q, the domain the Ask goes to", "route")
+	}
+	if (state == "filed" || state == "sent") && str(fm["became"]) == "" {
+		l.errf(1, CodeField, "type io: state %s needs field %q", state, "became")
+	}
+	if v, ok := fm["via"]; ok && v != nil {
+		m, _ := v.(map[string]any)
+		if strings.TrimSpace(str(m["source"])) == "" || strings.TrimSpace(str(m["ref"])) == "" {
+			l.errf(1, CodeFieldValue, "field %q: want {source, ref}, both non-empty", "via")
+		}
+		for k := range m {
+			if k != "source" && k != "ref" {
+				l.errf(1, CodeFieldValue, "field %q: unknown key %q; want source and ref", "via", k)
+			}
+		}
+	}
 }
 
 func str(v any) string {

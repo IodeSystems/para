@@ -10,7 +10,7 @@ The gate. Every write you make is checked against gate.require (vault setting; d
    - One block per item, info string "yaml para-<kind> id=<id>" (id: lower case letters, digits, dashes; unique). Kinds:
      question: title, options, multi (true for more than one choice), recommended (one of options), option_details; for (a vault question id the answer is recorded on).
      change: op and input (exactly the input of the tool op names, plus optional why, sources, not_duplicate), how, impact.
-     message: people and/or channel, optional subject, body.
+     message: people and/or channel, optional subject, body. Or io: "[[io-x]]", an outgoing draft made with io_add, in place of people, subject, and body: the draft holds the text, an owner's edit goes to it, approval makes it ready, and proposal_executed marks it sent (an interaction or an Ask).
      action: what, how, target; title, body, or diff as needed.
      doc-edit: target, range, old, new.
    - Every block needs evidence {quote, locator}. Weigh with pros, cons, cost, benefit (each {text, source}), confidence and confidence_basis, reversible. Every claim has a source; state no source found with a confidence of 40 or under. Put the links the owner should click to check (sources, search links) in evidence and the claims.

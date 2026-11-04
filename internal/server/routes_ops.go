@@ -43,10 +43,13 @@ func registerWork(r *registrar) {
 	reg(r, ops.Waiting, get, read)
 	reg(r, ops.Graph, get, read)
 	reg(r, ops.Next, get, read)
-	reg(r, ops.InboxAdd, post, write)
-	reg(r, ops.InboxList, get, read)
-	reg(r, ops.InboxShow, get, read)
-	reg(r, ops.InboxTriage, post, write)
+	reg(r, ops.IOAdd, post, write)
+	reg(r, ops.IOList, get, read)
+	reg(r, ops.IOShow, get, read)
+	reg(r, ops.IOEdit, post, write)
+	reg(r, ops.IOFile, post, write)
+	reg(r, ops.IODrop, post, write)
+	reg(r, ops.IOSend, post, write)
 }
 
 // registerRFX: rfx:draft prepares an ask. rfx:send records that a person sent

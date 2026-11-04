@@ -94,8 +94,8 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// proposal-dossier also runs, and finds nothing in this vault.
-	if len(dry.Steps) != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 {
+	// proposal-dossier and io-folder also run, and find nothing in this vault.
+	if len(dry.Steps) != 3 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	if raw(t, f, "meetings/meeting-a.md") != before {
@@ -188,7 +188,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Steps) != 1 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 {
+	if len(again.Steps) != 2 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 {
 		t.Fatalf("second run = %+v", again)
 	}
 	// A second machine sees the same vault.properties and the rewritten files.
@@ -204,7 +204,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 1 || r.Steps[0].Count != 0 {
+	if len(r.Steps) != 2 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 {
 		t.Fatalf("second install run = %+v", r)
 	}
 	// Without format_version (the property did not sync yet) the selector
@@ -216,7 +216,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 2 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.FormatVersion != 1 {
+	if len(r.Steps) != 3 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.FormatVersion != 1 {
 		t.Fatalf("run with a stale version = %+v", r)
 	}
 	if hasOp(mustEvents(t, two), vault.OpUpgradeUndo) {

@@ -22,7 +22,7 @@ func (tv *tickVault) at(s string) { tv.now = utc(s) }
 func inboxAt(t *testing.T, tv *tickVault, d Deps, when string) {
 	t.Helper()
 	tv.at(when)
-	must(t, InboxAdd, d, InboxAddInput{Text: "note at " + when})
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "note at " + when})
 }
 
 func journalReqs(t *testing.T, d Deps) []model.Document {
@@ -161,14 +161,14 @@ func TestTickJournalsAcrossDST(t *testing.T) {
 
 	// Spring forward 2026-03-08: 01:30 EST and 03:30 EDT are the same day.
 	tv.now = local(2026, 3, 8, 1, 30)
-	must(t, InboxAdd, d, InboxAddInput{Text: "before the jump"})
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "before the jump"})
 	tv.now = local(2026, 3, 8, 3, 30)
-	must(t, InboxAdd, d, InboxAddInput{Text: "after the jump"})
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "after the jump"})
 	// 23:30 on the 7th and 00:30 on the 9th belong to their own days.
 	tv.now = local(2026, 3, 7, 23, 30)
-	must(t, InboxAdd, d, InboxAddInput{Text: "evening before"})
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "evening before"})
 	tv.now = local(2026, 3, 9, 0, 30)
-	must(t, InboxAdd, d, InboxAddInput{Text: "morning after"})
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "morning after"})
 
 	tv.now = local(2026, 3, 10, 8, 0)
 	out := tick(t, d)
@@ -209,12 +209,12 @@ func TestTickJournalsAcrossDST(t *testing.T) {
 	// Fall back 2026-11-01: 01:30 happens twice (EDT then EST), both on the 1st.
 	tv2, d2 := journalTick(t, "2026-11-03T08:00:00Z")
 	tv2.now = time.Date(2026, 11, 1, 1, 30, 0, 0, ny)
-	must(t, InboxAdd, d2, InboxAddInput{Text: "first 01:30"})
+	must(t, IOAdd, d2, IOAddInput{Direction: model.IOIn, Text: "first 01:30"})
 	tv2.now = tv2.now.Add(time.Hour) // the second 01:30, EST
 	if tv2.now.Format("MST") != "EST" {
 		t.Fatalf("clock = %s", tv2.now)
 	}
-	must(t, InboxAdd, d2, InboxAddInput{Text: "second 01:30"})
+	must(t, IOAdd, d2, IOAddInput{Direction: model.IOIn, Text: "second 01:30"})
 	tv2.now = time.Date(2026, 11, 3, 8, 0, 0, 0, ny)
 	tick(t, d2)
 	got, err := JournalSummary.Run(ctx, d2, JournalSummaryInput{ID: "2026-11-01"})

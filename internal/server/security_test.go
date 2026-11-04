@@ -490,8 +490,8 @@ func TestActorAndSurfaceInEvents(t *testing.T) {
 	f := newFixture(t)
 	one := f.key(f.keyA, "one", allScopes...)
 	two := f.key(f.keyA, "two", allScopes...)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: one, body: `{"text":"from one"}`}), 200)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: two, body: `{"text":"from two"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: one, body: `{"direction":"in","text":"from one"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: two, body: `{"direction":"in","text":"from two"}`}), 200)
 	w := f.do(call{target: "/api/v1/events/tail?limit=6", token: one})
 	wantStatus(t, w, 200)
 	var out struct {
@@ -532,7 +532,7 @@ func TestConcurrentWritersShareOneVault(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if w := f.do(call{method: post, target: "/api/v1/inbox/add", token: tok, body: `{"text":"parallel"}`}); w.Code != 200 {
+			if w := f.do(call{method: post, target: "/api/v1/io/add", token: tok, body: `{"direction":"in","text":"parallel"}`}); w.Code != 200 {
 				t.Errorf("%d %s", w.Code, w.Body)
 			}
 		}()
@@ -584,7 +584,7 @@ func TestErrorsHidePathsAndMapStatus(t *testing.T) {
 		t.Errorf("path in error: %s", w.Body)
 	}
 	wantStatus(t, f.do(call{target: "/api/v1/task/show", token: tok}), 422)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/inbox/add", token: tok, body: `{"text":"x","nope":1}`}), 422)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: tok, body: `{"direction":"in","text":"x","nope":1}`}), 422)
 }
 
 func TestVaultAddedWhileRunning(t *testing.T) {

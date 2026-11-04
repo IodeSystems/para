@@ -118,8 +118,19 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return "Close request: " + ref("id")
 	case "rfx_status":
 		return "Mark request " + ref("id") + " as " + str("status")
-	case "inbox_add":
+	case "io_add":
+		if str("direction") == "out" {
+			return "Draft a message: " + first(firstNonEmpty(str("subject"), str("text")))
+		}
 		return "Add to the inbox: " + first(str("text"))
+	case "io_file":
+		return with("File "+ref("id")+" as "+firstNonEmpty(str("to"), "existing"), prefixed("into ", ref("existing")))
+	case "io_drop":
+		return with("Drop "+ref("id"), prefixed("because ", first(str("reason"))))
+	case "io_send":
+		return "Record sent: " + ref("id")
+	case "io_edit":
+		return "Change " + ref("id")
 	case "note_add":
 		return "Add note: " + str("title")
 	case "question_add":
