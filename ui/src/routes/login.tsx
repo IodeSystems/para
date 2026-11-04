@@ -80,10 +80,10 @@ function Login() {
               </Box>
               . For another machine, run{' '}
               <Box component="code" sx={CODE}>
-                para key create &lt;name&gt; --scope vault:read --print-url
+                para key create &lt;name&gt; --scope vault:read --scope review:decide --print-url
               </Box>
-              . If you have an access key, paste it below. This page only shows: your agent makes
-              the changes in the chat.
+              . If you have an access key, paste it below. Here you review and decide what agents
+              propose; your agent makes other changes in the chat.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField

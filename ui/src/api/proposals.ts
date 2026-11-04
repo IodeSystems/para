@@ -1,9 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 
-// Proposals are read here and decided in the chat: the web has no decide call.
+// Proposals (dossiers) and the review stack. A session with review:decide drafts answers, submits
+// them, and approves or rejects items across dossiers. Every other change goes through the chat.
 
 const ProposalListDoc = graphql(/* GraphQL */ `
   query ProposalList {
@@ -37,6 +38,28 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
           tldr
           context
           untrusted
+          dossier
+          markdown
+          sections {
+            id
+            title
+          }
+          response {
+            state
+            via
+            submittedAt
+            overall
+            sections
+          }
+          replies {
+            section
+            turn {
+              id
+              kind
+              text
+              by
+            }
+          }
           reviewCommand
           reviewUrl
           supersededBy
@@ -64,6 +87,58 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             id
             kind
             summary
+            stack
+            section
+            rev
+            multi
+            options
+            recommended
+            optionDetails {
+              name
+              pros {
+                text
+                source
+              }
+              cons {
+                text
+                source
+              }
+              cost {
+                text
+                source
+              }
+              benefit {
+                text
+                source
+              }
+              confidence
+              confidenceBasis
+              recommendation
+              examples {
+                kind
+                text
+                source
+              }
+            }
+            range
+            old
+            new
+            claimedBy
+            leaseUntil
+            answer {
+              decision
+              input
+              subject
+              body
+              new
+              choices
+              addedOptions
+              editedOptions
+              ownWords
+              comment
+              via
+              stale
+            }
             change
             resultName
             op
@@ -200,6 +275,113 @@ const ProposalDiffDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const DraftDoc = graphql(/* GraphQL */ `
+  mutation ProposalDraft($body: para_ProposalDraftInputInput!) {
+    para {
+      v1 {
+        proposalDraft(body: $body) {
+          id
+          rev
+          revision
+          drafted
+          total
+        }
+      }
+    }
+  }
+`)
+
+const SubmitDoc = graphql(/* GraphQL */ `
+  mutation ProposalSubmit($body: para_ProposalSubmitInputInput!) {
+    para {
+      v1 {
+        proposalSubmit(body: $body) {
+          id
+          status
+          failed
+          items {
+            item
+            state
+            reason
+          }
+        }
+      }
+    }
+  }
+`)
+
+const StackDoc = graphql(/* GraphQL */ `
+  query ProposalStack(
+    $state: String
+    $kind: String
+    $group: String
+    $proposal: String
+    $actor: String
+    $cursor: String
+    $limit: Int
+  ) {
+    para {
+      v1 {
+        proposalStack(
+          state: $state
+          kind: $kind
+          group: $group
+          proposal: $proposal
+          actor: $actor
+          cursor: $cursor
+          limit: $limit
+        ) {
+          counts {
+            state
+            count
+          }
+          groups {
+            proposal
+            group
+            done
+            total
+            proposed
+          }
+          rows {
+            proposal
+            title
+            item
+            kind
+            state
+            stack
+            group
+            bundle
+            actor
+            summary
+            drafted
+            claimedBy
+            url
+            receipt
+            result
+            reason
+          }
+          total
+          nextCursor
+        }
+      }
+    }
+  }
+`)
+
+const StackDecideDoc = graphql(/* GraphQL */ `
+  mutation StackDecide($body: para_StackDecideInputInput!) {
+    para {
+      v1 {
+        stackDecide(body: $body) {
+          proposals {
+            id
+          }
+        }
+      }
+    }
+  }
+`)
+
 const UndoneDoc = graphql(/* GraphQL */ `
   query ProposalUndone {
     para {
@@ -226,7 +408,7 @@ export function useProposals() {
   })
 }
 
-// useOpenProposals lists the proposals that wait for the owner in the chat.
+// useOpenProposals lists the proposals that wait for the owner.
 export function useOpenProposals() {
   const q = useProposals()
   return { ...q, open: (q.data ?? []).filter((p) => p.status === 'open' && !p.error) }
@@ -255,5 +437,83 @@ export function useUndone() {
     queryKey: ['proposals', 'undone'],
     queryFn: async () =>
       need((await gqlClient.request(UndoneDoc)).para.v1.proposalUndone, 'undone').items,
+  })
+}
+
+export type DraftBody = Parameters<typeof draftCall>[0]
+
+function draftCall(body: {
+  id: string
+  revision: number
+  items?: { item: string; answer: Record<string, unknown> | null }[]
+  sections?: { section: string; comment: string }[]
+  overall?: string
+}) {
+  return gqlClient.request(DraftDoc, { body })
+}
+
+// useProposalDraft saves answers as a draft. The server refuses it when the revision is old.
+export function useProposalDraft() {
+  return useMutation({
+    mutationFn: async (body: DraftBody) =>
+      need((await draftCall(body)).para.v1.proposalDraft, 'draft'),
+  })
+}
+
+// useProposalSubmit turns the drafted answers into decisions.
+export function useProposalSubmit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: { id: string; revision: number }) =>
+      need((await gqlClient.request(SubmitDoc, { body })).para.v1.proposalSubmit, 'submit'),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+export type StackFilter = {
+  state?: string
+  kind?: string
+  group?: string
+  proposal?: string
+  actor?: string
+}
+
+const STACK_PAGE = 200
+
+// useStack reads the review stack a page at a time.
+export function useStack(f: StackFilter) {
+  return useInfiniteQuery({
+    queryKey: ['stack', f],
+    initialPageParam: '',
+    queryFn: async ({ pageParam }) =>
+      need(
+        (
+          await gqlClient.request(StackDoc, {
+            ...f,
+            cursor: pageParam || undefined,
+            limit: STACK_PAGE,
+          })
+        ).para.v1.proposalStack,
+        'stack',
+      ),
+    getNextPageParam: (last) => last.nextCursor || undefined,
+  })
+}
+
+export type StackDecideBody = {
+  items?: { proposal: string; item: string }[]
+  group?: string
+  proposal?: string
+  decision: 'approve' | 'reject'
+  comment?: string
+}
+
+// useStackDecide approves or rejects items across dossiers, or one group of one dossier.
+export function useStackDecide() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: StackDecideBody) =>
+      need((await gqlClient.request(StackDecideDoc, { body })).para.v1.stackDecide, 'decide'),
+    onSettled: () => qc.invalidateQueries(),
   })
 }

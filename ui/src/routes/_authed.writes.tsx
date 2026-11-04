@@ -10,7 +10,7 @@ import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
 import { ReceiptCard } from '@/components/Receipts'
-import { DECIDE_HINT } from '@/lib/proposal'
+import { REVIEW_HINT } from '@/lib/proposal'
 import { groupByDay } from '@/lib/receipts'
 import { dateWords } from '@/lib/when'
 
@@ -36,7 +36,7 @@ function WaitingInChat() {
   const q = useOpenProposals()
   return (
     <Section
-      title="Waiting in chat"
+      title="Waiting for your review"
       count={q.isError ? undefined : q.open.length}
       action={
         <TextLink to="/proposals" underline="hover" variant="body2">
@@ -49,7 +49,7 @@ function WaitingInChat() {
       ) : (
         <>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-            {DECIDE_HINT}
+            {REVIEW_HINT}
           </Typography>
           <List dense disablePadding>
             {q.open.map((p) => (

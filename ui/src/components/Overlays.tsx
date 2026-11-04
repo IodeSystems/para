@@ -14,12 +14,12 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useClose } from '@/components/OverlayFrame'
-import { EXTRA_SCREENS, TABS } from '@/lib/keys'
+import { EXTRA_SCREENS, STACK_KEYS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
 import { NotifySetting } from '@/components/NotifySetting'
 
-// The viewer's overlays: help and the screen list. Nothing here writes.
+// The app's overlays: help and the screen list. Nothing here writes.
 export function Overlays() {
   const s = useSearch({ strict: false })
   return (
@@ -40,7 +40,8 @@ function HelpDialog() {
       <DialogTitle id="help-title">{touch ? 'Help' : 'Keyboard'}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2 }}>
-          This page only shows. Decide and change things in the chat with your agent.
+          Decide what agents propose on the Stack and on each dossier. For other changes, use the
+          chat with your agent.
         </Typography>
         {!touch && (
           <>
@@ -51,6 +52,14 @@ function HelpDialog() {
               <Row k="/" v="Search" />
               <Row k="?" v="This help" />
               <Row k="Esc" v="Close a dialog" />
+            </Stack>
+            <Typography variant="subtitle2" component="h3" sx={{ mt: 1.5, mb: 0.5 }}>
+              On the Stack
+            </Typography>
+            <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
+              {STACK_KEYS.map((k) => (
+                <Row key={k.key} k={k.key} v={k.words} />
+              ))}
             </Stack>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               Keys do nothing while you type in a field.

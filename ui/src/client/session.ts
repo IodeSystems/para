@@ -6,6 +6,14 @@ export type SessionView = {
   vault: string
   key: string
   surface: string
+  admin?: boolean
+  scopes?: string[]
+}
+
+// canDecide says whether the session may answer and decide review items (scope review:decide).
+// A read-only key sees the same pages with no control that writes.
+export function canDecide(s: SessionView | null | undefined): boolean {
+  return !!s && (s.admin === true || (s.scopes ?? []).includes('review:decide'))
 }
 
 // parseTokenFragment reads `#token=<value>` from a location hash. Other fragments give null.

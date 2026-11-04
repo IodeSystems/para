@@ -20,6 +20,7 @@ import { Route as AuthedPolicyRouteImport } from './routes/_authed.policy'
 import { Route as AuthedRequestsRouteImport } from './routes/_authed.requests'
 import { Route as AuthedReviewRouteImport } from './routes/_authed.review'
 import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
+import { Route as AuthedStackRouteImport } from './routes/_authed.stack'
 import { Route as AuthedTodayRouteImport } from './routes/_authed.today'
 import { Route as AuthedWorkRouteImport } from './routes/_authed.work'
 import { Route as AuthedWritesRouteImport } from './routes/_authed.writes'
@@ -89,6 +90,11 @@ const AuthedReviewRoute = AuthedReviewRouteImport.update({
 const AuthedSearchRoute = AuthedSearchRouteImport.update({
   id: '/search',
   path: '/search',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedStackRoute = AuthedStackRouteImport.update({
+  id: '/stack',
+  path: '/stack',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedTodayRoute = AuthedTodayRouteImport.update({
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/requests': typeof AuthedRequestsRoute
   '/review': typeof AuthedReviewRoute
   '/search': typeof AuthedSearchRoute
+  '/stack': typeof AuthedStackRoute
   '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
   '/writes': typeof AuthedWritesRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/requests': typeof AuthedRequestsRoute
   '/review': typeof AuthedReviewRoute
   '/search': typeof AuthedSearchRoute
+  '/stack': typeof AuthedStackRoute
   '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
   '/writes': typeof AuthedWritesRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/_authed/requests': typeof AuthedRequestsRoute
   '/_authed/review': typeof AuthedReviewRoute
   '/_authed/search': typeof AuthedSearchRoute
+  '/_authed/stack': typeof AuthedStackRoute
   '/_authed/today': typeof AuthedTodayRoute
   '/_authed/work': typeof AuthedWorkRoute
   '/_authed/writes': typeof AuthedWritesRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/requests'
     | '/review'
     | '/search'
+    | '/stack'
     | '/today'
     | '/work'
     | '/writes'
@@ -299,6 +309,7 @@ export interface FileRouteTypes {
     | '/requests'
     | '/review'
     | '/search'
+    | '/stack'
     | '/today'
     | '/work'
     | '/writes'
@@ -328,6 +339,7 @@ export interface FileRouteTypes {
     | '/_authed/requests'
     | '/_authed/review'
     | '/_authed/search'
+    | '/_authed/stack'
     | '/_authed/today'
     | '/_authed/work'
     | '/_authed/writes'
@@ -429,6 +441,13 @@ declare module '@tanstack/react-router' {
       path: '/search'
       fullPath: '/search'
       preLoaderRoute: typeof AuthedSearchRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/stack': {
+      id: '/_authed/stack'
+      path: '/stack'
+      fullPath: '/stack'
+      preLoaderRoute: typeof AuthedStackRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/today': {
@@ -555,6 +574,7 @@ interface AuthedRouteChildren {
   AuthedRequestsRoute: typeof AuthedRequestsRoute
   AuthedReviewRoute: typeof AuthedReviewRoute
   AuthedSearchRoute: typeof AuthedSearchRoute
+  AuthedStackRoute: typeof AuthedStackRoute
   AuthedTodayRoute: typeof AuthedTodayRoute
   AuthedWorkRoute: typeof AuthedWorkRoute
   AuthedWritesRoute: typeof AuthedWritesRoute
@@ -582,6 +602,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedRequestsRoute: AuthedRequestsRoute,
   AuthedReviewRoute: AuthedReviewRoute,
   AuthedSearchRoute: AuthedSearchRoute,
+  AuthedStackRoute: AuthedStackRoute,
   AuthedTodayRoute: AuthedTodayRoute,
   AuthedWorkRoute: AuthedWorkRoute,
   AuthedWritesRoute: AuthedWritesRoute,

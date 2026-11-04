@@ -1,182 +1,434 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
-import Tooltip from '@mui/material/Tooltip'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useProposal, useProposalDiff } from '@/api/proposals'
+import { useProposal, useProposalDiff, useProposalSubmit } from '@/api/proposals'
+import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
 import { Details, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
-import { diffKind } from '@/lib/diff'
-import { DECIDE_HINT, isOutward, stateWords, UNTRUSTED_WORDS } from '@/lib/proposal'
+import { Markdown } from '@/components/Markdown'
+import { ItemCard } from '@/components/stack/ItemCard'
+import { DiffBlock, mono, block, type Item, type ProposalData } from '@/components/stack/parts'
+import { useDossierDraft, type SaveState } from '@/components/stack/useDossierDraft'
+import { answerEmpty, blockIds, parseBlockInfo, sectionId, type Answer } from '@/lib/dossier'
+import { UNTRUSTED_WORDS } from '@/lib/proposal'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/$id')({ component: ProposalPage })
 
-const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
-const block = {
-  ...mono,
-  my: 1,
-  p: 1,
-  bgcolor: 'action.hover',
-  borderRadius: 1,
-  whiteSpace: 'pre-wrap',
-  overflowWrap: 'anywhere',
-} as const
-
-// ProposalPage shows everything the owner needs to decide. The decision is made in the chat
-// with the agent: this page has no control that writes.
+// ProposalPage shows a dossier: the agent's narrative with each item as a card in place. With a
+// review:decide key the owner answers on the cards and comments on each section; the page saves a
+// draft as they go, and Submit turns the answers into decisions. An older proposal file (no
+// dossier blocks) shows its items as cards under the summary.
 function ProposalPage() {
   const { id } = Route.useParams()
+  const { session } = Route.useRouteContext()
   const q = useProposal(id)
+  const decide = canDecide(session)
   return (
     <DataState q={q}>
-      {(d) => {
-        const p = d.proposal
-        const pending = d.items.filter((it) => it.state === 'pending')
-        const decided = d.items.filter((it) => it.state !== 'pending')
-        return (
-          <>
-            <PageTitle subtitle={DECIDE_HINT}>{p.title || id}</PageTitle>
-            <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
-              <StateChip state={p.status} />
-              <StatusChip tone="quiet" label={`revision ${p.revision}`} />
-              <StatusChip tone="quiet" label={`by ${p.proposedBy}`} />
-              <StatusChip tone="quiet" label={humanTime(p.created)} />
-              <StatusChip
-                tone="quiet"
-                label={p.pending === 0 ? 'all decided' : `${p.pending} to decide`}
-              />
-            </Stack>
-            {p.error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                This proposal file is broken: {p.error}
-              </Alert>
-            )}
-            {d.supersededBy && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                The agent filed a newer revision.{' '}
-                <TextLink to="/proposals/$id" params={{ id: d.supersededBy }}>
-                  Open the newer revision
-                </TextLink>
-              </Alert>
-            )}
-            {(d.tldr || d.context) && (
-              <Box sx={{ mb: 2 }}>
-                {d.tldr && (
-                  <Typography variant="subtitle1" sx={{ overflowWrap: 'anywhere' }} data-tldr>
-                    {d.tldr}
-                  </Typography>
-                )}
-                {d.context && (
-                  <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                    {d.context}
-                  </Typography>
-                )}
-              </Box>
-            )}
-            <UntrustedNote id={id} />
-            {p.status === 'sent_back' && (
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Sent back. The agent revises it and files a new revision.
-              </Alert>
-            )}
-            <Section title="To decide in the chat" count={pending.length}>
-              <Stack spacing={1.5}>
-                <Groups items={d.items} />
-                {pending.map((it) => (
-                  <ItemCard key={it.id} it={it} />
-                ))}
-                {d.items.length === 0 && <Empty>This revision has no items.</Empty>}
-                {d.items.length > 0 && pending.length === 0 && (
-                  <Empty>Nothing left to decide.</Empty>
-                )}
-              </Stack>
-            </Section>
-            {decided.length > 0 && (
-              <Section title="Decided" count={decided.length}>
-                <Stack spacing={1.5}>
-                  {decided.map((it) => (
-                    <ItemCard key={it.id} it={it} />
-                  ))}
-                </Stack>
-              </Section>
-            )}
-            {p.revision > 1 && <DiffSection id={id} />}
-            <Section title="History" count={d.history.length}>
-              <List dense disablePadding>
-                {d.history.map((h) => (
-                  <ListItem key={h.id} disableGutters>
-                    <ListItemText
-                      primary={
-                        h.id === id ? (
-                          <strong>Revision {h.revision} (this page)</strong>
-                        ) : (
-                          <TextLink to="/proposals/$id" params={{ id: h.id }} underline="hover">
-                            Revision {h.revision}
-                          </TextLink>
-                        )
-                      }
-                      secondary={`${humanTime(h.created)} - ${h.status.replace(/_/g, ' ')}`}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </Section>
-            <Section title="Source">
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                <DocLink id={d.source.id}>{d.source.title || d.source.id}</DocLink>
-              </Typography>
-              {d.proposal.sourcePath ? (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Path: {d.proposal.sourcePath}
-                </Typography>
-              ) : null}
-              {d.source.error ? (
-                <Alert severity="warning">The source could not be read: {d.source.error}</Alert>
-              ) : (d.source.body ?? '').trim() === '' ? null : (
-                <Box
-                  component="pre"
-                  tabIndex={0}
-                  aria-label="Source text (untrusted)"
-                  sx={{ ...block, my: 0, maxHeight: 320, overflow: 'auto' }}
-                >
-                  {d.source.body}
-                </Box>
-              )}
-            </Section>
-            <Details summary="Open it from a terminal">
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                <Typography sx={{ ...mono, overflowWrap: 'anywhere', flexGrow: 1 }}>
-                  {d.reviewCommand}
-                </Typography>
-                <CopyButton getText={() => d.reviewCommand} label="Copy command" />
-              </Stack>
-            </Details>
-          </>
-        )
-      }}
+      {(d) => (
+        <>
+          <Header d={d} />
+          {d.dossier && d.markdown ? (
+            <Dossier key={d.proposal.id} d={d} decide={decide} />
+          ) : (
+            <Legacy d={d} />
+          )}
+          <Extras d={d} />
+        </>
+      )}
     </DataState>
   )
 }
 
-type ProposalData = NonNullable<ReturnType<typeof useProposal>['data']>
-type Item = ProposalData['items'][number]
-type Claim = { text: string; source: string }
+function Header({ d }: { d: ProposalData }) {
+  const p = d.proposal
+  return (
+    <>
+      <PageTitle>{p.title || p.id}</PageTitle>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 2, flexWrap: 'wrap' }}>
+        <StateChip state={p.status} />
+        <StatusChip tone="quiet" label={`revision ${p.revision}`} />
+        <StatusChip tone="quiet" label={`by ${p.proposedBy}`} />
+        <StatusChip tone="quiet" label={humanTime(p.created)} />
+        <StatusChip
+          tone="quiet"
+          label={p.pending === 0 ? 'all decided' : `${p.pending} to decide`}
+        />
+      </Stack>
+      {p.error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          This proposal file is broken: {p.error}
+        </Alert>
+      )}
+      {d.supersededBy && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          The agent filed a newer revision.{' '}
+          <TextLink to="/proposals/$id" params={{ id: d.supersededBy }}>
+            Open the newer revision
+          </TextLink>
+        </Alert>
+      )}
+      {(d.tldr || d.context) && (
+        <Box sx={{ mb: 2 }}>
+          {d.tldr && (
+            <Typography variant="subtitle1" sx={{ overflowWrap: 'anywhere' }} data-tldr>
+              {d.tldr}
+            </Typography>
+          )}
+          {d.context && (
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+              {d.context}
+            </Typography>
+          )}
+        </Box>
+      )}
+      <UntrustedNote id={p.id} />
+      {p.status === 'sent_back' && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Sent back. The agent revises it.
+        </Alert>
+      )}
+    </>
+  )
+}
 
-// ID_LIKE matches a document id, which a person does not read.
-const ID_LIKE = /^[a-z][a-z_]*-[0-9a-z]{8,}$/
+// Dossier renders the narrative with the item cards in place, a comment box under each section,
+// an overall comment, and the footer with the save state and Submit.
+function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
+  const draft = useDossierDraft(d)
+  // A link from the stack names an item (#item-q1): scroll to its card once it is drawn.
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash.startsWith('#item-')) return
+    document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
+  }, [])
+  const submit = useProposalSubmit()
+  const [done, setDone] = useState('')
+  const byId = new Map(d.items.map((it) => [it.id, it]))
+  const bundles = new Map<string, Item[]>()
+  for (const it of d.items) {
+    if (!it.bundle) continue
+    bundles.set(it.bundle, [...(bundles.get(it.bundle) ?? []), it])
+  }
+  const open = d.items.filter((it) => it.stack === 'proposed')
+  const drafted = open.filter((it) => !answerEmpty(draft.answerOf(it.id))).length
+  const stale = d.items.filter((it) => it.answer?.stale && !draft.overridden(it.id))
+  const fromFile =
+    d.items.filter((it) => it.answer?.via === 'file' && it.stack === 'proposed').length +
+    (d.response?.via === 'file' && d.response.state === 'draft' ? 1 : 0)
+  const replies = (sid: string) => d.replies.filter((r) => r.section === sid)
+  // Items with no block in the narrative show at the end, so none is lost.
+  const inText = new Set(blockIds(d.markdown ?? ''))
+  const rest = d.items.filter((it) => !inText.has(it.id))
 
-// Groups names the groups and bundles on this revision, so the owner can decide them as one in
-// the chat.
+  // setAnswer sets one answer. A decision on an item of a bundle is the decision of every item of
+  // the bundle: they are decided as one.
+  const setAnswer = (it: Item, a: Answer | null) => {
+    draft.setAnswer(it.id, a)
+    if (!it.bundle || it.kind === 'question') return
+    const was = draft.answerOf(it.id)?.decision ?? null
+    const now = a?.decision ?? null
+    if (was === now) return
+    for (const other of bundles.get(it.bundle) ?? []) {
+      if (other.id === it.id || other.stack !== 'proposed') continue
+      const cur = draft.answerOf(other.id)
+      draft.setAnswer(other.id, { ...cur, decision: now === 'edit' ? 'approve' : now })
+    }
+  }
+
+  const card = (it: Item) => {
+    const may = decide && it.stack === 'proposed'
+    return (
+      <ItemCard
+        key={it.id}
+        it={it}
+        answer={draft.answerOf(it.id)}
+        onAnswer={may ? (a) => setAnswer(it, a) : undefined}
+        stale={!!it.answer?.stale && !draft.overridden(it.id)}
+        bundleSize={it.bundle ? bundles.get(it.bundle)?.length : undefined}
+      />
+    )
+  }
+
+  const doSubmit = async () => {
+    setDone('')
+    if (!(await draft.flush())) return
+    submit.mutate(
+      { id: d.proposal.id, revision: d.proposal.revision },
+      {
+        onSuccess: (r) =>
+          setDone(
+            r.failed?.length
+              ? `Submitted. These failed: ${r.failed.join(', ')}.`
+              : 'Submitted. Para ran the approved vault changes; an agent does the rest.',
+          ),
+      },
+    )
+  }
+
+  const narrative = (
+    <Markdown
+      source={d.markdown ?? ''}
+      blocks={{
+        block: (info) => {
+          const ref = parseBlockInfo(info)
+          if (!ref) return undefined
+          if (ref.block === 'dossier') return null
+          const it = byId.get(ref.id)
+          if (!it) {
+            return (
+              <Alert severity="warning" sx={{ my: 1 }}>
+                Para has no item {ref.id} on this revision.
+              </Alert>
+            )
+          }
+          return card(it)
+        },
+        section: (title) => {
+          const sid = sectionId(title)
+          return (
+            <SectionComment
+              value={draft.sectionOf(sid)}
+              onChange={decide ? (v) => draft.setSection(sid, v) : undefined}
+              replies={replies(sid).map((r) => r.turn)}
+              title={title}
+            />
+          )
+        },
+      }}
+    />
+  )
+  return (
+    <>
+      {!decide && open.length > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          This key can only read. To answer, sign in from a terminal with para serve login.
+        </Alert>
+      )}
+      {stale.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }} data-banner="stale">
+          The agent changed {stale.length === 1 ? 'an item' : `${stale.length} items`} after you
+          answered: {stale.map((it) => it.title || it.id).join(', ')}. Check those answers before
+          you submit.
+        </Alert>
+      )}
+      {fromFile > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }} data-banner="file">
+          Some answers were typed in the file (for example in Obsidian). They are drafts until you
+          submit them here. Check them first.
+        </Alert>
+      )}
+      {d.response?.state === 'submitted' && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          You submitted your answers
+          {d.response.submittedAt ? ` ${humanTime(d.response.submittedAt)}` : ''}.
+        </Alert>
+      )}
+      <Box component="article" aria-label="Dossier">
+        {narrative}
+      </Box>
+      {rest.length > 0 && (
+        <Section title="Other items" count={rest.length}>
+          {rest.map(card)}
+        </Section>
+      )}
+      <Section title="Overall">
+        <SectionComment
+          value={draft.overall}
+          onChange={decide ? draft.setOverall : undefined}
+          replies={replies('overall').map((r) => r.turn)}
+          title="the whole dossier"
+        />
+      </Section>
+      {(done || submit.isError) && (
+        <Alert severity={submit.isError ? 'error' : 'success'} sx={{ my: 2 }}>
+          {submit.isError ? errorText(submit.error) : done}
+        </Alert>
+      )}
+      {decide && (open.length > 0 || draft.state !== 'saved') && (
+        <Footer
+          drafted={drafted}
+          total={open.length}
+          state={draft.state}
+          error={draft.error}
+          onRetry={() => void draft.retry()}
+          blocked={
+            stale.length > 0
+              ? 'Check the stale answers first.'
+              : drafted === 0 && !draft.overall.trim()
+                ? 'Answer an item first.'
+                : ''
+          }
+          busy={submit.isPending}
+          onSubmit={() => void doSubmit()}
+        />
+      )}
+    </>
+  )
+}
+
+type Turn = { id: string; text: string; by: string }
+
+// SectionComment is the owner's comment on a section, and the agent's replies to it.
+function SectionComment({
+  value,
+  onChange,
+  replies,
+  title,
+}: {
+  value: string
+  onChange?: (v: string) => void
+  replies: Turn[]
+  title: string
+}) {
+  return (
+    <Box sx={{ my: 1 }} data-section-comment={title}>
+      {onChange ? (
+        <TextField
+          size="small"
+          fullWidth
+          multiline
+          label={`Comment on ${title}`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        value && (
+          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+            Your comment: {value}
+          </Typography>
+        )
+      )}
+      {replies.map((t) => (
+        <Typography key={t.id} variant="body2" sx={{ mt: 0.5, overflowWrap: 'anywhere' }}>
+          {t.by || 'Agent'} replied: {t.text}
+        </Typography>
+      ))}
+    </Box>
+  )
+}
+
+const SAVE_WORDS: Record<SaveState, string> = {
+  saved: 'Draft saved',
+  unsaved: 'Not saved yet',
+  saving: 'Saving',
+  error: 'Not saved',
+}
+
+// Footer stays at the bottom of the screen: how many items have an answer, the save state, and
+// Submit.
+function Footer({
+  drafted,
+  total,
+  state,
+  error,
+  onRetry,
+  blocked,
+  busy,
+  onSubmit,
+}: {
+  drafted: number
+  total: number
+  state: SaveState
+  error: string
+  onRetry: () => void
+  blocked: string
+  busy: boolean
+  onSubmit: () => void
+}) {
+  return (
+    <Paper
+      elevation={6}
+      role="region"
+      aria-label="Submit answers"
+      sx={{
+        position: 'sticky',
+        bottom: { xs: 64, sm: 8 },
+        mt: 2,
+        p: 1.5,
+        zIndex: 2,
+      }}
+    >
+      <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Typography variant="body2" data-drafted={`${drafted}/${total}`}>
+          {drafted} of {total} answered
+        </Typography>
+        <Typography
+          variant="body2"
+          color={state === 'error' ? 'error' : 'text.secondary'}
+          aria-live="polite"
+          data-save={state}
+        >
+          {SAVE_WORDS[state]}
+          {error ? `: ${error}` : ''}
+        </Typography>
+        {state === 'error' && (
+          <Button size="small" onClick={onRetry}>
+            Read again and retry
+          </Button>
+        )}
+        <Box sx={{ flexGrow: 1 }} />
+        {blocked && (
+          <Typography variant="caption" color="text.secondary">
+            {blocked}
+          </Typography>
+        )}
+        <Button
+          variant="contained"
+          disabled={busy || !!blocked || state === 'saving'}
+          onClick={onSubmit}
+        >
+          Submit
+        </Button>
+      </Stack>
+    </Paper>
+  )
+}
+
+// Legacy shows an older proposal file: its items as cards, to decide in the chat.
+function Legacy({ d }: { d: ProposalData }) {
+  const pending = d.items.filter((it) => it.stack === 'proposed')
+  const decided = d.items.filter((it) => it.stack !== 'proposed')
+  return (
+    <>
+      <Section title="To decide" count={pending.length}>
+        <Stack spacing={1.5}>
+          <Groups items={d.items} />
+          {pending.map((it) => (
+            <ItemCard key={it.id} it={it} answer={(it.answer ?? null) as Answer | null} />
+          ))}
+          {d.items.length === 0 && <Empty>This revision has no items.</Empty>}
+          {d.items.length > 0 && pending.length === 0 && <Empty>Nothing left to decide.</Empty>}
+        </Stack>
+      </Section>
+      {decided.length > 0 && (
+        <Section title="Decided" count={decided.length}>
+          <Stack spacing={1.5}>
+            {decided.map((it) => (
+              <ItemCard key={it.id} it={it} answer={(it.answer ?? null) as Answer | null} />
+            ))}
+          </Stack>
+        </Section>
+      )}
+    </>
+  )
+}
+
+// Groups names the groups on this revision.
 function Groups({ items }: { items: Item[] }) {
   const counts = new Map<string, number>()
   for (const it of items) {
@@ -192,163 +444,66 @@ function Groups({ items }: { items: Item[] }) {
   )
 }
 
-// Row is one labelled line of an item. It shows nothing when there is no text.
-function Row({ label, text }: { label: string; text?: string | null }) {
-  if (!text) return null
-  return (
-    <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-      <Box component="span" sx={{ color: 'text.secondary' }}>
-        {label}:{' '}
-      </Box>
-      {text}
-    </Typography>
-  )
-}
-
-function ClaimRows({ label, list }: { label: string; list: Claim[] }) {
+// Extras is the rest of the page: changes since the last revision, history, source, and the
+// command to open it from a terminal.
+function Extras({ d }: { d: ProposalData }) {
+  const id = d.proposal.id
   return (
     <>
-      {list.map((c) => (
-        <Row
-          key={c.text}
-          label={label}
-          text={ID_LIKE.test(c.source) ? c.text : `${c.text} [${c.source}]`}
-        />
-      ))}
-    </>
-  )
-}
-
-// Weighing is the case for and against an item.
-function Weighing({ it }: { it: Item }) {
-  return (
-    <Box sx={{ my: 1 }}>
-      <ClaimRows label="Pro" list={it.pros ?? []} />
-      <ClaimRows label="Con" list={it.cons ?? []} />
-      {it.cost && <ClaimRows label="Cost" list={[it.cost]} />}
-      {it.benefit && <ClaimRows label="Benefit" list={[it.benefit]} />}
-      {!!it.confidence && (
-        <Row
-          label="Confidence"
-          text={`${it.confidence}%${it.confidenceBasis ? `, because ${it.confidenceBasis}` : ''}`}
-        />
-      )}
-      {!!it.recommendation && <Row label="Recommended" text={`${it.recommendation}%`} />}
-      <Row label="Risk" text={it.risk} />
-      <Row label="Reversible" text={[it.reversible, it.reversibleHow].filter(Boolean).join(': ')} />
-      <Row label="Group" text={it.group} />
-      <Row label="Runs after" text={it.after} />
-      <Row label="Bundle" text={it.bundle} />
-      <Row label="Choice" text={it.choice} />
-      <Row label="For" text={it.for} />
-      <Row label="Not a duplicate of" text={it.notDuplicate} />
-      <Row label="With results filled in" text={it.filled} />
-    </Box>
-  )
-}
-
-// Outward shows a message or an action as the thing itself: who it goes to, and what it says.
-function Outward({ it }: { it: Item }) {
-  const message = it.kind === 'message' || it.kind === 'external'
-  return (
-    <Box aria-label={message ? 'The message' : 'The action'}>
-      <Row label={message ? 'To' : 'Target'} text={it.target} />
-      <Row label="People" text={(it.people ?? []).join(', ')} />
-      <Row label="Channel" text={it.channel} />
-      <Row label="Kind" text={it.subtype} />
-      <Row label="Subject" text={it.subject} />
-      <Row label="Title" text={it.title} />
-      <Row label="What" text={it.what} />
-      <Row label="Changes" text={it.previous} />
-      <Row label="How" text={it.how} />
-      <Row label="Impact" text={it.impact} />
-      {(it.body || it.diff) && (
-        <Box component="pre" aria-label={message ? 'Message body' : 'Body'} sx={block}>
-          {it.body || it.diff}
-        </Box>
-      )}
-      {it.state === 'approved' && it.body && (
-        <CopyButton getText={() => it.body ?? ''} label="Copy text" />
-      )}
-    </Box>
-  )
-}
-
-// VaultChange shows a change in the vault: what the agent says, and para's own preview of the
-// document before and after.
-function VaultChange({ it }: { it: Item }) {
-  const input: unknown = it.input
-  return (
-    <Box>
-      <Typography variant="overline" color="text.secondary" component="div">
-        The exact change
-      </Typography>
-      <Box component="ul" aria-label="Exact change" sx={{ m: 0, mb: 1, pl: 2.5 }}>
-        {it.change.map((line) => (
-          <Typography component="li" variant="body2" key={line} sx={{ overflowWrap: 'anywhere' }}>
-            {line}
+      {d.proposal.revision > 1 && <DiffSection id={id} />}
+      <Section title="History" count={d.history.length}>
+        <List dense disablePadding>
+          {d.history.map((h) => (
+            <ListItem key={h.id} disableGutters>
+              <ListItemText
+                primary={
+                  h.id === id ? (
+                    <strong>Revision {h.revision} (this page)</strong>
+                  ) : (
+                    <TextLink to="/proposals/$id" params={{ id: h.id }} underline="hover">
+                      Revision {h.revision}
+                    </TextLink>
+                  )
+                }
+                secondary={`${humanTime(h.created)} - ${h.status.replace(/_/g, ' ')}`}
+              />
+            </ListItem>
+          ))}
+        </List>
+      </Section>
+      {d.source.id && (
+        <Section title="Source">
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            <DocLink id={d.source.id}>{d.source.title || d.source.id}</DocLink>
           </Typography>
-        ))}
-      </Box>
-      <Row label="Title" text={it.title} />
-      <Row label="What" text={it.what} />
-      <Row label="How" text={it.how} />
-      <Row label="Impact" text={it.impact} />
-      {it.preview && <Preview pv={it.preview} />}
-      <Details summary="The op and its input">
-        <Typography variant="caption" component="div">
-          {it.op}
-        </Typography>
-        <Box
-          component="pre"
-          sx={{ ...block, my: 0.5, whiteSpace: 'pre' as const, overflowX: 'auto' }}
-        >
-          {JSON.stringify(input ?? {}, null, 2)}
-        </Box>
+          {d.proposal.sourcePath ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Path: {d.proposal.sourcePath}
+            </Typography>
+          ) : null}
+          {d.source.error ? (
+            <Alert severity="warning">The source could not be read: {d.source.error}</Alert>
+          ) : (d.source.body ?? '').trim() === '' ? null : (
+            <Box
+              component="pre"
+              tabIndex={0}
+              aria-label="Source text (untrusted)"
+              sx={{ ...block, my: 0, maxHeight: 320, overflow: 'auto' }}
+            >
+              {d.source.body}
+            </Box>
+          )}
+        </Section>
+      )}
+      <Details summary="Open it from a terminal">
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Typography sx={{ ...mono, overflowWrap: 'anywhere', flexGrow: 1 }}>
+            {d.reviewCommand}
+          </Typography>
+          <CopyButton getText={() => d.reviewCommand} label="Copy command" />
+        </Stack>
       </Details>
-    </Box>
-  )
-}
-
-// Preview is para's own account of a vault change: before, after, and what waits on it.
-function Preview({ pv }: { pv: NonNullable<Item['preview']> }) {
-  return (
-    <Box aria-label="Before and after" sx={{ my: 1 }}>
-      {pv.error && <Alert severity="warning">This would fail now: {pv.error}</Alert>}
-      {pv.changes.map((c) => (
-        <Box key={c.doc}>
-          <Typography variant="caption" color="text.secondary">
-            {c.new ? 'New' : 'Changes'} {c.type}: {c.title || c.doc}
-          </Typography>
-          <DiffBlock lines={c.lines} />
-        </Box>
-      ))}
-      {pv.downstream.map((x) => (
-        <Row key={x.doc} label={x.title || x.doc} text={x.effect} />
-      ))}
-    </Box>
-  )
-}
-
-function DiffBlock({ lines }: { lines: string[] }) {
-  return (
-    <Box component="pre" sx={{ ...mono, m: 0, overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
-      {lines.map((l, n) => {
-        const k = diffKind(l)
-        return (
-          <Box
-            component="span"
-            key={n}
-            sx={{
-              display: 'block',
-              color: k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
-            }}
-          >
-            {l}
-          </Box>
-        )
-      })}
-    </Box>
+    </>
   )
 }
 
@@ -370,143 +525,6 @@ function UntrustedNote({ id }: { id: string }) {
     <Alert severity="info" sx={{ mb: 2 }}>
       {UNTRUSTED_WORDS} Evidence is marked <strong>untrusted</strong> on every item.
     </Alert>
-  )
-}
-
-function ItemCard({ it }: { it: Item }) {
-  const outward = isOutward(it.kind)
-  const notes = it.thread ?? []
-  const dec = it.decided
-  return (
-    <Paper variant="outlined" sx={{ p: 1.5 }} data-item={it.id}>
-      <Typography variant="subtitle2" component="h3" sx={{ mb: 0.5, overflowWrap: 'anywhere' }}>
-        {it.summary}
-      </Typography>
-      <Stack direction="row" spacing={1} useFlexGap sx={{ mb: 1, flexWrap: 'wrap' }}>
-        <StatusChip
-          tone="quiet"
-          label={
-            it.kind === 'message' || it.kind === 'external'
-              ? 'message to send'
-              : outward
-                ? 'action outside para'
-                : 'change in the vault'
-          }
-        />
-        <StateChip state={it.state} label={stateWords(it.state, it.kind)} />
-        {it.edited && <StatusChip tone="wait" label="edited" />}
-        {it.heldBy && <StatusChip tone="attn" label={`needs ${it.heldBy} first`} />}
-      </Stack>
-      {outward ? <Outward it={it} /> : <VaultChange it={it} />}
-      <Weighing it={it} />
-      <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 1.5, my: 1 }}>
-        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            Evidence{it.evidence.locator ? ` (${it.evidence.locator})` : ''}
-          </Typography>
-          <Tooltip title={UNTRUSTED_WORDS}>
-            <span>
-              <StatusChip tone="attn" label="untrusted" />
-            </span>
-          </Tooltip>
-        </Stack>
-        <Typography variant="body2" sx={{ fontStyle: 'italic', overflowWrap: 'anywhere' }}>
-          {it.evidence.quote}
-        </Typography>
-      </Box>
-      {dec && (
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          {dec.decision.replace(/_/g, ' ')} by {dec.by}, {humanTime(dec.at)}
-          {dec.surface ? ` (${dec.surface})` : ''}{' '}
-          {dec.selfReported && <StatusChip tone="wait" label="self-reported" />}
-        </Typography>
-      )}
-      {dec?.ownerSaid && (
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          Owner said: &ldquo;{dec.ownerSaid}&rdquo;
-        </Typography>
-      )}
-      {it.reason && (
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          Reason: {it.reason}
-        </Typography>
-      )}
-      {it.state === 'approved' && outward && !it.execution && (
-        <Alert severity="warning" sx={{ my: 1 }}>
-          Approved. Not done yet.
-        </Alert>
-      )}
-      {it.state === 'approved' && !outward && !it.result && (
-        <Alert severity="info" sx={{ my: 1 }}>
-          {it.waits ? `Approved. Runs after ${it.after}.` : 'Approved.'}
-        </Alert>
-      )}
-      {(it.state === 'done' || it.state === 'failed') && (it.result || it.state === 'failed') && (
-        <Alert severity={it.state === 'failed' ? 'error' : 'success'} sx={{ my: 1 }}>
-          {it.state === 'failed' ? (
-            it.result
-          ) : it.resultName ? (
-            <>
-              Done. {outward ? '' : 'Made '}
-              <DocLink id={it.result ?? ''}>{it.resultName}</DocLink>.
-            </>
-          ) : (
-            <>Done. {it.result}</>
-          )}
-        </Alert>
-      )}
-      {it.execution && (
-        <Box aria-label="Execution">
-          <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-            {it.execution.result} by {it.execution.by}, {humanTime(it.execution.at)}{' '}
-            {it.execution.selfReported ? (
-              <StatusChip tone="wait" label="self-reported" />
-            ) : (
-              <StatusChip tone="good" label="recorded by a hook" />
-            )}
-          </Typography>
-          {it.execution.url && (
-            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-              <a href={it.execution.url} target="_blank" rel="noreferrer noopener">
-                {it.execution.url}
-              </a>
-            </Typography>
-          )}
-          <Row label="Where" text={it.execution.locator} />
-        </Box>
-      )}
-      {notes.length > 0 && (
-        <List dense disablePadding sx={{ my: 1 }} aria-label="Thread">
-          {notes.map((n, i) => (
-            <ListItem key={n.id ?? i} disableGutters sx={{ display: 'block' }}>
-              {n.quote && (
-                <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                  <em>&ldquo;{n.quote}&rdquo;</em>
-                </Typography>
-              )}
-              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-                {n.kind.replace(/_/g, ' ')}: {n.text} <StateChip state={n.state} />
-              </Typography>
-              {n.answer && (
-                <Typography variant="body2" color="text.secondary">
-                  Agent: {n.answer}
-                </Typography>
-              )}
-            </ListItem>
-          ))}
-        </List>
-      )}
-      <Details summary="Hashes">
-        {it.approvedHash && (
-          <Typography variant="caption" component="div">
-            Approved as hash <code>{it.approvedHash}</code>
-          </Typography>
-        )}
-        <Typography variant="caption" component="div">
-          An approval covers this exact text. Hash <code>{it.hash}</code>
-        </Typography>
-      </Details>
-    </Paper>
   )
 }
 

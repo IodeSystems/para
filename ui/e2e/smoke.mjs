@@ -1,8 +1,9 @@
-// Viewer smoke test against the real binary. The web app only shows: agents write through MCP.
-// It builds para with the embedded UI (or uses PARA_E2E_BIN), makes a temp install with one
+// Smoke test against the real binary. Agents write through MCP; the owner only reviews in the web
+// app. It builds para with the embedded UI (or uses PARA_E2E_BIN), makes a temp install with one
 // synthetic vault, seeds it with the CLI and the MCP server, runs `para serve` on 127.0.0.1, signs
 // in Chrome with a read-only key, and checks that every main page loads, shows no write control,
-// and logs no console error. Needs Google Chrome (playwright channel 'chrome') and a built ui/dist
+// and logs no console error. Then it signs in with a review:decide key and answers a dossier:
+// draft, reload, submit, and the stack state chips. Needs Google Chrome (playwright channel 'chrome') and a built ui/dist
 // (`pnpm build`) when it builds the binary.
 //
 //   pnpm build && PARA_E2E_PORT=8245 pnpm e2e
@@ -167,6 +168,8 @@ try {
   }
   // Seed a synthetic vault with the CLI.
   para('init', 'acme', join(work, 'vault'), '--no-git')
+  // The seed's agent writes apply at once: the gate that holds them for review is tested in Go.
+  para(...v, 'vault', 'config', 'set', 'gate.require', 'none')
   const proj = idOf(
     para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
   )
@@ -374,6 +377,7 @@ try {
     ['/friction', 'Friction'],
     ['/health', 'Health'],
     ['/proposals', 'Proposals'],
+    ['/stack', 'Stack'],
     [`/proposals/${proposal.id}`, 'Quota follow-ups'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
@@ -405,8 +409,11 @@ try {
   await page.keyboard.press('?')
   await page.getByRole('dialog').waitFor()
   check(
-    (await page.getByRole('dialog').getByText('This page only shows.').count()) === 1,
-    'help says the page only shows',
+    (await page
+      .getByRole('dialog')
+      .getByText('Decide what agents propose', { exact: false })
+      .count()) === 1,
+    'help says where to decide',
   )
   await page.keyboard.press('Escape')
 
@@ -447,7 +454,7 @@ try {
   check(true, 'a write opens its before and after')
   check(
     (await page.getByRole('link', { name: 'Quota follow-ups' }).count()) > 0,
-    'Waiting in chat links the open proposal',
+    'Waiting for your review links the open proposal',
   )
   check((await page.getByRole('link', { name: 'All proposals' }).count()) === 1, 'links /proposals')
 
@@ -470,12 +477,10 @@ try {
   )
   check((await page.getByText('untrusted').count()) >= 2, 'evidence is marked untrusted')
   check(
-    (await page.getByText('Decide in the chat with your agent.', { exact: false }).count()) > 0,
-    'the page says to decide in the chat',
-  )
-  check(
-    (await page.getByRole('button', { name: /^(approve|deny|request|hold|edit)/i }).count()) === 0,
-    'the proposal page has no decide buttons',
+    (await page
+      .getByRole('button', { name: /^(approve|reject|deny|request|hold|edit)/i })
+      .count()) === 0,
+    'with a read-only key the proposal page has no decide buttons',
   )
 
   // Sign out works and lands on the sign-in page.
@@ -485,7 +490,142 @@ try {
 
   check(
     writes.length === 0,
-    `the browser sent no write${writes.length ? `: ${writes.join(' | ')}` : ''}`,
+    `the read-only browser sent no write${writes.length ? `: ${writes.join(' | ')}` : ''}`,
+  )
+
+  // The review flow: a dossier filed by an agent, answered by the owner with a review:decide key.
+  const dossier = await agent.call('proposal_add', {
+    title: 'Vendor pick',
+    markdown: [
+      '```yaml para-dossier',
+      'tldr: Pick a vendor',
+      '```',
+      '',
+      '## Findings',
+      '',
+      'Two vendors answered.',
+      '',
+      '```yaml para-question id=q1',
+      'title: Which vendor?',
+      'options: [A, B]',
+      'recommended: B',
+      'evidence: {quote: "B costs less", locator: "https://acme.example/q"}',
+      '```',
+      '',
+      '```yaml para-message id=m1',
+      'people: [ada@acme.example]',
+      'body: Hi Ada.',
+      'evidence: {quote: q, locator: l}',
+      '```',
+      '',
+    ].join('\n'),
+  })
+  check(!!dossier.id, 'MCP files a dossier')
+  const reviewUrl = para(
+    ...v,
+    'key',
+    'create',
+    'reviewer',
+    '--scope',
+    'vault:read',
+    '--scope',
+    'review:decide',
+    '--print-url',
+    '--url',
+    `${base}/`,
+  ).trim()
+  const rctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const rpage = await rctx.newPage()
+  watched = rpage
+  const rerrors = []
+  rpage.on('pageerror', (e) => rerrors.push(`pageerror: ${e.message}`))
+  rpage.on('console', (m) => {
+    if (m.type() === 'error' && !/Loading the font 'data:font/.test(m.text()))
+      rerrors.push(`console ${rpage.url()}: ${m.text()}`)
+  })
+  await rpage.goto(reviewUrl)
+  await rpage.waitForURL(/\/agenda/)
+  await rpage.goto(`${base}/proposals/${dossier.id}`)
+  await rpage.getByRole('heading', { name: 'Vendor pick' }).waitFor()
+  const q1 = rpage.locator('[data-item="q1"]')
+  const m1 = rpage.locator('[data-item="m1"]')
+  await q1.waitFor()
+  check((await m1.count()) === 1, 'the dossier shows each block as a card')
+  check(
+    (await q1.getByRole('link', { name: 'https://acme.example/q' }).count()) === 1,
+    'an evidence address is a link',
+  )
+  check((await rpage.locator('[data-drafted="0/2"]').count()) === 1, 'the footer says 0 of 2')
+
+  // Draft: accept the recommended option, approve the message, comment on the section.
+  const saved = rpage.waitForResponse(
+    (r) =>
+      r.url().includes('/api/graphql') && (r.request().postData() ?? '').includes('ProposalDraft'),
+  )
+  await q1.getByRole('button', { name: /Accept the recommended/ }).click()
+  await m1.getByRole('button', { name: 'Approve', exact: true }).click()
+  await rpage.getByLabel('Comment on Findings').fill('Check the price again.')
+  await rpage.locator('[data-drafted="2/2"]').waitFor()
+  await saved
+  await rpage.locator('[data-save="saved"]').waitFor()
+  check(true, 'the answers save as a draft')
+
+  // Reload: the draft is read back from the file.
+  await rpage.reload()
+  await q1.waitFor()
+  check(await q1.getByRole('radio', { name: 'B' }).isChecked(), 'after reload B is still chosen')
+  check(
+    (await m1
+      .getByRole('button', { name: 'Approve', exact: true })
+      .getAttribute('aria-pressed')) === 'true',
+    'after reload the message is still approved',
+  )
+  check(
+    (await rpage.getByLabel('Comment on Findings').inputValue()) === 'Check the price again.',
+    'after reload the section comment is still there',
+  )
+  check((await rpage.locator('[data-drafted="2/2"]').count()) === 1, 'the footer says 2 of 2')
+
+  // Submit: the answers become decisions.
+  await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
+  await rpage.getByText('Submitted.', { exact: false }).waitFor()
+  await rpage.locator('[data-item="m1"][data-stack="decided"]').waitFor()
+  check(
+    (await rpage.locator('[data-item="q1"][data-stack="decided"]').count()) === 1,
+    'after submit the question is decided',
+  )
+  check(true, 'after submit the message is decided, waiting for an agent')
+
+  // The stack: state chips count the items, and a click on one shows only those.
+  await rpage.goto(`${base}/stack`)
+  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
+  await rpage.locator('[data-row]').first().waitFor()
+  const chip = (s) => rpage.locator(`[data-state-chip="${s}"]`)
+  check((await chip('decided').innerText()).startsWith('2 '), 'the decided chip counts 2')
+  check((await chip('proposed').innerText()).startsWith('2 '), 'the proposed chip counts 2')
+  await chip('decided').click()
+  await rpage.waitForURL(/state=decided/)
+  await rpage.locator(`[data-row="${dossier.id}/m1"]`).waitFor()
+  check(
+    (await rpage.locator('[data-row][data-stack="proposed"]').count()) === 0,
+    'the decided chip shows only decided items',
+  )
+  await chip('decided').click()
+  await rpage.waitForURL((u) => !u.search.includes('state='))
+  // One click approves an item across dossiers: the vault change runs at once.
+  const taskRow = rpage.locator(`[data-row^="${proposal.id}/"][data-kind="para"]`)
+  if ((await taskRow.count()) > 0) {
+    await taskRow.first().getByRole('button', { name: 'Approve', exact: true }).click()
+    await rpage.waitForFunction(() =>
+      document.querySelector('[data-state-chip="done"]')?.textContent?.startsWith('1 '),
+    )
+    check(true, 'approve on the stack runs the vault change')
+  } else {
+    check(false, 'the stack lists the task_add item of the first proposal')
+  }
+  check(
+    rerrors.length === 0,
+    `the review pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
   await browser.close()
 } catch (e) {

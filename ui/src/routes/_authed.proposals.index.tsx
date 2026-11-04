@@ -6,17 +6,17 @@ import { useProposals } from '@/api/proposals'
 import { CHIP_ROW, Empty, PageTitle, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
-import { DECIDE_HINT } from '@/lib/proposal'
+import { REVIEW_HINT } from '@/lib/proposal'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/')({ component: Proposals })
 
-// Proposals lists what agents asked the owner to decide. Deciding happens in the chat.
+// Proposals lists the dossiers agents filed for the owner. Each opens to answer and decide.
 function Proposals() {
   const q = useProposals()
   return (
     <>
-      <PageTitle subtitle={DECIDE_HINT}>Proposals</PageTitle>
+      <PageTitle subtitle={REVIEW_HINT}>Proposals</PageTitle>
       <DataState q={q}>
         {(items) =>
           items.length === 0 ? (

@@ -18,7 +18,7 @@ describe('proposal helpers', () => {
   it('says an approved outward item is not done', () => {
     expect(stateWords('approved', 'message')).toBe('approved, not done')
     expect(stateWords('approved', 'para')).toBe('approved')
-    expect(stateWords('pending', 'para')).toBe('waiting for you in the chat')
+    expect(stateWords('pending', 'para')).toBe('waiting for you')
     expect(stateWords('sent_back', 'para')).toBe('sent back')
   })
 })

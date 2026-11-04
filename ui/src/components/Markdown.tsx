@@ -1,11 +1,21 @@
-import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
-import ReactMarkdown, { type Components } from 'react-markdown'
+import {
+  Children,
+  createContext,
+  isValidElement,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TextLink } from '@/components/links'
 import Box from '@mui/material/Box'
 import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
 import { useDoc } from '@/api/doc'
+import { blockInfo } from '@/lib/dossier'
 import { isInternalHref, linkWikilinks, WIKI_TITLE } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
 import { Mermaid } from '@/components/Mermaid'
@@ -15,6 +25,18 @@ import { whenify } from '@/components/When'
 // injected), and urlTransform keeps only safe link schemes. Wikilinks become in-app routes.
 // Tables scroll sideways on a phone. A ```mermaid fence draws a diagram in strict mode. Images
 // render as their alt text: the CSP allows no remote images, and a vault is no place to fetch from.
+// A dossier page gives Blocks (below): it draws its own card for a fenced block (a para item) and
+// adds a part under each ## heading (a comment box).
+
+export type Blocks = {
+  // block gets the info string of a fenced block ("yaml para-question id=q1") and its text. It
+  // gives undefined to render the block as code.
+  block?: (info: string, body: string) => ReactNode | undefined
+  // section gets the text of a ## heading and gives what goes under it.
+  section?: (title: string) => ReactNode
+}
+
+const BlocksContext = createContext<Blocks | null>(null)
 
 function text(node: ReactNode): string {
   return Children.toArray(node)
@@ -186,6 +208,51 @@ function ScrollTable({ children }: { children?: ReactNode }) {
   )
 }
 
+// codeMeta is the info string after the language of a fenced block. The parser keeps it on the
+// data of the <code> node, not on its props.
+function codeMeta(node: ExtraProps['node']): string | undefined {
+  const code = node?.children[0]
+  if (!code || code.type !== 'element') return undefined
+  const meta: unknown = (code.data as { meta?: unknown } | undefined)?.meta
+  return typeof meta === 'string' ? meta : undefined
+}
+
+function Pre({ children, node }: { children?: ReactNode } & ExtraProps) {
+  const blocks = useContext(BlocksContext)
+  const only = Children.toArray(children)[0]
+  if (isValidElement<{ className?: string; children?: ReactNode }>(only)) {
+    // A mermaid fence is a <pre><code class="language-mermaid">.
+    if (/\blanguage-mermaid\b/.test(only.props.className ?? '')) {
+      return <Mermaid source={text(only.props.children)} label="Diagram from the document" />
+    }
+    if (blocks?.block) {
+      const drawn = blocks.block(
+        blockInfo(only.props.className, codeMeta(node)),
+        text(only.props.children),
+      )
+      if (drawn !== undefined) return <>{drawn}</>
+    }
+  }
+  return (
+    <Box
+      component="pre"
+      sx={{ overflowX: 'auto', p: 1.5, borderRadius: 1, bgcolor: 'action.hover', fontSize: 13 }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+function H2({ children }: { children?: ReactNode }) {
+  const blocks = useContext(BlocksContext)
+  return (
+    <>
+      <h2>{children}</h2>
+      {blocks?.section?.(text(children))}
+    </>
+  )
+}
+
 const components: Components = {
   p({ children }) {
     return <p>{whenify(children)}</p>
@@ -215,24 +282,8 @@ const components: Components = {
   table({ children }) {
     return <ScrollTable>{children}</ScrollTable>
   },
-  pre({ children }) {
-    // A mermaid fence is a <pre><code class="language-mermaid">.
-    const only = Children.toArray(children)[0]
-    if (
-      isValidElement<{ className?: string; children?: ReactNode }>(only) &&
-      /\blanguage-mermaid\b/.test(only.props.className ?? '')
-    ) {
-      return <Mermaid source={text(only.props.children)} label="Diagram from the document" />
-    }
-    return (
-      <Box
-        component="pre"
-        sx={{ overflowX: 'auto', p: 1.5, borderRadius: 1, bgcolor: 'action.hover', fontSize: 13 }}
-      >
-        {children}
-      </Box>
-    )
-  },
+  pre: Pre,
+  h2: H2,
   code({ className, children }) {
     return (
       <Box
@@ -246,20 +297,22 @@ const components: Components = {
   },
 }
 
-export function Markdown({ source }: { source: string }) {
+export function Markdown({ source, blocks }: { source: string; blocks?: Blocks }) {
   return (
-    <Box
-      sx={{
-        overflowWrap: 'anywhere',
-        '& h1': { fontSize: '1.5rem' },
-        '& h2': { fontSize: '1.25rem' },
-        '& h3': { fontSize: '1.1rem' },
-        '& img': { maxWidth: '100%' },
-      }}
-    >
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-        {linkWikilinks(source)}
-      </ReactMarkdown>
-    </Box>
+    <BlocksContext.Provider value={blocks ?? null}>
+      <Box
+        sx={{
+          overflowWrap: 'anywhere',
+          '& h1': { fontSize: '1.5rem' },
+          '& h2': { fontSize: '1.25rem' },
+          '& h3': { fontSize: '1.1rem' },
+          '& img': { maxWidth: '100%' },
+        }}
+      >
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {linkWikilinks(source)}
+        </ReactMarkdown>
+      </Box>
+    </BlocksContext.Provider>
   )
 }

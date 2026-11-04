@@ -72,17 +72,19 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
   fail(`${file}:${err.locations?.[0] ? pos : '?'}`, err.message)
 }
 
-// The web app is a read-only viewer: the agent writes through MCP. The only GraphQL mutations it
-// may send are vault:read ops that change no document (they POST because they mint a cap or log an
-// egress event).
+// The web app does not author: the agent writes through MCP. The only GraphQL mutations it may send
+// are vault:read ops that change no document (they POST because they mint a cap or log an egress
+// event), and the review:decide person ops: the owner drafts answers, submits them, and approves or
+// rejects what an agent proposed.
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
+const REVIEW_MUTATIONS = new Set(['ProposalDraft', 'ProposalSubmit', 'StackDecide'])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
     const name = d.name?.value ?? '(anonymous)'
-    if (!READ_MUTATIONS.has(name)) {
+    if (!READ_MUTATIONS.has(name) && !REVIEW_MUTATIONS.has(name)) {
       fail(
         `${d.loc?.source.name ?? '?'}`,
-        `mutation ${name}: the viewer does not write; agents write through MCP`,
+        `mutation ${name}: the web app only reviews; agents write through MCP`,
       )
     }
   }
