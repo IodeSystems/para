@@ -25,7 +25,8 @@ const (
 	ScopeRequestQueue = "request:queue"
 	ScopeRequestRun   = "request:run"
 	// ScopeReviewDecide decides review items a person answered: draft,
-	// submit, and stack_decide, on a browser session. It authors nothing, and
+	// submit, and stack_decide, and marks a tracked document seen (doc_seen),
+	// on a browser session. It authors nothing, and
 	// an approved item runs under it whatever its own op's scope.
 	ScopeReviewDecide = "review:decide"
 

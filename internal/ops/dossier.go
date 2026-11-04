@@ -85,6 +85,14 @@ func checkBlockItem(ctx context.Context, d Deps, it *model.ProposalItem, rules P
 		if err := checkItemTarget(it.GateTarget()); err != nil {
 			return err
 		}
+	case model.ItemDocEdit:
+		if err := checkDocEdit(ctx, d, it); err != nil {
+			return err
+		}
+	case model.ItemUpstream:
+		if err := checkUpstream(ctx, d, it); err != nil {
+			return err
+		}
 	}
 	return rules.apply(it)
 }

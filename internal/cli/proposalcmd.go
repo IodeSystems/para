@@ -20,6 +20,7 @@ import (
 // the owner's decisions from the chat with proposal_decide; these commands read
 // proposals and let a person at a terminal approve or deny.
 func newProposalCmd(l *loader) *cobra.Command {
+	var execText bool
 	cmd := &cobra.Command{Use: "proposal", Short: "Items an agent suggests and the owner decides in the chat", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.ProposalAdd, binding[ops.ProposalAddInput, ops.ProposalFiled]{
@@ -125,10 +126,17 @@ func newProposalCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.URL, "url", "", "where the result is")
 				fs.StringVar(&in.Locator, "locator", "", "where the result is, when it has no URL")
 				fs.StringVar(&in.Reason, "reason", "", "why it failed")
+				fs.BoolVar(&execText, "text-stdin", false, "a done doc edit of a tracked document: read the document's new text from stdin")
 			},
 			Bind: func(args []string, in *ops.ProposalExecutedInput) error {
 				in.ID, in.Item, in.Result = args[0], args[1], args[2]
 				return nil
+			},
+			Stdin: func(r io.Reader, in *ops.ProposalExecutedInput) (err error) {
+				if execText {
+					in.Text, err = readStdin(r)
+				}
+				return err
 			},
 			Text: func(w io.Writer, out ops.ProposalExecutedOutput) error {
 				p := &printer{w: w}

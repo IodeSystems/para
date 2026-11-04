@@ -114,6 +114,13 @@ func TestLint(t *testing.T) {
 		{"io sent needs became", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: out\nmedium: email\nstate: sent\nexpects: none\n", "# A\n"), []string{"field:1"}},
 		{"io bad via", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nvia: {source: gmail, id: x}\n", "# A\n"), []string{"field-value:1", "field-value:1"}},
 		{"io bad at", "io-a.md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nat: yesterday\n", "# A\n"), []string{"field-value:1"}},
+		{"tracked doc", "runbook.md", doc("type: tracked_doc\ncreated: 2026-11-01\nurl: https://wiki.acme.example/a\nsystem: confluence\nstatus: watching\nlatest: 2\nlast_seen: 1\nvia: {source: confluence, ref: \"1\"}\ncomments:\n  - {id: c1, by: Ada, at: 2026-11-01T09:00:00Z, text: Why, quote: x, version: 1, resolution: became, became: \"[[rfx-a]]\"}\n", "# A\n"), nil},
+		{"tracked doc seen after latest", "runbook.md", doc("type: tracked_doc\ncreated: 2026-11-01\nurl: https://wiki.acme.example/a\nsystem: confluence\nstatus: watching\nlatest: 2\nlast_seen: 3\n", "# A\n"), []string{"field-value:1"}},
+		{"tracked doc bad comment", "runbook.md", doc("type: tracked_doc\ncreated: 2026-11-01\nurl: https://wiki.acme.example/a\nsystem: confluence\nstatus: watching\nlatest: 2\ncomments:\n  - {id: x1, by: Ada, at: soon, text: t, version: 9, resolution: done, color: red}\n", "# A\n"),
+			[]string{"field-value:1", "field-value:1", "field-value:1", "field-value:1", "field-value:1"}},
+		{"tracked doc became needs link", "runbook.md", doc("type: tracked_doc\ncreated: 2026-11-01\nurl: https://wiki.acme.example/a\nsystem: confluence\nstatus: watching\nlatest: 2\ncomments:\n  - {id: c1, by: Ada, at: 2026-11-01T09:00:00Z, text: t, version: 1, resolution: became}\n", "# A\n"), []string{"field-value:1"}},
+		{"version transcript", "runbook-v2.source.md", doc("type: transcript\ncreated: 2026-11-01\nof: \"[[runbook]]\"\nversion: 2\nsource: {url: https://wiki.acme.example/a, retrieved: 2026-11-01T09:00:00Z, hash: \"sha256:abababababababababababababababababababababababababababababababab\", fidelity: exact}\n", "# A\n\nSource: https://wiki.acme.example/a\n"), nil},
+		{"version transcript wrong name", "runbook-v3.source.md", doc("type: transcript\ncreated: 2026-11-01\nof: \"[[runbook]]\"\nversion: 2\nsource: {url: https://wiki.acme.example/a, retrieved: 2026-11-01T09:00:00Z, hash: \"sha256:abababababababababababababababababababababababababababababababab\", fidelity: exact}\n", "# A\n\nSource: https://wiki.acme.example/a\n"), []string{"field-value:1"}},
 		{"person without org", "jo.md", doc("type: person\ncreated: 2026-11-01\n", "# Jo\n"), nil},
 		{"team missing org", "jo.md", doc("type: team\ncreated: 2026-11-01\n", "# Jo\n"), []string{"field:1"}},
 		{"bad date", "jo.md", doc("type: person\ncreated: yesterday\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
@@ -308,6 +315,7 @@ func TestTemplatesLintClean(t *testing.T) {
 		"policy.md":           "policy-example.md",
 		"transcript.md":       "policy-example.source.md",
 		"policy_exception.md": "exception-example.md",
+		"tracked_doc.md":      "portal-runbook.md",
 	}
 	dir := filepath.Join("..", "..", "docs", "templates")
 	entries, err := os.ReadDir(dir)

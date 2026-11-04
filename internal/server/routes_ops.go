@@ -52,6 +52,23 @@ func registerWork(r *registrar) {
 	reg(r, ops.IOSend, post, write)
 }
 
+// registerDocs: tracked documents. An agent tracks a document and passes each
+// text it reads (vault:write); the owner marks changes seen (review:decide, a
+// person op, so a bearer key is refused).
+func registerDocs(r *registrar) {
+	reg(r, ops.DocTrack, post, write)
+	reg(r, ops.DocVersionAdd, post, write)
+	reg(r, ops.DocTracked, get, read)
+	reg(r, ops.DocTrackedShow, get, read)
+	reg(r, ops.DocTrackedStatus, post, write)
+	reg(r, ops.DocDiff, get, read)
+	reg(r, ops.DocCommentAdd, post, write)
+	reg(r, ops.DocComments, get, read)
+	reg(r, ops.DocCommentResolve, post, write)
+	reg(r, ops.DocCommentFile, post, write)
+	reg(r, ops.DocSeen, post, netguard.ScopeReviewDecide)
+}
+
 // registerRFX: rfx:draft prepares an ask. rfx:send records that a person sent
 // it, the one state a key must be trusted with to claim. Para sends nothing.
 func registerRFX(r *registrar) {

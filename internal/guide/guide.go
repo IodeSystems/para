@@ -55,6 +55,8 @@ var (
 	validateGoal string
 	//go:embed grill.txt
 	grillGoal string
+	//go:embed track.txt
+	trackDoc string
 )
 
 // Intro says what para is and is not, in under 12 lines.
@@ -112,6 +114,10 @@ func ValidateGoal() string { return trim(validateGoal) + "\n\n" + Rule() }
 // no longer be true.
 func GrillGoal() string { return trim(grillGoal) + "\n\n" + Rule() }
 
+// TrackDoc is the MCP prompt "track_doc": track a remote document, refresh
+// it with the text read again, and carry out an approved edit of it.
+func TrackDoc() string { return trim(trackDoc) + "\n\n" + Rule() }
+
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
 func Raglit() string { return trim(raglitHelp) }
@@ -122,12 +128,12 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, and policies. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, `/para validate <goal>` to draft or challenge a goal's brief, `/para grill <goal>` to interview the owner on a goal's risks, unknowns, owners, and policies, and `/para recheck <goal|area|task|vault>` to check again what might no longer be true.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | grill <goal> | recheck <scope> | health]\"\n---\n\n" +
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, and policies. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, `/para validate <goal>` to draft or challenge a goal's brief, `/para grill <goal>` to interview the owner on a goal's risks, unknowns, owners, and policies, and `/para recheck <goal|area|task|vault>` to check again what might no longer be true, and `/para track <url>` to follow a remote document's versions and comments.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | grill <goal> | recheck <scope> | track <url> | health]\"\n---\n\n" +
 		"# para\n\n" + skillRoute + "\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
 
 // skillRoute reads the skill's arguments. Other subcommands can come here.
-const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. If they are `update <task>`, read `update.md` beside this file and follow it for that task. If they are `validate <goal>`, read `validate.md` beside this file and follow it for that goal. If they are `grill <goal>`, read `grill.md` beside this file and follow it for that goal. If they are `recheck <scope>`, read `grill.md` beside this file and follow its Recheck part for that scope: goal, area, or task ids, or the word vault for all. With no arguments, work as below."
+const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. If they are `update <task>`, read `update.md` beside this file and follow it for that task. If they are `validate <goal>`, read `validate.md` beside this file and follow it for that goal. If they are `grill <goal>`, read `grill.md` beside this file and follow it for that goal. If they are `recheck <scope>`, read `grill.md` beside this file and follow its Recheck part for that scope: goal, area, or task ids, or the word vault for all. If they are `track <url>`, read `track.md` beside this file and follow it for that document. With no arguments, work as below."
 
 // SkillImportFile is the name of the import steps, beside SKILL.md.
 const SkillImportFile = "import.md"
@@ -144,6 +150,7 @@ const (
 	SkillUpdateFile   = "update.md"
 	SkillValidateFile = "validate.md"
 	SkillGrillFile    = "grill.md"
+	SkillTrackFile    = "track.md"
 )
 
 // SkillIngest is the ingest reference file of the skill. It is the text of the
@@ -165,6 +172,10 @@ func SkillValidate() string { return ValidateGoal() + "\n" }
 // SkillGrill is the grill and recheck reference file of the skill. It is the
 // text of the prompt grill_goal.
 func SkillGrill() string { return GrillGoal() + "\n" }
+
+// SkillTrack is the track reference file of the skill. It is the text of the
+// prompt track_doc.
+func SkillTrack() string { return TrackDoc() + "\n" }
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.

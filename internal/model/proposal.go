@@ -46,7 +46,10 @@ const (
 	ItemPara    ItemKind = "para"
 
 	// A question asks the owner; its answer is the record. A doc edit changes
-	// a tracked document (RS3 runs it). Upstream is reserved for RS3.
+	// a document outside the vault, often a tracked document; an agent carries
+	// it out. Upstream shows the change of a tracked document and its
+	// comments: para runs it when approved (seen, and what each comment
+	// becomes), like a vault change.
 	ItemQuestion ItemKind = "question"
 	ItemDocEdit  ItemKind = "doc_edit"
 	ItemUpstream ItemKind = "upstream"
@@ -63,7 +66,7 @@ var ItemKinds = []ItemKind{ItemMessage, ItemAction, ItemPara, ItemQuestion, Item
 
 // Outward reports whether the kind is an act outside the vault.
 func (k ItemKind) Outward() bool {
-	return k == ItemMessage || k == ItemAction || k == ItemExternal || k == ItemDocEdit || k == ItemUpstream
+	return k == ItemMessage || k == ItemAction || k == ItemExternal || k == ItemDocEdit
 }
 
 // ItemState is items[].state.
@@ -383,6 +386,11 @@ type ProposalItem struct {
 	Range string `yaml:"range,omitempty" json:"range,omitempty"`
 	Old   string `yaml:"old,omitempty" json:"old,omitempty"`
 	New   string `yaml:"new,omitempty" json:"new,omitempty"`
+	// Upstream: the change of the tracked document Target from version From
+	// (0: nothing seen) to version To, and the ids of its comments to settle.
+	From     int      `yaml:"from,omitempty" json:"from,omitempty"`
+	To       int      `yaml:"to,omitempty" json:"to,omitempty"`
+	Comments []string `yaml:"comments,omitempty" json:"comments,omitempty"`
 	// Rev is the dossier revision of the item's last change.
 	Rev int `yaml:"rev,omitempty" json:"rev,omitempty"`
 	// ClaimedBy holds a claimed item until LeaseUntil (RFC 3339).
@@ -449,6 +457,8 @@ func (it ProposalItem) Hash() (string, error) {
 			"recommended": it.Recommended, "option_details": it.OptionDetails, "for": it.For, "body": it.Body})
 	case ItemDocEdit:
 		return jsonHash(it.ID, map[string]any{"kind": it.Kind, "target": it.Target, "range": it.Range, "old": it.Old, "new": it.New})
+	case ItemUpstream:
+		return jsonHash(it.ID, map[string]any{"kind": it.Kind, "target": it.Target, "from": it.From, "to": it.To, "comments": it.Comments})
 	}
 	if !it.Kind.Outward() {
 		return OpHash(it.Op, it.Input)

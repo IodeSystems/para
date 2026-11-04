@@ -371,7 +371,7 @@ var journalBlockRe = regexp.MustCompile(`(?s)%% para:begin .*? %%.*?%% para:end 
 var ErrStale = errors.New("the document changed since you opened it; open it again and redo the edit")
 
 // DocEdit changes the title, body, or declared fields of a document.
-var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript); not id, type, status, or generated text. A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
+var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript, tracked_doc); not id, type, status, or generated text. A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
 	if in.Title == nil && in.Body == nil && len(in.Fields) == 0 {
 		return DocEditOutput{}, errors.New("doc_edit: nothing to edit: give title, body, or fields")
 	}

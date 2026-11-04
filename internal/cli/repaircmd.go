@@ -101,6 +101,8 @@ func newDocCmd(l *loader) *cobra.Command {
 			Text: printID(func(o ops.DocEditOutput) string { return o.ID }),
 		}),
 	)
+	cmd.Short = "Documents: tracked remote documents (track, versions, diff, seen, comments), and repair and edit of any document through the store"
+	cmd.AddCommand(trackedDocCmds(l)...)
 	return cmd
 }
 

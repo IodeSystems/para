@@ -234,6 +234,11 @@ func approveOne(ctx context.Context, d Deps, id, item, reason string, rec model.
 			it.State = model.ItemApproved
 			return nil
 		}
+		if it.Kind == model.ItemUpstream {
+			it.State = model.ItemRunning
+			run = *it
+			return nil
+		}
 		if err := checkOpItem(it.Op, it.Input); err != nil {
 			it.State, it.Reason = model.ItemFailed, err.Error()
 			return nil
@@ -265,6 +270,9 @@ func approveOne(ctx context.Context, d Deps, id, item, reason string, rec model.
 		if err := record(ctx, d, "proposal_deny", p.doc.ID, o, model.ItemPending, model.ItemDenied, ""); err != nil {
 			return nil, Decision{}, err
 		}
+	}
+	if run.Kind == model.ItemUpstream {
+		return finishUpstream(ctx, d, id, run, p.meta.ProposedBy)
 	}
 	if run.Op == "" {
 		return p, decisions([]model.ProposalItem{*it})[0], nil

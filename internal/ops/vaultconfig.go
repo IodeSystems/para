@@ -107,6 +107,7 @@ var configKeys = []configKey{
 	{name: "align.days", help: "health names an active goal not aligned in this many days; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "goals.active_limit", help: "health warns when more goals than this are active; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "recheck.days", help: "an assumption checked more than this many days ago is stale (health, recheck); 0 or unset is off", agent: true, check: checkInt(0)},
+	{name: "docs.check_days", help: "health names a watched tracked document no agent has read again in this many days; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "egress.default", help: "allow or deny a path out of the vault; deny when unset", check: checkEnum("allow", "deny")},
 	{name: "egress.export", help: "comma separated export transports that stay allowed; unset allows all", check: checkList(exportRe)},
 	{name: "classification", help: "marking printed on copied documents", check: checkText},

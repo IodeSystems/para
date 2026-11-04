@@ -46,6 +46,9 @@ const (
 	HealthTooManyActive      = "too_many_active_goals"
 	HealthAssumptionStale    = "assumption_stale"
 	HealthRiskUnmitigated    = "risk_unmitigated"
+	HealthDocUnseen          = "doc_unseen"
+	HealthDocStale           = "doc_stale"
+	HealthDocCommentOpen     = "doc_comment_open"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -58,6 +61,7 @@ var HealthKinds = []string{
 	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
+	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -88,6 +92,9 @@ var HealthKindWords = map[string]string{
 	HealthTooManyActive:      "Too many active goals",
 	HealthAssumptionStale:    "Assumption not checked lately",
 	HealthRiskUnmitigated:    "High-impact risk with no mitigation",
+	HealthDocUnseen:          "Tracked document changes not seen",
+	HealthDocStale:           "Tracked document not read lately",
+	HealthDocCommentOpen:     "Comment on a document not settled",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -172,8 +179,13 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
 	h.recheckCutoff = daysBefore(today, days)
+	checkDays, err := docsCheckDays(s)
+	if err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
 	h.index()
 	h.scan()
+	h.trackedDocs(checkDays)
 	h.graphFindings(ctx, s)
 	if err := h.notAligned(ctx, s); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)

@@ -36,6 +36,8 @@ func FolderOf(t Type) Folder {
 		return FolderInbox
 	case TypeIO:
 		return FolderIO
+	case TypeTrackedDoc:
+		return FolderTracked
 	case TypeInteraction:
 		return FolderInteractions
 	case TypeRequest:

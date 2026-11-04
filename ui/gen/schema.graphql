@@ -42,9 +42,16 @@ type ParaV1MutationNamespace {
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
   defer(body: para_DeferInputInput!): para_DeferOutput @derived(operationId: "defer")
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
+  docCommentAdd(body: para_DocCommentAddInputInput!): para_DocCommentAddOutput @derived(operationId: "docCommentAdd")
+  docCommentFile(body: para_DocCommentFileInputInput!): para_DocCommentFileOutput @derived(operationId: "docCommentFile")
+  docCommentResolve(body: para_DocCommentResolveInputInput!): para_DocCommentResolveOutput @derived(operationId: "docCommentResolve")
   docEdit(body: para_DocEditInputInput!): para_DocEditOutput @derived(operationId: "docEdit")
   docRename(body: para_DocRenameInputInput!): para_DocRenameOutput @derived(operationId: "docRename")
   docRetype(body: para_DocRetypeInputInput!): para_DocRetypeOutput @derived(operationId: "docRetype")
+  docSeen(body: para_DocSeenInputInput!): para_DocSeenOutput @derived(operationId: "docSeen")
+  docTrack(body: para_DocTrackInputInput!): para_DocTrackOutput @derived(operationId: "docTrack")
+  docTrackedStatus(body: para_DocTrackedStatusInputInput!): para_DocTrackedStatusOutput @derived(operationId: "docTrackedStatus")
+  docVersionAdd(body: para_DocVersionAddInputInput!): para_DocVersionAddOutput @derived(operationId: "docVersionAdd")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   goalRank(body: para_GoalRankInputInput!): para_GoalRankOutput @derived(operationId: "goalRank")
@@ -178,6 +185,10 @@ type ParaV1QueryNamespace {
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
   conventionShow(id: String!): para_ConventionShowOutput @derived(operationId: "conventionShow")
+  docComments(id: String!, open: Boolean): para_DocCommentsOutput @derived(operationId: "docComments")
+  docDiff(context: Int, from: Int, id: String!, to: Int, unit: String, whole: Boolean): para_DocDiffOutput @derived(operationId: "docDiff")
+  docTracked(status: para_docTrackedStatus, unseen: Boolean): para_DocTrackedOutput @derived(operationId: "docTracked")
+  docTrackedShow(id: String!, version: Int): para_DocTrackedShowOutput @derived(operationId: "docTrackedShow")
   eventsTail(limit: Int): para_EventsTailOutput @derived(operationId: "eventsTail")
   exceptionExpiring(days: Int): para_ExceptionExpiringOutput @derived(operationId: "exceptionExpiring")
   exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
@@ -491,6 +502,7 @@ enum para_AreaAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_AreaListOutput {
@@ -553,6 +565,7 @@ enum para_AreaUserType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -590,6 +603,7 @@ enum para_AreaViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_AreaViewKind {
@@ -807,6 +821,46 @@ type para_Claim {
 input para_ClaimInput {
   source: String!
   text: String!
+}
+
+type para_CommentAnswer {
+  due: String
+  id: String!
+  note: String
+  to: String!
+}
+
+input para_CommentAnswerInput {
+  due: String
+  id: String!
+  note: String
+  to: String!
+}
+
+type para_CommentView {
+  anchor: para_DocAnchor
+  at: String!
+  became: String
+  becameClosed: Boolean
+  becameTitle: String
+  by: String!
+  end: Int
+  id: String!
+  lost: Boolean!
+  note: String
+  quote: String
+  resolution: para_CommentViewResolution
+  resolvedAt: String
+  start: Int
+  text: String!
+  url: String
+  version: Int!
+}
+
+enum para_CommentViewResolution {
+  became
+  dropped
+  resolved
 }
 
 type para_ConfidenceReading {
@@ -1045,12 +1099,166 @@ type para_DependsCutOutput {
   rev: String!
 }
 
+type para_DiffPart {
+  a: Int
+  b: Int
+  op: String!
+  text: String!
+}
+
+type para_DocAnchor {
+  end: Int
+  lost: Boolean
+  start: Int
+  version: Int!
+}
+
 type para_DocChange {
   doc: String!
   lines: [String!]!
   new: Boolean!
   title: String!
   type: String!
+}
+
+type para_DocComment {
+  anchor: para_DocAnchor
+  at: String!
+  became: String
+  by: String!
+  end: Int
+  id: String!
+  note: String
+  quote: String
+  resolution: para_DocCommentResolution
+  resolvedAt: String
+  start: Int
+  text: String!
+  url: String
+  version: Int!
+}
+
+input para_DocCommentAddInputInput {
+  at: String
+  became: String
+  by: String!
+  end: Int
+  id: String!
+  quote: String
+  start: Int
+  text: String!
+  url: String
+  version: Int
+}
+
+type para_DocCommentAddOutput {
+  anchor: para_DocAnchor
+  comment: String!
+  id: String!
+  rev: String!
+}
+
+input para_DocCommentFileInputInput {
+  area: String
+  comment: String!
+  doneWhen: String
+  due: String
+  id: String!
+  project: String
+  root: Boolean
+  route: String
+  task: String
+  to: String!
+}
+
+type para_DocCommentFileOutput {
+  became: String!
+  comment: String!
+  id: String!
+  rev: String!
+  type: para_DocCommentFileOutputType!
+  warnings: [String!]!
+}
+
+enum para_DocCommentFileOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  tracked_doc
+  transcript
+}
+
+enum para_DocCommentResolution {
+  became
+  dropped
+  resolved
+}
+
+input para_DocCommentResolveInputInput {
+  became: String
+  comment: String!
+  id: String!
+  note: String
+  resolution: para_DocCommentResolveInputResolution!
+}
+
+enum para_DocCommentResolveInputResolution {
+  became
+  dropped
+  resolved
+}
+
+type para_DocCommentResolveOutput {
+  comment: String!
+  id: String!
+  resolution: para_DocCommentResolveOutputResolution!
+  rev: String!
+}
+
+enum para_DocCommentResolveOutputResolution {
+  became
+  dropped
+  resolved
+}
+
+type para_DocCommentsOutput {
+  comments: [para_CommentView!]!
+  id: String!
+  latest: Int!
+  open: Int!
+}
+
+type para_DocDiffOutput {
+  added: Int!
+  from: Int!
+  id: String!
+  parts: [para_DiffPart!]!
+  removed: Int!
+  same: Boolean!
+  text: String!
+  to: Int!
+  unit: String!
 }
 
 input para_DocEditInputInput {
@@ -1108,6 +1316,7 @@ enum para_DocRetypeInputType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -1139,6 +1348,7 @@ enum para_DocRetypeOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_DocRetypeOutputType {
@@ -1166,7 +1376,130 @@ enum para_DocRetypeOutputType {
   role
   task
   team
+  tracked_doc
   transcript
+}
+
+input para_DocSeenInputInput {
+  id: String!
+  version: Int
+}
+
+type para_DocSeenOutput {
+  id: String!
+  lastSeen: Int!
+  rev: String!
+  unseen: Int!
+}
+
+enum para_DocTrackInputFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+input para_DocTrackInputInput {
+  area: String
+  fetchedAt: String
+  fidelity: para_DocTrackInputFidelity
+  id: String
+  note: String
+  owner: String
+  project: String
+  route: String
+  system: para_DocTrackInputSystem
+  text: String!
+  title: String
+  url: String!
+  via: para_IOViaInput
+  watchers: [String!]
+}
+
+enum para_DocTrackInputSystem {
+  confluence
+  gdoc
+  github
+  jira
+  other
+}
+
+type para_DocTrackOutput {
+  hash: String!
+  id: String!
+  rev: String!
+  version: Int!
+}
+
+type para_DocTrackedOutput {
+  docs: [para_TrackedView!]!
+  openComments: Int!
+  unseen: Int!
+}
+
+type para_DocTrackedShowOutput {
+  comments: [para_DocComment!]!
+  doc: para_TrackedView!
+  note: String!
+  rev: String!
+  route: String
+  text: String!
+  version: Int!
+  versions: [para_VersionView!]!
+  via: para_IOVia
+  watchers: [String!]!
+}
+
+input para_DocTrackedStatusInputInput {
+  id: String!
+  status: para_DocTrackedStatusInputStatus!
+}
+
+enum para_DocTrackedStatusInputStatus {
+  archived
+  paused
+  watching
+}
+
+type para_DocTrackedStatusOutput {
+  id: String!
+  rev: String!
+  status: para_DocTrackedStatusOutputStatus!
+}
+
+enum para_DocTrackedStatusOutputStatus {
+  archived
+  paused
+  watching
+}
+
+enum para_DocVersionAddInputFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
+input para_DocVersionAddInputInput {
+  fetchedAt: String
+  fidelity: para_DocVersionAddInputFidelity
+  id: String!
+  item: String
+  proposal: String
+  text: String!
+}
+
+type para_DocVersionAddOutput {
+  added: Int!
+  anchorsLost: [String!]!
+  hash: String!
+  id: String!
+  previous: Int!
+  removed: Int!
+  result: String!
+  rev: String!
+  unseen: Int!
+  version: Int!
 }
 
 type para_Document {
@@ -1198,6 +1531,7 @@ enum para_DocumentFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_DossierResponse {
@@ -1745,6 +2079,7 @@ enum para_GraphNodeType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -1945,6 +2280,7 @@ enum para_IOAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_IOAddOutputState {
@@ -2215,6 +2551,7 @@ enum para_IOSendOutputBecame_type {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -2303,6 +2640,7 @@ enum para_ImportedDocFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_ImportedDocType {
@@ -2330,6 +2668,7 @@ enum para_ImportedDocType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -2384,6 +2723,7 @@ enum para_IncidentAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_IncidentChangeOutput {
@@ -2462,6 +2802,7 @@ enum para_IncidentViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_IncidentViewSeverity {
@@ -2562,6 +2903,7 @@ enum para_InteractionAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_InteractionListOutput {
@@ -2642,6 +2984,7 @@ type para_ItemAnswer {
   body: String
   choices: [String!]
   comment: String
+  comments: [para_CommentAnswer!]
   decision: String
   editedOptions: JSON
   input: JSON
@@ -2657,6 +3000,7 @@ input para_ItemAnswerInput {
   body: String
   choices: [String!]
   comment: String
+  comments: [para_CommentAnswerInput!]
   decision: String
   editedOptions: JSON
   input: JSON
@@ -2755,6 +3099,7 @@ type para_ItemView {
   channel: String
   choice: String
   claimedBy: String
+  comments: [String!]
   confidence: Int
   confidenceBasis: String
   cons: [para_Claim!]
@@ -2767,6 +3112,7 @@ type para_ItemView {
   fields: JSON
   filled: String
   for: String
+  from: Int
   gateHash: String
   group: String
   hash: String!
@@ -2808,6 +3154,7 @@ type para_ItemView {
   target: String
   thread: [para_Turn!]
   title: String
+  to: Int
   waits: Boolean
   what: String
 }
@@ -3003,6 +3350,7 @@ enum para_MeetingAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_MeetingAddOutputStatus {
@@ -3121,6 +3469,7 @@ enum para_MeetingViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_MeetingViewStatus {
@@ -3152,9 +3501,11 @@ type para_Meta {
   calendarUid: String
   check: String
   checkNote: String
+  checked: String
   checkedBy: String
   choice: String
   claimedBy: String
+  comments: JSON
   concepts: [String!]
   confidence: JSON
   contacts: [para_Contact!]
@@ -3175,14 +3526,18 @@ type para_Meta {
   ended: String
   expects: String
   extensions: [String!]
+  fetchedBy: String
   followed: [String!]
   from: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
   importedFrom: para_ImportedFrom
   incident: String
+  item: String
   kind: String
   lastReviewed: String
+  lastSeen: Int
+  latest: Int
   leaseUntil: String
   links: JSON
   medium: para_MetaMedium
@@ -3204,6 +3559,7 @@ type para_Meta {
   policyText: String
   previous: String
   project: String
+  proposal: String
   proposed: String
   proposedAnswer: String
   proposedBy: String
@@ -3237,6 +3593,7 @@ type para_Meta {
   runner: String
   scheduled: String
   scope: String
+  seenAt: String
   selfReported: Boolean
   selfServeCheck: String
   severity: String
@@ -3252,6 +3609,7 @@ type para_Meta {
   subject: String
   supersedes: String
   surface: String
+  system: String
   tags: [String!]
   targets: [para_Target!]
   team: String
@@ -3265,8 +3623,10 @@ type para_Meta {
   validation: String
   verified: Boolean
   verify: String
+  version: Int
   via: para_IOVia
   visibility: para_MetaVisibility
+  watchers: [String!]
   why: JSON
   with: JSON
 }
@@ -3316,6 +3676,7 @@ enum para_MetaType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -3364,6 +3725,7 @@ enum para_NoteAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 input para_NoteEditInputInput {
@@ -3417,6 +3779,7 @@ enum para_NoteViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_OptionDetail {
@@ -3488,6 +3851,7 @@ enum para_OrgAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 type para_OrgListOutput {
@@ -3794,6 +4158,7 @@ enum para_ProjectAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 input para_ProjectCloseInputInput {
@@ -3829,6 +4194,7 @@ enum para_ProjectCloseOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_ProjectCloseOutputStatus {
@@ -3903,6 +4269,7 @@ enum para_ProjectViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_ProjectViewStatus {
@@ -4015,6 +4382,7 @@ input para_ProposalExecutedInputInput {
   locator: String
   reason: String
   result: String!
+  text: String
   url: String
 }
 
@@ -4027,6 +4395,7 @@ type para_ProposalExecutedOutput {
   rev: String!
   selfReported: Boolean!
   state: para_ProposalExecutedOutputState!
+  version: para_DocVersionAddOutput
 }
 
 enum para_ProposalExecutedOutputState {
@@ -4241,6 +4610,7 @@ enum para_QuestionAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 input para_QuestionAnswerInputInput {
@@ -4402,6 +4772,7 @@ enum para_QuestionViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_QuestionViewKind {
@@ -4462,6 +4833,7 @@ enum para_RFXAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 input para_RFXCloseInputInput {
@@ -4947,6 +5319,7 @@ enum para_RefFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_RefType {
@@ -4974,6 +5347,7 @@ enum para_RefType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -5025,6 +5399,7 @@ enum para_RequestAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_RequestAddOutputStatus {
@@ -5356,6 +5731,7 @@ enum para_RuleInEffectType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -5486,6 +5862,7 @@ enum para_SimilarType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -5738,6 +6115,7 @@ enum para_TaskAddOutputFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 input para_TaskAssignInputInput {
@@ -6068,6 +6446,7 @@ enum para_TaskViewFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_TaskViewKind {
@@ -6121,6 +6500,8 @@ type para_TodayVaultToday {
   approvedNotDone: Int!
   blocked: para_TodayGroup!
   deferred: Int!
+  docComments: Int!
+  docsUnseen: Int!
   due: para_TodayGroup!
   dueSoon: para_TodayGroup!
   error: String
@@ -6139,6 +6520,39 @@ type para_TodayVaultToday {
   upgradeSteps: Int!
   vault: String!
   waiting: Int!
+}
+
+type para_TrackedView {
+  area: String
+  checked: String
+  created: String!
+  id: String!
+  lastSeen: Int!
+  latest: Int!
+  lostAnchors: Int!
+  openComments: Int!
+  owner: String
+  project: String
+  seenAt: String
+  status: para_TrackedViewStatus!
+  system: para_TrackedViewSystem!
+  title: String!
+  unseen: Int!
+  url: String!
+}
+
+enum para_TrackedViewStatus {
+  archived
+  paused
+  watching
+}
+
+enum para_TrackedViewSystem {
+  confluence
+  gdoc
+  github
+  jira
+  other
 }
 
 type para_Turn {
@@ -6279,6 +6693,25 @@ type para_VaultUpgradeOutput {
   undo: para_BatchResult
 }
 
+type para_VersionView {
+  fetchedAt: String!
+  fetchedBy: String
+  fidelity: para_VersionViewFidelity!
+  hash: String!
+  id: String!
+  item: String
+  proposal: String
+  seen: Boolean!
+  version: Int!
+}
+
+enum para_VersionViewFidelity {
+  exact
+  none
+  ocr
+  partial
+}
+
 type para_WaitingItem {
   blockedOn: [String!]!
   blockedOnNames: [String!]
@@ -6347,6 +6780,7 @@ enum para_WhereMatchFolder {
   requests
   resources
   rfx
+  tracked
 }
 
 enum para_WhereMatchType {
@@ -6374,6 +6808,7 @@ enum para_WhereMatchType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 
@@ -6412,6 +6847,12 @@ type para_WhoRFX {
 enum para_WhoRFXDirection {
   in
   out
+}
+
+enum para_docTrackedStatus {
+  archived
+  paused
+  watching
 }
 
 enum para_exceptionListKind {
@@ -6564,6 +7005,7 @@ enum para_similarType {
   role
   task
   team
+  tracked_doc
   transcript
 }
 

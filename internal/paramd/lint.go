@@ -211,9 +211,106 @@ func (l *linter) frontmatter() {
 	if typ == "io" {
 		l.io()
 	}
+	if typ == "tracked_doc" {
+		l.trackedDoc()
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
-		if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil && m[1]+".source" != f.Name {
+		m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"]))
+		v, versioned := f.Frontmatter["version"].(int)
+		switch {
+		case m == nil:
+		case versioned:
+			if want := fmt.Sprintf("%s-v%d.source", m[1], v); want != f.Name {
+				l.errf(1, CodeFieldValue, "field %q: version %d of %q is file %q, not %q", "version", v, m[1], want, f.Name)
+			}
+		case m[1]+".source" != f.Name:
 			l.errf(1, CodeFieldValue, "field %q: %q does not match file name %q (expected %q)", "of", m[1], f.Name, m[1]+".source")
+		}
+	}
+}
+
+// checkVia checks a {source, ref} map: a private connector and its own id.
+func (l *linter) checkVia() {
+	v, ok := l.f.Frontmatter["via"]
+	if !ok || v == nil {
+		return
+	}
+	m, _ := v.(map[string]any)
+	if strings.TrimSpace(str(m["source"])) == "" || strings.TrimSpace(str(m["ref"])) == "" {
+		l.errf(1, CodeFieldValue, "field %q: want {source, ref}, both non-empty", "via")
+	}
+	for k := range m {
+		if k != "source" && k != "ref" {
+			l.errf(1, CodeFieldValue, "field %q: unknown key %q; want source and ref", "via", k)
+		}
+	}
+}
+
+// commentKeys are the keys of a tracked_doc comment.
+var commentKeys = map[string]bool{"id": true, "by": true, "at": true, "url": true, "text": true, "quote": true, "version": true,
+	"start": true, "end": true, "anchor": true, "became": true, "resolution": true, "resolved_at": true, "note": true}
+
+var commentIDRe = regexp.MustCompile(`^c[1-9][0-9]*$`)
+
+// trackedDoc checks what the field kinds cannot: via, last_seen within the
+// versions, and each comment.
+func (l *linter) trackedDoc() {
+	fm := l.f.Frontmatter
+	l.checkVia()
+	latest, _ := fm["latest"].(int)
+	if seen, ok := fm["last_seen"].(int); ok && latest > 0 && seen > latest {
+		l.errf(1, CodeFieldValue, "field %q: %d is after latest %d", "last_seen", seen, latest)
+	}
+	list, _ := fm["comments"].([]any)
+	ids := map[string]bool{}
+	for i, e := range list {
+		c, ok := e.(map[string]any)
+		if !ok {
+			continue // kMaps reports it
+		}
+		bad := func(format string, a ...any) {
+			l.errf(1, CodeFieldValue, "field %q: comment %d: %s", "comments", i+1, fmt.Sprintf(format, a...))
+		}
+		id := str(c["id"])
+		switch {
+		case !commentIDRe.MatchString(id):
+			bad("id %q: want c<n>", id)
+		case ids[id]:
+			bad("id %q repeats", id)
+		}
+		ids[id] = true
+		for k := range c {
+			if !commentKeys[k] {
+				bad("unknown key %q", k)
+			}
+		}
+		if strings.TrimSpace(str(c["by"])) == "" || strings.TrimSpace(str(c["text"])) == "" {
+			bad("needs by and text")
+		}
+		switch at := c["at"].(type) {
+		case time.Time:
+		case string:
+			if _, err := time.Parse(time.RFC3339Nano, at); err != nil {
+				bad("at %q: want an RFC 3339 time", at)
+			}
+		default:
+			bad("needs at, an RFC 3339 time")
+		}
+		if v, ok := c["version"].(int); !ok || v < 1 || (latest > 0 && v > latest) {
+			bad("version %v: want a version from 1 to latest", c["version"])
+		}
+		res := str(c["resolution"])
+		switch res {
+		case "", "resolved", "dropped":
+		case "became":
+			if !linkValRe.MatchString(str(c["became"])) {
+				bad("resolution became needs became, a quoted wikilink")
+			}
+		default:
+			bad("resolution %q: want became, resolved, or dropped", res)
+		}
+		if b := str(c["became"]); b != "" && !linkValRe.MatchString(b) {
+			bad("became %q is not a wikilink like \"[[name]]\"", b)
 		}
 	}
 }
@@ -348,17 +445,7 @@ func (l *linter) io() {
 	if (state == "filed" || state == "sent") && str(fm["became"]) == "" {
 		l.errf(1, CodeField, "type io: state %s needs field %q", state, "became")
 	}
-	if v, ok := fm["via"]; ok && v != nil {
-		m, _ := v.(map[string]any)
-		if strings.TrimSpace(str(m["source"])) == "" || strings.TrimSpace(str(m["ref"])) == "" {
-			l.errf(1, CodeFieldValue, "field %q: want {source, ref}, both non-empty", "via")
-		}
-		for k := range m {
-			if k != "source" && k != "ref" {
-				l.errf(1, CodeFieldValue, "field %q: unknown key %q; want source and ref", "via", k)
-			}
-		}
-	}
+	l.checkVia()
 }
 
 func str(v any) string {

@@ -102,6 +102,10 @@ type VaultToday struct {
 	Inbox int `json:"inbox"`
 	// Outbox counts outgoing messages ready to send.
 	Outbox int `json:"outbox"`
+	// DocsUnseen counts watched tracked documents with versions the owner has
+	// not seen; DocComments counts their comments with no resolution.
+	DocsUnseen  int `json:"docs_unseen"`
+	DocComments int `json:"doc_comments"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
 	// sync-conflict in lint). They are not documents.
 	SyncConflicts []string `json:"sync_conflicts"`
@@ -199,6 +203,20 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		case model.TypeInbox:
 			if r.Folder == model.FolderInbox {
 				vt.Inbox++
+			}
+			continue
+		case model.TypeTrackedDoc:
+			if d, err := v.Get(ctx, r.ID); err == nil {
+				if m, ok := d.Meta.(*model.TrackedDoc); ok && m.Status == model.DocWatching {
+					if m.Latest > m.LastSeen {
+						vt.DocsUnseen++
+					}
+					for _, c := range m.Comments {
+						if c.Open() {
+							vt.DocComments++
+						}
+					}
+				}
 			}
 			continue
 		case model.TypeIO:

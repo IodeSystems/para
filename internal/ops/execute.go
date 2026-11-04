@@ -29,6 +29,9 @@ type ProposalExecutedInput struct {
 	URL     string `json:"url,omitempty"`     // where the result is
 	Locator string `json:"locator,omitempty"` // where the result is, when it has no URL
 	Reason  string `json:"reason,omitempty"`  // required when failed
+	// Text is the document as you read it after a done doc edit of a tracked
+	// document; it becomes the next version. Required there, refused elsewhere.
+	Text string `json:"text,omitempty"`
 }
 
 // ProposalExecutedOutput is the output of proposal_executed.
@@ -40,15 +43,17 @@ type ProposalExecutedOutput struct {
 	SelfReported bool            `json:"self_reported"`
 	Halted       []string        `json:"halted,omitempty"` // items of the bundle that will not run
 	// IO is the io draft a done message named, now sent and filed.
-	IO  *IOSendOutput `json:"io,omitempty"`
-	Rev string        `json:"rev"`
+	IO *IOSendOutput `json:"io,omitempty"`
+	// Version is the version a done doc edit of a tracked document stored.
+	Version *DocVersionAddOutput `json:"version,omitempty"`
+	Rev     string               `json:"rev"`
 }
 
 // ProposalExecuted records that an agent carried out an approved item. What it
 // reports is self-reported: para cannot see the act. Only placeholder values
 // may differ from the approved text, and they are kept in the receipt, with the
 // owner's words from the decision.
-var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried out an approved (or claimed) message, action, or doc edit, with the result and its URL or locator. A later item can use them as {{i1.url}}", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
+var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried out an approved (or claimed) message, action, or doc edit, with the result and its URL or locator. A done doc edit of a tracked document takes text: the document as you read it after the edit, stored as its next version. A later item can use them as {{i1.url}}", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
 	if in.Result != ExecDone && in.Result != ExecFailed {
 		return ProposalExecutedOutput{}, fmt.Errorf("result %q: want done or failed", in.Result)
 	}
@@ -85,6 +90,9 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		}
 		if !afterDone(p, it) {
 			return fmt.Errorf("item %s runs after %s, which is not done", it.ID, it.After)
+		}
+		if err := checkEditText(ctx, d, *it, in); err != nil {
+			return err
 		}
 		from = it.State
 		if it.Decided != nil {
@@ -143,6 +151,13 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		}
 		out.IO = &sent
 	}
+	if it.Kind == model.ItemDocEdit && it.State == model.ItemDone && in.Text != "" {
+		v, err := recordEditVersion(ctx, d, p.doc.ID, *it, in.Text)
+		if err != nil {
+			return out, fmt.Errorf("item %s is done, but the new text was not stored: %w", it.ID, err)
+		}
+		out.Version = v
+	}
 	if it.State == model.ItemFailed {
 		if p, err = haltAfterFailure(ctx, d, in.ID, *it); err != nil {
 			return out, err
@@ -158,6 +173,24 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 	out.Rev = p.doc.Rev
 	return out, nil
 })
+
+// checkEditText: a done doc edit of a tracked document comes with the text
+// read after it; text goes nowhere else.
+func checkEditText(ctx context.Context, d Deps, it model.ProposalItem, in ProposalExecutedInput) error {
+	tracked := false
+	if it.Kind == model.ItemDocEdit {
+		_, _, tracked = trackedTarget(ctx, d, it.Target)
+	}
+	switch {
+	case !tracked && strings.TrimSpace(in.Text) != "":
+		return fmt.Errorf("item %s: text is for a doc edit of a tracked document", it.ID)
+	case tracked && in.Result == ExecDone && strings.TrimSpace(in.Text) == "":
+		return fmt.Errorf("item %s edits tracked document %s: give text, the document as you read it after the edit", it.ID, normID(it.Target))
+	case tracked && in.Result == ExecFailed && strings.TrimSpace(in.Text) != "":
+		return fmt.Errorf("item %s failed: pass the text you read with doc_version_add", it.ID)
+	}
+	return nil
+}
 
 func filledLine(m map[string]any) string {
 	if len(m) == 0 {

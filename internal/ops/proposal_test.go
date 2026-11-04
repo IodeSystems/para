@@ -141,6 +141,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := StackDecide.Run(t.Context(), d, StackDecideInput{Group: "g", Decision: "approve"})
 			return err
 		}},
+		{"doc_seen", func(d Deps) error {
+			_, err := DocSeen.Run(t.Context(), d, DocSeenInput{ID: "doc-none"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}

@@ -173,3 +173,44 @@ func TestDossierMessageWithIO(t *testing.T) {
 		t.Fatalf("findings = %v", f)
 	}
 }
+
+// An upstream block names a tracked document, versions, and comments; its
+// answer approves (seen) with what each comment becomes.
+func TestDossierUpstream(t *testing.T) {
+	ev := "evidence: {quote: q, locator: l}\n"
+	head := "```yaml para-dossier\ntldr: T\n```\n\n"
+	body := head + "```yaml para-upstream id=u1\ntarget: \"[[runbook]]\"\nfrom: 1\nto: 3\ncomments: [c1, c2]\n" + ev + "```\n"
+	d, err := ParseDossier(body)
+	if err != nil || d.Items[0].Kind != ItemUpstream || d.Items[0].To != 3 || len(d.Items[0].Comments) != 2 {
+		t.Fatalf("parse = %+v %v", d, err)
+	}
+	h1, _ := d.Items[0].Hash()
+	d.Items[0].Answer = &ItemAnswer{Decision: AnswerApprove, Comments: []CommentAnswer{{ID: "c1", To: "ask"}}}
+	if h2, _ := d.Items[0].Hash(); h1 != h2 {
+		t.Fatal("the answer changed the hash")
+	}
+	d.Items[0].To = 2
+	if h3, _ := d.Items[0].Hash(); h3 == h1 {
+		t.Fatal("to is not in the hash")
+	}
+	for name, a := range map[string]ItemAnswer{
+		"edit":           {Decision: AnswerEdit, New: "x"},
+		"no decision":    {Comments: []CommentAnswer{{ID: "c1", To: "ask"}}},
+		"other comment":  {Decision: AnswerApprove, Comments: []CommentAnswer{{ID: "c9", To: "ask"}}},
+		"bad to":         {Decision: AnswerApprove, Comments: []CommentAnswer{{ID: "c1", To: "maybe"}}},
+		"due not commit": {Decision: AnswerApprove, Comments: []CommentAnswer{{ID: "c1", To: "ask", Due: "2026-12-01"}}},
+	} {
+		if len(CheckAnswer(d.Items[0], a)) == 0 {
+			t.Errorf("%s: no finding", name)
+		}
+	}
+	if f := LintDossier(head + "```yaml para-upstream id=u1\nfrom: 2\nto: 1\n" + ev + "```\n"); len(f) != 2 {
+		t.Fatalf("findings = %v", f)
+	}
+	if f := LintDossier(head + "```yaml para-message id=m1\npeople: [a@acme.example]\nbody: x\nto: 2\n" + ev + "```\n"); len(f) != 1 {
+		t.Fatalf("to on a message = %v", f)
+	}
+	if ItemUpstream.Outward() {
+		t.Fatal("upstream is para's to run, not an outward act")
+	}
+}

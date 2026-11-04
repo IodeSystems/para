@@ -70,13 +70,15 @@ var (
 	ioDirections       = []string{"in", "out"}
 	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped"}
 	ioExpects          = []string{"response", "none"}
+	docSystems         = []string{"confluence", "jira", "github", "gdoc", "other"}
+	docStatuses        = []string{"watching", "paused", "archived"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
-	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io",
+	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc",
 	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt",
 }
 
@@ -206,6 +208,10 @@ var typeFields = map[string][]field{
 	"transcript": {
 		{Name: "of", Kind: kLink, Required: true},
 		{Name: "source", Kind: kSourceMap, Required: true},
+		{Name: "version", Kind: kCount}, // a tracked_doc version: Lint transcript
+		{Name: "fetched_by", Kind: kString},
+		{Name: "proposal", Kind: kLink},
+		{Name: "item", Kind: kString},
 	},
 	"policy_exception": {
 		{Name: "policy", Kind: kLink}, // required unless policy_text is set (lint)
@@ -301,6 +307,22 @@ var typeFields = map[string][]field{
 		{Name: "became", Kind: kLink},
 		{Name: "thread", Kind: kLink},
 		{Name: "reason", Kind: kString},
+	},
+	"tracked_doc": {
+		{Name: "url", Kind: kString, Required: true},
+		{Name: "via", Kind: kMap}, // {source, ref}: Lint trackedDoc
+		{Name: "system", Kind: kEnum, Enum: docSystems, Required: true},
+		{Name: "status", Kind: kEnum, Enum: docStatuses, Required: true},
+		{Name: "owner", Kind: kLink},
+		{Name: "watchers", Kind: kLinkList},
+		{Name: "area", Kind: kLink},
+		{Name: "project", Kind: kLink},
+		{Name: "route", Kind: kString},
+		{Name: "latest", Kind: kCount, Required: true},
+		{Name: "last_seen", Kind: kCount},
+		{Name: "seen_at", Kind: kTimestamp},
+		{Name: "checked", Kind: kTimestamp},
+		{Name: "comments", Kind: kMaps}, // Lint trackedDoc
 	},
 }
 
@@ -413,18 +435,19 @@ var kindNames = map[kind]string{
 // and note keep their own ops; a note goes through note_edit.
 var editableTypes = []string{
 	"task", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
-	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript",
+	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript", "tracked_doc",
 }
 
 // editLocked are fields a lifecycle op, a recurrence chain, or a fetched source
 // owns, per type. status is locked for every type.
 var editLocked = map[string][]string{
-	"request":    {"queued_at", "claimed_by", "lease_until", "resolution", "result_links", "followed"},
-	"task":       {"previous", "rfx"},
-	"rfx":        {"targets", "question"},
-	"policy":     {"source", "verified"},
-	"transcript": {"source", "of"},
-	"constraint": {"source"},
+	"request":     {"queued_at", "claimed_by", "lease_until", "resolution", "result_links", "followed"},
+	"task":        {"previous", "rfx"},
+	"rfx":         {"targets", "question"},
+	"policy":      {"source", "verified"},
+	"transcript":  {"source", "of", "version", "fetched_by", "proposal", "item"},
+	"tracked_doc": {"latest", "last_seen", "seen_at", "checked", "comments"},
+	"constraint":  {"source"},
 }
 
 // EditableTypes lists the types doc_edit accepts.

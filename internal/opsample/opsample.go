@@ -4,6 +4,8 @@ package opsample
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -61,6 +63,16 @@ var Inputs = map[string]string{
 	"journal_show":              `{"id":"2026-11-01"}`,
 	"journal_summary":           `{"id":"2026-11-01","text":"Moved the sample project."}`,
 	"io_add":                    `{"direction":"in","text":"buy milk\nand eggs"}`,
+	"doc_track":                 `{"url":"https://wiki.acme.example/runbooks/sample","system":"confluence","text":"# Runbook\n\nStep one."}`,
+	"doc_version_add":           `{"id":"doc-sample","text":"Step one.\nStep two, then three."}`,
+	"doc_tracked_show":          `{"id":"doc-sample"}`,
+	"doc_tracked_status":        `{"id":"doc-sample","status":"paused"}`,
+	"doc_diff":                  `{"id":"doc-sample"}`,
+	"doc_seen":                  `{"id":"doc-sample"}`,
+	"doc_comment_add":           `{"id":"doc-sample","by":"person-sample","text":"Why two steps?","quote":"Step two."}`,
+	"doc_comments":              `{"id":"doc-sample"}`,
+	"doc_comment_resolve":       `{"id":"doc-sample","comment":"c1","resolution":"resolved"}`,
+	"doc_comment_file":          `{"id":"doc-sample","comment":"c1","to":"question"}`,
 	"io_show":                   `{"id":"io-sample"}`,
 	"io_edit":                   `{"id":"io-sample","state":"read"}`,
 	"io_file":                   `{"id":"io-sample","to":"task","project":"project-sample","done_when":"The capture is handled."}`,
@@ -238,6 +250,16 @@ func source() model.Source {
 		Hash: "sha256:" + strings.Repeat("ab", 32), Fidelity: model.FidelityExact}
 }
 
+// docVersion is version n of doc-sample with text.
+func docVersion(n int, text string) model.Document {
+	sum := sha256.Sum256([]byte(text))
+	url := "https://wiki.acme.example/runbooks/sample"
+	return model.Document{ID: fmt.Sprintf("doc-sample-v%d.source", n), Folder: model.FolderTracked, Title: fmt.Sprintf("Sample runbook (version %d)", n),
+		Body: "Source: " + url + "\n\n" + text,
+		Meta: &model.Transcript{Common: model.Common{Type: model.TypeTranscript}, Of: model.LinkTo("doc-sample"), Version: n, FetchedBy: "agent",
+			Source: model.Source{URL: url, Retrieved: fmt.Sprintf("2026-11-0%dT09:00:00Z", n), Hash: "sha256:" + hex.EncodeToString(sum[:]), Fidelity: model.FidelityExact}}}
+}
+
 // Seed creates the documents that Inputs name.
 func Seed(ctx context.Context, s store.Store) error {
 	proposals, err := sampleProposals()
@@ -297,6 +319,13 @@ func Seed(ctx context.Context, s store.Store) error {
 		{ID: "io-draft-sample", Folder: model.FolderIO, Title: "Sample draft", Body: "Sample draft",
 			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
 				To: []string{"[[person-sample]]"}, Expects: model.ExpectsNone}},
+		{ID: "doc-sample", Folder: model.FolderTracked, Title: "Sample runbook", Body: "Tracked from https://wiki.acme.example/runbooks/sample.",
+			Meta: &model.TrackedDoc{Common: model.Common{Type: model.TypeTrackedDoc}, URL: "https://wiki.acme.example/runbooks/sample",
+				System: model.SystemConfluence, Status: model.DocWatching, Project: model.LinkTo("project-sample"), Latest: 2, LastSeen: 1,
+				Checked: "2026-11-02T09:00:00Z", Comments: []model.DocComment{{ID: "c1", By: "[[person-sample]]", At: "2026-11-01T10:00:00Z",
+					Text: "Is step two needed?", Quote: "Step two.", Version: 1}}}},
+		docVersion(1, "Step one.\nStep two."),
+		docVersion(2, "Step one.\nStep two.\nStep three."),
 		{ID: "role-sample", Folder: model.FolderOrg, Title: "Sample role",
 			Meta: &model.Role{Common: model.Common{Type: model.TypeRole}, Org: "acme"}},
 		{ID: "team-sample", Folder: model.FolderOrg, Title: "Sample team",

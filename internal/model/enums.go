@@ -21,6 +21,7 @@ const (
 	TypeJournal         Type = "journal"
 	TypeInbox           Type = "inbox" // read until upgrade step io-folder; new captures are io
 	TypeIO              Type = "io"
+	TypeTrackedDoc      Type = "tracked_doc"
 	TypeGroup           Type = "group"
 	TypeInteraction     Type = "interaction"
 	TypeRequest         Type = "request"
@@ -37,7 +38,7 @@ const (
 var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
-	TypeJournal, TypeInbox, TypeIO, TypeGroup, TypeInteraction, TypeRequest,
+	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeGroup, TypeInteraction, TypeRequest,
 	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt,
 }
 
@@ -47,6 +48,7 @@ type Folder string
 const (
 	FolderInbox        Folder = "inbox" // read until upgrade step io-folder; para init does not make it
 	FolderIO           Folder = "io"
+	FolderTracked      Folder = "tracked"
 	FolderProjects     Folder = "projects"
 	FolderAreas        Folder = "areas"
 	FolderResources    Folder = "resources"
@@ -68,7 +70,7 @@ const (
 
 // Folders lists every document folder.
 var Folders = []Folder{
-	FolderInbox, FolderIO, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
+	FolderInbox, FolderIO, FolderTracked, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
 	FolderReceipts,
@@ -479,6 +481,57 @@ func (IOExpects) Enum() []string { return enumStrings(IOExpectsAll) }
 
 // IOExpectsAll lists every IOExpects.
 var IOExpectsAll = []IOExpects{ExpectsResponse, ExpectsNone}
+
+// DocSystem is tracked_doc.system: where the tracked document lives.
+type DocSystem string
+
+const (
+	SystemConfluence DocSystem = "confluence"
+	SystemJira       DocSystem = "jira"
+	SystemGitHub     DocSystem = "github"
+	SystemGDoc       DocSystem = "gdoc"
+	SystemOther      DocSystem = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (DocSystem) Enum() []string { return enumStrings(DocSystems) }
+
+// DocSystems lists every DocSystem.
+var DocSystems = []DocSystem{SystemConfluence, SystemJira, SystemGitHub, SystemGDoc, SystemOther}
+
+// DocStatus is tracked_doc.status. Watching documents are checked and their
+// changes shown; paused ones keep their versions and are not checked;
+// archived ones are history.
+type DocStatus string
+
+const (
+	DocWatching DocStatus = "watching"
+	DocPaused   DocStatus = "paused"
+	DocArchived DocStatus = "archived"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (DocStatus) Enum() []string { return enumStrings(DocStatuses) }
+
+// DocStatuses lists every DocStatus.
+var DocStatuses = []DocStatus{DocWatching, DocPaused, DocArchived}
+
+// CommentResolution is tracked_doc.comments[].resolution. Empty is open.
+// Became: an Ask, question, or commitment holds it (became links it).
+// Resolved: it needs nothing more. Dropped: set aside with a note.
+type CommentResolution string
+
+const (
+	CommentBecame   CommentResolution = "became"
+	CommentResolved CommentResolution = "resolved"
+	CommentDropped  CommentResolution = "dropped"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (CommentResolution) Enum() []string { return enumStrings(CommentResolutions) }
+
+// CommentResolutions lists every CommentResolution.
+var CommentResolutions = []CommentResolution{CommentBecame, CommentResolved, CommentDropped}
 
 // Visibility is interaction.visibility: where it happened.
 type Visibility string

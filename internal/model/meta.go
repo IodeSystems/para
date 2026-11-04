@@ -293,11 +293,85 @@ type Policy struct {
 	ReviewedBy string `yaml:"reviewed_by,omitempty" json:"reviewed_by,omitempty"`
 }
 
-// Transcript is type: transcript, the .source.md file.
+// Transcript is type: transcript, the .source.md file. A policy has one,
+// named <policy>.source. A tracked document has one per version, named
+// <doc>-v<n>.source, with Version n: source.retrieved is when it was
+// fetched, FetchedBy who fetched it, and Proposal and Item the approved doc
+// edit that made it, when one did.
 type Transcript struct {
+	Common    `yaml:",inline"`
+	Of        Link   `yaml:"of" json:"of"`
+	Source    Source `yaml:"source" json:"source"`
+	Version   int    `yaml:"version,omitempty" json:"version,omitempty"`
+	FetchedBy string `yaml:"fetched_by,omitempty" json:"fetched_by,omitempty"`
+	Proposal  Link   `yaml:"proposal,omitempty" json:"proposal,omitempty"`
+	Item      string `yaml:"item,omitempty" json:"item,omitempty"`
+}
+
+// TrackedDoc is type: tracked_doc, a remote document the owner follows: a
+// wiki page, a ticket, a pull request, a comment. Para keeps the original and
+// every version after it as transcripts named <id>-v<n>.source; Latest is the
+// newest version, LastSeen the newest the owner has reviewed. Para fetches
+// nothing: an agent reads the document with its own tools and passes the text.
+// Comments are what people wrote about ranges of it.
+type TrackedDoc struct {
 	Common `yaml:",inline"`
-	Of     Link   `yaml:"of" json:"of"`
-	Source Source `yaml:"source" json:"source"`
+	// URL is a public link a person can open. Via is the private connector
+	// reference an agent uses to read it again.
+	URL      string    `yaml:"url" json:"url"`
+	Via      *IOVia    `yaml:"via,omitempty" json:"via,omitempty"`
+	System   DocSystem `yaml:"system" json:"system"`
+	Status   DocStatus `yaml:"status" json:"status"`
+	Owner    Link      `yaml:"owner,omitempty" json:"owner,omitempty"`
+	Watchers []Link    `yaml:"watchers,omitempty" json:"watchers,omitempty"`
+	Area     Link      `yaml:"area,omitempty" json:"area,omitempty"`
+	Project  Link      `yaml:"project,omitempty" json:"project,omitempty"`
+	// Route is the domain an Ask made from a comment goes to; empty uses the
+	// system name.
+	Route    string `yaml:"route,omitempty" json:"route,omitempty"`
+	Latest   int    `yaml:"latest" json:"latest"`
+	LastSeen int    `yaml:"last_seen,omitempty" json:"last_seen,omitempty"`
+	// SeenAt is when the owner last marked versions seen, RFC 3339.
+	SeenAt string `yaml:"seen_at,omitempty" json:"seen_at,omitempty"`
+	// Checked is the last time an agent read the document, with a change or
+	// not, RFC 3339.
+	Checked  string       `yaml:"checked,omitempty" json:"checked,omitempty"`
+	Comments []DocComment `yaml:"comments,omitempty" json:"comments,omitempty"`
+}
+
+// DocComment is one comment a person made on a tracked document. Quote is the
+// text it is about, from Version; Start and End are offsets of the quote in
+// that version's text, counted in Unicode code points. Para keeps Anchor
+// where the quote is in the newest version it looked in, or marks it lost.
+type DocComment struct {
+	ID      string `yaml:"id" json:"id"`
+	By      string `yaml:"by" json:"by"` // a person link, or free text
+	At      string `yaml:"at" json:"at"` // RFC 3339
+	URL     string `yaml:"url,omitempty" json:"url,omitempty"`
+	Text    string `yaml:"text" json:"text"`
+	Quote   string `yaml:"quote,omitempty" json:"quote,omitempty"`
+	Version int    `yaml:"version" json:"version"`
+	Start   *int   `yaml:"start,omitempty" json:"start,omitempty"`
+	End     *int   `yaml:"end,omitempty" json:"end,omitempty"`
+	// Anchor is para's: where the quote is in a later version.
+	Anchor *DocAnchor `yaml:"anchor,omitempty" json:"anchor,omitempty"`
+	// Became links the Ask, question, or task the comment turned into.
+	Became     Link              `yaml:"became,omitempty" json:"became,omitempty"`
+	Resolution CommentResolution `yaml:"resolution,omitempty" json:"resolution,omitempty"`
+	ResolvedAt string            `yaml:"resolved_at,omitempty" json:"resolved_at,omitempty"`
+	Note       string            `yaml:"note,omitempty" json:"note,omitempty"`
+}
+
+// Open reports whether the comment has no resolution.
+func (c DocComment) Open() bool { return c.Resolution == "" }
+
+// DocAnchor is where a comment's quote was found in Version, or Lost when it
+// was not found there.
+type DocAnchor struct {
+	Version int  `yaml:"version" json:"version"`
+	Start   int  `yaml:"start,omitempty" json:"start,omitempty"`
+	End     int  `yaml:"end,omitempty" json:"end,omitempty"`
+	Lost    bool `yaml:"lost,omitempty" json:"lost,omitempty"`
 }
 
 // PolicyException is type: policy_exception.
@@ -633,6 +707,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Inbox{Common: c}, true
 	case TypeIO:
 		return &IO{Common: c}, true
+	case TypeTrackedDoc:
+		return &TrackedDoc{Common: c}, true
 	case TypeGroup:
 		return &Group{Common: c}, true
 	case TypeInteraction:

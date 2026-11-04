@@ -241,6 +241,17 @@ A large goal can carry a brief: why, confidence, alternatives (including do noth
   $ para goal rank project-pilot 1
   $ para goal compare
 
+25. Tracked documents: what changed, and who commented
+An agent reads the document with its own tools and passes the text; para keeps the original and every version.
+  $ para doc track --url https://wiki.acme.example/runbooks/portal --system confluence --project project-portal < page.md
+  $ para doc version add doc-portal-runbook < page.md
+  $ para doc tracked --unseen
+  $ para doc diff doc-portal-runbook
+  $ para doc seen doc-portal-runbook
+  $ para doc comment add doc-portal-runbook --by person-ada-example --text "Who restarts the pods?" --quote "Restart the pods."
+  $ para doc comment file doc-portal-runbook c1 commitment --due 2026-11-20
+  $ para doc comments doc-portal-runbook
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -258,6 +269,8 @@ Where does this go?
   a task a person or an agent owes you       a task with --assignee; para waiting lists it
   a chore that repeats                       a task with --recur
   a fault in a system you run                an incident, with follow-up tasks (alerts stay in monitoring)
+  a remote document you follow (a wiki       a tracked document: para doc track; each read is a version
+  page, a ticket, a pull request)
   a refusal with its reason                  a constraint (para rfx reply --outcome no)
   who someone is, how to reach them          org person, contacts, interactions
   reference facts you will look up           a note

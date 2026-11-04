@@ -217,6 +217,7 @@ func (s *Server) build() error {
 
 	r := &registrar{api: s.api, g: g, s: s}
 	registerWork(r)
+	registerDocs(r)
 	registerLife(r)
 	registerRFX(r)
 	registerOrg(r)

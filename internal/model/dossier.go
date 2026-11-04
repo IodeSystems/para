@@ -65,15 +65,32 @@ type ItemAnswer struct {
 	AddedOptions  []string          `yaml:"added_options,omitempty" json:"added_options,omitempty"`
 	EditedOptions map[string]string `yaml:"edited_options,omitempty" json:"edited_options,omitempty"`
 	OwnWords      string            `yaml:"own_words,omitempty" json:"own_words,omitempty"`
-	Comment       string            `yaml:"comment,omitempty" json:"comment,omitempty"`
-	Via           string            `yaml:"via,omitempty" json:"via,omitempty"`
-	Stale         bool              `yaml:"stale,omitempty" json:"stale,omitempty"`
+	// Comments says what each comment of an upstream item becomes.
+	Comments []CommentAnswer `yaml:"comments,omitempty" json:"comments,omitempty"`
+	Comment  string          `yaml:"comment,omitempty" json:"comment,omitempty"`
+	Via      string          `yaml:"via,omitempty" json:"via,omitempty"`
+	Stale    bool            `yaml:"stale,omitempty" json:"stale,omitempty"`
 }
+
+// CommentAnswer is what the owner makes of one comment of a tracked document
+// in an upstream item: To is ask, question, commitment, resolved, or dropped.
+// Due is the due date of a commitment (default a week on); Note is kept with
+// a resolved or dropped comment.
+type CommentAnswer struct {
+	ID   string `yaml:"id" json:"id"`
+	To   string `yaml:"to" json:"to"`
+	Note string `yaml:"note,omitempty" json:"note,omitempty"`
+	Due  string `yaml:"due,omitempty" json:"due,omitempty"`
+}
+
+// CommentTargets are the values of CommentAnswer.To.
+var CommentTargets = []string{"ask", "question", "commitment", "resolved", "dropped"}
 
 // Empty reports whether the answer says nothing.
 func (a *ItemAnswer) Empty() bool {
 	return a == nil || a.Decision == "" && a.Input == nil && a.Subject == "" && a.Body == "" && a.New == "" && len(a.Choices) == 0 &&
-		len(a.AddedOptions) == 0 && len(a.EditedOptions) == 0 && strings.TrimSpace(a.OwnWords) == "" && strings.TrimSpace(a.Comment) == ""
+		len(a.AddedOptions) == 0 && len(a.EditedOptions) == 0 && strings.TrimSpace(a.OwnWords) == "" && strings.TrimSpace(a.Comment) == "" &&
+		len(a.Comments) == 0
 }
 
 // DossierResponse is the owner's response to the whole dossier: a comment per
@@ -158,6 +175,10 @@ type dossierItem struct {
 	Range string `yaml:"range,omitempty" json:"range,omitempty"`
 	Old   string `yaml:"old,omitempty" json:"old,omitempty"`
 	New   string `yaml:"new,omitempty" json:"new,omitempty"`
+	// upstream
+	From     int      `yaml:"from,omitempty" json:"from,omitempty"`
+	To       int      `yaml:"to,omitempty" json:"to,omitempty"`
+	Comments []string `yaml:"comments,omitempty" json:"comments,omitempty"`
 
 	Fields          map[string]any `yaml:"fields,omitempty" json:"fields,omitempty"`
 	NotDuplicate    string         `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
@@ -382,7 +403,7 @@ func scanDossier(body string) (*Dossier, []DossierFinding) {
 		ids[id] = next
 		var b dossierItem
 		dec := yaml.NewDecoder(strings.NewReader(raw))
-		dec.KnownFields(im[1] != "upstream")
+		dec.KnownFields(true)
 		if err := dec.Decode(&b); err != nil && !errors.Is(err, io.EOF) {
 			add(next, CodeDossierBlock, "%s: %s", id, yamlMsg(err))
 			continue
@@ -420,7 +441,7 @@ func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 		After: b.After, For: b.For, People: b.People, Channel: b.Channel, Subject: b.Subject, IO: b.IO, Target: b.Target, What: b.What,
 		Previous: b.Previous, Op: b.Op, Input: b.Input, How: b.How, Impact: b.Impact, Body: b.Body, Diff: b.Diff,
 		Multi: b.Multi, Options: b.Options, Recommended: b.Recommended, OptionDetails: b.OptionDetails,
-		Range: b.Range, Old: b.Old, New: b.New, Fields: b.Fields, NotDuplicate: b.NotDuplicate,
+		Range: b.Range, Old: b.Old, New: b.New, From: b.From, To: b.To, Comments: b.Comments, Fields: b.Fields, NotDuplicate: b.NotDuplicate,
 		Tradeoffs: Tradeoffs{Pros: b.Pros, Cons: b.Cons, Cost: b.Cost, Benefit: b.Benefit, Confidence: b.Confidence,
 			ConfidenceBasis: b.ConfidenceBasis, Recommendation: b.Recommendation},
 		Reversible: b.Reversible, ReversibleHow: b.ReversibleHow, Risk: b.Risk,
@@ -437,7 +458,7 @@ func blockOf(it ProposalItem) dossierItem {
 		After: it.After, For: it.For, People: it.People, Channel: it.Channel, Subject: it.Subject, IO: it.IO, Target: it.Target, What: it.What,
 		Previous: it.Previous, Op: it.Op, Input: it.Input, How: it.How, Impact: it.Impact, Body: it.Body, Diff: it.Diff,
 		Multi: it.Multi, Options: it.Options, Recommended: it.Recommended, OptionDetails: it.OptionDetails,
-		Range: it.Range, Old: it.Old, New: it.New, Fields: it.Fields, NotDuplicate: it.NotDuplicate,
+		Range: it.Range, Old: it.Old, New: it.New, From: it.From, To: it.To, Comments: it.Comments, Fields: it.Fields, NotDuplicate: it.NotDuplicate,
 		Pros: it.Pros, Cons: it.Cons, Cost: it.Cost, Benefit: it.Benefit, Confidence: it.Confidence,
 		ConfidenceBasis: it.ConfidenceBasis, Recommendation: it.Recommendation,
 		Reversible: it.Reversible, ReversibleHow: it.ReversibleHow, Risk: it.Risk,
@@ -495,6 +516,23 @@ func checkBlock(it ProposalItem) [][2]string {
 		if blank(it.Target) || blank(it.New) {
 			bad(CodeDossierBlock, "a doc edit needs target and new")
 		}
+	case ItemUpstream:
+		if blank(it.Target) {
+			bad(CodeDossierBlock, "an upstream item needs target, the tracked document")
+		}
+		if it.From < 0 || it.To < 0 || (it.To > 0 && it.From >= it.To) {
+			bad(CodeDossierBlock, "from %d and to %d: want versions with from before to", it.From, it.To)
+		}
+		seen := map[string]bool{}
+		for _, c := range it.Comments {
+			if seen[c] {
+				bad(CodeDossierBlock, "comment %s is listed twice", c)
+			}
+			seen[c] = true
+		}
+	}
+	if it.Kind != ItemUpstream && (it.From != 0 || it.To != 0 || len(it.Comments) > 0) {
+		bad(CodeDossierBlock, "from, to, and comments are for an upstream item")
 	}
 	if it.IO != "" && it.Kind != ItemMessage {
 		bad(CodeDossierBlock, "io is for a message")
@@ -541,6 +579,12 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 	if len(a.Choices) > 0 || len(a.AddedOptions) > 0 || len(a.EditedOptions) > 0 || a.OwnWords != "" {
 		out = append(out, "choices, options, and own_words are for a question")
 	}
+	if it.Kind == ItemUpstream {
+		return checkUpstreamAnswer(it, a, out)
+	}
+	if len(a.Comments) > 0 {
+		out = append(out, "comments are for an upstream item")
+	}
 	switch a.Decision {
 	case "", AnswerApprove, AnswerReject, AnswerEdit:
 	default:
@@ -572,6 +616,37 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 		if a.Decision == AnswerEdit && a.Body == "" && a.Subject == "" {
 			out = append(out, "decision edit needs body or subject")
 		}
+	}
+	return out
+}
+
+// checkUpstreamAnswer: approve marks the change seen and settles the comments
+// as answered; reject leaves it unseen. An upstream item has no text to edit.
+func checkUpstreamAnswer(it ProposalItem, a ItemAnswer, out []string) []string {
+	switch a.Decision {
+	case "", AnswerApprove, AnswerReject:
+	default:
+		out = append(out, fmt.Sprintf("decision %q: an upstream item takes approve (seen) or reject", a.Decision))
+	}
+	if a.Input != nil || a.Body != "" || a.Subject != "" || a.New != "" {
+		out = append(out, "an upstream item has no text to edit: answer comments with comments")
+	}
+	if len(a.Comments) > 0 && a.Decision != AnswerApprove {
+		out = append(out, "comments go with decision approve")
+	}
+	seen := map[string]bool{}
+	for _, c := range a.Comments {
+		switch {
+		case seen[c.ID]:
+			out = append(out, fmt.Sprintf("comment %s is answered twice", c.ID))
+		case len(it.Comments) > 0 && !slices.Contains(it.Comments, c.ID):
+			out = append(out, fmt.Sprintf("comment %s is not one of the item's comments", c.ID))
+		case !slices.Contains(CommentTargets, c.To):
+			out = append(out, fmt.Sprintf("comment %s: to %q: want one of %v", c.ID, c.To, CommentTargets))
+		case c.Due != "" && c.To != "commitment":
+			out = append(out, fmt.Sprintf("comment %s: due is for a commitment", c.ID))
+		}
+		seen[c.ID] = true
 	}
 	return out
 }

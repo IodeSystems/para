@@ -54,6 +54,15 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 			target = n
 		}
 		return "Edit " + target
+	case model.ItemUpstream:
+		target := it.Target
+		if n := z.name(normID(target)); n != "" {
+			target = n
+		}
+		if it.From == 0 {
+			return fmt.Sprintf("Read %s up to version %d", target, it.To)
+		}
+		return fmt.Sprintf("Changes to %s: version %d to %d", target, it.From, it.To)
 	}
 	if it.Kind.Outward() {
 		return z.external(it)
@@ -254,6 +263,13 @@ var fieldWords = map[string]string{
 // ids as names, dates as dates. It is made from the item's fields, never from
 // the evidence. The raw input stays on the item for checking.
 func (z itemSummarizer) change(it model.ProposalItem) []string {
+	if it.Kind == model.ItemUpstream {
+		out := []string{fmt.Sprintf("Mark seen: version %d", it.To)}
+		if len(it.Comments) > 0 {
+			out = append(out, "Comments: "+strings.Join(it.Comments, ", "))
+		}
+		return out
+	}
 	if it.Kind.Outward() {
 		out := []string{}
 		if t := it.GateTarget(); t != "" {
