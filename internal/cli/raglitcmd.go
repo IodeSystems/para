@@ -28,7 +28,7 @@ const minRaglitStamp = "20261102052510"
 
 // raglitInstall is the one statement of the raglit para needs, used by every
 // check: the local binary and the daemon must both be this build or later.
-const raglitInstall = "raglit 44b40ad or later: go install github.com/iodesystems/raglit/cmd/raglit@44b40ad"
+const raglitInstall = "raglit v0.4.1 or later: go install github.com/iodesystems/raglit/cmd/raglit@v0.4.1"
 
 var versionRe = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(?:-0\.(\d{14})-)?`)
 
