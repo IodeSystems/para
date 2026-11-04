@@ -181,7 +181,7 @@ func TestProposalCycle(t *testing.T) {
 		opItem(task("Ship the linter")),                 // i3 approved by a person at a terminal
 		extItem("slack", "#portal", "Parser is taken."), // i4 changed in the chat
 		opItem(task("Rename the portal")),               // i5 denied in the chat
-		opItem(map[string]any{"project": "project-missing", "title": "Fails", "done_when": "It exists."}), // i6 fails when run
+		opItem(map[string]any{"project": e.proj, "title": "Fails", "due": "not-a-date", "done_when": "It exists."}), // i6 fails when run
 	}})
 	id := filed.ID
 	if filed.ReviewCommand != "para open "+id || filed.ReviewURL != "" || filed.Status != model.ProposalOpen || filed.Revision != 1 {
@@ -233,7 +233,7 @@ func TestProposalCycle(t *testing.T) {
 	// A person at a terminal approves the rest.
 	var mixed ops.ProposalReviewOutput
 	e.json(&mixed, "proposal", "approve", rev, "i3", "i6")
-	if len(mixed.Failed) != 1 || mixed.Failed[0] != "i6" || mixed.Items[0].State != model.ItemApproved || mixed.Items[1].State != model.ItemFailed || !strings.Contains(mixed.Items[1].Reason, "project-missing") {
+	if len(mixed.Failed) != 1 || mixed.Failed[0] != "i6" || mixed.Items[0].State != model.ItemApproved || mixed.Items[1].State != model.ItemFailed || !strings.Contains(mixed.Items[1].Reason, "not-a-date") {
 		t.Fatalf("mixed = %+v", mixed)
 	}
 	if out := e.ok("proposal", "show", rev); !strings.Contains(out, "owner said (self-reported)\t"+said) {

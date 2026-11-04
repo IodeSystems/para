@@ -2707,6 +2707,7 @@ type para_Meta {
   signals: JSON
   source: para_Source
   sourceDoc: String
+  sourcePath: String
   sources: [String!]
   start: String
   started: String

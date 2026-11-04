@@ -119,6 +119,7 @@ type Meta struct {
 	Resolution      string             `json:"resolution,omitempty"`
 	Turn            int                `json:"turn,omitempty"`
 	SourceDoc       string             `json:"source_doc,omitempty"`
+	SourcePath      string             `json:"source_path,omitempty"`
 	Revision        int                `json:"revision,omitempty"`
 	Supersedes      string             `json:"supersedes,omitempty"`
 	ProposedBy      string             `json:"proposed_by,omitempty"`
