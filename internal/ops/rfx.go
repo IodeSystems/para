@@ -28,7 +28,7 @@ const (
 type RFXAddInput struct {
 	Direction model.RFXDirection `json:"direction"`            // in | out
 	Ask       string             `json:"ask"`                  // first line is the title
-	Route     string             `json:"route"`                // domain id
+	Route     string             `json:"route"`                // domain id, slug, or title; unknown text is kept with a warning
 	Targets   []TargetInput      `json:"targets,omitempty"`    // who is asked (out) or who asked (in)
 	SelfServe string             `json:"self_serve,omitempty"` // what was checked first
 	Project   string             `json:"project,omitempty"`
@@ -120,11 +120,20 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 			meta.SelfServeCheck, warn = SelfServeNone, true
 		}
 	}
+	domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain})
+	if err != nil {
+		return RFXAddOutput{}, err
+	}
 	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderRFX, Title: title, Body: body, Meta: meta})
 	if err != nil {
 		return RFXAddOutput{}, err
 	}
 	out := RFXAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
+	// Route is free text that should name a domain (id, slug, or title). It is
+	// kept as given, so an unknown one is a warning, not a refusal.
+	if picked, _ := pickDomain(meta.Route, domains); picked == nil {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text; add the domain (org_domain_add) or use an existing id (`para route`)", meta.Route))
+	}
 	if warn {
 		out.Warnings = append(out.Warnings, WarnNoSelfServe)
 	}

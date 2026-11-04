@@ -275,3 +275,43 @@ func TestReceiptUndoManyNewestFirst(t *testing.T) {
 		t.Fatalf("the created task is not archived: %+v %v", got.Folder, err)
 	}
 }
+
+func TestSimilarNotFalsePositive(t *testing.T) {
+	d := newDeps(t)
+	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Home", DoneWhen: "Done."}).ID
+	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Collect the HOA packet", DoneWhen: "x"})
+	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Call the surveyor", DoneWhen: "x"})
+	must(t, QuestionAdd, d, QuestionAddInput{Text: "Renew the EV registration", Project: proj})
+	for _, c := range []struct {
+		typ   model.Type
+		title string
+	}{
+		{model.TypeTask, "Mail the EV registration form"},
+		{model.TypeQuestion, "Which surveyor did the seller use?"},
+		{model.TypeTask, "HOA packet"},
+		{model.TypeQuestion, "Who is the surveyor?"},
+	} {
+		got, err := FindSimilar(ctx, d.Store, c.typ, c.title, c.title)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range got {
+			if s.Title != "Collect the HOA packet" || c.title != "HOA packet" {
+				t.Errorf("%q matched %q", c.title, s.Title)
+			}
+		}
+	}
+}
+
+func TestRFXRouteWarning(t *testing.T) {
+	d := newDeps(t)
+	must(t, OrgDomainAdd, d, OrgAddInput{Name: "Billing", Owner: "self"})
+	ok := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Invoice copy", Route: "domain-billing", SelfServe: "checked"})
+	if len(ok.Warnings) != 0 {
+		t.Fatalf("warnings = %v", ok.Warnings)
+	}
+	bad := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Lawn quote", Route: "landscaping", SelfServe: "checked"})
+	if len(bad.Warnings) != 1 || !strings.Contains(bad.Warnings[0], "matches no domain") {
+		t.Fatalf("warnings = %v", bad.Warnings)
+	}
+}

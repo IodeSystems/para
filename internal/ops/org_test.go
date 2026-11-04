@@ -32,7 +32,7 @@ func TestOrgAdd(t *testing.T) {
 		{"said without source", func() (OrgAddOutput, error) {
 			return OrgPersonAdd.Run(ctx, d, OrgAddInput{Name: "Sam", Org: "o", Said: []string{"x"}})
 		}, "source"},
-		{"person needs org", func() (OrgAddOutput, error) { return OrgPersonAdd.Run(ctx, d, OrgAddInput{Name: "Sam"}) }, "org"},
+		{"team needs org", func() (OrgAddOutput, error) { return OrgTeamAdd.Run(ctx, d, OrgAddInput{Name: "Sam"}) }, "org"},
 		{"empty name", func() (OrgAddOutput, error) { return OrgTeamAdd.Run(ctx, d, OrgAddInput{Org: "o"}) }, "name"},
 		{"name with no slug", func() (OrgAddOutput, error) { return OrgTeamAdd.Run(ctx, d, OrgAddInput{Name: "!!!", Org: "o"}) }, "id"},
 		{"domain needs owner", func() (OrgAddOutput, error) { return OrgDomainAdd.Run(ctx, d, OrgAddInput{Name: "Billing"}) }, "owner"},
@@ -260,4 +260,30 @@ func TestRouteUsesDefaultFinder(t *testing.T) {
 	if len(f.got) < 3 || !reflect.DeepEqual(f.got[0].Terms, []string{"certificate", "rotation"}) {
 		t.Fatalf("queries = %+v", f.got)
 	}
+}
+
+func TestOrgAddPrivatePerson(t *testing.T) {
+	d := newDeps(t)
+	p := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Pat Example", Role: "attorney"})
+	if len(p.Notes) != 1 || !strings.Contains(p.Notes[0], "role_text") {
+		t.Fatalf("notes = %v", p.Notes)
+	}
+	doc, err := d.Store.Get(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := doc.Meta.(*model.Person)
+	if m.Org != "" || m.Role != "" || m.RoleText != "attorney" {
+		t.Fatalf("person = %+v", m)
+	}
+	home := must(t, OrgDomainAdd, d, OrgAddInput{Name: "Home", Owner: "self"})
+	dd, _ := d.Store.Get(ctx, home.ID)
+	if dd.Meta.(*model.Domain).Owner != "self" {
+		t.Fatalf("owner = %v", dd.Meta)
+	}
+	r, err := Route.Run(ctx, d, RouteInput{Query: "home"})
+	if err != nil || r.Domain == nil || r.Owner != nil {
+		t.Fatalf("route = %+v %v", r, err)
+	}
+	mustLintClean(t, d)
 }

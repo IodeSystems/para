@@ -66,6 +66,7 @@ func addRFX(t *testing.T, d Deps, in RFXAddInput) string {
 
 func TestRFXAdd(t *testing.T) {
 	d := newDeps(t)
+	must(t, OrgDomainAdd, d, OrgAddInput{Name: "R", Owner: "self"})
 	dep := addRFX(t, d, RFXAddInput{SelfServe: "searched the wiki"})
 	cases := []struct {
 		name     string

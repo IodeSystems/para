@@ -17,6 +17,7 @@ const (
 	kTargets   // list of rfx target maps
 	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
 	kCount     // integer, 1 or more
+	kOwner     // "[[name]]" or the word self (the vault owner)
 	kScope     // "[[name]]" or the word root
 	kSources   // list of {ref, quote} maps
 	kWhen      // a date YYYY-MM-DD, or an RFC 3339 time
@@ -204,8 +205,9 @@ var typeFields = map[string][]field{
 		{Name: "review_by", Kind: kDate},
 	},
 	"person": {
-		{Name: "org", Kind: kString, Required: true},
+		{Name: "org", Kind: kString},
 		{Name: "role", Kind: kLink},
+		{Name: "role_text", Kind: kString},
 		{Name: "team", Kind: kLink},
 		{Name: "aliases", Kind: kList},
 		{Name: "contacts", Kind: kContacts},
@@ -258,7 +260,7 @@ var typeFields = map[string][]field{
 		{Name: "org", Kind: kString, Required: true},
 	},
 	"domain": {
-		{Name: "owner", Kind: kLink, Required: true},
+		{Name: "owner", Kind: kOwner, Required: true},
 	},
 	"convention": {
 		{Name: "status", Kind: kEnum, Enum: conventionState, Required: true},

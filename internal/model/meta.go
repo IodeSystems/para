@@ -302,9 +302,11 @@ type PolicyException struct {
 // Person is type: person.
 type Person struct {
 	Common `yaml:",inline"`
-	Org    string `yaml:"org" json:"org"`
+	Org    string `yaml:"org,omitempty" json:"org,omitempty"` // optional: a private person has none
 	Role   Link   `yaml:"role,omitempty" json:"role,omitempty"`
-	Team   Link   `yaml:"team,omitempty" json:"team,omitempty"`
+	// RoleText is a role as free text, when no role document exists.
+	RoleText string `yaml:"role_text,omitempty" json:"role_text,omitempty"`
+	Team     Link   `yaml:"team,omitempty" json:"team,omitempty"`
 	// Aliases are other names the person goes by.
 	Aliases []string `yaml:"aliases,omitempty" json:"aliases,omitempty"`
 	// Contacts are how to reach the person.

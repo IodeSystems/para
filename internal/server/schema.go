@@ -89,6 +89,7 @@ type Meta struct {
 	Of              string             `json:"of,omitempty"`
 	Org             string             `json:"org,omitempty"`
 	Role            string             `json:"role,omitempty"`
+	RoleText        string             `json:"role_text,omitempty"`
 	Team            string             `json:"team,omitempty"`
 	Aliases         []string           `json:"aliases,omitempty"`
 	Contacts        []model.Contact    `json:"contacts,omitempty"`

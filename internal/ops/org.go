@@ -19,10 +19,10 @@ import (
 // the kind: Owner for domain; Role and Team for person.
 type OrgAddInput struct {
 	Name    string   `json:"name"`
-	Org     string   `json:"org,omitempty"`     // organization the entry belongs to (person, team, role)
+	Org     string   `json:"org,omitempty"`     // organization the entry belongs to (required for team, role; optional for person)
 	ID      string   `json:"id,omitempty"`      // optional; default <kind>-<slug of name>
-	Owner   string   `json:"owner,omitempty"`   // domain: id of the owning role, team, or person
-	Role    string   `json:"role,omitempty"`    // person: id of the role they hold
+	Owner   string   `json:"owner,omitempty"`   // domain: id of the owning role, team, or person; self is the vault owner
+	Role    string   `json:"role,omitempty"`    // person: id of the role they hold, or free text when no role document matches
 	Team    string   `json:"team,omitempty"`    // person: id of their team
 	Aliases []string `json:"aliases,omitempty"` // person: other names
 	Said    []string `json:"said,omitempty"`    // what was said, as stated
@@ -34,6 +34,8 @@ type OrgAddOutput struct {
 	ID     string       `json:"id"`
 	Folder model.Folder `json:"folder"`
 	Rev    string       `json:"rev"`
+	// Notes say what the op did with an input that was not an id.
+	Notes []string `json:"notes,omitempty"`
 }
 
 // OrgListInput is the input of org_<kind>_list.
@@ -96,7 +98,7 @@ func orgAdd(kind model.Type) Func[OrgAddInput, OrgAddOutput] {
 			}
 			id = strings.ReplaceAll(string(kind), "_", "-") + "-" + s
 		}
-		meta, err := orgMeta(ctx, d, kind, in)
+		meta, notes, err := orgMeta(ctx, d, kind, in)
 		if err != nil {
 			return OrgAddOutput{}, err
 		}
@@ -106,51 +108,67 @@ func orgAdd(kind model.Type) Func[OrgAddInput, OrgAddOutput] {
 		if err != nil {
 			return OrgAddOutput{}, err
 		}
-		return OrgAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
+		return OrgAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Notes: notes}, nil
 	}
 }
 
-func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (model.Meta, error) {
+func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (model.Meta, []string, error) {
 	common := model.Common{Type: kind}
 	org := strings.TrimSpace(in.Org)
-	if kind != model.TypeDomain && org == "" {
-		return nil, errors.New("org is empty")
+	if kind != model.TypeDomain && kind != model.TypePerson && org == "" {
+		return nil, nil, errors.New("org is empty")
 	}
 	if kind != model.TypePerson && (in.Role != "" || in.Team != "") {
-		return nil, fmt.Errorf("role and team apply to a person, not a %s", kind)
+		return nil, nil, fmt.Errorf("role and team apply to a person, not a %s", kind)
 	}
 	if kind != model.TypePerson && len(in.Aliases) > 0 {
-		return nil, fmt.Errorf("aliases apply to a person, not a %s", kind)
+		return nil, nil, fmt.Errorf("aliases apply to a person, not a %s", kind)
 	}
 	if kind != model.TypeDomain && in.Owner != "" {
-		return nil, fmt.Errorf("owner applies to a domain, not a %s", kind)
+		return nil, nil, fmt.Errorf("owner applies to a domain, not a %s", kind)
 	}
 	switch kind {
 	case model.TypeDomain:
-		owner, err := linkTo(ctx, d, "owner", in.Owner, model.TypeRole, model.TypeTeam, model.TypePerson)
-		if err != nil {
-			return nil, err
+		var owner model.Link
+		if o := strings.TrimSpace(in.Owner); strings.EqualFold(o, "self") {
+			owner = "self"
+		} else if cfg, _ := d.Store.Config("owner"); o != "" && strings.TrimSpace(cfg) != "" && strings.EqualFold(o, strings.TrimSpace(cfg)) {
+			owner = "self"
+		} else {
+			var err error
+			if owner, err = linkTo(ctx, d, "owner", in.Owner, model.TypeRole, model.TypeTeam, model.TypePerson); err != nil {
+				return nil, nil, err
+			}
 		}
 		if owner == "" {
-			return nil, errors.New("owner is empty: a domain names who owns it")
+			return nil, nil, errors.New("owner is empty: a domain names who owns it (a role, team, or person id, or self)")
 		}
-		return &model.Domain{Common: common, Owner: owner}, nil
+		return &model.Domain{Common: common, Owner: owner}, nil, nil
 	case model.TypePerson:
-		role, err := linkTo(ctx, d, "role", in.Role, model.TypeRole)
-		if err != nil {
-			return nil, err
+		var notes []string
+		var role model.Link
+		var roleText string
+		if raw := strings.TrimSpace(in.Role); raw != "" {
+			var err error
+			role, err = linkTo(ctx, d, "role", raw, model.TypeRole)
+			if errors.Is(err, model.ErrNotFound) {
+				role, roleText = "", strings.Join(strings.Fields(raw), " ")
+				notes = append(notes, fmt.Sprintf("role %q matches no role document: stored as role_text", roleText))
+			} else if err != nil {
+				return nil, nil, err
+			}
 		}
 		team, err := linkTo(ctx, d, "team", in.Team, model.TypeTeam)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		return &model.Person{Common: common, Org: org, Role: role, Team: team, Aliases: cleanList(in.Aliases)}, nil
+		return &model.Person{Common: common, Org: org, Role: role, RoleText: roleText, Team: team, Aliases: cleanList(in.Aliases)}, notes, nil
 	case model.TypeTeam:
-		return &model.Team{Common: common, Org: org}, nil
+		return &model.Team{Common: common, Org: org}, nil, nil
 	case model.TypeRole:
-		return &model.Role{Common: common, Org: org}, nil
+		return &model.Role{Common: common, Org: org}, nil, nil
 	}
-	return nil, fmt.Errorf("not an org type: %s", kind)
+	return nil, nil, fmt.Errorf("not an org type: %s", kind)
 }
 
 // cleanList trims each item, drops empty and repeated ones (case-insensitive),

@@ -2561,6 +2561,7 @@ type para_Meta {
   revision: Int
   rfx: JSON
   role: String
+  roleText: String
   route: String
   rule: String
   runner: String
@@ -2782,6 +2783,7 @@ input para_OrgAddInputInput {
 type para_OrgAddOutput {
   folder: para_OrgAddOutputFolder!
   id: String!
+  notes: [String!]
   rev: String!
 }
 

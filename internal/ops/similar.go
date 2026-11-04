@@ -29,6 +29,14 @@ var nearTypes = map[model.Type][]model.Type{
 // wordOverlap is how much of the shorter title's words must match.
 const wordOverlap = 0.7
 
+// crossTypeOverlap is the bar when the match is another type (a question
+// against a task): the same subject is not the same thing.
+const crossTypeOverlap = 0.9
+
+// minSharedWords is how many words titles must share. One shared word is a
+// topic, not a duplicate.
+const minSharedWords = 2
+
 // Similar is one existing document that may be the same thing. Match says how it
 // matched: title or words. Action is a suggestion: link, merge, or new.
 type Similar struct {
@@ -64,6 +72,26 @@ func overlap(a, b map[string]bool) float64 {
 	return float64(n) / float64(min(len(a), len(b)))
 }
 
+// sameWords reports whether two titles share enough words to be one thing:
+// at least minSharedWords, the bar for the type pair on the shorter title,
+// and half of the longer title.
+func sameWords(a, b map[string]bool, cross bool) bool {
+	n := 0
+	for w := range a {
+		if b[w] {
+			n++
+		}
+	}
+	if n < minSharedWords || float64(n)/float64(max(len(a), len(b))) < 0.5 {
+		return false
+	}
+	bar := wordOverlap
+	if cross {
+		bar = crossTypeOverlap
+	}
+	return overlap(a, b) >= bar
+}
+
 // FindSimilar lists open documents of the type and its near types that may be
 // the same thing: exact title first, then word overlap of titles, then the
 // search index on the text. A closed document is not a match: it is done.
@@ -91,14 +119,14 @@ func FindSimilar(ctx context.Context, s store.Store, typ model.Type, title, text
 		switch {
 		case have == want:
 			found[r.ID] = Similar{ID: r.ID, Title: r.Title, Type: r.Type, Match: "title", Action: "link"}
-		case len(words) >= 2 && overlap(words, titleWords(r.Title)) >= wordOverlap:
+		case len(words) >= 2 && sameWords(words, titleWords(r.Title), r.Type != typ):
 			found[r.ID] = Similar{ID: r.ID, Title: r.Title, Type: r.Type, Match: "words", Action: "merge"}
 		}
 	}
 	if q := strings.TrimSpace(text); q != "" && len(found) == 0 && len(words) >= 2 {
 		if hits, err := s.Search(ctx, index.Query{Text: title, Limit: 5}); err == nil {
 			for _, h := range hits {
-				if slices.Contains(types, model.Type(h.Kind)) && overlap(words, titleWords(h.Title)) >= wordOverlap {
+				if slices.Contains(types, model.Type(h.Kind)) && sameWords(words, titleWords(h.Title), model.Type(h.Kind) != typ) {
 					found[h.ID] = Similar{ID: h.ID, Title: h.Title, Type: model.Type(h.Kind), Match: "search", Action: "merge"}
 				}
 			}

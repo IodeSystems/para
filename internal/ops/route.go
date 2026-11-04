@@ -252,6 +252,9 @@ func priorRFX(ctx context.Context, d Deps, domain *model.Ref, terms []string) ([
 // resolveOwner fills Owner and People. A role resolves to the people who hold
 // it, a team to its members, a person to themselves.
 func resolveOwner(ctx context.Context, d Deps, owner model.Link, out *RouteOutput) error {
+	if owner == "self" {
+		return nil // the vault owner has no person document
+	}
 	doc, err := d.Store.Get(ctx, owner.Target())
 	if err != nil {
 		return fmt.Errorf("domain owner %s: %w", owner, err)

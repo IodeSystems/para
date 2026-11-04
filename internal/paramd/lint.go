@@ -398,6 +398,18 @@ func (l *linter) checkValue(fd field, v any) {
 		case fd.Kind == kLink && m[2] != "":
 			bad("%q must not carry a block id", s)
 		}
+	case kOwner:
+		s, ok := v.(string)
+		m := linkValRe.FindStringSubmatch(s)
+		switch {
+		case ok && s == "self":
+		case !ok:
+			bad("must be one quoted wikilink such as \"[[person-name]]\", or the word self")
+		case m == nil:
+			bad("%q is not a wikilink like \"[[name]]\", and is not self", s)
+		case m[2] != "":
+			bad("%q must not carry a block id", s)
+		}
 	case kScope:
 		s, ok := v.(string)
 		m := linkValRe.FindStringSubmatch(s)
