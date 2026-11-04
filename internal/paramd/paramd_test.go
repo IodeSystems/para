@@ -316,6 +316,7 @@ func TestTemplatesLintClean(t *testing.T) {
 		"transcript.md":       "policy-example.source.md",
 		"policy_exception.md": "exception-example.md",
 		"tracked_doc.md":      "portal-runbook.md",
+		"source.md":           "work-mail.md",
 	}
 	dir := filepath.Join("..", "..", "docs", "templates")
 	entries, err := os.ReadDir(dir)

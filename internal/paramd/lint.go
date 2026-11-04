@@ -214,6 +214,9 @@ func (l *linter) frontmatter() {
 	if typ == "tracked_doc" {
 		l.trackedDoc()
 	}
+	if typ == "source" {
+		l.source()
+	}
 	if typ == "transcript" && strings.HasSuffix(f.Name, ".source") {
 		m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"]))
 		v, versioned := f.Frontmatter["version"].(int)

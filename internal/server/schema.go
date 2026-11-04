@@ -178,12 +178,12 @@ type Meta struct {
 	Concepts        []string           `json:"concepts,omitempty"`
 	Refines         string             `json:"refines,omitempty"`
 	CalendarUID     string             `json:"calendar_uid,omitempty"`
-	State           string             `json:"state,omitempty"`
+	State           *jsonValue         `json:"state,omitempty"` // io state text, or a source step
 	From            string             `json:"from,omitempty"`
 	To              []string           `json:"to,omitempty"`
 	Subject         string             `json:"subject,omitempty"`
 	Ref             string             `json:"ref,omitempty"`
-	Via             *model.IOVia       `json:"via,omitempty"`
+	Via             *jsonValue         `json:"via,omitempty"` // io and tracked_doc {source, ref}, or a source's mcp, cli, none
 	Expects         string             `json:"expects,omitempty"`
 	Became          string             `json:"became,omitempty"`
 	Thread          string             `json:"thread,omitempty"`
@@ -199,6 +199,15 @@ type Meta struct {
 	FetchedBy       string             `json:"fetched_by,omitempty"`
 	Proposal        string             `json:"proposal,omitempty"`
 	Item            string             `json:"item,omitempty"`
+	Server          string             `json:"server,omitempty"`
+	Tools           []string           `json:"tools,omitempty"`
+	Fetch           *model.SourceStep  `json:"fetch,omitempty"`
+	ScanIn          *model.SourceStep  `json:"scan_in,omitempty"`
+	ScanOut         *model.SourceStep  `json:"scan_out,omitempty"`
+	ReachedBy       []string           `json:"reached_by,omitempty"`
+	LastScan        string             `json:"last_scan,omitempty"`
+	Cursor          string             `json:"cursor,omitempty"`
+	RequiresSource  string             `json:"requires_source,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
@@ -267,6 +276,9 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.DocSystems)
 	addEnum(reg, model.DocStatuses)
 	addEnum(reg, model.CommentResolutions)
+	addEnum(reg, model.SourceSystems)
+	addEnum(reg, model.SourceVias)
+	addEnum(reg, model.SourceStatuses)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
 	addEnum(reg, model.Levels)

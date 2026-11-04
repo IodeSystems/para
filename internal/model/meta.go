@@ -474,6 +474,9 @@ type Request struct {
 	// next turn in one thread, and the body keeps them all.
 	Resolution RequestResolution `yaml:"resolution,omitempty" json:"resolution,omitempty"`
 	Turn       int               `yaml:"turn,omitempty" json:"turn,omitempty"`
+	// RequiresSource links a source: only an actor that declared it
+	// (agent_sources) within sources.reach_days may claim the request.
+	RequiresSource Link `yaml:"requires_source,omitempty" json:"requires_source,omitempty"`
 }
 
 // Team is type: team.
@@ -545,6 +548,45 @@ type IO struct {
 	Thread Link `yaml:"thread,omitempty" json:"thread,omitempty"`
 	// Reason says why the item was dropped.
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
+}
+
+// SourceDoc is type: source, one place work comes in or goes out: a mailbox, a
+// calendar, a chat, a tracker, a folder. Para fetches nothing and holds no
+// secret: the source says how an agent reaches it with its own tools (Via,
+// Server, Tools, or the commands in its steps), what counts as input
+// (ScanIn) and output (ScanOut), and how to read one item again (Fetch) or
+// its status (State). ReachedBy names the agents that can reach it; an agent
+// also declares the sources it reaches at session start (agent_sources),
+// kept on this machine, not in the vault. LastScan and Cursor are what the
+// last sweep recorded: the cursor is opaque text the agent returns.
+type SourceDoc struct {
+	Common    `yaml:",inline"`
+	System    SourceSystem `yaml:"system" json:"system"`
+	Status    SourceStatus `yaml:"status" json:"status"`
+	Via       SourceVia    `yaml:"via" json:"via"`
+	Server    string       `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
+	Tools     []string     `yaml:"tools,omitempty" json:"tools,omitempty"`   // MCP tool names
+	Fetch     *SourceStep  `yaml:"fetch,omitempty" json:"fetch,omitempty"`
+	ScanIn    *SourceStep  `yaml:"scan_in,omitempty" json:"scan_in,omitempty"`
+	ScanOut   *SourceStep  `yaml:"scan_out,omitempty" json:"scan_out,omitempty"`
+	State     *SourceStep  `yaml:"state,omitempty" json:"state,omitempty"`
+	ReachedBy []string     `yaml:"reached_by,omitempty" json:"reached_by,omitempty"`
+	Cadence   string       `yaml:"cadence,omitempty" json:"cadence,omitempty"` // recur grammar
+	LastScan  string       `yaml:"last_scan,omitempty" json:"last_scan,omitempty"`
+	Cursor    string       `yaml:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// SourceStep is one thing an agent does on a source. Tool and Args are an
+// MCP tool and its argument template; Command is a command template for a
+// cli source. Query is the filter text (a search query, a JQL, a path glob);
+// How says the rest in words. Templates may hold {ref}, {url}, {cursor},
+// {since}, {since_date}, and {query}.
+type SourceStep struct {
+	Tool    string `yaml:"tool,omitempty" json:"tool,omitempty"`
+	Args    string `yaml:"args,omitempty" json:"args,omitempty"`
+	Command string `yaml:"command,omitempty" json:"command,omitempty"`
+	Query   string `yaml:"query,omitempty" json:"query,omitempty"`
+	How     string `yaml:"how,omitempty" json:"how,omitempty"`
 }
 
 // IOVia is a private source reference: the connector and its own id of the
@@ -709,6 +751,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &IO{Common: c}, true
 	case TypeTrackedDoc:
 		return &TrackedDoc{Common: c}, true
+	case TypeSource:
+		return &SourceDoc{Common: c}, true
 	case TypeGroup:
 		return &Group{Common: c}, true
 	case TypeInteraction:

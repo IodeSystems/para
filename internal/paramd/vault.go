@@ -78,6 +78,7 @@ func CheckVault(files []*File) []Finding {
 			}
 		}
 	}
+	out = append(out, checkViaSources(files, byName)...)
 	return out
 }
 

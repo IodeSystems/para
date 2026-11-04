@@ -72,13 +72,16 @@ var (
 	ioExpects          = []string{"response", "none"}
 	docSystems         = []string{"confluence", "jira", "github", "gdoc", "other"}
 	docStatuses        = []string{"watching", "paused", "archived"}
+	sourceSystems      = []string{"gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder", "other"}
+	sourceVias         = []string{"mcp", "cli", "none"}
+	sourceStatuses     = []string{"active", "paused"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
 // Types lists every valid value of the frontmatter "type" field.
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
-	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc",
+	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc", "source",
 	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt",
 }
 
@@ -258,6 +261,7 @@ var typeFields = map[string][]field{
 		{Name: "required", Kind: kLinkList},
 		{Name: "followed", Kind: kLinkList},
 		{Name: "resolution", Kind: kEnum, Enum: requestResolutions},
+		{Name: "requires_source", Kind: kLink},
 	},
 	"proposal": {
 		{Name: "source", Kind: kLink},
@@ -323,6 +327,21 @@ var typeFields = map[string][]field{
 		{Name: "seen_at", Kind: kTimestamp},
 		{Name: "checked", Kind: kTimestamp},
 		{Name: "comments", Kind: kMaps}, // Lint trackedDoc
+	},
+	"source": {
+		{Name: "system", Kind: kEnum, Enum: sourceSystems, Required: true},
+		{Name: "status", Kind: kEnum, Enum: sourceStatuses, Required: true},
+		{Name: "via", Kind: kEnum, Enum: sourceVias, Required: true},
+		{Name: "server", Kind: kString},
+		{Name: "tools", Kind: kList},
+		{Name: "fetch", Kind: kMap}, // steps: Lint source
+		{Name: "scan_in", Kind: kMap},
+		{Name: "scan_out", Kind: kMap},
+		{Name: "state", Kind: kMap},
+		{Name: "reached_by", Kind: kList},
+		{Name: "cadence", Kind: kString}, // recur grammar: Lint source
+		{Name: "last_scan", Kind: kTimestamp},
+		{Name: "cursor", Kind: kString},
 	},
 }
 
@@ -435,7 +454,7 @@ var kindNames = map[kind]string{
 // and note keep their own ops; a note goes through note_edit.
 var editableTypes = []string{
 	"task", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
-	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript", "tracked_doc",
+	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript", "tracked_doc", "source",
 }
 
 // editLocked are fields a lifecycle op, a recurrence chain, or a fetched source
@@ -447,6 +466,7 @@ var editLocked = map[string][]string{
 	"policy":      {"source", "verified"},
 	"transcript":  {"source", "of", "version", "fetched_by", "proposal", "item"},
 	"tracked_doc": {"latest", "last_seen", "seen_at", "checked", "comments"},
+	"source":      {"last_scan", "cursor"},
 	"constraint":  {"source"},
 }
 

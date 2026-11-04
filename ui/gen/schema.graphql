@@ -502,6 +502,7 @@ enum para_AreaAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -563,6 +564,7 @@ enum para_AreaUserType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -603,6 +605,7 @@ enum para_AreaViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -1203,6 +1206,7 @@ enum para_DocCommentFileOutputType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -1314,6 +1318,7 @@ enum para_DocRetypeInputType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -1348,6 +1353,7 @@ enum para_DocRetypeOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -1374,6 +1380,7 @@ enum para_DocRetypeOutputType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -1531,6 +1538,7 @@ enum para_DocumentFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -2077,6 +2085,7 @@ enum para_GraphNodeType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -2280,6 +2289,7 @@ enum para_IOAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -2549,6 +2559,7 @@ enum para_IOSendOutputBecame_type {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -2640,6 +2651,7 @@ enum para_ImportedDocFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -2666,6 +2678,7 @@ enum para_ImportedDocType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -2723,6 +2736,7 @@ enum para_IncidentAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -2802,6 +2816,7 @@ enum para_IncidentViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -2903,6 +2918,7 @@ enum para_InteractionAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -3350,6 +3366,7 @@ enum para_MeetingAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -3469,6 +3486,7 @@ enum para_MeetingViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -3511,6 +3529,7 @@ type para_Meta {
   contacts: [para_Contact!]
   context: JSON
   created: String!
+  cursor: String
   date: String
   deferUntil: String
   deferredAdded: [String!]
@@ -3526,6 +3545,7 @@ type para_Meta {
   ended: String
   expects: String
   extensions: [String!]
+  fetch: para_SourceStep
   fetchedBy: String
   followed: [String!]
   from: String
@@ -3536,6 +3556,7 @@ type para_Meta {
   item: String
   kind: String
   lastReviewed: String
+  lastScan: String
   lastSeen: Int
   latest: Int
   leaseUntil: String
@@ -3570,6 +3591,7 @@ type para_Meta {
   queuedAt: String
   quietDays: Int
   rank: Int
+  reachedBy: [String!]
   reason: String
   recommended: String
   recur: String
@@ -3579,6 +3601,7 @@ type para_Meta {
   rejectedReason: String
   request: String
   required: [String!]
+  requiresSource: String
   resolution: String
   resultLinks: [String!]
   reviewBy: String
@@ -3591,11 +3614,14 @@ type para_Meta {
   route: String
   rule: String
   runner: String
+  scanIn: para_SourceStep
+  scanOut: para_SourceStep
   scheduled: String
   scope: String
   seenAt: String
   selfReported: Boolean
   selfServeCheck: String
+  server: String
   severity: String
   signals: JSON
   source: para_Source
@@ -3604,7 +3630,7 @@ type para_Meta {
   sources: [String!]
   start: String
   started: String
-  state: String
+  state: JSON
   status: String
   subject: String
   supersedes: String
@@ -3615,6 +3641,7 @@ type para_Meta {
   team: String
   thread: String
   to: [String!]
+  tools: [String!]
   turn: Int
   type: para_MetaType!
   unknowns: JSON
@@ -3624,7 +3651,7 @@ type para_Meta {
   verified: Boolean
   verify: String
   version: Int
-  via: para_IOVia
+  via: JSON
   visibility: para_MetaVisibility
   watchers: [String!]
   why: JSON
@@ -3674,6 +3701,7 @@ enum para_MetaType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -3725,6 +3753,7 @@ enum para_NoteAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -3779,6 +3808,7 @@ enum para_NoteViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -3851,6 +3881,7 @@ enum para_OrgAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4158,6 +4189,7 @@ enum para_ProjectAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4194,6 +4226,7 @@ enum para_ProjectCloseOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4269,6 +4302,7 @@ enum para_ProjectViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4610,6 +4644,7 @@ enum para_QuestionAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4772,6 +4807,7 @@ enum para_QuestionViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -4833,6 +4869,7 @@ enum para_RFXAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -5319,6 +5356,7 @@ enum para_RefFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -5345,6 +5383,7 @@ enum para_RefType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -5399,6 +5438,7 @@ enum para_RequestAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -5729,6 +5769,7 @@ enum para_RuleInEffectType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -5860,6 +5901,7 @@ enum para_SimilarType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -5883,6 +5925,14 @@ enum para_SourceFidelity {
   none
   ocr
   partial
+}
+
+type para_SourceStep {
+  args: String
+  command: String
+  how: String
+  query: String
+  tool: String
 }
 
 type para_SourceView {
@@ -6115,6 +6165,7 @@ enum para_TaskAddOutputFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -6446,6 +6497,7 @@ enum para_TaskViewFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -6780,6 +6832,7 @@ enum para_WhereMatchFolder {
   requests
   resources
   rfx
+  sources
   tracked
 }
 
@@ -6806,6 +6859,7 @@ enum para_WhereMatchType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc
@@ -7003,6 +7057,7 @@ enum para_similarType {
   request
   rfx
   role
+  source
   task
   team
   tracked_doc

@@ -54,6 +54,9 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"io.expects", strs(IOExpectsAll), paramd.FieldEnum("io", "expects")},
 		{"tracked_doc.system", strs(DocSystems), paramd.FieldEnum("tracked_doc", "system")},
 		{"tracked_doc.status", strs(DocStatuses), paramd.FieldEnum("tracked_doc", "status")},
+		{"source.system", strs(SourceSystems), paramd.FieldEnum("source", "system")},
+		{"source.via", strs(SourceVias), paramd.FieldEnum("source", "via")},
+		{"source.status", strs(SourceStatuses), paramd.FieldEnum("source", "status")},
 		{"interaction.direction", strs(InteractionDirections), paramd.FieldEnum("interaction", "direction")},
 		{"interaction.visibility", strs(Visibilities), paramd.FieldEnum("interaction", "visibility")},
 		{"contact.method", strs(Mediums), paramd.ItemFieldEnum("person", "contacts", "method")},
@@ -142,8 +145,14 @@ func TestRenderedTypesLintClean(t *testing.T) {
 				Anchor: &DocAnchor{Version: 2, Lost: true}, Became: LinkTo("rfx-one"), Resolution: CommentBecame}}}, "Runbook of the portal."},
 		{"runbook-v1.source", &Transcript{Common: c(TypeTranscript), Of: LinkTo("runbook"), Source: source(), Version: 1, FetchedBy: "claude",
 			Proposal: LinkTo("proposal-one"), Item: "d1"}, "Source: https://wiki.acme.example/policies/logging"},
+		{"work-mail", &SourceDoc{Common: c(TypeSource), System: SourceGmail, Status: SourceActive, Via: SourceViaMCP, Server: "gmail",
+			Tools: []string{"search_threads"}, Fetch: &SourceStep{Tool: "get_thread", Args: `{"id": "{ref}"}`},
+			ScanIn:  &SourceStep{Tool: "search_threads", Query: "in:inbox after:{since_date}", Args: `{"q": "{query}"}`, How: "One io per thread."},
+			ScanOut: &SourceStep{How: "Sent mail."}, State: &SourceStep{How: "Read the labels."}, ReachedBy: []string{"claude-work"},
+			Cadence: "daily", LastScan: "2026-11-02T09:00:00Z", Cursor: "h-1234"}, "The work mailbox."},
 		{"request-one", &Request{Common: c(TypeRequest), Status: RequestClaimed, Runner: "inst-a", Queued: "2026-11-01T09:00:00.5Z",
-			Claimed: "agent", Lease: "2026-11-01T09:30:00Z", Links: []Link{LinkTo("acme-portal")}, Results: []Link{LinkTo("acme-portal")}}, "Summarize.\n\n## Result\n\nDone."},
+			Claimed: "agent", Lease: "2026-11-01T09:30:00Z", Links: []Link{LinkTo("acme-portal")}, Results: []Link{LinkTo("acme-portal")},
+			RequiresSource: LinkTo("work-mail")}, "Summarize.\n\n## Result\n\nDone."},
 	}
 	seen := map[Type]bool{}
 	for _, c := range cases {

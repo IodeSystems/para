@@ -22,6 +22,7 @@ const (
 	TypeInbox           Type = "inbox" // read until upgrade step io-folder; new captures are io
 	TypeIO              Type = "io"
 	TypeTrackedDoc      Type = "tracked_doc"
+	TypeSource          Type = "source"
 	TypeGroup           Type = "group"
 	TypeInteraction     Type = "interaction"
 	TypeRequest         Type = "request"
@@ -38,7 +39,7 @@ const (
 var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
-	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeGroup, TypeInteraction, TypeRequest,
+	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeSource, TypeGroup, TypeInteraction, TypeRequest,
 	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt,
 }
 
@@ -49,6 +50,7 @@ const (
 	FolderInbox        Folder = "inbox" // read until upgrade step io-folder; para init does not make it
 	FolderIO           Folder = "io"
 	FolderTracked      Folder = "tracked"
+	FolderSources      Folder = "sources"
 	FolderProjects     Folder = "projects"
 	FolderAreas        Folder = "areas"
 	FolderResources    Folder = "resources"
@@ -70,7 +72,7 @@ const (
 
 // Folders lists every document folder.
 var Folders = []Folder{
-	FolderInbox, FolderIO, FolderTracked, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
+	FolderInbox, FolderIO, FolderTracked, FolderSources, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
 	FolderReceipts,
@@ -532,6 +534,59 @@ func (CommentResolution) Enum() []string { return enumStrings(CommentResolutions
 
 // CommentResolutions lists every CommentResolution.
 var CommentResolutions = []CommentResolution{CommentBecame, CommentResolved, CommentDropped}
+
+// SourceSystem is source.system: the kind of system a source is.
+type SourceSystem string
+
+const (
+	SourceGmail      SourceSystem = "gmail"
+	SourceGDocs      SourceSystem = "gdocs"
+	SourceGCal       SourceSystem = "gcal"
+	SourceSlack      SourceSystem = "slack"
+	SourceGitHub     SourceSystem = "github"
+	SourceJira       SourceSystem = "jira"
+	SourceConfluence SourceSystem = "confluence"
+	SourceFolder     SourceSystem = "folder"
+	SourceOther      SourceSystem = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (SourceSystem) Enum() []string { return enumStrings(SourceSystems) }
+
+// SourceSystems lists every SourceSystem.
+var SourceSystems = []SourceSystem{SourceGmail, SourceGDocs, SourceGCal, SourceSlack, SourceGitHub, SourceJira, SourceConfluence, SourceFolder, SourceOther}
+
+// SourceVia is source.via: how an agent reaches the source. mcp: tools of an
+// MCP server the agent has (it may exist only inside the agent's harness, so
+// para cannot check it). cli: commands on this machine's PATH. none: the agent
+// reads it some other way, described in words.
+type SourceVia string
+
+const (
+	SourceViaMCP  SourceVia = "mcp"
+	SourceViaCLI  SourceVia = "cli"
+	SourceViaNone SourceVia = "none"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (SourceVia) Enum() []string { return enumStrings(SourceVias) }
+
+// SourceVias lists every SourceVia.
+var SourceVias = []SourceVia{SourceViaMCP, SourceViaCLI, SourceViaNone}
+
+// SourceStatus is source.status. A paused source is not swept or scheduled.
+type SourceStatus string
+
+const (
+	SourceActive SourceStatus = "active"
+	SourcePaused SourceStatus = "paused"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (SourceStatus) Enum() []string { return enumStrings(SourceStatuses) }
+
+// SourceStatuses lists every SourceStatus.
+var SourceStatuses = []SourceStatus{SourceActive, SourcePaused}
 
 // Visibility is interaction.visibility: where it happened.
 type Visibility string
