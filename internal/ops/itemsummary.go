@@ -45,6 +45,16 @@ func newItemSummarizer(ctx context.Context, d Deps) itemSummarizer {
 }
 
 func (z itemSummarizer) of(it model.ProposalItem) string {
+	switch it.Kind {
+	case model.ItemQuestion:
+		return "Question: " + firstOf(strings.TrimSpace(it.Title), it.ID)
+	case model.ItemDocEdit:
+		target := it.Target
+		if n := z.name(normID(target)); n != "" {
+			target = n
+		}
+		return "Edit " + target
+	}
 	if it.Kind.Outward() {
 		return z.external(it)
 	}
