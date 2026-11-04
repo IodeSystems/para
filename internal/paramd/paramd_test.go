@@ -216,6 +216,12 @@ func TestLint(t *testing.T) {
 		{"goal risk no text", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - impact: low\n", "# P\n"), []string{"field-value:1"}},
 		{"task assumptions ok", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    source: chat\n    checked: 2026-11-02\n    by: jo\n    status: holds\n", "# T\n"), nil},
 		{"assumption bad status", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    status: maybe\n", "# T\n"), []string{"field-value:1"}},
+		{"imported_from ok", "jo.md", doc("type: person\ncreated: 2026-11-01\nimported_from:\n  path: /old/people/jo.md\n  hash: "+hash+"\n", "# Jo\n"), nil},
+		{"imported_from bad hash", "n.md", doc("type: note\ncreated: 2026-11-01\nimported_from:\n  path: /old/n.md\n  hash: abc\n", "# N\n"), []string{"field-value:1"}},
+		{"imported_from no path", "n.md", doc("type: note\ncreated: 2026-11-01\nimported_from:\n  hash: "+hash+"\n", "# N\n"), []string{"field-value:1"}},
+		{"imported_from not a map", "n.md", doc("type: note\ncreated: 2026-11-01\nimported_from: /old/n.md\n", "# N\n"), []string{"field-value:1"}},
+		{"calendar_uid on a meeting", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uid: sync@acme.example\n", "# T\n"), nil},
+		{"calendar_uid on a plain task", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ncalendar_uid: sync@acme.example\n", "# T\n"), []string{"field-value:1"}},
 		{"assumption bad checked", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nassumptions:\n  - text: Budget holds\n    checked: last week\n", "# P\n"), []string{"field-value:1"}},
 		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}

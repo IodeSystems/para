@@ -177,8 +177,10 @@ type Meta struct {
 	LastReviewed    string             `json:"last_reviewed,omitempty"`
 	Concepts        []string           `json:"concepts,omitempty"`
 	Refines         string             `json:"refines,omitempty"`
+	CalendarUID     string             `json:"calendar_uid,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
+	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.

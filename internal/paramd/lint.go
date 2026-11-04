@@ -224,6 +224,9 @@ func (l *linter) task() {
 	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
 	}
+	if fm["calendar_uid"] != nil && kind != "meeting" && kind != "call" {
+		l.errf(1, CodeFieldValue, "field %q: only a task of kind meeting or call has a calendar event", "calendar_uid")
+	}
 	if fm["scheduled"] == nil {
 		if fm["end"] != nil {
 			l.errf(1, CodeFieldValue, "field %q: needs scheduled", "end")
@@ -439,6 +442,18 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
+	case kImported:
+		m, ok := v.(map[string]any)
+		if !ok {
+			bad("must be a mapping with path and hash")
+			return
+		}
+		if s, ok := m["path"].(string); !ok || strings.TrimSpace(s) == "" {
+			bad("path must be a non-empty string")
+		}
+		if h, _ := m["hash"].(string); !hashRe.MatchString(h) {
+			bad("hash must be sha256:<64 lowercase hex characters>")
+		}
 	case kLinkList:
 		list, ok := v.([]any)
 		if !ok || (fd.Required && len(list) == 0) {

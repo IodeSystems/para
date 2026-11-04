@@ -42,6 +42,16 @@ type Common struct {
 	// HealthDismissed lists health findings a person set aside for this
 	// document (para health). It lives in the file, so it stays with sync.
 	HealthDismissed []HealthDismissal `yaml:"health_dismissed,omitempty" json:"health_dismissed,omitempty"`
+	// ImportedFrom names the file this document was imported from, so
+	// import_verify can say what an old vault holds that this one lacks.
+	ImportedFrom *ImportedFrom `yaml:"imported_from,omitempty" json:"imported_from,omitempty"`
+}
+
+// ImportedFrom is the source file of an imported document: the path as the
+// importer gave it, and sha256:<hex> of the file's bytes.
+type ImportedFrom struct {
+	Path string `yaml:"path" json:"path"`
+	Hash string `yaml:"hash" json:"hash"`
 }
 
 // HealthDismissal is one dismissed finding kind on a document.
@@ -196,8 +206,11 @@ type Task struct {
 	End       string `yaml:"end,omitempty" json:"end,omitempty"`
 	With      []Link `yaml:"with,omitempty" json:"with,omitempty"`
 	// RFX links the requests a meeting is meant to settle.
-	RFX      []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
-	Deferral `yaml:",inline"`
+	RFX []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
+	// CalendarUID is the UID of the owner's calendar event for a meeting or
+	// a call, so calendar_compare matches it exactly.
+	CalendarUID string `yaml:"calendar_uid,omitempty" json:"calendar_uid,omitempty"`
+	Deferral    `yaml:",inline"`
 	// Assumptions are what the task takes as true (grill.go).
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 }
