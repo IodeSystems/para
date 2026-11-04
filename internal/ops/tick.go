@@ -93,7 +93,7 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 		return out, errors.New("tick: no install id")
 	case runner == "":
 		out.NoRunner = true
-		out.Skipped = fmt.Sprintf("vault %s names no runner: add request.runner=%s to .para/vault.properties on the machine that should tick", out.Vault, info.Install)
+		out.Skipped = fmt.Sprintf("vault %s names no runner: on the machine that should tick, run: para vault config set request.runner %s", out.Vault, info.Install)
 		return out, nil
 	case runner != info.Install:
 		out.Skipped = fmt.Sprintf("this install (%s) is not the runner (%s)", info.Install, runner)

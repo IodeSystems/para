@@ -207,7 +207,7 @@ func TestTickCLI(t *testing.T) {
 	}
 	// No runner named: the single-vault command fails and says what to add.
 	_, _, err = e.run("tick", "--vault", "acme")
-	if err == nil || !strings.Contains(err.Error(), "request.runner="+id) {
+	if err == nil || !strings.Contains(err.Error(), "para vault config set request.runner "+id) {
 		t.Fatalf("err = %v", err)
 	}
 	props := filepath.Join(acme, ".para", "vault.properties")

@@ -137,7 +137,7 @@ func doctorTick(l *loader, r *report, id, path string) {
 	}
 	switch runner := strings.TrimSpace(cfg["request.runner"]); runner {
 	case "":
-		r.warn(what, "no runner named: para tick refuses. To tick here, add request.runner="+install+" to .para/vault.properties")
+		r.warn(what, "no runner named: para tick refuses. To tick here, run: para vault config set request.runner "+install)
 	case install:
 		r.ok(what, "this install is the runner")
 	default:

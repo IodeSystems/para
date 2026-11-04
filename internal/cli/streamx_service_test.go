@@ -40,7 +40,7 @@ func TestDoctorReportsDispatchAndTick(t *testing.T) {
 	}
 	out, fails := doctorLines(t, e, "acme", vaultPath)
 	if fails != 0 || !strings.Contains(out, "ok    vault acme dispatch: off: no agent.json, para starts nothing") ||
-		!strings.Contains(out, "warn  vault acme tick: no runner named") || !strings.Contains(out, "request.runner="+id) {
+		!strings.Contains(out, "warn  vault acme tick: no runner named") || !strings.Contains(out, "para vault config set request.runner "+id) {
 		t.Fatalf("doctor = %s", out)
 	}
 	props := filepath.Join(vaultPath, ".para", "vault.properties")
