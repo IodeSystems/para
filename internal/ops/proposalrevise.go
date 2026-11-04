@@ -144,7 +144,7 @@ func fileRevision(ctx context.Context, d Deps, id string, build func(p *proposal
 		doc, err := d.Store.Create(ctx, model.Document{
 			Folder: model.FolderProposals, Title: p.doc.Title, Body: body,
 			Meta: &model.Proposal{
-				Common: model.Common{Type: model.TypeProposal, Tags: p.meta.Tags}, Source: p.meta.Source,
+				Common: model.Common{Type: model.TypeProposal, Tags: p.meta.Tags}, Source: p.meta.Source, SourcePath: p.meta.SourcePath,
 				Status: proposalStatus(next.Items), Revision: p.meta.Revision + 1,
 				Supersedes: model.LinkTo(p.doc.ID), ProposedBy: p.meta.ProposedBy,
 			},

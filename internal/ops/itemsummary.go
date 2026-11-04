@@ -48,7 +48,7 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 	if it.Kind.Outward() {
 		return z.external(it)
 	}
-	in := it.Input
+	in := cleanInput(it.Op, it.Input)
 	str := func(k string) string {
 		v, _ := in[k].(string)
 		return strings.TrimSpace(v)
@@ -251,14 +251,15 @@ func (z itemSummarizer) change(it model.ProposalItem) []string {
 		}
 		return out
 	}
-	keys := make([]string, 0, len(it.Input))
-	for k := range it.Input {
+	input := cleanInput(it.Op, it.Input)
+	keys := make([]string, 0, len(input))
+	for k := range input {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 	out := []string{}
 	for _, k := range keys {
-		v := z.value(it.Input[k])
+		v := z.value(input[k])
 		if v == "" {
 			continue
 		}

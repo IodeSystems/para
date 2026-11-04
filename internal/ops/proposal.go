@@ -95,7 +95,14 @@ func checkOpItem(op string, input map[string]any) error {
 	if strings.HasPrefix(op, "proposal_") || e.PersonOnly() {
 		return fmt.Errorf("op %q cannot be proposed", op)
 	}
-	b, err := json.Marshal(input)
+	clean, _, err := splitOpInput(op, input)
+	if err != nil {
+		return fmt.Errorf("op %s: input: %w", op, err)
+	}
+	if unknown := unknownInputFields(op, clean); len(unknown) > 0 {
+		return fmt.Errorf("op %s: input has unknown fields: %s. The input of an op item is exactly the input of the tool %s; why, sources, and not_duplicate are also accepted", op, strings.Join(unknown, ", "), op)
+	}
+	b, err := json.Marshal(clean)
 	if err != nil {
 		return fmt.Errorf("op %s: input: %w", op, err)
 	}
@@ -105,7 +112,7 @@ func checkOpItem(op string, input map[string]any) error {
 		return fmt.Errorf("op %s: input: %w", op, err)
 	}
 	if op == "task_add" {
-		if dw, _ := input["done_when"].(string); strings.TrimSpace(dw) == "" {
+		if dw, _ := clean["done_when"].(string); strings.TrimSpace(dw) == "" {
 			return errors.New("task_add: done_when is required in a proposal: say how we know the task is done")
 		}
 	}
@@ -129,7 +136,7 @@ func checkProposedAnswer(ctx context.Context, d Deps, it model.ProposalItem) err
 		return nil
 	}
 	var in QuestionAnswerInput
-	if err := decodeInput(it.Input, &in); err != nil {
+	if err := decodeInput(cleanInput(it.Op, it.Input), &in); err != nil {
 		return err
 	}
 	if _, err := answerSources(ctx, d, in.Sources, true); err != nil {
@@ -185,12 +192,14 @@ func newItem(ctx context.Context, d Deps, in ItemInput, id string, rules Proposa
 		if err := checkOpItem(in.Op, in.Input); err != nil {
 			return it, err
 		}
-		it.Op, it.Input, it.NotDuplicate = in.Op, in.Input, strings.TrimSpace(in.NotDuplicate)
+		_, meta, _ := splitOpInput(in.Op, in.Input)
+		it.Op, it.Input, it.NotDuplicate = in.Op, in.Input, firstOf(in.NotDuplicate, meta.NotDuplicate)
+		it.NotDuplicate = strings.TrimSpace(it.NotDuplicate)
 		if err := checkProposedAnswer(ctx, d, it); err != nil {
 			return it, err
 		}
 		if agentSurface(d) {
-			if err := checkCreate(ctx, d.Store, in.Op, in.Input, in.NotDuplicate); err != nil {
+			if err := checkCreate(ctx, d.Store, in.Op, cleanInput(in.Op, in.Input), it.NotDuplicate); err != nil {
 				return it, err
 			}
 		}
@@ -428,11 +437,14 @@ func reviewURL(d Deps, id string) (string, error) {
 
 // ProposalAddInput is the input of proposal_add.
 type ProposalAddInput struct {
-	Title   string      `json:"title"`
-	TLDR    string      `json:"tldr,omitempty"`    // what this asks, in a line; required unless every item is an old form
-	Context string      `json:"context,omitempty"` // what the owner needs to know to decide
-	Source  string      `json:"source"`            // id of the document this came from: a transcript, a note, a thread
-	Items   []ItemInput `json:"items"`
+	Title   string `json:"title"`
+	TLDR    string `json:"tldr,omitempty"`    // what this asks, in a line; required unless every item is an old form
+	Context string `json:"context,omitempty"` // what the owner needs to know to decide
+	Source  string `json:"source"`            // id of a document in this vault this came from: a transcript, a note, a thread. Not a path or URL
+	// SourcePath is free text provenance, such as the path of the file the
+	// source was read from. It is stored and shown, never resolved.
+	SourcePath string      `json:"source_path,omitempty"`
+	Items      []ItemInput `json:"items"`
 }
 
 // ProposalFiled is the output of proposal_add and proposal_revise. The agent
@@ -458,7 +470,7 @@ func filed(d Deps, doc model.Document) (ProposalFiled, error) {
 }
 
 // ProposalAdd files a proposal.
-var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward action (message, action) or a large or risky vault change (para items), each item with evidence, instead of doing it. Then call proposal_open, give the owner the tldr in the chat, ask, and record their words with proposal_decide", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
+var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward action (message, action) or a large or risky vault change (para items), each item with evidence, instead of doing it. Then call proposal_open, give the owner the tldr in the chat, ask, and record their words with proposal_decide. source must be the id of a document in this vault; put a file path or other provenance in source_path. The input of an item of kind op (or para) with op X is exactly the input of the tool X, plus the optional why, sources, and not_duplicate, which go to the receipt when the item runs; every unknown field is reported at once. To make an item refer to a document an earlier item creates, give that creating item an id in its input (project_add and the org and area add ops take one); every link-valued input (project, area, parent, task, depends_on, and the like) must name an existing document or such an id, or the whole proposal is refused with all problems listed", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
 	info, err := identity(d)
 	if err != nil {
 		return ProposalFiled{}, err
@@ -469,10 +481,17 @@ var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward act
 	}
 	source := normID(in.Source)
 	if source == "" {
-		return ProposalFiled{}, errors.New("source is empty: name the document this came from")
+		return ProposalFiled{}, errors.New("source is empty: give the id of a document in this vault; put a file path in source_path")
 	}
 	if _, err := d.Store.Get(ctx, source); err != nil {
-		return ProposalFiled{}, fmt.Errorf("source %s: %w", source, err)
+		if errors.Is(err, model.ErrNotFound) {
+			return ProposalFiled{}, fmt.Errorf("source %q is not a document id in this vault; put a file path or other provenance in source_path", in.Source)
+		}
+		return ProposalFiled{}, fmt.Errorf("source: %w", err)
+	}
+	sourcePath := strings.TrimSpace(in.SourcePath)
+	if strings.IndexFunc(sourcePath, unicode.IsControl) >= 0 {
+		return ProposalFiled{}, errors.New("source_path holds a control character")
 	}
 	if len(in.Items) == 0 {
 		return ProposalFiled{}, errors.New("no items")
@@ -498,6 +517,9 @@ var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward act
 	if err := checkPlan(c.Items); err != nil {
 		return ProposalFiled{}, err
 	}
+	if err := checkItemLinks(ctx, d, c.Items); err != nil {
+		return ProposalFiled{}, err
+	}
 	body, err := model.RenderProposalBody(c)
 	if err != nil {
 		return ProposalFiled{}, err
@@ -505,7 +527,7 @@ var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward act
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProposals, Title: title, Body: body,
 		Meta: &model.Proposal{
-			Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo(source),
+			Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo(source), SourcePath: sourcePath,
 			Status: model.ProposalOpen, Revision: 1, ProposedBy: info.Actor,
 		},
 	})
@@ -524,6 +546,7 @@ type ProposalView struct {
 	Status     model.ProposalStatus `json:"status"`
 	Revision   int                  `json:"revision"`
 	Source     string               `json:"source_doc"`
+	SourcePath string               `json:"source_path,omitempty"` // free text provenance, such as a file path
 	Supersedes string               `json:"supersedes,omitempty"`
 	ProposedBy string               `json:"proposed_by"`
 	Created    model.Date           `json:"created"`
@@ -536,7 +559,7 @@ type ProposalView struct {
 
 func (p *proposal) view() ProposalView {
 	v := ProposalView{ID: p.doc.ID, Title: p.doc.Title, Status: p.meta.Status, Revision: p.meta.Revision,
-		Source: p.meta.Source.Target(), Supersedes: p.meta.Supersedes.Target(), ProposedBy: p.meta.ProposedBy,
+		Source: p.meta.Source.Target(), SourcePath: p.meta.SourcePath, Supersedes: p.meta.Supersedes.Target(), ProposedBy: p.meta.ProposedBy,
 		Created: p.meta.Created, ItemCount: len(p.content.Items)}
 	for _, it := range p.content.Items {
 		if it.State == model.ItemPending {

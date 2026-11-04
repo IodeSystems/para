@@ -460,11 +460,15 @@ func runItem(ctx context.Context, d Deps, it model.ProposalItem, actor string) (
 			err = fmt.Errorf("op %s panicked", it.Op)
 		}
 	}()
-	raw, err := json.Marshal(it.Input)
+	clean, im, err := splitOpInput(it.Op, it.Input)
 	if err != nil {
 		return "", err
 	}
-	m := WriteMeta{Why: firstOf(it.How, it.Evidence.Quote), Sources: []string{it.Evidence.Locator}, NotDuplicate: it.NotDuplicate}
+	raw, err := json.Marshal(clean)
+	if err != nil {
+		return "", err
+	}
+	m := WriteMeta{Why: firstOf(im.Why, it.How, it.Evidence.Quote), Sources: append(im.Sources, it.Evidence.Locator), NotDuplicate: it.NotDuplicate}
 	if it.Decided != nil {
 		m.OwnerSaid = it.Decided.OwnerSaid
 	}

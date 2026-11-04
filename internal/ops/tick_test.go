@@ -103,7 +103,7 @@ func TestTickRunnerGate(t *testing.T) {
 	// No runner named: refuse, say what to add, and change nothing.
 	before := eventCount(t, a)
 	out := tick(t, a)
-	if out.Ran || !out.NoRunner || out.Failed() == nil || !strings.Contains(out.Skipped, "request.runner=ia") {
+	if out.Ran || !out.NoRunner || out.Failed() == nil || !strings.Contains(out.Skipped, "para vault config set request.runner ia") {
 		t.Fatalf("no runner: %+v", out)
 	}
 	if got := eventCount(t, a); got != before {

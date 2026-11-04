@@ -50,6 +50,7 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             proposedBy
             created
             sourceDoc
+            sourcePath
             sourceName
             error
           }

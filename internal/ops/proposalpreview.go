@@ -169,7 +169,7 @@ func previewItem(ctx context.Context, d Deps, actor string, it model.ProposalIte
 		pv.Error = "op " + it.Op + " is not an op"
 		return pv
 	}
-	raw, err := json.Marshal(it.Input)
+	raw, err := json.Marshal(cleanInput(it.Op, it.Input))
 	if err != nil {
 		pv.Error = err.Error()
 		return pv

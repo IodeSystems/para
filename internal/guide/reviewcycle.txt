@@ -2,10 +2,10 @@ How to ask the owner through a proposal. The owner reads the proposal in the web
 
 When to file one: before every outward action (an email, a message, a PR, a ticket, a deploy), always. Before a large or risky vault change when you judge it so, for example a bulk merge of duplicates or a move of many tasks. Ordinary vault edits need no proposal: make them with ops, each leaves a receipt, and the owner can undo it with `receipt_undo`.
 
-1. File. Call `proposal_add` with a title, a tldr, a context, a source document, and items. Each item needs evidence (a quote and a locator) and reversible (yes, no, or partly with reversible_how). Three kinds, each with a free-text subtype:
+1. File. Call `proposal_add` with a title, a tldr, a context, a source (the id of a document in this vault; a file path goes in source_path), and items. Each item needs evidence (a quote and a locator) and reversible (yes, no, or partly with reversible_how). Three kinds, each with a free-text subtype:
    - message: people and/or channel, optional subject, body.
    - action, any outward act (a PR, a ticket, a deploy): what it is, previous (a link to the state it changes, if one exists), how it changes it, and title, body, or diff as needed. target says where it lands.
-   - para, a vault change: op and input, with how and impact in words. Para computes the before and after and what waits on it.
+   - para, a vault change: op and input, with how and impact in words. Para computes the before and after and what waits on it. The input is exactly the input of the tool named by op, plus optional why, sources, and not_duplicate for the receipt. To name a goal or other document an earlier item creates, give that item an id in its input (project_add takes one); para refuses a link that names neither an existing document nor such an id.
    Weigh each item: pros and cons (a list of {text, source}), cost, benefit, confidence (a percent) with confidence_basis. Every claim has a source; state no source found where there is none, with a confidence of 40 or under.
    Plans: after names an item to run after. bundle groups items approved and denied as one; a failure halts the rest. choice groups alternatives with a recommendation percent each; picking one closes the others. group labels items. A later item can use an earlier result with a placeholder such as {{i1.url}}; it must run after that item. Approval covers the text with the placeholder, and only that value is filled.
    A vault may set rules per subtype in .para/proposals.yaml. Para checks every item when you file it.

@@ -135,6 +135,11 @@ function ProposalPage() {
               <Typography variant="body2" sx={{ mb: 1 }}>
                 <DocLink id={d.source.id}>{d.source.title || d.source.id}</DocLink>
               </Typography>
+              {d.proposal.sourcePath ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Path: {d.proposal.sourcePath}
+                </Typography>
+              ) : null}
               {d.source.error ? (
                 <Alert severity="warning">The source could not be read: {d.source.error}</Alert>
               ) : (d.source.body ?? '').trim() === '' ? null : (

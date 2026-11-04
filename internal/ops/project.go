@@ -59,6 +59,9 @@ func getProject(ctx context.Context, s store.Store, id string) (model.Document, 
 // ProjectAddInput is the input of project_add.
 type ProjectAddInput struct {
 	Title string `json:"title"`
+	// ID is optional, a slug; default project-<slug of title>. Give it when a
+	// later item of the same proposal names this goal.
+	ID    string `json:"id,omitempty"`
 	Owner string `json:"owner,omitempty"` // default: the vault's owner property, else "self"
 	Area  string `json:"area,omitempty"`  // id of an area of kind project: the goal's home
 	Body  string `json:"body,omitempty"`
@@ -113,6 +116,7 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 		return ProjectAddOutput{}, err
 	}
 	nd := model.Document{
+		ID:     normID(in.ID),
 		Folder: model.FolderProjects,
 		Title:  title,
 		Body:   demoteH1(in.Body),

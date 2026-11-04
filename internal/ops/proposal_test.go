@@ -422,7 +422,10 @@ func TestChoiceClosesOthers(t *testing.T) {
 func TestBundleApprovesInOrderAndHalts(t *testing.T) {
 	g := newPropFix(t)
 	a, b, c := paraTask(g, "First"), paraTask(g, "Second"), paraTask(g, "Third")
-	b.Op, b.Input = "task_start", map[string]any{"id": "task-missing"}
+	// A task that is done refuses to start: the item fails when it runs.
+	finished := must(t, TaskAdd, g.owner, TaskAddInput{Project: g.proj, Title: "Finished", DoneWhen: "Done."}).ID
+	must(t, TaskDone, g.owner, TaskDoneInput{ID: finished})
+	b.Op, b.Input = "task_start", map[string]any{"id": finished}
 	a.Bundle, b.Bundle, c.Bundle = "b", "b", "b"
 	b.After, c.After = "i1", "i2"
 	pid := g.add(a, b, c)

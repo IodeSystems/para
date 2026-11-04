@@ -143,8 +143,11 @@ var Reversibles = []Reversible{ReversibleYes, ReversibleNo, ReversiblePartly}
 // Source has the JSON name source_doc because policy and constraint use the
 // name source for a block, and the API has one flat Meta object.
 type Proposal struct {
-	Common     `yaml:",inline"`
-	Source     Link           `yaml:"source" json:"source_doc"`
+	Common `yaml:",inline"`
+	Source Link `yaml:"source" json:"source_doc"`
+	// SourcePath is free text for provenance, such as the path of the file the
+	// proposal came from. Source is the document id.
+	SourcePath string         `yaml:"source_path,omitempty" json:"source_path,omitempty"`
 	Status     ProposalStatus `yaml:"status" json:"status"`
 	Revision   int            `yaml:"revision" json:"revision"`
 	Supersedes Link           `yaml:"supersedes,omitempty" json:"supersedes,omitempty"`
