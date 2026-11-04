@@ -180,6 +180,9 @@ func (b *boundVault) deps() ops.Deps {
 func (t *Tenant) apiError(err error) error {
 	var lint *model.LintError
 	var path *fs.PathError
+	if s, ok := ops.AsStaged(err); ok {
+		return stagedStatus{s}
+	}
 	switch {
 	case errors.Is(err, ops.ErrPersonOnly):
 		return huma.Error403Forbidden(t.public(err))
@@ -197,3 +200,9 @@ func (t *Tenant) apiError(err error) error {
 }
 
 func (t *Tenant) public(err error) string { return ops.PublicError(err, t.hide) }
+
+// stagedStatus answers a write the gate held back: 202 Accepted, with the
+// staged item as the body. The write did not run; it waits for the owner.
+type stagedStatus struct{ *ops.Staged }
+
+func (s stagedStatus) GetStatus() int { return http.StatusAccepted }

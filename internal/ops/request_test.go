@@ -36,6 +36,7 @@ func newReqVault(t *testing.T) *reqVault {
 	if err := vault.Init(rv.root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	noGate(t, rv.root)
 	return rv
 }
 

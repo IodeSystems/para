@@ -5,8 +5,12 @@ Each vault is an MCP server named para-<vault>. Use the vault the owner names. I
 none is named, ask. Do not move work between vaults.
 
 Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
-empty vault, `process_meeting` for a transcript, and `review_cycle` before an outward
-action or a large or risky change.
+empty vault, `process_meeting` for a transcript, and `review_cycle` to prepare one
+dossier per investigation: markdown with typed blocks (yaml para-question, change,
+message, action, doc-edit) the owner answers in the web app. Rate each write minor
+and obvious when it is; others are staged in the review stack. Read the owner's
+answers with one `proposal_response` call, then `proposal_claim` and carry out
+outward items and report each with `proposal_executed`.
 
 Arguments. If the request starts with the word health (as in /para health), use the
 `health_triage` prompt: run `health`, settle what evidence settles with ops. With no argument, start with `orient`.

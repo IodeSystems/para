@@ -22,6 +22,7 @@ func newDepsAt(t *testing.T, now time.Time, install string) Deps {
 	if err := vault.Init(root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	noGate(t, root)
 	s, err := local.Open(root, vault.Options{ID: "acme", Actor: "user", Surface: "cli", Install: install,
 		StateDir: filepath.Join(filepath.Dir(root), "state"), Now: func() time.Time { return now }})
 	if err != nil {

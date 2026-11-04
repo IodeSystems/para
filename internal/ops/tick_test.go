@@ -32,6 +32,7 @@ func newTickVault(t *testing.T, now string, props ...string) *tickVault {
 	if err := vault.Init(tv.root, "acme", tpl, vault.InitOptions{NoGit: true}); err != nil {
 		t.Fatal(err)
 	}
+	noGate(t, tv.root)
 	if len(props) > 0 {
 		tv.addProps(props...)
 	}

@@ -129,6 +129,18 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ReceiptCheck.Run(t.Context(), d, ReceiptCheckInput{ID: "x", Verdict: model.ReceiptVerified})
 			return err
 		}},
+		{"proposal_draft", func(d Deps) error {
+			_, err := ProposalDraft.Run(t.Context(), d, ProposalDraftInput{ID: id, Revision: 1})
+			return err
+		}},
+		{"proposal_submit", func(d Deps) error {
+			_, err := ProposalSubmit.Run(t.Context(), d, ProposalSubmitInput{ID: id, Revision: 1})
+			return err
+		}},
+		{"stack_decide", func(d Deps) error {
+			_, err := StackDecide.Run(t.Context(), d, StackDecideInput{Group: "g", Decision: "approve"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}
@@ -320,7 +332,7 @@ func TestBrokenBlockIsReported(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(path, []byte(strings.ReplaceAll(string(raw), "````\n", "")), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(strings.ReplaceAll(string(raw), "```\n", "")), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ProposalShow.Run(t.Context(), f.agent, ProposalIDInput{ID: id}); err == nil || !strings.Contains(err.Error(), "not closed") {

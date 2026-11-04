@@ -40,6 +40,11 @@ type loader struct {
 	vaultFlag string
 	actorFlag string
 	whyFlag   string
+	// minorFlag, obviousFlag, and dossierFlag are an agent's ratings of a
+	// write for the gate, and where a held-back write goes.
+	minorFlag   bool
+	obviousFlag bool
+	dossierFlag string
 
 	install registry.Install
 
@@ -181,6 +186,9 @@ func newRoot(l *loader) *cobra.Command {
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
 	root.PersistentFlags().StringVar(&l.actorFlag, "actor", "", "act as this agent (or PARA_ACTOR; default the owner): writes then need --why and file a receipt, as over MCP")
 	root.PersistentFlags().StringVar(&l.whyFlag, "why", "", "why you make this write; required on a write when --actor names an agent")
+	root.PersistentFlags().BoolVar(&l.minorFlag, "minor", false, "as an agent: rate this write minor (a small change), for the gate")
+	root.PersistentFlags().BoolVar(&l.obviousFlag, "obvious", false, "as an agent: rate this write obvious (the owner would make it without asking), for the gate")
+	root.PersistentFlags().StringVar(&l.dossierFlag, "dossier", "", "as an agent: the dossier a write the gate holds back goes to (default your Staged writes dossier)")
 	root.AddCommand(
 		newVersionCmd(l),
 		newGuideCmd(),
@@ -230,6 +238,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTodayCmd(l),
 		newRequestCmd(l),
 		newProposalCmd(l),
+		newStackCmd(l),
 		newTopOpenCmd(l),
 		newReceiptCmd(l),
 		newAlignCmd(l),

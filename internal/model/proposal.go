@@ -45,6 +45,12 @@ const (
 	ItemAction  ItemKind = "action"
 	ItemPara    ItemKind = "para"
 
+	// A question asks the owner; its answer is the record. A doc edit changes
+	// a tracked document (RS3 runs it). Upstream is reserved for RS3.
+	ItemQuestion ItemKind = "question"
+	ItemDocEdit  ItemKind = "doc_edit"
+	ItemUpstream ItemKind = "upstream"
+
 	ItemOp       ItemKind = "op"
 	ItemExternal ItemKind = "external"
 )
@@ -53,10 +59,12 @@ const (
 func (ItemKind) Enum() []string { return enumStrings(ItemKinds) }
 
 // ItemKinds lists every ItemKind an input may name.
-var ItemKinds = []ItemKind{ItemMessage, ItemAction, ItemPara, ItemOp, ItemExternal}
+var ItemKinds = []ItemKind{ItemMessage, ItemAction, ItemPara, ItemQuestion, ItemDocEdit, ItemUpstream, ItemOp, ItemExternal}
 
 // Outward reports whether the kind is an act outside the vault.
-func (k ItemKind) Outward() bool { return k == ItemMessage || k == ItemAction || k == ItemExternal }
+func (k ItemKind) Outward() bool {
+	return k == ItemMessage || k == ItemAction || k == ItemExternal || k == ItemDocEdit || k == ItemUpstream
+}
 
 // ItemState is items[].state.
 type ItemState string
@@ -72,6 +80,8 @@ const (
 	ItemDenied    ItemState = "denied"    // final
 	ItemSentBack  ItemState = "sent_back" // waits for the agent
 	ItemWithdrawn ItemState = "withdrawn" // the agent removed it in a revision
+	ItemAnswered  ItemState = "answered"  // a question the owner answered
+	ItemClaimed   ItemState = "claimed"   // an approved outward item an agent is carrying out
 
 	// itemRework is the old word for sent_back, in older files.
 	itemRework ItemState = "rework"
@@ -81,7 +91,7 @@ const (
 func (ItemState) Enum() []string { return enumStrings(ItemStates) }
 
 // ItemStates lists every ItemState.
-var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn}
+var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn, ItemAnswered, ItemClaimed}
 
 // TurnKind is thread[].kind. Change, clarify, investigate, and redirect wait for
 // the agent's answer; the others are the record of what the owner did. Redirect
@@ -96,13 +106,14 @@ const (
 	TurnEdit        TurnKind = "edit"
 	TurnSendBack    TurnKind = "send_back"
 	TurnClose       TurnKind = "close"
+	TurnReply       TurnKind = "reply" // the agent's reply to an owner's comment
 )
 
 // Enum lists the allowed values, for schema generation.
 func (TurnKind) Enum() []string { return enumStrings(TurnKinds) }
 
 // TurnKinds lists every TurnKind.
-var TurnKinds = []TurnKind{TurnChange, TurnClarify, TurnInvestigate, TurnRedirect, TurnEdit, TurnSendBack, TurnClose}
+var TurnKinds = []TurnKind{TurnChange, TurnClarify, TurnInvestigate, TurnRedirect, TurnEdit, TurnSendBack, TurnClose, TurnReply}
 
 // TurnState is thread[].state. Failed is a redirect the agent could not resolve.
 type TurnState string
@@ -144,7 +155,8 @@ var Reversibles = []Reversible{ReversibleYes, ReversibleNo, ReversiblePartly}
 // name source for a block, and the API has one flat Meta object.
 type Proposal struct {
 	Common `yaml:",inline"`
-	Source Link `yaml:"source" json:"source_doc"`
+	// Source is optional on a dossier: an investigation may have no one source.
+	Source Link `yaml:"source,omitempty" json:"source_doc"`
 	// SourcePath is free text for provenance, such as the path of the file the
 	// proposal came from. Source is the document id.
 	SourcePath string         `yaml:"source_path,omitempty" json:"source_path,omitempty"`
@@ -354,8 +366,28 @@ type ProposalItem struct {
 	Execution *Execution `yaml:"execution,omitempty" json:"execution,omitempty"`
 	// Decided is how the owner decided the item, last.
 	Decided *ItemDecision `yaml:"decided,omitempty" json:"decided,omitempty"`
-	// Thread and HeldBy are read from older files. Para no longer adds to them.
+	// Thread holds the agent's replies to the owner's comments (kind reply),
+	// and turns read from older files.
 	Thread []Turn `yaml:"thread,omitempty" json:"thread,omitempty"`
+
+	// Question: options to pick from, more than one when multi.
+	Multi         bool           `yaml:"multi,omitempty" json:"multi,omitempty"`
+	Options       []string       `yaml:"options,omitempty" json:"options,omitempty"`
+	Recommended   string         `yaml:"recommended,omitempty" json:"recommended,omitempty"`
+	OptionDetails []OptionDetail `yaml:"option_details,omitempty" json:"option_details,omitempty"`
+	// Doc edit: the range of target it changes, its text now, and the new text.
+	Range string `yaml:"range,omitempty" json:"range,omitempty"`
+	Old   string `yaml:"old,omitempty" json:"old,omitempty"`
+	New   string `yaml:"new,omitempty" json:"new,omitempty"`
+	// Rev is the dossier revision of the item's last change.
+	Rev int `yaml:"rev,omitempty" json:"rev,omitempty"`
+	// ClaimedBy holds a claimed item until LeaseUntil (RFC 3339).
+	ClaimedBy  string `yaml:"claimed_by,omitempty" json:"claimed_by,omitempty"`
+	LeaseUntil string `yaml:"lease_until,omitempty" json:"lease_until,omitempty"`
+	// Answer is the owner's answer, a draft until the dossier is submitted.
+	Answer *ItemAnswer `yaml:"answer,omitempty" json:"answer,omitempty"`
+	// Section is the id of the dossier heading the block sits under. Not stored.
+	Section string `yaml:"-" json:"section,omitempty"`
 }
 
 // Decisions an owner makes on an item.
@@ -407,6 +439,13 @@ func (it ProposalItem) GateBody() string {
 // placeholders as written. An item with only a target and a body hashes as
 // GateHash, so a hash from before these fields still matches.
 func (it ProposalItem) Hash() (string, error) {
+	switch it.Kind {
+	case ItemQuestion:
+		return jsonHash(it.ID, map[string]any{"kind": it.Kind, "title": it.Title, "multi": it.Multi, "options": it.Options,
+			"recommended": it.Recommended, "option_details": it.OptionDetails, "for": it.For, "body": it.Body})
+	case ItemDocEdit:
+		return jsonHash(it.ID, map[string]any{"kind": it.Kind, "target": it.Target, "range": it.Range, "old": it.Old, "new": it.New})
+	}
 	if !it.Kind.Outward() {
 		return OpHash(it.Op, it.Input)
 	}
@@ -417,6 +456,14 @@ func (it ProposalItem) Hash() (string, error) {
 		"target": it.Target, "what": it.What, "previous": it.Previous, "how": it.How, "title": it.Title, "body": it.Body, "diff": it.Diff, "fields": it.Fields})
 	if err != nil {
 		return "", fmt.Errorf("model: hash %s: %w", it.ID, err)
+	}
+	return hashOf(string(b)), nil
+}
+
+func jsonHash(id string, v any) (string, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return "", fmt.Errorf("model: hash %s: %w", id, err)
 	}
 	return hashOf(string(b)), nil
 }
@@ -607,6 +654,13 @@ func blockStyle(n *yaml.Node) {
 // that breaks the block is an error, and the proposal cannot be reviewed until
 // it is fixed: an item is never guessed.
 func ParseProposalBody(body string) (ProposalContent, error) {
+	if IsDossier(body) {
+		d, err := ParseDossier(body)
+		if err != nil {
+			return ProposalContent{}, err
+		}
+		return d.Content(), nil
+	}
 	var r rawContent
 	var c ProposalContent
 	open := "\n" + proposalFence + proposalInfo + "\n"

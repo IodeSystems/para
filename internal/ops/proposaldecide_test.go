@@ -119,12 +119,9 @@ func TestDecideChangeMakesRevisionStillPending(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if out.Revision == "" || out.Revision == id || out.Status != model.ProposalOpen {
+	// The revision is made in place: the same file, the next revision number.
+	if out.Revision != id || out.Status != model.ProposalOpen {
 		t.Fatalf("out = %+v", out)
-	}
-	old, _ := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: id})
-	if old.Proposal.Status != model.ProposalSuperseded || old.SupersededBy != out.Revision {
-		t.Fatalf("old = %+v", old.Proposal)
 	}
 	show, err := ProposalShow.Run(t.Context(), f.owner, ProposalIDInput{ID: out.Revision})
 	if err != nil {

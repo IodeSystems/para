@@ -205,6 +205,9 @@ var metaProps = map[string]schema{
 	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. Say low when you doubt the write; it is stored in the receipt"},
 	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
 	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
+	"minor":         {"type": "boolean", "description": "Rate the write minor: a small change. With obvious (and undoable, which para knows), it applies directly; otherwise it goes to the owner's review stack and does not run yet"},
+	"obvious":       {"type": "boolean", "description": "Rate the write obvious: the owner would make it without asking. Never with confidence low"},
+	"dossier":       {"type": "string", "description": "The id of your dossier a held-back write goes to; default your Staged writes dossier"},
 }
 
 // toolSchema is the input schema of a tool: the op's Input and, on a write, the
@@ -274,6 +277,9 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (con
 	}
 	m.Request, _ = take("request").(string)
 	m.NotDuplicate, _ = take("not_duplicate").(string)
+	m.Minor, _ = take("minor").(bool)
+	m.Obvious, _ = take("obvious").(bool)
+	m.Dossier, _ = take("dossier").(string)
 	b, err := json.Marshal(args)
 	if err != nil {
 		return ctx, input, errors.New("input: not JSON")

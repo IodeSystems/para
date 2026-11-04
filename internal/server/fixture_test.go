@@ -97,6 +97,10 @@ func buildHome(base string) error {
 	if err != nil {
 		return err
 	}
+	// Most tests here predate the gate and expect agent writes to apply.
+	if err := s.SetConfig(contextBackground(), "gate.require", "none"); err != nil {
+		return err
+	}
 	return opsample.Seed(contextBackground(), s)
 }
 

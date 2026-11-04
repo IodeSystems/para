@@ -30,6 +30,7 @@ func laterVault(t *testing.T) (Deps, string) {
 	if err := vault.Init(root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	noGate(t, root)
 	st, err := local.Open(root, vault.Options{ID: "acme", Actor: "user", Surface: "cli", Install: "m1",
 		StateDir: filepath.Join(filepath.Dir(root), "state"), Now: func() time.Time { return azClock }})
 	if err != nil {

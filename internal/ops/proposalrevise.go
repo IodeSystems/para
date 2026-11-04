@@ -10,9 +10,11 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-// ProposalReviseInput is the input of proposal_revise.
+// ProposalReviseInput is the input of proposal_revise. Markdown is the whole
+// new dossier body; the other fields change items one by one.
 type ProposalReviseInput struct {
 	ID       string      `json:"id"`
+	Markdown string      `json:"markdown,omitempty"` // the new dossier body; then leave the other fields out
 	TLDR     string      `json:"tldr,omitempty"`     // replaces the tldr
 	Context  string      `json:"context,omitempty"`  // replaces the context
 	Items    []ItemInput `json:"items,omitempty"`    // replacements (with id) and new items (no id)
@@ -88,76 +90,48 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 	return out, checkPlan(out)
 }
 
-// ProposalRevise files the next revision as a new document that supersedes
-// this one. The old file stays as history.
-var ProposalRevise = defineSafe("proposal_revise", "File the next revision of a proposal: replace items (with id), add items (no id), withdraw items, or change tldr or context. Items the owner decided stay as they are", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
-	if len(in.Items) == 0 && len(in.Withdraw) == 0 && in.TLDR == "" && in.Context == "" {
-		return ProposalFiled{}, errors.New("nothing to revise: give items, withdraw, tldr, or context")
+// ProposalRevise rewrites a proposal in place as its next revision. The body
+// before is kept in a receipt.
+var ProposalRevise = defineSafe("proposal_revise", "Revise a dossier in place: give markdown, the whole new body (keep the ids of items you keep; an item you leave out is withdrawn), or change items one by one (items with id replace, without id add, withdraw drops, or a new tldr or context). An item whose text is unchanged keeps the owner's answer; a changed one waits for the owner again with its answer marked stale. Items the owner decided cannot change. The old body is kept in a receipt; proposal_diff shows the change", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
+	markdown := strings.TrimSpace(in.Markdown) != ""
+	if markdown && (len(in.Items) > 0 || len(in.Withdraw) > 0 || in.TLDR != "" || in.Context != "") {
+		return ProposalFiled{}, errors.New("give markdown, or items, withdraw, tldr, and context; not both")
 	}
-	doc, err := fileRevision(ctx, d, in.ID, func(p *proposal) (model.ProposalContent, error) {
-		next := model.ProposalContent{TLDR: p.content.TLDR, Context: p.content.Context}
+	if !markdown && len(in.Items) == 0 && len(in.Withdraw) == 0 && in.TLDR == "" && in.Context == "" {
+		return ProposalFiled{}, errors.New("nothing to revise: give markdown, items, withdraw, tldr, or context")
+	}
+	p, err := reviseInPlace(ctx, d, in.ID, "", func(p *proposal, rev int) error {
+		if markdown {
+			next, err := parseAgentDossier(ctx, d, in.Markdown, false)
+			if err != nil {
+				return err
+			}
+			return mergeRevision(p, next, rev)
+		}
 		if t := strings.TrimSpace(in.TLDR); t != "" {
-			next.TLDR = t
+			p.content.TLDR = t
 		}
 		if t := strings.TrimSpace(in.Context); t != "" {
-			next.Context = t
+			p.content.Context = t
 		}
-		var err error
-		next.Items, err = reviseItems(ctx, d, p.content.Items, in)
-		return next, err
+		before := map[string]string{}
+		for _, it := range p.content.Items {
+			before[it.ID], _ = it.Hash()
+		}
+		items, err := reviseItems(ctx, d, p.content.Items, in)
+		if err != nil {
+			return err
+		}
+		for i := range items {
+			if h, _ := items[i].Hash(); before[items[i].ID] != h {
+				items[i].Rev = rev
+			}
+		}
+		p.content.Items = items
+		return nil
 	})
 	if err != nil {
 		return ProposalFiled{}, err
 	}
-	return filed(d, doc)
+	return filed(d, p.doc)
 })
-
-// fileRevision files the next revision of id with the content build returns.
-// It marks the old revision first, with Rev compared, so a decision that got in
-// first makes it read again.
-func fileRevision(ctx context.Context, d Deps, id string, build func(p *proposal) (model.ProposalContent, error)) (model.Document, error) {
-	for range claimRetries {
-		p, err := loadProposal(ctx, d, id)
-		if err != nil {
-			return model.Document{}, err
-		}
-		if p.meta.Status == model.ProposalSuperseded {
-			return model.Document{}, fmt.Errorf("%s is superseded: revise the latest revision", p.doc.ID)
-		}
-		next, err := build(p)
-		if err != nil {
-			return model.Document{}, err
-		}
-		body, err := model.RenderProposalBody(next)
-		if err != nil {
-			return model.Document{}, err
-		}
-		prev := p.meta.Status
-		p.meta.Status = model.ProposalSuperseded
-		old, err := d.Store.Update(ctx, p.doc)
-		if errors.Is(err, model.ErrConflict) {
-			continue
-		}
-		if err != nil {
-			return model.Document{}, err
-		}
-		doc, err := d.Store.Create(ctx, model.Document{
-			Folder: model.FolderProposals, Title: p.doc.Title, Body: body,
-			Meta: &model.Proposal{
-				Common: model.Common{Type: model.TypeProposal, Tags: p.meta.Tags}, Source: p.meta.Source, SourcePath: p.meta.SourcePath,
-				Status: proposalStatus(next.Items), Revision: p.meta.Revision + 1,
-				Supersedes: model.LinkTo(p.doc.ID), ProposedBy: p.meta.ProposedBy,
-			},
-		})
-		if err != nil {
-			// Lint refused the new text: this revision stays the current one.
-			old.Meta.(*model.Proposal).Status = prev
-			if _, undo := d.Store.Update(ctx, old); undo != nil {
-				return model.Document{}, errors.Join(err, undo)
-			}
-			return model.Document{}, err
-		}
-		return doc, nil
-	}
-	return model.Document{}, fmt.Errorf("could not revise %s after %d tries: it keeps changing", id, claimRetries)
-}

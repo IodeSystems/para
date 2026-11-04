@@ -39,7 +39,7 @@ func TestOpItemWhySourcesNotDuplicateReachTheReceipt(t *testing.T) {
 		t.Fatalf("receipts = %+v, %v", rl.Items, err)
 	}
 	r := rl.Items[0]
-	if r.Why != "Ada asked for it." || r.NotDuplicate != "No such task." || len(r.Sources) != 2 || r.Sources[0] != "note-x line 3" {
+	if r.Why != "Ada asked for it." || r.NotDuplicate != "No such task." || len(r.Sources) != 3 || r.Sources[0] != "note-x line 3" || r.Sources[2] != out.ID+"#i1" {
 		t.Fatalf("receipt = %+v", r)
 	}
 }

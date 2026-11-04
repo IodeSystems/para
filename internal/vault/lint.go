@@ -19,6 +19,19 @@ func convert(in []paramd.Finding) []model.Finding {
 	return out
 }
 
+// lintFile is paramd.Lint plus the dossier blocks of a proposal body
+// (model.LintDossier), which paramd cannot import.
+func lintFile(f *paramd.File) []paramd.Finding {
+	out := paramd.Lint(f)
+	if f.Type() != string(model.TypeProposal) || !model.IsDossier(f.Body) {
+		return out
+	}
+	for _, d := range model.LintDossier(f.Body) {
+		out = append(out, paramd.Finding{Path: f.Path, Line: f.BodyLine + d.Line - 1, Code: d.Code, Severity: paramd.Error, Msg: d.Msg})
+	}
+	return out
+}
+
 // renderChecked renders d (onto oldFrontmatter, as model.RenderOnto) and refuses it if Lint reports an error. Warnings
 // do not refuse a write.
 func renderChecked(rel string, d model.Document, oldFrontmatter []byte) ([]byte, error) {
@@ -27,7 +40,7 @@ func renderChecked(rel string, d model.Document, oldFrontmatter []byte) ([]byte,
 		return nil, err
 	}
 	var bad []model.Finding
-	for _, f := range convert(paramd.Lint(paramd.Parse(rel, data))) {
+	for _, f := range convert(lintFile(paramd.Parse(rel, data))) {
 		if f.Severity == model.SeverityError {
 			bad = append(bad, f)
 		}
@@ -49,7 +62,7 @@ func lintFiles(root string, rels []string) ([]model.Finding, error) {
 		}
 		f := paramd.Parse(rel, data)
 		files = append(files, f)
-		out = append(out, paramd.Lint(f)...)
+		out = append(out, lintFile(f)...)
 	}
 	out = append(out, paramd.CheckVault(files)...)
 	return convert(out), nil
@@ -69,7 +82,7 @@ func LintPath(p string) ([]model.Finding, error) {
 		if err != nil {
 			return nil, fmt.Errorf("vault: lint path: %w", err)
 		}
-		return convert(paramd.Lint(f)), nil
+		return convert(lintFile(f)), nil
 	}
 	dirs := []string{"."}
 	if _, err := os.Stat(filepath.Join(p, dirState)); err == nil {

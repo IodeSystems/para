@@ -141,15 +141,26 @@ func (s *Server) access(next http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" {
+		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" || r.Header.Get("X-Para-Dossier") != "" ||
+			r.Header.Get("X-Para-Minor") != "" || r.Header.Get("X-Para-Obvious") != "" {
 			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
-				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate")}))
+				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate"),
+				Minor: headerTrue(r.Header.Get("X-Para-Minor")), Obvious: headerTrue(r.Header.Get("X-Para-Obvious")), Dossier: r.Header.Get("X-Para-Dossier")}))
 		}
 		next.ServeHTTP(sw, r)
 		req, _ := netguard.From(r.Context())
 		s.log.Info("request", "method", r.Method, "path", req.Path, "status", sw.status,
 			"latency_ms", time.Since(start).Milliseconds(), "vault", req.Vault, "actor", req.Principal.Name)
 	})
+}
+
+// headerTrue reads a rating header: true, 1, or yes.
+func headerTrue(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "yes":
+		return true
+	}
+	return false
 }
 
 func isAPIPath(p string) bool {

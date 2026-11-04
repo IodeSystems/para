@@ -419,6 +419,9 @@ func TestEveryOpIsRegistered(t *testing.T) {
 		"proposal_approve": "a person decides at a terminal or in the chat; the web app only reads proposals",
 		"proposal_deny":    "a person decides at a terminal or in the chat; the web app only reads proposals",
 		"proposal_open":    "opens a browser on the machine para runs on: CLI and MCP only",
+		// Served with the review:decide scope in the next commit.
+		"proposal_claim": "next commit", "proposal_reply": "next commit", "proposal_response": "next commit", "proposal_stack": "next commit",
+		"proposal_draft": "next commit", "proposal_submit": "next commit", "stack_decide": "next commit",
 	}
 	f := newFixture(t)
 	seen := map[string]bool{}

@@ -136,6 +136,117 @@ func newProposalCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.ProposalSubmit, binding[ops.ProposalSubmitInput, ops.ProposalSubmitOutput]{
+			Use:  "submit <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalSubmitInput) {
+				fs.IntVar(&in.Revision, "revision", 0, "the revision you answered; default the one in the file now")
+			},
+			Bind: func(args []string, in *ops.ProposalSubmitInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.ProposalSubmitOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.ID, out.Status)
+				writeDecisions(p, out.Items)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalResponse, binding[ops.ProposalIDInput, ops.ProposalResponseOutput]{
+			Use:  "response <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.ProposalIDInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.ProposalResponseOutput) error {
+				p := &printer{w: w}
+				p.f("%s\trev %d\tresponse %s\n", out.ID, out.Revision, out.Response)
+				if out.Overall != "" {
+					p.f("overall\t%s\n", out.Overall)
+				}
+				for k, v := range out.Sections {
+					p.f("section %s\t%s\n", k, v)
+				}
+				for _, it := range out.Items {
+					p.f("%s\t%s\t%s\t%s\t%s\n", it.ID, it.Kind, it.State, it.Stack, it.Decision)
+					if a := it.Answer; a != nil {
+						if len(a.Choices) > 0 {
+							p.f("  choices\t%s\n", strings.Join(a.Choices, ", "))
+						}
+						if a.OwnWords != "" {
+							p.f("  own words\t%s\n", a.OwnWords)
+						}
+						if a.Comment != "" {
+							p.f("  comment\t%s\n", a.Comment)
+						}
+					}
+				}
+				p.f("todo claim\t%s\ntodo answered\t%s\ntodo reply\t%s\n", strings.Join(out.Todo.Claim, " "), strings.Join(out.Todo.Answered, " "), strings.Join(out.Todo.Reply, " "))
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalClaim, binding[ops.ProposalClaimInput, ops.ProposalClaimOutput]{
+			Use:  "claim <id> [item]... [--group <group>]",
+			Args: cobra.MinimumNArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalClaimInput) {
+				fs.StringVar(&in.Group, "group", "", "claim every claimable item of this group")
+				fs.IntVar(&in.LeaseSeconds, "lease", 0, "seconds the claim holds; default 3600")
+			},
+			Bind: func(args []string, in *ops.ProposalClaimInput) error { in.ID, in.Items = args[0], args[1:]; return nil },
+			Text: func(w io.Writer, out ops.ProposalClaimOutput) error {
+				p := &printer{w: w}
+				p.f("%s\tclaimed %s\tuntil %s\n", out.ID, strings.Join(out.Claimed, " "), out.LeaseUntil)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalReply, binding[ops.ProposalReplyInput, ops.ProposalReplyOutput]{
+			Use:  "reply <id> <text> (--item <item> | --section <section>)",
+			Args: cobra.ExactArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalReplyInput) {
+				fs.StringVar(&in.Item, "item", "", "the item whose comment you answer")
+				fs.StringVar(&in.Section, "section", "", "the section id whose comment you answer, or overall")
+			},
+			Bind: func(args []string, in *ops.ProposalReplyInput) error { in.ID, in.Text = args[0], args[1]; return nil },
+			Text: func(w io.Writer, out ops.ProposalReplyOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.ID, out.Reply)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalStack, binding[ops.ProposalStackInput, ops.ProposalStackOutput]{
+			Use:  "stack",
+			Args: cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalStackInput) {
+				fs.StringVar(&in.State, "state", "", "only this stack state: proposed, decided, executing, done, failed, closed")
+				fs.StringVar(&in.Kind, "kind", "", "only this item kind")
+				fs.StringVar(&in.Group, "group", "", "only this group")
+				fs.StringVar(&in.Proposal, "proposal", "", "only this dossier")
+				fs.StringVar(&in.Actor, "actor-filter", "", "only dossiers this agent filed")
+				fs.StringVar(&in.Cursor, "cursor", "", "next_cursor of the page before")
+				fs.IntVar(&in.Limit, "limit", 0, "rows per page; default 200")
+			},
+			Text: func(w io.Writer, out ops.ProposalStackOutput) error {
+				p := &printer{w: w}
+				for _, c := range out.Counts {
+					p.f("%s %d  ", c.State, c.Count)
+				}
+				p.f("\n")
+				for _, r := range out.Rows {
+					p.f("%s\t%s\t%s\t%s\t%s\t%s\n", r.Proposal, r.Item, r.Stack, r.Kind, r.Group, r.Summary)
+				}
+				if out.NextCursor != "" {
+					p.f("next\t%s\n", out.NextCursor)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ProposalDraft, binding[ops.ProposalDraftInput, ops.ProposalDraftOutput]{
+			Use:   "draft <id> < draft.json",
+			Args:  cobra.ExactArgs(1),
+			Stdin: decodeStdin[ops.ProposalDraftInput],
+			Bind:  func(args []string, in *ops.ProposalDraftInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.ProposalDraftOutput) error {
+				p := &printer{w: w}
+				p.f("%s\trev %d\t%d of %d drafted\n", out.ID, out.Revision, out.Drafted, out.Total)
+				return p.err
+			},
+		}),
 		opCommand(l, ops.ProposalUndone, binding[ops.ProposalUndoneInput, ops.ProposalUndoneOutput]{
 			Use:  "undone",
 			Args: cobra.NoArgs,
@@ -143,6 +254,43 @@ func newProposalCmd(l *loader) *cobra.Command {
 				p := &printer{w: w}
 				for _, it := range out.Items {
 					p.f("%s\t%s\t%s\n", it.Proposal, it.Item, it.Summary)
+				}
+				return p.err
+			},
+		}),
+	)
+	return cmd
+}
+
+// newStackCmd builds `para stack`: decide items of the review stack across
+// dossiers. `para proposal stack` lists it.
+func newStackCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "stack", Short: "The review stack: decide items across dossiers", Args: cobra.NoArgs}
+	cmd.AddCommand(
+		opCommand(l, ops.StackDecide, binding[ops.StackDecideInput, ops.StackDecideOutput]{
+			Use:  "decide approve|reject [proposal:item]... [--group <group>]",
+			Args: cobra.MinimumNArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.StackDecideInput) {
+				fs.StringVar(&in.Group, "group", "", "every waiting item of this group")
+				fs.StringVar(&in.Proposal, "proposal", "", "with --group: only this dossier")
+				fs.StringVar(&in.Comment, "comment", "", "why; kept as the reason of a rejection")
+			},
+			Bind: func(args []string, in *ops.StackDecideInput) error {
+				in.Decision = args[0]
+				for _, a := range args[1:] {
+					prop, item, ok := strings.Cut(a, ":")
+					if !ok {
+						return fmt.Errorf("%q: want proposal:item", a)
+					}
+					in.Items = append(in.Items, ops.StackItemRef{Proposal: prop, Item: item})
+				}
+				return nil
+			},
+			Text: func(w io.Writer, out ops.StackDecideOutput) error {
+				p := &printer{w: w}
+				for _, r := range out.Proposals {
+					p.f("%s\t%s\n", r.ID, r.Status)
+					writeDecisions(p, r.Items)
 				}
 				return p.err
 			},

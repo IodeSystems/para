@@ -302,7 +302,7 @@ func finishRun(ctx context.Context, d Deps, id string, run model.ProposalItem, b
 		return nil, Decision{}, err
 	}
 	run.Input = fillInput(current, run.Input)
-	result, opErr := runItem(ctx, d, run, by)
+	result, opErr := runItem(context.WithValue(ctx, itemRefKey{}, proposalRef(current.doc.ID, item)), d, run, by)
 	p, err := changeProposal(ctx, d, id, func(p *proposal) error {
 		it, err := p.item(item)
 		if err != nil {
@@ -397,7 +397,7 @@ func haltAfterFailure(ctx context.Context, d Deps, id string, failed model.Propo
 		if it.Bundle != failed.Bundle || it.ID == failed.ID {
 			continue
 		}
-		if it.Waits || (it.Kind.Outward() && it.State == model.ItemApproved) {
+		if it.Waits || (it.Kind.Outward() && (it.State == model.ItemApproved || it.State == model.ItemClaimed)) {
 			if p, err = haltItem(ctx, d, id, it.ID, failed.ID); err != nil {
 				return nil, err
 			}
@@ -451,6 +451,9 @@ func fillInput(p *proposal, in map[string]any) map[string]any {
 	return out
 }
 
+// itemRefKey carries proposalRef of the item runItem runs, for its receipt.
+type itemRefKey struct{}
+
 // runItem runs an op under the proposing actor, through Invoke as any surface
 // does: lint and events apply. It returns the id the op reports, if any. A panic
 // in an op fails the item and not the review.
@@ -469,6 +472,9 @@ func runItem(ctx context.Context, d Deps, it model.ProposalItem, actor string) (
 		return "", err
 	}
 	m := WriteMeta{Why: firstOf(im.Why, it.How, it.Evidence.Quote), Sources: append(im.Sources, it.Evidence.Locator), NotDuplicate: it.NotDuplicate}
+	if ref, ok := ctx.Value(itemRefKey{}).(string); ok {
+		m.Sources = append(m.Sources, ref)
+	}
 	if it.Decided != nil {
 		m.OwnerSaid = it.Decided.OwnerSaid
 	}

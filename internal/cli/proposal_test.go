@@ -213,7 +213,8 @@ func TestProposalCycle(t *testing.T) {
 		map[string]any{"item": "i5", "decision": "deny", "text": "Not this quarter"},
 		map[string]any{"item": "i4", "decision": "change", "text": "The parser is mine."},
 	))
-	if dec.Revision == "" || dec.Revision == id {
+	// A change revises the file in place.
+	if dec.Revision != id {
 		t.Fatalf("decide = %+v", dec)
 	}
 	states := map[string]model.ItemState{}
@@ -227,8 +228,6 @@ func TestProposalCycle(t *testing.T) {
 		t.Fatalf("states = %v", states)
 	}
 	rev := dec.Revision
-	// The old revision is superseded; decisions go to the new one.
-	e.fails("superseded", "proposal", "approve", id, "i3")
 
 	// A person at a terminal approves the rest.
 	var mixed ops.ProposalReviewOutput
@@ -286,14 +285,15 @@ func TestProposalCycle(t *testing.T) {
 	// carries out the email, and reports it.
 	second := startMCP(t, e.env, "--actor", "claude-two")
 	show := tool[ops.ProposalDetail](t, second, "proposal_show", map[string]any{"id": rev})
-	if !strings.Contains(show.SourceDoc.Body, "Ada will write") || !strings.Contains(show.Untrusted, "untrusted") || len(show.History) != 2 {
+	if !strings.Contains(show.SourceDoc.Body, "Ada will write") || !strings.Contains(show.Untrusted, "untrusted") || len(show.History) != 1 || show.Proposal.Revision != 2 {
 		t.Fatalf("show = %+v", show.Proposal)
 	}
 	if got := decision(t, show, "i4"); got.State != model.ItemPending || got.Body != "The parser is mine." || !got.Edited || len(got.Actions) != 3 {
 		t.Fatalf("i4 = %+v", got)
 	}
 	diff := tool[ops.ProposalDiffOutput](t, second, "proposal_diff", map[string]any{"id": rev})
-	if diff.Previous != id {
+	// The revision was in place: the body before is in a receipt.
+	if !strings.HasPrefix(diff.Previous, "receipt-") {
 		t.Fatalf("diff = %+v", diff)
 	}
 	done := tool[ops.ProposalExecutedOutput](t, second, "proposal_executed", map[string]any{"id": rev, "item": "i2", "result": "done", "url": "https://mail.acme.example/m/1"})

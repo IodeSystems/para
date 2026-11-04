@@ -68,6 +68,9 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "similar: %s\n", s.Title)
 		}
 		out, err := op.Run(ctx, deps, in)
+		if s, ok := ops.AsStaged(err); ok {
+			return emitStaged(cmd, s)
+		}
 		if err != nil {
 			return err
 		}
@@ -125,5 +128,18 @@ func (l *loader) writeContext(ctx context.Context, e ops.Entry, in any) (context
 	if why == "" {
 		return ctx, fmt.Errorf("%s: --why is required: say why you make this write as actor %s", e.Name(), l.actor())
 	}
-	return ops.WithWrite(ctx, ops.WriteMeta{Why: why}), nil
+	return ops.WithWrite(ctx, ops.WriteMeta{Why: why, Minor: l.minorFlag, Obvious: l.obviousFlag, Dossier: strings.TrimSpace(l.dossierFlag)}), nil
+}
+
+// emitStaged prints a write the gate held back. It is a success: the write
+// waits in the review stack.
+func emitStaged(cmd *cobra.Command, s *ops.Staged) error {
+	return emit(cmd, *s, func(w io.Writer, s ops.Staged) error {
+		p := &printer{w: w}
+		p.f("staged\t%s\t%s\t%s\n%s\n", s.Proposal, s.Item, strings.Join(s.Missing, ","), s.Message)
+		if s.URL != "" {
+			p.f("url: %s\n", s.URL)
+		}
+		return p.err
+	})
 }

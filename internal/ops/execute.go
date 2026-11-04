@@ -46,7 +46,7 @@ type ProposalExecutedOutput struct {
 // reports is self-reported: para cannot see the act. Only placeholder values
 // may differ from the approved text, and they are kept in the receipt, with the
 // owner's words from the decision.
-var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried out an approved message or action, with the result and its URL or locator. A later item can use them as {{i1.url}}", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
+var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried out an approved (or claimed) message, action, or doc edit, with the result and its URL or locator. A later item can use them as {{i1.url}}", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
 	if in.Result != ExecDone && in.Result != ExecFailed {
 		return ProposalExecutedOutput{}, fmt.Errorf("result %q: want done or failed", in.Result)
 	}
@@ -72,8 +72,11 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		if !it.Kind.Outward() {
 			return fmt.Errorf("item %s is a vault change: para ran it", it.ID)
 		}
-		if it.State != model.ItemApproved {
+		if it.State != model.ItemApproved && it.State != model.ItemClaimed {
 			return fmt.Errorf("item %s is %s, not approved", it.ID, it.State)
+		}
+		if it.State == model.ItemClaimed && it.ClaimedBy != info.Actor && !leaseOver(*it, d.Store.Now()) {
+			return fmt.Errorf("item %s is claimed by %s until %s", it.ID, it.ClaimedBy, it.LeaseUntil)
 		}
 		if now, err := it.Hash(); err != nil || now != it.ApprovedHash {
 			return fmt.Errorf("item %s changed since it was approved", it.ID)
@@ -88,7 +91,7 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		exec = model.Execution{Result: in.Result, URL: strings.TrimSpace(in.URL), Locator: strings.TrimSpace(in.Locator), By: info.Actor,
 			At: d.Store.Now().UTC().Format(time.RFC3339), SelfReported: true, Filled: filledValues(p, *it)}
 		it.Execution = &exec
-		it.State, it.Reason = model.ItemDone, ""
+		it.State, it.Reason, it.LeaseUntil = model.ItemDone, "", ""
 		if in.Result == ExecFailed {
 			it.State, it.Reason = model.ItemFailed, reason
 		}
@@ -198,7 +201,7 @@ var ProposalUndone = defineRead("proposal_undone", "List messages and actions th
 			continue
 		}
 		for _, it := range p.content.Items {
-			if it.Kind.Outward() && it.State == model.ItemApproved {
+			if it.Kind.Outward() && (it.State == model.ItemApproved || it.State == model.ItemClaimed) {
 				out.Items = append(out.Items, UndoneItem{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Summary: sum.of(it), Target: it.GateTarget()})
 			}
 		}

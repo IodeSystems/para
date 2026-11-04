@@ -251,7 +251,7 @@ var typeFields = map[string][]field{
 		{Name: "resolution", Kind: kEnum, Enum: requestResolutions},
 	},
 	"proposal": {
-		{Name: "source", Kind: kLink, Required: true},
+		{Name: "source", Kind: kLink},
 		{Name: "status", Kind: kEnum, Enum: proposalStatus, Required: true},
 		{Name: "revision", Kind: kCount, Required: true},
 		{Name: "supersedes", Kind: kLink},

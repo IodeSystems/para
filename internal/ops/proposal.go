@@ -328,7 +328,8 @@ type proposal struct {
 	doc     model.Document
 	meta    *model.Proposal
 	content model.ProposalContent
-	broken  error // the block could not be read; content is empty
+	broken  error          // the block could not be read; content is empty
+	dossier *model.Dossier // nil for a file in the old one-block form
 }
 
 func (p *proposal) item(id string) (*model.ProposalItem, error) {
@@ -361,15 +362,36 @@ func readProposal(ctx context.Context, d Deps, id string) (*proposal, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s is %s, not proposal", doc.ID, doc.Meta.Header().Type)
 	}
-	c, err := model.ParseProposalBody(doc.Body)
-	p := &proposal{doc: doc, meta: m, content: c}
-	if err != nil {
-		p.content, p.broken = model.ProposalContent{}, fmt.Errorf("%s: %w", doc.ID, err)
-		return p, nil
+	p := &proposal{doc: doc, meta: m}
+	if model.IsDossier(doc.Body) {
+		dz, err := model.ParseDossier(doc.Body)
+		if err != nil {
+			p.broken = fmt.Errorf("%s: %w", doc.ID, err)
+			return p, nil
+		}
+		p.dossier, p.content = dz, dz.Content()
+	} else {
+		c, err := model.ParseProposalBody(doc.Body)
+		if err != nil {
+			p.broken = fmt.Errorf("%s: %w", doc.ID, err)
+			return p, nil
+		}
+		p.content = c
 	}
 	for i := range p.content.Items {
-		if it := &p.content.Items[i]; it.State == model.ItemHeld {
+		it := &p.content.Items[i]
+		if it.State == model.ItemHeld {
 			it.State = model.ItemPending
+		}
+		// Para writes via on every answer it writes: an answer without one
+		// was typed into the file by hand.
+		if it.Answer != nil && it.Answer.Via == "" {
+			it.Answer.Via = model.ViaFile
+		}
+	}
+	if p.dossier != nil {
+		if r := p.dossier.Header.Response; r != nil && r.Via == "" && (r.Overall != "" || len(r.Sections) > 0) {
+			r.Via = model.ViaFile
 		}
 	}
 	return p, nil
@@ -398,7 +420,7 @@ func proposalStatus(items []model.ProposalItem) model.ProposalStatus {
 // save writes a revision's items back. Rev is compared, so a change made since
 // the read fails with model.ErrConflict.
 func (p *proposal) save(ctx context.Context, d Deps) error {
-	body, err := model.RenderProposalBody(p.content)
+	body, err := p.render()
 	if err != nil {
 		return err
 	}
@@ -412,6 +434,30 @@ func (p *proposal) save(ctx context.Context, d Deps) error {
 	}
 	p.doc = doc
 	return nil
+}
+
+// render writes the body. A file in the old form is written as a dossier.
+func (p *proposal) render() (string, error) {
+	if p.dossier == nil {
+		p.dossier = model.NewDossier(model.DossierHeader{}, "Items", nil)
+	}
+	p.dossier.Header.TLDR, p.dossier.Header.Context = p.content.TLDR, p.content.Context
+	if strings.TrimSpace(p.dossier.Header.TLDR) == "" {
+		p.dossier.Header.TLDR = p.doc.Title
+	}
+	p.dossier.Items = p.content.Items
+	return p.dossier.Render()
+}
+
+// response is the dossier's response block, made when absent.
+func (p *proposal) response() *model.DossierResponse {
+	if p.dossier == nil {
+		return &model.DossierResponse{}
+	}
+	if p.dossier.Header.Response == nil {
+		p.dossier.Header.Response = &model.DossierResponse{}
+	}
+	return p.dossier.Header.Response
 }
 
 // reviewCommand is what a person runs to read a proposal in the browser.
@@ -435,16 +481,19 @@ func reviewURL(d Deps, id string) (string, error) {
 	return strings.TrimRight(base, "/") + proposalPath(id), nil
 }
 
-// ProposalAddInput is the input of proposal_add.
+// ProposalAddInput is the input of proposal_add. Markdown is a dossier: the
+// whole body, narrative and blocks (docs/format.md, Dossier blocks). The other
+// form gives tldr, context, and items as fields; para writes them as a dossier.
 type ProposalAddInput struct {
-	Title   string `json:"title"`
-	TLDR    string `json:"tldr,omitempty"`    // what this asks, in a line; required unless every item is an old form
-	Context string `json:"context,omitempty"` // what the owner needs to know to decide
-	Source  string `json:"source"`            // id of a document in this vault this came from: a transcript, a note, a thread. Not a path or URL
+	Title    string `json:"title"`
+	Markdown string `json:"markdown,omitempty"` // the dossier body; then leave tldr, context, and items out
+	TLDR     string `json:"tldr,omitempty"`     // what this asks, in a line; required unless every item is an old form
+	Context  string `json:"context,omitempty"`  // what the owner needs to know to decide
+	Source   string `json:"source,omitempty"`   // id of a document in this vault this came from: a transcript, a note, a thread. Not a path or URL. Required with items
 	// SourcePath is free text provenance, such as the path of the file the
 	// source was read from. It is stored and shown, never resolved.
 	SourcePath string      `json:"source_path,omitempty"`
-	Items      []ItemInput `json:"items"`
+	Items      []ItemInput `json:"items,omitempty"`
 }
 
 // ProposalFiled is the output of proposal_add and proposal_revise. The agent
@@ -469,8 +518,26 @@ func filed(d Deps, doc model.Document) (ProposalFiled, error) {
 		ReviewCommand: reviewCommand(doc.ID), ReviewURL: url, Rev: doc.Rev}, nil
 }
 
+// proposalSource checks the source id, when one is given.
+func proposalSource(ctx context.Context, d Deps, raw string, required bool) (model.Link, error) {
+	source := normID(raw)
+	if source == "" {
+		if required {
+			return "", errors.New("source is empty: give the id of a document in this vault; put a file path in source_path")
+		}
+		return "", nil
+	}
+	if _, err := d.Store.Get(ctx, source); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			return "", fmt.Errorf("source %q is not a document id in this vault; put a file path or other provenance in source_path", raw)
+		}
+		return "", fmt.Errorf("source: %w", err)
+	}
+	return model.LinkTo(source), nil
+}
+
 // ProposalAdd files a proposal.
-var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward action (message, action) or a large or risky vault change (para items), each item with evidence, instead of doing it. Then call proposal_open, give the owner the tldr in the chat, ask, and record their words with proposal_decide. source must be the id of a document in this vault; put a file path or other provenance in source_path. The input of an item of kind op (or para) with op X is exactly the input of the tool X, plus the optional why, sources, and not_duplicate, which go to the receipt when the item runs; every unknown field is reported at once. To make an item refer to a document an earlier item creates, give that creating item an id in its input (project_add and the org and area add ops take one); every link-valued input (project, area, parent, task, depends_on, and the like) must name an existing document or such an id, or the whole proposal is refused with all problems listed", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
+var ProposalAdd = defineSafe("proposal_add", "File a dossier: one per investigation, for outward actions (message, action), questions, and vault changes the owner should see first. Preferred form: markdown, the whole body: narrative with ## sections and one fenced block per item, info string `yaml para-<question|change|message|action|doc-edit> id=<id>`, plus one `yaml para-dossier` block with tldr (grammar: para guide, docs/format.md Dossier blocks). Every block needs evidence {quote, locator}. Do not write answer, state, or exec: they are the owner's and para's. Then give the owner the review_url and read the answers with proposal_response. The older form gives tldr, context, source, and items as fields. The input of a change (op X) is exactly the input of the tool X, plus the optional why, sources, and not_duplicate; every link-valued input must name an existing document or an id an earlier item creates", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
 	info, err := identity(d)
 	if err != nil {
 		return ProposalFiled{}, err
@@ -479,22 +546,34 @@ var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward act
 	if err != nil {
 		return ProposalFiled{}, fmt.Errorf("title: %w", err)
 	}
-	source := normID(in.Source)
-	if source == "" {
-		return ProposalFiled{}, errors.New("source is empty: give the id of a document in this vault; put a file path in source_path")
-	}
-	if _, err := d.Store.Get(ctx, source); err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			return ProposalFiled{}, fmt.Errorf("source %q is not a document id in this vault; put a file path or other provenance in source_path", in.Source)
-		}
-		return ProposalFiled{}, fmt.Errorf("source: %w", err)
-	}
 	sourcePath := strings.TrimSpace(in.SourcePath)
 	if strings.IndexFunc(sourcePath, unicode.IsControl) >= 0 {
 		return ProposalFiled{}, errors.New("source_path holds a control character")
 	}
+	if strings.TrimSpace(in.Markdown) != "" {
+		if len(in.Items) > 0 || in.TLDR != "" || in.Context != "" {
+			return ProposalFiled{}, errors.New("give markdown, or tldr, context, and items; not both")
+		}
+		source, err := proposalSource(ctx, d, in.Source, false)
+		if err != nil {
+			return ProposalFiled{}, err
+		}
+		dz, err := parseAgentDossier(ctx, d, in.Markdown, true)
+		if err != nil {
+			return ProposalFiled{}, err
+		}
+		doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, dz)
+		if err != nil {
+			return ProposalFiled{}, err
+		}
+		return filed(d, doc)
+	}
+	source, err := proposalSource(ctx, d, in.Source, true)
+	if err != nil {
+		return ProposalFiled{}, err
+	}
 	if len(in.Items) == 0 {
-		return ProposalFiled{}, errors.New("no items")
+		return ProposalFiled{}, errors.New("no items: give markdown, or items")
 	}
 	c := model.ProposalContent{TLDR: strings.TrimSpace(in.TLDR), Context: strings.TrimSpace(in.Context)}
 	rules, err := loadProposalRules(d)
@@ -514,23 +593,8 @@ var ProposalAdd = defineSafe("proposal_add", "File a proposal for an outward act
 		}
 		c.Items = append(c.Items, it)
 	}
-	if err := checkPlan(c.Items); err != nil {
-		return ProposalFiled{}, err
-	}
-	if err := checkItemLinks(ctx, d, c.Items); err != nil {
-		return ProposalFiled{}, err
-	}
-	body, err := model.RenderProposalBody(c)
-	if err != nil {
-		return ProposalFiled{}, err
-	}
-	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderProposals, Title: title, Body: body,
-		Meta: &model.Proposal{
-			Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo(source), SourcePath: sourcePath,
-			Status: model.ProposalOpen, Revision: 1, ProposedBy: info.Actor,
-		},
-	})
+	dz := model.NewDossier(model.DossierHeader{TLDR: firstOf(c.TLDR, title), Context: c.Context}, "Items", c.Items)
+	doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, dz)
 	if err != nil {
 		return ProposalFiled{}, err
 	}
@@ -641,8 +705,8 @@ const (
 )
 
 func (p *proposal) actions(it *model.ProposalItem) []string {
-	if p.meta.Status == model.ProposalSuperseded || it.State != model.ItemPending {
-		return []string{}
+	if p.meta.Status == model.ProposalSuperseded || it.State != model.ItemPending || it.Kind == model.ItemQuestion {
+		return []string{} // a question is answered in its dossier, not approved
 	}
 	return []string{ActionApprove, ActionDeny, ActionChange}
 }
@@ -681,6 +745,8 @@ type ItemView struct {
 	// ResultName is the title of what an approved item made, when it made a
 	// document: Result is its id.
 	ResultName string `json:"result_name,omitempty"`
+	// Stack is the item's state in the review stack.
+	Stack string `json:"stack"`
 }
 
 // RevisionView is one revision in a history, oldest first.
@@ -712,6 +778,20 @@ type ProposalDetail struct {
 	Items         []ItemView     `json:"items"`
 	History       []RevisionView `json:"history"`
 	Rev           string         `json:"rev"`
+	// Dossier: Markdown is the body the web app renders, each block swapped
+	// for the item of the same id. Response and Replies are the owner's
+	// comments and the agent's replies.
+	Dossier  bool                   `json:"dossier"`
+	Markdown string                 `json:"markdown,omitempty"`
+	Sections []model.DossierSection `json:"sections"`
+	Response *model.DossierResponse `json:"response,omitempty"`
+	Replies  []SectionReply         `json:"replies"`
+}
+
+// SectionReply is the agent's reply to a section or the overall comment.
+type SectionReply struct {
+	Section string     `json:"section"`
+	Turn    model.Turn `json:"turn"`
 }
 
 // lineage returns the revisions up to p, oldest first.
@@ -752,7 +832,21 @@ func supersededBy(ctx context.Context, d Deps, id string) (string, error) {
 
 func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, error) {
 	out := ProposalDetail{Proposal: p.view(), TLDR: p.content.TLDR, Context: p.content.Context, Untrusted: UntrustedNotice,
-		ReviewCommand: reviewCommand(p.doc.ID), Items: []ItemView{}, Rev: p.doc.Rev}
+		ReviewCommand: reviewCommand(p.doc.ID), Items: []ItemView{}, Rev: p.doc.Rev, Sections: []model.DossierSection{}, Replies: []SectionReply{}}
+	if dz := p.dossier; dz != nil {
+		out.Dossier, out.Markdown, out.Response = true, p.doc.Body, dz.Header.Response
+		out.Sections = append(out.Sections, dz.Sections...)
+		keys := make([]string, 0, len(dz.Header.Replies))
+		for k := range dz.Header.Replies {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+		for _, k := range keys {
+			for _, t := range dz.Header.Replies[k] {
+				out.Replies = append(out.Replies, SectionReply{Section: k, Turn: t})
+			}
+		}
+	}
 	var err error
 	if out.ReviewURL, err = reviewURL(d, p.doc.ID); err != nil {
 		return out, err
@@ -763,7 +857,9 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 		}
 	}
 	out.SourceDoc = SourceView{ID: p.meta.Source.Target()}
-	if src, err := d.Store.Get(ctx, out.SourceDoc.ID); err != nil {
+	if out.SourceDoc.ID == "" {
+		// A dossier may have no one source.
+	} else if src, err := d.Store.Get(ctx, out.SourceDoc.ID); err != nil {
 		if !errors.Is(err, model.ErrNotFound) {
 			return out, err
 		}
@@ -778,7 +874,8 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 		if err != nil {
 			return out, err
 		}
-		v := ItemView{ProposalItem: *it, Hash: hash, Actions: p.actions(it), Summary: sum.of(*it), Change: sum.change(*it), ResultName: sum.resultName(*it)}
+		v := ItemView{ProposalItem: *it, Hash: hash, Actions: p.actions(it), Summary: sum.of(*it), Change: sum.change(*it), ResultName: sum.resultName(*it),
+			Stack: stackState(*it)}
 		if it.Kind.Outward() {
 			v.GateHash = it.GateHash()
 			if f := fillText(p, it.GateBody()); f != it.GateBody() {
@@ -994,7 +1091,15 @@ var ProposalDiff = defineRead("proposal_diff", "Show how a proposal changed from
 	}
 	out := ProposalDiffOutput{ID: p.doc.ID, Revision: p.meta.Revision, Previous: p.meta.Supersedes.Target(), Items: []ItemDiff{}}
 	var before []model.ProposalItem
-	if out.Previous != "" {
+	if receipt, body, err := lastRevision(ctx, d, p.doc.ID); err != nil {
+		return out, err
+	} else if receipt != "" {
+		c, err := model.ParseProposalBody(body)
+		if err != nil {
+			return out, fmt.Errorf("receipt %s: %w", receipt, err)
+		}
+		out.Previous, before = receipt, c.Items
+	} else if out.Previous != "" {
 		prev, err := loadProposal(ctx, d, out.Previous)
 		if err != nil {
 			return out, err
@@ -1022,6 +1127,34 @@ var ProposalDiff = defineRead("proposal_diff", "Show how a proposal changed from
 	return out, nil
 })
 
+// lastRevision finds the receipt of the last in-place revision of a proposal
+// and returns the body before it. Empty when there is none.
+func lastRevision(ctx context.Context, d Deps, id string) (string, string, error) {
+	list, err := listReceipts(ctx, d.Store)
+	if err != nil {
+		return "", "", err
+	}
+	for _, r := range list {
+		if r.Op != "proposal_revise" || r.Doc != id {
+			continue
+		}
+		doc, err := d.Store.Get(ctx, r.ID)
+		if err != nil {
+			return "", "", err
+		}
+		c, err := model.ParseReceiptBody(doc.Body)
+		if err != nil {
+			return "", "", fmt.Errorf("receipt %s: %w", r.ID, err)
+		}
+		prev, err := model.ParseDocument(id, model.FolderProposals, c.Before)
+		if err != nil {
+			return "", "", fmt.Errorf("receipt %s: %w", r.ID, err)
+		}
+		return r.ID, prev.Body, nil
+	}
+	return "", "", nil
+}
+
 func itemFields(a, b model.ProposalItem) []FieldChange {
 	out := []FieldChange{}
 	add := func(name, x, y string) {
@@ -1044,6 +1177,9 @@ func itemFields(a, b model.ProposalItem) []FieldChange {
 	add("diff", a.Diff, b.Diff)
 	add("evidence", a.Evidence.Quote, b.Evidence.Quote)
 	add("locator", a.Evidence.Locator, b.Evidence.Locator)
+	add("options", strings.Join(a.Options, ", "), strings.Join(b.Options, ", "))
+	add("old", a.Old, b.Old)
+	add("new", a.New, b.New)
 	add("state", string(a.State), string(b.State))
 	return out
 }

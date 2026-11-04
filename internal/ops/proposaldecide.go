@@ -106,26 +106,19 @@ var ProposalDecide = defineSafe("proposal_decide", "Record the owner's decision 
 	}
 	if len(changes) > 0 {
 		rec := newDecision(d, model.DecideChange, said)
-		doc, err := fileRevision(ctx, d, p.doc.ID, func(cur *proposal) (model.ProposalContent, error) {
-			next := model.ProposalContent{TLDR: cur.content.TLDR, Context: cur.content.Context, Items: slices.Clone(cur.content.Items)}
+		np, err := reviseInPlace(ctx, d, p.doc.ID, "Owner said: "+said, func(cur *proposal, rev int) error {
 			for _, x := range changes {
-				i := slices.IndexFunc(next.Items, func(it model.ProposalItem) bool { return it.ID == x.Item })
-				if i < 0 {
-					return next, fmt.Errorf("%s has no item %q", cur.doc.ID, x.Item)
+				it, err := cur.item(x.Item)
+				if err != nil {
+					return err
 				}
-				it := next.Items[i]
-				if err := changeItem(&it, x.Text); err != nil {
-					return next, fmt.Errorf("item %s: %w", it.ID, err)
+				if err := changeItem(it, x.Text); err != nil {
+					return fmt.Errorf("item %s: %w", it.ID, err)
 				}
-				it.State, it.Reason, it.Edited, it.ApprovedHash, it.Decided = model.ItemPending, "", true, "", &rec
-				next.Items[i] = it
+				it.State, it.Reason, it.Edited, it.ApprovedHash, it.Decided, it.Rev = model.ItemPending, "", true, "", &rec, rev
 			}
-			return next, checkPlan(next.Items)
+			return nil
 		})
-		if err != nil {
-			return out, err
-		}
-		np, err := loadProposal(ctx, d, doc.ID)
 		if err != nil {
 			return out, err
 		}

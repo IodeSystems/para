@@ -27,7 +27,7 @@ import (
 // Instructions is the text every client receives at initialize. It states
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
-	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (file a proposal for an outward action or a large or risky change, open it for the owner, ask in the chat, and record their words with proposal_decide), process_meeting (turn a transcript into vault updates), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and fix them), ingest_source (read one source with your own tools and update the vault), align_vault (compare a goal, an area, or the vault with reality and fix the differences), sort_update (sort the owner's update on a task into action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it), grill_goal (interview the owner on a goal's risks, unknowns, owners, policies, and assumptions, writing as answers come; recheck what might no longer be true).\n\n" + rules
+	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (prepare one dossier per investigation, markdown with typed blocks, read the owner's answers with proposal_response, then claim, carry out, and report approved items), process_meeting (turn a transcript into vault updates), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and fix them), ingest_source (read one source with your own tools and update the vault), align_vault (compare a goal, an area, or the vault with reality and fix the differences), sort_update (sort the owner's update on a task into action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it), grill_goal (interview the owner on a goal's risks, unknowns, owners, policies, and assumptions, writing as answers come; recheck what might no longer be true).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
@@ -37,10 +37,10 @@ const rules = `Rules:
 5. Quote policy transcripts (policy-x.source) word for word and cite the source URL. A policy summary is a paraphrase: never present it as the policy's words, and say when a summary is unverified.
 6. A no is recorded with its reason, who said it, and a source URL (rfx_reply with outcome no). Do not record a no without a reason.
 7. Triage the inbox with inbox_triage. It archives the capture; nothing is deleted.
-8. Take no public or external action without a proposal the owner approved. File it with proposal_add (message or action items), call proposal_open, give the owner the tldr in the chat, and ask. Record their answer with proposal_decide and their words in owner_said. Then send with your own tool and report it with proposal_executed or action_record. Background work cannot ask the owner: it files the proposal and stops.
+8. Take no public or external action without an item the owner approved. Prepare one dossier per investigation with proposal_add (markdown: narrative, ## sections, one yaml para-<question|change|message|action|doc-edit> id=<id> block per item; grammar in the review_cycle prompt). Give the owner the review_url. Read the answers with one proposal_response call; a draft is not a decision. Claim approved outward items with proposal_claim, carry them out with your own tool, and report each with proposal_executed. In a chat, record the owner's words with proposal_decide and owner_said. Background work cannot ask the owner: it files the dossier and stops.
 9. Every write tool takes why: the reason for this write, and is refused without it. Add sources and verify (a link, or a check the owner can do). Para stores them in a receipt with the diff, for the owner to check.
-10. Risk classes are labels on receipts and block nothing. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.
-11. Ordinary vault edits need no proposal; each leaves a receipt, and the owner can undo it with receipt_undo. File a proposal (para items) for a large or risky vault change when you judge it so, for example a bulk merge of duplicates.`
+10. The gate: rate every write with minor (a small change) and obvious (the owner would make it without asking). A write applies directly only when it has what the vault setting gate.require names (default: undoable, minor, and obvious; an op of risk review is never minor, confidence low is never obvious). Any other write is staged as a change item in your dossier (dossier, or your Staged writes dossier, grouped by op) and does not run until the owner approves; the call reports staged, a success: do not retry. You cannot change gate.require. Search before you create: a create with a likely match is refused and lists the matches; use one, or pass not_duplicate with a short reason.
+11. Each write that applies leaves a receipt, and the owner can undo it with receipt_undo. Put vault changes the owner should see first in a dossier as change items, for example a bulk merge of duplicates.`
 
 // Options configures a Server.
 type Options struct {
@@ -188,6 +188,10 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 			}
 		}
 		out, err := e.Invoke(ctx, s.deps, input)
+		if staged, ok := ops.AsStaged(err); ok {
+			// The gate held the write back: a success, not an error.
+			out, err = *staged, nil
+		}
 		if err != nil {
 			return mcp.NewToolResultError(s.clean(err)), nil
 		}

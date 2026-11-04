@@ -43,6 +43,7 @@ func newVault(t *testing.T) (store.Store, string) {
 	if err := vault.Init(root, "test", templates, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
+	noGate(t, root)
 	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", Install: "install-test", StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)

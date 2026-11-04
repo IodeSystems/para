@@ -286,7 +286,9 @@ type para_ActionRecordOutput {
 }
 
 enum para_ActionRecordOutputState {
+  answered
   approved
+  claimed
   denied
   done
   failed
@@ -984,7 +986,9 @@ type para_Decision {
 }
 
 enum para_DecisionState {
+  answered
   approved
+  claimed
   denied
   done
   failed
@@ -1177,6 +1181,19 @@ enum para_DocumentFolder {
   requests
   resources
   rfx
+}
+
+type para_DossierResponse {
+  overall: String
+  sections: JSON
+  state: String
+  submittedAt: String
+  via: String
+}
+
+type para_DossierSection {
+  id: String!
+  title: String!
 }
 
 type para_Downstream {
@@ -2376,6 +2393,21 @@ type para_Item {
   needs: [String!]
 }
 
+type para_ItemAnswer {
+  addedOptions: [String!]
+  body: String
+  choices: [String!]
+  comment: String
+  decision: String
+  editedOptions: JSON
+  input: JSON
+  new: String
+  ownWords: String
+  stale: Boolean
+  subject: String
+  via: String
+}
+
 type para_ItemDecision {
   at: String!
   by: String!
@@ -2431,10 +2463,13 @@ input para_ItemInputInput {
 
 enum para_ItemInputKind {
   action
+  doc_edit
   external
   message
   op
   para
+  question
+  upstream
 }
 
 enum para_ItemInputReversible {
@@ -2452,6 +2487,7 @@ type para_ItemPreview {
 type para_ItemView {
   actions: [String!]!
   after: String
+  answer: para_ItemAnswer
   approvedHash: String
   benefit: para_Claim
   body: String
@@ -2459,6 +2495,7 @@ type para_ItemView {
   change: [String!]!
   channel: String
   choice: String
+  claimedBy: String
   confidence: Int
   confidenceBasis: String
   cons: [para_Claim!]
@@ -2480,19 +2517,30 @@ type para_ItemView {
   impact: String
   input: JSON
   kind: para_ItemViewKind!
+  leaseUntil: String
+  multi: Boolean
+  new: String
   notDuplicate: String
+  old: String
   op: String
+  optionDetails: [para_OptionDetail!]
+  options: [String!]
   people: [String!]
   preview: para_ItemPreview
   previous: String
   pros: [para_Claim!]
+  range: String
   reason: String
   recommendation: Int
+  recommended: String
   result: String
   resultName: String
+  rev: Int
   reversible: para_ItemViewReversible
   reversibleHow: String
   risk: String
+  section: String
+  stack: String!
   state: para_ItemViewState!
   subject: String
   subtype: String
@@ -2506,10 +2554,13 @@ type para_ItemView {
 
 enum para_ItemViewKind {
   action
+  doc_edit
   external
   message
   op
   para
+  question
+  upstream
 }
 
 enum para_ItemViewReversible {
@@ -2519,7 +2570,9 @@ enum para_ItemViewReversible {
 }
 
 enum para_ItemViewState {
+  answered
   approved
+  claimed
   denied
   done
   failed
@@ -3583,7 +3636,8 @@ enum para_ProjectViewStatus {
 input para_ProposalAddInputInput {
   context: String
   items: [para_ItemInputInput!]
-  source: String!
+  markdown: String
+  source: String
   sourcePath: String
   title: String!
   tldr: String
@@ -3622,12 +3676,17 @@ enum para_ProposalDecideOutputStatus {
 
 type para_ProposalDetail {
   context: String
+  dossier: Boolean!
   history: [para_RevisionView!]!
   items: [para_ItemView!]!
+  markdown: String
   proposal: para_ProposalView!
+  replies: [para_SectionReply!]!
+  response: para_DossierResponse
   rev: String!
   reviewCommand: String!
   reviewUrl: String
+  sections: [para_DossierSection!]!
   source: para_SourceView!
   supersededBy: String
   tldr: String
@@ -3661,7 +3720,9 @@ type para_ProposalExecutedOutput {
 }
 
 enum para_ProposalExecutedOutputState {
+  answered
   approved
+  claimed
   denied
   done
   failed
@@ -3698,6 +3759,7 @@ input para_ProposalReviseInputInput {
   context: String
   id: String!
   items: [para_ItemInputInput!]
+  markdown: String
   tldr: String
   withdraw: [String!]
 }
@@ -4878,6 +4940,11 @@ type para_SearchOutput {
   hits: [para_Hit!]!
 }
 
+type para_SectionReply {
+  section: String!
+  turn: para_Turn!
+}
+
 type para_SelfServe {
   constraints: [para_Ref!]!
   conventions: [para_Ref!]!
@@ -5562,6 +5629,7 @@ enum para_TurnKind {
   edit
   investigate
   redirect
+  reply
   send_back
 }
 

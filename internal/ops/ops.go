@@ -56,6 +56,7 @@ type Op[I, O any] struct {
 	fn     Func[I, O]
 	person bool
 	risk   Risk
+	noUndo bool
 }
 
 // Entry is the untyped view of an Op, for surfaces that iterate All.
@@ -68,6 +69,9 @@ type Entry interface {
 	PersonOnly() bool
 	// Risk is the op's class: read, safe, or review.
 	Risk() Risk
+	// Undoable reports whether receipt_undo can reverse a write of the op. The
+	// gate (gate.go) lets only undoable writes apply directly.
+	Undoable() bool
 	InputType() reflect.Type
 	OutputType() reflect.Type
 	// Invoke decodes a JSON Input and returns the Output. An unknown field is
@@ -86,6 +90,14 @@ func (o *Op[I, O]) Name() string        { return o.name }
 func (o *Op[I, O]) Description() string { return o.desc }
 func (o *Op[I, O]) PersonOnly() bool    { return o.person }
 func (o *Op[I, O]) Risk() Risk          { return o.risk }
+func (o *Op[I, O]) Undoable() bool      { return !o.noUndo }
+
+// withNoUndo marks an op whose write receipt_undo cannot reverse: settings,
+// keys, and vault upgrades.
+func withNoUndo[I, O any](o *Op[I, O]) *Op[I, O] {
+	o.noUndo = true
+	return o
+}
 
 func (o *Op[I, O]) InputType() reflect.Type  { return reflect.TypeFor[I]() }
 func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }

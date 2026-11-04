@@ -41,6 +41,12 @@ type WriteMeta struct {
 	// OwnerSaid is the owner's words from a chat that approved this write, as
 	// an agent relayed them. A receipt with them is self-reported.
 	OwnerSaid string
+	// Minor and Obvious are the agent's ratings of the write, for the gate:
+	// minor is a small change, obvious is one the owner would make without
+	// asking. Dossier is the dossier a write the gate holds back goes to.
+	Minor   bool
+	Obvious bool
+	Dossier string
 }
 
 type (
@@ -61,7 +67,7 @@ func writeMeta(ctx context.Context) WriteMeta {
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
 var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record",
-	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed"}
+	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed", "proposal_claim", "proposal_reply"}
 
 // NeedsWhy reports whether an MCP call of the op must carry why.
 func NeedsWhy(e Entry) bool {
@@ -85,6 +91,19 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		if err := checkCreate(ctx, d.Store, o.name, inputMap(in), writeMeta(ctx).NotDuplicate); err != nil {
 			var zero O
 			return zero, fmt.Errorf("%s: %w", o.name, err)
+		}
+	}
+	if gated(d, o) {
+		if missing, err := gateMissing(d, o, writeMeta(ctx)); err != nil || len(missing) > 0 {
+			var zero O
+			if err != nil {
+				return zero, fmt.Errorf("%s: %w", o.name, err)
+			}
+			staged, err := stageWrite(ctx, d, o.name, inputMap(in), writeMeta(ctx), missing, o.Undoable())
+			if err != nil {
+				return zero, fmt.Errorf("%s: the gate held this write back, and staging it failed: %w", o.name, err)
+			}
+			return zero, staged
 		}
 	}
 	rec := newRecorder(d.Store)

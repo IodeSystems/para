@@ -75,6 +75,7 @@ func (e *env) init(id string) string {
 	e.t.Helper()
 	path := filepath.Join(e.dir, id)
 	e.ok("init", id, path)
+	noGate(e.t, path)
 	return path
 }
 
@@ -461,6 +462,10 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	seedStreamBOParity(t, deps)
 	maps.Copy(cases, streamBOParityCases())
 	maps.Copy(cases, streamIVParityCases(t, e))
+	seedStreamRSParity(t, deps)
+	rsCases, rsStdins := streamRSParityCases()
+	maps.Copy(cases, rsCases)
+	maps.Copy(stdins, rsStdins)
 	all := ops.All()
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))

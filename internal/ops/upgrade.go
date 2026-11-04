@@ -80,7 +80,7 @@ type VaultUpgradeOutput struct {
 
 // VaultUpgrade runs the automated steps of a vault upgrade as one batch per
 // step, undoes a batch, or files the judgement steps as agent work.
-var VaultUpgrade = definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
+var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
 	out := VaultUpgradeOutput{Filed: []string{}}
 	switch {
 	case in.File && (in.Undo != "" || in.DryRun):
@@ -119,7 +119,7 @@ var VaultUpgrade = definePerson("vault_upgrade", "Bring this vault to the format
 		}
 	}
 	return out, nil
-})
+}))
 
 // fileUpgradeWork queues agent work for each pending judgement step that has
 // none open, and returns the request ids.

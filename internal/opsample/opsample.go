@@ -172,6 +172,13 @@ var Inputs = map[string]string{
 	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
 	"proposal_decide":   `{"id":"proposal-sample","items":[{"item":"i2","decision":"approve"}],"owner_said":"Yes, send it."}`,
 	"proposal_open":     `{"id":"proposal-sample"}`,
+	"proposal_response": `{"id":"proposal-sample"}`,
+	"proposal_claim":    `{"id":"proposal-decided","items":["i1"],"lease_seconds":600}`,
+	"proposal_reply":    `{"id":"proposal-sample","section":"items","text":"Noted."}`,
+	"proposal_stack":    `{"state":"proposed","limit":10}`,
+	"proposal_draft":    `{"id":"proposal-sample","revision":1,"items":[{"item":"i2","answer":{"decision":"approve","comment":"Fine."}}],"sections":[{"section":"items","comment":"Looks right."}]}`,
+	"proposal_submit":   `{"id":"proposal-sample","revision":1}`,
+	"stack_decide":      `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject","comment":"Not now."}`,
 }
 
 const (
@@ -181,14 +188,12 @@ const (
 
 func sampleProposals() ([]model.Document, error) {
 	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
-	open, err := model.RenderProposalBody(model.ProposalContent{
-		TLDR: "Add a task and tell Sam.", Context: "Sam asked in the sample note.",
-		Items: []model.ProposalItem{
-			{ID: "i1", Kind: model.ItemPara, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending},
-			{ID: "i2", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft, Evidence: ev, State: model.ItemPending},
-			{ID: "i3", Kind: model.ItemMessage, Subtype: "slack", Channel: "#sample", Body: "Sample note.", Evidence: ev, State: model.ItemPending},
-		},
-	})
+	open, err := model.NewDossier(model.DossierHeader{TLDR: "Add a task and tell Sam.", Context: "Sam asked in the sample note."}, "Items",
+		[]model.ProposalItem{
+			{ID: "i1", Kind: model.ItemPara, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending, Rev: 1},
+			{ID: "i2", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft, Evidence: ev, State: model.ItemPending, Rev: 1},
+			{ID: "i3", Kind: model.ItemMessage, Subtype: "slack", Channel: "#sample", Body: "Sample note.", Evidence: ev, State: model.ItemPending, Rev: 1},
+		}).Render()
 	if err != nil {
 		return nil, err
 	}
