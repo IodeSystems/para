@@ -26,6 +26,10 @@ var ignorePatterns = []string{"**/.para/**", "**/events/**", "**/proposals/**", 
 // manage_project and manage_index over /mcp (44b40ad), as in a pseudo-version.
 const minRaglitStamp = "20261102052510"
 
+// raglitInstall is the one statement of the raglit para needs, used by every
+// check: the local binary and the daemon must both be this build or later.
+const raglitInstall = "raglit 44b40ad or later: go install github.com/iodesystems/raglit/cmd/raglit@44b40ad"
+
 var versionRe = regexp.MustCompile(`(\d+)\.(\d+)\.(\d+)(?:-0\.(\d{14})-)?`)
 
 // raglitVersionOK reports whether a `raglit --version` line names a build new
@@ -69,7 +73,7 @@ func (l *loader) raglitBinary() (string, error) {
 	}
 	p, err := exec.LookPath("raglit")
 	if err != nil {
-		return "", errors.New("raglit is not installed or not on PATH: install raglit (main 44b40ad or later) and run `para raglit connect` again")
+		return "", errors.New("raglit is not installed or not on PATH: install " + raglitInstall + ", then run `para raglit connect` again")
 	}
 	return p, nil
 }
@@ -174,7 +178,7 @@ func raglitConnect(cmd *cobra.Command, l *loader, daemon, token string) error {
 	}
 	ver, _ := runRaglit(ctx, bin, "--version")
 	if !raglitVersionOK(ver) {
-		return fmt.Errorf("raglit connect: %s is too old: it lacks manage_project over MCP; install raglit main 44b40ad or later", strings.TrimSpace(ver))
+		return fmt.Errorf("raglit connect: the local raglit (%s) is too old: it lacks manage_project over MCP; install %s", strings.TrimSpace(ver), raglitInstall)
 	}
 	cfg, have, err := raglit.Load(v.state)
 	if err != nil {
@@ -238,7 +242,7 @@ func raglitConnect(cmd *cobra.Command, l *loader, daemon, token string) error {
 	}
 	for _, want := range []string{"manage_project", "manage_index", "search"} {
 		if !contains(tools, want) {
-			return fmt.Errorf("raglit connect: the daemon does not serve %s: it is too old; update raglit", want)
+			return fmt.Errorf("raglit connect: the daemon at %s does not serve %s, so it runs an older raglit than this machine; on the daemon's host install %s and restart the daemon", cfg.URL, want, raglitInstall)
 		}
 	}
 	ix, err := s.Indexes(cctx)
