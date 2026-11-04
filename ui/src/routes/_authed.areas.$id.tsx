@@ -14,6 +14,7 @@ import { Markdown } from '@/components/Markdown'
 import { nameOr } from '@/lib/names'
 import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
+import { ConceptLinks } from '@/components/AreaLinks'
 
 export const Route = createFileRoute('/_authed/areas/$id')({ component: AreaPage })
 
@@ -25,6 +26,18 @@ function AreaPage() {
       {(d) => (
         <>
           <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {d.area.kind === 'concept' ? 'Concept' : 'Project'}
+            {d.area.cadence &&
+              ` - review ${d.area.cadence}, last ${d.area.lastReviewed || 'never'}` +
+                (d.area.nextReview ? `, next ${d.area.nextReview}` : '')}
+            {d.area.concepts.length > 0 && (
+              <>
+                {' - concepts '}
+                <ConceptLinks ids={d.area.concepts} />
+              </>
+            )}
+          </Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
             {d.lastAligned
               ? `last checked against sources ${d.lastAligned}`
@@ -49,6 +62,28 @@ function AreaPage() {
                 ))}
               </List>
             }
+          </Section>
+          <Section title="Drawn on by" count={d.drawnOnBy.length} hideEmpty>
+            <List dense disablePadding>
+              {d.drawnOnBy.map((u) => (
+                <ListItem key={u.id} disableGutters>
+                  <ListItemText
+                    primary={
+                      u.type === 'area' ? (
+                        <TextLink to="/areas/$id" params={{ id: u.id }} underline="hover">
+                          {u.title || u.id}
+                        </TextLink>
+                      ) : (
+                        <TextLink to="/projects/$id" params={{ id: u.id }} underline="hover">
+                          {u.title || u.id}
+                        </TextLink>
+                      )
+                    }
+                    secondary={u.type === 'area' ? 'Project' : 'Goal'}
+                  />
+                </ListItem>
+              ))}
+            </List>
           </Section>
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
             <TaskRows tasks={d.tasks} showProject />

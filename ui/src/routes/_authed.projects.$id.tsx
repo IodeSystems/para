@@ -13,6 +13,8 @@ import { Markdown } from '@/components/Markdown'
 import { nameOr } from '@/lib/names'
 import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
+import { ConceptLinks } from '@/components/AreaLinks'
+import { RulesInEffect } from '@/components/RulesInEffect'
 
 export const Route = createFileRoute('/_authed/projects/$id')({ component: ProjectPage })
 
@@ -37,10 +39,16 @@ function ProjectPage() {
             {d.project.owner ? `owner ${nameOr('', d.project.owner)}` : 'no owner'}
             {d.project.area && (
               <>
-                {' - area '}
+                {' - project '}
                 <TextLink to="/areas/$id" params={{ id: d.project.area }} underline="hover">
                   {nameOr(d.project.areaName, d.project.area)}
                 </TextLink>
+              </>
+            )}
+            {d.project.concepts.length > 0 && (
+              <>
+                {' - concepts '}
+                <ConceptLinks ids={d.project.concepts} />
               </>
             )}
           </Typography>
@@ -52,6 +60,7 @@ function ProjectPage() {
           <DoneWhen value={d.project.doneWhen} prompt="No done-when yet." />
           <GoalBrief brief={d.project.brief} />
           <PointerLinks links={d.project.links} />
+          <RulesInEffect rules={d.rules} />
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
             <TaskRows tasks={d.tasks} />
           </Section>

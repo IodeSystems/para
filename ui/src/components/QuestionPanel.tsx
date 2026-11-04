@@ -6,6 +6,7 @@ import { useTask, useTaskParts } from '@/api/tasks'
 import { DocLink } from '@/components/DocLink'
 import { ProposedAnswer, SourceList } from '@/components/AnswerCheck'
 import { Section, StateChip } from '@/components/Bits'
+import { RulesInEffect } from '@/components/RulesInEffect'
 import { DataState } from '@/components/DataState'
 import { DoneWhen } from '@/components/DoneWhen'
 import { questionState } from '@/lib/answer'
@@ -117,6 +118,7 @@ export function TaskPanel({ id }: { id: string }) {
             </Stack>
           </Section>
         ))}
+      <RulesInEffect rules={parts?.rules ?? []} />
       <DoneWhen value={q.data.doneWhen} prompt="No done-when yet." />
       {!open && q.data.outcome && q.data.outcome !== 'done' && (
         <Typography variant="body2" sx={{ mb: 2 }}>

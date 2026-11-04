@@ -22,6 +22,11 @@ const TaskShowDoc = graphql(/* GraphQL */ `
             items
           }
           updates
+          rules {
+            id
+            title
+            via
+          }
           questions {
             id
             title

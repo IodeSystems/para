@@ -62,6 +62,11 @@ const AreaShowDoc = graphql(/* GraphQL */ `
             id
             title
             status
+            kind
+            cadence
+            lastReviewed
+            nextReview
+            concepts
             links {
               kind
               label
@@ -90,6 +95,11 @@ const AreaShowDoc = graphql(/* GraphQL */ `
             id
             title
           }
+          drawnOnBy {
+            id
+            type
+            title
+          }
         }
       }
     }
@@ -111,6 +121,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
             doneWhen
             area
             areaName
+            concepts
             links {
               kind
               label
@@ -160,6 +171,11 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
           }
           questions {
             ...QuestionFields
+          }
+          rules {
+            id
+            title
+            via
           }
         }
       }

@@ -26,6 +26,7 @@ const KIND_WORDS: Record<string, string> = {
   nudge: 'follow up',
   exception: 'review',
   goal: 'time to review the goal',
+  area: 'time to review the area',
 }
 
 export function DatedAgenda() {
