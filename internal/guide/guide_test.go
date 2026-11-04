@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal(), "grill_goal": GrillGoal(), "track_doc": TrackDoc(), "sweep": Sweep()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal(), "grill_goal": GrillGoal(), "track_doc": TrackDoc(), "sweep": Sweep(), "delegate": Delegate()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -208,5 +208,19 @@ func TestGuideNamesUpgrades(t *testing.T) {
 	}
 	if o := flat(Orient()); !strings.Contains(o, "`changes`") || !strings.Contains(o, "Vault upgrade:") {
 		t.Error("orient lacks changes or the vault upgrade work")
+	}
+}
+
+// The delegate text states the outward rule, the record by the worker on
+// behalf of the owner, the read-only worker, and the health check.
+func TestDelegateStatesTheOutwardRule(t *testing.T) {
+	text := Delegate()
+	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`proposal_executed`", "on_behalf_of owner", "--read-only", "unreviewed_outward", "`action_record`"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("delegate text lacks %q", want)
+		}
+	}
+	if !strings.Contains(Skill(), SkillDelegateFile) {
+		t.Error("the skill does not route to delegate.md")
 	}
 }

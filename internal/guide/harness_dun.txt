@@ -19,6 +19,10 @@ Use para from dun.
    /para-<vault>:journal_lod   write a day, week, or month journal summary
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
+   A dun that works for another agent (the vault manager delegates to it over
+   chat) needs no para by default: outward acts go back to that agent for the
+   owner's review (prompt delegate). For policy and search only, add
+   "--read-only": the server then lists only tools that change nothing.
 
 6. Agents change the vault with ops and tell the owner in the chat. Before an
    outward action they file a proposal, open it, and ask in the chat. Nothing has
