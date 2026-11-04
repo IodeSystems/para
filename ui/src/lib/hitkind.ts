@@ -9,6 +9,7 @@ const LABEL: Record<string, string> = {
   inbox: 'Inbox',
   io: 'Message',
   tracked_doc: 'Tracked document',
+  source: 'Source',
   person: 'Person',
   proposal: 'Legacy proposal',
 }

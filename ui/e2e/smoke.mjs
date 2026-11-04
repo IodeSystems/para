@@ -306,8 +306,13 @@ try {
     'restart the pods one at a time',
   )
 
+  // Sources: one an agent reaches through its own MCP connector, one no agent declared.
+  para(...v, 'source', 'add', '--title', 'Work mailbox', '--example', 'gmail')
+  para(...v, 'source', 'add', '--title', 'Code reviews', '--example', 'github')
+
   // Agent writes go through MCP, as they do for real: each leaves a receipt.
   agent = startAgent()
+  await agent.call('agent_sources', { sources: ['work-mailbox'] })
   const note = await agent.call('note_add', {
     title: 'Quota numbers',
     body: 'Staging uses 80 percent of its quota.',
@@ -459,6 +464,8 @@ try {
     [`/io/${outgoing}`, 'Thanks for the quota'],
     ['/docs', 'Docs'],
     [`/docs/${tracked}`, 'Portal runbook'],
+    ['/sources', 'Sources'],
+    ['/sources/work-mailbox', 'Work mailbox'],
     [`/proposals/${proposal.id}`, 'Quota follow-ups'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
@@ -502,6 +509,33 @@ try {
       .then(() => true)
       .catch(() => false),
     'the agenda counts unread and ready messages',
+  )
+
+  // Sources: who reaches each, and which no agent reaches.
+  await page.goto(`${base}/sources`)
+  await page.getByRole('heading', { name: 'Sources' }).waitFor()
+  await page.locator('[data-source="code-reviews"]').waitFor()
+  check(
+    (await page
+      .locator('[data-source="code-reviews"]')
+      .getByText('No agent reaches it')
+      .count()) === 1,
+    'the sources page marks a source no agent reaches',
+  )
+  check(
+    (await page
+      .locator('[data-source="work-mailbox"]')
+      .getByText('reached by agent-e2e', { exact: false })
+      .count()) === 1,
+    'the sources page names the agent that declared a source',
+  )
+  await page.goto(`${base}/sources/work-mailbox`)
+  await page.getByRole('heading', { name: 'Work mailbox' }).waitFor()
+  await page.locator('[data-actor="agent-e2e"]').waitFor()
+  check(
+    (await page.locator('[data-actor="agent-e2e"]').count()) === 1 &&
+      (await page.locator('[data-step="Scan in"]').count()) === 1,
+    'the source page shows the declaration and the steps',
   )
 
   // Docs: the change since nothing was seen, the comment's quote marked in the text.

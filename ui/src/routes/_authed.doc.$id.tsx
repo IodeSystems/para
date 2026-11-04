@@ -50,6 +50,16 @@ function Doc() {
                     Open the proposal
                   </LinkButton>
                 )}
+                {d.meta.type === 'source' && (
+                  <LinkButton
+                    size="small"
+                    variant="outlined"
+                    to="/sources/$id"
+                    params={{ id: d.id }}
+                  >
+                    Open the source
+                  </LinkButton>
+                )}
                 {d.meta.type === 'tracked_doc' && (
                   <LinkButton size="small" variant="outlined" to="/docs/$id" params={{ id: d.id }}>
                     Open versions and comments

@@ -36,6 +36,12 @@ export const EXTRA_SCREENS: Tab[] = [
   },
   { key: '', to: '/io', label: 'IO', hint: 'messages in and out not dealt with yet' },
   { key: '', to: '/docs', label: 'Docs', hint: 'remote documents you follow, and what changed' },
+  {
+    key: '',
+    to: '/sources',
+    label: 'Sources',
+    hint: 'where work comes in and goes out, and who sweeps it',
+  },
   { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
   { key: '', to: '/activity', label: 'Agent activity', hint: 'what each agent did' },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
