@@ -75,6 +75,8 @@ type ProjectAddOutput struct {
 	ID     string       `json:"id"`
 	Folder model.Folder `json:"folder"`
 	Rev    string       `json:"rev"`
+	// Warnings: the vault has more active goals than goals.active_limit allows.
+	Warnings []string `json:"warnings"`
 }
 
 // ProjectAdd creates an active project.
@@ -131,7 +133,15 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 	if err != nil {
 		return ProjectAddOutput{}, err
 	}
-	return ProjectAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
+	out := ProjectAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
+	w, err := activeLimitWarning(ctx, d.Store)
+	if err != nil {
+		return ProjectAddOutput{}, fmt.Errorf("project_add: %w", err)
+	}
+	if w != "" {
+		out.Warnings = append(out.Warnings, w)
+	}
+	return out, nil
 })
 
 // ProjectListInput is the input of project_list.

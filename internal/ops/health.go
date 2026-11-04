@@ -43,6 +43,7 @@ const (
 	HealthGoalNoSignal       = "goal_no_signal"
 	HealthPivotPassed        = "pivot_passed"
 	HealthAreaNeglected      = "area_neglected"
+	HealthTooManyActive      = "too_many_active_goals"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -54,6 +55,7 @@ var HealthKinds = []string{
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
 	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
+	HealthTooManyActive,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -81,6 +83,7 @@ var HealthKindWords = map[string]string{
 	HealthGoalNoSignal:       "Goal signals not read",
 	HealthPivotPassed:        "Change-of-course date has come",
 	HealthAreaNeglected:      "Area review is overdue",
+	HealthTooManyActive:      "Too many active goals",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -164,6 +167,9 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	h.scan()
 	h.graphFindings(ctx, s)
 	if err := h.notAligned(ctx, s); err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
+	if err := h.tooManyActive(s, goalRank); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
 

@@ -3056,6 +3056,7 @@ type para_ProjectAddOutput {
   folder: para_ProjectAddOutputFolder!
   id: String!
   rev: String!
+  warnings: [String!]!
 }
 
 enum para_ProjectAddOutputFolder {
