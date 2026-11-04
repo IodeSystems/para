@@ -2,6 +2,8 @@ import {
   createSession,
   deleteSession,
   getSession,
+  needsRenew,
+  renewSession,
   takeTokenFromUrl,
   type SessionView,
 } from '@/client/session'
@@ -20,15 +22,26 @@ export function ensureSession(): Promise<SessionView | null> {
     fragmentToken = null
     if (tok) {
       try {
-        return await createSession(tok)
+        return await renewIfDue(await createSession(tok))
       } catch (e) {
         lastSignInError = e instanceof Error ? e.message : 'sign-in failed'
         // A refused token leaves any cookie session as it was.
       }
     }
-    return getSession()
+    return renewIfDue(await getSession())
   })()
   return current
+}
+
+// renewIfDue replaces a login key within 7 days of its end. A failed renew keeps the session:
+// another tab may have renewed first, so the cookie is asked again.
+async function renewIfDue(s: SessionView | null): Promise<SessionView | null> {
+  if (!needsRenew(s)) return s
+  try {
+    return await renewSession()
+  } catch {
+    return getSession()
+  }
 }
 
 export async function signIn(token: string): Promise<SessionView> {

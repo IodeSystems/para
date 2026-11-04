@@ -438,6 +438,10 @@ try {
   await page.waitForURL(/\/agenda/)
   await page.getByRole('heading', { name: 'Agenda' }).waitFor()
   check(!page.url().includes('token'), 'the read-only key signs in and leaves the address bar')
+  check(
+    (await page.locator('[data-banner="read-only"]').count()) === 1,
+    'a read-only key shows the read-only banner',
+  )
 
   const pages = [
     ['/agenda', 'Agenda'],
@@ -794,6 +798,39 @@ try {
     rerrors.length === 0,
     `the review pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
+
+  // para serve login: a login key one day from its end renews on the first page load, and the
+  // browser stays signed in with review:decide.
+  const loginUrl = para(...v, 'serve', 'login', '--print', '--days', '1').trim()
+  const oldKey = /#token=para_(viewer-[a-z0-9-]+?)_/.exec(decodeURIComponent(loginUrl))?.[1]
+  check(!!oldKey && loginUrl.startsWith(`${base}/#token=`), 'serve login prints a sign-in URL')
+  const lctx = await browser.newContext({ viewport: { width: 1280, height: 900 } })
+  const lpage = await lctx.newPage()
+  watched = lpage
+  const renewed = lpage.waitForResponse((r) => r.url().endsWith('/auth/session/renew'))
+  await lpage.goto(loginUrl)
+  await lpage.waitForURL(/\/agenda/)
+  check((await renewed).status() === 200, 'the web app renews a login key near its end')
+  const me = await lpage.evaluate(async () => (await fetch('/auth/session')).json())
+  check(
+    me.key !== oldKey && me.login === true && (me.scopes ?? []).includes('review:decide'),
+    `after renew the session is a new login key with review:decide (${JSON.stringify(me)})`,
+  )
+  const sessions = JSON.parse(para(...v, 'serve', 'sessions', '--json'))
+  check(
+    sessions.length === 1 && sessions[0].id === me.key,
+    'serve sessions lists the new key only; the old one is revoked',
+  )
+  await lpage.reload()
+  await lpage.getByRole('heading', { name: 'Agenda' }).waitFor()
+  check(
+    (await lpage.locator('[data-banner="read-only"]').count()) === 0,
+    'after renew the page is still signed in and can decide',
+  )
+  para(...v, 'serve', 'logout')
+  await lpage.reload()
+  await lpage.getByRole('heading', { name: 'Not signed in' }).waitFor()
+  check(true, 'after logout the page says not signed in')
   await browser.close()
 } catch (e) {
   console.error(e)

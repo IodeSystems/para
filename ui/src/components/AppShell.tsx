@@ -15,7 +15,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
 import SearchIcon from '@mui/icons-material/Search'
 import TodayIcon from '@mui/icons-material/Today'
-import { HttpBanner } from '@/components/Banners'
+import { HttpBanner, ReadOnlyBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
@@ -105,6 +105,7 @@ export function AppShell({ session, children }: { session: SessionView; children
         </Tabs>
       </AppBar>
       <HttpBanner />
+      <ReadOnlyBanner session={session} />
       <Box component="main" sx={{ px: { xs: 1.5, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
         {children}
       </Box>

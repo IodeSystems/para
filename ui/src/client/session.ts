@@ -8,6 +8,21 @@ export type SessionView = {
   surface: string
   admin?: boolean
   scopes?: string[]
+  // expires is when the key ends (RFC 3339), or absent for a key with no end.
+  expires?: string
+  // login marks a `para serve login` key, which renews near its end.
+  login?: boolean
+}
+
+// RENEW_WINDOW_MS matches the server: a login key renews within 7 days of its end.
+export const RENEW_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
+
+// needsRenew says whether the session's login key is within the renew window and not yet ended.
+export function needsRenew(s: SessionView | null | undefined, now = Date.now()): boolean {
+  if (!s?.login || !s.expires) return false
+  const end = Date.parse(s.expires)
+  if (Number.isNaN(end)) return false
+  return end > now && end - now <= RENEW_WINDOW_MS
 }
 
 // canDecide says whether the session may answer and decide review items (scope review:decide).
@@ -65,6 +80,17 @@ export async function createSession(token: string): Promise<SessionView> {
   const res = await fetch('/auth/session', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token.trim()}`, Accept: 'application/json' },
+  })
+  if (!res.ok) throw new SessionError(res.status, await detail(res))
+  return (await res.json()) as SessionView
+}
+
+// renewSession replaces the login key: the server makes a new key with the same scopes, revokes
+// the old one, and sets a new session cookie. The new token never reaches the page.
+export async function renewSession(): Promise<SessionView> {
+  const res = await fetch('/auth/session/renew', {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
   })
   if (!res.ok) throw new SessionError(res.status, await detail(res))
   return (await res.json()) as SessionView

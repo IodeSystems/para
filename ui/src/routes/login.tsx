@@ -70,15 +70,19 @@ function Login() {
         >
           <Stack spacing={2}>
             <Typography variant="h5" component="h1">
-              Sign in to para
+              Not signed in
             </Typography>
             {signedout && !error && <Alert severity="success">You are signed out.</Alert>}
-            <Typography variant="body2" color="text.secondary">
-              You need a sign-in link. On the machine running para, run{' '}
+            <Typography variant="body1">
+              Run{' '}
               <Box component="code" sx={CODE}>
                 para serve login
-              </Box>
-              . For another machine, run{' '}
+              </Box>{' '}
+              on this machine. It signs this browser in to every vault for 30 days, and the sign-in
+              renews while you use it.
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Your sign-in is missing, or it ended or was revoked. For another device, run{' '}
               <Box component="code" sx={CODE}>
                 para key create &lt;name&gt; --scope vault:read --scope review:decide --print-url
               </Box>
