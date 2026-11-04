@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -22,6 +23,10 @@ import (
 const (
 	cliActor   = "user"
 	cliSurface = "cli"
+	// cliAgentSurface is a CLI call made as a named agent (--actor). It is not
+	// a person surface, so ops treat it as they treat MCP: why is required, a
+	// receipt is filed, person-only ops are refused.
+	cliAgentSurface = "cli-agent"
 )
 
 // loader carries build stamps, flag values, and resolved config. Each RunE
@@ -33,6 +38,8 @@ type loader struct {
 	env       func(string) string // nil means os.Getenv
 	homeFlag  string
 	vaultFlag string
+	actorFlag string
+	whyFlag   string
 
 	install registry.Install
 
@@ -89,13 +96,36 @@ func (l *loader) deps() (ops.Deps, error) {
 	return l.depsFor(sel.ID, sel.Path)
 }
 
+// actor is who the CLI acts as: --actor, then PARA_ACTOR, then the owner.
+func (l *loader) actor() string {
+	a := strings.TrimSpace(l.actorFlag)
+	if a == "" && l.env != nil {
+		a = strings.TrimSpace(l.env("PARA_ACTOR"))
+	}
+	if a == "" {
+		return cliActor
+	}
+	return a
+}
+
+// agent reports whether the CLI acts as an agent, not the owner.
+func (l *loader) agent() bool { return l.actor() != cliActor }
+
+// surface is the event surface of this CLI call.
+func (l *loader) surface() string {
+	if l.agent() {
+		return cliAgentSurface
+	}
+	return cliSurface
+}
+
 // depsFor opens the vault id at path as the CLI.
 func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 	install, err := l.install.ID()
 	if err != nil {
 		return ops.Deps{}, err
 	}
-	s, err := local.Open(path, vault.Options{ID: id, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(id)})
+	s, err := local.Open(path, vault.Options{ID: id, Actor: l.actor(), Surface: l.surface(), Install: install, StateDir: l.stateDir(id)})
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}
@@ -149,6 +179,8 @@ func newRoot(l *loader) *cobra.Command {
 	root.Flags().Bool("help-extended", false, "print use cases with real commands, and where each kind of thing goes")
 	root.PersistentFlags().StringVar(&l.homeFlag, "home", "", "para home directory (or PARA_HOME; default ~/.para)")
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
+	root.PersistentFlags().StringVar(&l.actorFlag, "actor", "", "act as this agent (or PARA_ACTOR; default the owner): writes then need --why and file a receipt, as over MCP")
+	root.PersistentFlags().StringVar(&l.whyFlag, "why", "", "why you make this write; required on a write when --actor names an agent")
 	root.AddCommand(
 		newVersionCmd(l),
 		newGuideCmd(),

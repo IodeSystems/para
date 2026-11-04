@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -54,14 +56,18 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 				return err
 			}
 		}
+		ctx, err := l.writeContext(cmd.Context(), op, in)
+		if err != nil {
+			return err
+		}
 		deps, err := l.deps()
 		if err != nil {
 			return err
 		}
-		for _, s := range ops.SimilarFor(cmd.Context(), deps.Store, op.Name(), in) {
+		for _, s := range ops.SimilarFor(ctx, deps.Store, op.Name(), in) {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "similar: %s\n", s.Title)
 		}
-		out, err := op.Run(cmd.Context(), deps, in)
+		out, err := op.Run(ctx, deps, in)
 		if err != nil {
 			return err
 		}
@@ -96,4 +102,28 @@ func emit[O any](cmd *cobra.Command, out O, text func(io.Writer, O) error) error
 		return f.Failed()
 	}
 	return nil
+}
+
+// writeContext carries --why onto the context of a write made as an agent, the
+// way the MCP server does. An op with a why input of its own keeps that field's
+// meaning, and its value serves the receipt. As the owner it changes nothing.
+func (l *loader) writeContext(ctx context.Context, e ops.Entry, in any) (context.Context, error) {
+	if !l.agent() || !ops.NeedsWhy(e) {
+		return ctx, nil
+	}
+	why := strings.TrimSpace(l.whyFlag)
+	if why == "" {
+		if b, err := json.Marshal(in); err == nil {
+			var m struct {
+				Why string `json:"why"`
+			}
+			if json.Unmarshal(b, &m) == nil {
+				why = strings.TrimSpace(m.Why)
+			}
+		}
+	}
+	if why == "" {
+		return ctx, fmt.Errorf("%s: --why is required: say why you make this write as actor %s", e.Name(), l.actor())
+	}
+	return ops.WithWrite(ctx, ops.WriteMeta{Why: why}), nil
 }
