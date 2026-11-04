@@ -78,6 +78,9 @@ type Options struct {
 	// binary the last session ran. When it differs, the instructions gain
 	// ChangedLine. Empty turns it off.
 	SeenPath string
+	// ReadOnly lists only the ops that change no document (risk read): a
+	// worker that needs policy and search, and no writes.
+	ReadOnly bool
 }
 
 // Server is an MCP server over one vault.
@@ -111,9 +114,13 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		name = "para"
 	}
 	changed, since := checkSeen(o.SeenPath, o.Version)
+	instr := ""
+	if o.ReadOnly {
+		instr = readOnlyLine
+	}
 	deps.ChangesSince = since
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed)...),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, instr)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
@@ -130,6 +137,9 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	s.reqWatch = ops.NewRequestWatch(s.deps)
 	s.addPrompts()
 	for _, e := range ops.ForAgents() {
+		if o.ReadOnly && e.Risk() != ops.RiskRead {
+			continue
+		}
 		raw, err := toolSchema(e)
 		if err != nil {
 			return nil, fmt.Errorf("mcpserver: new: op %s: %w", e.Name(), err)
@@ -144,8 +154,11 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 
 // serverOptions are the MCP server options. logging is declared because the
 // session sends notifications/message; the channel capability only with --channel.
-func serverOptions(channel, changed bool) []server.ServerOption {
+func serverOptions(channel, changed bool, extra string) []server.ServerOption {
 	instr := Instructions + "\n\n" + notifyRule
+	if extra != "" {
+		instr += "\n\n" + extra
+	}
 	if changed {
 		instr += "\n\n" + ChangedLine
 	}
@@ -156,6 +169,9 @@ func serverOptions(channel, changed bool) []server.ServerOption {
 	}
 	return append(opts, server.WithInstructions(instr))
 }
+
+// readOnlyLine is added to the instructions of a read-only server.
+const readOnlyLine = "This server is read-only (para mcp --read-only): it lists only tools that change nothing. Read policy, rules, and search here; the agent that delegated to you records what you do."
 
 // notifyRule describes the session notifications to the agent.
 const notifyRule = "Notifications: this server may send a short message (logger para) when a proposal you filed is decided at a terminal, a request becomes claimable by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (proposal_wait, request_next, request_show). A harness that cannot receive notifications uses proposal_wait and request_wait."
