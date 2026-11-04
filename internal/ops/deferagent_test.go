@@ -88,3 +88,29 @@ func TestDescriptionsPointTheWay(t *testing.T) {
 		}
 	}
 }
+
+func TestUnblockClearsOnlyTheBlockFollowUp(t *testing.T) {
+	d, proj := laterVault(t)
+	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID
+	must(t, TaskBlock, d, TaskBlockInput{ID: id, Reason: "Ops said the CA is down.", Until: "2026-11-10"})
+	if v, _ := taskOf(t, d, id); v.DeferUntil != "2026-11-10" || !strings.HasPrefix(v.DeferredReason, blockMarker) {
+		t.Fatalf("blocked = %+v", v)
+	}
+	must(t, TaskStart, d, TaskStartInput{ID: id})
+	if v, _ := taskOf(t, d, id); v.DeferUntil != "" || v.DeferredReason != "" || v.Deferred {
+		t.Fatalf("unblocked task kept the block's follow-up date: %+v", v)
+	}
+
+	// An owner's deferral is not the block's: unblocking leaves it, and a block
+	// with until does not overwrite it.
+	other := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Tidy the wiki"}).ID
+	must(t, Defer, d, DeferInput{IDs: []string{other}, Until: "2026-12-01", Reason: "After the audit."})
+	if _, err := TaskBlock.Run(ctx, d, TaskBlockInput{ID: other, Reason: "Wiki is read-only.", Until: "2026-11-10"}); err == nil {
+		t.Fatal("a block until overwrote the owner's deferral")
+	}
+	must(t, TaskBlock, d, TaskBlockInput{ID: other, Reason: "Wiki is read-only."})
+	must(t, TaskStart, d, TaskStartInput{ID: other})
+	if v, _ := taskOf(t, d, other); v.DeferUntil != "2026-12-01" || v.DeferredReason != "After the audit." {
+		t.Fatalf("unblocking cleared the owner's deferral: %+v", v)
+	}
+}

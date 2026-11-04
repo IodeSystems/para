@@ -515,11 +515,25 @@ func transition(ctx context.Context, d Deps, id string, fn func(doc model.Docume
 	if err := fn(doc, t); err != nil {
 		return TaskChangeOutput{}, err
 	}
+	// Unblocked: the follow-up date the block set goes with it. A deferral
+	// the owner made with defer stays.
+	if t.Status != model.TaskBlocked && blockDeferral(t) {
+		t.DeferUntil, t.DeferredReason = "", ""
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return TaskChangeOutput{}, err
 	}
 	return TaskChangeOutput{ID: id, Status: t.Status, BlockedBy: append([]string{}, t.BlockedBy...), Rev: saved.Rev}, nil
+}
+
+// blockMarker starts the deferred_reason of a defer_until that task_block
+// until set, so unblocking clears that one and no other.
+const blockMarker = "blocked: "
+
+// blockDeferral reports whether the task's deferral came from task_block.
+func blockDeferral(t *model.Task) bool {
+	return t.DeferUntil != "" && strings.HasPrefix(t.DeferredReason, blockMarker)
 }
 
 // TaskStartInput is the input of task_start.
@@ -576,7 +590,10 @@ var TaskBlock = defineSafe("task_block", "Block a task with a reason; until (YYY
 	}
 	return transition(ctx, d, in.ID, func(_ model.Document, t *model.Task) error {
 		if until != "" {
-			t.DeferUntil = string(until)
+			if t.DeferUntil != "" && !blockDeferral(t) {
+				return fmt.Errorf("%s is put off until %s by defer: undefer it first, or block it without until", in.ID, t.DeferUntil)
+			}
+			t.DeferUntil, t.DeferredReason = string(until), blockMarker+reason
 		}
 		t.Status = model.TaskBlocked
 		if !slices.Contains(t.BlockedBy, reason) {
