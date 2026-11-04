@@ -63,6 +63,8 @@ type RequestView struct {
 	// Reply is the resolution note of finished Ask-agent or investigate work:
 	// the items in Links then show "Agent replied". Respond on this request.
 	Reply string `json:"reply,omitempty"`
+	// RequiresSource is the source only a declaring agent may sweep.
+	RequiresSource string `json:"requires_source,omitempty"`
 }
 
 // ContextDoc is one document a request links as context. Required says a rule
@@ -105,6 +107,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 	v.Investigates = openFind(d.Title, r)
 	v.Delegates = openWork(d.Title, r)
 	v.Reply = replyNote(d.Title, d.Body, r)
+	v.RequiresSource = r.RequiresSource.Target()
 	return v
 }
 
@@ -557,6 +560,15 @@ var RequestNext = defineSafe("request_next", "Claim the oldest queued request fo
 			if r.Runner != info.Install || r.Status != model.RequestQueued {
 				continue
 			}
+			if r.RequiresSource != "" {
+				ok, err := sourceReach(d, info.Actor, r.RequiresSource.Target())
+				if err != nil {
+					return out, err
+				}
+				if !ok {
+					continue // only an actor that declared the source claims it
+				}
+			}
 			r.Status, r.Claimed, r.Lease = model.RequestClaimed, info.Actor, d.Store.Now().Add(lease).UTC().Format(time.RFC3339Nano)
 			got, err := d.Store.Update(ctx, doc)
 			if errors.Is(err, model.ErrConflict) {
@@ -858,9 +870,22 @@ func (w *RequestWatch) ClaimableIDs(ctx context.Context) ([]string, error) {
 	now := w.d.Store.Now()
 	var ids []string
 	for id, v := range live {
-		if claimable(&v.r, info.Install, now) {
-			ids = append(ids, id)
+		if !claimable(&v.r, info.Install, now) {
+			continue
 		}
+		// A sweep waits for an agent that declared its source. The watch does
+		// not know which agent a command runs as: any declaration on this
+		// machine will do, and request_next checks the actor.
+		if v.r.RequiresSource != "" {
+			ok, err := sourceReach(w.d, "", v.r.RequiresSource.Target())
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				continue
+			}
+		}
+		ids = append(ids, id)
 	}
 	slices.Sort(ids)
 	return ids, nil

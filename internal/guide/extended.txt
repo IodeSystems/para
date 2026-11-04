@@ -252,6 +252,15 @@ An agent reads the document with its own tools and passes the text; para keeps t
   $ para doc comment file doc-portal-runbook c1 commitment --due 2026-11-20
   $ para doc comments doc-portal-runbook
 
+26. Sources and sweeps: where work comes in, and who reads it
+An agent reaches each source with its own tools (an MCP connector or a CLI); para keeps how, the cursor, and who declared it.
+  $ para source example gmail
+  $ para source add --title "Code reviews" --example github --reached-by claude
+  $ para --actor claude agent sources code-reviews
+  $ para --actor claude sweep plan
+  $ para --actor claude sweep record code-reviews --cursor page-2 --count in=3
+  $ para source list
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -271,6 +280,8 @@ Where does this go?
   a fault in a system you run                an incident, with follow-up tasks (alerts stay in monitoring)
   a remote document you follow (a wiki       a tracked document: para doc track; each read is a version
   page, a ticket, a pull request)
+  a mailbox, calendar, chat, or tracker      a source: para source add --example <system>; agents sweep it
+  agents should read for you
   a refusal with its reason                  a constraint (para rfx reply --outcome no)
   who someone is, how to reach them          org person, contacts, interactions
   reference facts you will look up           a note

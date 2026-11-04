@@ -69,6 +69,19 @@ func registerDocs(r *registrar) {
 	reg(r, ops.DocSeen, post, netguard.ScopeReviewDecide)
 }
 
+// registerSources: sources and sweeps. An agent declares the sources it
+// reaches and records its sweeps (vault:write); the PWA reads them.
+func registerSources(r *registrar) {
+	reg(r, ops.SourceList, get, read)
+	reg(r, ops.SourceShow, get, read)
+	reg(r, ops.SourceExample, get, read)
+	reg(r, ops.SourceAdd, post, write)
+	reg(r, ops.SourceStatus, post, write)
+	reg(r, ops.AgentSources, post, write)
+	reg(r, ops.SweepPlan, get, read)
+	reg(r, ops.SweepRecord, post, write)
+}
+
 // registerRFX: rfx:draft prepares an ask. rfx:send records that a person sent
 // it, the one state a key must be trusted with to claim. Para sends nothing.
 func registerRFX(r *registrar) {

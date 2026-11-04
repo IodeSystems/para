@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -19,7 +20,9 @@ import (
 	"github.com/iodesystems/para/internal/dispatch"
 	"github.com/iodesystems/para/internal/export"
 	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/props"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/server"
@@ -81,6 +84,7 @@ func doctorInstall(l *loader, r *report) {
 		doctorVault(l, r, v.ID)
 		doctorTick(l, r, v.ID, v.Path)
 		doctorDispatch(l, r, v.ID)
+		doctorSources(r, v.ID, v.Path)
 	}
 	if _, err := loadServeConfig(l, serveFlags{}); err != nil {
 		r.fail("server config", err.Error()+"; fix "+filepath.Join(l.install.Home, serverConfig))
@@ -178,6 +182,74 @@ func doctorDispatch(l *loader, r *report, id string) {
 	} else {
 		r.ok(what+" state", fmt.Sprintf("%d runs in flight recorded, %d started on %s", len(s.Running), s.Started, s.Day))
 	}
+}
+
+// doctorSources checks the sources of a vault as far as this machine can: a
+// via cli source's commands must be on PATH here. A via mcp source is reached
+// only through an agent's own connector, which may live inside its harness:
+// para cannot check it.
+func doctorSources(r *report, id, path string) {
+	files, _ := filepath.Glob(filepath.Join(path, string(model.FolderSources), "*.md"))
+	for _, file := range files {
+		f, err := paramd.ParseFile(file)
+		if err != nil || f.Type() != "source" {
+			continue
+		}
+		what := "vault " + id + " source " + f.Name
+		fm := f.Frontmatter
+		if s, _ := fm["status"].(string); s == string(model.SourcePaused) {
+			r.ok(what, "paused")
+			continue
+		}
+		switch via, _ := fm["via"].(string); via {
+		case string(model.SourceViaMCP):
+			server, _ := fm["server"].(string)
+			r.ok(what, "via mcp (server "+server+"): agent-only, not checked here")
+		case string(model.SourceViaCLI):
+			var missing, found []string
+			for _, prog := range sourcePrograms(fm) {
+				if p, err := exec.LookPath(prog); err == nil {
+					found = append(found, p)
+				} else if !slices.Contains(missing, prog) {
+					missing = append(missing, prog)
+				}
+			}
+			switch {
+			case len(missing) > 0:
+				r.warn(what, "via cli: not on PATH here: "+strings.Join(missing, ", ")+"; install it, or sweep this source from a machine that has it")
+			case len(found) == 0:
+				r.warn(what, "via cli but no command in its steps")
+			default:
+				r.ok(what, "via cli: "+strings.Join(found, ", "))
+			}
+		default:
+			r.ok(what, "via none: the agent reads it as the source says; not checked here")
+		}
+	}
+}
+
+// sourcePrograms lists the program of each command template of a source: the
+// first word, with ~/ expanded.
+func sourcePrograms(fm map[string]any) []string {
+	var out []string
+	for _, step := range paramd.SourceSteps {
+		m, _ := fm[step].(map[string]any)
+		c, _ := m["command"].(string)
+		words := strings.Fields(c)
+		if len(words) == 0 {
+			continue
+		}
+		prog := strings.Trim(words[0], `"'`)
+		if rest, ok := strings.CutPrefix(prog, "~/"); ok {
+			if home, err := os.UserHomeDir(); err == nil {
+				prog = filepath.Join(home, rest)
+			}
+		}
+		if !slices.Contains(out, prog) {
+			out = append(out, prog)
+		}
+	}
+	return out
 }
 
 func doctorTools(r *report) {

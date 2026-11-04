@@ -26,6 +26,7 @@ type ParaV1MutationNamespace {
   actionRecord(body: para_ActionRecordInputInput!): para_ActionRecordOutput @derived(operationId: "actionRecord")
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  agentSources(body: para_AgentSourcesInputInput!): para_AgentSourcesOutput @derived(operationId: "agentSources")
   alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
@@ -141,7 +142,10 @@ type ParaV1MutationNamespace {
   rfxTargetAdd(body: para_RFXTargetAddInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetAdd")
   rfxTargetState(body: para_RFXTargetStateInputInput!): para_RFXTargetOutput @derived(operationId: "rfxTargetState")
   ruleAdd(body: para_RuleAddInputInput!): para_RuleAddOutput @derived(operationId: "ruleAdd")
+  sourceAdd(body: para_SourceAddInputInput!): para_SourceAddOutput @derived(operationId: "sourceAdd")
+  sourceStatus(body: para_SourceStatusInputInput!): para_SourceStatusOutput @derived(operationId: "sourceStatus")
   stackDecide(body: para_StackDecideInputInput!): para_StackDecideOutput @derived(operationId: "stackDecide")
+  sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskAssign(body: para_TaskAssignInputInput!): para_TaskAssignOutput @derived(operationId: "taskAssign")
   taskAttempt(body: para_TaskAttemptInputInput!): para_TaskAttemptOutput @derived(operationId: "taskAttempt")
@@ -273,6 +277,10 @@ type ParaV1QueryNamespace {
     type: String
   ): para_SearchOutput @derived(operationId: "search")
   similar(title: String!, type: para_similarType!): para_SimilarOutput @derived(operationId: "similar")
+  sourceExample(system: para_sourceExampleSystem!): para_SourceExampleOutput @derived(operationId: "sourceExample")
+  sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
+  sourceShow(id: String!): para_SourceShowOutput @derived(operationId: "sourceShow")
+  sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
@@ -368,6 +376,21 @@ type para_AgendaOutput {
 
 type para_AgentActivityOutput {
   items: [para_ActivityRow!]!
+}
+
+input para_AgentSourcesInputInput {
+  sources: [String!]
+}
+
+type para_AgentSourcesOutput {
+  actor: String!
+  at: String!
+  due: [String!]!
+  learnReach: Boolean!
+  learned: [String!]!
+  reachDays: Int!
+  sources: [String!]!
+  unknown: [String!]!
 }
 
 type para_AlignItem {
@@ -5495,6 +5518,7 @@ type para_RequestDetail {
   links: [String!]
   queuedAt: String!
   reply: String
+  requiresSource: String
   resolution: para_RequestDetailResolution
   runner: String!
   status: para_RequestDetailStatus!
@@ -5590,6 +5614,7 @@ type para_RequestView {
   links: [String!]
   queuedAt: String!
   reply: String
+  requiresSource: String
   resolution: para_RequestViewResolution
   runner: String!
   status: para_RequestViewStatus!
@@ -5920,6 +5945,119 @@ type para_Source {
   url: String!
 }
 
+enum para_SourceAddInputExample {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
+input para_SourceAddInputInput {
+  cadence: String
+  example: para_SourceAddInputExample
+  fetch: para_SourceStepInput
+  id: String
+  note: String
+  reachedBy: [String!]
+  scanIn: para_SourceStepInput
+  scanOut: para_SourceStepInput
+  server: String
+  state: para_SourceStepInput
+  system: para_SourceAddInputSystem
+  title: String
+  tools: [String!]
+  via: para_SourceAddInputVia
+}
+
+enum para_SourceAddInputSystem {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
+enum para_SourceAddInputVia {
+  cli
+  mcp
+  none
+}
+
+type para_SourceAddOutput {
+  id: String!
+  rev: String!
+}
+
+type para_SourceCite {
+  id: String!
+  ref: String!
+  title: String!
+  type: para_SourceCiteType!
+}
+
+enum para_SourceCiteType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
+}
+
+type para_SourceDeclared {
+  actor: String!
+  at: String!
+  fresh: Boolean!
+}
+
+type para_SourceExampleOutput {
+  system: para_SourceExampleOutputSystem!
+  systems: [String!]!
+  text: String!
+}
+
+enum para_SourceExampleOutputSystem {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
 enum para_SourceFidelity {
   exact
   none
@@ -5927,7 +6065,91 @@ enum para_SourceFidelity {
   partial
 }
 
+type para_SourceListOutput {
+  reachDays: Int!
+  sources: [para_SourceRow!]!
+}
+
+type para_SourceRow {
+  cadence: String
+  declared: [para_SourceDeclared!]!
+  due: String
+  id: String!
+  lastScan: String
+  overdue: Boolean!
+  reachedBy: [String!]!
+  request: String
+  server: String
+  status: para_SourceRowStatus!
+  system: para_SourceRowSystem!
+  title: String!
+  via: para_SourceRowVia!
+}
+
+enum para_SourceRowStatus {
+  active
+  paused
+}
+
+enum para_SourceRowSystem {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
+enum para_SourceRowVia {
+  cli
+  mcp
+  none
+}
+
+type para_SourceShowOutput {
+  body: String!
+  cites: [para_SourceCite!]!
+  fetch: para_SourceStep
+  scanIn: para_SourceStep
+  scanOut: para_SourceStep
+  source: para_SourceRow!
+  state: para_SourceStep
+  tools: [String!]!
+}
+
+input para_SourceStatusInputInput {
+  id: String!
+  status: para_SourceStatusInputStatus!
+}
+
+enum para_SourceStatusInputStatus {
+  active
+  paused
+}
+
+type para_SourceStatusOutput {
+  id: String!
+  rev: String!
+  status: para_SourceStatusOutputStatus!
+}
+
+enum para_SourceStatusOutputStatus {
+  active
+  paused
+}
+
 type para_SourceStep {
+  args: String
+  command: String
+  how: String
+  query: String
+  tool: String
+}
+
+input para_SourceStepInput {
   args: String
   command: String
   how: String
@@ -6042,6 +6264,89 @@ type para_StepOutcome {
   docs: [String!]!
   id: String!
   title: String!
+}
+
+type para_SweepItem {
+  id: String!
+  ref: String
+  state: String
+  title: String!
+  via: String
+}
+
+type para_SweepPlanOutput {
+  declared: Boolean!
+  next: String!
+  skipped: [String!]!
+  sources: [para_SweepSource!]!
+}
+
+input para_SweepRecordInputInput {
+  counts: JSON
+  cursor: String
+  errors: [String!]
+  failed: Boolean
+  request: String
+  scannedAt: String
+  source: String!
+}
+
+type para_SweepRecordOutput {
+  cursor: String
+  due: String
+  lastScan: String
+  request: String
+  rev: String!
+  source: String!
+}
+
+type para_SweepSource {
+  asks: [para_SweepItem!]!
+  cursor: String
+  drafts: [para_SweepItem!]!
+  due: String
+  fetch: para_SweepStep
+  id: String!
+  known: [para_SweepItem!]!
+  lastScan: String
+  request: String
+  scanIn: para_SweepStep
+  scanOut: para_SweepStep
+  server: String
+  since: String!
+  state: para_SweepStep
+  system: para_SweepSourceSystem!
+  title: String!
+  tools: [String!]!
+  tracked: [para_SweepItem!]!
+  via: para_SweepSourceVia!
+}
+
+enum para_SweepSourceSystem {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
+enum para_SweepSourceVia {
+  cli
+  mcp
+  none
+}
+
+type para_SweepStep {
+  args: String
+  command: String
+  how: String
+  query: String
+  rendered: String
+  tool: String
 }
 
 type para_Target {
@@ -7062,6 +7367,23 @@ enum para_similarType {
   team
   tracked_doc
   transcript
+}
+
+enum para_sourceExampleSystem {
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  other
+  slack
+}
+
+enum para_sourceListStatus {
+  active
+  paused
 }
 
 enum para_taskListStatus {

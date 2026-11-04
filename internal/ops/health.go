@@ -49,6 +49,9 @@ const (
 	HealthDocUnseen          = "doc_unseen"
 	HealthDocStale           = "doc_stale"
 	HealthDocCommentOpen     = "doc_comment_open"
+	HealthSourceUnreached    = "source_unreached"
+	HealthSourceOverdue      = "source_overdue"
+	HealthSourceMissing      = "source_missing"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -62,6 +65,7 @@ var HealthKinds = []string{
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
+	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -95,6 +99,9 @@ var HealthKindWords = map[string]string{
 	HealthDocUnseen:          "Tracked document changes not seen",
 	HealthDocStale:           "Tracked document not read lately",
 	HealthDocCommentOpen:     "Comment on a document not settled",
+	HealthSourceUnreached:    "No agent reaches the source",
+	HealthSourceOverdue:      "Source not swept on time",
+	HealthSourceMissing:      "Item cites a source not in the vault",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -186,6 +193,9 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	h.index()
 	h.scan()
 	h.trackedDocs(checkDays)
+	if err := h.sources(s); err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
 	h.graphFindings(ctx, s)
 	if err := h.notAligned(ctx, s); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)

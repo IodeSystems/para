@@ -16,4 +16,4 @@ Edit (a change the owner wants made to the remote document):
 1. Propose it in a dossier: a para-doc-edit block with target "[[doc-id]]", old (the exact text it replaces, as it is in the latest version: para refuses old that is not there; read the document again first if it may have changed), new, and range in words. Bundle it with the para-message block that announces it, when there is one.
 2. When approved, claim it, make the edit with your own tool, read the document again, and report it with `proposal_executed` done, the url, and text (the document as it is now). The text becomes the next version, so the edit and its diff are on record.
 
-/para sweep (later) refreshes every watched document an agent that declared its source can reach. Until then, refresh the documents `health` names as doc_stale (not read in docs.check_days days). Do not track documents the owner did not ask for.
+/para sweep refreshes the watched documents of each source you declared with `agent_sources` (the prompt sweep). Refresh the documents `health` names as doc_stale (not read in docs.check_days days) too. Do not track documents the owner did not ask for.

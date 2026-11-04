@@ -50,6 +50,9 @@ type TickOutput struct {
 	// Journals lists the mechanical journals tick made this pass. A request for
 	// a narrative, when journal.agent is set, is in Requests.
 	Journals []string `json:"journals"`
+	// Sweeps lists the sweep requests tick made this pass, one per due
+	// source with none open; they are in Requests too.
+	Sweeps   []string `json:"sweeps"`
 	Proposed int      `json:"proposed"`
 	// Nudges lists open requests whose next_nudge is today or earlier. Today and
 	// agenda show them; tick only names them.
@@ -81,7 +84,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Goals: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Nudges: []string{}, Goals: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -113,6 +116,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickRequests(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: requests: %w", err)
+	}
+	if err := tickSweeps(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: sweeps: %w", err)
 	}
 	if err := tickJournals(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: journals: %w", err)
@@ -260,4 +266,70 @@ func tickNudges(ctx context.Context, d Deps, out *TickOutput) error {
 	}
 	slices.Sort(out.Nudges)
 	return nil
+}
+
+// SweepKind is the kind of a request to sweep one source.
+const SweepKind = "sweep"
+
+// tickSweeps makes one sweep request for each active source that is due and
+// has no open sweep request. Only an agent that declared the source can
+// claim it (request_next); unclaimed, it stays in the queue, and tick makes
+// no second one. Like any request tick makes, it is queued only when
+// request.surfaces lists tick, else proposed for a person to accept.
+func tickSweeps(ctx context.Context, d Deps, out *TickOutput) error {
+	sources, err := loadSources(ctx, d.Store)
+	if err != nil || len(sources) == 0 {
+		return err
+	}
+	open, err := openSweeps(ctx, d.Store)
+	if err != nil {
+		return err
+	}
+	today := d.Store.Now().Local().Format(recur.Layout)
+	for _, doc := range sources {
+		m := doc.Meta.(*model.SourceDoc)
+		if m.Status != model.SourceActive || open[doc.ID] != "" {
+			continue
+		}
+		if due := sourceDue(m); due == "" || due > today {
+			continue
+		}
+		id, err := sweepRequest(ctx, d, doc)
+		if err != nil {
+			return fmt.Errorf("%s: %w", doc.ID, err)
+		}
+		out.Sweeps = append(out.Sweeps, id)
+		out.noteRequest(ctx, d, id)
+	}
+	return nil
+}
+
+// sweepRequest makes the request to sweep one source.
+func sweepRequest(ctx context.Context, d Deps, src model.Document) (string, error) {
+	info := d.Store.Info()
+	runner, err := d.Store.Config(runnerConfig)
+	if err != nil {
+		return "", err
+	}
+	if runner = strings.TrimSpace(runner); runner == "" {
+		runner = info.Install
+	}
+	status := model.RequestProposed
+	if ok, err := canQueue(d, info.Surface); err != nil {
+		return "", err
+	} else if ok {
+		status = model.RequestQueued
+	}
+	ask := fmt.Sprintf("Sweep the source %s. Claim this only if you reach it (agent_sources). "+
+		"Run sweep_plan with sources [%s], read it with your own tools from since, write what you find with the usual ops, "+
+		"and end with sweep_record with source %s and request, the id of this request.", src.Title, src.ID, src.ID)
+	doc, err := d.Store.Create(ctx, model.Document{
+		Folder: model.FolderRequests, Title: "Sweep " + src.Title, Body: ask,
+		Meta: &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: status, Runner: runner,
+			Queued: nowString(d.Store), Kind: SweepKind, RequiresSource: model.LinkTo(src.ID)},
+	})
+	if err != nil {
+		return "", err
+	}
+	return doc.ID, nil
 }

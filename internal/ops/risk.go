@@ -67,7 +67,8 @@ func writeMeta(ctx context.Context) WriteMeta {
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
 var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record",
-	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed", "proposal_claim", "proposal_reply"}
+	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed", "proposal_claim", "proposal_reply",
+	"agent_sources", "sweep_record"}
 
 // NeedsWhy reports whether an MCP call of the op must carry why.
 func NeedsWhy(e Entry) bool {
