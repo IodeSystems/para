@@ -88,8 +88,11 @@ type Project struct {
 	Common `yaml:",inline"`
 	Status ProjectStatus `yaml:"status" json:"status"`
 	Owner  string        `yaml:"owner" json:"owner"`
-	// Area is the area of life or work the project belongs to; optional.
+	// Area is the area of life or work the project belongs to; optional. It
+	// is an area of kind project: the goal's home.
 	Area Link `yaml:"area,omitempty" json:"area,omitempty"`
+	// Concepts link the concept areas the goal draws on; optional.
+	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
 	// DoneWhen says how we know the goal is reached. Optional in a file, so
 	// older files stay valid; project_add requires it.
 	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
@@ -132,6 +135,15 @@ func (d Deferral) IsDeferred(today string) bool {
 type Area struct {
 	Common `yaml:",inline"`
 	Status AreaStatus `yaml:"status" json:"status"`
+	// Kind is project or concept; empty reads as project (AreaKind.Or).
+	Kind AreaKind `yaml:"kind,omitempty" json:"kind,omitempty"`
+	// Cadence is how often the owner reviews the area, in the recur grammar.
+	// LastReviewed is the date of the last review (area_review).
+	Cadence      string `yaml:"cadence,omitempty" json:"cadence,omitempty"`
+	LastReviewed Date   `yaml:"last_reviewed,omitempty" json:"last_reviewed,omitempty"`
+	// Concepts link the concept areas a project area draws on. A concept area
+	// has none.
+	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
 	// Links point at plans, repos, and docs that live elsewhere.
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 }
@@ -150,7 +162,7 @@ type Task struct {
 	Status  TaskStatus `yaml:"status" json:"status"`
 	Project Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
 	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
-	// Due is the date the task is due. Recur is daily, weekly, monthly, or
+	// Due is the date the task is due. Recur is daily, weekly, monthly, quarterly, yearly, or
 	// every <n> days: marking the task done creates the next one (internal/recur).
 	// Previous links the task this one recurred from.
 	Due      Date   `yaml:"due,omitempty" json:"due,omitempty"`
@@ -250,6 +262,8 @@ type Constraint struct {
 	AppliesIn []string `yaml:"applies_in" json:"applies_in"`
 	NotIn     []string `yaml:"not_in" json:"not_in"`
 	ReviewBy  Date     `yaml:"review_by" json:"review_by"`
+	// Refines links the constraint this one specializes; optional.
+	Refines Link `yaml:"refines,omitempty" json:"refines,omitempty"`
 }
 
 // Policy is type: policy, the summary file.
@@ -391,6 +405,8 @@ type Convention struct {
 	Common    `yaml:",inline"`
 	Status    ConventionStatus `yaml:"status" json:"status"`
 	AppliesIn []string         `yaml:"applies_in" json:"applies_in"`
+	// Refines links the convention this one specializes; optional.
+	Refines Link `yaml:"refines,omitempty" json:"refines,omitempty"`
 }
 
 // Journal is type: journal.

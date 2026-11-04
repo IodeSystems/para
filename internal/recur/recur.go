@@ -26,9 +26,10 @@ type Rule struct {
 var everyRe = regexp.MustCompile(`^every (\d+) days?$`)
 
 // Forms lists the accepted values, for messages.
-const Forms = "daily, weekly, monthly, every <n> days"
+const Forms = "daily, weekly, monthly, quarterly, yearly, every <n> days"
 
-// Parse reads a recur value: daily, weekly, monthly, or every <n> days.
+// Parse reads a recur value: daily, weekly, monthly, quarterly, yearly, or
+// every <n> days.
 // Case and spacing are ignored.
 func Parse(s string) (Rule, error) {
 	v := strings.ToLower(strings.Join(strings.Fields(s), " "))
@@ -39,6 +40,10 @@ func Parse(s string) (Rule, error) {
 		return Rule{Days: 7}, nil
 	case "monthly":
 		return Rule{Months: 1}, nil
+	case "quarterly":
+		return Rule{Months: 3}, nil
+	case "yearly":
+		return Rule{Months: 12}, nil
 	}
 	if m := everyRe.FindStringSubmatch(v); m != nil {
 		n, err := strconv.Atoi(m[1])

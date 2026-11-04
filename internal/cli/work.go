@@ -180,7 +180,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
-				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, or \"every <n> days\"; done makes the next task")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
@@ -253,7 +253,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.RangeArgs(1, 2),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskDueInput) {
 				fs.BoolVar(&in.Clear, "clear", false, "remove the due date (and the recurrence)")
-				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, or \"every <n> days\"; done makes the next task")
+				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
 			},
 			Bind: func(args []string, in *ops.TaskDueInput) error {
 				in.ID = args[0]

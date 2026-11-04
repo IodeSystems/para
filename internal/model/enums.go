@@ -130,6 +130,30 @@ func (AreaStatus) Enum() []string { return enumStrings(AreaStatuses) }
 // AreaStatuses lists every AreaStatus.
 var AreaStatuses = []AreaStatus{AreaActive, AreaPaused}
 
+// AreaKind is area.kind. A project area is an ongoing body of work that goals
+// call home; a concept area is a discipline that spans work. An empty kind
+// reads as project.
+type AreaKind string
+
+const (
+	AreaKindProject AreaKind = "project"
+	AreaKindConcept AreaKind = "concept"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (AreaKind) Enum() []string { return enumStrings(AreaKinds) }
+
+// AreaKinds lists every AreaKind.
+var AreaKinds = []AreaKind{AreaKindProject, AreaKindConcept}
+
+// Or returns the kind, with an empty kind read as project.
+func (k AreaKind) Or() AreaKind {
+	if k == "" {
+		return AreaKindProject
+	}
+	return k
+}
+
 // TaskStatus is task.status.
 type TaskStatus string
 

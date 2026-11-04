@@ -49,6 +49,8 @@ func CheckVault(files []*File) []Finding {
 		if f.Type() == "question" {
 			out = append(out, checkScope(f, byName)...)
 		}
+		out = append(out, checkAreaKinds(f, byName)...)
+		out = append(out, checkRefines(f, byName)...)
 		if f.Type() == "policy" {
 			if src, ok := f.Frontmatter["source"].(map[string]any); ok && src["fidelity"] != "none" {
 				if _, ok := byName[strings.ToLower(f.Name+".source")]; !ok {
@@ -76,6 +78,86 @@ func checkScope(f *File, byName map[string]*File) []Finding {
 	case dst.Type() != "project" && dst.Type() != "task" && dst.Type() != "area":
 		return []Finding{{Path: f.Path, Code: CodeScope, Severity: Error,
 			Msg: fmt.Sprintf("scope %s is a %s: want a project, a task, an area, or root", scope, dst.Type())}}
+	}
+	return nil
+}
+
+// linkTarget returns the file a frontmatter link names, or nil when the value
+// is not a link or names no file (link-unresolved reports that).
+func linkTarget(v any, byName map[string]*File) *File {
+	m := linkValRe.FindStringSubmatch(str(v))
+	if m == nil {
+		return nil
+	}
+	return byName[strings.ToLower(m[1])]
+}
+
+// areaKind is an area's kind; a missing kind reads as project.
+func areaKind(f *File) string {
+	if k := str(f.Frontmatter["kind"]); k != "" {
+		return k
+	}
+	return "project"
+}
+
+// checkAreaKinds: a goal's area is an area of kind project, and every entry of
+// concepts, on a goal or a project area, is an area of kind concept.
+func checkAreaKinds(f *File, byName map[string]*File) []Finding {
+	typ := f.Type()
+	if typ != "project" && typ != "area" {
+		return nil
+	}
+	var out []Finding
+	bad := func(format string, a ...any) {
+		out = append(out, Finding{Path: f.Path, Code: CodeFieldValue, Severity: Error, Msg: fmt.Sprintf(format, a...)})
+	}
+	if typ == "project" {
+		if v := f.Frontmatter["area"]; v != nil {
+			switch dst := linkTarget(v, byName); {
+			case dst == nil:
+			case dst.Type() != "area":
+				bad("area %s is a %s: want an area of kind project", str(v), dst.Type())
+			case areaKind(dst) != "project":
+				bad("area %s is a concept area: a goal's home is an area of kind project; list it in concepts", str(v))
+			}
+		}
+	}
+	list, _ := f.Frontmatter["concepts"].([]any)
+	for _, v := range list {
+		switch dst := linkTarget(v, byName); {
+		case dst == nil:
+		case dst.Type() != "area":
+			bad("concepts: %s is a %s: want an area of kind concept", str(v), dst.Type())
+		case areaKind(dst) != "concept":
+			bad("concepts: %s is an area of kind %s: want kind concept", str(v), areaKind(dst))
+		}
+	}
+	return out
+}
+
+// checkRefines: a convention refines a convention, a constraint refines a
+// constraint, and the refines chain has no cycle.
+func checkRefines(f *File, byName map[string]*File) []Finding {
+	typ := f.Type()
+	if (typ != "convention" && typ != "constraint") || f.Frontmatter["refines"] == nil {
+		return nil
+	}
+	v := f.Frontmatter["refines"]
+	dst := linkTarget(v, byName)
+	if dst == nil {
+		return nil
+	}
+	if dst.Type() != typ {
+		return []Finding{{Path: f.Path, Code: CodeFieldValue, Severity: Error,
+			Msg: fmt.Sprintf("refines %s is a %s: want a %s", str(v), dst.Type(), typ)}}
+	}
+	seen := map[*File]bool{f: true}
+	for cur := dst; cur != nil; cur = linkTarget(cur.Frontmatter["refines"], byName) {
+		if seen[cur] {
+			return []Finding{{Path: f.Path, Code: CodeFieldValue, Severity: Error,
+				Msg: fmt.Sprintf("refines %s: the refines chain is a cycle", str(v))}}
+		}
+		seen[cur] = true
 	}
 	return nil
 }

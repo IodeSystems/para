@@ -49,6 +49,7 @@ var (
 	journalScopes      = []string{"day", "week", "month", "project"}
 	pointerKinds       = []string{"repo", "plan", "docs", "runbook", "tracker", "dashboard", "other"}
 	areaStatus         = []string{"active", "paused"}
+	areaKinds          = []string{"project", "concept"}
 	severities         = []string{"sev1", "sev2", "sev3"}
 	incidentStatus     = []string{"open", "mitigated", "resolved"}
 	requestStatus      = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
@@ -83,7 +84,8 @@ var typeFields = map[string][]field{
 	"project": {
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
 		{Name: "owner", Kind: kString, Required: true},
-		{Name: "area", Kind: kLink},
+		{Name: "area", Kind: kLink},           // an area of kind project (vault check)
+		{Name: "concepts", Kind: kLinkList}, // areas of kind concept (vault check)
 		{Name: "done_when", Kind: kString},
 		{Name: "links", Kind: kPointers},
 		// The goal brief; all optional.
@@ -100,6 +102,10 @@ var typeFields = map[string][]field{
 	},
 	"area": {
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
+		{Name: "kind", Kind: kEnum, Enum: areaKinds}, // missing reads as project
+		{Name: "cadence", Kind: kString},             // recur grammar; another value is a warning
+		{Name: "last_reviewed", Kind: kDate},
+		{Name: "concepts", Kind: kLinkList}, // kind project only; areas of kind concept (vault check)
 		{Name: "links", Kind: kPointers},
 	},
 	"incident": {
@@ -119,7 +125,7 @@ var typeFields = map[string][]field{
 		{Name: "project", Kind: kLink}, // project or area: at least one (lint)
 		{Name: "area", Kind: kLink},
 		{Name: "due", Kind: kDate},
-		{Name: "recur", Kind: kString}, // daily, weekly, monthly, every <n> days; another value is a warning
+		{Name: "recur", Kind: kString}, // daily, weekly, monthly, quarterly, yearly, every <n> days; another value is a warning
 		{Name: "previous", Kind: kLink},
 		{Name: "incident", Kind: kLink},
 		{Name: "parent", Kind: kLink}, // the task this is an action item of; not a dependency
@@ -177,6 +183,7 @@ var typeFields = map[string][]field{
 		{Name: "applies_in", Kind: kList, Required: true},
 		{Name: "not_in", Kind: kList, Required: true},
 		{Name: "review_by", Kind: kDate, Required: true},
+		{Name: "refines", Kind: kLink}, // a constraint (vault check)
 	},
 	"policy": {
 		{Name: "source", Kind: kSourceMap, Required: true},
@@ -256,6 +263,7 @@ var typeFields = map[string][]field{
 	"convention": {
 		{Name: "status", Kind: kEnum, Enum: conventionState, Required: true},
 		{Name: "applies_in", Kind: kList, Required: true},
+		{Name: "refines", Kind: kLink}, // a convention (vault check)
 	},
 	"journal": {
 		{Name: "date", Kind: kDate, Required: true},

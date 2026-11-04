@@ -199,6 +199,9 @@ func (l *linter) frontmatter() {
 			}
 		}
 	}
+	if typ == "area" {
+		l.area()
+	}
 	if typ == "question" {
 		l.question()
 	}
@@ -242,6 +245,20 @@ func (l *linter) task() {
 	}
 	if fm["end"] != nil {
 		l.errf(1, CodeFieldValue, "field %q: a date has no end; give scheduled a start time", "end")
+	}
+}
+
+// area checks what the field kinds cannot: a cadence para can read, and no
+// concepts on a concept area.
+func (l *linter) area() {
+	fm := l.f.Frontmatter
+	if c := str(fm["cadence"]); c != "" {
+		if _, err := recur.Parse(c); err != nil {
+			l.add(1, CodeRecur, Warn, "cadence: %v: health will not report the area as neglected", err)
+		}
+	}
+	if str(fm["kind"]) == "concept" && fm["concepts"] != nil {
+		l.errf(1, CodeFieldValue, "field %q: a concept area draws on no concepts; only a project area has them", "concepts")
 	}
 }
 

@@ -8,14 +8,14 @@ import (
 func TestParse(t *testing.T) {
 	ok := map[string]Rule{
 		"daily": {Days: 1}, "Weekly": {Days: 7}, " monthly ": {Months: 1},
-		"every 3 days": {Days: 3}, "Every  1  day": {Days: 1}, "every 3660 days": {Days: 3660},
+		"every 3 days": {Days: 3}, "quarterly": {Months: 3}, "Yearly": {Months: 12}, "Every  1  day": {Days: 1}, "every 3660 days": {Days: 3660},
 	}
 	for in, want := range ok {
 		if got, err := Parse(in); err != nil || got != want {
 			t.Errorf("Parse(%q) = %+v, %v; want %+v", in, got, err, want)
 		}
 	}
-	for _, in := range []string{"", "yearly", "every 0 days", "every 3661 days", "every x days", "every 2 weeks", "weekly on monday"} {
+	for _, in := range []string{"", "annually", "every 0 days", "every 3661 days", "every x days", "every 2 weeks", "weekly on monday"} {
 		if _, err := Parse(in); err == nil {
 			t.Errorf("Parse(%q): want an error", in)
 		}

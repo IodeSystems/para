@@ -173,7 +173,7 @@ type TaskAddInput struct {
 	Title     string   `json:"title"`
 	Body      string   `json:"body,omitempty"`
 	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
-	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, or every <n> days
+	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, quarterly, yearly, or every <n> days
 	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
 	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
@@ -517,7 +517,7 @@ type TaskDueInput struct {
 	ID    string `json:"id"`
 	Date  string `json:"date,omitempty"`  // YYYY-MM-DD; empty with Clear removes the date
 	Clear bool   `json:"clear,omitempty"` // remove the due date
-	Recur string `json:"recur,omitempty"` // daily, weekly, monthly, or every <n> days
+	Recur string `json:"recur,omitempty"` // daily, weekly, monthly, quarterly, yearly, or every <n> days
 }
 
 // TaskDueOutput is the output of task_due.

@@ -206,6 +206,10 @@ func TestLint(t *testing.T) {
 		{"interaction summary at limit", "interaction-a.md", doc(interactionFM, "# A\n\n"+strings.Repeat("x", MaxSummaryLen)+"\n"), nil},
 		{"interaction summary over limit", "interaction-a.md", doc(interactionFM, "# A\n\n"+strings.Repeat("x", MaxSummaryLen+1)+"\n"), []string{"summary-long:13"}},
 		{"long body on other types is fine", "jo.md", doc(personFM, "# Jo\n\n"+strings.Repeat("x", 2*MaxSummaryLen)+"\n"), nil},
+		{"area kinds ok", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: project\ncadence: quarterly\nlast_reviewed: 2026-10-01\nconcepts:\n  - \"[[area-c]]\"\n", "# A\n"), nil},
+		{"area bad kind", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: hobby\n", "# A\n"), []string{"field-value:1"}},
+		{"area bad cadence warns", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\ncadence: sometimes\n", "# A\n"), []string{"recur:1"}},
+		{"concept area with concepts", "area-c.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: concept\nconcepts:\n  - \"[[area-d]]\"\n", "# C\n"), []string{"field-value:1"}},
 		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}
 	for _, c := range cases {
@@ -316,6 +320,17 @@ func TestCheckVault(t *testing.T) {
 	mk := func(path, src string) *File { return Parse(path, []byte(src)) }
 	person := "type: person\ncreated: 2026-11-01\norg: acme.example\n"
 	pol := mk("policies/policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: x. ^R1\n"))
+	goalFM := "type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n"
+	areaFM := "type: area\ncreated: 2026-11-01\nstatus: active\n"
+	areaP := mk("areas/area-p.md", doc(areaFM, "# P\n")) // no kind: reads as project
+	areaC := mk("areas/area-c.md", doc(areaFM+"kind: concept\n", "# C\n"))
+	conv := func(id, refines string) *File {
+		fm := "type: convention\ncreated: 2026-11-01\nstatus: adopted\napplies_in: [x]\n"
+		if refines != "" {
+			fm += "refines: \"[[" + refines + "]]\"\n"
+		}
+		return mk("conventions/"+id+".md", doc(fm, "# "+id+"\n"))
+	}
 	tr := mk("policies/policy-a.source.md", doc(strings.Replace(policyFM, "type: policy\n", "type: transcript\nof: \"[[policy-a]]\"\n", 1), "# A\n\nSource: https://wiki.acme.example/policies/logging\n"))
 	cases := []struct {
 		name  string
@@ -330,6 +345,13 @@ func TestCheckVault(t *testing.T) {
 		{"question scope is a project", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[acme-portal]]\"\n", "# Q\n")), mk("projects/acme-portal.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n", "# P\n"))}, nil},
 		{"question scope is missing", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[acme-portal]]\"\n", "# Q\n"))}, []string{"link-unresolved:5"}},
 		{"question scope is a person", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[jo]]\"\n", "# Q\n")), mk("org/jo.md", doc(person, "# Jo\n"))}, []string{"scope"}},
+		{"goal home is a project area", []*File{mk("projects/goal-a.md", doc(goalFM+"area: \"[[area-p]]\"\nconcepts:\n  - \"[[area-c]]\"\n", "# G\n")), areaP, areaC}, nil},
+		{"goal home is a concept area", []*File{mk("projects/goal-a.md", doc(goalFM+"area: \"[[area-c]]\"\n", "# G\n")), areaC}, []string{"field-value"}},
+		{"goal concept is a project area", []*File{mk("projects/goal-a.md", doc(goalFM+"concepts:\n  - \"[[area-p]]\"\n", "# G\n")), areaP}, []string{"field-value"}},
+		{"project area concept is a person", []*File{mk("areas/area-q.md", doc(areaFM+"concepts:\n  - \"[[jo]]\"\n", "# Q\n")), mk("org/jo.md", doc(person, "# Jo\n"))}, []string{"field-value"}},
+		{"refines same type", []*File{conv("conv-a", ""), conv("conv-b", "conv-a")}, nil},
+		{"refines other type", []*File{conv("conv-b", "jo"), mk("org/jo.md", doc(person, "# Jo\n"))}, []string{"field-value"}},
+		{"refines cycle", []*File{conv("conv-a", "conv-b"), conv("conv-b", "conv-a")}, []string{"field-value", "field-value"}},
 		{"policy without transcript", []*File{pol}, []string{"transcript-missing"}},
 		{"fidelity none needs no transcript", []*File{mk("policies/policy-a.md", doc(strings.Replace(strings.Replace(policyFM, "  hash: "+hash+"\n", "", 1), "fidelity: exact", "fidelity: none", 1), "# A\n\nR1 policy-a: x. ^R1\n"))}, nil},
 	}
