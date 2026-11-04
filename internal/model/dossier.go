@@ -34,6 +34,9 @@ const (
 	AnswerApprove = "approve"
 	AnswerReject  = "reject"
 	AnswerEdit    = "edit"
+	// AnswerSkip leaves the item undecided in this submit: it stays in the
+	// stack as skipped, with the note in comment, for a later submit.
+	AnswerSkip = "skip"
 )
 
 // Where an answer was written.
@@ -558,6 +561,12 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 	if a.Via != "" && a.Via != ViaPWA && a.Via != ViaCLI && a.Via != ViaFile {
 		out = append(out, fmt.Sprintf("answer via %q: want pwa, cli, or file", a.Via))
 	}
+	if a.Decision == AnswerSkip {
+		if a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != "" || len(a.Choices) > 0 || a.OwnWords != "" || len(a.Comments) > 0 {
+			out = append(out, "skip takes a comment only: the note the agent reads")
+		}
+		return out
+	}
 	if it.Kind == ItemQuestion {
 		if a.Decision != "" || a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != "" {
 			out = append(out, "a question's answer takes choices, added_options, edited_options, own_words, and comment")
@@ -590,7 +599,7 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 	switch a.Decision {
 	case "", AnswerApprove, AnswerReject, AnswerEdit:
 	default:
-		out = append(out, fmt.Sprintf("decision %q: want approve, reject, or edit", a.Decision))
+		out = append(out, fmt.Sprintf("decision %q: want approve, reject, edit, or skip", a.Decision))
 	}
 	edits := a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != ""
 	if len(a.People) > 0 && it.Kind != ItemMessage {

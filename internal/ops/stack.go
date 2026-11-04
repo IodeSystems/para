@@ -12,7 +12,7 @@ import (
 
 // The review stack is every item of every current dossier, by stack state:
 //
-//	proposed:  waits for the owner (pending, held, sent_back)
+//	proposed:  waits for the owner (pending, held, sent_back, skipped)
 //	decided:   approved outward item not claimed yet, approved change that
 //	           waits its turn, answered question with no for
 //	executing: running, claimed
@@ -35,7 +35,7 @@ var StackStates = []string{StackProposed, StackDecided, StackExecuting, StackDon
 // stackState is the stack state of an item.
 func stackState(it model.ProposalItem) string {
 	switch it.State {
-	case model.ItemPending, model.ItemHeld, model.ItemSentBack:
+	case model.ItemPending, model.ItemHeld, model.ItemSentBack, model.ItemSkipped:
 		return StackProposed
 	case model.ItemApproved:
 		if it.Kind.Outward() || it.Waits {

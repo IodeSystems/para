@@ -462,3 +462,50 @@ func TestSubmitRejectNeedsComment(t *testing.T) {
 		t.Fatalf("rows = %+v", st.Rows)
 	}
 }
+
+// Skip leaves an item undecided: it stays in the stack as skipped (proposed),
+// the agent reads the skip and the note, and a later submit decides it.
+func TestSubmitSkip(t *testing.T) {
+	f := newAgentFix(t)
+	id := fileDossierMD(t, f, dossierMD(f))
+	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerSkip, Body: "x"}}); err == nil {
+		t.Fatal("skip with an edit was accepted")
+	}
+	if _, err := draft(t, f.owner, id, 1,
+		DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerSkip, Comment: "Ask me after the launch."}},
+		DraftAnswer{Item: "q1", Answer: &model.ItemAnswer{Decision: model.AnswerSkip}}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
+	st := mustRun(t, ProposalStack, f.owner, ProposalStackInput{Proposal: id})
+	for _, item := range []string{"m1", "q1"} {
+		if !slices.ContainsFunc(st.Rows, func(r StackRow) bool { return r.Item == item && r.State == model.ItemSkipped && r.Stack == StackProposed }) {
+			t.Fatalf("%s is not skipped in the stack: %+v", item, st.Rows)
+		}
+	}
+	resp := mustRun(t, ProposalResponse, f.agent, ProposalIDInput{ID: id})
+	var m1 ResponseItem
+	for _, it := range resp.Items {
+		if it.ID == "m1" {
+			m1 = it
+		}
+	}
+	if m1.State != model.ItemSkipped || m1.Decision != model.AnswerSkip || m1.Answer == nil || m1.Answer.Comment != "Ask me after the launch." {
+		t.Fatalf("response m1 = %+v", m1)
+	}
+	if resp.Status != model.ProposalOpen {
+		t.Fatalf("status = %s", resp.Status)
+	}
+	// A later submit decides it.
+	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerApprove}}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
+	show := mustRun(t, ProposalShow, f.owner, ProposalIDInput{ID: id})
+	for _, it := range show.Items {
+		if it.ID == "m1" && it.State != model.ItemApproved {
+			t.Fatalf("m1 after the later submit = %s", it.State)
+		}
+	}
+	mustLintClean(t, f.owner)
+}

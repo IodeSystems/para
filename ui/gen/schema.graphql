@@ -329,6 +329,7 @@ enum para_ActionRecordOutputState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 
@@ -1114,6 +1115,7 @@ enum para_DecisionState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 
@@ -3276,6 +3278,7 @@ enum para_ItemViewState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 
@@ -4534,6 +4537,7 @@ enum para_ProposalExecutedOutputState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 
@@ -5764,6 +5768,7 @@ enum para_ResponseItemState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 
@@ -6327,6 +6332,7 @@ enum para_StackRowState {
   pending
   running
   sent_back
+  skipped
   withdrawn
 }
 

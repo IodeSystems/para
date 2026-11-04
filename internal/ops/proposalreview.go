@@ -293,7 +293,7 @@ func closeAlternatives(p *proposal, it *model.ProposalItem, reason string) []str
 	var out []string
 	for i := range p.content.Items {
 		o := &p.content.Items[i]
-		if o.ID != it.ID && o.Choice == it.Choice && o.State == model.ItemPending {
+		if o.ID != it.ID && o.Choice == it.Choice && (o.State == model.ItemPending || o.State == model.ItemSkipped) {
 			o.State, o.Reason, o.Decided = model.ItemDenied, why, it.Decided
 			out = append(out, o.ID)
 		}

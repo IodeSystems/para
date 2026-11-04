@@ -53,7 +53,7 @@ type ProposalDraftOutput struct {
 
 // answerable reports whether the owner may still answer an item.
 func answerable(s model.ItemState) bool {
-	return s == model.ItemPending || s == model.ItemHeld || s == model.ItemSentBack
+	return s == model.ItemPending || s == model.ItemHeld || s == model.ItemSentBack || s == model.ItemSkipped
 }
 
 // checkRevision refuses an answer to a revision that is not the current one.
@@ -163,7 +163,7 @@ type ProposalSubmitOutput struct {
 
 // submitPlan is what a submit decides, checked before anything changes.
 type submitPlan struct {
-	edits, answers, approve, reject []string
+	edits, answers, approve, reject, skip []string
 }
 
 func planSubmit(p *proposal) (submitPlan, error) {
@@ -183,6 +183,10 @@ func planSubmit(p *proposal) (submitPlan, error) {
 		}
 		if bad := model.CheckAnswer(*it, *a); len(bad) > 0 {
 			return plan, fmt.Errorf("item %s: %s", it.ID, strings.Join(bad, "; "))
+		}
+		if a.Decision == model.AnswerSkip {
+			plan.skip = append(plan.skip, it.ID)
+			continue
 		}
 		if it.Kind == model.ItemQuestion {
 			if len(a.Choices) > 0 || a.OwnWords != "" {
@@ -288,6 +292,13 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 				return fmt.Errorf("item %s: %w", id, err)
 			}
 		}
+		for _, id := range plan.skip {
+			it, err := p.item(id)
+			if err != nil {
+				return err
+			}
+			it.State = model.ItemSkipped
+		}
 		for _, id := range plan.answers {
 			it, err := p.item(id)
 			if err != nil {
@@ -309,6 +320,14 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		if err := record(ctx, d, "proposal_edit", p.doc.ID, id, it.State, it.State, hash); err != nil {
 			return out, err
 		}
+	}
+	for _, id := range plan.skip {
+		it, _ := p.item(id)
+		hash, _ := it.Hash()
+		if err := record(ctx, d, "proposal_skip", p.doc.ID, id, model.ItemPending, model.ItemSkipped, hash); err != nil {
+			return out, err
+		}
+		out.Items = append(out.Items, decisions([]model.ProposalItem{*it})...)
 	}
 	for _, it := range answered {
 		hash, _ := it.Hash()

@@ -405,7 +405,7 @@ func proposalStatus(items []model.ProposalItem) model.ProposalStatus {
 	waits, back := false, false
 	for i := range items {
 		switch items[i].State {
-		case model.ItemPending, model.ItemHeld, model.ItemRunning:
+		case model.ItemPending, model.ItemHeld, model.ItemRunning, model.ItemSkipped:
 			waits = true
 		case model.ItemSentBack, model.ItemHalted:
 			back = true
@@ -713,7 +713,7 @@ var ProposalList = defineRead("proposal_list", "List proposals, oldest first; su
 })
 
 // Item actions. Actions says which of them the review rule allows: a pending
-// item can be approved, denied, or changed; nothing else can.
+// or skipped item can be approved, denied, or changed; nothing else can.
 const (
 	ActionApprove = model.DecideApprove
 	ActionDeny    = model.DecideDeny
@@ -721,7 +721,7 @@ const (
 )
 
 func (p *proposal) actions(it *model.ProposalItem) []string {
-	if p.meta.Status == model.ProposalSuperseded || it.State != model.ItemPending || it.Kind == model.ItemQuestion {
+	if p.meta.Status == model.ProposalSuperseded || (it.State != model.ItemPending && it.State != model.ItemSkipped) || it.Kind == model.ItemQuestion {
 		return []string{} // a question is answered in its dossier, not approved
 	}
 	return []string{ActionApprove, ActionDeny, ActionChange}

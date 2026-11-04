@@ -24,7 +24,7 @@ type ProposalReviseInput struct {
 // revisable reports whether an agent may replace or withdraw an item. A final
 // decision of the owner is not the agent's to change.
 func revisable(s model.ItemState) bool {
-	return slices.Contains([]model.ItemState{model.ItemPending, model.ItemSentBack, model.ItemHalted, model.ItemFailed, model.ItemRunning}, s)
+	return slices.Contains([]model.ItemState{model.ItemPending, model.ItemSentBack, model.ItemHalted, model.ItemFailed, model.ItemRunning, model.ItemSkipped}, s)
 }
 
 // reviseItems builds the items of the next revision. Items sent back or

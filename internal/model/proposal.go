@@ -85,6 +85,7 @@ const (
 	ItemWithdrawn ItemState = "withdrawn" // the agent removed it in a revision
 	ItemAnswered  ItemState = "answered"  // a question the owner answered
 	ItemClaimed   ItemState = "claimed"   // an approved outward item an agent is carrying out
+	ItemSkipped   ItemState = "skipped"   // the owner skipped it in a submit; it waits for a later one
 
 	// itemRework is the old word for sent_back, in older files.
 	itemRework ItemState = "rework"
@@ -94,7 +95,7 @@ const (
 func (ItemState) Enum() []string { return enumStrings(ItemStates) }
 
 // ItemStates lists every ItemState.
-var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn, ItemAnswered, ItemClaimed}
+var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn, ItemAnswered, ItemClaimed, ItemSkipped}
 
 // TurnKind is thread[].kind. Change, clarify, investigate, and redirect wait for
 // the agent's answer; the others are the record of what the owner did. Redirect
