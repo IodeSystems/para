@@ -10,13 +10,19 @@ import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import { Details, StatusChip } from '@/components/Bits'
-import { stringMap } from '@/lib/dossier'
-import { ClaimRows, Row, type CardProps } from '@/components/stack/parts'
+import { stringMap, type Answer } from '@/lib/dossier'
+import { ClaimRows, Row, type CardProps, type Item } from '@/components/stack/parts'
 
 // QuestionCard asks the owner to pick: one option (radio) or several (checkbox, when multi). The
 // recommended option has a badge and is one click to accept. The owner can edit the words of an
 // option, add an option, or answer in their own words.
-export function QuestionCard({ it, answer, onAnswer }: CardProps) {
+export function QuestionCard({
+  it,
+  answer,
+  onAnswer,
+}: Omit<CardProps, 'it'> & {
+  it: Pick<Item, 'options' | 'multi' | 'recommended' | 'optionDetails'>
+}) {
   const added = answer?.addedOptions ?? []
   const edited = stringMap(answer?.editedOptions)
   const choices = answer?.choices ?? []
@@ -26,25 +32,32 @@ export function QuestionCard({ it, answer, onAnswer }: CardProps) {
   const [newOption, setNewOption] = useState('')
   const details = new Map((it.optionDetails ?? []).map((o) => [o.name, o]))
   const ro = !onAnswer
+  // An answer takes the question back from Skip or Ask agent.
+  const answerWith = (a: Answer) => {
+    if (a.decision !== 'skip' && a.decision !== 'ask') return onAnswer?.(a)
+    const out: Answer = { ...a, decision: null }
+    delete out.refs
+    onAnswer?.(out)
+  }
 
   const toggle = (opt: string) => {
     if (!onAnswer) return
     let next: string[]
     if (multi) next = choices.includes(opt) ? choices.filter((c) => c !== opt) : [...choices, opt]
     else next = choices.includes(opt) ? [] : [opt]
-    onAnswer({ ...answer, choices: next })
+    answerWith({ ...answer, choices: next })
   }
   const editOption = (opt: string, text: string) => {
     if (!onAnswer) return
     const map = { ...edited }
     if (text === '' || text === opt) delete map[opt]
     else map[opt] = text
-    onAnswer({ ...answer, editedOptions: Object.keys(map).length ? map : null })
+    answerWith({ ...answer, editedOptions: Object.keys(map).length ? map : null })
   }
   const addOption = () => {
     const o = newOption.trim()
     if (!onAnswer || !o || options.includes(o)) return
-    onAnswer({
+    answerWith({
       ...answer,
       addedOptions: [...added, o],
       choices: multi ? [...choices, o] : [o],
@@ -53,7 +66,7 @@ export function QuestionCard({ it, answer, onAnswer }: CardProps) {
   }
   const removeAdded = (o: string) => {
     if (!onAnswer) return
-    onAnswer({
+    answerWith({
       ...answer,
       addedOptions: added.filter((x) => x !== o),
       choices: choices.filter((c) => c !== o),
@@ -68,7 +81,7 @@ export function QuestionCard({ it, answer, onAnswer }: CardProps) {
           variant="outlined"
           color="success"
           onClick={() =>
-            onAnswer({
+            answerWith({
               ...answer,
               choices: multi ? [...choices, it.recommended ?? ''] : [it.recommended ?? ''],
             })
@@ -207,7 +220,7 @@ export function QuestionCard({ it, answer, onAnswer }: CardProps) {
           multiline
           label="Answer in your own words"
           value={answer?.ownWords ?? ''}
-          onChange={(e) => onAnswer?.({ ...answer, ownWords: e.target.value })}
+          onChange={(e) => answerWith({ ...answer, ownWords: e.target.value })}
           sx={{ mt: 1 }}
         />
       )}

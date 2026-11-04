@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
@@ -88,5 +88,32 @@ export function useIoItem(id: string) {
     enabled: id !== '',
     queryFn: async () =>
       need((await gqlClient.request(IoShowDoc, { id })).para.v1.ioShow, 'io item'),
+  })
+}
+
+const IODoneDoc = graphql(/* GraphQL */ `
+  mutation IODone($body: para_IODoneInputInput!) {
+    para {
+      v1 {
+        ioDone(body: $body) {
+          id
+          state
+          became
+          warnings
+        }
+      }
+    }
+  }
+`)
+
+export type IODoneBody = { id: string; url?: string; locator?: string; text?: string }
+
+// useIODone marks an outbox draft sent by the owner: it is filed as an agent's send would be.
+export function useIODone() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: IODoneBody) =>
+      need((await gqlClient.request(IODoneDoc, { body })).para.v1.ioDone, 'io done'),
+    onSettled: () => qc.invalidateQueries(),
   })
 }

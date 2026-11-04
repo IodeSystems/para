@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import Alert from '@mui/material/Alert'
@@ -12,19 +12,35 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useProposals, useStack, useStackDecide, type StackFilter } from '@/api/proposals'
+import {
+  useProposal,
+  useProposalDone,
+  useProposalSubmit,
+  useProposals,
+  useStack,
+  useStackDecide,
+  type StackFilter,
+} from '@/api/proposals'
+import { useQuestion, useQuestionReview } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { Empty, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton, TextLink } from '@/components/links'
+import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
+import { ItemCard } from '@/components/stack/ItemCard'
+import { QuestionCard } from '@/components/stack/QuestionCard'
+import { DoneForm, RefsField, ReviewStateChip, type ProposalData } from '@/components/stack/parts'
+import { useDossierDraft } from '@/components/stack/useDossierDraft'
+import { answerEmpty, stringMap, type Answer } from '@/lib/dossier'
 import type { StackKey } from '@/lib/keys'
+import { noteLabel, noteProblem } from '@/lib/review'
 import {
   canStackDecide,
   kindWords,
   nextItem,
+  rowActions,
   rowKey,
   STACK_STATES,
   stackLines,
@@ -51,9 +67,9 @@ export const Route = createFileRoute('/_authed/stack')({
 type Data = NonNullable<ReturnType<typeof useStack>['data']>
 type Row = Data['pages'][number]['rows'][number]
 
-// StackPage is the review stack: every item of every current dossier, by stack state. With a
-// review:decide key the owner approves or rejects items and groups here; a question opens in its
-// dossier, where it is answered.
+// StackPage is the review stack: every item of every current dossier and every open vault
+// question, by stack state. With a review:decide key the owner approves, declines, skips, asks an
+// agent, or marks done by me, here. A row opens in place as the same card the dossier shows.
 function StackPage() {
   const f = Route.useSearch()
   const { session } = Route.useRouteContext()
@@ -61,7 +77,7 @@ function StackPage() {
   const q = useStack(f)
   return (
     <>
-      <PageTitle subtitle="Every item agents asked you to decide, by dossier and group. Questions open in their dossier.">
+      <PageTitle subtitle="Every item agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card.">
         Stack
       </PageTitle>
       <Filters f={f} counts={q.data?.pages[0]?.counts ?? []} />
@@ -171,15 +187,29 @@ function FilterText({
   )
 }
 
+// Act is a row action that needs a form: a note, refs, or where the result is.
+type Act = 'decline' | 'skip' | 'ask' | 'done'
+
+const ACT_WORDS: Record<Act, string> = {
+  decline: 'Decline',
+  skip: 'Skip',
+  ask: 'Ask agent',
+  done: 'Done by me',
+}
+
 function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<typeof useStack> }) {
-  const navigate = useNavigate()
   const act = useStackDecide()
+  const review = useQuestionReview()
   const rows = d.pages.flatMap((p) => p.rows)
   const groups = d.pages[0]?.groups ?? []
   const total = d.pages[0]?.total ?? rows.length
   const lines = stackLines(rows, groups)
   const [cursor, setCursor] = useState<string | null>(null)
   const [picked, setPicked] = useState<Set<string>>(() => new Set())
+  // form is the row whose action form is open, and the action. A row key of '' is the selection.
+  const [form, setForm] = useState<{ key: string; act: Act } | null>(null)
+  // opened is the row shown in place as its card.
+  const [opened, setOpened] = useState<string | null>(null)
   const byKey = new Map(rows.map((r) => [rowKey(r), r]))
   const v = useWindowVirtualizer({
     count: lines.length,
@@ -193,29 +223,66 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
     if (last >= lines.length - 5 && hasNextPage && !isFetchingNextPage) void fetchNextPage()
   }, [last, lines.length, hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const decideRows = (list: Row[], decision: 'approve' | 'reject') => {
+  const approveRows = (list: Row[]) => {
     const ok = list.filter(canStackDecide)
     if (!decide || ok.length === 0) return
     act.mutate(
-      { items: ok.map((r) => ({ proposal: r.proposal, item: r.item })), decision },
+      { items: ok.map((r) => ({ proposal: r.proposal, item: r.item })), decision: 'approve' },
       { onSuccess: () => setPicked(new Set()) },
     )
+  }
+  // decideRows declines, skips, or sends back rows with the owner's note. Vault questions go
+  // through question_review, one at a time; dossier items in one stack_decide.
+  const decideRows = (list: Row[], a: Exclude<Act, 'done'>, note: string, refs: string[]) => {
+    if (!decide) return
+    const ok = list.filter((r) => rowActions(r)[a])
+    const items = ok.filter((r) => !r.question)
+    const questions = ok.filter((r) => r.question)
+    const decision = a === 'decline' ? 'reject' : a
+    const finish = () => {
+      setForm(null)
+      setPicked(new Set())
+    }
+    if (items.length > 0) {
+      act.mutate(
+        {
+          items: items.map((r) => ({ proposal: r.proposal, item: r.item })),
+          decision,
+          comment: note || undefined,
+          refs: a === 'ask' && refs.length ? refs : undefined,
+        },
+        { onSuccess: finish },
+      )
+    }
+    for (const r of questions) {
+      review.mutate(
+        {
+          id: r.question ?? r.item,
+          decision: a,
+          note: note || undefined,
+          refs: a === 'ask' && refs.length ? refs : undefined,
+        },
+        { onSuccess: finish },
+      )
+    }
   }
   const approveGroup = (proposal: string, group: string) => {
     if (!decide) return
     act.mutate({ proposal, group, decision: 'approve' })
   }
-  const openRow = (r: Row) =>
-    void navigate({
-      to: '/proposals/$id',
-      params: { id: r.proposal },
-      hash: `item-${r.item}`,
-    })
+  const toggleOpen = (r: Row, only?: boolean) =>
+    setOpened((o) => (o === rowKey(r) && !only ? null : rowKey(r)))
   const move = (step: 1 | -1) => {
     const to = nextItem(lines, cursor, step)
     setCursor(to)
     const at = lines.findIndex((l) => l.key === to)
     if (at >= 0) v.scrollToIndex(at, { align: 'auto' })
+  }
+  // openForm opens an action form on the selection, or else on the row under the cursor.
+  const openForm = (a: Act, row: Row | undefined) => {
+    if (!decide) return
+    if (a !== 'done' && picked.size > 0) return setForm({ key: '', act: a })
+    if (row && rowActions(row)[a]) setForm({ key: rowKey(row), act: a })
   }
 
   useStackKeys((k: StackKey) => {
@@ -228,14 +295,18 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
       case 'up':
         return move(-1)
       case 'approve':
-        if (row?.kind === 'question' && picked.size === 0) return openRow(row)
-        return decideRows(chosen, 'approve')
-      case 'reject':
-        return decideRows(chosen, 'reject')
+        if (row?.kind === 'question' && picked.size === 0) return toggleOpen(row, true)
+        return approveRows(chosen)
+      case 'decline':
+      case 'skip':
+      case 'ask':
+      case 'done':
+        return openForm(k, row)
       case 'edit':
       case 'comment':
+        return row ? toggleOpen(row, true) : undefined
       case 'open':
-        return row ? openRow(row) : undefined
+        return row ? toggleOpen(row) : undefined
       case 'select':
         if (!row || !decide) return
         return setPicked((p) => {
@@ -252,17 +323,20 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
 
   if (lines.length === 0) return <Empty>Nothing here. No agent waits on you for this.</Empty>
   const pickedRows = [...picked].flatMap((x) => byKey.get(x) ?? [])
+  const busy = act.isPending || review.isPending
+  const failed = act.isError ? act.error : review.isError ? review.error : null
   return (
     <>
-      {act.isError && (
+      {failed && (
         <Alert severity="error" sx={{ mb: 1 }}>
-          {errorText(act.error)}
+          {errorText(failed)}
         </Alert>
       )}
       <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
-          {total} {total === 1 ? 'item' : 'items'}. Keys: j and k move, a approves, r rejects, x
-          selects, A approves the group, o opens.
+          {total} {total === 1 ? 'item' : 'items'}. Keys: j and k move, a approves, d declines, s
+          skips, g asks an agent, m marks done by me, o opens the card, x selects, A approves the
+          group. ? shows them all.
         </Typography>
         {decide && pickedRows.length > 0 && (
           <>
@@ -270,22 +344,39 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
               size="small"
               color="success"
               variant="contained"
-              disabled={act.isPending}
-              onClick={() => decideRows(pickedRows, 'approve')}
+              disabled={busy}
+              onClick={() => approveRows(pickedRows)}
             >
               Approve {pickedRows.length} selected
             </Button>
             <Button
               size="small"
               color="error"
-              disabled={act.isPending}
-              onClick={() => decideRows(pickedRows, 'reject')}
+              disabled={busy}
+              onClick={() => openForm('decline', undefined)}
             >
-              Reject selected
+              Decline selected
+            </Button>
+            <Button size="small" disabled={busy} onClick={() => openForm('skip', undefined)}>
+              Skip selected
+            </Button>
+            <Button size="small" disabled={busy} onClick={() => openForm('ask', undefined)}>
+              Ask agent about selected
             </Button>
           </>
         )}
       </Stack>
+      {form?.key === '' && form.act !== 'done' && (
+        <NoteForm
+          act={form.act}
+          count={pickedRows.length}
+          busy={busy}
+          onCancel={() => setForm(null)}
+          onConfirm={(note, refs) =>
+            decideRows(pickedRows, form.act as Exclude<Act, 'done'>, note, refs)
+          }
+        />
+      )}
       <Box
         role="list"
         aria-label="Review stack"
@@ -311,9 +402,11 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
               <LineView
                 line={line}
                 decide={decide}
-                busy={act.isPending}
+                busy={busy}
                 cursor={cursor}
                 picked={picked}
+                form={form && form.key === line.key ? form.act : null}
+                opened={opened === line.key}
                 onPick={(r) => {
                   setCursor(rowKey(r))
                   setPicked((p) => {
@@ -323,7 +416,16 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
                     return n
                   })
                 }}
-                onDecide={(r, dec) => decideRows([r], dec)}
+                onApprove={(r) => approveRows([r])}
+                onForm={(r, a) => {
+                  setCursor(rowKey(r))
+                  setForm(a ? { key: rowKey(r), act: a } : null)
+                }}
+                onDecide={(r, a, note, refs) => decideRows([r], a, note, refs)}
+                onOpen={(r) => {
+                  setCursor(rowKey(r))
+                  toggleOpen(r)
+                }}
                 onGroup={approveGroup}
                 onFocusRow={(r) => setCursor(rowKey(r))}
               />
@@ -342,8 +444,13 @@ function LineView({
   busy,
   cursor,
   picked,
+  form,
+  opened,
   onPick,
+  onApprove,
+  onForm,
   onDecide,
+  onOpen,
   onGroup,
   onFocusRow,
 }: {
@@ -352,8 +459,13 @@ function LineView({
   busy: boolean
   cursor: string | null
   picked: Set<string>
+  form: Act | null
+  opened: boolean
   onPick: (r: Row) => void
-  onDecide: (r: Row, d: 'approve' | 'reject') => void
+  onApprove: (r: Row) => void
+  onForm: (r: Row, a: Act | null) => void
+  onDecide: (r: Row, a: Exclude<Act, 'done'>, note: string, refs: string[]) => void
+  onOpen: (r: Row) => void
   onGroup: (proposal: string, group: string) => void
   onFocusRow: (r: Row) => void
 }) {
@@ -364,9 +476,13 @@ function LineView({
         data-dossier={line.proposal}
       >
         <Typography variant="subtitle1" component="h2">
-          <TextLink to="/proposals/$id" params={{ id: line.proposal }} underline="hover">
-            {line.title || line.proposal}
-          </TextLink>{' '}
+          {line.proposal ? (
+            <TextLink to="/proposals/$id" params={{ id: line.proposal }} underline="hover">
+              {line.title || line.proposal}
+            </TextLink>
+          ) : (
+            line.title
+          )}{' '}
           <Typography component="span" variant="body2" color="text.secondary">
             {line.count} {line.count === 1 ? 'item' : 'items'}
           </Typography>
@@ -412,107 +528,434 @@ function LineView({
   const r = line.row
   const key = rowKey(r)
   const here = cursor === key
+  const can = decide ? rowActions(r) : null
+  const actButton = (a: Act, color?: 'error') =>
+    can?.[a] && (
+      <Button
+        size="small"
+        color={color}
+        data-act={a}
+        variant={form === a ? 'contained' : 'text'}
+        aria-pressed={form === a}
+        disabled={busy}
+        onClick={() => onForm(r, form === a ? null : a)}
+      >
+        {ACT_WORDS[a]}
+      </Button>
+    )
   return (
-    <Stack
-      direction="row"
-      spacing={1}
+    <Box
       data-row={key}
       data-stack={r.stack}
+      data-state={r.state}
       data-kind={r.kind}
+      data-question={r.question || undefined}
       aria-current={here || undefined}
       onClick={() => onFocusRow(r)}
       sx={{
         pl: r.group ? 3 : 1,
         pr: 1,
         py: 0.75,
-        alignItems: 'center',
-        flexWrap: { xs: 'wrap', sm: 'nowrap' },
         borderLeft: 3,
         borderColor: here ? 'primary.main' : 'transparent',
         bgcolor: here ? 'action.selected' : undefined,
       }}
     >
-      {decide && canStackDecide(r) && (
-        <Checkbox
-          size="small"
-          checked={picked.has(key)}
-          onChange={() => onPick(r)}
-          slotProps={{ input: { 'aria-label': `Select ${r.summary}` } }}
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: 'center', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}
+      >
+        {decide && canStackDecide(r) && (
+          <Checkbox
+            size="small"
+            checked={picked.has(key)}
+            onChange={() => onPick(r)}
+            slotProps={{ input: { 'aria-label': `Select ${r.summary}` } }}
+          />
+        )}
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+            {r.question ? (
+              <DocLink id={r.question}>{r.summary}</DocLink>
+            ) : (
+              <TextLink
+                to="/proposals/$id"
+                params={{ id: r.proposal }}
+                hash={`item-${r.item}`}
+                underline="hover"
+              >
+                {r.summary}
+              </TextLink>
+            )}
+          </Typography>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.25 }}>
+            <StatusChip
+              tone="quiet"
+              label={r.question ? 'question in the vault' : kindWords(r.kind)}
+            />
+            <StatusChip tone={stackTone(r.stack)} label={stackWords(r.stack)} />
+            {r.state === 'skipped' || r.state === 'sent_back' ? (
+              <ReviewStateChip state={r.state} />
+            ) : (
+              r.state !== 'pending' && <StateChip state={r.state} />
+            )}
+            {r.drafted && <StatusChip tone="wait" label="drafted" />}
+            {r.proposed && <StatusChip tone="wait" label="an agent proposed an answer" />}
+            {r.bundle && <StatusChip tone="quiet" label={`bundle ${r.bundle}`} />}
+            {r.actor && (
+              <Typography variant="caption" color="text.secondary">
+                by {r.actor}
+                {r.claimedBy ? `, ${r.claimedBy} has it` : ''}
+              </Typography>
+            )}
+            {r.url && (
+              <Link variant="caption" href={r.url} target="_blank" rel="noreferrer noopener">
+                result
+              </Link>
+            )}
+            {r.result && r.stack === 'done' && !r.url && (
+              <Typography variant="caption">
+                <DocLink id={r.result}>made {r.result}</DocLink>
+              </Typography>
+            )}
+            {r.receipt && (
+              <Typography variant="caption" color="text.secondary">
+                receipt {r.receipt}
+              </Typography>
+            )}
+            {r.reason && (
+              <Typography
+                variant="caption"
+                color={r.stack === 'failed' ? 'error' : 'text.secondary'}
+                sx={{ overflowWrap: 'anywhere' }}
+                data-reason
+              >
+                {r.state === 'sent_back' ? 'You asked: ' : ''}
+                {r.reason}
+              </Typography>
+            )}
+            {(r.refs ?? []).length > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                read: {(r.refs ?? []).join(', ')}
+              </Typography>
+            )}
+            {r.request && (
+              <Typography variant="caption">
+                <DocLink id={r.request}>agent work</DocLink>
+              </Typography>
+            )}
+          </Stack>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}
+        >
+          {can?.approve && (
+            <Button
+              size="small"
+              color="success"
+              variant="outlined"
+              data-act="approve"
+              disabled={busy}
+              onClick={() => onApprove(r)}
+            >
+              Approve
+            </Button>
+          )}
+          {actButton('decline', 'error')}
+          {actButton('skip')}
+          {actButton('ask')}
+          {actButton('done')}
+          <Button size="small" data-act="open" aria-expanded={opened} onClick={() => onOpen(r)}>
+            {opened
+              ? 'Close'
+              : decide && r.kind === 'question' && r.stack === 'proposed'
+                ? 'Answer'
+                : 'Open'}
+          </Button>
+        </Stack>
+      </Stack>
+      {form && form !== 'done' && (
+        <NoteForm
+          act={form}
+          busy={busy}
+          onCancel={() => onForm(r, null)}
+          onConfirm={(note, refs) => onDecide(r, form, note, refs)}
         />
       )}
-      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          <TextLink
-            to="/proposals/$id"
-            params={{ id: r.proposal }}
-            hash={`item-${r.item}`}
-            underline="hover"
-          >
-            {r.summary}
-          </TextLink>
-        </Typography>
-        <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.25 }}>
-          <StatusChip tone="quiet" label={kindWords(r.kind)} />
-          <StatusChip tone={stackTone(r.stack)} label={stackWords(r.stack)} />
-          {r.state !== 'pending' && <StateChip state={r.state} />}
-          {r.drafted && <StatusChip tone="wait" label="drafted" />}
-          {r.bundle && <StatusChip tone="quiet" label={`bundle ${r.bundle}`} />}
-          <Typography variant="caption" color="text.secondary">
-            by {r.actor}
-            {r.claimedBy ? `, ${r.claimedBy} has it` : ''}
-          </Typography>
-          {r.url && (
-            <Link variant="caption" href={r.url} target="_blank" rel="noreferrer noopener">
-              result
-            </Link>
-          )}
-          {r.result && r.stack === 'done' && !r.url && (
-            <Typography variant="caption">
-              <DocLink id={r.result}>made {r.result}</DocLink>
-            </Typography>
-          )}
-          {r.receipt && (
-            <Typography variant="caption" color="text.secondary">
-              receipt {r.receipt}
-            </Typography>
-          )}
-          {r.reason && (
-            <Typography
-              variant="caption"
-              color={r.stack === 'failed' ? 'error' : 'text.secondary'}
-              sx={{ overflowWrap: 'anywhere' }}
-            >
-              {r.reason}
-            </Typography>
-          )}
-        </Stack>
-      </Box>
-      {decide && canStackDecide(r) && (
-        <Stack direction="row" spacing={0.5}>
+      {form === 'done' && <RowDone r={r} onClose={() => onForm(r, null)} />}
+      {opened &&
+        (r.question ? <VaultQuestion r={r} decide={decide} /> : <RowCard r={r} decide={decide} />)}
+    </Box>
+  )
+}
+
+// NoteForm is the note a row action takes: required to decline or ask, optional to skip. With
+// Ask agent the owner may name documents for the agent to read. Enter confirms, Esc cancels.
+function NoteForm({
+  act,
+  count,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  act: Exclude<Act, 'done'>
+  count?: number
+  busy: boolean
+  onCancel: () => void
+  onConfirm: (note: string, refs: string[]) => void
+}) {
+  const [note, setNote] = useState('')
+  const [refs, setRefs] = useState<string[]>([])
+  const [tried, setTried] = useState(false)
+  const decision = act === 'decline' ? 'reject' : act
+  const problem = noteProblem(decision, note)
+  const confirm = () => {
+    setTried(true)
+    if (!problem) onConfirm(note.trim(), refs)
+  }
+  const keys = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') onCancel()
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      confirm()
+    }
+  }
+  return (
+    <Box
+      data-note-form={act}
+      role="group"
+      aria-label={ACT_WORDS[act]}
+      onClick={(e) => e.stopPropagation()}
+      sx={{ my: 1, ml: 1, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}
+    >
+      <TextField
+        size="small"
+        fullWidth
+        multiline
+        autoFocus
+        label={noteLabel(decision)}
+        value={note}
+        error={tried && problem !== ''}
+        helperText={problem || (act === 'skip' ? 'It stays to decide later.' : undefined)}
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={keys}
+      />
+      {act === 'ask' && <RefsField refs={refs} onRefs={setRefs} />}
+      <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center' }}>
+        <Button
+          size="small"
+          variant="contained"
+          color={act === 'decline' ? 'error' : 'primary'}
+          disabled={busy || problem !== ''}
+          onClick={confirm}
+        >
+          {ACT_WORDS[act]}
+          {count ? ` ${count} selected` : ''}
+        </Button>
+        <Button size="small" onClick={onCancel}>
+          Cancel
+        </Button>
+      </Stack>
+    </Box>
+  )
+}
+
+// RowDone is Done by me on a row: the owner did the item themself.
+function RowDone({ r, onClose }: { r: Row; onClose: () => void }) {
+  const done = useProposalDone()
+  return (
+    <Box onClick={(e) => e.stopPropagation()} sx={{ ml: 1 }}>
+      <DoneForm
+        start=""
+        textLabel={
+          r.kind === 'doc_edit'
+            ? 'The document after your edit (optional)'
+            : 'What you sent, if not the draft (optional)'
+        }
+        withNote
+        busy={done.isPending}
+        error={done.isError ? errorText(done.error) : undefined}
+        onCancel={onClose}
+        onConfirm={(f) =>
+          done.mutate(
+            {
+              id: r.proposal,
+              item: r.item,
+              url: f.url.trim() || undefined,
+              locator: f.locator.trim() || undefined,
+              text: f.text.trim() ? f.text : undefined,
+              note: f.note.trim() || undefined,
+            },
+            { onSuccess: onClose },
+          )
+        }
+      />
+    </Box>
+  )
+}
+
+// RowCard shows a row in place as the card of its dossier item, the same card the dossier page
+// shows. The owner's answer saves as a draft of the dossier; Submit submits the dossier's answers.
+function RowCard({ r, decide }: { r: Row; decide: boolean }) {
+  const q = useProposal(r.proposal)
+  return (
+    <Box onClick={(e) => e.stopPropagation()} sx={{ ml: 1 }}>
+      <DataState q={q}>{(d) => <DossierItem d={d} item={r.item} decide={decide} />}</DataState>
+    </Box>
+  )
+}
+
+function DossierItem({ d, item, decide }: { d: ProposalData; item: string; decide: boolean }) {
+  const draft = useDossierDraft(d)
+  const submit = useProposalSubmit()
+  const [said, setSaid] = useState('')
+  const it = d.items.find((x) => x.id === item)
+  if (!it) return <Alert severity="warning">This dossier has no item {item} now.</Alert>
+  const may = decide && it.stack === 'proposed'
+  const drafted = d.items.filter(
+    (x) => x.stack === 'proposed' && !answerEmpty(draft.answerOf(x.id)),
+  ).length
+  const problem = draft.problems.map((p) => p.problem).join(' ')
+  const doSubmit = async () => {
+    setSaid('')
+    if (!(await draft.flush())) return
+    submit.mutate(
+      { id: d.proposal.id, revision: d.proposal.revision },
+      {
+        onSuccess: (x) =>
+          setSaid(
+            x.failed?.length ? `Submitted. These failed: ${x.failed.join(', ')}.` : 'Submitted.',
+          ),
+      },
+    )
+  }
+  return (
+    <>
+      <ItemCard
+        it={it}
+        answer={draft.answerOf(it.id)}
+        onAnswer={may ? (a) => draft.setAnswer(it.id, a) : undefined}
+        stale={!!it.answer?.stale && !draft.overridden(it.id)}
+        proposal={decide ? d.proposal.id : undefined}
+      />
+      {(said || submit.isError || draft.error) && (
+        <Alert severity={submit.isError || draft.error ? 'error' : 'success'} sx={{ mb: 1 }}>
+          {submit.isError ? errorText(submit.error) : draft.error || said}
+        </Alert>
+      )}
+      {may && (
+        <Stack
+          direction="row"
+          spacing={1}
+          useFlexGap
+          sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <Button
             size="small"
-            color="success"
-            variant="outlined"
-            disabled={busy}
-            onClick={() => onDecide(r, 'approve')}
+            variant="contained"
+            disabled={
+              submit.isPending || draft.state === 'saving' || drafted === 0 || problem !== ''
+            }
+            onClick={() => void doSubmit()}
           >
-            Approve
+            Submit this dossier ({drafted} answered)
           </Button>
-          <Button size="small" color="error" disabled={busy} onClick={() => onDecide(r, 'reject')}>
-            Reject
-          </Button>
+          <Typography variant="caption" color="text.secondary" data-save={draft.state}>
+            {problem ||
+              'Submit decides every answer you drafted in this dossier. Open the dossier to see them all.'}
+          </Typography>
         </Stack>
       )}
-      {decide && r.kind === 'question' && r.stack === 'proposed' && (
-        <LinkButton
-          size="small"
-          to="/proposals/$id"
-          params={{ id: r.proposal }}
-          hash={`item-${r.item}`}
-        >
-          Answer
-        </LinkButton>
-      )}
-    </Stack>
+    </>
+  )
+}
+
+// VaultQuestion is an open vault question in place: the same question card the dossier shows. The
+// owner picks or edits options, adds one, or answers in their own words, with an optional note;
+// Answer records it at once. Decline, Skip, and Ask agent are on the row.
+function VaultQuestion({ r, decide }: { r: Row; decide: boolean }) {
+  const q = useQuestion(r.question ?? r.item)
+  const review = useQuestionReview()
+  const [answer, setAnswer] = useState<Answer | null>(null)
+  return (
+    <Box
+      onClick={(e) => e.stopPropagation()}
+      sx={{ ml: 1, my: 1 }}
+      data-vault-question={r.question}
+    >
+      <DataState q={q}>
+        {({ question: x }) => {
+          const choices = answer?.choices ?? []
+          const own = (answer?.ownWords ?? '').trim()
+          return (
+            <Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+              {x.context && (
+                <Typography variant="body2" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+                  {x.context}
+                </Typography>
+              )}
+              {x.hasProposal && x.proposedAnswer && (
+                <Typography variant="body2" sx={{ mb: 1, overflowWrap: 'anywhere' }}>
+                  {x.proposedBy || 'An agent'} proposed: {x.proposedChoice || x.proposedAnswer}
+                </Typography>
+              )}
+              <QuestionCard
+                it={{
+                  options: x.options,
+                  multi: false,
+                  recommended: x.recommended,
+                  optionDetails: x.optionDetails,
+                }}
+                answer={answer}
+                onAnswer={decide ? setAnswer : undefined}
+              />
+              {decide && (
+                <>
+                  <TextField
+                    size="small"
+                    fullWidth
+                    multiline
+                    label="Note, kept as the reason (optional)"
+                    value={answer?.comment ?? ''}
+                    onChange={(e) => setAnswer({ ...answer, comment: e.target.value })}
+                    sx={{ mt: 1 }}
+                  />
+                  {review.isError && (
+                    <Alert severity="error" sx={{ mt: 1 }}>
+                      {errorText(review.error)}
+                    </Alert>
+                  )}
+                  <Button
+                    size="small"
+                    variant="contained"
+                    data-act="answer"
+                    sx={{ mt: 1 }}
+                    disabled={review.isPending || (choices.length === 0 && own === '')}
+                    onClick={() => {
+                      const edited = stringMap(answer?.editedOptions)
+                      review.mutate({
+                        id: x.id,
+                        decision: 'answer',
+                        choices,
+                        addedOptions: answer?.addedOptions ?? undefined,
+                        editedOptions: Object.keys(edited).length ? edited : undefined,
+                        ownWords: own || undefined,
+                        note: (answer?.comment ?? '').trim() || undefined,
+                      })
+                    }}
+                  >
+                    Answer
+                  </Button>
+                </>
+              )}
+            </Box>
+          )
+        }}
+      </DataState>
+    </Box>
   )
 }

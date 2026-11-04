@@ -66,6 +66,8 @@ export type Answer = {
   input?: unknown
   subject?: string | null
   body?: string | null
+  // people is who a message goes to, as the owner edited it.
+  people?: string[] | null
   new?: string | null
   choices?: string[] | null
   addedOptions?: string[] | null
@@ -73,6 +75,8 @@ export type Answer = {
   ownWords?: string | null
   comments?: CommentAnswer[] | null
   comment?: string | null
+  // refs are the vault ids an ask names for the agent to read.
+  refs?: string[] | null
   via?: string | null
   stale?: boolean | null
 }
@@ -95,6 +99,7 @@ export function answerEmpty(a: Answer | null | undefined): boolean {
     (a.input === undefined || a.input === null) &&
     !a.subject &&
     !a.body &&
+    !(a.people?.length ?? 0) &&
     !a.new &&
     !(a.choices?.length ?? 0) &&
     !(a.addedOptions?.length ?? 0) &&
@@ -115,6 +120,7 @@ export function answerInput(a: Answer | null | undefined): Record<string, unknow
     'input',
     'subject',
     'body',
+    'people',
     'new',
     'choices',
     'addedOptions',
@@ -122,6 +128,7 @@ export function answerInput(a: Answer | null | undefined): Record<string, unknow
     'ownWords',
     'comments',
     'comment',
+    'refs',
   ] as const
   for (const k of keys) {
     const v = a[k]

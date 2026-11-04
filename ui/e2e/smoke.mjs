@@ -11,9 +11,17 @@
 // It uses one port (7710, or PARA_E2E_PORT), a temp home, and stops the server and the MCP agent
 // by their own PIDs.
 import { spawn, execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, relative, resolve } from 'node:path'
 import { request } from 'node:http'
 import { chromium } from 'playwright'
 
@@ -40,6 +48,18 @@ const idOf = (json) => /"id":\s*"([^"]+)"/.exec(json)?.[1]
 // paraIn runs para with text on stdin, as an agent passes a document it read.
 const paraIn = (input, ...args) =>
   execFileSync(bin, ['--home', home, ...args], { encoding: 'utf8', input })
+
+// vaultPath finds the file of a vault document by its id, relative to the vault root.
+function vaultPath(root, id) {
+  for (const name of readdirSync(root)) {
+    const p = join(root, name)
+    if (statSync(p).isDirectory()) {
+      const found = vaultPath(p, id)
+      if (found) return found
+    } else if (name === `${id}.md`) return p
+  }
+  return ''
+}
 
 // api calls the server with a bearer token. node's fetch cannot set Host, and the vault is chosen
 // by Host, so this uses http.request.
@@ -773,7 +793,10 @@ try {
   await rpage.locator('[data-row]').first().waitFor()
   const chip = (s) => rpage.locator(`[data-state-chip="${s}"]`)
   check((await chip('decided').innerText()).startsWith('2 '), 'the decided chip counts 2')
-  check((await chip('proposed').innerText()).startsWith('2 '), 'the proposed chip counts 2')
+  check(
+    (await chip('proposed').innerText()).startsWith('3 '),
+    'the proposed chip counts 3: two dossier items and the open vault question',
+  )
   await chip('decided').click()
   await rpage.waitForURL(/state=decided/)
   await rpage.locator(`[data-row="${dossier.id}/m1"]`).waitFor()
@@ -901,6 +924,262 @@ try {
   check(
     rerrors.length === 0,
     `the receipts page logs no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
+  )
+  // The shared card frame: decline, skip, ask agent, edit a message, done by me, a path body.
+  const ada = idOf(para(...v, 'org', 'person', 'add', 'Ada Lane', '--org', 'Acme', '--json'))
+  const outDraft = (subject, text) =>
+    idOf(
+      para(
+        ...v,
+        'io',
+        'add',
+        '--direction',
+        'out',
+        '--to',
+        person,
+        '--medium',
+        'email',
+        '--expects',
+        'none',
+        '--subject',
+        subject,
+        text,
+        '--json',
+      ),
+    )
+  const ioEdit = outDraft('Room booking', 'Hi Sam, the room is booked.')
+  const ioMine = outDraft('Agenda', 'Hi Sam, here is the agenda.')
+  const ioPage = outDraft('Minutes', 'Hi Sam, the minutes.')
+  const plan = await agent.call('note_add', {
+    title: 'E2E room plan',
+    body: 'Room 4 on Friday at 10.',
+    project: proj,
+    why: 'Seeded for a path body.',
+    verify: 'Open the note.',
+  })
+  const planFile = vaultPath(join(work, 'vault'), plan.id)
+  check(planFile !== '', 'the seeded note has a file in the vault')
+  const ev = 'evidence: {quote: "Rooms are short.", locator: "note line 1"}'
+  const action = (id, what, extra = []) => [
+    `\`\`\`yaml para-action id=${id}`,
+    `what: ${what}`,
+    'how: calendar',
+    ...extra,
+    ev,
+    '```',
+    '',
+  ]
+  const rooms = await agent.call('proposal_add', {
+    title: 'Room actions',
+    markdown: [
+      '```yaml para-dossier',
+      'tldr: Book rooms and tell Sam',
+      '```',
+      '',
+      '## Rooms',
+      '',
+      ...action('a1', 'Book room 1'),
+      ...action('a2', 'Book room 2'),
+      ...action('a3', 'Book room 3'),
+      ...action('a4', 'Book room 4', [`body: ${relative(join(work, 'vault'), planFile)}`]),
+      '```yaml para-message id=m2',
+      `io: "[[${ioEdit}]]"`,
+      ev,
+      '```',
+      '',
+      '```yaml para-message id=m3',
+      `io: "[[${ioMine}]]"`,
+      ev,
+      '```',
+      '',
+    ].join('\n'),
+  })
+  check(!!rooms.id, 'MCP files a dossier of actions and messages')
+  await rpage.goto(`${base}/proposals/${rooms.id}`)
+  await rpage.getByRole('heading', { name: 'Room actions' }).waitFor()
+  const rcard = (id) => rpage.locator(`[data-item="${id}"]`)
+  await rcard('a1').waitFor()
+
+  // (g) A body that is a path to a vault file shows the file's text.
+  check(
+    (await rcard('a4').locator('[data-body-file]').innerText()).includes('Room 4 on Friday at 10.'),
+    "a path body shows the file's text beside the item",
+  )
+
+  // (a) Decline needs a note: the field shows an error and Submit is blocked until it has one.
+  await rcard('a1').locator('[data-act="reject"]').click()
+  await rcard('a1').getByText('Decline needs a note: why.').first().waitFor()
+  check(
+    await rpage.getByRole('button', { name: 'Submit', exact: true }).isDisabled(),
+    'a decline with no note blocks Submit',
+  )
+  check(
+    await rcard('a1')
+      .getByLabel('Why you decline (required)')
+      .evaluate((e) => e === document.activeElement),
+    'Decline puts the cursor in the note',
+  )
+  await rcard('a1').getByLabel('Why you decline (required)').fill('Room 1 is closed.')
+
+  // (b) Skip with a note.
+  await rcard('a2').locator('[data-act="skip"]').click()
+  await rcard('a2').getByLabel('Note (optional)').fill('After the launch.')
+
+  // (c) Ask agent with a note and a document to read.
+  await rcard('a3').locator('[data-act="ask"]').click()
+  await rcard('a3').getByLabel('What the agent should do (required)').fill(`duplicate of ${ask}`)
+  await rcard('a3')
+    .getByLabel(/Documents for the agent to read/)
+    .fill(note.id)
+
+  // (e) Edit a message that names an io draft: who it goes to, the subject, and the body.
+  await rcard('m2').getByRole('button', { name: 'Edit, then approve' }).click()
+  await rcard('m2').getByLabel(/^To/).fill(`${person}, ${ada}`)
+  await rcard('m2').getByLabel('Subject of your version').fill('Room booking, updated')
+  await rcard('m2').getByLabel('Body of your version').fill('Hi Sam and Ada, room 4 is booked.')
+  await rpage.locator('[data-save="saved"]').waitFor()
+  await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
+  await rpage.getByText('Submitted.', { exact: false }).waitFor()
+  await rpage.locator('[data-item="a1"][data-state="denied"]').waitFor()
+  check(
+    (await rcard('a1').getByText('Room 1 is closed.').count()) > 0,
+    'a declined item shows denied with the reason',
+  )
+  await rpage.reload()
+  await rcard('a2').waitFor()
+  check(
+    (await rpage
+      .locator('[data-item="a2"][data-state="skipped"] [data-review="skipped"]')
+      .count()) === 1,
+    'after reload the skipped item is still skipped, with its chip',
+  )
+  check(
+    (await rpage
+      .locator('[data-item="a3"][data-state="sent_back"] [data-review="sent_back"]')
+      .count()) === 1,
+    'the asked item shows the sent back chip',
+  )
+  {
+    const resp = await agent.call('proposal_response', { id: rooms.id })
+    const item = (id) => resp.items.find((x) => x.id === id) ?? {}
+    check(
+      item('a2').answer?.decision === 'skip' && item('a2').answer?.comment === 'After the launch.',
+      'proposal_response shows decision skip and the note',
+    )
+    check(
+      item('a3').answer?.decision === 'ask' &&
+        item('a3').answer?.comment === `duplicate of ${ask}` &&
+        (item('a3').answer?.refs ?? []).some((r) => r.includes(note.id)),
+      'proposal_response shows the ask note and the ref',
+    )
+    const queued = await agent.call('request_list', {})
+    check(
+      queued.items.some(
+        (r) => r.title === 'Ask: Book room 3' && (r.links ?? []).some((l) => l.includes(rooms.id)),
+      ),
+      'the ask queued agent work',
+    )
+    const drafted = await agent.call('io_show', { id: ioEdit })
+    check(
+      drafted.doc.body.includes('Hi Sam and Ada, room 4 is booked.') &&
+        drafted.item.subject === 'Room booking, updated' &&
+        drafted.item.to.some((t) => t.includes(ada)),
+      `the io draft holds the edited text (${JSON.stringify(drafted.item.to)} ${drafted.item.subject})`,
+    )
+  }
+
+  // (f) Done by me on a message: the item is done, its io draft is sent and filed.
+  await rcard('m3').locator('[data-act="done"]').click()
+  await rcard('m3')
+    .getByLabel('Link to the result (optional)')
+    .fill('https://mail.acme.example/sent/42')
+  await rcard('m3').getByRole('button', { name: 'Confirm done' }).click()
+  await rpage.locator('[data-item="m3"][data-state="done"]').waitFor()
+  {
+    const sent = await agent.call('io_show', { id: ioMine })
+    check(
+      sent.item.state === 'sent' && /^interaction-/.test(sent.item.became ?? ''),
+      `Done by me marks the io draft sent and files an interaction (${sent.item.state} ${sent.item.became})`,
+    )
+  }
+
+  // Done by me on an outbox draft page.
+  await rpage.goto(`${base}/io/${ioPage}`)
+  await rpage.getByRole('heading', { name: 'Minutes' }).waitFor()
+  await rpage.locator('[data-act="done"]').click()
+  await rpage.getByLabel('Where it is, with no link (optional)').fill('sent from my phone')
+  await rpage.getByRole('button', { name: 'Confirm done' }).click()
+  await rpage.getByText('Marked sent by you.').waitFor()
+  check(
+    (await agent.call('io_show', { id: ioPage })).item.state === 'sent',
+    'Done by me on an outbox draft marks it sent',
+  )
+
+  // The stack: Decline needs a note there too; with one the item stays, denied, with the reason.
+  await rpage.goto(`${base}/stack`)
+  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
+  const msgRow = rpage.locator(`[data-row^="${proposal.id}/"][data-kind="message"]`).first()
+  await msgRow.waitFor()
+  await msgRow.locator('[data-act="decline"]').click()
+  const declineForm = msgRow.locator('[data-note-form="decline"]')
+  const declineButton = declineForm.getByRole('button', { name: 'Decline', exact: true })
+  check(await declineButton.isDisabled(), 'on the stack a decline with no note is refused')
+  await declineForm.getByLabel('Why you decline (required)').fill('Sam is away.')
+  await declineButton.click()
+  await rpage
+    .locator(`[data-row^="${proposal.id}/"][data-kind="message"][data-state="denied"]`)
+    .waitFor()
+  check(
+    (await rpage
+      .locator(`[data-row^="${proposal.id}/"][data-kind="message"]`)
+      .getByText('Sam is away.')
+      .count()) === 1,
+    'the declined row stays in the stack with the reason',
+  )
+
+  // (d) An open vault question answered from the stack leaves it.
+  const demo = idOf(
+    para(
+      ...v,
+      'question',
+      'add',
+      'Which day for the demo?',
+      '-p',
+      proj,
+      '--kind',
+      'decision',
+      '--option',
+      'Tue',
+      '--option',
+      'Thu',
+      '--json',
+    ),
+  )
+  await rpage.reload()
+  const qRow = rpage.locator(`[data-row][data-question="${demo}"]`)
+  await qRow.waitFor()
+  await qRow.locator('[data-act="open"]').click()
+  const qCard = qRow.locator('[data-vault-question]')
+  await qCard.getByRole('radio', { name: 'Thu' }).click()
+  await qCard.getByRole('button', { name: 'Answer', exact: true }).click()
+  await qRow.waitFor({ state: 'detached' })
+  check(
+    para(...v, 'question', 'show', demo, '--json').includes('Thu'),
+    'a vault question answered on the stack leaves it, answered',
+  )
+
+  // Keys: j moves to the first row, s opens its skip note, Esc closes it.
+  await rpage.goto(`${base}/stack?state=proposed`)
+  await rpage.locator('[data-row]').first().waitFor()
+  await rpage.keyboard.press('j')
+  await rpage.keyboard.press('s')
+  await rpage.locator('[data-note-form="skip"]').waitFor()
+  await rpage.keyboard.press('Escape')
+  await rpage.locator('[data-note-form]').waitFor({ state: 'detached' })
+  check(true, 's opens the skip note on the stack and Esc closes it')
+  check(
+    rerrors.length === 0,
+    `the review action pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
 
   // para serve login: a login key one day from its end renews on the first page load, and the

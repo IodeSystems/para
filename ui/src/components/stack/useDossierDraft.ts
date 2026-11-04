@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useProposalDraft, type DraftBody } from '@/api/proposals'
 import { errorText } from '@/client/gqlClient'
 import { answerEmpty, answerInput, stringMap, type Answer } from '@/lib/dossier'
+import { answerProblem } from '@/lib/review'
 import type { ProposalData } from '@/components/stack/parts'
 
 // AUTOSAVE_MS is how long the page waits after the last change before it saves the draft.
@@ -48,10 +49,15 @@ export function useDossierDraft(d: ProposalData) {
     setChanges((c) => ({ ...c, sections: { ...c.sections, [sid]: text } }))
   const setOverall = (text: string) => setChanges((c) => ({ ...c, overall: text }))
 
-  // flush saves every change now. It gives true when nothing is left to save.
+  // flush saves every change now. It gives true when nothing is left to save. An answer para
+  // would refuse (a decline or an ask with no note) waits on the page until the owner fixes it.
   const flush = async (): Promise<boolean> => {
-    const sent = changes
-    if (!dirty(sent)) return true
+    const held = Object.keys(changes.items).filter((k) => answerProblem(changes.items[k]) !== '')
+    const sent: Changes = {
+      ...changes,
+      items: Object.fromEntries(Object.entries(changes.items).filter(([k]) => !held.includes(k))),
+    }
+    if (!dirty(sent)) return held.length === 0
     if (busy) return false
     setBusy(true)
     const body: DraftBody = {
@@ -74,7 +80,7 @@ export function useDossierDraft(d: ProposalData) {
         return { items, sections, overall: c.overall === sent.overall ? undefined : c.overall }
       })
       setError('')
-      return true
+      return held.length === 0
     } catch (e) {
       setError(errorText(e))
       return false
@@ -84,15 +90,22 @@ export function useDossierDraft(d: ProposalData) {
   }
   const onTimer = useEffectEvent(() => void flush())
 
+  // waiting lists the items whose answer is not complete: it is kept on the page, not saved.
+  const waiting = Object.keys(changes.items).filter((k) => answerProblem(changes.items[k]) !== '')
+  const ready = Object.keys(changes.items).length > waiting.length
   useEffect(() => {
-    if (!dirty(changes) || busy || error) return
+    if (!(ready || Object.keys(changes.sections).length > 0 || changes.overall !== undefined))
+      return
+    if (busy || error) return
     const t = window.setTimeout(onTimer, AUTOSAVE_MS)
     return () => window.clearTimeout(t)
-  }, [changes, busy, error])
+  }, [changes, busy, error, ready])
 
   const state: SaveState = busy ? 'saving' : error ? 'error' : dirty(changes) ? 'unsaved' : 'saved'
   return {
     answerOf,
+    // problems are the items whose answer cannot be saved yet, with what is missing.
+    problems: waiting.map((item) => ({ item, problem: answerProblem(changes.items[item]) })),
     // overridden says the owner changed this answer here and it is not saved yet.
     overridden: (item: string) => item in changes.items,
     setAnswer,

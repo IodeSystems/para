@@ -1,3 +1,4 @@
+import { canMarkDone } from '@/lib/review'
 import type { Tone } from '@/lib/status'
 
 // Helpers for the review stack: the stack states in order, their words, and the flat list of
@@ -73,11 +74,45 @@ export function kindWords(kind: string): string {
   }
 }
 
-// canStackDecide says whether an item can be approved or rejected from the stack. A question
-// needs an answer, so it opens in its dossier.
+// canStackDecide says whether an item can be approved or declined from the stack in one step. A
+// question needs an answer, so it opens as a card.
 export function canStackDecide(row: { kind: string; stack: string }): boolean {
   return row.stack === 'proposed' && row.kind !== 'question'
 }
+
+// RowActions are the actions a stack row offers.
+export type RowActions = {
+  approve: boolean
+  decline: boolean
+  skip: boolean
+  ask: boolean
+  done: boolean
+}
+
+// rowActions says what the owner may do to a row from the stack. An open vault question (question
+// set) is answered, declined, skipped, or sent to an agent through question_review. A question of
+// a dossier is answered on its card; from the row it may be skipped or sent to an agent. Done by
+// me is for outward items not closed.
+export function rowActions(row: {
+  kind: string
+  stack: string
+  state: string
+  question?: string | null
+}): RowActions {
+  const open = row.stack === 'proposed'
+  if (row.question) return { approve: false, decline: open, skip: open, ask: open, done: false }
+  const q = row.kind === 'question'
+  return {
+    approve: open && !q,
+    decline: open && !q,
+    skip: open,
+    ask: open,
+    done: (open || row.stack === 'decided') && canMarkDone(row),
+  }
+}
+
+// VAULT_QUESTIONS is the heading of the open vault questions on the stack.
+export const VAULT_QUESTIONS = 'Open questions in the vault'
 
 export type StackRowLike = {
   proposal: string
@@ -86,6 +121,7 @@ export type StackRowLike = {
   kind: string
   stack: string
   group?: string | null
+  question?: string | null
 }
 
 export type GroupLike = {
@@ -122,7 +158,7 @@ export function stackLines<R extends StackRowLike>(rows: R[], groups: GroupLike[
   for (const r of rows) {
     let d = byDossier.get(r.proposal)
     if (!d) {
-      d = { title: r.title, loose: [], groups: new Map() }
+      d = { title: r.question ? VAULT_QUESTIONS : r.title, loose: [], groups: new Map() }
       byDossier.set(r.proposal, d)
       order.push(r.proposal)
     }

@@ -1,21 +1,31 @@
+import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Box from '@mui/material/Box'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import type { ReactNode } from 'react'
-import { useIoItem } from '@/api/io'
+import { useIODone, useIoItem } from '@/api/io'
+import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
+import { DoneForm } from '@/components/stack/parts'
 import { ioParty, ioTarget } from '@/lib/io'
 import { exactTime, humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/io/$id')({ component: IoItemPage })
 
-// One io item: read only. Agents file, send, and drop it; the owner decides in dossiers.
+// One io item. Agents file, send, and drop it; the owner decides in dossiers. With a
+// review:decide key the owner may mark an outbox draft sent by themself (Done by me).
 function IoItemPage() {
   const { id } = Route.useParams()
+  const { session } = Route.useRouteContext()
+  const decide = canDecide(session)
   const q = useIoItem(id)
   return (
     <DataState q={q}>
@@ -91,6 +101,13 @@ function IoItemPage() {
                   </Stack>
                 ))}
             </Stack>
+            {decide && out && (
+              <SentByMe
+                id={item.id}
+                text={doc.body}
+                open={item.state === 'draft' || item.state === 'ready'}
+              />
+            )}
             <Section title="Message">
               <Markdown source={doc.body} />
             </Section>
@@ -118,5 +135,50 @@ function Parties({ list }: { list: readonly string[] }) {
         </span>
       ))}
     </>
+  )
+}
+
+// SentByMe is Done by me on an outbox draft: the owner sent it themself. Para marks it sent and
+// files it as an agent's send would. open says the draft is not sent yet.
+function SentByMe({ id, text, open: unsent }: { id: string; text: string; open: boolean }) {
+  const [open, setOpen] = useState(false)
+  const done = useIODone()
+  if (done.isSuccess) {
+    return (
+      <Alert severity="success" sx={{ mb: 2 }}>
+        Marked sent by you.
+      </Alert>
+    )
+  }
+  if (!unsent) return null
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Button
+        size="small"
+        variant={open ? 'contained' : 'outlined'}
+        data-act="done"
+        onClick={() => setOpen((x) => !x)}
+      >
+        Done by me
+      </Button>
+      {open && (
+        <DoneForm
+          start={text}
+          textLabel="What you sent (optional)"
+          withNote={false}
+          busy={done.isPending}
+          error={done.isError ? errorText(done.error) : undefined}
+          onCancel={() => setOpen(false)}
+          onConfirm={(f) =>
+            done.mutate({
+              id,
+              url: f.url.trim() || undefined,
+              locator: f.locator.trim() || undefined,
+              text: f.text.trim() && f.text !== text ? f.text : undefined,
+            })
+          }
+        />
+      )}
+    </Box>
   )
 }

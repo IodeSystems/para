@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
@@ -137,5 +137,45 @@ export function useQuestion(id: string) {
     queryKey: ['question', id],
     queryFn: async () =>
       need((await gqlClient.request(QuestionShowDoc, { id })).para.v1.questionShow, 'question'),
+  })
+}
+
+const QuestionReviewDoc = graphql(/* GraphQL */ `
+  mutation QuestionReview($body: para_QuestionReviewInputInput!) {
+    para {
+      v1 {
+        questionReview(body: $body) {
+          id
+          status
+          review
+          request
+        }
+      }
+    }
+  }
+`)
+
+export type QuestionReviewBody = {
+  id: string
+  decision: 'answer' | 'decline' | 'skip' | 'ask'
+  choices?: string[]
+  addedOptions?: string[]
+  editedOptions?: Record<string, string>
+  ownWords?: string
+  note?: string
+  refs?: string[]
+}
+
+// useQuestionReview is the owner's action on an open vault question from the stack: answer,
+// decline, skip, or ask an agent. A decline and an ask need a note.
+export function useQuestionReview() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: QuestionReviewBody) =>
+      need(
+        (await gqlClient.request(QuestionReviewDoc, { body })).para.v1.questionReview,
+        'question review',
+      ),
+    onSettled: () => qc.invalidateQueries(),
   })
 }

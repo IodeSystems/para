@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Chip from '@mui/material/Chip'
 import Link from '@mui/material/Link'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -14,6 +15,7 @@ import { StateChip, StatusChip } from '@/components/Bits'
 import { diffKind } from '@/lib/diff'
 import { linkParts, type Answer } from '@/lib/dossier'
 import { UNTRUSTED_WORDS } from '@/lib/proposal'
+import { noteLabel, noteProblem, parseRefs, withDecision, type Decision } from '@/lib/review'
 
 // Pieces the item cards share.
 
@@ -228,80 +230,227 @@ export function Thread({ it }: { it: Item }) {
   )
 }
 
-// DecisionBar is Approve, Reject, and (when the kind can be edited) Edit. Approve is one click,
-// like accepting a spelling fix. A second click on the chosen button takes the choice back. The
-// decision takes effect on Submit.
-export function DecisionBar({
+// focusNote puts the cursor in a note field once it is drawn.
+export function focusNote(id: string) {
+  window.setTimeout(() => document.getElementById(id)?.focus(), 0)
+}
+
+// noteIdOf is the id of the note field of an item card.
+export const noteIdOf = (item: string) => `note-${item}`
+
+// ActionBar is the same row of actions on every card: Approve, Edit, Decline, Skip, and Ask agent.
+// A question has no Approve, Edit, or Decline: the owner answers it. Approve is one click, like
+// accepting a spelling fix; a second click on the chosen button takes the choice back. Decline and
+// Ask agent put the cursor in the note, which they need. The decision takes effect on Submit.
+export function ActionBar({
   answer,
   onAnswer,
-  canEdit,
-  onEdit,
+  question,
+  start,
+  noteId,
   extra,
 }: {
   answer: Answer | null
   onAnswer: (a: Answer | null) => void
-  canEdit: boolean
-  onEdit?: () => Answer
+  question: boolean
+  start?: Answer
+  noteId: string
   extra?: ReactNode
 }) {
   const d = answer?.decision ?? ''
-  const pick = (decision: string, more?: Answer) => {
-    if (d === decision) onAnswer({ ...answer, decision: null })
-    else onAnswer({ ...answer, ...more, decision })
+  const pick = (decision: Decision) => {
+    onAnswer(withDecision(answer, decision, start))
+    if (d !== decision && (decision === 'reject' || decision === 'ask' || decision === 'skip'))
+      focusNote(noteId)
   }
+  const button = (decision: Decision, label: string, color?: 'success' | 'error') => (
+    <Button
+      size="small"
+      color={color}
+      data-act={decision}
+      variant={d === decision ? 'contained' : 'outlined'}
+      aria-pressed={d === decision}
+      onClick={() => pick(decision)}
+    >
+      {label}
+    </Button>
+  )
   return (
     <Stack direction="row" spacing={1} useFlexGap sx={{ my: 1, flexWrap: 'wrap' }}>
-      <Button
-        size="small"
-        color="success"
-        variant={d === 'approve' ? 'contained' : 'outlined'}
-        aria-pressed={d === 'approve'}
-        onClick={() => pick('approve')}
-      >
-        Approve
-      </Button>
-      <Button
-        size="small"
-        color="error"
-        variant={d === 'reject' ? 'contained' : 'outlined'}
-        aria-pressed={d === 'reject'}
-        onClick={() => pick('reject')}
-      >
-        Reject
-      </Button>
-      {canEdit && (
-        <Button
-          size="small"
-          variant={d === 'edit' ? 'contained' : 'outlined'}
-          aria-pressed={d === 'edit'}
-          onClick={() => pick('edit', d === 'edit' ? undefined : onEdit?.())}
-        >
-          Edit, then approve
-        </Button>
-      )}
+      {!question && button('approve', 'Approve', 'success')}
+      {!question && start && button('edit', 'Edit, then approve')}
+      {!question && button('reject', 'Decline', 'error')}
+      {button('skip', 'Skip')}
+      {button('ask', 'Ask agent')}
       {extra}
     </Stack>
   )
 }
 
-// CommentField is the owner's comment to the agent on one item.
-export function CommentField({
+// NoteField is the owner's note on one item: why they decline, what the agent should do, or a
+// comment. A decline and an ask need it. With Ask agent the owner may name vault documents the
+// agent should read.
+export function NoteField({
   answer,
   onAnswer,
+  id,
 }: {
   answer: Answer | null
   onAnswer: (a: Answer | null) => void
+  id: string
 }) {
+  const d = answer?.decision
+  const problem = noteProblem(d, answer?.comment)
+  return (
+    <>
+      <TextField
+        size="small"
+        fullWidth
+        multiline
+        minRows={1}
+        id={id}
+        label={noteLabel(d)}
+        value={answer?.comment ?? ''}
+        error={problem !== ''}
+        helperText={problem || undefined}
+        onChange={(e) => onAnswer({ ...answer, comment: e.target.value })}
+        sx={{ mt: 1 }}
+      />
+      {d === 'ask' && (
+        <RefsField refs={answer?.refs ?? []} onRefs={(refs) => onAnswer({ ...answer, refs })} />
+      )}
+    </>
+  )
+}
+
+// RefsField takes vault ids for the agent to read, separated by commas. It reads the ids when the
+// field loses focus, so the owner can type freely.
+export function RefsField({ refs, onRefs }: { refs: string[]; onRefs: (refs: string[]) => void }) {
+  const [text, setText] = useState(refs.join(', '))
   return (
     <TextField
       size="small"
       fullWidth
-      multiline
-      minRows={1}
-      label="Comment for the agent"
-      value={answer?.comment ?? ''}
-      onChange={(e) => onAnswer({ ...answer, comment: e.target.value })}
+      label="Documents for the agent to read (vault ids, optional)"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value)
+        onRefs(parseRefs(e.target.value))
+      }}
       sx={{ mt: 1 }}
     />
+  )
+}
+
+// ReviewStateChip marks an item the owner skipped or sent back to an agent.
+export function ReviewStateChip({ state }: { state: string }) {
+  if (state === 'skipped')
+    return <Chip size="small" data-review="skipped" label="skipped" variant="filled" />
+  if (state === 'sent_back')
+    return (
+      <Chip
+        size="small"
+        data-review="sent_back"
+        color="info"
+        label="sent back to the agent"
+        variant="filled"
+      />
+    )
+  return null
+}
+
+export type DoneFields = { url: string; locator: string; text: string; note: string }
+
+// DoneForm is the inline form of Done by me: where the result is, the final text, and a note. It
+// is part of the page, not a browser dialog. Confirm takes effect at once.
+export function DoneForm({
+  start,
+  textLabel,
+  withNote,
+  busy,
+  error,
+  onConfirm,
+  onCancel,
+}: {
+  start: string
+  textLabel: string
+  withNote: boolean
+  busy: boolean
+  error?: string
+  onConfirm: (f: DoneFields) => void
+  onCancel: () => void
+}) {
+  const [f, setF] = useState<DoneFields>({ url: '', locator: '', text: start, note: '' })
+  const set = (k: keyof DoneFields) => (e: { target: { value: string } }) =>
+    setF((x) => ({ ...x, [k]: e.target.value }))
+  return (
+    <Box
+      data-done-form
+      role="group"
+      aria-label="Done by me"
+      sx={{ my: 1, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}
+    >
+      <Typography variant="body2" sx={{ mb: 1 }}>
+        You did this yourself. Para marks it done, and no agent does it again.
+      </Typography>
+      <Stack spacing={1}>
+        <TextField
+          size="small"
+          autoFocus
+          label="Link to the result (optional)"
+          value={f.url}
+          onChange={set('url')}
+        />
+        <TextField
+          size="small"
+          label="Where it is, with no link (optional)"
+          value={f.locator}
+          onChange={set('locator')}
+        />
+        <TextField
+          size="small"
+          multiline
+          minRows={2}
+          label={textLabel}
+          value={f.text}
+          onChange={set('text')}
+        />
+        {withNote && (
+          <TextField size="small" label="Note (optional)" value={f.note} onChange={set('note')} />
+        )}
+      </Stack>
+      {error && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {error}
+        </Alert>
+      )}
+      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+        <Button size="small" variant="contained" disabled={busy} onClick={() => onConfirm(f)}>
+          Confirm done
+        </Button>
+        <Button size="small" onClick={onCancel}>
+          Cancel
+        </Button>
+      </Stack>
+    </Box>
+  )
+}
+
+// BodyFileBox shows the text of the vault file an item's body names, beside the item, read only.
+export function BodyFileBox({ file }: { file: NonNullable<Item['bodyFile']> }) {
+  return (
+    <Box data-body-file={file.path} sx={{ my: 1 }}>
+      <Typography variant="caption" color="text.secondary" component="div">
+        The body is the file {file.path}
+        {file.title ? ` (${file.title})` : ''}. Its text:
+      </Typography>
+      <Box
+        component="pre"
+        aria-label="Text of the file"
+        sx={{ ...block, maxHeight: 320, overflow: 'auto' }}
+      >
+        {file.text}
+      </Box>
+    </Box>
   )
 }

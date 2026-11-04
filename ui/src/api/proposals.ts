@@ -145,8 +145,16 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
                 due
               }
               comment
+              people
+              refs
               via
               stale
+            }
+            bodyFile {
+              path
+              doc
+              title
+              text
             }
             change
             resultName
@@ -369,6 +377,10 @@ const StackDoc = graphql(/* GraphQL */ `
             receipt
             result
             reason
+            question
+            refs
+            request
+            proposed
           }
           total
           nextCursor
@@ -385,6 +397,27 @@ const StackDecideDoc = graphql(/* GraphQL */ `
         stackDecide(body: $body) {
           proposals {
             id
+          }
+          requests
+        }
+      }
+    }
+  }
+`)
+
+const DoneDoc = graphql(/* GraphQL */ `
+  mutation ProposalDone($body: para_ProposalDoneInputInput!) {
+    para {
+      v1 {
+        proposalDone(body: $body) {
+          id
+          item
+          state
+          receipt
+          io {
+            id
+            state
+            became
           }
         }
       }
@@ -514,16 +547,38 @@ export type StackDecideBody = {
   items?: { proposal: string; item: string }[]
   group?: string
   proposal?: string
-  decision: 'approve' | 'reject'
+  decision: 'approve' | 'reject' | 'skip' | 'ask'
   comment?: string
+  refs?: string[]
 }
 
-// useStackDecide approves or rejects items across dossiers, or one group of one dossier.
+// useStackDecide approves, declines, skips, or sends back items across dossiers, or one group of
+// one dossier. A decline and an ask need a comment.
 export function useStackDecide() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (body: StackDecideBody) =>
       need((await gqlClient.request(StackDecideDoc, { body })).para.v1.stackDecide, 'decide'),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+export type DoneBody = {
+  id: string
+  item: string
+  url?: string
+  locator?: string
+  text?: string
+  note?: string
+}
+
+// useProposalDone marks an outward item done by the owner: no agent carries it out. It takes
+// effect at once; it is not a draft.
+export function useProposalDone() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: DoneBody) =>
+      need((await gqlClient.request(DoneDoc, { body })).para.v1.proposalDone, 'done'),
     onSettled: () => qc.invalidateQueries(),
   })
 }

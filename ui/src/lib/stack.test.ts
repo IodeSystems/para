@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { stackKeyFor } from '@/lib/keys'
-import { canStackDecide, nextItem, rowKey, STACK_STATES, stackLines } from '@/lib/stack'
+import { cardKeyFor, stackKeyFor } from '@/lib/keys'
+import {
+  canStackDecide,
+  nextItem,
+  rowActions,
+  rowKey,
+  STACK_STATES,
+  stackLines,
+  VAULT_QUESTIONS,
+} from '@/lib/stack'
 
 const row = (
   proposal: string,
@@ -68,7 +76,11 @@ describe('stack keys', () => {
     expect(press('k')).toBe('up')
     expect(press('a')).toBe('approve')
     expect(press('A')).toBe('approveGroup')
-    expect(press('r')).toBe('reject')
+    expect(press('r')).toBe('decline')
+    expect(press('d')).toBe('decline')
+    expect(press('s')).toBe('skip')
+    expect(press('g')).toBe('ask')
+    expect(press('m')).toBe('done')
     expect(press('e')).toBe('edit')
     expect(press('c')).toBe('comment')
     expect(press('x')).toBe('select')
@@ -78,5 +90,91 @@ describe('stack keys', () => {
   it('does nothing in a field or with a modifier', () => {
     expect(press('a', { target: { tagName: 'TEXTAREA' } })).toBeNull()
     expect(press('a', { ctrlKey: true })).toBeNull()
+  })
+  it('a dossier page maps d, r, s, g, m to the current card', () => {
+    const card = (key: string, target: { tagName?: string } | null = null) =>
+      cardKeyFor({ key, ctrlKey: false, metaKey: false, altKey: false, target })
+    expect(card('d')).toBe('decline')
+    expect(card('r')).toBe('decline')
+    expect(card('s')).toBe('skip')
+    expect(card('g')).toBe('ask')
+    expect(card('m')).toBe('done')
+    expect(card('a')).toBeNull()
+    expect(card('s', { tagName: 'INPUT' })).toBeNull()
+  })
+})
+
+describe('stack row actions', () => {
+  const r = (kind: string, state = 'pending', stack = 'proposed', question?: string) => ({
+    kind,
+    state,
+    stack,
+    question,
+  })
+  it('a dossier item: approve, decline, skip, ask; done by me when outward', () => {
+    expect(rowActions(r('message'))).toEqual({
+      approve: true,
+      decline: true,
+      skip: true,
+      ask: true,
+      done: true,
+    })
+    expect(rowActions(r('para')).done).toBe(false)
+    expect(rowActions(r('message', 'approved', 'decided'))).toEqual({
+      approve: false,
+      decline: false,
+      skip: false,
+      ask: false,
+      done: true,
+    })
+    expect(rowActions(r('message', 'done', 'done')).done).toBe(false)
+  })
+  it('a dossier question is skipped or asked from the row, answered on its card', () => {
+    expect(rowActions(r('question'))).toEqual({
+      approve: false,
+      decline: false,
+      skip: true,
+      ask: true,
+      done: false,
+    })
+  })
+  it('a vault question is declined, skipped, or asked; answered on its card', () => {
+    expect(rowActions(r('question', 'skipped', 'proposed', 'question-a'))).toEqual({
+      approve: false,
+      decline: true,
+      skip: true,
+      ask: true,
+      done: false,
+    })
+  })
+  it('vault questions group under one heading', () => {
+    const lines = stackLines(
+      [
+        {
+          proposal: '',
+          title: 'Which region?',
+          item: 'q-a',
+          kind: 'question',
+          stack: 'proposed',
+          question: 'q-a',
+        },
+        {
+          proposal: '',
+          title: 'Which day?',
+          item: 'q-b',
+          kind: 'question',
+          stack: 'proposed',
+          question: 'q-b',
+        },
+      ],
+      [],
+    )
+    expect(lines[0]).toMatchObject({
+      type: 'dossier',
+      proposal: '',
+      title: VAULT_QUESTIONS,
+      count: 2,
+    })
+    expect(lines).toHaveLength(3)
   })
 })

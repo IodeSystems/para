@@ -19,6 +19,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
+import { cardKey, useCardKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
 import { DiffBlock, mono, block, type Item, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft, type SaveState } from '@/components/stack/useDossierDraft'
@@ -118,6 +119,15 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
   }, [])
   const submit = useProposalSubmit()
   const [done, setDone] = useState('')
+  // current is the card the page keys act on: the one the owner last clicked or typed in.
+  const [current, setCurrent] = useState<string | null>(() => {
+    const hash = window.location.hash
+    return hash.startsWith('#item-') ? hash.slice(6) : null
+  })
+  useCardKeys((k) => {
+    const id = current ?? d.items.find((it) => it.stack === 'proposed')?.id
+    if (id) cardKey(id, k)
+  })
   const byId = new Map(d.items.map((it) => [it.id, it]))
   const bundles = new Map<string, Item[]>()
   for (const it of d.items) {
@@ -160,6 +170,9 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
         onAnswer={may ? (a) => setAnswer(it, a) : undefined}
         stale={!!it.answer?.stale && !draft.overridden(it.id)}
         bundleSize={it.bundle ? bundles.get(it.bundle)?.length : undefined}
+        proposal={decide ? d.proposal.id : undefined}
+        current={current === it.id}
+        onCurrent={() => setCurrent(it.id)}
       />
     )
   }
@@ -267,11 +280,15 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
           error={draft.error}
           onRetry={() => void draft.retry()}
           blocked={
-            stale.length > 0
-              ? 'Check the stale answers first.'
-              : drafted === 0 && !draft.overall.trim()
-                ? 'Answer an item first.'
-                : ''
+            draft.problems.length > 0
+              ? draft.problems
+                  .map((p) => `${byId.get(p.item)?.title || p.item}: ${p.problem}`)
+                  .join(' ')
+              : stale.length > 0
+                ? 'Check the stale answers first.'
+                : drafted === 0 && !draft.overall.trim()
+                  ? 'Answer an item first.'
+                  : ''
           }
           busy={submit.isPending}
           onSubmit={() => void doSubmit()}

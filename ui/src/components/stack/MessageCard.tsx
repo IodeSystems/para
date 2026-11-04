@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import Box from '@mui/material/Box'
 import TextField from '@mui/material/TextField'
 import { CopyButton } from '@/components/CopyButton'
@@ -6,8 +7,9 @@ import { ioTarget } from '@/lib/io'
 import { block, Row, type CardProps } from '@/components/stack/parts'
 
 // MessageCard shows a message as the thing itself: who it goes to and what it says. With "Edit,
-// then approve" the owner changes the subject and the body; the agent sends the owner's words.
-// A message that names an io draft shows the draft's text, and an edit is written to the draft.
+// then approve" the owner changes who it goes to, the subject, and the body; the agent sends the
+// owner's words. A message that names an io draft shows the draft's text, and an edit is written
+// to the draft.
 export function MessageCard({ it, answer, onAnswer }: CardProps) {
   const editing = answer?.decision === 'edit'
   return (
@@ -27,6 +29,10 @@ export function MessageCard({ it, answer, onAnswer }: CardProps) {
       )}
       {editing && onAnswer ? (
         <>
+          <PeopleField
+            people={answer?.people ?? []}
+            onPeople={(people) => onAnswer({ ...answer, people })}
+          />
           <TextField
             size="small"
             fullWidth
@@ -58,5 +64,34 @@ export function MessageCard({ it, answer, onAnswer }: CardProps) {
         <CopyButton getText={() => it.body ?? ''} label="Copy text" />
       )}
     </Box>
+  )
+}
+
+// PeopleField edits who the message goes to: person ids or addresses, separated by commas.
+function PeopleField({
+  people,
+  onPeople,
+}: {
+  people: string[]
+  onPeople: (people: string[]) => void
+}) {
+  const [text, setText] = useState(people.join(', '))
+  return (
+    <TextField
+      size="small"
+      fullWidth
+      label="To (separate people with commas)"
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value)
+        onPeople(
+          e.target.value
+            .split(',')
+            .map((p) => p.trim())
+            .filter(Boolean),
+        )
+      }}
+      sx={{ mt: 1 }}
+    />
   )
 }
