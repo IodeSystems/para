@@ -18,7 +18,8 @@ import (
 //	executing: running, claimed
 //	done:      done, or a vault change para ran, or a question para recorded
 //	failed:    failed, halted
-//	closed:    denied, withdrawn (listed only when asked)
+//	closed:    denied (listed, with the owner's reason), withdrawn (listed
+//	           only when asked)
 const (
 	StackProposed  = "proposed"
 	StackDecided   = "decided"
@@ -93,7 +94,7 @@ type StackCount struct {
 
 // ProposalStackInput is the input of proposal_stack. Every filter is optional.
 type ProposalStackInput struct {
-	State    string `json:"state,omitempty" query:"state"` // a stack state; default every state but closed
+	State    string `json:"state,omitempty" query:"state"` // a stack state; default every state, and of closed the denied items only
 	Kind     string `json:"kind,omitempty" query:"kind"`
 	Group    string `json:"group,omitempty" query:"group"`
 	Proposal string `json:"proposal,omitempty" query:"proposal"`
@@ -116,7 +117,7 @@ const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier with its stack state (proposed, decided, executing, done, failed, closed), counts per state, and progress per group. Filter by state, kind, group, proposal, or actor; page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier with its stack state (proposed, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed), counts per state, and progress per group. Filter by state, kind, group, proposal, or actor; page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -173,7 +174,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 					g.Proposed++
 				}
 			}
-			if in.State == "" && st == StackClosed || in.State != "" && st != in.State {
+			if in.State == "" && st == StackClosed && it.State != model.ItemDenied || in.State != "" && st != in.State {
 				continue
 			}
 			row := StackRow{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Kind: it.Kind, State: it.State, Stack: st, Group: it.Group,

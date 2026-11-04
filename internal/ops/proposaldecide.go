@@ -52,7 +52,7 @@ var decideKinds = []string{model.DecideApprove, model.DecideDeny, model.DecideCh
 // owner's words; an approved message or action stays approved, not done, until
 // proposal_executed or action_record. deny closes the item. change revises the
 // item from text as a new revision; it stays pending for the owner.
-var ProposalDecide = defineSafe("proposal_decide", "Record the owner's decision from the chat on proposal items: approve, deny, or change (text is the new body of a message or action, or the new input of a para item as a JSON object; for deny, the reason). owner_said is required: the owner's words from the chat, verbatim; it is stored and marked self-reported. Approved para items run at once; approved messages and actions wait for you to send them with your own tool, then proposal_executed", func(ctx context.Context, d Deps, in ProposalDecideInput) (ProposalDecideOutput, error) {
+var ProposalDecide = defineSafe("proposal_decide", "Record the owner's decision from the chat on proposal items: approve, deny, or change (text is the new body of a message or action, or the new input of a para item as a JSON object; for deny, the reason, required: a denied item stays in the stack with it). owner_said is required: the owner's words from the chat, verbatim; it is stored and marked self-reported. Approved para items run at once; approved messages and actions wait for you to send them with your own tool, then proposal_executed", func(ctx context.Context, d Deps, in ProposalDecideInput) (ProposalDecideOutput, error) {
 	said := strings.TrimSpace(in.OwnerSaid)
 	if said == "" {
 		return ProposalDecideOutput{}, errors.New("owner_said is empty: give the owner's words from the chat, verbatim; without them nothing is decided")
@@ -82,7 +82,7 @@ var ProposalDecide = defineSafe("proposal_decide", "Record the owner's decision 
 		case model.DecideChange:
 			changes = append(changes, x)
 		case model.DecideDeny:
-			reason := firstOf(strings.TrimSpace(x.Text), "Owner said: "+said)
+			reason := strings.TrimSpace(x.Text)
 			r, err := denyItem(ctx, d, p.doc.ID, x.Item, reason, newDecision(d, model.DecideDeny, said))
 			if err != nil {
 				return out, err
@@ -161,6 +161,9 @@ func checkDecisions(p *proposal, list []DecideItem) error {
 		}
 		if err := p.allow(it, x.Decision); err != nil {
 			return err
+		}
+		if x.Decision == model.DecideDeny && strings.TrimSpace(x.Text) == "" {
+			return fmt.Errorf("item %s: deny needs text: the owner's reason, so the item stays in the stack with it", x.Item)
 		}
 		if x.Decision == model.DecideChange && strings.TrimSpace(x.Text) == "" {
 			return fmt.Errorf("item %s: change needs text: the new body, or for a para item the new input as JSON", x.Item)

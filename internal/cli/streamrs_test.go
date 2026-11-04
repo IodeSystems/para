@@ -41,7 +41,7 @@ func streamRSParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_stack":    {`{"proposal":"proposal-rs"}`, []string{"proposal", "stack", "--proposal", "proposal-rs"}, false},
 		"proposal_draft":    {draft, []string{"proposal", "draft", "proposal-rs"}, false},
 		"proposal_submit":   {`{"id":"proposal-rs","revision":1}`, []string{"proposal", "submit", "proposal-rs"}, false},
-		"stack_decide":      {`{"items":[{"proposal":"proposal-rs","item":"m2"}],"decision":"reject"}`, []string{"stack", "decide", "reject", "proposal-rs:m3"}, false},
+		"stack_decide":      {`{"items":[{"proposal":"proposal-rs","item":"m2"}],"decision":"reject","comment":"Not now."}`, []string{"stack", "decide", "reject", "proposal-rs:m3", "--comment", "Not now."}, false},
 	}, map[string]string{
 		"proposal_draft": draft,
 	}

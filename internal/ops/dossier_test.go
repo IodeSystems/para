@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -291,7 +292,10 @@ func TestStackDecide(t *testing.T) {
 	if tasks := mustRun(t, TaskList, f.owner, TaskListInput{}); len(tasks.Tasks) != 4 {
 		t.Fatalf("tasks = %d", len(tasks.Tasks))
 	}
-	// Rejecting one item of a bundle rejects the bundle.
+	// Rejecting needs a comment; one item of a bundle rejects the bundle.
+	if _, err := StackDecide.Run(t.Context(), f.owner, StackDecideInput{Decision: "reject", Items: []StackItemRef{{Proposal: two, Item: "a1"}}}); err == nil || !strings.Contains(err.Error(), "comment") {
+		t.Fatalf("reject with no comment: %v", err)
+	}
 	if _, err := StackDecide.Run(t.Context(), f.owner, StackDecideInput{Decision: "reject", Items: []StackItemRef{{Proposal: two, Item: "a1"}}, Comment: "No."}); err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +305,8 @@ func TestStackDecide(t *testing.T) {
 		counts[c.State] = c.Count
 	}
 	// Per dossier: q1, m1, a1, a2 proposed (minus two's a1), c1, c2 done.
-	if counts[StackProposed] != 7 || counts[StackDone] != 4 || counts[StackClosed] != 1 || st.Total != 11 {
+	// The denied item stays listed, with its reason.
+	if counts[StackProposed] != 7 || counts[StackDone] != 4 || counts[StackClosed] != 1 || st.Total != 12 {
 		t.Fatalf("counts = %v total %d", counts, st.Total)
 	}
 	if len(st.Groups) != 2 || st.Groups[0].Done != 2 || st.Groups[0].Total != 2 {
@@ -312,7 +317,7 @@ func TestStackDecide(t *testing.T) {
 		t.Fatalf("page = %d %q", len(page.Rows), page.NextCursor)
 	}
 	closed := mustRun(t, ProposalStack, f.owner, ProposalStackInput{State: StackClosed})
-	if len(closed.Rows) != 1 || closed.Rows[0].Item != "a1" {
+	if len(closed.Rows) != 1 || closed.Rows[0].Item != "a1" || closed.Rows[0].Reason != "No." || !slices.ContainsFunc(st.Rows, func(r StackRow) bool { return r.Stack == StackClosed && r.Reason == "No." }) {
 		t.Fatalf("closed = %+v", closed.Rows)
 	}
 }
@@ -432,5 +437,26 @@ func TestSummaryOfQuestionAndDocEdit(t *testing.T) {
 	}
 	if got := z.of(model.ProposalItem{Kind: model.ItemDocEdit, Target: "[[" + f.source + "]]"}); got != "Edit Sync notes" {
 		t.Fatalf("doc edit = %q", got)
+	}
+}
+
+// A reject submitted without a comment is refused; with one, the item is
+// denied with the comment as its reason.
+func TestSubmitRejectNeedsComment(t *testing.T) {
+	f := newAgentFix(t)
+	id := fileDossierMD(t, f, dossierMD(f))
+	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerReject}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProposalSubmit.Run(t.Context(), f.owner, ProposalSubmitInput{ID: id, Revision: 1}); err == nil || !strings.Contains(err.Error(), "comment") {
+		t.Fatalf("reject with no comment: %v", err)
+	}
+	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerReject, Comment: "Wrong person."}}); err != nil {
+		t.Fatal(err)
+	}
+	mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
+	st := mustRun(t, ProposalStack, f.owner, ProposalStackInput{Proposal: id})
+	if !slices.ContainsFunc(st.Rows, func(r StackRow) bool { return r.Item == "m1" && r.State == model.ItemDenied && r.Reason == "Wrong person." }) {
+		t.Fatalf("rows = %+v", st.Rows)
 	}
 }

@@ -157,7 +157,10 @@ func TestDecideDeny(t *testing.T) {
 		Items: []DecideItem{{Item: "i1", Decision: model.DecideApprove}, {Item: "i2", Decision: model.DecideDeny}}}); err == nil {
 		t.Fatal("a bundle was split")
 	}
-	out, err := ProposalDecide.Run(t.Context(), f.agent, ProposalDecideInput{ID: id, OwnerSaid: "No, not now.", Items: decideOne("i1", model.DecideDeny, "")})
+	if _, err := ProposalDecide.Run(t.Context(), f.agent, ProposalDecideInput{ID: id, OwnerSaid: "No, not now.", Items: decideOne("i1", model.DecideDeny, "")}); err == nil || !strings.Contains(err.Error(), "reason") {
+		t.Fatalf("deny with no reason: %v", err)
+	}
+	out, err := ProposalDecide.Run(t.Context(), f.agent, ProposalDecideInput{ID: id, OwnerSaid: "No, not now.", Items: decideOne("i1", model.DecideDeny, "Owner: not now.")})
 	if err != nil {
 		t.Fatal(err)
 	}

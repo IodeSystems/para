@@ -195,6 +195,9 @@ func planSubmit(p *proposal) (submitPlan, error) {
 		case model.AnswerApprove, model.AnswerEdit:
 			verdict = model.AnswerApprove
 		case model.AnswerReject:
+			if strings.TrimSpace(a.Comment) == "" {
+				return plan, fmt.Errorf("item %s: reject needs a comment: why, so the item stays in the stack with the reason", it.ID)
+			}
 			verdict = model.AnswerReject
 		default:
 			continue // a comment only: the agent reads it
@@ -336,7 +339,7 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		if !answerable(it.State) {
 			continue // a bundle or a choice closed it already
 		}
-		reason := firstOf(it.Answer.Comment, "Rejected by the owner")
+		reason := strings.TrimSpace(it.Answer.Comment)
 		r, err := denyItem(ctx, d, p.doc.ID, id, reason, deny)
 		if err != nil {
 			return out, err
@@ -416,12 +419,15 @@ type StackDecideOutput struct {
 }
 
 // StackDecide approves or rejects items across dossiers.
-var StackDecide = definePerson("stack_decide", "Approve or reject items of the review stack across dossiers, by item or by group. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
+var StackDecide = definePerson("stack_decide", "Approve or reject items of the review stack across dossiers, by item or by group. reject needs comment, the reason; rejected items stay in the stack as denied with it. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
 	if in.Decision != model.AnswerApprove && in.Decision != model.AnswerReject {
 		return StackDecideOutput{}, fmt.Errorf("decision %q: want approve or reject", in.Decision)
 	}
 	if (len(in.Items) == 0) == (in.Group == "") {
 		return StackDecideOutput{}, errors.New("give items or group")
+	}
+	if in.Decision == model.AnswerReject && strings.TrimSpace(in.Comment) == "" {
+		return StackDecideOutput{}, errors.New("reject needs a comment: why; the items stay in the stack as denied with it")
 	}
 	byProposal := map[string][]string{}
 	var order []string
@@ -502,7 +508,7 @@ var StackDecide = definePerson("stack_decide", "Approve or reject items of the r
 			if it, err := cur.item(id); err != nil || !answerable(it.State) {
 				continue // its bundle closed it already
 			}
-			r, err := denyItem(ctx, d, prop, id, firstOf(comment, "Rejected in the review stack"), newDecision(d, model.DecideDeny, ""))
+			r, err := denyItem(ctx, d, prop, id, comment, newDecision(d, model.DecideDeny, ""))
 			if err != nil {
 				return out, err
 			}
