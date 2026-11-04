@@ -74,10 +74,10 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
 
 // The web app does not author: the agent writes through MCP. The only GraphQL mutations it may send
 // are vault:read ops that change no document (they POST because they mint a cap or log an egress
-// event), and the review:decide person ops: the owner drafts answers, submits them, and approves or
-// rejects what an agent proposed.
+// event), and the review:decide person ops: the owner drafts answers, submits them, approves or
+// rejects what an agent proposed, and marks a tracked document's change seen.
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
-const REVIEW_MUTATIONS = new Set(['ProposalDraft', 'ProposalSubmit', 'StackDecide'])
+const REVIEW_MUTATIONS = new Set(['ProposalDraft', 'ProposalSubmit', 'StackDecide', 'DocSeen'])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
     const name = d.name?.value ?? '(anonymous)'

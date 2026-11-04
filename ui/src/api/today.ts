@@ -34,6 +34,8 @@ const TodayDoc = graphql(/* GraphQL */ `
             error
             inbox
             outbox
+            docsUnseen
+            docComments
             unverified
             waiting
             answersToCheck

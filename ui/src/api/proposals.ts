@@ -123,6 +123,9 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             range
             old
             new
+            from
+            to
+            comments
             claimedBy
             leaseUntil
             answer {
@@ -135,6 +138,12 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
               addedOptions
               editedOptions
               ownWords
+              comments {
+                id
+                to
+                note
+                due
+              }
               comment
               via
               stale

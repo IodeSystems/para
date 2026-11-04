@@ -118,3 +118,11 @@ describe('line diff', () => {
     expect(lineDiff('x', '')).toEqual(['- x'])
   })
 })
+
+describe('upstream answers', () => {
+  it('counts comment answers and sends only their keys', () => {
+    const a = { decision: 'approve', comments: [{ id: 'c1', to: 'ask', note: null, due: '' }] }
+    expect(answerEmpty({ comments: [{ id: 'c1', to: 'ask' }] })).toBe(false)
+    expect(answerInput(a)).toEqual({ decision: 'approve', comments: [{ id: 'c1', to: 'ask' }] })
+  })
+})

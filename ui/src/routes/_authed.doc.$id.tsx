@@ -50,6 +50,11 @@ function Doc() {
                     Open the proposal
                   </LinkButton>
                 )}
+                {d.meta.type === 'tracked_doc' && (
+                  <LinkButton size="small" variant="outlined" to="/docs/$id" params={{ id: d.id }}>
+                    Open versions and comments
+                  </LinkButton>
+                )}
                 {
                   <>
                     <TextField

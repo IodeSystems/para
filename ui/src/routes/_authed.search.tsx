@@ -57,6 +57,7 @@ const TYPES = [
   'request',
   'journal',
   'io',
+  'tracked_doc',
 ]
 
 const SINCE = [

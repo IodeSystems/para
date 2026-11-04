@@ -71,9 +71,19 @@ export type Answer = {
   addedOptions?: string[] | null
   editedOptions?: unknown
   ownWords?: string | null
+  comments?: CommentAnswer[] | null
   comment?: string | null
   via?: string | null
   stale?: boolean | null
+}
+
+// CommentAnswer is what the owner makes of one comment of a tracked document in an upstream
+// item: ask, question, commitment, resolved, or dropped.
+export type CommentAnswer = {
+  id: string
+  to: string
+  note?: string | null
+  due?: string | null
 }
 
 // answerEmpty says whether an answer says nothing. It matches ItemAnswer.Empty.
@@ -90,6 +100,7 @@ export function answerEmpty(a: Answer | null | undefined): boolean {
     !(a.addedOptions?.length ?? 0) &&
     !(edited && Object.keys(a.editedOptions as object).length > 0) &&
     !(a.ownWords ?? '').trim() &&
+    !(a.comments?.length ?? 0) &&
     !(a.comment ?? '').trim()
   )
 }
@@ -109,6 +120,7 @@ export function answerInput(a: Answer | null | undefined): Record<string, unknow
     'addedOptions',
     'editedOptions',
     'ownWords',
+    'comments',
     'comment',
   ] as const
   for (const k of keys) {
@@ -116,6 +128,15 @@ export function answerInput(a: Answer | null | undefined): Record<string, unknow
     if (v === undefined || v === null || v === '') continue
     if (Array.isArray(v) && v.length === 0) continue
     out[k] = v
+  }
+  if (a.comments?.length) {
+    // Only the keys the draft takes: a saved answer read back may carry more.
+    out.comments = a.comments.map((c) => ({
+      id: c.id,
+      to: c.to,
+      ...(c.note ? { note: c.note } : {}),
+      ...(c.due ? { due: c.due } : {}),
+    }))
   }
   return out
 }

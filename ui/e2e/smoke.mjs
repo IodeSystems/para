@@ -37,6 +37,9 @@ const check = (ok, what) => {
 const v = ['--vault', 'acme']
 const para = (...args) => execFileSync(bin, ['--home', home, ...args], { encoding: 'utf8' })
 const idOf = (json) => /"id":\s*"([^"]+)"/.exec(json)?.[1]
+// paraIn runs para with text on stdin, as an agent passes a document it read.
+const paraIn = (input, ...args) =>
+  execFileSync(bin, ['--home', home, ...args], { encoding: 'utf8', input })
 
 // api calls the server with a bearer token. node's fetch cannot set Host, and the vault is chosen
 // by Host, so this uses http.request.
@@ -265,6 +268,44 @@ try {
     ),
   )
 
+  // A tracked document: the original, a changed version, and a comment on the changed line.
+  const tracked = idOf(
+    paraIn(
+      '# Portal runbook\n\nStep one: drain the node.\nStep two: restart the pods.\n',
+      ...v,
+      'doc',
+      'track',
+      '--url',
+      'https://wiki.acme.example/runbooks/portal',
+      '--system',
+      'confluence',
+      '--project',
+      proj,
+      '--json',
+    ),
+  )
+  paraIn(
+    '# Portal runbook\n\nStep one: drain the node.\nStep two: restart the pods one at a time.\n',
+    ...v,
+    'doc',
+    'version',
+    'add',
+    tracked,
+  )
+  para(
+    ...v,
+    'doc',
+    'comment',
+    'add',
+    tracked,
+    '--by',
+    person,
+    '--text',
+    'Which pods first?',
+    '--quote',
+    'restart the pods one at a time',
+  )
+
   // Agent writes go through MCP, as they do for real: each leaves a receipt.
   agent = startAgent()
   const note = await agent.call('note_add', {
@@ -416,6 +457,8 @@ try {
     ['/io?view=outbox', 'IO'],
     [`/io/${incoming}`, 'Seed: ask platform about the quota'],
     [`/io/${outgoing}`, 'Thanks for the quota'],
+    ['/docs', 'Docs'],
+    [`/docs/${tracked}`, 'Portal runbook'],
     [`/proposals/${proposal.id}`, 'Quota follow-ups'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
@@ -459,6 +502,25 @@ try {
       .then(() => true)
       .catch(() => false),
     'the agenda counts unread and ready messages',
+  )
+
+  // Docs: the change since nothing was seen, the comment's quote marked in the text.
+  await page.goto(`${base}/docs/${tracked}`)
+  await page.getByRole('heading', { name: 'Portal runbook' }).waitFor()
+  await page.getByText('+ Step two: restart the pods one at a time.').waitFor()
+  check(true, 'the doc page shows what changed')
+  check(
+    (await page.locator('mark[data-comment="c1"]').innerText()) ===
+      'restart the pods one at a time',
+    "the comment's quote is marked in the text",
+  )
+  check(
+    (await page.locator('[data-comment-id="c1"]').count()) === 1,
+    'the doc page lists the comment',
+  )
+  check(
+    (await page.getByRole('button', { name: 'Mark seen' }).count()) === 0,
+    'with a read-only key there is no Mark seen',
   )
 
   // Keys: c opens nothing; ? opens help.
@@ -655,6 +717,17 @@ try {
     'after submit the question is decided',
   )
   check(true, 'after submit the message is decided, waiting for an agent')
+
+  // Mark seen: the owner read the change; the new-versions chip goes.
+  await rpage.goto(`${base}/docs/${tracked}`)
+  await rpage.getByRole('heading', { name: 'Portal runbook' }).waitFor()
+  await rpage.getByRole('button', { name: 'Mark seen' }).click()
+  await rpage.getByRole('button', { name: 'Mark seen' }).waitFor({ state: 'detached' })
+  check(
+    (await rpage.getByText('2 new versions').count()) === 0 &&
+      para(...v, 'doc', 'tracked', '--json').includes('"last_seen": 2'),
+    'Mark seen marks the document read to the latest version',
+  )
 
   // The stack: state chips count the items, and a click on one shows only those.
   await rpage.goto(`${base}/stack`)

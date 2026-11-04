@@ -306,7 +306,7 @@ function Agenda() {
                     </Stack>
                   </Paper>
                 )}
-                {(rest.length > 0 || t.unverified > 0) && (
+                {(rest.length > 0 || t.unverified > 0 || t.docsUnseen > 0 || t.docComments > 0) && (
                   <Box sx={{ mt: 1 }}>
                     <Stack
                       direction="row"
@@ -329,6 +329,11 @@ function Agenda() {
                       {t.unverified > 0 && (
                         <LinkButton size="small" color="inherit" to="/policy">
                           Summaries to verify {t.unverified}
+                        </LinkButton>
+                      )}
+                      {(t.docsUnseen > 0 || t.docComments > 0) && (
+                        <LinkButton size="small" color="inherit" to="/docs">
+                          Docs changed {t.docsUnseen}, open comments {t.docComments}
                         </LinkButton>
                       )}
                     </Stack>

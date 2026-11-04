@@ -8,6 +8,7 @@ const LABEL: Record<string, string> = {
   request: 'Agent work',
   inbox: 'Inbox',
   io: 'Message',
+  tracked_doc: 'Tracked document',
   person: 'Person',
   proposal: 'Legacy proposal',
 }

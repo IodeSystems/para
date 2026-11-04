@@ -15,6 +15,7 @@ import { GenericCard } from '@/components/stack/GenericCard'
 import { ItemStatus } from '@/components/stack/ItemStatus'
 import { MessageCard } from '@/components/stack/MessageCard'
 import { QuestionCard } from '@/components/stack/QuestionCard'
+import { UpstreamCard } from '@/components/stack/UpstreamCard'
 import {
   CommentField,
   DecisionBar,
@@ -57,6 +58,8 @@ function Body(p: CardProps) {
       return <ActionCard {...p} />
     case 'doc_edit':
       return <DocEditCard {...p} />
+    case 'upstream':
+      return <UpstreamCard {...p} />
     default:
       return <GenericCard {...p} />
   }
