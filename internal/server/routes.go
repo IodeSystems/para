@@ -164,10 +164,15 @@ type boundVault struct {
 }
 
 // deps binds the caller. Authorize holds an approval to the caller's scopes:
-// proposal_decide cannot cause a write the caller could not make.
+// proposal_decide cannot cause a write the caller could not make. A person
+// with review:decide may run any item they approve: anything approved by the
+// owner is the owner's.
 func (b *boundVault) deps() ops.Deps {
 	return ops.Deps{Store: b.t.store.As(b.req.Principal.Name, b.surface), Authorize: func(op string) error {
 		scope, ok := b.routes.byOp[op]
+		if ok && b.surface == surfacePWA && b.req.Principal.Has(netguard.ScopeReviewDecide) {
+			return nil
+		}
 		if !ok || !b.req.Principal.Has(scope) {
 			return fmt.Errorf("%w: approving %s needs scope %s", ops.ErrPersonOnly, op, scope)
 		}

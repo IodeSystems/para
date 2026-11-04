@@ -102,7 +102,7 @@ func TestServeRecordAndLogin(t *testing.T) {
 		Scopes []string `json:"scopes"`
 	}
 	e.json(&keys, "key", "list")
-	if len(keys) != 1 || !strings.HasPrefix(keys[0].Name, "viewer-") || len(keys[0].Scopes) != 1 || keys[0].Scopes[0] != "vault:read" {
+	if len(keys) != 1 || !strings.HasPrefix(keys[0].Name, "viewer-") || len(keys[0].Scopes) != 2 || keys[0].Scopes[0] != "vault:read" || keys[0].Scopes[1] != "review:decide" {
 		t.Errorf("login key = %+v", keys)
 	}
 	if adm := e.ok("serve", "login", "--print", "--admin"); !strings.Contains(adm, strings.TrimSpace(string(admin))) {

@@ -151,11 +151,13 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
 }
 
-// registerProposals: the web app reads proposals; the owner decides in the
-// chat, and the agent records it with proposal_decide. Filing, revising,
-// deciding, and reporting take vault:write. Any op an approval runs is checked
-// against the caller's own scopes (boundVault.deps). The person ops
-// proposal_approve and proposal_deny, and proposal_open, are not served.
+// registerProposals: the owner answers dossiers in the web app (draft, submit,
+// stack_decide: review:decide, person ops, so a bearer key is refused) or in
+// the chat, where the agent records it with proposal_decide. Filing, revising,
+// claiming, replying, and reporting take vault:write. An op an approval runs is
+// checked against the caller's scopes, and review:decide covers it
+// (boundVault.deps). proposal_approve, proposal_deny, and proposal_open are not
+// served.
 func registerProposals(r *registrar) {
 	reg(r, ops.ProposalList, get, read)
 	reg(r, ops.ProposalShow, get, read)
@@ -167,6 +169,13 @@ func registerProposals(r *registrar) {
 	reg(r, ops.ProposalRevise, post, write)
 	reg(r, ops.ProposalDecide, post, write)
 	reg(r, ops.ProposalExecuted, post, write)
+	reg(r, ops.ProposalClaim, post, write)
+	reg(r, ops.ProposalReply, post, write)
+	reg(r, ops.ProposalResponse, get, read)
+	reg(r, ops.ProposalStack, get, read)
+	reg(r, ops.ProposalDraft, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ProposalSubmit, post, netguard.ScopeReviewDecide)
+	reg(r, ops.StackDecide, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentActivity, get, read)
 }
 

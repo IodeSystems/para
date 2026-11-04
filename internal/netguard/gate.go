@@ -24,6 +24,10 @@ const (
 	ScopeRFXSend      = "rfx:send"
 	ScopeRequestQueue = "request:queue"
 	ScopeRequestRun   = "request:run"
+	// ScopeReviewDecide decides review items a person answered: draft,
+	// submit, and stack_decide, on a browser session. It authors nothing, and
+	// an approved item runs under it whatever its own op's scope.
+	ScopeReviewDecide = "review:decide"
 
 	// ScopeAdmin is held by the admin token only and is never granted to a key.
 	ScopeAdmin = "admin"
@@ -34,7 +38,7 @@ const (
 )
 
 // Scopes lists every scope a key can be given.
-var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSend, ScopeRequestQueue, ScopeRequestRun}
+var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSend, ScopeRequestQueue, ScopeRequestRun, ScopeReviewDecide}
 
 // Errors a Tenant returns from Authenticate.
 var (

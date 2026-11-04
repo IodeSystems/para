@@ -133,8 +133,9 @@ func isLocalURL(base string) bool {
 	return true
 }
 
-// newLoginCmd opens the vault's UI signed in. The web app is a read-only
-// viewer, so the key is a new vault:read key that ends in a day; --admin signs
+// newLoginCmd opens the vault's UI signed in. The web app reads and decides
+// review items, so the key is a new vault:read and review:decide key that ends
+// in a day; --admin signs
 // in with the admin token instead. `para serve login` and `para service
 // login-admin` are this one command.
 func newLoginCmd(l *loader, use string) *cobra.Command {
@@ -145,9 +146,9 @@ func newLoginCmd(l *loader, use string) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   use,
-		Short: "Open the read-only UI signed in with a new vault:read key (--admin: the admin token)",
-		Long: "Open the UI signed in with a new vault:read key that ends in 24 hours. The\n" +
-			"web app only reads. The server is found from $PARA_HOME/var/serve.json, then\n" +
+		Short: "Open the UI signed in with a new vault:read, review:decide key (--admin: the admin token)",
+		Long: "Open the UI signed in with a new vault:read and review:decide key that ends in\n" +
+			"24 hours. The web app reads, and decides what agents put in the review stack. The server is found from $PARA_HOME/var/serve.json, then\n" +
 			"the installed service, then 127.0.0.1:7700. The token goes in the URL\n" +
 			"fragment, which a browser never sends. This works from this machine only;\n" +
 			"for another machine use para key create <name> --scope vault:read --print-url.\n" +
@@ -160,7 +161,7 @@ func newLoginCmd(l *loader, use string) *cobra.Command {
 	f := cmd.Flags()
 	f.StringVar(&base, "url", "", "base URL (default: found from the running server)")
 	f.BoolVar(&printIt, "print", false, "print the sign-in URL (it holds the token) instead of opening it")
-	f.BoolVar(&admin, "admin", false, "sign in with the admin token instead of a read-only key")
+	f.BoolVar(&admin, "admin", false, "sign in with the admin token instead of a new key")
 	return cmd
 }
 
@@ -180,7 +181,7 @@ func runLogin(l *loader, cmd *cobra.Command, base string, printIt, admin bool) e
 	if !admin {
 		mint = func() (string, error) {
 			name := "viewer-" + time.Now().UTC().Format("20060102-150405")
-			_, t, err := store.Create(name, []string{netguard.ScopeVaultRead}, nil, 24*time.Hour)
+			_, t, err := store.Create(name, []string{netguard.ScopeVaultRead, netguard.ScopeReviewDecide}, nil, 24*time.Hour)
 			return t, err
 		}
 	}
