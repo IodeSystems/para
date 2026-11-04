@@ -126,6 +126,8 @@ func newProposalCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.URL, "url", "", "where the result is")
 				fs.StringVar(&in.Locator, "locator", "", "where the result is, when it has no URL")
 				fs.StringVar(&in.Reason, "reason", "", "why it failed")
+				fs.StringVar(&in.By, "by", "", "the agent that carried it out, when you record it for a worker")
+				fs.StringVar(&in.OnBehalfOf, "on-behalf-of", "", "owner: it was done as the owner")
 				fs.BoolVar(&execText, "text-stdin", false, "a done doc edit of a tracked document: read the document's new text from stdin")
 			},
 			Bind: func(args []string, in *ops.ProposalExecutedInput) error {

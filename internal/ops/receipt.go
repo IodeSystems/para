@@ -32,17 +32,21 @@ type ReceiptView struct {
 	SelfReported bool               `json:"self_reported,omitempty"`
 	NotDuplicate string             `json:"not_duplicate,omitempty"`
 	OwnerSaid    string             `json:"owner_said,omitempty"`
-	Surface      string             `json:"surface,omitempty"`
-	At           string             `json:"at,omitempty"`
-	Background   bool               `json:"background,omitempty"`
-	Align        *model.AlignResult `json:"align,omitempty"`
-	Created      model.Date         `json:"created"`
+	// By is the agent that did an outward act another agent recorded;
+	// OnBehalfOf is owner when it was done as the owner.
+	By         string             `json:"by,omitempty"`
+	OnBehalfOf string             `json:"on_behalf_of,omitempty"`
+	Surface    string             `json:"surface,omitempty"`
+	At         string             `json:"at,omitempty"`
+	Background bool               `json:"background,omitempty"`
+	Align      *model.AlignResult `json:"align,omitempty"`
+	Created    model.Date         `json:"created"`
 }
 
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
 	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
 		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote, Undone: r.Undone,
-		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Created: r.Created}
+		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, By: r.By, OnBehalfOf: r.OnBehalfOf, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Created: r.Created}
 }
 
 func getReceipt(ctx context.Context, s store.Store, id string) (model.Document, *model.Receipt, error) {

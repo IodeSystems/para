@@ -46,6 +46,8 @@ const ListDoc = graphql(/* GraphQL */ `
             background
             ownerSaid
             selfReported
+            by
+            onBehalfOf
             request
             at
             created

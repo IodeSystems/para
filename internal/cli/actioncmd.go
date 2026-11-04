@@ -25,6 +25,8 @@ func newActionCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&in.Sources, "source", nil, "a document id or URL the action rests on (repeat)")
 				fs.StringVar(&in.Proposal, "proposal", "", "the proposal whose approved item this carries out (with --item)")
 				fs.StringVar(&in.Item, "item", "", "the approved item this carries out (with --proposal)")
+				fs.StringVar(&in.By, "by", "", "the agent that did it, when you record it for a worker")
+				fs.StringVar(&in.OnBehalfOf, "on-behalf-of", "", "owner: it was done as the owner")
 			},
 			Text: func(w io.Writer, out ops.ActionRecordOutput) error {
 				p := &printer{w: w}

@@ -70,6 +70,12 @@ type Receipt struct {
 	// for a write made by background agent work: tick, or an agent that holds a
 	// request.
 	Surface string `yaml:"surface,omitempty" json:"surface,omitempty"`
+	// By and OnBehalfOf are set on the record of an outward act
+	// (action_record, proposal_executed): By is the actor that did it when
+	// another actor records it (a worker the recording agent delegated to over
+	// chat); OnBehalfOf is "owner" when it was done as the owner.
+	By         string `yaml:"by,omitempty" json:"by,omitempty"`
+	OnBehalfOf string `yaml:"on_behalf_of,omitempty" json:"on_behalf_of,omitempty"`
 	// At is when the write happened, RFC 3339 UTC, to the nanosecond. Created is only the day.
 	At         string `yaml:"at,omitempty" json:"at,omitempty"`
 	Background bool   `yaml:"background,omitempty" json:"background,omitempty"`

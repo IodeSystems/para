@@ -139,8 +139,17 @@ func TestDossierDraftAndSubmit(t *testing.T) {
 	if err != nil || len(cl.Claimed) != 1 {
 		t.Fatalf("claim = %+v %v", cl, err)
 	}
-	if _, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "m1", Result: ExecDone, URL: "https://mail.acme.example/1"}); err != nil {
+	// The manager records the worker's act: exec.by and the receipt name the
+	// worker, and the receipt says it was done as the owner.
+	ex, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "m1", Result: ExecDone, URL: "https://mail.acme.example/1", By: "dun", OnBehalfOf: "owner"})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if r := mustRun(t, ReceiptShow, f.owner, ReceiptIDInput{ID: ex.Receipt}).Receipt; r.By != "dun" || r.OnBehalfOf != "owner" || r.Actor == "dun" {
+		t.Fatalf("receipt = %+v", r)
+	}
+	if mustRun(t, ProposalShow, f.owner, ProposalIDInput{ID: id}).Items[3].Execution.By != "dun" {
+		t.Fatal("exec.by is not the worker")
 	}
 	resp = mustRun(t, ProposalResponse, f.agent, ProposalIDInput{ID: id})
 	if strings.Join(resp.Todo.Claim, ",") != "a2" || len(resp.Todo.Reply) != 0 {

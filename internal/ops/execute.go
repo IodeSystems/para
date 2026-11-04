@@ -32,6 +32,32 @@ type ProposalExecutedInput struct {
 	// Text is the document as you read it after a done doc edit of a tracked
 	// document; it becomes the next version. Required there, refused elsewhere.
 	Text string `json:"text,omitempty"`
+	// By is the actor that carried the item out, when you record it for
+	// another agent (a worker you delegated to over chat); default you.
+	By string `json:"by,omitempty"`
+	// OnBehalfOf is "owner" when the act was done as the owner (sent from the
+	// owner's account, committed under the owner's name).
+	OnBehalfOf string `json:"on_behalf_of,omitempty"`
+}
+
+// actOwner is the only value of on_behalf_of.
+const actOwner = "owner"
+
+// outwardBy checks by and on_behalf_of of an outward record. by is an actor
+// name: one plain word; it is the caller when empty.
+func outwardBy(caller, by, onBehalfOf string) (string, string, error) {
+	by = strings.TrimSpace(by)
+	onBehalfOf = strings.TrimSpace(onBehalfOf)
+	if onBehalfOf != "" && onBehalfOf != actOwner {
+		return "", "", fmt.Errorf("on_behalf_of %q: want owner or nothing", onBehalfOf)
+	}
+	if by != "" && !wordRe.MatchString(by) {
+		return "", "", fmt.Errorf("by %q: want an actor name, one plain word", by)
+	}
+	if by == caller {
+		by = ""
+	}
+	return by, onBehalfOf, nil
 }
 
 // ProposalExecutedOutput is the output of proposal_executed.
@@ -68,6 +94,10 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 	if err != nil {
 		return ProposalExecutedOutput{}, err
 	}
+	by, behalf, err := outwardBy(info.Actor, in.By, in.OnBehalfOf)
+	if err != nil {
+		return ProposalExecutedOutput{}, err
+	}
 	var from model.ItemState
 	var exec model.Execution
 	var said string
@@ -98,7 +128,7 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 		if it.Decided != nil {
 			said = it.Decided.OwnerSaid
 		}
-		exec = model.Execution{Result: in.Result, URL: strings.TrimSpace(in.URL), Locator: strings.TrimSpace(in.Locator), By: info.Actor,
+		exec = model.Execution{Result: in.Result, URL: strings.TrimSpace(in.URL), Locator: strings.TrimSpace(in.Locator), By: firstOf(by, info.Actor),
 			At: d.Store.Now().UTC().Format(time.RFC3339), SelfReported: true, Filled: filledValues(p, *it)}
 		it.Execution = &exec
 		it.State, it.Reason, it.LeaseUntil = model.ItemDone, "", ""
@@ -126,7 +156,8 @@ var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried 
 	}
 	receipt, err := createReceipt(ctx, d, receiptInput{op: "proposal_executed", doc: p.doc.ID, title: p.doc.Title + " " + it.ID,
 		meta:    WriteMeta{Why: firstOf(reason, it.What, it.How, it.Subject, "Approved item "+it.ID), Sources: sources, Verify: firstOf(exec.URL, exec.Locator), Request: heldRequest(ctx, d.Store, info.Actor)},
-		content: model.ReceiptContent{After: firstOf(exec.Locator, exec.URL, it.ID) + filledLine(exec.Filled)}, selfReported: true, ownerSaid: said})
+		content: model.ReceiptContent{After: firstOf(exec.Locator, exec.URL, it.ID) + filledLine(exec.Filled)}, selfReported: true, ownerSaid: said,
+		by: by, onBehalfOf: behalf})
 	if err != nil {
 		return ProposalExecutedOutput{}, err
 	}

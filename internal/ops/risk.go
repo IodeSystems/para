@@ -279,6 +279,8 @@ type receiptInput struct {
 	selfReported   bool
 	ownerSaid      string
 	align          *model.AlignResult
+	// by and onBehalfOf are set on the record of an outward act.
+	by, onBehalfOf string
 }
 
 // fileReceipt writes a receipt and an event that points at it. The event holds
@@ -301,7 +303,7 @@ func createReceipt(ctx context.Context, d Deps, in receiptInput) (string, error)
 			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request,
 			Why: strings.TrimSpace(in.meta.Why), Sources: in.meta.Sources, Verify: strings.TrimSpace(in.meta.Verify), Confidence: conf,
 			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, OwnerSaid: strings.TrimSpace(in.ownerSaid),
-			At: d.Store.Now().UTC().Format(time.RFC3339Nano), Surface: info.Surface, Background: info.Surface == TickSurface || in.meta.Request != "", NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align,
+			At: d.Store.Now().UTC().Format(time.RFC3339Nano), Surface: info.Surface, By: in.by, OnBehalfOf: in.onBehalfOf, Background: info.Surface == TickSurface || in.meta.Request != "", NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align,
 		},
 	})
 	if err != nil {

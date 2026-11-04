@@ -234,6 +234,13 @@ export function ReceiptRow({ r, undone }: { r: Receipt; undone: boolean }) {
         {r.confidence && <StatusChip tone="quiet" label={`${r.confidence} confidence`} />}
         {r.selfReported && <StatusChip tone="wait" label="self-reported" />}
       </Stack>
+      {(r.by || r.onBehalfOf) && (
+        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+          {[r.by && `Done by ${r.by}`, r.onBehalfOf === 'owner' && 'as the owner']
+            .filter(Boolean)
+            .join(', ')}
+        </Typography>
+      )}
       {r.ownerSaid && (
         <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
           Owner said: &ldquo;{r.ownerSaid}&rdquo;

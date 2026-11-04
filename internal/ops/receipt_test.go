@@ -245,6 +245,26 @@ func TestActionRecordKeepsAReceipt(t *testing.T) {
 	}
 }
 
+func TestActionRecordByWorkerOnBehalfOfOwner(t *testing.T) {
+	f := newAgentFix(t)
+	for _, in := range []ActionRecordInput{{OnBehalfOf: "boss"}, {By: "two words"}} {
+		in.What, in.Where = "Replied to a review comment", "github.example/acme/portal"
+		if _, err := ActionRecord.Run(t.Context(), f.agent, in); err == nil {
+			t.Fatalf("recorded %+v", in)
+		}
+	}
+	out := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Committed the fix", Where: "github.example/acme/portal", URL: "https://github.example/acme/portal/commit/abc", By: "dun", OnBehalfOf: "owner"})
+	r := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: out.Receipt}).Receipt
+	if r.By != "dun" || r.OnBehalfOf != "owner" || r.Actor == "dun" {
+		t.Fatalf("receipt = %+v", r)
+	}
+	// by equal to the caller is the caller: nothing stored.
+	self := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Pushed", Where: "repo", By: r.Actor})
+	if r := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: self.Receipt}).Receipt; r.By != "" {
+		t.Fatalf("self by = %q", r.By)
+	}
+}
+
 func TestReceiptUndoManyNewestFirst(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := writeCtx(t)

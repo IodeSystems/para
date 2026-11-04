@@ -313,7 +313,9 @@ type Query {
 }
 
 input para_ActionRecordInputInput {
+  by: String
   item: String
+  onBehalfOf: String
   ownerSaid: String
   proposal: String
   sources: [String!]
@@ -3726,6 +3728,7 @@ type para_Meta {
   notDuplicate: String
   notIn: [String!]
   of: String
+  onBehalfOf: String
   op: String
   optionDetails: JSON
   options: [String!]
@@ -4621,9 +4624,11 @@ type para_ProposalDraftOutput {
 }
 
 input para_ProposalExecutedInputInput {
+  by: String
   id: String!
   item: String!
   locator: String
+  onBehalfOf: String
   reason: String
   result: String!
   text: String
@@ -5468,6 +5473,7 @@ type para_ReceiptView {
   align: para_AlignResult
   at: String
   background: Boolean
+  by: String
   check: para_ReceiptViewCheck!
   checkNote: String
   checkedBy: String
@@ -5477,6 +5483,7 @@ type para_ReceiptView {
   docName: String
   id: String!
   notDuplicate: String
+  onBehalfOf: String
   op: String!
   ownerSaid: String
   request: String
