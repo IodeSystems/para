@@ -127,7 +127,7 @@ func matching(ctx context.Context, r Reader, s Step) ([]string, int, error) {
 	var ids []string
 	n := 0
 	for _, t := range s.Types {
-		refs, err := r.List(ctx, store.Filter{Type: t})
+		refs, err := r.List(ctx, store.Filter{Type: t, All: true})
 		if err != nil {
 			return nil, 0, fmt.Errorf("upgrade: %s: %w", s.ID, err)
 		}

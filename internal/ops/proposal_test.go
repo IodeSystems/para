@@ -161,6 +161,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := IODone.Run(t.Context(), d, IODoneInput{ID: "x"})
 			return err
 		}},
+		{"notes_save", func(d Deps) error {
+			_, err := NotesSave.Run(t.Context(), d, NotesEditInput{ID: "x", MD: "y"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}

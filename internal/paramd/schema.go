@@ -93,6 +93,7 @@ var commonFields = []field{
 	{Name: "updated", Kind: kDate},
 	{Name: "tags", Kind: kList},
 	{Name: "imported_from", Kind: kImported},
+	{Name: "duplicate_of", Kind: kLink}, // doc_merge: the primary this document was merged into
 }
 
 // typeFields are the per-type fields, on top of commonFields.

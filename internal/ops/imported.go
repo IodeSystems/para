@@ -150,7 +150,7 @@ type ImportVerifyOutput struct {
 
 // importedDocs lists every document that has imported_from, by id.
 func importedDocs(ctx context.Context, s store.Store) ([]ImportedDoc, error) {
-	refs, err := s.List(ctx, store.Filter{})
+	refs, err := s.List(ctx, store.Filter{All: true})
 	if err != nil {
 		return nil, err
 	}

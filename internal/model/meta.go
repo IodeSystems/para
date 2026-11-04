@@ -45,6 +45,9 @@ type Common struct {
 	// ImportedFrom names the file this document was imported from, so
 	// import_verify can say what an old vault holds that this one lacks.
 	ImportedFrom *ImportedFrom `yaml:"imported_from,omitempty" json:"imported_from,omitempty"`
+	// DuplicateOf links the primary this document was merged into (doc_merge).
+	// A merged document leaves every list and search; its id still resolves.
+	DuplicateOf Link `yaml:"duplicate_of,omitempty" json:"duplicate_of,omitempty"`
 }
 
 // ImportedFrom is the source file of an imported document: the path as the

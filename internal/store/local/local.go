@@ -122,7 +122,11 @@ func (s *Store) Get(ctx context.Context, id string) (model.Document, error) {
 }
 
 func (s *Store) List(ctx context.Context, f store.Filter) ([]model.Ref, error) {
-	return s.v.List(ctx, f.Folder, f.Type)
+	refs, err := s.v.List(ctx, f.Folder, f.Type)
+	if err != nil || f.All || f.Folder == model.FolderArchive {
+		return refs, err
+	}
+	return slices.DeleteFunc(refs, func(r model.Ref) bool { return r.Hidden }), nil
 }
 
 func (s *Store) Update(ctx context.Context, d model.Document) (model.Document, error) {
@@ -188,7 +192,7 @@ func (a source) Refs(ctx context.Context) ([]model.Ref, error) {
 	if err != nil {
 		return nil, err
 	}
-	return slices.DeleteFunc(refs, func(r model.Ref) bool { return r.Folder == model.FolderReceipts }), nil
+	return slices.DeleteFunc(refs, func(r model.Ref) bool { return r.Folder == model.FolderReceipts || r.Hidden }), nil
 }
 
 func (a source) Get(ctx context.Context, id string) (model.Document, error) {

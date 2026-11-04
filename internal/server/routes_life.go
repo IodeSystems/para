@@ -1,6 +1,7 @@
 package server
 
 import (
+	"github.com/iodesystems/para/internal/netguard"
 	"github.com/iodesystems/para/internal/ops"
 )
 
@@ -16,6 +17,12 @@ func registerLife(r *registrar) {
 	reg(r, ops.DocEdit, post, write)
 	reg(r, ops.DocRename, post, write)
 	reg(r, ops.DocRetype, post, write)
+	reg(r, ops.DocMerge, post, write)
+	reg(r, ops.DocArchive, post, write)
+	reg(r, ops.DocMerges, get, read)
+	reg(r, ops.NotesRead, get, read)
+	reg(r, ops.NotesEdit, post, write)
+	reg(r, ops.NotesSave, post, netguard.ScopeReviewDecide)
 	reg(r, ops.TaskMove, post, write)
 	reg(r, ops.RFXNudge, post, write)
 	reg(r, ops.AttemptAdd, post, write)

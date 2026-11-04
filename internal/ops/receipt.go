@@ -138,6 +138,9 @@ type ReceiptDetail struct {
 	Lines      []string    `json:"lines"` // "- old", "+ new", and "  same" lines
 	Revertible bool        `json:"revertible"`
 	Rev        string      `json:"rev"`
+	// Also lists the other documents of a write that changed several; Lines
+	// holds a "== id ==" part for each, and an undo restores them all.
+	Also []string `json:"also"`
 }
 
 // ReceiptShow shows one receipt with its diff.
@@ -150,12 +153,21 @@ var ReceiptShow = defineRead("receipt_show", "Show a receipt: what changed, why,
 	if err != nil {
 		return ReceiptDetail{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
-	out := ReceiptDetail{Receipt: receiptView(doc, r), Lines: trimContext(diffLines(c.Before, c.After), 2), Rev: doc.Rev}
+	out := ReceiptDetail{Receipt: receiptView(doc, r), Lines: trimContext(diffLines(c.Before, c.After), 2), Rev: doc.Rev, Also: []string{}}
+	for _, p := range c.Also {
+		out.Also = append(out.Also, p.Doc)
+		out.Lines = append(out.Lines, "  ", "  == "+p.Doc+" ==")
+		out.Lines = append(out.Lines, trimContext(diffLines(p.Before, p.After), 2)...)
+	}
 	for i, l := range out.Lines {
 		out.Lines[i] = plainTitle(ctx, d.Store, l)
 	}
-	if cur, err := d.Store.Get(ctx, r.Doc); err == nil {
-		out.Revertible = sameText(renderText(cur), c.After)
+	out.Revertible = true
+	for _, p := range receiptParts(r.Doc, c) {
+		cur, err := d.Store.Get(ctx, p.Doc)
+		if err != nil || !sameText(renderText(cur), p.After) {
+			out.Revertible = false
+		}
 	}
 	return out, nil
 })
@@ -292,35 +304,59 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 	if err != nil {
 		return ReceiptUndone{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
-	cur, err := d.Store.Get(ctx, r.Doc)
-	if err != nil {
-		return ReceiptUndone{}, err
-	}
-	if !sameText(renderText(cur), c.After) {
-		return ReceiptUndone{}, fmt.Errorf("%s changed since this write: undo the later receipt first, or fix it by hand", r.Doc)
-	}
-	if c.Before == "" {
-		moved, err := d.Store.Move(ctx, r.Doc, model.FolderArchive)
+	parts := receiptParts(r.Doc, c)
+	// Every document must still hold the text the write left before any is
+	// put back: an undo is all or nothing.
+	for _, p := range parts {
+		cur, err := d.Store.Get(ctx, p.Doc)
 		if err != nil {
 			return ReceiptUndone{}, err
 		}
-		return ReceiptUndone{Receipt: doc.ID, Doc: moved.ID, Rev: moved.Rev}, nil
+		if !sameText(renderText(cur), p.After) {
+			return ReceiptUndone{}, fmt.Errorf("%s changed since this write: undo the later receipt first, or fix it by hand", p.Doc)
+		}
 	}
-	old, err := model.ParseDocument(r.Doc, cur.Folder, c.Before)
+	out := ReceiptUndone{Receipt: doc.ID}
+	for i, p := range parts {
+		saved, err := restorePart(ctx, d, p)
+		if err != nil {
+			return out, err
+		}
+		if i == 0 {
+			out.Doc, out.Rev = saved.ID, saved.Rev
+		}
+	}
+	return out, nil
+}
+
+// receiptParts lists every document of a receipt, its own doc first.
+func receiptParts(doc string, c model.ReceiptContent) []model.ReceiptPart {
+	return append([]model.ReceiptPart{{Doc: doc, Folder: c.Folder, Before: c.Before, After: c.After}}, c.Also...)
+}
+
+// restorePart puts one document back to its text before the write. A
+// document the write created moves to the archive: nothing is deleted.
+func restorePart(ctx context.Context, d Deps, p model.ReceiptPart) (model.Document, error) {
+	cur, err := d.Store.Get(ctx, p.Doc)
 	if err != nil {
-		return ReceiptUndone{}, fmt.Errorf("%s: %w", doc.ID, err)
+		return cur, err
+	}
+	if p.Before == "" {
+		return d.Store.Move(ctx, p.Doc, model.FolderArchive)
+	}
+	old, err := model.ParseDocument(p.Doc, cur.Folder, p.Before)
+	if err != nil {
+		return cur, fmt.Errorf("%s: %w", p.Doc, err)
 	}
 	old.Rev = cur.Rev
 	saved, err := d.Store.Update(ctx, old)
 	if err != nil {
-		return ReceiptUndone{}, err
+		return saved, err
 	}
-	if c.Folder != "" && c.Folder != saved.Folder {
-		if saved, err = d.Store.Move(ctx, r.Doc, c.Folder); err != nil {
-			return ReceiptUndone{}, err
-		}
+	if p.Folder != "" && p.Folder != saved.Folder {
+		return d.Store.Move(ctx, p.Doc, p.Folder)
 	}
-	return ReceiptUndone{Receipt: doc.ID, Doc: saved.ID, Rev: saved.Rev}, nil
+	return saved, nil
 }
 
 // receiptDay is the local day a receipt was made: from at, else created.

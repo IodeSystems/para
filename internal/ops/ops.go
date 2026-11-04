@@ -60,6 +60,9 @@ type Op[I, O any] struct {
 	person bool
 	risk   Risk
 	noUndo bool
+	// oneReceipt: a write files one receipt for every document it changed,
+	// on every surface, so one undo reverses all of it (merge, archive).
+	oneReceipt bool
 	// gateRule, when set, can let a write through the gate or hold it back
 	// whatever gate.require says (withGateRule).
 	gateRule func(I, WriteMeta) (gateVerdict, string)
@@ -105,12 +108,20 @@ func withNoUndo[I, O any](o *Op[I, O]) *Op[I, O] {
 	return o
 }
 
+// withOneReceipt marks an op whose write changes several documents as one
+// act: it leaves one receipt on every surface, a person's too, and
+// receipt_undo restores every document of it.
+func withOneReceipt[I, O any](o *Op[I, O]) *Op[I, O] {
+	o.oneReceipt = true
+	return o
+}
+
 func (o *Op[I, O]) InputType() reflect.Type  { return reflect.TypeFor[I]() }
 func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }
 
 // Run calls the op.
 func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
-	if o.risk != RiskRead && needsRecord(ctx, d) {
+	if o.risk != RiskRead && (needsRecord(ctx, d) || (o.oneReceipt && ctx.Value(recordingKey{}) == nil)) {
 		return runRecorded(ctx, d, o, in)
 	}
 	return o.run(ctx, d, in)

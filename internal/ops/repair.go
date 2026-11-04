@@ -98,7 +98,7 @@ var DocRename = define("doc_rename", "Rename a document (its id and file name) a
 	if err != nil {
 		return DocRenameOutput{}, fmt.Errorf("doc_rename: %w", err)
 	}
-	refs, err := d.Store.List(ctx, store.Filter{})
+	refs, err := d.Store.List(ctx, store.Filter{All: true})
 	if err != nil {
 		return DocRenameOutput{}, fmt.Errorf("doc_rename: %w", err)
 	}

@@ -220,6 +220,7 @@ type Meta struct {
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
+	DuplicateOf     string                  `json:"duplicate_of,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.

@@ -337,7 +337,7 @@ func (s *Server) review(ctx context.Context, b *boundVault) (UIReviewBody, error
 		out.Needs = append(out.Needs, ReviewNeed{Kind: n.Kind, ID: n.ID, Title: n.Title})
 	}
 	titles := map[string]string{}
-	if refs, err := deps.Store.List(ctx, store.Filter{}); err == nil {
+	if refs, err := deps.Store.List(ctx, store.Filter{All: true}); err == nil {
 		for _, r := range refs {
 			titles[r.ID] = r.Title
 		}

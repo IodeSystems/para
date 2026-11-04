@@ -426,7 +426,9 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		if typ != "" && model.Type(pf.Type()) != typ {
 			continue
 		}
-		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: model.Type(pf.Type()), Title: pf.Title, Rev: events.Hash(data)})
+		dup, _ := pf.Frontmatter["duplicate_of"].(string)
+		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: model.Type(pf.Type()), Title: pf.Title, Rev: events.Hash(data),
+			Hidden: f.folder == model.FolderArchive || strings.TrimSpace(dup) != ""})
 	}
 	return out, nil
 }

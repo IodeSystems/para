@@ -100,6 +100,46 @@ func newDocCmd(l *loader) *cobra.Command {
 			},
 			Text: printID(func(o ops.DocEditOutput) string { return o.ID }),
 		}),
+		opCommand(l, ops.DocMerge, binding[ops.DocMergeInput, ops.DocMergeOutput]{
+			Use: "merge <keep-id> <alias-id> [--note <text>]", Args: cobra.ExactArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.DocMergeInput) {
+				fs.StringVar(&in.Note, "note", "", "an open task alias: the note of its duplicate close")
+			},
+			Bind: func(args []string, in *ops.DocMergeInput) error { in.Keep, in.Alias = args[0], args[1]; return nil },
+			Text: func(w io.Writer, out ops.DocMergeOutput) error {
+				_, err := fmt.Fprintf(w, "%s\tmerged into %s\tlinks rewritten in %d\tjoined: %s\n", out.Alias, out.Keep, len(out.Rewritten), strings.Join(out.Joined, ","))
+				return err
+			},
+		}),
+		opCommand(l, ops.DocArchive, binding[ops.DocArchiveInput, ops.DocArchiveOutput]{
+			Use: "archive <id> [--reason <text>]", Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.DocArchiveInput) {
+				fs.StringVar(&in.Reason, "reason", "", "why it is archived, under ## Archived")
+			},
+			Bind: func(args []string, in *ops.DocArchiveInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.DocArchiveOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.ID, out.Folder)
+				for _, x := range out.Warnings {
+					p.f("warning: %s\n", x)
+				}
+				return p.err
+			},
+		}),
+		opCommand(l, ops.DocMerges, binding[ops.DocMergesInput, ops.DocMergesOutput]{
+			Use: "merges <id>", Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.DocMergesInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.DocMergesOutput) error {
+				p := &printer{w: w}
+				if out.DuplicateOf != "" {
+					p.f("merged into\t%s\n", out.DuplicateOf)
+				}
+				for _, m := range out.MergedFrom {
+					p.f("merged from\t%s\t%s\n", m.ID, m.Title)
+				}
+				return p.err
+			},
+		}),
 	)
 	cmd.Short = "Documents: tracked remote documents (track, versions, diff, seen, comments), and repair and edit of any document through the store"
 	cmd.AddCommand(trackedDocCmds(l)...)

@@ -68,7 +68,7 @@ func (n *namer) load() {
 	if n.s == nil {
 		return
 	}
-	refs, err := n.s.List(n.ctx, store.Filter{})
+	refs, err := n.s.List(n.ctx, store.Filter{All: true})
 	if err != nil {
 		return
 	}

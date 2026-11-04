@@ -333,8 +333,10 @@ func closeGuard(doc model.Document, t *model.Task, outcome model.TaskOutcome) er
 	switch {
 	case taskTerminal(t.Status):
 		return nil
+	case t.EffectiveKind() == model.KindMeeting && outcome == model.OutcomeDuplicate:
+		return nil // a moved meeting merges into its successor (doc_merge)
 	case t.EffectiveKind() == model.KindMeeting:
-		return fmt.Errorf("%s is a meeting: close it with meeting_hold (what came of it) or meeting_cancel", doc.ID)
+		return fmt.Errorf("%s is a meeting: close it with meeting_hold (what came of it), meeting_cancel, or doc_merge into the meeting that replaced it", doc.ID)
 	case needsOutcome(t) && outcome == "":
 		return fmt.Errorf("%s is a %s: close it with task_resolve and say how it ended (outcome)", doc.ID, t.EffectiveKind())
 	}

@@ -80,12 +80,14 @@ type TaskResolveOutput struct {
 	// rerouted, dropped): closed, or listed as needing a decision.
 	Asks     []AskEffect `json:"asks"`
 	Warnings []string    `json:"warnings"`
+	// Merge is what outcome duplicate merged into the link (doc_merge).
+	Merge *DocMergeOutput `json:"merge,omitempty"`
 }
 
 // TaskResolve closes a task with an outcome. done is task_done, recurrence
 // included. The others close the task without claiming it was finished, and a
 // dependent never waits on a closed item that did not finish.
-var TaskResolve = withGateRule(defineSafe("task_resolve", TaskResolveDescription, func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
+var TaskResolve = withOneReceipt(withGateRule(defineSafe("task_resolve", TaskResolveDescription, func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
 	id := normID(in.ID)
 	outcome := in.Outcome
 	if outcome == "" {
@@ -140,6 +142,16 @@ var TaskResolve = withGateRule(defineSafe("task_resolve", TaskResolveDescription
 		}
 		if _, err := dependencyLink(ctx, d.Store, link); err != nil {
 			return TaskResolveOutput{}, fmt.Errorf("link: %s", strings.TrimPrefix(err.Error(), "depends_on "))
+		}
+	}
+	merge := false
+	if outcome == model.OutcomeDuplicate {
+		// A duplicate of a task merges into it; check before anything is written.
+		if ldoc, err := d.Store.Get(ctx, link); err == nil && sameKind(ldoc.Meta.Header().Type, model.TypeTask) {
+			if _, _, err := mergeCheck(ctx, d, link, id); err != nil {
+				return TaskResolveOutput{}, err
+			}
+			merge = true
 		}
 	}
 	if _, recurring := recurRule(t); recurring && outcome != model.OutcomeDone && outcome != model.OutcomeDropped {
@@ -272,6 +284,16 @@ var TaskResolve = withGateRule(defineSafe("task_resolve", TaskResolveDescription
 	if err := recordClose(ctx, d, id, string(outcome)); err != nil {
 		return out, err
 	}
+	if merge {
+		m, err := mergeDocs(ctx, d, link, id)
+		if err != nil {
+			return out, fmt.Errorf("task_resolve: %s is closed as a duplicate, but the merge into %s failed: %w", id, link, err)
+		}
+		out.Merge = &m
+		if doc, err := d.Store.Get(ctx, id); err == nil {
+			out.Rev = doc.Rev
+		}
+	}
 	why := firstOf(cf.reason, cf.stopped, note)
 	if out.Asks, err = settleAsks(ctx, d, id, outcome, why, asks); err != nil {
 		return out, err
@@ -282,7 +304,7 @@ var TaskResolve = withGateRule(defineSafe("task_resolve", TaskResolveDescription
 		}
 	}
 	return out, nil
-}), taskResolveGate)
+}), taskResolveGate))
 
 func wikilinks(ids []string) string {
 	parts := make([]string, len(ids))

@@ -162,7 +162,7 @@ type ProjectListOutput struct {
 
 // ProjectList lists projects, active folder only unless All.
 var ProjectList = defineRead("project_list", "List projects", func(ctx context.Context, d Deps, in ProjectListInput) (ProjectListOutput, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
+	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject, All: in.All})
 	if err != nil {
 		return ProjectListOutput{}, err
 	}

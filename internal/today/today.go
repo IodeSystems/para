@@ -196,6 +196,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		titles[r.ID] = r.Title
 	}
 	for _, r := range refs {
+		if r.Hidden {
+			continue
+		}
 		switch r.Type {
 		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
 		case model.TypeProposal:

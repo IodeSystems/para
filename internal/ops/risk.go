@@ -126,7 +126,11 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	if slices.Contains(FlowOps, o.name) {
 		return out, err
 	}
-	if ferr := rec.file(ctx, d, o.name, writeMeta(ctx)); ferr != nil {
+	file := rec.file
+	if o.oneReceipt {
+		file = rec.fileOne
+	}
+	if ferr := file(ctx, d, o.name, writeMeta(ctx)); ferr != nil {
 		return out, errors.Join(err, fmt.Errorf("%s: the write happened, but its receipt failed: %w", o.name, ferr))
 	}
 	return out, err
@@ -233,6 +237,38 @@ func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) err
 		}
 	}
 	return nil
+}
+
+// fileOne writes one receipt for every document that changed: the first is
+// the receipt's doc, the others go in also.
+func (r *recorder) fileOne(ctx context.Context, d Deps, op string, m WriteMeta) error {
+	info := d.Store.Info()
+	if m.Request == "" {
+		m.Request = heldRequest(ctx, d.Store, info.Actor)
+	}
+	var c model.ReceiptContent
+	main, title := "", ""
+	for _, t := range *r.list {
+		doc, err := d.Store.Get(ctx, t.id)
+		if err != nil || slices.Contains(noReceipt, doc.Meta.Header().Type) {
+			continue
+		}
+		after := renderText(doc)
+		if after == t.before && !t.forced && (t.folder == "" || t.folder == doc.Folder) {
+			continue
+		}
+		if main == "" {
+			main, title = t.id, doc.Title
+			c.Folder, c.Before, c.After = t.folder, t.before, after
+			continue
+		}
+		c.Also = append(c.Also, model.ReceiptPart{Doc: t.id, Folder: t.folder, Before: t.before, After: after})
+	}
+	if main == "" {
+		return nil
+	}
+	return fileReceipt(ctx, d, receiptInput{op: op, doc: main, title: title, meta: m, content: c,
+		selfReported: m.OwnerSaid != "", ownerSaid: m.OwnerSaid})
 }
 
 // receiptInput is one receipt to file.

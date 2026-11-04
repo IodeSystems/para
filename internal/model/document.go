@@ -40,6 +40,9 @@ type Ref struct {
 	Type   Type   `json:"type"`
 	Title  string `json:"title"`
 	Rev    string `json:"rev"`
+	// Hidden: the document is archived or merged into another (duplicate_of).
+	// store.List leaves it out unless the filter asks for all.
+	Hidden bool `json:"-"`
 }
 
 // Finding is one lint result. Path is relative to the vault root.

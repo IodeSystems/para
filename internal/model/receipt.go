@@ -91,7 +91,21 @@ type AlignResult struct {
 
 // ReceiptContent is the fenced block of a receipt's body. An empty Before means
 // the write created the document. Folder is where the document was before.
+//
+// Also holds the other documents of one write that changed several (a merge
+// rewrites links across the vault): one receipt, and an undo restores all.
 type ReceiptContent struct {
+	Folder Folder        `yaml:"folder,omitempty" json:"folder,omitempty"`
+	Before string        `yaml:"before,omitempty" json:"before,omitempty"`
+	After  string        `yaml:"after,omitempty" json:"after,omitempty"`
+	Also   []ReceiptPart `yaml:"also,omitempty" json:"also,omitempty"`
+}
+
+// ReceiptPart is one more document of a receipt: its id, the folder it was
+// in, and its text before and after the write. An empty Before means the
+// write created it.
+type ReceiptPart struct {
+	Doc    string `yaml:"doc" json:"doc"`
 	Folder Folder `yaml:"folder,omitempty" json:"folder,omitempty"`
 	Before string `yaml:"before,omitempty" json:"before,omitempty"`
 	After  string `yaml:"after,omitempty" json:"after,omitempty"`

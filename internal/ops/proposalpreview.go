@@ -93,7 +93,7 @@ func (o *overlay) Rename(ctx context.Context, id, newID string) (model.Document,
 	if err != nil {
 		return d, err
 	}
-	refs, err := o.List(ctx, store.Filter{})
+	refs, err := o.List(ctx, store.Filter{All: true})
 	if err != nil {
 		return d, err
 	}
@@ -136,10 +136,16 @@ func (o *overlay) List(ctx context.Context, f store.Filter) ([]model.Ref, error)
 	if err != nil {
 		return nil, err
 	}
-	refs = slices.DeleteFunc(refs, func(r model.Ref) bool { return o.gone[r.ID] })
+	hidden := func(d model.Document) bool {
+		return !f.All && f.Folder != model.FolderArchive && (d.Folder == model.FolderArchive || d.Meta.Header().DuplicateOf != "")
+	}
+	refs = slices.DeleteFunc(refs, func(r model.Ref) bool {
+		d, over := o.docs[r.ID]
+		return o.gone[r.ID] || (over && hidden(d))
+	})
 	for _, id := range *o.order {
 		d := o.docs[id]
-		if (f.Folder != "" && d.Folder != f.Folder) || (f.Type != "" && d.Meta.Header().Type != f.Type) {
+		if (f.Folder != "" && d.Folder != f.Folder) || (f.Type != "" && d.Meta.Header().Type != f.Type) || hidden(d) {
 			continue
 		}
 		if !slices.ContainsFunc(refs, func(r model.Ref) bool { return r.ID == id }) {

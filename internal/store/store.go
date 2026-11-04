@@ -17,6 +17,9 @@ import (
 type Filter struct {
 	Folder model.Folder
 	Type   model.Type
+	// All lists hidden documents too: archived, or merged into another
+	// (duplicate_of). By default List leaves them out; Get still finds them.
+	All bool
 }
 
 // Info is who the open vault acts as and where. Actor and Surface are what

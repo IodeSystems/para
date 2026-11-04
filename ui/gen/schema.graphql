@@ -44,10 +44,12 @@ type ParaV1MutationNamespace {
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
   defer(body: para_DeferInputInput!): para_DeferOutput @derived(operationId: "defer")
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
+  docArchive(body: para_DocArchiveInputInput!): para_DocArchiveOutput @derived(operationId: "docArchive")
   docCommentAdd(body: para_DocCommentAddInputInput!): para_DocCommentAddOutput @derived(operationId: "docCommentAdd")
   docCommentFile(body: para_DocCommentFileInputInput!): para_DocCommentFileOutput @derived(operationId: "docCommentFile")
   docCommentResolve(body: para_DocCommentResolveInputInput!): para_DocCommentResolveOutput @derived(operationId: "docCommentResolve")
   docEdit(body: para_DocEditInputInput!): para_DocEditOutput @derived(operationId: "docEdit")
+  docMerge(body: para_DocMergeInputInput!): para_DocMergeOutput @derived(operationId: "docMerge")
   docRename(body: para_DocRenameInputInput!): para_DocRenameOutput @derived(operationId: "docRename")
   docRetype(body: para_DocRetypeInputInput!): para_DocRetypeOutput @derived(operationId: "docRetype")
   docSeen(body: para_DocSeenInputInput!): para_DocSeenOutput @derived(operationId: "docSeen")
@@ -87,6 +89,8 @@ type ParaV1MutationNamespace {
   meetingSchedule(body: para_MeetingScheduleInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingSchedule")
   noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   noteEdit(body: para_NoteEditInputInput!): para_NoteEditOutput @derived(operationId: "noteEdit")
+  notesEdit(body: para_NotesEditInputInput!): para_NotesEditOutput @derived(operationId: "notesEdit")
+  notesSave(body: para_NotesEditInputInput!): para_NotesEditOutput @derived(operationId: "notesSave")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
@@ -196,6 +200,7 @@ type ParaV1QueryNamespace {
   conventionShow(id: String!): para_ConventionShowOutput @derived(operationId: "conventionShow")
   docComments(id: String!, open: Boolean): para_DocCommentsOutput @derived(operationId: "docComments")
   docDiff(context: Int, from: Int, id: String!, to: Int, unit: String, whole: Boolean): para_DocDiffOutput @derived(operationId: "docDiff")
+  docMerges(id: String!): para_DocMergesOutput @derived(operationId: "docMerges")
   docTracked(status: para_docTrackedStatus, unseen: Boolean): para_DocTrackedOutput @derived(operationId: "docTracked")
   docTrackedShow(id: String!, version: Int): para_DocTrackedShowOutput @derived(operationId: "docTrackedShow")
   eventsTail(limit: Int): para_EventsTailOutput @derived(operationId: "eventsTail")
@@ -225,6 +230,7 @@ type ParaV1QueryNamespace {
   next(project: String): para_NextOutput @derived(operationId: "next")
   noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
   noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
+  notesRead(id: String!): para_NotesReadOutput @derived(operationId: "notesRead")
   order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
@@ -1190,6 +1196,18 @@ type para_DocAnchor {
   version: Int!
 }
 
+input para_DocArchiveInputInput {
+  id: String!
+  reason: String
+}
+
+type para_DocArchiveOutput {
+  folder: String!
+  id: String!
+  rev: String!
+  warnings: [String!]!
+}
+
 type para_DocChange {
   doc: String!
   lines: [String!]!
@@ -1350,6 +1368,30 @@ input para_DocEditInputInput {
 type para_DocEditOutput {
   id: String!
   rev: String!
+}
+
+input para_DocMergeInputInput {
+  alias: String!
+  keep: String!
+  note: String
+}
+
+type para_DocMergeOutput {
+  alias: String!
+  closed: Boolean!
+  joined: [String!]!
+  keep: String!
+  notes: Boolean!
+  rev: String!
+  rewritten: [String!]!
+  warnings: [String!]!
+}
+
+type para_DocMergesOutput {
+  archived: Boolean!
+  duplicateOf: String
+  id: String!
+  mergedFrom: [para_PartRef!]!
 }
 
 input para_DocRenameInputInput {
@@ -3630,6 +3672,7 @@ type para_Meta {
   doc: String
   doneWhen: String
   due: String
+  duplicateOf: String
   ecosystem: JSON
   end: String
   ended: String
@@ -3915,6 +3958,24 @@ enum para_NoteViewFolder {
   rfx
   sources
   tracked
+}
+
+input para_NotesEditInputInput {
+  hash: String
+  id: String!
+  md: String!
+}
+
+type para_NotesEditOutput {
+  hash: String!
+  id: String!
+  rev: String!
+}
+
+type para_NotesReadOutput {
+  hash: String!
+  id: String!
+  md: String!
 }
 
 type para_OptionDetail {
@@ -5344,6 +5405,7 @@ enum para_ReceiptCheckOutputCheck {
 }
 
 type para_ReceiptDetail {
+  also: [String!]!
   lines: [String!]!
   receipt: para_ReceiptView!
   rev: String!
@@ -6822,6 +6884,7 @@ type para_TaskResolveOutput {
   asks: [para_AskEffect!]!
   followUps: [String!]!
   id: String!
+  merge: para_DocMergeOutput
   moved: [String!]!
   next: String
   openItems: [String!]!

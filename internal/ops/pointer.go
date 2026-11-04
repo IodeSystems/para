@@ -178,7 +178,7 @@ var Where = defineRead("where", "Find areas and projects by name or link label a
 	}
 	out := WhereOutput{Matches: []WhereMatch{}}
 	for _, typ := range []model.Type{model.TypeArea, model.TypeProject} {
-		refs, err := d.Store.List(ctx, store.Filter{Type: typ})
+		refs, err := d.Store.List(ctx, store.Filter{Type: typ, All: in.All})
 		if err != nil {
 			return WhereOutput{}, err
 		}
