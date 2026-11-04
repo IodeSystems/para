@@ -1,5 +1,6 @@
-// Package ical writes an iCalendar (RFC 5545) feed of events. It writes and
-// never reads: para does not read or change an external calendar.
+// Package ical writes an iCalendar (RFC 5545) feed of events, and reads
+// calendar text a caller hands it (parse.go). It opens nothing: para does not
+// fetch or change an external calendar.
 package ical
 
 import (
