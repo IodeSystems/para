@@ -511,3 +511,28 @@ func TestSubmitSkip(t *testing.T) {
 	}
 	mustLintClean(t, f.owner)
 }
+
+// Revise by items: a changed item keeps the owner's answer marked stale, as a
+// markdown revision does; an item with an unknown id is refused.
+func TestReviseItemsMarksAnswersStale(t *testing.T) {
+	f := newAgentFix(t)
+	id := fileDossierMD(t, f, dossierMD(f))
+	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerApprove}}); err != nil {
+		t.Fatal(err)
+	}
+	ev := model.Evidence{Quote: "Vendor B is cheaper.", Locator: "findings"}
+	msg := ItemInput{ID: "m1", Kind: model.ItemMessage, People: []string{"ada@acme.example"}, Body: "Hello Ada.", Evidence: ev, Reversible: model.ReversibleNo}
+	if _, err := ProposalRevise.Run(writeCtx(t), f.agent, ProposalReviseInput{ID: id, Items: []ItemInput{msg}}); err != nil {
+		t.Fatal(err)
+	}
+	show := mustRun(t, ProposalShow, f.owner, ProposalIDInput{ID: id})
+	for _, it := range show.Items {
+		if it.ID == "m1" && (it.Answer == nil || !it.Answer.Stale) {
+			t.Fatalf("m1 answer = %+v", it.Answer)
+		}
+	}
+	msg.ID = "m9"
+	if _, err := ProposalRevise.Run(writeCtx(t), f.agent, ProposalReviseInput{ID: id, Items: []ItemInput{msg}}); err == nil {
+		t.Fatal("an unknown id was accepted")
+	}
+}

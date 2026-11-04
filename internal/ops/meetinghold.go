@@ -228,6 +228,9 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 
 	out := MeetingHoldOutput{ID: doc.ID, Replied: []string{}, Constraints: []string{}, Interactions: []string{},
 		Answered: []string{}, Tasks: []string{}, Requests: []string{}, Waiting: []string{}, Warnings: []string{}}
+	if w := thinHold(in); w != "" {
+		out.Warnings = append(out.Warnings, w)
+	}
 	partial := func(what string, err error) (MeetingHoldOutput, error) {
 		return out, fmt.Errorf("%s: %w; recorded so far: replied %v, answered %v, tasks %v; the meeting is not marked held", what, err, out.Replied, out.Answered, out.Tasks)
 	}
@@ -337,3 +340,23 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 	}
 	return out, nil
 })
+
+// thinHold warns when a hold records nothing of what came of the meeting:
+// no notes, no action items, and no replies. It names what is missing.
+func thinHold(in MeetingHoldInput) string {
+	var missing []string
+	if strings.TrimSpace(in.Notes) == "" {
+		missing = append(missing, "notes (what was said)")
+	}
+	if len(in.Actions) == 0 {
+		missing = append(missing, "actions (who does what next)")
+	}
+	if len(in.Replies) == 0 {
+		missing = append(missing, "replies (answers to its requests)")
+	}
+	if len(missing) < 3 {
+		return ""
+	}
+	return "the meeting is marked held with nothing of what came of it: no " + strings.Join(missing, ", no ") +
+		". Ask the owner what was said and decided, then add it with notes_edit and task_add"
+}

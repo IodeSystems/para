@@ -785,7 +785,7 @@ type TaskEditOutput struct {
 }
 
 // TaskEdit sets the done condition of an open task.
-var TaskEdit = defineSafe("task_edit", "Set how we know a task is done", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when). To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err

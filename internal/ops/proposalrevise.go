@@ -77,6 +77,18 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 		if err != nil {
 			return nil, fmt.Errorf("item %s: %w", raw.ID, err)
 		}
+		// As in a markdown revision: unchanged text keeps para's fields; a
+		// changed item keeps the owner's answer, marked stale.
+		oldHash, _ := out[i].Hash()
+		newHash, _ := it.Hash()
+		switch {
+		case oldHash == newHash:
+			keepParaOwned(&it, out[i])
+		case out[i].Answer != nil:
+			a := *out[i].Answer
+			a.Stale = true
+			it.Answer = &a
+		}
 		it.Thread = out[i].Thread
 		out[i] = it
 	}
@@ -92,7 +104,9 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 
 // ProposalRevise rewrites a proposal in place as its next revision. The body
 // before is kept in a receipt.
-var ProposalRevise = defineSafe("proposal_revise", "Revise a dossier in place: give markdown, the whole new body (keep the ids of items you keep; an item you leave out is withdrawn), or change items one by one (items with id replace, without id add, withdraw drops, or a new tldr or context). An item whose text is unchanged keeps the owner's answer; a changed one waits for the owner again with its answer marked stale. Items the owner decided cannot change. The old body is kept in a receipt; proposal_diff shows the change", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
+var ProposalRevise = defineSafe("proposal_revise", "Revise a dossier in place: give markdown, the whole new body, or change items one by one (items with id replace that item, without id are appended, withdraw drops, or a new tldr or context). "+
+	"Items are matched by id only, so keep each item's id: in markdown an item with an id the dossier lacks is a new item, an item you leave out is withdrawn, and an item with the same title but another id does not replace the old one. "+
+	"An item whose text is unchanged keeps the owner's answer; a changed one waits for the owner again with its answer marked stale. Items the owner decided cannot change. The old body is kept in a receipt; proposal_diff shows the change", func(ctx context.Context, d Deps, in ProposalReviseInput) (ProposalFiled, error) {
 	markdown := strings.TrimSpace(in.Markdown) != ""
 	if markdown && (len(in.Items) > 0 || len(in.Withdraw) > 0 || in.TLDR != "" || in.Context != "") {
 		return ProposalFiled{}, errors.New("give markdown, or items, withdraw, tldr, and context; not both")

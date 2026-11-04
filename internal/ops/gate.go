@@ -223,7 +223,13 @@ func stageWrite(ctx context.Context, d Deps, op string, input map[string]any, m 
 		return nil, err
 	}
 	return &Staged{Staged: true, Op: op, Proposal: p.doc.ID, Item: itemID, URL: url, URLNote: urlNote(d, url), Missing: missing,
-		Message: fmt.Sprintf("staged for review as %s %s: the write lacks %s, so it did not run. It runs when the owner approves it", p.doc.ID, itemID, strings.Join(missing, ", "))}, nil
+		Message: stagedMessage(p.doc.Title, itemID, firstOf(url, p.doc.ID), missing)}, nil
+}
+
+// stagedMessage says where a held write went and when it applies, in words
+// an agent relays to the owner as they are: it is not a failure.
+func stagedMessage(title, item, where string, missing []string) string {
+	return fmt.Sprintf("held for review in %s item %s: %s; it applies when the owner approves (it lacked %s)", title, item, where, strings.Join(missing, ", "))
 }
 
 // nextItemID is prefix plus one more than the highest number of that prefix.

@@ -200,3 +200,19 @@ func TestMeetingHoldActionForAgent(t *testing.T) {
 	}
 	mustLintClean(t, d)
 }
+
+func TestThinHoldWarns(t *testing.T) {
+	d, _ := laterVault(t)
+	ada := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
+	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{ada}, Start: "2026-11-02T10:00:00Z", End: "2026-11-02T10:30:00Z"}).ID
+	out := must(t, MeetingHold, d, MeetingHoldInput{ID: m})
+	if !slices.ContainsFunc(out.Warnings, func(w string) bool {
+		return strings.Contains(w, "no notes") && strings.Contains(w, "no actions") && strings.Contains(w, "no replies")
+	}) {
+		t.Fatalf("thin hold warnings = %v", out.Warnings)
+	}
+	m2 := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync two", With: []string{ada}, Start: "2026-11-02T11:00:00Z", End: "2026-11-02T11:30:00Z"}).ID
+	if out := must(t, MeetingHold, d, MeetingHoldInput{ID: m2, Notes: "Agreed on the plan."}); slices.ContainsFunc(out.Warnings, func(w string) bool { return strings.Contains(w, "nothing of what came") }) {
+		t.Fatalf("a hold with notes warned: %v", out.Warnings)
+	}
+}
