@@ -6748,6 +6748,7 @@ type para_TaskAttemptOutput {
 input para_TaskBlockInputInput {
   id: String!
   reason: String!
+  until: String
 }
 
 type para_TaskChangeOutput {
@@ -7068,6 +7069,7 @@ type para_TaskView {
   recur: String
   reroutedTo: String
   retryAfter: String
+  returns: String
   rev: String!
   scheduled: String
   status: para_TaskViewStatus!

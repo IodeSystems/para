@@ -622,8 +622,8 @@ func (h *healther) blocker(id, goal string, m *model.Task) {
 	if !complete {
 		h.add(HealthBlockerIncomplete, id, goal, "blocker reason is missing or too short: say who said it, why, and where it applies", fmt.Sprintf("task_block {id: %s, reason: who, why, where}", id))
 	}
-	if r, ok := h.rows[id]; ok && r.EffDue == "" {
-		h.add(HealthBlockerNoFollowup, id, goal, "blocked task has no follow-up date and no dated goal", fmt.Sprintf("task_due {id: %s, date: YYYY-MM-DD}", id))
+	if r, ok := h.rows[id]; ok && r.EffDue == "" && m.DeferUntil == "" {
+		h.add(HealthBlockerNoFollowup, id, goal, "blocked task has no follow-up date and no dated goal", fmt.Sprintf("task_block {id: %s, reason: ..., until: YYYY-MM-DD}, or task_due {id: %s, date: YYYY-MM-DD}", id, id))
 	}
 }
 

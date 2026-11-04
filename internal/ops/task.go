@@ -60,7 +60,10 @@ type TaskView struct {
 	Rev            string           `json:"rev"`
 	// Deferred is true while a person has put the task off (itself, or its
 	// goal). DeferUntil is the date or "someday". It still blocks its dependents.
-	Deferred       bool   `json:"deferred"`
+	Deferred bool `json:"deferred"`
+	// Returns is the follow-up date of a blocked task (its defer_until):
+	// next and the agenda list it again on that day.
+	Returns        string `json:"returns,omitempty"`
 	DeferUntil     string `json:"defer_until,omitempty"`
 	DeferredReason string `json:"deferred_reason,omitempty"`
 	// WaitsOn is the part of DeferredAfter still open: the item is under Later
@@ -405,8 +408,19 @@ var TaskList = defineRead("task_list", "List tasks; open: true lists every task 
 		}
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Assignee != want })
 	}
-	if tasks, err = markDeferred(ctx, d.Store, tasks, in.Deferred); err != nil {
+	if tasks, err = markDeferred(ctx, d.Store, tasks, true); err != nil {
 		return TaskListOutput{}, err
+	}
+	// A blocked task stays listed while it waits for its follow-up date: only
+	// next and the agenda leave it out until then.
+	today := d.Store.Now().Format(dateLayout)
+	tasks = slices.DeleteFunc(tasks, func(t TaskView) bool {
+		return t.Deferred && !in.Deferred && t.Status != model.TaskBlocked
+	})
+	for i := range tasks {
+		if t := &tasks[i]; t.Status == model.TaskBlocked && t.DeferUntil != "" && t.DeferUntil != model.SomedayWord && t.DeferUntil > today {
+			t.Returns = t.DeferUntil
+		}
 	}
 	return TaskListOutput{Tasks: tasks}, nil
 })
@@ -543,16 +557,27 @@ var TaskStart = defineSafe("task_start", "Start a task", func(ctx context.Contex
 type TaskBlockInput struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason"` // why: who said it, and where it applies
+	// Until is the follow-up date, YYYY-MM-DD: it sets defer_until, so the
+	// blocked task leaves next and the agenda until then and comes back on
+	// the day. task_list still lists it, with "returns <date>".
+	Until string `json:"until,omitempty"`
 }
 
 // TaskBlock marks a task blocked and records the reason. Blocking a blocked
 // task adds a reason.
-var TaskBlock = defineSafe("task_block", "Block a task with a reason", func(ctx context.Context, d Deps, in TaskBlockInput) (TaskChangeOutput, error) {
+var TaskBlock = defineSafe("task_block", "Block a task with a reason; until (YYYY-MM-DD) is the follow-up date: it sets defer_until, so the task leaves next and the agenda until then and comes back on the day (task_list still lists it). The due date never does this", func(ctx context.Context, d Deps, in TaskBlockInput) (TaskChangeOutput, error) {
 	reason := strings.Join(strings.Fields(in.Reason), " ")
 	if reason == "" {
 		return TaskChangeOutput{}, errors.New("reason is empty")
 	}
+	until, err := parseDate("until", in.Until)
+	if err != nil {
+		return TaskChangeOutput{}, err
+	}
 	return transition(ctx, d, in.ID, func(_ model.Document, t *model.Task) error {
+		if until != "" {
+			t.DeferUntil = string(until)
+		}
 		t.Status = model.TaskBlocked
 		if !slices.Contains(t.BlockedBy, reason) {
 			t.BlockedBy = append(t.BlockedBy, reason)

@@ -38,6 +38,9 @@ func writeTasks(w io.Writer, tasks []ops.TaskView) error {
 
 // laterSuffix marks a task a person put off.
 func laterSuffix(t ops.TaskView) string {
+	if t.Returns != "" {
+		return "\t(returns " + t.Returns + ")"
+	}
 	if t.Deferred {
 		if len(t.WaitsOn) > 0 {
 			return "\t(later, waits on: " + strings.Join(namesOrIDs(t.WaitsOnNames, t.WaitsOn), ", ") + ")"
@@ -472,6 +475,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskBlockInput) {
 				fs.StringVar(&in.Reason, "reason", "", "why it is blocked, who said it, where it applies (required)")
+				fs.StringVar(&in.Until, "until", "", "follow-up date YYYY-MM-DD: the task leaves next and the agenda until then (sets defer_until)")
 			},
 			Bind: func(args []string, in *ops.TaskBlockInput) error { in.ID = args[0]; return nil },
 			Text: changeText,

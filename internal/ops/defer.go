@@ -362,11 +362,6 @@ func deferredSet(ctx context.Context, s store.Store, today string) (map[string]d
 					return nil, err
 				}
 			}
-			// A blocked task's follow-up date is its defer date: it is under
-			// Later until then, and back in next on the day.
-			if t, ok := doc.Meta.(*model.Task); ok && t.Status == model.TaskBlocked && t.Due != "" && string(t.Due) > today {
-				h.Date = true
-			}
 			if h.Date || h.Waits != nil || h.Ready != "" {
 				out[doc.ID] = h
 			}

@@ -35,8 +35,6 @@ func TestAgentDeferIsGated(t *testing.T) {
 
 func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert", Due: "2026-11-05"}).ID
-	must(t, TaskBlock, d, TaskBlockInput{ID: id, Reason: "Ops said the CA is down until Thursday."})
 	nextIDs := func() []string {
 		out := []string{}
 		for _, x := range must(t, Next, d, NextInput{}).Tasks {
@@ -44,11 +42,31 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 		}
 		return out
 	}
-	if slices.Contains(nextIDs(), id) || slices.Contains(taskIDs(must(t, TaskList, d, TaskListInput{})), id) {
-		t.Fatal("a blocked task is listed before its follow-up date")
+	listed := func(id string) (TaskView, bool) {
+		for _, x := range must(t, TaskList, d, TaskListInput{}).Tasks {
+			if x.ID == id {
+				return x, true
+			}
+		}
+		return TaskView{}, false
 	}
-	if !slices.Contains(taskIDs(must(t, TaskList, d, TaskListInput{Deferred: true})), id) {
-		t.Fatal("the blocked task is not under Later")
+	// The due date is when the work must be done: it never hides a blocked task.
+	due := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Pay the vendor", Due: "2026-11-20"}).ID
+	must(t, TaskBlock, d, TaskBlockInput{ID: due, Reason: "Finance said the invoice is not in yet."})
+	if v, ok := listed(due); !ok || v.Returns != "" || v.Deferred {
+		t.Fatalf("blocked task with only a due date = %+v, listed %v", v, ok)
+	}
+	if _, err := TaskBlock.Run(ctx, d, TaskBlockInput{ID: due, Reason: "x", Until: "soon"}); err == nil {
+		t.Fatal("a bad until was accepted")
+	}
+
+	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert", Due: "2026-11-30"}).ID
+	must(t, TaskBlock, d, TaskBlockInput{ID: id, Reason: "Ops said the CA is down until Thursday.", Until: "2026-11-05"})
+	if slices.Contains(nextIDs(), id) {
+		t.Fatal("next lists a blocked task before its follow-up date")
+	}
+	if v, ok := listed(id); !ok || v.Status != model.TaskBlocked || v.Returns != "2026-11-05" {
+		t.Fatalf("task_list = %+v, listed %v: a blocked task stays listed with returns", v, ok)
 	}
 	azClock = time.Date(2026, 11, 5, 9, 0, 0, 0, time.Local)
 	t.Cleanup(func() { azClock = azNow })
@@ -56,8 +74,10 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 	if !slices.ContainsFunc(got, func(v TaskView) bool { return v.ID == id && v.Status == model.TaskBlocked }) {
 		t.Fatalf("next on the follow-up date = %+v", got)
 	}
+	if slices.Contains(nextIDs(), due) {
+		t.Fatal("next lists a blocked task with no follow-up date")
+	}
 }
-
 func TestDescriptionsPointTheWay(t *testing.T) {
 	if !strings.Contains(TaskEdit.Description(), "doc_edit") {
 		t.Errorf("task_edit = %q", TaskEdit.Description())

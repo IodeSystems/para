@@ -124,12 +124,13 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
-	// A blocked task comes back on its follow-up date (its due date): the
-	// owner follows up on what blocks it.
+	// A blocked task comes back on its follow-up date (defer_until, set by
+	// task_block until): the owner follows up on what blocks it. Its due date
+	// is when the work must be done, and never brings it back.
 	today := d.Store.Now().Format(dateLayout)
 	for _, n := range w.nodes {
 		v, ok := w.tasks[n.ID]
-		if ok && v.Status == model.TaskBlocked && v.Due != "" && string(v.Due) <= today && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
+		if ok && v.Status == model.TaskBlocked && returnsBy(v.DeferUntil, today) && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
@@ -394,4 +395,10 @@ func Mermaid(o GraphOutput) string {
 
 func mermaidText(s string) string {
 	return strings.NewReplacer(`"`, "'", "\n", " ", "\r", " ").Replace(s)
+}
+
+// returnsBy reports whether a follow-up date (defer_until) has come: a date
+// on or before today. Empty and someday have not.
+func returnsBy(until, today string) bool {
+	return until != "" && until != model.SomedayWord && until <= today
 }
