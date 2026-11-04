@@ -37,6 +37,10 @@ const (
 	// AnswerSkip leaves the item undecided in this submit: it stays in the
 	// stack as skipped, with the note in comment, for a later submit.
 	AnswerSkip = "skip"
+	// AnswerAsk sends the item back to the agent with the owner's note
+	// (comment, required) and refs: para queues agent work and the item
+	// waits as sent_back until the agent revises it.
+	AnswerAsk = "ask"
 )
 
 // Where an answer was written.
@@ -64,7 +68,9 @@ type ItemAnswer struct {
 	Subject  string         `yaml:"subject,omitempty" json:"subject,omitempty"`
 	Body     string         `yaml:"body,omitempty" json:"body,omitempty"`
 	// People is who a message goes to, as the owner edited it (message only).
-	People        []string          `yaml:"people,omitempty" json:"people,omitempty"`
+	People []string `yaml:"people,omitempty" json:"people,omitempty"`
+	// Refs are vault ids the owner points the agent at with decision ask.
+	Refs          []string          `yaml:"refs,omitempty" json:"refs,omitempty"`
 	New           string            `yaml:"new,omitempty" json:"new,omitempty"`
 	Choices       []string          `yaml:"choices,omitempty" json:"choices,omitempty"`
 	AddedOptions  []string          `yaml:"added_options,omitempty" json:"added_options,omitempty"`
@@ -93,7 +99,7 @@ var CommentTargets = []string{"ask", "question", "commitment", "resolved", "drop
 
 // Empty reports whether the answer says nothing.
 func (a *ItemAnswer) Empty() bool {
-	return a == nil || a.Decision == "" && a.Input == nil && a.Subject == "" && a.Body == "" && len(a.People) == 0 && a.New == "" && len(a.Choices) == 0 &&
+	return a == nil || a.Decision == "" && a.Input == nil && a.Subject == "" && a.Body == "" && len(a.People) == 0 && len(a.Refs) == 0 && a.New == "" && len(a.Choices) == 0 &&
 		len(a.AddedOptions) == 0 && len(a.EditedOptions) == 0 && strings.TrimSpace(a.OwnWords) == "" && strings.TrimSpace(a.Comment) == "" &&
 		len(a.Comments) == 0
 }
@@ -560,6 +566,18 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 	var out []string
 	if a.Via != "" && a.Via != ViaPWA && a.Via != ViaCLI && a.Via != ViaFile {
 		out = append(out, fmt.Sprintf("answer via %q: want pwa, cli, or file", a.Via))
+	}
+	if len(a.Refs) > 0 && a.Decision != AnswerAsk {
+		out = append(out, "refs go with decision ask")
+	}
+	if a.Decision == AnswerAsk {
+		if strings.TrimSpace(a.Comment) == "" {
+			out = append(out, "ask needs a comment: what the agent should do")
+		}
+		if a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != "" || len(a.Choices) > 0 || a.OwnWords != "" || len(a.Comments) > 0 {
+			out = append(out, "ask takes a comment and refs only")
+		}
+		return out
 	}
 	if a.Decision == AnswerSkip {
 		if a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != "" || len(a.Choices) > 0 || a.OwnWords != "" || len(a.Comments) > 0 {

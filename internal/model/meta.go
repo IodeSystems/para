@@ -696,7 +696,15 @@ type Question struct {
 	Proposed        Date           `yaml:"proposed,omitempty" json:"proposed,omitempty"`
 	RejectedReason  string         `yaml:"rejected_reason,omitempty" json:"rejected_reason,omitempty"`
 	RejectedBy      string         `yaml:"rejected_by,omitempty" json:"rejected_by,omitempty"`
-	Deferral        `yaml:",inline"`
+	// ReviewState is what the owner did with the question on the review
+	// stack while it is open: skipped, or sent_back to an agent (with
+	// ReviewNote, ReviewRefs, and the agent work in ReviewRequest). An
+	// agent's proposed answer clears them.
+	ReviewState   string `yaml:"review_state,omitempty" json:"review_state,omitempty"`
+	ReviewNote    string `yaml:"review_note,omitempty" json:"review_note,omitempty"`
+	ReviewRefs    []Link `yaml:"review_refs,omitempty" json:"review_refs,omitempty"`
+	ReviewRequest Link   `yaml:"review_request,omitempty" json:"review_request,omitempty"`
+	Deferral      `yaml:",inline"`
 }
 
 // AnswerSource is where an agent's proposed answer came from: a URL or the id

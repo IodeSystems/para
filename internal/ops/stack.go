@@ -75,6 +75,14 @@ type StackRow struct {
 	Receipt   string          `json:"receipt,omitempty"` // the receipt of an outward result
 	Result    string          `json:"result,omitempty"`  // what a vault change made
 	Reason    string          `json:"reason,omitempty"`
+	// Question is set on a row that is an open vault question, not a dossier
+	// item: Proposal is empty and Item is the question id. Refs and Request
+	// are what the owner sent it back with; Proposed says an agent proposed an
+	// answer.
+	Question string   `json:"question,omitempty"`
+	Refs     []string `json:"refs,omitempty"`
+	Request  string   `json:"request,omitempty"`
+	Proposed bool     `json:"proposed,omitempty"`
 }
 
 // StackGroup is the progress of one group of one dossier.
@@ -117,7 +125,7 @@ const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier with its stack state (proposed, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed), counts per state, and progress per group. Filter by state, kind, group, proposal, or actor; page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question that is not put off (question set, proposal empty), with its stack state (proposed, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed), counts per state, and progress per group. Filter by state, kind, group, proposal, or actor; page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -187,6 +195,18 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 		}
 		for _, g := range order {
 			out.Groups = append(out.Groups, *groups[g])
+		}
+	}
+	if in.Proposal == "" && in.Actor == "" && in.Group == "" && (in.Kind == "" || in.Kind == string(model.ItemQuestion)) {
+		qs, err := vaultQuestionRows(ctx, d)
+		if err != nil {
+			return out, err
+		}
+		for _, r := range qs {
+			counts[r.Stack]++
+			if in.State == "" || in.State == r.Stack {
+				rows = append(rows, r)
+			}
 		}
 	}
 	for _, s := range StackStates {

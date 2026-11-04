@@ -479,7 +479,9 @@ func TestSubmitSkip(t *testing.T) {
 	mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
 	st := mustRun(t, ProposalStack, f.owner, ProposalStackInput{Proposal: id})
 	for _, item := range []string{"m1", "q1"} {
-		if !slices.ContainsFunc(st.Rows, func(r StackRow) bool { return r.Item == item && r.State == model.ItemSkipped && r.Stack == StackProposed }) {
+		if !slices.ContainsFunc(st.Rows, func(r StackRow) bool {
+			return r.Item == item && r.State == model.ItemSkipped && r.Stack == StackProposed
+		}) {
 			t.Fatalf("%s is not skipped in the stack: %+v", item, st.Rows)
 		}
 	}

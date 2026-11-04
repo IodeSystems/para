@@ -72,6 +72,7 @@ type ParaV1MutationNamespace {
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
   investigate(body: para_InvestigateInputInput!): para_InvestigateOutput @derived(operationId: "investigate")
   ioAdd(body: para_IOAddInputInput!): para_IOAddOutput @derived(operationId: "ioAdd")
+  ioDone(body: para_IODoneInputInput!): para_IOSendOutput @derived(operationId: "ioDone")
   ioDrop(body: para_IODropInputInput!): para_IODropOutput @derived(operationId: "ioDrop")
   ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
   ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
@@ -108,6 +109,7 @@ type ParaV1MutationNamespace {
   proposalAdd(body: para_ProposalAddInputInput!): para_ProposalFiled @derived(operationId: "proposalAdd")
   proposalClaim(body: para_ProposalClaimInputInput!): para_ProposalClaimOutput @derived(operationId: "proposalClaim")
   proposalDecide(body: para_ProposalDecideInputInput!): para_ProposalDecideOutput @derived(operationId: "proposalDecide")
+  proposalDone(body: para_ProposalDoneInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalDone")
   proposalDraft(body: para_ProposalDraftInputInput!): para_ProposalDraftOutput @derived(operationId: "proposalDraft")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
   proposalReply(body: para_ProposalReplyInputInput!): para_ProposalReplyOutput @derived(operationId: "proposalReply")
@@ -120,6 +122,7 @@ type ParaV1MutationNamespace {
   questionDependsRemove(body: para_QuestionDependsInputInput!): para_QuestionDependsOutput @derived(operationId: "questionDependsRemove")
   questionDrop(body: para_QuestionDropInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionDrop")
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
+  questionReview(body: para_QuestionReviewInputInput!): para_QuestionReviewOutput @derived(operationId: "questionReview")
   receiptCheck(body: para_ReceiptCheckInputInput!): para_ReceiptCheckOutput @derived(operationId: "receiptCheck")
   receiptRevert(body: para_ReceiptIDInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptRevert")
   receiptUndo(body: para_ReceiptUndoInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptUndo")
@@ -2381,6 +2384,14 @@ type para_IOCounts {
   unread: Int!
 }
 
+input para_IODoneInputInput {
+  at: String
+  id: String!
+  locator: String
+  text: String
+  url: String
+}
+
 input para_IODropInputInput {
   id: String!
   reason: String!
@@ -3078,6 +3089,7 @@ type para_ItemAnswer {
   new: String
   ownWords: String
   people: [String!]
+  refs: [String!]
   stale: Boolean
   subject: String
   via: String
@@ -3095,6 +3107,7 @@ input para_ItemAnswerInput {
   new: String
   ownWords: String
   people: [String!]
+  refs: [String!]
   stale: Boolean
   subject: String
   via: String
@@ -3684,6 +3697,10 @@ type para_Meta {
   resultLinks: [String!]
   retryAfter: String
   reviewBy: String
+  reviewNote: String
+  reviewRefs: [String!]
+  reviewRequest: String
+  reviewState: String
   reviewedBy: String
   revision: Int
   rfx: JSON
@@ -4487,6 +4504,16 @@ type para_ProposalDiffOutput {
   revision: Int!
 }
 
+input para_ProposalDoneInputInput {
+  at: String
+  id: String!
+  item: String!
+  locator: String
+  note: String
+  text: String
+  url: String
+}
+
 input para_ProposalDraftInputInput {
   id: String!
   items: [para_DraftAnswerInput!]
@@ -4640,6 +4667,7 @@ type para_ProposalSubmitOutput {
   failed: [String!]
   id: String!
   items: [para_Decision!]!
+  requests: [String!]
   rev: String!
   status: para_ProposalSubmitOutputStatus!
 }
@@ -4834,6 +4862,31 @@ type para_QuestionEditOutput {
 
 type para_QuestionListOutput {
   questions: [para_QuestionView!]!
+}
+
+input para_QuestionReviewInputInput {
+  addedOptions: [String!]
+  choices: [String!]
+  decision: String!
+  editedOptions: JSON
+  id: String!
+  note: String
+  ownWords: String
+  refs: [String!]
+}
+
+type para_QuestionReviewOutput {
+  id: String!
+  request: String
+  rev: String!
+  review: String
+  status: para_QuestionReviewOutputStatus!
+}
+
+enum para_QuestionReviewOutputStatus {
+  answered
+  dropped
+  open
 }
 
 type para_QuestionShowOutput {
@@ -6271,10 +6324,12 @@ input para_StackDecideInputInput {
   group: String
   items: [para_StackItemRefInput!]
   proposal: String
+  refs: [String!]
 }
 
 type para_StackDecideOutput {
   proposals: [para_ProposalReviewOutput!]!
+  requests: [String!]
 }
 
 type para_StackGroup {
@@ -6299,8 +6354,12 @@ type para_StackRow {
   item: String!
   kind: para_StackRowKind!
   proposal: String!
+  proposed: Boolean
+  question: String
   reason: String
   receipt: String
+  refs: [String!]
+  request: String
   result: String
   stack: String!
   state: para_StackRowState!

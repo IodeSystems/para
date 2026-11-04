@@ -144,6 +144,23 @@ func newProposalCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.ProposalDone, binding[ops.ProposalDoneInput, ops.ProposalExecutedOutput]{
+			Use:  "done <id> <item> [--url <url>] [--locator <text>] [--text <text>] [--note <text>]",
+			Args: cobra.ExactArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalDoneInput) {
+				fs.StringVar(&in.URL, "url", "", "where the result is")
+				fs.StringVar(&in.Locator, "locator", "", "where it is, when it has no URL")
+				fs.StringVar(&in.Text, "text", "", "what was sent, or the document after a doc edit")
+				fs.StringVar(&in.Note, "note", "", "a note for the receipt")
+				fs.StringVar(&in.At, "at", "", "RFC 3339 time it was done; default now")
+			},
+			Bind: func(args []string, in *ops.ProposalDoneInput) error { in.ID, in.Item = args[0], args[1]; return nil },
+			Text: func(w io.Writer, out ops.ProposalExecutedOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\treceipt %s\n", out.ID, out.Item, out.State, out.Receipt)
+				return p.err
+			},
+		}),
 		opCommand(l, ops.ProposalSubmit, binding[ops.ProposalSubmitInput, ops.ProposalSubmitOutput]{
 			Use:  "submit <id>",
 			Args: cobra.ExactArgs(1),
@@ -276,12 +293,13 @@ func newStackCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "stack", Short: "The review stack: decide items across dossiers", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.StackDecide, binding[ops.StackDecideInput, ops.StackDecideOutput]{
-			Use:  "decide approve|reject [proposal:item]... [--group <group>]",
+			Use:  "decide approve|reject|skip|ask [proposal:item]... [--group <group>]",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.StackDecideInput) {
 				fs.StringVar(&in.Group, "group", "", "every waiting item of this group")
 				fs.StringVar(&in.Proposal, "proposal", "", "with --group: only this dossier")
-				fs.StringVar(&in.Comment, "comment", "", "why; kept as the reason of a rejection")
+				fs.StringVar(&in.Comment, "comment", "", "why; required to reject (the reason) and to ask (what the agent should do)")
+				fs.StringArrayVar(&in.Refs, "ref", nil, "ask: a vault id the agent should read (repeatable)")
 			},
 			Bind: func(args []string, in *ops.StackDecideInput) error {
 				in.Decision = args[0]

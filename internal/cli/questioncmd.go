@@ -124,6 +124,26 @@ func withoutOp(cmd *cobra.Command, use string) *cobra.Command {
 func newQuestionCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "question", Short: "Open questions: unknowns, decisions, and inputs to answer (a task is work to do)", Args: cobra.NoArgs}
 	cmd.AddCommand(
+		opCommand(l, ops.QuestionReview, binding[ops.QuestionReviewInput, ops.QuestionReviewOutput]{
+			Use:  "review <id> answer|decline|skip|ask",
+			Args: cobra.ExactArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.QuestionReviewInput) {
+				fs.StringArrayVar(&in.Choices, "choice", nil, "answer: an option picked (repeatable)")
+				fs.StringArrayVar(&in.AddedOptions, "add-option", nil, "answer: an option to add (repeatable)")
+				fs.StringVar(&in.OwnWords, "own-words", "", "answer: your own words")
+				fs.StringVar(&in.Note, "note", "", "required to decline or ask")
+				fs.StringArrayVar(&in.Refs, "ref", nil, "ask: a vault id the agent should read (repeatable)")
+			},
+			Bind: func(args []string, in *ops.QuestionReviewInput) error {
+				in.ID, in.Decision = args[0], args[1]
+				return nil
+			},
+			Text: func(w io.Writer, out ops.QuestionReviewOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\t%s\n", out.ID, out.Status, dash(out.Review), dash(out.Request))
+				return p.err
+			},
+		}),
 		opCommand(l, ops.QuestionAdd, binding[ops.QuestionAddInput, ops.QuestionAddOutput]{
 			Use:  "add <text>",
 			Args: cobra.MinimumNArgs(1),

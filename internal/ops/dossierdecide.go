@@ -158,12 +158,14 @@ type ProposalSubmitOutput struct {
 	Status model.ProposalStatus `json:"status"`
 	Items  []Decision           `json:"items"`
 	Failed []string             `json:"failed,omitempty"` // approved changes whose op failed
-	Rev    string               `json:"rev"`
+	// Requests is the agent work queued for items sent back (ask).
+	Requests []string `json:"requests,omitempty"`
+	Rev      string   `json:"rev"`
 }
 
 // submitPlan is what a submit decides, checked before anything changes.
 type submitPlan struct {
-	edits, answers, approve, reject, skip []string
+	edits, answers, approve, reject, skip, ask []string
 }
 
 func planSubmit(p *proposal) (submitPlan, error) {
@@ -184,8 +186,17 @@ func planSubmit(p *proposal) (submitPlan, error) {
 		if bad := model.CheckAnswer(*it, *a); len(bad) > 0 {
 			return plan, fmt.Errorf("item %s: %s", it.ID, strings.Join(bad, "; "))
 		}
+		// A skip or an ask that already took effect is not done again.
 		if a.Decision == model.AnswerSkip {
-			plan.skip = append(plan.skip, it.ID)
+			if it.State != model.ItemSkipped {
+				plan.skip = append(plan.skip, it.ID)
+			}
+			continue
+		}
+		if a.Decision == model.AnswerAsk {
+			if it.State != model.ItemSentBack {
+				plan.ask = append(plan.ask, it.ID)
+			}
 			continue
 		}
 		if it.Kind == model.ItemQuestion {
@@ -371,6 +382,22 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		}
 		out.Items = append(out.Items, r.Items...)
 	}
+	for _, id := range plan.ask {
+		cur, err := loadProposal(ctx, d, p.doc.ID)
+		if err != nil {
+			return out, err
+		}
+		it, err := cur.item(id)
+		if err != nil {
+			return out, err
+		}
+		dec, req, err := sendBackItem(ctx, d, p.doc.ID, id, it.Answer.Comment, it.Answer.Refs)
+		if err != nil {
+			return out, err
+		}
+		out.Items = append(out.Items, dec)
+		out.Requests = append(out.Requests, req)
+	}
 	via := d.Store.Info().Surface
 	p, err = changeProposal(ctx, d, in.ID, func(p *proposal) error {
 		r := p.response()
@@ -434,19 +461,27 @@ type StackDecideInput struct {
 	Items    []StackItemRef `json:"items,omitempty"`
 	Group    string         `json:"group,omitempty"`
 	Proposal string         `json:"proposal,omitempty"`
-	Decision string         `json:"decision"` // approve or reject
+	Decision string         `json:"decision"` // approve, reject, skip, or ask
 	Comment  string         `json:"comment,omitempty"`
+	Refs     []string       `json:"refs,omitempty"` // ask: vault ids the agent should read
 }
 
 // StackDecideOutput is the output of stack_decide.
 type StackDecideOutput struct {
 	Proposals []ProposalReviewOutput `json:"proposals"`
+	Requests  []string               `json:"requests,omitempty"` // agent work an ask queued
 }
 
 // StackDecide approves or rejects items across dossiers.
-var StackDecide = definePerson("stack_decide", "Approve or reject items of the review stack across dossiers, by item or by group. reject needs comment, the reason; rejected items stay in the stack as denied with it. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
-	if in.Decision != model.AnswerApprove && in.Decision != model.AnswerReject {
-		return StackDecideOutput{}, fmt.Errorf("decision %q: want approve or reject", in.Decision)
+var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (send back to the agent) items of the review stack across dossiers, by item or by group. reject needs comment, the reason; rejected items stay in the stack as denied with it. skip keeps an optional comment; ask needs comment (what the agent should do) and takes refs, queues agent work, and marks the items sent_back. Open vault questions are reviewed with question_review. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
+	if !slices.Contains([]string{model.AnswerApprove, model.AnswerReject, model.AnswerSkip, model.AnswerAsk}, in.Decision) {
+		return StackDecideOutput{}, fmt.Errorf("decision %q: want approve, reject, skip, or ask", in.Decision)
+	}
+	if in.Decision == model.AnswerAsk && strings.TrimSpace(in.Comment) == "" {
+		return StackDecideOutput{}, errors.New("ask needs a comment: what the agent should do")
+	}
+	if len(in.Refs) > 0 && in.Decision != model.AnswerAsk {
+		return StackDecideOutput{}, errors.New("refs go with decision ask")
 	}
 	if (len(in.Items) == 0) == (in.Group == "") {
 		return StackDecideOutput{}, errors.New("give items or group")
@@ -499,7 +534,7 @@ var StackDecide = definePerson("stack_decide", "Approve or reject items of the r
 			if err != nil {
 				return StackDecideOutput{}, err
 			}
-			if it.Kind == model.ItemQuestion {
+			if it.Kind == model.ItemQuestion && (in.Decision == model.AnswerApprove || in.Decision == model.AnswerReject) {
 				return StackDecideOutput{}, fmt.Errorf("%s item %s is a question: answer it in the dossier", prop, id)
 			}
 			if !answerable(it.State) {
@@ -525,6 +560,28 @@ var StackDecide = definePerson("stack_decide", "Approve or reject items of the r
 			continue
 		}
 		res := ProposalReviewOutput{ID: prop, Items: []Decision{}}
+		if in.Decision == model.AnswerSkip || in.Decision == model.AnswerAsk {
+			for _, id := range byProposal[prop] {
+				var dec Decision
+				var err error
+				if in.Decision == model.AnswerSkip {
+					dec, err = skipItem(ctx, d, prop, id, comment)
+				} else {
+					var req string
+					dec, req, err = sendBackItem(ctx, d, prop, id, comment, in.Refs)
+					out.Requests = append(out.Requests, req)
+				}
+				if err != nil {
+					return out, err
+				}
+				res.Items = append(res.Items, dec)
+			}
+			if cur, err := loadProposal(ctx, d, prop); err == nil {
+				res.Status, res.Rev = cur.meta.Status, cur.doc.Rev
+			}
+			out.Proposals = append(out.Proposals, res)
+			continue
+		}
 		for _, id := range byProposal[prop] {
 			cur, err := loadProposal(ctx, d, prop)
 			if err != nil {

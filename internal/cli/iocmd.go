@@ -79,6 +79,22 @@ func newIOCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.IODone, binding[ops.IODoneInput, ops.IOSendOutput]{
+			Use:  "done <id> [--url <url>] [--locator <text>] [--text <what was sent>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.IODoneInput) {
+				fs.StringVar(&in.URL, "url", "", "where the sent message is")
+				fs.StringVar(&in.Locator, "locator", "", "where it is, when it has no URL")
+				fs.StringVar(&in.Text, "text", "", "what was sent; default the draft")
+				fs.StringVar(&in.At, "at", "", "RFC 3339 time it was sent; default now")
+			},
+			Bind: func(args []string, in *ops.IODoneInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IOSendOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s %s\n", out.ID, out.State, out.BecameType, out.Became)
+				return p.err
+			},
+		}),
 	)
 	return cmd
 }

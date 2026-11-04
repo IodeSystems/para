@@ -175,6 +175,10 @@ var typeFields = map[string][]field{
 	},
 	"question": {
 		{Name: "status", Kind: kEnum, Enum: questionStatus, Required: true},
+		{Name: "review_state", Kind: kEnum, Enum: []string{"skipped", "sent_back"}},
+		{Name: "review_note", Kind: kString},
+		{Name: "review_refs", Kind: kLinkList},
+		{Name: "review_request", Kind: kLink},
 		{Name: "kind", Kind: kEnum, Enum: questionKinds},
 		{Name: "scope", Kind: kScope, Required: true}, // a project, task, or area link, or root
 		{Name: "options", Kind: kList},

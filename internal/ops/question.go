@@ -741,6 +741,7 @@ func writeAnswer(ctx context.Context, d Deps, doc model.Document, q *model.Quest
 	doc.Body = appendToSection(doc.Body, answerHeading, strings.Join(block, "\n"))
 	q.Status, q.Choice, q.AnsweredBy, q.Answered = model.QuestionAnswered, r.choice, r.by, model.Date(today)
 	q.ProposedAnswer, q.ProposedChoice, q.ProposedWhy = "", "", ""
+	q.ReviewState, q.ReviewNote, q.ReviewRefs, q.ReviewRequest = "", "", nil, ""
 	return saveQuestion(ctx, d, doc, q)
 }
 

@@ -75,6 +75,10 @@ type Meta struct {
 	DeclinedBy      model.DeclinedBy   `json:"declined_by,omitempty"`
 	DeclinedPerson  string             `json:"declined_person,omitempty"`
 	RetryAfter      string             `json:"retry_after,omitempty"`
+	ReviewState     string             `json:"review_state,omitempty"`
+	ReviewNote      string             `json:"review_note,omitempty"`
+	ReviewRefs      []string           `json:"review_refs,omitempty"`
+	ReviewRequest   string             `json:"review_request,omitempty"`
 	ReroutedTo      string             `json:"rerouted_to,omitempty"`
 	DependsOn       []string           `json:"depends_on,omitempty"`
 	Direction       string             `json:"direction,omitempty"`

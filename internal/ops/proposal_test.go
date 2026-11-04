@@ -149,6 +149,18 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ReceiptRevert.Run(t.Context(), d, ReceiptIDInput{ID: "x"})
 			return err
 		}},
+		{"question_review", func(d Deps) error {
+			_, err := QuestionReview.Run(t.Context(), d, QuestionReviewInput{ID: "x", Decision: ReviewSkip})
+			return err
+		}},
+		{"proposal_done", func(d Deps) error {
+			_, err := ProposalDone.Run(t.Context(), d, ProposalDoneInput{ID: id, Item: "i1"})
+			return err
+		}},
+		{"io_done", func(d Deps) error {
+			_, err := IODone.Run(t.Context(), d, IODoneInput{ID: "x"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}
