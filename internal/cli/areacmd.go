@@ -38,7 +38,7 @@ func newAreaCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.AreaListOutput) error {
 				p := &printer{w: w}
 				for _, a := range out.Areas {
-					p.f("%s\t%s\t%s\t%d links\t%s\n", a.ID, a.Status, a.Kind, len(a.Links), a.Title)
+					p.f("%s\t%s\t%d links\t%s\n", a.ID, a.Status, len(a.Links), a.Title)
 				}
 				return p.err
 			},
@@ -50,7 +50,8 @@ func newAreaCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.AreaShowOutput) error {
 				p := &printer{w: w}
 				a := out.Area
-				p.f("%s\t%s\t%s\t%s\n", a.ID, a.Status, a.Kind, a.Title)
+				p.f("%s\t%s\t%s\n", a.ID, a.Status, a.Title)
+				p.f("kind\t%s\n", a.Kind)
 				if a.Cadence != "" {
 					p.f("review\t%s\tlast %s\tnext %s\n", a.Cadence, dash(string(a.LastReviewed)), dash(a.NextReview))
 				}

@@ -238,7 +238,7 @@ func TestRecurrence(t *testing.T) {
 
 	// An unknown recur is stored with a warning, lint warns, and nothing recurs.
 	var odd ops.TaskAddOutput
-	e.json(&odd, "task", "add", "Renew certificate", "--area", area.ID, "--recur", "yearly")
+	e.json(&odd, "task", "add", "Renew certificate", "--area", area.ID, "--recur", "biennially")
 	if len(odd.Warnings) != 1 {
 		t.Fatalf("warnings = %v", odd.Warnings)
 	}
