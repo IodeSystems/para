@@ -2,8 +2,8 @@ import { useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { actionFor } from '@/lib/keys'
 
-// Global shortcuts: digits switch tabs, / searches, c captures, ? shows help. Capture and help
-// open as URL overlays (WEB-10), so Back closes them.
+// Global shortcuts: digits switch tabs, / searches, ? shows help. Help opens as a URL overlay
+// (WEB-10), so Back closes it.
 export function Keyboard() {
   const navigate = useNavigate()
   useEffect(() => {
@@ -31,9 +31,6 @@ export function Keyboard() {
           else void navigate({ to: '/search' })
           break
         }
-        case 'capture':
-          void navigate({ to: '.', search: (prev) => ({ ...prev, capture: true }) })
-          break
         case 'help':
           void navigate({ to: '.', search: (prev) => ({ ...prev, help: true }) })
           break

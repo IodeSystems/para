@@ -29,8 +29,23 @@ export const gqlClient = new GraphQLClient(endpoint(), {
   },
 })
 
+// forbidden says a call was refused for its key: a 403, or the gateway's 200 whose error says the
+// key lacks a scope. The viewer only reads, so this means the key may not read this part of the
+// vault: it is said calmly, with no retry.
+export function forbidden(err: unknown): boolean {
+  if (httpStatus(err) === 403) return true
+  return (
+    err instanceof ClientError &&
+    (err.response.errors ?? []).some((e) => /lacks scope|forbidden/i.test(e.message))
+  )
+}
+
+export const FORBIDDEN_TEXT =
+  'This key may not see this. Sign in with a key that has vault:read: para serve login.'
+
 // errorText is a line a person can read for a failed call.
 export function errorText(err: unknown): string {
+  if (forbidden(err)) return FORBIDDEN_TEXT
   if (err instanceof ClientError) {
     const first = err.response.errors?.[0]?.message
     if (first) return first

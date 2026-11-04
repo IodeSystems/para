@@ -7,7 +7,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
-import { useCopyText, useDoc, useDocFields } from '@/api/doc'
+import { useCopyText, useDoc } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { AgentReplyNote } from '@/components/FindContext'
@@ -32,9 +32,7 @@ function Doc() {
   const { id } = Route.useParams()
   const q = useDoc(id)
   const copy = useCopyText()
-  const fields = useDocFields(id)
   const [as, setAs] = useState<Para_CopyInputAs>('plain')
-  const legacy = q.data?.meta.type === 'proposal' // read-only: proposals no longer exist
   return (
     <DataState q={q}>
       {(d) => (
@@ -42,20 +40,17 @@ function Doc() {
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {!legacy && (d.meta.type === 'note' || fields.data?.editable) && (
+                {d.meta.type === 'proposal' && (
                   <LinkButton
                     size="small"
                     variant="outlined"
-                    to="."
-                    title="Change the text yourself"
-                    search={(p) =>
-                      d.meta.type === 'note' ? { ...p, noteedit: d.id } : { ...p, docedit: d.id }
-                    }
+                    to="/proposals/$id"
+                    params={{ id: d.id }}
                   >
-                    Edit
+                    Open the proposal
                   </LinkButton>
                 )}
-                {!legacy && (
+                {
                   <>
                     <TextField
                       select
@@ -76,7 +71,7 @@ function Doc() {
                       getText={async () => (await copy.mutateAsync({ id, as })).text}
                     />
                   </>
-                )}
+                }
               </Stack>
             }
           >

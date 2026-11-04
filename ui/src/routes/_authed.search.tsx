@@ -23,7 +23,7 @@ import { useWork } from '@/api/work'
 import { Empty, PageTitle, StatusChip } from '@/components/Bits'
 import { SearchState } from '@/components/SearchState'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton } from '@/components/links'
+import { TextLink } from '@/components/links'
 import { highlight, readable } from '@/lib/highlight'
 import { hitKindLabel } from '@/lib/hitkind'
 import { nameOr } from '@/lib/names'
@@ -238,17 +238,7 @@ function Search() {
                   : `${list.length} ${list.length === 1 ? 'result' : 'results'} for “${q}”`}
               </Typography>
               {list.length === 0 ? (
-                <Stack spacing={1} sx={{ alignItems: 'flex-start' }}>
-                  <Empty>Try fewer words, or clear the filters. Or keep it for later.</Empty>
-                  <LinkButton
-                    variant="outlined"
-                    size="small"
-                    to="."
-                    search={(p) => ({ ...p, capture: true, seed: q })}
-                  >
-                    Add this to inbox
-                  </LinkButton>
-                </Stack>
+                <Empty>Try fewer words, or clear the filters.</Empty>
               ) : (
                 <List disablePadding>
                   {list.map((h) => (
@@ -271,7 +261,13 @@ function Search() {
                         {h.unverified && <StatusChip tone="attn" label="unverified" />}
                       </Stack>
                       <Typography sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
-                        <DocLink id={h.id}>{h.title || nameOr('', h.id)}</DocLink>
+                        {h.kind === 'proposal' ? (
+                          <TextLink to="/proposals/$id" params={{ id: h.id }} underline="hover">
+                            {h.title || nameOr('', h.id)}
+                          </TextLink>
+                        ) : (
+                          <DocLink id={h.id}>{h.title || nameOr('', h.id)}</DocLink>
+                        )}
                       </Typography>
                       <Typography
                         variant="body2"

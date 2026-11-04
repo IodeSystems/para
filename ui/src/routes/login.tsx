@@ -10,6 +10,17 @@ import Typography from '@mui/material/Typography'
 import { HttpBanner } from '@/components/Banners'
 import { ensureSession, lastSignInError, signIn } from '@/client/auth'
 
+// CODE is how a command reads inside a sentence.
+const CODE = {
+  px: 0.75,
+  py: 0.25,
+  borderRadius: 0.5,
+  bgcolor: 'action.hover',
+  fontFamily: 'ui-monospace, monospace',
+  fontSize: '0.9em',
+  overflowWrap: 'anywhere',
+} as const
+
 export const Route = createFileRoute('/login')({
   validateSearch: (s: Record<string, unknown>): { redirect?: string; signedout?: true } => ({
     signedout: s.signedout === true || s.signedout === 'true' ? true : undefined,
@@ -64,21 +75,15 @@ function Login() {
             {signedout && !error && <Alert severity="success">You are signed out.</Alert>}
             <Typography variant="body2" color="text.secondary">
               You need a sign-in link. On the machine running para, run{' '}
-              <Box
-                component="code"
-                sx={{
-                  px: 0.75,
-                  py: 0.25,
-                  borderRadius: 0.5,
-                  bgcolor: 'action.hover',
-                  fontFamily: 'ui-monospace, monospace',
-                  fontSize: '0.9em',
-                  overflowWrap: 'anywhere',
-                }}
-              >
-                para key create &lt;name&gt; --print-url
+              <Box component="code" sx={CODE}>
+                para serve login
               </Box>
-              , or ask whoever set it up. If you have an access key, paste it below.
+              . For another machine, run{' '}
+              <Box component="code" sx={CODE}>
+                para key create &lt;name&gt; --scope vault:read --print-url
+              </Box>
+              . If you have an access key, paste it below. This page only shows: your agent makes
+              the changes in the chat.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
             <TextField

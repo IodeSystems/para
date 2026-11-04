@@ -8,9 +8,7 @@ import { CHIP_ROW, Empty, PageTitle, StateChip } from '@/components/Bits'
 import { LinkButton } from '@/components/links'
 import { DataState } from '@/components/DataState'
 import { RfxLink } from '@/components/DocLink'
-import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, findContextItem } from '@/components/FindContext'
-import { useLooking } from '@/api/requests'
+import { AgentLooking } from '@/components/FindContext'
 import { nameList, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
 import { plainState } from '@/lib/status'
@@ -18,7 +16,6 @@ import { plainState } from '@/lib/status'
 export const Route = createFileRoute('/_authed/rfx/')({ component: RfxList })
 
 function RfxList() {
-  const looking = useLooking()
   const q = useRfxList()
   return (
     <>
@@ -76,11 +73,6 @@ function RfxList() {
                     ))}
                     {x.status !== 'open' && <StateChip state={x.status} />}
                     <AgentLooking id={x.id} />
-                    <RowMenu
-                      label={`More actions for ${x.title || x.id}`}
-                      always
-                      items={[findContextItem(x.id, looking.has(x.id))]}
-                    />
                   </Stack>
                 </ListItem>
               ))}

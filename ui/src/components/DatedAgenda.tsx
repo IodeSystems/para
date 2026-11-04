@@ -11,18 +11,15 @@ import { useAgenda, useCalendarExport } from '@/api/meetings'
 import { Empty, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton, TextLink } from '@/components/links'
-import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, AgentWorking, findContextItem } from '@/components/FindContext'
-import { TaskMenu } from '@/components/TaskMenu'
-import { useLooking } from '@/api/requests'
+import { TextLink } from '@/components/links'
+import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { errorText } from '@/client/gqlClient'
 import { downloadText } from '@/lib/download'
 import { meetingWhen, viewerZone } from '@/lib/meeting'
 import { joinNames, nameList } from '@/lib/names'
 import { dateWords } from '@/lib/when'
 
-// DatedAgenda is the Agenda grouped by date: dated items by day, with the row actions of their kind.
+// DatedAgenda is the Agenda grouped by date: dated items by day.
 const KIND_WORDS: Record<string, string> = {
   meeting: 'meeting',
   due: 'due',
@@ -35,7 +32,6 @@ export function DatedAgenda() {
   const [days, setDays] = useState(7)
   const zone = viewerZone()
   const q = useAgenda(days, zone)
-  const looking = useLooking()
   const exp = useCalendarExport()
   const [said, setSaid] = useState('')
   const doExport = () =>
@@ -135,24 +131,6 @@ export function DatedAgenda() {
                           />
                           <AgentLooking id={i.id} />
                           <AgentWorking id={i.id} />
-                          {i.kind === 'nudge' && (
-                            <LinkButton
-                              size="small"
-                              variant="outlined"
-                              to="."
-                              search={(p) => ({ ...p, reply: i.id })}
-                            >
-                              Record reply
-                            </LinkButton>
-                          )}
-                          {(i.kind === 'meeting' || i.kind === 'nudge') && (
-                            <RowMenu
-                              label={`More actions for ${i.title}`}
-                              always
-                              items={[findContextItem(i.id, looking.has(i.id))]}
-                            />
-                          )}
-                          {i.kind === 'due' && <TaskMenu id={i.id} title={i.title} always />}
                         </ListItem>
                       ))}
                     </List>

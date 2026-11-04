@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { theme } from '@/theme'
+import { forbidden, httpStatus } from '@/client/gqlClient'
 
 // Polling every 60 s is the fallback when the live socket is down or unsupported. A push only
 // invalidates queries; it never carries data.
@@ -14,7 +15,16 @@ export const queryClient = new QueryClient({
       staleTime: 30_000,
       refetchInterval: POLL_MS,
       refetchOnWindowFocus: true,
-      retry: (count, err) => count < 2 && !(err instanceof Error && /\b4\d\d\b/.test(err.message)),
+      // A 4xx (401, 403) will not change on a retry.
+      retry: (count, err) => {
+        const st = httpStatus(err)
+        return (
+          count < 2 &&
+          !(st >= 400 && st < 500) &&
+          !forbidden(err) &&
+          !(err instanceof Error && /\b4\d\d\b/.test(err.message))
+        )
+      },
     },
   },
 })

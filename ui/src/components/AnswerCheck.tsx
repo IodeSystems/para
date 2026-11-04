@@ -52,7 +52,7 @@ export function SourceList({ sources }: { sources: readonly Source[] | null | un
 }
 
 // ProposedAnswer shows an answer an older agent version proposed. Read only: agent answers are
-// final now, and a person answers the question with the normal answer dialog.
+// final now, and the owner answers in the chat.
 export function ProposedAnswer({ q }: { q: Question }) {
   return (
     <Stack spacing={1} sx={{ py: 1 }}>

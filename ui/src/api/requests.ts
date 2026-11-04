@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
@@ -30,31 +30,6 @@ const RequestListDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const RequestAddDoc = graphql(/* GraphQL */ `
-  mutation RequestAdd($body: para_RequestAddInputInput!) {
-    para {
-      v1 {
-        requestAdd(body: $body) {
-          id
-        }
-      }
-    }
-  }
-`)
-
-const RespondDoc = graphql(/* GraphQL */ `
-  mutation RequestRespond($body: para_RequestRespondInputInput!) {
-    para {
-      v1 {
-        requestRespond(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
 const ChangesDoc = graphql(/* GraphQL */ `
   query RequestChanges($id: String!) {
     para {
@@ -71,15 +46,6 @@ const ChangesDoc = graphql(/* GraphQL */ `
     }
   }
 `)
-
-export function useRespond() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (v: { id: string; kind: 'change' | 'clarify' | 'revert'; text: string }) =>
-      need((await gqlClient.request(RespondDoc, { body: v })).para.v1.requestRespond, 'response'),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
 
 export function useRequestChanges(id: string, enabled: boolean) {
   return useQuery({
@@ -115,7 +81,8 @@ export function useReplies(): Map<string, { request: string; reply: string }> {
   const out = new Map<string, { request: string; reply: string }>()
   for (const r of q.data ?? []) {
     if (!r.reply) continue
-    for (const l of r.links ?? []) if (!open.has(l) && !out.has(l)) out.set(l, { request: r.id, reply: r.reply })
+    for (const l of r.links ?? [])
+      if (!open.has(l) && !out.has(l)) out.set(l, { request: r.id, reply: r.reply })
   }
   return out
 }
@@ -126,67 +93,4 @@ export function useWorking(): Set<string> {
   const out = new Set<string>()
   for (const r of q.data ?? []) if (r.delegates) for (const l of r.links ?? []) out.add(l)
   return out
-}
-
-export function useRequestAdd() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (ask: string) =>
-      need(
-        (await gqlClient.request(RequestAddDoc, { body: { ask } })).para.v1.requestAdd,
-        'request',
-      ),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-const RequestCancelDoc = graphql(/* GraphQL */ `
-  mutation RequestCancel($body: para_RequestCancelInputInput!) {
-    para {
-      v1 {
-        requestCancel(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
-export function useRequestCancel() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string }) =>
-      need(
-        (await gqlClient.request(RequestCancelDoc, { body: b })).para.v1.requestCancel,
-        'result',
-      ),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-const RequestAcceptDoc = graphql(/* GraphQL */ `
-  mutation RequestAccept($body: para_RequestAcceptInputInput!) {
-    para {
-      v1 {
-        requestAccept(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
-// useRequestAccept moves a proposed agent request into the queue. Only a browser session may.
-export function useRequestAccept() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string }) =>
-      need(
-        (await gqlClient.request(RequestAcceptDoc, { body: b })).para.v1.requestAccept,
-        'result',
-      ),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
 }

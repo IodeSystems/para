@@ -5,8 +5,6 @@
 export type SessionView = {
   vault: string
   key: string
-  admin: boolean
-  scopes: string[]
   surface: string
 }
 

@@ -1,100 +1,18 @@
 // Overlays are URL-routed (WEB-10): the open state is a search param on the current route, so
 // the browser's Back button closes them. Open pushes a history entry; close drops the params
-// in place (replace) so Back never re-opens a closed one.
+// in place (replace) so Back never re-opens a closed one. The viewer writes nothing, so the only
+// overlays are help and the screen list.
 
 export type OverlaySearch = {
-  capture?: true
   help?: true
   menu?: true // the screen list on a narrow window
-  seed?: string // text to start a capture with
-  request?: true
-  triage?: string // inbox item id
-  reply?: string // rfx id
-  noteedit?: string // note id whose title and body are edited
-  docedit?: string // id of any other document whose title, body, and fields are edited
-  answer?: string // question id
-  ask?: string // question id to ask someone about
-  drop?: string // question id to drop
-  done?: string // task id to finish
-  toq?: string // task id to turn into a question
-  resolve?: string // task id to close with an outcome
-  block?: string // task id to block
-  assign?: string // task id to assign
-  delegate?: string // task id to give to an agent
-  update?: string // task id to add an update to
-  qedit?: string // question id to edit
-  qdeps?: string // question id whose dependencies are edited
-  later?: string // comma-separated ids of questions or tasks to put off
-  find?: string // question id to send to an agent to find evidence
-  cut?: string // question or task id whose dependency is cut
-  taskdw?: string // task id whose done-when is set
-  goaldw?: string // goal (project) id whose done-when is set
 }
 
 const flag = (v: unknown): true | undefined =>
   v === true || v === 'true' || v === 1 ? true : undefined
-const id = (v: unknown): string | undefined => (typeof v === 'string' && v !== '' ? v : undefined)
 
 export function validateOverlays(s: Record<string, unknown>): OverlaySearch {
-  return {
-    capture: flag(s.capture),
-    help: flag(s.help),
-    menu: flag(s.menu),
-    seed: id(s.seed),
-    request: flag(s.request),
-    triage: id(s.triage),
-    reply: id(s.reply),
-    noteedit: id(s.noteedit),
-    docedit: id(s.docedit),
-    answer: id(s.answer),
-    ask: id(s.ask),
-    drop: id(s.drop),
-    done: id(s.done),
-    toq: id(s.toq),
-    resolve: id(s.resolve),
-    block: id(s.block),
-    assign: id(s.assign),
-    delegate: id(s.delegate),
-    update: id(s.update),
-    qedit: id(s.qedit),
-    qdeps: id(s.qdeps),
-    later: id(s.later),
-    find: id(s.find),
-    cut: id(s.cut),
-    taskdw: id(s.taskdw),
-    goaldw: id(s.goaldw),
-  }
+  return { help: flag(s.help), menu: flag(s.menu) }
 }
 
-export const NO_OVERLAYS: OverlaySearch = {
-  capture: undefined,
-  help: undefined,
-  menu: undefined,
-  seed: undefined,
-  request: undefined,
-  triage: undefined,
-  reply: undefined,
-  noteedit: undefined,
-  docedit: undefined,
-  answer: undefined,
-  ask: undefined,
-  drop: undefined,
-  done: undefined,
-  toq: undefined,
-  resolve: undefined,
-  block: undefined,
-  assign: undefined,
-  delegate: undefined,
-  update: undefined,
-  qedit: undefined,
-  qdeps: undefined,
-  later: undefined,
-  find: undefined,
-  cut: undefined,
-  taskdw: undefined,
-  goaldw: undefined,
-}
-
-export function anyOverlay(s: OverlaySearch): boolean {
-  return Object.values(s).some((v) => v !== undefined)
-}
+export const NO_OVERLAYS: OverlaySearch = { help: undefined, menu: undefined }

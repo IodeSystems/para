@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { doneConfirm, isUrl, proposedText, questionState } from './answer'
+import { isUrl, proposedText, questionState } from './answer'
 
 describe('isUrl', () => {
   it('knows web addresses from document ids', () => {
@@ -35,13 +35,5 @@ describe('proposedText', () => {
     expect(proposedText({ proposedAnswer: 'a', proposedChoice: 'b' })).toBe('a')
     expect(proposedText({ proposedChoice: 'b' })).toBe('b')
     expect(proposedText({})).toBe('')
-  })
-})
-
-describe('doneConfirm', () => {
-  it('asks with the condition, or not at all', () => {
-    expect(doneConfirm('Tests pass.')).toBe('Done when: Tests pass. Is it done?')
-    expect(doneConfirm('  ')).toBeNull()
-    expect(doneConfirm(null)).toBeNull()
   })
 })

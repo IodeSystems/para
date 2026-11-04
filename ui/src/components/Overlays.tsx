@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { useNavigate, useRouteContext, useRouterState, useSearch } from '@tanstack/react-router'
-import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Drawer from '@mui/material/Drawer'
 import List from '@mui/material/List'
@@ -12,152 +10,23 @@ import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
-import MenuItem from '@mui/material/MenuItem'
-import Snackbar from '@mui/material/Snackbar'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useAreas } from '@/api/areas'
-import { useCapture, useInboxItem, useTriage } from '@/api/inbox'
-import { SimilarHint } from '@/components/SimilarHint'
-import { usePeople } from '@/api/people'
-import { useWork } from '@/api/work'
-import { useRequestAdd } from '@/api/requests'
-import { useRfxReply } from '@/api/rfx'
-import { errorText } from '@/client/gqlClient'
-import { Pick, type Option } from '@/components/Pick'
-import { Frame, useClose } from '@/components/OverlayFrame'
-import { NoteDialogs } from '@/components/NoteDialogs'
-import { QuestionDialogs } from '@/components/QuestionDialogs'
-import { TaskDialogs } from '@/components/TaskDialogs'
+import { useClose } from '@/components/OverlayFrame'
 import { EXTRA_SCREENS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
 import { NotifySetting } from '@/components/NotifySetting'
 
-import type { Para_InboxTriageInputKind, Para_InboxTriageInputTo } from '@/gql/graphql'
-
+// The viewer's overlays: help and the screen list. Nothing here writes.
 export function Overlays() {
   const s = useSearch({ strict: false })
-  const [toast, setToast] = useState('')
   return (
     <>
       {s.menu && <NavDrawer />}
-      {s.capture && <CaptureDialog seed={s.seed ?? ''} onDone={setToast} />}
-      {s.request && <RequestDialog onDone={setToast} />}
       {s.help && <HelpDialog />}
-      {s.triage && <TriageDialog id={s.triage} onDone={setToast} />}
-      {s.reply && <ReplyDialog id={s.reply} onDone={setToast} />}
-      <NoteDialogs s={s} onDone={setToast} />
-      <QuestionDialogs s={s} onDone={setToast} />
-      <TaskDialogs s={s} onDone={setToast} />
-      {/* The toast sits under the top bar, where Capture is, and never over page text. */}
-      <Snackbar
-        open={toast !== ''}
-        autoHideDuration={7000}
-        onClose={() => setToast('')}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-        sx={{ top: { xs: 60, md: 108 } }}
-      >
-        <Alert severity="success" variant="filled" onClose={() => setToast('')}>
-          {toast}
-        </Alert>
-      </Snackbar>
     </>
-  )
-}
-
-function CaptureDialog({ seed, onDone }: { seed: string; onDone: (m: string) => void }) {
-  const close = useClose()
-  const cap = useCapture()
-  const [text, setText] = useState(seed)
-  const submit = () => {
-    if (text.trim() === '') return
-    cap.mutate(text.trim(), {
-      onSuccess: () => {
-        onDone('Added to the inbox')
-        close()
-      },
-    })
-  }
-  return (
-    <Frame
-      title="Add to inbox"
-      onSubmit={submit}
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={cap.isPending || text.trim() === ''}>
-            Add to inbox
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {cap.isError && <Alert severity="error">{errorText(cap.error)}</Alert>}
-        <TextField
-          label="Add to inbox, to sort later"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submit()
-          }}
-          multiline
-          minRows={3}
-          autoFocus
-          fullWidth
-        />
-        <SimilarHint type="task" title={text} />
-        <Typography variant="caption" color="text.secondary">
-          Goes to the inbox. Sort it later. Ctrl+Enter adds it.
-        </Typography>
-      </Stack>
-    </Frame>
-  )
-}
-
-function RequestDialog({ onDone }: { onDone: (m: string) => void }) {
-  const close = useClose()
-  const add = useRequestAdd()
-  const [ask, setAsk] = useState('')
-  return (
-    <Frame
-      title="Agent work"
-      onSubmit={() =>
-        add.mutate(ask.trim(), {
-          onSuccess: () => {
-            onDone('Agent work queued')
-            close()
-          },
-        })
-      }
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={add.isPending || ask.trim() === ''}>
-            Queue
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {add.isError && <Alert severity="error">{errorText(add.error)}</Alert>}
-        <TextField
-          label="Ask"
-          value={ask}
-          onChange={(e) => setAsk(e.target.value)}
-          multiline
-          minRows={3}
-          autoFocus
-          fullWidth
-        />
-        <Typography variant="caption" color="text.secondary">
-          Para starts no agent. An agent that polls the queue claims it and its result lands in
-          Review.
-        </Typography>
-      </Stack>
-    </Frame>
   )
 }
 
@@ -170,6 +39,9 @@ function HelpDialog() {
     <Dialog open onClose={close} fullWidth maxWidth="xs" aria-labelledby="help-title">
       <DialogTitle id="help-title">{touch ? 'Help' : 'Keyboard'}</DialogTitle>
       <DialogContent>
+        <Typography variant="body2" sx={{ mb: 2 }}>
+          This page only shows. Decide and change things in the chat with your agent.
+        </Typography>
         {!touch && (
           <>
             <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
@@ -177,7 +49,6 @@ function HelpDialog() {
                 <Row key={t.key} k={t.key} v={t.label} />
               ))}
               <Row k="/" v="Search" />
-              <Row k="c" v="Add to inbox" />
               <Row k="?" v="This help" />
               <Row k="Esc" v="Close a dialog" />
             </Stack>
@@ -264,276 +135,5 @@ function Row({ k, v }: { k: string; v: string }) {
         {v}
       </Typography>
     </Stack>
-  )
-}
-
-const TRIAGE_TARGETS: { value: Para_InboxTriageInputTo; label: string }[] = [
-  { value: 'task', label: 'Task' },
-  { value: 'project', label: 'Goal' },
-  { value: 'question', label: 'Question (needs a scope)' },
-  { value: 'rfx', label: 'Ask (ask someone)' },
-  { value: 'note', label: 'Note on a person' },
-  { value: 'drop', label: 'Drop (archive)' },
-]
-
-type QuestionScopeType = 'project' | 'area' | 'task' | 'root'
-
-function TriageDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
-  const close = useClose()
-  const item = useInboxItem(id)
-  const triage = useTriage()
-  const work = useWork()
-  const areas = useAreas()
-  const people = usePeople()
-  const projects: Option[] = (work.data?.projects ?? []).filter((p) => p.status !== 'done')
-  const openTasks: Option[] = (work.data?.tasks ?? []).filter(
-    (t) => t.status !== 'done' && t.status !== 'dropped',
-  )
-  const [to, setTo] = useState<Para_InboxTriageInputTo>('task')
-  const [project, setProject] = useState('')
-  const [person, setPerson] = useState('')
-  const [route, setRoute] = useState('')
-  const [doneWhen, setDoneWhen] = useState('')
-  const [scope, setScope] = useState<QuestionScopeType>('project')
-  const [scopeId, setScopeId] = useState('')
-  const [kind, setKind] = useState<Para_InboxTriageInputKind>('question')
-  const [options, setOptions] = useState('')
-  const [recommended, setRecommended] = useState('')
-  const question = to === 'question'
-  // A question has exactly one scope: a goal, an area, a task, or the vault itself.
-  const scopeOk = !question || scope === 'root' || scopeId.trim() !== ''
-  const personOk = to !== 'note' || person !== ''
-  // A goal must say how we know it is done. A task may.
-  const doneOk = to !== 'project' || doneWhen.trim() !== ''
-  const submit = () =>
-    triage.mutate(
-      {
-        id,
-        to,
-        project:
-          to === 'task' ? project : question && scope === 'project' ? scopeId.trim() : undefined,
-        area: question && scope === 'area' ? scopeId.trim() : undefined,
-        task: question && scope === 'task' ? scopeId.trim() : undefined,
-        root: question && scope === 'root' ? true : undefined,
-        kind: question ? kind : undefined,
-        options: question
-          ? options
-              .split('\n')
-              .map((o) => o.trim())
-              .filter(Boolean)
-          : undefined,
-        recommended: question ? recommended.trim() : undefined,
-        doneWhen: to === 'task' || to === 'project' ? doneWhen.trim() : undefined,
-        person: to === 'note' ? person : undefined,
-        route: to === 'rfx' ? route : undefined,
-      },
-      {
-        onSuccess: (r) => {
-          onDone(r.warnings.length ? `Sorted. ${r.warnings.join(' ')}` : `Sorted into ${r.to}`)
-          close()
-        },
-      },
-    )
-  const scopeOptions: Option[] =
-    scope === 'project' ? projects : scope === 'area' ? (areas.data ?? []) : openTasks
-  return (
-    <Frame
-      title="Sort inbox item"
-      onSubmit={submit}
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={triage.isPending || !scopeOk || !personOk || !doneOk}
-          >
-            Sort
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        <Typography sx={{ whiteSpace: 'pre-wrap' }}>
-          {item.data?.title ?? (item.isError ? errorText(item.error) : 'Loading')}
-        </Typography>
-        {triage.isError && <Alert severity="error">{errorText(triage.error)}</Alert>}
-        <TextField
-          select
-          label="Turn into"
-          value={to}
-          onChange={(e) => setTo(e.target.value as Para_InboxTriageInputTo)}
-        >
-          {TRIAGE_TARGETS.map((t) => (
-            <MenuItem key={t.value} value={t.value}>
-              {t.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        {to === 'task' && (
-          <Pick
-            label="Goal (optional)"
-            value={project}
-            onChange={setProject}
-            options={projects}
-            none="No goal"
-          />
-        )}
-        {(to === 'task' || to === 'project') && (
-          <TextField
-            label={to === 'project' ? 'Done when (required)' : 'Done when (optional)'}
-            value={doneWhen}
-            onChange={(e) => setDoneWhen(e.target.value)}
-            required={to === 'project'}
-            multiline
-            minRows={2}
-            helperText={
-              to === 'project' ? 'How we know the goal is done.' : 'How we know the task is done.'
-            }
-          />
-        )}
-        {question && (
-          <>
-            <TextField
-              select
-              label="Scope (what this question is about)"
-              value={scope}
-              onChange={(e) => {
-                setScope(e.target.value as QuestionScopeType)
-                setScopeId('')
-              }}
-            >
-              <MenuItem value="project">A goal</MenuItem>
-              <MenuItem value="area">An area</MenuItem>
-              <MenuItem value="task">A task</MenuItem>
-              <MenuItem value="root">The whole vault</MenuItem>
-            </TextField>
-            {scope !== 'root' && (
-              <Pick
-                label={
-                  scope === 'project'
-                    ? 'Which goal'
-                    : scope === 'area'
-                      ? 'Which area'
-                      : 'Which task'
-                }
-                value={scopeId}
-                onChange={setScopeId}
-                options={scopeOptions}
-                required
-              />
-            )}
-            <TextField
-              select
-              label="Kind"
-              value={kind}
-              onChange={(e) => setKind(e.target.value as Para_InboxTriageInputKind)}
-            >
-              <MenuItem value="question">Question</MenuItem>
-              <MenuItem value="decision">Decision (options and a reason)</MenuItem>
-              <MenuItem value="input">Input (someone gives you a value)</MenuItem>
-            </TextField>
-            <TextField
-              label="Options (one per line, optional)"
-              value={options}
-              onChange={(e) => setOptions(e.target.value)}
-              multiline
-              minRows={2}
-            />
-            <TextField
-              label="Recommended option (optional)"
-              value={recommended}
-              onChange={(e) => setRecommended(e.target.value)}
-            />
-          </>
-        )}
-        {to === 'note' && (
-          <Pick
-            label="Which person"
-            value={person}
-            onChange={setPerson}
-            options={people.data ?? []}
-            required
-          />
-        )}
-        {to === 'rfx' && (
-          <TextField
-            label="Route (who or where to ask)"
-            value={route}
-            onChange={(e) => setRoute(e.target.value)}
-          />
-        )}
-      </Stack>
-    </Frame>
-  )
-}
-
-function ReplyDialog({ id, onDone }: { id: string; onDone: (m: string) => void }) {
-  const close = useClose()
-  const reply = useRfxReply()
-  const [from, setFrom] = useState('')
-  const [outcome, setOutcome] = useState<'answered' | 'partial' | 'no'>('answered')
-  const [text, setText] = useState('')
-  const [why, setWhy] = useState('')
-  const ok = from.trim() !== '' && text.trim() !== '' && (outcome !== 'no' || why.trim() !== '')
-  return (
-    <Frame
-      title="Record a reply"
-      onSubmit={() =>
-        reply.mutate(
-          { id, from: from.trim(), outcome, text: text.trim(), why: why.trim() },
-          {
-            onSuccess: (r) => {
-              onDone(
-                r.constraint
-                  ? `Reply recorded. Constraint ${r.constraint} created.`
-                  : 'Reply recorded',
-              )
-              close()
-            },
-          },
-        )
-      }
-      actions={
-        <>
-          <Button onClick={close}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={reply.isPending || !ok}>
-            Record
-          </Button>
-        </>
-      }
-    >
-      <Stack spacing={1.5} sx={{ pt: 1 }}>
-        {reply.isError && <Alert severity="error">{errorText(reply.error)}</Alert>}
-        <TextField
-          label="Who replied (name)"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          required
-          autoFocus
-        />
-        <TextField
-          select
-          label="Outcome"
-          value={outcome}
-          onChange={(e) => setOutcome(e.target.value as typeof outcome)}
-        >
-          <MenuItem value="answered">Answered</MenuItem>
-          <MenuItem value="partial">Partly answered</MenuItem>
-          <MenuItem value="no">No (creates a constraint)</MenuItem>
-        </TextField>
-        <TextField
-          label="What they said"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          multiline
-          minRows={3}
-          required
-        />
-        {outcome === 'no' && (
-          <TextField label="Why" value={why} onChange={(e) => setWhy(e.target.value)} required />
-        )}
-      </Stack>
-    </Frame>
   )
 }

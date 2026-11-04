@@ -12,17 +12,15 @@ import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
 import { useInbox } from '@/api/inbox'
 import { useQuestions } from '@/api/questions'
-import { useLooking, useRequests } from '@/api/requests'
+import { useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
 import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DatedAgenda } from '@/components/DatedAgenda'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
-import { RowMenu } from '@/components/RowMenu'
-import { AgentLooking, AgentWorking, findContextItem } from '@/components/FindContext'
-import { TaskMenu } from '@/components/TaskMenu'
-import { DueChip, TaskInline } from '@/components/TaskRows'
+import { AgentLooking, AgentWorking } from '@/components/FindContext'
+import { DueChip } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
@@ -71,7 +69,7 @@ function aboutItem(kind: Kind, i: Item): string {
   return parts.join(' - ')
 }
 
-function ItemRows({ kind, items, tasks }: { kind: Kind; items: Item[]; tasks?: boolean }) {
+function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
   return (
     <List dense disablePadding>
       {items.map((i) => (
@@ -88,14 +86,13 @@ function ItemRows({ kind, items, tasks }: { kind: Kind; items: Item[]; tasks?: b
             />
           )}
           {i.due && <DueChip due={i.due} />}
-          {tasks && <TaskInline id={i.id} title={i.title || nameOr('', i.id)} />}
         </ListItem>
       ))}
     </List>
   )
 }
 
-type Lead = { why: string; title: ReactNode; action: ReactNode }
+type Lead = { why: string; title: ReactNode; action: ReactNode | null }
 
 type AgendaItem = Item & { kind?: string | null; why?: string | null }
 
@@ -112,13 +109,12 @@ function AgendaLink({ x }: { x: AgendaItem }) {
 }
 
 // AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
-// A question has the question actions; a task has Done and Later.
+// The owner acts on a row in the chat.
 function AgendaRows({ items }: { items: AgendaItem[] }) {
-  const looking = useLooking()
   return (
     <List dense disablePadding>
       {items.map((x) => (
-        <ListItem key={x.id} disableGutters sx={CHIP_ROW} className="row-with-menu">
+        <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
           <ListItemText
             primary={<AgendaLink x={x} />}
             secondary={x.why || undefined}
@@ -128,72 +124,6 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
           <AgentLooking id={x.id} />
           <AgentWorking id={x.id} />
           {x.due && <DueChip due={x.due} />}
-          {x.kind === 'question' && (
-            <>
-              <LinkButton
-                size="small"
-                variant="outlined"
-                to="."
-                search={(p) => ({ ...p, answer: x.id })}
-              >
-                Answer
-              </LinkButton>
-              <RowMenu
-                label={`More actions for ${x.title || x.id}`}
-                always
-                items={[
-                  {
-                    label: 'Ask someone',
-                    hint: 'Send this question to a person as an ask',
-                    search: { ask: x.id },
-                  },
-                  findContextItem(x.id, looking.has(x.id)),
-                  {
-                    label: 'Later',
-                    hint: 'Put this off. It still blocks what depends on it',
-                    search: { later: x.id },
-                  },
-                  ...((x.blocks ?? 0) > 0
-                    ? [
-                        {
-                          label: 'Cut a dependency',
-                          hint: 'Let the work go ahead without this, and say why',
-                          search: { cut: x.id },
-                        },
-                      ]
-                    : []),
-                  {
-                    label: 'Drop',
-                    hint: 'Close this question without answering it',
-                    search: { drop: x.id },
-                  },
-                ]}
-              />
-            </>
-          )}
-          {x.kind === 'task' && (
-            <>
-              <TaskInline id={x.id} title={x.title || nameOr('', x.id)} />
-              <TaskMenu id={x.id} title={x.title || x.id} always />
-            </>
-          )}
-          {x.kind === 'ask' && (
-            <LinkButton
-              size="small"
-              variant="outlined"
-              to="."
-              search={(p) => ({ ...p, reply: x.id })}
-            >
-              Record reply
-            </LinkButton>
-          )}
-          {(x.kind === 'meeting' || x.kind === 'ask') && (
-            <RowMenu
-              label={`More actions for ${x.title || x.id}`}
-              always
-              items={[findContextItem(x.id, looking.has(x.id))]}
-            />
-          )}
         </ListItem>
       ))}
     </List>
@@ -236,15 +166,15 @@ function Agenda() {
         <DataState q={q}>
           {(d) => {
             const t = d.today
-            // An answer an agent proposed is to check, not to answer.
+            // An answer an older agent version proposed: shown, decided in the chat.
             const checks = (questions.data ?? []).filter((x) => x.hasProposal)
             const agenda: AgendaItem[] = t.agenda.items
             const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
             const inboxItems = inbox.data ?? []
             const need = t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
 
-            // The lead is the one thing to do first: an answer to check, then the top
-            // of the agenda, then a sort. It is not listed again.
+            // The lead is the one thing to look at first: a proposed answer, then the top
+            // of the agenda, then the inbox. It is not listed again.
             let lead: Lead | null = null
             let leadKind: 'answers' | 'agenda' | 'inbox' | '' = ''
             const firstCheck = checks[0]
@@ -253,36 +183,14 @@ function Agenda() {
             if (firstCheck) {
               leadKind = 'answers'
               lead = {
-                why: `${t.answersToCheck} answer${t.answersToCheck === 1 ? '' : 's'} to check, from ${firstCheck.proposedBy || 'an agent'}`,
+                why: `${t.answersToCheck} proposed answer${t.answersToCheck === 1 ? '' : 's'}, from ${firstCheck.proposedBy || 'an agent'}`,
                 title: <DocLink id={firstCheck.id}>{firstCheck.title}</DocLink>,
-                action: (
-                  <LinkButton size="small" variant="contained" to="/review">
-                    Check
-                  </LinkButton>
-                ),
+                action: null,
               }
             } else if (firstA) {
               leadKind = 'agenda'
               const action =
-                firstA.kind === 'question' ? (
-                  <LinkButton
-                    size="small"
-                    variant="contained"
-                    to="."
-                    search={(p) => ({ ...p, answer: firstA.id })}
-                  >
-                    Answer
-                  </LinkButton>
-                ) : firstA.kind === 'task' ? (
-                  <LinkButton
-                    size="small"
-                    variant="contained"
-                    to="."
-                    search={(p) => ({ ...p, done: firstA.id })}
-                  >
-                    Done
-                  </LinkButton>
-                ) : firstA.kind === 'incident' ? (
+                firstA.kind === 'incident' ? (
                   <LinkButton
                     size="small"
                     variant="contained"
@@ -300,18 +208,9 @@ function Agenda() {
             } else if (firstIn) {
               leadKind = 'inbox'
               lead = {
-                why: 'Captured, not sorted',
+                why: 'In the inbox, not sorted',
                 title: <Box component="span">{firstIn.title || 'Untitled capture'}</Box>,
-                action: (
-                  <LinkButton
-                    size="small"
-                    variant="contained"
-                    to="."
-                    search={(p) => ({ ...p, triage: firstIn.id })}
-                  >
-                    Sort
-                  </LinkButton>
-                ),
+                action: null,
               }
             }
 
@@ -324,19 +223,11 @@ function Agenda() {
             const inboxOf = (list: typeof inboxRows) => (
               <List dense disablePadding>
                 {list.map((i) => (
-                  <ListItem
-                    key={i.id}
-                    disableGutters
-                    secondaryAction={
-                      <LinkButton size="small" to="." search={(p) => ({ ...p, triage: i.id })}>
-                        Sort
-                      </LinkButton>
-                    }
-                  >
+                  <ListItem key={i.id} disableGutters>
                     <ListItemText
                       primary={i.title || 'Untitled capture'}
                       secondary={humanTime(i.created)}
-                      sx={{ pr: 8, overflowWrap: 'anywhere' }}
+                      sx={{ overflowWrap: 'anywhere' }}
                     />
                   </ListItem>
                 ))}
@@ -437,14 +328,9 @@ function Agenda() {
                   </Box>
                 )}
                 <Section
-                  title="Answers to check"
+                  title="Proposed answers (older agent version)"
                   count={t.answersToCheck}
                   hideEmpty
-                  action={
-                    <LinkButton size="small" to="/review">
-                      Check
-                    </LinkButton>
-                  }
                 >
                   <List dense disablePadding>
                     {checkRows.map((x) => (
@@ -458,12 +344,12 @@ function Agenda() {
                   </List>
                 </Section>
                 <Section
-                  title="Agent work to accept"
+                  title="Agent work proposed"
                   count={agentWork.length}
                   hideEmpty
                   action={
-                    <LinkButton size="small" to="/review">
-                      Review
+                    <LinkButton size="small" to="/requests">
+                      Agent work
                     </LinkButton>
                   }
                 >

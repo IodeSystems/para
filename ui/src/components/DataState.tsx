@@ -3,7 +3,7 @@ import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import Stack from '@mui/material/Stack'
-import { errorText } from '@/client/gqlClient'
+import { errorText, forbidden } from '@/client/gqlClient'
 
 type Q<T> = { data: T | undefined; error: unknown; isPending: boolean; refetch: () => unknown }
 
@@ -18,6 +18,8 @@ export function DataState<T>({ q, children }: { q: Q<T>; children: (data: T) => 
       </Stack>
     )
   }
+  // A refused key is not a fault to retry: it says what key to use.
+  if (forbidden(q.error)) return <Alert severity="info">{errorText(q.error)}</Alert>
   return (
     <Alert
       severity="error"

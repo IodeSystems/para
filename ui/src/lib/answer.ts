@@ -1,4 +1,4 @@
-// Words for agent answers that wait for a person, and for done_when.
+// Words for agent answers and their sources.
 
 export type QuestionLike = {
   status: string
@@ -25,11 +25,4 @@ export function proposedText(q: {
   proposedChoice?: string | null
 }): string {
   return q.proposedAnswer || q.proposedChoice || ''
-}
-
-// doneConfirm is the question asked before a task with a done_when is marked done. A task
-// without one returns null: it keeps the one-click flow.
-export function doneConfirm(doneWhen: string | null | undefined): string | null {
-  const w = (doneWhen ?? '').trim()
-  return w === '' ? null : `Done when: ${w} Is it done?`
 }

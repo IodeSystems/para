@@ -1,8 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_RfxPathAddInputMedium, Para_RfxPathAddInputReason } from '@/gql/graphql'
 
 const PathsDoc = graphql(/* GraphQL */ `
   query RfxPaths($id: String!) {
@@ -48,55 +47,11 @@ const PathsDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const PathAddDoc = graphql(/* GraphQL */ `
-  mutation RfxPathAdd($body: para_RFXPathAddInputInput!) {
-    para {
-      v1 {
-        rfxPathAdd(body: $body) {
-          id
-          held
-        }
-      }
-    }
-  }
-`)
-
 export function useRfxPaths(id: string) {
   return useQuery({
     queryKey: ['rfx', id, 'paths'],
     queryFn: async () =>
       need((await gqlClient.request(PathsDoc, { id })).para.v1.rfxPaths, 'paths'),
-  })
-}
-
-export type PathAddInput = {
-  id: string
-  to: string
-  medium: string
-  value?: string | null
-  reason: string
-  why: string
-  override?: boolean
-}
-
-export function useRfxPathAdd() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: PathAddInput) =>
-      need(
-        (
-          await gqlClient.request(PathAddDoc, {
-            body: {
-              ...b,
-              value: b.value || undefined,
-              medium: b.medium as Para_RfxPathAddInputMedium,
-              reason: b.reason as Para_RfxPathAddInputReason,
-            },
-          })
-        ).para.v1.rfxPathAdd,
-        'path',
-      ),
-    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 

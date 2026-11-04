@@ -9,7 +9,6 @@ import Tabs from '@mui/material/Tabs'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import AddIcon from '@mui/icons-material/Add'
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -22,8 +21,8 @@ import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
 import type { SessionView } from '@/client/session'
 
-// The signed-in frame: app bar, tabs, the plain-HTTP banner, and the capture button. Capture sits
-// in the bar, in one place on every screen, so it never competes with a page's own main button.
+// The signed-in frame: app bar, tabs, and the plain-HTTP banner. The viewer writes nothing: the
+// agent does the work in the chat.
 // Below 900 px the tabs fold into a menu, so every tab can be reached.
 export function AppShell({ session, children }: { session: SessionView; children: ReactNode }) {
   const navigate = useNavigate()
@@ -63,33 +62,6 @@ export function AppShell({ session, children }: { session: SessionView; children
               {session.vault}
             </Box>
           </Typography>
-          <LinkButton
-            color="inherit"
-            variant="outlined"
-            size="small"
-            startIcon={<AddIcon />}
-            to="."
-            search={(p) => ({ ...p, capture: true })}
-            aria-keyshortcuts="c"
-          >
-            Add to inbox
-            <Box
-              component="kbd"
-              sx={{
-                display: { xs: 'none', md: 'inline' },
-                ml: 1,
-                px: 0.75,
-                border: 1,
-                borderColor: 'currentColor',
-                borderRadius: 0.5,
-                fontFamily: 'ui-monospace, monospace',
-                fontSize: '0.75em',
-                opacity: 0.8,
-              }}
-            >
-              c
-            </Box>
-          </LinkButton>
           <Tooltip title="Keys and about (?)">
             <LinkIconButton
               color="inherit"
@@ -154,17 +126,17 @@ export function AppShell({ session, children }: { session: SessionView; children
         <BottomNavigation
           showLabels
           value={
-            current?.to === '/search' || current?.to === '/agenda' || current?.to === '/review'
+            current?.to === '/search' || current?.to === '/agenda' || current?.to === '/writes'
               ? current.to
               : false
           }
         >
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           <LinkBottomNavAction
-            value="/review"
-            label="Review"
+            value="/writes"
+            label="Writes"
             icon={<RateReviewOutlinedIcon />}
-            to="/review"
+            to="/writes"
           />
           <LinkBottomNavAction value="/search" label="Search" icon={<SearchIcon />} to="/search" />
           <LinkBottomNavAction

@@ -1,10 +1,16 @@
-// Keyboard shortcuts: digits switch tabs, / searches, c captures, ? shows help.
+// Keyboard shortcuts: digits switch tabs, / searches, ? shows help. The viewer writes nothing,
+// so no key opens a form.
 
 export type Tab = { key: string; to: string; label: string; hint?: string }
 
 export const TABS: Tab[] = [
   { key: '1', to: '/agenda', label: 'Agenda', hint: 'what needs you, in value order' },
-  { key: '2', to: '/review', label: 'Review' },
+  {
+    key: '2',
+    to: '/writes',
+    label: 'Recent agent writes',
+    hint: 'what agents changed, newest first',
+  },
   { key: '3', to: '/work', label: 'Work' },
   { key: '4', to: '/rfx', label: 'Asks', hint: 'asks between you and people' },
   { key: '5', to: '/people', label: 'People' },
@@ -16,13 +22,18 @@ export const TABS: Tab[] = [
 
 // Screens with no digit key and no tab: the menu and the Agenda page link to them.
 export const EXTRA_SCREENS: Tab[] = [
+  {
+    key: '',
+    to: '/proposals',
+    label: 'Proposals',
+    hint: 'what an agent asks you to decide in the chat',
+  },
   { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
   { key: '', to: '/activity', label: 'Agent activity', hint: 'what each agent did' },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
 ]
 
-export type KeyAction =
-  { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'capture' } | { kind: 'help' }
+export type KeyAction = { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' }
 
 type KeyLike = {
   key: string
@@ -48,8 +59,6 @@ export function actionFor(e: KeyLike): KeyAction | null {
   switch (e.key) {
     case '/':
       return { kind: 'search' }
-    case 'c':
-      return { kind: 'capture' }
     case '?':
       return { kind: 'help' }
   }

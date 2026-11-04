@@ -1,142 +1,135 @@
 import { useState } from 'react'
-import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { useReceipt, useReceiptCheck, useReceiptUndo, useReceipts } from '@/api/receipts'
-import { errorText } from '@/client/gqlClient'
-import { Section, StateChip, StatusChip } from '@/components/Bits'
+import { useReceipt, useReceipts, type Receipt } from '@/api/receipts'
+import { Section, StatusChip } from '@/components/Bits'
+import { CopyButton } from '@/components/CopyButton'
+import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
+import { diffKind } from '@/lib/diff'
+import { newestFirst, receiptTime, undoCommand } from '@/lib/receipts'
+import { exactTime, humanTime } from '@/lib/when'
 
-// diffKind names the kind of a diff line from its first characters.
-function diffKind(line: string): 'add' | 'del' | 'same' {
-  if (line.startsWith('+ ')) return 'add'
-  if (line.startsWith('- ')) return 'del'
-  return 'same'
+const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
+
+// DiffLines shows the before and after of one write. It loads only when opened.
+function DiffLines({ id }: { id: string }) {
+  const q = useReceipt(id, true)
+  return (
+    <DataState q={q}>
+      {(d) => (
+        <Box
+          component="pre"
+          aria-label="What this write changed"
+          sx={{ ...mono, m: 0, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+        >
+          {d.lines.length === 0 && 'No line changed.'}
+          {d.lines.map((l, n) => {
+            const k = diffKind(l)
+            return (
+              <Box
+                component="span"
+                key={n}
+                sx={{
+                  display: 'block',
+                  color:
+                    k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
+                }}
+              >
+                {l}
+              </Box>
+            )
+          })}
+        </Box>
+      )}
+    </DataState>
+  )
 }
 
-type Row = NonNullable<ReturnType<typeof useReceipts>['data']>[number]
-
-// ReceiptCard shows what one agent write changed, why, and how to verify, with the owner's word.
-function ReceiptCard({ r }: { r: Row }) {
+// ReceiptCard shows one agent write: when, who, what, to which document, why, and from what.
+// Undo is a command to copy: the viewer never writes.
+export function ReceiptCard({ r, showActor = true }: { r: Receipt; showActor?: boolean }) {
+  const t = receiptTime(r)
+  const cmd = undoCommand(r.id)
+  // The diff loads when a person opens it, not for every row.
   const [open, setOpen] = useState(false)
-  const [wrong, setWrong] = useState(false)
-  const [note, setNote] = useState('')
-  const q = useReceipt(r.id, open)
-  const check = useReceiptCheck()
-  const revert = useReceiptUndo()
-  const err = check.error ?? revert.error
-  const d = q.data
   return (
     <Box data-receipt={r.id} sx={{ width: '100%' }}>
-      <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-        {r.actor}: {r.op.replace(/_/g, ' ')} <DocLink id={r.doc}>{r.docName || r.title}</DocLink>{' '}
-        <StateChip state={r.check} />{' '}
+      <Stack
+        direction="row"
+        spacing={0.75}
+        useFlexGap
+        sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+      >
+        <Tooltip title={exactTime(t)}>
+          <Typography component="time" dateTime={t} variant="body2" color="text.secondary">
+            {humanTime(t)}
+          </Typography>
+        </Tooltip>
+        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+          {showActor && <>{r.actor}: </>}
+          {r.op.replace(/_/g, ' ')}{' '}
+          {r.doc === 'vault' ? (
+            'the vault'
+          ) : (
+            <DocLink id={r.doc}>{r.docName || r.title || r.doc}</DocLink>
+          )}
+        </Typography>
         {r.selfReported && <StatusChip tone="wait" label="self-reported" />}
-      </Typography>
+        {r.background && <StatusChip tone="quiet" label="background" />}
+      </Stack>
+      {r.ownerSaid && (
+        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+          Owner said: &ldquo;{r.ownerSaid}&rdquo;
+        </Typography>
+      )}
       {r.why && (
         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
           Why: {r.why}
         </Typography>
       )}
-      {err && <Alert severity="error">{errorText(err)}</Alert>}
-      <Stack direction="row" spacing={1} sx={{ my: 0.5 }}>
-        <Button size="small" onClick={() => setOpen(!open)}>
-          {open ? 'Hide' : 'What changed'}
-        </Button>
-        {r.check === 'unchecked' && (
-          <>
-            <Button size="small" onClick={() => check.mutate({ id: r.id, verdict: 'verified' })}>
-              Verified
-            </Button>
-            <Button size="small" color="inherit" onClick={() => setWrong(true)}>
-              Wrong
-            </Button>
-          </>
-        )}
-      </Stack>
-      {wrong && (
-        <Stack direction="row" spacing={1} sx={{ my: 0.5 }}>
-          <TextField
-            size="small"
-            label="What is wrong"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            fullWidth
-          />
-          <Button
-            size="small"
-            disabled={note.trim() === ''}
-            onClick={() => check.mutate({ id: r.id, verdict: 'wrong', note: note.trim() })}
-          >
-            Send
-          </Button>
-        </Stack>
+      {(r.sources ?? []).length > 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          Sources: {r.sources?.join(', ')}
+        </Typography>
       )}
-      {open && d && (
-        <Box aria-label="What this write changed">
-          {(d.receipt.sources ?? []).length > 0 && (
-            <Typography variant="body2">Sources: {d.receipt.sources?.join(', ')}</Typography>
-          )}
-          {d.receipt.verify && (
-            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-              Verify: {d.receipt.verify}
-            </Typography>
-          )}
-          <Box
-            component="pre"
-            sx={{
-              m: 0,
-              fontFamily: 'ui-monospace, monospace',
-              fontSize: 13,
-              whiteSpace: 'pre-wrap',
-              overflowWrap: 'anywhere',
-            }}
-          >
-            {d.lines.map((l, n) => {
-              const k = diffKind(l)
-              return (
-                <Box
-                  component="span"
-                  key={n}
-                  sx={{
-                    display: 'block',
-                    color:
-                      k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
-                  }}
-                >
-                  {l}
-                </Box>
-              )
-            })}
-          </Box>
-          {d.revertible && (
-            <Button size="small" color="inherit" onClick={() => revert.mutate({ id: r.id })}>
-              Revert this write
-            </Button>
-          )}
+      {r.verify && (
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          Verify: {r.verify}
+        </Typography>
+      )}
+      <Box
+        component="details"
+        onToggle={(e) => setOpen(e.currentTarget.open)}
+        sx={{ mt: 0.5, fontSize: '0.8125rem' }}
+      >
+        <Box component="summary" sx={{ cursor: 'pointer', width: 'fit-content' }}>
+          What changed
         </Box>
-      )}
+        {open && <DiffLines id={r.id} />}
+      </Box>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
+        <Typography
+          component="code"
+          aria-label="Undo command"
+          sx={{ ...mono, overflowWrap: 'anywhere', flexGrow: 1 }}
+        >
+          {cmd}
+        </Typography>
+        <CopyButton getText={() => cmd} label="Copy undo command" />
+      </Stack>
     </Box>
   )
 }
 
-// ReceiptSection lists agent writes: on a document page, those to it; on Review, those unchecked.
-export function ReceiptSection({
-  title,
-  doc,
-  check,
-}: {
-  title: string
-  doc?: string
-  check?: 'unchecked'
-}) {
-  const q = useReceipts({ doc, check, limit: 30 })
-  const items = q.data ?? []
+// ReceiptSection lists the agent writes to one document, newest first.
+export function ReceiptSection({ title, doc }: { title: string; doc: string }) {
+  const q = useReceipts({ doc, limit: 30 })
+  const items = newestFirst(q.data ?? [])
   return (
     <Section title={title} count={items.length} hideEmpty>
       <List dense disablePadding>

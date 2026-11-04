@@ -1,14 +1,16 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_ReceiptCheckInputVerdict, Para_ReceiptListCheck } from '@/gql/graphql'
+
+// Receipts are what each agent write changed, why, and from what. The viewer only reads them:
+// an undo is a CLI command the page shows for copying.
 
 const ListDoc = graphql(/* GraphQL */ `
-  query ReceiptList($doc: String, $check: para_receiptListCheck, $limit: Int) {
+  query ReceiptList($doc: String, $limit: Int) {
     para {
       v1 {
-        receiptList(doc: $doc, check: $check, limit: $limit) {
+        receiptList(doc: $doc, limit: $limit) {
           items {
             id
             title
@@ -17,8 +19,14 @@ const ListDoc = graphql(/* GraphQL */ `
             doc
             docName
             why
-            check
+            sources
+            verify
+            surface
+            background
+            ownerSaid
             selfReported
+            request
+            at
             created
           }
         }
@@ -56,50 +64,15 @@ const ShowDoc = graphql(/* GraphQL */ `
         receiptShow(id: $id) {
           lines
           revertible
-          receipt {
-            id
-            sources
-            verify
-            confidence
-            why
-          }
         }
       }
     }
   }
 `)
 
-const CheckDoc = graphql(/* GraphQL */ `
-  mutation ReceiptCheck($body: para_ReceiptCheckInputInput!) {
-    para {
-      v1 {
-        receiptCheck(body: $body) {
-          id
-          check
-          request
-        }
-      }
-    }
-  }
-`)
+export type Receipt = NonNullable<ReturnType<typeof useReceipts>['data']>[number]
 
-const UndoDoc = graphql(/* GraphQL */ `
-  mutation ReceiptUndo($body: para_ReceiptUndoInputInput!) {
-    para {
-      v1 {
-        receiptUndo(body: $body) {
-          undone {
-            receipt
-            doc
-            rev
-          }
-        }
-      }
-    }
-  }
-`)
-
-export function useReceipts(v: { doc?: string; check?: Para_ReceiptListCheck; limit?: number }) {
+export function useReceipts(v: { doc?: string; limit?: number }) {
   return useQuery({
     queryKey: ['receipts', v],
     queryFn: async () =>
@@ -113,24 +86,6 @@ export function useReceipt(id: string, enabled: boolean) {
     enabled,
     queryFn: async () =>
       need((await gqlClient.request(ShowDoc, { id })).para.v1.receiptShow, 'receipt'),
-  })
-}
-
-export function useReceiptCheck() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (v: { id: string; verdict: Para_ReceiptCheckInputVerdict; note?: string }) =>
-      need((await gqlClient.request(CheckDoc, { body: v })).para.v1.receiptCheck, 'result'),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-export function useReceiptUndo() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (v: { id: string }) =>
-      need((await gqlClient.request(UndoDoc, { body: v })).para.v1.receiptUndo, 'result'),
-    onSuccess: () => void qc.invalidateQueries(),
   })
 }
 

@@ -1,8 +1,7 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { Para_IncidentStatusInputStatus } from '@/gql/graphql'
 
 export const TaskRowFields = graphql(/* GraphQL */ `
   fragment TaskRowFields on para_TaskView {
@@ -205,32 +204,6 @@ const IncidentShowDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const IncidentNoteDoc = graphql(/* GraphQL */ `
-  mutation IncidentNote($body: para_IncidentNoteInputInput!) {
-    para {
-      v1 {
-        incidentNote(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
-const IncidentStatusDoc = graphql(/* GraphQL */ `
-  mutation IncidentStatus($body: para_IncidentStatusInputInput!) {
-    para {
-      v1 {
-        incidentStatus(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
-
 const WaitingDoc = graphql(/* GraphQL */ `
   query Waiting($today: String) {
     para {
@@ -304,54 +277,10 @@ export function useIncident(id: string) {
   })
 }
 
-export function useIncidentNote() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string; text: string }) =>
-      need((await gqlClient.request(IncidentNoteDoc, { body: b })).para.v1.incidentNote, 'result'),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
-export function useIncidentStatus() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string; status: Para_IncidentStatusInputStatus }) =>
-      need(
-        (await gqlClient.request(IncidentStatusDoc, { body: b })).para.v1.incidentStatus,
-        'result',
-      ),
-    onSuccess: () => void qc.invalidateQueries(),
-  })
-}
-
 export function useWaiting(today: string) {
   return useQuery({
     queryKey: ['waiting'],
     queryFn: async () =>
       need((await gqlClient.request(WaitingDoc, { today })).para.v1.waiting, 'waiting'),
-  })
-}
-
-const ProjectEditDoc = graphql(/* GraphQL */ `
-  mutation ProjectEdit($body: para_ProjectEditInputInput!) {
-    para {
-      v1 {
-        projectEdit(body: $body) {
-          id
-          doneWhen
-        }
-      }
-    }
-  }
-`)
-
-// useGoalEdit sets how we know a goal (a project in the API) is done.
-export function useGoalEdit() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (b: { id: string; doneWhen: string }) =>
-      need((await gqlClient.request(ProjectEditDoc, { body: b })).para.v1.projectEdit, 'result'),
-    onSuccess: () => void qc.invalidateQueries(),
   })
 }
