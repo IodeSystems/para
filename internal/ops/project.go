@@ -195,6 +195,9 @@ type ProjectShowOutput struct {
 	LastAligned string `json:"last_aligned,omitempty"`
 	// Rules are the conventions and constraints in effect (rules_in_effect).
 	Rules []RuleRef `json:"rules"`
+	// Assumptions are the goal's assumptions, with ## Assumptions body lines
+	// read as never checked.
+	Assumptions []AssumptionView `json:"assumptions"`
 }
 
 // ProjectShow returns a project and its tasks.
@@ -223,7 +226,11 @@ var ProjectShow = defineRead("project_show", "Show a project and its tasks", fun
 	if err != nil {
 		return ProjectShowOutput{}, err
 	}
-	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs, LastAligned: aligned, Rules: rules}, nil
+	cutoff, err := recheckCutoff(d.Store)
+	if err != nil {
+		return ProjectShowOutput{}, err
+	}
+	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs, LastAligned: aligned, Rules: rules, Assumptions: assumptionsOf(doc, cutoff)}, nil
 })
 
 // ProjectCloseInput is the input of project_close.

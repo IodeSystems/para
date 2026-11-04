@@ -36,6 +36,7 @@ func newGoalCmd(l *loader) *cobra.Command {
 	)
 	cmd.AddCommand(
 		signal,
+		newGoalRiskCmd(l),
 		opCommand(l, ops.GoalRank, binding[ops.GoalRankInput, ops.GoalRankOutput]{
 			Use:  "rank <goal> <n>",
 			Args: cobra.ExactArgs(2),

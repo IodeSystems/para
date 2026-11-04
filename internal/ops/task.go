@@ -384,6 +384,9 @@ type TaskShowOutput struct {
 	Updates string    `json:"updates,omitempty"`
 	// Rules are the conventions and constraints in effect (rules_in_effect).
 	Rules []RuleRef `json:"rules"`
+	// Assumptions are the task's assumptions, with ## Assumptions body lines
+	// read as never checked.
+	Assumptions []AssumptionView `json:"assumptions"`
 }
 
 // TaskShow returns one task.
@@ -423,7 +426,15 @@ var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, 
 	if err != nil {
 		return TaskShowOutput{}, err
 	}
-	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body), Rules: rules}, nil
+	cutoff, err := recheckCutoff(d.Store)
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	as := assumptionsOf(doc, cutoff)
+	if as == nil {
+		as = []AssumptionView{}
+	}
+	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body), Rules: rules, Assumptions: as}, nil
 })
 
 // TaskChangeOutput is the output of task_start, task_done, and task_block.

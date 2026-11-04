@@ -21,8 +21,16 @@ import (
 // check the vault makes at write time, run here so a preview and a refusal read
 // alike.
 func checkDoc(d model.Document) error {
-	if p, ok := d.Meta.(*model.Project); ok {
-		if err := p.CheckBrief(); err != nil {
+	switch m := d.Meta.(type) {
+	case *model.Project:
+		if err := m.CheckBrief(); err != nil {
+			return fmt.Errorf("%s: %w", d.ID, err)
+		}
+		if err := model.CheckAssumptions(m.Assumptions); err != nil {
+			return fmt.Errorf("%s: %w", d.ID, err)
+		}
+	case *model.Task:
+		if err := model.CheckAssumptions(m.Assumptions); err != nil {
 			return fmt.Errorf("%s: %w", d.ID, err)
 		}
 	}

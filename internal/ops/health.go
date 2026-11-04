@@ -44,6 +44,8 @@ const (
 	HealthPivotPassed        = "pivot_passed"
 	HealthAreaNeglected      = "area_neglected"
 	HealthTooManyActive      = "too_many_active_goals"
+	HealthAssumptionStale    = "assumption_stale"
+	HealthRiskUnmitigated    = "risk_unmitigated"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -55,7 +57,7 @@ var HealthKinds = []string{
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
 	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
-	HealthTooManyActive,
+	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -84,6 +86,8 @@ var HealthKindWords = map[string]string{
 	HealthPivotPassed:        "Change-of-course date has come",
 	HealthAreaNeglected:      "Area review is overdue",
 	HealthTooManyActive:      "Too many active goals",
+	HealthAssumptionStale:    "Assumption not checked lately",
+	HealthRiskUnmitigated:    "High-impact risk with no mitigation",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -163,6 +167,11 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	if t, err := time.Parse(dateLayout, today); err == nil {
 		h.stale = t.AddDate(0, 0, -HealthStaleDays).Format(dateLayout)
 	}
+	days, err := recheckDays(s)
+	if err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
+	h.recheckCutoff = daysBefore(today, days)
 	h.index()
 	h.scan()
 	h.graphFindings(ctx, s)
@@ -243,12 +252,15 @@ func dismissedKind(d model.Document, kind string) bool {
 }
 
 type healther struct {
-	docs    map[string]model.Document
-	rows    map[string]ValueRow
-	today   string
-	stale   string
-	goalDue map[string]string
-	out     []HealthFinding
+	docs  map[string]model.Document
+	rows  map[string]ValueRow
+	today string
+	stale string
+	// recheckCutoff is the date before which an assumption's check is stale;
+	// empty when recheck.days is off.
+	recheckCutoff string
+	goalDue       map[string]string
+	out           []HealthFinding
 	// openKids maps a task id to its open action items.
 	openKids map[string][]string
 	// openGoals are active goals that are not deferred.
@@ -440,6 +452,7 @@ func (h *healther) scan() {
 				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done-when line", fmt.Sprintf("project_edit {id: %s, done_when: ...}", id))
 			}
 			h.brief(id, goal, m)
+			h.assumptions(d, goal)
 			if h.openTasks[id] == 0 {
 				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {project: %s, ...}, or project_close {id: %s}", id, id))
 			}
@@ -447,6 +460,9 @@ func (h *healther) scan() {
 			if taskTerminal(m.Status) && len(h.openKids[id]) > 0 {
 				slices.Sort(h.openKids[id])
 				h.add(HealthClosedWithOpen, id, goal, fmt.Sprintf("task is closed with %d open action items", len(h.openKids[id])), fmt.Sprintf("finish, drop, or move %s; or reopen the parent", strings.Join(h.openKids[id], " ")))
+			}
+			if !taskTerminal(m.Status) {
+				h.assumptions(d, goal)
 			}
 			if taskTerminal(m.Status) || IsOther(m.Assignee) {
 				continue
@@ -527,8 +543,35 @@ func (h *healther) brief(id, goal string, m *model.Project) {
 			h.add(HealthGoalNoSignal, id, goal, "goal defines signals and none has a reading", fmt.Sprintf("read a signal with your own tools, then goal_signal_add {id: %s, what: ..., value: ..., source: ...}", id))
 		}
 	}
+	var bare []string
+	for _, r := range m.Risks {
+		if r.Impact == model.LevelHigh && strings.TrimSpace(r.Mitigation) == "" {
+			bare = append(bare, fmt.Sprintf("%q", r.Text))
+		}
+	}
+	if len(bare) > 0 {
+		h.add(HealthRiskUnmitigated, id, goal, "high-impact risk with no mitigation: "+strings.Join(bare, "; "), fmt.Sprintf("ask the owner what reduces it, or whether it is accepted; then goal_risk_set {id: %s, text: ..., mitigation: ...}", id))
+	}
 	if pv := m.Pivot; pv != nil && pv.Date != "" && string(pv.Date) <= h.today {
 		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("the date to decide on a change of course, %s, has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or project_close {id: %s}", id, id))
+	}
+}
+
+// assumptions flags a goal or a task with an assumption checked before the
+// recheck cutoff. A never-checked assumption is not flagged: recheck finds it.
+func (h *healther) assumptions(d model.Document, goal string) {
+	if h.recheckCutoff == "" {
+		return
+	}
+	var old []string
+	for _, a := range assumptionsOf(d, h.recheckCutoff) {
+		if a.Stale {
+			old = append(old, fmt.Sprintf("%q (checked %s)", a.Text, a.Checked))
+		}
+	}
+	if len(old) > 0 {
+		h.add(HealthAssumptionStale, d.ID, goal, fmt.Sprintf("%d assumptions checked before %s (recheck.days): %s", len(old), h.recheckCutoff, strings.Join(old, "; ")),
+			fmt.Sprintf("recheck {scope: %s}, then recheck_record per item; or assumption_set with what a check found", d.ID))
 	}
 }
 

@@ -31,6 +31,7 @@ type ParaV1MutationNamespace {
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
   areaReview(body: para_AreaReviewInputInput!): para_AreaReviewOutput @derived(operationId: "areaReview")
+  assumptionSet(body: para_AssumptionSetInputInput!): para_AssumptionSetOutput @derived(operationId: "assumptionSet")
   attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
@@ -46,6 +47,7 @@ type ParaV1MutationNamespace {
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   goalRank(body: para_GoalRankInputInput!): para_GoalRankOutput @derived(operationId: "goalRank")
+  goalRiskSet(body: para_GoalRiskSetInputInput!): para_GoalRiskSetOutput @derived(operationId: "goalRiskSet")
   goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
@@ -102,6 +104,8 @@ type ParaV1MutationNamespace {
   questionEdit(body: para_QuestionEditInputInput!): para_QuestionEditOutput @derived(operationId: "questionEdit")
   receiptCheck(body: para_ReceiptCheckInputInput!): para_ReceiptCheckOutput @derived(operationId: "receiptCheck")
   receiptUndo(body: para_ReceiptUndoInputInput!): para_ReceiptUndoOutput @derived(operationId: "receiptUndo")
+  recheck(body: para_RecheckInputInput!): para_RecheckOutput @derived(operationId: "recheck")
+  recheckRecord(body: para_RecheckRecordInputInput!): para_RecheckRecordOutput @derived(operationId: "recheckRecord")
   reconcile: para_ReconcileResult @derived(operationId: "reconcile")
   requestAccept(body: para_RequestAcceptInputInput!): para_RequestChangeOutput @derived(operationId: "requestAccept")
   requestAdd(body: para_RequestAddInputInput!): para_RequestAddOutput @derived(operationId: "requestAdd")
@@ -165,6 +169,7 @@ type ParaV1QueryNamespace {
   exportList: para_ExportListOutput @derived(operationId: "exportList")
   goalCompare(ids: String): para_GoalCompareOutput @derived(operationId: "goalCompare")
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
+  grillContext(id: String!): para_GrillContextOutput @derived(operationId: "grillContext")
   health: para_HealthOutput @derived(operationId: "health")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
@@ -552,6 +557,61 @@ enum para_AreaViewKind {
 enum para_AreaViewStatus {
   active
   paused
+}
+
+type para_Assumption {
+  by: String
+  checked: String
+  fact: String
+  source: String
+  status: para_AssumptionStatus
+  text: String!
+}
+
+input para_AssumptionSetInputInput {
+  by: String
+  checked: String
+  fact: String
+  id: String!
+  remove: Boolean
+  source: String
+  status: para_AssumptionSetInputStatus
+  text: String!
+}
+
+enum para_AssumptionSetInputStatus {
+  changed
+  holds
+  unknown
+}
+
+type para_AssumptionSetOutput {
+  assumptions: [para_Assumption!]!
+  id: String!
+  rev: String!
+}
+
+enum para_AssumptionStatus {
+  changed
+  holds
+  unknown
+}
+
+type para_AssumptionView {
+  by: String
+  checked: String
+  fact: String
+  fromBody: Boolean
+  source: String
+  stale: Boolean
+  status: para_AssumptionViewStatus
+  text: String!
+}
+
+enum para_AssumptionViewStatus {
+  changed
+  holds
+  unknown
 }
 
 input para_AttemptAddInputInput {
@@ -1337,6 +1397,7 @@ type para_GoalBrief {
   extensions: [String!]
   pivot: para_GoalPivot
   rank: Int
+  risks: [para_GoalRisk!]
   signals: [para_Signal!]
   unknowns: [para_Unknown!]
   validation: para_GoalBriefValidation
@@ -1409,6 +1470,56 @@ type para_GoalRankOutput {
   id: String!
   rank: Int!
   rev: String!
+}
+
+type para_GoalRisk {
+  impact: para_GoalRiskImpact
+  likelihood: para_GoalRiskLikelihood
+  mitigation: String
+  owner: String
+  source: String
+  text: String!
+}
+
+enum para_GoalRiskImpact {
+  high
+  low
+  medium
+}
+
+enum para_GoalRiskLikelihood {
+  high
+  low
+  medium
+}
+
+enum para_GoalRiskSetInputImpact {
+  high
+  low
+  medium
+}
+
+input para_GoalRiskSetInputInput {
+  id: String!
+  impact: para_GoalRiskSetInputImpact
+  likelihood: para_GoalRiskSetInputLikelihood
+  mitigation: String
+  owner: String
+  remove: Boolean
+  source: String
+  text: String!
+}
+
+enum para_GoalRiskSetInputLikelihood {
+  high
+  low
+  medium
+}
+
+type para_GoalRiskSetOutput {
+  id: String!
+  rev: String!
+  risks: [para_GoalRisk!]!
 }
 
 input para_GoalSignalAddInputInput {
@@ -1498,6 +1609,27 @@ type para_GraphOutput {
   edges: [para_GraphEdge!]!
   nodes: [para_GraphNode!]!
   order: [String!]!
+}
+
+type para_GrillContextOutput {
+  doneWhen: String
+  id: String!
+  owner: String!
+  probes: [para_GrillProbe!]!
+  recheckDays: Int
+  risks: [para_GoalRisk!]!
+  rules: [para_RuleInEffect!]!
+  title: String!
+}
+
+type para_GrillProbe {
+  about: String!
+  ask: String!
+  kind: String!
+  known: String!
+  rank: Int!
+  sources: [String!]
+  title: String!
 }
 
 input para_GroupAddInputInput {
@@ -2479,6 +2611,7 @@ type para_Meta {
   appliesIn: [String!]
   area: String
   assignee: String
+  assumptions: JSON
   at: String
   awayUntil: String
   background: Boolean
@@ -2560,6 +2693,7 @@ type para_Meta {
   reviewedBy: String
   revision: Int
   rfx: JSON
+  risks: JSON
   role: String
   roleText: String
   route: String
@@ -3157,6 +3291,7 @@ type para_ProjectListOutput {
 }
 
 type para_ProjectShowOutput {
+  assumptions: [para_AssumptionView!]!
   body: String!
   lastAligned: String
   project: para_ProjectView!
@@ -4017,6 +4152,72 @@ enum para_ReceiptViewConfidence {
   high
   low
   medium
+}
+
+input para_RecheckInputInput {
+  dryRun: Boolean
+  olderThan: Int
+  scope: String
+  tag: String
+}
+
+type para_RecheckItem {
+  checked: String
+  id: String!
+  kind: String!
+  reviewBy: String
+  source: String
+  text: String
+  title: String!
+  verify: String!
+}
+
+type para_RecheckOutput {
+  items: [para_RecheckItem!]!
+  olderThan: Int
+  request: String
+  status: para_RecheckOutputStatus
+}
+
+enum para_RecheckOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+input para_RecheckRecordInputInput {
+  assumption: String
+  fact: String
+  id: String!
+  nextReview: String
+  question: String
+  result: para_RecheckRecordInputResult!
+  scope: String
+  source: String
+}
+
+enum para_RecheckRecordInputResult {
+  changed
+  holds
+  unknown
+}
+
+type para_RecheckRecordOutput {
+  checked: String!
+  id: String!
+  question: String
+  result: para_RecheckRecordOutputResult!
+  rev: String!
+  reviewBy: String
+}
+
+enum para_RecheckRecordOutputResult {
+  changed
+  holds
+  unknown
 }
 
 type para_ReconcileResult {
@@ -4907,6 +5108,7 @@ enum para_TaskResolveOutputStatus {
 }
 
 type para_TaskShowOutput {
+  assumptions: [para_AssumptionView!]!
   body: String!
   parts: para_TaskParts!
   questions: [para_QuestionView!]!

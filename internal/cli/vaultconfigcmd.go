@@ -17,8 +17,8 @@ func newVaultConfigCmd(l *loader) *cobra.Command {
 		Short: "List, show, set, or unset vault settings (.para/vault.properties)",
 		Long: `Vault settings live in <vault>/.para/vault.properties. Only known keys can be
 set, and each value is checked. "list" shows every known key and any other key
-in the file. An agent (--actor) may change only align.days and goals.active_limit;
-the rest are the owner's, egress.* among them. The event of a change holds the
+in the file. An agent (--actor) may change only align.days, goals.active_limit, and
+recheck.days; the rest are the owner's, egress.* among them. The event of a change holds the
 key, never the value.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error { return cmd.Help() },

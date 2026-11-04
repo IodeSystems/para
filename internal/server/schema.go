@@ -165,6 +165,8 @@ type Meta struct {
 	Alternatives    *jsonValue         `json:"alternatives,omitempty"`
 	Unknowns        *jsonValue         `json:"unknowns,omitempty"`
 	Signals         *jsonValue         `json:"signals,omitempty"`
+	Risks           *jsonValue         `json:"risks,omitempty"`
+	Assumptions     *jsonValue         `json:"assumptions,omitempty"`
 	Pivot           *jsonValue         `json:"pivot,omitempty"`
 	Extensions      []string           `json:"extensions,omitempty"`
 	Ecosystem       *jsonValue         `json:"ecosystem,omitempty"`
@@ -237,4 +239,6 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, ops.TriageTargets)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
+	addEnum(reg, model.Levels)
+	addEnum(reg, model.AssumptionStatuses)
 }
