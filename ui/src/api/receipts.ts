@@ -41,6 +41,7 @@ const ListDoc = graphql(/* GraphQL */ `
             check
             checkedBy
             checkNote
+            undone
             surface
             background
             ownerSaid

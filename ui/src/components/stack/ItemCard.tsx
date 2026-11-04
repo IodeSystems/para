@@ -76,9 +76,9 @@ function Body(p: CardProps) {
 }
 
 // doneStart is the text Done by me starts from: what was sent, as the owner edited it. A doc edit
-// starts empty: its text is the whole document after the edit.
+// starts from its new text, which the owner extends to the whole document after the edit.
 function doneStart(it: Item, answer: Answer | null): string {
-  if (it.kind === 'doc_edit') return ''
+  if (it.kind === 'doc_edit') return (answer?.decision === 'edit' && answer.new) || it.new || ''
   if (answer?.decision === 'edit' && answer.body) return answer.body
   return it.bodyFile?.text ?? it.body ?? ''
 }

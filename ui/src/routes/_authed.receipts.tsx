@@ -5,7 +5,7 @@ import ListItem from '@mui/material/ListItem'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import { useOutcomes, useReceipts } from '@/api/receipts'
+import { useReceipts } from '@/api/receipts'
 import { Empty, PageTitle } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { OutcomesSection, ReceiptRow } from '@/components/Receipts'
@@ -29,8 +29,6 @@ function Receipts() {
     until: emptyToUndefined(until),
   }
   const q = useReceipts({ ...filter, limit: 200 })
-  const out = useOutcomes({ since: filter.since, until: filter.until })
-  const undone = new Set((out.data?.undos ?? []).map((u) => u.receipt))
   return (
     <>
       <PageTitle subtitle="What agents changed, newest first. Check a write, or undo it.">
@@ -91,7 +89,7 @@ function Receipts() {
             <List dense disablePadding sx={{ mb: 2 }}>
               {newestFirst(rows).map((r) => (
                 <ListItem key={r.id} disableGutters divider sx={{ display: 'block' }}>
-                  <ReceiptRow r={r} undone={undone.has(r.id)} />
+                  <ReceiptRow r={r} undone={!!r.undone} />
                 </ListItem>
               ))}
             </List>

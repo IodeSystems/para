@@ -47,20 +47,22 @@ var Confidences = []Confidence{ConfidenceLow, ConfidenceMedium, ConfidenceHigh}
 //
 // Doc is an id and not a link: the document it names may be archived or gone.
 type Receipt struct {
-	Common       `yaml:",inline"`
-	Actor        string       `yaml:"actor" json:"actor"`
-	Op           string       `yaml:"op" json:"op"`
-	Doc          string       `yaml:"doc" json:"doc"`
-	Request      string       `yaml:"request,omitempty" json:"request,omitempty"`
-	Why          string       `yaml:"why,omitempty" json:"why,omitempty"`
-	Sources      []string     `yaml:"sources,omitempty" json:"sources,omitempty"`
-	Verify       string       `yaml:"verify,omitempty" json:"verify,omitempty"`
-	Confidence   Confidence   `yaml:"confidence,omitempty" json:"confidence,omitempty"`
-	Check        ReceiptCheck `yaml:"check" json:"check"`
-	CheckedBy    string       `yaml:"checked_by,omitempty" json:"checked_by,omitempty"`
-	CheckNote    string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
-	SelfReported bool         `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
-	NotDuplicate string       `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+	Common     `yaml:",inline"`
+	Actor      string       `yaml:"actor" json:"actor"`
+	Op         string       `yaml:"op" json:"op"`
+	Doc        string       `yaml:"doc" json:"doc"`
+	Request    string       `yaml:"request,omitempty" json:"request,omitempty"`
+	Why        string       `yaml:"why,omitempty" json:"why,omitempty"`
+	Sources    []string     `yaml:"sources,omitempty" json:"sources,omitempty"`
+	Verify     string       `yaml:"verify,omitempty" json:"verify,omitempty"`
+	Confidence Confidence   `yaml:"confidence,omitempty" json:"confidence,omitempty"`
+	Check      ReceiptCheck `yaml:"check" json:"check"`
+	CheckedBy  string       `yaml:"checked_by,omitempty" json:"checked_by,omitempty"`
+	CheckNote  string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
+	// Undone is when the write was undone from this receipt, RFC 3339.
+	Undone       string `yaml:"undone,omitempty" json:"undone,omitempty"`
+	SelfReported bool   `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
+	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
 	// OwnerSaid is the owner's words from the chat, when the agent gives them
 	// (action_record). Para cannot see the chat: it is self-reported.
 	OwnerSaid string `yaml:"owner_said,omitempty" json:"owner_said,omitempty"`

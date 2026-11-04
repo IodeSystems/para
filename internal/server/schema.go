@@ -158,6 +158,7 @@ type Meta struct {
 	Check           string             `json:"check,omitempty"`
 	CheckedBy       string             `json:"checked_by,omitempty"`
 	CheckNote       string             `json:"check_note,omitempty"`
+	Undone          string             `json:"undone,omitempty"`
 	SelfReported    *bool              `json:"self_reported,omitempty"`
 	NotDuplicate    string             `json:"not_duplicate,omitempty"`
 	OwnerSaid       string             `json:"owner_said,omitempty"`

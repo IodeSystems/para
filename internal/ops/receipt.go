@@ -28,6 +28,7 @@ type ReceiptView struct {
 	Check        model.ReceiptCheck `json:"check"`
 	CheckedBy    string             `json:"checked_by,omitempty"`
 	CheckNote    string             `json:"check_note,omitempty"`
+	Undone       string             `json:"undone,omitempty"` // when the write was undone, RFC 3339
 	SelfReported bool               `json:"self_reported,omitempty"`
 	NotDuplicate string             `json:"not_duplicate,omitempty"`
 	OwnerSaid    string             `json:"owner_said,omitempty"`
@@ -40,7 +41,7 @@ type ReceiptView struct {
 
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
 	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
-		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote,
+		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote, Undone: r.Undone,
 		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Created: r.Created}
 }
 
@@ -262,6 +263,12 @@ func undoReceipts(ctx context.Context, d Deps, ids []string) (ReceiptUndoOutput,
 		out.Undone = append(out.Undone, u)
 		if err := d.Store.Record(ctx, opReceiptUndo, u.Receipt, "", u.Doc, ""); err != nil {
 			return out, err
+		}
+		if doc, r, err := getReceipt(ctx, d.Store, u.Receipt); err == nil {
+			r.Undone = d.Store.Now().UTC().Format(time.RFC3339)
+			if _, err := d.Store.Update(ctx, doc); err != nil {
+				return out, fmt.Errorf("receipt %s: the write is undone, but the receipt was not marked: %w", u.Receipt, err)
+			}
 		}
 	}
 	return out, nil

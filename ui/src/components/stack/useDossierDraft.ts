@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useProposalDraft, type DraftBody } from '@/api/proposals'
 import { errorText } from '@/client/gqlClient'
 import { answerEmpty, answerInput, stringMap, type Answer } from '@/lib/dossier'
-import { answerProblem } from '@/lib/review'
+import { answerProblem, draftedEdits } from '@/lib/review'
 import type { ProposalData } from '@/components/stack/parts'
 
 // AUTOSAVE_MS is how long the page waits after the last change before it saves the draft.
@@ -43,8 +43,25 @@ export function useDossierDraft(d: ProposalData) {
   const sectionOf = (sid: string): string => changes.sections[sid] ?? savedSections[sid] ?? ''
   const overall = changes.overall ?? d.response?.overall ?? ''
 
-  const setAnswer = (item: string, a: Answer | null) =>
+  // stash keeps the edits and question picks a skip or an ask leaves out (para refuses them with
+  // those decisions), so they come back when the owner changes the decision again.
+  const [stash, setStash] = useState<Record<string, Answer>>({})
+  const setAnswer = (item: string, next: Answer | null) => {
+    let a = next
+    const parked = a?.decision === 'skip' || a?.decision === 'ask'
+    if (parked) {
+      const kept = draftedEdits(answerOf(item))
+      if (kept) setStash((st) => ({ ...st, [item]: kept }))
+    } else if (a && stash[item]) {
+      a = { ...a, ...stash[item] }
+      setStash((st) => {
+        const rest = { ...st }
+        delete rest[item]
+        return rest
+      })
+    }
     setChanges((c) => ({ ...c, items: { ...c.items, [item]: answerEmpty(a) ? null : a } }))
+  }
   const setSection = (sid: string, text: string) =>
     setChanges((c) => ({ ...c, sections: { ...c.sections, [sid]: text } }))
   const setOverall = (text: string) => setChanges((c) => ({ ...c, overall: text }))

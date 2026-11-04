@@ -65,6 +65,9 @@ func TestReportOutcomes(t *testing.T) {
 	if _, err := ReportOutcomes.Run(t.Context(), f.owner, ReportOutcomesInput{Since: "2026-12-01", Until: "2026-11-01"}); err == nil {
 		t.Fatal("since after until was accepted")
 	}
+	if l := mustRun(t, ReceiptList, f.owner, ReceiptListInput{Doc: n2.ID}); l.Items[0].Undone == "" {
+		t.Fatalf("the reverted receipt is not marked undone: %+v", l.Items[0])
+	}
 	// receipt_list filters by op and by day.
 	if l := mustRun(t, ReceiptList, f.owner, ReceiptListInput{Op: "note_add", Since: "2020-01-01"}); len(l.Items) != 2 {
 		t.Fatalf("receipts by op = %d", len(l.Items))

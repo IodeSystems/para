@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { answerInput } from '@/lib/dossier'
 import {
   answerProblem,
+  draftedEdits,
   canMarkDone,
   fieldKind,
   fieldText,
@@ -107,5 +108,16 @@ describe('input form', () => {
     expect(setInputKey(input, 'a', undefined)).toEqual({ b: 2 })
     expect(input).toEqual({ a: 1, b: 2 })
     expect(setInputKey(null, 'x', 'y')).toEqual({ x: 'y' })
+  })
+})
+
+describe('draftedEdits', () => {
+  it('keeps edited text and question picks, and nothing else', () => {
+    expect(draftedEdits({ decision: 'edit', body: 'B', comment: 'c', choices: ['A'] })).toEqual({
+      body: 'B',
+      choices: ['A'],
+    })
+    expect(draftedEdits({ decision: 'approve', comment: 'c' })).toBeNull()
+    expect(draftedEdits(null)).toBeNull()
   })
 })

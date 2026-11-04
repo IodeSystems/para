@@ -69,6 +69,17 @@ export function withDecision(a: Answer | null, decision: Decision, start?: Answe
   return out
 }
 
+// draftedEdits is the owner's edited text and question picks in an answer, or null when there are
+// none: what a skip or an ask sets aside.
+export function draftedEdits(a: Answer | null | undefined): Answer | null {
+  if (!a) return null
+  const out: Answer = {}
+  for (const k of [...EDIT_KEYS, ...QUESTION_KEYS]) {
+    if (a[k] !== undefined && a[k] !== null) Object.assign(out, { [k]: a[k] })
+  }
+  return Object.keys(out).length > 0 ? out : null
+}
+
 // parseRefs reads vault ids from text: separated by commas, spaces, or new lines. [[id]] is id.
 export function parseRefs(text: string): string[] {
   const out: string[] = []
