@@ -145,6 +145,14 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
                 text
                 link
               }
+              risks {
+                text
+                likelihood
+                impact
+                owner
+                mitigation
+                source
+              }
               signals {
                 what
                 expected
@@ -176,6 +184,16 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
             id
             title
             via
+          }
+          assumptions {
+            text
+            source
+            checked
+            by
+            status
+            fact
+            fromBody
+            stale
           }
         }
       }

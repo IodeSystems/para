@@ -15,6 +15,7 @@ import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
 import { ConceptLinks } from '@/components/AreaLinks'
 import { RulesInEffect } from '@/components/RulesInEffect'
+import { Assumptions, Risks } from '@/components/RisksAssumptions'
 
 export const Route = createFileRoute('/_authed/projects/$id')({ component: ProjectPage })
 
@@ -59,6 +60,8 @@ function ProjectPage() {
           </Typography>
           <DoneWhen value={d.project.doneWhen} prompt="No done-when yet." />
           <GoalBrief brief={d.project.brief} />
+          <Risks risks={d.project.brief?.risks} />
+          <Assumptions list={d.assumptions} />
           <PointerLinks links={d.project.links} />
           <RulesInEffect rules={d.rules} />
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
