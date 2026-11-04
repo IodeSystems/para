@@ -27,6 +27,8 @@ import { Route as AuthedWritesRouteImport } from './routes/_authed.writes'
 import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
 import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
 import { Route as AuthedIncidentsIdRouteImport } from './routes/_authed.incidents.$id'
+import { Route as AuthedIoIndexRouteImport } from './routes/_authed.io.index'
+import { Route as AuthedIoIdRouteImport } from './routes/_authed.io.$id'
 import { Route as AuthedMeetingsIndexRouteImport } from './routes/_authed.meetings.index'
 import { Route as AuthedMeetingsIdRouteImport } from './routes/_authed.meetings.$id'
 import { Route as AuthedPeopleIndexRouteImport } from './routes/_authed.people.index'
@@ -127,6 +129,16 @@ const AuthedIncidentsIdRoute = AuthedIncidentsIdRouteImport.update({
   path: '/incidents/$id',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedIoIndexRoute = AuthedIoIndexRouteImport.update({
+  id: '/io/',
+  path: '/io/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedIoIdRoute = AuthedIoIdRouteImport.update({
+  id: '/io/$id',
+  path: '/io/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedMeetingsIndexRoute = AuthedMeetingsIndexRouteImport.update({
   id: '/meetings/',
   path: '/meetings/',
@@ -196,11 +208,13 @@ export interface FileRoutesByFullPath {
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
   '/incidents/$id': typeof AuthedIncidentsIdRoute
+  '/io/$id': typeof AuthedIoIdRoute
   '/meetings/$id': typeof AuthedMeetingsIdRoute
   '/people/$id': typeof AuthedPeopleIdRoute
   '/projects/$id': typeof AuthedProjectsIdRoute
   '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
+  '/io/': typeof AuthedIoIndexRoute
   '/meetings/': typeof AuthedMeetingsIndexRoute
   '/people/': typeof AuthedPeopleIndexRoute
   '/proposals/': typeof AuthedProposalsIndexRoute
@@ -225,11 +239,13 @@ export interface FileRoutesByTo {
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
   '/incidents/$id': typeof AuthedIncidentsIdRoute
+  '/io/$id': typeof AuthedIoIdRoute
   '/meetings/$id': typeof AuthedMeetingsIdRoute
   '/people/$id': typeof AuthedPeopleIdRoute
   '/projects/$id': typeof AuthedProjectsIdRoute
   '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
+  '/io': typeof AuthedIoIndexRoute
   '/meetings': typeof AuthedMeetingsIndexRoute
   '/people': typeof AuthedPeopleIndexRoute
   '/proposals': typeof AuthedProposalsIndexRoute
@@ -256,11 +272,13 @@ export interface FileRoutesById {
   '/_authed/areas/$id': typeof AuthedAreasIdRoute
   '/_authed/doc/$id': typeof AuthedDocIdRoute
   '/_authed/incidents/$id': typeof AuthedIncidentsIdRoute
+  '/_authed/io/$id': typeof AuthedIoIdRoute
   '/_authed/meetings/$id': typeof AuthedMeetingsIdRoute
   '/_authed/people/$id': typeof AuthedPeopleIdRoute
   '/_authed/projects/$id': typeof AuthedProjectsIdRoute
   '/_authed/proposals/$id': typeof AuthedProposalsIdRoute
   '/_authed/rfx/$id': typeof AuthedRfxIdRoute
+  '/_authed/io/': typeof AuthedIoIndexRoute
   '/_authed/meetings/': typeof AuthedMeetingsIndexRoute
   '/_authed/people/': typeof AuthedPeopleIndexRoute
   '/_authed/proposals/': typeof AuthedProposalsIndexRoute
@@ -287,11 +305,13 @@ export interface FileRouteTypes {
     | '/areas/$id'
     | '/doc/$id'
     | '/incidents/$id'
+    | '/io/$id'
     | '/meetings/$id'
     | '/people/$id'
     | '/projects/$id'
     | '/proposals/$id'
     | '/rfx/$id'
+    | '/io/'
     | '/meetings/'
     | '/people/'
     | '/proposals/'
@@ -316,11 +336,13 @@ export interface FileRouteTypes {
     | '/areas/$id'
     | '/doc/$id'
     | '/incidents/$id'
+    | '/io/$id'
     | '/meetings/$id'
     | '/people/$id'
     | '/projects/$id'
     | '/proposals/$id'
     | '/rfx/$id'
+    | '/io'
     | '/meetings'
     | '/people'
     | '/proposals'
@@ -346,11 +368,13 @@ export interface FileRouteTypes {
     | '/_authed/areas/$id'
     | '/_authed/doc/$id'
     | '/_authed/incidents/$id'
+    | '/_authed/io/$id'
     | '/_authed/meetings/$id'
     | '/_authed/people/$id'
     | '/_authed/projects/$id'
     | '/_authed/proposals/$id'
     | '/_authed/rfx/$id'
+    | '/_authed/io/'
     | '/_authed/meetings/'
     | '/_authed/people/'
     | '/_authed/proposals/'
@@ -492,6 +516,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIncidentsIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/io/': {
+      id: '/_authed/io/'
+      path: '/io'
+      fullPath: '/io/'
+      preLoaderRoute: typeof AuthedIoIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/io/$id': {
+      id: '/_authed/io/$id'
+      path: '/io/$id'
+      fullPath: '/io/$id'
+      preLoaderRoute: typeof AuthedIoIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/meetings/': {
       id: '/_authed/meetings/'
       path: '/meetings'
@@ -581,11 +619,13 @@ interface AuthedRouteChildren {
   AuthedAreasIdRoute: typeof AuthedAreasIdRoute
   AuthedDocIdRoute: typeof AuthedDocIdRoute
   AuthedIncidentsIdRoute: typeof AuthedIncidentsIdRoute
+  AuthedIoIdRoute: typeof AuthedIoIdRoute
   AuthedMeetingsIdRoute: typeof AuthedMeetingsIdRoute
   AuthedPeopleIdRoute: typeof AuthedPeopleIdRoute
   AuthedProjectsIdRoute: typeof AuthedProjectsIdRoute
   AuthedProposalsIdRoute: typeof AuthedProposalsIdRoute
   AuthedRfxIdRoute: typeof AuthedRfxIdRoute
+  AuthedIoIndexRoute: typeof AuthedIoIndexRoute
   AuthedMeetingsIndexRoute: typeof AuthedMeetingsIndexRoute
   AuthedPeopleIndexRoute: typeof AuthedPeopleIndexRoute
   AuthedProposalsIndexRoute: typeof AuthedProposalsIndexRoute
@@ -609,11 +649,13 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAreasIdRoute: AuthedAreasIdRoute,
   AuthedDocIdRoute: AuthedDocIdRoute,
   AuthedIncidentsIdRoute: AuthedIncidentsIdRoute,
+  AuthedIoIdRoute: AuthedIoIdRoute,
   AuthedMeetingsIdRoute: AuthedMeetingsIdRoute,
   AuthedPeopleIdRoute: AuthedPeopleIdRoute,
   AuthedProjectsIdRoute: AuthedProjectsIdRoute,
   AuthedProposalsIdRoute: AuthedProposalsIdRoute,
   AuthedRfxIdRoute: AuthedRfxIdRoute,
+  AuthedIoIndexRoute: AuthedIoIndexRoute,
   AuthedMeetingsIndexRoute: AuthedMeetingsIndexRoute,
   AuthedPeopleIndexRoute: AuthedPeopleIndexRoute,
   AuthedProposalsIndexRoute: AuthedProposalsIndexRoute,

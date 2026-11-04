@@ -230,7 +230,40 @@ try {
   const meeting = idOf(
     para(...v, 'meeting', 'add', 'Quota sync', '--with', person, '--rfx', ask, '--json'),
   )
-  para(...v, 'inbox', 'add', 'Seed: ask platform about the quota')
+  const incoming = idOf(
+    para(
+      ...v,
+      'io',
+      'add',
+      '--direction',
+      'in',
+      '--from',
+      person,
+      '--medium',
+      'email',
+      'Seed: ask platform about the quota',
+      '--json',
+    ),
+  )
+  const outgoing = idOf(
+    para(
+      ...v,
+      'io',
+      'add',
+      '--direction',
+      'out',
+      '--to',
+      person,
+      '--medium',
+      'email',
+      '--expects',
+      'none',
+      '--subject',
+      'Thanks for the quota',
+      'Thanks, Sam.',
+      '--json',
+    ),
+  )
 
   // Agent writes go through MCP, as they do for real: each leaves a receipt.
   agent = startAgent()
@@ -309,7 +342,8 @@ try {
 
   // The read-only key may not write, by GraphQL or by REST.
   const gqlWrite = await api(readToken, '/api/graphql', {
-    query: 'mutation { para { v1 { inboxAdd(body: { text: "should be refused" }) { id } } } }',
+    query:
+      'mutation { para { v1 { ioAdd(body: { direction: in, text: "should be refused" }) { id } } } }',
   })
   // The gateway answers 200 with the op's 403 in errors; the data holds no new id.
   {
@@ -323,14 +357,14 @@ try {
       gqlWrite.status === 403 ||
       ((body.errors ?? []).length > 0 &&
         /forbidden|403|scope/i.test(JSON.stringify(body.errors)) &&
-        !body.data?.para?.v1?.inboxAdd?.id)
+        !body.data?.para?.v1?.ioAdd?.id)
     check(
       refused,
       `a GraphQL mutation with a vault:read key is refused (${gqlWrite.status}: ${gqlWrite.text.slice(0, 160)})`,
     )
   }
   check(
-    !para(...v, 'inbox', 'list').includes('should be refused'),
+    !para(...v, 'io', 'list', '--all').includes('should be refused'),
     'the refused write left no item',
   )
 
@@ -378,6 +412,10 @@ try {
     ['/health', 'Health'],
     ['/proposals', 'Proposals'],
     ['/stack', 'Stack'],
+    ['/io', 'IO'],
+    ['/io?view=outbox', 'IO'],
+    [`/io/${incoming}`, 'Seed: ask platform about the quota'],
+    [`/io/${outgoing}`, 'Thanks for the quota'],
     [`/proposals/${proposal.id}`, 'Quota follow-ups'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
@@ -400,6 +438,28 @@ try {
       `${path}: no console errors${errs.length ? `: ${errs.join(' | ')}` : ''}`,
     )
   }
+
+  // IO: the inbox lists what came, the outbox what is ready or drafted, the agenda counts them.
+  await page.goto(`${base}/io`)
+  await page.getByRole('heading', { name: 'IO' }).waitFor()
+  await page.getByRole('link', { name: 'Seed: ask platform about the quota' }).waitFor()
+  check(true, 'the IO inbox lists the incoming message')
+  await page.getByRole('tab', { name: /Outbox/ }).click()
+  await page.getByRole('link', { name: 'Thanks for the quota' }).waitFor()
+  check(
+    (await page.getByText('Expects no response', { exact: false }).count()) === 1,
+    'the outbox groups drafts by what they expect',
+  )
+  await page.goto(`${base}/agenda`)
+  await page.getByRole('heading', { name: 'Agenda' }).waitFor()
+  check(
+    await page
+      .getByRole('link', { name: /1 unread in the inbox, 0 ready to send/ })
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false),
+    'the agenda counts unread and ready messages',
+  )
 
   // Keys: c opens nothing; ? opens help.
   await page.goto(`${base}/agenda`)

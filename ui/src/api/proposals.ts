@@ -147,6 +147,7 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             people
             channel
             subject
+            io
             target
             what
             previous

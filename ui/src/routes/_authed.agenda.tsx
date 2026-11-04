@@ -10,7 +10,7 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import useMediaQuery from '@mui/material/useMediaQuery'
-import { useInbox } from '@/api/inbox'
+import { useIoList } from '@/api/io'
 import { useQuestions } from '@/api/questions'
 import { useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
@@ -133,7 +133,7 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
 function Agenda() {
   const { by } = Route.useSearch()
   const q = useToday()
-  const inbox = useInbox()
+  const inbox = useIoList('in')
   const questions = useQuestions()
   const requests = useRequests()
   const narrow = useMediaQuery('(max-width: 599px)')
@@ -170,7 +170,7 @@ function Agenda() {
             const checks = (questions.data ?? []).filter((x) => x.hasProposal)
             const agenda: AgendaItem[] = t.agenda.items
             const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
-            const inboxItems = inbox.data ?? []
+            const inboxItems = inbox.data?.items ?? []
             const need = t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
 
             // The lead is the one thing to look at first: a proposed answer, then the top
@@ -209,7 +209,11 @@ function Agenda() {
               leadKind = 'inbox'
               lead = {
                 why: 'In the inbox, not sorted',
-                title: <Box component="span">{firstIn.title || 'Untitled capture'}</Box>,
+                title: (
+                  <TextLink to="/io/$id" params={{ id: firstIn.id }} underline="hover">
+                    {firstIn.title || 'Untitled message'}
+                  </TextLink>
+                ),
                 action: null,
               }
             }
@@ -225,8 +229,12 @@ function Agenda() {
                 {list.map((i) => (
                   <ListItem key={i.id} disableGutters>
                     <ListItemText
-                      primary={i.title || 'Untitled capture'}
-                      secondary={humanTime(i.created)}
+                      primary={
+                        <TextLink to="/io/$id" params={{ id: i.id }} underline="hover">
+                          {i.title || 'Untitled message'}
+                        </TextLink>
+                      }
+                      secondary={humanTime(i.at || i.created)}
                       sx={{ overflowWrap: 'anywhere' }}
                     />
                   </ListItem>
@@ -401,6 +409,11 @@ function Agenda() {
                 <Section title="Inbox to sort" count={inboxRows.length} hideEmpty>
                   {inboxOf(inboxRows)}
                 </Section>
+                {(t.inbox > 0 || t.outbox > 0) && (
+                  <LinkButton size="small" color="inherit" to="/io">
+                    {t.inbox} unread in the inbox, {t.outbox} ready to send
+                  </LinkButton>
+                )}
                 {need === 0 && <Empty>No task is ready.</Empty>}
               </>
             )

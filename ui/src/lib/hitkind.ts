@@ -7,6 +7,7 @@ const LABEL: Record<string, string> = {
   project: 'Goal',
   request: 'Agent work',
   inbox: 'Inbox',
+  io: 'Message',
   person: 'Person',
   proposal: 'Legacy proposal',
 }

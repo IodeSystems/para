@@ -53,8 +53,6 @@ type ParaV1MutationNamespace {
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
   importVerify(body: para_ImportVerifyInputInput!): para_ImportVerifyOutput @derived(operationId: "importVerify")
-  inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
-  inboxTriage(body: para_InboxTriageInputInput!): para_InboxTriageOutput @derived(operationId: "inboxTriage")
   incidentAdd(body: para_IncidentAddInputInput!): para_IncidentAddOutput @derived(operationId: "incidentAdd")
   incidentLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "incidentLinkAdd")
   incidentLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "incidentLinkRemove")
@@ -64,6 +62,11 @@ type ParaV1MutationNamespace {
   ingest(body: para_IngestInputInput!): para_IngestOutput @derived(operationId: "ingest")
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
   investigate(body: para_InvestigateInputInput!): para_InvestigateOutput @derived(operationId: "investigate")
+  ioAdd(body: para_IOAddInputInput!): para_IOAddOutput @derived(operationId: "ioAdd")
+  ioDrop(body: para_IODropInputInput!): para_IODropOutput @derived(operationId: "ioDrop")
+  ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
+  ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
+  ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
@@ -188,12 +191,12 @@ type ParaV1QueryNamespace {
     """only documents imported from this path or under it"""
     root: String
   ): para_ImportListOutput @derived(operationId: "importList")
-  inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
-  inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
   incidentList(all: Boolean, area: String, status: para_incidentListStatus): para_IncidentListOutput @derived(operationId: "incidentList")
   incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
+  ioList(all: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState): para_IOListOutput @derived(operationId: "ioList")
+  ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
   lint: para_LintOutput @derived(operationId: "lint")
@@ -476,6 +479,7 @@ enum para_AreaAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -533,6 +537,7 @@ enum para_AreaUserType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -573,6 +578,7 @@ enum para_AreaViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -1086,6 +1092,7 @@ enum para_DocRetypeInputType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -1120,6 +1127,7 @@ enum para_DocRetypeOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -1142,6 +1150,7 @@ enum para_DocRetypeOutputType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -1177,6 +1186,7 @@ enum para_DocumentFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -1719,6 +1729,7 @@ enum para_GraphNodeType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -1868,6 +1879,370 @@ input para_HoldActionInput {
   title: String!
 }
 
+enum para_IOAddInputDirection {
+  in
+  out
+}
+
+enum para_IOAddInputExpects {
+  none
+  response
+}
+
+input para_IOAddInputInput {
+  at: String
+  direction: para_IOAddInputDirection!
+  expects: para_IOAddInputExpects
+  from: String
+  importedFrom: para_ImportedFromInput
+  medium: para_IOAddInputMedium
+  ref: String
+  route: String
+  subject: String
+  text: String!
+  thread: String
+  to: [String!]
+  via: para_IOViaInput
+}
+
+enum para_IOAddInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_IOAddOutput {
+  folder: para_IOAddOutputFolder!
+  id: String!
+  rev: String!
+  state: para_IOAddOutputState!
+  warnings: [String!]!
+}
+
+enum para_IOAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  io
+  journal
+  meetings
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+}
+
+enum para_IOAddOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+type para_IOCounts {
+  draft: Int!
+  read: Int!
+  ready: Int!
+  unread: Int!
+}
+
+input para_IODropInputInput {
+  id: String!
+  reason: String!
+}
+
+type para_IODropOutput {
+  id: String!
+  rev: String!
+  state: para_IODropOutputState!
+}
+
+enum para_IODropOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+enum para_IOEditInputExpects {
+  none
+  response
+}
+
+input para_IOEditInputInput {
+  expects: para_IOEditInputExpects
+  id: String!
+  medium: para_IOEditInputMedium
+  route: String
+  state: para_IOEditInputState
+  subject: String
+  text: String
+  to: [String!]
+}
+
+enum para_IOEditInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_IOEditInputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+type para_IOEditOutput {
+  id: String!
+  rev: String!
+  state: para_IOEditOutputState!
+}
+
+enum para_IOEditOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+enum para_IOFileInputDirection {
+  in
+  out
+}
+
+input para_IOFileInputInput {
+  area: String
+  date: String
+  direction: para_IOFileInputDirection
+  doneWhen: String
+  existing: String
+  id: String!
+  kind: para_IOFileInputKind
+  nextNudge: String
+  options: [String!]
+  owner: String
+  person: String
+  project: String
+  recommended: String
+  root: Boolean
+  route: String
+  selfServe: String
+  targets: [para_TargetInputInput!]
+  task: String
+  to: para_IOFileInputTo
+  visibility: para_IOFileInputVisibility
+  with: [String!]
+}
+
+enum para_IOFileInputKind {
+  decision
+  input
+  question
+}
+
+enum para_IOFileInputTo {
+  interaction
+  note
+  project
+  question
+  rfx
+  task
+}
+
+enum para_IOFileInputVisibility {
+  private
+  public
+}
+
+type para_IOFileOutput {
+  became: String!
+  created: Boolean!
+  id: String!
+  rev: String!
+  state: para_IOFileOutputState!
+  to: para_IOFileOutputTo!
+  warnings: [String!]!
+}
+
+enum para_IOFileOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+enum para_IOFileOutputTo {
+  interaction
+  note
+  project
+  question
+  rfx
+  task
+}
+
+type para_IOItem {
+  at: String
+  became: String
+  created: String!
+  direction: para_IOItemDirection!
+  expects: para_IOItemExpects
+  from: String
+  id: String!
+  legacy: Boolean
+  medium: para_IOItemMedium!
+  reason: String
+  ref: String
+  route: String
+  state: para_IOItemState!
+  subject: String
+  thread: String
+  title: String!
+  to: [String!]!
+}
+
+enum para_IOItemDirection {
+  in
+  out
+}
+
+enum para_IOItemExpects {
+  none
+  response
+}
+
+enum para_IOItemMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_IOItemState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+type para_IOListOutput {
+  counts: para_IOCounts!
+  items: [para_IOItem!]!
+}
+
+input para_IOSendInputInput {
+  at: String
+  id: String!
+  locator: String
+  url: String
+}
+
+type para_IOSendOutput {
+  became: String!
+  becameType: para_IOSendOutputBecame_type!
+  id: String!
+  rev: String!
+  state: para_IOSendOutputState!
+  warnings: [String!]!
+}
+
+enum para_IOSendOutputBecame_type {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+enum para_IOSendOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+type para_IOShowOutput {
+  doc: para_Document!
+  item: para_IOItem!
+}
+
+type para_IOVia {
+  ref: String!
+  source: String!
+}
+
+input para_IOViaInput {
+  ref: String!
+  source: String!
+}
+
 input para_ImportFileInput {
   hash: String!
   path: String!
@@ -1916,6 +2291,7 @@ enum para_ImportedDocFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -1938,6 +2314,7 @@ enum para_ImportedDocType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -1964,154 +2341,6 @@ type para_ImportedFrom {
 input para_ImportedFromInput {
   hash: String!
   path: String!
-}
-
-input para_InboxAddInputInput {
-  importedFrom: para_ImportedFromInput
-  text: String!
-}
-
-type para_InboxAddOutput {
-  folder: para_InboxAddOutputFolder!
-  id: String!
-  rev: String!
-}
-
-enum para_InboxAddOutputFolder {
-  archive
-  areas
-  constraints
-  conventions
-  inbox
-  incidents
-  interactions
-  journal
-  meetings
-  org
-  policies
-  projects
-  proposals
-  questions
-  receipts
-  requests
-  resources
-  rfx
-}
-
-type para_InboxItem {
-  created: String!
-  folder: para_InboxItemFolder!
-  id: String!
-  title: String!
-}
-
-enum para_InboxItemFolder {
-  archive
-  areas
-  constraints
-  conventions
-  inbox
-  incidents
-  interactions
-  journal
-  meetings
-  org
-  policies
-  projects
-  proposals
-  questions
-  receipts
-  requests
-  resources
-  rfx
-}
-
-type para_InboxListOutput {
-  items: [para_InboxItem!]!
-}
-
-type para_InboxShowOutput {
-  doc: para_Document!
-}
-
-enum para_InboxTriageInputDirection {
-  in
-  out
-}
-
-input para_InboxTriageInputInput {
-  area: String
-  date: String
-  direction: para_InboxTriageInputDirection
-  doneWhen: String
-  id: String!
-  kind: para_InboxTriageInputKind
-  nextNudge: String
-  options: [String!]
-  owner: String
-  person: String
-  project: String
-  recommended: String
-  root: Boolean
-  route: String
-  selfServe: String
-  targets: [para_TargetInputInput!]
-  task: String
-  to: para_InboxTriageInputTo!
-}
-
-enum para_InboxTriageInputKind {
-  decision
-  input
-  question
-}
-
-enum para_InboxTriageInputTo {
-  drop
-  note
-  project
-  question
-  rfx
-  task
-}
-
-type para_InboxTriageOutput {
-  created: String!
-  folder: para_InboxTriageOutputFolder!
-  id: String!
-  rev: String!
-  to: para_InboxTriageOutputTo!
-  warnings: [String!]!
-}
-
-enum para_InboxTriageOutputFolder {
-  archive
-  areas
-  constraints
-  conventions
-  inbox
-  incidents
-  interactions
-  journal
-  meetings
-  org
-  policies
-  projects
-  proposals
-  questions
-  receipts
-  requests
-  resources
-  rfx
-}
-
-enum para_InboxTriageOutputTo {
-  drop
-  note
-  project
-  question
-  rfx
-  task
 }
 
 input para_IncidentAddInputInput {
@@ -2143,6 +2372,7 @@ enum para_IncidentAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -2220,6 +2450,7 @@ enum para_IncidentViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -2319,6 +2550,7 @@ enum para_InteractionAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -2543,6 +2775,7 @@ type para_ItemView {
   id: String!
   impact: String
   input: JSON
+  io: String
   kind: para_ItemViewKind!
   leaseUntil: String
   multi: Boolean
@@ -2758,6 +2991,7 @@ enum para_MeetingAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -2875,6 +3109,7 @@ enum para_MeetingViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -2909,6 +3144,7 @@ type para_Meta {
   at: String
   awayUntil: String
   background: Boolean
+  became: String
   blockedBy: [String!]
   blocks: [String!]
   by: String
@@ -2937,8 +3173,10 @@ type para_Meta {
   ecosystem: JSON
   end: String
   ended: String
+  expects: String
   extensions: [String!]
   followed: [String!]
+  from: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
   importedFrom: para_ImportedFrom
@@ -2976,8 +3214,10 @@ type para_Meta {
   queuedAt: String
   quietDays: Int
   rank: Int
+  reason: String
   recommended: String
   recur: String
+  ref: String
   refines: String
   rejectedBy: String
   rejectedReason: String
@@ -3007,12 +3247,16 @@ type para_Meta {
   sources: [String!]
   start: String
   started: String
+  state: String
   status: String
+  subject: String
   supersedes: String
   surface: String
   tags: [String!]
   targets: [para_Target!]
   team: String
+  thread: String
+  to: [String!]
   turn: Int
   type: para_MetaType!
   unknowns: JSON
@@ -3021,6 +3265,7 @@ type para_Meta {
   validation: String
   verified: Boolean
   verify: String
+  via: para_IOVia
   visibility: para_MetaVisibility
   why: JSON
   with: JSON
@@ -3055,6 +3300,7 @@ enum para_MetaType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -3106,6 +3352,7 @@ enum para_NoteAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3158,6 +3405,7 @@ enum para_NoteViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3228,6 +3476,7 @@ enum para_OrgAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3533,6 +3782,7 @@ enum para_ProjectAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3567,6 +3817,7 @@ enum para_ProjectCloseOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3640,6 +3891,7 @@ enum para_ProjectViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -3769,6 +4021,7 @@ input para_ProposalExecutedInputInput {
 type para_ProposalExecutedOutput {
   halted: [String!]
   id: String!
+  io: para_IOSendOutput
   item: String!
   receipt: String!
   rev: String!
@@ -3976,6 +4229,7 @@ enum para_QuestionAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -4136,6 +4390,7 @@ enum para_QuestionViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -4195,6 +4450,7 @@ enum para_RFXAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -4679,6 +4935,7 @@ enum para_RefFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -4701,6 +4958,7 @@ enum para_RefType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -4755,6 +5013,7 @@ enum para_RequestAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -5081,6 +5340,7 @@ enum para_RuleInEffectType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -5210,6 +5470,7 @@ enum para_SimilarType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -5465,6 +5726,7 @@ enum para_TaskAddOutputFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -5794,6 +6056,7 @@ enum para_TaskViewFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -5869,6 +6132,7 @@ type para_TodayVaultToday {
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
   otherOpen: Int!
+  outbox: Int!
   overdue: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
@@ -6071,6 +6335,7 @@ enum para_WhereMatchFolder {
   inbox
   incidents
   interactions
+  io
   journal
   meetings
   org
@@ -6093,6 +6358,7 @@ enum para_WhereMatchType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note
@@ -6189,6 +6455,38 @@ enum para_interactionListMedium {
   teams
 }
 
+enum para_ioListDirection {
+  in
+  out
+}
+
+enum para_ioListExpects {
+  none
+  response
+}
+
+enum para_ioListMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_ioListState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
 enum para_meetingListStatus {
   cancelled
   held
@@ -6250,6 +6548,7 @@ enum para_similarType {
   inbox
   incident
   interaction
+  io
   journal
   meeting
   note

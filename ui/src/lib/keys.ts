@@ -34,6 +34,7 @@ export const EXTRA_SCREENS: Tab[] = [
     label: 'Proposals',
     hint: 'the dossiers agents filed for you to review',
   },
+  { key: '', to: '/io', label: 'IO', hint: 'messages in and out not dealt with yet' },
   { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
   { key: '', to: '/activity', label: 'Agent activity', hint: 'what each agent did' },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },

@@ -33,6 +33,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             vault
             error
             inbox
+            outbox
             unverified
             waiting
             answersToCheck

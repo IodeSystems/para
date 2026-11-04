@@ -56,7 +56,7 @@ const TYPES = [
   'proposal',
   'request',
   'journal',
-  'inbox',
+  'io',
 ]
 
 const SINCE = [
