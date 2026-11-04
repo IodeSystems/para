@@ -401,6 +401,7 @@ input para_AreaAddInputInput {
   concepts: [String!]
   id: String
   kind: para_AreaAddInputKind
+  lastReviewed: String
   status: para_AreaAddInputStatus
   title: String!
 }

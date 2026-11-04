@@ -77,6 +77,8 @@ type AreaAddInput struct {
 	Cadence string `json:"cadence,omitempty"`
 	// Concepts are ids of concept areas a project area draws on.
 	Concepts []string `json:"concepts,omitempty"`
+	// LastReviewed is the date of the owner's last review, YYYY-MM-DD.
+	LastReviewed string `json:"last_reviewed,omitempty"`
 }
 
 // AreaAddOutput is the output of area_add.
@@ -102,6 +104,10 @@ var AreaAdd = defineSafe("area_add", "Create an area: kind project, an ongoing b
 	if in.Kind != "" && !slices.Contains(model.AreaKinds, in.Kind) {
 		return AreaAddOutput{}, fmt.Errorf("kind %q must be one of %v", in.Kind, model.AreaKinds)
 	}
+	reviewed, err := parseDate("last_reviewed", in.LastReviewed)
+	if err != nil {
+		return AreaAddOutput{}, err
+	}
 	concepts, err := conceptLinks(ctx, d.Store, in.Concepts)
 	if err != nil {
 		return AreaAddOutput{}, err
@@ -115,9 +121,9 @@ var AreaAdd = defineSafe("area_add", "Create an area: kind project, an ongoing b
 		id = "area-" + s
 	}
 	nd := model.Document{
-		ID: id, Folder: model.FolderAreas, Title: title, Body: strings.TrimSpace(in.Body),
+		ID: id, Folder: model.FolderAreas, Title: title, Body: demoteH1(in.Body),
 		Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: status, Kind: in.Kind,
-			Cadence: strings.Join(strings.Fields(in.Cadence), " "), Concepts: concepts},
+			Cadence: strings.Join(strings.Fields(in.Cadence), " "), Concepts: concepts, LastReviewed: reviewed},
 	}
 	if err := checkKindLinks(ctx, d.Store, nd); err != nil {
 		return AreaAddOutput{}, err

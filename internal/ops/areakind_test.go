@@ -180,3 +180,33 @@ func TestAreaReviewReceipt(t *testing.T) {
 		t.Fatalf("after undo last_reviewed = %s", show.Area.LastReviewed)
 	}
 }
+
+// TestAddBodyH1AndLastReviewed: a body H1 is demoted, not refused; a lint
+// refusal names its findings on one line; area_add takes last_reviewed.
+func TestAddBodyH1AndLastReviewed(t *testing.T) {
+	d := newDepsAt(t, time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC), "install-a")
+	n := mustRun(t, NoteAdd, d, NoteAddInput{Title: "N", Body: "# Inner\n\ntext\n\n```\n# keep\n```"})
+	doc, err := d.Store.Get(t.Context(), n.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(doc.Body, "## Inner") || !strings.Contains(doc.Body, "\n# keep\n") {
+		t.Errorf("body = %q", doc.Body)
+	}
+	_, err = NoteAdd.Run(t.Context(), d, NoteAddInput{Title: "H", Body: "<div>x</div>"})
+	if err == nil {
+		t.Fatal("raw HTML body accepted")
+	}
+	msg := PublicError(err, nil)
+	if !strings.Contains(msg, "raw-html") || strings.Contains(msg, "\n") {
+		t.Errorf("public error = %q", msg)
+	}
+	a := mustRun(t, AreaAdd, d, AreaAddInput{Title: "Rev", LastReviewed: "2026-10-01"})
+	v, err := AreaShow.Run(t.Context(), d, AreaShowInput{ID: a.ID})
+	if err != nil || v.Area.LastReviewed != "2026-10-01" {
+		t.Errorf("last_reviewed = %q, %v", v.Area.LastReviewed, err)
+	}
+	if _, err := AreaAdd.Run(t.Context(), d, AreaAddInput{Title: "Bad", LastReviewed: "yesterday"}); err == nil || !strings.Contains(err.Error(), "last_reviewed") {
+		t.Errorf("bad date err = %v", err)
+	}
+}

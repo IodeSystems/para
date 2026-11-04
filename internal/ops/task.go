@@ -289,7 +289,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProjects,
 		Title:  title,
-		Body:   strings.TrimSpace(in.Body),
+		Body:   demoteH1(in.Body),
 		Meta: &model.Task{
 			Common:    model.Common{Type: model.TypeTask},
 			Status:    model.TaskTodo,
@@ -514,6 +514,18 @@ func parseDue(s string) (model.Date, error) {
 	}
 	if _, err := time.Parse("2006-01-02", s); err != nil {
 		return "", fmt.Errorf("due %q: want a date YYYY-MM-DD", s)
+	}
+	return model.Date(s), nil
+}
+
+// parseDate checks an optional YYYY-MM-DD date. Empty gives no date.
+func parseDate(name, s string) (model.Date, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "", nil
+	}
+	if _, err := time.Parse("2006-01-02", s); err != nil {
+		return "", fmt.Errorf("%s %q: want a date YYYY-MM-DD", name, s)
 	}
 	return model.Date(s), nil
 }

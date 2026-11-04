@@ -24,6 +24,7 @@ func newAreaCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar((*string)(&in.Kind), "kind", "", "project (default: ongoing work goals call home) or concept (a discipline that spans work)")
 				fs.StringVar(&in.Cadence, "cadence", "", "review cadence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"")
+				fs.StringVar(&in.LastReviewed, "last-reviewed", "", "date of the last review, YYYY-MM-DD")
 				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas a project area draws on (repeat or comma-separate)")
 			},
 			Bind: func(args []string, in *ops.AreaAddInput) error {

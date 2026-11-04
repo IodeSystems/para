@@ -69,6 +69,25 @@ func lintText(field, text string) error {
 	return nil
 }
 
+// demoteH1 trims a body passed to an add op and turns each "# " line outside
+// a code fence into "## ": the file has its own "# Title", and lint refuses a
+// second level-1 heading.
+func demoteH1(body string) string {
+	lines := strings.Split(strings.ReplaceAll(strings.TrimSpace(body), "\r\n", "\n"), "\n")
+	fence := false
+	for i, l := range lines {
+		t := strings.TrimLeft(l, " ")
+		if strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~") {
+			fence = !fence
+			continue
+		}
+		if !fence && (t == "#" || strings.HasPrefix(t, "# ")) {
+			lines[i] = "#" + t
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 // flattenHeadings turns a heading line in free text into bold text, so notes
 // cannot start a section of the meeting.
 func flattenHeadings(text string) string {

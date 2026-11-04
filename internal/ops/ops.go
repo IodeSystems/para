@@ -17,6 +17,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/iodesystems/parasolve/internal/model"
 	"github.com/iodesystems/parasolve/internal/store"
 )
 
@@ -118,6 +119,13 @@ var absPath = regexp.MustCompile(`(^|[\s"'(=:])(/[^\s"'):,;]+)`)
 // the prefixes in hide and every other absolute path removed.
 func PublicError(err error, hide []string) string {
 	msg := err.Error()
+	var lint *model.LintError
+	if errors.As(err, &lint) {
+		// The multi-line text would be cut to its first line, which drops
+		// every finding. Join the findings on one line.
+		msg = strings.ReplaceAll(msg, "\n  ", "; ")
+		msg = strings.Replace(msg, "write; ", "write: ", 1)
+	}
 	for _, h := range hide {
 		if h != "" && h != "/" {
 			msg = strings.ReplaceAll(msg, h, "<vault>")

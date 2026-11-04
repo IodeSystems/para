@@ -97,7 +97,7 @@ var NoteAdd = defineSafe("note_add", "Create a note (reference material), option
 		return NoteAddOutput{}, err
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderResources, Title: title, Body: strings.TrimSpace(in.Body),
+		Folder: model.FolderResources, Title: title, Body: demoteH1(in.Body),
 		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Project: project},
 	})
 	if err != nil {

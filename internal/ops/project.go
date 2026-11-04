@@ -113,7 +113,7 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 	nd := model.Document{
 		Folder: model.FolderProjects,
 		Title:  title,
-		Body:   strings.TrimSpace(in.Body),
+		Body:   demoteH1(in.Body),
 		Meta: &model.Project{
 			Common:   model.Common{Type: model.TypeProject},
 			Status:   model.ProjectActive,

@@ -667,3 +667,15 @@ func TestInstructions(t *testing.T) {
 		}
 	}
 }
+
+func TestLintRefusalNamesFindings(t *testing.T) {
+	s, _ := newVault(t)
+	c := connect(t, ops.Deps{Store: s})
+	res := call(t, c, "note_add", `{"title":"Bad","body":"<div>x</div>"}`)
+	if !res.IsError {
+		t.Fatal("raw HTML body accepted")
+	}
+	if txt := textOf(t, res); !strings.Contains(txt, "raw-html") {
+		t.Errorf("error text names no finding: %q", txt)
+	}
+}
