@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { dayOf, groupByDay, newestFirst, receiptTime, undoCommand } from '@/lib/receipts'
+import {
+  checkTone,
+  emptyToUndefined,
+  isUrl,
+  noteRequired,
+  dayOf,
+  groupByDay,
+  newestFirst,
+  receiptTime,
+  undoCommand,
+} from '@/lib/receipts'
 
 const r = (at: string, actor = 'agent-a', request?: string) => ({
   at,
@@ -46,5 +56,26 @@ describe('receipts', () => {
   })
   it('says the undo command', () => {
     expect(undoCommand('rcpt-1')).toBe('para receipt undo rcpt-1')
+  })
+})
+
+describe('receipt page helpers', () => {
+  it('tones the check state', () => {
+    expect(checkTone('verified')).toBe('good')
+    expect(checkTone('wrong')).toBe('bad')
+    expect(checkTone('unchecked')).toBe('quiet')
+  })
+  it('tells a URL from a vault id', () => {
+    expect(isUrl('https://example.com/a')).toBe(true)
+    expect(isUrl('note-0001')).toBe(false)
+  })
+  it('drops a blank filter', () => {
+    expect(emptyToUndefined('  ')).toBeUndefined()
+    expect(emptyToUndefined(' agent-a ')).toBe('agent-a')
+  })
+  it('needs a note for wrong only', () => {
+    expect(noteRequired('wrong', ' ')).toBe(true)
+    expect(noteRequired('wrong', 'bad date')).toBe(false)
+    expect(noteRequired('verified', '')).toBe(false)
   })
 })

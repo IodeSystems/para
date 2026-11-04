@@ -798,6 +798,110 @@ try {
     rerrors.length === 0,
     `the review pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
+  // Receipts: the owner checks or undoes agent writes. The confirm is in the row, never a dialog.
+  const rcDialogs = []
+  rpage.on('dialog', (d) => {
+    rcDialogs.push(d.message())
+    void d.dismiss()
+  })
+  const revertMe = await agent.call('note_add', {
+    title: 'E2E revert me',
+    body: 'A note the owner undoes.',
+    project: proj,
+    why: 'Seeded to test undo.',
+    sources: [note.id, 'https://example.com/receipts-undo'],
+    verify: 'Open the note.',
+  })
+  const verifyMe = await agent.call('note_add', {
+    title: 'E2E verify me',
+    body: 'A note the owner verifies.',
+    project: proj,
+    why: 'Seeded to test the check.',
+    verify: 'Open the note.',
+  })
+  // A write's receipt is found by its document.
+  const receiptOf = async (doc) => (await agent.call('receipt_list', { doc })).items[0]?.id
+  const revertRid = await receiptOf(revertMe.id)
+  const verifyRid = await receiptOf(verifyMe.id)
+  const quotaRid = await receiptOf(note.id)
+  check(!!revertRid && !!verifyRid && !!quotaRid, 'MCP seeds two more notes with receipts')
+  await rpage.goto(`${base}/receipts`)
+  await rpage.getByRole('heading', { name: 'Receipts', exact: true }).waitFor()
+  const rcRows = rpage.locator('[data-receipt]')
+  await rcRows.first().waitFor()
+  const rcRow = (id, state) =>
+    rpage.locator(`[data-receipt="${id}"]${state ? `[${state}]` : ''}`).first()
+  const rcRevert = rcRow(revertRid)
+  const rcVerify = rcRow(verifyRid)
+  const rcOld = rcRow(quotaRid)
+  await rcRevert.waitFor()
+  const rcOrder = await rcRows.evaluateAll((els) => els.map((e) => e.getAttribute('data-receipt')))
+  const rcAt = (id) => rcOrder.indexOf(id)
+  check(
+    rcAt(verifyRid) >= 0 && rcAt(verifyRid) < rcAt(revertRid) && rcAt(revertRid) < rcAt(quotaRid),
+    'the receipts page lists the newest write first',
+  )
+  check(
+    (await rcRevert.getByText('Seeded to test undo.').count()) === 1 &&
+      (await rcRevert.getByRole('link', { name: 'https://example.com/receipts-undo' }).count()) ===
+        1 &&
+      (await rcRevert.locator('[data-sources] a[href*="/doc/"]').count()) >= 1,
+    'a receipt row shows why, an address source as a link, and a vault source as a document link',
+  )
+  check((await rcOld.getAttribute('data-check')) === 'unchecked', 'a new receipt is unchecked')
+
+  // Filter by check state.
+  await rpage.getByLabel('Actor').fill('nobody-e2e')
+  await rpage.getByText('No receipt matches.').waitFor()
+  check((await rcRows.count()) === 0, 'the actor filter drops other actors')
+  await rpage.getByLabel('Actor').fill('')
+  await rcRevert.waitFor()
+
+  // Undo: the row asks, then reverts. No browser dialog.
+  await rcRevert.getByRole('button', { name: 'Undo', exact: true }).click()
+  const confirmUndo = rcRevert.getByRole('button', { name: 'Confirm undo' })
+  await confirmUndo.waitFor()
+  check(
+    (await rcRevert.getByRole('button', { name: 'Cancel' }).count()) === 1 &&
+      rcDialogs.length === 0,
+    'Undo asks in the row with Confirm undo and Cancel, and no dialog opens',
+  )
+  await confirmUndo.click()
+  await rpage.locator(`[data-outcomes] [data-undo="${revertRid}"]`).waitFor()
+  await rcRow(revertRid, 'data-undone="true"').waitFor()
+  check(
+    (await rcRevert.getAttribute('data-undone')) === 'true',
+    'after the confirm the row is marked undone',
+  )
+  check(
+    (await rpage.locator('[data-outcomes] [data-undo]').count()) >= 1,
+    'the undo shows in the Outcomes section',
+  )
+  check(rcDialogs.length === 0, 'the receipts page opened no browser dialog')
+
+  // Mark verified.
+  await rcVerify.getByRole('button', { name: 'Mark verified' }).click()
+  await rcRow(verifyRid, 'data-check="verified"').waitFor()
+  check(
+    (await rcVerify.locator('[data-check-chip="verified"]').count()) === 1,
+    'Mark verified shows a verified chip',
+  )
+
+  // Mark wrong needs a note.
+  await rcOld.getByRole('button', { name: 'Mark wrong' }).click()
+  const saveWrong = rcOld.getByRole('button', { name: 'Save wrong' })
+  check(await saveWrong.isDisabled(), 'Mark wrong needs a note before it saves')
+  await rcOld.getByLabel('What is wrong').fill('The quota is 70 percent.')
+  await saveWrong.click()
+  await rcRow(quotaRid, 'data-check="wrong"').waitFor()
+  check(
+    (await rcOld.getByText('The quota is 70 percent.').count()) === 1,
+    'the wrong mark shows its note',
+  )
+  check(
+    rerrors.length === 0,
+    `the receipts page logs no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
+  )
 
   // para serve login: a login key one day from its end renews on the first page load, and the
   // browser stays signed in with review:decide.

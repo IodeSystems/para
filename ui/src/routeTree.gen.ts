@@ -17,6 +17,7 @@ import { Route as AuthedAgendaRouteImport } from './routes/_authed.agenda'
 import { Route as AuthedFrictionRouteImport } from './routes/_authed.friction'
 import { Route as AuthedHealthRouteImport } from './routes/_authed.health'
 import { Route as AuthedPolicyRouteImport } from './routes/_authed.policy'
+import { Route as AuthedReceiptsRouteImport } from './routes/_authed.receipts'
 import { Route as AuthedRequestsRouteImport } from './routes/_authed.requests'
 import { Route as AuthedReviewRouteImport } from './routes/_authed.review'
 import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
@@ -81,6 +82,11 @@ const AuthedHealthRoute = AuthedHealthRouteImport.update({
 const AuthedPolicyRoute = AuthedPolicyRouteImport.update({
   id: '/policy',
   path: '/policy',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedReceiptsRoute = AuthedReceiptsRouteImport.update({
+  id: '/receipts',
+  path: '/receipts',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedRequestsRoute = AuthedRequestsRouteImport.update({
@@ -222,6 +228,7 @@ export interface FileRoutesByFullPath {
   '/friction': typeof AuthedFrictionRoute
   '/health': typeof AuthedHealthRoute
   '/policy': typeof AuthedPolicyRoute
+  '/receipts': typeof AuthedReceiptsRoute
   '/requests': typeof AuthedRequestsRoute
   '/review': typeof AuthedReviewRoute
   '/search': typeof AuthedSearchRoute
@@ -257,6 +264,7 @@ export interface FileRoutesByTo {
   '/friction': typeof AuthedFrictionRoute
   '/health': typeof AuthedHealthRoute
   '/policy': typeof AuthedPolicyRoute
+  '/receipts': typeof AuthedReceiptsRoute
   '/requests': typeof AuthedRequestsRoute
   '/review': typeof AuthedReviewRoute
   '/search': typeof AuthedSearchRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/_authed/friction': typeof AuthedFrictionRoute
   '/_authed/health': typeof AuthedHealthRoute
   '/_authed/policy': typeof AuthedPolicyRoute
+  '/_authed/receipts': typeof AuthedReceiptsRoute
   '/_authed/requests': typeof AuthedRequestsRoute
   '/_authed/review': typeof AuthedReviewRoute
   '/_authed/search': typeof AuthedSearchRoute
@@ -331,6 +340,7 @@ export interface FileRouteTypes {
     | '/friction'
     | '/health'
     | '/policy'
+    | '/receipts'
     | '/requests'
     | '/review'
     | '/search'
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/friction'
     | '/health'
     | '/policy'
+    | '/receipts'
     | '/requests'
     | '/review'
     | '/search'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/_authed/friction'
     | '/_authed/health'
     | '/_authed/policy'
+    | '/_authed/receipts'
     | '/_authed/requests'
     | '/_authed/review'
     | '/_authed/search'
@@ -492,6 +504,13 @@ declare module '@tanstack/react-router' {
       path: '/policy'
       fullPath: '/policy'
       preLoaderRoute: typeof AuthedPolicyRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/receipts': {
+      id: '/_authed/receipts'
+      path: '/receipts'
+      fullPath: '/receipts'
+      preLoaderRoute: typeof AuthedReceiptsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/requests': {
@@ -685,6 +704,7 @@ interface AuthedRouteChildren {
   AuthedFrictionRoute: typeof AuthedFrictionRoute
   AuthedHealthRoute: typeof AuthedHealthRoute
   AuthedPolicyRoute: typeof AuthedPolicyRoute
+  AuthedReceiptsRoute: typeof AuthedReceiptsRoute
   AuthedRequestsRoute: typeof AuthedRequestsRoute
   AuthedReviewRoute: typeof AuthedReviewRoute
   AuthedSearchRoute: typeof AuthedSearchRoute
@@ -719,6 +739,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedFrictionRoute: AuthedFrictionRoute,
   AuthedHealthRoute: AuthedHealthRoute,
   AuthedPolicyRoute: AuthedPolicyRoute,
+  AuthedReceiptsRoute: AuthedReceiptsRoute,
   AuthedRequestsRoute: AuthedRequestsRoute,
   AuthedReviewRoute: AuthedReviewRoute,
   AuthedSearchRoute: AuthedSearchRoute,

@@ -50,3 +50,19 @@ export function groupByDay<T extends Stamped>(rows: T[]): DayGroup<T>[] {
 
 // undoCommand is the CLI command that reverts one write.
 export const undoCommand = (id: string): string => `para receipt undo ${id}`
+
+export type CheckState = 'unchecked' | 'verified' | 'wrong'
+
+// checkTone is the chip tone of a receipt's check state.
+export const checkTone = (c: CheckState): 'quiet' | 'good' | 'bad' =>
+  c === 'verified' ? 'good' : c === 'wrong' ? 'bad' : 'quiet'
+
+// isUrl tells a web address in a receipt's sources from a vault id.
+export const isUrl = (s: string): boolean => /^https?:\/\//i.test(s)
+
+// emptyToUndefined turns a blank filter field into no filter.
+export const emptyToUndefined = (s: string): string | undefined => s.trim() || undefined
+
+// noteRequired: a wrong verdict needs a note that says what is wrong.
+export const noteRequired = (verdict: 'verified' | 'wrong', note: string): boolean =>
+  verdict === 'wrong' && note.trim() === ''
