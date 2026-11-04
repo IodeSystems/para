@@ -3,7 +3,10 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
+	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -636,4 +639,85 @@ func TestOwnAddressCountsAsLocal(t *testing.T) {
 	// A rules file that names no loopback does not admit the own address.
 	f.rules("acme", "allow / 198.51.100.7\n")
 	wantStatus(t, f.do(call{target: list, token: tok, peer: ownPeer}), 403)
+}
+
+// TestSessionRenew: a browser session of a login key near its end gets a new
+// key with the same scopes and a new cookie; the old key is revoked. A bearer
+// key, a plain key, an admin session, and an expired key cannot renew.
+func TestSessionRenew(t *testing.T) {
+	f := newFixture(t)
+	origin := map[string]string{"Origin": "http://" + hostA}
+	renew := func(cookie string) *httptest.ResponseRecorder {
+		h := map[string]string{"Cookie": cookie}
+		maps.Copy(h, origin)
+		return f.do(call{method: post, target: "/auth/session/renew", header: h})
+	}
+	scopes := []string{netguard.ScopeVaultRead, netguard.ScopeReviewDecide}
+	old, tok, err := f.keyA.CreateLogin(scopes, 3*24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Bearer: refused, even for the login key itself.
+	wantStatus(t, f.do(call{method: post, target: "/auth/session/renew", token: tok, header: origin}), 403)
+	cookie := netguard.CookieName + "=" + f.session(tok)
+	me := f.do(call{target: "/auth/session", header: map[string]string{"Cookie": cookie}})
+	var v SessionView
+	if err := json.Unmarshal(me.Body.Bytes(), &v); err != nil || !v.Login || v.Expires == nil {
+		t.Fatalf("session view %+v %v", v, err)
+	}
+	w := renew(cookie)
+	wantStatus(t, w, 200)
+	var body SessionCreateBody
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.Key == old.Name || strings.Join(body.Scopes, ",") != strings.Join(scopes, ",") || !strings.HasPrefix(body.Key, "viewer-") {
+		t.Errorf("renewed %+v", body)
+	}
+	if strings.Contains(w.Body.String(), "para_viewer") {
+		t.Error("the answer holds the new token")
+	}
+	var next string
+	for _, c := range w.Result().Cookies() {
+		if c.Name == netguard.CookieName {
+			next = netguard.CookieName + "=" + c.Value
+		}
+	}
+	wantStatus(t, f.do(call{target: "/auth/session", header: map[string]string{"Cookie": next}}), 200)
+	wantStatus(t, f.do(call{target: "/auth/session", header: map[string]string{"Cookie": cookie}}), 401)
+	wantStatus(t, f.do(call{target: "/auth/session", token: tok}), 401)
+	// The event names the two keys and nothing else.
+	evs, err := os.ReadDir(filepath.Join(filepath.Join(filepath.Dir(f.home), "v-acme"), "events"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range evs {
+		b, _ := os.ReadFile(filepath.Join(filepath.Join(filepath.Dir(f.home), "v-acme"), "events", e.Name()))
+		if strings.Contains(string(b), `"op":"login_renew"`) && strings.Contains(string(b), old.Name) && strings.Contains(string(b), body.Key) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("no login_renew event")
+	}
+	// The new key is 30 days out: not due.
+	wantStatus(t, renew(next), 409)
+	// A plain key's session cannot renew.
+	plain := f.key(f.keyA, "web", scopes...)
+	wantStatus(t, renew(netguard.CookieName+"="+f.session(plain)), 403)
+	// An admin session cannot renew.
+	adm, err := f.keyA.AdminToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, renew(netguard.CookieName+"="+f.session(adm)), 403)
+	// Expired: the gate refuses before the handler.
+	past := keys.New(f.keyA.Dir())
+	past.Now = func() time.Time { return time.Now().Add(-48 * time.Hour) }
+	_, gone, err := past.CreateLogin(scopes, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantStatus(t, f.do(call{method: post, target: "/auth/session", token: gone}), 401)
 }

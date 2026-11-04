@@ -63,6 +63,8 @@ type Principal struct {
 	Session bool // authenticated by a browser session cookie
 	// Expires is when the credential ends, or nil.
 	Expires *time.Time
+	// Login: a browser sign-in key, which can renew.
+	Login bool
 }
 
 // Has reports whether p can call a route with this scope.

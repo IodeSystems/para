@@ -220,3 +220,82 @@ func TestListHidesNothingButIsSorted(t *testing.T) {
 		t.Fatalf("%+v %v", list, err)
 	}
 }
+
+func TestCreateLoginLife(t *testing.T) {
+	s := newStore(t)
+	if _, _, err := s.CreateLogin([]string{"vault:read"}, LoginMaxTTL+time.Hour); err == nil {
+		t.Error("a login key over 90 days was made")
+	}
+	if _, _, err := s.CreateLogin([]string{"vault:read"}, 0); err == nil {
+		t.Error("a login key with no expiry was made")
+	}
+	k, tok, err := s.CreateLogin([]string{"vault:read", "review:decide"}, LoginTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !k.Login || !strings.HasPrefix(k.Name, "viewer-") || k.Expires == nil || k.Expires.Sub(k.Created) != LoginTTL {
+		t.Errorf("login key %+v", k)
+	}
+	id, err := s.Bearer(tok)
+	if err != nil || !id.Login {
+		t.Errorf("bearer %+v %v", id, err)
+	}
+	if got := s.LastUsed(k.Name); got.IsZero() {
+		t.Error("use not noted")
+	}
+	plain, _, _ := s.Create("api", []string{"vault:read"}, nil, time.Hour)
+	if plain.Login {
+		t.Error("a plain key is a login key")
+	}
+	act, err := s.ActiveLogins()
+	if err != nil || len(act) != 1 || act[0].Name != k.Name {
+		t.Errorf("active logins %+v %v", act, err)
+	}
+}
+
+func TestRenew(t *testing.T) {
+	s := newStore(t)
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+	s.Now = func() time.Time { return now }
+	scopes := []string{"vault:read", "review:decide"}
+	old, oldTok, err := s.CreateLogin(scopes, LoginTTL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Renew(old.Name); !errors.Is(err, ErrNotRenewable) {
+		t.Errorf("renew 30 days out: %v", err)
+	}
+	now = now.Add(LoginTTL - 3*24*time.Hour)
+	k, tok, err := s.Renew(old.Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if k.Name == old.Name || !k.Login || strings.Join(k.Scopes, ",") != strings.Join(scopes, ",") || k.Expires.Sub(now) != LoginTTL {
+		t.Errorf("renewed %+v", k)
+	}
+	if _, err := s.Bearer(oldTok); !errors.Is(err, ErrInvalid) {
+		t.Error("the old key still works")
+	}
+	if _, err := s.Bearer(tok); err != nil {
+		t.Errorf("the new key: %v", err)
+	}
+	if _, _, err := s.Renew(old.Name); !errors.Is(err, ErrInvalid) {
+		t.Errorf("a revoked key renewed: %v", err)
+	}
+	// Expired: refused.
+	now = now.Add(LoginTTL + time.Second)
+	if _, _, err := s.Renew(k.Name); !errors.Is(err, ErrInvalid) {
+		t.Errorf("an expired key renewed: %v", err)
+	}
+	// A plain key cannot renew, even near its expiry.
+	plain, _, _ := s.Create("api", scopes, nil, time.Hour)
+	if _, _, err := s.Renew(plain.Name); !errors.Is(err, ErrNotRenewable) {
+		t.Errorf("a plain key renewed: %v", err)
+	}
+	// A short login key renews to the default life.
+	short, _, _ := s.CreateLogin(scopes, 24*time.Hour)
+	k2, _, err := s.Renew(short.Name)
+	if err != nil || k2.Expires.Sub(now) != LoginTTL {
+		t.Errorf("short renew %+v %v", k2, err)
+	}
+}

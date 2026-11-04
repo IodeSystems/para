@@ -19,12 +19,18 @@ type SessionView struct {
 	Admin   bool     `json:"admin"`
 	Scopes  []string `json:"scopes"`
 	Surface string   `json:"surface"`
+	// Expires is when the key ends, or absent. The session ends with it.
+	Expires *time.Time `json:"expires,omitempty"`
+	// Login: the key is a browser sign-in key, which renews near its expiry.
+	Login bool `json:"login,omitempty"`
 }
 
-// SessionCreateBody is the answer to POST /auth/session.
+// SessionCreateBody is the answer to POST /auth/session and to POST
+// /auth/session/renew.
 type SessionCreateBody struct {
 	SessionView
-	Expires time.Time `json:"expires"`
+	// SessionExpires is when the cookie ends.
+	SessionExpires time.Time `json:"session_expires"`
 }
 
 type sessionGetOutput struct{ Body SessionView }
@@ -50,7 +56,7 @@ func view(b *boundVault) SessionView {
 	if p.Admin {
 		scopes = append([]string{netguard.ScopeAdmin}, netguard.Scopes...)
 	}
-	return SessionView{Vault: b.req.Vault, Key: p.Name, Admin: p.Admin, Scopes: scopes, Surface: b.surface}
+	return SessionView{Vault: b.req.Vault, Key: p.Name, Admin: p.Admin, Scopes: scopes, Surface: b.surface, Expires: p.Expires, Login: p.Login}
 }
 
 // sessionCookie has no Domain, so it stays on this vault's host. Secure follows
@@ -90,10 +96,18 @@ func registerSession(r *registrar) {
 				b.t.log.Error("session create", "vault", b.t.id, "error", err)
 				return nil, huma.Error500InternalServerError("internal error")
 			}
-			out := &sessionCreateOutput{Body: SessionCreateBody{SessionView: view(b), Expires: exp}}
+			out := &sessionCreateOutput{Body: SessionCreateBody{SessionView: view(b), SessionExpires: exp}}
 			out.Body.Surface = surfacePWA
 			out.SetCookie = sessionCookie(b.req.Client, tok, int(time.Until(exp).Seconds()), exp)
 			return out, nil
+		})
+	raw(r, "authSessionRenew", post, "/auth/session/renew", netguard.ScopeAnyKey, "Replace the browser's login key near its expiry: a new key with the same scopes, the old one revoked",
+		func(ctx context.Context, _ *noInput) (*sessionCreateOutput, error) {
+			b, err := s.bound(ctx)
+			if err != nil {
+				return nil, err
+			}
+			return s.renew(ctx, b)
 		})
 	raw(r, "authSessionDelete", post, "/auth/session/delete", netguard.ScopeAnyKey, "End the caller's browser session",
 		func(ctx context.Context, _ *noInput) (*sessionDeleteOutput, error) {
@@ -227,4 +241,41 @@ func checkScopes(list []string) error {
 		}
 	}
 	return nil
+}
+
+// renew replaces the login key of a browser session. Only a person in the
+// browser can renew: the caller must come by session cookie, and its key must
+// be a login key. The new token never leaves the server; the browser gets a new
+// session cookie for the new key. The event holds the two key names only.
+func (s *Server) renew(ctx context.Context, b *boundVault) (*sessionCreateOutput, error) {
+	p := b.req.Principal
+	if !p.Session || p.Admin || !p.Login {
+		return nil, huma.Error403Forbidden("only a browser session of a login key can renew: run para serve login")
+	}
+	k, _, err := b.t.keys.Renew(p.Name)
+	switch {
+	case errors.Is(err, keys.ErrNotRenewable):
+		return nil, huma.Error409Conflict(b.t.public(err))
+	case errors.Is(err, keys.ErrInvalid):
+		return nil, huma.Error401Unauthorized("the key is no longer valid: run para serve login")
+	case err != nil:
+		b.t.log.Error("session renew", "vault", b.t.id, "error", err)
+		return nil, huma.Error500InternalServerError("internal error")
+	}
+	tok, exp, err := b.t.keys.NewSession(keys.Identity{Name: k.Name, Expires: k.Expires})
+	if err != nil {
+		b.t.log.Error("session renew", "vault", b.t.id, "error", err)
+		return nil, huma.Error500InternalServerError("internal error")
+	}
+	if old := netguard.CookieFrom(ctx); old != "" {
+		_ = b.t.keys.EndSession(old)
+	}
+	if err := b.deps().Store.Record(ctx, "login_renew", "", p.Name, k.Name, ""); err != nil {
+		b.t.log.Error("session renew event", "vault", b.t.id, "error", err)
+	}
+	v := view(b)
+	v.Key, v.Scopes, v.Expires, v.Surface = k.Name, k.Scopes, k.Expires, surfacePWA
+	out := &sessionCreateOutput{Body: SessionCreateBody{SessionView: v, SessionExpires: exp}}
+	out.SetCookie = sessionCookie(b.req.Client, tok, int(time.Until(exp).Seconds()), exp)
+	return out, nil
 }

@@ -59,7 +59,10 @@ type Key struct {
 	Created time.Time  `json:"created"`
 	Expires *time.Time `json:"expires,omitempty"`
 	Revoked *time.Time `json:"revoked,omitempty"`
-	Hash    string     `json:"hash"`
+	// Login marks a browser sign-in key made by `para serve login` or `para
+	// open`. Only a login key can renew, and logout revokes only these.
+	Login bool   `json:"login,omitempty"`
+	Hash  string `json:"hash"`
 }
 
 type session struct {
@@ -167,6 +170,10 @@ func parseBlock(v string) (netip.Prefix, error) {
 // Create makes a key and returns its token. The token is shown once. A name is
 // never reused, so an event's actor keeps one meaning.
 func (s *Store) Create(name string, scopes, allowIP []string, ttl time.Duration) (Key, string, error) {
+	return s.create(name, scopes, allowIP, ttl, false)
+}
+
+func (s *Store) create(name string, scopes, allowIP []string, ttl time.Duration, login bool) (Key, string, error) {
 	if !ValidName(name) {
 		return Key{}, "", fmt.Errorf("keys: create: bad name %q: use lowercase letters, digits, and hyphens", name)
 	}
@@ -187,7 +194,7 @@ func (s *Store) Create(name string, scopes, allowIP []string, ttl time.Duration)
 		return Key{}, "", err
 	}
 	now := s.Now().UTC()
-	k := Key{Name: name, Scopes: scopes, AllowIP: allowIP, Created: now, Hash: hash(sec)}
+	k := Key{Name: name, Scopes: scopes, AllowIP: allowIP, Created: now, Login: login, Hash: hash(sec)}
 	if ttl > 0 {
 		e := now.Add(ttl)
 		k.Expires = &e
@@ -283,6 +290,7 @@ type Identity struct {
 	AllowIP []string
 	Session bool
 	Expires *time.Time
+	Login   bool // a login key: it can renew
 }
 
 // AllowsIP reports whether addr may use this identity. An empty list allows
@@ -328,14 +336,18 @@ func (s *Store) byKey(name, h string, now time.Time) (Identity, error) {
 	if !equal(h, k.Hash) {
 		return Identity{}, ErrInvalid
 	}
-	return k.identity(now)
+	id, err := k.identity(now)
+	if err == nil {
+		s.markUsed(k, now)
+	}
+	return id, err
 }
 
 func (k Key) identity(now time.Time) (Identity, error) {
 	if k.Revoked != nil || (k.Expires != nil && !now.Before(*k.Expires)) {
 		return Identity{}, ErrInvalid
 	}
-	return Identity{Name: k.Name, Scopes: k.Scopes, AllowIP: k.AllowIP, Expires: k.Expires}, nil
+	return Identity{Name: k.Name, Scopes: k.Scopes, AllowIP: k.AllowIP, Expires: k.Expires, Login: k.Login}, nil
 }
 
 // Session resolves the token of a session cookie.
@@ -363,6 +375,9 @@ func (s *Store) Session(token string) (Identity, error) {
 	}
 	id, err := k.identity(now)
 	id.Session = true
+	if err == nil {
+		s.markUsed(k, now)
+	}
 	return id, err
 }
 
@@ -411,4 +426,130 @@ func secret() (string, error) {
 		return "", fmt.Errorf("keys: random: %w", err)
 	}
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// Login keys: the browser sign-in of `para serve login`.
+const (
+	// LoginTTL is the default life of a login key.
+	LoginTTL = 30 * 24 * time.Hour
+	// LoginMaxTTL is the longest life a login key can have.
+	LoginMaxTTL = 90 * 24 * time.Hour
+	// RenewWindow is how close to its expiry a login key can renew.
+	RenewWindow = 7 * 24 * time.Hour
+	// loginPrefix starts the name of every login key.
+	loginPrefix = "viewer-"
+	// usedEvery is how often the last use of a login key is written.
+	usedEvery = time.Minute
+)
+
+// ErrNotRenewable is a renew of a key that is not a login key with an expiry,
+// or one not yet within RenewWindow of it.
+var ErrNotRenewable = errors.New("keys: not renewable")
+
+// CreateLogin makes a login key: viewer-<time>-<random>.
+func (s *Store) CreateLogin(scopes []string, ttl time.Duration) (Key, string, error) {
+	return s.createLogin(scopes, nil, ttl)
+}
+
+func (s *Store) createLogin(scopes, allowIP []string, ttl time.Duration) (Key, string, error) {
+	if ttl <= 0 || ttl > LoginMaxTTL {
+		return Key{}, "", fmt.Errorf("keys: create login: life must be more than 0 and at most %d days", int(LoginMaxTTL/(24*time.Hour)))
+	}
+	sfx, err := secret()
+	if err != nil {
+		return Key{}, "", err
+	}
+	tag := strings.ToLower(strings.NewReplacer("-", "", "_", "").Replace(sfx))
+	if len(tag) > 6 {
+		tag = tag[:6]
+	}
+	name := loginPrefix + s.Now().UTC().Format("20060102-150405") + "-" + tag
+	return s.create(name, scopes, allowIP, ttl, true)
+}
+
+// ActiveLogins returns the login keys that are not revoked or expired.
+func (s *Store) ActiveLogins() ([]Key, error) {
+	list, err := s.List()
+	if err != nil {
+		return nil, err
+	}
+	now := s.Now()
+	out := []Key{}
+	for _, k := range list {
+		if k.Login && k.Revoked == nil && (k.Expires == nil || now.Before(*k.Expires)) {
+			out = append(out, k)
+		}
+	}
+	return out, nil
+}
+
+// Renew replaces a valid login key within RenewWindow of its expiry: a new
+// login key with the same scopes and address list, and the old one revoked.
+// The new key lives as long as the old one did, or LoginTTL when that was no
+// longer than RenewWindow. An expired or revoked key cannot renew.
+func (s *Store) Renew(name string) (Key, string, error) {
+	if !nameRe.MatchString(name) {
+		return Key{}, "", ErrInvalid
+	}
+	old, err := s.load(name)
+	if err != nil {
+		return Key{}, "", ErrInvalid
+	}
+	now := s.Now()
+	if _, err := old.identity(now); err != nil {
+		return Key{}, "", ErrInvalid
+	}
+	if !old.Login || old.Expires == nil {
+		return Key{}, "", fmt.Errorf("%w: %s is not a login key", ErrNotRenewable, name)
+	}
+	if old.Expires.Sub(now) > RenewWindow {
+		return Key{}, "", fmt.Errorf("%w: %s is not within %d days of its expiry", ErrNotRenewable, name, int(RenewWindow/(24*time.Hour)))
+	}
+	ttl := old.Expires.Sub(old.Created)
+	if ttl <= RenewWindow {
+		ttl = LoginTTL
+	}
+	ttl = min(ttl, LoginMaxTTL)
+	k, tok, err := s.createLogin(old.Scopes, old.AllowIP, ttl)
+	if err != nil {
+		return Key{}, "", err
+	}
+	if _, err := s.Revoke(name); err != nil {
+		_, _ = s.Revoke(k.Name)
+		return Key{}, "", err
+	}
+	return k, tok, nil
+}
+
+func (s *Store) usedPath(name string) string { return filepath.Join(s.dir, "used", name) }
+
+// markUsed notes the use of a login key, at most once a minute. The time is the
+// mtime of an empty file, so the key file is never rewritten.
+func (s *Store) markUsed(k Key, now time.Time) {
+	if !k.Login {
+		return
+	}
+	p := s.usedPath(k.Name)
+	if info, err := os.Stat(p); err == nil {
+		if now.Sub(info.ModTime()) < usedEvery {
+			return
+		}
+	} else if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+		return
+	} else if err := os.WriteFile(p, nil, 0o600); err != nil {
+		return
+	}
+	_ = os.Chtimes(p, now, now)
+}
+
+// LastUsed is when a login key was last used, or the zero time.
+func (s *Store) LastUsed(name string) time.Time {
+	if !nameRe.MatchString(name) {
+		return time.Time{}
+	}
+	info, err := os.Stat(s.usedPath(name))
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
 }

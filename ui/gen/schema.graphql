@@ -36,6 +36,7 @@ type ParaV1MutationNamespace {
   attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
+  authSessionRenew: para_SessionCreateBody @derived(operationId: "authSessionRenew")
   calendarCompare(body: para_CalendarCompareInputInput!): para_CalendarCompareOutput @derived(operationId: "calendarCompare")
   calendarExport(body: para_CalendarExportInputInput!): para_CalendarExportOutput @derived(operationId: "calendarExport")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
@@ -5847,9 +5848,11 @@ type para_SelfServe {
 
 type para_SessionCreateBody {
   admin: Boolean!
-  expires: String!
+  expires: String
   key: String!
+  login: Boolean
   scopes: [String!]!
+  sessionExpires: String!
   surface: String!
   vault: String!
 }
@@ -5860,7 +5863,9 @@ type para_SessionDeleteBody {
 
 type para_SessionView {
   admin: Boolean!
+  expires: String
   key: String!
+  login: Boolean
   scopes: [String!]!
   surface: String!
   vault: String!

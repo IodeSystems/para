@@ -29,6 +29,7 @@ func TestNamingRule(t *testing.T) {
 		"authSessionGet":    "/auth/session",
 		"authSessionCreate": "/auth/session",
 		"authSessionDelete": "/auth/session/delete",
+		"authSessionRenew":  "/auth/session/renew",
 		"adminKeyList":      "/api/v1/admin/key/list",
 		"adminKeyCreate":    "/api/v1/admin/key/create",
 		"adminKeyRevoke":    "/api/v1/admin/key/revoke",

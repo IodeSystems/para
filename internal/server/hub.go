@@ -223,7 +223,7 @@ func (t *Tenant) Authenticate(cred netguard.Credential, c netguard.Client) (netg
 	if !id.AllowsIP(c.Addr) {
 		return netguard.Principal{}, netguard.ErrForbidden
 	}
-	return netguard.Principal{Name: id.Name, Scopes: id.Scopes, Admin: id.Admin, Session: id.Session, Expires: id.Expires}, nil
+	return netguard.Principal{Name: id.Name, Scopes: id.Scopes, Admin: id.Admin, Session: id.Session, Expires: id.Expires, Login: id.Login}, nil
 }
 
 // watchDocs reconciles the vault when its document folders change.
