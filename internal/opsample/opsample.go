@@ -19,6 +19,8 @@ var Inputs = map[string]string{
 	"vault_upgrade":             `{"dry_run":true}`,
 	"area_add":                  `{"title":"Health"}`,
 	"area_show":                 `{"id":"area-sample"}`,
+	"area_review":               `{"id":"area-sample","note":"Checked the sample."}`,
+	"rules_in_effect":           `{"id":"area-sample"}`,
 	"area_link_add":             `{"id":"area-sample","label":"Repo","kind":"repo","target":"~/src/sample"}`,
 	"area_link_remove":          `{"id":"area-sample","label":"Runbook"}`,
 	"project_link_add":          `{"id":"project-sample","label":"Plan","kind":"plan","target":"~/doc/plan.md"}`,

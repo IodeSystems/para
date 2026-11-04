@@ -169,6 +169,10 @@ type Meta struct {
 	Ecosystem       *jsonValue         `json:"ecosystem,omitempty"`
 	Rank            int                `json:"rank,omitempty"`
 	Validation      string             `json:"validation,omitempty"`
+	Cadence         string             `json:"cadence,omitempty"`
+	LastReviewed    string             `json:"last_reviewed,omitempty"`
+	Concepts        []string           `json:"concepts,omitempty"`
+	Refines         string             `json:"refines,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 }
@@ -191,6 +195,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Validations)
 	addEnum(reg, model.PivotActions)
 	addEnum(reg, model.AreaStatuses)
+	addEnum(reg, model.AreaKinds)
 	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
 	addEnum(reg, model.TaskOutcomes)

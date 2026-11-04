@@ -414,6 +414,11 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 	if err := checkDoc(doc); err != nil {
 		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
 	}
+	if slices.ContainsFunc([]string{"area", "concepts", "kind", "cadence", "refines"}, func(k string) bool { _, ok := in.Fields[k]; return ok }) {
+		if err := checkKindLinks(ctx, d.Store, doc); err != nil {
+			return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
+		}
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)

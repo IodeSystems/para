@@ -72,7 +72,8 @@ func newProjectCmd(l *loader) *cobra.Command {
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ProjectAddInput) {
 				fs.StringVar(&in.Owner, "owner", "", "project owner (default: the vault's owner property, else self)")
-				fs.StringVar(&in.Area, "area", "", "area id")
+				fs.StringVar(&in.Area, "area", "", "id of the goal's home, an area of kind project")
+				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on (repeat or comma-separate)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a goal that never finishes is an area")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
@@ -84,12 +85,14 @@ func newProjectCmd(l *loader) *cobra.Command {
 			Text: printID(func(o ops.ProjectAddOutput) string { return o.ID }),
 		}),
 		opCommand(l, ops.ProjectEdit, binding[ops.ProjectEditInput, ops.ProjectEditOutput]{
-			Use:  "edit <id> [--done-when <text>] [--due <date>]",
+			Use:  "edit <id> [--done-when <text>] [--due <date>] [--area <id>] [--concepts <ids>]",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ProjectEditInput) {
-				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you only change the date)")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you change only the date, area, or concepts)")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 				fs.BoolVar(&in.ClearDue, "clear-due", false, "remove the due date")
+				fs.StringVar(&in.Area, "area", "", "id of the goal's home, an area of kind project")
+				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on; replaces the list")
 			},
 			Bind: func(args []string, in *ops.ProjectEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.ProjectEditOutput) string { return o.ID }),

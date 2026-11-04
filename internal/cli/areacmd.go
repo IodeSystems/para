@@ -22,6 +22,9 @@ func newAreaCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.ID, "id", "", "document id (default area-<slug of title>)")
 				fs.StringVar((*string)(&in.Status), "status", "", "active or paused (default active)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
+				fs.StringVar((*string)(&in.Kind), "kind", "", "project (default: ongoing work goals call home) or concept (a discipline that spans work)")
+				fs.StringVar(&in.Cadence, "cadence", "", "review cadence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"")
+				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas a project area draws on (repeat or comma-separate)")
 			},
 			Bind: func(args []string, in *ops.AreaAddInput) error {
 				in.Title = strings.Join(args, " ")
@@ -35,7 +38,7 @@ func newAreaCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.AreaListOutput) error {
 				p := &printer{w: w}
 				for _, a := range out.Areas {
-					p.f("%s\t%s\t%d links\t%s\n", a.ID, a.Status, len(a.Links), a.Title)
+					p.f("%s\t%s\t%s\t%d links\t%s\n", a.ID, a.Status, a.Kind, len(a.Links), a.Title)
 				}
 				return p.err
 			},
@@ -47,8 +50,20 @@ func newAreaCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.AreaShowOutput) error {
 				p := &printer{w: w}
 				a := out.Area
-				p.f("%s\t%s\t%s\n", a.ID, a.Status, a.Title)
+				p.f("%s\t%s\t%s\t%s\n", a.ID, a.Status, a.Kind, a.Title)
+				if a.Cadence != "" {
+					p.f("review\t%s\tlast %s\tnext %s\n", a.Cadence, dash(string(a.LastReviewed)), dash(a.NextReview))
+				}
+				if len(a.Concepts) > 0 {
+					p.f("concepts\t%s\n", strings.Join(a.Concepts, " "))
+				}
 				writeLinks(p, a.Links)
+				if len(out.DrawnOnBy) > 0 {
+					p.f("drawn on by\n")
+					for _, u := range out.DrawnOnBy {
+						p.f("  %s\t%s\t%s\n", u.ID, u.Type, u.Title)
+					}
+				}
 				p.f("projects\n")
 				for _, pr := range out.Projects {
 					p.f("  %s\t%s\t%s\t%s\n", pr.ID, pr.Status, pr.Owner, pr.Title)
@@ -72,8 +87,37 @@ func newAreaCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.AreaReview, binding[ops.AreaReviewInput, ops.AreaReviewOutput]{
+			Use:  "review <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.AreaReviewInput) {
+				fs.StringVar(&in.Note, "note", "", "one line on what the review found")
+			},
+			Bind: func(args []string, in *ops.AreaReviewInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.AreaReviewOutput) error {
+				p := &printer{w: w}
+				p.f("%s\treviewed %s\tnext %s\n", out.ID, out.LastReviewed, dash(out.NextReview))
+				return p.err
+			},
+		}),
 	)
 	return cmd
+}
+
+func newRulesInEffectCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.RulesInEffect, binding[ops.RulesInEffectInput, ops.RulesInEffectOutput]{
+		Use:  "rules-in-effect <id>",
+		Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.RulesInEffectInput) error { in.ID = args[0]; return nil },
+		Text: func(w io.Writer, out ops.RulesInEffectOutput) error {
+			p := &printer{w: w}
+			p.f("scopes\t%s\n", strings.Join(out.Scopes, " "))
+			for _, r := range out.Rules {
+				p.f("%s\t%s\tvia %s\trefines %s\t%s\n", r.ID, r.Type, r.Via, dash(r.Refines), r.Title)
+			}
+			return p.err
+		},
+	})
 }
 
 func writeLinks(p *printer, links []model.Pointer) {

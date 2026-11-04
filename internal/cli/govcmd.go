@@ -278,6 +278,7 @@ func newConstraintCmd(l *loader) *cobra.Command {
 				fs.StringSliceVar(&in.NotIn, "not-in", nil, "scope where it does not hold")
 				fs.StringVar(&in.ReviewBy, "review-by", "", "date to ask again, YYYY-MM-DD")
 				fs.StringVar(&in.Text, "text", "", "body text")
+				fs.StringVar(&in.Refines, "refines", "", "id of the more general constraint this one specializes")
 			},
 			Text: func(w io.Writer, out ops.ConstraintAddOutput) error {
 				_, err := fmt.Fprintln(w, out.ID)
@@ -324,6 +325,7 @@ func newConventionCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Status), "status", "", "draft (default), adopted, or retired")
 				fs.StringSliceVar(&in.AppliesIn, "applies-in", nil, "scope (repeat or comma-separate)")
 				fs.StringVar(&in.Text, "text", "", "body text")
+				fs.StringVar(&in.Refines, "refines", "", "id of the more general convention this one specializes")
 			},
 			Bind: func(args []string, in *ops.ConventionAddInput) error {
 				in.Title = strings.Join(args, " ")

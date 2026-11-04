@@ -18,6 +18,8 @@ type ProjectView struct {
 	Status model.ProjectStatus `json:"status"`
 	Owner  string              `json:"owner"`
 	Area   string              `json:"area,omitempty"`
+	// Concepts are the ids of the concept areas the goal draws on.
+	Concepts []string `json:"concepts"`
 	// DoneWhen is how we know the goal is reached; empty on an older goal.
 	DoneWhen string          `json:"done_when,omitempty"`
 	Due      model.Date      `json:"due,omitempty"`
@@ -34,7 +36,7 @@ func projectView(d model.Document) (ProjectView, error) {
 	if !ok {
 		return ProjectView{}, fmt.Errorf("%s is a %s, not a project", d.ID, d.Meta.Header().Type)
 	}
-	v := ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), DoneWhen: p.DoneWhen, Due: p.Due, Links: p.Links, Rev: d.Rev}
+	v := ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(), Concepts: targets(p.Concepts), DoneWhen: p.DoneWhen, Due: p.Due, Links: p.Links, Rev: d.Rev}
 	if p.HasBrief() {
 		v.Brief = &p.GoalBrief
 	}
@@ -58,8 +60,10 @@ func getProject(ctx context.Context, s store.Store, id string) (model.Document, 
 type ProjectAddInput struct {
 	Title string `json:"title"`
 	Owner string `json:"owner,omitempty"` // default: the vault's owner property, else "self"
-	Area  string `json:"area,omitempty"`  // area id
+	Area  string `json:"area,omitempty"`  // id of an area of kind project: the goal's home
 	Body  string `json:"body,omitempty"`
+	// Concepts are ids of concept areas the goal draws on.
+	Concepts []string `json:"concepts,omitempty"`
 	// DoneWhen is required: how we know the goal is reached, in one line. A
 	// goal that never finishes is an area.
 	DoneWhen string `json:"done_when"`
@@ -102,7 +106,11 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 			return ProjectAddOutput{}, err
 		}
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	concepts, err := conceptLinks(ctx, d.Store, in.Concepts)
+	if err != nil {
+		return ProjectAddOutput{}, err
+	}
+	nd := model.Document{
 		Folder: model.FolderProjects,
 		Title:  title,
 		Body:   strings.TrimSpace(in.Body),
@@ -111,10 +119,15 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 			Status:   model.ProjectActive,
 			Owner:    owner,
 			Area:     area,
+			Concepts: concepts,
 			DoneWhen: doneWhen,
 			Due:      model.Date(in.Due),
 		},
-	})
+	}
+	if err := checkKindLinks(ctx, d.Store, nd); err != nil {
+		return ProjectAddOutput{}, err
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return ProjectAddOutput{}, err
 	}
@@ -170,6 +183,8 @@ type ProjectShowOutput struct {
 	// LastAligned is the date an agent last compared this goal with reality
 	// (align_record), or empty.
 	LastAligned string `json:"last_aligned,omitempty"`
+	// Rules are the conventions and constraints in effect (rules_in_effect).
+	Rules []RuleRef `json:"rules"`
 }
 
 // ProjectShow returns a project and its tasks.
@@ -194,7 +209,11 @@ var ProjectShow = defineRead("project_show", "Show a project and its tasks", fun
 	if err != nil {
 		return ProjectShowOutput{}, err
 	}
-	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs, LastAligned: aligned}, nil
+	rules, err := rulesShort(ctx, d.Store, doc.ID)
+	if err != nil {
+		return ProjectShowOutput{}, err
+	}
+	return ProjectShowOutput{Project: v, Body: doc.Body, Tasks: tasks, Questions: qs, LastAligned: aligned, Rules: rules}, nil
 })
 
 // ProjectCloseInput is the input of project_close.
@@ -277,6 +296,10 @@ type ProjectEditInput struct {
 	DoneWhen string `json:"done_when,omitempty"` // how we know the goal is reached; required unless only the date changes
 	Due      string `json:"due,omitempty"`       // YYYY-MM-DD the goal is due
 	ClearDue bool   `json:"clear_due,omitempty"` // remove the due date
+	// Area is the id of the goal's home, an area of kind project. Concepts
+	// replace the concept areas the goal draws on. Clear either with doc_edit.
+	Area     string   `json:"area,omitempty"`
+	Concepts []string `json:"concepts,omitempty"`
 }
 
 // ProjectEditOutput is the output of project_edit.
@@ -287,13 +310,14 @@ type ProjectEditOutput struct {
 }
 
 // ProjectEdit sets the done condition of a goal.
-var ProjectEdit = define("project_edit", "Set the done condition or the due date of a project (a goal)", func(ctx context.Context, d Deps, in ProjectEditInput) (ProjectEditOutput, error) {
+var ProjectEdit = define("project_edit", "Set the done condition, the due date, the home area, or the concepts of a project (a goal)", func(ctx context.Context, d Deps, in ProjectEditInput) (ProjectEditOutput, error) {
 	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return ProjectEditOutput{}, err
 	}
 	dw := p.DoneWhen
-	if in.DoneWhen != "" || (in.Due == "" && !in.ClearDue) {
+	other := in.Due != "" || in.ClearDue || in.Area != "" || len(in.Concepts) > 0
+	if in.DoneWhen != "" || !other {
 		if dw, err = checkDoneWhen(in.DoneWhen, true); err != nil {
 			return ProjectEditOutput{}, err
 		}
@@ -309,6 +333,19 @@ var ProjectEdit = define("project_edit", "Set the done condition or the due date
 		p.Due = model.Date(in.Due)
 	case in.ClearDue:
 		p.Due = ""
+	}
+	if in.Area != "" {
+		if p.Area, err = areaLink(ctx, d.Store, in.Area); err != nil {
+			return ProjectEditOutput{}, err
+		}
+	}
+	if len(in.Concepts) > 0 {
+		if p.Concepts, err = conceptLinks(ctx, d.Store, in.Concepts); err != nil {
+			return ProjectEditOutput{}, err
+		}
+	}
+	if err := checkKindLinks(ctx, d.Store, doc); err != nil {
+		return ProjectEditOutput{}, err
 	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {

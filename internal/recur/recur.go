@@ -70,6 +70,9 @@ func (r Rule) Next(from, today time.Time) time.Time {
 	}
 }
 
+// After returns the date one step after from.
+func (r Rule) After(from time.Time) time.Time { return r.step(day(from), 1) }
+
 func (r Rule) step(from time.Time, k int) time.Time {
 	if r.Months == 0 {
 		return from.AddDate(0, 0, r.Days*k)

@@ -16,10 +16,11 @@ type ConventionView struct {
 	Title     string                 `json:"title"`
 	Status    model.ConventionStatus `json:"status"`
 	AppliesIn []string               `json:"applies_in"`
+	Refines   string                 `json:"refines,omitempty"` // the convention this one specializes
 }
 
 func conventionView(doc model.Document, c *model.Convention) ConventionView {
-	return ConventionView{ID: doc.ID, Title: doc.Title, Status: c.Status, AppliesIn: nonNil(c.AppliesIn)}
+	return ConventionView{ID: doc.ID, Title: doc.Title, Status: c.Status, AppliesIn: nonNil(c.AppliesIn), Refines: c.Refines.Target()}
 }
 
 func getConvention(ctx context.Context, d Deps, id string) (model.Document, *model.Convention, error) {
@@ -39,7 +40,8 @@ type ConventionAddInput struct {
 	Title     string                 `json:"title"`
 	Text      string                 `json:"text,omitempty"`       // body
 	Status    model.ConventionStatus `json:"status,omitempty"`     // empty means draft
-	AppliesIn []string               `json:"applies_in,omitempty"` // scopes
+	AppliesIn []string               `json:"applies_in,omitempty"` // scopes: words, or ids of areas, goals, and tasks
+	Refines   string                 `json:"refines,omitempty"`    // id of the more general convention this one specializes
 }
 
 // ConventionAddOutput is the output of convention_add.
@@ -61,9 +63,13 @@ var ConventionAdd = define("convention_add", "Record a convention", func(ctx con
 	if !slices.Contains(model.ConventionStatuses, status) {
 		return ConventionAddOutput{}, fmt.Errorf("status %q must be one of %v", in.Status, model.ConventionStatuses)
 	}
+	refines, err := refinesLink(ctx, d.Store, in.Refines, model.TypeConvention)
+	if err != nil {
+		return ConventionAddOutput{}, err
+	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderConventions, Title: title, Body: strings.TrimSpace(in.Text),
-		Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: status, AppliesIn: splitList(in.AppliesIn)},
+		Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: status, AppliesIn: splitList(in.AppliesIn), Refines: refines},
 	})
 	if err != nil {
 		return ConventionAddOutput{}, err

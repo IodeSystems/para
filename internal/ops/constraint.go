@@ -20,12 +20,13 @@ type ConstraintView struct {
 	AppliesIn []string   `json:"applies_in"`
 	NotIn     []string   `json:"not_in"`
 	ReviewBy  model.Date `json:"review_by"`
+	Refines   string     `json:"refines,omitempty"` // the constraint this one specializes
 }
 
 func constraintView(doc model.Document, c *model.Constraint) ConstraintView {
 	return ConstraintView{
 		ID: doc.ID, Says: doc.Title, Why: c.Why, By: c.By, SourceURL: c.Source.URL,
-		AppliesIn: nonNil(c.AppliesIn), NotIn: nonNil(c.NotIn), ReviewBy: c.ReviewBy,
+		AppliesIn: nonNil(c.AppliesIn), NotIn: nonNil(c.NotIn), ReviewBy: c.ReviewBy, Refines: c.Refines.Target(),
 	}
 }
 
@@ -58,6 +59,7 @@ type ConstraintAddInput struct {
 	NotIn     []string `json:"not_in,omitempty"`     // scopes where it does not
 	ReviewBy  string   `json:"review_by"`            // YYYY-MM-DD, when to ask again
 	Text      string   `json:"text,omitempty"`       // optional body
+	Refines   string   `json:"refines,omitempty"`    // id of the more general constraint this one specializes
 }
 
 // ConstraintAddOutput is the output of constraint_add.
@@ -83,6 +85,10 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 	if err := checkDate("review_by", in.ReviewBy); err != nil {
 		return ConstraintAddOutput{}, err
 	}
+	refines, err := refinesLink(ctx, d.Store, in.Refines, model.TypeConstraint)
+	if err != nil {
+		return ConstraintAddOutput{}, err
+	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderConstraints,
 		Title:  f[0],
@@ -92,7 +98,7 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 			Why:    f[1], By: f[2],
 			Source:    model.Source{URL: u, Retrieved: timestamp(), Fidelity: model.FidelityNone, Backend: backendManual},
 			AppliesIn: splitList(in.AppliesIn), NotIn: splitList(in.NotIn),
-			ReviewBy: model.Date(in.ReviewBy),
+			ReviewBy: model.Date(in.ReviewBy), Refines: refines,
 		},
 	})
 	if err != nil {

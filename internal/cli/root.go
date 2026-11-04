@@ -164,6 +164,7 @@ func newRoot(l *loader) *cobra.Command {
 		newProjectCmd(l),
 		newAreaCmd(l),
 		newWhereCmd(l),
+		newRulesInEffectCmd(l),
 		newWaitingCmd(l),
 		newIncidentCmd(l),
 		newMeetingCmd(l),

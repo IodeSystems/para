@@ -30,6 +30,7 @@ type ParaV1MutationNamespace {
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
+  areaReview(body: para_AreaReviewInputInput!): para_AreaReviewOutput @derived(operationId: "areaReview")
   attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
@@ -212,6 +213,7 @@ type ParaV1QueryNamespace {
   rfxWaiting(direction: para_rfxWaitingDirection, today: String): para_RFXWaitingOutput @derived(operationId: "rfxWaiting")
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
+  rulesInEffect(id: String!): para_RulesInEffectOutput @derived(operationId: "rulesInEffect")
   search(
     """id of an area; matches documents that link to it"""
     area: String
@@ -305,6 +307,7 @@ type para_AgendaItem {
 }
 
 enum para_AgendaItemKind {
+  area
   due
   exception
   goal
@@ -394,9 +397,17 @@ input para_AnswerSourceInput {
 
 input para_AreaAddInputInput {
   body: String
+  cadence: String
+  concepts: [String!]
   id: String
+  kind: para_AreaAddInputKind
   status: para_AreaAddInputStatus
   title: String!
+}
+
+enum para_AreaAddInputKind {
+  concept
+  project
 }
 
 enum para_AreaAddInputStatus {
@@ -435,9 +446,22 @@ type para_AreaListOutput {
   areas: [para_AreaView!]!
 }
 
+input para_AreaReviewInputInput {
+  id: String!
+  note: String
+}
+
+type para_AreaReviewOutput {
+  id: String!
+  lastReviewed: String!
+  nextReview: String
+  rev: String!
+}
+
 type para_AreaShowOutput {
   area: para_AreaView!
   body: String!
+  drawnOnBy: [para_AreaUser!]!
   incidents: [para_IncidentView!]!
   lastAligned: String
   notes: [para_NoteView!]!
@@ -447,10 +471,48 @@ type para_AreaShowOutput {
   tasks: [para_TaskView!]!
 }
 
+type para_AreaUser {
+  id: String!
+  title: String!
+  type: para_AreaUserType!
+}
+
+enum para_AreaUserType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
 type para_AreaView {
+  cadence: String
+  concepts: [String!]!
   folder: para_AreaViewFolder!
   id: String!
+  kind: para_AreaViewKind!
+  lastReviewed: String
   links: [para_Pointer!]!
+  nextReview: String
   rev: String!
   status: para_AreaViewStatus!
   title: String!
@@ -475,6 +537,11 @@ enum para_AreaViewFolder {
   requests
   resources
   rfx
+}
+
+enum para_AreaViewKind {
+  concept
+  project
 }
 
 enum para_AreaViewStatus {
@@ -571,6 +638,7 @@ input para_ConstraintAddInputInput {
   appliesIn: [String!]
   by: String!
   notIn: [String!]
+  refines: String
   reviewBy: String!
   says: String!
   source: String!
@@ -593,6 +661,7 @@ type para_ConstraintShowOutput {
   by: String!
   id: String!
   notIn: [String!]!
+  refines: String
   rev: String!
   reviewBy: String!
   says: String!
@@ -605,6 +674,7 @@ type para_ConstraintView {
   by: String!
   id: String!
   notIn: [String!]!
+  refines: String
   reviewBy: String!
   says: String!
   sourceUrl: String!
@@ -639,6 +709,7 @@ type para_ContextDoc {
 
 input para_ConventionAddInputInput {
   appliesIn: [String!]
+  refines: String
   status: para_ConventionAddInputStatus
   text: String
   title: String!
@@ -663,6 +734,7 @@ type para_ConventionShowOutput {
   appliesIn: [String!]!
   body: String!
   id: String!
+  refines: String
   rev: String!
   status: para_ConventionShowOutputStatus!
   title: String!
@@ -677,6 +749,7 @@ enum para_ConventionShowOutputStatus {
 type para_ConventionView {
   appliesIn: [String!]!
   id: String!
+  refines: String
   status: para_ConventionViewStatus!
   title: String!
 }
@@ -2397,11 +2470,13 @@ type para_Meta {
   blockedBy: [String!]
   blocks: [String!]
   by: String
+  cadence: String
   check: String
   checkNote: String
   checkedBy: String
   choice: String
   claimedBy: String
+  concepts: [String!]
   confidence: JSON
   contacts: [para_Contact!]
   context: JSON
@@ -2425,6 +2500,7 @@ type para_Meta {
   healthDismissed: [para_HealthDismissal!]
   incident: String
   kind: String
+  lastReviewed: String
   leaseUntil: String
   links: JSON
   medium: para_MetaMedium
@@ -2458,6 +2534,7 @@ type para_Meta {
   rank: Int
   recommended: String
   recur: String
+  refines: String
   rejectedBy: String
   rejectedReason: String
   request: String
@@ -2967,6 +3044,7 @@ enum para_PolicyViewFidelity {
 input para_ProjectAddInputInput {
   area: String
   body: String
+  concepts: [String!]
   doneWhen: String!
   due: String
   owner: String
@@ -3042,7 +3120,9 @@ enum para_ProjectCloseOutputStatus {
 }
 
 input para_ProjectEditInputInput {
+  area: String
   clearDue: Boolean
+  concepts: [String!]
   doneWhen: String
   due: String
   id: String!
@@ -3063,6 +3143,7 @@ type para_ProjectShowOutput {
   lastAligned: String
   project: para_ProjectView!
   questions: [para_QuestionView!]!
+  rules: [para_RuleRef!]!
   tasks: [para_TaskView!]!
 }
 
@@ -3070,6 +3151,7 @@ type para_ProjectView {
   area: String
   areaName: String
   brief: para_GoalBrief
+  concepts: [String!]!
   doneWhen: String
   due: String
   folder: para_ProjectViewFolder!
@@ -4274,8 +4356,55 @@ type para_RuleAddOutput {
   text: String!
 }
 
+type para_RuleInEffect {
+  id: String!
+  refines: String
+  title: String!
+  type: para_RuleInEffectType!
+  via: String!
+}
+
+enum para_RuleInEffectType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
 type para_RuleListOutput {
   rules: [para_Rule!]!
+}
+
+type para_RuleRef {
+  id: String!
+  title: String!
+  via: String!
+}
+
+type para_RulesInEffectOutput {
+  id: String!
+  rules: [para_RuleInEffect!]!
+  scopes: [String!]!
 }
 
 type para_RunResult {
@@ -4763,6 +4892,7 @@ type para_TaskShowOutput {
   body: String!
   parts: para_TaskParts!
   questions: [para_QuestionView!]!
+  rules: [para_RuleRef!]!
   task: para_TaskView!
   updates: String
 }

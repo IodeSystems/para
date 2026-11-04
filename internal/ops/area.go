@@ -16,8 +16,17 @@ type AreaView struct {
 	Folder model.Folder     `json:"folder"`
 	Title  string           `json:"title"`
 	Status model.AreaStatus `json:"status"`
-	Links  []model.Pointer  `json:"links"`
-	Rev    string           `json:"rev"`
+	// Kind is project or concept; a file with no kind reads as project.
+	Kind model.AreaKind `json:"kind"`
+	// Cadence is how often the owner reviews the area; LastReviewed the date of
+	// the last review, NextReview one cadence after it.
+	Cadence      string     `json:"cadence,omitempty"`
+	LastReviewed model.Date `json:"last_reviewed,omitempty"`
+	NextReview   string     `json:"next_review,omitempty"`
+	// Concepts are the ids of the concept areas a project area draws on.
+	Concepts []string        `json:"concepts"`
+	Links    []model.Pointer `json:"links"`
+	Rev      string          `json:"rev"`
 }
 
 func areaView(d model.Document) (AreaView, error) {
@@ -25,7 +34,8 @@ func areaView(d model.Document) (AreaView, error) {
 	if !ok {
 		return AreaView{}, fmt.Errorf("%s is a %s, not an area", d.ID, d.Meta.Header().Type)
 	}
-	return AreaView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: a.Status, Links: nonNilPointers(a.Links), Rev: d.Rev}, nil
+	return AreaView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: a.Status, Kind: a.Kind.Or(), Cadence: a.Cadence,
+		LastReviewed: a.LastReviewed, NextReview: nextReview(a), Concepts: targets(a.Concepts), Links: nonNilPointers(a.Links), Rev: d.Rev}, nil
 }
 
 // getArea reads a document that must be an area.
@@ -59,6 +69,14 @@ type AreaAddInput struct {
 	ID     string           `json:"id,omitempty"`     // default area-<slug of title>
 	Status model.AreaStatus `json:"status,omitempty"` // default active
 	Body   string           `json:"body,omitempty"`
+	// Kind is project (default: an ongoing body of work goals call home) or
+	// concept (a discipline that spans work).
+	Kind model.AreaKind `json:"kind,omitempty"`
+	// Cadence is how often the owner reviews the area: daily, weekly, monthly,
+	// quarterly, yearly, or every <n> days.
+	Cadence string `json:"cadence,omitempty"`
+	// Concepts are ids of concept areas a project area draws on.
+	Concepts []string `json:"concepts,omitempty"`
 }
 
 // AreaAddOutput is the output of area_add.
@@ -69,7 +87,7 @@ type AreaAddOutput struct {
 }
 
 // AreaAdd creates an area. An area is an ongoing responsibility with no end.
-var AreaAdd = defineSafe("area_add", "Create an area (an ongoing responsibility, such as Health or Money)", func(ctx context.Context, d Deps, in AreaAddInput) (AreaAddOutput, error) {
+var AreaAdd = defineSafe("area_add", "Create an area: kind project, an ongoing body of work goals call home (such as Health or an LLC), or kind concept, a discipline that spans work (such as legal writing); optional review cadence and concepts", func(ctx context.Context, d Deps, in AreaAddInput) (AreaAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return AreaAddOutput{}, err
@@ -81,6 +99,13 @@ var AreaAdd = defineSafe("area_add", "Create an area (an ongoing responsibility,
 	if !slices.Contains(model.AreaStatuses, status) {
 		return AreaAddOutput{}, fmt.Errorf("status %q must be one of %v", in.Status, model.AreaStatuses)
 	}
+	if in.Kind != "" && !slices.Contains(model.AreaKinds, in.Kind) {
+		return AreaAddOutput{}, fmt.Errorf("kind %q must be one of %v", in.Kind, model.AreaKinds)
+	}
+	concepts, err := conceptLinks(ctx, d.Store, in.Concepts)
+	if err != nil {
+		return AreaAddOutput{}, err
+	}
 	id := normID(in.ID)
 	if id == "" {
 		s := slug(title)
@@ -89,10 +114,15 @@ var AreaAdd = defineSafe("area_add", "Create an area (an ongoing responsibility,
 		}
 		id = "area-" + s
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	nd := model.Document{
 		ID: id, Folder: model.FolderAreas, Title: title, Body: strings.TrimSpace(in.Body),
-		Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: status},
-	})
+		Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: status, Kind: in.Kind,
+			Cadence: strings.Join(strings.Fields(in.Cadence), " "), Concepts: concepts},
+	}
+	if err := checkKindLinks(ctx, d.Store, nd); err != nil {
+		return AreaAddOutput{}, err
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return AreaAddOutput{}, err
 	}
@@ -166,6 +196,15 @@ type AreaShowOutput struct {
 	Questions []QuestionView `json:"questions"`
 	// LastAligned is the date an agent last compared this area with reality, or empty.
 	LastAligned string `json:"last_aligned,omitempty"`
+	// DrawnOnBy are the goals and project areas whose concepts name this area.
+	DrawnOnBy []AreaUser `json:"drawn_on_by"`
+}
+
+// AreaUser is a goal or a project area that draws on a concept area.
+type AreaUser struct {
+	ID    string     `json:"id"`
+	Type  model.Type `json:"type"`
+	Title string     `json:"title"`
 }
 
 // AreaShow returns an area with its projects and tasks.
@@ -178,7 +217,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
-	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}}
+	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}, DrawnOnBy: []AreaUser{}}
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
 	if err != nil {
 		return AreaShowOutput{}, err
@@ -196,6 +235,22 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		if pv.Area == doc.ID {
 			out.Projects = append(out.Projects, pv)
 			inArea[pv.ID] = true
+		}
+		if slices.Contains(pv.Concepts, doc.ID) {
+			out.DrawnOnBy = append(out.DrawnOnBy, AreaUser{ID: pv.ID, Type: model.TypeProject, Title: pv.Title})
+		}
+	}
+	arefs, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
+	if err != nil {
+		return AreaShowOutput{}, err
+	}
+	for _, r := range arefs {
+		ad, a, err := getArea(ctx, d.Store, r.ID)
+		if err != nil {
+			return AreaShowOutput{}, err
+		}
+		if slices.Contains(targets(a.Concepts), doc.ID) {
+			out.DrawnOnBy = append(out.DrawnOnBy, AreaUser{ID: ad.ID, Type: model.TypeArea, Title: ad.Title})
 		}
 	}
 	tasks, err := listTasks(ctx, d.Store, "", "")

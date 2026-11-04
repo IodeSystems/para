@@ -42,6 +42,7 @@ const (
 	HealthClosedWithOpen     = "closed_with_open_items"
 	HealthGoalNoSignal       = "goal_no_signal"
 	HealthPivotPassed        = "pivot_passed"
+	HealthAreaNeglected      = "area_neglected"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -52,7 +53,7 @@ var HealthKinds = []string{
 	HealthBlockerIncomplete, HealthAreaNoLinks,
 	HealthNoSource, HealthPolicyReviewDue, HealthQuestionStale, HealthNotAligned,
 	HealthExceptionNoPolicy, HealthByUnknown, HealthClosedWithOpen,
-	HealthGoalNoSignal, HealthPivotPassed,
+	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -79,6 +80,7 @@ var HealthKindWords = map[string]string{
 	HealthClosedWithOpen:     "Closed with open items",
 	HealthGoalNoSignal:       "Goal signals not read",
 	HealthPivotPassed:        "Change-of-course date has come",
+	HealthAreaNeglected:      "Area review is overdue",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -474,6 +476,13 @@ func (h *healther) scan() {
 		case *model.Area:
 			if m.Status == model.AreaActive && len(m.Links) == 0 {
 				h.add(HealthAreaNoLinks, id, "", "area has no links", fmt.Sprintf("area_link_add {id: %s, label: ..., kind: ..., target: ...}", id))
+			}
+			if areaNeglected(m, h.today) {
+				msg := "area has a " + m.Cadence + " review and was never reviewed"
+				if m.LastReviewed != "" {
+					msg = "area has a " + m.Cadence + " review; last reviewed " + string(m.LastReviewed)
+				}
+				h.add(HealthAreaNeglected, id, "", msg, fmt.Sprintf("review it with the owner, then area_review {id: %s}", id))
 			}
 		case *model.Constraint:
 			// A constraint always has a source: lint refuses one without.

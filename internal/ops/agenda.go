@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/parasolve/internal/store"
 )
 
 // The agenda is what has a time or a date in the next few days: meetings,
@@ -37,10 +38,13 @@ const (
 	// AgendaGoal is a goal date that has come: a pivot date, or a signal
 	// reading that is due. Detail says which and why.
 	AgendaGoal AgendaKind = "goal"
+	// AgendaArea is an area review that is due: one cadence after the last
+	// review, or today for an area never reviewed.
+	AgendaArea AgendaKind = "area"
 )
 
 // AgendaKinds lists every AgendaKind.
-var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal}
+var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal, AgendaArea}
 
 // Enum lists the allowed values, for schema generation.
 func (AgendaKind) Enum() []string {
@@ -276,6 +280,32 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		items = append(items, AgendaItem{Kind: AgendaGoal, ID: g.ID, Title: g.Title, Date: g.Date, Overdue: late,
 			Detail: g.Reason, Who: []string{}})
 	}
+	areas, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range areas {
+		doc, a, err := getArea(ctx, d.Store, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		if a.Status != model.AreaActive || a.Cadence == "" {
+			continue
+		}
+		date, detail := nextReview(a), "review "+a.Cadence
+		if a.LastReviewed == "" {
+			date, detail = w.today, "review "+a.Cadence+"; never reviewed"
+		}
+		if date == "" {
+			continue // a cadence para cannot read: lint warns
+		}
+		late, ok := inWindow(date)
+		if !ok {
+			continue
+		}
+		items = append(items, AgendaItem{Kind: AgendaArea, ID: doc.ID, Title: doc.Title, Date: date, Overdue: late,
+			Detail: detail, Who: []string{}})
+	}
 	order, err := Order(ctx, d.Store)
 	if err != nil {
 		return nil, err
@@ -299,7 +329,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 // instant (so two meetings at "01:30" on the day the clocks go back keep their
 // real order), then kind and id.
 func sortAgenda(items []AgendaItem, pos map[string]int) {
-	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaGoal: 3, AgendaMeeting: 4}
+	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaGoal: 3, AgendaArea: 4, AgendaMeeting: 5}
 	instant := func(it AgendaItem) time.Time {
 		t, _ := time.Parse(time.RFC3339, it.At)
 		return t

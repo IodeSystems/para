@@ -96,6 +96,7 @@ func registerGovernance(r *registrar) {
 	reg(r, ops.ConventionAdd, post, write)
 	reg(r, ops.ConventionList, get, read)
 	reg(r, ops.ConventionShow, get, read)
+	reg(r, ops.RulesInEffect, get, read)
 	reg(r, ops.ExceptionAdd, post, write)
 	reg(r, ops.ExceptionList, get, read)
 	reg(r, ops.ExceptionShow, get, read)

@@ -382,6 +382,8 @@ type TaskShowOutput struct {
 	// under ## Updates, as written.
 	Parts   TaskParts `json:"parts"`
 	Updates string    `json:"updates,omitempty"`
+	// Rules are the conventions and constraints in effect (rules_in_effect).
+	Rules []RuleRef `json:"rules"`
 }
 
 // TaskShow returns one task.
@@ -417,7 +419,11 @@ var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, 
 			v.Items++
 		}
 	}
-	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body)}, nil
+	rules, err := rulesShort(ctx, d.Store, doc.ID)
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body), Rules: rules}, nil
 })
 
 // TaskChangeOutput is the output of task_start, task_done, and task_block.

@@ -10,6 +10,7 @@ func registerLife(r *registrar) {
 	reg(r, ops.AreaAdd, post, write)
 	reg(r, ops.AreaList, get, read)
 	reg(r, ops.AreaShow, get, read)
+	reg(r, ops.AreaReview, post, write)
 	reg(r, ops.NoteAdd, post, write)
 	reg(r, ops.NoteEdit, post, write)
 	reg(r, ops.DocEdit, post, write)

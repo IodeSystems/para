@@ -84,7 +84,7 @@ var typeFields = map[string][]field{
 	"project": {
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
 		{Name: "owner", Kind: kString, Required: true},
-		{Name: "area", Kind: kLink},           // an area of kind project (vault check)
+		{Name: "area", Kind: kLink},         // an area of kind project (vault check)
 		{Name: "concepts", Kind: kLinkList}, // areas of kind concept (vault check)
 		{Name: "done_when", Kind: kString},
 		{Name: "links", Kind: kPointers},
