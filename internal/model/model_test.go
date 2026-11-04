@@ -53,6 +53,9 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"contact.method", strs(Mediums), paramd.ItemFieldEnum("person", "contacts", "method")},
 		{"target.medium", strs(Mediums), paramd.ItemFieldEnum("rfx", "targets", "medium")},
 		{"target.state", strs(TargetStates), paramd.ItemFieldEnum("rfx", "targets", "state")},
+		{"risk.impact", strs(Levels), paramd.ItemFieldEnum("project", "risks", "impact")},
+		{"risk.likelihood", strs(Levels), paramd.ItemFieldEnum("project", "risks", "likelihood")},
+		{"assumption.status", strs(AssumptionStatuses), paramd.ItemFieldEnum("task", "assumptions", "status")},
 	}
 	for _, c := range cases {
 		if !slices.Equal(c.got, c.want) {

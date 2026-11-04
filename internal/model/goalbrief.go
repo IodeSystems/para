@@ -132,6 +132,7 @@ type GoalBrief struct {
 	Confidence   *GoalConfidence `yaml:"confidence,omitempty" json:"confidence,omitempty"`
 	Alternatives []OptionDetail  `yaml:"alternatives,omitempty" json:"alternatives,omitempty"`
 	Unknowns     []Unknown       `yaml:"unknowns,omitempty" json:"unknowns,omitempty"`
+	Risks        []GoalRisk      `yaml:"risks,omitempty" json:"risks,omitempty"`
 	Signals      []Signal        `yaml:"signals,omitempty" json:"signals,omitempty"`
 	Pivot        *GoalPivot      `yaml:"pivot,omitempty" json:"pivot,omitempty"`
 	Extensions   []string        `yaml:"extensions,omitempty" json:"extensions,omitempty"`
@@ -149,7 +150,7 @@ var briefDateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
 // HasBrief reports whether the goal has any brief field set.
 func (p *GoalBrief) HasBrief() bool {
-	return p.Why != nil || p.Confidence != nil || len(p.Alternatives) > 0 || len(p.Unknowns) > 0 ||
+	return p.Why != nil || p.Confidence != nil || len(p.Alternatives) > 0 || len(p.Unknowns) > 0 || len(p.Risks) > 0 ||
 		len(p.Signals) > 0 || p.Pivot != nil || len(p.Extensions) > 0 || p.Ecosystem != nil || p.Rank > 0 || p.Validation != ""
 }
 
@@ -194,6 +195,9 @@ func (p *GoalBrief) CheckBrief() error {
 		if strings.TrimSpace(u.Text) == "" {
 			return errors.New("unknowns: an unknown has no text")
 		}
+	}
+	if err := CheckRisks(p.Risks); err != nil {
+		return err
 	}
 	for _, s := range p.Signals {
 		if strings.TrimSpace(s.What) == "" {

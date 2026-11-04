@@ -452,9 +452,13 @@ func (l *linter) checkValue(fd field, v any) {
 				return
 			}
 		}
-	case kContacts, kTargets, kPointers, kSources:
+	case kContacts, kTargets, kPointers, kSources, kRisks, kAssumptions:
 		items := contactFields
 		switch fd.Kind {
+		case kRisks:
+			items = riskFields
+		case kAssumptions:
+			items = assumptionFields
 		case kTargets:
 			items = targetFields
 		case kPointers:

@@ -8,21 +8,23 @@ const (
 	kBool
 	kEnum
 	kList
-	kLink      // "[[name]]"
-	kRuleLink  // "[[name#^R4]]"
-	kSourceMap // source block
-	kLinkList  // list of "[[name]]"
-	kContacts  // list of contact maps
-	kPointers  // list of {label, kind, target} maps
-	kTargets   // list of rfx target maps
-	kTimestamp // RFC 3339 time; YAML may read it as a time or a string
-	kCount     // integer, 1 or more
-	kOwner     // "[[name]]" or the word self (the vault owner)
-	kScope     // "[[name]]" or the word root
-	kSources   // list of {ref, quote} maps
-	kWhen      // a date YYYY-MM-DD, or an RFC 3339 time
-	kMap       // a mapping; its parts are checked by the goal brief rules (model.CheckBrief)
-	kMaps      // a list of mappings; its parts are checked by the goal brief rules
+	kLink        // "[[name]]"
+	kRuleLink    // "[[name#^R4]]"
+	kSourceMap   // source block
+	kLinkList    // list of "[[name]]"
+	kContacts    // list of contact maps
+	kPointers    // list of {label, kind, target} maps
+	kTargets     // list of rfx target maps
+	kTimestamp   // RFC 3339 time; YAML may read it as a time or a string
+	kCount       // integer, 1 or more
+	kOwner       // "[[name]]" or the word self (the vault owner)
+	kScope       // "[[name]]" or the word root
+	kSources     // list of {ref, quote} maps
+	kWhen        // a date YYYY-MM-DD, or an RFC 3339 time
+	kMap         // a mapping; its parts are checked by the goal brief rules (model.CheckBrief)
+	kMaps        // a list of mappings; its parts are checked by the goal brief rules
+	kRisks       // list of risk maps (riskFields)
+	kAssumptions // list of assumption maps (assumptionFields)
 )
 
 type field struct {
@@ -62,6 +64,8 @@ var (
 	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 	validationStates   = []string{"idea", "validated", "active", "pivoted", "stopped"}
+	levels             = []string{"low", "medium", "high"}
+	assumptionStatus   = []string{"holds", "changed", "unknown"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
 )
 
@@ -95,6 +99,8 @@ var typeFields = map[string][]field{
 		{Name: "alternatives", Kind: kMaps},
 		{Name: "unknowns", Kind: kMaps},
 		{Name: "signals", Kind: kMaps},
+		{Name: "risks", Kind: kRisks},
+		{Name: "assumptions", Kind: kAssumptions},
 		{Name: "pivot", Kind: kMap},
 		{Name: "extensions", Kind: kList},
 		{Name: "ecosystem", Kind: kMap},
@@ -140,6 +146,7 @@ var typeFields = map[string][]field{
 		{Name: "end", Kind: kTimestamp},
 		{Name: "with", Kind: kLinkList},
 		{Name: "rfx", Kind: kLinkList}, // kind meeting: the requests it settles
+		{Name: "assumptions", Kind: kAssumptions},
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},
@@ -287,6 +294,22 @@ var (
 		{Name: "kind", Kind: kEnum, Enum: pointerKinds, Required: true},
 		{Name: "target", Kind: kString, Required: true},
 	}
+	riskFields = []field{
+		{Name: "text", Kind: kString, Required: true},
+		{Name: "likelihood", Kind: kEnum, Enum: levels},
+		{Name: "impact", Kind: kEnum, Enum: levels},
+		{Name: "owner", Kind: kString},
+		{Name: "mitigation", Kind: kString},
+		{Name: "source", Kind: kString},
+	}
+	assumptionFields = []field{
+		{Name: "text", Kind: kString, Required: true},
+		{Name: "source", Kind: kString},
+		{Name: "checked", Kind: kDate},
+		{Name: "by", Kind: kString},
+		{Name: "status", Kind: kEnum, Enum: assumptionStatus},
+		{Name: "fact", Kind: kString},
+	}
 	sourceFields = []field{
 		{Name: "ref", Kind: kString, Required: true},
 		{Name: "quote", Kind: kString},
@@ -329,6 +352,10 @@ func ItemFieldEnum(typ, list, name string) []string {
 				items = contactFields
 			case kTargets:
 				items = targetFields
+			case kRisks:
+				items = riskFields
+			case kAssumptions:
+				items = assumptionFields
 			}
 		}
 	}
@@ -356,6 +383,7 @@ var kindNames = map[kind]string{
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
 	kScope: "scope", kSources: "sources", kWhen: "date_or_time", kMap: "map", kMaps: "maps",
+	kRisks: "risks", kAssumptions: "assumptions",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,

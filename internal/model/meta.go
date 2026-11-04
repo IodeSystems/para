@@ -106,6 +106,9 @@ type Project struct {
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 	// GoalBrief is the optional brief (goalbrief.go). A small goal needs none.
 	GoalBrief `yaml:",inline"`
+	// Assumptions are what the goal takes as true, each with when it was
+	// last checked (grill.go).
+	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 }
 
 // SomedayWord is the defer_until value for deferred with no date.
@@ -195,6 +198,8 @@ type Task struct {
 	// RFX links the requests a meeting is meant to settle.
 	RFX      []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
 	Deferral `yaml:",inline"`
+	// Assumptions are what the task takes as true (grill.go).
+	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 }
 
 // CommitmentTag is the tag older vaults use for a commitment. Kind commitment

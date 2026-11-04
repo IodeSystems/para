@@ -211,6 +211,12 @@ func TestLint(t *testing.T) {
 		{"area bad kind", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: hobby\n", "# A\n"), []string{"field-value:1"}},
 		{"area bad cadence warns", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\ncadence: sometimes\n", "# A\n"), []string{"recur:1"}},
 		{"concept area with concepts", "area-c.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: concept\nconcepts:\n  - \"[[area-d]]\"\n", "# C\n"), []string{"field-value:1"}},
+		{"goal risks ok", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    likelihood: medium\n    impact: high\n    owner: \"[[jo]]\"\n    mitigation: Second vendor\n    source: chat\n", "# P\n"), nil},
+		{"goal risk bad impact", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    impact: huge\n", "# P\n"), []string{"field-value:1"}},
+		{"goal risk no text", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - impact: low\n", "# P\n"), []string{"field-value:1"}},
+		{"task assumptions ok", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    source: chat\n    checked: 2026-11-02\n    by: jo\n    status: holds\n", "# T\n"), nil},
+		{"assumption bad status", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    status: maybe\n", "# T\n"), []string{"field-value:1"}},
+		{"assumption bad checked", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nassumptions:\n  - text: Budget holds\n    checked: last week\n", "# P\n"), []string{"field-value:1"}},
 		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}
 	for _, c := range cases {
