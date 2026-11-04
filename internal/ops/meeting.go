@@ -312,6 +312,11 @@ type MeetingAddInput struct {
 	Start string   `json:"start,omitempty"` // RFC 3339 with a zone, such as 2026-11-04T10:00:00-05:00; with end, the meeting is scheduled
 	End   string   `json:"end,omitempty"`
 	Body  string   `json:"body,omitempty"` // text before the Questions section
+	// CalendarUID is the UID of the meeting's event in the owner's calendar,
+	// so calendar_compare matches it exactly.
+	CalendarUID string `json:"calendar_uid,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // MeetingAddOutput is the output of meeting_add.
@@ -365,7 +370,11 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			return MeetingAddOutput{}, err
 		}
 	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx}
+	uid, err := checkCalendarUID(in.CalendarUID)
+	if err != nil {
+		return MeetingAddOutput{}, err
+	}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUID: uid}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":
@@ -398,6 +407,18 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	}
 	return out, nil
 })
+
+// checkCalendarUID trims a calendar event UID; it must be one line.
+func checkCalendarUID(s string) (string, error) {
+	s = strings.TrimSpace(s)
+	if strings.ContainsAny(s, "\r\n") {
+		return "", errors.New("calendar_uid must be one line")
+	}
+	if len(s) > 512 {
+		return "", errors.New("calendar_uid is over 512 characters")
+	}
+	return s, nil
+}
 
 // MeetingListInput is the input of meeting_list.
 type MeetingListInput struct {
@@ -469,6 +490,9 @@ type MeetingScheduleInput struct {
 	ID    string `json:"id"`
 	Start string `json:"start"` // RFC 3339 with a zone
 	End   string `json:"end"`
+	// CalendarUID sets the UID of the meeting's calendar event; empty keeps
+	// the one stored. An older type: meeting document has none.
+	CalendarUID string `json:"calendar_uid,omitempty"`
 }
 
 // MeetingSchedule books a requested meeting, or moves a booked one. The linked
@@ -484,6 +508,16 @@ var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of 
 	start, end, err := checkSlot(in.Start, in.End)
 	if err != nil {
 		return MeetingChangeOutput{}, err
+	}
+	uid, err := checkCalendarUID(in.CalendarUID)
+	if err != nil {
+		return MeetingChangeOutput{}, err
+	}
+	if uid != "" {
+		if m.t == nil {
+			return MeetingChangeOutput{}, fmt.Errorf("%s is an older meeting document with no calendar_uid: the owner runs `para vault upgrade` to make it a task, then set calendar_uid", doc.ID)
+		}
+		m.t.CalendarUID = uid
 	}
 	if m.Status == model.MeetingScheduled && m.Start != "" && (m.Start != start || m.End != end) {
 		// A move keeps the old time in the notes.

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -138,8 +139,71 @@ func newCalendarCmd(l *loader) *cobra.Command {
 		}
 		return run(c, args)
 	}
-	cmd.AddCommand(exp)
+	cmd.AddCommand(exp, newCalendarCompareCmd(l))
 	return cmd
+}
+
+// newCalendarCompareCmd is `para calendar compare --ics <file>`: the CLI reads
+// the local file and passes its text to the op.
+func newCalendarCompareCmd(l *loader) *cobra.Command {
+	var icsPath string
+	return opCommand(l, ops.CalendarCompare, binding[ops.CalendarCompareInput, ops.CalendarCompareOutput]{
+		Use:  "compare --ics <file|-> [--from date] [--to date]",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.CalendarCompareInput) {
+			fs.StringVar(&icsPath, "ics", "", "an .ics file exported from the calendar; - reads stdin")
+			fs.StringVar(&in.From, "from", "", "start of the window: a date or an RFC 3339 time; default today")
+			fs.StringVar(&in.To, "to", "", "end of the window: a date (included) or an RFC 3339 time; default 14 days after from")
+			fs.StringVar(&in.Zone, "zone", "", "IANA zone for dates and floating times; default this machine's")
+			fs.IntVar(&in.ToleranceMinutes, "tolerance", 0, "minutes two starts may differ and still match; default 15")
+		},
+		Stdin: func(r io.Reader, in *ops.CalendarCompareInput) (err error) {
+			switch icsPath {
+			case "":
+				return errors.New("--ics is required: an .ics file, or - for stdin")
+			case "-":
+				in.ICS, err = readStdin(r)
+				return err
+			}
+			b, err := os.ReadFile(icsPath)
+			if err != nil {
+				return fmt.Errorf("calendar: compare: %w", err)
+			}
+			in.ICS = string(b)
+			return nil
+		},
+		Text: func(w io.Writer, out ops.CalendarCompareOutput) error {
+			p := &printer{w: w}
+			p.f("%s to %s: calendar %d, para %d: %d matched, %d calendar only, %d para only, %d mismatched\n",
+				out.From, out.To, out.Calendar, out.Para, len(out.Matched), len(out.CalendarOnly), len(out.ParaOnly), len(out.Mismatched))
+			for _, c := range out.CalendarOnly {
+				p.f("calendar only\t%s\t%s\t%s", c.Start, c.Title, dashIfEmpty(c.UID))
+				if c.SeriesInPara != "" {
+					p.f("\tseries in para: %s", c.SeriesInPara)
+				}
+				if len(c.ParaMaybe) > 0 {
+					p.f("\tmaybe: %s", strings.Join(c.ParaMaybe, ","))
+				}
+				p.f("\n")
+			}
+			for _, x := range out.ParaOnly {
+				p.f("para only\t%s\t%s\t%s\t%s\n", x.Start, x.ID, x.Title, x.Reason)
+			}
+			for _, m := range out.Mismatched {
+				p.f("mismatch %s\t%s\tpara %s\tcalendar %s\t%s\n", m.What, m.ID, m.ParaStart, m.CalendarStart, m.Title)
+			}
+			for _, m := range out.Matched {
+				p.f("matched\t%s\t%s\t%s\n", m.Start, m.ID, m.Title)
+			}
+			for _, u := range out.Unexpanded {
+				p.f("unexpanded\t%s\t%s\t%s\n", u.Title, u.Rule, u.Why)
+			}
+			for _, wn := range out.Warnings {
+				p.f("warning\t%s\n", wn)
+			}
+			return p.err
+		},
+	})
 }
 
 // calendarDocName names the temp files of a transport.

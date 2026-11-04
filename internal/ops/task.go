@@ -193,6 +193,11 @@ type TaskAddInput struct {
 	Scheduled string   `json:"scheduled,omitempty"`
 	End       string   `json:"end,omitempty"`
 	With      []string `json:"with,omitempty"` // person or group ids
+	// CalendarUID is the UID of the calendar event of a meeting or a call, so
+	// calendar_compare matches it exactly.
+	CalendarUID string `json:"calendar_uid,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // TaskAddOutput is the output of task_add.
@@ -242,6 +247,13 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	scheduled, end, with, err := checkKindFields(ctx, d, kind, in, due)
 	if err != nil {
 		return TaskAddOutput{}, err
+	}
+	uid, err := checkCalendarUID(in.CalendarUID)
+	if err != nil {
+		return TaskAddOutput{}, err
+	}
+	if uid != "" && kind != model.KindMeeting && kind != model.KindCall {
+		return TaskAddOutput{}, errors.New("calendar_uid: only a meeting or a call has a calendar event")
 	}
 	var incident model.Link
 	if id := normID(in.Incident); id != "" {
@@ -306,6 +318,8 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			Scheduled: scheduled,
 			End:       end,
 			With:      with,
+
+			CalendarUID: uid,
 		},
 	})
 	if err != nil {

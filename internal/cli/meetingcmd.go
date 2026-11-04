@@ -164,6 +164,7 @@ func newMeetingCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&in.Scope, "scope", nil, "project, area, or task id whose open questions go on the agenda (repeatable)")
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone, such as 2026-11-04T10:00:00-05:00; with --end the meeting is scheduled")
 				fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone")
+				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar, for calendar compare")
 				fs.StringVar(&in.Body, "body", "", "text before the Questions section")
 			},
 			Bind: func(args []string, in *ops.MeetingAddInput) error {
@@ -215,6 +216,7 @@ func newMeetingCmd(l *loader) *cobra.Command {
 			Flags: func(fs *pflag.FlagSet, in *ops.MeetingScheduleInput) {
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone (required)")
 				fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone (required)")
+				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar; empty keeps the stored one")
 			},
 			Bind: func(args []string, in *ops.MeetingScheduleInput) error { in.ID = args[0]; return nil },
 			Text: changeMeetingText,

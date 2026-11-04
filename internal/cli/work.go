@@ -192,6 +192,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Kind), "kind", "", "task (default), meeting, call, work_with, or commitment; all but task are with someone (--with)")
 				fs.StringVar(&in.Scheduled, "scheduled", "", "when it happens: a date YYYY-MM-DD, or a start with a zone such as 2026-11-04T10:00:00-05:00 (not --due)")
 				fs.StringVar(&in.End, "end", "", "end time with a zone; needs a timed --scheduled")
+				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "kind meeting or call: UID of its event in your calendar")
 				fs.StringSliceVar(&in.With, "with", nil, "person or group id the work is with (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")

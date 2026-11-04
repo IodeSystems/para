@@ -154,6 +154,8 @@ var Inputs = map[string]string{
 	"action_record":             `{"what":"Opened the sample PR","where":"github.example/acme/portal","url":"https://github.example/acme/portal/pull/1","owner_said":"yes, open it","sources":["note-sample"]}`,
 	"align_scope":               `{"scope":"project-sample"}`,
 	"align_record":              `{"scope":"project-sample","checked":4,"matched":3,"differ":1,"unreachable":["jira"]}`,
+	"import_verify":             `{"files":[{"path":"/old/notes/a.md","hash":"` + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `"}],"root":"/old"}`,
+	"calendar_compare":          `{"events":[{"uid":"sync@acme.example","title":"Portal sync","start":"2026-11-04T15:00:00Z","end":"2026-11-04T15:30:00Z"}]}`,
 	"similar":                   `{"type":"task","title":"Sample task"}`,
 	"request_respond":           `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,
 	"request_changes":           `{"id":"request-finished"}`,

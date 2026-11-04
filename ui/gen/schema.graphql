@@ -35,6 +35,7 @@ type ParaV1MutationNamespace {
   attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
+  calendarCompare(body: para_CalendarCompareInputInput!): para_CalendarCompareOutput @derived(operationId: "calendarCompare")
   calendarExport(body: para_CalendarExportInputInput!): para_CalendarExportOutput @derived(operationId: "calendarExport")
   constraintAdd(body: para_ConstraintAddInputInput!): para_ConstraintAddOutput @derived(operationId: "constraintAdd")
   conventionAdd(body: para_ConventionAddInputInput!): para_ConventionAddOutput @derived(operationId: "conventionAdd")
@@ -51,6 +52,7 @@ type ParaV1MutationNamespace {
   goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
+  importVerify(body: para_ImportVerifyInputInput!): para_ImportVerifyOutput @derived(operationId: "importVerify")
   inboxAdd(body: para_InboxAddInputInput!): para_InboxAddOutput @derived(operationId: "inboxAdd")
   inboxTriage(body: para_InboxTriageInputInput!): para_InboxTriageOutput @derived(operationId: "inboxTriage")
   incidentAdd(body: para_IncidentAddInputInput!): para_IncidentAddOutput @derived(operationId: "incidentAdd")
@@ -153,7 +155,13 @@ type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
   agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
   agentActivity(actor: String, limit: Int, since: String): para_AgentActivityOutput @derived(operationId: "agentActivity")
-  alignScope(scope: String!): para_AlignScopeOutput @derived(operationId: "alignScope")
+  alignScope(
+    """meetings from this date or time; default 7 days ago"""
+    from: String
+    scope: String!
+    """meetings up to this date (included) or time; default 14 days from today"""
+    to: String
+  ): para_AlignScopeOutput @derived(operationId: "alignScope")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
@@ -171,6 +179,10 @@ type ParaV1QueryNamespace {
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   grillContext(id: String!): para_GrillContextOutput @derived(operationId: "grillContext")
   health: para_HealthOutput @derived(operationId: "health")
+  importList(
+    """only documents imported from this path or under it"""
+    root: String
+  ): para_ImportListOutput @derived(operationId: "importList")
   inboxList(all: Boolean): para_InboxListOutput @derived(operationId: "inboxList")
   inboxShow(id: String!): para_InboxShowOutput @derived(operationId: "inboxShow")
   incidentList(all: Boolean, area: String, status: para_incidentListStatus): para_IncidentListOutput @derived(operationId: "incidentList")
@@ -353,6 +365,18 @@ type para_AlignItem {
   why: String!
 }
 
+type para_AlignMeeting {
+  calendarUid: String
+  end: String
+  id: String!
+  kind: String!
+  recur: String
+  start: String!
+  status: String!
+  title: String!
+  with: [String!]!
+}
+
 input para_AlignRecordInputInput {
   checked: Int!
   differ: Int!
@@ -382,6 +406,9 @@ type para_AlignScopeOutput {
   kind: String!
   lastAligned: String
   links: [para_Pointer!]!
+  meetings: [para_AlignMeeting!]!
+  meetingsFrom: String!
+  meetingsTo: String!
   scope: String!
   title: String!
 }
@@ -409,6 +436,7 @@ input para_AreaAddInputInput {
   cadence: String
   concepts: [String!]
   id: String
+  importedFrom: para_ImportedFromInput
   kind: para_AreaAddInputKind
   lastReviewed: String
   status: para_AreaAddInputStatus
@@ -633,6 +661,38 @@ type para_BatchResult {
   skipped: [String!]
 }
 
+input para_CalendarCompareInputInput {
+  events: [para_CalendarEventInputInput!]
+  from: String
+  ics: String
+  to: String
+  toleranceMinutes: Int
+  zone: String
+}
+
+type para_CalendarCompareOutput {
+  calendar: Int!
+  calendarOnly: [para_CalendarOnly!]!
+  from: String!
+  matched: [para_CalendarMatch!]!
+  mismatched: [para_CalendarMismatch!]!
+  para: Int!
+  paraOnly: [para_ParaOnly!]!
+  to: String!
+  unexpanded: [para_CalendarUnexpanded!]!
+  warnings: [String!]!
+}
+
+input para_CalendarEventInputInput {
+  attendees: [String!]
+  end: String
+  recurrence: String
+  start: String!
+  status: String
+  title: String!
+  uid: String
+}
+
 input para_CalendarExportInputInput {
   days: Int
   to: String
@@ -648,6 +708,47 @@ type para_CalendarExportOutput {
   marking: String!
   text: String!
   to: String!
+}
+
+type para_CalendarMatch {
+  id: String!
+  matchedBy: String!
+  start: String!
+  title: String!
+  uid: String
+}
+
+type para_CalendarMismatch {
+  calendarEnd: String
+  calendarStart: String!
+  deltaMinutes: Int!
+  id: String!
+  matchedBy: String!
+  paraEnd: String
+  paraStart: String!
+  title: String!
+  uid: String
+  what: String!
+}
+
+type para_CalendarOnly {
+  allDay: Boolean
+  attendees: [String!]!
+  end: String
+  paraMaybe: [String!]!
+  recurring: Boolean
+  seriesInPara: String
+  start: String!
+  title: String!
+  uid: String
+}
+
+type para_CalendarUnexpanded {
+  rule: String!
+  start: String!
+  title: String!
+  uid: String
+  why: String!
 }
 
 type para_ChainNode {
@@ -712,6 +813,7 @@ type para_ConfigSetting {
 input para_ConstraintAddInputInput {
   appliesIn: [String!]
   by: String!
+  importedFrom: para_ImportedFromInput
   notIn: [String!]
   refines: String
   reviewBy: String!
@@ -784,6 +886,7 @@ type para_ContextDoc {
 
 input para_ConventionAddInputInput {
   appliesIn: [String!]
+  importedFrom: para_ImportedFromInput
   refines: String
   status: para_ConventionAddInputStatus
   text: String
@@ -1132,6 +1235,7 @@ input para_ExampleInput {
 
 input para_ExceptionAddInputInput {
   by: String!
+  importedFrom: para_ImportedFromInput
   kind: para_ExceptionAddInputKind!
   policy: String
   policyText: String
@@ -1634,6 +1738,7 @@ type para_GrillProbe {
 
 input para_GroupAddInputInput {
   id: String
+  importedFrom: para_ImportedFromInput
   kind: para_GroupAddInputKind!
   name: String!
   org: String!
@@ -1734,7 +1839,106 @@ input para_HoldActionInput {
   title: String!
 }
 
+input para_ImportFileInput {
+  hash: String!
+  path: String!
+}
+
+type para_ImportFileResult {
+  docs: [String!]!
+  matchedBy: String
+  path: String!
+  status: String!
+  storedHash: String
+}
+
+type para_ImportListOutput {
+  docs: [para_ImportedDoc!]!
+}
+
+input para_ImportVerifyInputInput {
+  files: [para_ImportFileInput!]
+  root: String
+}
+
+type para_ImportVerifyOutput {
+  changed: Int!
+  checked: Int!
+  extra: [para_ImportedDoc!]!
+  files: [para_ImportFileResult!]!
+  imported: Int!
+  missing: Int!
+}
+
+type para_ImportedDoc {
+  folder: para_ImportedDocFolder!
+  hash: String!
+  id: String!
+  path: String!
+  title: String!
+  type: para_ImportedDocType!
+}
+
+enum para_ImportedDocFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  journal
+  meetings
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+}
+
+enum para_ImportedDocType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  journal
+  meeting
+  note
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  task
+  team
+  transcript
+}
+
+type para_ImportedFrom {
+  hash: String!
+  path: String!
+}
+
+input para_ImportedFromInput {
+  hash: String!
+  path: String!
+}
+
 input para_InboxAddInputInput {
+  importedFrom: para_ImportedFromInput
   text: String!
 }
 
@@ -1884,6 +2088,7 @@ enum para_InboxTriageOutputTo {
 input para_IncidentAddInputInput {
   area: String
   body: String
+  importedFrom: para_ImportedFromInput
   severity: para_IncidentAddInputSeverity!
   started: String
   title: String!
@@ -2014,6 +2219,7 @@ enum para_IncidentViewStatus {
 input para_IngestInputInput {
   backend: String
   id: String
+  importedFrom: para_ImportedFromInput
   noCopy: Boolean
   text: String
   title: String
@@ -2044,6 +2250,7 @@ enum para_InteractionAddInputDirection {
 input para_InteractionAddInputInput {
   date: String
   direction: para_InteractionAddInputDirection!
+  importedFrom: para_ImportedFromInput
   medium: para_InteractionAddInputMedium!
   summary: String!
   url: String
@@ -2444,7 +2651,9 @@ type para_LintOutput {
 
 input para_MeetingAddInputInput {
   body: String
+  calendarUid: String
   end: String
+  importedFrom: para_ImportedFromInput
   rfx: [String!]
   scope: [String!]
   start: String
@@ -2549,6 +2758,7 @@ type para_MeetingListOutput {
 }
 
 input para_MeetingScheduleInputInput {
+  calendarUid: String
   end: String!
   id: String!
   start: String!
@@ -2619,6 +2829,7 @@ type para_Meta {
   blocks: [String!]
   by: String
   cadence: String
+  calendarUid: String
   check: String
   checkNote: String
   checkedBy: String
@@ -2646,6 +2857,7 @@ type para_Meta {
   followed: [String!]
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
+  importedFrom: para_ImportedFrom
   incident: String
   kind: String
   lastReviewed: String
@@ -2790,6 +3002,7 @@ type para_NextOutput {
 input para_NoteAddInputInput {
   area: String
   body: String
+  importedFrom: para_ImportedFromInput
   project: String
   tags: [String!]
   title: String!
@@ -2906,6 +3119,7 @@ type para_OrderOutput {
 input para_OrgAddInputInput {
   aliases: [String!]
   id: String
+  importedFrom: para_ImportedFromInput
   name: String!
   org: String
   owner: String
@@ -2949,6 +3163,21 @@ type para_OrgListOutput {
 
 type para_OrgShowOutput {
   doc: para_Document!
+}
+
+type para_ParaOnly {
+  calendarUid: String
+  end: String
+  hasAttendees: Boolean!
+  id: String!
+  kind: String!
+  reason: String!
+  recur: String
+  rfx: [String!]!
+  start: String!
+  status: String!
+  title: String!
+  with: [String!]!
 }
 
 type para_PartRef {
@@ -3200,6 +3429,7 @@ input para_ProjectAddInputInput {
   doneWhen: String!
   due: String
   id: String
+  importedFrom: para_ImportedFromInput
   owner: String
   title: String!
 }
@@ -3513,6 +3743,7 @@ enum para_ProposalWaitOutputStatus {
 input para_QuestionAddInputInput {
   area: String
   context: String
+  importedFrom: para_ImportedFromInput
   kind: para_QuestionAddInputKind
   optionDetails: [para_OptionDetailInput!]
   options: [String!]
@@ -3738,6 +3969,7 @@ input para_RFXAddInputInput {
   blocks: [String!]
   dependsOn: [String!]
   direction: para_RFXAddInputDirection!
+  importedFrom: para_ImportedFromInput
   nextNudge: String
   project: String
   question: String
@@ -4298,6 +4530,7 @@ input para_RequestAcceptInputInput {
 input para_RequestAddInputInput {
   ask: String!
   context: [String!]
+  importedFrom: para_ImportedFromInput
   kind: String
   links: [String!]
   runner: String
@@ -4854,11 +5087,13 @@ input para_TaskAddInputInput {
   area: String
   assignee: String
   body: String
+  calendarUid: String
   commitment: Boolean
   dependsOn: [String!]
   doneWhen: String
   due: String
   end: String
+  importedFrom: para_ImportedFromInput
   incident: String
   kind: para_TaskAddInputKind
   parent: String

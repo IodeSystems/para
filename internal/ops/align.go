@@ -24,7 +24,9 @@ import (
 const AlignVault = "vault"
 
 const (
-	opAlignRecord = "align_record"
+	// alignMeetingsBack is how many days back align_scope lists meetings.
+	alignMeetingsBack = 7
+	opAlignRecord     = "align_record"
 	// alignDaysKey is the vault.properties key that turns on the not_aligned
 	// health finding: goals not aligned in this many days.
 	alignDaysKey = "align.days"
@@ -33,6 +35,24 @@ const (
 // AlignScopeInput is the input of align_scope.
 type AlignScopeInput struct {
 	Scope string `json:"scope" query:"scope" required:"true"` // a goal id, an area id, or vault
+	// From and To bound the meetings and calls listed: a date or an RFC 3339
+	// time. Default: the last 7 days and the next 14.
+	From string `json:"from,omitempty" query:"from" doc:"meetings from this date or time; default 7 days ago"`
+	To   string `json:"to,omitempty" query:"to" doc:"meetings up to this date (included) or time; default 14 days from today"`
+}
+
+// AlignMeeting is a meeting or call in the window, to check against the
+// owner's calendar (calendar_compare).
+type AlignMeeting struct {
+	ID          string   `json:"id"`
+	Kind        string   `json:"kind"` // meeting or call
+	Title       string   `json:"title"`
+	Status      string   `json:"status"`
+	Start       string   `json:"start"`
+	End         string   `json:"end,omitempty"`
+	With        []string `json:"with"`
+	CalendarUID string   `json:"calendar_uid,omitempty"`
+	Recur       string   `json:"recur,omitempty"`
 }
 
 // AlignTarget is who an ask went to and where the thread is.
@@ -73,16 +93,27 @@ type AlignScopeOutput struct {
 	Links       []model.Pointer `json:"links"`
 	LastAligned string          `json:"last_aligned,omitempty"`
 	Items       []AlignItem     `json:"items"`
+	// Meetings are the meetings and calls of the scope in the window, any
+	// status: compare them with the calendar (calendar_compare). A meeting
+	// with no goal or area is in the vault scope only.
+	MeetingsFrom string         `json:"meetings_from"`
+	MeetingsTo   string         `json:"meetings_to"`
+	Meetings     []AlignMeeting `json:"meetings"`
 }
 
 // AlignScope lists what an agent checks against reality for one scope. It reads
 // the vault only.
-var AlignScope = defineRead("align_scope", "List what to check against reality for a goal, an area, or the vault: open items in value order with their links, dates, targets, and states, and when the scope was last aligned", func(ctx context.Context, d Deps, in AlignScopeInput) (AlignScopeOutput, error) {
+var AlignScope = defineRead("align_scope", "List what to check against reality for a goal, an area, or the vault: open items in value order with their links, dates, targets, and states, the meetings and calls in a window (check them against the owner's calendar with calendar_compare), and when the scope was last aligned", func(ctx context.Context, d Deps, in AlignScopeInput) (AlignScopeOutput, error) {
 	scope := normID(in.Scope)
 	if scope == "" {
 		return AlignScopeOutput{}, errors.New("scope is empty: give a goal id, an area id, or vault")
 	}
-	out := AlignScopeOutput{Scope: scope, Title: "Vault", Kind: AlignVault, Links: []model.Pointer{}, Items: []AlignItem{}}
+	out := AlignScopeOutput{Scope: scope, Title: "Vault", Kind: AlignVault, Links: []model.Pointer{}, Items: []AlignItem{}, Meetings: []AlignMeeting{}}
+	from, to, err := calendarWindow(d.Store.Now(), time.Local, in.From, in.To, alignMeetingsBack, alignMeetingsBack+calendarDefaultDays)
+	if err != nil {
+		return out, err
+	}
+	out.MeetingsFrom, out.MeetingsTo = from.Format(time.RFC3339), to.Format(time.RFC3339)
 	if scope != AlignVault {
 		doc, err := d.Store.Get(ctx, scope)
 		if err != nil {
@@ -142,6 +173,30 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 		item := AlignItem{ID: row.ID, Kind: row.Kind, Title: row.Title, Due: row.Due, EffDue: row.EffDue, Goal: goal, Why: row.Why, Links: []model.Pointer{}}
 		fillAlignItem(&item, doc)
 		out.Items = append(out.Items, item)
+	}
+	meetings, err := paraCalendarItems(ctx, d.Store, time.Local)
+	if err != nil {
+		return out, err
+	}
+	for _, it := range meetings {
+		if !it.inWindow(from, to) {
+			continue
+		}
+		area := it.Area
+		if area == "" {
+			area = areaOfGoal(it.Project)
+		}
+		if scope != AlignVault && it.Project != scope && area != scope {
+			continue
+		}
+		when, end := it.Start.Format(time.RFC3339), ""
+		if it.AllDay {
+			when = it.Start.Format(dateLayout)
+		} else if !it.End.IsZero() {
+			end = it.End.Format(time.RFC3339)
+		}
+		out.Meetings = append(out.Meetings, AlignMeeting{ID: it.ID, Kind: it.Kind, Title: it.Title, Status: it.Status,
+			Start: when, End: end, With: nonNil(it.With), CalendarUID: it.UID, Recur: it.Recur})
 	}
 	switch out.Kind {
 	case "goal":

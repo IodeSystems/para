@@ -180,6 +180,11 @@ func registerReceipts(r *registrar) {
 	reg(r, ops.ActionRecord, post, write)
 	reg(r, ops.AlignScope, get, read)
 	reg(r, ops.AlignRecord, post, netguard.ScopeVaultWrite)
+	// import_verify and calendar_compare take lists, so they are POST; they
+	// change nothing.
+	reg(r, ops.ImportVerify, post, read)
+	reg(r, ops.ImportList, get, read)
+	reg(r, ops.CalendarCompare, post, read)
 }
 
 func registerVault(r *registrar) {
