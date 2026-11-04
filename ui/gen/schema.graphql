@@ -282,7 +282,7 @@ type ParaV1QueryNamespace {
   sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
   sourceShow(id: String!): para_SourceShowOutput @derived(operationId: "sourceShow")
   sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
-  taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
@@ -366,6 +366,7 @@ enum para_AgendaItemKind {
   goal
   meeting
   nudge
+  retry
 }
 
 type para_AgendaOutput {
@@ -641,6 +642,13 @@ enum para_AreaViewKind {
 enum para_AreaViewStatus {
   active
   paused
+}
+
+type para_AskEffect {
+  action: String!
+  id: String!
+  relation: String!
+  title: String!
 }
 
 type para_Assumption {
@@ -3555,6 +3563,8 @@ type para_Meta {
   created: String!
   cursor: String
   date: String
+  declinedBy: para_MetaDeclined_by
+  declinedPerson: String
   deferUntil: String
   deferredAdded: [String!]
   deferredAfter: [String!]
@@ -3626,8 +3636,10 @@ type para_Meta {
   request: String
   required: [String!]
   requiresSource: String
+  reroutedTo: String
   resolution: String
   resultLinks: [String!]
+  retryAfter: String
   reviewBy: String
   reviewedBy: String
   revision: Int
@@ -3682,6 +3694,11 @@ type para_Meta {
   with: JSON
 }
 
+enum para_MetaDeclined_by {
+  other
+  owner
+}
+
 enum para_MetaMedium {
   confluence
   email
@@ -3695,10 +3712,13 @@ enum para_MetaMedium {
 }
 
 enum para_MetaOutcome {
+  declined
   done
   dropped
   duplicate
+  failed
   partial
+  rerouted
   superseded
 }
 
@@ -6635,7 +6655,15 @@ type para_TaskParts {
   policy: [para_PartRef!]!
 }
 
+enum para_TaskResolveInputDeclined_by {
+  other
+  owner
+}
+
 input para_TaskResolveInputInput {
+  date: String
+  declinedBy: para_TaskResolveInputDeclined_by
+  declinedPerson: String
   doneWhen: String
   due: String
   followUps: [String!]
@@ -6643,17 +6671,27 @@ input para_TaskResolveInputInput {
   link: String
   note: String
   outcome: para_TaskResolveInputOutcome
+  reason: String
+  retryAfter: String
+  source: String
+  stoppedBecause: String
+  to: String
+  tried: String
 }
 
 enum para_TaskResolveInputOutcome {
+  declined
   done
   dropped
   duplicate
+  failed
   partial
+  rerouted
   superseded
 }
 
 type para_TaskResolveOutput {
+  asks: [para_AskEffect!]!
   followUps: [String!]!
   id: String!
   moved: [String!]!
@@ -6669,10 +6707,13 @@ type para_TaskResolveOutput {
 }
 
 enum para_TaskResolveOutputOutcome {
+  declined
   done
   dropped
   duplicate
+  failed
   partial
+  rerouted
   superseded
 }
 
@@ -6753,6 +6794,8 @@ type para_TaskView {
   blockedBy: [String!]!
   commitment: Boolean
   created: String!
+  declinedBy: para_TaskViewDeclined_by
+  declinedPerson: String
   deferUntil: String
   deferred: Boolean!
   deferredReason: String
@@ -6776,6 +6819,8 @@ type para_TaskView {
   projectName: String
   readyWhy: String
   recur: String
+  reroutedTo: String
+  retryAfter: String
   rev: String!
   scheduled: String
   status: para_TaskViewStatus!
@@ -6785,6 +6830,11 @@ type para_TaskView {
   waitsOnNames: [String!]
   with: [String!]!
   withNames: [String!]
+}
+
+enum para_TaskViewDeclined_by {
+  other
+  owner
 }
 
 enum para_TaskViewFolder {
@@ -6820,10 +6870,13 @@ enum para_TaskViewKind {
 }
 
 enum para_TaskViewOutcome {
+  declined
   done
   dropped
   duplicate
+  failed
   partial
+  rerouted
   superseded
 }
 
@@ -7393,6 +7446,17 @@ enum para_sourceExampleSystem {
 enum para_sourceListStatus {
   active
   paused
+}
+
+enum para_taskListOutcome {
+  declined
+  done
+  dropped
+  duplicate
+  failed
+  partial
+  rerouted
+  superseded
 }
 
 enum para_taskListStatus {

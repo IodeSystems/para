@@ -52,6 +52,8 @@ const (
 	HealthSourceUnreached    = "source_unreached"
 	HealthSourceOverdue      = "source_overdue"
 	HealthSourceMissing      = "source_missing"
+	// HealthRetryDue is a failed task whose retry_after has come.
+	HealthRetryDue = "retry_due"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -65,7 +67,7 @@ var HealthKinds = []string{
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
-	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing,
+	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -93,6 +95,7 @@ var HealthKindWords = map[string]string{
 	HealthGoalNoSignal:       "Goal signals not read",
 	HealthPivotPassed:        "Change-of-course date has come",
 	HealthAreaNeglected:      "Area review is overdue",
+	HealthRetryDue:           "Failed task can be tried again",
 	HealthTooManyActive:      "Too many active goals",
 	HealthAssumptionStale:    "Assumption not checked lately",
 	HealthRiskUnmitigated:    "High-impact risk with no mitigation",
@@ -485,6 +488,9 @@ func (h *healther) scan() {
 			}
 			if !taskTerminal(m.Status) {
 				h.assumptions(d, goal)
+			}
+			if m.Outcome == model.OutcomeFailed && m.RetryAfter != "" && string(m.RetryAfter) <= h.today {
+				h.add(HealthRetryDue, id, goal, "failed task may be tried again since "+string(m.RetryAfter), fmt.Sprintf("task_add again from %s, or health_dismiss", id))
 			}
 			if taskTerminal(m.Status) || IsOther(m.Assignee) {
 				continue

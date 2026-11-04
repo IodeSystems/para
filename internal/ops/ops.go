@@ -60,6 +60,9 @@ type Op[I, O any] struct {
 	person bool
 	risk   Risk
 	noUndo bool
+	// gateRule, when set, can let a write through the gate or hold it back
+	// whatever gate.require says (withGateRule).
+	gateRule func(I, WriteMeta) (gateVerdict, string)
 }
 
 // Entry is the untyped view of an Op, for surfaces that iterate All.

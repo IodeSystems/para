@@ -196,6 +196,13 @@ type Task struct {
 	// Outcome says how a closed task ended (task_resolve). The note is under
 	// ## Outcome in the body.
 	Outcome TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
+	// DeclinedBy and DeclinedPerson say who declined a task of outcome
+	// declined. RetryAfter is when a failed task may be tried again. ReroutedTo
+	// is where a rerouted task went: a link to a vault item, or a URL.
+	DeclinedBy     DeclinedBy `yaml:"declined_by,omitempty" json:"declined_by,omitempty"`
+	DeclinedPerson Link       `yaml:"declined_person,omitempty" json:"declined_person,omitempty"`
+	RetryAfter     Date       `yaml:"retry_after,omitempty" json:"retry_after,omitempty"`
+	ReroutedTo     string     `yaml:"rerouted_to,omitempty" json:"rerouted_to,omitempty"`
 	// Kind is what sort of work this is; empty means task. A kind commitment
 	// replaces the older commitment tag; both are read (EffectiveKind).
 	Kind TaskKind `yaml:"kind,omitempty" json:"kind,omitempty"`

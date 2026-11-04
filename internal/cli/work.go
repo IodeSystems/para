@@ -224,6 +224,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Assignee, "assignee", "", "only tasks assigned to this person id or agent:<name>; self for your own")
 				fs.StringVar(&in.Incident, "incident", "", "only follow-ups of this incident")
 				fs.BoolVar(&in.Deferred, "deferred", false, "include the tasks put off with defer (Later); they are marked")
+				fs.StringVar((*string)(&in.Outcome), "outcome", "", "only closed tasks with this outcome, such as failed")
 			},
 			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
 		}),
@@ -358,12 +359,21 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "resolve <id>",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskResolveInput) {
-				fs.StringVar((*string)(&in.Outcome), "outcome", "done", "done, partial, dropped, duplicate, or superseded")
+				fs.StringVar((*string)(&in.Outcome), "outcome", "done", "done, partial, dropped, duplicate, superseded, declined, failed, or rerouted")
 				fs.StringVar(&in.Note, "note", "", "how it ended; partial needs this or a follow-up, dropped needs it")
 				fs.StringVar(&in.Link, "link", "", "duplicate or superseded: the id of the item that replaces it")
 				fs.StringArrayVar(&in.FollowUps, "follow-up", nil, "title of a new task in the same goal or area; dependents move to the first (repeatable)")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "change the done condition first; the old text is kept under ## Outcome")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD of the follow-ups")
+				fs.StringVar(&in.Reason, "reason", "", "declined or rerouted: why")
+				fs.StringVar((*string)(&in.DeclinedBy), "declined-by", "", "declined: owner or other")
+				fs.StringVar(&in.DeclinedPerson, "declined-person", "", "declined: id of the person who said no")
+				fs.StringVar(&in.Source, "source", "", "declined: where the no was said, a document id or URL")
+				fs.StringVar(&in.Date, "date", "", "declined: the day the no was said, YYYY-MM-DD")
+				fs.StringVar(&in.Tried, "tried", "", "failed: what was tried")
+				fs.StringVar(&in.StoppedBecause, "stopped-because", "", "failed: why it stopped")
+				fs.StringVar(&in.RetryAfter, "retry-after", "", "failed: the day it may be tried again, YYYY-MM-DD")
+				fs.StringVar(&in.To, "to", "", "rerouted: a vault id, or the URL of an outside system")
 			},
 			Bind: func(args []string, in *ops.TaskResolveInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.TaskResolveOutput) error {
@@ -377,6 +387,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 				}
 				for _, id := range out.Released {
 					p.f("released\t%s\n", id)
+				}
+				for _, a := range out.Asks {
+					p.f("ask\t%s\t%s\t%s\n", a.ID, a.Action, a.Relation)
 				}
 				if out.Next != "" {
 					p.f("next\t%s\n", out.Next)

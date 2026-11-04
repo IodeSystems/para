@@ -29,6 +29,14 @@ func recurWarning(s string) string {
 
 const outcomeHeading = "## Outcome"
 
+// opTaskClose is the event of a task closed, with the outcome in to. The
+// outcome report (report_outcomes) counts them by outcome and actor.
+const opTaskClose = "task_close"
+
+func recordClose(ctx context.Context, d Deps, id, outcome string) error {
+	return d.Store.Record(ctx, opTaskClose, id, "", outcome, "")
+}
+
 // TaskDoneInput is the input of task_done.
 type TaskDoneInput struct {
 	ID   string `json:"id"`
@@ -114,6 +122,13 @@ func finishTask(ctx context.Context, d Deps, in TaskDoneInput, outcome model.Tas
 		return TaskDoneOutput{}, err
 	}
 	out.Status, out.BlockedBy, out.Rev, out.DoneWhen = t.Status, []string{}, saved.Rev, t.DoneWhen
+	closed := firstOf(string(outcome), string(model.OutcomeDone))
+	if in.Skip {
+		closed = string(model.OutcomeDropped)
+	}
+	if err := recordClose(ctx, d, id, closed); err != nil {
+		return out, err
+	}
 	return out, nil
 }
 

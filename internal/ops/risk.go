@@ -95,7 +95,19 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		}
 	}
 	if gated(d, o) {
-		if missing, err := gateMissing(d, o, writeMeta(ctx)); err != nil || len(missing) > 0 {
+		verdict, lacks := gateDefault, ""
+		if o.gateRule != nil {
+			verdict, lacks = o.gateRule(in, writeMeta(ctx))
+		}
+		var missing []string
+		var err error
+		if verdict != gatePass {
+			missing, err = gateMissing(d, o, writeMeta(ctx))
+		}
+		if verdict == gateStage && !slices.Contains(missing, lacks) {
+			missing = append(missing, lacks)
+		}
+		if err != nil || len(missing) > 0 {
 			var zero O
 			if err != nil {
 				return zero, fmt.Errorf("%s: %w", o.name, err)

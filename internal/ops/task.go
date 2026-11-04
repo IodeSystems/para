@@ -48,10 +48,16 @@ type TaskView struct {
 	Stuck       bool   `json:"stuck,omitempty"`
 	// Outcome is how a closed task ended: done, partial, dropped, duplicate, or
 	// superseded. Empty on an open task and on one closed before outcomes.
-	Outcome   model.TaskOutcome `json:"outcome,omitempty"`
-	DependsOn []string          `json:"depends_on"`
-	BlockedBy []string          `json:"blocked_by"`
-	Rev       string            `json:"rev"`
+	Outcome model.TaskOutcome `json:"outcome,omitempty"`
+	// DeclinedBy, DeclinedPerson, RetryAfter, and ReroutedTo are the
+	// outcome fields of a declined, failed, or rerouted task.
+	DeclinedBy     model.DeclinedBy `json:"declined_by,omitempty"`
+	DeclinedPerson string           `json:"declined_person,omitempty"`
+	RetryAfter     model.Date       `json:"retry_after,omitempty"`
+	ReroutedTo     string           `json:"rerouted_to,omitempty"`
+	DependsOn      []string         `json:"depends_on"`
+	BlockedBy      []string         `json:"blocked_by"`
+	Rev            string           `json:"rev"`
 	// Deferred is true while a person has put the task off (itself, or its
 	// goal). DeferUntil is the date or "someday". It still blocks its dependents.
 	Deferred       bool   `json:"deferred"`
@@ -81,7 +87,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
 	}
 	for _, l := range t.DependsOn {
@@ -348,6 +354,8 @@ type TaskListInput struct {
 	// Deferred includes the tasks a person put off (Later). They are left out
 	// by default; each is marked.
 	Deferred bool `json:"deferred,omitempty" query:"deferred"`
+	// Outcome keeps closed tasks with this outcome, such as failed.
+	Outcome model.TaskOutcome `json:"outcome,omitempty" query:"outcome"`
 }
 
 // TaskListOutput is the output of task_list.
@@ -356,12 +364,15 @@ type TaskListOutput struct {
 }
 
 // TaskList lists tasks.
-var TaskList = defineRead("task_list", "List tasks; open: true lists every task that is todo, doing, or blocked in one call", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
+var TaskList = defineRead("task_list", "List tasks; open: true lists every task that is todo, doing, or blocked in one call; outcome (such as failed or declined) lists closed tasks that ended so", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.TaskStatuses, in.Status) {
 		return TaskListOutput{}, fmt.Errorf("unknown status %q", in.Status)
 	}
 	if in.Open && in.Status != "" {
 		return TaskListOutput{}, errors.New("open and status do not combine: open is todo, doing, or blocked")
+	}
+	if in.Outcome != "" && !slices.Contains(model.TaskOutcomes, in.Outcome) {
+		return TaskListOutput{}, fmt.Errorf("unknown outcome %q: want one of %v", in.Outcome, model.TaskOutcomes)
 	}
 	tasks, err := listTasks(ctx, d.Store, in.Project, in.Status)
 	if err != nil {
@@ -371,6 +382,9 @@ var TaskList = defineRead("task_list", "List tasks; open: true lists every task 
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool {
 			return t.Status != model.TaskTodo && t.Status != model.TaskDoing && t.Status != model.TaskBlocked
 		})
+	}
+	if in.Outcome != "" {
+		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Outcome != in.Outcome })
 	}
 	if area := normID(in.Area); area != "" {
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Area != area })

@@ -185,10 +185,31 @@ const (
 	OutcomeDropped    TaskOutcome = "dropped"
 	OutcomeDuplicate  TaskOutcome = "duplicate"
 	OutcomeSuperseded TaskOutcome = "superseded"
+	// OutcomeDeclined: someone said no (the owner, or another person).
+	OutcomeDeclined TaskOutcome = "declined"
+	// OutcomeFailed: it was tried and could not be done; it may be tried again
+	// after retry_after.
+	OutcomeFailed TaskOutcome = "failed"
+	// OutcomeRerouted: another item or an outside system holds the work now.
+	OutcomeRerouted TaskOutcome = "rerouted"
 )
 
+// DeclinedBy is task.declined_by: who declined a task, owner or other.
+type DeclinedBy string
+
+const (
+	DeclinedByOwner DeclinedBy = "owner"
+	DeclinedByOther DeclinedBy = "other"
+)
+
+// DeclinedBys lists every DeclinedBy.
+var DeclinedBys = []DeclinedBy{DeclinedByOwner, DeclinedByOther}
+
+// Enum lists the allowed values, for schema generation.
+func (DeclinedBy) Enum() []string { return enumStrings(DeclinedBys) }
+
 // TaskOutcomes lists every TaskOutcome.
-var TaskOutcomes = []TaskOutcome{OutcomeDone, OutcomePartial, OutcomeDropped, OutcomeDuplicate, OutcomeSuperseded}
+var TaskOutcomes = []TaskOutcome{OutcomeDone, OutcomePartial, OutcomeDropped, OutcomeDuplicate, OutcomeSuperseded, OutcomeDeclined, OutcomeFailed, OutcomeRerouted}
 
 // Enum lists the allowed values, for schema generation.
 func (TaskOutcome) Enum() []string { return enumStrings(TaskOutcomes) }

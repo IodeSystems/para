@@ -41,10 +41,12 @@ const (
 	// AgendaArea is an area review that is due: one cadence after the last
 	// review, or today for an area never reviewed.
 	AgendaArea AgendaKind = "area"
+	// AgendaRetry is a failed task whose retry_after has come.
+	AgendaRetry AgendaKind = "retry"
 )
 
 // AgendaKinds lists every AgendaKind.
-var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal, AgendaArea}
+var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal, AgendaArea, AgendaRetry}
 
 // Enum lists the allowed values, for schema generation.
 func (AgendaKind) Enum() []string {
@@ -208,6 +210,12 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		return nil, err
 	}
 	for _, t := range tasks {
+		if t.Outcome == model.OutcomeFailed && t.RetryAfter != "" && !IsOther(t.Assignee) {
+			if late, ok := inWindow(string(t.RetryAfter)); ok {
+				items = append(items, AgendaItem{Kind: AgendaRetry, ID: t.ID, Title: t.Title, Date: string(t.RetryAfter), Overdue: late,
+					Detail: "failed; retry after", Who: []string{}, Project: cmp.Or(t.Project, t.Area)})
+			}
+		}
 		// A call or work with someone shows on the day it is scheduled, apart
 		// from its due date. A meeting shows above, with its time.
 		date := string(t.Due)

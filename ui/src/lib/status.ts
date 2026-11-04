@@ -33,6 +33,7 @@ const TONE: Record<string, Tone> = {
   failed: 'bad',
   overdue: 'bad',
   declined: 'bad',
+  rerouted: 'wait',
 }
 
 export function toneOf(state: string): Tone {

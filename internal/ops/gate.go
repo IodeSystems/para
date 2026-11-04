@@ -91,6 +91,22 @@ func parseGate(v string) ([]string, error) {
 	return out, nil
 }
 
+// gateVerdict is what an op's own gate rule says about one write.
+type gateVerdict int
+
+const (
+	gateDefault gateVerdict = iota // gate.require decides
+	gatePass                       // the write applies directly
+	gateStage                      // the write waits for review, whatever gate.require says
+)
+
+// withGateRule sets an op's own gate rule: it reads the input and the
+// agent's WriteMeta, and on gateStage names what the write lacks.
+func withGateRule[I, O any](o *Op[I, O], rule func(I, WriteMeta) (gateVerdict, string)) *Op[I, O] {
+	o.gateRule = rule
+	return o
+}
+
 // gated reports whether the gate checks this write.
 func gated[I, O any](d Deps, o *Op[I, O]) bool {
 	if !agentSurface(d) || o.person || o.risk == RiskRead || slices.Contains(FlowOps, o.name) {

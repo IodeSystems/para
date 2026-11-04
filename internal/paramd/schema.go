@@ -38,7 +38,8 @@ type field struct {
 var (
 	projectStatus      = []string{"active", "paused", "done", "dropped"}
 	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
-	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded"}
+	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded", "declined", "failed", "rerouted"}
+	declinedBy         = []string{"owner", "other"}
 	rfxDirection       = []string{"in", "out"}
 	rfxStatus          = []string{"open", "answered", "closed", "declined"}
 	fidelities         = []string{"exact", "ocr", "partial", "none"}
@@ -151,6 +152,10 @@ var typeFields = map[string][]field{
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 		{Name: "outcome", Kind: kEnum, Enum: taskOutcome},
+		{Name: "declined_by", Kind: kEnum, Enum: declinedBy},
+		{Name: "declined_person", Kind: kLink},
+		{Name: "retry_after", Kind: kDate},
+		{Name: "rerouted_to", Kind: kString}, // a link to a vault item, or a URL
 		{Name: "kind", Kind: kEnum, Enum: taskKinds},
 		{Name: "scheduled", Kind: kWhen}, // a date, or an RFC 3339 start with a zone
 		{Name: "end", Kind: kTimestamp},
