@@ -268,6 +268,21 @@ func shiftSlot(scheduled, end string, days int) (string, string, error) {
 	return ns.Format(time.RFC3339), ns.Add(en.Sub(st)).Format(time.RFC3339), nil
 }
 
+// nextMeeting makes the next occurrence of a recurring meeting that is being
+// held or cancelled, through makeNext, so a task_done on the same task finds
+// it and makes no second one. A meeting that does not recur, or an old-form
+// meeting, gets none. Call it before the closing document is saved.
+func nextMeeting(ctx context.Context, d Deps, doc model.Document, m *mtg) (id, request string, warns []string, err error) {
+	if m.t == nil {
+		return "", "", nil, nil
+	}
+	rule, ok := recurRule(m.t)
+	if !ok {
+		return "", "", nil, nil
+	}
+	return makeNext(ctx, d, doc, m.t, rule)
+}
+
 // agentRequest queues a request for a recurring task assigned to an agent,
 // through request_add. A failure is a warning, not an error: the task exists.
 func agentRequest(ctx context.Context, d Deps, doc model.Document, warns []string) (string, []string) {

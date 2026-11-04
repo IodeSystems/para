@@ -45,13 +45,15 @@ type MeetingHoldInput struct {
 type MeetingHoldOutput struct {
 	ID           string              `json:"id"`
 	Status       model.MeetingStatus `json:"status"`
-	Replied      []string            `json:"replied"`      // requests that got a reply
-	Constraints  []string            `json:"constraints"`  // made by a "no"
-	Interactions []string            `json:"interactions"` // logged by the replies
-	Answered     []string            `json:"answered"`     // questions answered
-	Tasks        []string            `json:"tasks"`        // action items
-	Requests     []string            `json:"requests"`     // agent requests queued for tasks
-	Waiting      []string            `json:"waiting"`      // requests asked in the meeting and still unanswered
+	Replied      []string            `json:"replied"`           // requests that got a reply
+	Constraints  []string            `json:"constraints"`       // made by a "no"
+	Interactions []string            `json:"interactions"`      // logged by the replies
+	Answered     []string            `json:"answered"`          // questions answered
+	Tasks        []string            `json:"tasks"`             // action items
+	Requests     []string            `json:"requests"`          // agent requests queued for tasks
+	Waiting      []string            `json:"waiting"`           // requests asked in the meeting and still unanswered
+	Next         string              `json:"next,omitempty"`    // a recurring meeting: its next occurrence
+	Request      string              `json:"request,omitempty"` // agent request queued for the next occurrence
 	Warnings     []string            `json:"warnings"`
 	Rev          string              `json:"rev"`
 }
@@ -299,6 +301,12 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 	}
 	m.Status = model.MeetingHeld
 	m.sync()
+	if next, req, warns, err := nextMeeting(ctx, d, doc, m); err != nil {
+		return partial("next meeting", err)
+	} else {
+		out.Next, out.Request = next, req
+		out.Warnings = append(out.Warnings, warns...)
+	}
 	block := "- " + d.Store.Now().Format(dateLayout) + ": Held."
 	if notes != "" {
 		block += "\n\n" + notes

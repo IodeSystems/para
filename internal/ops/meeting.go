@@ -483,6 +483,8 @@ type MeetingChangeOutput struct {
 	RFX      []string            `json:"rfx"` // requests whose meeting target changed
 	Warnings []string            `json:"warnings"`
 	Rev      string              `json:"rev"`
+	Next     string              `json:"next,omitempty"`    // a recurring meeting: its next occurrence
+	Request  string              `json:"request,omitempty"` // agent request queued for the next occurrence
 }
 
 // MeetingScheduleInput is the input of meeting_schedule.
@@ -561,8 +563,12 @@ var MeetingCancel = define("meeting_cancel", "Cancel a requested or scheduled me
 	if r := strings.Join(strings.Fields(in.Reason), " "); r != "" {
 		line += " " + r
 	}
-	doc.Body = appendToSection(doc.Body, notesHeading, line)
 	m.sync()
+	next, req, nwarns, err := nextMeeting(ctx, d, doc, m)
+	if err != nil {
+		return MeetingChangeOutput{}, err
+	}
+	doc.Body = appendToSection(doc.Body, notesHeading, line)
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return MeetingChangeOutput{}, err
@@ -576,7 +582,7 @@ var MeetingCancel = define("meeting_cancel", "Cancel a requested or scheduled me
 		}
 		return old, false
 	})
-	out := MeetingChangeOutput{ID: doc.ID, Status: m.Status, Start: m.Start, End: m.End, RFX: nonNil(changed), Warnings: nonNil(warns), Rev: saved.Rev}
+	out := MeetingChangeOutput{ID: doc.ID, Status: m.Status, Start: m.Start, End: m.End, RFX: nonNil(changed), Warnings: nonNil(append(nwarns, warns...)), Rev: saved.Rev, Next: next, Request: req}
 	if err != nil {
 		return out, fmt.Errorf("meeting %s was cancelled but its requests were not all updated: %w", doc.ID, err)
 	}

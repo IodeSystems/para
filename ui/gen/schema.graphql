@@ -2706,6 +2706,8 @@ input para_MeetingCancelInputInput {
 type para_MeetingChangeOutput {
   end: String
   id: String!
+  next: String
+  request: String
   rev: String!
   rfx: [String!]!
   start: String
@@ -2737,7 +2739,9 @@ type para_MeetingHoldOutput {
   constraints: [String!]!
   id: String!
   interactions: [String!]!
+  next: String
   replied: [String!]!
+  request: String
   requests: [String!]!
   rev: String!
   status: para_MeetingHoldOutputStatus!

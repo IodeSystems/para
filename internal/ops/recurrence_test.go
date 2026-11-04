@@ -92,3 +92,42 @@ func mustRule(t *testing.T, s string) recur.Rule {
 	}
 	return r
 }
+
+// meeting_hold makes the next occurrence of a weekly timed meeting, once.
+func TestMeetingHoldRecurs(t *testing.T) {
+	la, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Skip("no tz data")
+	}
+	old := time.Local
+	time.Local = la
+	defer func() { time.Local = old }()
+
+	d := newDepsAt(t, time.Date(2026, 10, 30, 12, 0, 0, 0, la), "m1")
+	seedOrg(t, d)
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	person := "person-ada-example"
+	doc, _ := recurSlotTask(t, d, proj, &model.Task{
+		Kind: model.KindMeeting, Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00",
+		With: []model.Link{model.LinkTo(person)}, CalendarUID: "uid-1@example.com"})
+	h := must(t, MeetingHold, d, MeetingHoldInput{ID: doc.ID, Notes: "Went well."})
+	if h.Next == "" {
+		t.Fatalf("meeting_hold made no next occurrence: %+v", h)
+	}
+	n := nextOf(t, d, doc.ID)
+	if n.Kind != model.KindMeeting || n.Scheduled != "2026-11-05T09:00:00-08:00" || n.End != "2026-11-05T09:30:00-08:00" || n.CalendarUID != "uid-1@example.com" || n.Status != model.TaskTodo {
+		t.Errorf("next = %+v", n)
+	}
+	// A repeat of the closing path makes no second one.
+	od, _ := d.Store.Get(ctx, doc.ID)
+	ot := od.Meta.(*model.Task)
+	if id, _, _, err := makeNext(ctx, d, od, ot, mustRule(t, "weekly")); err != nil || id != h.Next {
+		t.Errorf("second makeNext = %q, %v; want %s", id, err, h.Next)
+	}
+	// A cancelled occurrence also recurs.
+	c, _ := recurSlotTask(t, d, proj, &model.Task{Kind: model.KindMeeting, Scheduled: "2026-11-02T10:00:00-08:00", End: "2026-11-02T10:30:00-08:00",
+		With: []model.Link{model.LinkTo(person)}})
+	if o := must(t, MeetingCancel, d, MeetingCancelInput{ID: c.ID, Reason: "Out."}); o.Next == "" {
+		t.Errorf("meeting_cancel made no next: %+v", o)
+	}
+}
