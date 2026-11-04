@@ -238,8 +238,11 @@ A large goal can carry a brief: why, confidence, alternatives (including do noth
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
-  an ongoing responsibility that never       an area
+  an ongoing responsibility that never       an area of kind project (the default)
   finishes
+  a discipline that spans your work          an area of kind concept; goals list it in concepts
+  a rule for one area that narrows a         a convention with applies_in and refines; para rules-in-effect
+  general one
   one thing to do                            a task, ideally with how we know it is done
   a bounded outcome that finishes           a goal, with its done condition (in an area)
   something you wait on a person for         an ask, with a reason if refused
