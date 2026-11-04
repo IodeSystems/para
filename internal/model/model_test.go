@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/para/internal/paramd"
 )
 
 func strs[T ~string](in []T) []string {

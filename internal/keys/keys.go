@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/para/internal/atomicfile"
 )
 
 // AdminName is the actor of the admin token. No key can take this name.

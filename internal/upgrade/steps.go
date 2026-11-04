@@ -1,6 +1,6 @@
 package upgrade
 
-import "github.com/iodesystems/parasolve/internal/model"
+import "github.com/iodesystems/para/internal/model"
 
 // steps are in version order. A shipped step never changes its ID or Version.
 func steps() []Step {

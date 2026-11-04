@@ -10,9 +10,9 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/props"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/props"
 )
 
 const (

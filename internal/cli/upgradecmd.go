@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/iodesystems/parasolve/changes"
-	"github.com/iodesystems/parasolve/internal/mcpserver"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/upgrade"
+	"github.com/iodesystems/para/changes"
+	"github.com/iodesystems/para/internal/mcpserver"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // goInstallLine is what to run when para was not built from a checkout.
-const goInstallLine = "go install github.com/iodesystems/parasolve/cmd/para@latest"
+const goInstallLine = "go install github.com/iodesystems/para/cmd/para@latest"
 
 func newChangesCmd(l *loader) *cobra.Command {
 	return opCommand(l, ops.Changes, binding[ops.ChangesInput, ops.ChangesOutput]{

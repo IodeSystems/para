@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/today"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/today"
 )
 
 // streamSParityCases are the parity rows of stream S: areas, notes, due dates,

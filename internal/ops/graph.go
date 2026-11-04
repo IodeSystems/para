@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/graph"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/graph"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Node states in GraphNode.State.

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 type sink struct {

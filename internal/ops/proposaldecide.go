@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // proposal_decide is how the owner decides: in the chat with the agent, who

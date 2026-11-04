@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func mustRun[I, O any](t *testing.T, op *Op[I, O], d Deps, in I) O {

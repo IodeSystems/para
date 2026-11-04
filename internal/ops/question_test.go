@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // questionVault is a project with an area, and a task per use.

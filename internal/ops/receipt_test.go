@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func TestDiffLines(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/index"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/index"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Ops that return ids also return the names, so no surface shows an id.

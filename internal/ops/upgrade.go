@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/parasolve/changes"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/upgrade"
+	"github.com/iodesystems/para/changes"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // upgradeKind is the Kind of agent work filed for a judgement step.

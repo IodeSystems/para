@@ -9,9 +9,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 const requestWaitTool = "request_wait"

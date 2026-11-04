@@ -15,7 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/raglit"
+	"github.com/iodesystems/para/internal/raglit"
 )
 
 // ignorePatterns keep para's own state, events and proposals out of the index.

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/recur"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/recur"
 )
 
 // A recurring task has a `recur` value (daily, weekly, monthly, every <n>

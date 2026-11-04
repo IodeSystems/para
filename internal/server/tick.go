@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // DefaultTickInterval is how often para serve runs tick when tick.interval

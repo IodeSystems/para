@@ -3,8 +3,8 @@ package mcpserver
 import (
 	"context"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // failStore fails or panics on Reconcile.

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // streamPParityCases are the parity rows of stream P: inbox triage, RFX reply

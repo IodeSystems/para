@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/guide"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/recur"
-	"github.com/iodesystems/parasolve/internal/today"
+	"github.com/iodesystems/para/internal/guide"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/recur"
+	"github.com/iodesystems/para/internal/today"
 )
 
 // streamUParityCases are the parity rows of stream U: assignees, recurrence,

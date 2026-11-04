@@ -10,8 +10,8 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/parasolve/changes"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/changes"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 func initializeWith(t *testing.T, o Options) (*client.Client, string) {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/today"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/today"
 )
 
 func TestTodayAcrossVaults(t *testing.T) {

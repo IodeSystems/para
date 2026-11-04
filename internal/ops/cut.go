@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 const assumptionsHeading = "## Assumptions"

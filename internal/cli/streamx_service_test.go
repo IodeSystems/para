@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/para/internal/registry"
 )
 
 // Stream X: para doctor and para service install see the dispatch and tick config.

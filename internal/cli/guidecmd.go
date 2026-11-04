@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/guide"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/guide"
 )
 
 // newGuideCmd prints what --help-extended prints, for anyone who looks for a

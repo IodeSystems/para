@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Risks and assumptions. goal_risk_set and assumption_set write them, one item

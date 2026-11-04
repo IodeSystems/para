@@ -16,12 +16,12 @@ import (
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/opsample"
-	"github.com/iodesystems/parasolve/internal/store"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/opsample"
+	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 var sampleInputs = opsample.Inputs

@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Inputs holds a valid Input for each op that rejects the empty Input.

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // settled waits for the goroutine count to fall to want or less.

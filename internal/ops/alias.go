@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // PersonAliasInput is the input of org_person_alias_add and _remove.

@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/dispatch"
+	"github.com/iodesystems/para/internal/dispatch"
 )
 
 // agentStatusOutput is the output of para agent status.

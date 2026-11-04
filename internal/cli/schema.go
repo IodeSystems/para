@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/server"
 )
 
 const defaultSchemaPath = "ui/gen/schema.graphql"

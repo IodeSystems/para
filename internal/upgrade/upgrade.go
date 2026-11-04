@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // ConfigKey is the vault.properties key that records the format version.

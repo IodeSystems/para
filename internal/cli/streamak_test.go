@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // streamAKParityCases are the parity rows of stream AK: area kinds. Ids come

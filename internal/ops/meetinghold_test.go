@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // holdFixture adds a second request with its own person, and a request that

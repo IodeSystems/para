@@ -13,9 +13,9 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/raglit"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/raglit"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // fakeRaglit is a stand-in for a raglit daemon: one project, one token, and a

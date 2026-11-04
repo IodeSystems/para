@@ -8,7 +8,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // A proposal item's summary is one plain line for a person: what approving it

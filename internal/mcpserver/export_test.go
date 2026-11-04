@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // An agent must not move data off the machine through para. The export op
@@ -86,7 +86,7 @@ func TestExportOverMCPRendersAndMovesNothing(t *testing.T) {
 func TestOpsAndMCPHoldNoTransportCode(t *testing.T) {
 	forbidden := map[string]bool{
 		"os/exec": true, "net": true, "net/http": true, "net/smtp": true,
-		"github.com/iodesystems/parasolve/internal/atomicfile": true,
+		"github.com/iodesystems/para/internal/atomicfile": true,
 	}
 	for _, dir := range []string{"../ops", "."} {
 		files, _ := filepath.Glob(filepath.Join(dir, "*.go"))

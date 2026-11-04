@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // newVaultConfigCmd is `para vault config`: the settings in

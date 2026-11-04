@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Holding a meeting records what came of it. Replies go through rfx_reply and

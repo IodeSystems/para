@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // TestCLIActor: --actor makes a CLI write an agent write, as over MCP.

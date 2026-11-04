@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // memStore is a tiny vault: documents and events in memory.

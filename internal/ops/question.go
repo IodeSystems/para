@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // A question is something unknown that nobody has been asked yet, or a decision

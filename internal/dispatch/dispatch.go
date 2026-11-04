@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Defaults of Options.

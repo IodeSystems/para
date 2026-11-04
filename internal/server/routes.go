@@ -14,9 +14,9 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/gat"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 const (

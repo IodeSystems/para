@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/dispatch"
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // dispatchRefresh is how often RunDispatch looks for a vault that has gained an

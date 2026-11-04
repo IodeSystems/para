@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func taskOf(t *testing.T, d Deps, id string) (TaskView, string) {

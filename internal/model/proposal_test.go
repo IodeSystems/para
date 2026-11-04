@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/para/internal/paramd"
 )
 
 // The block must give back exactly what went in, whatever the text holds. A

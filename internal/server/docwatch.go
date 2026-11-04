@@ -11,8 +11,8 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/syncname"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/syncname"
 )
 
 const (

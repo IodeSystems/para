@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // streamAZParityCases are the parity rows of stream AZ: Later, find evidence,

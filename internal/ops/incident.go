@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // An incident is the record of one outage or fault in a system you run: how

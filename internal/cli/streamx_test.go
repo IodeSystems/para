@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/dispatch"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
 )
 
 // Stream X: the per-machine dispatch config. No agent starts in these tests.

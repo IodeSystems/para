@@ -11,12 +11,12 @@ import (
 	"sort"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/upgrade"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/upgrade"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 const dateLayout = "2006-01-02"

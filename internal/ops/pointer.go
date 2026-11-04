@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Areas and projects point at material that lives elsewhere: a repo, a plan,

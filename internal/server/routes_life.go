@@ -1,7 +1,7 @@
 package server
 
 import (
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // registerLife: areas, notes, incidents, meetings, questions, links, and dependency edits. Reads are GET with

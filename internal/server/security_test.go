@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/netguard"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
 )
 
 // table is every huma route plus the GraphQL and schema endpoints.

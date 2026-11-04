@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // A task has an assignee: empty (or "self") for the owner, a person id, or

@@ -18,11 +18,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/props"
-	"github.com/iodesystems/parasolve/internal/server"
-	"github.com/iodesystems/parasolve/internal/webui"
-	"github.com/iodesystems/parasolve/ui"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/props"
+	"github.com/iodesystems/para/internal/server"
+	"github.com/iodesystems/para/internal/webui"
+	"github.com/iodesystems/para/ui"
 )
 
 const (

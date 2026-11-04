@@ -16,10 +16,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/server"
 )
 
 func TestSchemaDumpNeedsNoVaultAndMatchesCommitted(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func externalEdits(t *testing.T, f *fixture, doc string) int {

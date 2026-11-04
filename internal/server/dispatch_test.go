@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/dispatch"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // No real agent: the command is a script that records what it got.

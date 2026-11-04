@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 type fixture struct {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func agentOf(d Deps) Deps { return Deps{Store: d.Store.ActAs("claude", "mcp")} }

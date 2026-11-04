@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // agendaLine is one item as text: the time or kind, the title, who, and the id.

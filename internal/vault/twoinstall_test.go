@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Two installs, two copies of one vault, two state dirs. The test plays the

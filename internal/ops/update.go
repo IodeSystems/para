@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Updates are free text the owner writes on a task. They are kept whole under

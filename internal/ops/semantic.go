@@ -7,10 +7,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/egress"
-	"github.com/iodesystems/parasolve/internal/index"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/raglit"
+	"github.com/iodesystems/para/internal/egress"
+	"github.com/iodesystems/para/internal/index"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/raglit"
 )
 
 const defaultSearchLimit = 10

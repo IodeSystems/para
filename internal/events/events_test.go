@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func testLog(t *testing.T, now *time.Time) (*Log, string) {

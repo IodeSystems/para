@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"unicode/utf8"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // ruleMax is the longest rule line (docs/format.md § 6).

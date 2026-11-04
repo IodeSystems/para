@@ -1,4 +1,4 @@
-module github.com/iodesystems/parasolve
+module github.com/iodesystems/para
 
 go 1.26.2
 

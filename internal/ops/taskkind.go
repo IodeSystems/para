@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Kinds of task. A meeting is a task with a time, people, and the questions it

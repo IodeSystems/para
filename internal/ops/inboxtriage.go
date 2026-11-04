@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // An inbox item is sorted once: it becomes a task, request, project, or note,

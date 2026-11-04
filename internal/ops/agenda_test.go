@@ -8,8 +8,8 @@ import (
 
 	_ "time/tzdata" // the zones below, on a machine with no zoneinfo
 
-	"github.com/iodesystems/parasolve/internal/egress"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/egress"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func utc(s string) time.Time {

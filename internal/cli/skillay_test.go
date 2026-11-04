@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/guide"
+	"github.com/iodesystems/para/internal/guide"
 )
 
 // The skill routes ingest and align to reference files, and install writes them.

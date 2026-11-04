@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/recur"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/recur"
 )
 
 // Tick is the one scheduled pass. Para has no scheduler of its own: `para tick`

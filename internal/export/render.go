@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Rendering of para-md for paste. Line based and small: it covers what

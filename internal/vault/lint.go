@@ -7,8 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 )
 
 func convert(in []paramd.Finding) []model.Finding {

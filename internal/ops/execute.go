@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // The owner directs and agents act with their own tools: gh, slackcli, acli, a

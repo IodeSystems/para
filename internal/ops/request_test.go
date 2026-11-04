@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // reqVault is a synthetic vault with a clock the test moves.

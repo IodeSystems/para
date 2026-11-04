@@ -10,12 +10,12 @@ import (
 	"slices"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/egress"
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/index"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/internal/egress"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/index"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // Store is a vault on this machine.

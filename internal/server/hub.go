@@ -11,13 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // Hub is every vault this process serves. A vault opens once, on first use, and

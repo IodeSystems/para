@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/registry"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
 )
 
 // streamVParityCases are the parity rows of stream V: meetings, agenda. A

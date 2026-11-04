@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/server"
 )
 
 // openURL opens a URL in a browser on this machine. Tests replace it, so no

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	evlog "github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	evlog "github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // The friction report counts what slows Asks down, by domain, policy, or reason

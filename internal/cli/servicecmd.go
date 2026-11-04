@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/service"
+	"github.com/iodesystems/para/internal/service"
 )
 
 // runner runs a service manager command with its output on w. Tests replace it:

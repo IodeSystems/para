@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/iodesystems/parasolve/internal/egress"
-	"github.com/iodesystems/parasolve/internal/props"
+	"github.com/iodesystems/para/internal/egress"
+	"github.com/iodesystems/para/internal/props"
 )
 
 // Egress checks a path out of the vault against vault.properties and logs an

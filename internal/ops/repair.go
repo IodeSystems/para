@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/paramd"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Repair ops. They exist so an agent never repairs a vault with a script: each

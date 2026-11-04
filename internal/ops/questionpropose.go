@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // An agent answers a question with the sources it found. The owner's words in

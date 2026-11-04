@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/ical"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/ical"
 )
 
 // calendarDoc names the egress event of a calendar export: ids only, and a

@@ -9,7 +9,7 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/relay"
 
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/server"
 )
 
 func main() {

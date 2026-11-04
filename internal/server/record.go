@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/para/internal/atomicfile"
 )
 
 // Record is what a running `para serve` says about itself, so a client on this

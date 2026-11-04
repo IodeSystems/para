@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // notifyLogger is the logger name of notifications/message. dun lifts those

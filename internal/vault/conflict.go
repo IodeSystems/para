@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/paramd"
-	"github.com/iodesystems/parasolve/internal/syncname"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/syncname"
 )
 
 // Conflicts lists the sync-conflict copies in the vault (names by package

@@ -13,8 +13,8 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/relay"
 
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // capTTL is how long a minted subscription cap lasts. The client mints again

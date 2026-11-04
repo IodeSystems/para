@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/index"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/index"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // noise finds what makes an excerpt hard to read: a wiki link (groups 1 and 2),

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/para/internal/atomicfile"
 )
 
 // StateFile is the dispatch state in the vault's state directory. It holds the

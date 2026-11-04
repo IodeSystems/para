@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/server"
 )
 
 // newKeyCmd manages keys on this machine, in the vault's server directory. It

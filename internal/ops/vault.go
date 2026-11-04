@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // LintInput is the input of lint.

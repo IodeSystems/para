@@ -10,10 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/opsample"
-	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/opsample"
+	"github.com/iodesystems/para/internal/store/local"
 )
 
 func contextBackground() context.Context { return context.Background() }

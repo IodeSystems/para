@@ -6,8 +6,8 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/parasolve/internal/guide"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/guide"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 func TestPrompts(t *testing.T) {

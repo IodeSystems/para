@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Targets record who an RFX goes to and by what medium. Para sends nothing;

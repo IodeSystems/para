@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Decisions. proposal_approve and proposal_deny are definePerson: a person at a

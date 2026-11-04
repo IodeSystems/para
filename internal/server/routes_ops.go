@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 const (

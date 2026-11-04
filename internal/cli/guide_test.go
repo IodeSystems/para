@@ -9,7 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/guide"
+	"github.com/iodesystems/para/internal/guide"
 )
 
 // splitWords splits a command line on spaces, honouring single and double quotes.

@@ -8,8 +8,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/netguard"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
 )
 
 // SessionView says who the caller is. The PWA reads it to choose a screen.

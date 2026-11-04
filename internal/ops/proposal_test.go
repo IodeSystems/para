@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // propFix is the proposal tests' name for agentFix.

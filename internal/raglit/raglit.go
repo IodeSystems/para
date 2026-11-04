@@ -22,7 +22,7 @@ import (
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/mark3labs/mcp-go/mcp"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/para/internal/atomicfile"
 )
 
 // FileName is the config file in the vault's state dir.

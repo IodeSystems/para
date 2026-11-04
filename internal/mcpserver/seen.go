@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/iodesystems/parasolve/changes"
+	"github.com/iodesystems/para/changes"
 )
 
 // ChangedLine is added to the server instructions when the binary differs from

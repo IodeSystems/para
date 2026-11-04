@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/index"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/index"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // SearchInput is the input of search. The filters narrow the hits; an empty

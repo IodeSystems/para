@@ -11,10 +11,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/paramd"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 )
 
 // Op values a batch rewrite logs, one event per document. From holds the

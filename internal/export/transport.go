@@ -15,7 +15,7 @@ import (
 
 	qrcode "github.com/skip2/go-qrcode"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
+	"github.com/iodesystems/para/internal/atomicfile"
 )
 
 // Kind is a transport name.

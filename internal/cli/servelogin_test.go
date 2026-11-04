@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/server"
+	"github.com/iodesystems/para/internal/server"
 )
 
 func TestClientBase(t *testing.T) {

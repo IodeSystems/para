@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Active goal limit. The vault turns it on by setting goals.active_limit in

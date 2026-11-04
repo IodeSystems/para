@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/events"
+	"github.com/iodesystems/para/internal/events"
 )
 
 // Op is the event op of an egress record.

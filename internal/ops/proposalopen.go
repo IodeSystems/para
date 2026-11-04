@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // The owner reads a proposal, or any document, in the web app and decides in

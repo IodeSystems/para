@@ -1,4 +1,4 @@
-// Command para is the parasolve CLI.
+// Command para is the para CLI.
 package main
 
 import (
@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/iodesystems/parasolve/internal/cli"
+	"github.com/iodesystems/para/internal/cli"
 )
 
 // Stamped by the Makefile via -ldflags -X (CLI-12).

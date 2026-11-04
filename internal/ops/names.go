@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Display names. An output field whose tag is `nameof:"Sibling"` is filled

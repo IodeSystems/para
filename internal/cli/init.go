@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/upgrade"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/upgrade"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 func newInitCmd(l *loader) *cobra.Command {

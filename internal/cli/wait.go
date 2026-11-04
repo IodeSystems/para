@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // waitFallback is the default time between checks when no event arrives. A

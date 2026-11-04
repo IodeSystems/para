@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/changes"
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/changes"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func TestVaultUpgradeFilesJudgementWorkOnceAndRefusesAgents(t *testing.T) {

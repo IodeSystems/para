@@ -1,6 +1,6 @@
 package events
 
-import "github.com/iodesystems/parasolve/internal/model"
+import "github.com/iodesystems/para/internal/model"
 
 // LostUpdate is a write that a file-sync tool dropped: another install updated
 // the same version of the document, and that version won.

@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // Format is an output format.

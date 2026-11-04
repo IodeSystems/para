@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // newDepsAt opens a vault whose clock is fixed at now, on the given surface.

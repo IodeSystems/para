@@ -16,13 +16,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/docs"
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/opsample"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/docs"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/opsample"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 const (

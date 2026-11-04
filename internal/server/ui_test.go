@@ -15,7 +15,7 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/relay"
 
-	"github.com/iodesystems/parasolve/internal/netguard"
+	"github.com/iodesystems/para/internal/netguard"
 )
 
 func (f *fixture) cookieHeader(tok string) map[string]string {

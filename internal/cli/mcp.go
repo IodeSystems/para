@@ -14,12 +14,12 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/guide"
-	"github.com/iodesystems/parasolve/internal/mcpserver"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/internal/guide"
+	"github.com/iodesystems/para/internal/mcpserver"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 const mcpSurface = "mcp"

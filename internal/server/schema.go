@@ -6,9 +6,9 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // The op types stay free of huma. Everything the API schema needs beyond their

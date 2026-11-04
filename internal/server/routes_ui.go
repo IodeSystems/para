@@ -6,13 +6,13 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/ops"
-	"github.com/iodesystems/parasolve/internal/paramd"
-	"github.com/iodesystems/parasolve/internal/review"
-	"github.com/iodesystems/parasolve/internal/store"
-	"github.com/iodesystems/parasolve/internal/today"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/review"
+	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/today"
 )
 
 // Routes for the PWA that are not ops. An op is something an agent can also do

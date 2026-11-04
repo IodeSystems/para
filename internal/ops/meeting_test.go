@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 // meetingFixture is a person, a project, an outbound request in the project,

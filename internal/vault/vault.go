@@ -17,12 +17,12 @@ import (
 
 	ashid "github.com/IodeSystems/ashid/go"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/events"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/paramd"
-	"github.com/iodesystems/parasolve/internal/props"
-	"github.com/iodesystems/parasolve/internal/syncname"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/events"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/props"
+	"github.com/iodesystems/para/internal/syncname"
 )
 
 // lockWait bounds the wait for the lock when ctx has no deadline.

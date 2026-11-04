@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/recur"
-	"github.com/iodesystems/parasolve/internal/store"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/recur"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Area kinds. An area of kind project is an ongoing body of work that goals

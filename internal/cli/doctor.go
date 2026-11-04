@@ -16,17 +16,17 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/dispatch"
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/keys"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/props"
-	"github.com/iodesystems/parasolve/internal/registry"
-	"github.com/iodesystems/parasolve/internal/server"
-	"github.com/iodesystems/parasolve/internal/service"
-	"github.com/iodesystems/parasolve/internal/store/local"
-	"github.com/iodesystems/parasolve/internal/upgrade"
-	"github.com/iodesystems/parasolve/internal/vault"
+	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/props"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/server"
+	"github.com/iodesystems/para/internal/service"
+	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/upgrade"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // report prints one line per finding (CLI-13).

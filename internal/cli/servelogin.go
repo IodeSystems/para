@@ -15,9 +15,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/server"
-	"github.com/iodesystems/parasolve/internal/service"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/server"
+	"github.com/iodesystems/para/internal/service"
 )
 
 // serverAt is where a para serve listens and how that was found.

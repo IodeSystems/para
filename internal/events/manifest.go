@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/atomicfile"
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/syncname"
+	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/syncname"
 )
 
 // Manifest maps a vault-relative slash path to the content hash of the last

@@ -15,7 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 
-	"github.com/iodesystems/parasolve/internal/raglit"
+	"github.com/iodesystems/para/internal/raglit"
 )
 
 // fakeDaemon is a raglit daemon's /mcp/acme endpoint. It records tool calls.

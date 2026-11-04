@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/export"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/iodesystems/parasolve/internal/recur"
+	"github.com/iodesystems/para/internal/recur"
 )
 
 // Severity of a finding.

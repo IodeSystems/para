@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/parasolve/internal/model"
+	"github.com/iodesystems/para/internal/model"
 )
 
 func hc(t model.Type) model.Common { return model.Common{Type: t, Created: "2026-11-01"} }

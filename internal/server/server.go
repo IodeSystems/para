@@ -26,9 +26,9 @@ import (
 
 	"github.com/iodesystems/gwag/v2/gw/gat"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/netguard"
-	"github.com/iodesystems/parasolve/internal/ops"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // maxBody caps a request body. Ingest and policy text can exceed huma's 1 MiB.

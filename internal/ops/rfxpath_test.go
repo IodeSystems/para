@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/parasolve/internal/model"
-	"github.com/iodesystems/parasolve/internal/store/local"
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store/local"
 )
 
 var pathNow = time.Date(2026, 11, 10, 9, 0, 0, 0, time.UTC)
