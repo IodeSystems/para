@@ -6837,6 +6837,7 @@ type para_TodayGroup {
 
 type para_TodayItem {
   blocks: Int
+  bucket: String
   detail: String
   due: String
   id: String!
@@ -7003,7 +7004,9 @@ type para_Unknown {
 }
 
 type para_ValueRow {
+  after: String
   blocks: Int!
+  bucket: String!
   due: String
   effDue: String
   group: String!
@@ -7013,6 +7016,7 @@ type para_ValueRow {
   kind: String!
   parent: String
   proposal: Boolean
+  starts: String
   title: String!
   why: String!
 }

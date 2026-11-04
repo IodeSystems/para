@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -15,17 +16,28 @@ import (
 // Value order. One function orders everything that needs the owner, for
 // Today, next, agenda, and the PWA. The rule, with no weights:
 //
+// Every listed item is either actionable now or not yet startable. Not yet
+// startable is a booked meeting whose day is after today, a call or work with
+// someone scheduled after today, and anything that depends (depends_on, through
+// any chain) on one of those. Actionable now comes first:
+//
 //  1. Open incidents, worst severity first.
-//  2. Items with an effective due date, soonest first.
-//  3. Items with no effective due date.
+//  2. Items overdue or due within order.due_soon_days (default 2) by their
+//     effective due date, soonest first.
+//  3. Everything else by impact, highest first.
+//
+// Not yet startable comes last, by the day it can start.
 //
 // Effective due is the earliest of the item's own date and the date of any
 // open item downstream of it (anything that waits on it, through depends_on,
-// and the goal a task belongs to). Ties: higher impact first, then the oldest,
-// then the id. Impact is the number of open items it unblocks, through any
-// chain; a goal counts twice. A task also counts toward its parent task (an
-// action item is not a dependency: the parent does not wait on it). A deferred item, and everything reachable only
-// through one, adds no impact and gives no effective due.
+// and the goal a task belongs to). It counts only through the due soon window:
+// prep for a meeting next week ranks by impact. Ties: the effective due date
+// (none last), the owner's rank between two goals, the oldest, then the id.
+// Impact is the number of open items it unblocks, through any chain; a goal
+// counts twice. A task also counts toward its parent task (an action item is
+// not a dependency: the parent does not wait on it). A deferred item, and
+// everything reachable only through one, adds no impact and gives no effective
+// due.
 
 // Kinds of ValueRow.
 const (
@@ -38,12 +50,31 @@ const (
 	KindWork     = "work"
 )
 
-// Groups of ValueRow, in order.
+// Groups of ValueRow, in order. The first three are actionable now.
 const (
 	GroupIncident = "incident"
-	GroupDated    = "dated"
-	GroupUndated  = "undated"
+	GroupDueSoon  = "due_soon"
+	GroupImpact   = "impact"
+	GroupNotYet   = "not_yet"
 )
+
+// Buckets of ValueRow.
+const (
+	BucketNow    = "now"
+	BucketNotYet = "not_yet"
+)
+
+// DueSoonKey is the vault setting of the due soon window, in days.
+const DueSoonKey = "order.due_soon_days"
+
+// DefaultDueSoonDays is the due soon window when the vault sets none.
+const DefaultDueSoonDays = 2
+
+// RankOptions is what RankValue needs besides the nodes.
+type RankOptions struct {
+	Today       string // YYYY-MM-DD
+	DueSoonDays int    // overdue or due within this many days of Today ranks by date
+}
 
 // goalWeight is how many items a goal counts for in impact.
 const goalWeight = 2
@@ -77,6 +108,9 @@ type ValueNode struct {
 	// Rank is the owner's rank of a goal, 1 first; 0 is none. It breaks ties
 	// between two goals after their dates.
 	Rank int
+	// Start is the day the item can start, YYYY-MM-DD, or "": a booked
+	// meeting's day, or the day a call or work with someone is scheduled.
+	Start string
 }
 
 // ValueRow is one listed item with the reason it is where it is.
@@ -93,6 +127,12 @@ type ValueRow struct {
 	Parent   string `json:"parent,omitempty"`   // the task this is an action item of
 	Why      string `json:"why"`                // in words
 	Proposal bool   `json:"proposal,omitempty"` // an answer waits to be checked
+	// Bucket is now (actionable now) or not_yet (not yet startable).
+	Bucket string `json:"bucket"`
+	// Starts is the day a not_yet item can start. After is the item it waits
+	// on, when that and not the item itself sets the day.
+	Starts string `json:"starts,omitempty"`
+	After  string `json:"after,omitempty"`
 }
 
 // HeldUp says a deferred item holds up work that is due before it returns.
@@ -120,9 +160,9 @@ func ShortDate(d string) string {
 	return t.Format("Jan 2")
 }
 
-// RankValue orders the nodes. It is a pure function: the same nodes give the
-// same rows.
-func RankValue(nodes []ValueNode) ValueOrder {
+// RankValue orders the nodes. It is a pure function: the same nodes and
+// options give the same rows.
+func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	by := map[string]*ValueNode{}
 	for i := range nodes {
 		by[nodes[i].ID] = &nodes[i]
@@ -170,6 +210,11 @@ func RankValue(nodes []ValueNode) ValueOrder {
 		}
 		return out, viaParent
 	}
+	starts := notYet(nodes, by, opt.Today)
+	soon := opt.Today
+	if t, err := time.Parse(dateLayout, opt.Today); err == nil {
+		soon = t.AddDate(0, 0, opt.DueSoonDays).Format(dateLayout)
+	}
 	var rows []ValueRow
 	var held []HeldUp
 	items := map[string]int{}
@@ -215,13 +260,20 @@ func RankValue(nodes []ValueNode) ValueOrder {
 			}
 		}
 		r.EffDue = eff
+		r.Bucket = BucketNow
+		st, late := starts[n.ID]
 		switch {
+		case late:
+			r.Group, r.Bucket, r.Starts = GroupNotYet, BucketNotYet, st.day
+			if st.root != n.ID {
+				r.After = st.root
+			}
 		case n.Kind == KindIncident:
 			r.Group = GroupIncident
-		case eff != "":
-			r.Group = GroupDated
+		case eff != "" && eff <= soon:
+			r.Group = GroupDueSoon
 		default:
-			r.Group = GroupUndated
+			r.Group = GroupImpact
 		}
 		var waits []string
 		for _, dep := range n.Deps {
@@ -230,9 +282,24 @@ func RankValue(nodes []ValueNode) ValueOrder {
 			}
 		}
 		r.Why = why(n, r, from, waits)
+		switch {
+		case r.Group == GroupNotYet && r.After != "":
+			u := by[r.After]
+			what := shorten(cmp.Or(u.Title, u.ID))
+			if u.Kind == KindMeeting {
+				what = "meeting " + what
+			}
+			r.Why = "not yet, waits on " + what + " on " + ShortDate(r.Starts) + "; " + r.Why
+		case r.Group == GroupNotYet:
+			r.Why = "not yet, starts " + ShortDate(r.Starts) + "; " + r.Why
+		case r.Group == GroupDueSoon && eff < opt.Today:
+			r.Why = "overdue; " + r.Why
+		case r.Group == GroupDueSoon:
+			r.Why = "due soon; " + r.Why
+		}
 		rows = append(rows, r)
 	}
-	rank := map[string]int{GroupIncident: 0, GroupDated: 1, GroupUndated: 2}
+	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupImpact: 2, GroupNotYet: 3}
 	created := map[string]string{}
 	sev := map[string]string{}
 	goalRank := map[string]int{}
@@ -242,17 +309,25 @@ func RankValue(nodes []ValueNode) ValueOrder {
 			goalRank[n.ID] = n.Rank
 		}
 	}
+	// due compares effective dates, an item with none last.
+	due := func(a, b ValueRow) int { return cmp.Compare(dueKey(a.EffDue), dueKey(b.EffDue)) }
 	slices.SortStableFunc(rows, func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
 			return c
 		}
-		if a.Group == GroupIncident {
+		var c int
+		switch a.Group {
+		case GroupIncident:
 			return cmp.Or(cmp.Compare(sev[a.ID], sev[b.ID]), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
+		case GroupDueSoon:
+			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
+		case GroupImpact:
+			c = cmp.Or(cmp.Compare(b.Impact, a.Impact), due(a, b))
+		case GroupNotYet:
+			c = cmp.Or(cmp.Compare(a.Starts, b.Starts), due(a, b), cmp.Compare(b.Impact, a.Impact))
 		}
-		if a.Group == GroupDated {
-			if c := cmp.Compare(a.EffDue, b.EffDue); c != 0 {
-				return c
-			}
+		if c != 0 {
+			return c
 		}
 		if a.Kind == KindGoal && b.Kind == KindGoal {
 			// The owner's rank settles a tie between goals; an unranked goal
@@ -261,7 +336,7 @@ func RankValue(nodes []ValueNode) ValueOrder {
 				return c
 			}
 		}
-		return cmp.Or(cmp.Compare(b.Impact, a.Impact), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
+		return cmp.Or(cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
 	})
 	slices.SortFunc(held, func(a, b HeldUp) int { return cmp.Or(cmp.Compare(a.Due, b.Due), cmp.Compare(a.ID, b.ID)) })
 	if rows == nil {
@@ -271,6 +346,51 @@ func RankValue(nodes []ValueNode) ValueOrder {
 		held = []HeldUp{}
 	}
 	return ValueOrder{Rows: rows, Held: held}
+}
+
+// startOf is the day an item can start and the item that sets it.
+type startOf struct{ day, root string }
+
+// notYet finds the items that cannot start today: those whose own Start is
+// after today, and those that depend on one, through any chain. Each gets the
+// latest such day and the item it comes from. A deferred dependency is left to
+// the deferral.
+func notYet(nodes []ValueNode, by map[string]*ValueNode, today string) map[string]startOf {
+	out := map[string]startOf{}
+	if today == "" {
+		return out
+	}
+	done := map[string]bool{}
+	var visit func(id string) (startOf, bool)
+	visit = func(id string) (startOf, bool) {
+		if done[id] {
+			s, ok := out[id]
+			return s, ok
+		}
+		done[id] = true // a cycle reads as no start
+		n := by[id]
+		var best startOf
+		if n.Start > today {
+			best = startOf{n.Start, id}
+		}
+		for _, dep := range n.Deps {
+			if u := by[dep]; u == nil || u.Deferred {
+				continue
+			}
+			if s, ok := visit(dep); ok && s.day > best.day {
+				best = s
+			}
+		}
+		if best.day == "" {
+			return best, false
+		}
+		out[id] = best
+		return best, true
+	}
+	for _, n := range nodes {
+		visit(n.ID)
+	}
+	return out
 }
 
 // why says in words why a row is where it is.
@@ -359,7 +479,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 			if !ok {
 				continue
 			}
-			n.Kind, n.Due = KindMeeting, day
+			n.Kind, n.Due, n.Start = KindMeeting, day, day
 			n.Hidden = n.Due > horizon
 			if t, isTask := doc.Meta.(*model.Task); isTask {
 				n.Hidden = n.Hidden || IsOther(t.Assignee)
@@ -389,6 +509,9 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee)
 			n.Parent = m.Parent.Target()
 			n.Deps = targets(m.DependsOn)
+			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
+				n.Start, _ = meetingDay(m.Scheduled)
+			}
 		case *model.Question:
 			if m.Status != model.QuestionOpen {
 				continue
@@ -444,7 +567,23 @@ func OrderAt(ctx context.Context, s store.Store, today string) (ValueOrder, erro
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	return RankValue(nodes), nil
+	days, err := dueSoonDays(s)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days}), nil
+}
+
+// dueSoonDays reads order.due_soon_days; unset or not a number is the default.
+func dueSoonDays(s store.Store) (int, error) {
+	v, err := s.Config(DueSoonKey)
+	if err != nil {
+		return 0, err
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 0 {
+		return n, nil
+	}
+	return DefaultDueSoonDays, nil
 }
 
 // OrderInput is the input of order.
@@ -460,7 +599,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, and agent work in value order, each with why it is there; deferred items are left out", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, and agent work in value order, each with why it is there and its bucket. Actionable now comes first: incidents, then items overdue or due within order.due_soon_days (default 2) by date, then the rest by impact (what it unblocks). Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err

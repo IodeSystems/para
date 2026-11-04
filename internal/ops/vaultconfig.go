@@ -110,6 +110,7 @@ var configKeys = []configKey{
 	{name: "docs.check_days", help: "health names a watched tracked document no agent has read again in this many days; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "sources.reach_days", help: "an agent's declaration of the sources it reaches (agent_sources) lasts this many days; default 7", check: checkInt(0)},
 	{name: "sources.learn_reach", help: "true: an agent's declaration also adds it to the source's reached_by in the vault; unset or false: declarations stay on this machine", check: checkEnum("true", "false")},
+	{name: DueSoonKey, help: "value order: an item overdue or due within this many days ranks by date, before the rest by impact; unset means 2", agent: true, check: checkInt(0)},
 	{name: "egress.default", help: "allow or deny a path out of the vault; deny when unset", check: checkEnum("allow", "deny")},
 	{name: "egress.export", help: "comma separated export transports that stay allowed; unset allows all", check: checkList(exportRe)},
 	{name: "classification", help: "marking printed on copied documents", check: checkText},
@@ -240,7 +241,7 @@ type VaultConfigSetOutput struct {
 }
 
 // VaultConfigSet sets one known setting after checking its value.
-var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. An agent may change only align.days and goals.active_limit; the other keys are the owner's. The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
+var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. An agent may change only the keys vault_config_list marks agent_may_set; the other keys are the owner's. The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
 	k, err := checkConfigWrite(d, in.Key)
 	if err != nil {
 		return VaultConfigSetOutput{}, err
@@ -272,7 +273,7 @@ type VaultConfigUnsetInput struct {
 }
 
 // VaultConfigUnset removes one known setting.
-var VaultConfigUnset = withNoUndo(define("vault_config_unset", "Remove one setting of the vault (.para/vault.properties), so para uses its default. An agent may change only align.days and goals.active_limit", func(ctx context.Context, d Deps, in VaultConfigUnsetInput) (VaultConfigSetOutput, error) {
+var VaultConfigUnset = withNoUndo(define("vault_config_unset", "Remove one setting of the vault (.para/vault.properties), so para uses its default. An agent may change only the keys vault_config_list marks agent_may_set", func(ctx context.Context, d Deps, in VaultConfigUnsetInput) (VaultConfigSetOutput, error) {
 	k, err := checkConfigWrite(d, in.Key)
 	if err != nil {
 		return VaultConfigSetOutput{}, err

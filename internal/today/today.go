@@ -35,6 +35,9 @@ type Item struct {
 	// question, ask, meeting) and why it is where it is, in words.
 	Kind string `json:"kind,omitempty"`
 	Why  string `json:"why,omitempty"`
+	// Bucket is set on an Agenda item: now (actionable now) or not_yet (not
+	// yet startable), as in ops.RankValue.
+	Bucket string `json:"bucket,omitempty"`
 	// Proposal marks a question with an answer to check.
 	Proposal bool `json:"proposal,omitempty"`
 	// Names, for people. Project is a task's project id, Scope a question's
@@ -396,7 +399,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 		rows = append(rows, r)
 	}
 	other := func(r ops.ValueRow) bool {
-		return r.Kind == ops.KindQuestion && r.Group == ops.GroupUndated && r.Impact == 0 && !r.Proposal
+		return r.Kind == ops.KindQuestion && r.EffDue == "" && r.Impact == 0 && !r.Proposal
 	}
 	if len(rows) > AgendaLimit {
 		keep := rows[:0:0]
@@ -410,7 +413,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 		rows = keep
 	}
 	for _, r := range rows {
-		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Blocks: r.Blocks, Proposal: r.Proposal})
+		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Bucket: r.Bucket, Blocks: r.Blocks, Proposal: r.Proposal})
 	}
 	vt.Agenda.Count = len(vt.Agenda.Items)
 	vt.HeldUp = o.Held

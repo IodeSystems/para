@@ -84,7 +84,7 @@ func TestRankValueUsesGoalRankForTies(t *testing.T) {
 		{ID: "project-d", Kind: KindGoal, Title: "D", Created: "2026-10-04", Due: "2026-12-01"},
 	}
 	var ids []string
-	for _, r := range RankValue(nodes).Rows {
+	for _, r := range RankValue(nodes, RankOptions{Today: "2026-11-04", DueSoonDays: DefaultDueSoonDays}).Rows {
 		ids = append(ids, r.ID)
 	}
 	// A due date comes first; the rank settles the undated tie; unranked goes last.

@@ -2,8 +2,13 @@ package ops
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
+
+// rankAt is the options of the RankValue tests: today is Nov 4, the due soon
+// window the default.
+var rankAt = RankOptions{Today: "2026-11-04", DueSoonDays: DefaultDueSoonDays}
 
 func rowIDs(rows []ValueRow) []string {
 	out := []string{}
@@ -22,7 +27,7 @@ func TestRankValue(t *testing.T) {
 		why   map[string]string
 		held  []string
 	}{
-		{"incident first, then dated, then undated",
+		{"incident first, then by impact; the due date breaks a tie, none last",
 			[]ValueNode{
 				{ID: "t-undated", Kind: KindTask, Created: "2026-10-01"},
 				{ID: "t-dated", Kind: KindTask, Due: "2026-11-20", Created: "2026-10-02"},
@@ -104,13 +109,35 @@ func TestRankValue(t *testing.T) {
 				{ID: "theirs", Kind: KindTask, Hidden: true, Due: "2026-11-09", Deps: []string{"q"}},
 			},
 			[]string{"q"}, nil, nil},
+		{"overdue and due soon come before impact, by date",
+			[]ValueNode{
+				{ID: "big", Kind: KindQuestion},
+				{ID: "w1", Kind: KindTask, Deps: []string{"big"}},
+				{ID: "w2", Kind: KindTask, Deps: []string{"big"}},
+				{ID: "soon", Kind: KindTask, Due: "2026-11-06"},
+				{ID: "late", Kind: KindTask, Due: "2026-11-01"},
+				{ID: "week", Kind: KindTask, Due: "2026-11-07"},
+			},
+			[]string{"late", "soon", "big", "week", "w1", "w2"},
+			map[string]string{"late": "overdue; due Nov 1", "soon": "due soon; due Nov 6", "big": "blocks 2", "week": "due Nov 7"}, nil},
+		{"a call scheduled after today and what waits on it come last, by start",
+			[]ValueNode{
+				{ID: "call", Title: "Vendor call", Kind: KindTask, Start: "2026-11-09"},
+				{ID: "after", Title: "Follow-up", Kind: KindTask, Due: "2026-11-05", Deps: []string{"call"}},
+				{ID: "meet", Title: "Sync", Kind: KindMeeting, Due: "2026-11-08", Start: "2026-11-08"},
+				{ID: "now", Kind: KindTask},
+				{ID: "today", Kind: KindTask, Start: "2026-11-04"},
+			},
+			[]string{"now", "today", "meet", "call", "after"},
+			map[string]string{"call": "not yet, starts Nov 9; blocks 1, Follow-up due Nov 5", "after": "not yet, waits on Vendor call on Nov 9; due Nov 5, waits on Vendor call",
+				"meet": "not yet, starts Nov 8; meeting Nov 8"}, nil},
 		{"a dependency that is not open is ignored",
 			[]ValueNode{{ID: "t", Kind: KindTask, Deps: []string{"gone"}}},
 			[]string{"t"}, nil, nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := RankValue(c.nodes)
+			got := RankValue(c.nodes, rankAt)
 			if !reflect.DeepEqual(rowIDs(got.Rows), c.want) {
 				t.Errorf("order = %v, want %v", rowIDs(got.Rows), c.want)
 			}
@@ -138,7 +165,89 @@ func TestRankValueIsStable(t *testing.T) {
 		{ID: "c", Kind: KindTask, Due: "2026-11-01", Deps: []string{"a"}},
 	}
 	rev := []ValueNode{nodes[2], nodes[1], nodes[0]}
-	if x, y := rowIDs(RankValue(nodes).Rows), rowIDs(RankValue(rev).Rows); !reflect.DeepEqual(x, y) {
+	if x, y := rowIDs(RankValue(nodes, rankAt).Rows), rowIDs(RankValue(rev, rankAt).Rows); !reflect.DeepEqual(x, y) {
 		t.Errorf("%v != %v", x, y)
+	}
+}
+
+// The owner's complaint: a meeting next week, and the work that can only
+// start after it, sat above work that can be done now. Prep for the meeting is
+// actionable now and ranks by impact unless it is due soon.
+func TestRankValueActionableNowFirst(t *testing.T) {
+	nodes := []ValueNode{
+		{ID: "m", Title: "Design review", Kind: KindMeeting, Due: "2026-11-12", Start: "2026-11-12", Deps: []string{"p"}, Created: "2026-10-01"},
+		{ID: "t1", Kind: KindTask, Due: "2026-11-13", Deps: []string{"m"}, Created: "2026-10-01"},
+		{ID: "p", Kind: KindTask, Due: "2026-11-11", Created: "2026-10-01"},
+		{ID: "h", Kind: KindTask, Created: "2026-10-01"},
+		{ID: "d1", Kind: KindTask, Deps: []string{"h"}, Hidden: true},
+		{ID: "d2", Kind: KindTask, Deps: []string{"h"}, Hidden: true},
+		{ID: "d3", Kind: KindTask, Deps: []string{"h"}, Hidden: true},
+		{ID: "l", Kind: KindTask, Due: "2026-11-20", Created: "2026-10-01"},
+	}
+	for _, c := range []struct {
+		days int
+		want []string
+	}{
+		{2, []string{"h", "p", "l", "m", "t1"}}, // p is due in 7 days: impact
+		{7, []string{"p", "h", "l", "m", "t1"}}, // p is due soon
+	} {
+		got := RankValue(nodes, RankOptions{Today: "2026-11-04", DueSoonDays: c.days})
+		if ids := rowIDs(got.Rows); !reflect.DeepEqual(ids, c.want) {
+			t.Errorf("due soon %d: order = %v, want %v", c.days, ids, c.want)
+		}
+		for _, r := range got.Rows {
+			wantBucket := BucketNow
+			if r.ID == "m" || r.ID == "t1" {
+				wantBucket = BucketNotYet
+			}
+			if r.Bucket != wantBucket {
+				t.Errorf("%s bucket = %s, want %s", r.ID, r.Bucket, wantBucket)
+			}
+			if r.ID == "t1" && (r.After != "m" || r.Starts != "2026-11-12" || !strings.HasPrefix(r.Why, "not yet, waits on meeting Design review on Nov 12")) {
+				t.Errorf("t1 = %+v", r)
+			}
+		}
+	}
+}
+
+// The complaint in a vault: order and the due soon setting.
+func TestOrderPutsWorkThatCanStartNowFirst(t *testing.T) {
+	d, ada := agendaVault(t, "2026-11-04T12:00:00Z")
+	area := must(t, AreaAdd, d, AreaAddInput{Title: "Platform"}).ID
+	task := func(title, due string, deps ...string) string {
+		return must(t, TaskAdd, d, TaskAddInput{Area: area, Title: title, Due: due, DependsOn: deps}).ID
+	}
+	p := task("Prep the review deck", "2026-11-11")
+	m := meet(t, d, ada, "Design review", "2026-11-12T15:00:00Z", "2026-11-12T16:00:00Z")
+	must(t, TaskDependsAdd, d, TaskDependsInput{ID: m, DependsOn: []string{p}})
+	t1 := task("Apply review outcome", "2026-11-13", m)
+	h := task("Fix the build cache", "")
+	for _, n := range []string{"one", "two", "three"} {
+		task("Ship service "+n, "", h)
+	}
+	l := task("Tidy the wiki", "2026-11-20")
+	pos := func() map[string]int {
+		out := map[string]int{}
+		for i, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+			out[r.ID] = i
+		}
+		return out
+	}
+	check := func(label string, want ...string) {
+		t.Helper()
+		at := pos()
+		for i := 1; i < len(want); i++ {
+			if at[want[i-1]] >= at[want[i]] {
+				t.Errorf("%s: %s is not before %s: %v", label, want[i-1], want[i], at)
+			}
+		}
+	}
+	check("default", h, p, l, m, t1)
+	must(t, VaultConfigSet, d, VaultConfigSetInput{Key: DueSoonKey, Value: "7"})
+	check("due soon 7", p, h, l, m, t1)
+	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+		if r.ID == t1 && (r.Bucket != BucketNotYet || r.After != m || !strings.HasPrefix(r.Why, "not yet, waits on meeting Design review on Nov 12")) {
+			t.Errorf("t1 = %+v", r)
+		}
 	}
 }

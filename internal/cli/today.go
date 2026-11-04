@@ -28,7 +28,8 @@ func newTodayCmd(l *loader) *cobra.Command {
 }
 
 // runAgendaHome prints the home view: what needs you in value order
-// (incidents, then by effective due date and impact), plus due, expiring,
+// (actionable now: incidents, due soon by date, the rest by impact; then not
+// yet startable, by start; see ops.RankValue), plus due, expiring,
 // blocked, unverified, and inbox counts across all vaults. `para agenda` runs
 // it without a date flag.
 func runAgendaHome(l *loader, cmd *cobra.Command) error {

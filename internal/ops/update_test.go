@@ -96,7 +96,7 @@ func TestRankChildCountsTowardParent(t *testing.T) {
 		{ID: "child", Kind: KindTask, Goal: "goal", Parent: "parent"},
 	}
 	var child, parent ValueRow
-	for _, r := range RankValue(nodes).Rows {
+	for _, r := range RankValue(nodes, RankOptions{Today: "2026-11-04", DueSoonDays: DefaultDueSoonDays}).Rows {
 		switch r.ID {
 		case "child":
 			child = r
