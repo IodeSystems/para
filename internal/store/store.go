@@ -40,12 +40,16 @@ type Store interface {
 	Now() time.Time
 	// Config returns a vault.properties value, or "" when the key is unset.
 	Config(key string) (string, error)
+	// ConfigAll returns every key of vault.properties.
+	ConfigAll() (map[string]string, error)
 	// ConfigFile returns a file of the vault's .para directory, or nil when
 	// there is none, such as proposals.yaml.
 	ConfigFile(name string) ([]byte, error)
 
 	// SetConfig sets one key of vault.properties and keeps the other lines.
 	SetConfig(ctx context.Context, key, value string) error
+	// UnsetConfig removes one key of vault.properties and keeps the other lines.
+	UnsetConfig(ctx context.Context, key string) error
 	// Rewrite applies fn to every document as one batch that UndoBatch can
 	// reverse on this machine, with one event per changed document. A dry run
 	// changes nothing and lists what would change.

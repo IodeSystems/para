@@ -22,6 +22,12 @@ Needs Go 1.26 or later, and pnpm for the web UI.
     para mcp --help-dun
     para skill install
     para mcp --help-raglit
+    para --actor claude --why "reason" <command>   # an agent with only a shell
+
+## Vault settings
+
+    para vault config list
+    para vault config set goals.active_limit 5
 
 ## Web UI
 

@@ -17,6 +17,9 @@ import (
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
 	"vault_upgrade":             `{"dry_run":true}`,
+	"vault_config_get":          `{"key":"align.days"}`,
+	"vault_config_set":          `{"key":"align.days","value":"14"}`,
+	"vault_config_unset":        `{"key":"align.days"}`,
 	"area_add":                  `{"title":"Health"}`,
 	"area_show":                 `{"id":"area-sample"}`,
 	"area_review":               `{"id":"area-sample","note":"Checked the sample."}`,

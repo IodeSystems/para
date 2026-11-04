@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/iodesystems/parasolve/internal/atomicfile"
@@ -247,12 +248,41 @@ func folderOf(rel string) model.Folder {
 	return model.Folder(f)
 }
 
+var configKeyRe = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
+
 // SetConfig sets one key of .para/vault.properties and keeps the other lines,
 // comments included. A key that already has the value changes nothing.
 func (v *Vault) SetConfig(ctx context.Context, key, value string) error {
-	if !regexp.MustCompile(`^[A-Za-z0-9_.-]+$`).MatchString(key) || strings.ContainsAny(value, "\r\n") {
+	if !configKeyRe.MatchString(key) || strings.ContainsAny(value, "\r\n") {
 		return fmt.Errorf("vault: set config: bad key or value")
 	}
+	return v.editConfig(ctx, "set config", key, func(lines []string, at int) []string {
+		if at >= 0 {
+			lines[at] = key + "=" + value
+			return lines
+		}
+		return append(lines, key+"="+value)
+	})
+}
+
+// UnsetConfig removes one key of .para/vault.properties and keeps the other
+// lines, comments included. A key that is not set changes nothing.
+func (v *Vault) UnsetConfig(ctx context.Context, key string) error {
+	if !configKeyRe.MatchString(key) {
+		return fmt.Errorf("vault: unset config: bad key")
+	}
+	return v.editConfig(ctx, "unset config", key, func(lines []string, at int) []string {
+		if at < 0 {
+			return lines
+		}
+		return slices.Delete(lines, at, at+1)
+	})
+}
+
+// editConfig applies edit to the lines of vault.properties under the vault
+// lock and writes the file atomically. at is the index of the last line that
+// sets key, or -1.
+func (v *Vault) editConfig(ctx context.Context, what, key string, edit func(lines []string, at int) []string) error {
 	p := filepath.Join(v.root, dirState, "vault.properties")
 	err := v.lock(ctx, func() error {
 		data, err := os.ReadFile(p)
@@ -260,24 +290,21 @@ func (v *Vault) SetConfig(ctx context.Context, key, value string) error {
 			return err
 		}
 		lines := strings.Split(strings.TrimRight(string(data), "\n"), "\n")
-		set := false
+		at := -1
 		for i, l := range lines {
 			k, _, ok := strings.Cut(strings.TrimSpace(l), "=")
 			if ok && !strings.HasPrefix(strings.TrimSpace(l), "#") && strings.TrimSpace(k) == key {
-				lines[i], set = key+"="+value, true
+				at = i
 			}
 		}
-		if !set {
-			lines = append(lines, key+"="+value)
-		}
-		out := strings.Join(lines, "\n") + "\n"
+		out := strings.Join(edit(lines, at), "\n") + "\n"
 		if out == string(data) {
 			return nil
 		}
 		return atomicfile.Write(p, []byte(out), 0o600)
 	})
 	if err != nil {
-		return fmt.Errorf("vault: set config: %w", err)
+		return fmt.Errorf("vault: %s: %w", what, err)
 	}
 	return nil
 }

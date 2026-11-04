@@ -140,6 +140,8 @@ type ParaV1MutationNamespace {
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
   undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
+  vaultConfigSet(body: para_VaultConfigSetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigSet")
+  vaultConfigUnset(body: para_VaultConfigUnsetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigUnset")
   vaultUpgrade(body: para_VaultUpgradeInputInput!): para_VaultUpgradeOutput @derived(operationId: "vaultUpgrade")
 }
 
@@ -239,6 +241,8 @@ type ParaV1QueryNamespace {
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
   uiToday: para_UITodayBody @derived(operationId: "uiToday")
+  vaultConfigGet(key: String!): para_ConfigSetting @derived(operationId: "vaultConfigGet")
+  vaultConfigList: para_VaultConfigListOutput @derived(operationId: "vaultConfigList")
   vaultUpgradeStatus: para_Status @derived(operationId: "vaultUpgradeStatus")
   waiting(today: String): para_WaitingOutput @derived(operationId: "waiting")
   where(all: Boolean, query: String!): para_WhereOutput @derived(operationId: "where")
@@ -633,6 +637,16 @@ type para_ConfidenceReading {
   basis: String
   date: String!
   percent: Int!
+}
+
+type para_ConfigSetting {
+  agentMaySet: Boolean!
+  help: String
+  key: String!
+  known: Boolean!
+  readOnly: Boolean!
+  set: Boolean!
+  value: String!
 }
 
 input para_ConstraintAddInputInput {
@@ -5185,6 +5199,26 @@ type para_ValueRow {
   proposal: Boolean
   title: String!
   why: String!
+}
+
+type para_VaultConfigListOutput {
+  settings: [para_ConfigSetting!]!
+}
+
+input para_VaultConfigSetInputInput {
+  key: String!
+  value: String!
+}
+
+type para_VaultConfigSetOutput {
+  changed: Boolean!
+  key: String!
+  previous: String!
+  value: String!
+}
+
+input para_VaultConfigUnsetInputInput {
+  key: String!
 }
 
 input para_VaultUpgradeInputInput {

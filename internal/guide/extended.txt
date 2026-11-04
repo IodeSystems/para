@@ -87,6 +87,9 @@ Para is not a pager: alerts stay in monitoring (your pager, Alertmanager, a stat
 
 11. Agents: MCP tools and agent work
   $ para mcp config --client claude
+  $ para --actor claude --why "Owner asked for it" doc edit note-example --title "Better title"
+  $ para vault config list
+An agent with only a shell passes --actor and --why: its writes then follow the MCP rules. Vault settings: para vault config list, get, set, unset; an agent may change only align.days and goals.active_limit.
   $ para request add "Summarize the portal project" --title "Summarize the portal goal" --link project-portal
   $ para request accept request-example
   $ para request list

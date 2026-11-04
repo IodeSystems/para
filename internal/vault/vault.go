@@ -132,6 +132,15 @@ func (v *Vault) Config(key string) (string, error) {
 	return cfg[key], nil
 }
 
+// ConfigAll returns every key of vault.properties.
+func (v *Vault) ConfigAll() (map[string]string, error) {
+	cfg, err := props.Load(filepath.Join(v.root, dirState, "vault.properties"))
+	if err != nil {
+		return nil, fmt.Errorf("vault: config: %w", err)
+	}
+	return cfg, nil
+}
+
 // ConfigFile returns a file of the vault's .para directory, or nil when there is
 // none. name is a bare file name.
 func (v *Vault) ConfigFile(name string) ([]byte, error) {
