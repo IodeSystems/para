@@ -14,6 +14,10 @@ export const MeetingFields = graphql(/* GraphQL */ `
     withNames
     rfx
     rfxNames
+    calendarUids {
+      uid
+      role
+    }
   }
 `)
 

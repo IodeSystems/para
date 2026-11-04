@@ -38,7 +38,9 @@ type MeetingView struct {
 	End    string              `json:"end,omitempty"`
 	With   []string            `json:"with"`
 	RFX    []string            `json:"rfx"`
-	Rev    string              `json:"rev"`
+	// CalendarUIDs are the meeting's calendar events (invite, room, prep).
+	CalendarUIDs []model.CalendarEvent `json:"calendar_uids"`
+	Rev          string                `json:"rev"`
 	// Names are for people, one per id.
 	WithNames []string `json:"with_names,omitempty" nameof:"With"`
 	RFXNames  []string `json:"rfx_names,omitempty" nameof:"RFX"`
@@ -49,8 +51,12 @@ func meetingView(d model.Document) (MeetingView, error) {
 	if !ok {
 		return MeetingView{}, notMeeting(d)
 	}
+	uids := []model.CalendarEvent{}
+	if m.t != nil {
+		uids = append(uids, m.t.UIDs()...)
+	}
 	return MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
-		With: targets(m.With), RFX: targets(m.RFX), Rev: d.Rev}, nil
+		With: targets(m.With), RFX: targets(m.RFX), CalendarUIDs: uids, Rev: d.Rev}, nil
 }
 
 // getMeeting reads a meeting in either shape: a task of kind meeting, or a

@@ -15,6 +15,7 @@ import { nameOr } from '@/lib/names'
 import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
 import { ConceptLinks } from '@/components/AreaLinks'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/areas/$id')({ component: AreaPage })
 
@@ -113,6 +114,8 @@ function AreaPage() {
               <Markdown source={d.body} />
             </Section>
           )}
+          <MergedFrom id={id} />
+          <NotesEditor id={id} />
         </>
       )}
     </DataState>

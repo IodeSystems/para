@@ -3608,6 +3608,7 @@ type para_MeetingShowOutput {
 }
 
 type para_MeetingView {
+  calendarUids: [para_CalendarEvent!]!
   end: String
   folder: para_MeetingViewFolder!
   id: String!

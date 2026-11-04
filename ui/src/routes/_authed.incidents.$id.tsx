@@ -11,6 +11,7 @@ import { nameOr } from '@/lib/names'
 import { humanTime } from '@/lib/when'
 import { toneOfSeverity } from '@/lib/status'
 import { TaskRows } from '@/components/TaskRows'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/incidents/$id')({ component: IncidentPage })
 
@@ -47,6 +48,8 @@ function IncidentPage() {
             <Section title="Follow-ups" count={d.followUps.length} hideEmpty>
               <TaskRows tasks={d.followUps} />
             </Section>
+            <MergedFrom id={id} />
+            <NotesEditor id={id} />
           </>
         )
       }}

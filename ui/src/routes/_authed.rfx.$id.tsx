@@ -15,6 +15,7 @@ import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
 import { nameList, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/rfx/$id')({ component: RfxPage })
 
@@ -95,6 +96,8 @@ function RfxPage() {
               <Markdown source={withoutSection(r.doc.body, 'Draft')} />
             </Section>
           )}
+          <MergedFrom id={id} />
+          <NotesEditor id={id} />
         </>
       )}
     </DataState>

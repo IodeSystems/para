@@ -15,9 +15,11 @@ import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { hitKindLabel } from '@/lib/hitkind'
 import { Markdown } from '@/components/Markdown'
+import { withoutSection } from '@/lib/markdown'
 import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
 
@@ -124,7 +126,9 @@ function Doc() {
               The server refused the copy.
             </Alert>
           )}
-          <Markdown source={withSourceLink(d.body, d.meta.source?.url)} />
+          <Markdown source={withSourceLink(withoutSection(d.body, 'Notes'), d.meta.source?.url)} />
+          <MergedFrom id={id} />
+          <NotesEditor id={id} />
         </>
       )}
     </DataState>

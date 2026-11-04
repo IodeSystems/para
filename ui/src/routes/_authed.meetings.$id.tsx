@@ -12,6 +12,7 @@ import { Markdown } from '@/components/Markdown'
 import { MeetingChip } from '@/components/MeetingChip'
 import { meetingWhen } from '@/lib/meeting'
 import { nameList } from '@/lib/names'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/meetings/$id')({ component: MeetingPage })
 
@@ -48,12 +49,23 @@ function MeetingPage() {
                 ))}
               </List>
             </Section>
+            <Section title="Calendar events" count={m.calendarUids.length} hideEmpty>
+              <List dense disablePadding data-calendar-uids>
+                {m.calendarUids.map((e) => (
+                  <ListItem key={e.uid} disableGutters>
+                    <ListItemText primary={e.uid} secondary={e.role || undefined} />
+                  </ListItem>
+                ))}
+              </List>
+            </Section>
             <Section title="Questions and notes">
               <Markdown source={body} />
             </Section>
             <Typography variant="caption" color="text.secondary">
               <DocLink id={m.id}>Open the document</DocLink>
             </Typography>
+            <MergedFrom id={id} />
+            <NotesEditor id={id} />
           </>
         )
       }}

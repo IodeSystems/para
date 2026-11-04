@@ -10,6 +10,7 @@ import { dateWords } from '@/lib/when'
 import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/people/$id')({ component: Person })
 
@@ -102,6 +103,8 @@ function Person() {
                 </List>
               </Section>
             )}
+            <MergedFrom id={id} />
+            <NotesEditor id={id} />
           </>
         )
       }}

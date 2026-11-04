@@ -17,6 +17,7 @@ import { Markdown } from '@/components/Markdown'
 import { DoneForm } from '@/components/stack/parts'
 import { ioParty, ioTarget } from '@/lib/io'
 import { exactTime, humanTime } from '@/lib/when'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/io/$id')({ component: IoItemPage })
 
@@ -111,6 +112,8 @@ function IoItemPage() {
             <Section title="Message">
               <Markdown source={doc.body} />
             </Section>
+            <MergedFrom id={id} />
+            <NotesEditor id={id} />
           </>
         )
       }}

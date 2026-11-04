@@ -16,6 +16,7 @@ import { TaskRows } from '@/components/TaskRows'
 import { ConceptLinks } from '@/components/AreaLinks'
 import { RulesInEffect } from '@/components/RulesInEffect'
 import { Assumptions, Risks } from '@/components/RisksAssumptions'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 
 export const Route = createFileRoute('/_authed/projects/$id')({ component: ProjectPage })
 
@@ -75,6 +76,8 @@ function ProjectPage() {
               <Markdown source={d.body} />
             </Section>
           )}
+          <MergedFrom id={id} />
+          <NotesEditor id={id} />
         </>
       )}
     </DataState>

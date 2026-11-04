@@ -1168,6 +1168,53 @@ try {
     'a vault question answered on the stack leaves it, answered',
   )
 
+  // Notes on any item: a save on notes that changed since they were opened is refused, the page
+  // shows the current notes, and the next save, based on them, goes through.
+  const noted = idOf(para(...v, 'task', 'add', 'Book the venue', '-p', proj, '--json'))
+  await rpage.goto(`${base}/doc/${noted}`)
+  await rpage.getByRole('heading', { name: 'Book the venue' }).waitFor()
+  await rpage.locator('[data-notes-act="edit"]').click()
+  para(...v, 'notes', 'edit', noted, '--md', 'Agent: the venue holds 40.')
+  await rpage.getByLabel('Notes (markdown)').fill('Owner: book the hall for 30.')
+  await rpage.locator('[data-notes-act="save"]').click()
+  await rpage.locator('[data-notes-stale]').waitFor()
+  check(
+    (await rpage.locator('[data-notes-stale]').innerText()).includes('the venue holds 40'),
+    'a notes save on a stale hash is refused and shows the current notes',
+  )
+  check(
+    JSON.parse(para(...v, 'notes', 'read', noted, '--json')).md === 'Agent: the venue holds 40.',
+    'the refused save changed nothing',
+  )
+  await rpage.locator('[data-notes-act="save"]').click()
+  await rpage.locator('[data-notes-act="edit"]').waitFor()
+  check(
+    JSON.parse(para(...v, 'notes', 'read', noted, '--json')).md === 'Owner: book the hall for 30.',
+    'the save based on the current notes goes through',
+  )
+
+  // Merge: a duplicate leaves the lists, links to it point to the one that stays, and that page
+  // lists it as merged from.
+  const keepTask = idOf(para(...v, 'task', 'add', 'Renew the cert', '-p', proj, '--json'))
+  const dupTask = idOf(para(...v, 'task', 'add', 'Renew TLS cert', '-p', proj, '--json'))
+  const linker = idOf(
+    para(...v, 'note', 'add', 'Cert plan', '--body', `See [[${dupTask}]].`, '-p', proj, '--json'),
+  )
+  await agent.call('doc_merge', { keep: keepTask, alias: dupTask, why: 'The same cert.' })
+  check(
+    !para(...v, 'task', 'list', '--json').includes(dupTask),
+    'a merged duplicate leaves the task list',
+  )
+  check(
+    para(...v, 'note', 'show', linker, '--json').includes(`[[${keepTask}]]`),
+    'a link to the merged duplicate points to the one that stays',
+  )
+  await rpage.goto(`${base}/doc/${keepTask}`)
+  await rpage.locator(`[data-merged-from] >> text=Renew TLS cert`).waitFor()
+  await rpage.goto(`${base}/doc/${dupTask}`)
+  await rpage.locator(`[data-merged-into="${keepTask}"]`).waitFor()
+  check(true, 'the kept page lists the duplicate as merged from; the duplicate says where it went')
+
   // Keys: j moves to the first row, s opens its skip note, Esc closes it.
   await rpage.goto(`${base}/stack?state=proposed`)
   await rpage.locator('[data-row]').first().waitFor()

@@ -76,8 +76,8 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
 // are vault:read ops that change no document (they POST because they mint a cap or log an egress
 // event), and the review:decide person ops: the owner drafts answers, submits them, approves or
 // rejects what an agent proposed, answers or sends back an open question, marks an outward item or an
-// outbox draft done by the owner, checks or reverts an agent write from its receipt, and marks a
-// tracked document's change seen.
+// outbox draft done by the owner, checks or reverts an agent write from its receipt, marks a
+// tracked document's change seen, and edits the notes of an item (owner 2026-11-04).
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
 const REVIEW_MUTATIONS = new Set([
   'ProposalDraft',
@@ -89,6 +89,7 @@ const REVIEW_MUTATIONS = new Set([
   'QuestionReview',
   'ProposalDone',
   'IODone',
+  'NotesSave',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
