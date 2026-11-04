@@ -32,7 +32,8 @@ Needs Go 1.26 or later, and pnpm for the web UI.
 ## Web UI
 
     para serve
-    para serve login
+    para serve login      # sign this browser in to every vault for 30 days; it renews while used
+    para serve sessions   # list login keys; para serve logout revokes them
 
 ## Learn more
 

@@ -37,6 +37,9 @@ type Deps struct {
 	// the command it ran. Nil: nothing can be opened here; the URL is still
 	// returned.
 	OpenURL func(url string) (command string, err error)
+	// SignedIn reports whether the owner's browser holds a login key for this
+	// vault. Nil: not known, or the opener signs in itself.
+	SignedIn func() bool
 	// Changed, when set, returns a channel that closes at the next change of
 	// the vault, from any process. A waiting op blocks on it instead of
 	// polling files. Take it before reading state, so no change is missed.

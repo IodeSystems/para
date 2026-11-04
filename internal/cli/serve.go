@@ -76,7 +76,7 @@ func newServeCmd(l *loader) *cobra.Command {
 			return runServe(cmd.Context(), l, f, cmd.ErrOrStderr())
 		},
 	}
-	cmd.AddCommand(newLoginCmd(l, "login"), newServeStatusCmd(l))
+	cmd.AddCommand(newLoginCmd(l, "login"), newServeStatusCmd(l), newServeSessionsCmd(l), newServeLogoutCmd(l))
 	fs := cmd.Flags()
 	fs.StringVar(&f.addr, "addr", defaultAddr, "listen address")
 	fs.StringArrayVar(&f.proxies, "trusted-proxy", nil, "exact IP of a proxy whose X-Forwarded-For is read (repeatable)")

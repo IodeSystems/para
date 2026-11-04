@@ -75,8 +75,9 @@ server entries for this install. They write nothing.
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
-			base, open := l.viewer(sel.ID)
-			srv, err := mcpserver.New(ops.Deps{Store: s, ViewerBase: base, OpenURL: open}, mcpserver.Options{
+			// An agent never signs the browser in: it opens the plain URL.
+			base, open, signedIn := l.viewer(sel.ID, false)
+			srv, err := mcpserver.New(ops.Deps{Store: s, ViewerBase: base, OpenURL: open, SignedIn: signedIn}, mcpserver.Options{
 				Version:          l.version,
 				Hide:             []string{filepath.Clean(sel.Path), l.install.Home},
 				Log:              cmd.ErrOrStderr(),

@@ -110,6 +110,8 @@ Resolve and delegate: task resolve closes a task with an outcome: done (the defa
 
 13. Browser and phone: the server, keys, and the service
   $ para serve login
+  $ para serve sessions
+  $ para serve logout
   $ para serve status
   $ para key create phone --scope vault:read --scope vault:write --ttl 30d --print-url --url http://192.168.1.76:7700
   $ para key list
@@ -120,9 +122,14 @@ Resolve and delegate: task resolve closes a task with an outcome: done (the defa
   $ para service status
   $ para key revoke phone
 The server listens on 127.0.0.1:7700 by default and every request needs a token.
-"para serve login" opens the UI on this machine, signed in as admin. It finds the running
-server itself (var/serve.json in the para home), so it needs no URL. The admin token works
-from this machine only. For a phone or another machine, make a key with --print-url and
+"para serve login" signs this browser in to every vault the server serves, one tab per vault
+(--vault for one). Each tab gets a new login key, vault:read and review:decide, that lasts 30
+days (--days, at most 90); the web app renews it when it is within 7 days of its end. It finds
+the running server itself (var/serve.json in the para home), so it needs no URL. "para open"
+signs the browser in the same way when no login key of the vault is active; an agent's
+proposal_open never does, and says the owner is not signed in. "para serve sessions" lists the
+login keys and "para serve logout" revokes them. --admin signs in with the admin token, which
+works from this machine only. For a phone or another machine, make a key with --print-url and
 give the URL of that machine.
 The web app can show browser notifications while a tab or the installed app is open: Help, then Notifications. It is off by default, set per vault in that browser, and a notice names a kind and a count only (answer to check, agent work that needs you, incident). There is no push service.
 

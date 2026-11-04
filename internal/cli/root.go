@@ -134,8 +134,8 @@ func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}
-	base, open := l.viewer(id)
-	return ops.Deps{Store: s, ViewerBase: base, OpenURL: open}, nil
+	base, open, signedIn := l.viewer(id, !l.agent())
+	return ops.Deps{Store: s, ViewerBase: base, OpenURL: open, SignedIn: signedIn}, nil
 }
 
 // stateDir is this machine's state for a vault: lock, manifest, index.
