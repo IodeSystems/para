@@ -79,7 +79,7 @@ type SearchOutput struct {
 // Search finds documents by text, and by meaning when the vault is connected
 // to a raglit daemon on this machine. A hit says whether it is a transcript or a
 // summary, and carries the source URL, so a reader can cite the original.
-var Search = defineRead("search", "Search documents, transcripts and summaries by text", func(ctx context.Context, d Deps, in SearchInput) (SearchOutput, error) {
+var Search = defineRead("search", "Search documents, transcripts and summaries by text. In a hit, passage holds <<word>> marks around matched words, for display; snippet is the same text as plain words, with marks as rune offsets", func(ctx context.Context, d Deps, in SearchInput) (SearchOutput, error) {
 	q := index.Query{Text: in.Query, Limit: in.Limit, Type: in.Type, Status: in.Status, Area: in.Area, Project: in.Project, Prefix: in.Prefix}
 	if in.Type != "" && !slices.Contains(model.Types, model.Type(in.Type)) {
 		return SearchOutput{}, fmt.Errorf("type %q: want one of %v", in.Type, model.Types)

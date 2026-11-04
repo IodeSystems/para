@@ -219,6 +219,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVarP(&in.Project, "project", "p", "", "only this project")
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
+				fs.BoolVar(&in.Open, "open", false, "only open tasks: todo, doing, blocked")
 				fs.StringVar(&in.Assignee, "assignee", "", "only tasks assigned to this person id or agent:<name>; self for your own")
 				fs.StringVar(&in.Incident, "incident", "", "only follow-ups of this incident")
 				fs.BoolVar(&in.Deferred, "deferred", false, "include the tasks put off with defer (Later); they are marked")

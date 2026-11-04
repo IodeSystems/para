@@ -240,7 +240,7 @@ type ParaV1QueryNamespace {
     type: String
   ): para_SearchOutput @derived(operationId: "search")
   similar(title: String!, type: para_similarType!): para_SimilarOutput @derived(operationId: "similar")
-  taskList(area: String, assignee: String, deferred: Boolean, incident: String, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
@@ -3198,6 +3198,7 @@ input para_ProjectAddInputInput {
   concepts: [String!]
   doneWhen: String!
   due: String
+  id: String
   owner: String
   title: String!
 }
@@ -3348,6 +3349,7 @@ input para_ProposalAddInputInput {
   context: String
   items: [para_ItemInputInput!]
   source: String!
+  sourcePath: String
   title: String!
   tldr: String
 }
@@ -3479,6 +3481,7 @@ type para_ProposalView {
   revision: Int!
   sourceDoc: String!
   sourceName: String
+  sourcePath: String
   status: para_ProposalViewStatus!
   supersedes: String
   title: String!

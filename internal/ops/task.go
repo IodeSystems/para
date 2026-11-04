@@ -324,6 +324,9 @@ type TaskListInput struct {
 	Project string           `json:"project,omitempty" query:"project"`
 	Area    string           `json:"area,omitempty" query:"area"` // tasks with this area of their own
 	Status  model.TaskStatus `json:"status,omitempty" query:"status"`
+	// Open keeps the tasks that are todo, doing, or blocked. It cannot be
+	// combined with status.
+	Open bool `json:"open,omitempty" query:"open"`
 	// Assignee keeps tasks assigned to this person id or agent:<name>; self
 	// keeps the tasks with no assignee.
 	Assignee string `json:"assignee,omitempty" query:"assignee"`
@@ -339,13 +342,21 @@ type TaskListOutput struct {
 }
 
 // TaskList lists tasks.
-var TaskList = defineRead("task_list", "List tasks", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
+var TaskList = defineRead("task_list", "List tasks; open: true lists every task that is todo, doing, or blocked in one call", func(ctx context.Context, d Deps, in TaskListInput) (TaskListOutput, error) {
 	if in.Status != "" && !slices.Contains(model.TaskStatuses, in.Status) {
 		return TaskListOutput{}, fmt.Errorf("unknown status %q", in.Status)
+	}
+	if in.Open && in.Status != "" {
+		return TaskListOutput{}, errors.New("open and status do not combine: open is todo, doing, or blocked")
 	}
 	tasks, err := listTasks(ctx, d.Store, in.Project, in.Status)
 	if err != nil {
 		return TaskListOutput{}, err
+	}
+	if in.Open {
+		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool {
+			return t.Status != model.TaskTodo && t.Status != model.TaskDoing && t.Status != model.TaskBlocked
+		})
 	}
 	if area := normID(in.Area); area != "" {
 		tasks = slices.DeleteFunc(tasks, func(t TaskView) bool { return t.Area != area })
