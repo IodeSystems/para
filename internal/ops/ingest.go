@@ -21,6 +21,8 @@ type IngestInput struct {
 	NoCopy  bool   `json:"no_copy,omitempty"` // keep summary + URL only, fidelity none
 	Backend string `json:"backend,omitempty"` // empty means manual
 	ID      string `json:"id,omitempty"`      // empty means generated
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // IngestOutput is the output of ingest.

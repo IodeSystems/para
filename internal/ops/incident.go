@@ -154,6 +154,8 @@ type IncidentAddInput struct {
 	Area     string                 `json:"area,omitempty"`    // the system's area id
 	Started  string                 `json:"started,omitempty"` // RFC 3339; default now
 	Body     string                 `json:"body,omitempty"`    // what is known, before the timeline
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // IncidentAddOutput is the output of incident_add.

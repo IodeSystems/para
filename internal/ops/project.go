@@ -71,6 +71,8 @@ type ProjectAddInput struct {
 	// goal that never finishes is an area.
 	DoneWhen string `json:"done_when"`
 	Due      string `json:"due,omitempty"` // YYYY-MM-DD the goal is due; work leading to it inherits the date
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // ProjectAddOutput is the output of project_add.

@@ -427,6 +427,8 @@ type QuestionAddInput struct {
 	// confidence with its basis, and a recommendation percent. It names the
 	// options, so options may be left out.
 	OptionDetails []model.OptionDetail `json:"option_details,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // QuestionAddOutput is the output of question_add.

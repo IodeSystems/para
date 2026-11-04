@@ -4,9 +4,10 @@ Steps:
 1. List the sources with the owner. Say what each one is (tasks, goals, areas, journal, notes, people, policies, or mixed) and confirm it before you go further.
 2. Decide import or link for each. Para is not a documentation system: docs, plans, and runbooks stay where they live and become links on an area or goal (`area_link_add`, `project_link_add`).
 3. Search before you create. For each item use `search` and `where`, and link or merge when it already exists.
-4. Work one source at a time, grouped by type. Give each goal a done_when; anything that never finishes is an area: kind project for an ongoing body of work a goal calls home, kind concept for a discipline that spans work (goals list it in concepts). An operating rule becomes a convention whose applies_in names the area or goal and whose refines names the general rule it specializes. Keep a journal in the owner's words. Cite the source path as sources on each write.
+4. Work one source at a time, grouped by type. Give each goal a done_when; anything that never finishes is an area: kind project for an ongoing body of work a goal calls home, kind concept for a discipline that spans work (goals list it in concepts). An operating rule becomes a convention whose applies_in names the area or goal and whose refines names the general rule it specializes. Keep a journal in the owner's words. Cite the source path as sources on each write, and set imported_from (the file's absolute path and the sha256 of its bytes) on each create.
 5. A kind you cannot tell, or an item you cannot map, becomes a question (`question_add`). Say what you left out.
 6. A large source does not fit one session. Split it into `request_add` items, one folder or one batch each.
+7. Before the owner deletes a source, run `import_verify` with every file's path and hash and root set to the folder, and report each missing or changed file.
 
 Rules from the source:
 - Never read credentials. If a file holds a password, key, or token, do not open it further: tell the owner the path.

@@ -73,6 +73,8 @@ type NoteAddInput struct {
 	Area    string   `json:"area,omitempty"`    // area id
 	Project string   `json:"project,omitempty"` // project id
 	Tags    []string `json:"tags,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // NoteAddOutput is the output of note_add.

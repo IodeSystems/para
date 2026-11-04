@@ -42,6 +42,8 @@ type ConventionAddInput struct {
 	Status    model.ConventionStatus `json:"status,omitempty"`     // empty means draft
 	AppliesIn []string               `json:"applies_in,omitempty"` // scopes: words, or ids of areas, goals, and tasks
 	Refines   string                 `json:"refines,omitempty"`    // id of the more general convention this one specializes
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // ConventionAddOutput is the output of convention_add.

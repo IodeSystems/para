@@ -60,6 +60,8 @@ type ConstraintAddInput struct {
 	ReviewBy  string   `json:"review_by"`            // YYYY-MM-DD, when to ask again
 	Text      string   `json:"text,omitempty"`       // optional body
 	Refines   string   `json:"refines,omitempty"`    // id of the more general constraint this one specializes
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // ConstraintAddOutput is the output of constraint_add.

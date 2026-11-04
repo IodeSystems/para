@@ -21,6 +21,8 @@ type GroupAddInput struct {
 	Org  string          `json:"org"`
 	Kind model.GroupKind `json:"kind"`
 	ID   string          `json:"id,omitempty"` // default group-<slug of name>
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // GroupShowOutput is the output of org_group_show.

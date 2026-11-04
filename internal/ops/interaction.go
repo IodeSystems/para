@@ -29,6 +29,8 @@ type InteractionAddInput struct {
 	Visibility model.Visibility           `json:"visibility,omitempty"` // default private
 	URL        string                     `json:"url,omitempty"`        // link to the original
 	Date       string                     `json:"date,omitempty"`       // YYYY-MM-DD; default the local date
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // InteractionAddOutput is the output of interaction_add.

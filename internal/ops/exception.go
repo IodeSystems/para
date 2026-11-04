@@ -80,6 +80,8 @@ type ExceptionAddInput struct {
 	ReviewBy   string              `json:"review_by,omitempty"` // optional YYYY-MM-DD
 	Title      string              `json:"title,omitempty"`     // empty: "Exception: <kind>"
 	Text       string              `json:"text,omitempty"`      // body: what is unclear or wrong
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // ExceptionAddOutput is the output of exception_add.

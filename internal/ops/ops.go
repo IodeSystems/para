@@ -99,6 +99,11 @@ func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
 }
 
 func (o *Op[I, O]) run(ctx context.Context, d Deps, in I) (O, error) {
+	d, err := withImport(d, in)
+	if err != nil {
+		var zero O
+		return zero, fmt.Errorf("%s: %w", o.name, err)
+	}
 	out, err := o.fn(ctx, d, in)
 	if err != nil {
 		return out, fmt.Errorf("%s: %w", o.name, err)

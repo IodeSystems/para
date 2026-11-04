@@ -14,6 +14,8 @@ const inboxTitleMax = 80
 // InboxAddInput is the input of inbox_add.
 type InboxAddInput struct {
 	Text string `json:"text"` // the capture, para-md body text
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // InboxAddOutput is the output of inbox_add.

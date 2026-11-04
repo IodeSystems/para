@@ -79,6 +79,8 @@ type AreaAddInput struct {
 	Concepts []string `json:"concepts,omitempty"`
 	// LastReviewed is the date of the owner's last review, YYYY-MM-DD.
 	LastReviewed string `json:"last_reviewed,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // AreaAddOutput is the output of area_add.

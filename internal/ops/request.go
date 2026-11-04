@@ -250,6 +250,8 @@ type RequestAddInput struct {
 	// Kind is free text. A rule in .para/proposals.yaml can require a policy or
 	// a convention for a kind.
 	Kind string `json:"kind,omitempty"`
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // idWord finds a document id in text: a type word, a dash, and a slug.

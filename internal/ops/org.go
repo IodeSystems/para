@@ -27,6 +27,8 @@ type OrgAddInput struct {
 	Aliases []string `json:"aliases,omitempty"` // person: other names
 	Said    []string `json:"said,omitempty"`    // what was said, as stated
 	Source  string   `json:"source,omitempty"`  // where it was said: URL, or "who, where, date"
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // OrgAddOutput is the output of org_<kind>_add.

@@ -36,6 +36,8 @@ type RFXAddInput struct {
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
 	Question  string             `json:"question,omitempty"`   // id of the question this request asks; a reply answers it
+	// ImportedFrom is the file the new document comes from (import_verify).
+	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
 
 // TargetInput names one target of an RFX.
