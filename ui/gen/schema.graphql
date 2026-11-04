@@ -168,6 +168,7 @@ type ParaV1MutationNamespace {
   taskMove(body: para_TaskMoveInputInput!): para_TaskMoveOutput @derived(operationId: "taskMove")
   taskResolve(body: para_TaskResolveInputInput!): para_TaskResolveOutput @derived(operationId: "taskResolve")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
+  taskToAsks(body: para_TaskToAsksInputInput!): para_TaskToAsksOutput @derived(operationId: "taskToAsks")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
@@ -6956,6 +6957,33 @@ type para_TaskShowOutput {
 input para_TaskStartInputInput {
   force: Boolean
   id: String!
+}
+
+input para_TaskToAsksInputInput {
+  id: String!
+  medium: para_TaskToAsksInputMedium
+  nextNudge: String
+  people: [String!]
+  route: String
+}
+
+enum para_TaskToAsksInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_TaskToAsksOutput {
+  asks: [String!]!
+  id: String!
+  moved: [String!]!
+  warnings: [String!]!
 }
 
 input para_TaskToQuestionInputInput {

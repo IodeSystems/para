@@ -337,6 +337,9 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if w := recurWarning(in.Recur); w != "" {
 		out.Warnings = append(out.Warnings, w)
 	}
+	if (kind == "" || kind == model.KindTask) && readsLikeWaiting(doc.Title) {
+		out.Warnings = append(out.Warnings, waitingWarning(doc.ID))
+	}
 	out.Request, out.Warnings = agentRequest(ctx, d, doc, out.Warnings)
 	return out, nil
 })

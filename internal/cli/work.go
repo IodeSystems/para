@@ -356,6 +356,25 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.TaskToAsks, binding[ops.TaskToAsksInput, ops.TaskToAsksOutput]{
+			Use:  "to-asks <id> --person <id>...",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.TaskToAsksInput) {
+				fs.StringArrayVar(&in.People, "person", nil, "person or group id the task waits on, one Ask each (repeatable)")
+				fs.StringVar(&in.Route, "route", "", "the domain; default each person's team, role, or org")
+				fs.StringVar((*string)(&in.Medium), "medium", "", "how each Ask goes; default each person's preferred contact")
+				fs.StringVar(&in.NextNudge, "next-nudge", "", "follow-up date YYYY-MM-DD; default the task's due date")
+			},
+			Bind: func(args []string, in *ops.TaskToAsksInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.TaskToAsksOutput) error {
+				p := &printer{w: w}
+				p.f("%s\tasks: %s\tmoved: %s\n", out.ID, strings.Join(out.Asks, ","), strings.Join(out.Moved, ","))
+				for _, x := range out.Warnings {
+					p.f("warning: %s\n", x)
+				}
+				return p.err
+			},
+		}),
 		opCommand(l, ops.TaskResolve, binding[ops.TaskResolveInput, ops.TaskResolveOutput]{
 			Use:  "resolve <id>",
 			Args: cobra.ExactArgs(1),

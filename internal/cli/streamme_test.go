@@ -18,10 +18,12 @@ func seedStreamMEParity(t *testing.T, deps ops.Deps) {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderResources, Title: "ME " + id, Body: "Text of " + id + ".",
 			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}})
 	}
-	for _, id := range []string{"task-me-a", "task-me-b", "task-me-c", "task-me-d"} {
+	for _, id := range []string{"task-me-a", "task-me-b", "task-me-c", "task-me-d", "task-me-wait-a", "task-me-wait-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "ME " + id,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-me-seed")}})
 	}
+	docs = append(docs, model.Document{ID: "person-me", Folder: model.FolderOrg, Title: "Me Example",
+		Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}})
 	docs = append(docs, model.Document{ID: "project-me-seed", Folder: model.FolderProjects, Title: "ME project",
 		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}})
 	for _, doc := range docs {
@@ -33,11 +35,12 @@ func seedStreamMEParity(t *testing.T, deps ops.Deps) {
 
 func streamMEParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"doc_merge":   {`{"keep":"note-me-keep","alias":"note-me-a"}`, []string{"doc", "merge", "note-me-keep", "note-me-b"}, false},
-		"doc_archive": {`{"id":"note-me-c","reason":"Old."}`, []string{"doc", "archive", "note-me-d", "--reason", "Old."}, false},
-		"doc_merges":  {`{"id":"note-me-keep"}`, []string{"doc", "merges", "note-me-keep"}, true},
-		"notes_read":  {`{"id":"task-me-a"}`, []string{"notes", "read", "task-me-a"}, true},
-		"notes_edit":  {`{"id":"task-me-a","md":"A."}`, []string{"notes", "edit", "task-me-b", "--md", "B."}, false},
-		"notes_save":  {`{"id":"task-me-c","md":"C."}`, []string{"notes", "save", "task-me-d", "--md", "D."}, false},
+		"doc_merge":    {`{"keep":"note-me-keep","alias":"note-me-a"}`, []string{"doc", "merge", "note-me-keep", "note-me-b"}, false},
+		"doc_archive":  {`{"id":"note-me-c","reason":"Old."}`, []string{"doc", "archive", "note-me-d", "--reason", "Old."}, false},
+		"doc_merges":   {`{"id":"note-me-keep"}`, []string{"doc", "merges", "note-me-keep"}, true},
+		"notes_read":   {`{"id":"task-me-a"}`, []string{"notes", "read", "task-me-a"}, true},
+		"notes_edit":   {`{"id":"task-me-a","md":"A."}`, []string{"notes", "edit", "task-me-b", "--md", "B."}, false},
+		"task_to_asks": {`{"id":"task-me-wait-a","people":["person-me"]}`, []string{"task", "to-asks", "task-me-wait-b", "--person", "person-me"}, false},
+		"notes_save":   {`{"id":"task-me-c","md":"C."}`, []string{"notes", "save", "task-me-d", "--md", "D."}, false},
 	}
 }

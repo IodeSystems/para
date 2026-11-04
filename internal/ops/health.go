@@ -54,6 +54,9 @@ const (
 	HealthSourceMissing      = "source_missing"
 	// HealthRetryDue is a failed task whose retry_after has come.
 	HealthRetryDue = "retry_due"
+	// HealthTaskIsWaiting is an open task whose title reads like waiting on
+	// someone: that is an Ask (task_to_asks).
+	HealthTaskIsWaiting = "task_is_waiting"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -67,7 +70,7 @@ var HealthKinds = []string{
 	HealthGoalNoSignal, HealthPivotPassed, HealthAreaNeglected,
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
-	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue,
+	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -96,6 +99,7 @@ var HealthKindWords = map[string]string{
 	HealthPivotPassed:        "Change-of-course date has come",
 	HealthAreaNeglected:      "Area review is overdue",
 	HealthRetryDue:           "Failed task can be tried again",
+	HealthTaskIsWaiting:      "Task that is waiting on someone",
 	HealthTooManyActive:      "Too many active goals",
 	HealthAssumptionStale:    "Assumption not checked lately",
 	HealthRiskUnmitigated:    "High-impact risk with no mitigation",
@@ -497,6 +501,10 @@ func (h *healther) scan() {
 			}
 			if strings.TrimSpace(m.DoneWhen) == "" {
 				h.add(HealthTaskNoDoneWhen, id, goal, "task has no done-when line", fmt.Sprintf("task_edit {id: %s, done_when: ...}", id))
+			}
+			if m.EffectiveKind() == model.KindTask && readsLikeWaiting(d.Title) {
+				h.add(HealthTaskIsWaiting, id, goal, "the task reads like waiting on someone: waiting on a person is an Ask, not a task",
+					fmt.Sprintf("task_to_asks {id: %s, people: [person-...]}: one Ask per person; dependents move to them", id))
 			}
 			if !h.hasPath(id, map[string]bool{}) && !needsNoPath(m.Kind) {
 				h.add(HealthNoPath, id, goal, "open task leads to no goal or area", fmt.Sprintf("task_add again under a goal, or task_done {id: %s}", id))

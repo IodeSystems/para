@@ -179,6 +179,7 @@ var Inputs = map[string]string{
 	"doc_merge":                 `{"keep":"note-sample","alias":"note-receipted"}`,
 	"doc_archive":               `{"id":"note-receipted","reason":"Sample is old."}`,
 	"doc_merges":                `{"id":"note-sample"}`,
+	"task_to_asks":              `{"id":"task-other","people":["person-sample"]}`,
 	"notes_read":                `{"id":"task-sample"}`,
 	"notes_edit":                `{"id":"task-sample","md":"Sample notes."}`,
 	"notes_save":                `{"id":"task-free","md":"Sample notes."}`,

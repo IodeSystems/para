@@ -107,6 +107,11 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 // relinkDependents replaces a dependency on from with one on to, in every open
 // task and open request. It returns the ids it changed.
 func relinkDependents(ctx context.Context, s store.Store, from, to string) ([]string, error) {
+	return relinkDependentsTo(ctx, s, from, []string{to})
+}
+
+// relinkDependentsTo replaces a dependency on from with one on each of to.
+func relinkDependentsTo(ctx context.Context, s store.Store, from string, to []string) ([]string, error) {
 	dp, err := loadDependents(ctx, s)
 	if err != nil {
 		return nil, err
@@ -114,11 +119,17 @@ func relinkDependents(ctx context.Context, s store.Store, from, to string) ([]st
 	swap := func(links []model.Link) []model.Link {
 		var out []model.Link
 		for _, l := range links {
+			repl := []model.Link{l}
 			if l.Target() == from {
-				l = model.LinkTo(to)
+				repl = nil
+				for _, t := range to {
+					repl = append(repl, model.LinkTo(t))
+				}
 			}
-			if !slices.Contains(out, l) {
-				out = append(out, l)
+			for _, x := range repl {
+				if !slices.Contains(out, x) {
+					out = append(out, x)
+				}
 			}
 		}
 		return out
