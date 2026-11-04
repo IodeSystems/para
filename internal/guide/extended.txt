@@ -223,6 +223,16 @@ To align on a schedule, make it a recurring task for the agent, as above. When i
   $ para attempt add task-a --what "Asked in chat" --result "No reply"
 doc rename rewrites every link to the file and refuses an id that is taken. doc retype moves the document to its type's folder and keeps keys that do not apply as extra frontmatter. Agents run these as ops, each with a receipt; a script would go around the receipts.
 
+Merge, archive, notes, and waiting
+  $ para doc merge task-weekly-sync task-weekly-sync-moved
+  $ para doc merges task-weekly-sync
+  $ para doc archive task-old-standup --reason "It moved to Tuesday"
+  $ para notes read task-weekly-sync
+  $ para notes edit task-weekly-sync --hash sha256:example --md "Room 4 is booked."
+  $ para task to-asks task-waiting --person person-example
+  $ para meeting schedule task-weekly-sync --start 2026-11-10T10:00:00Z --end 2026-11-10T11:00:00Z --calendar-event room@acme.example=room
+doc merge folds a duplicate of any type into the item that stays: every link to the duplicate points to the one that stays, its people, Asks, dependencies, calendar events, and notes move over, and the duplicate leaves every list and search. Its id still opens, and the page of the one that stays lists it under merged from. task resolve --outcome duplicate does the same for a task. doc archive is para's delete: the item leaves every list and its links still open. A meeting that moved is merged into the new one, or archived. Both leave one receipt, and receipt undo reverses all of it. Notes are the ## Notes section of any item: notes read gives the text and a hash, and notes edit replaces the notes only when the hash is still current, so two writers never lose each other's words; the web app has a notes editor on every item page. Waiting on a person is an Ask, not a task: task add warns on a title like "waiting on Ada", health lists such tasks, and task to-asks makes one Ask per person and closes the task. A blocked task's due date is its follow-up date: it is under Later until then and back in next on the day. A meeting can hold several calendar events (the invite, the room, a prep slot); calendar compare matches any of them and calls an event with no attendees over a meeting an alias of it. When you paste or dictate something to an agent, it saves your words as an io item first, so nothing is lost if the rest fails. A write the gate holds says where it went: the dossier, the item, and the link.
+
 23. Stalled asks: next moves
   $ para rfx paths rfx-example
   $ para rfx path add rfx-example person-bo-example --medium email --reason wrong_owner --why "Ada does not own the quota" --nudge 2026-12-01

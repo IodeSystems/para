@@ -16,3 +16,10 @@ Arguments. If the request starts with the word health (as in /para health), use 
 `health_triage` prompt: run `health`, settle what evidence settles with ops. With no argument, start with `orient`.
 
 If the request starts with the word ingest or align, the skill points to the reference file for it. The same text is the prompt `ingest_source` or `align_vault`.
+
+Capture first: when the owner pastes or dictates material, save it word for word
+with `io_add` (direction in) before you process it, and link what it became. If
+the processing fails, point the owner to the io item. Waiting on a person is an
+Ask, not a task (`task_to_asks`). Merge a duplicate with `doc_merge`; edit notes
+with `notes_read` and `notes_edit` (pass the hash you read). A write the gate
+holds says where it went: tell the owner it applies when they approve.
