@@ -319,3 +319,26 @@ func TestStepsAreOrderedAndNamed(t *testing.T) {
 		t.Errorf("Latest = %d, want %d", Latest(), prev)
 	}
 }
+
+func TestStatusListsEveryDocument(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	s := f.open("one")
+	if _, err := Run(ctx, s, false); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 30; i++ {
+		id := "project-bulk-" + string(rune('a'+i/26)) + string(rune('a'+i%26))
+		if _, err := s.Create(ctx, model.Document{ID: id, Folder: model.FolderProjects, Title: "Bulk " + id,
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	st, err := StatusOf(ctx, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Pending) != 1 || st.Pending[0].Count < 31 || len(st.Pending[0].Docs) != st.Pending[0].Count {
+		t.Fatalf("count %d, listed %d", st.Pending[0].Count, len(st.Pending[0].Docs))
+	}
+}

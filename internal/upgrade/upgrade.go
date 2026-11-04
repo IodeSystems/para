@@ -76,9 +76,6 @@ type Status struct {
 	Pending       []Pending `json:"pending"`
 }
 
-// maxListed bounds the document ids a Pending names.
-const maxListed = 20
-
 // Reader is the part of a store a status check needs.
 type Reader interface {
 	Config(key string) (string, error)
@@ -125,7 +122,7 @@ func StatusOf(ctx context.Context, r Reader) (Status, error) {
 	return st, nil
 }
 
-// matching returns up to maxListed ids of the documents the step selects, and the count.
+// matching returns the ids of all documents the step selects, and the count.
 func matching(ctx context.Context, r Reader, s Step) ([]string, int, error) {
 	var ids []string
 	n := 0
@@ -141,9 +138,7 @@ func matching(ctx context.Context, r Reader, s Step) ([]string, int, error) {
 			}
 			if s.Select(d) {
 				n++
-				if len(ids) < maxListed {
-					ids = append(ids, d.ID)
-				}
+				ids = append(ids, d.ID)
 			}
 		}
 	}

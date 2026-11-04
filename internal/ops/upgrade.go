@@ -57,7 +57,7 @@ var Changes = defineRead("changes", "Release notes of this para: what changed fo
 type VaultUpgradeStatusInput struct{}
 
 // VaultUpgradeStatus lists the upgrade steps this vault still needs.
-var VaultUpgradeStatus = defineRead("vault_upgrade_status", "List the format upgrade steps this vault still needs: automated steps the owner runs with `para vault upgrade`, and judgement steps that arrive as agent work titled \"Vault upgrade: ...\"", func(ctx context.Context, d Deps, _ VaultUpgradeStatusInput) (upgrade.Status, error) {
+var VaultUpgradeStatus = defineRead("vault_upgrade_status", "List the format upgrade steps this vault still needs, each with the full list of its documents (docs holds all of them; count is its length): automated steps the owner runs with `para vault upgrade`, and judgement steps that arrive as agent work titled \"Vault upgrade: ...\"", func(ctx context.Context, d Deps, _ VaultUpgradeStatusInput) (upgrade.Status, error) {
 	return upgrade.StatusOf(ctx, d.Store)
 })
 
@@ -156,9 +156,6 @@ func upgradeDocs(p upgrade.Pending) string {
 	var b strings.Builder
 	for _, id := range p.Docs {
 		b.WriteString("- " + id + "\n")
-	}
-	if p.Count > len(p.Docs) {
-		fmt.Fprintf(&b, "- and %d more: run vault_upgrade_status again after you fix these\n", p.Count-len(p.Docs))
 	}
 	return strings.TrimRight(b.String(), "\n")
 }
