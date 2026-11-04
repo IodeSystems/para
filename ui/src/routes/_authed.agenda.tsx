@@ -6,6 +6,7 @@ import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import ListSubheader from '@mui/material/ListSubheader'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
@@ -94,7 +95,7 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
 
 type Lead = { why: string; title: ReactNode; action: ReactNode | null }
 
-type AgendaItem = Item & { kind?: string | null; why?: string | null }
+type AgendaItem = Item & { kind?: string | null; why?: string | null; bucket?: string | null }
 
 function AgendaLink({ x }: { x: AgendaItem }) {
   const title = x.title || nameOr('', x.id)
@@ -109,11 +110,17 @@ function AgendaLink({ x }: { x: AgendaItem }) {
 }
 
 // AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
-// The owner acts on a row in the chat.
+// The owner acts on a row in the chat. What cannot start yet comes last, under its own heading.
 function AgendaRows({ items }: { items: AgendaItem[] }) {
+  const firstLater = items.findIndex((x) => x.bucket === 'not_yet')
   return (
     <List dense disablePadding>
-      {items.map((x) => (
+      {items.map((x, i) => [
+        i === firstLater && (
+          <ListSubheader key="not-yet" disableGutters sx={{ lineHeight: 2.5 }}>
+            Not yet startable
+          </ListSubheader>
+        ),
         <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
           <ListItemText
             primary={<AgendaLink x={x} />}
@@ -124,8 +131,8 @@ function AgendaRows({ items }: { items: AgendaItem[] }) {
           <AgentLooking id={x.id} />
           <AgentWorking id={x.id} />
           {x.due && <DueChip due={x.due} />}
-        </ListItem>
-      ))}
+        </ListItem>,
+      ])}
     </List>
   )
 }
@@ -178,7 +185,7 @@ function Agenda() {
             let lead: Lead | null = null
             let leadKind: 'answers' | 'agenda' | 'inbox' | '' = ''
             const firstCheck = checks[0]
-            const firstA = agenda[0]
+            const firstA = agenda[0]?.bucket === 'not_yet' ? undefined : agenda[0]
             const firstIn = inboxItems[0]
             if (firstCheck) {
               leadKind = 'answers'

@@ -19,6 +19,7 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       with
       kind
       why
+      bucket
     }
   }
 `)
