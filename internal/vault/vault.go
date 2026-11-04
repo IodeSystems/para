@@ -205,6 +205,10 @@ func (v *Vault) Create(ctx context.Context, d model.Document) (model.Document, e
 				return fmt.Errorf("%w: %s", model.ErrExists, f.rel)
 			}
 		}
+		// A folder added after the vault was made, such as io/, may not exist yet.
+		if err := os.MkdirAll(filepath.Dir(v.abs(rel)), 0o700); err != nil {
+			return err
+		}
 		if err := v.write(rel, data, fileMode); err != nil {
 			return err
 		}
