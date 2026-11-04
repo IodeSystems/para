@@ -56,10 +56,12 @@ const (
 // edit, new. Every kind takes comment. Via says where it was written. Stale is
 // set by para when the agent changed the item after the answer.
 type ItemAnswer struct {
-	Decision      string            `yaml:"decision,omitempty" json:"decision,omitempty"`
-	Input         map[string]any    `yaml:"input,omitempty" json:"input,omitempty"`
-	Subject       string            `yaml:"subject,omitempty" json:"subject,omitempty"`
-	Body          string            `yaml:"body,omitempty" json:"body,omitempty"`
+	Decision string         `yaml:"decision,omitempty" json:"decision,omitempty"`
+	Input    map[string]any `yaml:"input,omitempty" json:"input,omitempty"`
+	Subject  string         `yaml:"subject,omitempty" json:"subject,omitempty"`
+	Body     string         `yaml:"body,omitempty" json:"body,omitempty"`
+	// People is who a message goes to, as the owner edited it (message only).
+	People        []string          `yaml:"people,omitempty" json:"people,omitempty"`
 	New           string            `yaml:"new,omitempty" json:"new,omitempty"`
 	Choices       []string          `yaml:"choices,omitempty" json:"choices,omitempty"`
 	AddedOptions  []string          `yaml:"added_options,omitempty" json:"added_options,omitempty"`
@@ -88,7 +90,7 @@ var CommentTargets = []string{"ask", "question", "commitment", "resolved", "drop
 
 // Empty reports whether the answer says nothing.
 func (a *ItemAnswer) Empty() bool {
-	return a == nil || a.Decision == "" && a.Input == nil && a.Subject == "" && a.Body == "" && a.New == "" && len(a.Choices) == 0 &&
+	return a == nil || a.Decision == "" && a.Input == nil && a.Subject == "" && a.Body == "" && len(a.People) == 0 && a.New == "" && len(a.Choices) == 0 &&
 		len(a.AddedOptions) == 0 && len(a.EditedOptions) == 0 && strings.TrimSpace(a.OwnWords) == "" && strings.TrimSpace(a.Comment) == "" &&
 		len(a.Comments) == 0
 }
@@ -501,7 +503,7 @@ func checkBlock(it ProposalItem) [][2]string {
 			}
 			break
 		}
-		if len(it.People) == 0 && blank(it.Channel) {
+		if len(it.People) == 0 && blank(it.Channel) && !IsPathBody(it.Body) {
 			bad(CodeDossierBlock, "a message names people or a channel")
 		}
 		if blank(it.Body) {
@@ -557,7 +559,7 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 		out = append(out, fmt.Sprintf("answer via %q: want pwa, cli, or file", a.Via))
 	}
 	if it.Kind == ItemQuestion {
-		if a.Decision != "" || a.Input != nil || a.Body != "" || a.Subject != "" || a.New != "" {
+		if a.Decision != "" || a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != "" {
 			out = append(out, "a question's answer takes choices, added_options, edited_options, own_words, and comment")
 		}
 		allowed := append(slices.Clone(it.Options), a.AddedOptions...)
@@ -590,7 +592,10 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 	default:
 		out = append(out, fmt.Sprintf("decision %q: want approve, reject, or edit", a.Decision))
 	}
-	edits := a.Input != nil || a.Body != "" || a.Subject != "" || a.New != ""
+	edits := a.Input != nil || a.Body != "" || a.Subject != "" || len(a.People) > 0 || a.New != ""
+	if len(a.People) > 0 && it.Kind != ItemMessage {
+		out = append(out, "people is edited on a message only")
+	}
 	if edits && a.Decision != AnswerEdit {
 		out = append(out, "edited text goes with decision edit")
 	}
@@ -613,8 +618,8 @@ func checkAnswer(it ProposalItem, a ItemAnswer) []string {
 		if a.Input != nil || a.New != "" {
 			out = append(out, "a message or action is edited by body and subject")
 		}
-		if a.Decision == AnswerEdit && a.Body == "" && a.Subject == "" {
-			out = append(out, "decision edit needs body or subject")
+		if a.Decision == AnswerEdit && a.Body == "" && a.Subject == "" && len(a.People) == 0 {
+			out = append(out, "decision edit needs body, subject, or people")
 		}
 	}
 	return out
@@ -826,4 +831,16 @@ func (d *Dossier) Content() ProposalContent {
 		items = []ProposalItem{}
 	}
 	return ProposalContent{TLDR: d.Header.TLDR, Context: d.Header.Context, Items: items}
+}
+
+// IsPathBody reports whether an item body is a path alone: one line, with no
+// white space or link marks, that ends in .md or starts with / or ~/. Para
+// reads such a body as a pointer to a vault file (a message's to its io
+// draft); the ops resolve it and refuse a path outside the vault.
+func IsPathBody(body string) bool {
+	s := strings.TrimSpace(body)
+	if s == "" || strings.ContainsAny(s, " \t\n\r[]()`") {
+		return false
+	}
+	return strings.HasSuffix(s, ".md") || strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~/")
 }

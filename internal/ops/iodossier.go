@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/iodesystems/para/internal/model"
 )
@@ -68,6 +69,18 @@ func (p *proposal) syncIO(ctx context.Context, d Deps) error {
 		}
 		if s := ioLine(it.Subject); s != m.Subject {
 			m.Subject, changed = s, true
+		}
+		if len(it.People) > 0 && !slices.Equal(it.People, m.To) {
+			to, err := ioParties(ctx, d, it.People)
+			if err != nil {
+				return fmt.Errorf("item %s: io %s: to: %w", it.ID, doc.ID, err)
+			}
+			if len(ioLinks(to)) == 0 {
+				return fmt.Errorf("item %s: io %s: to needs a person or group", it.ID, doc.ID)
+			}
+			if !slices.Equal(to, m.To) {
+				m.To, changed = to, true
+			}
 		}
 		bound := it.ApprovedHash != "" && it.ApprovedHash == before
 		approved := it.State == model.ItemApproved || it.State == model.ItemClaimed

@@ -725,6 +725,13 @@ type para_BatchResult {
   skipped: [String!]
 }
 
+type para_BodyFile {
+  doc: String!
+  path: String!
+  text: String!
+  title: String!
+}
+
 input para_CalendarCompareInputInput {
   events: [para_CalendarEventInputInput!]
   from: String
@@ -3038,6 +3045,7 @@ type para_ItemAnswer {
   input: JSON
   new: String
   ownWords: String
+  people: [String!]
   stale: Boolean
   subject: String
   via: String
@@ -3054,6 +3062,7 @@ input para_ItemAnswerInput {
   input: JSON
   new: String
   ownWords: String
+  people: [String!]
   stale: Boolean
   subject: String
   via: String
@@ -3142,6 +3151,7 @@ type para_ItemView {
   approvedHash: String
   benefit: para_Claim
   body: String
+  bodyFile: para_BodyFile
   bundle: String
   change: [String!]!
   channel: String
@@ -4429,6 +4439,7 @@ type para_ProposalDetail {
   supersededBy: String
   tldr: String
   untrusted: String!
+  urlNote: String
 }
 
 type para_ProposalDiffOutput {
@@ -4499,6 +4510,7 @@ type para_ProposalFiled {
   revision: Int!
   status: para_ProposalFiledStatus!
   supersedes: String
+  urlNote: String
 }
 
 enum para_ProposalFiledStatus {

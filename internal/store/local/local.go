@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/iodesystems/para/internal/egress"
@@ -47,6 +48,54 @@ func (s *Store) As(actor, surface string) *Store {
 func (s *Store) ActAs(actor, surface string) store.Store { return s.As(actor, surface) }
 
 func (s *Store) VaultID() string { return s.v.ID() }
+
+// DocAt maps a path to a document id by its text alone: the cleaned path
+// must lie under the root, and its folder and file name must be those of a
+// document. A path outside the root is refused before any file is touched.
+func (s *Store) DocAt(ctx context.Context, path string) (string, error) {
+	p := filepath.Clean(filepath.FromSlash(path))
+	if filepath.IsAbs(p) {
+		rel := ""
+		for _, root := range s.roots() {
+			if r, err := filepath.Rel(root, p); err == nil && r != ".." && !strings.HasPrefix(r, ".."+string(filepath.Separator)) {
+				rel = r
+				break
+			}
+		}
+		if rel == "" {
+			return "", store.ErrOutsideVault
+		}
+		p = rel
+	}
+	if p == ".." || strings.HasPrefix(p, ".."+string(filepath.Separator)) {
+		return "", store.ErrOutsideVault
+	}
+	dir, file := filepath.Split(p)
+	id := strings.TrimSuffix(file, ".md")
+	if id == "" || strings.HasPrefix(id, ".") {
+		return "", fmt.Errorf("%s: %w", path, model.ErrNotFound)
+	}
+	doc, err := s.v.Get(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
+	if filepath.Clean(dir) != filepath.Clean(filepath.FromSlash(string(doc.Folder))) {
+		return "", fmt.Errorf("%s: %w", path, model.ErrNotFound)
+	}
+	return doc.ID, nil
+}
+
+// roots is the vault root as opened and with links resolved.
+func (s *Store) roots() []string {
+	out := []string{filepath.Clean(s.root)}
+	if abs, err := filepath.Abs(s.root); err == nil {
+		out = append(out, abs)
+	}
+	if real, err := filepath.EvalSymlinks(s.root); err == nil {
+		out = append(out, real)
+	}
+	return out
+}
 
 func (s *Store) Info() store.Info {
 	return store.Info{Actor: s.v.Actor(), Surface: s.v.Surface(), Install: s.v.Install(), StateDir: s.v.StateDir()}

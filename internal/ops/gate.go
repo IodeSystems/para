@@ -45,7 +45,8 @@ type Staged struct {
 	Proposal string   `json:"proposal"`
 	Item     string   `json:"item"`
 	URL      string   `json:"url,omitempty"`
-	Missing  []string `json:"missing"` // the properties the write lacked
+	URLNote  string   `json:"url_note,omitempty"` // url works only here: server.base_url is unset
+	Missing  []string `json:"missing"`            // the properties the write lacked
 	Message  string   `json:"message"`
 }
 
@@ -221,7 +222,7 @@ func stageWrite(ctx context.Context, d Deps, op string, input map[string]any, m 
 	if err != nil {
 		return nil, err
 	}
-	return &Staged{Staged: true, Op: op, Proposal: p.doc.ID, Item: itemID, URL: url, Missing: missing,
+	return &Staged{Staged: true, Op: op, Proposal: p.doc.ID, Item: itemID, URL: url, URLNote: urlNote(d, url), Missing: missing,
 		Message: fmt.Sprintf("staged for review as %s %s: the write lacks %s, so it did not run. It runs when the owner approves it", p.doc.ID, itemID, strings.Join(missing, ", "))}, nil
 }
 

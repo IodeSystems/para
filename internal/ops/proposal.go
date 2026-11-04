@@ -495,9 +495,10 @@ type ProposalAddInput struct {
 	Markdown string `json:"markdown,omitempty"` // the dossier body; then leave tldr, context, and items out
 	TLDR     string `json:"tldr,omitempty"`     // what this asks, in a line; required unless every item is an old form
 	Context  string `json:"context,omitempty"`  // what the owner needs to know to decide
-	Source   string `json:"source,omitempty"`   // id of a document in this vault this came from: a transcript, a note, a thread. Not a path or URL. Required with items
-	// SourcePath is free text provenance, such as the path of the file the
-	// source was read from. It is stored and shown, never resolved.
+	Source   string `json:"source,omitempty"`   // id of a document in this vault this came from: a transcript, a note, a thread. Not a path or URL. With items, this or source_path
+	// SourcePath is provenance, such as the path of the file the source was
+	// read from. A path to a vault document sets Source to it when Source is
+	// empty; any other text is stored and shown, never read.
 	SourcePath string      `json:"source_path,omitempty"`
 	Items      []ItemInput `json:"items,omitempty"`
 }
@@ -511,6 +512,7 @@ type ProposalFiled struct {
 	Supersedes    string               `json:"supersedes,omitempty"`
 	ReviewCommand string               `json:"review_command"`
 	ReviewURL     string               `json:"review_url,omitempty"`
+	URLNote       string               `json:"url_note,omitempty"` // review_url works only here: server.base_url is unset
 	Rev           string               `json:"rev"`
 }
 
@@ -521,15 +523,23 @@ func filed(d Deps, doc model.Document) (ProposalFiled, error) {
 		return ProposalFiled{}, err
 	}
 	return ProposalFiled{ID: doc.ID, Status: m.Status, Revision: m.Revision, Supersedes: m.Supersedes.Target(),
-		ReviewCommand: reviewCommand(doc.ID), ReviewURL: url, Rev: doc.Rev}, nil
+		ReviewCommand: reviewCommand(doc.ID), ReviewURL: url, URLNote: urlNote(d, url), Rev: doc.Rev}, nil
 }
 
-// proposalSource checks the source id, when one is given.
-func proposalSource(ctx context.Context, d Deps, raw string, required bool) (model.Link, error) {
+// proposalSource checks the source id, when one is given. With no source, a
+// source_path that names a vault document is that document; a path outside
+// the vault stays provenance only. required needs a source or a source_path.
+func proposalSource(ctx context.Context, d Deps, raw, sourcePath string, required bool) (model.Link, error) {
 	source := normID(raw)
 	if source == "" {
+		if sourcePath != "" {
+			if id, err := d.Store.DocAt(ctx, sourcePath); err == nil {
+				return model.LinkTo(id), nil
+			}
+			return "", nil
+		}
 		if required {
-			return "", errors.New("source is empty: give the id of a document in this vault; put a file path in source_path")
+			return "", errors.New("source is empty: give the id of a document in this vault, or a file path in source_path")
 		}
 		return "", nil
 	}
@@ -543,7 +553,7 @@ func proposalSource(ctx context.Context, d Deps, raw string, required bool) (mod
 }
 
 // ProposalAdd files a proposal.
-var ProposalAdd = defineSafe("proposal_add", "File a dossier: one per investigation, for outward actions (message, action), questions, and vault changes the owner should see first. Preferred form: markdown, the whole body: narrative with ## sections and one fenced block per item, info string `yaml para-<question|change|message|action|doc-edit> id=<id>`, plus one `yaml para-dossier` block with tldr (grammar: para guide, docs/format.md Dossier blocks). Every block needs evidence {quote, locator}. Do not write answer, state, or exec: they are the owner's and para's. Then give the owner the review_url and read the answers with proposal_response. The older form gives tldr, context, source, and items as fields. The input of a change (op X) is exactly the input of the tool X, plus the optional why, sources, and not_duplicate; every link-valued input must name an existing document or an id an earlier item creates", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
+var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para assigns them; do not pass id (in markdown, each block's id=<id> is yours). Source: source is a vault document id; source_path is where it came from, such as a file path, and a path to a vault file (io/io-x.md, or an absolute path inside the vault) sets source to that document; either may be left out when the other is given. A body that is only a path to a vault file is shown beside the item; a message's body may be only the path of an io draft (io/io-x.md), which becomes its io reference; any path outside the vault is refused (para reads nothing outside it). File a dossier: one per investigation, for outward actions (message, action), questions, and vault changes the owner should see first. Preferred form: markdown, the whole body: narrative with ## sections and one fenced block per item, info string `yaml para-<question|change|message|action|doc-edit> id=<id>`, plus one `yaml para-dossier` block with tldr (grammar: para guide, docs/format.md Dossier blocks). Every block needs evidence {quote, locator}. Do not write answer, state, or exec: they are the owner's and para's. Then give the owner the review_url and read the answers with proposal_response. The older form gives tldr, context, source, and items as fields. The input of a change (op X) is exactly the input of the tool X, plus the optional why, sources, and not_duplicate; every link-valued input must name an existing document or an id an earlier item creates", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
 	info, err := identity(d)
 	if err != nil {
 		return ProposalFiled{}, err
@@ -560,7 +570,7 @@ var ProposalAdd = defineSafe("proposal_add", "File a dossier: one per investigat
 		if len(in.Items) > 0 || in.TLDR != "" || in.Context != "" {
 			return ProposalFiled{}, errors.New("give markdown, or tldr, context, and items; not both")
 		}
-		source, err := proposalSource(ctx, d, in.Source, false)
+		source, err := proposalSource(ctx, d, in.Source, sourcePath, false)
 		if err != nil {
 			return ProposalFiled{}, err
 		}
@@ -574,7 +584,7 @@ var ProposalAdd = defineSafe("proposal_add", "File a dossier: one per investigat
 		}
 		return filed(d, doc)
 	}
-	source, err := proposalSource(ctx, d, in.Source, true)
+	source, err := proposalSource(ctx, d, in.Source, sourcePath, true)
 	if err != nil {
 		return ProposalFiled{}, err
 	}
@@ -753,6 +763,9 @@ type ItemView struct {
 	ResultName string `json:"result_name,omitempty"`
 	// Stack is the item's state in the review stack.
 	Stack string `json:"stack"`
+	// BodyFile is the vault document the body names, when the body is only a
+	// path to one; the page shows its text beside the item.
+	BodyFile *BodyFile `json:"body_file,omitempty"`
 }
 
 // RevisionView is one revision in a history, oldest first.
@@ -780,6 +793,7 @@ type ProposalDetail struct {
 	SupersededBy  string         `json:"superseded_by,omitempty"`
 	ReviewCommand string         `json:"review_command"`
 	ReviewURL     string         `json:"review_url,omitempty"`
+	URLNote       string         `json:"url_note,omitempty"` // review_url works only here: server.base_url is unset
 	SourceDoc     SourceView     `json:"source"`
 	Items         []ItemView     `json:"items"`
 	History       []RevisionView `json:"history"`
@@ -857,6 +871,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 	if out.ReviewURL, err = reviewURL(d, p.doc.ID); err != nil {
 		return out, err
 	}
+	out.URLNote = urlNote(d, out.ReviewURL)
 	if p.meta.Status == model.ProposalSuperseded {
 		if out.SupersededBy, err = supersededBy(ctx, d, p.doc.ID); err != nil {
 			return out, err
@@ -881,7 +896,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 			return out, err
 		}
 		v := ItemView{ProposalItem: *it, Hash: hash, Actions: p.actions(it), Summary: sum.of(*it), Change: sum.change(*it), ResultName: sum.resultName(*it),
-			Stack: stackState(*it)}
+			Stack: stackState(*it), BodyFile: bodyFile(ctx, d, *it)}
 		if it.Kind.Outward() {
 			v.GateHash = it.GateHash()
 			if f := fillText(p, it.GateBody()); f != it.GateBody() {

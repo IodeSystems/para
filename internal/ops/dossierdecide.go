@@ -246,6 +246,9 @@ func applyEdit(it *model.ProposalItem, a model.ItemAnswer) error {
 		if a.Subject != "" {
 			it.Subject = a.Subject
 		}
+		if len(a.People) > 0 && it.Kind == model.ItemMessage {
+			it.People = slices.Clone(a.People)
+		}
 	}
 	it.Edited = true
 	return nil
@@ -276,6 +279,9 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		for _, id := range plan.edits {
 			it, err := p.item(id)
 			if err != nil {
+				return err
+			}
+			if err := inlineBody(ctx, d, it); err != nil {
 				return err
 			}
 			if err := applyEdit(it, *it.Answer); err != nil {

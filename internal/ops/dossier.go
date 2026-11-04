@@ -114,6 +114,9 @@ func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool
 	if err != nil {
 		return nil, err
 	}
+	if err := resolveBodyPaths(ctx, d, dz.Items); err != nil {
+		return nil, err
+	}
 	if err := hydrateIO(ctx, d, dz.Items, true); err != nil {
 		return nil, err
 	}

@@ -71,9 +71,6 @@ type OpenError struct {
 
 func (e *OpenError) Error() string { return e.Detail }
 
-// localURLNote is the url_note of a URL made with no server.base_url.
-const localURLNote = "this URL works only on this machine: set server.base_url (para vault config set server.base_url <url>) for links that work elsewhere"
-
 // ProposalOpen opens the web app's page of a proposal or a document. It writes
 // nothing. A URL must be one of this vault's web app.
 var ProposalOpen = defineRead("proposal_open", "Open the web page of a proposal or any document (an id, or a URL of the web app) in a browser on the machine para runs on, when that machine has a graphical session; otherwise it only returns the URL. Always returns the URL and opened: when opened is false, reason and note say why and what to do, so print the URL for the owner", func(ctx context.Context, d Deps, in ProposalOpenInput) (ProposalOpenOutput, error) {
@@ -86,10 +83,8 @@ var ProposalOpen = defineRead("proposal_open", "Open the web page of a proposal 
 		return ProposalOpenOutput{}, err
 	}
 	var baseErr error
-	urlNote := ""
 	if base == "" {
 		base, baseErr = viewerBase(d)
-		urlNote = localURLNote
 	}
 	base = strings.TrimRight(base, "/")
 	var page string
@@ -119,7 +114,7 @@ var ProposalOpen = defineRead("proposal_open", "Open the web page of a proposal 
 		}
 		page = base + path
 	}
-	out := ProposalOpenOutput{URL: page, URLNote: urlNote}
+	out := ProposalOpenOutput{URL: page, URLNote: urlNote(d, page)}
 	if d.OpenURL == nil {
 		out.Reason = OpenNotHere
 		out.Note = "nothing can open a browser from here: give the owner the URL"

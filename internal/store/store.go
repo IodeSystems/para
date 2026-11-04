@@ -5,6 +5,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/iodesystems/para/internal/egress"
@@ -29,8 +30,17 @@ type Info struct {
 	StateDir string
 }
 
+// ErrOutsideVault is a path that is not inside the vault. Para reads nothing
+// outside the vault.
+var ErrOutsideVault = errors.New("the path is outside the vault: para reads nothing outside it")
+
 // Store is one open vault.
 type Store interface {
+	// DocAt returns the id of the document at path: a path relative to the
+	// vault root, or an absolute path inside it. It reads no file. It returns
+	// ErrOutsideVault for a path outside the vault, and model.ErrNotFound when
+	// no document of the vault is at that path.
+	DocAt(ctx context.Context, path string) (string, error)
 	// Info returns the identity the Store was opened with.
 	Info() Info
 	// ActAs returns this Store acting for another actor and surface. A background

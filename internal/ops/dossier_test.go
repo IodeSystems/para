@@ -456,7 +456,9 @@ func TestSubmitRejectNeedsComment(t *testing.T) {
 	}
 	mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
 	st := mustRun(t, ProposalStack, f.owner, ProposalStackInput{Proposal: id})
-	if !slices.ContainsFunc(st.Rows, func(r StackRow) bool { return r.Item == "m1" && r.State == model.ItemDenied && r.Reason == "Wrong person." }) {
+	if !slices.ContainsFunc(st.Rows, func(r StackRow) bool {
+		return r.Item == "m1" && r.State == model.ItemDenied && r.Reason == "Wrong person."
+	}) {
 		t.Fatalf("rows = %+v", st.Rows)
 	}
 }
