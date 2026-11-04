@@ -35,7 +35,12 @@ func checkSeen(path, version string) (changed bool, from string) {
 		if old.Key == rec.Key {
 			return false, old.From
 		}
-		changed, from = true, old.Release
+		// The notice shows only when changes would list something: the same
+		// check changes makes, releases after the last one this session saw.
+		from = old.Release
+		if rs, err := changes.Since(from); err == nil && len(rs) > 0 {
+			changed = true
+		}
 		rec.From = from
 	}
 	if b, err := json.Marshal(rec); err == nil {

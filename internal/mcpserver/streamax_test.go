@@ -46,6 +46,10 @@ func TestInstructionsAskForChangesOnceWhenTheBinaryChanged(t *testing.T) {
 	if strings.Contains(same, ChangedLine) {
 		t.Fatal("the same binary was told para changed")
 	}
+	// The last session saw an older release, so changes has something to list.
+	if err := os.WriteFile(seen, []byte(`{"key":"v1@0.0.0","release":"0.0.0"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	c, upgraded := initializeWith(t, Options{Version: "v2", SeenPath: seen})
 	if !strings.Contains(upgraded, ChangedLine) {
 		t.Fatal("a new binary was not announced")
@@ -112,5 +116,22 @@ func TestOrientListsPendingUpgradeSteps(t *testing.T) {
 	// newVault records no format_version and holds no document a step selects.
 	if strings.Contains(text, "pending upgrade steps") {
 		t.Fatalf("orient lists a step for an empty vault: %s", text)
+	}
+}
+
+func TestChangedLineNeedsReleasesAfterTheLastSeen(t *testing.T) {
+	seen := filepath.Join(t.TempDir(), "mcp_seen.json")
+	// A new binary version with the same release notes: changes lists nothing, so no notice.
+	rec := `{"key":"v1@` + changes.Latest() + `","release":"` + changes.Latest() + `"}`
+	if err := os.WriteFile(seen, []byte(rec), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, got := initializeWith(t, Options{Version: "v2", SeenPath: seen})
+	if strings.Contains(got, ChangedLine) {
+		t.Fatal("the notice showed with no release to list")
+	}
+	res := call(t, c, "changes", `{}`)
+	if res.IsError || !strings.Contains(textOf(t, res), "No changes after") {
+		t.Fatalf("changes = %v %s", res.IsError, textOf(t, res))
 	}
 }
