@@ -237,6 +237,10 @@ func TestLint(t *testing.T) {
 		{"imported_from not a map", "n.md", doc("type: note\ncreated: 2026-11-01\nimported_from: /old/n.md\n", "# N\n"), []string{"field-value:1"}},
 		{"calendar_uid on a meeting", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uid: sync@acme.example\n", "# T\n"), nil},
 		{"calendar_uid on a plain task", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ncalendar_uid: sync@acme.example\n", "# T\n"), []string{"field-value:1"}},
+		{"calendar_uids on a meeting", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uids:\n  - uid: sync@acme.example\n    role: primary\n  - uid: room@acme.example\n", "# T\n"), nil},
+		{"calendar_uids repeated uid", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uids:\n  - uid: a@x\n  - uid: a@x\n", "# T\n"), []string{"field-value"}},
+		{"calendar_uids unknown key", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uids:\n  - uid: a@x\n    room: 4\n", "# T\n"), []string{"field-value"}},
+		{"calendar_uids on a plain task", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ncalendar_uids:\n  - uid: a@x\n", "# T\n"), []string{"field-value:1"}},
 		{"assumption bad checked", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nassumptions:\n  - text: Budget holds\n    checked: last week\n", "# P\n"), []string{"field-value:1"}},
 		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}

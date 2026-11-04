@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iodesystems/para/internal/model"
 )
 
 const compareICS = `BEGIN:VCALENDAR
@@ -119,11 +121,13 @@ func TestCalendarCompare(t *testing.T) {
 	}
 
 	// Events passed as a list match the same way; a uid on the para side that
-	// the calendar lacks is said so.
+	// the calendar lacks is said so. An event with no attendees that overlaps
+	// a para meeting is an alias of it, not missing from para.
 	ev := must(t, CalendarCompare, d, CalendarCompareInput{From: "2026-11-02", To: "2026-11-02", Zone: "UTC", Events: []CalendarEventInput{
 		{UID: "other@acme.example", Title: "Platform standup", Start: "2026-11-02T09:30:00Z", End: "2026-11-02T09:45:00Z"},
 	}})
-	if len(ev.ParaOnly) != 1 || ev.ParaOnly[0].ID != standup || !strings.Contains(ev.ParaOnly[0].Reason, "standup@acme.example") || len(ev.CalendarOnly) != 1 {
+	if len(ev.ParaOnly) != 1 || ev.ParaOnly[0].ID != standup || !strings.Contains(ev.ParaOnly[0].Reason, "standup@acme.example") || len(ev.CalendarOnly) != 0 ||
+		len(ev.Aliases) != 1 || ev.Aliases[0].Of != standup || ev.Aliases[0].Note != "alias of Platform standup?" {
 		t.Errorf("events = %+v", ev)
 	}
 	if _, err := CalendarCompare.Run(t.Context(), d, CalendarCompareInput{}); err == nil {
@@ -157,7 +161,41 @@ func TestCalendarUIDOnlyOnMeetingsAndCalls(t *testing.T) {
 	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{"person-ada-example"}})
 	must(t, MeetingSchedule, d, MeetingScheduleInput{ID: m.ID, Start: "2026-11-03T10:00:00Z", End: "2026-11-03T10:30:00Z", CalendarUID: "sync@acme.example"})
 	_, mt, err := getMeeting(t.Context(), d.Store, m.ID)
-	if err != nil || mt.t.CalendarUID != "sync@acme.example" {
+	if err != nil || len(mt.t.UIDs()) != 1 || mt.t.UIDs()[0] != (model.CalendarEvent{UID: "sync@acme.example", Role: model.RolePrimary}) {
 		t.Errorf("uid after schedule = %+v %v", mt, err)
+	}
+}
+
+func TestMeetingWithSeveralCalendarEvents(t *testing.T) {
+	d := newDepsAt(t, time.Date(2026, 11, 2, 8, 0, 0, 0, time.UTC), "install-a")
+	seedOrg(t, d)
+	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Vendor review", With: []string{"person-ada-example"},
+		Start: "2026-11-03T10:00:00Z", End: "2026-11-03T11:00:00Z", CalendarUID: "invite@acme.example",
+		CalendarUIDs: []model.CalendarEvent{{UID: "room@acme.example", Role: "room"}}}).ID
+	if _, err := MeetingAdd.Run(t.Context(), d, MeetingAddInput{Title: "Twice", With: []string{"person-ada-example"}, CalendarUID: "a@x",
+		CalendarUIDs: []model.CalendarEvent{{UID: "a@x"}}}); err == nil {
+		t.Error("a uid given twice was accepted")
+	}
+	// meeting_schedule adds a prep event and keeps the others.
+	must(t, MeetingSchedule, d, MeetingScheduleInput{ID: m, Start: "2026-11-03T10:00:00Z", End: "2026-11-03T11:00:00Z",
+		CalendarUIDs: []model.CalendarEvent{{UID: "prep@acme.example", Role: "internal prep"}}})
+	_, mt, _ := getMeeting(t.Context(), d.Store, m)
+	if got := mt.t.UIDs(); len(got) != 3 || got[0].Role != model.RolePrimary || got[2].Role != "internal prep" {
+		t.Fatalf("uids = %+v", got)
+	}
+	out := must(t, CalendarCompare, d, CalendarCompareInput{From: "2026-11-03", To: "2026-11-03", Zone: "UTC", Events: []CalendarEventInput{
+		{UID: "room@acme.example", Title: "Room 4 booking", Start: "2026-11-03T10:00:00Z", End: "2026-11-03T11:00:00Z"},
+		{UID: "prep@acme.example", Title: "Prep", Start: "2026-11-03T09:30:00Z", End: "2026-11-03T10:00:00Z"},
+		{UID: "hold@acme.example", Title: "Focus hold", Start: "2026-11-03T10:30:00Z", End: "2026-11-03T12:00:00Z"},
+		{UID: "lunch@acme.example", Title: "Lunch with Bo", Start: "2026-11-03T12:00:00Z", End: "2026-11-03T13:00:00Z", Attendees: []string{"Bo"}},
+	}})
+	if len(out.Matched) != 2 || out.Matched[0].MatchedBy != "uid" || len(out.ParaOnly) != 0 {
+		t.Fatalf("matched = %+v para only = %+v", out.Matched, out.ParaOnly)
+	}
+	if len(out.Aliases) != 1 || out.Aliases[0].UID != "hold@acme.example" || out.Aliases[0].Of != m {
+		t.Fatalf("aliases = %+v", out.Aliases)
+	}
+	if len(out.CalendarOnly) != 1 || out.CalendarOnly[0].UID != "lunch@acme.example" {
+		t.Fatalf("calendar only = %+v", out.CalendarOnly)
 	}
 }

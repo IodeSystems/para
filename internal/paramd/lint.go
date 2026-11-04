@@ -327,8 +327,10 @@ func (l *linter) task() {
 	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
 	}
-	if fm["calendar_uid"] != nil && kind != "meeting" && kind != "call" {
-		l.errf(1, CodeFieldValue, "field %q: only a task of kind meeting or call has a calendar event", "calendar_uid")
+	for _, k := range []string{"calendar_uid", "calendar_uids"} {
+		if fm[k] != nil && kind != "meeting" && kind != "call" {
+			l.errf(1, CodeFieldValue, "field %q: only a task of kind meeting or call has a calendar event", k)
+		}
 	}
 	if fm["scheduled"] == nil {
 		if fm["end"] != nil {
@@ -575,6 +577,38 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
+	case kCalendarUIDs:
+		list, ok := v.([]any)
+		if !ok {
+			bad("must be a list of {uid, role} mappings")
+			return
+		}
+		seen := map[string]bool{}
+		for i, e := range list {
+			m, ok := e.(map[string]any)
+			if !ok {
+				bad("item %d must be a mapping with uid and an optional role", i+1)
+				continue
+			}
+			for k := range m {
+				if k != "uid" && k != "role" {
+					bad("item %d: unknown key %q (uid, role)", i+1, k)
+				}
+			}
+			uid, _ := m["uid"].(string)
+			switch {
+			case strings.TrimSpace(uid) == "" || strings.ContainsAny(uid, "\r\n"):
+				bad("item %d: uid must be one non-empty line", i+1)
+			case seen[uid]:
+				bad("item %d: uid %q is listed twice", i+1, uid)
+			}
+			seen[uid] = true
+			if r, ok := m["role"]; ok {
+				if s, ok := r.(string); !ok || strings.ContainsAny(s, "\r\n") {
+					bad("item %d: role must be one line of text", i+1)
+				}
+			}
+		}
 	case kImported:
 		m, ok := v.(map[string]any)
 		if !ok {

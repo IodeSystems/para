@@ -200,8 +200,10 @@ type TaskAddInput struct {
 	End       string   `json:"end,omitempty"`
 	With      []string `json:"with,omitempty"` // person or group ids
 	// CalendarUID is the UID of the calendar event of a meeting or a call, so
-	// calendar_compare matches it exactly.
-	CalendarUID string `json:"calendar_uid,omitempty"`
+	// calendar_compare matches it exactly (role primary); CalendarUIDs are
+	// more events of it, each with a role in free text.
+	CalendarUID  string                `json:"calendar_uid,omitempty"`
+	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -254,11 +256,11 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
-	uid, err := checkCalendarUID(in.CalendarUID)
+	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
-	if uid != "" && kind != model.KindMeeting && kind != model.KindCall {
+	if len(uids) > 0 && kind != model.KindMeeting && kind != model.KindCall {
 		return TaskAddOutput{}, errors.New("calendar_uid: only a meeting or a call has a calendar event")
 	}
 	var incident model.Link
@@ -325,7 +327,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			End:       end,
 			With:      with,
 
-			CalendarUID: uid,
+			CalendarUIDs: uids,
 		},
 	})
 	if err != nil {

@@ -217,12 +217,50 @@ type Task struct {
 	With      []Link `yaml:"with,omitempty" json:"with,omitempty"`
 	// RFX links the requests a meeting is meant to settle.
 	RFX []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
-	// CalendarUID is the UID of the owner's calendar event for a meeting or
-	// a call, so calendar_compare matches it exactly.
-	CalendarUID string `yaml:"calendar_uid,omitempty" json:"calendar_uid,omitempty"`
-	Deferral    `yaml:",inline"`
+	// CalendarUIDs are the owner's calendar events of a meeting or a call (the
+	// invite, a room booking, an internal prep slot), so calendar_compare
+	// matches any of them exactly. CalendarUID is the older single field:
+	// read as one entry (UIDs), and upgrade step calendar-uids converts it.
+	CalendarUIDs []CalendarEvent `yaml:"calendar_uids,omitempty" json:"calendar_uids,omitempty"`
+	CalendarUID  string          `yaml:"calendar_uid,omitempty" json:"calendar_uid,omitempty"`
+	Deferral     `yaml:",inline"`
 	// Assumptions are what the task takes as true (grill.go).
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
+}
+
+// CalendarEvent is one calendar event of a meeting: its UID, and its role in
+// free text (primary, room, internal prep).
+type CalendarEvent struct {
+	UID  string `yaml:"uid" json:"uid"`
+	Role string `yaml:"role,omitempty" json:"role,omitempty"`
+}
+
+// RolePrimary is the role of the event a single calendar_uid named.
+const RolePrimary = "primary"
+
+// UIDs lists the calendar events of the task, the older calendar_uid first
+// as role primary when it is not also in the list.
+func (t *Task) UIDs() []CalendarEvent {
+	out := []CalendarEvent{}
+	if t.CalendarUID != "" && !slices.ContainsFunc(t.CalendarUIDs, func(e CalendarEvent) bool { return e.UID == t.CalendarUID }) {
+		out = append(out, CalendarEvent{UID: t.CalendarUID, Role: RolePrimary})
+	}
+	return append(out, t.CalendarUIDs...)
+}
+
+// AddUID adds a calendar event, or sets the role of one already there (an
+// empty role keeps the stored one). It folds the older field into the list.
+func (t *Task) AddUID(e CalendarEvent) {
+	t.CalendarUIDs, t.CalendarUID = t.UIDs(), ""
+	for i := range t.CalendarUIDs {
+		if t.CalendarUIDs[i].UID == e.UID {
+			if e.Role != "" {
+				t.CalendarUIDs[i].Role = e.Role
+			}
+			return
+		}
+	}
+	t.CalendarUIDs = append(t.CalendarUIDs, e)
 }
 
 // CommitmentTag is the tag older vaults use for a commitment. Kind commitment

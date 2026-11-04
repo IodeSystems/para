@@ -56,7 +56,7 @@ func TestRecurringMeetingKeepsSlot(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := nextOf(t, d, doc.ID)
-	if n.Kind != model.KindMeeting || n.CalendarUID != "uid-1@example.com" || len(n.With) != 1 || len(n.RFX) != 1 {
+	if n.Kind != model.KindMeeting || len(n.UIDs()) != 1 || n.UIDs()[0].UID != "uid-1@example.com" || len(n.With) != 1 || len(n.RFX) != 1 {
 		t.Errorf("next lost fields: %+v", n)
 	}
 	if n.Scheduled != "2026-11-05T09:00:00-08:00" || n.End != "2026-11-05T09:30:00-08:00" {
@@ -115,7 +115,7 @@ func TestMeetingHoldRecurs(t *testing.T) {
 		t.Fatalf("meeting_hold made no next occurrence: %+v", h)
 	}
 	n := nextOf(t, d, doc.ID)
-	if n.Kind != model.KindMeeting || n.Scheduled != "2026-11-05T09:00:00-08:00" || n.End != "2026-11-05T09:30:00-08:00" || n.CalendarUID != "uid-1@example.com" || n.Status != model.TaskTodo {
+	if n.Kind != model.KindMeeting || n.Scheduled != "2026-11-05T09:00:00-08:00" || n.End != "2026-11-05T09:30:00-08:00" || len(n.UIDs()) != 1 || n.UIDs()[0].UID != "uid-1@example.com" || n.Status != model.TaskTodo {
 		t.Errorf("next = %+v", n)
 	}
 	// A repeat of the closing path makes no second one.

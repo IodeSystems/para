@@ -313,8 +313,10 @@ type MeetingAddInput struct {
 	End   string   `json:"end,omitempty"`
 	Body  string   `json:"body,omitempty"` // text before the Questions section
 	// CalendarUID is the UID of the meeting's event in the owner's calendar,
-	// so calendar_compare matches it exactly.
-	CalendarUID string `json:"calendar_uid,omitempty"`
+	// so calendar_compare matches it exactly; it is stored as role primary.
+	// CalendarUIDs are more events of it (role: room, internal prep, ...).
+	CalendarUID  string                `json:"calendar_uid,omitempty"`
+	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -370,11 +372,11 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			return MeetingAddOutput{}, err
 		}
 	}
-	uid, err := checkCalendarUID(in.CalendarUID)
+	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUID: uid}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUIDs: uids}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":
@@ -407,6 +409,39 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	}
 	return out, nil
 })
+
+// calendarEvents checks the calendar events of a meeting or call: one UID
+// given alone (role primary) and a list. A UID listed twice is refused.
+func calendarEvents(single string, list []model.CalendarEvent) ([]model.CalendarEvent, error) {
+	var out []model.CalendarEvent
+	add := func(uid, role string) error {
+		uid, err := checkCalendarUID(uid)
+		if err != nil {
+			return err
+		}
+		role = flatLine(role)
+		if uid == "" {
+			return nil
+		}
+		if slices.ContainsFunc(out, func(e model.CalendarEvent) bool { return e.UID == uid }) {
+			return fmt.Errorf("calendar uid %q is given twice", uid)
+		}
+		out = append(out, model.CalendarEvent{UID: uid, Role: role})
+		return nil
+	}
+	if err := add(single, model.RolePrimary); err != nil {
+		return nil, err
+	}
+	for _, e := range list {
+		if strings.TrimSpace(e.UID) == "" {
+			return nil, errors.New("calendar_uids: each entry needs uid")
+		}
+		if err := add(e.UID, e.Role); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
 
 // checkCalendarUID trims a calendar event UID; it must be one line.
 func checkCalendarUID(s string) (string, error) {
@@ -492,9 +527,11 @@ type MeetingScheduleInput struct {
 	ID    string `json:"id"`
 	Start string `json:"start"` // RFC 3339 with a zone
 	End   string `json:"end"`
-	// CalendarUID sets the UID of the meeting's calendar event; empty keeps
-	// the one stored. An older type: meeting document has none.
-	CalendarUID string `json:"calendar_uid,omitempty"`
+	// CalendarUID adds the UID of the meeting's calendar event (role primary),
+	// and CalendarUIDs more events; a UID already stored takes the new role.
+	// Empty keeps the stored ones. An older type: meeting document has none.
+	CalendarUID  string                `json:"calendar_uid,omitempty"`
+	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
 }
 
 // MeetingSchedule books a requested meeting, or moves a booked one. The linked
@@ -511,15 +548,17 @@ var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of 
 	if err != nil {
 		return MeetingChangeOutput{}, err
 	}
-	uid, err := checkCalendarUID(in.CalendarUID)
+	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
 	if err != nil {
 		return MeetingChangeOutput{}, err
 	}
-	if uid != "" {
+	if len(uids) > 0 {
 		if m.t == nil {
-			return MeetingChangeOutput{}, fmt.Errorf("%s is an older meeting document with no calendar_uid: the owner runs `para vault upgrade` to make it a task, then set calendar_uid", doc.ID)
+			return MeetingChangeOutput{}, fmt.Errorf("%s is an older meeting document with no calendar_uids: the owner runs `para vault upgrade` to make it a task, then set calendar_uids", doc.ID)
 		}
-		m.t.CalendarUID = uid
+		for _, e := range uids {
+			m.t.AddUID(e)
+		}
 	}
 	if m.Status == model.MeetingScheduled && m.Start != "" && (m.Start != start || m.End != end) {
 		// A move keeps the old time in the notes.

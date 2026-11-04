@@ -51,8 +51,10 @@ type AlignMeeting struct {
 	Start       string   `json:"start"`
 	End         string   `json:"end,omitempty"`
 	With        []string `json:"with"`
-	CalendarUID string   `json:"calendar_uid,omitempty"`
-	Recur       string   `json:"recur,omitempty"`
+	CalendarUID string   `json:"calendar_uid,omitempty"` // the first of calendar_uids
+	// CalendarUIDs are every calendar event of it (invite, room, prep).
+	CalendarUIDs []string `json:"calendar_uids"`
+	Recur        string   `json:"recur,omitempty"`
 }
 
 // AlignTarget is who an ask went to and where the thread is.
@@ -196,7 +198,7 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 			end = it.End.Format(time.RFC3339)
 		}
 		out.Meetings = append(out.Meetings, AlignMeeting{ID: it.ID, Kind: it.Kind, Title: it.Title, Status: it.Status,
-			Start: when, End: end, With: nonNil(it.With), CalendarUID: it.UID, Recur: it.Recur})
+			Start: when, End: end, With: nonNil(it.With), CalendarUID: firstOf(it.UIDs...), CalendarUIDs: nonNil(it.UIDs), Recur: it.Recur})
 	}
 	switch out.Kind {
 	case "goal":

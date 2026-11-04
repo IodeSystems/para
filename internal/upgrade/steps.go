@@ -66,6 +66,22 @@ func steps() []Step {
 			Select:  openInbox,
 			Rewrite: inboxAsIO,
 		},
+		{
+			ID:      "calendar-uids",
+			Version: 5,
+			Title:   "Rewrite a meeting's single calendar_uid as calendar_uids [{uid, role: primary}]",
+			Auto:    true,
+			Types:   []model.Type{model.TypeTask},
+			Select: func(d model.Document) bool {
+				t, ok := d.Meta.(*model.Task)
+				return ok && t.CalendarUID != ""
+			},
+			Rewrite: func(d model.Document) (model.Document, error) {
+				t := d.Meta.(*model.Task)
+				t.CalendarUIDs, t.CalendarUID = t.UIDs(), ""
+				return d, nil
+			},
+		},
 	}
 }
 

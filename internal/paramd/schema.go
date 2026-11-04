@@ -8,24 +8,25 @@ const (
 	kBool
 	kEnum
 	kList
-	kLink        // "[[name]]"
-	kRuleLink    // "[[name#^R4]]"
-	kSourceMap   // source block
-	kLinkList    // list of "[[name]]"
-	kContacts    // list of contact maps
-	kPointers    // list of {label, kind, target} maps
-	kTargets     // list of rfx target maps
-	kTimestamp   // RFC 3339 time; YAML may read it as a time or a string
-	kCount       // integer, 1 or more
-	kOwner       // "[[name]]" or the word self (the vault owner)
-	kScope       // "[[name]]" or the word root
-	kSources     // list of {ref, quote} maps
-	kWhen        // a date YYYY-MM-DD, or an RFC 3339 time
-	kMap         // a mapping; its parts are checked by the goal brief rules (model.CheckBrief)
-	kMaps        // a list of mappings; its parts are checked by the goal brief rules
-	kRisks       // list of risk maps (riskFields)
-	kAssumptions // list of assumption maps (assumptionFields)
-	kImported    // {path, hash}: the file a document was imported from
+	kLink         // "[[name]]"
+	kRuleLink     // "[[name#^R4]]"
+	kSourceMap    // source block
+	kLinkList     // list of "[[name]]"
+	kContacts     // list of contact maps
+	kPointers     // list of {label, kind, target} maps
+	kTargets      // list of rfx target maps
+	kTimestamp    // RFC 3339 time; YAML may read it as a time or a string
+	kCount        // integer, 1 or more
+	kOwner        // "[[name]]" or the word self (the vault owner)
+	kScope        // "[[name]]" or the word root
+	kSources      // list of {ref, quote} maps
+	kWhen         // a date YYYY-MM-DD, or an RFC 3339 time
+	kMap          // a mapping; its parts are checked by the goal brief rules (model.CheckBrief)
+	kMaps         // a list of mappings; its parts are checked by the goal brief rules
+	kRisks        // list of risk maps (riskFields)
+	kAssumptions  // list of assumption maps (assumptionFields)
+	kImported     // {path, hash}: the file a document was imported from
+	kCalendarUIDs // list of {uid, role} maps: calendar events of a meeting
 )
 
 type field struct {
@@ -161,8 +162,9 @@ var typeFields = map[string][]field{
 		{Name: "scheduled", Kind: kWhen}, // a date, or an RFC 3339 start with a zone
 		{Name: "end", Kind: kTimestamp},
 		{Name: "with", Kind: kLinkList},
-		{Name: "rfx", Kind: kLinkList},        // kind meeting: the requests it settles
-		{Name: "calendar_uid", Kind: kString}, // kind meeting or call: the calendar event's UID
+		{Name: "rfx", Kind: kLinkList},               // kind meeting: the requests it settles
+		{Name: "calendar_uid", Kind: kString},        // older single form of calendar_uids; read as one entry
+		{Name: "calendar_uids", Kind: kCalendarUIDs}, // kind meeting or call: [{uid, role}] of its calendar events
 		{Name: "assumptions", Kind: kAssumptions},
 	},
 	"rfx": {
@@ -457,7 +459,7 @@ var kindNames = map[kind]string{
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
 	kScope: "scope", kSources: "sources", kWhen: "date_or_time", kMap: "map", kMaps: "maps",
-	kRisks: "risks", kAssumptions: "assumptions", kImported: "imported",
+	kRisks: "risks", kAssumptions: "assumptions", kImported: "imported", kCalendarUIDs: "calendar_uids",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,

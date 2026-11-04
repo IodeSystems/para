@@ -433,6 +433,7 @@ type para_AlignItem {
 
 type para_AlignMeeting {
   calendarUid: String
+  calendarUids: [String!]!
   end: String
   id: String!
   kind: String!
@@ -750,6 +751,16 @@ type para_BodyFile {
   title: String!
 }
 
+type para_CalendarAlias {
+  end: String
+  note: String!
+  of: String!
+  ofTitle: String!
+  start: String!
+  title: String!
+  uid: String
+}
+
 input para_CalendarCompareInputInput {
   events: [para_CalendarEventInputInput!]
   from: String
@@ -760,6 +771,7 @@ input para_CalendarCompareInputInput {
 }
 
 type para_CalendarCompareOutput {
+  aliases: [para_CalendarAlias!]!
   calendar: Int!
   calendarOnly: [para_CalendarOnly!]!
   from: String!
@@ -770,6 +782,16 @@ type para_CalendarCompareOutput {
   to: String!
   unexpanded: [para_CalendarUnexpanded!]!
   warnings: [String!]!
+}
+
+type para_CalendarEvent {
+  role: String
+  uid: String!
+}
+
+input para_CalendarEventInput {
+  role: String
+  uid: String!
 }
 
 input para_CalendarEventInputInput {
@@ -3458,6 +3480,7 @@ type para_LintOutput {
 input para_MeetingAddInputInput {
   body: String
   calendarUid: String
+  calendarUids: [para_CalendarEventInput!]
   end: String
   importedFrom: para_ImportedFromInput
   rfx: [String!]
@@ -3572,6 +3595,7 @@ type para_MeetingListOutput {
 
 input para_MeetingScheduleInputInput {
   calendarUid: String
+  calendarUids: [para_CalendarEventInput!]
   end: String!
   id: String!
   start: String!
@@ -3647,6 +3671,7 @@ type para_Meta {
   by: String
   cadence: String
   calendarUid: String
+  calendarUids: [para_CalendarEvent!]
   check: String
   checkNote: String
   checked: String
@@ -4066,6 +4091,7 @@ type para_OutcomeCount {
 
 type para_ParaOnly {
   calendarUid: String
+  calendarUids: [String!]!
   end: String
   hasAttendees: Boolean!
   id: String!
@@ -6633,6 +6659,7 @@ input para_TaskAddInputInput {
   assignee: String
   body: String
   calendarUid: String
+  calendarUids: [para_CalendarEventInput!]
   commitment: Boolean
   dependsOn: [String!]
   doneWhen: String

@@ -44,7 +44,8 @@ type calItem struct {
 	Start, End              time.Time
 	AllDay                  bool
 	With, RFX               []string
-	UID, Recur              string
+	UIDs                    []string // calendar events of the item, any role
+	Recur                   string
 	Project, Area           string
 	Cancelled               bool
 }
@@ -71,7 +72,10 @@ func paraCalendarItems(ctx context.Context, s store.Store, loc *time.Location) (
 				if k != model.KindMeeting && k != model.KindCall {
 					continue
 				}
-				it.Kind, it.Status, it.UID, it.Recur = string(k), string(m.Status), m.CalendarUID, m.Recur
+				it.Kind, it.Status, it.Recur = string(k), string(m.Status), m.Recur
+				for _, e := range m.UIDs() {
+					it.UIDs = append(it.UIDs, e.UID)
+				}
 				it.With, it.RFX, it.Project, it.Area = targets(m.With), targets(m.RFX), m.Project.Target(), m.Area.Target()
 				it.Cancelled = m.Status == model.TaskDropped
 				when, end = m.Scheduled, m.End
@@ -244,10 +248,26 @@ type ParaOnly struct {
 	RFX    []string `json:"rfx"`
 	// HasAttendees is whether para knows who it is with, so an invite can
 	// be sent from it.
-	HasAttendees bool   `json:"has_attendees"`
-	CalendarUID  string `json:"calendar_uid,omitempty"`
-	Recur        string `json:"recur,omitempty"`
-	Reason       string `json:"reason"`
+	HasAttendees bool `json:"has_attendees"`
+	// CalendarUID is the first of CalendarUIDs, the item's calendar events.
+	CalendarUID  string   `json:"calendar_uid,omitempty"`
+	CalendarUIDs []string `json:"calendar_uids"`
+	Recur        string   `json:"recur,omitempty"`
+	Reason       string   `json:"reason"`
+}
+
+// CalendarAlias is a calendar occurrence with no attendees that overlaps a
+// para meeting or call: likely another event of it (a room booking, a prep
+// slot), reported as "alias of X?" rather than as missing from para. Add its
+// uid to the item's calendar_uids (meeting_schedule) when it is.
+type CalendarAlias struct {
+	UID     string `json:"uid,omitempty"`
+	Title   string `json:"title"`
+	Start   string `json:"start"`
+	End     string `json:"end,omitempty"`
+	Of      string `json:"of"`
+	OfTitle string `json:"of_title"`
+	Note    string `json:"note"` // "alias of <title>?"
 }
 
 // CalendarMismatch is a para item and a calendar occurrence that are one
@@ -283,6 +303,7 @@ type CalendarCompareOutput struct {
 	Para         int                  `json:"para"`     // para meetings and calls in the window
 	Matched      []CalendarMatch      `json:"matched"`
 	CalendarOnly []CalendarOnly       `json:"calendar_only"`
+	Aliases      []CalendarAlias      `json:"aliases"`
 	ParaOnly     []ParaOnly           `json:"para_only"`
 	Mismatched   []CalendarMismatch   `json:"mismatched"`
 	Unexpanded   []CalendarUnexpanded `json:"unexpanded"`
@@ -385,7 +406,7 @@ func sameDay(a, b time.Time, loc *time.Location) bool {
 // CalendarCompare compares the owner's calendar with para's meetings and
 // calls in a window. It writes nothing.
 var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calendar with para's meetings and calls in a window (default the next 14 days): pass events you read from the calendar, or .ics text you hold. Lists what the calendar has that para lacks, what para has that the calendar lacks (and whether para knows who it is with), and time mismatches. Matches by calendar_uid, else by title and start. Writes nothing: fix differences with the meeting and task ops", func(ctx context.Context, d Deps, in CalendarCompareInput) (CalendarCompareOutput, error) {
-	out := CalendarCompareOutput{Matched: []CalendarMatch{}, CalendarOnly: []CalendarOnly{}, ParaOnly: []ParaOnly{},
+	out := CalendarCompareOutput{Matched: []CalendarMatch{}, CalendarOnly: []CalendarOnly{}, Aliases: []CalendarAlias{}, ParaOnly: []ParaOnly{},
 		Mismatched: []CalendarMismatch{}, Unexpanded: []CalendarUnexpanded{}, Warnings: []string{}}
 	if len(in.Events) == 0 && strings.TrimSpace(in.ICS) == "" {
 		return out, errors.New("give events or ics: the calendar to compare with")
@@ -442,7 +463,7 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 	out.Para = len(window)
 	// An item with a calendar_uid matches first: it is exact.
 	slices.SortStableFunc(window, func(a, b calItem) int {
-		return cmp.Compare(boolRank(a.UID == ""), boolRank(b.UID == ""))
+		return cmp.Compare(boolRank(len(a.UIDs) == 0), boolRank(len(b.UIDs) == 0))
 	})
 	f := func(t time.Time, allDay bool) string {
 		if allDay {
@@ -467,9 +488,9 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 			}
 			sim := 0.0
 			switch {
-			case it.UID != "" && o.UID == it.UID:
+			case o.UID != "" && slices.Contains(it.UIDs, o.UID):
 				sim = 2 // a uid match beats any title
-			case it.UID != "" && o.UID != "" && o.UID != it.UID:
+			case len(it.UIDs) > 0 && o.UID != "":
 				continue
 			default:
 				sim = titleSimilarity(it.Title, o.Title)
@@ -495,20 +516,28 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 		}
 		if o == nil {
 			reason := "no calendar event with a similar title near this time"
-			if it.UID != "" {
-				reason = "calendar_uid " + it.UID + " is not in the calendar in this window"
+			if len(it.UIDs) > 0 {
+				reason = "calendar_uids " + strings.Join(it.UIDs, ", ") + ": none is in the calendar in this window"
 			}
-			if c, _ := pick(it, cancelled); c != nil && (absDur(c.Start.Sub(it.Start)) <= tol || it.UID != "" && c.UID == it.UID) {
+			if c, _ := pick(it, cancelled); c != nil && (absDur(c.Start.Sub(it.Start)) <= tol || c.UID != "" && slices.Contains(it.UIDs, c.UID)) {
 				reason = "cancelled in the calendar"
 			}
 			out.ParaOnly = append(out.ParaOnly, ParaOnly{ID: it.ID, Kind: it.Kind, Title: it.Title, Status: it.Status,
 				Start: f(it.Start, it.AllDay), End: fEnd(it.End, it.AllDay), With: nonNil(it.With), RFX: nonNil(it.RFX),
-				HasAttendees: len(it.With) > 0, CalendarUID: it.UID, Recur: it.Recur, Reason: reason})
+				HasAttendees: len(it.With) > 0, CalendarUID: firstOf(it.UIDs...), CalendarUIDs: nonNil(it.UIDs), Recur: it.Recur, Reason: reason})
 			continue
 		}
 		o.used, matchedPara[it.ID] = true, true
 		if o.UID != "" {
 			series[o.UID] = it.ID
+		}
+		// The item's other events (a room, a prep slot) near it are its own.
+		for _, x := range live {
+			if !x.used && x.UID != "" && x.UID != o.UID && slices.Contains(it.UIDs, x.UID) && absDur(x.Start.Sub(o.Start)) <= calendarNear {
+				x.used = true
+				series[x.UID] = it.ID
+				out.Matched = append(out.Matched, CalendarMatch{ID: it.ID, Title: it.Title, UID: x.UID, Start: f(x.Start, x.AllDay), MatchedBy: "uid"})
+			}
 		}
 		mm := CalendarMismatch{ID: it.ID, Title: it.Title, UID: o.UID, ParaStart: f(it.Start, it.AllDay), ParaEnd: fEnd(it.End, it.AllDay),
 			CalendarStart: f(o.Start, o.AllDay), CalendarEnd: fEnd(o.End, o.AllDay),
@@ -540,11 +569,18 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 		if o.UID != "" {
 			co.SeriesInPara = series[o.UID]
 		}
+		if len(o.Attendees) == 0 && co.SeriesInPara == "" {
+			if it, ok := overlapping(o, window); ok {
+				out.Aliases = append(out.Aliases, CalendarAlias{UID: o.UID, Title: o.Title, Start: co.Start, End: co.End, Of: it.ID, OfTitle: it.Title,
+					Note: "alias of " + it.Title + "?"})
+				continue
+			}
+		}
 		for _, it := range items {
 			if matchedPara[it.ID] || it.ID == co.SeriesInPara {
 				continue
 			}
-			if o.UID != "" && it.UID == o.UID || titleSimilarity(it.Title, o.Title) >= titleMatch {
+			if o.UID != "" && slices.Contains(it.UIDs, o.UID) || titleSimilarity(it.Title, o.Title) >= titleMatch {
 				co.ParaMaybe = append(co.ParaMaybe, it.ID)
 			}
 		}
@@ -557,6 +593,26 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 	})
 	return out, nil
 })
+
+// overlapping finds the para item whose time overlaps the occurrence. An
+// end that is not known counts as a minute.
+func overlapping(o *occ, items []calItem) (calItem, bool) {
+	end := func(s, e time.Time) time.Time {
+		if e.After(s) {
+			return e
+		}
+		return s.Add(time.Minute)
+	}
+	for _, it := range items {
+		if it.AllDay || o.AllDay {
+			continue
+		}
+		if o.Start.Before(end(it.Start, it.End)) && it.Start.Before(end(o.Start, o.End)) {
+			return it, true
+		}
+	}
+	return calItem{}, false
+}
 
 func boolRank(b bool) int {
 	if b {

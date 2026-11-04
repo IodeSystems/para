@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
 )
 
@@ -165,6 +166,7 @@ func newMeetingCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone, such as 2026-11-04T10:00:00-05:00; with --end the meeting is scheduled")
 				fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone")
 				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar, for calendar compare")
+				fs.Var(&calendarEventsFlag{&in.CalendarUIDs}, "calendar-event", "another calendar event of it: <uid>=<role>, such as room@x=room (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text before the Questions section")
 			},
 			Bind: func(args []string, in *ops.MeetingAddInput) error {
@@ -216,7 +218,8 @@ func newMeetingCmd(l *loader) *cobra.Command {
 			Flags: func(fs *pflag.FlagSet, in *ops.MeetingScheduleInput) {
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone (required)")
 				fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone (required)")
-				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar; empty keeps the stored one")
+				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar (role primary); the stored ones stay")
+				fs.Var(&calendarEventsFlag{&in.CalendarUIDs}, "calendar-event", "another calendar event of it: <uid>=<role>, such as room@x=room (repeatable)")
 			},
 			Bind: func(args []string, in *ops.MeetingScheduleInput) error { in.ID = args[0]; return nil },
 			Text: changeMeetingText,
@@ -233,4 +236,18 @@ func newMeetingCmd(l *loader) *cobra.Command {
 		}),
 	)
 	return cmd
+}
+
+// calendarEventsFlag reads repeatable --calendar-event <uid>[=<role>] flags.
+type calendarEventsFlag struct{ list *[]model.CalendarEvent }
+
+func (f *calendarEventsFlag) String() string { return "" }
+func (f *calendarEventsFlag) Type() string   { return "uid=role" }
+func (f *calendarEventsFlag) Set(v string) error {
+	uid, role, _ := strings.Cut(v, "=")
+	if strings.TrimSpace(uid) == "" {
+		return fmt.Errorf("--calendar-event %q: want <uid>=<role>", v)
+	}
+	*f.list = append(*f.list, model.CalendarEvent{UID: strings.TrimSpace(uid), Role: strings.TrimSpace(role)})
+	return nil
 }

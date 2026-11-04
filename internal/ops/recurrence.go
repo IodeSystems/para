@@ -212,12 +212,12 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			DoneWhen: t.DoneWhen,
 			Previous: model.LinkTo(doc.ID),
 
-			Kind:        t.Kind,
-			With:        t.With,
-			RFX:         rfx,
-			Scheduled:   sched,
-			End:         end,
-			CalendarUID: t.CalendarUID,
+			Kind:         t.Kind,
+			With:         t.With,
+			RFX:          rfx,
+			Scheduled:    sched,
+			End:          end,
+			CalendarUIDs: t.UIDs(),
 		},
 	})
 	if err != nil {
