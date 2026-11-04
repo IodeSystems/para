@@ -158,12 +158,30 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 	}
 	today := d.Store.Now().Local()
 	from := today
-	if t.Due != "" {
+	switch {
+	case t.Due != "":
 		if from, err = parseDay(string(t.Due)); err != nil {
 			return "", "", nil, fmt.Errorf("next task: %w", err)
 		}
+	case t.Scheduled != "":
+		if from, err = scheduledDay(t.Scheduled); err != nil {
+			return "", "", nil, fmt.Errorf("next task: %w", err)
+		}
 	}
-	due := rule.Next(from, today).Format(recur.Layout)
+	step := rule.Next(from, today)
+	days := int(step.Sub(day(from)).Round(24*time.Hour) / (24 * time.Hour))
+	var due model.Date
+	if t.Due != "" || t.Scheduled == "" {
+		due = model.Date(step.Format(recur.Layout))
+	}
+	sched, end, err := shiftSlot(t.Scheduled, t.End, days)
+	if err != nil {
+		return "", "", nil, fmt.Errorf("next task: %w", err)
+	}
+	var rfx []model.Link
+	if t.EffectiveKind() == model.KindMeeting {
+		rfx = t.RFX
+	}
 	next, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProjects,
 		Title:  doc.Title,
@@ -173,11 +191,18 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			Status:   model.TaskTodo,
 			Project:  t.Project,
 			Area:     t.Area,
-			Due:      model.Date(due),
+			Due:      due,
 			Recur:    t.Recur,
 			Assignee: t.Assignee,
 			DoneWhen: t.DoneWhen,
 			Previous: model.LinkTo(doc.ID),
+
+			Kind:        t.Kind,
+			With:        t.With,
+			RFX:         rfx,
+			Scheduled:   sched,
+			End:         end,
+			CalendarUID: t.CalendarUID,
 		},
 	})
 	if err != nil {
@@ -185,6 +210,62 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 	}
 	request, warns = agentRequest(ctx, d, next, nil)
 	return next.ID, request, warns, nil
+}
+
+// slotZone returns the location to read an RFC 3339 time in. A time is stored
+// with an offset only, so when this machine's zone has that offset at that
+// instant the machine's zone is used, and the wall-clock time then survives a
+// clock change. Otherwise the offset as written is kept.
+func slotZone(t time.Time) *time.Location {
+	if _, off := t.In(time.Local).Zone(); off == func() int { _, o := t.Zone(); return o }() {
+		return time.Local
+	}
+	return t.Location()
+}
+
+// scheduledDay returns the calendar day of a scheduled value: a date, or the
+// day of an RFC 3339 start in its own zone, at midnight UTC.
+func scheduledDay(s string) (time.Time, error) {
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return day(t.In(slotZone(t))), nil
+	}
+	t, err := time.Parse(recur.Layout, s)
+	if err != nil {
+		return t, fmt.Errorf("scheduled %q: want a date or RFC 3339 with a zone", s)
+	}
+	return t, nil
+}
+
+func day(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.UTC)
+}
+
+// shiftSlot moves scheduled and end forward by days calendar days. A timed
+// start keeps its wall-clock time and zone; end keeps the duration.
+func shiftSlot(scheduled, end string, days int) (string, string, error) {
+	if scheduled == "" {
+		return "", "", nil
+	}
+	st, err := time.Parse(time.RFC3339, scheduled)
+	if err != nil {
+		d, derr := time.Parse(recur.Layout, scheduled)
+		if derr != nil {
+			return "", "", fmt.Errorf("scheduled %q: want a date or RFC 3339 with a zone", scheduled)
+		}
+		return d.AddDate(0, 0, days).Format(recur.Layout), "", nil
+	}
+	loc := slotZone(st)
+	l := st.In(loc)
+	ns := time.Date(l.Year(), l.Month(), l.Day()+days, l.Hour(), l.Minute(), l.Second(), l.Nanosecond(), loc)
+	if end == "" {
+		return ns.Format(time.RFC3339), "", nil
+	}
+	en, err := time.Parse(time.RFC3339, end)
+	if err != nil {
+		return "", "", fmt.Errorf("end %q: want RFC 3339 with a zone", end)
+	}
+	return ns.Format(time.RFC3339), ns.Add(en.Sub(st)).Format(time.RFC3339), nil
 }
 
 // agentRequest queues a request for a recurring task assigned to an agent,
