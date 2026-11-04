@@ -52,9 +52,9 @@ func TestCLIActor(t *testing.T) {
 	e.ok("--actor", "claude", "task", "show", task.ID)
 
 	// Owner-only op: refused for an agent, with or without why.
-	_, _, err = e.run("--actor", "claude", "--why", "Tidy.", "defer", task.ID)
+	_, _, err = e.run("--actor", "claude", "--why", "Tidy.", "undefer", task.ID)
 	if err == nil || !strings.Contains(err.Error(), ops.ErrPersonOnly.Error()) {
-		t.Fatalf("agent defer: err = %v", err)
+		t.Fatalf("agent undefer: err = %v", err)
 	}
-	e.ok("defer", task.ID)
+	e.ok("undefer", task.ID)
 }

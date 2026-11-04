@@ -136,9 +136,11 @@ func TestDeferRules(t *testing.T) {
 			t.Errorf("%s: accepted", name)
 		}
 	}
-	// An agent cannot hide work.
+	// An agent cannot hide work: its defer is held for review.
 	a := agentOf(d)
-	if _, err := Defer.Run(ctx, a, DeferInput{IDs: []string{q}}); !errors.Is(err, ErrPersonOnly) {
+	if _, err := Defer.Run(ctx, a, DeferInput{IDs: []string{q}}); err == nil {
+		t.Errorf("agent defer ran")
+	} else if _, staged := AsStaged(err); !staged {
 		t.Errorf("agent defer: %v", err)
 	}
 	if _, err := Undefer.Run(ctx, a, UndeferInput{IDs: []string{q}}); !errors.Is(err, ErrPersonOnly) {

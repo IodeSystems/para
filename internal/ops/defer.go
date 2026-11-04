@@ -14,8 +14,9 @@ import (
 
 // Later: a person puts a question, a task, or a goal off. It keeps its place in
 // the dependency graph, so it still blocks what depends on it, and it comes
-// back on its date in local time. Only a person defers, so an agent cannot hide
-// work. Events carry ids and metadata, never the reason.
+// back on its date in local time. An agent's defer is held for review unless
+// it carries the owner's words (owner_said), so an agent cannot hide work.
+// Events carry ids and metadata, never the reason.
 
 // deferralOf returns the deferral of a deferrable document, or nil.
 func deferralOf(m model.Meta) *model.Deferral {
@@ -164,7 +165,8 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = definePerson("defer", "Put questions, tasks, or goals off until a date, or someday with no date; they leave the agenda and next but still block what depends on them. With scope, put off every open question in a goal or area that blocks nothing", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
+var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off until a date, or someday with no date; they leave the agenda and next but still block what depends on them. With scope, put off every open question in a goal or area that blocks nothing. "+
+	"Gate: an agent's defer is held for review unless the call carries owner_said (the owner's words in this session)", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
 	after, when := normID(in.After), strings.Join(strings.Fields(in.When), " ")
@@ -249,7 +251,7 @@ var Defer = definePerson("defer", "Put questions, tasks, or goals off until a da
 		}
 	}
 	return out, nil
-})
+}), deferGate)
 
 // UndeferInput is the input of undefer.
 type UndeferInput struct {
@@ -359,6 +361,11 @@ func deferredSet(ctx context.Context, s store.Store, today string) (map[string]d
 				if h.Waits, h.Ready, err = waitState(ctx, s, *df, today); err != nil {
 					return nil, err
 				}
+			}
+			// A blocked task's follow-up date is its defer date: it is under
+			// Later until then, and back in next on the day.
+			if t, ok := doc.Meta.(*model.Task); ok && t.Status == model.TaskBlocked && t.Due != "" && string(t.Due) > today {
+				h.Date = true
 			}
 			if h.Date || h.Waits != nil || h.Ready != "" {
 				out[doc.ID] = h
@@ -471,4 +478,12 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		return "", nil, fmt.Errorf("when: %w", err)
 	}
 	return out.ID, nil, nil
+}
+
+// deferGate holds an agent's defer for review unless the owner said it.
+func deferGate(_ DeferInput, m WriteMeta) (gateVerdict, string) {
+	if strings.TrimSpace(m.OwnerSaid) != "" {
+		return gatePass, ""
+	}
+	return gateStage, "owner_said"
 }

@@ -93,10 +93,6 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := TaskUpdate.Run(t.Context(), d, TaskUpdateInput{ID: "task-x", Text: "note"})
 			return err
 		}},
-		{"defer", func(d Deps) error {
-			_, err := Defer.Run(t.Context(), d, DeferInput{IDs: []string{"task-x"}})
-			return err
-		}},
 		{"undefer", func(d Deps) error {
 			_, err := Undefer.Run(t.Context(), d, UndeferInput{IDs: []string{"task-x"}})
 			return err

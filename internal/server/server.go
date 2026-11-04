@@ -142,10 +142,11 @@ func (s *Server) access(next http.Handler) http.Handler {
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" || r.Header.Get("X-Para-Dossier") != "" ||
-			r.Header.Get("X-Para-Minor") != "" || r.Header.Get("X-Para-Obvious") != "" {
+			r.Header.Get("X-Para-Minor") != "" || r.Header.Get("X-Para-Obvious") != "" || r.Header.Get("X-Para-Owner-Said") != "" {
 			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
 				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate"),
-				Minor: headerTrue(r.Header.Get("X-Para-Minor")), Obvious: headerTrue(r.Header.Get("X-Para-Obvious")), Dossier: r.Header.Get("X-Para-Dossier")}))
+				Minor: headerTrue(r.Header.Get("X-Para-Minor")), Obvious: headerTrue(r.Header.Get("X-Para-Obvious")), Dossier: r.Header.Get("X-Para-Dossier"),
+				OwnerSaid: r.Header.Get("X-Para-Owner-Said")}))
 		}
 		next.ServeHTTP(sw, r)
 		req, _ := netguard.From(r.Context())

@@ -146,6 +146,9 @@ func withWhy(name string, a any) any {
 		}
 		if _, has := m["why"]; ok && !has {
 			m["why"] = "test"
+			if name == "defer" {
+				m["owner_said"] = "put it off" // else the gate holds it
+			}
 			return m
 		}
 	}

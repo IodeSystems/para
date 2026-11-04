@@ -124,6 +124,15 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
+	// A blocked task comes back on its follow-up date (its due date): the
+	// owner follows up on what blocks it.
+	today := d.Store.Now().Format(dateLayout)
+	for _, n := range w.nodes {
+		v, ok := w.tasks[n.ID]
+		if ok && v.Status == model.TaskBlocked && v.Due != "" && string(v.Due) <= today && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
+			out.Tasks = append(out.Tasks, v)
+		}
+	}
 	var err2 error
 	if out.Tasks, err2 = markDeferred(ctx, d.Store, out.Tasks, false); err2 != nil {
 		return NextOutput{}, err2
