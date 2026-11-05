@@ -61,7 +61,7 @@ func (v *Vault) Scan(_ context.Context, fn func(model.Document) error) error {
 			return fmt.Errorf("vault: scan: %w", err)
 		}
 		pf := paramd.Parse(f.rel, data)
-		d, err := model.Decode(f.id, f.folder, pf.FrontmatterYAML(), pf.Title, bodyAfterTitle(pf))
+		d, err := decodeFile(f, pf)
 		if err != nil {
 			continue
 		}
@@ -104,7 +104,7 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 				return err
 			}
 			pf := paramd.Parse(f.rel, old)
-			d, err := model.Decode(f.id, f.folder, pf.FrontmatterYAML(), pf.Title, bodyAfterTitle(pf))
+			d, err := decodeFile(f, pf)
 			if err != nil {
 				continue
 			}

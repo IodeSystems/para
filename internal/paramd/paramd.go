@@ -74,6 +74,7 @@ type File struct {
 	HasFM       bool
 	FMErr       string         // set when frontmatter is missing, unterminated, or invalid YAML
 	Frontmatter map[string]any // empty when absent
+	FMNode      *yaml.Node     // the frontmatter mapping, parsed once; nil when absent or invalid
 
 	Title     string // text of the first "# " heading, when it is the first body line
 	TitleLine int
@@ -198,10 +199,21 @@ func (f *File) parseFrontmatter() int {
 			src = append(src, f.Lines[i].Text)
 		}
 	}
-	var m map[string]any
-	if err := yaml.Unmarshal([]byte(strings.Join(src, "\n")), &m); err != nil {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte(strings.Join(src, "\n")), &doc); err != nil {
 		f.FMErr = "invalid YAML: " + strings.TrimPrefix(err.Error(), "yaml: ")
-	} else if m != nil {
+		return end + 1
+	}
+	if len(doc.Content) == 0 {
+		return end + 1
+	}
+	var m map[string]any
+	if err := doc.Content[0].Decode(&m); err != nil {
+		f.FMErr = "invalid YAML: " + strings.TrimPrefix(err.Error(), "yaml: ")
+		return end + 1
+	}
+	f.FMNode = doc.Content[0]
+	if m != nil {
 		f.Frontmatter = m
 	}
 	return end + 1

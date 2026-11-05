@@ -250,20 +250,38 @@ func sameValue(a, b *yaml.Node) bool {
 
 // Decode builds a Document from raw frontmatter YAML and parsed text.
 func Decode(id string, folder Folder, frontmatter []byte, title, body string) (Document, error) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal(frontmatter, &doc); err != nil {
+		return Document{}, fmt.Errorf("model: decode %s: %w", id, err)
+	}
+	var root *yaml.Node
+	if len(doc.Content) > 0 {
+		root = doc.Content[0]
+	}
+	return DecodeNode(id, folder, root, title, body)
+}
+
+// DecodeNode is Decode from frontmatter already parsed, so the YAML is read
+// once. root is the frontmatter mapping, or nil when there is none. The
+// Document may share nodes with root, so the caller must not change root.
+func DecodeNode(id string, folder Folder, root *yaml.Node, title, body string) (Document, error) {
+	if root == nil {
+		root = &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+	}
 	var head struct {
 		Type Type `yaml:"type"`
 	}
-	if err := yaml.Unmarshal(frontmatter, &head); err != nil {
+	if err := root.Decode(&head); err != nil {
 		return Document{}, fmt.Errorf("model: decode %s: %w", id, err)
 	}
 	meta, ok := NewMeta(head.Type)
 	if !ok {
 		return Document{}, fmt.Errorf("model: decode %s: unknown type %q", id, head.Type)
 	}
-	if err := yaml.Unmarshal(frontmatter, meta); err != nil {
+	if err := root.Decode(meta); err != nil {
 		return Document{}, fmt.Errorf("model: decode %s: %w", id, err)
 	}
-	extra, err := unknownKeys(frontmatter, meta)
+	extra, err := unknownKeys(root, meta)
 	if err != nil {
 		return Document{}, fmt.Errorf("model: decode %s: %w", id, err)
 	}
@@ -271,9 +289,9 @@ func Decode(id string, folder Folder, frontmatter []byte, title, body string) (D
 }
 
 // unknownKeys returns the frontmatter keys that meta does not write back.
-func unknownKeys(frontmatter []byte, meta Meta) (map[string]yaml.Node, error) {
+func unknownKeys(root *yaml.Node, meta Meta) (map[string]yaml.Node, error) {
 	var all map[string]yaml.Node
-	if err := yaml.Unmarshal(frontmatter, &all); err != nil {
+	if err := root.Decode(&all); err != nil {
 		return nil, err
 	}
 	var known yaml.Node

@@ -420,7 +420,7 @@ func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 		return model.Document{}, fmt.Errorf("vault: get: %w", err)
 	}
 	pf := paramd.Parse(f.rel, data)
-	d, err := model.Decode(f.id, f.folder, pf.FrontmatterYAML(), pf.Title, bodyAfterTitle(pf))
+	d, err := decodeFile(f, pf)
 	if err != nil {
 		return d, fmt.Errorf("vault: get: %w", err)
 	}
@@ -739,6 +739,15 @@ func mdFiles(root, dir string) ([]string, error) {
 		return nil
 	})
 	return out, err
+}
+
+// decodeFile decodes the frontmatter paramd already parsed. Invalid YAML goes
+// through model.Decode so the error is the YAML error.
+func decodeFile(f docFile, pf *paramd.File) (model.Document, error) {
+	if pf.FMNode == nil {
+		return model.Decode(f.id, f.folder, pf.FrontmatterYAML(), pf.Title, bodyAfterTitle(pf))
+	}
+	return model.DecodeNode(f.id, f.folder, pf.FMNode, pf.Title, bodyAfterTitle(pf))
 }
 
 func bodyAfterTitle(f *paramd.File) string {
