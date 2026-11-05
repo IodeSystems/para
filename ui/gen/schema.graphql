@@ -3649,6 +3649,7 @@ type para_LintOutput {
 }
 
 input para_MeetingAddInputInput {
+  attendees: [String!]
   body: String
   calendarUid: String
   calendarUids: [para_CalendarEventInput!]
@@ -3815,6 +3816,7 @@ type para_MeetingShowOutput {
 type para_MeetingView {
   attend: para_MeetingViewAttend
   attendDefault: para_MeetingViewAttend_default
+  attendees: [String!]!
   calendarUids: [para_CalendarEvent!]!
   end: String
   folder: para_MeetingViewFolder!
@@ -3887,6 +3889,7 @@ type para_Meta {
   at: String
   attend: String
   attendDefault: String
+  attendees: [String!]
   awayUntil: String
   background: Boolean
   became: String

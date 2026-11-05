@@ -31,11 +31,13 @@ function MeetingPage() {
                 {meetingWhen(m.start, m.end)}
               </Typography>
             </Stack>
-            <Section title="With" count={m.with.length}>
-              {m.with.length === 0 ? (
+            <Section title="With" count={m.with.length + m.attendees.length}>
+              {m.with.length + m.attendees.length === 0 ? (
                 <Empty>Nobody is named yet.</Empty>
               ) : (
-                <Typography variant="body2">{nameList(m.with, m.withNames).join(', ')}</Typography>
+                <Typography variant="body2">
+                  {[...nameList(m.with, m.withNames), ...m.attendees].join(', ')}
+                </Typography>
               )}
             </Section>
             <Section title="Asks it should settle" count={m.rfx.length} hideEmpty>

@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"slices"
 	"strings"
 	"time"
@@ -37,7 +38,9 @@ type MeetingView struct {
 	Start  string              `json:"start,omitempty"`
 	End    string              `json:"end,omitempty"`
 	With   []string            `json:"with"`
-	RFX    []string            `json:"rfx"`
+	// Attendees are invitees not in the directory: names or emails as text.
+	Attendees []string `json:"attendees"`
+	RFX       []string `json:"rfx"`
 	// CalendarUIDs are the meeting's calendar events (invite, room, prep).
 	CalendarUIDs []model.CalendarEvent `json:"calendar_uids"`
 	Rev          string                `json:"rev"`
@@ -58,9 +61,10 @@ func meetingView(d model.Document) (MeetingView, error) {
 		return MeetingView{}, notMeeting(d)
 	}
 	v := MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
-		With: targets(m.With), RFX: targets(m.RFX), CalendarUIDs: []model.CalendarEvent{}, Rev: d.Rev}
+		With: targets(m.With), Attendees: []string{}, RFX: targets(m.RFX), CalendarUIDs: []model.CalendarEvent{}, Rev: d.Rev}
 	if m.t != nil {
 		v.CalendarUIDs = append(v.CalendarUIDs, m.t.UIDs()...)
+		v.Attendees = append(v.Attendees, m.t.Attendees...)
 		v.Optional, v.Attend, v.AttendDefault = m.t.Optional, m.t.Attend, m.t.AttendDefault
 	}
 	return v, nil
@@ -319,12 +323,15 @@ func addQuestionLines(body string, lines []string) string {
 // MeetingAddInput is the input of meeting_add.
 type MeetingAddInput struct {
 	Title string   `json:"title"`
-	With  []string `json:"with,omitempty"`  // person or group ids; default: who the linked requests go to
-	RFX   []string `json:"rfx,omitempty"`   // requests the meeting should settle
-	Scope []string `json:"scope,omitempty"` // project, area, or task ids whose open questions go on the agenda
-	Start string   `json:"start,omitempty"` // RFC 3339 with a zone, such as 2026-11-04T10:00:00-05:00; with end, the meeting is scheduled
-	End   string   `json:"end,omitempty"`
-	Body  string   `json:"body,omitempty"` // text before the Questions section
+	With  []string `json:"with,omitempty"` // person or group ids, or a name or email found in the directory; default: who the linked requests go to
+	// Attendees are invitees by name, email, or "Name <email>", kept as text.
+	// An entry that matches a person in the directory becomes a with link.
+	Attendees []string `json:"attendees,omitempty"`
+	RFX       []string `json:"rfx,omitempty"`   // requests the meeting should settle
+	Scope     []string `json:"scope,omitempty"` // project, area, or task ids whose open questions go on the agenda
+	Start     string   `json:"start,omitempty"` // RFC 3339 with a zone, such as 2026-11-04T10:00:00-05:00; with end, the meeting is scheduled
+	End       string   `json:"end,omitempty"`
+	Body      string   `json:"body,omitempty"` // text before the Questions section
 	// CalendarUID is the UID of the meeting's event in the owner's calendar,
 	// so calendar_compare matches it exactly; it is stored as role primary.
 	// CalendarUIDs are more events of it (role: room, internal prep, ...).
@@ -349,7 +356,7 @@ type MeetingAddOutput struct {
 
 // MeetingAdd asks for a meeting, or books one when it has a time. The body
 // gathers the questions to settle.
-var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with people: the body gathers the questions from linked requests and open questions in scope; linked requests move to requested or scheduled", func(ctx context.Context, d Deps, in MeetingAddInput) (MeetingAddOutput, error) {
+var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with people: with takes person or group ids, names, or emails (a match in the directory links; no match is kept as an attendee with a warning); attendees takes invitee names or emails as text; calendar_uid allows a hold with no one else. The body gathers the questions from linked requests and open questions in scope; linked requests move to requested or scheduled", func(ctx context.Context, d Deps, in MeetingAddInput) (MeetingAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return MeetingAddOutput{}, err
@@ -358,7 +365,7 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
-	with, err := meetingLinks(ctx, d, "with", in.With, model.TypePerson, model.TypeGroup)
+	with, attendees, warns, err := resolveWith(ctx, d, in.With, in.Attendees)
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
@@ -375,8 +382,12 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			}
 		}
 	}
-	if len(with) == 0 {
-		return MeetingAddOutput{}, errors.New("a meeting needs someone: pass with (a person or group id), or link a request that has targets")
+	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
+	if err != nil {
+		return MeetingAddOutput{}, err
+	}
+	if err := needsSomeone(with, attendees, uids, &warns); err != nil {
+		return MeetingAddOutput{}, err
 	}
 	for _, rl := range rfx {
 		if _, m, err := getRFX(ctx, d, rl.Target()); err == nil && m.Status == model.RFXClosed {
@@ -388,11 +399,7 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			return MeetingAddOutput{}, err
 		}
 	}
-	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
-	if err != nil {
-		return MeetingAddOutput{}, err
-	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, Attendees: attendees, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":
@@ -418,13 +425,110 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	if status == model.MeetingScheduled {
 		to = model.TargetScheduled
 	}
-	changed, warns, err := syncTargets(ctx, d, rfx, with, true, askState(to))
-	out := MeetingAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, RFX: nonNil(changed), Warnings: nonNil(warns), Rev: doc.Rev}
+	changed, swarns, err := syncTargets(ctx, d, rfx, with, true, askState(to))
+	out := MeetingAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, RFX: nonNil(changed), Warnings: nonNil(append(warns, swarns...)), Rev: doc.Rev}
 	if err != nil {
 		return out, fmt.Errorf("meeting %s was made but its requests were not all updated: %w", doc.ID, err)
 	}
 	return out, nil
 })
+
+// needsSomeone refuses a meeting with no with link, no attendee, and no
+// linked-request target, unless it has a calendar event of the owner's (a
+// hold, a room block, a solo block): that one is allowed, with a warning.
+func needsSomeone(with []model.Link, attendees []string, uids []model.CalendarEvent, warns *[]string) error {
+	if len(with) > 0 || len(attendees) > 0 {
+		return nil
+	}
+	if len(uids) == 0 {
+		return errors.New("a meeting needs someone: pass with (a person or group id, a name, or an email), attendees (names or emails from the invite), or calendar_uid for a hold with no one else; or link a request that has targets")
+	}
+	*warns = append(*warns, "no one else on this meeting")
+	return nil
+}
+
+// resolveWith turns the with entries and attendees of a meeting into with
+// links and attendee text. An id resolves as meetingLinks does. Any other
+// value is looked up in the directory by name or email: one match becomes a
+// link; none, or several, stays an attendee with a warning. It never fails on
+// an unknown name.
+func resolveWith(ctx context.Context, d Deps, with, attendees []string) (links []model.Link, kept, warns []string, err error) {
+	add := func(l model.Link) {
+		if !slices.Contains(links, l) {
+			links = append(links, l)
+		}
+	}
+	keep := func(raw string) {
+		if raw = strings.Join(strings.Fields(raw), " "); raw != "" && !slices.Contains(kept, raw) {
+			kept = append(kept, raw)
+		}
+	}
+	rest := slices.Clone(attendees)
+	for _, raw := range with {
+		id := normID(raw)
+		if id == "" {
+			return nil, nil, nil, errors.New("meeting: with: empty id")
+		}
+		if _, gerr := d.Store.Get(ctx, id); gerr == nil {
+			l, lerr := linkTo(ctx, d, "with", raw, model.TypePerson, model.TypeGroup)
+			if lerr != nil {
+				return nil, nil, nil, lerr
+			}
+			add(l)
+			continue
+		} else if !errors.Is(gerr, model.ErrNotFound) {
+			return nil, nil, nil, fmt.Errorf("meeting: with %s: %w", id, gerr)
+		}
+		rest = append(rest, raw)
+	}
+	for _, raw := range rest {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		l, warn, lerr := lookupAttendee(ctx, d, raw)
+		if lerr != nil {
+			return nil, nil, nil, lerr
+		}
+		if l != "" {
+			add(l)
+			continue
+		}
+		keep(raw)
+		warns = append(warns, warn)
+	}
+	return links, kept, warns, nil
+}
+
+// lookupAttendee finds the person a free-text attendee names: by email first
+// when it has one, then by name. No single match gives an empty link and a
+// warning.
+func lookupAttendee(ctx context.Context, d Deps, raw string) (model.Link, string, error) {
+	var queries []string
+	if a, err := mail.ParseAddress(strings.TrimSpace(raw)); err == nil {
+		queries = append(queries, a.Address)
+		if a.Name != "" {
+			queries = append(queries, a.Name)
+		}
+	} else {
+		queries = append(queries, strings.Join(strings.Fields(raw), " "))
+	}
+	ambiguous := false
+	for _, q := range queries {
+		w, err := who(ctx, d, WhoInput{Query: q})
+		if err != nil {
+			return "", "", fmt.Errorf("meeting: lookupAttendee: %w", err)
+		}
+		if w.Person != nil {
+			return model.LinkTo(w.Person.ID), "", nil
+		}
+		ambiguous = ambiguous || len(w.Candidates) > 1
+	}
+	why := "is not in the directory"
+	if ambiguous {
+		why = "matches more than one person"
+	}
+	return "", fmt.Sprintf("attendee %q %s: kept as text; org_person_add makes them a person", flatLine(raw), why), nil
+}
 
 // calendarEvents checks the calendar events of a meeting or call: one UID
 // given alone (role primary) and a list. A UID listed twice is refused.

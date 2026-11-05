@@ -164,6 +164,7 @@ var typeFields = map[string][]field{
 		{Name: "scheduled", Kind: kWhen}, // a date, or an RFC 3339 start with a zone
 		{Name: "end", Kind: kTimestamp},
 		{Name: "with", Kind: kLinkList},
+		{Name: "attendees", Kind: kList},             // kind meeting: invitees not in the directory, as text
 		{Name: "rfx", Kind: kLinkList},               // kind meeting: the requests it settles
 		{Name: "calendar_uid", Kind: kString},        // older single form of calendar_uids; read as one entry
 		{Name: "calendar_uids", Kind: kCalendarUIDs}, // kind meeting or call: [{uid, role}] of its calendar events

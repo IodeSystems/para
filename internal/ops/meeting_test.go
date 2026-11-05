@@ -277,3 +277,55 @@ func TestMeetingTargetsFollowTheRequest(t *testing.T) {
 	must(t, MeetingAdd, d, MeetingAddInput{Title: "Third", With: []string{f.person}, RFX: []string{third}})
 	targetOf(t, d, third, f.person, model.MediumMeeting)
 }
+
+func TestMeetingAttendees(t *testing.T) {
+	f := newMeetingFixture(t)
+	d := f.d
+	must(t, OrgPersonContactAdd, d, PersonContactInput{ID: f.person, Method: model.MediumEmail, Value: "ada@example.com"})
+	hasWarn := func(warns []string, sub string) bool {
+		return slices.ContainsFunc(warns, func(w string) bool { return strings.Contains(w, sub) })
+	}
+
+	// Names and emails not in the directory are kept as attendees, with a warning.
+	add := must(t, MeetingAdd, d, MeetingAddInput{Title: "Vendor call", Attendees: []string{"Bob Nobody <bob@vendor.example>", "carol@vendor.example"},
+		With: []string{"Dan Stranger"}, Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00"})
+	if add.Status != model.MeetingScheduled || len(add.Warnings) != 3 || !hasWarn(add.Warnings, "org_person_add") || !hasWarn(add.Warnings, "Dan Stranger") {
+		t.Errorf("add = %+v", add)
+	}
+	v := must(t, MeetingShow, d, MeetingShowInput{ID: add.ID}).Meeting
+	if len(v.With) != 0 || len(v.Attendees) != 3 {
+		t.Errorf("view = %+v", v)
+	}
+
+	// A name or an email that matches a person becomes a with link.
+	for _, in := range []MeetingAddInput{
+		{Title: "By name", With: []string{"Ada Example"}},
+		{Title: "By email", Attendees: []string{"Ada <ada@example.com>"}},
+		{Title: "By id", With: []string{f.person}},
+	} {
+		add := must(t, MeetingAdd, d, in)
+		v := must(t, MeetingShow, d, MeetingShowInput{ID: add.ID}).Meeting
+		if !slices.Equal(v.With, []string{f.person}) || len(v.Attendees) != 0 || len(add.Warnings) != 0 {
+			t.Errorf("%s: with = %v, attendees = %v, warnings = %v", in.Title, v.With, v.Attendees, add.Warnings)
+		}
+	}
+
+	// A calendar event allows a meeting with no one else, with a warning.
+	hold := must(t, MeetingAdd, d, MeetingAddInput{Title: "Focus hold", CalendarUID: "hold-1@example.com",
+		Start: "2026-11-04T13:00:00-05:00", End: "2026-11-04T14:00:00-05:00"})
+	if !hasWarn(hold.Warnings, "no one else on this meeting") {
+		t.Errorf("hold warnings = %v", hold.Warnings)
+	}
+
+	// Nothing at all still errors, and the text names all three ways.
+	_, err := MeetingAdd.Run(ctx, d, MeetingAddInput{Title: "Alone"})
+	if err == nil {
+		t.Fatal("no one must be refused")
+	}
+	for _, s := range []string{"needs someone", "with", "attendees", "calendar_uid"} {
+		if !strings.Contains(err.Error(), s) {
+			t.Errorf("error %q lacks %q", err, s)
+		}
+	}
+	mustLintClean(t, d)
+}

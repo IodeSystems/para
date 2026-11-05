@@ -214,6 +214,7 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 
 			Kind:         t.Kind,
 			With:         t.With,
+			Attendees:    t.Attendees,
 			RFX:          rfx,
 			Scheduled:    sched,
 			End:          end,

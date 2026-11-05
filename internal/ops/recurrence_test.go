@@ -51,11 +51,14 @@ func TestRecurringMeetingKeepsSlot(t *testing.T) {
 	person := "person-ada-example"
 	doc, tk := recurSlotTask(t, d, proj, &model.Task{
 		Kind: model.KindMeeting, Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00",
-		With: []model.Link{model.LinkTo(person)}, RFX: []model.Link{model.LinkTo("rfx-x")}, CalendarUID: "uid-1@example.com"})
+		With: []model.Link{model.LinkTo(person)}, Attendees: []string{"Bob Nobody <bob@vendor.example>"}, RFX: []model.Link{model.LinkTo("rfx-x")}, CalendarUID: "uid-1@example.com"})
 	if _, _, _, err := makeNext(ctx, d, doc, tk, mustRule(t, "weekly")); err != nil {
 		t.Fatal(err)
 	}
 	n := nextOf(t, d, doc.ID)
+	if len(n.Attendees) != 1 || n.Attendees[0] != "Bob Nobody <bob@vendor.example>" {
+		t.Errorf("next attendees = %v", n.Attendees)
+	}
 	if n.Kind != model.KindMeeting || len(n.UIDs()) != 1 || n.UIDs()[0].UID != "uid-1@example.com" || len(n.With) != 1 || len(n.RFX) != 1 {
 		t.Errorf("next lost fields: %+v", n)
 	}

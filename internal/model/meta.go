@@ -215,6 +215,9 @@ type Task struct {
 	Scheduled string `yaml:"scheduled,omitempty" json:"scheduled,omitempty"`
 	End       string `yaml:"end,omitempty" json:"end,omitempty"`
 	With      []Link `yaml:"with,omitempty" json:"with,omitempty"`
+	// Attendees are the other people of a meeting who are not in the directory:
+	// free text, a name, an email, or "Name <email>", as the invite shows them.
+	Attendees []string `yaml:"attendees,omitempty" json:"attendees,omitempty"`
 	// RFX links the requests a meeting is meant to settle.
 	RFX []Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
 	// CalendarUIDs are the owner's calendar events of a meeting or a call (the

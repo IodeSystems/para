@@ -239,7 +239,7 @@ type CalendarOnly struct {
 	// nothing: unscheduled, cancelled, or outside the window.
 	ParaMaybe []string `json:"para_maybe"`
 	// Optional is true when the owner is an optional attendee: add it with
-	// meeting_add optional.
+	// meeting_add optional. Attendees pass on as meeting_add attendees.
 	Optional bool `json:"optional,omitempty"`
 }
 

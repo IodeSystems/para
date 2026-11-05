@@ -204,7 +204,8 @@ func newMeetingCmd(l *loader) *cobra.Command {
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.MeetingAddInput) {
-				fs.StringArrayVar(&in.With, "with", nil, "person or group id (repeatable); default: who the requests go to")
+				fs.StringArrayVar(&in.With, "with", nil, "person or group id, name, or email (repeatable); default: who the requests go to")
+				fs.StringArrayVar(&in.Attendees, "attendee", nil, "invitee name, email, or \"Name <email>\" kept as text; a match in the directory becomes a --with link (repeatable)")
 				fs.StringArrayVar(&in.RFX, "rfx", nil, "request id the meeting should settle (repeatable)")
 				fs.StringArrayVar(&in.Scope, "scope", nil, "project, area, or task id whose open questions go on the agenda (repeatable)")
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone, such as 2026-11-04T10:00:00-05:00; with --end the meeting is scheduled")
@@ -252,6 +253,9 @@ func newMeetingCmd(l *loader) *cobra.Command {
 				v := out.Meeting
 				p.f("%s\t%s\t%s\t%s\t%s\n", v.ID, v.Status, localStamp(v.Start), localStamp(v.End), v.Title)
 				p.f("with\t%s\n", joinOrDash(v.WithNames))
+				if len(v.Attendees) > 0 {
+					p.f("attendees\t%s\n", strings.Join(v.Attendees, ", "))
+				}
 				p.f("requests\t%s\n", joinOrDash(v.RFX))
 				p.f("%s\n", out.Body)
 				return p.err

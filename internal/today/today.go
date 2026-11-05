@@ -481,7 +481,7 @@ func fillMeetings(ctx context.Context, st *local.Store, date, soon string, vt *V
 		if day < date || day > soon {
 			continue
 		}
-		it := Item{ID: m.ID, Title: m.Title, Due: day, Kind: ops.KindMeeting, At: m.Start, Attend: m.Attend, With: m.WithNames}
+		it := Item{ID: m.ID, Title: m.Title, Due: day, Kind: ops.KindMeeting, At: m.Start, Attend: m.Attend, With: append(append([]string{}, m.WithNames...), m.Attendees...)}
 		switch {
 		case m.Attend == model.AttendNo:
 			it.Detail = "skipped"

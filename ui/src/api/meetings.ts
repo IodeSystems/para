@@ -12,6 +12,7 @@ export const MeetingFields = graphql(/* GraphQL */ `
     end
     with
     withNames
+    attendees
     rfx
     rfxNames
     calendarUids {
