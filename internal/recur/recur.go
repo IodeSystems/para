@@ -55,8 +55,9 @@ func Parse(s string) (Rule, error) {
 	return Rule{}, fmt.Errorf("recur %q: want %s", s, Forms)
 }
 
-// Next returns the first occurrence after from that is not before today:
-// from plus one step, or more steps when the task was finished late. A missed
+// Next returns the first occurrence after from that is after today:
+// from plus one step, or more steps when the task was finished late. A task
+// finished today does not come back today. A missed
 // cycle is skipped, never queued. Months keep the day of month of from, and
 // clamp to the end of a short month (Jan 31 gives Feb 28, then Mar 31).
 func (r Rule) Next(from, today time.Time) time.Time {
@@ -64,7 +65,7 @@ func (r Rule) Next(from, today time.Time) time.Time {
 	today = day(today)
 	for k := 1; ; k++ {
 		next := r.step(from, k)
-		if !next.Before(today) {
+		if next.After(today) {
 			return next
 		}
 	}

@@ -151,9 +151,9 @@ type ItemCloseOutput struct {
 // ItemClose is the composer's Mark done when the owner saves notes: a task
 // is done (task_done), a meeting (a meeting, or a task of kind meeting) is
 // held (meeting_hold, with the
-// notes already on it). Any other item is closed by an agent (agent_send
+// notes already on it), and an ask the owner made is closed (rfx_close). Any other item is closed by an agent (agent_send
 // with done), so it is refused here.
-var ItemClose = definePerson("item_close", "Mark a task done or a scheduled meeting held from its page, after the owner saved notes on it. Other items are refused: send them to an agent with done. People only", func(ctx context.Context, d Deps, in ItemCloseInput) (ItemCloseOutput, error) {
+var ItemClose = definePerson("item_close", "Mark a task done, a scheduled meeting held, or an ask the owner made closed, from its page, after the owner saved notes on it. Other items are refused: send them to an agent with done. People only", func(ctx context.Context, d Deps, in ItemCloseInput) (ItemCloseOutput, error) {
 	id := normID(in.ID)
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
@@ -170,6 +170,13 @@ var ItemClose = definePerson("item_close", "Mark a task done or a scheduled meet
 	case doc.Meta.Header().Type == model.TypeTask:
 		out, err := TaskDone.Run(ctx, d, TaskDoneInput{ID: id})
 		return ItemCloseOutput{ID: id, By: TaskDone.Name(), Rev: out.Rev}, err
+	case doc.Meta.Header().Type == model.TypeRFX:
+		// An ask the owner made closes alone. One made to the owner closes
+		// by a playbook, which an agent links.
+		if m, ok := doc.Meta.(*model.RFX); ok && m.Direction == model.RFXOut {
+			out, err := RFXClose.Run(ctx, d, RFXCloseInput{ID: id})
+			return ItemCloseOutput{ID: id, By: RFXClose.Name(), Rev: out.Rev}, err
+		}
 	}
 	return ItemCloseOutput{}, fmt.Errorf("%s is a %s: send it to an agent with Mark done to close it", id, doc.Meta.Header().Type)
 })
