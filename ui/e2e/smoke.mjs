@@ -1270,6 +1270,28 @@ try {
     const after = await agent.call('request_show', { id: work?.id ?? '' })
     check(after.doc?.meta?.status === 'cancelled', 'Undo takes the composer work back')
   }
+  // An owner-ask the agent records from the chat shows under Asked of agents, claimed by it.
+  {
+    const ask = await agent.call('request_add', {
+      kind: 'owner-ask',
+      title: 'Check the backups',
+      ask: 'Check that last night backups ran.',
+      owner_said: 'can you check the backups ran last night?',
+    })
+    check(ask.status === 'claimed', `an owner-ask the agent records is claimed by it (${ask.status})`)
+    await rpage.goto(`${base}/stack?view=sent`)
+    const row = rpage.locator(`[data-sent="${ask.id}"][data-kind="owner-ask"]`)
+    await row.waitFor()
+    const text = await row.innerText()
+    check(
+      text.includes('Check the backups') &&
+        text.includes('You asked: can you check the backups ran last night?') &&
+        text.includes('has it'),
+      'Asked of agents lists the owner-ask with the owner words and who has it',
+    )
+    await agent.call('request_done', { id: ask.id, resolution: 'done', result: 'Backups ran.' })
+    await rpage.goto(`${base}/doc/${noted}`)
+  }
   await composer.getByLabel(/Tell the agent about/).fill('Deposit paid.')
   // A 1x1 PNG: the notes show it inline from the attachment route.
   await composer.locator('[data-composer-input]').setInputFiles({

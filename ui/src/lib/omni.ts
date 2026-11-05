@@ -18,7 +18,7 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
   { label: 'Today', to: '/today', words: ['today'] },
   { label: 'Agenda', to: '/agenda', words: ['agenda'] },
   { label: 'Stack', to: '/stack', words: ['stack', 'review'] },
-  { label: 'Sent to agent', to: '/stack?view=sent', words: ['sent', 'asked'] },
+  { label: 'Asked of agents', to: '/stack?view=sent', words: ['asked', 'sent', 'loop'] },
   { label: 'Recent agent writes', to: '/writes', words: ['writes', 'recent'] },
   { label: 'Work', to: '/work', words: ['work', 'goals'] },
   { label: 'Asks', to: '/rfx', words: ['asks', 'rfx'] },

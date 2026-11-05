@@ -39,10 +39,14 @@ function SourcesPage() {
                       viaWords(s),
                       cadenceWords(s),
                       s.lastScan ? `swept ${humanTime(s.lastScan)}` : 'never swept',
+                      s.lastSweep && `last sweep ${s.lastSweep}`,
                       reachWords(s),
-                    ].join(' - ')}
+                    ]
+                      .filter(Boolean)
+                      .join(' - ')}
                     slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
+                  {s.lastFailed && <StatusChip tone="bad" label="Last sweep failed" />}
                   {s.overdue && <StatusChip tone="attn" label="Overdue" />}
                   {s.declared.every((x) => !x.fresh) && s.status === 'active' && (
                     <StatusChip tone="wait" label="No agent reaches it" />

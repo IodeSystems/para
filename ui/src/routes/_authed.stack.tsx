@@ -42,7 +42,7 @@ import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
 import { LaterButton } from '@/components/stack/LaterButton'
-import { SentList } from '@/components/stack/SentList'
+import { SentList, WaitingOnYou } from '@/components/stack/SentList'
 import { QuestionCard } from '@/components/stack/QuestionCard'
 import { DoneForm, RefsField, ReviewStateChip, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft } from '@/components/stack/useDossierDraft'
@@ -83,7 +83,7 @@ const KINDS = ['question', 'para', 'message', 'action', 'doc_edit', 'upstream'] 
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
 
-// StackSearch is the stack's filter, and the view: the stack, or what the owner sent to agents.
+// StackSearch is the stack's filter, and the view: the stack, or what the owner asked of agents.
 type StackSearch = StackFilter & { view?: 'sent' }
 
 export const Route = createFileRoute('/_authed/stack')({
@@ -127,7 +127,7 @@ function StackPage() {
         sx={{ mb: 2 }}
       >
         <Tab value="stack" label="To decide" />
-        <Tab value="sent" label="Sent to agent" data-tab="sent" />
+        <Tab value="sent" label="Asked of agents" data-tab="sent" />
       </Tabs>
       {view === 'sent' ? (
         <SentList decide={decide} />
@@ -144,6 +144,7 @@ function StackView({ f, decide, batch }: { f: StackFilter; decide: boolean; batc
   return (
     <>
       <Filters f={f} counts={page?.counts ?? []} needsYou={page?.needsYou ?? 0} />
+      {!f.state && <WaitingOnYou items={page?.requests ?? []} />}
       <DataState q={q}>{(d) => <StackList d={d} decide={decide} q={q} batch={batch} />}</DataState>
     </>
   )

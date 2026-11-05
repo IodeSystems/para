@@ -28,6 +28,7 @@ import { OptionalMeetings, SkippedLine } from '@/components/MeetingAttend'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
 import { humanTime } from '@/lib/when'
+import { openLine } from '@/lib/sent'
 
 export const Route = createFileRoute('/_authed/agenda')({
   validateSearch: (s: Record<string, unknown>): { by?: 'date' } => ({
@@ -350,7 +351,11 @@ function Agenda() {
                   ) : (
                     leadCard(lead, lead.action)
                   ))}
-                {(rest.length > 0 || t.unverified > 0 || t.docsUnseen > 0 || t.docComments > 0) && (
+                {(rest.length > 0 ||
+                  t.unverified > 0 ||
+                  t.docsUnseen > 0 ||
+                  t.docComments > 0 ||
+                  t.agentOpen > 0) && (
                   <Box sx={{ mt: 1 }}>
                     <Stack
                       direction="row"
@@ -373,6 +378,17 @@ function Agenda() {
                       {t.unverified > 0 && (
                         <LinkButton size="small" color="inherit" to="/policy">
                           Summaries to verify {t.unverified}
+                        </LinkButton>
+                      )}
+                      {t.agentOpen > 0 && (
+                        <LinkButton
+                          size="small"
+                          color="inherit"
+                          to="/stack"
+                          search={{ view: 'sent' }}
+                          data-agent-open={t.agentOpen}
+                        >
+                          {openLine(t.agentOpen, t.agentStale)}
                         </LinkButton>
                       )}
                       {(t.docsUnseen > 0 || t.docComments > 0) && (

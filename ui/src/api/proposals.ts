@@ -406,6 +406,22 @@ const StackDoc = graphql(/* GraphQL */ `
           }
           total
           needsYou
+          requests {
+            request
+            title
+            kind
+            item
+            itemName
+            note
+            status
+            claimedBy
+            resolution
+            summary
+            queuedAt
+            activeAt
+            results
+            needsYou
+          }
           nextCursor
         }
       }
@@ -733,18 +749,26 @@ const SentListDoc = graphql(/* GraphQL */ `
     para {
       v1 {
         sentList {
+          open
+          stale
           items {
             request
             title
+            kind
             item
             itemName
             note
             status
             claimedBy
+            claimedAt
             resolution
             summary
             queuedAt
+            activeAt
+            stale
             results
+            receipts
+            needsYou
             undoable
           }
         }
@@ -753,11 +777,11 @@ const SentListDoc = graphql(/* GraphQL */ `
   }
 `)
 
-// useSent lists the agent work the owner sent with Send to agent, newest first.
+// useSent lists the agent work the owner asked for, newest first: Send to agent, and what the
+// owner asked an agent in the chat (owner-ask). open and stale count the work not finished.
 export function useSent() {
   return useQuery({
     queryKey: ['sent'],
-    queryFn: async () =>
-      need((await gqlClient.request(SentListDoc, {})).para.v1.sentList, 'sent').items,
+    queryFn: async () => need((await gqlClient.request(SentListDoc, {})).para.v1.sentList, 'sent'),
   })
 }

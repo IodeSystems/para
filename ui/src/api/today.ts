@@ -42,6 +42,8 @@ const TodayDoc = graphql(/* GraphQL */ `
             outbox
             docsUnseen
             docComments
+            agentOpen
+            agentStale
             unverified
             waiting
             answersToCheck

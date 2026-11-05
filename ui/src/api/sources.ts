@@ -31,6 +31,8 @@ const SourceListDoc = graphql(/* GraphQL */ `
             due
             overdue
             request
+            lastSweep
+            lastFailed
           }
         }
       }

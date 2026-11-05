@@ -23,6 +23,11 @@ const RequestListDoc = graphql(/* GraphQL */ `
             resolution
             turn
             reply
+            kind
+            requiresSource
+            claimedAt
+            activeAt
+            stale
           }
         }
       }
