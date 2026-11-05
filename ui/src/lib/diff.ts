@@ -44,3 +44,48 @@ export function lineDiff(before: string, after: string): string[] {
   for (; j < m; j++) out.push(`+ ${b[j]}`)
   return out
 }
+
+// splitDiff gives one diff line per text line: a line that holds newlines is split, and each part
+// keeps the line's "+ ", "- ", or "  " mark.
+export function splitDiff(lines: string[]): string[] {
+  const out: string[] = []
+  for (const l of lines) {
+    const parts = l.replace(/\r\n?/g, '\n').split('\n')
+    const mark = /^[+-] |^ {2}/.test(l) ? l.slice(0, 2) : ''
+    // A part that has its own mark (diff lines joined into one string) keeps it.
+    parts.forEach((p, n) => out.push(n === 0 || mark === '' || /^[+-] /.test(p) ? p : mark + p))
+  }
+  return out
+}
+
+// NewDoc is a new document read from its all-added diff: the frontmatter as key and value, and
+// the body.
+export type NewDoc = { fields: { key: string; value: string }[]; body: string }
+
+// newDoc reads a diff whose every line is added as a new document. It is null when a line is not
+// added or there is no frontmatter.
+export function newDoc(lines: string[]): NewDoc | null {
+  const all = splitDiff(lines)
+  if (all.length === 0 || !all.every((l) => l.startsWith('+ ') || l === '+')) return null
+  const text = all.map((l) => l.slice(2))
+  if (text[0] !== '---') return null
+  const end = text.indexOf('---', 1)
+  if (end < 0) return null
+  const fields: NewDoc['fields'] = []
+  for (const l of text.slice(1, end)) {
+    const at = l.indexOf(':')
+    const last = fields[fields.length - 1]
+    if (at > 0 && !l.startsWith(' ') && !l.startsWith('-')) {
+      fields.push({ key: l.slice(0, at), value: unquote(l.slice(at + 1).trim()) })
+    } else if (last) {
+      last.value = [last.value, l.trim()].filter(Boolean).join(' ')
+    }
+  }
+  return { fields, body: text.slice(end + 1).join('\n').trim() }
+}
+
+function unquote(v: string): string {
+  const q = v[0]
+  if (v.length >= 2 && (q === '"' || q === "'") && v.endsWith(q)) return v.slice(1, -1)
+  return v
+}

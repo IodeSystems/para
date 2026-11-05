@@ -12,7 +12,8 @@ import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import type { useProposal } from '@/api/proposals'
 import { StateChip, StatusChip } from '@/components/Bits'
-import { diffKind } from '@/lib/diff'
+import { Markdown } from '@/components/Markdown'
+import { diffKind, newDoc, splitDiff, type NewDoc } from '@/lib/diff'
 import { linkParts, type Answer } from '@/lib/dossier'
 import { UNTRUSTED_WORDS } from '@/lib/proposal'
 import { noteLabel, noteProblem, parseRefs, withDecision, type Decision } from '@/lib/review'
@@ -151,21 +152,20 @@ export function EvidenceBox({ it }: { it: Item }) {
   )
 }
 
+// DiffBlock draws diff lines, one per row, monospace: added green, removed red.
 export function DiffBlock({ lines, label }: { lines: string[]; label?: string }) {
   return (
-    <Box
-      component="pre"
-      aria-label={label}
-      sx={{ ...mono, m: 0, overflowX: 'auto', whiteSpace: 'pre-wrap' }}
-    >
-      {lines.map((l, n) => {
+    <Box role="group" aria-label={label} sx={{ ...mono, m: 0, overflowX: 'auto' }}>
+      {splitDiff(lines).map((l, n) => {
         const k = diffKind(l)
         return (
           <Box
-            component="span"
             key={n}
+            data-diff={k}
             sx={{
-              display: 'block',
+              whiteSpace: 'pre-wrap',
+              overflowWrap: 'anywhere',
+              minHeight: '1.4em',
               color: k === 'add' ? 'success.main' : k === 'del' ? 'error.main' : 'text.secondary',
             }}
           >
@@ -177,19 +177,43 @@ export function DiffBlock({ lines, label }: { lines: string[]; label?: string })
   )
 }
 
+// NewDocBlock shows a new document as its fields and its rendered body.
+function NewDocBlock({ doc }: { doc: NewDoc }) {
+  return (
+    <Box sx={{ ...block, my: 0.5 }}>
+      <Box component="ul" aria-label="Fields" sx={{ m: 0, pl: 2.5 }}>
+        {doc.fields.map((f) => (
+          <Typography component="li" variant="body2" key={f.key} sx={{ overflowWrap: 'anywhere' }}>
+            <strong>{f.key}: </strong>
+            {f.value}
+          </Typography>
+        ))}
+      </Box>
+      {doc.body && (
+        <Box sx={{ mt: 1, fontFamily: 'inherit' }}>
+          <Markdown source={doc.body} />
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 // Preview is para's own account of a vault change: before, after, and what waits on it.
 export function Preview({ pv }: { pv: NonNullable<Item['preview']> }) {
   return (
     <Box aria-label="Before and after" sx={{ my: 1 }}>
       {pv.error && <Alert severity="warning">This would fail now: {pv.error}</Alert>}
-      {pv.changes.map((c) => (
-        <Box key={c.doc}>
-          <Typography variant="caption" color="text.secondary">
-            {c.new ? 'New' : 'Changes'} {c.type}: {c.title || c.doc}
-          </Typography>
-          <DiffBlock lines={c.lines} />
-        </Box>
-      ))}
+      {pv.changes.map((c) => {
+        const nd = c.new ? newDoc(c.lines) : null
+        return (
+          <Box key={c.doc}>
+            <Typography variant="caption" color="text.secondary">
+              {c.new ? 'New' : 'Changes'} {c.type}: {c.title || c.doc}
+            </Typography>
+            {nd ? <NewDocBlock doc={nd} /> : <DiffBlock lines={c.lines} />}
+          </Box>
+        )
+      })}
       {pv.downstream.map((x) => (
         <Row key={x.doc} label={x.title || x.doc} text={x.effect} />
       ))}
