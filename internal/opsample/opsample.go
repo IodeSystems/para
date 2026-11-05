@@ -22,6 +22,7 @@ var Inputs = map[string]string{
 	"attachment_read":           `{"file":"` + SampleAttachment + `"}`,
 	"agent_send":                `{"id":"task-sample","text":"Met Sam; decided to ship.","attachments":["` + SampleAttachment + `"],"done":true}`,
 	"agent_unsend":              `{"request":"request-queued"}`,
+	"item_close":                `{"id":"task-free"}`,
 	"vault_upgrade":             `{"dry_run":true}`,
 	"vault_config_get":          `{"key":"align.days"}`,
 	"vault_config_set":          `{"key":"align.days","value":"14"}`,

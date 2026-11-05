@@ -16,7 +16,7 @@ import (
 func seedStreamATParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
-	for _, id := range []string{"task-at-a", "task-at-b"} {
+	for _, id := range []string{"task-at-a", "task-at-b", "task-at-c", "task-at-d"} {
 		if _, err := deps.Store.Create(ctx, model.Document{ID: id, Folder: model.FolderProjects, Title: "AT " + id,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-a")}}); err != nil {
 			t.Fatal(err)
@@ -44,6 +44,7 @@ func streamATParityCases(t *testing.T, e *env) map[string]parityCase {
 		"attachment_read": {`{"file":"` + att + `"}`, []string{"attachment", "read", att}, true},
 		"agent_send":      {`{"id":"task-at-a","text":"Met Sam.","attachments":["` + att + `"],"done":true}`, []string{"agent", "send", "task-at-b", "Met", "Sam.", "--attach", att, "--done"}, false},
 		"agent_unsend":    {`{"request":"request-at-a"}`, []string{"agent", "unsend", "request-at-b"}, false},
+		"item_close":      {`{"id":"task-at-c"}`, []string{"item", "close", "task-at-d"}, false},
 	}
 }
 

@@ -173,6 +173,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := AgentSend.Run(t.Context(), d, AgentSendInput{ID: "x", Text: "y"})
 			return err
 		}},
+		{"item_close", func(d Deps) error {
+			_, err := ItemClose.Run(t.Context(), d, ItemCloseInput{ID: "x"})
+			return err
+		}},
 		{"agent_unsend", func(d Deps) error {
 			_, err := AgentUnsend.Run(t.Context(), d, AgentUnsendInput{Request: "x"})
 			return err

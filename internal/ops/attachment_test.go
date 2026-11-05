@@ -234,3 +234,25 @@ func TestAgentUnsend(t *testing.T) {
 		t.Fatalf("unsent a claimed request: %v", err)
 	}
 }
+
+func TestItemClose(t *testing.T) {
+	d, id := attachDeps(t)
+	if got := must(t, ItemClose, d, ItemCloseInput{ID: id}); got.By != "task_done" {
+		t.Fatalf("task: %+v", got)
+	}
+	if _, task, _ := getTask(ctx, d.Store, id); task.Status != model.TaskDone {
+		t.Fatalf("task status = %s", task.Status)
+	}
+	sam := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Sam Example", Org: "acme.example"})
+	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Board review", With: []string{sam.ID}, Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00"})
+	if got := must(t, ItemClose, d, ItemCloseInput{ID: m.ID}); got.By != "meeting_hold" {
+		t.Fatalf("meeting: %+v", got)
+	}
+	if _, mt, _ := getMeeting(ctx, d.Store, m.ID); mt.Status != model.MeetingHeld {
+		t.Fatalf("meeting status = %s", mt.Status)
+	}
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which board?", Root: true})
+	if _, err := ItemClose.Run(ctx, d, ItemCloseInput{ID: q.ID}); err == nil || !strings.Contains(err.Error(), "send it to an agent") {
+		t.Fatalf("question closed: %v", err)
+	}
+}

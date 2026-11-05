@@ -82,6 +82,7 @@ type ParaV1MutationNamespace {
   ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
   ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
   ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
+  itemClose(body: para_ItemCloseInputInput!): para_ItemCloseOutput @derived(operationId: "itemClose")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
@@ -3264,6 +3265,16 @@ input para_ItemAnswerInput {
   stale: Boolean
   subject: String
   via: String
+}
+
+input para_ItemCloseInputInput {
+  id: String!
+}
+
+type para_ItemCloseOutput {
+  by: String!
+  id: String!
+  rev: String!
 }
 
 type para_ItemDecision {

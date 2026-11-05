@@ -53,6 +53,18 @@ func newAttachmentCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+// newItemCmd: what the composer at the foot of any item's page does from a
+// terminal. agent send and agent unsend are under para agent.
+func newItemCmd(l *loader) *cobra.Command {
+	cmd := group("item", "Any item, by id: close a task or a meeting from its page")
+	cmd.AddCommand(opCommand(l, ops.ItemClose, binding[ops.ItemCloseInput, ops.ItemCloseOutput]{
+		Use: "close <id>", Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.ItemCloseInput) error { in.ID = args[0]; return nil },
+		Text: printID(func(o ops.ItemCloseOutput) string { return o.ID + "\t" + o.By }),
+	}))
+	return cmd
+}
+
 // agentSendCmds: what the owner writes about an item, sent to an agent, and
 // taking it back.
 func agentSendCmds(l *loader) []*cobra.Command {

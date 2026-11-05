@@ -33,6 +33,7 @@ func registerAttachments(r *registrar) {
 	reg(r, ops.AttachmentRead, get, read)
 	reg(r, ops.AgentSend, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentUnsend, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ItemClose, post, netguard.ScopeReviewDecide)
 }
 
 // attachmentRoutes are chi routes, like /ws: the gate finds their scope in
