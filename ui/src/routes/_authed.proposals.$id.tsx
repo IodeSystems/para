@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -10,9 +11,16 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useProposal, useProposalDiff, useProposalSubmit, useStackUndo } from '@/api/proposals'
+import {
+  stackReturn,
+  useProposal,
+  useProposalDiff,
+  useProposalSubmit,
+  useStackLater,
+  useStackUndo,
+} from '@/api/proposals'
 import { useToasts } from '@/components/ToastStack'
-import { appliedCount, canUndo, toastText, whyNoUndo } from '@/lib/stackToast'
+import { canUndo, failText, submitToast, toastText } from '@/lib/stackToast'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { Details, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
@@ -25,9 +33,9 @@ import { cardKey, useCardKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
 import { DiffBlock, mono, block, type Item, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft, type SaveState } from '@/components/stack/useDossierDraft'
-import { answerEmpty, blockIds, parseBlockInfo, sectionId, type Answer } from '@/lib/dossier'
+import { answerDecides, blockIds, parseBlockInfo, sectionId, type Answer } from '@/lib/dossier'
 import { UNTRUSTED_WORDS } from '@/lib/proposal'
-import { needsYou } from '@/lib/stack'
+import { laterChip, needsYou } from '@/lib/stack'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/$id')({ component: ProposalPage })
@@ -122,7 +130,9 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
   }, [])
   const submit = useProposalSubmit()
   const undoCall = useStackUndo()
+  const laterCall = useStackLater()
   const toasts = useToasts()
+  const qc = useQueryClient()
   const [done, setDone] = useState('')
   // all shows every item; by default only what waits on the owner, so an answered item leaves.
   const [all, setAll] = useState(false)
@@ -142,7 +152,7 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
     bundles.set(it.bundle, [...(bundles.get(it.bundle) ?? []), it])
   }
   const open = d.items.filter((it) => it.stack === 'proposed')
-  const drafted = open.filter((it) => !answerEmpty(draft.answerOf(it.id))).length
+  const drafted = open.filter((it) => answerDecides(it.kind, draft.answerOf(it.id))).length
   const stale = d.items.filter((it) => it.answer?.stale && !draft.overridden(it.id))
   const fromFile =
     d.items.filter((it) => it.answer?.via === 'file' && it.stack === 'proposed').length +
@@ -150,7 +160,9 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
   const replies = (sid: string) => d.replies.filter((r) => r.section === sid)
   // Items with no block in the narrative show at the end, so none is lost.
   const inText = new Set(blockIds(d.markdown ?? ''))
-  const rest = d.items.filter((it) => !inText.has(it.id) && (all || needsYou(it)))
+  // Put-off (later) items show on the dossier's own page, marked, with Bring back.
+  const shown = (it: Item) => all || needsYou(it) || it.stack === 'later'
+  const rest = d.items.filter((it) => !inText.has(it.id) && shown(it))
 
   // setAnswer sets one answer. A decision on an item of a bundle is the decision of every item of
   // the bundle: they are decided as one.
@@ -167,11 +179,34 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
     }
   }
 
-  const hidden = d.items.filter((it) => !needsYou(it) && it.state !== 'withdrawn').length
+  const hidden = d.items.filter((it) => !shown(it) && it.state !== 'withdrawn').length
+  // bringBack brings a put-off item back now; Undo puts it off again, to the same date.
+  const bringBack = (it: Item) => {
+    const ref = { proposal: d.proposal.id, item: it.id }
+    const title = it.title || it.id
+    const until = it.deferUntil && it.deferUntil !== 'someday' ? it.deferUntil : undefined
+    stackReturn({ items: [ref] })
+      .then((res) => {
+        void qc.invalidateQueries()
+        if (res.changed.length === 0) {
+          toasts.push({ text: failText('return', [title], 'nothing changed'), tone: 'error' })
+          return
+        }
+        toasts.push({
+          text: toastText('return', [title]),
+          undo: async () => {
+            await laterCall.mutateAsync({ items: [ref], until })
+          },
+        })
+      })
+      .catch((e: unknown) =>
+        toasts.push({ text: failText('return', [title], errorText(e)), tone: 'error' }),
+      )
+  }
   const card = (it: Item) => {
-    if (!all && !needsYou(it)) return null
+    if (!shown(it)) return null
     const may = decide && it.stack === 'proposed'
-    return (
+    const itemCard = (
       <ItemCard
         key={it.id}
         it={it}
@@ -184,6 +219,20 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
         onCurrent={() => setCurrent(it.id)}
       />
     )
+    if (it.stack !== 'later') return itemCard
+    return (
+      <Box key={it.id} data-later-item={it.id}>
+        <Stack direction="row" spacing={1} sx={{ mb: 0.5, alignItems: 'center' }}>
+          <StatusChip tone="wait" label={laterChip(it.deferUntil)} />
+          {decide && (
+            <Button size="small" variant="outlined" data-act="bring" onClick={() => bringBack(it)}>
+              Bring back
+            </Button>
+          )}
+        </Stack>
+        {itemCard}
+      </Box>
+    )
   }
 
   const doSubmit = async () => {
@@ -193,29 +242,29 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
       { id: d.proposal.id, revision: d.proposal.revision },
       {
         onSuccess: (r) => {
+          const t = submitToast(r, (i) => byId.get(i)?.title || i)
+          if (t.decided.length === 0) {
+            // Nothing was decided: no "Submitted", the cards stay, and no undo line.
+            toasts.push({ text: t.text, tone: 'error' })
+            return
+          }
           setDone(
             r.failed?.length
               ? `Submitted. These failed: ${r.failed.join(', ')}.`
               : 'Submitted. Para ran the approved vault changes; an agent does the rest.',
           )
-          const title = (i: string) => byId.get(i)?.title || i
-          const decided = r.items.filter((x) => x.state !== 'pending')
-          const ok = canUndo(decided)
+          const ok = canUndo(t.decided)
           toasts.push({
-            text: toastText(
-              'submit',
-              decided.map((x) => title(x.item)),
-              appliedCount(decided),
-            ),
+            text: t.text,
             undo: ok
               ? async () => {
                   await undoCall.mutateAsync({
-                    items: decided.map((x) => ({ proposal: d.proposal.id, item: x.item })),
+                    items: t.decided.map((x) => ({ proposal: d.proposal.id, item: x.item })),
                     requests: r.requests ?? undefined,
                   })
                 }
               : undefined,
-            note: ok ? undefined : whyNoUndo('submit'),
+            note: t.note,
           })
         },
       },

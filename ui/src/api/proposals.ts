@@ -88,6 +88,7 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             kind
             summary
             stack
+            deferUntil
             section
             rev
             multi
@@ -323,6 +324,10 @@ const SubmitDoc = graphql(/* GraphQL */ `
           status
           failed
           requests
+          left {
+            item
+            why
+          }
           items {
             item
             state
@@ -345,6 +350,7 @@ const StackDoc = graphql(/* GraphQL */ `
     $actor: String
     $tag: String
     $needsYou: Boolean
+    $batch: String
     $cursor: String
     $limit: Int
   ) {
@@ -358,6 +364,7 @@ const StackDoc = graphql(/* GraphQL */ `
           actor: $actor
           tag: $tag
           needs_you: $needsYou
+          batch: $batch
           cursor: $cursor
           limit: $limit
         ) {
@@ -394,6 +401,7 @@ const StackDoc = graphql(/* GraphQL */ `
             request
             proposed
             deferUntil
+            skipBatch
             tags
           }
           total
@@ -562,10 +570,11 @@ export type StackFilter = {
 
 const STACK_PAGE = 200
 
-// useStack reads the review stack a page at a time.
-export function useStack(f: StackFilter) {
+// useStack reads the review stack a page at a time. batch is this visit to the stack: the
+// to-decide view leaves out what the visit skipped.
+export function useStack(f: StackFilter, batch?: string) {
   return useInfiniteQuery({
-    queryKey: ['stack', f],
+    queryKey: ['stack', f, batch],
     initialPageParam: '',
     queryFn: async ({ pageParam }) =>
       need(
@@ -574,6 +583,7 @@ export function useStack(f: StackFilter) {
             ...f,
             // With no state the stack shows what waits on the owner.
             needsYou: f.state ? undefined : true,
+            batch: f.state ? undefined : batch,
             cursor: pageParam || undefined,
             limit: STACK_PAGE,
           })
@@ -591,6 +601,8 @@ export type StackDecideBody = {
   decision: 'approve' | 'reject' | 'skip' | 'ask'
   comment?: string
   refs?: string[]
+  // batch is the visit to the stack that skips the items (skip only).
+  batch?: string
 }
 
 // useStackDecide approves, declines, skips, or sends back items across dossiers, or one group of

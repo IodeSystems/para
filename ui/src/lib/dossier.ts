@@ -110,6 +110,17 @@ export function answerEmpty(a: Answer | null | undefined): boolean {
   )
 }
 
+// answerDecides says whether a submit acts on the answer to an item of this kind: it counts as
+// answered. A skip is not answered (the item stays to decide), and neither is a comment only, or
+// a question with no option and no words. It matches planSubmit.
+export function answerDecides(kind: string, a: Answer | null | undefined): boolean {
+  if (answerEmpty(a) || !a) return false
+  if (a.decision === 'skip') return false
+  if (a.decision === 'ask') return true
+  if (kind === 'question') return (a.choices?.length ?? 0) > 0 || !!(a.ownWords ?? '').trim()
+  return a.decision === 'approve' || a.decision === 'edit' || a.decision === 'reject'
+}
+
 // answerInput is the answer as the draft call takes it: no via or stale (para sets them), and no
 // empty keys. An empty answer gives null, which clears it.
 export function answerInput(a: Answer | null | undefined): Record<string, unknown> | null {

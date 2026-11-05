@@ -165,6 +165,8 @@ export type QuestionReviewBody = {
   ownWords?: string
   note?: string
   refs?: string[]
+  // batch is the visit to the stack that skips the question (skip only).
+  batch?: string
 }
 
 // useQuestionReview is the owner's action on an open vault question from the stack: answer,

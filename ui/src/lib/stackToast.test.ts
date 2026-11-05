@@ -4,6 +4,7 @@ import {
   canUndo,
   failText,
   nextFocus,
+  submitToast,
   toastText,
   undoAll,
   undoBodies,
@@ -73,4 +74,49 @@ describe('nextFocus', () => {
   it('skips cards that leave together', () =>
     expect(nextFocus(order, new Set(['b', 'c']))).toBe('a'))
   it('gives null when none is left', () => expect(nextFocus(order, new Set(order))).toBeNull())
+})
+
+describe('submitToast', () => {
+  const title = (i: string) => `Item ${i}`
+  it('says nothing was submitted, with the reasons, as an error with no undo line', () => {
+    const t = submitToast(
+      {
+        items: [{ item: 'a1', state: 'skipped', undo: 'reset' }],
+        left: [{ item: 'm1', why: 'comment only: no decision was chosen' }],
+      },
+      title,
+    )
+    expect(t.decided).toEqual([])
+    expect(t.tone).toBe('error')
+    expect(t.note).toBeUndefined()
+    expect(t.text).toBe(
+      'Nothing was submitted: Item a1: skipped, not in this batch; Item m1: comment only: no decision was chosen.',
+    )
+    expect(t.text).not.toMatch(/Submitted 0/)
+  })
+  it('says nothing was submitted when the server gave no reason', () => {
+    expect(submitToast({ items: [] }, title).text).toBe(
+      'Nothing was submitted: no item has an answer that decides it.',
+    )
+  })
+  it('counts only decided items, not skips, and notes what was left', () => {
+    const t = submitToast(
+      {
+        items: [
+          { item: 'c1', state: 'approved', undo: 'reset' },
+          { item: 'a1', state: 'skipped', undo: 'reset' },
+        ],
+        left: [{ item: 'q1', why: 'comment only' }],
+      },
+      title,
+    )
+    expect(t.decided.map((x) => x.item)).toEqual(['c1'])
+    expect(t.text).toBe('Submitted: Item c1; 1 not decided')
+    expect(t.tone).toBeUndefined()
+    expect(t.note).toBeUndefined()
+  })
+  it('gives the no-undo line only when something was decided that cannot be undone', () => {
+    const t = submitToast({ items: [{ item: 'c1', state: 'running', undo: null }] }, title)
+    expect(t.note).toBe(whyNoUndo('submit'))
+  })
 })

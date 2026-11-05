@@ -424,6 +424,11 @@ type ProposalItem struct {
 	// why. Para's: an agent sets them with defer, never in a block.
 	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
 	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
+	// SkippedAt and SkipBatch record the owner's skip: when, and in which
+	// batch (one visit to the review stack). A skip is not in this batch only;
+	// it never defers. Para's, read while State is skipped.
+	SkippedAt string `yaml:"skipped_at,omitempty" json:"skipped_at,omitempty"`
+	SkipBatch string `yaml:"skip_batch,omitempty" json:"skip_batch,omitempty"`
 
 	State        ItemState `yaml:"state" json:"state"`
 	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`

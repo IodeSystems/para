@@ -160,12 +160,22 @@ type ProposalSubmitOutput struct {
 	Failed []string             `json:"failed,omitempty"` // approved changes whose op failed
 	// Requests is the agent work queued for items sent back (ask).
 	Requests []string `json:"requests,omitempty"`
-	Rev      string   `json:"rev"`
+	// Left names every item with a saved answer that this submit did not
+	// decide, and why.
+	Left []SubmitNote `json:"left,omitempty"`
+	Rev  string       `json:"rev"`
+}
+
+// SubmitNote says why a drafted item stayed as it was.
+type SubmitNote struct {
+	Item string `json:"item"`
+	Why  string `json:"why"`
 }
 
 // submitPlan is what a submit decides, checked before anything changes.
 type submitPlan struct {
 	edits, answers, approve, reject, skip, ask []string
+	left                                       []SubmitNote
 }
 
 func planSubmit(p *proposal) (submitPlan, error) {
@@ -190,18 +200,24 @@ func planSubmit(p *proposal) (submitPlan, error) {
 		if a.Decision == model.AnswerSkip {
 			if it.State != model.ItemSkipped {
 				plan.skip = append(plan.skip, it.ID)
+			} else {
+				plan.left = append(plan.left, SubmitNote{it.ID, "skipped: not in this batch, still to decide"})
 			}
 			continue
 		}
 		if a.Decision == model.AnswerAsk {
 			if it.State != model.ItemSentBack {
 				plan.ask = append(plan.ask, it.ID)
+			} else {
+				plan.left = append(plan.left, SubmitNote{it.ID, "already sent to an agent"})
 			}
 			continue
 		}
 		if it.Kind == model.ItemQuestion {
 			if len(a.Choices) > 0 || a.OwnWords != "" {
 				plan.answers = append(plan.answers, it.ID)
+			} else {
+				plan.left = append(plan.left, SubmitNote{it.ID, "no option chosen and no words: only a comment or option edits were saved"})
 			}
 			continue
 		}
@@ -215,7 +231,9 @@ func planSubmit(p *proposal) (submitPlan, error) {
 			}
 			verdict = model.AnswerReject
 		default:
-			continue // a comment only: the agent reads it
+			// A comment only: the agent reads it.
+			plan.left = append(plan.left, SubmitNote{it.ID, "comment only: no decision was chosen"})
+			continue
 		}
 		if it.Bundle != "" {
 			if prev, ok := bundles[it.Bundle]; ok && prev != verdict {
@@ -282,7 +300,7 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 	if err != nil {
 		return ProposalSubmitOutput{}, err
 	}
-	out := ProposalSubmitOutput{ID: p.doc.ID, Items: []Decision{}, Status: p.meta.Status, Rev: p.doc.Rev}
+	out := ProposalSubmitOutput{ID: p.doc.ID, Items: []Decision{}, Status: p.meta.Status, Rev: p.doc.Rev, Left: plan.left}
 	rec := newDecision(d, model.DecideApprove, "")
 	// Edits and answers first, in one write, with the revision checked again.
 	var answered []model.ProposalItem
@@ -465,6 +483,10 @@ type StackDecideInput struct {
 	Decision string         `json:"decision"` // approve, reject, skip, or ask
 	Comment  string         `json:"comment,omitempty"`
 	Refs     []string       `json:"refs,omitempty"` // ask: vault ids the agent should read
+	// Batch is the visit to the review stack (a client-made id) that skips the
+	// items: skip only. A skip means not in this batch; the stack's default
+	// view hides the item for the same batch and shows it again for another.
+	Batch string `json:"batch,omitempty"`
 }
 
 // StackDecideOutput is the output of stack_decide.
@@ -480,6 +502,9 @@ var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (s
 	}
 	if in.Decision == model.AnswerAsk && strings.TrimSpace(in.Comment) == "" {
 		return StackDecideOutput{}, errors.New("ask needs a comment: what the agent should do")
+	}
+	if in.Batch != "" && in.Decision != model.AnswerSkip {
+		return StackDecideOutput{}, errors.New("batch goes with decision skip")
 	}
 	if len(in.Refs) > 0 && in.Decision != model.AnswerAsk {
 		return StackDecideOutput{}, errors.New("refs go with decision ask")
@@ -566,7 +591,7 @@ var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (s
 				var dec Decision
 				var err error
 				if in.Decision == model.AnswerSkip {
-					dec, err = skipItem(ctx, d, prop, id, comment)
+					dec, err = skipItem(ctx, d, prop, id, comment, in.Batch)
 				} else {
 					var req string
 					dec, req, err = sendBackItem(ctx, d, prop, id, comment, in.Refs)

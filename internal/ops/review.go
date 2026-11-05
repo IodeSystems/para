@@ -104,7 +104,7 @@ func sendBackItem(ctx context.Context, d Deps, prop, item, note string, refs []s
 }
 
 // skipItem leaves one item undecided, with the note.
-func skipItem(ctx context.Context, d Deps, prop, item, note string) (Decision, error) {
+func skipItem(ctx context.Context, d Deps, prop, item, note, batch string) (Decision, error) {
 	p, err := changeProposal(ctx, d, prop, func(p *proposal) error {
 		it, err := p.item(item)
 		if err != nil {
@@ -115,6 +115,7 @@ func skipItem(ctx context.Context, d Deps, prop, item, note string) (Decision, e
 		}
 		a := model.ItemAnswer{Decision: model.AnswerSkip, Comment: strings.TrimSpace(note), Via: d.Store.Info().Surface}
 		it.Answer, it.State = &a, model.ItemSkipped
+		it.SkippedAt, it.SkipBatch = d.Store.Now().UTC().Format(time.RFC3339), batch
 		return nil
 	})
 	if err != nil {
@@ -151,6 +152,9 @@ type QuestionReviewInput struct {
 	// otherwise (kept with the answer as its reason).
 	Note string   `json:"note,omitempty"`
 	Refs []string `json:"refs,omitempty"` // ask: vault ids the agent should read
+	// Batch is the visit to the review stack that skipped the question: skip
+	// only. The stack's default view hides it for the same batch.
+	Batch string `json:"batch,omitempty"`
 }
 
 // QuestionReviewOutput is the output of question_review.
@@ -241,6 +245,7 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 		return out, nil
 	case ReviewSkip:
 		q.ReviewState, q.ReviewNote, q.ReviewRefs, q.ReviewRequest = string(model.ItemSkipped), note, nil, ""
+		q.ReviewAt, q.ReviewBatch = d.Store.Now().UTC().Format(time.RFC3339), in.Batch
 	case ReviewAsk:
 		if note == "" {
 			return out, errors.New("ask needs a note: what the agent should do")
@@ -258,6 +263,7 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 			return out, err
 		}
 		q.ReviewState, q.ReviewNote, q.ReviewRequest = string(model.ItemSentBack), note, model.LinkTo(r.ID)
+		q.ReviewAt, q.ReviewBatch = "", ""
 		q.ReviewRefs = nil
 		for _, id := range refs {
 			q.ReviewRefs = append(q.ReviewRefs, model.LinkTo(id))
@@ -301,15 +307,16 @@ func vaultQuestionRows(ctx context.Context, d Deps) ([]StackRow, error) {
 			stack = StackLater
 		}
 		state := model.ItemPending
+		batch := ""
 		switch q.ReviewState {
 		case string(model.ItemSkipped):
-			state = model.ItemSkipped
+			state, batch = model.ItemSkipped, q.ReviewBatch
 		case string(model.ItemSentBack):
 			state = model.ItemSentBack
 		}
 		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: stack, DeferUntil: q.DeferUntil,
 			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
-			Tags: normTags(q.Tags)})
+			Tags: normTags(q.Tags), SkipBatch: batch})
 	}
 	return out, nil
 }

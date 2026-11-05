@@ -1335,6 +1335,25 @@ try {
   await rpage.locator('[data-note-form]').waitFor({ state: 'detached' })
   check(true, 's opens the skip note on the stack and Esc closes it')
 
+  // Skip is "not in this batch": the card leaves this visit's to-decide view, stays proposed with
+  // no date, and returns the next time the stack is opened (a reload is a new visit).
+  await rpage.goto(`${base}/stack`)
+  await rpage.locator('[data-row]').first().waitFor()
+  const skipKey = await rpage.locator('[data-row]').first().getAttribute('data-row')
+  await rpage.keyboard.press('j')
+  await rpage.keyboard.press('s')
+  await rpage.locator('[data-note-form="skip"]').getByRole('button', { name: 'Skip' }).click()
+  await rpage.locator('[data-toast]').filter({ hasText: 'Skipped' }).first().waitFor()
+  await rpage.locator(`[data-row="${skipKey}"]`).waitFor({ state: 'detached' })
+  check(true, 'a skipped card leaves the to-decide view with a toast')
+  await rpage.goto(`${base}/stack?state=proposed`)
+  await rpage.locator(`[data-row="${skipKey}"][data-stack="proposed"]`).waitFor()
+  check(true, 'a skip never defers: the item is still proposed')
+  await rpage.goto(`${base}/stack`)
+  await rpage.reload()
+  await rpage.locator(`[data-row="${skipKey}"]`).waitFor()
+  check(true, 'reopening the stack (a new batch) returns the skipped item')
+
   // Omni bar: / focuses it, typing lists results, a pasted id and Enter open the document.
   await rpage.goto(`${base}/agenda`)
   const omni = rpage.getByRole('combobox', { name: 'Search' })

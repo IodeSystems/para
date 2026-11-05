@@ -6,7 +6,12 @@ import {
   rowActions,
   rowKey,
   STACK_STATES,
+  inView,
+  laterChip,
   laterDates,
+  newBatchId,
+  skippedInBatch,
+  topicLabel,
   needsYou,
   stackLines,
   VAULT_QUESTIONS,
@@ -128,6 +133,7 @@ describe('stack row actions', () => {
       skip: true,
       ask: true,
       done: true,
+      bring: false,
     })
     expect(rowActions(r('para')).done).toBe(false)
     expect(rowActions(r('message', 'approved', 'decided'))).toEqual({
@@ -136,6 +142,7 @@ describe('stack row actions', () => {
       skip: false,
       ask: false,
       done: true,
+      bring: false,
     })
     expect(rowActions(r('message', 'done', 'done')).done).toBe(false)
   })
@@ -146,6 +153,7 @@ describe('stack row actions', () => {
       skip: true,
       ask: true,
       done: false,
+      bring: false,
     })
   })
   it('a vault question is declined, skipped, or asked; answered on its card', () => {
@@ -155,6 +163,7 @@ describe('stack row actions', () => {
       skip: true,
       ask: true,
       done: false,
+      bring: false,
     })
   })
   it('vault questions group under one heading', () => {
@@ -214,5 +223,51 @@ describe('later dates', () => {
     })
     // Month end.
     expect(laterDates(new Date(2026, 10, 30, 9)).tomorrow).toBe('2026-12-01')
+  })
+})
+
+describe('skip is not in this batch', () => {
+  const row = (item: string, state: string, skipBatch?: string) => ({ item, state, skipBatch })
+  const rows = [
+    row('a', 'pending'),
+    row('b', 'skipped', 'visit-1'),
+    row('c', 'skipped', 'visit-0'),
+    row('d', 'sent_back'),
+  ]
+  it('the to-decide view hides what this visit skipped and shows other skips', () => {
+    expect(inView(rows, 'visit-1', true).map((r) => r.item)).toEqual(['a', 'c', 'd'])
+    expect(inView(rows, 'visit-2', true).map((r) => r.item)).toEqual(['a', 'b', 'c', 'd'])
+  })
+  it('another view shows every row', () => {
+    expect(inView(rows, 'visit-1', false)).toHaveLength(4)
+  })
+  it('a skipped item that was reset (pending) is not hidden, whatever its batch', () => {
+    expect(skippedInBatch(row('a', 'pending', 'visit-1'), 'visit-1')).toBe(false)
+    expect(skippedInBatch(row('a', 'skipped', 'visit-1'), '')).toBe(false)
+  })
+  it('each visit gets its own id', () => {
+    expect(newBatchId()).not.toBe(newBatchId())
+  })
+})
+
+describe('later items', () => {
+  it('a later row may be brought back, and cannot be decided', () => {
+    const a = rowActions({ kind: 'message', state: 'pending', stack: 'later' })
+    expect(a).toEqual({
+      approve: false,
+      decline: false,
+      skip: false,
+      ask: false,
+      done: false,
+      bring: true,
+    })
+  })
+  it('says the date on the chip', () => {
+    expect(laterChip('2026-11-09')).toBe('later until 2026-11-09')
+    expect(laterChip('someday')).toBe('later: someday')
+  })
+  it('a topic chip counts later items and shows their number apart', () => {
+    expect(topicLabel({ tag: 'socials', stack: 2, later: 3 })).toBe('#socials 5 (3 later)')
+    expect(topicLabel({ tag: 'ops', stack: 4, later: 0 })).toBe('#ops 4')
   })
 })

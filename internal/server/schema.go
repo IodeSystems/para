@@ -79,6 +79,8 @@ type Meta struct {
 	ReviewNote      string                `json:"review_note,omitempty"`
 	ReviewRefs      []string              `json:"review_refs,omitempty"`
 	ReviewRequest   string                `json:"review_request,omitempty"`
+	ReviewAt        string                `json:"review_at,omitempty"`
+	ReviewBatch     string                `json:"review_batch,omitempty"`
 	ReroutedTo      string                `json:"rerouted_to,omitempty"`
 	DependsOn       []string              `json:"depends_on,omitempty"`
 	Direction       string                `json:"direction,omitempty"`

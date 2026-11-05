@@ -1,13 +1,15 @@
 // Words and rules for what the review stack tells the owner after an action: the toast text, whether
 // the action can be undone, and which card takes focus when one leaves.
 
-export type Verb = 'approve' | 'decline' | 'skip' | 'later' | 'ask' | 'done' | 'answer' | 'submit'
+export type Verb =
+  'approve' | 'decline' | 'skip' | 'later' | 'return' | 'ask' | 'done' | 'answer' | 'submit'
 
 const DONE: Record<Verb, string> = {
   approve: 'Approved',
   decline: 'Declined',
   skip: 'Skipped',
   later: 'Put off',
+  return: 'Brought back',
   ask: 'Sent to agent',
   done: 'Marked done',
   answer: 'Answered',
@@ -19,6 +21,7 @@ const TO: Record<Verb, string> = {
   decline: 'decline',
   skip: 'skip',
   later: 'put off',
+  return: 'bring back',
   ask: 'send to agent',
   done: 'mark done',
   answer: 'answer',
@@ -59,6 +62,51 @@ export function whyNoUndo(verb: Verb): string {
       return 'An answer cannot be undone here.'
     default:
       return 'This cannot be undone: it has run, or an agent has it.'
+  }
+}
+
+type SubmitItem = { item: string; state: string; undo?: string | null }
+
+export type SubmitToast = {
+  text: string
+  tone?: 'error'
+  // decided are the items to undo; empty when nothing was decided.
+  decided: SubmitItem[]
+  // note is the line under the toast when there is no Undo; none when nothing ran.
+  note?: string
+}
+
+// submitToast says what a dossier submit did. Skips are recorded but decide nothing, so they are not
+// counted. When nothing was decided it says so, with the reasons the server gave, as an error
+// and with no undo line: nothing ran and no agent has anything.
+export function submitToast(
+  r: { items: SubmitItem[]; left?: { item: string; why: string }[] | null },
+  title: (id: string) => string,
+): SubmitToast {
+  const decided = r.items.filter((x) => x.state !== 'pending' && x.state !== 'skipped')
+  const left = r.left ?? []
+  if (decided.length === 0) {
+    const reasons = [
+      ...r.items
+        .filter((x) => x.state === 'skipped')
+        .map((x) => `${title(x.item)}: skipped, not in this batch`),
+      ...left.map((x) => `${title(x.item)}: ${x.why}`),
+    ]
+    return {
+      text: `Nothing was submitted: ${reasons.length ? reasons.join('; ') : 'no item has an answer that decides it'}.`,
+      tone: 'error',
+      decided: [],
+    }
+  }
+  const text = toastText(
+    'submit',
+    decided.map((x) => title(x.item)),
+    appliedCount(decided),
+  )
+  return {
+    text: left.length ? `${text}; ${left.length} not decided` : text,
+    decided,
+    note: canUndo(decided) ? undefined : whyNoUndo('submit'),
   }
 }
 

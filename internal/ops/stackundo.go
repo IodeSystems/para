@@ -289,6 +289,7 @@ func undoQuestion(ctx context.Context, d Deps, id string) error {
 		return fmt.Errorf("%s is %s: only a question that was skipped or sent to an agent can be undone", doc.ID, firstOf(q.ReviewState, string(q.Status)))
 	}
 	q.ReviewState, q.ReviewNote, q.ReviewRefs, q.ReviewRequest = "", "", nil, ""
+	q.ReviewAt, q.ReviewBatch = "", ""
 	_, err = d.Store.Update(ctx, doc)
 	return err
 }

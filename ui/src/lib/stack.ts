@@ -90,6 +90,8 @@ export type RowActions = {
   skip: boolean
   ask: boolean
   done: boolean
+  // bring is Bring back: the item was put off (later) and the owner wants it now.
+  bring: boolean
 }
 
 // rowActions says what the owner may do to a row from the stack. An open vault question (question
@@ -103,7 +105,9 @@ export function rowActions(row: {
   question?: string | null
 }): RowActions {
   const open = row.stack === 'proposed'
-  if (row.question) return { approve: false, decline: open, skip: open, ask: open, done: false }
+  const bring = row.stack === 'later'
+  if (row.question)
+    return { approve: false, decline: open, skip: open, ask: open, done: false, bring }
   const q = row.kind === 'question'
   return {
     approve: open && !q,
@@ -111,6 +115,7 @@ export function rowActions(row: {
     skip: open,
     ask: open,
     done: (open || row.stack === 'decided') && canMarkDone(row),
+    bring,
   }
 }
 
@@ -213,6 +218,43 @@ export function nextItem<R>(lines: Line<R>[], cursor: string | null, step: 1 | -
 // ops needsYou; the default stack and dossier views show only these.
 export function needsYou(row: { stack: string; state: string }): boolean {
   return row.stack === 'proposed' && row.state !== 'sent_back'
+}
+
+// newBatchId makes the id of one visit to the stack. A skip means "not in this batch": the visit's
+// to-decide view leaves it out, and the next visit shows it again. It is kept in memory, never
+// stored. crypto.randomUUID needs a secure context and the app may be served over http.
+export function newBatchId(): string {
+  const r = () => Math.random().toString(36).slice(2, 10)
+  return `${Date.now().toString(36)}-${r()}${r()}`
+}
+
+// skippedInBatch says whether the owner skipped the row in this batch.
+export function skippedInBatch(
+  row: { state: string; skipBatch?: string | null },
+  batch: string,
+): boolean {
+  return !!batch && row.state === 'skipped' && row.skipBatch === batch
+}
+
+// inView filters rows for the view. The to-decide view (no state filter) leaves out what this
+// visit skipped; any other view shows every row the server gave. Later rows stay: the server lists
+// them only in a scoped view.
+export function inView<R extends { state: string; skipBatch?: string | null }>(
+  rows: R[],
+  batch: string,
+  toDecide: boolean,
+): R[] {
+  return toDecide ? rows.filter((r) => !skippedInBatch(r, batch)) : rows
+}
+
+// laterChip is the words of a put-off item's chip.
+export function laterChip(until?: string | null): string {
+  return !until || until === 'someday' ? 'later: someday' : `later until ${until}`
+}
+
+// topicLabel is a topic chip: the count includes what is put off, with that number apart.
+export function topicLabel(t: { tag: string; stack: number; later: number }): string {
+  return `#${t.tag} ${t.stack + t.later}${t.later ? ` (${t.later} later)` : ''}`
 }
 
 // canLater says whether a row may be put off from the stack: it waits on the owner.

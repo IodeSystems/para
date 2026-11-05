@@ -135,8 +135,13 @@ func TestDeferTopicHidesIOAndItems(t *testing.T) {
 	if inOrder() {
 		t.Fatal("a put-off io item is in the order")
 	}
-	if got := stackItems(t, f.owner, ProposalStackInput{Tag: "socials"}); len(got) != 0 {
-		t.Fatalf("stack by tag = %v while put off", got)
+	if got := stackItems(t, f.owner, ProposalStackInput{}); len(got) != 0 {
+		t.Fatalf("stack = %v while put off", got)
+	}
+	// A view scoped by the topic still lists them, as later.
+	scoped := must(t, ProposalStack, f.owner, ProposalStackInput{Tag: "socials"})
+	if len(scoped.Rows) != 2 || scoped.Rows[0].Stack != StackLater || scoped.NeedsYou != 0 {
+		t.Fatalf("stack by tag = %+v while put off", scoped.Rows)
 	}
 	list := must(t, TagList, f.owner, TagListInput{}).Tags
 	if len(list) != 1 || list[0].Later != 3 || list[0].Stack != 0 {

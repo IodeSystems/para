@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import Alert from '@mui/material/Alert'
@@ -63,7 +64,10 @@ import { noteLabel, noteProblem } from '@/lib/review'
 import {
   canLater,
   canStackDecide,
+  inView,
   kindWords,
+  laterChip,
+  newBatchId,
   nextItem,
   rowActions,
   rowKey,
@@ -71,6 +75,7 @@ import {
   stackLines,
   stackTone,
   stackWords,
+  topicLabel,
   type Line,
 } from '@/lib/stack'
 
@@ -106,6 +111,9 @@ function StackPage() {
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
   const navigate = useNavigate({ from: '/stack' })
+  // batch is this visit to the stack. A skip is "not in this batch": the to-decide view hides it
+  // until the owner opens the stack again. Kept in memory, so a reload is a new visit.
+  const [batch] = useState(newBatchId)
   return (
     <>
       <PageTitle subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list.">
@@ -121,18 +129,22 @@ function StackPage() {
         <Tab value="stack" label="To decide" />
         <Tab value="sent" label="Sent to agent" data-tab="sent" />
       </Tabs>
-      {view === 'sent' ? <SentList decide={decide} /> : <StackView f={f} decide={decide} />}
+      {view === 'sent' ? (
+        <SentList decide={decide} />
+      ) : (
+        <StackView f={f} decide={decide} batch={batch} />
+      )}
     </>
   )
 }
 
-function StackView({ f, decide }: { f: StackFilter; decide: boolean }) {
-  const q = useStack(f)
+function StackView({ f, decide, batch }: { f: StackFilter; decide: boolean; batch: string }) {
+  const q = useStack(f, batch)
   const page = q.data?.pages[0]
   return (
     <>
       <Filters f={f} counts={page?.counts ?? []} needsYou={page?.needsYou ?? 0} />
-      <DataState q={q}>{(d) => <StackList d={d} decide={decide} q={q} />}</DataState>
+      <DataState q={q}>{(d) => <StackList d={d} decide={decide} q={q} batch={batch} />}</DataState>
     </>
   )
 }
@@ -157,7 +169,7 @@ function Topics({ tag, onTag }: { tag?: string; onTag: (t: string | undefined) =
           <Chip
             key={t.tag}
             data-topic={t.tag}
-            label={`#${t.tag} ${t.stack}${t.later ? ` (+${t.later} later)` : ''}`}
+            label={topicLabel(t)}
             color={on ? 'secondary' : 'default'}
             variant={on ? 'filled' : 'outlined'}
             aria-pressed={on}
@@ -296,13 +308,24 @@ const LEAVE_MS = 180
 
 type Applied = { undo?: string | null }[]
 
-function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<typeof useStack> }) {
+function StackList({
+  d,
+  decide,
+  q,
+  batch,
+}: {
+  d: Data
+  decide: boolean
+  q: ReturnType<typeof useStack>
+  batch: string
+}) {
   const act = useStackDecide()
   const review = useQuestionReview()
   const later = useStackLater()
   const proposalDone = useProposalDone()
   const undoCall = useStackUndo()
   const toasts = useToasts()
+  const qc = useQueryClient()
   const f = Route.useSearch()
   const [leaving, setLeaving] = useState<Set<string>>(() => new Set())
   // gone are the rows the owner acted on: they stay out of the to-decide view at once, without waiting
@@ -314,7 +337,11 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
   const [pending, setPending] = useState(0)
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
   const hides = !f.state || f.state === 'proposed'
-  const allRows = d.pages.flatMap((p) => p.rows)
+  const allRows = inView(
+    d.pages.flatMap((p) => p.rows),
+    batch,
+    !f.state,
+  )
   const rows = hides ? allRows.filter((r) => !gone.has(rowKey(r))) : allRows
   const groups = d.pages[0]?.groups ?? []
   const total = Math.max(0, (d.pages[0]?.total ?? allRows.length) - (hides ? gone.size : 0))
@@ -469,6 +496,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
           decision,
           comment: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
+          batch: a === 'skip' ? batch : undefined,
         })
         applied.push(...res.proposals.flatMap((p) => p.items))
         requests = res.requests ?? []
@@ -479,6 +507,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
           decision: a,
           note: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
+          batch: a === 'skip' ? batch : undefined,
         })
         applied.push({ undo: res.undo })
         asked.push({ id: r.question ?? r.item, request: res.request })
@@ -517,6 +546,44 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
         undo: () => stackReturn(body),
       }
     })
+  }
+  // bringRows brings put-off rows back now (stack_return). They stay where they are, now to
+  // decide; Undo in the toast puts them off again, to the same date.
+  const bringRows = (list: Row[]) => {
+    const ok = list.filter((r) => r.stack === 'later')
+    if (!decide || ok.length === 0) return
+    const body = {
+      items: ok.filter((r) => !r.question).map((r) => ({ proposal: r.proposal, item: r.item })),
+      questions: ok.flatMap((r) => (r.question ? [r.question] : [])),
+    }
+    const call = {
+      items: body.items.length ? body.items : undefined,
+      questions: body.questions.length ? body.questions : undefined,
+    }
+    const titles = ok.map((r) => r.summary)
+    setPending((n) => n + 1)
+    void stackReturn(call)
+      .then((res) => {
+        void qc.invalidateQueries()
+        if (res.changed.length === 0) {
+          toasts.push({ text: failText('return', titles, 'nothing changed'), tone: 'error' })
+          return
+        }
+        toasts.push({
+          text: toastText('return', titles),
+          undo: async () => {
+            const until = ok[0]?.deferUntil
+            await later.mutateAsync({
+              ...call,
+              until: until && until !== 'someday' ? until : undefined,
+            })
+          },
+        })
+      })
+      .catch((e: unknown) =>
+        toasts.push({ text: failText('return', titles, errorText(e)), tone: 'error' }),
+      )
+      .finally(() => setPending((n) => n - 1))
   }
   // markDone is Done by me on a row. It takes effect at once and cannot be undone.
   const markDone = (r: Row, body: Parameters<typeof proposalDone.mutate>[0]) => {
@@ -747,6 +814,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
                 }}
                 onDecide={(r, a, note, refs) => decideRows([r], a, note, refs)}
                 onLater={(r, until) => laterRows([r], until)}
+                onBring={(r) => bringRows([r])}
                 onOpen={(r) => {
                   setCursor(rowKey(r))
                   toggleOpen(r)
@@ -779,6 +847,7 @@ function LineView({
   onForm,
   onDecide,
   onLater,
+  onBring,
   onOpen,
   onGroup,
   onFocusRow,
@@ -798,6 +867,7 @@ function LineView({
   onForm: (r: Row, a: Act | null) => void
   onDecide: (r: Row, a: Exclude<Act, 'done'>, note: string, refs: string[]) => void
   onLater: (r: Row, until: string) => void
+  onBring: (r: Row) => void
   onOpen: (r: Row) => void
   onGroup: (proposal: string, group: string) => void
   onFocusRow: (r: Row) => void
@@ -941,11 +1011,8 @@ function LineView({
             {r.drafted && <StatusChip tone="wait" label="drafted" />}
             {r.proposed && <StatusChip tone="wait" label="an agent proposed an answer" />}
             {r.bundle && <StatusChip tone="quiet" label={`bundle ${r.bundle}`} />}
-            {r.deferUntil && (
-              <StatusChip
-                tone="quiet"
-                label={r.deferUntil === 'someday' ? 'later: someday' : `back ${r.deferUntil}`}
-              />
+            {r.deferUntil && r.stack === 'later' && (
+              <StatusChip tone="wait" label={laterChip(r.deferUntil)} />
             )}
             {(r.tags ?? []).map((t) => (
               <StatusChip key={t} tone="quiet" label={`#${t}`} />
@@ -1019,6 +1086,17 @@ function LineView({
           )}
           {actButton('ask')}
           {actButton('done')}
+          {can?.bring && (
+            <Button
+              size="small"
+              variant="outlined"
+              data-act="bring"
+              disabled={busy}
+              onClick={() => onBring(r)}
+            >
+              Bring back
+            </Button>
+          )}
           <Button size="small" data-act="open" aria-expanded={opened} onClick={() => onOpen(r)}>
             {opened
               ? 'Close'
@@ -1138,7 +1216,12 @@ function NoteForm({
         label={noteLabel(decision)}
         value={note}
         error={tried && problem !== ''}
-        helperText={problem || (act === 'skip' ? 'It stays to decide later.' : undefined)}
+        helperText={
+          problem ||
+          (act === 'skip'
+            ? 'Not in this batch. It returns the next time you open the stack.'
+            : undefined)
+        }
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={keys}
       />

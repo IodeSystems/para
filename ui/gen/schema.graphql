@@ -265,7 +265,7 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalResponse(id: String!): para_ProposalResponseOutput @derived(operationId: "proposalResponse")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
-  proposalStack(actor: String, cursor: String, group: String, kind: String, limit: Int, needs_you: Boolean, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
+  proposalStack(actor: String, batch: String, cursor: String, group: String, kind: String, limit: Int, needs_you: Boolean, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
   proposalUndone: para_ProposalUndoneOutput @derived(operationId: "proposalUndone")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
@@ -3483,6 +3483,8 @@ type para_ItemView {
   reversibleHow: String
   risk: String
   section: String
+  skipBatch: String
+  skippedAt: String
   stack: String!
   state: para_ItemViewState!
   subject: String
@@ -3994,6 +3996,8 @@ type para_Meta {
   resolution: String
   resultLinks: [String!]
   retryAfter: String
+  reviewAt: String
+  reviewBatch: String
   reviewBy: String
   reviewNote: String
   reviewRefs: [String!]
@@ -4997,6 +5001,7 @@ type para_ProposalSubmitOutput {
   failed: [String!]
   id: String!
   items: [para_Decision!]!
+  left: [para_SubmitNote!]
   requests: [String!]
   rev: String!
   status: para_ProposalSubmitOutputStatus!
@@ -5212,6 +5217,7 @@ type para_QuestionListOutput {
 
 input para_QuestionReviewInputInput {
   addedOptions: [String!]
+  batch: String
   choices: [String!]
   decision: String!
   editedOptions: JSON
@@ -6716,6 +6722,7 @@ type para_StackCount {
 }
 
 input para_StackDecideInputInput {
+  batch: String
   comment: String
   decision: String!
   group: String
@@ -6771,6 +6778,7 @@ type para_StackRow {
   refs: [String!]
   request: String
   result: String
+  skipBatch: String
   stack: String!
   state: para_StackRowState!
   summary: String!
@@ -6838,6 +6846,11 @@ type para_StepOutcome {
   docs: [String!]!
   id: String!
   title: String!
+}
+
+type para_SubmitNote {
+  item: String!
+  why: String!
 }
 
 type para_SweepItem {

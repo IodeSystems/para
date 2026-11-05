@@ -39,6 +39,7 @@ func paraOwned(it model.ProposalItem) []string {
 	add(it.Decided != nil, "decided")
 	add(len(it.Thread) > 0, "thread")
 	add(it.DeferUntil != "" || it.DeferredReason != "", "defer_until")
+	add(it.SkippedAt != "" || it.SkipBatch != "", "skipped_at")
 	return out
 }
 
@@ -47,6 +48,7 @@ func clearParaOwned(it *model.ProposalItem) {
 	it.Answer, it.State, it.Execution, it.Rev, it.Reason, it.Edited = nil, "", nil, 0, "", false
 	it.ApprovedHash, it.Result, it.Waits, it.ClaimedBy, it.LeaseUntil, it.Decided, it.Thread = "", "", false, "", "", nil, nil
 	it.DeferUntil, it.DeferredReason = "", ""
+	it.SkippedAt, it.SkipBatch = "", ""
 }
 
 // checkBlockItem checks one agent-written item beyond the grammar: an op item
@@ -295,6 +297,7 @@ func carryTags(it *model.ProposalItem, old model.ProposalItem) {
 func keepParaOwned(it *model.ProposalItem, old model.ProposalItem) {
 	it.Answer, it.State, it.Execution, it.Rev, it.Reason, it.Edited = old.Answer, old.State, old.Execution, old.Rev, old.Reason, old.Edited
 	it.ApprovedHash, it.Result, it.Waits, it.ClaimedBy, it.LeaseUntil, it.Decided, it.Thread = old.ApprovedHash, old.Result, old.Waits, old.ClaimedBy, old.LeaseUntil, old.Decided, old.Thread
+	it.SkippedAt, it.SkipBatch = old.SkippedAt, old.SkipBatch
 }
 
 // ResponseItem is the owner's answer to one item, as the agent reads it.

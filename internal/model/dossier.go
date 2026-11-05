@@ -225,6 +225,9 @@ type dossierItem struct {
 	// DeferUntil and DeferredReason: the owner or defer put the item off.
 	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
 	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
+	// SkippedAt and SkipBatch: see ProposalItem.
+	SkippedAt string `yaml:"skipped_at,omitempty" json:"skipped_at,omitempty"`
+	SkipBatch string `yaml:"skip_batch,omitempty" json:"skip_batch,omitempty"`
 
 	// the owner's
 	Answer *ItemAnswer `yaml:"answer,omitempty" json:"answer,omitempty"`
@@ -474,7 +477,7 @@ func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 		Reversible: b.Reversible, ReversibleHow: b.ReversibleHow, Risk: b.Risk,
 		Rev: b.Rev, State: b.State, Reason: b.Reason, Edited: b.Edited, ApprovedHash: b.ApprovedHash, Result: b.Result, Waits: b.Waits,
 		Execution: b.Exec, ClaimedBy: b.ClaimedBy, LeaseUntil: b.LeaseUntil, Decided: b.Decided, Thread: b.Thread, Answer: b.Answer,
-		DeferUntil: b.DeferUntil, DeferredReason: b.DeferredReason}
+		DeferUntil: b.DeferUntil, DeferredReason: b.DeferredReason, SkippedAt: b.SkippedAt, SkipBatch: b.SkipBatch}
 	if b.Evidence != nil {
 		it.Evidence = *b.Evidence
 	}
@@ -492,7 +495,7 @@ func blockOf(it ProposalItem) dossierItem {
 		Reversible: it.Reversible, ReversibleHow: it.ReversibleHow, Risk: it.Risk,
 		Rev: it.Rev, State: it.State, Reason: it.Reason, Edited: it.Edited, ApprovedHash: it.ApprovedHash, Result: it.Result, Waits: it.Waits,
 		Exec: it.Execution, ClaimedBy: it.ClaimedBy, LeaseUntil: it.LeaseUntil, Decided: it.Decided, Thread: it.Thread, Answer: it.Answer,
-		DeferUntil: it.DeferUntil, DeferredReason: it.DeferredReason}
+		DeferUntil: it.DeferUntil, DeferredReason: it.DeferredReason, SkippedAt: it.SkippedAt, SkipBatch: it.SkipBatch}
 	if it.Evidence != (Evidence{}) {
 		e := it.Evidence
 		b.Evidence = &e

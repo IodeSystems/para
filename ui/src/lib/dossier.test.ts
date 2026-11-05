@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  answerDecides,
   answerEmpty,
   answerInput,
   blockIds,
@@ -145,5 +146,23 @@ describe('upstream answers', () => {
     const a = { decision: 'approve', comments: [{ id: 'c1', to: 'ask', note: null, due: '' }] }
     expect(answerEmpty({ comments: [{ id: 'c1', to: 'ask' }] })).toBe(false)
     expect(answerInput(a)).toEqual({ decision: 'approve', comments: [{ id: 'c1', to: 'ask' }] })
+  })
+})
+
+describe('answerDecides', () => {
+  it('counts a decision the submit acts on', () => {
+    expect(answerDecides('message', { decision: 'approve' })).toBe(true)
+    expect(answerDecides('message', { decision: 'edit', body: 'x' })).toBe(true)
+    expect(answerDecides('message', { decision: 'reject', comment: 'no' })).toBe(true)
+    expect(answerDecides('message', { decision: 'ask', comment: 'check' })).toBe(true)
+    expect(answerDecides('question', { choices: ['A'] })).toBe(true)
+    expect(answerDecides('question', { ownWords: 'Both.' })).toBe(true)
+  })
+  it('does not count a skip, a comment only, or a question with no option', () => {
+    expect(answerDecides('message', { decision: 'skip' })).toBe(false)
+    expect(answerDecides('message', { comment: 'Reword it.' })).toBe(false)
+    expect(answerDecides('question', { comment: 'Not sure.' })).toBe(false)
+    expect(answerDecides('question', { addedOptions: ['C'] })).toBe(false)
+    expect(answerDecides('message', null)).toBe(false)
   })
 })
