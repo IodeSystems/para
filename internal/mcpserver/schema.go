@@ -183,7 +183,7 @@ var metaProps = map[string]schema{
 	"minor":         {"type": "boolean", "description": "Rate the write minor: a small change. With obvious (and undoable, which para knows), it applies directly; otherwise it goes to the owner's review stack and does not run yet"},
 	"obvious":       {"type": "boolean", "description": "Rate the write obvious: the owner would make it without asking. Never with confidence low"},
 	"dossier":       {"type": "string", "description": "The id of your dossier a held-back write goes to; default your Staged writes dossier"},
-	"owner_said":    {"type": "string", "description": "The owner's words in this session that asked for this write. Some writes (defer, task_resolve failed or rerouted) are held for review without them. Stored in the receipt as self-reported"},
+	"owner_said":    {"type": "string", "description": "The owner's words in this session that asked for this write. An undoable safe write with them applies without minor and obvious; some writes (defer, task_resolve failed or rerouted) are held for review without them. Stored in the receipt as self-reported"},
 }
 
 // toolSchema is the input schema of a tool: the op's Input and, on a write, the

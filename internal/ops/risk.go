@@ -99,6 +99,11 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		if o.gateRule != nil {
 			verdict, lacks = o.gateRule(in, writeMeta(ctx))
 		}
+		// The owner asked for it: an undoable safe write applies, and its
+		// receipt carries their words, self-reported.
+		if verdict == gateDefault && o.risk == RiskSafe && o.Undoable() && strings.TrimSpace(writeMeta(ctx).OwnerSaid) != "" {
+			verdict = gatePass
+		}
 		var missing []string
 		var err error
 		if verdict != gatePass {

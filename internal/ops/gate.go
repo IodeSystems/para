@@ -18,6 +18,10 @@ import (
 //	minor:    the agent rated it minor. Never for an op of risk review.
 //	obvious:  the agent rated it obvious. Never with confidence low.
 //
+// An undoable write of risk safe that carries owner_said (the owner asked for
+// it in this session) applies too, whatever gate.require says; its receipt is
+// self-reported. An op's own gate rule (withGateRule) decides first.
+//
 // A held-back write does not run. It becomes a para-change item of a dossier,
 // and the surface reports it as a success (*Staged). The gate runs on agent
 // surfaces only: flow ops, the tick, and writes that an approved item runs
@@ -229,7 +233,7 @@ func stageWrite(ctx context.Context, d Deps, op string, input map[string]any, m 
 // stagedMessage says where a held write went and when it applies, in words
 // an agent relays to the owner as they are: it is not a failure.
 func stagedMessage(title, item, where string, missing []string) string {
-	return fmt.Sprintf("held for review in %s item %s: %s; it applies when the owner approves (it lacked %s)", title, item, where, strings.Join(missing, ", "))
+	return fmt.Sprintf("held for review in %s item %s: %s; it applies when the owner approves (it lacked %s; an undoable safe write applies with minor and obvious, or with owner_said when the owner asked for it)", title, item, where, strings.Join(missing, ", "))
 }
 
 // nextItemID is prefix plus one more than the highest number of that prefix.
