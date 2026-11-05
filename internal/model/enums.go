@@ -491,7 +491,27 @@ func (s IOState) Open() bool {
 	return s == IOUnread || s == IORead || s == IODraft || s == IOReady
 }
 
-// IOExpects is io.expects on an outgoing message: whether a reply is wanted.
+// Effort is the effort field of a task, question, rfx, or io item: about how
+// long it takes the owner. Empty is not set; the value order then takes a
+// default (ops.RankValue).
+type Effort string
+
+const (
+	EffortXS Effort = "xs" // under 15 minutes
+	EffortS  Effort = "s"  // under an hour
+	EffortM  Effort = "m"  // half a day
+	EffortL  Effort = "l"  // a day or more
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Effort) Enum() []string { return enumStrings(Efforts) }
+
+// Efforts lists every Effort, smallest first.
+var Efforts = []Effort{EffortXS, EffortS, EffortM, EffortL}
+
+// IOExpects is io.expects: whether a reply is wanted. On an outgoing message
+// it says what sending makes; on an incoming one, response means the sender
+// waits for the owner's reply.
 type IOExpects string
 
 const (

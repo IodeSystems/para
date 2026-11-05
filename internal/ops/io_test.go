@@ -29,7 +29,9 @@ func TestIOAddChecks(t *testing.T) {
 	}{
 		{"no direction", IOAddInput{Text: "x"}, "direction"},
 		{"no text", IOAddInput{Direction: model.IOIn}, "text is empty"},
-		{"in expects", IOAddInput{Direction: model.IOIn, Text: "x", Expects: model.ExpectsNone}, "outgoing"},
+		{"in route", IOAddInput{Direction: model.IOIn, Text: "x", Route: "domain-logging"}, "outgoing"},
+		{"in bad expects", IOAddInput{Direction: model.IOIn, Text: "x", Expects: "maybe"}, "expects"},
+		{"bad effort", IOAddInput{Direction: model.IOIn, Text: "x", Effort: "huge"}, "effort"},
 		{"out no expects", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"person-ada-example"}}, "expects"},
 		{"out no person", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"ada@acme.example"}, Expects: model.ExpectsNone}, "person or group"},
 		{"response no route", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"person-ada-example"}, Expects: model.ExpectsResponse}, "route"},

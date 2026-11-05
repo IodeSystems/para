@@ -41,6 +41,7 @@ func newRFXCmd(l *loader) *cobra.Command {
 				fs.StringSliceVar(&in.Blocks, "blocks", nil, "ids this blocks")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "RFX ids that must resolve first")
 				fs.StringVar(&in.NextNudge, "next-nudge", "", "YYYY-MM-DD")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			},
 			Bind: func(args []string, in *ops.RFXAddInput) error {
 				in.Ask = strings.Join(args, " ")
@@ -313,6 +314,9 @@ var reasonList = strings.Join(strs(model.FrictionReasons), ", ")
 
 // mediumList is the list of media for flag help.
 var mediumList = strings.Join(strs(model.Mediums), ", ")
+
+// effortHelp is the help of every --effort flag.
+const effortHelp = "how long it takes you: xs (under 15 min), s (under an hour), m (half a day), l (a day or more); para order ranks by it"
 
 func strs[T ~string](in []T) []string {
 	out := make([]string, len(in))

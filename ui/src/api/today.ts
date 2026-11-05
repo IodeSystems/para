@@ -20,6 +20,9 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       kind
       why
       bucket
+      group
+      effort
+      prep
     }
   }
 `)
@@ -47,6 +50,11 @@ const TodayDoc = graphql(/* GraphQL */ `
             }
             agenda {
               ...TodayGroupFields
+            }
+            orderSummary {
+              reply
+              replyMinutes
+              replyPrep
             }
             otherOpen
             health

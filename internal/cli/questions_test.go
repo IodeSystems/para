@@ -143,12 +143,37 @@ func TestQuestionsInToday(t *testing.T) {
 	e.json(&area, "area", "add", "Atlas")
 	e.json(&task, "task", "add", "Ship", "--area", area.ID, "--depends-on", q.ID)
 	out := e.ok("today")
-	if !strings.Contains(out, "agenda 1") || !strings.Contains(out, "question\t"+q.ID+"\tblocks 1\tWho signs off?") {
+	if !strings.Contains(out, "agenda 1") || !strings.Contains(out, "focus\n  question\t"+q.ID+"\tfocus: unblocks 1, about 10 min\tWho signs off?") {
 		t.Fatalf("today: %s", out)
 	}
 	e.ok("answer", q.ID, "--text", "Sam.")
 	if out := e.ok("today"); strings.Contains(out, q.ID) {
 		t.Fatalf("today after answer: %s", out)
+	}
+}
+
+// A message that waits for a reply is in the reply batch of order and today,
+// before focus; --effort is stored.
+func TestReplyBatchInOrderAndToday(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	var msg ops.IOAddOutput
+	e.json(&msg, "io", "add", "Can you confirm the date?", "--direction", "in", "--from", "ada@acme.example", "--expects", "response", "--effort", "s")
+	var area ops.AreaAddOutput
+	e.json(&area, "area", "add", "Atlas")
+	var task ops.TaskAddOutput
+	e.json(&task, "task", "add", "Ship", "--area", area.ID, "--effort", "xs")
+	var o ops.OrderOutput
+	e.json(&o, "order")
+	if len(o.Rows) != 2 || o.Rows[0].ID != msg.ID || o.Rows[0].Group != ops.GroupReply || o.Rows[1].Effort != "xs" || !o.Rows[1].EffortSet || o.Summary.ReplyMinutes != 30 {
+		t.Fatalf("order = %+v", o)
+	}
+	for _, args := range [][]string{{"order"}, {"today"}} {
+		out := e.ok(args...)
+		batch, focus := strings.Index(out, "reply\t1 waiting on you, about 30 min in all, 1 an agent can prepare\n"), strings.Index(out, "focus\n")
+		if batch < 0 || focus < batch || !strings.Contains(out, msg.ID) {
+			t.Errorf("%s: %s", args[0], out)
+		}
 	}
 }
 

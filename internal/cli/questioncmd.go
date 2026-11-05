@@ -156,6 +156,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&in.Options, "option", nil, "a choice; repeatable")
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
 				fs.StringVar(&in.Context, "context", "", "what is needed to decide")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			},
 			Bind: func(args []string, in *ops.QuestionAddInput) error {
 				in.Text = strings.Join(args, " ")
@@ -218,6 +219,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
 				fs.StringVar(&in.Context, "context", "", "what is needed to decide")
 				fs.BoolVar(&in.ClearRecommended, "clear-recommended", false, "remove the recommendation")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			},
 			Bind: func(args []string, in *ops.QuestionEditInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.QuestionEditOutput) error {

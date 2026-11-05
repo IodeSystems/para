@@ -35,9 +35,13 @@ type IOAddInput struct {
 	At        string            `json:"at,omitempty"`   // RFC 3339; in: default now; out: set on send
 	Ref       string            `json:"ref,omitempty"`  // public link a person can open
 	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref}
-	Expects   model.IOExpects   `json:"expects,omitempty"`
-	Route     string            `json:"route,omitempty"`  // out with expects response: the domain the Ask goes to
-	Thread    string            `json:"thread,omitempty"` // id of the io item, interaction, or Ask this one answers
+	// Expects: out: response (sending makes an Ask) or none. In: response when
+	// the sender waits for the owner's reply.
+	Expects model.IOExpects `json:"expects,omitempty"`
+	Route   string          `json:"route,omitempty"`  // out with expects response: the domain the Ask goes to
+	Thread  string          `json:"thread,omitempty"` // id of the io item, interaction, or Ask this one answers
+	// Effort is about how long it takes the owner: xs, s, m, or l.
+	Effort model.Effort `json:"effort,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -52,7 +56,7 @@ type IOAddOutput struct {
 }
 
 // IOAdd captures an incoming message or drafts an outgoing one.
-var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Para sends nothing", ioAdd)
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply. Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Effort is xs, s, m, or l. Para sends nothing", ioAdd)
 
 func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if !slices.Contains(model.IODirections, in.Direction) {
@@ -63,7 +67,10 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		return IOAddOutput{}, errors.New("text is empty")
 	}
 	m := &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: in.Direction, Medium: in.Medium,
-		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via}
+		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via, Effort: in.Effort}
+	if err := checkEffort(in.Effort); err != nil {
+		return IOAddOutput{}, err
+	}
 	if m.Medium == "" {
 		m.Medium = model.MediumOther
 	}
@@ -95,8 +102,11 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	switch in.Direction {
 	case model.IOIn:
 		m.State = model.IOUnread
-		if m.Expects != "" || m.Route != "" {
-			return IOAddOutput{}, errors.New("expects and route are for an outgoing message")
+		if m.Route != "" {
+			return IOAddOutput{}, errors.New("route is for an outgoing message")
+		}
+		if m.Expects != "" && !slices.Contains(model.IOExpectsAll, m.Expects) {
+			return IOAddOutput{}, fmt.Errorf("expects %q: want response (the sender waits for a reply) or none", m.Expects)
 		}
 		if m.At == "" {
 			m.At = d.Store.Now().UTC().Format(time.RFC3339)
@@ -259,11 +269,12 @@ type IOItem struct {
 	Created   model.Date        `json:"created"`
 	// Legacy marks a type inbox capture that upgrade step io-folder has not
 	// moved yet. It reads as unread incoming; file it after the upgrade.
-	Legacy bool `json:"legacy,omitempty"`
+	Legacy bool         `json:"legacy,omitempty"`
+	Effort model.Effort `json:"effort,omitempty"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
-	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From,
+	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From, Effort: m.Effort,
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
 		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created}
 }
@@ -441,8 +452,9 @@ type IOEditInput struct {
 	Subject string          `json:"subject,omitempty"`
 	To      []string        `json:"to,omitempty"`
 	Medium  model.Medium    `json:"medium,omitempty"`
-	Expects model.IOExpects `json:"expects,omitempty"`
+	Expects model.IOExpects `json:"expects,omitempty"` // in: response when the sender waits for a reply
 	Route   string          `json:"route,omitempty"`
+	Effort  model.Effort    `json:"effort,omitempty"` // xs, s, m, or l; either direction
 }
 
 // IOEditOutput is the output of io_edit.
@@ -453,7 +465,7 @@ type IOEditOutput struct {
 }
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
-var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread or expects response (the sender waits for a reply). Effort (xs, s, m, l) is set in either direction. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOEditOutput{}, err
@@ -461,9 +473,18 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if in.State != "" && (!slices.Contains(model.IOStatesOf(m.Direction), in.State) || !in.State.Open()) {
 		return IOEditOutput{}, fmt.Errorf("state %q: an %s message takes %s here; file, send, or drop it with its own tool", in.State, m.Direction, openStates(m.Direction))
 	}
-	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Expects != "" || in.Route != ""
+	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Route != ""
 	if m.Direction == model.IOIn && content {
-		return IOEditOutput{}, errors.New("an incoming message keeps its text and fields: give state, or file or drop it")
+		return IOEditOutput{}, errors.New("an incoming message keeps its text and fields: give state, expects, or effort, or file or drop it")
+	}
+	if err := checkEffort(in.Effort); err != nil {
+		return IOEditOutput{}, err
+	}
+	if in.Effort != "" {
+		m.Effort = in.Effort
+	}
+	if m.Direction == model.IOIn && in.Expects != "" && !slices.Contains(model.IOExpectsAll, in.Expects) {
+		return IOEditOutput{}, fmt.Errorf("expects %q: want response or none", in.Expects)
 	}
 	changed := false
 	if t := cleanText(in.Text); t != "" && t != doc.Body {

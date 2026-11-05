@@ -187,6 +187,9 @@ type TaskAddInput struct {
 	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
+	// Effort is about how long it takes the owner: xs (under 15 min), s
+	// (under an hour), m (half a day), l (a day or more). The value order uses it.
+	Effort model.Effort `json:"effort,omitempty"`
 	// Parent is the id of an open task this one is an action item of. The parent
 	// does not wait on it. With no project or area the task takes the parent's.
 	Parent string `json:"parent,omitempty"`
@@ -230,6 +233,9 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	}
 	due, err := parseDue(in.Due)
 	if err != nil {
+		return TaskAddOutput{}, err
+	}
+	if err := checkEffort(in.Effort); err != nil {
 		return TaskAddOutput{}, err
 	}
 	doneWhen, err := checkDoneWhen(in.DoneWhen, doneWhenNeeded(d))
@@ -325,6 +331,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			Incident:  incident,
 			DoneWhen:  doneWhen,
 			DependsOn: deps,
+			Effort:    in.Effort,
 			Kind:      kind,
 			Scheduled: scheduled,
 			End:       end,
@@ -823,19 +830,21 @@ func doneWhenNeeded(d Deps) bool {
 
 // TaskEditInput is the input of task_edit.
 type TaskEditInput struct {
-	ID       string `json:"id"`
-	DoneWhen string `json:"done_when"` // how we know the task is done
+	ID       string       `json:"id"`
+	DoneWhen string       `json:"done_when,omitempty"` // how we know the task is done
+	Effort   model.Effort `json:"effort,omitempty"`    // xs, s, m, or l
 }
 
 // TaskEditOutput is the output of task_edit.
 type TaskEditOutput struct {
-	ID       string `json:"id"`
-	DoneWhen string `json:"done_when"`
-	Rev      string `json:"rev"`
+	ID       string       `json:"id"`
+	DoneWhen string       `json:"done_when"`
+	Effort   model.Effort `json:"effort,omitempty"`
+	Rev      string       `json:"rev"`
 }
 
-// TaskEdit sets the done condition of an open task.
-var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when). To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+// TaskEdit sets the done condition or the effort of an open task.
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), or both. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err
@@ -843,16 +852,24 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if taskTerminal(t.Status) {
 		return TaskEditOutput{}, fmt.Errorf("%s is already %s", doc.ID, t.Status)
 	}
-	dw, err := checkDoneWhen(in.DoneWhen, true)
-	if err != nil {
+	if err := checkEffort(in.Effort); err != nil {
 		return TaskEditOutput{}, err
 	}
-	t.DoneWhen = dw
+	if in.Effort == "" || in.DoneWhen != "" {
+		dw, err := checkDoneWhen(in.DoneWhen, true)
+		if err != nil {
+			return TaskEditOutput{}, err
+		}
+		t.DoneWhen = dw
+	}
+	if in.Effort != "" {
+		t.Effort = in.Effort
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return TaskEditOutput{}, err
 	}
-	return TaskEditOutput{ID: doc.ID, DoneWhen: dw, Rev: saved.Rev}, nil
+	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, Rev: saved.Rev}, nil
 })
 
 // markDeferred sets Deferred on open tasks, and drops them unless keep is set.

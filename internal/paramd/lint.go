@@ -424,7 +424,8 @@ func (l *linter) question() {
 }
 
 // io checks what the field kinds cannot: the state belongs to the direction,
-// an outgoing message says whether it expects a response, and via names a
+// an outgoing message says whether it expects a response, an incoming one has
+// no route, and via names a
 // source and a reference.
 func (l *linter) io() {
 	fm := l.f.Frontmatter
@@ -437,14 +438,16 @@ func (l *linter) io() {
 	case dir == "out" && state != "" && !out[state]:
 		l.errf(1, CodeFieldValue, "field %q: %q is for an incoming message; outgoing takes draft, ready, sent, dropped", "state", state)
 	}
+	// On an incoming message expects response means the sender waits for a
+	// reply; route is only for the Ask an outgoing one makes.
 	_, hasExp := fm["expects"]
 	switch {
 	case dir == "out" && !hasExp:
 		l.errf(1, CodeField, "type io: an outgoing message needs field %q (response or none)", "expects")
-	case dir == "in" && hasExp:
-		l.errf(1, CodeFieldValue, "field %q: only an outgoing message expects a response", "expects")
+	case dir == "in" && str(fm["route"]) != "":
+		l.errf(1, CodeFieldValue, "field %q: only an outgoing message has a route", "route")
 	}
-	if str(fm["expects"]) == "response" && str(fm["route"]) == "" {
+	if dir == "out" && str(fm["expects"]) == "response" && str(fm["route"]) == "" {
 		l.errf(1, CodeField, "type io: expects response needs field %q, the domain the Ask goes to", "route")
 	}
 	if (state == "filed" || state == "sent") && str(fm["became"]) == "" {

@@ -427,6 +427,8 @@ type QuestionAddInput struct {
 	// confidence with its basis, and a recommendation percent. It names the
 	// options, so options may be left out.
 	OptionDetails []model.OptionDetail `json:"option_details,omitempty"`
+	// Effort is about how long answering takes the owner: xs, s, m, or l.
+	Effort model.Effort `json:"effort,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -446,6 +448,9 @@ var QuestionAdd = defineSafe("question_add", "Record an open question, decision,
 	}
 	scope, err := scopeLink(ctx, d.Store, in.Project, in.Task, in.Area, in.Root)
 	if err != nil {
+		return QuestionAddOutput{}, err
+	}
+	if err := checkEffort(in.Effort); err != nil {
 		return QuestionAddOutput{}, err
 	}
 	if len(in.Options) == 0 {
@@ -472,7 +477,7 @@ var QuestionAdd = defineSafe("question_add", "Record an open question, decision,
 		Meta: &model.Question{
 			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: kind,
 			Scope: scope, Options: opts, Recommended: rec,
-			Context: strings.TrimSpace(in.Context), OptionDetails: in.OptionDetails,
+			Context: strings.TrimSpace(in.Context), OptionDetails: in.OptionDetails, Effort: in.Effort,
 		},
 	})
 	if err != nil {

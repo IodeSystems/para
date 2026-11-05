@@ -52,10 +52,13 @@ func runAgendaHome(l *loader, cmd *cobra.Command) error {
 				v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Health, v.UpgradeSteps, v.Inbox, v.Outbox, v.DocsUnseen, v.DocComments); err != nil {
 				return err
 			}
-			for _, it := range v.Agenda.Items {
-				if _, err := fmt.Fprintf(w, "  %s\t%s\t%s\t%s\n", it.Kind, it.ID, it.Why, it.Title); err != nil {
-					return err
-				}
+			p := &printer{w: w}
+			printRows(p, "  ", v.OrderSummary, len(v.Agenda.Items), func(i int) (group, kind, id, why, title string) {
+				it := v.Agenda.Items[i]
+				return it.Group, it.Kind, it.ID, it.Why, it.Title
+			})
+			if p.err != nil {
+				return p.err
 			}
 			if v.OtherOpen > 0 {
 				if _, err := fmt.Fprintf(w, "  %d other open questions: para question list\n", v.OtherOpen); err != nil {

@@ -209,6 +209,8 @@ type QuestionEditInput struct {
 	Recommended      string   `json:"recommended,omitempty"`       // one of the options
 	ClearRecommended bool     `json:"clear_recommended,omitempty"` // remove the recommendation
 	Context          string   `json:"context,omitempty"`           // replaces what is needed to decide
+	// Effort is about how long answering takes the owner: xs, s, m, or l.
+	Effort model.Effort `json:"effort,omitempty"`
 }
 
 // QuestionEditOutput is the output of question_edit.
@@ -222,7 +224,7 @@ type QuestionEditOutput struct {
 
 // QuestionEdit changes the title, options, and recommendation of an open
 // question, so a converted question need not be dropped and made again.
-var QuestionEdit = define("question_edit", "Change the title, options, or recommended option of an open question", func(ctx context.Context, d Deps, in QuestionEditInput) (QuestionEditOutput, error) {
+var QuestionEdit = define("question_edit", "Change the title, options, recommended option, context, or effort (xs, s, m, l) of an open question", func(ctx context.Context, d Deps, in QuestionEditInput) (QuestionEditOutput, error) {
 	doc, q, err := openQuestionDoc(ctx, d, in.ID)
 	if err != nil {
 		return QuestionEditOutput{}, err
@@ -259,6 +261,12 @@ var QuestionEdit = define("question_edit", "Change the title, options, or recomm
 	q.Options, q.Recommended = opts, rec
 	if c := strings.TrimSpace(in.Context); c != "" {
 		q.Context = c
+	}
+	if err := checkEffort(in.Effort); err != nil {
+		return QuestionEditOutput{}, err
+	}
+	if in.Effort != "" {
+		q.Effort = in.Effort
 	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {

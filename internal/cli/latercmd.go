@@ -88,16 +88,44 @@ func newOrderCmd(l *loader) *cobra.Command {
 		Use:  "order",
 		Args: cobra.NoArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.OrderInput) {
-			fs.StringVar(&in.Kind, "kind", "", "only incident, goal, task, question, ask, meeting, or work")
+			fs.StringVar(&in.Kind, "kind", "", "only incident, goal, task, question, ask, meeting, work, or io")
 		},
 		Text: func(w io.Writer, out ops.OrderOutput) error {
 			p := &printer{w: w}
-			for _, r := range out.Rows {
-				p.f("%s\t%s\t%s\t%s\n", r.Kind, r.ID, r.Why, r.Title)
-			}
+			printRows(p, "", out.Summary, len(out.Rows), func(i int) (group, kind, id, why, title string) {
+				r := out.Rows[i]
+				return r.Group, r.Kind, r.ID, r.Why, r.Title
+			})
 			return p.err
 		},
 	})
+}
+
+// printRows prints value order rows, one per line. The reply group starts
+// with one batch line, and the focus group and the rest after it with a
+// heading, so the owner reads a batch, then focus, then the rest.
+func printRows(p *printer, indent string, sum ops.OrderSummary, n int, row func(i int) (group, kind, id, why, title string)) {
+	last := ""
+	for i := range n {
+		group, kind, id, why, title := row(i)
+		if group != last {
+			switch {
+			case group == ops.GroupReply:
+				p.f("%s%s\n", indent, replyBatch(sum))
+			case group == ops.GroupFocus:
+				p.f("%sfocus\n", indent)
+			case group == ops.GroupImpact && (last == ops.GroupReply || last == ops.GroupFocus):
+				p.f("%sthen\n", indent)
+			}
+			last = group
+		}
+		p.f("%s%s\t%s\t%s\t%s\n", indent, kind, id, why, title)
+	}
+}
+
+// replyBatch is the batch line of the reply group.
+func replyBatch(s ops.OrderSummary) string {
+	return fmt.Sprintf("reply\t%d waiting on you, about %d min in all, %d an agent can prepare", s.Reply, s.ReplyMinutes, s.ReplyPrep)
 }
 
 // newHealthCmd is `para health`: gaps in the vault, as warnings. It exits 0

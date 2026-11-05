@@ -95,7 +95,19 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
 
 type Lead = { why: string; title: ReactNode; action: ReactNode | null }
 
-type AgendaItem = Item & { kind?: string | null; why?: string | null; bucket?: string | null }
+type AgendaItem = Item & { kind?: string | null; why?: string | null; bucket?: string | null; group?: string | null }
+
+type OrderSummary = { reply: number; replyMinutes: number; replyPrep: number }
+
+// groupHeading names a group of the value order where it starts: the reply batch, focus, and
+// the rest after them. Other groups keep no heading.
+function groupHeading(group: string, last: string, s: OrderSummary): string {
+  if (group === 'reply')
+    return `Reply: ${s.reply} waiting on you, about ${s.replyMinutes} min, ${s.replyPrep} an agent can prepare`
+  if (group === 'focus') return 'Focus'
+  if (group === 'impact' && (last === 'reply' || last === 'focus')) return 'Then'
+  return ''
+}
 
 function AgendaLink({ x }: { x: AgendaItem }) {
   const title = x.title || nameOr('', x.id)
@@ -110,12 +122,19 @@ function AgendaLink({ x }: { x: AgendaItem }) {
 }
 
 // AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
-// The owner acts on a row in the chat. What cannot start yet comes last, under its own heading.
-function AgendaRows({ items }: { items: AgendaItem[] }) {
+// The owner acts on a row in the chat. Replies come as one batch, then focus. What cannot start
+// yet comes last, under its own heading.
+function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSummary }) {
   const firstLater = items.findIndex((x) => x.bucket === 'not_yet')
   return (
     <List dense disablePadding>
       {items.map((x, i) => [
+        (i === 0 || items[i - 1].group !== x.group) &&
+          groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary) && (
+            <ListSubheader key={`group-${x.group}`} disableGutters sx={{ lineHeight: 2.5 }}>
+              {groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary)}
+            </ListSubheader>
+          ),
         i === firstLater && (
           <ListSubheader key="not-yet" disableGutters sx={{ lineHeight: 2.5 }}>
             Not yet startable
@@ -395,7 +414,7 @@ function Agenda() {
                     )
                   }
                 >
-                  <AgendaRows items={agendaRows} />
+                  <AgendaRows items={agendaRows} summary={t.orderSummary} />
                   {t.otherOpen > 0 && (
                     <LinkButton size="small" color="inherit" to="/questions">
                       {t.otherOpen} other open question{t.otherOpen === 1 ? '' : 's'}

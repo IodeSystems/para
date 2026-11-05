@@ -2369,6 +2369,13 @@ enum para_IOAddInputDirection {
   out
 }
 
+enum para_IOAddInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 enum para_IOAddInputExpects {
   none
   response
@@ -2377,6 +2384,7 @@ enum para_IOAddInputExpects {
 input para_IOAddInputInput {
   at: String
   direction: para_IOAddInputDirection!
+  effort: para_IOAddInputEffort
   expects: para_IOAddInputExpects
   from: String
   importedFrom: para_ImportedFromInput
@@ -2480,12 +2488,20 @@ enum para_IODropOutputState {
   unread
 }
 
+enum para_IOEditInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 enum para_IOEditInputExpects {
   none
   response
 }
 
 input para_IOEditInputInput {
+  effort: para_IOEditInputEffort
   expects: para_IOEditInputExpects
   id: String!
   medium: para_IOEditInputMedium
@@ -2617,6 +2633,7 @@ type para_IOItem {
   became: String
   created: String!
   direction: para_IOItemDirection!
+  effort: para_IOItemEffort
   expects: para_IOItemExpects
   from: String
   id: String!
@@ -2635,6 +2652,13 @@ type para_IOItem {
 enum para_IOItemDirection {
   in
   out
+}
+
+enum para_IOItemEffort {
+  l
+  m
+  s
+  xs
 }
 
 enum para_IOItemExpects {
@@ -3703,6 +3727,7 @@ type para_Meta {
   due: String
   duplicateOf: String
   ecosystem: JSON
+  effort: String
   end: String
   ended: String
   expects: String
@@ -4035,6 +4060,14 @@ input para_OptionDetailInput {
 type para_OrderOutput {
   heldUp: [para_HeldUp!]!
   rows: [para_ValueRow!]!
+  summary: para_OrderSummary!
+}
+
+type para_OrderSummary {
+  focus: Int!
+  reply: Int!
+  replyMinutes: Int!
+  replyPrep: Int!
 }
 
 input para_OrgAddInputInput {
@@ -4816,9 +4849,17 @@ enum para_ProposalWaitOutputStatus {
   superseded
 }
 
+enum para_QuestionAddInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 input para_QuestionAddInputInput {
   area: String
   context: String
+  effort: para_QuestionAddInputEffort
   importedFrom: para_ImportedFromInput
   kind: para_QuestionAddInputKind
   optionDetails: [para_OptionDetailInput!]
@@ -4937,10 +4978,18 @@ input para_QuestionDropInputInput {
   reason: String
 }
 
+enum para_QuestionEditInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 input para_QuestionEditInputInput {
   clearOptions: Boolean
   clearRecommended: Boolean
   context: String
+  effort: para_QuestionEditInputEffort
   id: String!
   options: [String!]
   recommended: String
@@ -5071,11 +5120,19 @@ enum para_RFXAddInputDirection {
   out
 }
 
+enum para_RFXAddInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 input para_RFXAddInputInput {
   ask: String!
   blocks: [String!]
   dependsOn: [String!]
   direction: para_RFXAddInputDirection!
+  effort: para_RFXAddInputEffort
   importedFrom: para_ImportedFromInput
   nextNudge: String
   project: String
@@ -6671,6 +6728,13 @@ enum para_TargetState {
   sent
 }
 
+enum para_TaskAddInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 input para_TaskAddInputInput {
   area: String
   assignee: String
@@ -6681,6 +6745,7 @@ input para_TaskAddInputInput {
   dependsOn: [String!]
   doneWhen: String
   due: String
+  effort: para_TaskAddInputEffort
   end: String
   importedFrom: para_ImportedFromInput
   incident: String
@@ -6856,15 +6921,31 @@ type para_TaskDueOutput {
   rev: String!
 }
 
+enum para_TaskEditInputEffort {
+  l
+  m
+  s
+  xs
+}
+
 input para_TaskEditInputInput {
-  doneWhen: String!
+  doneWhen: String
+  effort: para_TaskEditInputEffort
   id: String!
 }
 
 type para_TaskEditOutput {
   doneWhen: String!
+  effort: para_TaskEditOutputEffort
   id: String!
   rev: String!
+}
+
+enum para_TaskEditOutputEffort {
+  l
+  m
+  s
+  xs
 }
 
 type para_TaskListOutput {
@@ -7163,8 +7244,11 @@ type para_TodayItem {
   bucket: String
   detail: String
   due: String
+  effort: para_TodayItemEffort
+  group: String
   id: String!
   kind: String
+  prep: Boolean
   project: String
   projectName: String
   proposal: Boolean
@@ -7173,6 +7257,13 @@ type para_TodayItem {
   title: String!
   why: String
   with: [String!]
+}
+
+enum para_TodayItemEffort {
+  l
+  m
+  s
+  xs
 }
 
 type para_TodayVaultToday {
@@ -7193,6 +7284,7 @@ type para_TodayVaultToday {
   incidents: para_TodayGroup!
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
+  orderSummary: para_OrderSummary!
   otherOpen: Int!
   outbox: Int!
   overdue: para_TodayGroup!
@@ -7339,6 +7431,8 @@ type para_ValueRow {
   bucket: String!
   due: String
   effDue: String
+  effort: para_ValueRowEffort!
+  effortSet: Boolean
   group: String!
   id: String!
   impact: Int!
@@ -7346,10 +7440,19 @@ type para_ValueRow {
   kind: String!
   owed: Boolean
   parent: String
+  prep: Boolean
   proposal: Boolean
   starts: String
   title: String!
+  waitingDays: Int
   why: String!
+}
+
+enum para_ValueRowEffort {
+  l
+  m
+  s
+  xs
 }
 
 type para_VaultConfigListOutput {

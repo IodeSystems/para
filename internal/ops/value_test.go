@@ -139,6 +139,12 @@ func TestRankValue(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			// These cases check the impact and date rules: one effort for
+			// all keeps the score in impact order. TestRankValueEffort
+			// checks effort.
+			for i := range c.nodes {
+				c.nodes[i].Effort = model.EffortM
+			}
 			got := RankValue(c.nodes, rankAt)
 			if !reflect.DeepEqual(rowIDs(got.Rows), c.want) {
 				t.Errorf("order = %v, want %v", rowIDs(got.Rows), c.want)
@@ -251,6 +257,166 @@ func TestOrderPutsWorkThatCanStartNowFirst(t *testing.T) {
 		if r.ID == t1 && (r.Bucket != BucketNotYet || r.After != m || !strings.HasPrefix(r.Why, "not yet, waits on meeting Design review on Nov 12")) {
 			t.Errorf("t1 = %+v", r)
 		}
+	}
+}
+
+func groupOf(o ValueOrder) map[string]ValueRow {
+	out := map[string]ValueRow{}
+	for _, r := range o.Rows {
+		out[r.ID] = r
+	}
+	return out
+}
+
+// Effort, the reply group, and the focus group.
+func TestRankValueEffort(t *testing.T) {
+	t.Run("an ask to the owner is listed, quick by default, in reply", func(t *testing.T) {
+		got := RankValue([]ValueNode{{ID: "ask", Kind: KindAsk, Owed: true, Prep: true, Created: "2026-10-22"}}, rankAt)
+		r := groupOf(got)["ask"]
+		if r.Group != GroupReply || r.Effort != model.EffortXS || r.EffortSet || !r.Prep || r.WaitingDays != 13 {
+			t.Errorf("row = %+v", r)
+		}
+		if r.Why != "someone waits 13 days; about 10 min; asked of you" {
+			t.Errorf("why = %q", r.Why)
+		}
+		if got.Summary != (OrderSummary{Reply: 1, ReplyMinutes: 10, ReplyPrep: 1}) {
+			t.Errorf("summary = %+v", got.Summary)
+		}
+	})
+	t.Run("defaults: question xs, task m; a set effort is kept and marked", func(t *testing.T) {
+		rows := groupOf(RankValue([]ValueNode{
+			{ID: "q", Kind: KindQuestion},
+			{ID: "t", Kind: KindTask},
+			{ID: "s", Kind: KindTask, Effort: model.EffortS},
+		}, rankAt))
+		for id, want := range map[string]model.Effort{"q": model.EffortXS, "t": model.EffortM, "s": model.EffortS} {
+			if rows[id].Effort != want || rows[id].EffortSet != (id == "s") {
+				t.Errorf("%s = %+v, want effort %s", id, rows[id], want)
+			}
+		}
+	})
+	t.Run("reply: longest waiting cost first; days times the people waiting", func(t *testing.T) {
+		got := RankValue([]ValueNode{
+			{ID: "old", Kind: KindAsk, Owed: true, Created: "2026-10-25"},                                              // 10 days, 1 person
+			{ID: "many", Kind: KindAsk, Owed: true, Created: "2026-10-31", Waiters: 3},                                 // 4 days, 3 people
+			{ID: "msg", Kind: KindIO, Owed: true, Created: "2026-10-01", Arrived: "2026-11-02", Effort: model.EffortS}, // 2 days
+			{ID: "big", Kind: KindAsk, Owed: true, Created: "2026-09-01", Effort: model.EffortM},                       // too big for reply
+		}, rankAt)
+		if ids := rowIDs(got.Rows); !reflect.DeepEqual(ids, []string{"many", "old", "msg", "big"}) {
+			t.Errorf("order = %v", ids)
+		}
+		rows := groupOf(got)
+		if rows["many"].WaitingDays != 12 || rows["big"].Group != GroupImpact || rows["big"].WaitingDays != 64 {
+			t.Errorf("rows = %+v", rows)
+		}
+		if w := rows["many"].Why; !strings.HasPrefix(w, "3 people wait 4 days; about 10 min") {
+			t.Errorf("why = %q", w)
+		}
+		if got.Summary.Reply != 3 || got.Summary.ReplyMinutes != 50 {
+			t.Errorf("summary = %+v", got.Summary)
+		}
+	})
+	// small blocks 1 (impact 1, s): (1+1)/2 = 1. large blocks 4 (impact 4, l):
+	// 5/8. small wins though it unblocks less.
+	nodes := []ValueNode{
+		{ID: "small", Kind: KindTask, Effort: model.EffortS},
+		{ID: "a", Kind: KindTask, Deps: []string{"small"}, Effort: model.EffortL, Hidden: true},
+		{ID: "large", Kind: KindTask, Effort: model.EffortL},
+		{ID: "b1", Kind: KindTask, Deps: []string{"large"}, Hidden: true},
+		{ID: "b2", Kind: KindTask, Deps: []string{"large"}, Hidden: true},
+		{ID: "b3", Kind: KindTask, Deps: []string{"large"}, Hidden: true},
+		{ID: "b4", Kind: KindTask, Deps: []string{"large"}, Hidden: true},
+		{ID: "mid", Kind: KindTask, Effort: model.EffortM},
+		{ID: "waits", Kind: KindTask, Effort: model.EffortXS, Deps: []string{"mid"}},
+		{ID: "g", Kind: KindGoal, Effort: model.EffortXS},
+	}
+	t.Run("focus picks by impact per effort; not a goal or an item that waits", func(t *testing.T) {
+		opt := rankAt
+		opt.FocusCount = 2
+		got := RankValue(nodes, opt)
+		// mid unblocks waits: 2/4. waits and g score 1/1 but are not picked.
+		if ids := rowIDs(got.Rows); !reflect.DeepEqual(ids, []string{"small", "large", "g", "waits", "mid"}) {
+			t.Errorf("order = %v", ids)
+		}
+		rows := groupOf(got)
+		if rows["small"].Group != GroupFocus || rows["large"].Group != GroupFocus || rows["mid"].Group != GroupImpact || got.Summary.Focus != 2 {
+			t.Errorf("rows = %+v", rows)
+		}
+		if w := rows["large"].Why; w != "focus: unblocks 4, a day or more" {
+			t.Errorf("why = %q", w)
+		}
+	})
+	t.Run("focus count", func(t *testing.T) {
+		for _, n := range []int{0, 1, 3} {
+			opt := rankAt
+			opt.FocusCount = n
+			got := RankValue(nodes, opt)
+			if got.Summary.Focus != n {
+				t.Errorf("focus count %d: got %d", n, got.Summary.Focus)
+			}
+			if n == 1 && got.Rows[0].ID != "small" {
+				t.Errorf("focus count 1: first = %s", got.Rows[0].ID)
+			}
+		}
+	})
+}
+
+// In a vault: an incoming message that expects a response is in reply, an
+// outgoing draft is listed with prep, and order.focus_count is read.
+func TestOrderReplyAndFocus(t *testing.T) {
+	d, ada := agendaVault(t, "2026-11-04T12:00:00Z")
+	area := must(t, AreaAdd, d, AreaAddInput{Title: "Platform"}).ID
+	msg := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Can you confirm the cutover date?", From: ada, Expects: model.ExpectsResponse, At: "2026-11-01T09:00:00Z"}).ID
+	must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Newsletter", From: ada})
+	draft := must(t, IOAdd, d, IOAddInput{Direction: model.IOOut, Text: "Status update", To: []string{ada}, Expects: model.ExpectsNone}).ID
+	for _, n := range []string{"one", "two", "three", "four"} {
+		must(t, TaskAdd, d, TaskAddInput{Area: area, Title: "Task " + n, Effort: model.EffortS})
+	}
+	out := must(t, OrderOp, d, OrderInput{})
+	rows := map[string]ValueRow{}
+	for _, r := range out.Rows {
+		rows[r.ID] = r
+	}
+	if len(out.Rows) != 6 {
+		t.Errorf("rows = %v, want the message, the draft, and four tasks", rowIDs(out.Rows))
+	}
+	if r := rows[msg]; r.Kind != KindIO || r.Group != GroupReply || r.WaitingDays != 3 || !r.Prep || out.Rows[0].ID != msg {
+		t.Errorf("message = %+v", r)
+	}
+	if r := rows[draft]; !r.Prep || r.Owed || r.Group == GroupReply {
+		t.Errorf("draft = %+v", r)
+	}
+	if out.Summary.Reply != 1 || out.Summary.ReplyPrep != 1 || out.Summary.Focus != DefaultFocusCount {
+		t.Errorf("summary = %+v", out.Summary)
+	}
+	must(t, VaultConfigSet, d, VaultConfigSetInput{Key: FocusCountKey, Value: "1"})
+	if got := must(t, OrderOp, d, OrderInput{}).Summary.Focus; got != 1 {
+		t.Errorf("focus count 1: got %d", got)
+	}
+}
+
+// Effort is set through the add and edit ops; a bad value is refused.
+func TestEffortThroughOps(t *testing.T) {
+	d, _ := agendaVault(t, "2026-11-04T12:00:00Z")
+	area := must(t, AreaAdd, d, AreaAddInput{Title: "Platform"}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Area: area, Title: "Ship", DoneWhen: "Tagged."}).ID
+	if out := must(t, TaskEdit, d, TaskEditInput{ID: task, Effort: model.EffortL}); out.Effort != model.EffortL || out.DoneWhen != "Tagged." {
+		t.Errorf("task_edit = %+v", out)
+	}
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region?", Root: true, Effort: model.EffortS}).ID
+	must(t, QuestionEdit, d, QuestionEditInput{ID: q, Effort: model.EffortM})
+	rows := map[string]ValueRow{}
+	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+		rows[r.ID] = r
+	}
+	if rows[task].Effort != model.EffortL || rows[q].Effort != model.EffortM || !rows[q].EffortSet {
+		t.Errorf("rows = %+v", rows)
+	}
+	if _, err := TaskEdit.Run(ctx, d, TaskEditInput{ID: task, Effort: "huge"}); err == nil || !strings.Contains(err.Error(), "effort") {
+		t.Errorf("bad effort: %v", err)
+	}
+	if _, err := TaskEdit.Run(ctx, d, TaskEditInput{ID: task}); err == nil {
+		t.Error("task_edit with nothing accepted")
 	}
 }
 

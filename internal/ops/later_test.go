@@ -351,11 +351,13 @@ func TestOrderPutsABlockerOfADatedGoalFirst(t *testing.T) {
 	for _, r := range rows {
 		order = append(order, r.ID)
 	}
-	want := []string{q, tk, proj, idle}
+	// Focus picks the two questions (quick, by default); the task waits on q
+	// and the goal is never picked.
+	want := []string{q, idle, tk, proj}
 	if strings.Join(order, ",") != strings.Join(want, ",") {
 		t.Errorf("order = %v, want %v", order, want)
 	}
-	if rows[0].Why != "blocks 1, goal due Nov 12" {
+	if rows[0].Why != "focus: unblocks 1, about 10 min; goal due Nov 12" {
 		t.Errorf("why = %q", rows[0].Why)
 	}
 }
@@ -401,7 +403,7 @@ func TestDeferAfterItemAndUndefer(t *testing.T) {
 	for _, r := range o.Rows {
 		if r.ID == q {
 			found = true
-			if !strings.HasPrefix(r.Why, "ready: Policy notes updated done") {
+			if !strings.Contains(r.Why, "ready: Policy notes updated done") {
 				t.Errorf("why = %q", r.Why)
 			}
 		}

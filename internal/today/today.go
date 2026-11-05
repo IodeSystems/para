@@ -38,6 +38,12 @@ type Item struct {
 	// Bucket is set on an Agenda item: now (actionable now) or not_yet (not
 	// yet startable), as in ops.RankValue.
 	Bucket string `json:"bucket,omitempty"`
+	// Group, Effort, and Prep are set on an Agenda item, as in ops.ValueRow:
+	// the group of the value order (reply, focus, ...), the effort, and
+	// whether an agent can prepare it.
+	Group  string       `json:"group,omitempty"`
+	Effort model.Effort `json:"effort,omitempty"`
+	Prep   bool         `json:"prep,omitempty"`
 	// Proposal marks a question with an answer to check.
 	Proposal bool `json:"proposal,omitempty"`
 	// Names, for people. Project is a task's project id, Scope a question's
@@ -67,6 +73,9 @@ type VaultToday struct {
 	// the rest. Questions are in it like any other item. Goals shape the order
 	// and are not listed.
 	Agenda Group `json:"agenda"`
+	// OrderSummary sums up the reply group of the agenda: how many, about how
+	// many minutes, and how many an agent can prepare.
+	OrderSummary ops.OrderSummary `json:"order_summary"`
 	// OtherOpen counts open questions that block nothing and have no date,
 	// left out of Agenda while it is long. The Questions page lists them.
 	OtherOpen int `json:"other_open"`
@@ -387,7 +396,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 	var rows []ops.ValueRow
 	for _, r := range o.Rows {
 		switch r.Kind {
-		case ops.KindIncident, ops.KindQuestion:
+		case ops.KindIncident, ops.KindQuestion, ops.KindIO:
 		case ops.KindTask:
 			if !isReady[r.ID] && (r.EffDue == "" || r.EffDue > soon) {
 				continue
@@ -403,7 +412,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 		rows = append(rows, r)
 	}
 	other := func(r ops.ValueRow) bool {
-		return r.Kind == ops.KindQuestion && r.EffDue == "" && r.Impact == 0 && !r.Proposal
+		return r.Kind == ops.KindQuestion && r.Group == ops.GroupImpact && r.EffDue == "" && r.Impact == 0 && !r.Proposal
 	}
 	if len(rows) > AgendaLimit {
 		keep := rows[:0:0]
@@ -417,9 +426,11 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 		rows = keep
 	}
 	for _, r := range rows {
-		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Bucket: r.Bucket, Blocks: r.Blocks, Proposal: r.Proposal})
+		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Bucket: r.Bucket, Blocks: r.Blocks, Proposal: r.Proposal,
+			Group: r.Group, Effort: r.Effort, Prep: r.Prep})
 	}
 	vt.Agenda.Count = len(vt.Agenda.Items)
+	vt.OrderSummary = o.Summary
 	vt.HeldUp = o.Held
 	qs, err := ops.QuestionList.Run(ctx, ops.Deps{Store: st}, ops.QuestionListInput{Deferred: true})
 	if err != nil {

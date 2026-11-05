@@ -14,7 +14,8 @@ import (
 )
 
 // Value order. One function orders everything that needs the owner, for
-// Today, next, agenda, and the PWA. The rule, with no weights:
+// Today, next, agenda, and the PWA. It is a rule an agent does not redo by
+// reasoning:
 //
 // Every listed item is either actionable now or not yet startable. Not yet
 // startable is a booked meeting whose day is after today, a call or work with
@@ -24,9 +25,21 @@ import (
 //  1. Open incidents, worst severity first.
 //  2. Items overdue or due within order.due_soon_days (default 2) by their
 //     effective due date, soonest first.
-//  3. Everything else by impact, highest first.
+//  3. Reply: someone waits on the owner (an ask made to the owner, an incoming
+//     message that expects a response) and it takes under an hour. Longest
+//     waiting cost first: days waited times the people waiting.
+//  4. Focus: the order.focus_count (default 3) items of the rest with the best
+//     score, (impact+1) / effort weight (xs 1, s 2, m 4, l 8). A goal, agent
+//     work, and an item that waits on another open item are not picked.
+//  5. Everything else by the same score, highest first.
 //
 // Not yet startable comes last, by the day it can start.
+//
+// Effort is the item's effort field. Unset, it is xs for an ask made to the
+// owner, a question, and an incoming message that expects a response, and m
+// for the rest. Prep marks an item an agent can prepare in full so the owner
+// only approves: an ask made to the owner, a question, an outgoing draft, and
+// an incoming message that expects a response.
 //
 // Effective due is the earliest of the item's own date and the date of any
 // open item downstream of it (anything that waits on it, through depends_on,
@@ -48,15 +61,53 @@ const (
 	KindAsk      = "ask"
 	KindMeeting  = "meeting"
 	KindWork     = "work"
+	// KindIO is an io item: an incoming message that expects a response, or
+	// an outgoing draft.
+	KindIO = "io"
 )
 
-// Groups of ValueRow, in order. The first three are actionable now.
+// Groups of ValueRow, in order. All but not_yet are actionable now.
 const (
 	GroupIncident = "incident"
 	GroupDueSoon  = "due_soon"
+	GroupReply    = "reply"
+	GroupFocus    = "focus"
 	GroupImpact   = "impact"
 	GroupNotYet   = "not_yet"
 )
+
+// FocusCountKey is the vault setting of how many items the focus group holds.
+const FocusCountKey = "order.focus_count"
+
+// DefaultFocusCount is the size of the focus group when the vault sets none.
+const DefaultFocusCount = 3
+
+// effortWeight is the divisor of the score; effortMinutes is the estimate of
+// a reply, which only takes xs and s.
+var (
+	effortWeight  = map[model.Effort]int{model.EffortXS: 1, model.EffortS: 2, model.EffortM: 4, model.EffortL: 8}
+	effortMinutes = map[model.Effort]int{model.EffortXS: 10, model.EffortS: 30}
+	effortWords   = map[model.Effort]string{model.EffortXS: "about 10 min", model.EffortS: "about 30 min", model.EffortM: "half a day", model.EffortL: "a day or more"}
+)
+
+// checkEffort refuses an effort that is not xs, s, m, or l. Empty is not set.
+func checkEffort(e model.Effort) error {
+	if e != "" && !slices.Contains(model.Efforts, e) {
+		return fmt.Errorf("effort %q: want xs (under 15 min), s (under an hour), m (half a day), or l (a day or more)", e)
+	}
+	return nil
+}
+
+// effortOf is the node's effort and whether it was set.
+func effortOf(n ValueNode) (model.Effort, bool) {
+	if effortWeight[n.Effort] > 0 {
+		return n.Effort, true
+	}
+	if n.Owed || n.Kind == KindQuestion {
+		return model.EffortXS, false
+	}
+	return model.EffortM, false
+}
 
 // Buckets of ValueRow.
 const (
@@ -74,6 +125,7 @@ const DefaultDueSoonDays = 2
 type RankOptions struct {
 	Today       string // YYYY-MM-DD
 	DueSoonDays int    // overdue or due within this many days of Today ranks by date
+	FocusCount  int    // how many items the focus group holds; 0 is none
 }
 
 // goalWeight is how many items a goal counts for in impact.
@@ -112,8 +164,18 @@ type ValueNode struct {
 	// meeting's day, or the day a call or work with someone is scheduled.
 	Start string
 	// Owed is true when someone waits on the owner: an ask made to the owner
-	// (rfx direction in).
+	// (rfx direction in), or an incoming message that expects a response.
 	Owed bool
+	// Arrived is the day the owner's wait began, YYYY-MM-DD; "" is Created.
+	// Waiters is how many people wait; under 1 counts as 1. Both are read
+	// only when Owed.
+	Arrived string
+	Waiters int
+	// Effort is the item's effort field, or "" when not set.
+	Effort model.Effort
+	// Prep is true when an agent can prepare the item in full and the owner
+	// only approves.
+	Prep bool
 }
 
 // ValueRow is one listed item with the reason it is where it is.
@@ -136,8 +198,27 @@ type ValueRow struct {
 	// on, when that and not the item itself sets the day.
 	Starts string `json:"starts,omitempty"`
 	After  string `json:"after,omitempty"`
-	// Owed is true when someone waits on the owner: an ask made to the owner.
+	// Owed is true when someone waits on the owner: an ask made to the owner,
+	// or an incoming message that expects a response.
 	Owed bool `json:"owed,omitempty"`
+	// Effort is xs, s, m, or l; EffortSet is false when it is the default.
+	Effort    model.Effort `json:"effort"`
+	EffortSet bool         `json:"effort_set,omitempty"`
+	// WaitingDays is the waiting cost of an owed item: days since the wait
+	// began times the people waiting.
+	WaitingDays int `json:"waiting_days,omitempty"`
+	// Prep is true when an agent can prepare it in full and the owner only
+	// approves.
+	Prep bool `json:"prep,omitempty"`
+}
+
+// OrderSummary sums up the reply group: how many items, about how many
+// minutes in all (xs 10, s 30), and how many an agent can prepare.
+type OrderSummary struct {
+	Reply        int `json:"reply"`
+	ReplyMinutes int `json:"reply_minutes"`
+	ReplyPrep    int `json:"reply_prep"`
+	Focus        int `json:"focus"`
 }
 
 // HeldUp says a deferred item holds up work that is due before it returns.
@@ -152,8 +233,9 @@ type HeldUp struct {
 
 // ValueOrder is the order of a vault.
 type ValueOrder struct {
-	Rows []ValueRow `json:"rows"`
-	Held []HeldUp   `json:"held_up"`
+	Rows    []ValueRow   `json:"rows"`
+	Held    []HeldUp     `json:"held_up"`
+	Summary OrderSummary `json:"summary"`
 }
 
 // ShortDate renders YYYY-MM-DD as "Nov 12".
@@ -222,6 +304,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	}
 	var rows []ValueRow
 	var held []HeldUp
+	focusable := map[string]func() string{} // impact rows focus may pick, to their reason
 	items := map[string]int{}
 	for _, n := range nodes {
 		if n.Parent != "" && by[n.Parent] != nil {
@@ -247,7 +330,13 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 			continue
 		}
-		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed}
+		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed, Prep: n.Prep}
+		r.Effort, r.EffortSet = effortOf(n)
+		waitDays := 0
+		if n.Owed {
+			waitDays = daysBetween(cmp.Or(n.Arrived, n.Created), opt.Today)
+			r.WaitingDays = waitDays * max(n.Waiters, 1)
+		}
 		if by[n.Parent] != nil {
 			r.Parent = n.Parent
 		}
@@ -277,6 +366,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Group = GroupIncident
 		case eff != "" && eff <= soon:
 			r.Group = GroupDueSoon
+		case n.Owed && effortWeight[r.Effort] <= effortWeight[model.EffortS]:
+			r.Group = GroupReply
 		default:
 			r.Group = GroupImpact
 		}
@@ -287,7 +378,32 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 		}
 		r.Why = why(n, r, from, waits)
+		if r.Group == GroupImpact && len(waits) == 0 && n.Kind != KindGoal && n.Kind != KindWork {
+			// Focus picks among these below; the reason is set then.
+			focusable[n.ID] = func() string {
+				lead := "focus: " + effortWords[r.Effort]
+				if r.Blocks > 0 {
+					lead = fmt.Sprintf("focus: unblocks %d, %s", r.Blocks, effortWords[r.Effort])
+				}
+				rest := r
+				rest.Blocks = 0
+				if w := why(n, rest, from, waits); w != whyNone {
+					lead += "; " + w
+				}
+				return lead
+			}
+		}
 		switch {
+		case r.Group == GroupReply:
+			who := "someone waits"
+			if n.Waiters > 1 {
+				who = fmt.Sprintf("%d people wait", n.Waiters)
+			}
+			lead := fmt.Sprintf("%s %s; %s", who, plural(waitDays, "day"), effortWords[r.Effort])
+			if r.Why != whyNone {
+				lead += "; " + r.Why
+			}
+			r.Why = lead
 		case r.Group == GroupNotYet && r.After != "":
 			u := by[r.After]
 			what := shorten(cmp.Or(u.Title, u.ID))
@@ -304,7 +420,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		rows = append(rows, r)
 	}
-	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupImpact: 2, GroupNotYet: 3}
+	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupReply: 2, GroupFocus: 3, GroupImpact: 4, GroupNotYet: 5}
 	created := map[string]string{}
 	sev := map[string]string{}
 	goalRank := map[string]int{}
@@ -316,7 +432,11 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	}
 	// due compares effective dates, an item with none last.
 	due := func(a, b ValueRow) int { return cmp.Compare(dueKey(a.EffDue), dueKey(b.EffDue)) }
-	slices.SortStableFunc(rows, func(a, b ValueRow) int {
+	// score puts the better (impact+1) / effort weight first, without division.
+	score := func(a, b ValueRow) int {
+		return cmp.Compare((b.Impact+1)*effortWeight[a.Effort], (a.Impact+1)*effortWeight[b.Effort])
+	}
+	order := func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
 			return c
 		}
@@ -326,8 +446,10 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			return cmp.Or(cmp.Compare(sev[a.ID], sev[b.ID]), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
 		case GroupDueSoon:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
-		case GroupImpact:
-			c = cmp.Or(cmp.Compare(b.Impact, a.Impact), due(a, b))
+		case GroupReply:
+			c = cmp.Or(cmp.Compare(b.WaitingDays, a.WaitingDays), due(a, b))
+		case GroupFocus, GroupImpact:
+			c = cmp.Or(score(a, b), due(a, b))
 		case GroupNotYet:
 			c = cmp.Or(cmp.Compare(a.Starts, b.Starts), due(a, b), cmp.Compare(b.Impact, a.Impact))
 		}
@@ -342,7 +464,27 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 		}
 		return cmp.Or(cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
-	})
+	}
+	slices.SortStableFunc(rows, order)
+	// Focus takes the best scored impact rows it may pick; the order within
+	// stays the same, so one more sort moves them up as a group.
+	var sum OrderSummary
+	for i := range rows {
+		if sum.Focus < opt.FocusCount && rows[i].Group == GroupImpact && focusable[rows[i].ID] != nil {
+			rows[i].Group, rows[i].Why = GroupFocus, focusable[rows[i].ID]()
+			sum.Focus++
+		}
+	}
+	slices.SortStableFunc(rows, order)
+	for _, r := range rows {
+		if r.Group == GroupReply {
+			sum.Reply++
+			sum.ReplyMinutes += effortMinutes[r.Effort]
+			if r.Prep {
+				sum.ReplyPrep++
+			}
+		}
+	}
 	slices.SortFunc(held, func(a, b HeldUp) int { return cmp.Or(cmp.Compare(a.Due, b.Due), cmp.Compare(a.ID, b.ID)) })
 	if rows == nil {
 		rows = []ValueRow{}
@@ -350,7 +492,18 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	if held == nil {
 		held = []HeldUp{}
 	}
-	return ValueOrder{Rows: rows, Held: held}
+	return ValueOrder{Rows: rows, Held: held, Summary: sum}
+}
+
+// daysBetween is the whole days from day a to day b, both YYYY-MM-DD; 0 when
+// either does not parse or b is not after a.
+func daysBetween(a, b string) int {
+	ta, err1 := time.Parse(dateLayout, a)
+	tb, err2 := time.Parse(dateLayout, b)
+	if err1 != nil || err2 != nil || !tb.After(ta) {
+		return 0
+	}
+	return int(tb.Sub(ta).Hours() / 24)
 }
 
 // startOf is the day an item can start and the item that sets it.
@@ -398,6 +551,9 @@ func notYet(nodes []ValueNode, by map[string]*ValueNode, today string) map[strin
 	return out
 }
 
+// whyNone is the reason of a row with nothing else to say.
+const whyNone = "blocks nothing, no date"
+
 // why says in words why a row is where it is.
 func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 	var parts []string
@@ -441,7 +597,7 @@ func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 		parts = append(parts, "answer to check")
 	}
 	if len(parts) == 0 {
-		return "blocks nothing, no date"
+		return whyNone
 	}
 	return strings.Join(parts, ", ")
 }
@@ -465,7 +621,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 	}
 	for _, r := range refs {
 		switch r.Type {
-		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest:
+		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO:
 		default:
 			continue
 		}
@@ -515,7 +671,7 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee)
-			n.Parent = m.Parent.Target()
+			n.Parent, n.Effort = m.Parent.Target(), m.Effort
 			n.Deps = targets(m.DependsOn)
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
 				n.Start, _ = meetingDay(m.Scheduled)
@@ -525,14 +681,17 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(m.DependsOn), m.HasProposal()
+			n.Effort, n.Prep = m.Effort, true
 		case *model.RFX:
 			if m.Status != model.RFXOpen {
 				continue
 			}
-			n.Kind, n.Due, n.Deps = KindAsk, string(m.NextNudge), targets(m.DependsOn)
+			n.Kind, n.Due, n.Deps, n.Effort = KindAsk, string(m.NextNudge), targets(m.DependsOn), m.Effort
 			// An ask to the owner is owed; an ask the owner made waits on
 			// someone else and is listed for its nudge date.
-			n.Owed = m.Direction == model.RFXIn
+			if m.Direction == model.RFXIn {
+				n.Owed, n.Prep, n.Waiters, n.Arrived = true, true, len(m.Targets), askArrived(m)
+			}
 			for _, l := range m.Blocks {
 				rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
 			}
@@ -543,6 +702,18 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind = KindWork
+		case *model.IO:
+			// Listed: an incoming message whose sender waits for a reply, and
+			// an outgoing draft. An agent can prepare both.
+			switch {
+			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Expects == model.ExpectsResponse:
+				n.Owed, n.Waiters = true, 1
+				n.Arrived, _ = meetingDay(m.At)
+			case m.Direction == model.IOOut && m.State == model.IODraft:
+			default:
+				continue
+			}
+			n.Kind, n.Effort, n.Prep = KindIO, m.Effort, true
 		}
 		nodes = append(nodes, n)
 	}
@@ -577,28 +748,48 @@ func OrderAt(ctx context.Context, s store.Store, today string) (ValueOrder, erro
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	days, err := dueSoonDays(s)
+	days, err := configInt(s, DueSoonKey, DefaultDueSoonDays)
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days}), nil
+	focus, err := configInt(s, FocusCountKey, DefaultFocusCount)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus}), nil
 }
 
-// dueSoonDays reads order.due_soon_days; unset or not a number is the default.
-func dueSoonDays(s store.Store) (int, error) {
-	v, err := s.Config(DueSoonKey)
+// configInt reads a vault setting that is a count; unset or not a number is
+// def.
+func configInt(s store.Store, key string, def int) (int, error) {
+	v, err := s.Config(key)
 	if err != nil {
 		return 0, err
 	}
 	if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && n >= 0 {
 		return n, nil
 	}
-	return DefaultDueSoonDays, nil
+	return def, nil
+}
+
+// askArrived is the day an ask to the owner came: the earliest date a target
+// sent it, else the earliest date one was added, else "" (its created date).
+func askArrived(m *model.RFX) string {
+	sent, added := "", ""
+	for _, t := range m.Targets {
+		if s := string(t.Sent); s != "" && (sent == "" || s < sent) {
+			sent = s
+		}
+		if a := string(t.Added); a != "" && (added == "" || a < added) {
+			added = a
+		}
+	}
+	return cmp.Or(sent, added)
 }
 
 // OrderInput is the input of order.
 type OrderInput struct {
-	Kind string `json:"kind,omitempty" query:"kind"` // keep one kind: incident, goal, task, question, ask, meeting, work
+	Kind string `json:"kind,omitempty" query:"kind"` // keep one kind: incident, goal, task, question, ask, meeting, work, io
 }
 
 // OrderOutput is the output of order.
@@ -606,15 +797,18 @@ type OrderOutput struct {
 	Rows []ValueRow `json:"rows"`
 	// HeldUp lists put-off items that hold up work due before they return.
 	HeldUp []HeldUp `json:"held_up"`
+	// Summary sums up the reply group and counts the focus group, over all
+	// rows whatever the kind filter.
+	Summary OrderSummary `json:"summary"`
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, and agent work in value order, each with why it is there and its bucket. Actionable now comes first: incidents, then items overdue or due within order.due_soon_days (default 2) by date, then the rest by impact (what it unblocks). Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, agent work, and io items (an incoming message that expects a response, an outgoing draft) in value order, each with why it is there, its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err
 	}
-	out := OrderOutput{Rows: []ValueRow{}, HeldUp: o.Held}
+	out := OrderOutput{Rows: []ValueRow{}, HeldUp: o.Held, Summary: o.Summary}
 	for _, r := range o.Rows {
 		if in.Kind == "" || r.Kind == in.Kind {
 			out.Rows = append(out.Rows, r)

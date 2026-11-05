@@ -45,9 +45,10 @@ func TestAlignScopeListsOpenItemsOfOneScope(t *testing.T) {
 			t.Errorf("goal scope holds %s", not)
 		}
 	}
-	// Dated items come before the undated ones, as in the value order.
-	if slices.Index(ids, task.ID) > slices.Index(ids, q.ID) {
-		t.Errorf("not in value order: %v", ids)
+	// The items keep the value order.
+	order := rowIDs(must(t, OrderOp, f.owner, OrderInput{}).Rows)
+	if (slices.Index(ids, task.ID) < slices.Index(ids, q.ID)) != (slices.Index(order, task.ID) < slices.Index(order, q.ID)) {
+		t.Errorf("not in value order: %v, order %v", ids, order)
 	}
 	for _, it := range got.Items {
 		if it.ID == ask.ID && (it.Kind != KindAsk || it.Goal != goal.ID || it.State == "") {

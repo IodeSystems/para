@@ -226,6 +226,8 @@ type Task struct {
 	Deferral     `yaml:",inline"`
 	// Assumptions are what the task takes as true (grill.go).
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
+	// Effort is about how long the task takes the owner; empty is not set.
+	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
 
 // CalendarEvent is one calendar event of a meeting: its UID, and its role in
@@ -298,6 +300,8 @@ type RFX struct {
 	Playbook Link `yaml:"playbook,omitempty" json:"playbook,omitempty"`
 	// Question links the question this RFX asks. A reply to it answers the question.
 	Question Link `yaml:"question,omitempty" json:"question,omitempty"`
+	// Effort is about how long the ask takes the owner; empty is not set.
+	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
 
 // Target is one person or group an RFX goes to, by one medium. Para records
@@ -596,6 +600,8 @@ type IO struct {
 	Thread Link `yaml:"thread,omitempty" json:"thread,omitempty"`
 	// Reason says why the item was dropped.
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
+	// Effort is about how long the item takes the owner; empty is not set.
+	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
 
 // SourceDoc is type: source, one place work comes in or goes out: a mailbox, a
@@ -746,6 +752,8 @@ type Question struct {
 	ReviewRefs    []Link `yaml:"review_refs,omitempty" json:"review_refs,omitempty"`
 	ReviewRequest Link   `yaml:"review_request,omitempty" json:"review_request,omitempty"`
 	Deferral      `yaml:",inline"`
+	// Effort is about how long the question takes the owner; empty is not set.
+	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
 
 // AnswerSource is where an agent's proposed answer came from: a URL or the id

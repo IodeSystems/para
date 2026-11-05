@@ -196,6 +196,7 @@ type Meta struct {
 	Ref             string                `json:"ref,omitempty"`
 	Via             *jsonValue            `json:"via,omitempty"` // io and tracked_doc {source, ref}, or a source's mcp, cli, none
 	Expects         string                `json:"expects,omitempty"`
+	Effort          string                `json:"effort,omitempty"`
 	Became          string                `json:"became,omitempty"`
 	Thread          string                `json:"thread,omitempty"`
 	Reason          string                `json:"reason,omitempty"`
@@ -286,6 +287,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.IODirections)
 	addEnum(reg, model.IOStates)
 	addEnum(reg, model.IOExpectsAll)
+	addEnum(reg, model.Efforts)
 	addEnum(reg, model.DocSystems)
 	addEnum(reg, model.DocStatuses)
 	addEnum(reg, model.CommentResolutions)

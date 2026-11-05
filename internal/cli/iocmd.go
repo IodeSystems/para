@@ -39,8 +39,9 @@ func newIOCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Subject, "subject", "", "out: the new subject")
 				fs.StringArrayVar(&in.To, "to", nil, "out: a recipient (person or group id, or text); repeatable; replaces the list")
 				fs.StringVar((*string)(&in.Medium), "medium", "", "out: "+mediumList)
-				fs.StringVar((*string)(&in.Expects), "expects", "", "out: response or none")
+				fs.StringVar((*string)(&in.Expects), "expects", "", "response or none; in: response when the sender waits for your reply")
 				fs.StringVar(&in.Route, "route", "", "out with expects response: domain id")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			},
 			Bind: func(args []string, in *ops.IOEditInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.IOEditOutput) error {
@@ -127,9 +128,10 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 			fs.StringVar(&in.Ref, "ref", "", "public link to the message")
 			fs.StringVar(&via.source, "via-source", "", "private source: connector or source name")
 			fs.StringVar(&via.ref, "via-ref", "", "private source: its id of the message")
-			fs.StringVar((*string)(&in.Expects), "expects", "", "out: response (sending makes an Ask) or none (sending logs an interaction)")
+			fs.StringVar((*string)(&in.Expects), "expects", "", "out: response (sending makes an Ask) or none (sending logs an interaction); in: response when the sender waits for your reply")
 			fs.StringVar(&in.Route, "route", "", "out with expects response: domain id")
 			fs.StringVar(&in.Thread, "thread", "", "id of the io item, interaction, or Ask this answers")
+			fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 		},
 		Bind: func(args []string, in *ops.IOAddInput) error {
 			in.Text = strings.Join(args, " ")

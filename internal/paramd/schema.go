@@ -72,6 +72,7 @@ var (
 	ioDirections       = []string{"in", "out"}
 	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped"}
 	ioExpects          = []string{"response", "none"}
+	efforts            = []string{"xs", "s", "m", "l"}
 	docSystems         = []string{"confluence", "jira", "github", "gdoc", "other"}
 	docStatuses        = []string{"watching", "paused", "archived"}
 	sourceSystems      = []string{"gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder", "other"}
@@ -166,6 +167,7 @@ var typeFields = map[string][]field{
 		{Name: "calendar_uid", Kind: kString},        // older single form of calendar_uids; read as one entry
 		{Name: "calendar_uids", Kind: kCalendarUIDs}, // kind meeting or call: [{uid, role}] of its calendar events
 		{Name: "assumptions", Kind: kAssumptions},
+		{Name: "effort", Kind: kEnum, Enum: efforts},
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},
@@ -175,6 +177,7 @@ var typeFields = map[string][]field{
 		{Name: "project", Kind: kLink},
 		{Name: "targets", Kind: kTargets},
 		{Name: "question", Kind: kLink},
+		{Name: "effort", Kind: kEnum, Enum: efforts},
 	},
 	"question": {
 		{Name: "status", Kind: kEnum, Enum: questionStatus, Required: true},
@@ -199,6 +202,7 @@ var typeFields = map[string][]field{
 		{Name: "proposed", Kind: kDate},
 		{Name: "rejected_reason", Kind: kString},
 		{Name: "rejected_by", Kind: kString},
+		{Name: "effort", Kind: kEnum, Enum: efforts},
 	},
 	"meeting": {
 		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},
@@ -323,6 +327,7 @@ var typeFields = map[string][]field{
 		{Name: "became", Kind: kLink},
 		{Name: "thread", Kind: kLink},
 		{Name: "reason", Kind: kString},
+		{Name: "effort", Kind: kEnum, Enum: efforts},
 	},
 	"tracked_doc": {
 		{Name: "url", Kind: kString, Required: true},

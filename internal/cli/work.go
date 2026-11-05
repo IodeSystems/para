@@ -198,6 +198,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "kind meeting or call: UID of its event in your calendar")
 				fs.Var(&calendarEventsFlag{&in.CalendarUIDs}, "calendar-event", "kind meeting or call: another calendar event of it, <uid>=<role> (repeatable)")
 				fs.StringSliceVar(&in.With, "with", nil, "person or group id the work is with (repeatable)")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")
 			},
@@ -259,10 +260,11 @@ func newTaskCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.TaskEdit, binding[ops.TaskEditInput, ops.TaskEditOutput]{
-			Use:  "edit <id> --done-when <text>",
+			Use:  "edit <id> [--done-when <text>] [--effort xs|s|m|l]",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskEditInput) {
-				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the task is done (required)")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the task is done (one of --done-when and --effort is required)")
+				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			},
 			Bind: func(args []string, in *ops.TaskEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.TaskEditOutput) string { return o.ID }),

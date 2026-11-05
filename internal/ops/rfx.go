@@ -36,6 +36,8 @@ type RFXAddInput struct {
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
 	Question  string             `json:"question,omitempty"`   // id of the question this request asks; a reply answers it
+	// Effort is about how long the ask takes the owner: xs, s, m, or l.
+	Effort model.Effort `json:"effort,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -72,6 +74,9 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if err := optionalDate(in.NextNudge); err != nil {
 		return RFXAddOutput{}, fmt.Errorf("next_nudge: %w", err)
 	}
+	if err := checkEffort(in.Effort); err != nil {
+		return RFXAddOutput{}, err
+	}
 	blocks, err := existingLinks(ctx, d, "blocks", in.Blocks)
 	if err != nil {
 		return RFXAddOutput{}, err
@@ -94,6 +99,7 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 		Blocks:         blocks,
 		DependsOn:      deps,
 		NextNudge:      model.Date(in.NextNudge),
+		Effort:         in.Effort,
 	}
 	if id := normID(in.Question); id != "" {
 		qd, q, err := getQuestion(ctx, d.Store, id)
