@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { OMNI_FOCUS } from '@/components/OmniBar'
 import { noteIdOf, focusNote } from '@/components/stack/parts'
 import { actionFor, cardKeyFor, stackKeyFor, type CardKey, type StackKey } from '@/lib/keys'
 
@@ -28,13 +29,9 @@ export function Keyboard() {
         case 'tab':
           void navigate({ href: a.to })
           break
-        case 'search': {
-          // Already on Search: put the cursor back in the field.
-          const field = document.getElementById('search-input')
-          if (field) field.focus()
-          else void navigate({ to: '/search' })
+        case 'search':
+          window.dispatchEvent(new Event(OMNI_FOCUS))
           break
-        }
         case 'help':
           void navigate({ to: '.', search: (prev) => ({ ...prev, help: true }) })
           break

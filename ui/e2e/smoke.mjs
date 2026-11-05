@@ -1245,6 +1245,19 @@ try {
   await rpage.keyboard.press('Escape')
   await rpage.locator('[data-note-form]').waitFor({ state: 'detached' })
   check(true, 's opens the skip note on the stack and Esc closes it')
+
+  // Omni bar: / focuses it, typing lists results, a pasted id and Enter open the document.
+  await rpage.goto(`${base}/agenda`)
+  const omni = rpage.getByRole('combobox', { name: 'Search' })
+  await omni.waitFor()
+  await rpage.waitForLoadState('networkidle').catch(() => {})
+  await rpage.keyboard.press('/')
+  await rpage.waitForFunction(() => document.activeElement?.getAttribute('role') === 'combobox')
+  await omni.fill(task)
+  await rpage.getByRole('option').first().waitFor()
+  await rpage.keyboard.press('Enter')
+  await rpage.waitForURL((u) => u.pathname === `/doc/${task}`)
+  check(true, '/ focuses the omni bar; a pasted id and Enter open the document')
   check(
     rerrors.length === 0,
     `the review action pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,

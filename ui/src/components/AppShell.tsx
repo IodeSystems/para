@@ -13,8 +13,8 @@ import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
-import SearchIcon from '@mui/icons-material/Search'
 import TodayIcon from '@mui/icons-material/Today'
+import { OmniBar } from '@/components/OmniBar'
 import { HttpBanner, ReadOnlyBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
@@ -40,7 +40,10 @@ export function AppShell({ session, children }: { session: SessionView; children
   return (
     <Box sx={{ minHeight: '100dvh', pb: { xs: 10, sm: 4 } }}>
       <AppBar position="sticky" color="primary" enableColorOnDark>
-        <Toolbar variant="dense" sx={{ gap: 1, pl: 'max(8px, env(safe-area-inset-left))' }}>
+        <Toolbar
+          variant="dense"
+          sx={{ gap: 1, pl: 'max(8px, env(safe-area-inset-left))', position: 'relative' }}
+        >
           <LinkButton
             color="inherit"
             aria-label="Menu"
@@ -62,6 +65,7 @@ export function AppShell({ session, children }: { session: SessionView; children
               {session.vault}
             </Box>
           </Typography>
+          <OmniBar />
           <Tooltip title="Keys and about (?)">
             <LinkIconButton
               color="inherit"
@@ -126,11 +130,7 @@ export function AppShell({ session, children }: { session: SessionView; children
       >
         <BottomNavigation
           showLabels
-          value={
-            current?.to === '/search' || current?.to === '/agenda' || current?.to === '/writes'
-              ? current.to
-              : false
-          }
+          value={current?.to === '/agenda' || current?.to === '/writes' ? current.to : false}
         >
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           <LinkBottomNavAction
@@ -139,7 +139,6 @@ export function AppShell({ session, children }: { session: SessionView; children
             icon={<RateReviewOutlinedIcon />}
             to="/writes"
           />
-          <LinkBottomNavAction value="/search" label="Search" icon={<SearchIcon />} to="/search" />
           <LinkBottomNavAction
             value="menu"
             label="Menu"
