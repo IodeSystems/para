@@ -735,7 +735,7 @@ func checkVerifiable(m *model.IO) error {
 		return nil
 	}
 	if m.Via != nil && m.Verify == "" {
-		return fmt.Errorf("a %s message with via needs verify: a sentence that tells the owner how to find it themself; or give ref, the message permalink", m.Medium)
+		return fmt.Errorf("a message on %s with via needs verify: a sentence that tells the owner how to find it themself; or give ref, the message permalink", m.Medium)
 	}
-	return fmt.Errorf("a %s message needs ref: use the message permalink; with no link, give via {source, ref} and verify, a sentence that tells the owner how to find it", m.Medium)
+	return fmt.Errorf("a message on %s needs ref: use the message permalink; with no link, give via {source, ref} and verify, a sentence that tells the owner how to find it", m.Medium)
 }
