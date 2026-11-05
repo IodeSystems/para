@@ -419,6 +419,11 @@ type ProposalItem struct {
 	// Tags are topics, as on any vault document; the dossier's own tags
 	// apply to every item too (ItemTags). They do not change the item's hash.
 	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+	// DeferUntil puts an item that waits for the owner off until a date
+	// (YYYY-MM-DD) or someday, as Deferral does a task; DeferredReason says
+	// why. Para's: an agent sets them with defer, never in a block.
+	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
+	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
 
 	State        ItemState `yaml:"state" json:"state"`
 	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`
@@ -766,4 +771,9 @@ func ItemTags(dossier []string, it ProposalItem) []string {
 		}
 	}
 	return out
+}
+
+// Deferred reports whether the item is put off on the date today.
+func (it ProposalItem) Deferred(today string) bool {
+	return Deferral{DeferUntil: it.DeferUntil}.IsDeferred(today)
 }

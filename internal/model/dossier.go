@@ -222,6 +222,9 @@ type dossierItem struct {
 	LeaseUntil   string        `yaml:"lease_until,omitempty" json:"lease_until,omitempty"`
 	Decided      *ItemDecision `yaml:"decided,omitempty" json:"decided,omitempty"`
 	Thread       []Turn        `yaml:"thread,omitempty" json:"thread,omitempty"`
+	// DeferUntil and DeferredReason: the owner or defer put the item off.
+	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
+	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
 
 	// the owner's
 	Answer *ItemAnswer `yaml:"answer,omitempty" json:"answer,omitempty"`
@@ -470,7 +473,8 @@ func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 			ConfidenceBasis: b.ConfidenceBasis, Recommendation: b.Recommendation},
 		Reversible: b.Reversible, ReversibleHow: b.ReversibleHow, Risk: b.Risk,
 		Rev: b.Rev, State: b.State, Reason: b.Reason, Edited: b.Edited, ApprovedHash: b.ApprovedHash, Result: b.Result, Waits: b.Waits,
-		Execution: b.Exec, ClaimedBy: b.ClaimedBy, LeaseUntil: b.LeaseUntil, Decided: b.Decided, Thread: b.Thread, Answer: b.Answer}
+		Execution: b.Exec, ClaimedBy: b.ClaimedBy, LeaseUntil: b.LeaseUntil, Decided: b.Decided, Thread: b.Thread, Answer: b.Answer,
+		DeferUntil: b.DeferUntil, DeferredReason: b.DeferredReason}
 	if b.Evidence != nil {
 		it.Evidence = *b.Evidence
 	}
@@ -487,7 +491,8 @@ func blockOf(it ProposalItem) dossierItem {
 		ConfidenceBasis: it.ConfidenceBasis, Recommendation: it.Recommendation,
 		Reversible: it.Reversible, ReversibleHow: it.ReversibleHow, Risk: it.Risk,
 		Rev: it.Rev, State: it.State, Reason: it.Reason, Edited: it.Edited, ApprovedHash: it.ApprovedHash, Result: it.Result, Waits: it.Waits,
-		Exec: it.Execution, ClaimedBy: it.ClaimedBy, LeaseUntil: it.LeaseUntil, Decided: it.Decided, Thread: it.Thread, Answer: it.Answer}
+		Exec: it.Execution, ClaimedBy: it.ClaimedBy, LeaseUntil: it.LeaseUntil, Decided: it.Decided, Thread: it.Thread, Answer: it.Answer,
+		DeferUntil: it.DeferUntil, DeferredReason: it.DeferredReason}
 	if it.Evidence != (Evidence{}) {
 		e := it.Evidence
 		b.Evidence = &e

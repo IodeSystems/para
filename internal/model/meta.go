@@ -127,7 +127,7 @@ type Project struct {
 // SomedayWord is the defer_until value for deferred with no date.
 const SomedayWord = "someday"
 
-// Deferral is the later state of a task, question, or goal: a person put it
+// Deferral is the later state of a task, question, goal, or io item: a person put it
 // off. DeferUntil is a YYYY-MM-DD date, or SomedayWord for no date. It leaves
 // Today, next, and agent lists until its date, and keeps blocking what
 // depends on it.
@@ -612,6 +612,9 @@ type IO struct {
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
 	// Effort is about how long the item takes the owner; empty is not set.
 	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	// Deferral puts the item off: it leaves the reply lane of the order until
+	// its date. An io item waits on no other item.
+	Deferral `yaml:",inline"`
 }
 
 // Verifiable reports whether the owner can find the message themself: a ref,
