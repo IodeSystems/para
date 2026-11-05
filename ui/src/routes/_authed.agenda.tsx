@@ -16,6 +16,7 @@ import { useQuestions } from '@/api/questions'
 import { useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
 import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
+import { AgendaRow } from '@/components/AgendaActions'
 import { DataState } from '@/components/DataState'
 import { DatedAgenda } from '@/components/DatedAgenda'
 import { DocLink, RfxLink } from '@/components/DocLink'
@@ -94,7 +95,13 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
   )
 }
 
-type Lead = { why: string; title: ReactNode; action: ReactNode | null }
+type Lead = {
+  why: string
+  title: ReactNode
+  action: ReactNode | null
+  // row is the agenda item the lead shows, so it carries the actions of its kind.
+  row?: AgendaItem
+}
 
 type AgendaItem = Item & {
   kind?: string | null
@@ -148,19 +155,46 @@ function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSum
             Not yet startable
           </ListSubheader>
         ),
-        <ListItem key={x.id} disableGutters sx={CHIP_ROW}>
-          <ListItemText
-            primary={<AgendaLink x={x} />}
-            secondary={x.why || undefined}
-            slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-          />
-          {x.kind && <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />}
-          <AgentLooking id={x.id} />
-          <AgentWorking id={x.id} />
-          {x.due && <DueChip due={x.due} />}
-        </ListItem>,
+        <AgendaRow key={x.id} x={x}>
+          {(actions) => (
+            <ListItem disableGutters sx={CHIP_ROW}>
+              <ListItemText
+                primary={<AgendaLink x={x} />}
+                secondary={x.why || undefined}
+                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+              />
+              {x.kind && (
+                <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
+              )}
+              <AgentLooking id={x.id} />
+              <AgentWorking id={x.id} />
+              {x.due && <DueChip due={x.due} />}
+              {actions}
+            </ListItem>
+          )}
+        </AgendaRow>,
       ])}
     </List>
+  )
+}
+
+// leadCard is the one thing to look at first, with its actions.
+function leadCard(lead: Lead, actions: ReactNode) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ p: 1.5, mb: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
+    >
+      <Typography variant="overline" color="text.secondary">
+        Start here - {lead.why}
+      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography variant="h6" component="p" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
+          {lead.title}
+        </Typography>
+        {actions}
+      </Stack>
+    </Paper>
   )
 }
 
@@ -223,21 +257,11 @@ function Agenda() {
               }
             } else if (firstA) {
               leadKind = 'agenda'
-              const action =
-                firstA.kind === 'incident' ? (
-                  <LinkButton
-                    size="small"
-                    variant="contained"
-                    to="/incidents/$id"
-                    params={{ id: firstA.id }}
-                  >
-                    Open
-                  </LinkButton>
-                ) : null
               lead = {
                 why: firstA.why || firstA.kind || 'First in order',
                 title: <AgendaLink x={firstA} />,
-                action,
+                action: null,
+                row: firstA,
               }
             } else if (firstIn) {
               leadKind = 'inbox'
@@ -320,26 +344,12 @@ function Agenda() {
                     Nothing needs you right now.
                   </Typography>
                 )}
-                {lead && (
-                  <Paper
-                    variant="outlined"
-                    sx={{ p: 1.5, mb: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
-                  >
-                    <Typography variant="overline" color="text.secondary">
-                      Start here - {lead.why}
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                      <Typography
-                        variant="h6"
-                        component="p"
-                        sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}
-                      >
-                        {lead.title}
-                      </Typography>
-                      {lead.action}
-                    </Stack>
-                  </Paper>
-                )}
+                {lead &&
+                  (lead.row ? (
+                    <AgendaRow x={lead.row}>{(actions) => leadCard(lead, actions)}</AgendaRow>
+                  ) : (
+                    leadCard(lead, lead.action)
+                  ))}
                 {(rest.length > 0 || t.unverified > 0 || t.docsUnseen > 0 || t.docComments > 0) && (
                   <Box sx={{ mt: 1 }}>
                     <Stack

@@ -51,14 +51,18 @@ export function ItemComposer({ id, title, meta }: { id: string; title: string; m
   const toAgent = async (text: string, files: File[]) => {
     try {
       const atts = await upload(files)
+      // Mark done on an item the owner can close closes it now. Waiting for an agent left it at the
+      // top of the agenda.
+      const closeNow = done && close
+      if (closeNow) await closeItem(id)
       const res = await send.mutateAsync({
         id,
         text: text || undefined,
         attachments: atts.length ? atts.map((a) => a.path) : undefined,
-        done: done || undefined,
+        done: (done && !close) || undefined,
       })
       toasts.push({
-        text: `Sent to agent: ${name}`,
+        text: closeNow ? `Closed, and sent to agent: ${name}` : `Sent to agent: ${name}`,
         note: res.note ?? undefined,
         undo: async () => {
           await agentUnsend(res.request)

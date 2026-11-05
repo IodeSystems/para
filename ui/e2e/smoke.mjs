@@ -1325,6 +1325,21 @@ try {
   await rpage.locator(`[data-merged-into="${keepTask}"]`).waitFor()
   check(true, 'the kept page lists the duplicate as merged from; the duplicate says where it went')
 
+  // Agenda: Done on a task row closes the task and the row leaves the agenda.
+  const agendaTask = idOf(
+    para(...v, 'task', 'add', 'Close from the agenda', '-p', proj, '--due', '2020-01-01', '--json'),
+  )
+  await rpage.goto(`${base}/agenda`)
+  const agendaRow = rpage.locator(`[data-agenda-row="${agendaTask}"]`)
+  await agendaRow.waitFor()
+  await agendaRow.getByRole('button', { name: 'Done' }).click()
+  await agendaRow.waitFor({ state: 'detached' })
+  await rpage.locator('[data-toast]').filter({ hasText: 'Marked done' }).first().waitFor()
+  check(
+    /"status":\s*"done"/.test(para(...v, 'task', 'show', agendaTask, '--json')),
+    'Done on an agenda task closes it and the row leaves the agenda',
+  )
+
   // Keys: j moves to the first row, s opens its skip note, Esc closes it.
   await rpage.goto(`${base}/stack?state=proposed`)
   await rpage.locator('[data-row]').first().waitFor()
