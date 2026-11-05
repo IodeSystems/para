@@ -11,8 +11,8 @@ const sampleDossier = "Intro text with a [link](https://acme.example).\n\n" +
 	"```yaml para-question id=q1\n# hand comment kept\ntitle: Which vendor?\noptions: [A, B, C]\nrecommended: B\nevidence: {quote: \"B costs less\", locator: \"https://acme.example/q\"}\n```\n\n" +
 	"```js\nconst x = \"```yaml para-change id=zz\"\n```\n\n" +
 	"## Changes\n\n" +
-	"```yaml para-change id=c1\nop: task_add\ninput: {title: Order nodes}\nhow: add a task\nimpact: one more task\nevidence: {quote: q, locator: l}\nafter: q1\n```\n\n" +
-	"````yaml para-message id=m1\npeople: [\"[[jordan-example]]\"]\nbody: |\n  Hi Jordan,\n  ```\n  code\n  ```\nevidence: {quote: q, locator: l}\n````\n"
+	"```yaml para-change id=c1\nop: task_add\ninput: {title: Order nodes}\nhow: add a task\nimpact: one more task\nevidence: {quote: q, locator: https://acme.example/l}\nafter: q1\n```\n\n" +
+	"````yaml para-message id=m1\npeople: [\"[[jordan-example]]\"]\nbody: |\n  Hi Jordan,\n  ```\n  code\n  ```\nevidence: {quote: q, locator: https://acme.example/l}\n````\n"
 
 func TestDossierRoundTripKeepsBytes(t *testing.T) {
 	d, err := ParseDossier(sampleDossier)
@@ -82,7 +82,7 @@ func TestDossierHashIgnoresOwnerAndParaFields(t *testing.T) {
 
 func TestDossierLintCodes(t *testing.T) {
 	head := "```yaml para-dossier\ntldr: t\n```\n"
-	ev := "evidence: {quote: q, locator: l}\n"
+	ev := "evidence: {quote: q, locator: https://acme.example/l}\n"
 	cases := map[string]struct{ body, code string }{
 		"bad info":       {head + "```yaml para-thing id=x\n" + ev + "```\n", CodeDossierBlock},
 		"unknown key":    {head + "```yaml para-action id=a1\nwhat: w\nhow: h\nzap: 1\n" + ev + "```\n", CodeDossierBlock},
@@ -134,7 +134,7 @@ func TestDossierHandEditedAnswer(t *testing.T) {
 }
 
 func TestNewDossierRenders(t *testing.T) {
-	items := []ProposalItem{{ID: "i1", Kind: ItemAction, What: "w", How: "h", Evidence: Evidence{Quote: "\nq", Locator: "l"}, State: ItemPending, Rev: 1}}
+	items := []ProposalItem{{ID: "i1", Kind: ItemAction, What: "w", How: "h", Evidence: Evidence{Quote: "\nq", Locator: "https://acme.example/l"}, State: ItemPending, Rev: 1}}
 	d := NewDossier(DossierHeader{TLDR: "t", Context: "c"}, "Items", items)
 	body, err := d.Render()
 	if err != nil {
@@ -152,7 +152,7 @@ func TestNewDossierRenders(t *testing.T) {
 // A message block that names an io draft holds no text of its own: it needs
 // no body, refuses one, and is written back without the text para filled in.
 func TestDossierMessageWithIO(t *testing.T) {
-	ev := "evidence: {quote: q, locator: l}\n"
+	ev := "evidence: {quote: q, locator: https://acme.example/l}\n"
 	head := "```yaml para-dossier\ntldr: T\n```\n\n"
 	body := head + "```yaml para-message id=m1\nio: \"[[io-a]]\"\n" + ev + "```\n"
 	d, err := ParseDossier(body)
@@ -177,7 +177,7 @@ func TestDossierMessageWithIO(t *testing.T) {
 // An upstream block names a tracked document, versions, and comments; its
 // answer approves (seen) with what each comment becomes.
 func TestDossierUpstream(t *testing.T) {
-	ev := "evidence: {quote: q, locator: l}\n"
+	ev := "evidence: {quote: q, locator: https://acme.example/l}\n"
 	head := "```yaml para-dossier\ntldr: T\n```\n\n"
 	body := head + "```yaml para-upstream id=u1\ntarget: \"[[runbook]]\"\nfrom: 1\nto: 3\ncomments: [c1, c2]\n" + ev + "```\n"
 	d, err := ParseDossier(body)

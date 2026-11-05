@@ -27,7 +27,11 @@ func lintFile(f *paramd.File) []paramd.Finding {
 		return out
 	}
 	for _, d := range model.LintDossier(f.Body) {
-		out = append(out, paramd.Finding{Path: f.Path, Line: f.BodyLine + d.Line - 1, Code: d.Code, Severity: paramd.Error, Msg: d.Msg})
+		sev := paramd.Error
+		if d.Code == model.CodeDossierEvidence {
+			sev = paramd.Warn
+		}
+		out = append(out, paramd.Finding{Path: f.Path, Line: f.BodyLine + d.Line - 1, Code: d.Code, Severity: sev, Msg: d.Msg})
 	}
 	return out
 }

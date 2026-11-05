@@ -116,7 +116,11 @@ var ProposalRevise = defineSafe("proposal_revise", "Revise a dossier in place: g
 	}
 	p, err := reviseInPlace(ctx, d, in.ID, "", func(p *proposal, rev int) error {
 		if markdown {
-			next, err := parseAgentDossier(ctx, d, in.Markdown, false)
+			keep := map[string]model.Evidence{}
+			for _, it := range p.content.Items {
+				keep[it.ID] = it.Evidence
+			}
+			next, err := parseAgentDossier(ctx, d, in.Markdown, false, keep)
 			if err != nil {
 				return err
 			}

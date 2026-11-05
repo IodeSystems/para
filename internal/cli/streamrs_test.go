@@ -16,7 +16,7 @@ import (
 // pending messages to draft, reply to, and reject. Each case runs twice.
 func seedStreamRSParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
-	ev := model.Evidence{Quote: "RS source", Locator: "title"}
+	ev := model.Evidence{Quote: "RS source", Locator: "https://acme.example/title"}
 	msg := func(id string) model.ProposalItem {
 		return model.ProposalItem{ID: id, Kind: model.ItemMessage, Channel: "#rs", Body: "Note " + id, Evidence: ev, State: model.ItemPending, Rev: 1}
 	}
@@ -58,7 +58,7 @@ func streamRSParityCases() (map[string]parityCase, map[string]string) {
 func TestSubmitAnswersTypedInTheFile(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	md := "```yaml para-dossier\ntldr: Tell Ada\n```\n\n## Mail\n\n```yaml para-message id=m1\npeople: [ada@acme.example]\nbody: Hi Ada.\nevidence: {quote: q, locator: l}\n```\n"
+	md := "```yaml para-dossier\ntldr: Tell Ada\n```\n\n## Mail\n\n```yaml para-message id=m1\npeople: [ada@acme.example]\nbody: Hi Ada.\nevidence: {quote: q, locator: https://acme.example/l}\n```\n"
 	in, _ := json.Marshal(ops.ProposalAddInput{Title: "Tell Ada", Markdown: md})
 	e.stdin = string(in)
 	var filed ops.ProposalFiled

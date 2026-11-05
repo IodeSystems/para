@@ -184,7 +184,7 @@ func TestDocCommentFile(t *testing.T) {
 // docEditMD is a dossier with an edit of the runbook bundled with the message
 // that announces it.
 func docEditMD(id, old string) string {
-	ev := "evidence: {quote: \"Step two\", locator: \"runbook v1\"}\n"
+	ev := "evidence: {quote: \"Step two\", locator: \"https://acme.example/runbook-v1\"}\n"
 	return "```yaml para-dossier\ntldr: Fix the runbook\n```\n\n## Edit\n\n" +
 		"```yaml para-doc-edit id=d1\ntarget: \"[[" + id + "]]\"\nrange: step two\nold: " + old + "\nnew: \"Step two: restart the pods one at a time.\"\nbundle: b1\n" + ev + "```\n\n" +
 		"```yaml para-message id=m1\npeople: [ada@acme.example]\nbody: I changed step two.\nbundle: b1\nafter: d1\n" + ev + "```\n"
@@ -231,7 +231,7 @@ func TestDocEditValidatesAndRecordsVersion(t *testing.T) {
 
 func upstreamMD(id string, extra string) string {
 	return "```yaml para-dossier\ntldr: The runbook changed\n```\n\n## Runbook\n\n" +
-		"```yaml para-upstream id=u1\ntarget: \"[[" + id + "]]\"\n" + extra + "evidence: {quote: \"Step two\", locator: \"runbook v2\"}\n```\n"
+		"```yaml para-upstream id=u1\ntarget: \"[[" + id + "]]\"\n" + extra + "evidence: {quote: \"Step two\", locator: \"https://acme.example/runbook-v2\"}\n```\n"
 }
 
 func TestUpstreamBlock(t *testing.T) {

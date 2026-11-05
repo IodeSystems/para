@@ -24,7 +24,7 @@ func seedStreamOCParity(t *testing.T, deps ops.Deps) {
 			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
 				To: []string{"[[person-seed]]"}, Expects: model.ExpectsNone}})
 	}
-	ev := model.Evidence{Quote: "OC source", Locator: "title"}
+	ev := model.Evidence{Quote: "OC source", Locator: "https://acme.example/title"}
 	act := func(id string) model.ProposalItem {
 		return model.ProposalItem{ID: id, Kind: model.ItemAction, What: "Book room " + id, How: "calendar", Evidence: ev, State: model.ItemPending, Rev: 1}
 	}

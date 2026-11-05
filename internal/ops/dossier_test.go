@@ -16,7 +16,7 @@ import (
 // dossierMD is an agent's dossier: a question, two changes in a bundle, a
 // message, and two alternatives.
 func dossierMD(f *agentFix) string {
-	ev := "evidence: {quote: \"Ship it.\", locator: \"note line 1\"}\n"
+	ev := "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
 	return "Context for the owner.\n\n```yaml para-dossier\ntldr: Pick a vendor and add the tasks\n```\n\n## Findings\n\nVendor B is cheaper.\n\n" +
 		"```yaml para-question id=q1\ntitle: Which vendor?\nmulti: true\noptions: [A, B, C]\nrecommended: B\n" + ev + "```\n\n" +
 		"## Changes\n\n" +
@@ -180,7 +180,7 @@ func eventsText(t *testing.T, root string) string {
 func TestDossierAnswerFor(t *testing.T) {
 	f := newAgentFix(t)
 	q := mustRun(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which vendor?", Project: f.proj, Options: []string{"A", "B"}})
-	md := "```yaml para-dossier\ntldr: t\n```\n\n```yaml para-question id=q1\ntitle: Which vendor?\noptions: [A, B]\nfor: " + q.ID + "\nevidence: {quote: q, locator: l}\n```\n"
+	md := "```yaml para-dossier\ntldr: t\n```\n\n```yaml para-question id=q1\ntitle: Which vendor?\noptions: [A, B]\nfor: " + q.ID + "\nevidence: {quote: q, locator: https://acme.example/l}\n```\n"
 	id := fileDossierMD(t, f, md)
 	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "q1", Answer: &model.ItemAnswer{Choices: []string{"B"}}}); err != nil {
 		t.Fatal(err)
@@ -529,7 +529,7 @@ func TestReviseItemsMarksAnswersStale(t *testing.T) {
 	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerApprove}}); err != nil {
 		t.Fatal(err)
 	}
-	ev := model.Evidence{Quote: "Vendor B is cheaper.", Locator: "findings"}
+	ev := model.Evidence{Quote: "Vendor B is cheaper.", Locator: "https://acme.example/findings"}
 	msg := ItemInput{ID: "m1", Kind: model.ItemMessage, People: []string{"ada@acme.example"}, Body: "Hello Ada.", Evidence: ev, Reversible: model.ReversibleNo}
 	if _, err := ProposalRevise.Run(writeCtx(t), f.agent, ProposalReviseInput{ID: id, Items: []ItemInput{msg}}); err != nil {
 		t.Fatal(err)

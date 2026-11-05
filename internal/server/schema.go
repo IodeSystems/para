@@ -260,6 +260,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.ExceptionStatuses)
 	addEnum(reg, model.ConventionStatuses)
 	addEnum(reg, model.JournalScopes)
+	addEnum(reg, ops.FeedbackKinds)
 	addEnum(reg, model.Mediums)
 	addEnum(reg, model.GroupKinds)
 	addEnum(reg, model.TargetStates)

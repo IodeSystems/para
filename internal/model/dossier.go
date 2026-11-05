@@ -27,6 +27,9 @@ const (
 	CodeDossierRef    = "dossier-ref"
 	CodeDossierAnswer = "dossier-answer"
 	CodeDossierState  = "dossier-state"
+	// CodeDossierEvidence is evidence the owner cannot check. It is a warning:
+	// older dossiers still read.
+	CodeDossierEvidence = "dossier-evidence"
 )
 
 // Answer decisions an owner writes in a block.
@@ -282,7 +285,13 @@ func (f DossierFinding) String() string {
 // ParseDossier reads a dossier body. Any finding is an error: a hand edit that
 // breaks a block makes the dossier unreviewable until it is fixed.
 func ParseDossier(body string) (*Dossier, error) {
-	d, found := scanDossier(body)
+	d, all := scanDossier(body)
+	var found []DossierFinding
+	for _, f := range all {
+		if f.Code != CodeDossierEvidence {
+			found = append(found, f)
+		}
+	}
 	if len(found) > 0 {
 		msgs := make([]string, 0, len(found))
 		for _, f := range found {
@@ -423,6 +432,9 @@ func scanDossier(body string) (*Dossier, []DossierFinding) {
 		it.Section = section
 		for _, f := range checkBlock(it) {
 			add(next, f[0], "%s: %s", id, f[1])
+		}
+		if it.Evidence.Locator != "" && it.Evidence.Check() == "" {
+			add(next, CodeDossierEvidence, "%s: evidence locator %q gives the owner no way to verify it: %s", id, it.Evidence.Locator, EvidenceForms)
 		}
 		canon, _ := renderYAML(b)
 		d.parts = append(d.parts, dossierPart{item: id, fence: fence, raw: raw, canon: canon})

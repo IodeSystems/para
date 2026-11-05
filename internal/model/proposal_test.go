@@ -45,7 +45,7 @@ func TestProposalBodyRoundTrip(t *testing.T) {
 				Evidence: Evidence{Quote: text, Locator: text}, State: ItemPending, Reason: text,
 				Thread: []Turn{{ID: "a1", Kind: TurnClarify, Quote: text, Text: text, By: "user", Revision: 1, State: TurnOpen}}},
 				{ID: "i2", Kind: ItemPara, Op: "task_add", Input: map[string]any{"title": text, "n": 3, "nested": map[string]any{"list": []any{text}}},
-					Evidence: Evidence{Quote: "q", Locator: "l"}, State: ItemPending}},
+					Evidence: Evidence{Quote: "q", Locator: "https://acme.example/l"}, State: ItemPending}},
 		}
 		body, err := RenderProposalBody(c)
 		if err != nil {

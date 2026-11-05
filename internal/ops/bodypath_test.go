@@ -8,7 +8,7 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-const bodyEv = "evidence: {quote: \"Ship it.\", locator: \"note line 1\"}\n"
+const bodyEv = "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
 
 func dossierWith(blocks ...string) string {
 	return "```yaml para-dossier\ntldr: Check the path bodies\n```\n\n## Items\n\n" + strings.Join(blocks, "\n")
@@ -43,7 +43,7 @@ func TestProposalAddSourcePath(t *testing.T) {
 		t.Fatalf("absolute path = %+v", show.Proposal)
 	}
 	// The items form: source_path alone is enough.
-	items := []ItemInput{{Kind: model.ItemMessage, Body: "Hi.", Evidence: model.Evidence{Quote: "Ship it.", Locator: "note"}, People: []string{"ada@acme.example"}, Reversible: model.ReversibleNo}}
+	items := []ItemInput{{Kind: model.ItemMessage, Body: "Hi.", Evidence: model.Evidence{Quote: "Ship it.", Locator: "https://acme.example/note"}, People: []string{"ada@acme.example"}, Reversible: model.ReversibleNo}}
 	if _, err := ProposalAdd.Run(writeCtx(t), f.agent, ProposalAddInput{Title: "No source", TLDR: "x", Context: "y", Items: items}); err == nil {
 		t.Fatal("items with no source and no source_path were filed")
 	}

@@ -145,7 +145,7 @@ func TestDossierMessageNamesIODraft(t *testing.T) {
 	f := ioFix(t)
 	io1 := outDraft(t, f, model.ExpectsNone, "")
 	io2 := outDraft(t, f, model.ExpectsNone, "")
-	ev := "evidence: {quote: \"Ship it.\", locator: \"note line 1\"}\n"
+	ev := "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
 	block := func(id, ioID string) string {
 		return "```yaml para-message id=" + id + "\nio: \"[[" + ioID + "]]\"\n" + ev + "```\n\n"
 	}
@@ -214,7 +214,7 @@ func rfxIDs(w RFXWaitingOutput) []string {
 func TestDossierFilesIO(t *testing.T) {
 	f := ioFix(t)
 	in := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOIn, Text: "Renew the cert", From: "person-ada-example"}).ID
-	ev := "evidence: {quote: \"Ship it.\", locator: \"note line 1\"}\n"
+	ev := "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
 	md := "```yaml para-dossier\ntldr: Sort the inbox\n```\n\n" +
 		"```yaml para-change id=c1\nop: io_file\ninput: {id: " + in + ", to: task, project: " + f.proj + ", done_when: Renewed.}\nhow: file as a task\nimpact: one task\ngroup: io_file\n" + ev + "```\n"
 	id := fileDossierMD(t, f, md)

@@ -61,6 +61,7 @@ type ParaV1MutationNamespace {
   docVersionAdd(body: para_DocVersionAddInputInput!): para_DocVersionAddOutput @derived(operationId: "docVersionAdd")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
+  feedbackAdd(body: para_FeedbackAddInputInput!): para_FeedbackAddOutput @derived(operationId: "feedbackAdd")
   goalRank(body: para_GoalRankInputInput!): para_GoalRankOutput @derived(operationId: "goalRank")
   goalRiskSet(body: para_GoalRiskSetInputInput!): para_GoalRiskSetOutput @derived(operationId: "goalRiskSet")
   goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
@@ -1822,11 +1823,15 @@ type para_EventsTailOutput {
 type para_Evidence {
   locator: String!
   quote: String!
+  verify: String
+  via: para_IOVia
 }
 
 input para_EvidenceInput {
   locator: String!
   quote: String!
+  verify: String
+  via: para_IOViaInput
 }
 
 type para_Example {
@@ -2050,6 +2055,24 @@ enum para_ExportOutputAs {
   pdf
   plain
   slack
+}
+
+input para_FeedbackAddInputInput {
+  kind: para_FeedbackAddInputKind
+  text: String!
+  tool: String
+}
+
+enum para_FeedbackAddInputKind {
+  bug
+  friction
+  idea
+}
+
+type para_FeedbackAddOutput {
+  id: String!
+  rev: String!
+  tags: [String!]!
 }
 
 type para_FieldChange {

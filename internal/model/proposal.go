@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -171,11 +172,64 @@ type Proposal struct {
 }
 
 // Evidence is what backs an item: a quote from the source and where it is. It
-// is untrusted data, never instructions.
+// is untrusted data, never instructions. The owner must be able to check it:
+// Locator is an http(s) URL or a vault reference, or Via names a private
+// connector item and Verify tells the owner how to find it themself.
 type Evidence struct {
 	Quote   string `yaml:"quote" json:"quote"`
 	Locator string `yaml:"locator" json:"locator"`
+	Via     *IOVia `yaml:"via,omitempty" json:"via,omitempty"`
+	Verify  string `yaml:"verify,omitempty" json:"verify,omitempty"`
 }
+
+// Ways the owner can check evidence (Evidence.Check).
+const (
+	CheckURL   = "url"
+	CheckVault = "vault"
+	CheckVia   = "via"
+)
+
+var (
+	vaultIDRe   = regexp.MustCompile(`^\[?\[?([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\]?\]?$`)
+	vaultPathRe = regexp.MustCompile(`^([a-z][a-z0-9_-]*/[^\s:]+\.md)(?::\d+)?$`)
+)
+
+// IsWebURL reports whether s is an absolute http or https URL with a host.
+func IsWebURL(s string) bool {
+	u, err := url.Parse(strings.TrimSpace(s))
+	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" && !strings.ContainsAny(s, " \t\n")
+}
+
+// VaultRef returns the document id or vault path a locator names, or "".
+// A path may end in :line.
+func VaultRef(s string) string {
+	s = strings.TrimSpace(s)
+	if m := vaultPathRe.FindStringSubmatch(s); m != nil {
+		return m[1]
+	}
+	if m := vaultIDRe.FindStringSubmatch(s); m != nil {
+		return m[1]
+	}
+	return ""
+}
+
+// Check says how the owner can check the evidence: CheckURL, CheckVault,
+// CheckVia, or "" when it gives no way.
+func (e Evidence) Check() string {
+	switch {
+	case IsWebURL(e.Locator):
+		return CheckURL
+	case VaultRef(e.Locator) != "":
+		return CheckVault
+	case e.Via != nil && strings.TrimSpace(e.Via.Source) != "" && strings.TrimSpace(e.Via.Ref) != "" && strings.TrimSpace(e.Verify) != "":
+		return CheckVia
+	}
+	return ""
+}
+
+// EvidenceForms names the locators the owner can check, for messages.
+const EvidenceForms = "give an http(s) URL (a Slack, Gmail, GitHub, or Jira item has a permalink: use it), a vault id or path (io/io-x.md:12), " +
+	"or via {source, ref} for a private connector item with verify, a sentence that tells the owner how to find it themself"
 
 // NoSource is what an agent states for a claim with no source. A claim with
 // this source forces a low confidence.

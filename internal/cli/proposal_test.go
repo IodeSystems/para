@@ -24,7 +24,7 @@ func seedProposalParity(t *testing.T, deps ops.Deps) {
 		Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}}); err != nil {
 		t.Fatal(err)
 	}
-	ev := model.Evidence{Quote: "Prop source", Locator: "title"}
+	ev := model.Evidence{Quote: "Prop source", Locator: "https://acme.example/title"}
 	seed := func(id string, items ...model.ProposalItem) {
 		t.Helper()
 		body, err := model.RenderProposalBody(model.ProposalContent{Items: items})
@@ -58,9 +58,9 @@ func seedProposalParity(t *testing.T, deps ops.Deps) {
 
 func proposalParityCases() (map[string]parityCase, map[string]string) {
 	file := func(title string) string {
-		return `{"title":"` + title + `","source":"note-prop","items":[{"kind":"external","medium":"email","target":"ada@acme.example","draft":"Hi.","evidence":{"quote":"Prop source","locator":"title"}}]}`
+		return `{"title":"` + title + `","source":"note-prop","items":[{"kind":"external","medium":"email","target":"ada@acme.example","draft":"Hi.","evidence":{"quote":"Prop source","locator":"https://acme.example/title"}}]}`
 	}
-	revise := `{"items":[{"kind":"external","medium":"slack","target":"#ops","draft":"New.","evidence":{"quote":"Prop source","locator":"title"}}]}`
+	revise := `{"items":[{"kind":"external","medium":"slack","target":"#ops","draft":"New.","evidence":{"quote":"Prop source","locator":"https://acme.example/title"}}]}`
 	decide := func(item string) string {
 		return `{"items":[{"item":"` + item + `","decision":"approve"}],"owner_said":"Yes, send it."}`
 	}
@@ -69,7 +69,7 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_list":     {`{}`, []string{"proposal", "list"}, false},
 		"proposal_show":     {`{"id":"proposal-pa"}`, []string{"proposal", "show", "proposal-pa"}, false},
 		"proposal_diff":     {`{"id":"proposal-pa"}`, []string{"proposal", "diff", "proposal-pa"}, false},
-		"proposal_revise":   {`{"id":"proposal-pr1","items":[{"kind":"external","medium":"slack","target":"#ops","draft":"New.","evidence":{"quote":"Prop source","locator":"title"}}]}`, []string{"proposal", "revise", "proposal-pr2"}, false},
+		"proposal_revise":   {`{"id":"proposal-pr1","items":[{"kind":"external","medium":"slack","target":"#ops","draft":"New.","evidence":{"quote":"Prop source","locator":"https://acme.example/title"}}]}`, []string{"proposal", "revise", "proposal-pr2"}, false},
 		"proposal_approve":  {`{"id":"proposal-pa","items":["i1"]}`, []string{"proposal", "approve", "proposal-pa", "i2"}, false},
 		"proposal_approved": {`{"hash":"` + model.ExternalHash("ada@acme.example", "Hi Ada.") + `"}`, []string{"proposal", "approved", model.ExternalHash("ada@acme.example", "Hi Ada.")}, false},
 		"proposal_wait":     {`{"id":"proposal-wait-sample"}`, []string{"proposal", "wait", "proposal-wait-sample"}, false},
@@ -124,12 +124,12 @@ func (e *proposalEnv) fails(want string, args ...string) {
 
 func opItem(input map[string]any) map[string]any {
 	return map[string]any{"kind": "op", "op": "task_add", "input": input,
-		"evidence": map[string]any{"quote": "Ada will write the parser", "locator": "line 1"}}
+		"evidence": map[string]any{"quote": "Ada will write the parser", "locator": "https://acme.example/line-1"}}
 }
 
 func extItem(medium, target, draft string) map[string]any {
 	return map[string]any{"kind": "external", "medium": medium, "target": target, "draft": draft,
-		"evidence": map[string]any{"quote": "by Friday", "locator": "line 1"}}
+		"evidence": map[string]any{"quote": "by Friday", "locator": "https://acme.example/line-1"}}
 }
 
 func toolRequest(name string, args map[string]any) mcp.CallToolRequest {
@@ -169,10 +169,10 @@ func TestProposalCycle(t *testing.T) {
 		t.Helper()
 		toolFails(t, e.agent, "proposal_add", map[string]any{"title": "Bad", "source": e.source, "items": []any{item}}, want)
 	}
-	bad(map[string]any{"kind": "op", "op": "no_such_op", "evidence": map[string]any{"quote": "q", "locator": "l"}}, "not an op")
+	bad(map[string]any{"kind": "op", "op": "no_such_op", "evidence": map[string]any{"quote": "q", "locator": "https://acme.example/l"}}, "not an op")
 	bad(opItem(map[string]any{"project": e.proj, "title": "x", "nonsense": 1}), "unknown field")
-	bad(map[string]any{"kind": "op", "op": "proposal_approve", "input": map[string]any{}, "evidence": map[string]any{"quote": "q", "locator": "l"}}, "cannot be proposed")
-	bad(map[string]any{"kind": "op", "op": "task_add", "input": task("x"), "evidence": map[string]any{"quote": "", "locator": "l"}}, "evidence")
+	bad(map[string]any{"kind": "op", "op": "proposal_approve", "input": map[string]any{}, "evidence": map[string]any{"quote": "q", "locator": "https://acme.example/l"}}, "cannot be proposed")
+	bad(map[string]any{"kind": "op", "op": "task_add", "input": task("x"), "evidence": map[string]any{"quote": "", "locator": "https://acme.example/l"}}, "evidence")
 
 	draft := "Hi Ada,\n\nthe parser is due Friday.\n"
 	filed := tool[ops.ProposalFiled](t, e.agent, "proposal_add", map[string]any{"title": "From the sync", "source": e.source, "items": []any{

@@ -167,6 +167,9 @@ func newItem(ctx context.Context, d Deps, in ItemInput, id string, rules Proposa
 	if strings.TrimSpace(in.Evidence.Quote) == "" || strings.TrimSpace(in.Evidence.Locator) == "" {
 		return it, errors.New("evidence needs a quote and a locator")
 	}
+	if err := checkEvidence(ctx, d, in.Evidence); err != nil {
+		return it, err
+	}
 	if err := weighing.Check(); err != nil {
 		return it, err
 	}
@@ -553,7 +556,7 @@ func proposalSource(ctx context.Context, d Deps, raw, sourcePath string, require
 }
 
 // ProposalAdd files a proposal.
-var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para assigns them; do not pass id (in markdown, each block's id=<id> is yours). Source: source is a vault document id; source_path is where it came from, such as a file path, and a path to a vault file (io/io-x.md, or an absolute path inside the vault) sets source to that document; either may be left out when the other is given. A body that is only a path to a vault file is shown beside the item; a message's body may be only the path of an io draft (io/io-x.md), which becomes its io reference; any path outside the vault is refused (para reads nothing outside it). File a dossier: one per investigation, for outward actions (message, action), questions, and vault changes the owner should see first. Preferred form: markdown, the whole body: narrative with ## sections and one fenced block per item, info string `yaml para-<question|change|message|action|doc-edit> id=<id>`, plus one `yaml para-dossier` block with tldr (grammar: para guide, docs/format.md Dossier blocks). Every block needs evidence {quote, locator}. Do not write answer, state, or exec: they are the owner's and para's. Then give the owner the review_url and read the answers with proposal_response. The older form gives tldr, context, source, and items as fields. The input of a change (op X) is exactly the input of the tool X, plus the optional why, sources, and not_duplicate; every link-valued input must name an existing document or an id an earlier item creates", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
+var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para assigns them; do not pass id (in markdown, each block's id=<id> is yours). Source: source is a vault document id; source_path is where it came from, such as a file path, and a path to a vault file (io/io-x.md, or an absolute path inside the vault) sets source to that document; either may be left out when the other is given. A body that is only a path to a vault file is shown beside the item; a message's body may be only the path of an io draft (io/io-x.md), which becomes its io reference; any path outside the vault is refused (para reads nothing outside it). File a dossier: one per investigation, for outward actions (message, action), questions, and vault changes the owner should see first. Preferred form: markdown, the whole body: narrative with ## sections and one fenced block per item, info string `yaml para-<question|change|message|action|doc-edit> id=<id>`, plus one `yaml para-dossier` block with tldr (grammar: para guide, docs/format.md Dossier blocks). Every block needs evidence {quote, locator}: the owner must be able to check it: locator is the item's permalink (an http(s) URL; a Slack, Gmail, GitHub, or Jira item has one) or a vault id or path; for a private connector item with no link, give via {source, ref} and verify, a sentence that tells the owner how to find it (for example \"Slack #ops, Dana 2026-11-05 17:43: search rollback\"). A bare channel name or \"chat\" is refused. Do not write answer, state, or exec: they are the owner's and para's. Then give the owner the review_url and read the answers with proposal_response. The older form gives tldr, context, source, and items as fields. The input of a change (op X) is exactly the input of the tool X, plus the optional why, sources, and not_duplicate; every link-valued input must name an existing document or an id an earlier item creates", func(ctx context.Context, d Deps, in ProposalAddInput) (ProposalFiled, error) {
 	info, err := identity(d)
 	if err != nil {
 		return ProposalFiled{}, err
@@ -574,7 +577,7 @@ var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para a
 		if err != nil {
 			return ProposalFiled{}, err
 		}
-		dz, err := parseAgentDossier(ctx, d, in.Markdown, true)
+		dz, err := parseAgentDossier(ctx, d, in.Markdown, true, nil)
 		if err != nil {
 			return ProposalFiled{}, err
 		}
@@ -1204,6 +1207,7 @@ func itemFields(a, b model.ProposalItem) []FieldChange {
 	add("diff", a.Diff, b.Diff)
 	add("evidence", a.Evidence.Quote, b.Evidence.Quote)
 	add("locator", a.Evidence.Locator, b.Evidence.Locator)
+	add("verify", a.Evidence.Verify, b.Evidence.Verify)
 	add("options", strings.Join(a.Options, ", "), strings.Join(b.Options, ", "))
 	add("old", a.Old, b.Old)
 	add("new", a.New, b.New)

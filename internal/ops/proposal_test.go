@@ -41,7 +41,7 @@ func TestReviewRule(t *testing.T) {
 	}
 }
 
-var ev = model.Evidence{Quote: "Ship it.", Locator: "line 1"}
+var ev = model.Evidence{Quote: "Ship it.", Locator: "https://acme.example/line-1"}
 
 func mailItem(draft string) ItemInput {
 	return ItemInput{Kind: model.ItemExternal, Medium: "email", Target: "ada@acme.example", Draft: draft, Evidence: ev}
@@ -391,7 +391,7 @@ func TestBrokenBlockIsReported(t *testing.T) {
 // reviewItem is a message with every required field.
 func reviewItem(body string) ItemInput {
 	return ItemInput{Kind: model.ItemMessage, Subtype: "email", People: []string{"ada@acme.example"}, Body: body,
-		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "Ship it.", Locator: "line 1"}}
+		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "Ship it.", Locator: "https://acme.example/line-1"}}
 }
 
 func (f *propFix) add(items ...ItemInput) string {
@@ -406,12 +406,12 @@ func (f *propFix) add(items ...ItemInput) string {
 func paraTask(f *propFix, title string) ItemInput {
 	return ItemInput{Kind: model.ItemPara, Op: "task_add", How: "Adds a task.", Impact: "One more task.", Reversible: model.ReversibleYes,
 		Input:    map[string]any{"project": f.proj, "title": title, "done_when": "It exists."},
-		Evidence: model.Evidence{Quote: "Ship it.", Locator: "line 1"}}
+		Evidence: model.Evidence{Quote: "Ship it.", Locator: "https://acme.example/line-1"}}
 }
 
 func TestOldProposalFileReads(t *testing.T) {
 	f := newPropFix(t)
-	body := "Written by para.\n\n````yaml para-proposal\nitems:\n  - id: i1\n    kind: external\n    medium: email\n    target: a@acme.example\n    draft: Hi\n    evidence:\n      quote: q\n      locator: l\n    state: rework\n    reason: again\n  - id: i2\n    kind: op\n    op: task_start\n    input:\n      id: x\n    evidence:\n      quote: q\n      locator: l\n    state: pending\nannotations:\n  - id: a1\n    item: i2\n    quote: task\n    note: Why?\n    by: user\n    revision: 1\n    state: open\n````"
+	body := "Written by para.\n\n````yaml para-proposal\nitems:\n  - id: i1\n    kind: external\n    medium: email\n    target: a@acme.example\n    draft: Hi\n    evidence:\n      quote: q\n      locator: https://acme.example/l\n    state: rework\n    reason: again\n  - id: i2\n    kind: op\n    op: task_start\n    input:\n      id: x\n    evidence:\n      quote: q\n      locator: https://acme.example/l\n    state: pending\nannotations:\n  - id: a1\n    item: i2\n    quote: task\n    note: Why?\n    by: user\n    revision: 1\n    state: open\n````"
 	doc, err := f.owner.Store.Create(t.Context(), model.Document{ID: "proposal-old", Folder: model.FolderProposals, Title: "Old", Body: body,
 		Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo(f.source), Status: model.ProposalOpen, Revision: 1, ProposedBy: "claude"}})
 	if err != nil {
@@ -440,9 +440,9 @@ func TestNewKindsRequireFields(t *testing.T) {
 		in   ItemInput
 		want string
 	}{
-		{"message with nobody", ItemInput{Kind: model.ItemMessage, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "people or a channel"},
-		{"action with no what", ItemInput{Kind: model.ItemAction, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "what it is"},
-		{"no reversible", ItemInput{Kind: model.ItemMessage, Channel: "#x", Body: "x", Evidence: model.Evidence{Quote: "q", Locator: "l"}}, "reversible"},
+		{"message with nobody", ItemInput{Kind: model.ItemMessage, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}, "people or a channel"},
+		{"action with no what", ItemInput{Kind: model.ItemAction, Body: "x", Reversible: "no", Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}, "what it is"},
+		{"no reversible", ItemInput{Kind: model.ItemMessage, Channel: "#x", Body: "x", Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}, "reversible"},
 	}
 	for _, c := range bad {
 		_, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{c.in}})
@@ -549,7 +549,7 @@ func TestSubtypeRules(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(f.root, ".para", "proposals.yaml"), []byte("subtypes:\n  deploy:\n    required: [rollback]\n    default_risk: high\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	it := ItemInput{Kind: model.ItemAction, Subtype: "deploy", What: "Ship v2", How: "Rolls out v2.", Reversible: model.ReversiblePartly, ReversibleHow: "Roll back.", Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+	it := ItemInput{Kind: model.ItemAction, Subtype: "deploy", What: "Ship v2", How: "Rolls out v2.", Reversible: model.ReversiblePartly, ReversibleHow: "Roll back.", Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}
 	_, err := ProposalAdd.Run(t.Context(), f.agent, ProposalAddInput{Title: "T", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{it}})
 	if err == nil || !strings.Contains(err.Error(), "needs rollback") {
 		t.Fatalf("err = %v", err)
@@ -579,9 +579,9 @@ func TestApproveByGroup(t *testing.T) {
 func TestExecutionFlow(t *testing.T) {
 	f := newPropFix(t)
 	pr := ItemInput{Kind: model.ItemAction, Subtype: "pr", What: "Open the PR", How: "Adds the fix.", Target: "acme/api", Title: "Fix", Body: "The body.",
-		Reversible: model.ReversibleYes, Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+		Reversible: model.ReversibleYes, Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}
 	note := ItemInput{Kind: model.ItemMessage, Channel: "#ops", Body: "See {{i1.url}}.", Subtype: "slack", After: "i1",
-		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "q", Locator: "l"}}
+		Reversible: model.ReversibleNo, Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}}
 	task := paraTask(f, "Watch the rollout of {{i1.url}}")
 	task.After = "i1"
 	id := f.add(pr, note, task)

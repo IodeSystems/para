@@ -200,8 +200,8 @@ var Inputs = map[string]string{
 	"request_respond":           `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,
 	"request_changes":           `{"id":"request-finished"}`,
 	"proposal_add": `{"title":"Sample proposal","tldr":"Add a task and tell Sam.","context":"Sam asked in the sample note.","source":"note-sample","items":[` +
-		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"line 1"}},` +
-		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"line 1"}}]}`,
+		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"https://acme.example/line-1"}},` +
+		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"https://acme.example/line-1"}}]}`,
 	"proposal_executed": `{"id":"proposal-decided","item":"i1","result":"done","url":"https://acme.example/m/2"}`,
 	"proposal_show":     `{"id":"proposal-sample"}`,
 	"proposal_diff":     `{"id":"proposal-sample"}`,
@@ -228,7 +228,7 @@ const (
 )
 
 func sampleProposals() ([]model.Document, error) {
-	ev := model.Evidence{Quote: "Sample text.", Locator: "line 1"}
+	ev := model.Evidence{Quote: "Sample text.", Locator: "https://acme.example/line-1"}
 	open, err := model.NewDossier(model.DossierHeader{TLDR: "Add a task and tell Sam.", Context: "Sam asked in the sample note."}, "Items",
 		[]model.ProposalItem{
 			{ID: "i1", Kind: model.ItemPara, Op: "task_add", Input: map[string]any{"project": "project-sample", "title": "From a proposal", "done_when": "It exists."}, Evidence: ev, State: model.ItemPending, Rev: 1},

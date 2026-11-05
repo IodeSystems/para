@@ -99,7 +99,9 @@ func checkBlockItem(ctx context.Context, d Deps, it *model.ProposalItem, rules P
 
 // parseAgentDossier reads markdown an agent wrote and checks every item.
 // strict refuses para's and the owner's keys; otherwise they are dropped.
-func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool) (*model.Dossier, error) {
+// keep holds the evidence of items already in the dossier, by id: an item
+// that keeps its evidence is not checked again, so an older dossier revises.
+func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool, keep map[string]model.Evidence) (*model.Dossier, error) {
 	dz, err := model.ParseDossier(strings.TrimSpace(markdown))
 	if err != nil {
 		return nil, err
@@ -130,6 +132,11 @@ func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool
 		}
 		if err := checkBlockItem(ctx, d, it, rules); err != nil {
 			return nil, fmt.Errorf("item %s: %w", it.ID, err)
+		}
+		if old, ok := keep[it.ID]; !ok || !sameEvidence(old, it.Evidence) {
+			if err := checkEvidence(ctx, d, it.Evidence); err != nil {
+				return nil, fmt.Errorf("item %s: %w", it.ID, err)
+			}
 		}
 	}
 	return dz, nil
@@ -588,3 +595,36 @@ var ProposalReply = defineSafe("proposal_reply", "Reply to the owner's comment o
 	}
 	return ProposalReplyOutput{ID: p.doc.ID, Reply: turnID, Rev: p.doc.Rev}, nil
 })
+
+// checkEvidence refuses evidence the owner cannot check: the locator must be
+// an http(s) URL or a vault document, or via names a private connector item
+// with verify.
+func checkEvidence(ctx context.Context, d Deps, e model.Evidence) error {
+	switch e.Check() {
+	case model.CheckURL, model.CheckVia:
+		return nil
+	case model.CheckVault:
+		ref := model.VaultRef(e.Locator)
+		var err error
+		if strings.Contains(ref, "/") {
+			_, err = d.Store.DocAt(ctx, ref)
+		} else {
+			_, err = d.Store.Get(ctx, ref)
+		}
+		if err != nil {
+			return fmt.Errorf("evidence locator %q: no such vault document: %s", e.Locator, model.EvidenceForms)
+		}
+		return nil
+	}
+	if e.Via != nil && strings.TrimSpace(e.Verify) == "" {
+		return errors.New("evidence via needs verify: a sentence that tells the owner how to find the item themself")
+	}
+	return fmt.Errorf("evidence locator %q: the owner cannot open it: %s", e.Locator, model.EvidenceForms)
+}
+
+func sameEvidence(a, b model.Evidence) bool {
+	if a.Quote != b.Quote || a.Locator != b.Locator || a.Verify != b.Verify || (a.Via == nil) != (b.Via == nil) {
+		return false
+	}
+	return a.Via == nil || *a.Via == *b.Via
+}

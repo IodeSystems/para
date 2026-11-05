@@ -16,7 +16,7 @@ func TestProposalDossierStep(t *testing.T) {
 		}
 	}
 	body, err := model.RenderProposalBody(model.ProposalContent{TLDR: "Send it", Items: []model.ProposalItem{
-		{ID: "i1", Kind: model.ItemMessage, People: []string{"ada@acme.example"}, Body: "Hi.", Evidence: model.Evidence{Quote: "q", Locator: "l"}, State: model.ItemPending}}})
+		{ID: "i1", Kind: model.ItemMessage, People: []string{"ada@acme.example"}, Body: "Hi.", Evidence: model.Evidence{Quote: "q", Locator: "https://acme.example/l"}, State: model.ItemPending}}})
 	if err != nil {
 		t.Fatal(err)
 	}
