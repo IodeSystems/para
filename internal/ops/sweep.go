@@ -448,6 +448,7 @@ var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the 
 			r.Status, r.Lease, r.Resolution = model.RequestDone, "", model.ResolutionDone
 			r.Results = []model.Link{model.LinkTo(doc.ID)}
 		}
+		r.ActiveAt = nowString(d.Store)
 		if _, err := d.Store.Update(ctx, rq); err != nil {
 			return out, err
 		}

@@ -48,8 +48,8 @@ func runAgendaHome(l *loader, cmd *cobra.Command) error {
 				}
 				continue
 			}
-			if _, err := fmt.Fprintf(w, "%s\tincidents %d\tagenda %d\tother questions %d\tlater %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\thealth %d\tupgrade steps %d\tinbox %d\toutbox %d\tdocs unseen %d\tdoc comments %d\n",
-				v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Health, v.UpgradeSteps, v.Inbox, v.Outbox, v.DocsUnseen, v.DocComments); err != nil {
+			if _, err := fmt.Fprintf(w, "%s\tincidents %d\tagenda %d\tother questions %d\tlater %d\tdue %d\toverdue %d\tsoon %d\tnudges %d\texpiring %d\tblocked %d\twaiting %d\tunverified %d\tanswers to check %d\thealth %d\tupgrade steps %d\tinbox %d\toutbox %d\tdocs unseen %d\tdoc comments %d\tasked of agents open %d (stale %d)\n",
+				v.Vault, v.Incidents.Count, v.Agenda.Count, v.OtherOpen, v.Deferred, v.Due.Count, v.Overdue.Count, v.DueSoon.Count, v.Nudges.Count, v.Expiring.Count, v.Blocked.Count, v.Waiting, v.Unverified, v.AnswersToCheck, v.Health, v.UpgradeSteps, v.Inbox, v.Outbox, v.DocsUnseen, v.DocComments, v.AgentOpen, v.AgentStale); err != nil {
 				return err
 			}
 			p := &printer{w: w}

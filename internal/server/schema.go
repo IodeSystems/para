@@ -122,6 +122,8 @@ type Meta struct {
 	QueuedAt        string                `json:"queued_at,omitempty"`
 	ClaimedBy       string                `json:"claimed_by,omitempty"`
 	LeaseUntil      string                `json:"lease_until,omitempty"`
+	ClaimedAt       string                `json:"claimed_at,omitempty"`
+	ActiveAt        string                `json:"active_at,omitempty"`
 	Links           *jsonValue            `json:"links,omitempty"`
 	ResultLinks     []string              `json:"result_links,omitempty"`
 	Required        []string              `json:"required,omitempty"`

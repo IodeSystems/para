@@ -128,6 +128,11 @@ type VaultToday struct {
 	// not seen; DocComments counts their comments with no resolution.
 	DocsUnseen  int `json:"docs_unseen"`
 	DocComments int `json:"doc_comments"`
+	// AgentOpen counts work the owner asked of agents (owner-ask,
+	// sent-to-agent) not finished; AgentStale the part of it with no change in
+	// a day (health agent_work_stale).
+	AgentOpen  int `json:"agent_open"`
+	AgentStale int `json:"agent_stale"`
 	// SyncConflicts lists conflict copies a file-sync tool left (finding code
 	// sync-conflict in lint). They are not documents.
 	SyncConflicts []string `json:"sync_conflicts"`
@@ -239,6 +244,18 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 					for _, c := range m.Comments {
 						if c.Open() {
 							vt.DocComments++
+						}
+					}
+				}
+			}
+			continue
+		case model.TypeRequest:
+			if d, err := v.Get(ctx, r.ID); err == nil {
+				if m, ok := d.Meta.(*model.Request); ok {
+					if open, stale := ops.AskedCounts(d.Title, m, v.Now()); open {
+						vt.AgentOpen++
+						if stale {
+							vt.AgentStale++
 						}
 					}
 				}

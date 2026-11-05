@@ -29,7 +29,7 @@ func newFeedbackCmd(l *loader) *cobra.Command {
 }
 
 func newSentCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "sent", Short: "Agent work you sent with Send to agent", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "sent", Short: "Agent work you asked for: Send to agent, and what you asked an agent in the chat", Args: cobra.NoArgs}
 	cmd.AddCommand(opCommand(l, ops.SentList, binding[ops.SentListInput, ops.SentListOutput]{
 		Use:  "list",
 		Args: cobra.NoArgs,
@@ -46,8 +46,12 @@ func newSentCmd(l *loader) *cobra.Command {
 				if it.Resolution != "" {
 					status += ", " + string(it.Resolution)
 				}
-				p.f("%s\t%s\t%s\t%s\n", it.Request, status, it.Item, it.Note)
+				if it.Stale {
+					status += ", stale"
+				}
+				p.f("%s\t%s\t%s\t%s\t%s\n", it.Request, it.Kind, status, it.Item, it.Note)
 			}
+			p.f("open %d, stale %d\n", out.Open, out.Stale)
 			return p.err
 		},
 	}))

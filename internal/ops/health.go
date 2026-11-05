@@ -60,6 +60,9 @@ const (
 	// HealthUnreviewedOutward is an outward act a sweep saw with no record in
 	// the vault: no approved item reported done, no action_record.
 	HealthUnreviewedOutward = "unreviewed_outward"
+	// HealthAgentWorkStale is work the owner asked of agents (owner-ask,
+	// sent-to-agent) queued or claimed with no change in a day.
+	HealthAgentWorkStale = "agent_work_stale"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -74,7 +77,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
-	HealthUnreviewedOutward,
+	HealthUnreviewedOutward, HealthAgentWorkStale,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -114,6 +117,7 @@ var HealthKindWords = map[string]string{
 	HealthSourceOverdue:      "Source not swept on time",
 	HealthSourceMissing:      "Item cites a source not in the vault",
 	HealthUnreviewedOutward:  "Sent as the owner with no record",
+	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -188,7 +192,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 			goalRank[r.ID] = i
 		}
 	}
-	h := &healther{docs: docs, rows: rows, today: today, goalDue: map[string]string{}}
+	h := &healther{docs: docs, rows: rows, today: today, goalDue: map[string]string{}, now: s.Now()}
 	h.stale = ""
 	if t, err := time.Parse(dateLayout, today); err == nil {
 		h.stale = t.AddDate(0, 0, -HealthStaleDays).Format(dateLayout)
@@ -209,6 +213,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
 	h.graphFindings(ctx, s)
+	h.agentWorkStale()
 	if err := h.notAligned(ctx, s); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
@@ -290,6 +295,7 @@ type healther struct {
 	rows  map[string]ValueRow
 	today string
 	stale string
+	now   time.Time
 	// recheckCutoff is the date before which an assumption's check is stale;
 	// empty when recheck.days is off.
 	recheckCutoff string

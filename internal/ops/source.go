@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -147,6 +148,10 @@ type SourceRow struct {
 	Overdue bool   `json:"overdue"`
 	// Request is the open sweep request of the source, if any.
 	Request string `json:"request,omitempty"`
+	// LastSweep is the line the last sweep_record left: when, by whom,
+	// counts, and errors. LastFailed: that sweep did not finish.
+	LastSweep  string `json:"last_sweep,omitempty"`
+	LastFailed bool   `json:"last_failed"`
 }
 
 // SourceDeclared is one agent's declaration of a source.
@@ -163,6 +168,8 @@ func sourceView(doc model.Document, decl []Declaration, cut time.Time, open map[
 	v := SourceRow{ID: doc.ID, Title: doc.Title, System: m.System, Status: m.Status, Via: m.Via, Server: m.Server,
 		Cadence: m.Cadence, LastScan: m.LastScan, ReachedBy: append([]string{}, m.ReachedBy...), Declared: []SourceDeclared{},
 		Due: sourceDue(m), Overdue: sourceOverdue(m, today), Request: open[doc.ID]}
+	_, _, v.LastSweep = splitSourceBody(doc.Body)
+	v.LastFailed = failedSweep.MatchString(v.LastSweep)
 	for _, d := range decl {
 		if slices.Contains(d.Sources, doc.ID) {
 			v.Declared = append(v.Declared, SourceDeclared{Actor: d.Actor, At: d.At, Fresh: d.Fresh(cut)})
@@ -170,6 +177,9 @@ func sourceView(doc model.Document, decl []Declaration, cut time.Time, open map[
 	}
 	return v
 }
+
+// failedSweep matches the line of a sweep that did not finish (sweepLine).
+var failedSweep = regexp.MustCompile(`^\S+ by \S+, failed`)
 
 // openSweeps maps each source id to its open sweep request: proposed,
 // queued, or claimed.

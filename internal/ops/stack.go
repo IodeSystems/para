@@ -146,15 +146,20 @@ type ProposalStackOutput struct {
 	Total  int          `json:"total"` // rows that match, over all pages
 	// NeedsYou counts the items that wait on the owner (needs_you), over
 	// every filter but state: not later, and not skipped in batch.
-	NeedsYou   int    `json:"needs_you"`
-	NextCursor string `json:"next_cursor,omitempty"`
+	NeedsYou int `json:"needs_you"`
+	// Requests is agent work that ended stuck, blocked, or
+	// needs_clarification and waits for the owner's response, newest first.
+	// Listed and counted in NeedsYou only in the unscoped view (no kind,
+	// group, proposal, actor, or tag); listed with needs_you on the first page.
+	Requests   []SentItem `json:"requests"`
+	NextCursor string     `json:"next_cursor,omitempty"`
 }
 
 const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); needs_you lists only what waits on the owner (proposed, not sent to an agent, not put off, and with batch not skipped in that batch; a skip is not in this batch only and never defers); a view scoped by tag, proposal, or group also lists later items, which may be relevant (bring one back with stack_return); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); needs_you lists only what waits on the owner (proposed, not sent to an agent, not put off, and with batch not skipped in that batch; a skip is not in this batch only and never defers); a view scoped by tag, proposal, or group also lists later items, which may be relevant (bring one back with stack_return); unscoped, requests lists agent work that ended stuck, blocked, or needs_clarification and waits for the owner (counted in needs_you); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -180,7 +185,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 	if err != nil {
 		return ProposalStackOutput{}, err
 	}
-	out := ProposalStackOutput{Counts: []StackCount{}, Groups: []StackGroup{}, Rows: []StackRow{}}
+	out := ProposalStackOutput{Counts: []StackCount{}, Groups: []StackGroup{}, Rows: []StackRow{}, Requests: []SentItem{}}
 	counts := map[string]int{}
 	sum := newItemSummarizer(ctx, d)
 	var rows []StackRow
@@ -262,6 +267,16 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			}
 		}
 	}
+	if in.Proposal == "" && in.Actor == "" && in.Group == "" && in.Kind == "" && tag == "" {
+		waits, err := workWaitingOnOwner(ctx, d)
+		if err != nil {
+			return out, err
+		}
+		out.NeedsYou += len(waits)
+		if in.NeedsYou && start == 0 {
+			out.Requests = waits
+		}
+	}
 	for _, s := range StackStates {
 		out.Counts = append(out.Counts, StackCount{State: s, Count: counts[s]})
 	}
@@ -275,6 +290,24 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 	}
 	return out, nil
 })
+
+// workWaitingOnOwner lists agent work whose last turn ended stuck, blocked,
+// or needs_clarification, newest first: it waits for the owner's response.
+func workWaitingOnOwner(ctx context.Context, d Deps) ([]SentItem, error) {
+	docs, err := loadRequests(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	now := d.Store.Now()
+	out := []SentItem{}
+	for i := len(docs) - 1; i >= 0; i-- {
+		r := docs[i].Meta.(*model.Request)
+		if r.Status == model.RequestDone && r.Resolution.NeedsOwner() {
+			out = append(out, askedItem(ctx, d, docs[i], r, now))
+		}
+	}
+	return out, nil
+}
 
 // needsYou is true for an item that waits on the owner: proposed, and not
 // sent back to an agent.

@@ -3878,6 +3878,7 @@ enum para_MeetingViewStatus {
 }
 
 type para_Meta {
+  activeAt: String
   actor: String
   aliases: [String!]
   align: para_AlignResult
@@ -3906,6 +3907,7 @@ type para_Meta {
   checked: String
   checkedBy: String
   choice: String
+  claimedAt: String
   claimedBy: String
   comments: JSON
   concepts: [String!]
@@ -4992,6 +4994,7 @@ type para_ProposalStackOutput {
   groups: [para_StackGroup!]!
   needsYou: Int!
   nextCursor: String
+  requests: [para_SentItem!]!
   rows: [para_StackRow!]!
   total: Int!
 }
@@ -5944,6 +5947,7 @@ input para_RequestAddInputInput {
   importedFrom: para_ImportedFromInput
   kind: String
   links: [String!]
+  ownerSaid: String
   runner: String
   title: String
 }
@@ -5951,6 +5955,7 @@ input para_RequestAddInputInput {
 type para_RequestAddOutput {
   folder: para_RequestAddOutputFolder!
   id: String!
+  leaseUntil: String
   rev: String!
   runner: String!
   status: para_RequestAddOutputStatus!
@@ -6021,7 +6026,9 @@ type para_RequestChangesOutput {
 }
 
 type para_RequestDetail {
+  activeAt: String
   body: String!
+  claimedAt: String
   claimedBy: String
   context: [para_ContextDoc!]!
   delegates: Boolean!
@@ -6036,6 +6043,7 @@ type para_RequestDetail {
   requiresSource: String
   resolution: para_RequestDetailResolution
   runner: String!
+  stale: Boolean!
   status: para_RequestDetailStatus!
   title: String!
   turn: Int
@@ -6119,6 +6127,8 @@ type para_RequestShowOutput {
 }
 
 type para_RequestView {
+  activeAt: String
+  claimedAt: String
   claimedBy: String
   delegates: Boolean!
   id: String!
@@ -6132,6 +6142,7 @@ type para_RequestView {
   requiresSource: String
   resolution: para_RequestViewResolution
   runner: String!
+  stale: Boolean!
   status: para_RequestViewStatus!
   title: String!
   turn: Int
@@ -6362,14 +6373,20 @@ type para_SelfServe {
 }
 
 type para_SentItem {
+  activeAt: String
+  claimedAt: String
   claimedBy: String
   item: String
   itemName: String
+  kind: String!
+  needsYou: Boolean!
   note: String
   queuedAt: String!
+  receipts: [String!]
   request: String!
   resolution: para_SentItemResolution
   results: [String!]
+  stale: Boolean!
   status: para_SentItemStatus!
   summary: String
   title: String!
@@ -6397,6 +6414,8 @@ enum para_SentItemStatus {
 
 type para_SentListOutput {
   items: [para_SentItem!]!
+  open: Int!
+  stale: Int!
 }
 
 type para_SessionCreateBody {
@@ -6634,7 +6653,9 @@ type para_SourceRow {
   declared: [para_SourceDeclared!]!
   due: String
   id: String!
+  lastFailed: Boolean!
   lastScan: String
+  lastSweep: String
   overdue: Boolean!
   reachedBy: [String!]!
   refUrl: String
@@ -7613,6 +7634,8 @@ enum para_TodayItemEffort {
 
 type para_TodayVaultToday {
   agenda: para_TodayGroup!
+  agentOpen: Int!
+  agentStale: Int!
   answersToCheck: Int!
   approvedNotDone: Int!
   blocked: para_TodayGroup!

@@ -281,6 +281,8 @@ var typeFields = map[string][]field{
 		{Name: "queued_at", Kind: kTimestamp, Required: true},
 		{Name: "claimed_by", Kind: kString},
 		{Name: "lease_until", Kind: kTimestamp},
+		{Name: "claimed_at", Kind: kTimestamp},
+		{Name: "active_at", Kind: kTimestamp},
 		{Name: "links", Kind: kLinkList},
 		{Name: "result_links", Kind: kLinkList},
 		{Name: "context", Kind: kLinkList},
@@ -489,7 +491,7 @@ var editableTypes = []string{
 // editLocked are fields a lifecycle op, a recurrence chain, or a fetched source
 // owns, per type. status is locked for every type.
 var editLocked = map[string][]string{
-	"request":     {"queued_at", "claimed_by", "lease_until", "resolution", "result_links", "followed"},
+	"request":     {"queued_at", "claimed_by", "lease_until", "claimed_at", "active_at", "resolution", "result_links", "followed"},
 	"task":        {"previous", "rfx"},
 	"rfx":         {"targets", "question"},
 	"policy":      {"source", "verified"},

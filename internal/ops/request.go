@@ -65,6 +65,11 @@ type RequestView struct {
 	Reply string `json:"reply,omitempty"`
 	// RequiresSource is the source only a declaring agent may sweep.
 	RequiresSource string `json:"requires_source,omitempty"`
+	// ClaimedAt is when ClaimedBy took it; ActiveAt is when it last changed.
+	// Stale: queued or claimed with no change in AgentWorkStaleAfter.
+	ClaimedAt string `json:"claimed_at,omitempty"`
+	ActiveAt  string `json:"active_at,omitempty"`
+	Stale     bool   `json:"stale"`
 }
 
 // ContextDoc is one document a request links as context. Required says a rule
@@ -100,6 +105,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 	v := RequestView{
 		ID: d.ID, Title: d.Title, Status: r.Status, Runner: r.Runner, QueuedAt: r.Queued,
 		ClaimedBy: r.Claimed, LeaseUntil: r.Lease, Kind: r.Kind, Resolution: r.Resolution, Turn: r.Turn,
+		ClaimedAt: r.ClaimedAt, ActiveAt: r.ActiveAt,
 	}
 	if len(r.Links) > 0 {
 		v.Links = targets(r.Links)
@@ -112,6 +118,47 @@ func requestView(d model.Document, r *model.Request) RequestView {
 }
 
 func nowString(s store.Store) string { return s.Now().UTC().Format(time.RFC3339Nano) }
+
+// AgentWorkStaleAfter is how long queued or claimed agent work may go with no
+// change before it is stale.
+const AgentWorkStaleAfter = 24 * time.Hour
+
+// OwnerAskKind marks a request an agent recorded for what the owner asked in
+// the chat: work that does not end in the same reply.
+const OwnerAskKind = "owner-ask"
+
+// requestStale reports whether queued or claimed work had no change in
+// AgentWorkStaleAfter: queued with no claim, or claimed with no note or end.
+func requestStale(r *model.Request, now time.Time) bool {
+	var at string
+	switch r.Status {
+	case model.RequestQueued:
+		at = firstOf(r.Queued, r.ActiveAt)
+	case model.RequestClaimed:
+		at = firstOf(r.ActiveAt, r.ClaimedAt, r.Queued)
+	default:
+		return false
+	}
+	t, err := time.Parse(time.RFC3339Nano, at)
+	return err == nil && now.Sub(t) > AgentWorkStaleAfter
+}
+
+// requeues reports whether a claim on r goes back to the queue when its lease
+// ends. An owner-ask stays with the agent that recorded it: a dropped one
+// shows as stale, so no other agent picks up text an agent wrote.
+func requeues(r *model.Request) bool { return r.Kind != OwnerAskKind }
+
+// claimRank orders claimable work: sweeps first, then what the owner asked
+// (owner-ask, sent-to-agent), then other agent work.
+func claimRank(title string, r *model.Request) int {
+	switch {
+	case r.RequiresSource != "":
+		return 0
+	case isAsked(title, r):
+		return 1
+	}
+	return 2
+}
 
 // identity returns the caller's identity. A request op needs an install id.
 func identity(d Deps) (store.Info, error) {
@@ -193,7 +240,7 @@ func claimable(r *model.Request, install string, now time.Time) bool {
 	if r.Runner != install {
 		return false
 	}
-	return r.Status == model.RequestQueued || (r.Status == model.RequestClaimed && leaseExpired(r, now))
+	return r.Status == model.RequestQueued || (r.Status == model.RequestClaimed && requeues(r) && leaseExpired(r, now))
 }
 
 func leaseFor(secs int) (time.Duration, error) {
@@ -253,6 +300,9 @@ type RequestAddInput struct {
 	// Kind is free text. A rule in .para/proposals.yaml can require a policy or
 	// a convention for a kind.
 	Kind string `json:"kind,omitempty"`
+	// OwnerSaid is the owner's message from the chat, verbatim. Required for
+	// kind owner-ask from an agent: it is the source of the work.
+	OwnerSaid string `json:"owner_said,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -299,17 +349,18 @@ func plainTitle(ctx context.Context, s store.Store, title string) string {
 }
 
 // RequestAddOutput is the output of request_add. Status is proposed when the
-// surface cannot queue work.
+// surface cannot queue work, and claimed for an owner-ask an agent recorded.
 type RequestAddOutput struct {
-	ID     string              `json:"id"`
-	Folder model.Folder        `json:"folder"`
-	Status model.RequestStatus `json:"status"`
-	Runner string              `json:"runner"`
-	Rev    string              `json:"rev"`
+	ID         string              `json:"id"`
+	Folder     model.Folder        `json:"folder"`
+	Status     model.RequestStatus `json:"status"`
+	Runner     string              `json:"runner"`
+	LeaseUntil string              `json:"lease_until,omitempty"`
+	Rev        string              `json:"rev"`
 }
 
 // RequestAdd queues a request, or proposes one from a surface that cannot queue.
-var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an agent surface it is only proposed until a person accepts it", func(ctx context.Context, d Deps, in RequestAddInput) (RequestAddOutput, error) {
+var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an agent surface it is only proposed until a person accepts it. Kind owner-ask records what the owner asked you in the chat that does not end in this reply: title in the owner's words, owner_said their message verbatim, links the items it is about. You hold it at once (claimed); renew with request_note and end it with request_done", func(ctx context.Context, d Deps, in RequestAddInput) (RequestAddOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestAddOutput{}, err
@@ -317,6 +368,20 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	title, body, err := requestTitle(d, in)
 	if err != nil {
 		return RequestAddOutput{}, err
+	}
+	ownerAsk := strings.TrimSpace(in.Kind) == OwnerAskKind
+	said := strings.TrimSpace(strings.ReplaceAll(in.OwnerSaid, "\r\n", "\n"))
+	switch {
+	case ownerAsk && said == "" && agentSurface(d):
+		return RequestAddOutput{}, errors.New("owner_said is empty: an owner-ask quotes the owner's message from the chat, verbatim")
+	case !ownerAsk && said != "":
+		return RequestAddOutput{}, fmt.Errorf("owner_said: only kind %s takes it", OwnerAskKind)
+	}
+	if said != "" {
+		if err := lintText("owner_said", said); err != nil {
+			return RequestAddOutput{}, err
+		}
+		body += "\n\n## Owner's words\n\n" + flattenHeadings(said)
 	}
 	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest)
 	if err != nil {
@@ -340,6 +405,15 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	} else if ok {
 		status = model.RequestQueued
 	}
+	// An agent records an owner-ask for its own work: it is claimed by the
+	// caller on this install, never queued for another agent.
+	claim := ownerAsk && agentSurface(d)
+	if claim {
+		if runner != info.Install {
+			return RequestAddOutput{}, errors.New("runner: an owner-ask you record runs on this install")
+		}
+		status = model.RequestClaimed
+	}
 	rules, err := loadProposalRules(d)
 	if err != nil {
 		return RequestAddOutput{}, err
@@ -360,18 +434,21 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 			}
 		}
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderRequests, Title: title, Body: body,
-		Meta: &model.Request{
-			Common: model.Common{Type: model.TypeRequest},
-			Status: status, Runner: runner, Queued: nowString(d.Store), Links: links,
-			Kind: kind, Context: context, Required: required,
-		},
-	})
+	now := nowString(d.Store)
+	meta := &model.Request{
+		Common: model.Common{Type: model.TypeRequest},
+		Status: status, Runner: runner, Queued: now, ActiveAt: now, Links: links,
+		Kind: kind, Context: context, Required: required,
+	}
+	if claim {
+		meta.Claimed, meta.ClaimedAt = info.Actor, now
+		meta.Lease = d.Store.Now().Add(DefaultLease).UTC().Format(time.RFC3339Nano)
+	}
+	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderRequests, Title: title, Body: body, Meta: meta})
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
-	return RequestAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, Runner: runner, Rev: doc.Rev}, nil
+	return RequestAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, Runner: runner, LeaseUntil: meta.Lease, Rev: doc.Rev}, nil
 })
 
 // RequestListInput is the input of request_list. Empty fields match all.
@@ -398,12 +475,14 @@ var RequestList = defineRead("request_list", "List agent requests, oldest first"
 		return RequestListOutput{}, err
 	}
 	out := RequestListOutput{Items: []RequestView{}}
+	now := d.Store.Now()
 	for _, doc := range docs {
 		r := doc.Meta.(*model.Request)
 		if in.Status != "" && r.Status != in.Status {
 			continue
 		}
 		v := requestView(doc, r)
+		v.Stale = requestStale(r, now)
 		v.Title = plainTitle(ctx, d.Store, v.Title)
 		out.Items = append(out.Items, v)
 	}
@@ -462,7 +541,7 @@ var RequestCancel = define("request_cancel", "Cancel an agent request that is no
 	if !slices.Contains([]model.RequestStatus{model.RequestProposed, model.RequestQueued, model.RequestClaimed}, r.Status) {
 		return RequestChangeOutput{}, fmt.Errorf("%s is %s: only a proposed, queued, or claimed request can be cancelled", doc.ID, r.Status)
 	}
-	r.Status, r.Claimed, r.Lease, r.Resolution = model.RequestCancelled, "", "", model.ResolutionCancelled
+	r.Status, r.Claimed, r.Lease, r.Resolution, r.ActiveAt = model.RequestCancelled, "", "", model.ResolutionCancelled, nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -491,6 +570,7 @@ func RequestAccept(ctx context.Context, d Deps, in RequestAcceptInput) (RequestC
 		return RequestChangeOutput{}, fmt.Errorf("request_accept: %s is %s, not proposed", doc.ID, r.Status)
 	}
 	r.Status, r.Queued = model.RequestQueued, nowString(d.Store)
+	r.ActiveAt = r.Queued
 	doc, err = d.Store.Update(ctx, doc)
 	if err != nil {
 		return RequestChangeOutput{}, fmt.Errorf("request_accept: %w", err)
@@ -510,8 +590,9 @@ type RequestNextOutput struct {
 	Requeued []string       `json:"requeued"`
 }
 
-// RequestNext claims the oldest queued request for the caller.
-var RequestNext = defineSafe("request_next", "Claim the oldest queued request for this actor, with a lease; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
+// RequestNext claims queued work for the caller: sweeps first, then what the
+// owner asked, then other work, each oldest first.
+var RequestNext = defineSafe("request_next", "Claim the next queued request for this actor, with a lease: sweeps of sources you declared first, then what the owner asked (owner-ask, sent-to-agent), then other agent work, each oldest first; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestNextOutput{}, err
@@ -535,10 +616,10 @@ var RequestNext = defineSafe("request_next", "Claim the oldest queued request fo
 		now := d.Store.Now()
 		for _, doc := range docs {
 			r := doc.Meta.(*model.Request)
-			if r.Runner != info.Install || r.Status != model.RequestClaimed || !leaseExpired(r, now) {
+			if r.Runner != info.Install || r.Status != model.RequestClaimed || !requeues(r) || !leaseExpired(r, now) {
 				continue
 			}
-			r.Status, r.Claimed, r.Lease = model.RequestQueued, "", ""
+			r.Status, r.Claimed, r.Lease, r.ClaimedAt = model.RequestQueued, "", "", ""
 			if _, err := d.Store.Update(ctx, doc); errors.Is(err, model.ErrConflict) {
 				conflict = true
 			} else if err != nil {
@@ -555,6 +636,9 @@ var RequestNext = defineSafe("request_next", "Claim the oldest queued request fo
 				return out, err
 			}
 		}
+		slices.SortStableFunc(docs, func(a, b model.Document) int {
+			return claimRank(a.Title, a.Meta.(*model.Request)) - claimRank(b.Title, b.Meta.(*model.Request))
+		})
 		for _, doc := range docs {
 			r := doc.Meta.(*model.Request)
 			if r.Runner != info.Install || r.Status != model.RequestQueued {
@@ -570,6 +654,8 @@ var RequestNext = defineSafe("request_next", "Claim the oldest queued request fo
 				}
 			}
 			r.Status, r.Claimed, r.Lease = model.RequestClaimed, info.Actor, d.Store.Now().Add(lease).UTC().Format(time.RFC3339Nano)
+			r.ClaimedAt = nowString(d.Store)
+			r.ActiveAt = r.ClaimedAt
 			got, err := d.Store.Update(ctx, doc)
 			if errors.Is(err, model.ErrConflict) {
 				conflict = true
@@ -645,6 +731,7 @@ var RequestNote = defineSafe("request_note", "Add a progress note to a request y
 		doc.Body = appendSection(doc.Body, "Notes", line)
 	}
 	r.Lease = d.Store.Now().Add(lease).UTC().Format(time.RFC3339Nano)
+	r.ActiveAt = nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -692,6 +779,7 @@ var RequestDone = defineSafe("request_done", "End a request you claimed: resolut
 	}
 	doc.Body = appendSection(doc.Body, heading, in.Result)
 	r.Status, r.Lease, r.Results, r.Resolution, r.Followed = model.RequestDone, "", links, in.Resolution, followed
+	r.ActiveAt = nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -712,7 +800,7 @@ var RequestFail = defineSafe("request_fail", "Mark a request you claimed as fail
 		return RequestChangeOutput{}, err
 	}
 	doc.Body = appendSection(doc.Body, "Failure", in.Reason)
-	r.Status, r.Lease, r.Resolution = model.RequestFailed, "", model.ResolutionFailed
+	r.Status, r.Lease, r.Resolution, r.ActiveAt = model.RequestFailed, "", model.ResolutionFailed, nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
@@ -775,6 +863,7 @@ func respondTo(ctx context.Context, d Deps, in RequestRespondInput) (model.Docum
 	}
 	doc.Body = appendSection(doc.Body, fmt.Sprintf("Response %d (%s)", r.Turn, in.Kind), text)
 	r.Status, r.Claimed, r.Lease, r.Resolution, r.Queued = model.RequestQueued, "", "", "", nowString(d.Store)
+	r.ClaimedAt, r.ActiveAt = "", r.Queued
 	doc, err = d.Store.Update(ctx, doc)
 	return doc, r, err
 }

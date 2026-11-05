@@ -528,8 +528,13 @@ type Request struct {
 	Queued  string        `yaml:"queued_at" json:"queued_at"`                       // when it became claimable; orders the queue
 	Claimed string        `yaml:"claimed_by,omitempty" json:"claimed_by,omitempty"` // actor holding the lease
 	Lease   string        `yaml:"lease_until,omitempty" json:"lease_until,omitempty"`
-	Links   []Link        `yaml:"links,omitempty" json:"links,omitempty"`               // task or project the ask is about
-	Results []Link        `yaml:"result_links,omitempty" json:"result_links,omitempty"` // documents the agent made or changed
+	// ClaimedAt is when the actor in Claimed took it. ActiveAt is when the
+	// request last changed: queued, claimed, a note, or an end. A request with
+	// no change in a day is stale (health agent_work_stale).
+	ClaimedAt string `yaml:"claimed_at,omitempty" json:"claimed_at,omitempty"`
+	ActiveAt  string `yaml:"active_at,omitempty" json:"active_at,omitempty"`
+	Links     []Link `yaml:"links,omitempty" json:"links,omitempty"`               // task or project the ask is about
+	Results   []Link `yaml:"result_links,omitempty" json:"result_links,omitempty"` // documents the agent made or changed
 	// Kind is free text. A rule in .para/proposals.yaml can require a policy or a
 	// convention for a kind.
 	Kind string `yaml:"kind,omitempty" json:"kind,omitempty"`
