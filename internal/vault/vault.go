@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	ashid "github.com/IodeSystems/ashid/go"
@@ -65,6 +66,27 @@ type Vault struct {
 	actor    string
 	surface  string
 	install  string
+
+	paths *pathCache // shared by copies made with As
+}
+
+// pathCache maps a document id to its file, so Get does not walk the vault.
+// Every walk refreshes it. A hit is used only while the file is still there:
+// a sync tool or a hand edit can move or delete files at any time.
+//
+// refs holds what List takes from each file, keyed by path, and is used only
+// when the file's content hash is unchanged.
+type pathCache struct {
+	mu   sync.Mutex
+	m    map[string]docFile
+	refs map[string]listed
+}
+
+type listed struct {
+	hash  string
+	typ   model.Type
+	title string
+	dup   string
 }
 
 // Open opens the vault at root and restores any missing folder.
@@ -100,7 +122,7 @@ func Open(root string, o Options) (*Vault, error) {
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
 		Vault: id, Install: o.Install, Actor: o.Actor, Surface: o.Surface, Now: o.Now, Warn: o.Warn,
 	})
-	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install}, nil
+	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install, paths: &pathCache{}}, nil
 }
 
 // Actor, Surface, and Install return the Options they were opened with.
@@ -422,13 +444,12 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		if err != nil {
 			return nil, fmt.Errorf("vault: list: %w", err)
 		}
-		pf := paramd.Parse(f.rel, data)
-		if typ != "" && model.Type(pf.Type()) != typ {
+		l := v.listedOf(f.rel, data)
+		if typ != "" && l.typ != typ {
 			continue
 		}
-		dup, _ := pf.Frontmatter["duplicate_of"].(string)
-		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: model.Type(pf.Type()), Title: pf.Title, Rev: events.Hash(data),
-			Hidden: f.folder == model.FolderArchive || strings.TrimSpace(dup) != ""})
+		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: l.typ, Title: l.title, Rev: l.hash,
+			Hidden: f.folder == model.FolderArchive || strings.TrimSpace(l.dup) != ""})
 	}
 	return out, nil
 }
@@ -637,10 +658,53 @@ func (v *Vault) docFiles() ([]docFile, error) {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
+	m := make(map[string]docFile, len(out))
+	for _, f := range out {
+		if _, dup := m[f.id]; !dup {
+			m[f.id] = f
+		}
+	}
+	v.paths.mu.Lock()
+	v.paths.m = m
+	for rel := range v.paths.refs {
+		if f, ok := m[strings.TrimSuffix(path.Base(rel), ".md")]; !ok || f.rel != rel {
+			delete(v.paths.refs, rel)
+		}
+	}
+	v.paths.mu.Unlock()
 	return out, nil
 }
 
+// listedOf parses data only when the file at rel changed since the last List.
+func (v *Vault) listedOf(rel string, data []byte) listed {
+	hash := events.Hash(data)
+	v.paths.mu.Lock()
+	l, ok := v.paths.refs[rel]
+	v.paths.mu.Unlock()
+	if ok && l.hash == hash {
+		return l
+	}
+	pf := paramd.Parse(rel, data)
+	dup, _ := pf.Frontmatter["duplicate_of"].(string)
+	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup}
+	v.paths.mu.Lock()
+	if v.paths.refs == nil {
+		v.paths.refs = map[string]listed{}
+	}
+	v.paths.refs[rel] = l
+	v.paths.mu.Unlock()
+	return l
+}
+
 func (v *Vault) find(id string) (docFile, error) {
+	v.paths.mu.Lock()
+	f, ok := v.paths.m[id]
+	v.paths.mu.Unlock()
+	if ok {
+		if st, err := os.Stat(v.abs(f.rel)); err == nil && st.Mode().IsRegular() {
+			return f, nil
+		}
+	}
 	files, err := v.docFiles()
 	if err != nil {
 		return docFile{}, err

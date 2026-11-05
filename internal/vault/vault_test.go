@@ -1010,3 +1010,51 @@ func TestUpdateKeepsCommentsAndKeyOrder(t *testing.T) {
 		t.Fatalf("got:\n%s\nwant:\n%s", got, want)
 	}
 }
+
+// Get remembers where each id lives, so it must notice a file that a sync
+// tool or a hand edit moved, deleted, or renamed since the last walk.
+func TestGetFollowsOutsideMoves(t *testing.T) {
+	v, root := newVault(t)
+	d, err := v.Create(ctx, inbox("Moves", "Text."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.Get(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	from := filepath.Join(root, "inbox", d.ID+".md")
+	to := filepath.Join(root, "archive", d.ID+".md")
+	if err := os.Rename(from, to); err != nil {
+		t.Fatal(err)
+	}
+	got, err := v.Get(ctx, d.ID)
+	if err != nil {
+		t.Fatalf("get after move: %v", err)
+	}
+	if got.Folder != model.FolderArchive {
+		t.Errorf("folder = %s, want archive", got.Folder)
+	}
+	if err := os.Remove(to); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.Get(ctx, d.ID); !errors.Is(err, model.ErrNotFound) {
+		t.Errorf("get after delete: %v, want not found", err)
+	}
+
+	r, err := v.Create(ctx, inbox("Renamed", "Text."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.Get(ctx, r.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.Rename(ctx, r.ID, "inbox-renamed"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := v.Get(ctx, r.ID); !errors.Is(err, model.ErrNotFound) {
+		t.Errorf("get old id after rename: %v, want not found", err)
+	}
+	if _, err := v.Get(ctx, "inbox-renamed"); err != nil {
+		t.Errorf("get new id after rename: %v", err)
+	}
+}
