@@ -180,7 +180,7 @@ func (o *Op[I, O]) Invoke(ctx context.Context, d Deps, input json.RawMessage) (a
 		dec := json.NewDecoder(bytes.NewReader(input))
 		dec.DisallowUnknownFields()
 		if err := dec.Decode(&in); err != nil {
-			return nil, fmt.Errorf("%s: input: %w", o.name, err)
+			return nil, fmt.Errorf("%s: input: %w", o.name, inputError(o, err))
 		}
 	}
 	return o.Run(ctx, d, in)

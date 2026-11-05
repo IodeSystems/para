@@ -15,22 +15,10 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 )
 
-// enums lists the allowed values of each named string type. A type that
-// implements Enumer is found without an entry here. TestInputEnums fails when
-// an op Input uses a string type from package model that has neither.
-var enums = map[reflect.Type][]string{
-	reflect.TypeFor[model.Type]():             strs(model.Types),
-	reflect.TypeFor[model.Folder]():           strs(model.Folders),
-	reflect.TypeFor[model.ProjectStatus]():    strs(model.ProjectStatuses),
-	reflect.TypeFor[model.TaskStatus]():       strs(model.TaskStatuses),
-	reflect.TypeFor[model.RFXDirection]():     strs(model.RFXDirections),
-	reflect.TypeFor[model.RFXStatus]():        strs(model.RFXStatuses),
-	reflect.TypeFor[model.Fidelity]():         strs(model.Fidelities),
-	reflect.TypeFor[model.ExceptionKind]():    strs(model.ExceptionKinds),
-	reflect.TypeFor[model.ExceptionStatus]():  strs(model.ExceptionStatuses),
-	reflect.TypeFor[model.ConventionStatus](): strs(model.ConventionStatuses),
-	reflect.TypeFor[model.JournalScope]():     strs(model.JournalScopes),
-}
+// enums lists the allowed values of each named string type (ops.Enums). A
+// type that implements Enumer is found without an entry. TestInputEnums fails
+// when an op Input uses a string type from package model that has neither.
+var enums = ops.Enums
 
 // plainStrings are named string types in package model that are free text.
 var plainStrings = map[reflect.Type]bool{
@@ -39,10 +27,7 @@ var plainStrings = map[reflect.Type]bool{
 }
 
 // Enumer is implemented by a string type that lists its own allowed values.
-// The method is called on the zero value.
-type Enumer interface {
-	Enum() []string
-}
+type Enumer = ops.Enumer
 
 func strs[T ~string](in []T) []string {
 	out := make([]string, len(in))
@@ -55,17 +40,7 @@ func strs[T ~string](in []T) []string {
 type schema map[string]any
 
 // enumOf returns the allowed values of t, or nil.
-func enumOf(t reflect.Type) []string {
-	if e, ok := enums[t]; ok {
-		return e
-	}
-	if t.Kind() == reflect.String {
-		if e, ok := reflect.Zero(t).Interface().(Enumer); ok {
-			return e.Enum()
-		}
-	}
-	return nil
-}
+func enumOf(t reflect.Type) []string { return ops.EnumOf(t) }
 
 // inputSchema builds the JSON Schema of an op Input type. Fields without
 // omitempty are required. An unknown field is rejected, as Invoke does.
