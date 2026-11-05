@@ -111,6 +111,9 @@ type ValueNode struct {
 	// Start is the day the item can start, YYYY-MM-DD, or "": a booked
 	// meeting's day, or the day a call or work with someone is scheduled.
 	Start string
+	// Owed is true when someone waits on the owner: an ask made to the owner
+	// (rfx direction in).
+	Owed bool
 }
 
 // ValueRow is one listed item with the reason it is where it is.
@@ -133,6 +136,8 @@ type ValueRow struct {
 	// on, when that and not the item itself sets the day.
 	Starts string `json:"starts,omitempty"`
 	After  string `json:"after,omitempty"`
+	// Owed is true when someone waits on the owner: an ask made to the owner.
+	Owed bool `json:"owed,omitempty"`
 }
 
 // HeldUp says a deferred item holds up work that is due before it returns.
@@ -242,7 +247,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 			continue
 		}
-		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID]}
+		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed}
 		if by[n.Parent] != nil {
 			r.Parent = n.Parent
 		}
@@ -409,6 +414,9 @@ func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 	case n.Due != "":
 		parts = append(parts, "due "+ShortDate(n.Due))
 	}
+	if n.Owed {
+		parts = append(parts, "asked of you")
+	}
 	if r.Blocks > 0 {
 		parts = append(parts, fmt.Sprintf("blocks %d", r.Blocks))
 	}
@@ -522,7 +530,9 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind, n.Due, n.Deps = KindAsk, string(m.NextNudge), targets(m.DependsOn)
-			n.Hidden = m.Direction != model.RFXOut
+			// An ask to the owner is owed; an ask the owner made waits on
+			// someone else and is listed for its nudge date.
+			n.Owed = m.Direction == model.RFXIn
 			for _, l := range m.Blocks {
 				rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
 			}

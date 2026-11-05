@@ -393,7 +393,8 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 				continue
 			}
 		case ops.KindAsk, ops.KindMeeting:
-			if r.EffDue == "" || r.EffDue > soon {
+			// An ask made to the owner is always listed: the owner owes it.
+			if !r.Owed && (r.EffDue == "" || r.EffDue > soon) {
 				continue
 			}
 		default:

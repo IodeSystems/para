@@ -7344,6 +7344,7 @@ type para_ValueRow {
   impact: Int!
   items: Int
   kind: String!
+  owed: Boolean
   parent: String
   proposal: Boolean
   starts: String

@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/iodesystems/para/internal/model"
 )
 
 // rankAt is the options of the RankValue tests: today is Nov 4, the due soon
@@ -249,5 +251,23 @@ func TestOrderPutsWorkThatCanStartNowFirst(t *testing.T) {
 		if r.ID == t1 && (r.Bucket != BucketNotYet || r.After != m || !strings.HasPrefix(r.Why, "not yet, waits on meeting Design review on Nov 12")) {
 			t.Errorf("t1 = %+v", r)
 		}
+	}
+}
+
+// An ask made to the owner is listed and marked owed; an ask the owner made
+// is listed too, not owed.
+func TestOrderListsAskToOwner(t *testing.T) {
+	d, _ := agendaVault(t, "2026-11-04T12:00:00Z")
+	in := addRFX(t, d, RFXAddInput{Direction: model.RFXIn, Ask: "Review the retention numbers", Targets: []TargetInput{{To: "person-bo-example", Medium: "email"}}})
+	out := addRFX(t, d, RFXAddInput{Ask: "Send the access list"})
+	rows := map[string]ValueRow{}
+	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+		rows[r.ID] = r
+	}
+	if r, ok := rows[in]; !ok || r.Kind != KindAsk || !r.Owed || !strings.Contains(r.Why, "asked of you") {
+		t.Errorf("inbound ask = %+v, %v; want listed, owed", r, ok)
+	}
+	if r, ok := rows[out]; !ok || r.Owed {
+		t.Errorf("outbound ask = %+v, %v; want listed, not owed", r, ok)
 	}
 }
