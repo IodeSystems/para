@@ -133,6 +133,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := ProposalSubmit.Run(t.Context(), d, ProposalSubmitInput{ID: id, Revision: 1})
 			return err
 		}},
+		{"stack_undo", func(d Deps) error {
+			_, err := StackUndo.Run(t.Context(), d, StackUndoInput{Items: []StackItemRef{{Proposal: id, Item: "i1"}}})
+			return err
+		}},
 		{"stack_decide", func(d Deps) error {
 			_, err := StackDecide.Run(t.Context(), d, StackDecideInput{Group: "g", Decision: "approve"})
 			return err

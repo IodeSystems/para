@@ -411,6 +411,7 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		return out, err
 	}
 	out.Status, out.Rev = p.meta.Status, p.doc.Rev
+	out.Items = markUndo(ctx, d, p.doc.ID, out.Items)
 	return out, nil
 })
 
@@ -597,6 +598,9 @@ var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (s
 			res.Items, res.Status, res.Rev = append(res.Items, r.Items...), r.Status, r.Rev
 		}
 		out.Proposals = append(out.Proposals, res)
+	}
+	for i := range out.Proposals {
+		out.Proposals[i].Items = markUndo(ctx, d, out.Proposals[i].ID, out.Proposals[i].Items)
 	}
 	return out, nil
 })

@@ -210,6 +210,7 @@ func registerProposals(r *registrar) {
 	reg(r, ops.ProposalDraft, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ProposalSubmit, post, netguard.ScopeReviewDecide)
 	reg(r, ops.StackDecide, post, netguard.ScopeReviewDecide)
+	reg(r, ops.StackUndo, post, netguard.ScopeReviewDecide)
 	reg(r, ops.QuestionReview, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ProposalDone, post, netguard.ScopeReviewDecide)
 	reg(r, ops.IODone, post, netguard.ScopeReviewDecide)

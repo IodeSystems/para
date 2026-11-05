@@ -159,6 +159,7 @@ type QuestionReviewOutput struct {
 	Status  model.QuestionStatus `json:"status"`
 	Review  string               `json:"review,omitempty"`  // skipped or sent_back
 	Request string               `json:"request,omitempty"` // the agent work an ask queued
+	Undo    string               `json:"undo,omitempty"`    // UndoReset when stack_undo can put the question back; empty when it cannot
 	Rev     string               `json:"rev"`
 }
 
@@ -270,6 +271,7 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 		return out, err
 	}
 	out.Status, out.Review, out.Rev = q.Status, q.ReviewState, saved.Rev
+	out.Undo = UndoReset
 	return out, nil
 })
 

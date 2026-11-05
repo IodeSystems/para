@@ -211,6 +211,7 @@ var Inputs = map[string]string{
 	"proposal_draft":    `{"id":"proposal-sample","revision":1,"items":[{"item":"i2","answer":{"decision":"approve","comment":"Fine."}}],"sections":[{"section":"items","comment":"Looks right."}]}`,
 	"proposal_submit":   `{"id":"proposal-sample","revision":1}`,
 	"stack_decide":      `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject","comment":"Not now."}`,
+	"stack_undo":        `{"items":[{"proposal":"proposal-decided","item":"i1"}]}`,
 }
 
 const (
@@ -231,7 +232,8 @@ func sampleProposals() ([]model.Document, error) {
 	}
 	closed, err := model.RenderProposalBody(model.ProposalContent{
 		Items: []model.ProposalItem{{ID: "i1", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft,
-			Evidence: ev, State: model.ItemApproved, ApprovedHash: model.ExternalHash(sampleTarget, sampleDraft)}},
+			Evidence: ev, State: model.ItemApproved, ApprovedHash: model.ExternalHash(sampleTarget, sampleDraft),
+			Decided: &model.ItemDecision{Decision: model.DecideApprove, By: "owner", Surface: "web", At: "2026-11-01T09:00:00Z"}}},
 	})
 	if err != nil {
 		return nil, err

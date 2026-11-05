@@ -323,6 +323,32 @@ func newStackCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.StackUndo, binding[ops.StackUndoInput, ops.StackUndoOutput]{
+			Use:  "undo [proposal:item]... [--question <id>]",
+			Args: cobra.ArbitraryArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.StackUndoInput) {
+				fs.StringVar(&in.Question, "question", "", "a skipped or sent-back vault question to put back")
+				fs.StringArrayVar(&in.Requests, "request", nil, "agent work an ask queued, to cancel (repeatable)")
+			},
+			Bind: func(args []string, in *ops.StackUndoInput) error {
+				for _, a := range args {
+					prop, item, ok := strings.Cut(a, ":")
+					if !ok {
+						return fmt.Errorf("%q: want proposal:item", a)
+					}
+					in.Items = append(in.Items, ops.StackItemRef{Proposal: prop, Item: item})
+				}
+				return nil
+			},
+			Text: func(w io.Writer, out ops.StackUndoOutput) error {
+				p := &printer{w: w}
+				if out.Question != "" {
+					p.f("%s\tback to waiting\n", out.Question)
+				}
+				writeDecisions(p, out.Items)
+				return p.err
+			},
+		}),
 	)
 	return cmd
 }

@@ -936,6 +936,12 @@ type Decision struct {
 	// OwnerSaid is the owner's words the decision rests on, when an agent
 	// relayed them from a chat (self-reported).
 	OwnerSaid string `json:"owner_said,omitempty"`
+	// Undo says how stack_undo reverses the decision: UndoReset puts the item
+	// back to pending, UndoReceipts undoes the vault writes of Receipts first.
+	// Empty means it cannot be undone. Only stack_decide and proposal_submit
+	// fill it.
+	Undo     string   `json:"undo,omitempty"`
+	Receipts []string `json:"receipts,omitempty"`
 }
 
 func decisions(items []model.ProposalItem) []Decision {

@@ -154,6 +154,7 @@ type ParaV1MutationNamespace {
   sourceAdd(body: para_SourceAddInputInput!): para_SourceAddOutput @derived(operationId: "sourceAdd")
   sourceStatus(body: para_SourceStatusInputInput!): para_SourceStatusOutput @derived(operationId: "sourceStatus")
   stackDecide(body: para_StackDecideInputInput!): para_StackDecideOutput @derived(operationId: "stackDecide")
+  stackUndo(body: para_StackUndoInputInput!): para_StackUndoOutput @derived(operationId: "stackUndo")
   sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskAssign(body: para_TaskAssignInputInput!): para_TaskAssignOutput @derived(operationId: "taskAssign")
@@ -1133,8 +1134,10 @@ type para_Decision {
   item: String!
   ownerSaid: String
   reason: String
+  receipts: [String!]
   result: String
   state: para_DecisionState!
+  undo: String
 }
 
 enum para_DecisionState {
@@ -5025,6 +5028,7 @@ type para_QuestionReviewOutput {
   rev: String!
   review: String
   status: para_QuestionReviewOutputStatus!
+  undo: String
 }
 
 enum para_QuestionReviewOutputStatus {
@@ -6549,6 +6553,18 @@ enum para_StackRowState {
   sent_back
   skipped
   withdrawn
+}
+
+input para_StackUndoInputInput {
+  items: [para_StackItemRefInput!]
+  question: String
+  requests: [String!]
+}
+
+type para_StackUndoOutput {
+  items: [para_Decision!]!
+  question: String
+  undone: [String!]
 }
 
 type para_Stats {

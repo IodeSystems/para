@@ -20,9 +20,14 @@ func seedStreamRSParity(t *testing.T, deps ops.Deps) {
 	msg := func(id string) model.ProposalItem {
 		return model.ProposalItem{ID: id, Kind: model.ItemMessage, Channel: "#rs", Body: "Note " + id, Evidence: ev, State: model.ItemPending, Rev: 1}
 	}
+	skipped := func(id string) model.ProposalItem {
+		it := msg(id)
+		it.State = model.ItemSkipped
+		return it
+	}
 	act := model.ProposalItem{ID: "a1", Kind: model.ItemAction, What: "Open the PR", How: "gh", Evidence: ev, State: model.ItemApproved, Rev: 1}
 	act.ApprovedHash, _ = act.Hash()
-	body, err := model.NewDossier(model.DossierHeader{TLDR: "RS parity"}, "Items", []model.ProposalItem{act, msg("m1"), msg("m2"), msg("m3")}).Render()
+	body, err := model.NewDossier(model.DossierHeader{TLDR: "RS parity"}, "Items", []model.ProposalItem{act, msg("m1"), msg("m2"), msg("m3"), skipped("m4"), skipped("m5")}).Render()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -42,6 +47,7 @@ func streamRSParityCases() (map[string]parityCase, map[string]string) {
 		"proposal_draft":    {draft, []string{"proposal", "draft", "proposal-rs"}, false},
 		"proposal_submit":   {`{"id":"proposal-rs","revision":1}`, []string{"proposal", "submit", "proposal-rs"}, false},
 		"stack_decide":      {`{"items":[{"proposal":"proposal-rs","item":"m2"}],"decision":"reject","comment":"Not now."}`, []string{"stack", "decide", "reject", "proposal-rs:m3", "--comment", "Not now."}, false},
+		"stack_undo":        {`{"items":[{"proposal":"proposal-rs","item":"m4"}]}`, []string{"stack", "undo", "proposal-rs:m5"}, false},
 	}, map[string]string{
 		"proposal_draft": draft,
 	}
