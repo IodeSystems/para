@@ -30,8 +30,13 @@ import (
 //     waiting cost first: days waited times the people waiting.
 //  4. Focus: the order.focus_count (default 3) items of the rest with the best
 //     score, (impact+1) / effort weight (xs 1, s 2, m 4, l 8). A goal, agent
-//     work, and an item that waits on another open item are not picked.
-//  5. Everything else by the same score, highest first.
+//     work, and an item that waits on another open item are not picked. An
+//     item whose effective due date is within order.goal_soon_days (default
+//     14) scores double, for focus and for the order of the rest.
+//  5. Recheck: an item overdue by more than order.stale_days (default 30; 0 is
+//     off) is not due soon. It asks "still needed?", oldest date first. An
+//     incident is never rechecked.
+//  6. Everything else by the same score, highest first.
 //
 // Not yet startable comes last, by the day it can start.
 //
@@ -72,6 +77,7 @@ const (
 	GroupDueSoon  = "due_soon"
 	GroupReply    = "reply"
 	GroupFocus    = "focus"
+	GroupRecheck  = "recheck"
 	GroupImpact   = "impact"
 	GroupNotYet   = "not_yet"
 )
@@ -81,6 +87,20 @@ const FocusCountKey = "order.focus_count"
 
 // DefaultFocusCount is the size of the focus group when the vault sets none.
 const DefaultFocusCount = 3
+
+// StaleDaysKey is the vault setting of how many days overdue an item is
+// before it is rechecked, not due soon. 0 is off.
+const StaleDaysKey = "order.stale_days"
+
+// DefaultStaleDays is the recheck window when the vault sets none.
+const DefaultStaleDays = 30
+
+// GoalSoonKey is the vault setting of how many days ahead a due date doubles
+// the focus score. 0 is off.
+const GoalSoonKey = "order.goal_soon_days"
+
+// DefaultGoalSoonDays is the goal boost window when the vault sets none.
+const DefaultGoalSoonDays = 14
 
 // effortWeight is the divisor of the score; effortMinutes is the estimate of
 // a reply, which only takes xs and s.
@@ -123,9 +143,11 @@ const DefaultDueSoonDays = 2
 
 // RankOptions is what RankValue needs besides the nodes.
 type RankOptions struct {
-	Today       string // YYYY-MM-DD
-	DueSoonDays int    // overdue or due within this many days of Today ranks by date
-	FocusCount  int    // how many items the focus group holds; 0 is none
+	Today        string // YYYY-MM-DD
+	DueSoonDays  int    // overdue or due within this many days of Today ranks by date
+	FocusCount   int    // how many items the focus group holds; 0 is none
+	StaleDays    int    // overdue by more than this many days is recheck, not due soon; 0 is off
+	GoalSoonDays int    // a date within this many days doubles the focus score; 0 is off
 }
 
 // goalWeight is how many items a goal counts for in impact.
@@ -302,6 +324,11 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	if t, err := time.Parse(dateLayout, opt.Today); err == nil {
 		soon = t.AddDate(0, 0, opt.DueSoonDays).Format(dateLayout)
 	}
+	goalSoon := ""
+	if t, err := time.Parse(dateLayout, opt.Today); err == nil && opt.GoalSoonDays > 0 {
+		goalSoon = t.AddDate(0, 0, opt.GoalSoonDays).Format(dateLayout)
+	}
+	boosted := map[string]bool{} // impact rows whose date is within the goal window
 	var rows []ValueRow
 	var held []HeldUp
 	focusable := map[string]func() string{} // impact rows focus may pick, to their reason
@@ -364,6 +391,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 		case n.Kind == KindIncident:
 			r.Group = GroupIncident
+		case eff != "" && opt.StaleDays > 0 && daysBetween(eff, opt.Today) > opt.StaleDays:
+			r.Group = GroupRecheck
 		case eff != "" && eff <= soon:
 			r.Group = GroupDueSoon
 		case n.Owed && effortWeight[r.Effort] <= effortWeight[model.EffortS]:
@@ -378,6 +407,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 		}
 		r.Why = why(n, r, from, waits)
+		boost := r.Group == GroupImpact && goalSoon != "" && eff != "" && eff <= goalSoon
+		boosted[n.ID] = boost
 		if r.Group == GroupImpact && len(waits) == 0 && n.Kind != KindGoal && n.Kind != KindWork {
 			// Focus picks among these below; the reason is set then.
 			focusable[n.ID] = func() string {
@@ -385,9 +416,21 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 				if r.Blocks > 0 {
 					lead = fmt.Sprintf("focus: unblocks %d, %s", r.Blocks, effortWords[r.Effort])
 				}
-				rest := r
+				rest, rn, rfrom := r, n, from
 				rest.Blocks = 0
-				if w := why(n, rest, from, waits); w != whyNone {
+				if boost {
+					// The date is named up front, so the tail does not repeat it.
+					label := "due " + ShortDate(eff)
+					if from != nil {
+						label = "goal due " + ShortDate(eff)
+						if from.Kind != KindGoal {
+							label = shorten(from.Title) + " due " + ShortDate(eff)
+						}
+					}
+					lead = strings.Replace(lead, "focus: ", "focus: "+label+"; ", 1)
+					rn.Due, rfrom = "", nil
+				}
+				if w := why(rn, rest, rfrom, waits); w != whyNone {
 					lead += "; " + w
 				}
 				return lead
@@ -413,6 +456,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Why = "not yet, waits on " + what + " on " + ShortDate(r.Starts) + "; " + r.Why
 		case r.Group == GroupNotYet:
 			r.Why = "not yet, starts " + ShortDate(r.Starts) + "; " + r.Why
+		case r.Group == GroupRecheck:
+			r.Why = "overdue since " + ShortDate(eff) + " (" + ageWords(daysBetween(eff, opt.Today)) + "); recheck: still needed?"
 		case r.Group == GroupDueSoon && eff < opt.Today:
 			r.Why = "overdue; " + r.Why
 		case r.Group == GroupDueSoon:
@@ -420,7 +465,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		rows = append(rows, r)
 	}
-	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupReply: 2, GroupFocus: 3, GroupImpact: 4, GroupNotYet: 5}
+	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupReply: 2, GroupFocus: 3, GroupRecheck: 4, GroupImpact: 5, GroupNotYet: 6}
 	created := map[string]string{}
 	sev := map[string]string{}
 	goalRank := map[string]int{}
@@ -432,9 +477,16 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	}
 	// due compares effective dates, an item with none last.
 	due := func(a, b ValueRow) int { return cmp.Compare(dueKey(a.EffDue), dueKey(b.EffDue)) }
+	// weigh is impact plus one, doubled for a date within the goal window.
+	weigh := func(r ValueRow) int {
+		if boosted[r.ID] {
+			return (r.Impact + 1) * 2
+		}
+		return r.Impact + 1
+	}
 	// score puts the better (impact+1) / effort weight first, without division.
 	score := func(a, b ValueRow) int {
-		return cmp.Compare((b.Impact+1)*effortWeight[a.Effort], (a.Impact+1)*effortWeight[b.Effort])
+		return cmp.Compare(weigh(b)*effortWeight[a.Effort], weigh(a)*effortWeight[b.Effort])
 	}
 	order := func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
@@ -445,6 +497,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		case GroupIncident:
 			return cmp.Or(cmp.Compare(sev[a.ID], sev[b.ID]), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
 		case GroupDueSoon:
+			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
+		case GroupRecheck:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
 		case GroupReply:
 			c = cmp.Or(cmp.Compare(b.WaitingDays, a.WaitingDays), due(a, b))
@@ -504,6 +558,18 @@ func daysBetween(a, b string) int {
 		return 0
 	}
 	return int(tb.Sub(ta).Hours() / 24)
+}
+
+// ageWords is a rough age: days under two weeks, weeks under two months,
+// then months.
+func ageWords(days int) string {
+	switch {
+	case days < 14:
+		return plural(days, "day")
+	case days < 60:
+		return plural(days/7, "week")
+	}
+	return plural(days/30, "month")
 }
 
 // startOf is the day an item can start and the item that sets it.
@@ -756,7 +822,15 @@ func OrderAt(ctx context.Context, s store.Store, today string) (ValueOrder, erro
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus}), nil
+	stale, err := configInt(s, StaleDaysKey, DefaultStaleDays)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	goalSoon, err := configInt(s, GoalSoonKey, DefaultGoalSoonDays)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus, StaleDays: stale, GoalSoonDays: goalSoon}), nil
 }
 
 // configInt reads a vault setting that is a count; unset or not a number is
@@ -803,7 +877,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, agent work, and io items (an incoming message that expects a response, an outgoing draft) in value order, each with why it is there, its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, agent work, and io items (an incoming message that expects a response, an outgoing draft) in value order, each with why it is there, its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err

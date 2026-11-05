@@ -250,7 +250,8 @@ func TestOrderPutsWorkThatCanStartNowFirst(t *testing.T) {
 			}
 		}
 	}
-	check("default", h, p, l, m, t1)
+	// p is due within 14 days, so its focus score doubles and passes h.
+	check("default", p, h, l, m, t1)
 	must(t, VaultConfigSet, d, VaultConfigSetInput{Key: DueSoonKey, Value: "7"})
 	check("due soon 7", p, h, l, m, t1)
 	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
@@ -435,5 +436,78 @@ func TestOrderListsAskToOwner(t *testing.T) {
 	}
 	if r, ok := rows[out]; !ok || r.Owed {
 		t.Errorf("outbound ask = %+v, %v; want listed, not owed", r, ok)
+	}
+}
+
+// Recheck: overdue by more than order.stale_days is not due soon.
+func TestRankValueRecheck(t *testing.T) {
+	opt := rankAt // today Nov 4
+	opt.StaleDays = DefaultStaleDays
+	nodes := []ValueNode{
+		{ID: "old", Kind: KindTask, Due: "2026-07-23"},                  // 104 days
+		{ID: "older", Kind: KindTask, Due: "2026-07-01"},                // 126 days
+		{ID: "edge", Kind: KindTask, Due: "2026-10-05"},                 // 30 days: inside
+		{ID: "late", Kind: KindTask, Due: "2026-10-06"},                 // 29 days: due soon
+		{ID: "over", Kind: KindTask, Due: "2026-10-04"},                 // 31 days: recheck
+		{ID: "inc", Kind: KindIncident, Sev: "sev1", Due: "2026-01-01"}, // never recheck
+		{ID: "rest", Kind: KindTask},
+	}
+	got := groupOf(RankValue(nodes, opt))
+	for id, want := range map[string]string{"old": GroupRecheck, "older": GroupRecheck, "over": GroupRecheck, "edge": GroupDueSoon, "late": GroupDueSoon, "inc": GroupIncident, "rest": GroupImpact} {
+		if got[id].Group != want {
+			t.Errorf("%s: group %s, want %s", id, got[id].Group, want)
+		}
+	}
+	if w := got["old"].Why; w != "overdue since Jul 23 (3 months); recheck: still needed?" {
+		t.Errorf("why = %q", w)
+	}
+	order := rowIDs(RankValue(nodes, opt).Rows)
+	if !reflect.DeepEqual(order, []string{"inc", "edge", "late", "older", "old", "over", "rest"}) {
+		t.Errorf("order = %v", order)
+	}
+	t.Run("stale_days respected", func(t *testing.T) {
+		o := opt
+		o.StaleDays = 120
+		g := groupOf(RankValue(nodes, o))
+		if g["older"].Group != GroupRecheck || g["old"].Group != GroupDueSoon {
+			t.Errorf("older %s, old %s", g["older"].Group, g["old"].Group)
+		}
+		o.StaleDays = 0
+		if g := groupOf(RankValue(nodes, o)); g["older"].Group != GroupDueSoon {
+			t.Errorf("off: older %s", g["older"].Group)
+		}
+	})
+}
+
+// Goal boost: a date within order.goal_soon_days doubles the focus score.
+func TestRankValueGoalBoost(t *testing.T) {
+	opt := rankAt // today Nov 4
+	opt.FocusCount = 1
+	opt.GoalSoonDays = DefaultGoalSoonDays
+	nodes := []ValueNode{
+		{ID: "gfar", Kind: KindGoal, Title: "Far", Due: "2027-01-03"},   // 60 days
+		{ID: "gnear", Kind: KindGoal, Title: "Near", Due: "2026-11-14"}, // 10 days
+		{ID: "far", Kind: KindTask, Goal: "gfar", Created: "2026-10-01"},
+		{ID: "near", Kind: KindTask, Goal: "gnear", Created: "2026-10-02"},
+		{ID: "more", Kind: KindTask, Deps: []string{"far"}, Hidden: true}, // far unblocks one more
+	}
+	g := groupOf(RankValue(nodes, opt))
+	if g["near"].Group != GroupFocus || g["far"].Group != GroupImpact {
+		t.Fatalf("near %s, far %s", g["near"].Group, g["far"].Group)
+	}
+	if w := g["near"].Why; w != "focus: goal due Nov 14; half a day" {
+		t.Errorf("why = %q", w)
+	}
+	// Without the window far scores 3/4 against 2/4.
+	off := opt
+	off.GoalSoonDays = 0
+	if g := groupOf(RankValue(nodes, off)); g["far"].Group != GroupFocus {
+		t.Errorf("off: far %s", g["far"].Group)
+	}
+	// goal_soon_days respected: 5 days is too short for 10.
+	short := opt
+	short.GoalSoonDays = 5
+	if g := groupOf(RankValue(nodes, short)); g["far"].Group != GroupFocus {
+		t.Errorf("short: far %s", g["far"].Group)
 	}
 }

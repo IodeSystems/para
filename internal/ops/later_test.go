@@ -357,7 +357,7 @@ func TestOrderPutsABlockerOfADatedGoalFirst(t *testing.T) {
 	if strings.Join(order, ",") != strings.Join(want, ",") {
 		t.Errorf("order = %v, want %v", order, want)
 	}
-	if rows[0].Why != "focus: unblocks 1, about 10 min; goal due Nov 12" {
+	if rows[0].Why != "focus: goal due Nov 12; unblocks 1, about 10 min" {
 		t.Errorf("why = %q", rows[0].Why)
 	}
 }

@@ -280,8 +280,9 @@ func TestTodayNamesProjectAndScope(t *testing.T) {
 	if len(v.Overdue.Items) != 1 || v.Overdue.Items[0].Project != "p" || v.Overdue.Items[0].ProjectName != "Portal rebuild" {
 		t.Errorf("overdue = %+v", v.Overdue.Items)
 	}
-	// One list: the dated task comes before the question that blocks nothing.
-	if len(v.Agenda.Items) != 2 || v.Agenda.Items[0].ID != "t" || v.Agenda.Items[1].ID != "q" || v.Agenda.Items[1].Kind != "question" {
+	// One list: the question that blocks nothing is in focus; the task, long
+	// overdue, is in recheck after it.
+	if len(v.Agenda.Items) != 2 || v.Agenda.Items[0].ID != "q" || v.Agenda.Items[0].Kind != "question" || v.Agenda.Items[1].ID != "t" || v.Agenda.Items[1].Group != "recheck" {
 		t.Errorf("agenda = %+v", v.Agenda.Items)
 	}
 }

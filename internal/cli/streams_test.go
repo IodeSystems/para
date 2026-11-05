@@ -278,6 +278,9 @@ func TestDueDates(t *testing.T) {
 		}
 	}
 
+	// Recheck is off: this test reads dates against the wall clock, and an
+	// old date would leave the due group.
+	e.ok("vault", "config", "set", "order.stale_days", "0")
 	var next ops.NextOutput
 	e.json(&next, "next")
 	var got []string
