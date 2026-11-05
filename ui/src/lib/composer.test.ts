@@ -57,6 +57,14 @@ describe('what an item asks', () => {
     ).toMatch(/what came of it/)
     expect(composerPrompt({ type: 'task', status: 'todo' }, now)).toBeNull()
   })
+  it('asks nothing of a meeting the owner did not say they go to', () => {
+    const m = { type: 'task', kind: 'meeting', status: 'todo', scheduled: '2026-11-04T10:00:00Z' }
+    expect(composerPrompt(m, now)).toMatch(/what came of it/)
+    expect(composerPrompt({ ...m, optional: true }, now)).toBeNull()
+    expect(composerPrompt({ ...m, optional: true, attend: 'maybe' }, now)).toBeNull()
+    expect(composerPrompt({ ...m, optional: true, attend: 'yes' }, now)).toMatch(/what came of it/)
+    expect(composerPrompt({ ...m, attend: 'no' }, now)).toBeNull()
+  })
   it('closes a task or a meeting directly, nothing else', () => {
     expect(closable({ type: 'task', status: 'doing' })).toBe(true)
     expect(closable({ type: 'task', kind: 'meeting', status: 'todo' })).toBe(true)

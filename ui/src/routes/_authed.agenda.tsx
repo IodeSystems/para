@@ -23,6 +23,7 @@ import { LinkButton, TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { DueChip } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
+import { OptionalMeetings, SkippedLine } from '@/components/MeetingAttend'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
 import { humanTime } from '@/lib/when'
@@ -95,7 +96,12 @@ function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
 
 type Lead = { why: string; title: ReactNode; action: ReactNode | null }
 
-type AgendaItem = Item & { kind?: string | null; why?: string | null; bucket?: string | null; group?: string | null }
+type AgendaItem = Item & {
+  kind?: string | null
+  why?: string | null
+  bucket?: string | null
+  group?: string | null
+}
 
 type OrderSummary = { reply: number; replyMinutes: number; replyPrep: number }
 
@@ -106,7 +112,8 @@ function groupHeading(group: string, last: string, s: OrderSummary): string {
     return `Reply: ${s.reply} waiting on you, about ${s.replyMinutes} min, ${s.replyPrep} an agent can prepare`
   if (group === 'focus') return 'Focus'
   if (group === 'recheck') return 'Recheck'
-  if (group === 'impact' && (last === 'reply' || last === 'focus' || last === 'recheck')) return 'Then'
+  if (group === 'impact' && (last === 'reply' || last === 'focus' || last === 'recheck'))
+    return 'Then'
   return ''
 }
 
@@ -427,6 +434,17 @@ function Agenda() {
                     </LinkButton>
                   )}
                 </Section>
+                {(t.optional.count > 0 || t.skipped.count > 0) && (
+                  <Box sx={{ mt: 1 }}>
+                    {t.optional.count > 0 && (
+                      <Typography variant="overline" color="text.secondary">
+                        Optional meetings, if you want them
+                      </Typography>
+                    )}
+                    <OptionalMeetings items={t.optional.items} />
+                    <SkippedLine items={t.skipped.items} />
+                  </Box>
+                )}
                 {t.health > 0 && (
                   <LinkButton size="small" color="inherit" to="/health">
                     {t.health} health finding{t.health === 1 ? '' : 's'}

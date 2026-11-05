@@ -13,6 +13,7 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
+import { AttendButtons, SkippedLine } from '@/components/MeetingAttend'
 import { errorText } from '@/client/gqlClient'
 import { downloadText } from '@/lib/download'
 import { meetingWhen, viewerZone } from '@/lib/meeting'
@@ -88,10 +89,16 @@ export function DatedAgenda() {
       <DataState q={q}>
         {(a) => {
           const dates = [...new Set(a.items.map((i) => i.date))]
+          // quiet: an optional meeting the owner has not said they go to. It asks nothing.
+          const quiet = (i: (typeof a.items)[number]) =>
+            i.kind === 'meeting' && !!i.optional && i.attend !== 'yes'
           return a.items.length === 0 ? (
-            <Empty>
-              Nothing is dated from {dateWords(a.from)} to {dateWords(a.to)}.
-            </Empty>
+            <>
+              <Empty>
+                Nothing is dated from {dateWords(a.from)} to {dateWords(a.to)}.
+              </Empty>
+              <SkippedLine items={a.skipped} />
+            </>
           ) : (
             <>
               {dates.map((d) => {
@@ -100,7 +107,11 @@ export function DatedAgenda() {
                   <Section key={d} title={dateWords(d)} count={items.length}>
                     <List dense disablePadding>
                       {items.map((i) => (
-                        <ListItem key={`${i.kind}-${i.id}`} disableGutters>
+                        <ListItem
+                          key={`${i.kind}-${i.id}`}
+                          disableGutters
+                          sx={quiet(i) ? { opacity: 0.75 } : undefined}
+                        >
                           <ListItemText
                             primary={
                               i.kind === 'meeting' ? (
@@ -128,8 +139,15 @@ export function DatedAgenda() {
                           />
                           <StatusChip
                             tone={i.overdue ? 'bad' : 'quiet'}
-                            label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
+                            label={
+                              i.overdue
+                                ? 'overdue'
+                                : quiet(i)
+                                  ? 'optional'
+                                  : (KIND_WORDS[i.kind] ?? i.kind)
+                            }
                           />
+                          {quiet(i) && <AttendButtons id={i.id} title={i.title} />}
                           <AgentLooking id={i.id} />
                           <AgentWorking id={i.id} />
                         </ListItem>
@@ -138,6 +156,7 @@ export function DatedAgenda() {
                   </Section>
                 )
               })}
+              <SkippedLine items={a.skipped} />
             </>
           )
         }}

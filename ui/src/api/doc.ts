@@ -25,6 +25,8 @@ const DocDoc = graphql(/* GraphQL */ `
             start
             scheduled
             kind
+            optional
+            attend
             source {
               url
               fidelity

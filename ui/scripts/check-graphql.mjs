@@ -96,6 +96,9 @@ const REVIEW_MUTATIONS = new Set([
   'AgentSend',
   'AgentUnsend',
   'ItemClose',
+  // Attend and Skip on the agenda: the owner says whether they go to a meeting (meeting_rsvp, a
+  // person op). Owner approved 2026-11-05.
+  'MeetingRsvp',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

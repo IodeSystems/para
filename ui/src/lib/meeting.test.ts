@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { meetingWhen } from '@/lib/meeting'
+import { attendSaid, meetingWhen } from '@/lib/meeting'
+
+describe('attendSaid', () => {
+  it('names the answer and the meeting', () => {
+    expect(attendSaid('yes', 'Sync')).toBe('Attending: Sync')
+    expect(attendSaid('no', 'Sync')).toBe('Skipped: Sync')
+    expect(attendSaid('unset', 'Sync')).toBe('No answer yet: Sync')
+  })
+})
 
 describe('meetingWhen', () => {
   it('shows a booked time as one range on one day', () => {

@@ -52,18 +52,27 @@ export type ItemMeta = {
   start?: string | null
   scheduled?: string | null
   kind?: string | null
+  optional?: boolean | null
+  attend?: string | null
 }
 
 const OPEN_TASK = ['todo', 'doing', 'blocked']
+
+// attends: the owner goes to the meeting. A meeting they skip (attend no) does not count, and an
+// optional one counts only when they said yes. A required one counts unless they declined it.
+export function attends(m: { optional?: boolean | null; attend?: string | null }): boolean {
+  if (m.attend === 'no') return false
+  return !m.optional || m.attend === 'yes'
+}
 
 // isMeeting: a meeting, or a task of kind meeting or call.
 const isMeeting = (m: ItemMeta) =>
   m.type === 'meeting' || (m.type === 'task' && (m.kind === 'meeting' || m.kind === 'call'))
 
 // composerPrompt is what the item asks of the owner, or null: a meeting or call that has passed
-// with no record of what came of it.
+// with no record of what came of it. A meeting the owner did not go to asks nothing.
 export function composerPrompt(m: ItemMeta, now: Date): string | null {
-  if (!isMeeting(m)) return null
+  if (!isMeeting(m) || !attends(m)) return null
   const when = m.type === 'meeting' ? m.start : m.scheduled
   const open = m.type === 'meeting' ? m.status === 'scheduled' : OPEN_TASK.includes(m.status ?? '')
   if (!open || !when) return null

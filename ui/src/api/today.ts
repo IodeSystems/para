@@ -23,6 +23,8 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       group
       effort
       prep
+      at
+      attend
     }
   }
 `)
@@ -49,6 +51,12 @@ const TodayDoc = graphql(/* GraphQL */ `
               ...TodayGroupFields
             }
             agenda {
+              ...TodayGroupFields
+            }
+            optional {
+              ...TodayGroupFields
+            }
+            skipped {
               ...TodayGroupFields
             }
             orderSummary {

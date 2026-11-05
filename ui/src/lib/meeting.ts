@@ -27,3 +27,16 @@ export function meetingWhen(
     e.getDate() === s.getDate()
   return sameDay ? `${head}-${clock(e)}` : `${head} to ${day(e)}, ${clock(e)}`
 }
+
+// attendSaid is the toast after the owner answers whether they go to a meeting.
+export function attendSaid(attend: string, title: string): string {
+  switch (attend) {
+    case 'yes':
+      return `Attending: ${title}`
+    case 'no':
+      return `Skipped: ${title}`
+    case 'maybe':
+      return `Maybe: ${title}`
+  }
+  return `No answer yet: ${title}`
+}

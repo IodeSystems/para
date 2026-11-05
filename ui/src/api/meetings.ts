@@ -59,24 +59,35 @@ const AgendaDoc = graphql(/* GraphQL */ `
           to
           zone
           items {
-            kind
-            id
-            title
-            date
-            time
-            at
-            until
-            overdue
-            detail
-            why
-            project
-            projectName
-            who
-            whoNames
+            ...AgendaItemFields
+          }
+          skipped {
+            ...AgendaItemFields
           }
         }
       }
     }
+  }
+`)
+
+export const AgendaItemFields = graphql(/* GraphQL */ `
+  fragment AgendaItemFields on para_AgendaItem {
+    kind
+    id
+    title
+    date
+    time
+    at
+    until
+    overdue
+    detail
+    why
+    project
+    projectName
+    who
+    whoNames
+    optional
+    attend
   }
 `)
 
@@ -133,4 +144,36 @@ export function useCalendarExport() {
         'calendar',
       ),
   })
+}
+
+// MeetingRsvp is the owner's answer to whether they go to a meeting (meeting_rsvp, a person op):
+// Attend and Skip on the agenda. attend unset clears the answer.
+const MeetingRsvpDoc = graphql(/* GraphQL */ `
+  mutation MeetingRsvp($body: para_MeetingAttendInputInput!) {
+    para {
+      v1 {
+        meetingRsvp(body: $body) {
+          id
+          title
+          now {
+            attend
+            optional
+          }
+          previous {
+            attend
+            optional
+          }
+        }
+      }
+    }
+  }
+`)
+
+export type Attend = 'yes' | 'no' | 'maybe' | 'unset'
+
+export async function meetingRsvp(id: string, attend: Attend) {
+  return need(
+    (await gqlClient.request(MeetingRsvpDoc, { body: { id, attend } })).para.v1.meetingRsvp,
+    'attend',
+  )
 }
