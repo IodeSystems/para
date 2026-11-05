@@ -4,6 +4,7 @@ Ingest one thing the owner points at: a document, a thread, a transcript, a tick
 2. Find what it touches. Use `search`, `where`, `who`, `route`, and `similar` for each fact, task, or name. Read the open goals, tasks, questions, and asks that match with `project_show`, `task_show`, `question_show`, `rfx_show`, and follow their links. A match means update or link, not create.
 3. Make the changes, with the thing as the source on each write. Only where the source says so:
    - a fact: `org_person_note` for a person, `note_add` for reference material on a goal or area.
+   - an act that completes an open task (an approval, a merge, a reply, a filed form): close the task with `task_done` and the act as the source; do not stage it for the owner.
    - a task someone now owes: `task_add`, with done_when, a project or area, and the assignee.
    - a question the source answers: `question_answer` with the choice or text, the reason, and sources. 
    - an Ask the source resolves: `rfx_reply`, with the outcome, who said it, and sources. A no records the constraint.
