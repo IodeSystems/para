@@ -495,13 +495,15 @@ func (h *healther) scan() {
 				slices.Sort(h.openKids[id])
 				h.add(HealthClosedWithOpen, id, goal, fmt.Sprintf("task is closed with %d open action items", len(h.openKids[id])), fmt.Sprintf("finish, drop, or move %s; or reopen the parent", strings.Join(h.openKids[id], " ")))
 			}
-			if !taskTerminal(m.Status) {
+			if !taskTerminal(m.Status) && !meetingQuiet(m) {
 				h.assumptions(d, goal)
 			}
 			if m.Outcome == model.OutcomeFailed && m.RetryAfter != "" && string(m.RetryAfter) <= h.today {
 				h.add(HealthRetryDue, id, goal, "failed task may be tried again since "+string(m.RetryAfter), fmt.Sprintf("task_add again from %s, or health_dismiss", id))
 			}
-			if taskTerminal(m.Status) || IsOther(m.Assignee) {
+			// An optional meeting the owner has not said they go to, and one
+			// they skip, ask nothing.
+			if taskTerminal(m.Status) || IsOther(m.Assignee) || meetingQuiet(m) {
 				continue
 			}
 			if strings.TrimSpace(m.DoneWhen) == "" {

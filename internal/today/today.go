@@ -54,6 +54,10 @@ type Item struct {
 	Scope       string   `json:"scope,omitempty"`
 	ScopeName   string   `json:"scope_name,omitempty"`
 	With        []string `json:"with,omitempty"`
+	// At is the start of a meeting (RFC 3339); Attend is the owner's answer
+	// (yes, no, maybe, or empty), on the Optional and Skipped groups.
+	At     string       `json:"at,omitempty"`
+	Attend model.Attend `json:"attend,omitempty"`
 }
 
 // Group is a counted list.
@@ -76,6 +80,11 @@ type VaultToday struct {
 	// OrderSummary sums up the reply group of the agenda: how many, about how
 	// many minutes, and how many an agent can prepare.
 	OrderSummary ops.OrderSummary `json:"order_summary"`
+	// Optional holds the optional meetings of the next AgendaDays days the
+	// owner has not said they go to. They ask nothing: they show quietly, apart
+	// from Agenda. Skipped holds the meetings the owner does not go to.
+	Optional Group `json:"optional"`
+	Skipped  Group `json:"skipped"`
 	// OtherOpen counts open questions that block nothing and have no date,
 	// left out of Agenda while it is long. The Questions page lists them.
 	OtherOpen int `json:"other_open"`
@@ -161,7 +170,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	}
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
-		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Agenda: Group{Items: []Item{}}, HeldUp: []ops.HeldUp{}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
+		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Agenda: Group{Items: []Item{}}, Optional: Group{Items: []Item{}}, Skipped: Group{Items: []Item{}}, HeldUp: []ops.HeldUp{}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
 			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
@@ -430,6 +439,9 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 			Group: r.Group, Effort: r.Effort, Prep: r.Prep})
 	}
 	vt.Agenda.Count = len(vt.Agenda.Items)
+	if err := fillMeetings(ctx, st, date, soon, vt); err != nil {
+		return fmt.Errorf("today: agenda: %w", err)
+	}
 	vt.OrderSummary = o.Summary
 	vt.HeldUp = o.Held
 	qs, err := ops.QuestionList.Run(ctx, ops.Deps{Store: st}, ops.QuestionListInput{Deferred: true})
@@ -450,6 +462,36 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 			vt.Deferred++
 		}
 	}
+	return nil
+}
+
+// fillMeetings sets Optional and Skipped: booked meetings from date through
+// soon that ask nothing of the owner, by start time.
+func fillMeetings(ctx context.Context, st *local.Store, date, soon string, vt *VaultToday) error {
+	ms, err := ops.MeetingList.Run(ctx, ops.Deps{Store: st}, ops.MeetingListInput{Status: model.MeetingScheduled})
+	if err != nil {
+		return err
+	}
+	for _, m := range ms.Meetings {
+		t, err := time.Parse(time.RFC3339, m.Start)
+		if err != nil {
+			continue
+		}
+		day := t.In(time.Local).Format(dateLayout)
+		if day < date || day > soon {
+			continue
+		}
+		it := Item{ID: m.ID, Title: m.Title, Due: day, Kind: ops.KindMeeting, At: m.Start, Attend: m.Attend, With: m.WithNames}
+		switch {
+		case m.Attend == model.AttendNo:
+			it.Detail = "skipped"
+			vt.Skipped.Items = append(vt.Skipped.Items, it)
+		case m.Optional && m.Attend != model.AttendYes:
+			it.Detail = "optional"
+			vt.Optional.Items = append(vt.Optional.Items, it)
+		}
+	}
+	vt.Optional.Count, vt.Skipped.Count = len(vt.Optional.Items), len(vt.Skipped.Items)
 	return nil
 }
 

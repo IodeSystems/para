@@ -161,6 +161,8 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return "Cancel meeting: " + ref("id")
 	case "meeting_hold":
 		return with("Record the meeting as held: "+ref("id"), prefixed("notes: ", first(str("notes"))))
+	case "meeting_attend":
+		return with("Record whether the owner goes to "+ref("id"), prefixed("attend ", str("attend")))
 	case "interaction_add":
 		return "Record " + mediumWordsOr(model.Medium(str("medium"))) + " with " + z.people(in["with"]) + ": " + first(str("summary"))
 	}

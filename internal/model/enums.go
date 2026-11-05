@@ -509,6 +509,23 @@ func (Effort) Enum() []string { return enumStrings(Efforts) }
 // Efforts lists every Effort, smallest first.
 var Efforts = []Effort{EffortXS, EffortS, EffortM, EffortL}
 
+// Attend is a meeting's attend field: whether the owner goes. Empty is
+// undecided. An undecided optional meeting asks nothing of the owner; a
+// meeting with attend no leaves the agenda and holds nothing up.
+type Attend string
+
+const (
+	AttendYes   Attend = "yes"
+	AttendNo    Attend = "no"
+	AttendMaybe Attend = "maybe"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Attend) Enum() []string { return enumStrings(Attends) }
+
+// Attends lists every Attend.
+var Attends = []Attend{AttendYes, AttendNo, AttendMaybe}
+
 // IOExpects is io.expects: whether a reply is wanted. On an outgoing message
 // it says what sending makes; on an incoming one, response means the sender
 // waits for the owner's reply.

@@ -65,6 +65,16 @@ func runAgendaHome(l *loader, cmd *cobra.Command) error {
 					return err
 				}
 			}
+			for _, it := range v.Optional.Items {
+				if _, err := fmt.Fprintf(w, "  optional meeting\t%s\t%s\t%s\n", it.ID, localStamp(it.At), it.Title); err != nil {
+					return err
+				}
+			}
+			if v.Skipped.Count > 0 {
+				if _, err := fmt.Fprintf(w, "  %d meetings skipped: para agenda --by-date\n", v.Skipped.Count); err != nil {
+					return err
+				}
+			}
 			for _, d := range v.LostUpdates {
 				if _, err := fmt.Fprintf(w, "  lost-update\t%s\n", d); err != nil {
 					return err

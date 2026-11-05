@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -153,6 +154,49 @@ func newMeetingHoldCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+// newMeetingAttendCmd is meeting attend (op meeting_attend), or meeting rsvp
+// (op meeting_rsvp, the owner's twin of it): <id> [yes|no|maybe|unset].
+func newMeetingAttendCmd(l *loader, op *ops.Op[ops.MeetingAttendInput, ops.MeetingAttendOutput], use string) *cobra.Command {
+	var optional, required bool
+	return opCommand(l, op, binding[ops.MeetingAttendInput, ops.MeetingAttendOutput]{
+		Use:  use + " <id> [yes|no|maybe|unset]",
+		Args: cobra.RangeArgs(1, 2),
+		Flags: func(fs *pflag.FlagSet, in *ops.MeetingAttendInput) {
+			fs.BoolVar(&optional, "optional", false, "the owner may skip it (passed on to each next occurrence)")
+			fs.BoolVar(&required, "required", false, "the owner is expected to go")
+			fs.BoolVar(&in.AllFuture, "all-future", false, "each next occurrence of a recurring meeting starts with this answer")
+		},
+		Bind: func(args []string, in *ops.MeetingAttendInput) error {
+			in.ID = args[0]
+			if len(args) > 1 {
+				in.Attend = args[1]
+			}
+			switch {
+			case optional && required:
+				return errors.New("--optional and --required: give one")
+			case optional || required:
+				in.Optional = &optional
+			}
+			return nil
+		},
+		Text: func(w io.Writer, out ops.MeetingAttendOutput) error {
+			p := &printer{w: w}
+			kind := "required"
+			if out.Now.Optional {
+				kind = "optional"
+			}
+			p.f("%s\tattend %s\t%s\n", out.ID, cmp.Or(string(out.Now.Attend), "undecided"), kind)
+			if out.Now.AttendDefault != "" {
+				p.f("next occurrences\tattend %s\n", out.Now.AttendDefault)
+			}
+			for _, wn := range out.Warnings {
+				p.f("warning: %s\n", wn)
+			}
+			return p.err
+		},
+	})
+}
+
 func newMeetingCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "meeting", Short: "Meetings: ask for one, book it, hold it", Args: cobra.NoArgs}
 	cmd.AddCommand(
@@ -168,6 +212,7 @@ func newMeetingCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "UID of the meeting's event in your calendar, for calendar compare")
 				fs.Var(&calendarEventsFlag{&in.CalendarUIDs}, "calendar-event", "another calendar event of it: <uid>=<role>, such as room@x=room (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text before the Questions section")
+				fs.BoolVar(&in.Optional, "optional", false, "you are an optional attendee: it asks nothing of you until you say you go")
 			},
 			Bind: func(args []string, in *ops.MeetingAddInput) error {
 				in.Title = strings.Join(args, " ")
@@ -225,6 +270,8 @@ func newMeetingCmd(l *loader) *cobra.Command {
 			Text: changeMeetingText,
 		}),
 		newMeetingHoldCmd(l),
+		newMeetingAttendCmd(l, ops.MeetingAttend, "attend"),
+		newMeetingAttendCmd(l, ops.MeetingRSVP, "rsvp"),
 		opCommand(l, ops.MeetingCancel, binding[ops.MeetingCancelInput, ops.MeetingChangeOutput]{
 			Use:  "cancel <id>",
 			Args: cobra.ExactArgs(1),

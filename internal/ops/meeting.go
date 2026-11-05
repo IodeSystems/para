@@ -41,6 +41,12 @@ type MeetingView struct {
 	// CalendarUIDs are the meeting's calendar events (invite, room, prep).
 	CalendarUIDs []model.CalendarEvent `json:"calendar_uids"`
 	Rev          string                `json:"rev"`
+	// Optional is true when the owner may skip it; Attend is yes, no, maybe,
+	// or empty (undecided); AttendDefault is what the next occurrence of a
+	// recurring meeting starts with.
+	Optional      bool         `json:"optional,omitempty"`
+	Attend        model.Attend `json:"attend,omitempty"`
+	AttendDefault model.Attend `json:"attend_default,omitempty"`
 	// Names are for people, one per id.
 	WithNames []string `json:"with_names,omitempty" nameof:"With"`
 	RFXNames  []string `json:"rfx_names,omitempty" nameof:"RFX"`
@@ -51,12 +57,13 @@ func meetingView(d model.Document) (MeetingView, error) {
 	if !ok {
 		return MeetingView{}, notMeeting(d)
 	}
-	uids := []model.CalendarEvent{}
+	v := MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
+		With: targets(m.With), RFX: targets(m.RFX), CalendarUIDs: []model.CalendarEvent{}, Rev: d.Rev}
 	if m.t != nil {
-		uids = append(uids, m.t.UIDs()...)
+		v.CalendarUIDs = append(v.CalendarUIDs, m.t.UIDs()...)
+		v.Optional, v.Attend, v.AttendDefault = m.t.Optional, m.t.Attend, m.t.AttendDefault
 	}
-	return MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
-		With: targets(m.With), RFX: targets(m.RFX), CalendarUIDs: uids, Rev: d.Rev}, nil
+	return v, nil
 }
 
 // getMeeting reads a meeting in either shape: a task of kind meeting, or a
@@ -323,6 +330,9 @@ type MeetingAddInput struct {
 	// CalendarUIDs are more events of it (role: room, internal prep, ...).
 	CalendarUID  string                `json:"calendar_uid,omitempty"`
 	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
+	// Optional is true when the calendar lists the owner as an optional
+	// attendee: the meeting asks nothing of the owner until they say they go.
+	Optional bool `json:"optional,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -382,7 +392,7 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	if err != nil {
 		return MeetingAddOutput{}, err
 	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUIDs: uids}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":

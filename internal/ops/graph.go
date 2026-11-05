@@ -120,7 +120,8 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 		out.Cycles = [][]string{}
 	}
 	for _, id := range w.g.Ready() {
-		if v, ok := w.tasks[id]; ok && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
+		// An optional meeting the owner has not said they go to is not work.
+		if v, ok := w.tasks[id]; ok && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) && !attendQuiet(v.Kind, v.Optional, v.Attend) {
 			out.Tasks = append(out.Tasks, v)
 		}
 	}

@@ -78,6 +78,10 @@ type AgendaItem struct {
 	Project  string   `json:"project,omitempty"` // a task's project or area
 	// ProjectName is the title of Project, for people.
 	ProjectName string `json:"project_name,omitempty" nameof:"Project"`
+	// Optional and Attend are a meeting's attendance: an optional meeting
+	// the owner has not said they go to shows quietly.
+	Optional bool         `json:"optional,omitempty"`
+	Attend   model.Attend `json:"attend,omitempty"`
 }
 
 // AgendaInput is the input of agenda.
@@ -93,6 +97,9 @@ type AgendaOutput struct {
 	To    string       `json:"to"`
 	Zone  string       `json:"zone"`
 	Items []AgendaItem `json:"items"`
+	// Skipped are the meetings of the window the owner does not go to
+	// (attend no). They are not in Items.
+	Skipped []AgendaItem `json:"skipped"`
 }
 
 // agendaZone returns the location to show times in.
@@ -159,20 +166,21 @@ var Agenda = defineRead("agenda", "List meetings, tasks due, requests to nudge, 
 		return AgendaOutput{}, err
 	}
 	w := newWindow(d.Store.Now(), loc, days)
-	items, err := agendaItems(ctx, d, w, true)
+	items, skipped, err := agendaItems(ctx, d, w, true)
 	if err != nil {
 		return AgendaOutput{}, err
 	}
-	return AgendaOutput{From: w.today, To: w.lastDay, Zone: w.zone, Items: items}, nil
+	return AgendaOutput{From: w.today, To: w.lastDay, Zone: w.zone, Items: items, Skipped: skipped}, nil
 })
 
-// agendaItems gathers the items of the window. Overdue dated items are
-// included when overdue is set.
-func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaItem, error) {
-	items := []AgendaItem{}
+// agendaItems gathers the items of the window, and apart from them the
+// meetings the owner skips. Overdue dated items are included when overdue is
+// set.
+func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, skipped []AgendaItem, err error) {
+	items, skipped = []AgendaItem{}, []AgendaItem{}
 	meetings, err := loadMeetings(ctx, d.Store)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, v := range meetings {
 		if v.Status != model.MeetingScheduled {
@@ -187,10 +195,16 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 			continue
 		}
 		s := start.In(w.loc)
-		items = append(items, AgendaItem{
+		it := AgendaItem{
 			Kind: AgendaMeeting, ID: v.ID, Title: v.Title, Date: s.Format(dateLayout), Time: s.Format("15:04"),
 			At: s.Format(time.RFC3339), Until: end.In(w.loc).Format(time.RFC3339), Detail: string(v.Status), Who: v.With,
-		})
+			Optional: v.Optional, Attend: v.Attend,
+		}
+		if v.Attend == model.AttendNo {
+			skipped = append(skipped, it)
+			continue
+		}
+		items = append(items, it)
 	}
 	inWindow := func(date string) (late, ok bool) {
 		switch {
@@ -203,11 +217,11 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	tasks, err := listTasks(ctx, d.Store, "", "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, t := range tasks {
 		if t.Outcome == model.OutcomeFailed && t.RetryAfter != "" && !IsOther(t.Assignee) {
@@ -245,7 +259,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	rfx, err := loadRFX(ctx, d)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, r := range rfx {
 		if r.Status != model.RFXOpen || r.NextNudge == "" {
@@ -263,7 +277,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	excs, err := allExceptions(ctx, d)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, e := range excs {
 		if e.Status == model.ExceptionResolved || e.ReviewBy == "" {
@@ -278,7 +292,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	watches, err := goalWatches(ctx, d.Store, d.Store.Now().Format(dateLayout))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, g := range watches {
 		late, ok := inWindow(g.Date)
@@ -290,12 +304,12 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	areas, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, r := range areas {
 		doc, a, err := getArea(ctx, d.Store, r.ID)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if a.Status != model.AreaActive || a.Cadence == "" {
 			continue
@@ -316,7 +330,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 	}
 	order, err := Order(ctx, d.Store)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pos := map[string]int{}
 	for i, r := range order.Rows {
@@ -330,7 +344,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) ([]AgendaI
 		}
 	}
 	sortAgenda(items, pos)
-	return items, nil
+	return items, skipped, nil
 }
 
 // sortAgenda orders by day, date-only items before timed ones, timed items by

@@ -88,8 +88,10 @@ type ParaV1MutationNamespace {
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
   meetingAdd(body: para_MeetingAddInputInput!): para_MeetingAddOutput @derived(operationId: "meetingAdd")
+  meetingAttend(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "meetingAttend")
   meetingCancel(body: para_MeetingCancelInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingCancel")
   meetingHold(body: para_MeetingHoldInputInput!): para_MeetingHoldOutput @derived(operationId: "meetingHold")
+  meetingRsvp(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "meetingRsvp")
   meetingSchedule(body: para_MeetingScheduleInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingSchedule")
   noteAdd(body: para_NoteAddInputInput!): para_NoteAddOutput @derived(operationId: "noteAdd")
   noteEdit(body: para_NoteEditInputInput!): para_NoteEditOutput @derived(operationId: "noteEdit")
@@ -371,10 +373,12 @@ type para_ActorOutcomes {
 
 type para_AgendaItem {
   at: String
+  attend: para_AgendaItemAttend
   date: String!
   detail: String
   id: String!
   kind: para_AgendaItemKind!
+  optional: Boolean
   overdue: Boolean!
   project: String
   projectName: String
@@ -384,6 +388,12 @@ type para_AgendaItem {
   who: [String!]!
   whoNames: [String!]
   why: String
+}
+
+enum para_AgendaItemAttend {
+  maybe
+  no
+  yes
 }
 
 enum para_AgendaItemKind {
@@ -399,6 +409,7 @@ enum para_AgendaItemKind {
 type para_AgendaOutput {
   from: String!
   items: [para_AgendaItem!]!
+  skipped: [para_AgendaItem!]!
   to: String!
   zone: String!
 }
@@ -841,6 +852,7 @@ type para_CalendarCompareOutput {
   from: String!
   matched: [para_CalendarMatch!]!
   mismatched: [para_CalendarMismatch!]!
+  optional: [para_CalendarOptional!]!
   para: Int!
   paraOnly: [para_ParaOnly!]!
   to: String!
@@ -861,6 +873,7 @@ input para_CalendarEventInput {
 input para_CalendarEventInputInput {
   attendees: [String!]
   end: String
+  optional: Boolean
   recurrence: String
   start: String!
   status: String
@@ -910,10 +923,20 @@ type para_CalendarOnly {
   allDay: Boolean
   attendees: [String!]!
   end: String
+  optional: Boolean
   paraMaybe: [String!]!
   recurring: Boolean
   seriesInPara: String
   start: String!
+  title: String!
+  uid: String
+}
+
+type para_CalendarOptional {
+  calendar: Boolean!
+  fix: String!
+  id: String!
+  para: Boolean!
   title: String!
   uid: String
 }
@@ -3583,6 +3606,7 @@ input para_MeetingAddInputInput {
   calendarUids: [para_CalendarEventInput!]
   end: String
   importedFrom: para_ImportedFromInput
+  optional: Boolean
   rfx: [String!]
   scope: [String!]
   start: String
@@ -3628,6 +3652,40 @@ enum para_MeetingAddOutputStatus {
   held
   requested
   scheduled
+}
+
+input para_MeetingAttendInputInput {
+  allFuture: Boolean
+  attend: String
+  id: String!
+  optional: Boolean
+}
+
+type para_MeetingAttendOutput {
+  id: String!
+  now: para_MeetingAttendState!
+  previous: para_MeetingAttendState!
+  rev: String!
+  title: String!
+  warnings: [String!]!
+}
+
+type para_MeetingAttendState {
+  attend: para_MeetingAttendStateAttend
+  attendDefault: para_MeetingAttendStateAttend_default
+  optional: Boolean!
+}
+
+enum para_MeetingAttendStateAttend {
+  maybe
+  no
+  yes
+}
+
+enum para_MeetingAttendStateAttend_default {
+  maybe
+  no
+  yes
 }
 
 input para_MeetingCancelInputInput {
@@ -3707,10 +3765,13 @@ type para_MeetingShowOutput {
 }
 
 type para_MeetingView {
+  attend: para_MeetingViewAttend
+  attendDefault: para_MeetingViewAttend_default
   calendarUids: [para_CalendarEvent!]!
   end: String
   folder: para_MeetingViewFolder!
   id: String!
+  optional: Boolean
   rev: String!
   rfx: [String!]!
   rfxNames: [String!]
@@ -3719,6 +3780,18 @@ type para_MeetingView {
   title: String!
   with: [String!]!
   withNames: [String!]
+}
+
+enum para_MeetingViewAttend {
+  maybe
+  no
+  yes
+}
+
+enum para_MeetingViewAttend_default {
+  maybe
+  no
+  yes
 }
 
 enum para_MeetingViewFolder {
@@ -3764,6 +3837,8 @@ type para_Meta {
   assignee: String
   assumptions: JSON
   at: String
+  attend: String
+  attendDefault: String
   awayUntil: String
   background: Boolean
   became: String
@@ -3829,6 +3904,7 @@ type para_Meta {
   onBehalfOf: String
   op: String
   optionDetails: JSON
+  optional: Boolean
   options: [String!]
   org: String
   outcome: para_MetaOutcome
@@ -7222,6 +7298,7 @@ type para_TaskView {
   assignee: String
   assigneeName: String
   attempts: Int
+  attend: para_TaskViewAttend
   blockedBy: [String!]!
   commitment: Boolean
   created: String!
@@ -7242,6 +7319,7 @@ type para_TaskView {
   items: Int!
   kind: para_TaskViewKind!
   lastAttempt: String
+  optional: Boolean
   outcome: para_TaskViewOutcome
   parent: String
   parentName: String
@@ -7262,6 +7340,12 @@ type para_TaskView {
   waitsOnNames: [String!]
   with: [String!]!
   withNames: [String!]
+}
+
+enum para_TaskViewAttend {
+  maybe
+  no
+  yes
 }
 
 enum para_TaskViewDeclined_by {
@@ -7326,6 +7410,8 @@ type para_TodayGroup {
 }
 
 type para_TodayItem {
+  at: String
+  attend: para_TodayItemAttend
   blocks: Int
   bucket: String
   detail: String
@@ -7343,6 +7429,12 @@ type para_TodayItem {
   title: String!
   why: String
   with: [String!]
+}
+
+enum para_TodayItemAttend {
+  maybe
+  no
+  yes
 }
 
 enum para_TodayItemEffort {
@@ -7370,10 +7462,12 @@ type para_TodayVaultToday {
   incidents: para_TodayGroup!
   lostUpdates: [String!]!
   nudges: para_TodayGroup!
+  optional: para_TodayGroup!
   orderSummary: para_OrderSummary!
   otherOpen: Int!
   outbox: Int!
   overdue: para_TodayGroup!
+  skipped: para_TodayGroup!
   syncConflicts: [String!]!
   unverified: Int!
   upgradeSteps: Int!

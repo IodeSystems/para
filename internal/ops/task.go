@@ -40,6 +40,10 @@ type TaskView struct {
 	Scheduled string         `json:"scheduled,omitempty"`
 	End       string         `json:"end,omitempty"`
 	With      []string       `json:"with"`
+	// Optional and Attend are a meeting's attendance: whether the owner may
+	// skip it, and whether they go (yes, no, maybe; empty is undecided).
+	Optional bool         `json:"optional,omitempty"`
+	Attend   model.Attend `json:"attend,omitempty"`
 	// Attempts counts the call attempts in ## Attempts; LastAttempt is the
 	// result of the latest (no_answer, left_message, reached). Stuck is true
 	// for an open call at the attempt cap.
@@ -91,7 +95,7 @@ func taskView(d model.Document) (TaskView, error) {
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
 		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
-		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{},
+		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{}, Optional: t.Optional, Attend: t.Attend,
 	}
 	for _, l := range t.DependsOn {
 		v.DependsOn = append(v.DependsOn, l.Target())
@@ -162,7 +166,8 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 func resolved(d model.Document) bool {
 	switch m := d.Meta.(type) {
 	case *model.Task:
-		return taskTerminal(m.Status)
+		// A meeting the owner skips holds nothing up: what waits on it can go.
+		return taskTerminal(m.Status) || meetingSkipped(m)
 	case *model.RFX:
 		return m.Status == model.RFXAnswered || m.Status == model.RFXClosed
 	case *model.Question:

@@ -48,6 +48,7 @@ type calItem struct {
 	Recur                   string
 	Project, Area           string
 	Cancelled               bool
+	Optional                bool // a meeting the owner may skip
 }
 
 // paraCalendarItems lists every meeting (either shape) and call in the vault.
@@ -77,7 +78,7 @@ func paraCalendarItems(ctx context.Context, s store.Store, loc *time.Location) (
 					it.UIDs = append(it.UIDs, e.UID)
 				}
 				it.With, it.RFX, it.Project, it.Area = targets(m.With), targets(m.RFX), m.Project.Target(), m.Area.Target()
-				it.Cancelled = m.Status == model.TaskDropped
+				it.Cancelled, it.Optional = m.Status == model.TaskDropped, m.Optional
 				when, end = m.Scheduled, m.End
 				if k == model.KindMeeting {
 					if mt, ok := readMeeting(doc); ok {
@@ -195,6 +196,9 @@ type CalendarEventInput struct {
 	Recurrence string `json:"recurrence,omitempty"`
 	// Status is the calendar's status; cancelled leaves the event out.
 	Status string `json:"status,omitempty"`
+	// Optional is whether the owner is an optional attendee of the event, as
+	// the calendar shows it. Absent is not known.
+	Optional *bool `json:"optional,omitempty"`
 }
 
 // CalendarCompareInput is the input of calendar_compare.
@@ -234,6 +238,20 @@ type CalendarOnly struct {
 	// ParaMaybe are para meetings or calls with a similar title that matched
 	// nothing: unscheduled, cancelled, or outside the window.
 	ParaMaybe []string `json:"para_maybe"`
+	// Optional is true when the owner is an optional attendee: add it with
+	// meeting_add optional.
+	Optional bool `json:"optional,omitempty"`
+}
+
+// CalendarOptional is a para meeting whose optional flag differs from the
+// calendar's: the owner is an optional attendee in one and not the other.
+type CalendarOptional struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	UID      string `json:"uid,omitempty"`
+	Calendar bool   `json:"calendar"` // the calendar's optional flag
+	Para     bool   `json:"para"`     // para's
+	Fix      string `json:"fix"`
 }
 
 // ParaOnly is a para meeting or call in the window that the calendar lacks.
@@ -307,7 +325,10 @@ type CalendarCompareOutput struct {
 	ParaOnly     []ParaOnly           `json:"para_only"`
 	Mismatched   []CalendarMismatch   `json:"mismatched"`
 	Unexpanded   []CalendarUnexpanded `json:"unexpanded"`
-	Warnings     []string             `json:"warnings"`
+	// Optional lists matched meetings whose optional flag differs from the
+	// calendar's, for events that passed optional.
+	Optional []CalendarOptional `json:"optional"`
+	Warnings []string           `json:"warnings"`
 }
 
 // occ is one calendar occurrence in the window.
@@ -318,12 +339,14 @@ type occ struct {
 	Attendees  []string
 	Recurring  bool
 	Cancelled  bool
+	Optional   *bool
 	used       bool
 }
 
 // occurrences expands events into the occurrences in [from, to). An event
 // that replaces one occurrence of a series (RECURRENCE-ID) takes its place.
-func occurrences(events []ical.VEvent, from, to time.Time) ([]*occ, []CalendarUnexpanded) {
+// optional is the optional flag of each event, by index; nil is not known.
+func occurrences(events []ical.VEvent, optional []*bool, from, to time.Time) ([]*occ, []CalendarUnexpanded) {
 	overrides := map[string][]time.Time{}
 	for _, e := range events {
 		if !e.RecurrenceID.IsZero() && e.UID != "" {
@@ -332,7 +355,11 @@ func occurrences(events []ical.VEvent, from, to time.Time) ([]*occ, []CalendarUn
 	}
 	var out []*occ
 	var unexpanded []CalendarUnexpanded
-	for _, e := range events {
+	for i, e := range events {
+		var opt *bool
+		if i < len(optional) {
+			opt = optional[i]
+		}
 		starts, err := ical.Expand(e, from, to)
 		if err != nil {
 			unexpanded = append(unexpanded, CalendarUnexpanded{UID: e.UID, Title: e.Summary, Start: e.Start.Format(time.RFC3339), Rule: e.RRule, Why: err.Error()})
@@ -346,7 +373,7 @@ func occurrences(events []ical.VEvent, from, to time.Time) ([]*occ, []CalendarUn
 				continue
 			}
 			o := &occ{UID: e.UID, Title: e.Summary, Start: s, AllDay: e.AllDay, Attendees: e.Attendees,
-				Recurring: e.RRule != "" || !e.RecurrenceID.IsZero(), Cancelled: e.Cancelled()}
+				Recurring: e.RRule != "" || !e.RecurrenceID.IsZero(), Cancelled: e.Cancelled(), Optional: opt}
 			if length > 0 {
 				o.End = s.Add(length)
 			}
@@ -407,7 +434,7 @@ func sameDay(a, b time.Time, loc *time.Location) bool {
 // calls in a window. It writes nothing.
 var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calendar with para's meetings and calls in a window (default the next 14 days): pass events you read from the calendar, or .ics text you hold. Lists what the calendar has that para lacks, what para has that the calendar lacks (and whether para knows who it is with), and time mismatches. Matches by calendar_uid, else by title and start. Writes nothing: fix differences with the meeting and task ops", func(ctx context.Context, d Deps, in CalendarCompareInput) (CalendarCompareOutput, error) {
 	out := CalendarCompareOutput{Matched: []CalendarMatch{}, CalendarOnly: []CalendarOnly{}, Aliases: []CalendarAlias{}, ParaOnly: []ParaOnly{},
-		Mismatched: []CalendarMismatch{}, Unexpanded: []CalendarUnexpanded{}, Warnings: []string{}}
+		Mismatched: []CalendarMismatch{}, Unexpanded: []CalendarUnexpanded{}, Optional: []CalendarOptional{}, Warnings: []string{}}
 	if len(in.Events) == 0 && strings.TrimSpace(in.ICS) == "" {
 		return out, errors.New("give events or ics: the calendar to compare with")
 	}
@@ -439,7 +466,12 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 		events = append(events, parsed...)
 		out.Warnings = append(out.Warnings, warns...)
 	}
-	all, unexpanded := occurrences(events, from, to)
+	// The events of the input come first; ics events after them are not known.
+	optional := make([]*bool, len(in.Events))
+	for i, e := range in.Events {
+		optional[i] = e.Optional
+	}
+	all, unexpanded := occurrences(events, optional, from, to)
 	out.Unexpanded = append(out.Unexpanded, unexpanded...)
 	var live, cancelled []*occ
 	for _, o := range all {
@@ -528,6 +560,10 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 			continue
 		}
 		o.used, matchedPara[it.ID] = true, true
+		if o.Optional != nil && *o.Optional != it.Optional && it.Kind == string(model.KindMeeting) {
+			out.Optional = append(out.Optional, CalendarOptional{ID: it.ID, Title: it.Title, UID: o.UID, Calendar: *o.Optional, Para: it.Optional,
+				Fix: fmt.Sprintf("meeting_attend {id: %s, optional: %t}", it.ID, *o.Optional)})
+		}
 		if o.UID != "" {
 			series[o.UID] = it.ID
 		}
@@ -565,7 +601,7 @@ var CalendarCompare = defineRead("calendar_compare", "Compare the owner's calend
 			continue
 		}
 		co := CalendarOnly{UID: o.UID, Title: o.Title, Start: f(o.Start, o.AllDay), End: fEnd(o.End, o.AllDay), AllDay: o.AllDay,
-			Attendees: nonNil(o.Attendees), Recurring: o.Recurring, ParaMaybe: []string{}}
+			Attendees: nonNil(o.Attendees), Recurring: o.Recurring, ParaMaybe: []string{}, Optional: o.Optional != nil && *o.Optional}
 		if o.UID != "" {
 			co.SeriesInPara = series[o.UID]
 		}

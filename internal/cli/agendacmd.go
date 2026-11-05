@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/iodesystems/para/internal/export"
+	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
 )
 
@@ -37,6 +38,12 @@ func agendaLine(it ops.AgendaItem) string {
 	}
 	if it.Overdue {
 		line += "  overdue"
+	}
+	if it.Optional && it.Attend != model.AttendYes {
+		line += "  optional"
+	}
+	if it.Attend == model.AttendMaybe {
+		line += "  maybe"
 	}
 	if it.Detail != "" && it.Kind != ops.AgendaMeeting {
 		line += "  " + it.Detail
@@ -194,6 +201,9 @@ func newCalendarCompareCmd(l *loader) *cobra.Command {
 			}
 			for _, m := range out.Matched {
 				p.f("matched\t%s\t%s\t%s\n", m.Start, m.ID, m.Title)
+			}
+			for _, o := range out.Optional {
+				p.f("optional differs\t%s\tcalendar %t\tpara %t\t%s\n", o.ID, o.Calendar, o.Para, o.Fix)
 			}
 			for _, u := range out.Unexpanded {
 				p.f("unexpanded\t%s\t%s\t%s\n", u.Title, u.Rule, u.Why)

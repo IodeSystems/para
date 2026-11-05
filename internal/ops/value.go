@@ -706,11 +706,15 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 		// is left out.
 		if mt, ok := readMeeting(doc); ok && mt.Status == model.MeetingScheduled {
 			day, ok := meetingDay(mt.Start)
-			if !ok {
+			if !ok || meetingSkipped(mt.t) {
+				// A meeting the owner skips is not listed and holds nothing up:
+				// what depends on it, and the asks it serves, can start.
 				continue
 			}
 			n.Kind, n.Due, n.Start = KindMeeting, day, day
-			n.Hidden = n.Due > horizon
+			// An optional meeting the owner has not said they go to is not
+			// listed; it still sets the day what depends on it can start.
+			n.Hidden = n.Due > horizon || meetingQuiet(mt.t)
 			if t, isTask := doc.Meta.(*model.Task); isTask {
 				n.Hidden = n.Hidden || IsOther(t.Assignee)
 				n.Parent, n.Deps = t.Parent.Target(), targets(t.DependsOn)
@@ -733,10 +737,10 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 			}
 			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
 		case *model.Task:
-			if taskTerminal(m.Status) {
+			if taskTerminal(m.Status) || meetingSkipped(m) {
 				continue
 			}
-			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee)
+			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee) || meetingQuiet(m)
 			n.Parent, n.Effort = m.Parent.Target(), m.Effort
 			n.Deps = targets(m.DependsOn)
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {

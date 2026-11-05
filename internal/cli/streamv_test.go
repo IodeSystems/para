@@ -27,6 +27,8 @@ func streamVParityCases() map[string]parityCase {
 		"agenda":           {`{"days":14}`, []string{"agenda", "--days", "14"}, false},
 		"calendar_export":  {`{"days":30}`, []string{"calendar", "export", "--days", "30"}, false},
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
+		"meeting_attend":   {`{"id":"meeting-v-g","attend":"no","optional":true,"all_future":true}`, []string{"meeting", "attend", "meeting-v-h", "no", "--optional", "--all-future"}, false},
+		"meeting_rsvp":     {`{"id":"meeting-v-i","attend":"yes"}`, []string{"meeting", "rsvp", "meeting-v-j", "yes"}, false},
 	}
 }
 
@@ -45,6 +47,13 @@ func seedStreamVParity(t *testing.T, deps ops.Deps) {
 			Body: "## Questions\n\nNone yet.\n\n## Notes\n",
 			Meta: &model.Meeting{Common: model.Common{Type: model.TypeMeeting}, Status: model.MeetingScheduled,
 				Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-v-seed")}}})
+	}
+	// meeting_attend works on a task meeting: the older shape has no attendance.
+	for _, id := range []string{"meeting-v-g", "meeting-v-h", "meeting-v-i", "meeting-v-j"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "V standing meeting " + id,
+			Body: "## Questions\n\nNone yet.\n\n## Notes\n",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Recur: "weekly",
+				Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-v-seed")}}})
 	}
 	for _, d := range docs {
 		if _, err := deps.Store.Create(ctx, d); err != nil {

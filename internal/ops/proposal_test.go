@@ -181,6 +181,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := AgentUnsend.Run(t.Context(), d, AgentUnsendInput{Request: "x"})
 			return err
 		}},
+		{"meeting_rsvp", func(d Deps) error {
+			_, err := MeetingRSVP.Run(t.Context(), d, MeetingAttendInput{ID: "x", Attend: "yes"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}

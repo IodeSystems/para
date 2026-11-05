@@ -63,6 +63,8 @@ func registerLife(r *registrar) {
 	reg(r, ops.MeetingSchedule, post, write)
 	reg(r, ops.MeetingCancel, post, write)
 	reg(r, ops.MeetingHold, post, write)
+	reg(r, ops.MeetingAttend, post, write)
+	reg(r, ops.MeetingRSVP, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Agenda, get, read)
 	reg(r, ops.TaskToQuestion, post, write)
 	reg(r, ops.TaskDue, post, write)

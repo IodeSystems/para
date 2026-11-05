@@ -223,7 +223,15 @@ type Task struct {
 	// read as one entry (UIDs), and upgrade step calendar-uids converts it.
 	CalendarUIDs []CalendarEvent `yaml:"calendar_uids,omitempty" json:"calendar_uids,omitempty"`
 	CalendarUID  string          `yaml:"calendar_uid,omitempty" json:"calendar_uid,omitempty"`
-	Deferral     `yaml:",inline"`
+	// Optional is true on a meeting the owner may skip: an optional attendee in
+	// the calendar, or a standing meeting the owner marked optional. Attend is
+	// whether the owner goes (yes, no, maybe; empty is undecided).
+	// AttendDefault is the answer each next occurrence of a recurring meeting
+	// starts with. A recurrence copies Optional and AttendDefault, never Attend.
+	Optional      bool   `yaml:"optional,omitempty" json:"optional,omitempty"`
+	Attend        Attend `yaml:"attend,omitempty" json:"attend,omitempty"`
+	AttendDefault Attend `yaml:"attend_default,omitempty" json:"attend_default,omitempty"`
+	Deferral      `yaml:",inline"`
 	// Assumptions are what the task takes as true (grill.go).
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 	// Effort is about how long the task takes the owner; empty is not set.

@@ -218,6 +218,11 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			Scheduled:    sched,
 			End:          end,
 			CalendarUIDs: t.UIDs(),
+			// Optional is the series' and carries on; attend is one
+			// occurrence's answer, so the next starts from the default.
+			Optional:      t.Optional,
+			Attend:        t.AttendDefault,
+			AttendDefault: t.AttendDefault,
 		},
 	})
 	if err != nil {

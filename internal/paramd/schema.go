@@ -73,6 +73,7 @@ var (
 	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped"}
 	ioExpects          = []string{"response", "none"}
 	efforts            = []string{"xs", "s", "m", "l"}
+	attends            = []string{"yes", "no", "maybe"}
 	docSystems         = []string{"confluence", "jira", "github", "gdoc", "other"}
 	docStatuses        = []string{"watching", "paused", "archived"}
 	sourceSystems      = []string{"gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder", "other"}
@@ -166,6 +167,9 @@ var typeFields = map[string][]field{
 		{Name: "rfx", Kind: kLinkList},               // kind meeting: the requests it settles
 		{Name: "calendar_uid", Kind: kString},        // older single form of calendar_uids; read as one entry
 		{Name: "calendar_uids", Kind: kCalendarUIDs}, // kind meeting or call: [{uid, role}] of its calendar events
+		{Name: "optional", Kind: kBool},              // kind meeting: the owner may skip it
+		{Name: "attend", Kind: kEnum, Enum: attends}, // kind meeting: yes, no, maybe; empty is undecided
+		{Name: "attend_default", Kind: kEnum, Enum: attends},
 		{Name: "assumptions", Kind: kAssumptions},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 	},

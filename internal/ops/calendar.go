@@ -68,7 +68,7 @@ var CalendarExport = defineRead("calendar_export", "Render scheduled meetings an
 		return CalendarExportOutput{}, fmt.Errorf("transport %s is not in this vault's egress.export", target.Kind)
 	}
 	w := newWindow(d.Store.Now(), loc, days)
-	items, err := agendaItems(ctx, d, w, false)
+	items, _, err := agendaItems(ctx, d, w, false)
 	if err != nil {
 		return CalendarExportOutput{}, err
 	}
