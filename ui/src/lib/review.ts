@@ -1,6 +1,6 @@
 import type { Answer } from '@/lib/dossier'
 
-// Helpers for the review actions every card shares: Approve, Edit, Decline, Skip, Ask agent, and
+// Helpers for the review actions every card shares: Approve, Edit, Decline, Skip, Send to agent, and
 // Done by me. The rules here copy model.CheckAnswer and the person ops.
 
 // Decision is what the owner decides on an item. Decline is decision reject.
@@ -15,7 +15,7 @@ export const needsNote = (decision: string | null | undefined) =>
 export function noteProblem(decision: string | null | undefined, note: string | null | undefined) {
   if (!needsNote(decision) || (note ?? '').trim() !== '') return ''
   return decision === 'ask'
-    ? 'Ask agent needs a note: what the agent should do.'
+    ? 'Send to agent needs a note for the agent: what it should do.'
     : 'Decline needs a note: why.'
 }
 
@@ -30,7 +30,7 @@ export function noteLabel(decision: string | null | undefined): string {
     case 'decline':
       return 'Why you decline (required)'
     case 'ask':
-      return 'What the agent should do (required)'
+      return 'Note for the agent'
     case 'skip':
       return 'Note (optional)'
     default:

@@ -32,7 +32,7 @@ export function QuestionCard({
   const [newOption, setNewOption] = useState('')
   const details = new Map((it.optionDetails ?? []).map((o) => [o.name, o]))
   const ro = !onAnswer
-  // An answer takes the question back from Skip or Ask agent.
+  // An answer takes the question back from Skip or Send to agent.
   const answerWith = (a: Answer) => {
     if (a.decision !== 'skip' && a.decision !== 'ask') return onAnswer?.(a)
     const out: Answer = { ...a, decision: null }

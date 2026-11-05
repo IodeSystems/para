@@ -238,10 +238,10 @@ export function focusNote(id: string) {
 // noteIdOf is the id of the note field of an item card.
 export const noteIdOf = (item: string) => `note-${item}`
 
-// ActionBar is the same row of actions on every card: Approve, Edit, Decline, Skip, and Ask agent.
+// ActionBar is the same row of actions on every card: Approve, Edit, Decline, Skip, and Send to agent.
 // A question has no Approve, Edit, or Decline: the owner answers it. Approve is one click, like
 // accepting a spelling fix; a second click on the chosen button takes the choice back. Decline and
-// Ask agent put the cursor in the note, which they need. The decision takes effect on Submit.
+// Send to agent put the cursor in the note, which they need. The decision takes effect on Submit.
 export function ActionBar({
   answer,
   onAnswer,
@@ -281,14 +281,14 @@ export function ActionBar({
       {!question && start && button('edit', 'Edit, then approve')}
       {!question && button('reject', 'Decline', 'error')}
       {button('skip', 'Skip')}
-      {button('ask', 'Ask agent')}
+      {button('ask', 'Send to agent')}
       {extra}
     </Stack>
   )
 }
 
 // NoteField is the owner's note on one item: why they decline, what the agent should do, or a
-// comment. A decline and an ask need it. With Ask agent the owner may name vault documents the
+// comment. A decline and an ask need it. With Send to agent the owner may name vault documents the
 // agent should read.
 export function NoteField({
   answer,

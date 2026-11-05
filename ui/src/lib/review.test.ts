@@ -17,7 +17,7 @@ describe('review notes', () => {
   it('a decline and an ask need a note; skip and approve do not', () => {
     expect(noteProblem('reject', '')).toMatch(/Decline needs a note/)
     expect(noteProblem('decline', '  ')).toMatch(/Decline needs a note/)
-    expect(noteProblem('ask', undefined)).toMatch(/Ask agent needs a note/)
+    expect(noteProblem('ask', undefined)).toMatch(/Send to agent needs a note/)
     expect(noteProblem('reject', 'Too early.')).toBe('')
     expect(noteProblem('skip', '')).toBe('')
     expect(noteProblem('approve', null)).toBe('')
