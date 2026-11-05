@@ -90,6 +90,7 @@ func reviseItems(ctx context.Context, d Deps, prev []model.ProposalItem, in Prop
 			it.Answer = &a
 		}
 		it.Thread = out[i].Thread
+		carryTags(&it, out[i])
 		out[i] = it
 	}
 	for i := range out {

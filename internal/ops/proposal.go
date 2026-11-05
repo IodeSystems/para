@@ -80,6 +80,9 @@ type ItemInput struct {
 	Group           string           `json:"group,omitempty"`
 	// NotDuplicate says why a para item that creates is not a likely match.
 	NotDuplicate string `json:"not_duplicate,omitempty"`
+	// Tags are the item's topics, such as socials: tag_list counts them,
+	// proposal_stack and defer take one.
+	Tags []string `json:"tags,omitempty"`
 	// Medium and Draft are the old names of subtype and body.
 	Medium string `json:"medium,omitempty"`
 	Draft  string `json:"draft,omitempty"`
@@ -163,7 +166,7 @@ func newItem(ctx context.Context, d Deps, in ItemInput, id string, rules Proposa
 		Tradeoffs: weighing, Reversible: in.Reversible, ReversibleHow: strings.TrimSpace(in.ReversibleHow),
 		After: in.After, Bundle: in.Bundle, Choice: in.Choice, Group: in.Group, For: normID(in.For), Fields: in.Fields,
 		Subject: in.Subject, Title: in.Title, Diff: in.Diff, What: in.What, Previous: in.Previous, How: in.How, Impact: in.Impact,
-		Target: in.Target, Channel: in.Channel, People: in.People, Body: in.Body}
+		Target: in.Target, Channel: in.Channel, People: in.People, Body: in.Body, Tags: normTags(in.Tags)}
 	if strings.TrimSpace(in.Evidence.Quote) == "" || strings.TrimSpace(in.Evidence.Locator) == "" {
 		return it, errors.New("evidence needs a quote and a locator")
 	}
@@ -504,6 +507,8 @@ type ProposalAddInput struct {
 	// empty; any other text is stored and shown, never read.
 	SourcePath string      `json:"source_path,omitempty"`
 	Items      []ItemInput `json:"items,omitempty"`
+	// Tags are topics of the whole dossier: every item has them.
+	Tags []string `json:"tags,omitempty"`
 }
 
 // ProposalFiled is the output of proposal_add and proposal_revise. The agent
@@ -581,7 +586,7 @@ var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para a
 		if err != nil {
 			return ProposalFiled{}, err
 		}
-		doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, dz)
+		doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, normTags(in.Tags), dz)
 		if err != nil {
 			return ProposalFiled{}, err
 		}
@@ -613,7 +618,7 @@ var ProposalAdd = defineSafe("proposal_add", "Item ids: in the items form para a
 		c.Items = append(c.Items, it)
 	}
 	dz := model.NewDossier(model.DossierHeader{TLDR: firstOf(c.TLDR, title), Context: c.Context}, "Items", c.Items)
-	doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, dz)
+	doc, err := fileDossier(ctx, d, title, source, sourcePath, info.Actor, normTags(in.Tags), dz)
 	if err != nil {
 		return ProposalFiled{}, err
 	}

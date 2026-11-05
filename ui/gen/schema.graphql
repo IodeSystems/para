@@ -163,6 +163,8 @@ type ParaV1MutationNamespace {
   stackDecide(body: para_StackDecideInputInput!): para_StackDecideOutput @derived(operationId: "stackDecide")
   stackUndo(body: para_StackUndoInputInput!): para_StackUndoOutput @derived(operationId: "stackUndo")
   sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
+  tagAdd(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagAdd")
+  tagRemove(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagRemove")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
   taskAssign(body: para_TaskAssignInputInput!): para_TaskAssignOutput @derived(operationId: "taskAssign")
   taskAttempt(body: para_TaskAttemptInputInput!): para_TaskAttemptOutput @derived(operationId: "taskAttempt")
@@ -261,7 +263,7 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalResponse(id: String!): para_ProposalResponseOutput @derived(operationId: "proposalResponse")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
-  proposalStack(actor: String, cursor: String, group: String, kind: String, limit: Int, proposal: String, state: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
+  proposalStack(actor: String, cursor: String, group: String, kind: String, limit: Int, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
   proposalUndone: para_ProposalUndoneOutput @derived(operationId: "proposalUndone")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
@@ -303,6 +305,7 @@ type ParaV1QueryNamespace {
   sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
   sourceShow(id: String!): para_SourceShowOutput @derived(operationId: "sourceShow")
   sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
+  tagList: para_TagListOutput @derived(operationId: "tagList")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
@@ -2501,6 +2504,7 @@ input para_IOAddInputInput {
   ref: String
   route: String
   subject: String
+  tags: [String!]
   text: String!
   thread: String
   to: [String!]
@@ -3377,6 +3381,7 @@ input para_ItemInputInput {
   reversibleHow: String
   subject: String
   subtype: String
+  tags: [String!]
   target: String
   title: String
   what: String
@@ -3403,6 +3408,11 @@ type para_ItemPreview {
   changes: [para_DocChange!]!
   downstream: [para_Downstream!]!
   error: String
+}
+
+input para_ItemRefInput {
+  item: String!
+  proposal: String!
 }
 
 type para_ItemView {
@@ -3470,6 +3480,7 @@ type para_ItemView {
   subject: String
   subtype: String
   summary: String!
+  tags: [String!]
   target: String
   thread: [para_Turn!]
   title: String
@@ -4732,6 +4743,7 @@ input para_ProposalAddInputInput {
   markdown: String
   source: String
   sourcePath: String
+  tags: [String!]
   title: String!
   tldr: String
 }
@@ -6699,6 +6711,7 @@ type para_StackRow {
   stack: String!
   state: para_StackRowState!
   summary: String!
+  tags: [String!]
   title: String!
   url: String
 }
@@ -6853,6 +6866,29 @@ type para_SweepStep {
   query: String
   rendered: String
   tool: String
+}
+
+type para_TagCount {
+  later: Int!
+  open: Int!
+  stack: Int!
+  tag: String!
+}
+
+input para_TagInputInput {
+  ids: [String!]
+  items: [para_ItemRefInput!]
+  tags: [String!]
+}
+
+type para_TagListOutput {
+  tags: [para_TagCount!]!
+}
+
+type para_TagOutput {
+  changed: [String!]!
+  skipped: [String!]!
+  tags: [String!]!
 }
 
 type para_Target {

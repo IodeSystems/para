@@ -37,6 +37,8 @@ type IOAddInput struct {
 	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref}
 	// Verify tells the owner how to find a message with via and no ref.
 	Verify string `json:"verify,omitempty"`
+	// Tags are topics, such as socials.
+	Tags []string `json:"tags,omitempty"`
 	// Expects: out: response (sending makes an Ask) or none. In: response when
 	// the sender waits for the owner's reply.
 	Expects model.IOExpects `json:"expects,omitempty"`
@@ -68,7 +70,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if text == "" {
 		return IOAddOutput{}, errors.New("text is empty")
 	}
-	m := &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: in.Direction, Medium: in.Medium,
+	m := &model.IO{Common: model.Common{Type: model.TypeIO, Tags: normTags(in.Tags)}, Direction: in.Direction, Medium: in.Medium,
 		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via, Verify: ioLine(in.Verify), Effort: in.Effort}
 	if err := checkEffort(in.Effort); err != nil {
 		return IOAddOutput{}, err

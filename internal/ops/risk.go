@@ -131,6 +131,7 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	if slices.Contains(FlowOps, o.name) {
 		return out, err
 	}
+	rec.proposals = o.proposalReceipts
 	file := rec.file
 	if o.oneReceipt {
 		file = rec.fileOne
@@ -165,6 +166,8 @@ type touched struct {
 type recorder struct {
 	store.Store
 	list *[]touched
+	// proposals: dossiers get receipts too (withProposalReceipts).
+	proposals bool
 }
 
 func newRecorder(s store.Store) *recorder { return &recorder{Store: s, list: &[]touched{}} }
@@ -218,6 +221,12 @@ func (r *recorder) Move(ctx context.Context, id string, to model.Folder) (model.
 // noReceipt lists the types that are their own record.
 var noReceipt = []model.Type{model.TypeReceipt, model.TypeProposal}
 
+// skip is true for a document that files no receipt.
+func (r *recorder) skip(doc model.Document) bool {
+	t := doc.Meta.Header().Type
+	return slices.Contains(noReceipt, t) && (!r.proposals || t != model.TypeProposal)
+}
+
 // file writes one receipt per document that changed.
 func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) error {
 	info := d.Store.Info()
@@ -229,7 +238,7 @@ func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) err
 		if err != nil {
 			continue // a document the op made and removed left nothing to show
 		}
-		if slices.Contains(noReceipt, doc.Meta.Header().Type) {
+		if r.skip(doc) {
 			continue
 		}
 		after := renderText(doc)
@@ -255,7 +264,7 @@ func (r *recorder) fileOne(ctx context.Context, d Deps, op string, m WriteMeta) 
 	main, title := "", ""
 	for _, t := range *r.list {
 		doc, err := d.Store.Get(ctx, t.id)
-		if err != nil || slices.Contains(noReceipt, doc.Meta.Header().Type) {
+		if err != nil || r.skip(doc) {
 			continue
 		}
 		after := renderText(doc)

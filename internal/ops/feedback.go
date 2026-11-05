@@ -67,28 +67,9 @@ var FeedbackAdd = defineSafe("feedback_add", "File feedback about para itself (n
 	if tool != "" {
 		subject += ": " + tool
 	}
-	added, err := IOAdd.Run(ctx, d, IOAddInput{Direction: model.IOIn, Text: text, Subject: subject, From: "agent " + d.Store.Info().Actor})
+	added, err := IOAdd.Run(ctx, d, IOAddInput{Direction: model.IOIn, Text: text, Subject: subject, From: "agent " + d.Store.Info().Actor, Tags: []string{FeedbackTag}})
 	if err != nil {
 		return FeedbackAddOutput{}, err
 	}
-	doc, err := d.Store.Get(ctx, added.ID)
-	if err != nil {
-		return FeedbackAddOutput{}, err
-	}
-	h := doc.Meta.Header()
-	h.Tags = addTags(h.Tags, FeedbackTag)
-	if doc, err = d.Store.Update(ctx, doc); err != nil {
-		return FeedbackAddOutput{}, err
-	}
-	return FeedbackAddOutput{ID: doc.ID, Tags: doc.Meta.Header().Tags, Rev: doc.Rev}, nil
+	return FeedbackAddOutput{ID: added.ID, Tags: []string{FeedbackTag}, Rev: added.Rev}, nil
 })
-
-// addTags adds each tag that is not there yet, in order.
-func addTags(have []string, tags ...string) []string {
-	for _, t := range tags {
-		if !slices.Contains(have, t) {
-			have = append(have, t)
-		}
-	}
-	return have
-}

@@ -63,6 +63,10 @@ type Op[I, O any] struct {
 	// oneReceipt: a write files one receipt for every document it changed,
 	// on every surface, so one undo reverses all of it (merge, archive).
 	oneReceipt bool
+	// proposalReceipts: a dossier the write changes gets a receipt too, so
+	// receipt_undo restores it (tags, deferral). Other writes leave a dossier
+	// out: it is its own record.
+	proposalReceipts bool
 	// gateRule, when set, can let a write through the gate or hold it back
 	// whatever gate.require says (withGateRule).
 	gateRule func(I, WriteMeta) (gateVerdict, string)
@@ -105,6 +109,12 @@ func (o *Op[I, O]) Undoable() bool      { return !o.noUndo }
 // keys, and vault upgrades.
 func withNoUndo[I, O any](o *Op[I, O]) *Op[I, O] {
 	o.noUndo = true
+	return o
+}
+
+// withProposalReceipts files a receipt for each dossier the op changes.
+func withProposalReceipts[I, O any](o *Op[I, O]) *Op[I, O] {
+	o.proposalReceipts = true
 	return o
 }
 

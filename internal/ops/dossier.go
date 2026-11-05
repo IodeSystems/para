@@ -133,6 +133,7 @@ func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool
 		if err := checkBlockItem(ctx, d, it, rules); err != nil {
 			return nil, fmt.Errorf("item %s: %w", it.ID, err)
 		}
+		it.Tags = normTags(it.Tags)
 		if old, ok := keep[it.ID]; !ok || !sameEvidence(old, it.Evidence) {
 			if err := checkEvidence(ctx, d, it.Evidence); err != nil {
 				return nil, fmt.Errorf("item %s: %w", it.ID, err)
@@ -143,7 +144,7 @@ func parseAgentDossier(ctx context.Context, d Deps, markdown string, strict bool
 }
 
 // fileDossier writes a new dossier: every item pending at rev 1.
-func fileDossier(ctx context.Context, d Deps, title string, source model.Link, sourcePath, actor string, dz *model.Dossier) (model.Document, error) {
+func fileDossier(ctx context.Context, d Deps, title string, source model.Link, sourcePath, actor string, tags []string, dz *model.Dossier) (model.Document, error) {
 	for i := range dz.Items {
 		dz.Items[i].State, dz.Items[i].Rev = model.ItemPending, 1
 	}
@@ -163,7 +164,7 @@ func fileDossier(ctx context.Context, d Deps, title string, source model.Link, s
 	}
 	return d.Store.Create(ctx, model.Document{
 		Folder: model.FolderProposals, Title: title, Body: body,
-		Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: source, SourcePath: sourcePath,
+		Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal, Tags: tags}, Source: source, SourcePath: sourcePath,
 			Status: status, Revision: 1, ProposedBy: actor},
 	})
 }
@@ -230,6 +231,7 @@ func mergeRevision(p *proposal, next *model.Dossier, rev int) error {
 			out = append(out, it)
 			continue
 		}
+		carryTags(&it, old)
 		oldHash, err := old.Hash()
 		if err != nil {
 			return err
@@ -276,6 +278,14 @@ func mergeRevision(p *proposal, next *model.Dossier, rev int) error {
 	p.dossier = next
 	p.content = next.Content()
 	return nil
+}
+
+// carryTags keeps the tags of the item before a revision when the agent's
+// new block names none: tag_add tags stay through a revision.
+func carryTags(it *model.ProposalItem, old model.ProposalItem) {
+	if len(it.Tags) == 0 {
+		it.Tags = old.Tags
+	}
 }
 
 func keepParaOwned(it *model.ProposalItem, old model.ProposalItem) {

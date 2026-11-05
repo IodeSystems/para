@@ -304,7 +304,8 @@ func vaultQuestionRows(ctx context.Context, d Deps) ([]StackRow, error) {
 			state = model.ItemSentBack
 		}
 		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: StackProposed,
-			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != ""})
+			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
+			Tags: normTags(q.Tags)})
 	}
 	return out, nil
 }

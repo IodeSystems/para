@@ -19,6 +19,8 @@ import (
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
 	"feedback_add":              `{"text":"The error did not name the field.","kind":"bug","tool":"search"}`,
+	"tag_add":                   `{"ids":["task-sample"],"tags":["socials"]}`,
+	"tag_remove":                `{"ids":["task-sample"],"tags":["socials"]}`,
 	"attachment_add":            `{"id":"task-sample","name":"photo of board.txt","data":"U2FtcGxlIHRleHQu"}`,
 	"attachment_read":           `{"file":"` + SampleAttachment + `"}`,
 	"agent_send":                `{"id":"task-sample","text":"Met Sam; decided to ship.","attachments":["` + SampleAttachment + `"],"done":true}`,

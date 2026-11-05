@@ -245,6 +245,7 @@ func newProposalCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Group, "group", "", "only this group")
 				fs.StringVar(&in.Proposal, "proposal", "", "only this dossier")
 				fs.StringVar(&in.Actor, "actor-filter", "", "only dossiers this agent filed")
+				fs.StringVar(&in.Tag, "tag", "", "only items with this topic")
 				fs.StringVar(&in.Cursor, "cursor", "", "next_cursor of the page before")
 				fs.IntVar(&in.Limit, "limit", 0, "rows per page; default 200")
 			},
