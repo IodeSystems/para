@@ -105,7 +105,7 @@ func median(ds []float64) *float64 {
 func normTitle(s string) string { return strings.ToLower(strings.Join(strings.Fields(s), " ")) }
 
 // ReportFriction builds the friction report from Asks and events.
-var ReportFriction = defineRead("report_friction", "Friction report: time to first answer and resolution, redirects and hops per Ask, stalled time, repeat Asks a playbook could answer, policy conflicts and exceptions, grouped by domain, policy, or reason code, never by person. Each row lists its Asks as evidence", func(ctx context.Context, d Deps, in FrictionInput) (FrictionOutput, error) {
+var ReportFriction = defineRead("report_friction", "Read the friction report of Asks (it files nothing; to file feedback about para use feedback_add): time to first answer and resolution, redirects and hops per Ask, stalled time, repeat Asks a playbook could answer, policy conflicts and exceptions, grouped by domain, policy, or reason code, never by person. Each row lists its Asks as evidence", func(ctx context.Context, d Deps, in FrictionInput) (FrictionOutput, error) {
 	by := in.By
 	if by == "" {
 		by = FrictionByReason

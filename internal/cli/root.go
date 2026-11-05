@@ -229,6 +229,7 @@ func newRoot(l *loader) *cobra.Command {
 		newSweepCmd(l),
 		newAttemptCmd(l),
 		newReportCmd(l),
+		newFeedbackCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),

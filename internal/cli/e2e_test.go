@@ -478,6 +478,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	maps.Copy(cases, streamMEParityCases())
 	seedStreamATParity(t, deps)
 	maps.Copy(cases, streamATParityCases(t, e))
+	maps.Copy(cases, streamSZParityCases())
 	all := ops.All()
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))

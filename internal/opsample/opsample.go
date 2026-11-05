@@ -18,6 +18,7 @@ import (
 // test fails and names the op: add its entry here.
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
+	"feedback_add":              `{"text":"The error did not name the field.","kind":"bug","tool":"search"}`,
 	"attachment_add":            `{"id":"task-sample","name":"photo of board.txt","data":"U2FtcGxlIHRleHQu"}`,
 	"attachment_read":           `{"file":"` + SampleAttachment + `"}`,
 	"agent_send":                `{"id":"task-sample","text":"Met Sam; decided to ship.","attachments":["` + SampleAttachment + `"],"done":true}`,
