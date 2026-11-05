@@ -82,6 +82,19 @@ func steps() []Step {
 				return d, nil
 			},
 		},
+		{
+			// Dossier blocks gained tags, defer_until, deferred_reason, and
+			// evidence via and verify; io gained verify. A para before this
+			// step reads dossier blocks strictly and would fail on them.
+			ID:      "dossier-tags-later",
+			Version: 6,
+			Title:   "Mark the vault for topic tags, Later on dossier items, and verifiable evidence (upgrade para on every machine of this vault first)",
+			Auto:    true,
+			Marker:  true,
+			Types:   []model.Type{model.TypeProposal, model.TypeIO},
+			Select:  func(model.Document) bool { return true },
+			Rewrite: func(d model.Document) (model.Document, error) { return d, nil },
+		},
 	}
 }
 

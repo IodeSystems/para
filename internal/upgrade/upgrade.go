@@ -46,6 +46,14 @@ type Step struct {
 	// done test in words.
 	Instructions string
 	Done         string
+	// Marker is a step that changes no document: it only raises
+	// format_version, so a para older than the step refuses the vault (Check)
+	// instead of failing on a field it does not know. Select names the
+	// documents whose new fields an older para cannot read; the step is
+	// pending while it finds any, until a run raises format_version past it.
+	// The owner runs it with para vault upgrade after every machine of the
+	// vault has this para.
+	Marker bool
 }
 
 // Steps returns every step in order.
@@ -189,7 +197,7 @@ func Run(ctx context.Context, s store.Store, dry bool) (RunResult, error) {
 	}
 	res := RunResult{DryRun: dry, FormatVersion: cur, Steps: []StepOutcome{}}
 	for _, step := range steps() {
-		if step.Version <= cur || !step.Auto {
+		if step.Version <= cur || !step.Auto || step.Marker {
 			continue
 		}
 		batch := BatchID(step.ID, s.Now())
@@ -223,6 +231,10 @@ func settle(ctx context.Context, s store.Store, cur int) (int, error) {
 		if step.Version <= cur {
 			continue
 		}
+		if step.Marker {
+			next = step.Version
+			continue
+		}
 		if _, n, err := matching(ctx, s, step); err != nil {
 			return cur, err
 		} else if n > 0 {
@@ -236,6 +248,19 @@ func settle(ctx context.Context, s store.Store, cur int) (int, error) {
 		}
 	}
 	return next, nil
+}
+
+// Check refuses a vault whose format_version is newer than this para: a
+// newer para wrote fields this one would fail to read.
+func Check(r Reader) error {
+	cur, err := Current(r)
+	if err != nil {
+		return err
+	}
+	if cur > Latest() {
+		return fmt.Errorf("upgrade: this vault is at format %d, newer than this para (format %d): install the newer para on this machine (para upgrade)", cur, Latest())
+	}
+	return nil
 }
 
 // Settle raises format_version after a judgement step clears. It is safe to call at any time.

@@ -17,6 +17,7 @@ import (
 	"github.com/iodesystems/para/internal/netguard"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/upgrade"
 	"github.com/iodesystems/para/internal/vault"
 )
 
@@ -144,6 +145,9 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 	opt := vault.Options{ID: v.ID, Install: install, StateDir: state,
 		Warn: func(m string) { h.log.Warn("event log", "vault", v.ID, "note", m) }}
 	st, err := local.Open(v.Path, opt)
+	if err == nil {
+		err = upgrade.Check(st)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("vault %s: %w", v.ID, err)
 	}

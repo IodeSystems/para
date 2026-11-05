@@ -15,6 +15,7 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/upgrade"
 	"github.com/iodesystems/para/internal/vault"
 )
 
@@ -131,6 +132,9 @@ func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 		return ops.Deps{}, err
 	}
 	s, err := local.Open(path, vault.Options{ID: id, Actor: l.actor(), Surface: l.surface(), Install: install, StateDir: l.stateDir(id)})
+	if err == nil {
+		err = upgrade.Check(s)
+	}
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}
@@ -230,6 +234,7 @@ func newRoot(l *loader) *cobra.Command {
 		newAttemptCmd(l),
 		newReportCmd(l),
 		newFeedbackCmd(l),
+		newTagCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),

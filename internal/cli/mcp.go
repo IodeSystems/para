@@ -19,6 +19,7 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/store/local"
+	"github.com/iodesystems/para/internal/upgrade"
 	"github.com/iodesystems/para/internal/vault"
 )
 
@@ -72,6 +73,9 @@ server entries for this install. They write nothing.
 				return err
 			}
 			s, err := local.Open(sel.Path, vault.Options{ID: sel.ID, Actor: actor, Surface: mcpSurface, Install: install, StateDir: l.stateDir(sel.ID)})
+			if err == nil {
+				err = upgrade.Check(s)
+			}
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
