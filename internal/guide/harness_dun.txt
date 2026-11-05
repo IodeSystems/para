@@ -1,4 +1,4 @@
-Use para from dun.
+Use para from dun. (para help dun and para mcp --help-dun print this.)
 
 1. Add one server per vault to `servers` in .dun/dun.local.json for this machine,
    or dun.json for the project:

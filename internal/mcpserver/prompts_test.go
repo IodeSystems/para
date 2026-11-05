@@ -21,7 +21,7 @@ func TestPrompts(t *testing.T) {
 	for _, p := range list.Prompts {
 		names[p.Name] = true
 	}
-	want := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "review_cycle": guide.ReviewCycle(), "process_meeting": guide.ProcessMeeting(), "journal_lod": guide.JournalLOD(), "import_corpus": guide.ImportCorpus(), "health_triage": guide.HealthTriage(), "ingest_source": guide.IngestSource(), "align_vault": guide.AlignVault(), "sort_update": guide.SortUpdate(), "validate_goal": guide.ValidateGoal(), "grill_goal": guide.GrillGoal(), "track_doc": guide.TrackDoc(), "sweep": guide.Sweep(), "delegate": guide.Delegate()}
+	want := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "review_cycle": guide.ReviewCycle(), "process_meeting": guide.ProcessMeeting(), "journal_lod": guide.JournalLOD(), "import_corpus": guide.ImportCorpus(), "health_triage": guide.HealthTriage(), "ingest_source": guide.IngestSource(), "align_vault": guide.AlignVault(), "sort_update": guide.SortUpdate(), "validate_goal": guide.ValidateGoal(), "grill_goal": guide.GrillGoal(), "track_doc": guide.TrackDoc(), "sweep": guide.Sweep(), "delegate": guide.Delegate(), "loop": guide.Loop()}
 	if len(names) != len(want) {
 		t.Fatalf("prompts = %v", names)
 	}

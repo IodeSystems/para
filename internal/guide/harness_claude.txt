@@ -1,46 +1,56 @@
-Use para from Claude Code.
+Use para from Claude Code. (para help claude and para mcp --help-claude print this.)
 
-1. Add one MCP server per vault. Run these commands. `--scope user` makes the vault
-   available in every project; drop it to keep one to this directory:
+1. Install para, then add one MCP server per vault. Run these commands. `--scope user`
+   makes the vault available in every project; drop it to keep one to this directory:
 
 {{config}}
 
 2. Install the skill, so agents load the rules when they need them:
    $ para skill install
-   Reinstall after upgrading para.
 
-3. Restart the session, then check with /mcp.
+3. Restart the session, then check with /mcp. After each para upgrade: run
+   para skill install again, and reconnect the servers in /mcp (an old server
+   refuses calls with a restart message).
 
-4. Start with a prompt, as a slash command:
-   /mcp__para-<vault>__orient      what para is, and how to work a vault
-   /mcp__para-<vault>__bootstrap   an interview that fills a new vault
-   /mcp__para-<vault>__review_cycle   file a proposal, open it, and record the owner's decision
-   /mcp__para-<vault>__process_meeting   turn a transcript into vault updates
-   /mcp__para-<vault>__journal_lod   write a day, week, or month journal summary
+4. Asks are tracked. When you ask the agent in the chat for something that does
+   not end in its reply (or that it hands to another agent), it records agent work
+   of kind owner-ask: your words, the items it is about, and later how it ended
+   and the receipts it made. A short answer in the same reply is not recorded.
+   Prompts start as slash commands, such as /mcp__para-<vault>__orient.
 
-5. Events record the actor `claude`. Change `--actor` to tell agents apart.
+5. The loop works the agent queue until it is empty: sweeps of your sources first,
+   then what you asked, then other agent work. Run it once, or on a schedule:
+   /para loop
+   /loop 30m /para loop
+   para serve queues a sweep per due source on its cadence; para itself reads
+   nothing outside the vault. Each run spends tokens.
 
-6. Agents change the vault with ops and tell the owner in the chat. Before an
-   outward action they file a proposal, open it, and ask in the chat. Nothing has
-   to wait. The rest of this step is only for unattended work.
-   `para mcp` watches the vault for the session, with no polling. It sends a
-   short message (notifications/message, logger "para") when a proposal you filed
-   is decided at a terminal, a request can be claimed by this install, or a request
-   you claimed is cancelled. It holds ids and states only, never vault text, and
-   names the tool to call next. The tools `proposal_wait` and `request_wait`
-   block up to 60 seconds and return as soon as the state changes.
-   Whether Claude Code shows notifications/message is not verified.
-   Only a harness that cannot receive notifications needs a background job:
-   $ para request wait --timeout 1h
-   $ para proposal wait proposal-example --timeout 1h
-   Each blocks with no token cost, then call `request_next` or `proposal_show`.
+6. Check status:
+   - web app (para serve): Stack, tab Asked of agents (what you asked, its status,
+     stale work, the queue, and the last sweep per source); Agenda shows
+     "N asked of agents open (M stale)".
+   $ para sent list
+   $ para request list
+   $ para health
+   Work queued or claimed with no change in a day is stale (agent_work_stale).
+   Events record the actor `claude`. Change `--actor` to tell agents apart.
 
-7. Optional: server push into a session. Claude Code channels are a research
-   preview. Add "--channel" to the server args. A custom channel such as para is
-   not on the approved list, so start the session with:
+7. Push into a session (optional). `para mcp` sends a short message
+   (notifications/message, logger "para") when a proposal you filed is decided, a
+   request can be claimed by this install, or a request you claimed is cancelled.
+   It holds ids and states only, never vault text. Whether Claude Code shows it is
+   not verified. Claude Code channels show it in the session: add "--channel" to
+   the server args (para then speaks only the initialize handshake, protocol
+   2025-11-25 and older: Claude Code does not register a channel server on
+   2026-07-28), and
+   start the session with:
    claude --dangerously-load-development-channels server:para-<vault>
-   Team and Enterprise organizations must enable channels first. Para works
-   without it: use step 6 or call the wait tools.
+   Channels are a research preview, interactive sessions only; Team and Enterprise
+   organizations must enable them in their settings first. If the server still
+   does not register, start claude with MCP_PROTOCOL_NEGOTIATION=legacy in its
+   environment. Without push, the tools `request_wait` and `proposal_wait` block
+   up to 60 seconds, or a background job waits with no token cost:
+   $ para request wait --timeout 1h
 
 8. Optional: let para start the agent when a request can be claimed on this machine.
    THIS SPENDS TOKENS: every run starts a Claude Code session, billed to whatever

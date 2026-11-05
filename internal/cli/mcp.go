@@ -99,7 +99,7 @@ server entries for this install. They write nothing.
 		},
 	}
 	cmd.Flags().StringVar(&actor, "actor", "agent", "actor name recorded in events")
-	cmd.Flags().BoolVar(&channel, "channel", false, "also send notifications as Claude Code channel events (research preview; Claude Code needs --dangerously-load-development-channels)")
+	cmd.Flags().BoolVar(&channel, "channel", false, "also send notifications as Claude Code channel events (research preview; Claude Code needs --dangerously-load-development-channels); speaks only the initialize handshake, protocol 2025-11-25 and older")
 	cmd.Flags().BoolVar(&readOnly, "read-only", false, "list only the tools that change nothing (policy, rules, search): for a worker agent that should not write")
 	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
 	cmd.Flags().BoolVar(&helpRaglit, "help-raglit", false, "print how to connect a raglit daemon for meaning search")

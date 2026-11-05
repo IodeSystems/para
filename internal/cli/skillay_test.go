@@ -14,7 +14,7 @@ func TestSkillInstallWritesIngestAndAlign(t *testing.T) {
 	e := newEnv(t)
 	dir := t.TempDir()
 	e.ok("skill", "install", "--dir", dir)
-	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillUpdateFile: guide.SkillUpdate(), guide.SkillValidateFile: guide.SkillValidate(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillTrackFile: guide.SkillTrack(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillDelegateFile: guide.SkillDelegate()} {
+	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillUpdateFile: guide.SkillUpdate(), guide.SkillValidateFile: guide.SkillValidate(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillTrackFile: guide.SkillTrack(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillDelegateFile: guide.SkillDelegate(), guide.SkillLoopFile: guide.SkillLoop()} {
 		b, err := os.ReadFile(filepath.Join(dir, "para", name))
 		if err != nil || string(b) != want {
 			t.Errorf("%s differs from the guide text: %v", name, err)

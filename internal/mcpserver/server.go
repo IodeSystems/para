@@ -28,7 +28,7 @@ import (
 // Instructions is the text every client receives at initialize. It states
 // the rules an agent follows when it works in a vault, and names the prompts.
 var Instructions = "Para keeps one vault of areas, projects, tasks, requests (RFX), policies, constraints, and people.\n\n" +
-	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (prepare one dossier per investigation, markdown with typed blocks, read the owner's answers with proposal_response, then claim, carry out, and report approved items), process_meeting (turn a transcript into vault updates), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and fix them), ingest_source (read one source with your own tools and update the vault), align_vault (compare a goal, an area, or the vault with reality and fix the differences), sort_update (sort the owner's update on a task into action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it), grill_goal (interview the owner on a goal's risks, unknowns, owners, policies, and assumptions, writing as answers come; recheck what might no longer be true), track_doc (track a remote document's versions and comments, and record an approved edit as a version), sweep (declare the sources you reach, read the due ones with your own tools, write what you found, record each sweep), delegate (hand work to another agent over chat; what it would send as the owner comes back to you for the owner's review).\n\n" + rules
+	guide.Rule() + "\nPrompts: journal_lod (write a journal summary), orient (what para is and is not, and how to work a vault), bootstrap (interview the owner to fill a new vault), review_cycle (prepare one dossier per investigation, markdown with typed blocks, read the owner's answers with proposal_response, then claim, carry out, and report approved items), process_meeting (turn a transcript into vault updates), import_corpus (sort a corpus the owner imported), health_triage (settle the findings of `health` with evidence and fix them), ingest_source (read one source with your own tools and update the vault), align_vault (compare a goal, an area, or the vault with reality and fix the differences), sort_update (sort the owner's update on a task into action items, questions, commitments, policy, and follow-ups), validate_goal (draft or challenge a goal's brief with sources, argue against it), grill_goal (interview the owner on a goal's risks, unknowns, owners, policies, and assumptions, writing as answers come; recheck what might no longer be true), track_doc (track a remote document's versions and comments, and record an approved edit as a version), sweep (declare the sources you reach, read the due ones with your own tools, write what you found, record each sweep), delegate (hand work to another agent over chat; what it would send as the owner comes back to you for the owner's review), loop (work the agent queue until it is empty: sweeps, what the owner asked, other agent work).\n\n" + rules
 
 const rules = `Rules:
 1. Self-serve first. Before you ask a person, search the vault: use route, search, policy_show, rule_list, constraint_list, convention_list, and rfx_list. Record what you checked in self_serve on rfx_add.
@@ -52,7 +52,8 @@ const rules = `Rules:
 19. Delegating to another agent: outward actions it would do as the owner (messages, comment replies, pushes, publishing) come back to you; stage each as a dossier item for the owner, have the worker execute only approved items, and record each with proposal_executed (by the worker, on_behalf_of owner); an act the owner allowed without review is recorded after with action_record. Talk in the chat; record in para what changes the work. Prompt delegate.
 20. Load a tool's schema before its first call: a harness that lists tools by name only shows the fields after the load. An unknown field is refused with the field you likely meant and the tool's fields on one line (* is required, a|b are the values): fix the call from that line. Para never accepts a field under another name. File what para got wrong or made hard with feedback_add (kind bug, friction, or idea, and the tool); report_friction only reads the friction report of Asks.
 21. What you saw the owner do, with a locator (a URL, a message link) and a time, is a fact: close the item it completes (task_done, meeting_hold, rfx_reply, proposal_executed, io_send, as fits), with the locator and the time as the source, rated minor and obvious (it is undoable). Do not ask the owner to confirm an act you saw. Ask only when the evidence is unclear (for example the act may not cover the task: an approval older than the last commit), and then say exactly what is missing.
-22. Topics are tags. Tag at filing: tags on proposal_add (the whole dossier), on a block, or on io_add. To group items that already exist (a proposal stack for socials), tag them where they are with tag_add {ids, items: [{proposal, item}], tags}; never withdraw and refile them to group them. tag_list lists the topics with counts; proposal_stack takes tag.`
+22. Topics are tags. Tag at filing: tags on proposal_add (the whole dossier), on a block, or on io_add. To group items that already exist (a proposal stack for socials), tag them where they are with tag_add {ids, items: [{proposal, item}], tags}; never withdraw and refile them to group them. tag_list lists the topics with counts; proposal_stack takes tag.
+23. What the owner asks you in the chat that will not end in this reply, or that you hand to another agent, is agent work the owner can see: request_add {kind: owner-ask, title in the owner's words, ask, owner_said: their message verbatim, links: the items it is about}. It is claimed by you at once. Pass request (its id) on each write you make for it, renew it with request_note on long work, and end it with request_done (resolution, a summary, links to what you made). A short answer in the same reply needs no record.`
 
 // Options configures a Server.
 type Options struct {
@@ -169,7 +170,9 @@ func serverOptions(channel, changed bool, extra string) []server.ServerOption {
 	}
 	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging()}
 	if channel {
-		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}))
+		hooks := &server.Hooks{}
+		hooks.AddOnRequestInitialization(legacyOnly)
+		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}), server.WithHooks(hooks))
 		instr += " Events also arrive as <channel source=...> tags with kind, id, status, or count attributes; they are one-way."
 	}
 	return append(opts, server.WithInstructions(instr))
@@ -188,6 +191,31 @@ func (s *Server) MCP() *server.MCPServer { return s.mcp }
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	defer s.Start(ctx)()
 	return server.NewStdioServer(s.mcp).Listen(ctx, in, out)
+}
+
+// legacyOnly refuses server/discover and every request of protocol
+// 2026-07-28 or later, as a server older than that revision does: the client
+// then uses the initialize handshake. Claude Code does not register a channel
+// server that negotiates 2026-07-28, so --channel needs it.
+func legacyOnly(_ context.Context, _ any, message any) error {
+	raw, ok := message.(json.RawMessage)
+	if !ok {
+		return nil
+	}
+	var m struct {
+		Method string `json:"method"`
+		Params struct {
+			Meta map[string]any `json:"_meta"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	v, _ := m.Params.Meta[mcp.MetaKeyProtocolVersion].(string)
+	if m.Method == string(mcp.MethodServerDiscover) || mcp.IsModernProtocol(v) {
+		return fmt.Errorf("%s: para mcp --channel speaks only the initialize handshake (protocol %s and older)", m.Method, mcp.LATEST_LEGACY_PROTOCOL_VERSION)
+	}
+	return nil
 }
 
 func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
@@ -292,6 +320,7 @@ func (s *Server) addPrompts() {
 		{"validate_goal", "Draft or challenge the brief of a goal with sources, argue the case against it, and write it with doc_edit; choosing among alternatives is a decision question", guide.ValidateGoal()},
 		{"grill_goal", "Interview the owner on a goal's risks, unknowns, owners, policies, and assumptions: search first, ask one question at a time in value order, write each answer with its source; recheck what might no longer be true", guide.GrillGoal()},
 		{"delegate", "Hand work to another agent over chat: record it on the task (task_assign agent:<worker>), stage each outward act the worker would do as the owner as a dossier item for review (proposal_add), tell the worker to execute only approved items, and record the result (proposal_executed by the worker, on_behalf_of owner)", guide.Delegate()},
+		{"loop", "Work the agent queue until it is empty: declare the sources you reach (agent_sources), claim the next request (request_next: sweeps, then what the owner asked, then other work), do it with the matching prompt, end it (request_done or sweep_record), repeat, then report and stop", guide.Loop()},
 		{"sweep", "Declare the sources you reach (agent_sources), plan a sweep (sweep_plan), read each due source with your own tools from its cursor, write new input, sent output, and tracked document changes with the usual ops, one dossier for the owner, and record each source (sweep_record)", guide.Sweep()},
 		{"track_doc", "Track a remote document with the text you read (doc_track), pass each later read (doc_version_add), record and file its comments, show the owner the change in an upstream block, and record an approved edit as a new version", guide.TrackDoc()},
 	} {

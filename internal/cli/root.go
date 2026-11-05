@@ -173,7 +173,7 @@ func newRoot(l *loader) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "para",
 		Short:         "Progress without pain",
-		Long:          guide.Intro(),
+		Long:          guide.Intro() + "\n\nWith an agent: para help claude (or para help dun) prints the setup: MCP servers, the skill, tracked asks, the loop, and status.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Args:          cobra.NoArgs,
@@ -273,5 +273,29 @@ func newRoot(l *loader) *cobra.Command {
 		newAgentCmd(l),
 	)
 	addGovernanceCmds(root, l)
+	root.SetHelpCommand(newHelpCmd(l, root))
 	return root
+}
+
+// newHelpCmd is cobra's help command with two topics more: help claude and
+// help dun print the harness setup, as para mcp --help-claude does.
+func newHelpCmd(l *loader, root *cobra.Command) *cobra.Command {
+	return &cobra.Command{
+		Use:   "help [command | claude | dun]",
+		Short: "Help about any command; help claude and help dun print the setup for that agent harness",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 1 && (args[0] == "claude" || args[0] == "dun") {
+				if err := l.load(); err != nil {
+					return err
+				}
+				return writeHarnessHelp(cmd, l, args[0])
+			}
+			target, _, err := root.Find(args)
+			if err != nil || target == nil {
+				return fmt.Errorf("unknown help topic %q: try para help claude, para help dun, or para <command> --help", strings.Join(args, " "))
+			}
+			target.InitDefaultHelpFlag()
+			return target.Help()
+		},
+	}
 }

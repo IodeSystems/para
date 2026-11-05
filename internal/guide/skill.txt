@@ -15,6 +15,10 @@ outward items and report each with `proposal_executed`.
 Arguments. If the request starts with the word health (as in /para health), use the
 `health_triage` prompt: run `health`, settle what evidence settles with ops. With no argument, start with `orient`.
 
+If the request is loop (as in /para loop), work the agent queue until it is empty with the prompt `loop`, then report and stop. Repeat it with `/loop 30m /para loop`.
+
+Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `request_add` kind owner-ask (title in the owner's words, owner_said their message verbatim, links to the items) and end it with `request_done`. The owner sees it under Asked of agents.
+
 If the request starts with the word ingest or align, the skill points to the reference file for it. The same text is the prompt `ingest_source` or `align_vault`.
 
 Capture first: when the owner pastes or dictates material, save it word for word

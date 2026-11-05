@@ -18,8 +18,8 @@ Needs Go 1.26 or later, and pnpm for the web UI.
 
 ## With an agent
 
-    para mcp --help-claude
-    para mcp --help-dun
+    para help claude    # setup for Claude Code: MCP servers, skill, tracked asks, /para loop, status
+    para help dun       # the same for dun (also: para mcp --help-claude, --help-dun)
     para skill install
     para mcp --help-raglit
     para --actor claude --why "reason" <command>   # an agent with only a shell

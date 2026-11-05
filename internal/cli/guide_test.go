@@ -69,7 +69,7 @@ func guideCommands(text string) [][]string {
 func TestGuideCommandsParse(t *testing.T) {
 	root := newRoot(&loader{})
 	seen := 0
-	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.SkillImport(), guide.HealthTriage(), guide.SkillIngest(), guide.SkillAlign(), guide.SortUpdate(), guide.ValidateGoal(), guide.GrillGoal(), guide.TrackDoc(), guide.Sweep()} {
+	for _, text := range []string{guide.Extended(), guide.Orient(), guide.Bootstrap(), guide.ReviewCycle(), guide.ProcessMeeting(), guide.Harness("claude", ""), guide.Harness("dun", ""), guide.Skill(), guide.Raglit(), guide.ImportCorpus(), guide.SkillImport(), guide.HealthTriage(), guide.SkillIngest(), guide.SkillAlign(), guide.SortUpdate(), guide.ValidateGoal(), guide.GrillGoal(), guide.TrackDoc(), guide.Sweep(), guide.Loop()} {
 		for _, words := range guideCommands(text) {
 			seen++
 			if len(words) == 0 || words[0] != "para" {
@@ -156,6 +156,15 @@ func TestMCPHarnessHelp(t *testing.T) {
 	}
 	if _, _, err := e.run("mcp", "--help-claude", "--help-dun"); err == nil {
 		t.Error("both flags must be refused")
+	}
+	// para help claude and para help dun print the same setup.
+	for _, client := range []string{"claude", "dun"} {
+		if got, want := e.ok("help", client), e.ok("mcp", "--help-"+client); got != want {
+			t.Errorf("help %s differs from mcp --help-%s:\n%s", client, client, got)
+		}
+	}
+	if out := e.ok("help", "sent"); !strings.Contains(out, "para sent") {
+		t.Errorf("help sent:\n%s", out)
 	}
 }
 
