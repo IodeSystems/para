@@ -104,6 +104,7 @@ func checkBaseURL(v string) (string, error) {
 var configKeys = []configKey{
 	{name: "vault.id", help: "the vault's id; set when the vault is made", readOnly: true},
 	{name: "format_version", help: "the vault format; para vault upgrade sets it", readOnly: true},
+	{name: "attachments.max_mb", help: "the largest attachment the owner may add, in MB; default 25", check: checkInt(1)},
 	{name: "align.days", help: "health names an active goal not aligned in this many days; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "goals.active_limit", help: "health warns when more goals than this are active; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "recheck.days", help: "an assumption checked more than this many days ago is stale (health, recheck); 0 or unset is off", agent: true, check: checkInt(0)},

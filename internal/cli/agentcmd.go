@@ -59,6 +59,7 @@ func newAgentCmd(l *loader) *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 	cmd.AddCommand(newActivityCmd(l), agentSourcesCmd(l))
+	cmd.AddCommand(agentSendCmds(l)...)
 	status := &cobra.Command{
 		Use:   "status",
 		Short: "Show the dispatch config, today's count, what runs, and how the last runs ended",

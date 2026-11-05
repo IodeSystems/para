@@ -106,6 +106,16 @@ type Store interface {
 	// IndexRebuild drops the search index and reads every document again.
 	IndexRebuild(ctx context.Context) (index.Stats, error)
 
+	// AttachmentAdd stores a file as attachments/<doc>/<file> and logs an
+	// event with its path, size, type, and hash, never its content. file is a
+	// stored name (model.SafeAttachmentName after a time stamp).
+	AttachmentAdd(ctx context.Context, doc, file string, data []byte) (model.Attachment, error)
+	// AttachmentStat returns the path, item, type, and size of a stored file;
+	// SHA256 is empty. It reads no content.
+	AttachmentStat(ctx context.Context, path string) (model.Attachment, error)
+	// AttachmentRead returns a stored file and its hash.
+	AttachmentRead(ctx context.Context, path string) (model.Attachment, []byte, error)
+
 	// Events returns the last n events, oldest first.
 	Events(ctx context.Context, n int) ([]model.Event, error)
 }

@@ -26,13 +26,16 @@ type ParaV1MutationNamespace {
   actionRecord(body: para_ActionRecordInputInput!): para_ActionRecordOutput @derived(operationId: "actionRecord")
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
+  agentSend(body: para_AgentSendInputInput!): para_AgentSendOutput @derived(operationId: "agentSend")
   agentSources(body: para_AgentSourcesInputInput!): para_AgentSourcesOutput @derived(operationId: "agentSources")
+  agentUnsend(body: para_AgentUnsendInputInput!): para_RequestChangeOutput @derived(operationId: "agentUnsend")
   alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
   areaReview(body: para_AreaReviewInputInput!): para_AreaReviewOutput @derived(operationId: "areaReview")
   assumptionSet(body: para_AssumptionSetInputInput!): para_AssumptionSetOutput @derived(operationId: "assumptionSet")
+  attachmentAdd(body: para_AttachmentAddInputInput!): para_AttachmentAddOutput @derived(operationId: "attachmentAdd")
   attemptAdd(body: para_AttemptAddInputInput!): para_AttemptAddOutput @derived(operationId: "attemptAdd")
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
@@ -194,6 +197,7 @@ type ParaV1QueryNamespace {
   ): para_AlignScopeOutput @derived(operationId: "alignScope")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
+  attachmentRead(file: String!): para_AttachmentReadOutput @derived(operationId: "attachmentRead")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
   changes(since: String): para_ChangesOutput @derived(operationId: "changes")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
@@ -402,6 +406,29 @@ type para_AgentActivityOutput {
   items: [para_ActivityRow!]!
 }
 
+input para_AgentSendInputInput {
+  attachments: [String!]
+  done: Boolean
+  id: String!
+  text: String
+}
+
+type para_AgentSendOutput {
+  note: String
+  request: String!
+  status: para_AgentSendOutputStatus!
+  title: String!
+}
+
+enum para_AgentSendOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
 input para_AgentSourcesInputInput {
   sources: [String!]
 }
@@ -415,6 +442,10 @@ type para_AgentSourcesOutput {
   reachDays: Int!
   sources: [String!]!
   unknown: [String!]!
+}
+
+input para_AgentUnsendInputInput {
+  request: String!
 }
 
 type para_AlignItem {
@@ -727,6 +758,34 @@ enum para_AssumptionViewStatus {
   changed
   holds
   unknown
+}
+
+input para_AttachmentAddInputInput {
+  data: String!
+  id: String!
+  mime: String
+  name: String!
+}
+
+type para_AttachmentAddOutput {
+  embed: String!
+  id: String!
+  mime: String!
+  path: String!
+  sha256: String!
+  size: Int!
+}
+
+type para_AttachmentReadOutput {
+  data: String
+  id: String!
+  kind: String!
+  mime: String!
+  note: String
+  path: String!
+  sha256: String!
+  size: Int!
+  text: String
 }
 
 input para_AttemptAddInputInput {

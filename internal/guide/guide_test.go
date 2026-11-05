@@ -224,3 +224,19 @@ func TestDelegateStatesTheOutwardRule(t *testing.T) {
 		t.Error("the skill does not route to delegate.md")
 	}
 }
+
+// sort_update covers work from an item's composer: the owner's words, the
+// attachments, notes first, and closing the item.
+func TestSortUpdateCoversTheComposer(t *testing.T) {
+	text := flat(SortUpdate())
+	for _, want := range []string{"From the owner: <title>", "## Owner's words", "## Attachments", "`attachment_read`",
+		"`notes_read`, then `notes_edit` with the hash", "![description](path)", "Mark done: yes", "`task_done`",
+		"`meeting_hold`", "clearly say it is done", "say in your reply that you closed it"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("sort_update lacks %q", want)
+		}
+	}
+	if !strings.Contains(flat(Orient()), "`attachment_read`") {
+		t.Error("orient does not name attachment_read")
+	}
+}

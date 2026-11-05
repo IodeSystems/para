@@ -223,6 +223,7 @@ func newRoot(l *loader) *cobra.Command {
 		newNoteCmd(l),
 		newDocCmd(l),
 		newNotesCmd(l),
+		newAttachmentCmd(l),
 		newSourceCmd(l),
 		newSweepCmd(l),
 		newAttemptCmd(l),

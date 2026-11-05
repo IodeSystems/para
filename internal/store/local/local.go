@@ -161,6 +161,21 @@ func (s *Store) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 
 func (s *Store) Events(_ context.Context, n int) ([]model.Event, error) { return s.log.Tail(n) }
 
+// AttachmentAdd implements store.Store.
+func (s *Store) AttachmentAdd(ctx context.Context, doc, file string, data []byte) (model.Attachment, error) {
+	return s.v.AttachmentAdd(ctx, doc, file, data)
+}
+
+// AttachmentStat implements store.Store.
+func (s *Store) AttachmentStat(ctx context.Context, path string) (model.Attachment, error) {
+	return s.v.AttachmentStat(ctx, path)
+}
+
+// AttachmentRead implements store.Store.
+func (s *Store) AttachmentRead(ctx context.Context, path string) (model.Attachment, []byte, error) {
+	return s.v.AttachmentRead(ctx, path)
+}
+
 func (s *Store) Egress(ctx context.Context, doc, dest string) (egress.Decision, error) {
 	return s.v.Egress(ctx, doc, dest)
 }

@@ -228,12 +228,14 @@ func (s *Server) build() error {
 	registerRequests(r)
 	registerProposals(r)
 	registerReceipts(r)
+	registerAttachments(r)
 	registerVault(r)
 	registerUI(r)
 	registerSession(r)
 	registerAdmin(r)
 
 	s.rawRoutes()
+	s.attachmentRoutes()
 	if err := gat.RegisterHuma(s.api, g, "/api"); err != nil {
 		return err
 	}

@@ -324,7 +324,9 @@ func originOK(r *http.Request, c Client, cookie bool) bool {
 
 // CSP is the content security policy of every response. Style allows inline
 // because Emotion injects style elements at run time. Nothing else is inline.
-const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+// media-src lets a page play the audio and video attached to an item, from
+// this origin only.
+const CSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; " +
 	"font-src 'self'; connect-src 'self'; manifest-src 'self'; worker-src 'self'; " +
 	"base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 

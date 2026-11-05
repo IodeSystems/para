@@ -7,6 +7,7 @@ package mcpserver
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -46,7 +47,7 @@ const rules = `Rules:
 14. Capture first. When the owner pastes or dictates material, first save it word for word as an io item (io_add direction in): it is cheap and undoable, so rate it minor and obvious. Then process it, and link each result back (io_file, or became). If processing fails, point the owner to the io item; do not ask them to paste it again.
 15. Waiting on a person is an Ask (rfx_add direction out, with a target and next_nudge), never a task. task_add warns on a title that reads like waiting; health flags such open tasks (task_is_waiting); task_to_asks turns one into one Ask per person, moves its dependents to them, and closes it as superseded.
 16. A duplicate of any type is merged: doc_merge {keep, alias} (task_resolve duplicate does it for a task) rewrites every link to alias, joins its lists and notes into keep, and hides alias from every list; one receipt undoes it. doc_archive is para's delete. A meeting that moved: merge it into the new one, or archive it. A meeting holds several calendar events (calendar_uids, each with a role); calendar_compare reports an attendee-less event over a para meeting as an alias of it.
-17. Notes on any item are its ## Notes section: notes_read gives md and a hash; notes_edit with that hash replaces them (without a hash only when there are none). A refusal returns the current hash: read again, merge, and retry. The rest of the body is untouched.
+17. Notes on any item are its ## Notes section: notes_read gives md and a hash; notes_edit with that hash replaces them (without a hash only when there are none). A refusal returns the current hash: read again, merge, and retry. The rest of the body is untouched. Files the owner attached to an item are in the vault under attachments/<id>/ and embedded as ![description](path): read one with attachment_read.
 18. You may defer a task, question, or goal (defer): it is held for review unless the call carries owner_said. task_block until (a follow-up date) sets defer_until: the blocked task leaves next and the agenda until then and comes back on the day; task_list still lists it. The due date never hides a task. meeting_hold with no notes, actions, or replies warns: ask the owner what came of the meeting.
 19. Delegating to another agent: outward actions it would do as the owner (messages, comment replies, pushes, publishing) come back to you; stage each as a dossier item for the owner, have the worker execute only approved items, and record each with proposal_executed (by the worker, on_behalf_of owner); an act the owner allowed without review is recorded after with action_record. Talk in the chat; record in para what changes the work. Prompt delegate.`
 
@@ -223,11 +224,22 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		if s.track(out) && s.runCtx.Load() != nil {
 			s.check(ctx)
 		}
+		// An image (attachment_read) goes as image content, the rest as text.
+		var img *mcp.ImageContent
+		if im, ok := out.(ops.Imaging); ok {
+			if mime, data, rest, has := im.MCPImage(); has {
+				c := mcp.NewImageContent(base64.StdEncoding.EncodeToString(data), mime)
+				img, out = &c, rest
+			}
+		}
 		text, err := encode(out)
 		if err != nil {
 			return mcp.NewToolResultError(e.Name() + ": output: encode failed"), nil
 		}
 		res = mcp.NewToolResultText(text)
+		if img != nil {
+			res.Content = append(res.Content, *img)
+		}
 		// The Output is emitted first, then marked failed (ops.Failing).
 		if f, ok := out.(ops.Failing); ok && f.Failed() != nil {
 			res.IsError = true

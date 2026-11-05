@@ -18,6 +18,10 @@ import (
 // test fails and names the op: add its entry here.
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
+	"attachment_add":            `{"id":"task-sample","name":"photo of board.txt","data":"U2FtcGxlIHRleHQu"}`,
+	"attachment_read":           `{"file":"` + SampleAttachment + `"}`,
+	"agent_send":                `{"id":"task-sample","text":"Met Sam; decided to ship.","attachments":["` + SampleAttachment + `"],"done":true}`,
+	"agent_unsend":              `{"request":"request-queued"}`,
 	"vault_upgrade":             `{"dry_run":true}`,
 	"vault_config_get":          `{"key":"align.days"}`,
 	"vault_config_set":          `{"key":"align.days","value":"14"}`,
@@ -399,5 +403,12 @@ func Seed(ctx context.Context, s store.Store) error {
 			return fmt.Errorf("opsample: seed %s: %w", d.ID, err)
 		}
 	}
+	if _, err := s.AttachmentAdd(ctx, "task-sample", strings.TrimPrefix(SampleAttachment, "attachments/task-sample/"), []byte("Sample text.")); err != nil {
+		return fmt.Errorf("opsample: seed attachment: %w", err)
+	}
 	return nil
 }
+
+// SampleAttachment is the vault path of the text file Seed attaches to
+// task-sample.
+const SampleAttachment = "attachments/task-sample/20261101-090000-sample.txt"

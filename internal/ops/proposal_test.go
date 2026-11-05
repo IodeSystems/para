@@ -165,6 +165,18 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := NotesSave.Run(t.Context(), d, NotesEditInput{ID: "x", MD: "y"})
 			return err
 		}},
+		{"attachment_add", func(d Deps) error {
+			_, err := AttachmentAdd.Run(t.Context(), d, AttachmentAddInput{ID: "x", Name: "a.txt", Data: []byte("y")})
+			return err
+		}},
+		{"agent_send", func(d Deps) error {
+			_, err := AgentSend.Run(t.Context(), d, AgentSendInput{ID: "x", Text: "y"})
+			return err
+		}},
+		{"agent_unsend", func(d Deps) error {
+			_, err := AgentUnsend.Run(t.Context(), d, AgentUnsendInput{Request: "x"})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}

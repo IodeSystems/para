@@ -40,6 +40,12 @@ const (
 // holds no query text.
 const DestRaglit = "raglit:"
 
+// DestAgent is a file of the vault returned to an agent over MCP or a key
+// (agent:mcp, agent:api), such as an attachment an agent reads with
+// attachment_read. An agent reads vault documents the same way, so it stays
+// allowed under egress.default=deny; the record holds the path, never content.
+const DestAgent = "agent:"
+
 // Decision is the outcome of Check.
 type Decision struct {
 	Default string `json:"default"` // egress.default as applied: "allow" or "deny"
@@ -57,7 +63,7 @@ func Check(cfg map[string]string, dest string) Decision {
 	if m := strings.TrimSpace(cfg[KeyMarking]); m != "" {
 		d.Marking = m
 	}
-	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit)
+	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent)
 	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
 		d.Allowed = exportAllowed(cfg[KeyExport], kind)
 	}
