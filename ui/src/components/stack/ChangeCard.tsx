@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { Details } from '@/components/Bits'
+import { Markdown } from '@/components/Markdown'
 import { block, Preview, Row, type CardProps } from '@/components/stack/parts'
+import { parseChange, type ChangeField } from '@/lib/change'
+import { withDecision } from '@/lib/review'
 import {
   fieldKind,
   fieldText,
@@ -27,13 +31,13 @@ export function ChangeCard({ it, answer, onAnswer }: CardProps) {
       <Typography variant="overline" color="text.secondary" component="div">
         The exact change
       </Typography>
-      <Box component="ul" aria-label="Exact change" sx={{ m: 0, mb: 1, pl: 2.5 }}>
-        {it.change.map((line) => (
-          <Typography component="li" variant="body2" key={line} sx={{ overflowWrap: 'anywhere' }}>
-            {line}
-          </Typography>
-        ))}
-      </Box>
+      <ChangeFields
+        lines={it.change}
+        editing={editing}
+        onEdit={
+          onAnswer ? () => onAnswer(withDecision(answer, 'edit', { input: it.input })) : undefined
+        }
+      />
       <Row label="What" text={it.what} />
       <Row label="How" text={it.how} />
       <Row label="Impact" text={it.impact} />
@@ -150,5 +154,100 @@ function InputField({
         onChange(r.value)
       }}
     />
+  )
+}
+
+// COLLAPSED is the height of a long field before Show all: about 8 lines of body text.
+const COLLAPSED = '11.5em'
+
+// ChangeFields lists the fields of the exact change. A short field is one compact line, label and
+// value. A long one (a message, a note body) is drawn as markdown, collapsed to about 8 lines with
+// Show all; Edit opens the editable form of the op's input below.
+function ChangeFields({
+  lines,
+  editing,
+  onEdit,
+}: {
+  lines: string[]
+  editing: boolean
+  onEdit?: () => void
+}) {
+  const fields = parseChange(lines)
+  const short = fields.filter((f) => !f.long)
+  const long = fields.filter((f) => f.long)
+  return (
+    <Box sx={{ mb: 1 }}>
+      {short.length > 0 && (
+        <Box component="ul" aria-label="Exact change" sx={{ m: 0, pl: 2.5 }}>
+          {short.map((f) => (
+            <Typography
+              component="li"
+              variant="body2"
+              key={f.label + f.value}
+              sx={{ overflowWrap: 'anywhere' }}
+            >
+              {f.label ? <strong>{f.label}: </strong> : null}
+              {f.value}
+            </Typography>
+          ))}
+        </Box>
+      )}
+      {long.map((f) => (
+        <LongField key={f.label + f.value.slice(0, 40)} f={f} editing={editing} onEdit={onEdit} />
+      ))}
+    </Box>
+  )
+}
+
+function LongField({
+  f,
+  editing,
+  onEdit,
+}: {
+  f: ChangeField
+  editing: boolean
+  onEdit?: () => void
+}) {
+  const [all, setAll] = useState(false)
+  return (
+    <Box sx={{ mt: 1 }} data-change-field={f.label || undefined}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ flexGrow: 1 }}>
+          {f.label}
+        </Typography>
+        {onEdit && !editing && (
+          <Button size="small" onClick={onEdit}>
+            Edit
+          </Button>
+        )}
+      </Stack>
+      <Box
+        data-collapsed={!all}
+        sx={{
+          position: 'relative',
+          maxHeight: all ? 'none' : COLLAPSED,
+          overflow: 'hidden',
+          p: 1,
+          bgcolor: 'action.hover',
+          borderRadius: 1,
+          '& > div > :first-child': { mt: 0 },
+          '& > div > :last-child': { mb: 0 },
+          '&[data-collapsed=true]::after': {
+            content: '""',
+            position: 'absolute',
+            insetInline: 0,
+            bottom: 0,
+            height: '2.5em',
+            background: (t) => `linear-gradient(transparent, ${t.palette.background.paper})`,
+            pointerEvents: 'none',
+          },
+        }}
+      >
+        <Markdown source={f.value} />
+      </Box>
+      <Button size="small" aria-expanded={all} onClick={() => setAll((a) => !a)}>
+        {all ? 'Show less' : 'Show all'}
+      </Button>
+    </Box>
   )
 }
