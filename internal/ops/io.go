@@ -35,6 +35,8 @@ type IOAddInput struct {
 	At        string            `json:"at,omitempty"`   // RFC 3339; in: default now; out: set on send
 	Ref       string            `json:"ref,omitempty"`  // public link a person can open
 	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref}
+	// Verify tells the owner how to find a message with via and no ref.
+	Verify string `json:"verify,omitempty"`
 	// Expects: out: response (sending makes an Ask) or none. In: response when
 	// the sender waits for the owner's reply.
 	Expects model.IOExpects `json:"expects,omitempty"`
@@ -67,7 +69,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		return IOAddOutput{}, errors.New("text is empty")
 	}
 	m := &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: in.Direction, Medium: in.Medium,
-		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via, Effort: in.Effort}
+		Subject: ioLine(in.Subject), Expects: in.Expects, Route: ioLine(in.Route), Via: in.Via, Verify: ioLine(in.Verify), Effort: in.Effort}
 	if err := checkEffort(in.Effort); err != nil {
 		return IOAddOutput{}, err
 	}
@@ -97,6 +99,9 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		}
 	}
 	if m.Thread, err = linkTo(ctx, d, "thread", in.Thread, model.TypeIO, model.TypeInteraction, model.TypeRFX); err != nil {
+		return IOAddOutput{}, err
+	}
+	if err := checkVerifiable(m); err != nil {
 		return IOAddOutput{}, err
 	}
 	switch in.Direction {
@@ -261,12 +266,16 @@ type IOItem struct {
 	At        string            `json:"at,omitempty"`
 	Subject   string            `json:"subject,omitempty"`
 	Ref       string            `json:"ref,omitempty"`
-	Expects   model.IOExpects   `json:"expects,omitempty"`
-	Route     string            `json:"route,omitempty"`
-	Became    string            `json:"became,omitempty"` // id
-	Thread    string            `json:"thread,omitempty"` // id
-	Reason    string            `json:"reason,omitempty"`
-	Created   model.Date        `json:"created"`
+	Verify    string            `json:"verify,omitempty"` // how the owner finds a message with via and no ref
+	// Unverifiable: an incoming message of a medium with permalinks that has
+	// no ref and no via with verify; the owner cannot check it.
+	Unverifiable bool            `json:"unverifiable,omitempty"`
+	Expects      model.IOExpects `json:"expects,omitempty"`
+	Route        string          `json:"route,omitempty"`
+	Became       string          `json:"became,omitempty"` // id
+	Thread       string          `json:"thread,omitempty"` // id
+	Reason       string          `json:"reason,omitempty"`
+	Created      model.Date      `json:"created"`
 	// Legacy marks a type inbox capture that upgrade step io-folder has not
 	// moved yet. It reads as unread incoming; file it after the upgrade.
 	Legacy bool         `json:"legacy,omitempty"`
@@ -276,7 +285,8 @@ type IOItem struct {
 func ioItem(doc model.Document, m *model.IO) IOItem {
 	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From, Effort: m.Effort,
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
-		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created}
+		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created,
+		Verify: m.Verify, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable()}
 }
 
 // IOCounts counts open items: the inbox and the outbox.
@@ -455,6 +465,11 @@ type IOEditInput struct {
 	Expects model.IOExpects `json:"expects,omitempty"` // in: response when the sender waits for a reply
 	Route   string          `json:"route,omitempty"`
 	Effort  model.Effort    `json:"effort,omitempty"` // xs, s, m, or l; either direction
+	// Ref, Via, and Verify say where the owner finds the message: an incoming
+	// one takes them too.
+	Ref    string       `json:"ref,omitempty"`
+	Via    *model.IOVia `json:"via,omitempty"`
+	Verify string       `json:"verify,omitempty"`
 }
 
 // IOEditOutput is the output of io_edit.
@@ -465,7 +480,7 @@ type IOEditOutput struct {
 }
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
-var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread or expects response (the sender waits for a reply). Effort (xs, s, m, l) is set in either direction. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOEditOutput{}, err
@@ -516,6 +531,27 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	}
 	if r := ioLine(in.Route); r != "" {
 		m.Route = r
+	}
+	where := in.Ref != "" || in.Via != nil || in.Verify != ""
+	if in.Ref != "" {
+		if m.Ref, err = ioRef(in.Ref); err != nil {
+			return IOEditOutput{}, err
+		}
+	}
+	if v := in.Via; v != nil {
+		v.Source, v.Ref = ioLine(v.Source), strings.TrimSpace(v.Ref)
+		if v.Source == "" || v.Ref == "" {
+			return IOEditOutput{}, errors.New("via: give source and ref")
+		}
+		m.Via = v
+	}
+	if v := ioLine(in.Verify); v != "" {
+		m.Verify = v
+	}
+	if where || in.Medium != "" {
+		if err := checkVerifiable(m); err != nil {
+			return IOEditOutput{}, err
+		}
 	}
 	if m.Direction == model.IOOut {
 		if err := checkOut(m); err != nil {
@@ -686,4 +722,16 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	}
 	out.State, out.Rev = m.State, doc.Rev
 	return out, nil
+}
+
+// checkVerifiable refuses an incoming message of a medium with permalinks
+// that the owner could not find themself: it needs ref, or via with verify.
+func checkVerifiable(m *model.IO) error {
+	if m.Direction != model.IOIn || !slices.Contains(model.PermalinkMediums, m.Medium) || m.Verifiable() {
+		return nil
+	}
+	if m.Via != nil && m.Verify == "" {
+		return fmt.Errorf("a %s message with via needs verify: a sentence that tells the owner how to find it themself; or give ref, the message permalink", m.Medium)
+	}
+	return fmt.Errorf("a %s message needs ref: use the message permalink; with no link, give via {source, ref} and verify, a sentence that tells the owner how to find it", m.Medium)
 }

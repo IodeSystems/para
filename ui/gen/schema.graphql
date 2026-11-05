@@ -2504,6 +2504,7 @@ input para_IOAddInputInput {
   text: String!
   thread: String
   to: [String!]
+  verify: String
   via: para_IOViaInput
 }
 
@@ -2614,11 +2615,14 @@ input para_IOEditInputInput {
   expects: para_IOEditInputExpects
   id: String!
   medium: para_IOEditInputMedium
+  ref: String
   route: String
   state: para_IOEditInputState
   subject: String
   text: String
   to: [String!]
+  verify: String
+  via: para_IOViaInput
 }
 
 enum para_IOEditInputMedium {
@@ -2756,6 +2760,8 @@ type para_IOItem {
   thread: String
   title: String!
   to: [String!]!
+  unverifiable: Boolean
+  verify: String
 }
 
 enum para_IOItemDirection {

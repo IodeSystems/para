@@ -598,6 +598,8 @@ type IO struct {
 	// reference an agent uses to read it again.
 	Ref string `yaml:"ref,omitempty" json:"ref,omitempty"`
 	Via *IOVia `yaml:"via,omitempty" json:"via,omitempty"`
+	// Verify tells the owner how to find a message that has Via and no Ref.
+	Verify string `yaml:"verify,omitempty" json:"verify,omitempty"`
 	// Expects is set on an outgoing message: response makes an Ask on send,
 	// none an interaction. Route is the domain of that Ask.
 	Expects IOExpects `yaml:"expects,omitempty" json:"expects,omitempty"`
@@ -611,6 +613,17 @@ type IO struct {
 	// Effort is about how long the item takes the owner; empty is not set.
 	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
+
+// Verifiable reports whether the owner can find the message themself: a ref,
+// or via with verify.
+func (m *IO) Verifiable() bool {
+	return strings.TrimSpace(m.Ref) != "" ||
+		m.Via != nil && strings.TrimSpace(m.Via.Source) != "" && strings.TrimSpace(m.Via.Ref) != "" && strings.TrimSpace(m.Verify) != ""
+}
+
+// PermalinkMediums have a link to each message: an incoming one needs ref, or
+// via with verify.
+var PermalinkMediums = []Medium{MediumEmail, MediumSlack, MediumJira, MediumConfluence, MediumGithub, MediumTeams}
 
 // SourceDoc is type: source, one place work comes in or goes out: a mailbox, a
 // calendar, a chat, a tracker, a folder. Para fetches nothing and holds no

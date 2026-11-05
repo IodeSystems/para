@@ -326,6 +326,7 @@ var typeFields = map[string][]field{
 		{Name: "subject", Kind: kString},
 		{Name: "ref", Kind: kString},
 		{Name: "via", Kind: kMap}, // {source, ref}: Lint io
+		{Name: "verify", Kind: kString},
 		{Name: "expects", Kind: kEnum, Enum: ioExpects},
 		{Name: "route", Kind: kString},
 		{Name: "became", Kind: kLink},
