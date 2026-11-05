@@ -20,6 +20,7 @@ import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { ItemComposer } from '@/components/ItemComposer'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
 
@@ -129,6 +130,7 @@ function Doc() {
           <Markdown source={withSourceLink(withoutSection(d.body, 'Notes'), d.meta.source?.url)} />
           <MergedFrom id={id} />
           <NotesEditor id={id} />
+          <ItemComposer id={d.id} title={d.title} meta={d.meta} />
         </>
       )}
     </DataState>

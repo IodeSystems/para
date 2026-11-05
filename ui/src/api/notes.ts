@@ -52,6 +52,20 @@ const MergesDoc = graphql(/* GraphQL */ `
   }
 `)
 
+// readNotes and saveNotes are the calls behind the hooks, for a caller that reads and writes in one
+// step (the composer's Save as notes).
+export async function readNotes(id: string) {
+  return need((await gqlClient.request(NotesReadDoc, { id })).para.v1.notesRead, 'notes')
+}
+
+export async function saveNotes(id: string, hash: string, md: string) {
+  return need(
+    (await gqlClient.request(NotesSaveDoc, { body: { id, hash: hash || undefined, md } })).para.v1
+      .notesSave,
+    'notes',
+  )
+}
+
 export function useNotes(id: string) {
   return useQuery({
     queryKey: ['notes', id],

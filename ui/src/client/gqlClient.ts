@@ -1,6 +1,6 @@
 import { ClientError, GraphQLClient } from 'graphql-request'
 
-// The only network path (besides client/session.ts). graphql-request needs an absolute URL, so
+// The only network path (besides client/session.ts, and client/upload.ts for a file). graphql-request needs an absolute URL, so
 // the path is anchored to the page origin. The HttpOnly session cookie rides along on same-origin
 // requests; the page never sees it.
 const endpoint = () => `${window.location.origin}/api/graphql`

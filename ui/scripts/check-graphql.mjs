@@ -77,7 +77,9 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
 // event), and the review:decide person ops: the owner drafts answers, submits them, approves or
 // rejects what an agent proposed, answers or sends back an open question, marks an outward item or an
 // outbox draft done by the owner, checks or reverts an agent write from its receipt, marks a
-// tracked document's change seen, and edits the notes of an item (owner 2026-11-04).
+// tracked document's change seen, and edits the notes of an item (owner 2026-11-04). The composer on
+// every item sends the owner's words to an agent, takes them back while unclaimed, and closes a task
+// or a meeting the owner saved notes on (owner 2026-11-05).
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
 const REVIEW_MUTATIONS = new Set([
   'ProposalDraft',
@@ -91,6 +93,9 @@ const REVIEW_MUTATIONS = new Set([
   'ProposalDone',
   'IODone',
   'NotesSave',
+  'AgentSend',
+  'AgentUnsend',
+  'ItemClose',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

@@ -1214,6 +1214,77 @@ try {
     'the save based on the current notes goes through',
   )
 
+  // The composer at the foot of the page: a file and words go to an agent as composer work, with a
+  // toast and Undo; Save as notes adds them below the notes there.
+  const composer = rpage.locator(`[data-item-composer="${noted}"]`)
+  await composer.getByLabel(/Tell the agent about/).fill('Booked the hall for 30.')
+  await composer.locator('[data-composer-input]').setInputFiles({
+    name: 'venue quote.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('Synthetic quote: 30 seats.'),
+  })
+  await composer.locator('[data-composer-file]').waitFor()
+  await composer.locator('[data-composer-send]').click()
+  const sent = rpage
+    .locator('[data-toast="info"]')
+    .filter({ hasText: 'Sent to agent: Book the venue' })
+  await sent.waitFor()
+  {
+    const work = (await agent.call('request_list', {})).items.find(
+      (r) => r.title === 'From the owner: Book the venue',
+    )
+    const shown = work ? await agent.call('request_show', { id: work.id }) : null
+    const body = shown?.doc?.body ?? ''
+    check(
+      !!work &&
+        work.status === 'queued' &&
+        body.includes('Booked the hall for 30.') &&
+        body.includes(`](attachments/${noted}/`),
+      'Send to agent queues composer work with the words and the attachment embed',
+    )
+    const path = /\]\((attachments\/[^)]+)\)/.exec(body)?.[1] ?? ''
+    check(
+      para(...v, 'attachment', 'read', path).includes('Synthetic quote: 30 seats.'),
+      'the attached file is in the vault under attachments/<id>/',
+    )
+    await sent.getByRole('button', { name: 'Undo' }).click()
+    await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
+    const after = await agent.call('request_show', { id: work?.id ?? '' })
+    check(after.doc?.meta?.status === 'cancelled', 'Undo takes the composer work back')
+  }
+  await composer.getByLabel(/Tell the agent about/).fill('Deposit paid.')
+  // A 1x1 PNG: the notes show it inline from the attachment route.
+  await composer.locator('[data-composer-input]').setInputFiles({
+    name: 'receipt.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64',
+    ),
+  })
+  await composer.locator('[data-composer-file]').waitFor()
+  await composer.locator('[data-composer-more]').click()
+  await rpage.locator('[data-composer-action="Save as notes"]').click()
+  await rpage
+    .locator('[data-toast="info"]')
+    .filter({ hasText: 'Saved as notes: Book the venue' })
+    .waitFor()
+  {
+    const md = JSON.parse(para(...v, 'notes', 'read', noted, '--json')).md
+    check(
+      md.startsWith('Owner: book the hall for 30.') &&
+        md.includes('\n\nDeposit paid.\n\n![Image attachment receipt]'),
+      'Save as notes adds a dated entry below the notes there',
+    )
+    const img = rpage.locator(`[data-notes="${noted}"] [data-attachment] img`)
+    await img.waitFor()
+    await rpage.waitForFunction((id) => {
+      const el = document.querySelector(`[data-notes="${id}"] [data-attachment] img`)
+      return el instanceof HTMLImageElement && el.complete && el.naturalWidth > 0
+    }, noted)
+    check(md.includes(`](attachments/${noted}/`), 'an image saved with the notes shows inline')
+  }
+
   // Merge: a duplicate leaves the lists, links to it point to the one that stays, and that page
   // lists it as merged from.
   const keepTask = idOf(para(...v, 'task', 'add', 'Renew the cert', '-p', proj, '--json'))

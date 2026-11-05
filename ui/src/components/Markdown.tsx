@@ -20,11 +20,14 @@ import { isInternalHref, linkWikilinks, WIKI_TITLE } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
 import { Mermaid } from '@/components/Mermaid'
 import { whenify } from '@/components/When'
+import { attachmentKind, attachmentSrc, isAttachmentPath } from '@/lib/composer'
 
 // Renders para-md. No raw HTML: react-markdown does not parse it (it is dropped, never
 // injected), and urlTransform keeps only safe link schemes. Wikilinks become in-app routes.
 // Tables scroll sideways on a phone. A ```mermaid fence draws a diagram in strict mode. Images
 // render as their alt text: the CSP allows no remote images, and a vault is no place to fetch from.
+// An image whose path is a file attached to an item (attachments/<id>/<file>) shows from the server:
+// an image inline, audio and video in a player, anything else as a link.
 // A dossier page gives Blocks (below): it draws its own card for a fenced block (a para item) and
 // adds a part under each ## heading (a comment box).
 
@@ -253,6 +256,50 @@ function H2({ children }: { children?: ReactNode }) {
   )
 }
 
+// Attachment shows a file attached to an item, from the server's attachment route.
+function Attachment({ path, alt }: { path: string; alt?: string }) {
+  const src = attachmentSrc(path)
+  const label = alt || path.slice(path.lastIndexOf('/') + 1)
+  switch (attachmentKind(path)) {
+    case 'image':
+      return (
+        <Link href={src} target="_blank" rel="noreferrer noopener" data-attachment={path}>
+          <Box
+            component="img"
+            src={src}
+            alt={label}
+            loading="lazy"
+            sx={{ maxWidth: '100%', maxHeight: 480, borderRadius: 1, display: 'block', my: 1 }}
+          />
+        </Link>
+      )
+    case 'audio':
+      return (
+        <Box component="span" sx={{ display: 'block', my: 1 }} data-attachment={path}>
+          <Box component="audio" controls preload="metadata" src={src} aria-label={label} />
+        </Box>
+      )
+    case 'video':
+      return (
+        <Box
+          component="video"
+          controls
+          preload="metadata"
+          src={src}
+          aria-label={label}
+          data-attachment={path}
+          sx={{ display: 'block', maxWidth: '100%', maxHeight: 480, my: 1 }}
+        />
+      )
+    default:
+      return (
+        <Link href={src} target="_blank" rel="noreferrer noopener" data-attachment={path}>
+          {label}
+        </Link>
+      )
+  }
+}
+
 const components: Components = {
   p({ children }) {
     return <p>{whenify(children)}</p>
@@ -272,7 +319,8 @@ const components: Components = {
       </Link>
     )
   },
-  img({ alt }) {
+  img({ alt, src }) {
+    if (typeof src === 'string' && isAttachmentPath(src)) return <Attachment path={src} alt={alt} />
     return (
       <Box component="span" sx={{ fontStyle: 'italic', opacity: 0.8 }}>
         [image: {alt || 'no description'}]

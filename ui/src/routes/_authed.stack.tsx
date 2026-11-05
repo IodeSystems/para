@@ -29,6 +29,8 @@ import { canDecide } from '@/client/session'
 import { Empty, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { useToasts } from '@/components/ToastStack'
+import { Composer } from '@/components/Composer'
+import { uploadAttachment } from '@/client/upload'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
@@ -581,6 +583,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
           act={form.act}
           count={pickedRows.length}
           busy={busy}
+          attachTo={pickedRows[0] ? (pickedRows[0].question ?? pickedRows[0].proposal) : undefined}
           onCancel={() => setForm(null)}
           onConfirm={(note, refs) =>
             decideRows(pickedRows, form.act as Exclude<Act, 'done'>, note, refs)
@@ -908,6 +911,7 @@ function LineView({
         <NoteForm
           act={form}
           busy={busy}
+          attachTo={r.question ?? r.proposal}
           onCancel={() => onForm(r, null)}
           onConfirm={(note, refs) => onDecide(r, form, note, refs)}
         />
@@ -926,23 +930,64 @@ function LineView({
 }
 
 // NoteForm is the note a row action takes: required to decline or ask, optional to skip. With
-// Send to agent the owner may name documents for the agent to read. Enter confirms, Esc cancels.
+// Send to agent is the composer: the note, files it embeds, and documents for the agent to read.
+// Enter confirms, Esc cancels.
 function NoteForm({
   act,
   count,
   busy,
+  attachTo,
   onCancel,
   onConfirm,
 }: {
   act: Exclude<Act, 'done'>
   count?: number
   busy: boolean
+  // attachTo is the item files attached to the note are stored under (a dossier or a question).
+  attachTo?: string
   onCancel: () => void
   onConfirm: (note: string, refs: string[]) => void
 }) {
   const [note, setNote] = useState('')
   const [refs, setRefs] = useState<string[]>([])
   const [tried, setTried] = useState(false)
+  const toasts = useToasts()
+  if (act === 'ask') {
+    // Send to agent is the composer: the note, files the note embeds, and documents to read.
+    const send = async (text: string, files: File[]) => {
+      try {
+        const embeds = []
+        for (const f of files) {
+          if (!attachTo) throw new Error('nothing to attach the file to')
+          embeds.push((await uploadAttachment(attachTo, f)).embed)
+        }
+        onConfirm([text, ...embeds].filter(Boolean).join('\n\n'), refs)
+        return true
+      } catch (e) {
+        toasts.push({ text: `Could not attach: ${errorText(e)}`, tone: 'error' })
+        return false
+      }
+    }
+    return (
+      <Box
+        data-note-form={act}
+        role="group"
+        aria-label={ACT_WORDS[act]}
+        onClick={(e) => e.stopPropagation()}
+        sx={{ my: 1, ml: 1 }}
+      >
+        <Composer
+          label={noteLabel('ask')}
+          placeholder={count ? `Note for the agent about ${count} selected` : 'Note for the agent'}
+          autoFocus
+          files={!!attachTo}
+          onSend={busy ? () => Promise.resolve(false) : send}
+          onCancel={onCancel}
+          chips={<RefsField refs={refs} onRefs={setRefs} />}
+        />
+      </Box>
+    )
+  }
   const decision = act === 'decline' ? 'reject' : act
   const problem = noteProblem(decision, note)
   const confirm = () => {
@@ -976,7 +1021,6 @@ function NoteForm({
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={keys}
       />
-      {act === 'ask' && <RefsField refs={refs} onRefs={setRefs} />}
       <Stack direction="row" spacing={1} sx={{ mt: 1, alignItems: 'center' }}>
         <Button
           size="small"

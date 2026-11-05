@@ -81,7 +81,7 @@
       "error",
       {
         "name": "fetch",
-        "message": "Use the GraphQL client (gqlClient), not raw fetch. Only src/client/session.ts may call fetch."
+        "message": "Use the GraphQL client (gqlClient), not raw fetch. Only src/client/session.ts and src/client/upload.ts may call fetch."
       }
     ],
     "para/no-window-fetch": "error"
@@ -94,7 +94,7 @@
   "jsPlugins": ["./lint/para-plugin.mjs"],
   "overrides": [
     {
-      "files": ["src/client/session.ts"],
+      "files": ["src/client/session.ts", "src/client/upload.ts"],
       "rules": {
         "no-restricted-globals": "off"
       }
