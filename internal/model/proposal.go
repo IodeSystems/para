@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -415,6 +416,9 @@ type ProposalItem struct {
 	Group string `yaml:"group,omitempty" json:"group,omitempty"`
 	// NotDuplicate says why a create is not a likely match. It goes to the receipt.
 	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+	// Tags are topics, as on any vault document; the dossier's own tags
+	// apply to every item too (ItemTags). They do not change the item's hash.
+	Tags []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 
 	State        ItemState `yaml:"state" json:"state"`
 	Reason       string    `yaml:"reason,omitempty" json:"reason,omitempty"`
@@ -751,4 +755,15 @@ func ParseProposalBody(body string) (ProposalContent, error) {
 		return c, fmt.Errorf("model: proposal body: %w", err)
 	}
 	return r.upgrade(), nil
+}
+
+// ItemTags are the topics of an item: its own tags, then the dossier's.
+func ItemTags(dossier []string, it ProposalItem) []string {
+	out := append([]string{}, it.Tags...)
+	for _, t := range dossier {
+		if !slices.Contains(out, t) {
+			out = append(out, t)
+		}
+	}
+	return out
 }

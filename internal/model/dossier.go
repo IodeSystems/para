@@ -196,6 +196,7 @@ type dossierItem struct {
 
 	Fields          map[string]any `yaml:"fields,omitempty" json:"fields,omitempty"`
 	NotDuplicate    string         `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
+	Tags            []string       `yaml:"tags,omitempty" json:"tags,omitempty"`
 	Evidence        *Evidence      `yaml:"evidence,omitempty" json:"evidence,omitempty"`
 	Pros            []Claim        `yaml:"pros,omitempty" json:"pros,omitempty"`
 	Cons            []Claim        `yaml:"cons,omitempty" json:"cons,omitempty"`
@@ -464,7 +465,7 @@ func (b dossierItem) item(id string, kind ItemKind) ProposalItem {
 		After: b.After, For: b.For, People: b.People, Channel: b.Channel, Subject: b.Subject, IO: b.IO, Target: b.Target, What: b.What,
 		Previous: b.Previous, Op: b.Op, Input: b.Input, How: b.How, Impact: b.Impact, Body: b.Body, Diff: b.Diff,
 		Multi: b.Multi, Options: b.Options, Recommended: b.Recommended, OptionDetails: b.OptionDetails,
-		Range: b.Range, Old: b.Old, New: b.New, From: b.From, To: b.To, Comments: b.Comments, Fields: b.Fields, NotDuplicate: b.NotDuplicate,
+		Range: b.Range, Old: b.Old, New: b.New, From: b.From, To: b.To, Comments: b.Comments, Fields: b.Fields, NotDuplicate: b.NotDuplicate, Tags: b.Tags,
 		Tradeoffs: Tradeoffs{Pros: b.Pros, Cons: b.Cons, Cost: b.Cost, Benefit: b.Benefit, Confidence: b.Confidence,
 			ConfidenceBasis: b.ConfidenceBasis, Recommendation: b.Recommendation},
 		Reversible: b.Reversible, ReversibleHow: b.ReversibleHow, Risk: b.Risk,
@@ -481,7 +482,7 @@ func blockOf(it ProposalItem) dossierItem {
 		After: it.After, For: it.For, People: it.People, Channel: it.Channel, Subject: it.Subject, IO: it.IO, Target: it.Target, What: it.What,
 		Previous: it.Previous, Op: it.Op, Input: it.Input, How: it.How, Impact: it.Impact, Body: it.Body, Diff: it.Diff,
 		Multi: it.Multi, Options: it.Options, Recommended: it.Recommended, OptionDetails: it.OptionDetails,
-		Range: it.Range, Old: it.Old, New: it.New, From: it.From, To: it.To, Comments: it.Comments, Fields: it.Fields, NotDuplicate: it.NotDuplicate,
+		Range: it.Range, Old: it.Old, New: it.New, From: it.From, To: it.To, Comments: it.Comments, Fields: it.Fields, NotDuplicate: it.NotDuplicate, Tags: it.Tags,
 		Pros: it.Pros, Cons: it.Cons, Cost: it.Cost, Benefit: it.Benefit, Confidence: it.Confidence,
 		ConfidenceBasis: it.ConfidenceBasis, Recommendation: it.Recommendation,
 		Reversible: it.Reversible, ReversibleHow: it.ReversibleHow, Risk: it.Risk,
