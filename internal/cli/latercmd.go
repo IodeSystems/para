@@ -114,7 +114,9 @@ func printRows(p *printer, indent string, sum ops.OrderSummary, n int, row func(
 				p.f("%s%s\n", indent, replyBatch(sum))
 			case group == ops.GroupFocus:
 				p.f("%sfocus\n", indent)
-			case group == ops.GroupImpact && (last == ops.GroupReply || last == ops.GroupFocus):
+			case group == ops.GroupRecheck:
+				p.f("%srecheck\n", indent)
+			case group == ops.GroupImpact && (last == ops.GroupReply || last == ops.GroupFocus || last == ops.GroupRecheck):
 				p.f("%sthen\n", indent)
 			}
 			last = group

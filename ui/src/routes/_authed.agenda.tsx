@@ -105,7 +105,8 @@ function groupHeading(group: string, last: string, s: OrderSummary): string {
   if (group === 'reply')
     return `Reply: ${s.reply} waiting on you, about ${s.replyMinutes} min, ${s.replyPrep} an agent can prepare`
   if (group === 'focus') return 'Focus'
-  if (group === 'impact' && (last === 'reply' || last === 'focus')) return 'Then'
+  if (group === 'recheck') return 'Recheck'
+  if (group === 'impact' && (last === 'reply' || last === 'focus' || last === 'recheck')) return 'Then'
   return ''
 }
 
