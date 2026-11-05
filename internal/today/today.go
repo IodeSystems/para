@@ -8,6 +8,7 @@ package today
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"time"
 
@@ -398,6 +399,15 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 	soon := date
 	if t, err := time.Parse(dateLayout, date); err == nil {
 		soon = t.AddDate(0, 0, AgendaDays).Format(dateLayout)
+	}
+	// Overdue, due soon, and blocked tasks are not listed while the owner has
+	// put them off (Later, or blocked until a date).
+	put, err := ops.DeferredIDs(ctx, st, date)
+	if err != nil {
+		return fmt.Errorf("today: agenda: %w", err)
+	}
+	for _, g := range []*Group{&vt.Overdue, &vt.DueSoon, &vt.Blocked} {
+		g.Items = slices.DeleteFunc(g.Items, func(i Item) bool { return put[i.ID] })
 	}
 	// Goals shape the order and are not listed. A task shows when it can be
 	// worked or its date is near; the rest of the tasks wait behind what blocks

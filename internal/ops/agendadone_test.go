@@ -75,3 +75,30 @@ func TestItemCloseAsk(t *testing.T) {
 		t.Fatalf("inbound ask closed: %v", err)
 	}
 }
+
+// The calendar agenda and the value order list no task put off (until a
+// future date, or someday), and no meeting held or cancelled.
+func TestAgendaLeavesDeferredAndHeld(t *testing.T) {
+	d := newDepsAt(t, time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC), "m1")
+	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	add := func(title string) string {
+		return must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: title, Due: "2026-11-05"}).ID
+	}
+	open, until, someday := add("Open"), add("Until"), add("Someday")
+	must(t, Defer, d, DeferInput{IDs: []string{until}, Until: "2026-12-01"})
+	must(t, Defer, d, DeferInput{IDs: []string{someday}})
+	for id, want := range map[string]bool{open: true, until: false, someday: false} {
+		if agendaHas(t, d, id) != want || orderHas(t, d, id) != want {
+			t.Errorf("%s: agenda %v, order %v, want %v", id, agendaHas(t, d, id), orderHas(t, d, id), want)
+		}
+	}
+	sam := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Sam Example", Org: "acme.example"})
+	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Board review", With: []string{sam.ID}, Start: "2026-11-05T15:00:00Z", End: "2026-11-05T15:30:00Z"})
+	if !agendaHas(t, d, m.ID) || !orderHas(t, d, m.ID) {
+		t.Fatal("a meeting today is not listed")
+	}
+	must(t, MeetingHold, d, MeetingHoldInput{ID: m.ID})
+	if agendaHas(t, d, m.ID) || orderHas(t, d, m.ID) {
+		t.Fatal("a held meeting is still listed")
+	}
+}

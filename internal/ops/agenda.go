@@ -178,12 +178,16 @@ var Agenda = defineRead("agenda", "List meetings, tasks due, requests to nudge, 
 // set.
 func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, skipped []AgendaItem, err error) {
 	items, skipped = []AgendaItem{}, []AgendaItem{}
+	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
+	if err != nil {
+		return nil, nil, err
+	}
 	meetings, err := loadMeetings(ctx, d.Store)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, v := range meetings {
-		if v.Status != model.MeetingScheduled {
+		if v.Status != model.MeetingScheduled || deferred[v.ID].any() {
 			continue
 		}
 		start, serr := time.Parse(time.RFC3339, v.Start)
@@ -219,12 +223,8 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 	if err != nil {
 		return nil, nil, err
 	}
-	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
-	if err != nil {
-		return nil, nil, err
-	}
 	for _, t := range tasks {
-		if t.Outcome == model.OutcomeFailed && t.RetryAfter != "" && !IsOther(t.Assignee) {
+		if t.Outcome == model.OutcomeFailed && t.RetryAfter != "" && !IsOther(t.Assignee) && !deferred[t.ID].any() {
 			if late, ok := inWindow(string(t.RetryAfter)); ok {
 				items = append(items, AgendaItem{Kind: AgendaRetry, ID: t.ID, Title: t.Title, Date: string(t.RetryAfter), Overdue: late,
 					Detail: "failed; retry after", Who: []string{}, Project: cmp.Or(t.Project, t.Area)})
@@ -371,4 +371,22 @@ func posOf(pos map[string]int, id string) int {
 		return p
 	}
 	return 1 << 30
+}
+
+// DeferredIDs returns the ids of the questions, tasks, goals, and io items that
+// are under Later on the date today (YYYY-MM-DD): a lasting or dated deferral,
+// an open wait, or a put-off goal. Surfaces that list what needs the owner
+// leave them out.
+func DeferredIDs(ctx context.Context, s store.Store, today string) (map[string]bool, error) {
+	set, err := deferredSet(ctx, s, today)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for id, h := range set {
+		if h.any() {
+			out[id] = true
+		}
+	}
+	return out, nil
 }
