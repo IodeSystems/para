@@ -317,10 +317,13 @@ const SubmitDoc = graphql(/* GraphQL */ `
           id
           status
           failed
+          requests
           items {
             item
             state
             reason
+            undo
+            receipts
           }
         }
       }
@@ -397,8 +400,31 @@ const StackDecideDoc = graphql(/* GraphQL */ `
         stackDecide(body: $body) {
           proposals {
             id
+            items {
+              item
+              state
+              undo
+              receipts
+            }
           }
           requests
+        }
+      }
+    }
+  }
+`)
+
+const StackUndoDoc = graphql(/* GraphQL */ `
+  mutation StackUndo($body: para_StackUndoInputInput!) {
+    para {
+      v1 {
+        stackUndo(body: $body) {
+          items {
+            item
+            state
+          }
+          question
+          undone
         }
       }
     }
@@ -559,6 +585,24 @@ export function useStackDecide() {
   return useMutation({
     mutationFn: async (body: StackDecideBody) =>
       need((await gqlClient.request(StackDecideDoc, { body })).para.v1.stackDecide, 'decide'),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+export type StackUndoBody = {
+  items?: { proposal: string; item: string }[]
+  question?: string
+  requests?: string[]
+}
+
+// useStackUndo takes back the owner's decision on items of the stack, or on a vault question that
+// was skipped or sent to an agent. The server decides how: a decision only recorded is reset, a
+// vault change that ran is undone from its receipts first.
+export function useStackUndo() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: StackUndoBody) =>
+      need((await gqlClient.request(StackUndoDoc, { body })).para.v1.stackUndo, 'undo'),
     onSettled: () => qc.invalidateQueries(),
   })
 }

@@ -3,6 +3,7 @@ import { Outlet, createFileRoute, redirect, useNavigate } from '@tanstack/react-
 import { AppShell } from '@/components/AppShell'
 import { Keyboard } from '@/components/Keyboard'
 import { Overlays } from '@/components/Overlays'
+import { ToastProvider } from '@/components/ToastStack'
 import { dropSession, ensureSession, signingOut } from '@/client/auth'
 import { UNAUTHORIZED_EVENT } from '@/client/gqlClient'
 import { useLiveRefresh } from '@/client/live'
@@ -43,10 +44,12 @@ function Authed() {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onDead)
   }, [navigate])
   return (
-    <AppShell session={session}>
-      <Outlet />
-      <Keyboard />
-      <Overlays />
-    </AppShell>
+    <ToastProvider>
+      <AppShell session={session}>
+        <Outlet />
+        <Keyboard />
+        <Overlays />
+      </AppShell>
+    </ToastProvider>
   )
 }

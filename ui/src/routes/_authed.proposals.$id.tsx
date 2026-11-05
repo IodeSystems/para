@@ -10,7 +10,9 @@ import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useProposal, useProposalDiff, useProposalSubmit } from '@/api/proposals'
+import { useProposal, useProposalDiff, useProposalSubmit, useStackUndo } from '@/api/proposals'
+import { useToasts } from '@/components/ToastStack'
+import { appliedCount, canUndo, toastText, whyNoUndo } from '@/lib/stackToast'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { Details, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
@@ -118,6 +120,8 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
     document.getElementById(hash.slice(1))?.scrollIntoView({ block: 'start' })
   }, [])
   const submit = useProposalSubmit()
+  const undoCall = useStackUndo()
+  const toasts = useToasts()
   const [done, setDone] = useState('')
   // current is the card the page keys act on: the one the owner last clicked or typed in.
   const [current, setCurrent] = useState<string | null>(() => {
@@ -183,12 +187,32 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
     submit.mutate(
       { id: d.proposal.id, revision: d.proposal.revision },
       {
-        onSuccess: (r) =>
+        onSuccess: (r) => {
           setDone(
             r.failed?.length
               ? `Submitted. These failed: ${r.failed.join(', ')}.`
               : 'Submitted. Para ran the approved vault changes; an agent does the rest.',
-          ),
+          )
+          const title = (i: string) => byId.get(i)?.title || i
+          const decided = r.items.filter((x) => x.state !== 'pending')
+          const ok = canUndo(decided)
+          toasts.push({
+            text: toastText(
+              'submit',
+              decided.map((x) => title(x.item)),
+              appliedCount(decided),
+            ),
+            undo: ok
+              ? async () => {
+                  await undoCall.mutateAsync({
+                    items: decided.map((x) => ({ proposal: d.proposal.id, item: x.item })),
+                    requests: r.requests ?? undefined,
+                  })
+                }
+              : undefined,
+            note: ok ? undefined : whyNoUndo('submit'),
+          })
+        },
       },
     )
   }

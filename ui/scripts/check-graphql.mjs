@@ -83,6 +83,7 @@ const REVIEW_MUTATIONS = new Set([
   'ProposalDraft',
   'ProposalSubmit',
   'StackDecide',
+  'StackUndo',
   'DocSeen',
   'ReceiptCheck',
   'ReceiptRevert',

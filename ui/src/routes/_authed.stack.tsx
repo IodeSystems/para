@@ -1,4 +1,4 @@
-import { useEffect, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import Alert from '@mui/material/Alert'
@@ -19,13 +19,16 @@ import {
   useProposals,
   useStack,
   useStackDecide,
+  useStackUndo,
+  type DoneBody,
   type StackFilter,
 } from '@/api/proposals'
-import { useQuestion, useQuestionReview } from '@/api/questions'
+import { useQuestion, useQuestionReview, type QuestionReviewBody } from '@/api/questions'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { Empty, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { useToasts } from '@/components/ToastStack'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
@@ -34,6 +37,18 @@ import { QuestionCard } from '@/components/stack/QuestionCard'
 import { DoneForm, RefsField, ReviewStateChip, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft } from '@/components/stack/useDossierDraft'
 import { answerEmpty, stringMap, type Answer } from '@/lib/dossier'
+import {
+  appliedCount,
+  canUndo,
+  failText,
+  nextFocus,
+  toastText,
+  undoAll,
+  undoBodies,
+  whyNoUndo,
+  type Verb,
+} from '@/lib/stackToast'
+import { prefersReducedMotion } from '@/lib/toasts'
 import type { StackKey } from '@/lib/keys'
 import { noteLabel, noteProblem } from '@/lib/review'
 import {
@@ -66,6 +81,7 @@ export const Route = createFileRoute('/_authed/stack')({
 
 type Data = NonNullable<ReturnType<typeof useStack>['data']>
 type Row = Data['pages'][number]['rows'][number]
+type Submitted = { items: { item: string; state: string; undo?: string | null }[] }
 
 // StackPage is the review stack: every item of every current dossier and every open vault
 // question, by stack state. With a review:decide key the owner approves, declines, skips, asks an
@@ -193,16 +209,36 @@ type Act = 'decline' | 'skip' | 'ask' | 'done'
 const ACT_WORDS: Record<Act, string> = {
   decline: 'Decline',
   skip: 'Skip',
-  ask: 'Ask agent',
+  ask: 'Send to agent',
   done: 'Done by me',
 }
+
+// LEAVE_MS is how long a card fades before the list closes the gap.
+const LEAVE_MS = 180
+
+type Applied = { undo?: string | null }[]
 
 function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<typeof useStack> }) {
   const act = useStackDecide()
   const review = useQuestionReview()
-  const rows = d.pages.flatMap((p) => p.rows)
+  const proposalDone = useProposalDone()
+  const undoCall = useStackUndo()
+  const toasts = useToasts()
+  const f = Route.useSearch()
+  const [leaving, setLeaving] = useState<Set<string>>(() => new Set())
+  // gone are the rows the owner acted on: they stay out of the to-decide view at once, without waiting
+  // for the refetch, and come back on Undo or when the request fails. A state filter other than
+  // "all open" and "to decide" shows them where they now belong.
+  const [gone, setGone] = useState<Set<string>>(() => new Set())
+  const [sliding, setSliding] = useState(false)
+  const [focusKey, setFocusKey] = useState<string | null>(null)
+  const [pending, setPending] = useState(0)
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const hides = !f.state || f.state === 'proposed'
+  const allRows = d.pages.flatMap((p) => p.rows)
+  const rows = hides ? allRows.filter((r) => !gone.has(rowKey(r))) : allRows
   const groups = d.pages[0]?.groups ?? []
-  const total = d.pages[0]?.total ?? rows.length
+  const total = Math.max(0, (d.pages[0]?.total ?? allRows.length) - (hides ? gone.size : 0))
   const lines = stackLines(rows, groups)
   const [cursor, setCursor] = useState<string | null>(null)
   const [picked, setPicked] = useState<Set<string>>(() => new Set())
@@ -210,7 +246,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
   const [form, setForm] = useState<{ key: string; act: Act } | null>(null)
   // opened is the row shown in place as its card.
   const [opened, setOpened] = useState<string | null>(null)
-  const byKey = new Map(rows.map((r) => [rowKey(r), r]))
+  const byKey = new Map(allRows.map((r) => [rowKey(r), r]))
   const v = useWindowVirtualizer({
     count: lines.length,
     estimateSize: (i) => (lines[i]?.type === 'item' ? 76 : 48),
@@ -222,53 +258,233 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
   useEffect(() => {
     if (last >= lines.length - 5 && hasNextPage && !isFetchingNextPage) void fetchNextPage()
   }, [last, lines.length, hasNextPage, isFetchingNextPage, fetchNextPage])
+  const timerMap = timers.current
+  useEffect(() => () => timerMap.forEach(clearTimeout), [timerMap])
+
+  // Focus and scroll go to the card that took the place of the one that left.
+  useEffect(() => {
+    if (!focusKey) return
+    const at = lines.findIndex((l) => l.key === focusKey)
+    if (at >= 0) v.scrollToIndex(at, { align: 'auto' })
+    const id = requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>(`[data-row="${CSS.escape(focusKey)}"]`)
+        ?.focus({ preventScroll: true })
+      setFocusKey(null)
+    })
+    return () => cancelAnimationFrame(id)
+  })
+
+  // leave takes rows out of the view: they fade, then the list slides up, and the next card takes
+  // the cursor and focus.
+  const leave = (keys: string[]) => {
+    const order = lines.flatMap((l) => (l.type === 'item' ? [l.key] : []))
+    const next = nextFocus(order, new Set(keys))
+    const quick = prefersReducedMotion()
+    setSliding(!quick)
+    setLeaving((s) => new Set([...s, ...keys]))
+    const t = setTimeout(
+      () => {
+        setGone((g) => new Set([...g, ...keys]))
+        setLeaving((s) => new Set([...s].filter((k) => !keys.includes(k))))
+        setCursor(next)
+        setFocusKey(next)
+        setTimeout(() => setSliding(false), 400)
+      },
+      quick ? 0 : LEAVE_MS,
+    )
+    for (const k of keys) timerMap.set(k, t)
+  }
+  // restore brings rows back: the request failed, or the owner undid it.
+  const restore = (keys: string[]) => {
+    for (const k of keys) {
+      const t = timerMap.get(k)
+      if (t) clearTimeout(t)
+      timerMap.delete(k)
+    }
+    setLeaving((s) => new Set([...s].filter((k) => !keys.includes(k))))
+    setGone((g) => new Set([...g].filter((k) => !keys.includes(k))))
+    setSliding(!prefersReducedMotion())
+    setCursor(keys[0] ?? null)
+  }
+
+  // perform does one action on rows: the cards leave at once, the request runs, and a toast says
+  // what was done, with Undo when the server can take it back. A failure brings the cards back.
+  const perform = async (
+    verb: Verb,
+    list: Row[],
+    run: () => Promise<{ applied: Applied; undo?: () => Promise<unknown>; failed?: boolean }>,
+  ) => {
+    const keys = list.map(rowKey)
+    const titles = list.map((r) => r.summary)
+    leave(keys)
+    setPending((n) => n + 1)
+    try {
+      const res = await run()
+      if (res.failed) {
+        restore(keys)
+        toasts.push({ text: toastText(verb, titles) + ' failed', tone: 'error' })
+        return
+      }
+      toasts.push({
+        text: toastText(verb, titles, appliedCount(res.applied)),
+        undo:
+          res.undo && canUndo(res.applied)
+            ? async () => {
+                await res.undo?.()
+                restore(keys)
+              }
+            : undefined,
+        note: res.undo && canUndo(res.applied) ? undefined : whyNoUndo(verb),
+      })
+    } catch (e) {
+      restore(keys)
+      toasts.push({ text: failText(verb, titles, errorText(e)), tone: 'error' })
+    } finally {
+      setPending((n) => n - 1)
+    }
+  }
 
   const approveRows = (list: Row[]) => {
     const ok = list.filter(canStackDecide)
     if (!decide || ok.length === 0) return
-    act.mutate(
-      { items: ok.map((r) => ({ proposal: r.proposal, item: r.item })), decision: 'approve' },
-      { onSuccess: () => setPicked(new Set()) },
-    )
+    setPicked(new Set())
+    void perform('approve', ok, async () => {
+      const res = await act.mutateAsync({
+        items: ok.map((r) => ({ proposal: r.proposal, item: r.item })),
+        decision: 'approve',
+      })
+      const applied = res.proposals.flatMap((p) => p.items)
+      return {
+        applied,
+        failed: applied.some((i) => i.state === 'failed'),
+        undo: () =>
+          undoAll(
+            undoBodies(
+              ok.map((r) => ({ proposal: r.proposal, item: r.item })),
+              [],
+            ),
+            (b) => undoCall.mutateAsync(b),
+          ),
+      }
+    })
   }
-  // decideRows declines, skips, or sends back rows with the owner's note. Vault questions go
+  // decideRows declines, skips, or sends to an agent rows with the owner's note. Vault questions go
   // through question_review, one at a time; dossier items in one stack_decide.
   const decideRows = (list: Row[], a: Exclude<Act, 'done'>, note: string, refs: string[]) => {
     if (!decide) return
     const ok = list.filter((r) => rowActions(r)[a])
+    if (ok.length === 0) return
     const items = ok.filter((r) => !r.question)
     const questions = ok.filter((r) => r.question)
     const decision = a === 'decline' ? 'reject' : a
-    const finish = () => {
-      setForm(null)
-      setPicked(new Set())
-    }
-    if (items.length > 0) {
-      act.mutate(
-        {
+    setForm(null)
+    setPicked(new Set())
+    void perform(a, ok, async () => {
+      const applied: Applied = []
+      let requests: (string | null | undefined)[] = []
+      const asked: { id: string; request?: string | null }[] = []
+      if (items.length > 0) {
+        const res = await act.mutateAsync({
           items: items.map((r) => ({ proposal: r.proposal, item: r.item })),
           decision,
           comment: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
-        },
-        { onSuccess: finish },
-      )
-    }
-    for (const r of questions) {
-      review.mutate(
-        {
+        })
+        applied.push(...res.proposals.flatMap((p) => p.items))
+        requests = res.requests ?? []
+      }
+      for (const r of questions) {
+        const res = await review.mutateAsync({
           id: r.question ?? r.item,
           decision: a,
           note: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
-        },
-        { onSuccess: finish },
-      )
-    }
+        })
+        applied.push({ undo: res.undo })
+        asked.push({ id: r.question ?? r.item, request: res.request })
+      }
+      return {
+        applied,
+        undo: () =>
+          undoAll(
+            undoBodies(
+              items.map((r) => ({ proposal: r.proposal, item: r.item })),
+              asked,
+              requests,
+            ),
+            (b) => undoCall.mutateAsync(b),
+          ),
+      }
+    })
+  }
+  // markDone is Done by me on a row. It takes effect at once and cannot be undone.
+  const markDone = (r: Row, body: Parameters<typeof proposalDone.mutate>[0]) => {
+    setForm(null)
+    void perform('done', [r], async () => {
+      await proposalDone.mutateAsync(body)
+      return { applied: [] }
+    })
+  }
+  // answerQuestion records the owner's answer to a vault question. It cannot be undone here.
+  const answerQuestion = (r: Row, body: Parameters<typeof review.mutate>[0]) => {
+    setOpened(null)
+    void perform('answer', [r], async () => {
+      await review.mutateAsync(body)
+      return { applied: [] }
+    })
+  }
+  // submitted is a dossier submit from a row card: the items it decided leave the view.
+  const submitted = (
+    r: Row,
+    res: { items: { item: string; state: string; undo?: string | null }[] },
+  ) => {
+    const left = allRows.filter(
+      (x) =>
+        x.proposal === r.proposal &&
+        res.items.some((i) => i.item === x.item && i.state !== 'pending'),
+    )
+    if (left.length === 0) return
+    const keys = left.map(rowKey)
+    setOpened(null)
+    leave(keys)
+    toasts.push({
+      text: toastText(
+        'submit',
+        left.map((x) => x.summary),
+        appliedCount(res.items),
+      ),
+      undo: canUndo(res.items)
+        ? async () => {
+            await undoCall.mutateAsync({
+              items: left.map((x) => ({ proposal: x.proposal, item: x.item })),
+            })
+            restore(keys)
+          }
+        : undefined,
+      note: canUndo(res.items) ? undefined : whyNoUndo('submit'),
+    })
   }
   const approveGroup = (proposal: string, group: string) => {
     if (!decide) return
-    act.mutate({ proposal, group, decision: 'approve' })
+    const list = allRows.filter(
+      (r) =>
+        r.proposal === proposal && r.group === group && canStackDecide(r) && !gone.has(rowKey(r)),
+    )
+    void perform('approve', list, async () => {
+      const res = await act.mutateAsync({ proposal, group, decision: 'approve' })
+      const applied = res.proposals.flatMap((p) => p.items)
+      return {
+        applied,
+        failed: applied.some((i) => i.state === 'failed'),
+        undo: () =>
+          undoCall.mutateAsync({
+            items: res.proposals.flatMap((p) =>
+              p.items.map((i) => ({ proposal: p.id, item: i.item })),
+            ),
+          }),
+      }
+    })
   }
   const toggleOpen = (r: Row, only?: boolean) =>
     setOpened((o) => (o === rowKey(r) && !only ? null : rowKey(r)))
@@ -323,15 +539,9 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
 
   if (lines.length === 0) return <Empty>Nothing here. No agent waits on you for this.</Empty>
   const pickedRows = [...picked].flatMap((x) => byKey.get(x) ?? [])
-  const busy = act.isPending || review.isPending
-  const failed = act.isError ? act.error : review.isError ? review.error : null
+  const busy = pending > 0
   return (
     <>
-      {failed && (
-        <Alert severity="error" sx={{ mb: 1 }}>
-          {errorText(failed)}
-        </Alert>
-      )}
       <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
           {total} {total === 1 ? 'item' : 'items'}. Keys: j and k move, a approves, d declines, s
@@ -361,7 +571,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
               Skip selected
             </Button>
             <Button size="small" disabled={busy} onClick={() => openForm('ask', undefined)}>
-              Ask agent about selected
+              Send to agent about selected
             </Button>
           </>
         )}
@@ -397,6 +607,11 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
                 left: 0,
                 width: '100%',
                 transform: `translateY(${vi.start - v.options.scrollMargin}px)`,
+                // The rows below slide up when a card leaves; scrolling and first paint do not animate.
+                transition: sliding ? 'transform 220ms ease, opacity 180ms ease' : undefined,
+                opacity: leaving.has(line.key) ? 0 : 1,
+                pointerEvents: leaving.has(line.key) ? 'none' : undefined,
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
               }}
             >
               <LineView
@@ -428,6 +643,9 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
                 }}
                 onGroup={approveGroup}
                 onFocusRow={(r) => setCursor(rowKey(r))}
+                onDoneBy={markDone}
+                onAnswer={answerQuestion}
+                onSubmitted={submitted}
               />
             </Box>
           )
@@ -453,6 +671,9 @@ function LineView({
   onOpen,
   onGroup,
   onFocusRow,
+  onDoneBy,
+  onAnswer,
+  onSubmitted,
 }: {
   line: Line<Row>
   decide: boolean
@@ -468,6 +689,9 @@ function LineView({
   onOpen: (r: Row) => void
   onGroup: (proposal: string, group: string) => void
   onFocusRow: (r: Row) => void
+  onDoneBy: (r: Row, body: DoneBody) => void
+  onAnswer: (r: Row, body: QuestionReviewBody) => void
+  onSubmitted: (r: Row, res: Submitted) => void
 }) {
   if (line.type === 'dossier') {
     return (
@@ -551,8 +775,10 @@ function LineView({
       data-kind={r.kind}
       data-question={r.question || undefined}
       aria-current={here || undefined}
+      tabIndex={-1}
       onClick={() => onFocusRow(r)}
       sx={{
+        outline: 'none',
         pl: r.group ? 3 : 1,
         pr: 1,
         py: 0.75,
@@ -686,15 +912,21 @@ function LineView({
           onConfirm={(note, refs) => onDecide(r, form, note, refs)}
         />
       )}
-      {form === 'done' && <RowDone r={r} onClose={() => onForm(r, null)} />}
+      {form === 'done' && (
+        <RowDone r={r} onClose={() => onForm(r, null)} onDone={(body) => onDoneBy(r, body)} />
+      )}
       {opened &&
-        (r.question ? <VaultQuestion r={r} decide={decide} /> : <RowCard r={r} decide={decide} />)}
+        (r.question ? (
+          <VaultQuestion r={r} decide={decide} onAnswer={(body) => onAnswer(r, body)} />
+        ) : (
+          <RowCard r={r} decide={decide} onSubmitted={(res) => onSubmitted(r, res)} />
+        ))}
     </Box>
   )
 }
 
 // NoteForm is the note a row action takes: required to decline or ask, optional to skip. With
-// Ask agent the owner may name documents for the agent to read. Enter confirms, Esc cancels.
+// Send to agent the owner may name documents for the agent to read. Enter confirms, Esc cancels.
 function NoteForm({
   act,
   count,
@@ -765,8 +997,15 @@ function NoteForm({
 }
 
 // RowDone is Done by me on a row: the owner did the item themself.
-function RowDone({ r, onClose }: { r: Row; onClose: () => void }) {
-  const done = useProposalDone()
+function RowDone({
+  r,
+  onClose,
+  onDone,
+}: {
+  r: Row
+  onClose: () => void
+  onDone: (body: DoneBody) => void
+}) {
   return (
     <Box onClick={(e) => e.stopPropagation()} sx={{ ml: 1 }}>
       <DoneForm
@@ -777,21 +1016,17 @@ function RowDone({ r, onClose }: { r: Row; onClose: () => void }) {
             : 'What you sent, if not the draft (optional)'
         }
         withNote
-        busy={done.isPending}
-        error={done.isError ? errorText(done.error) : undefined}
+        busy={false}
         onCancel={onClose}
         onConfirm={(f) =>
-          done.mutate(
-            {
-              id: r.proposal,
-              item: r.item,
-              url: f.url.trim() || undefined,
-              locator: f.locator.trim() || undefined,
-              text: f.text.trim() ? f.text : undefined,
-              note: f.note.trim() || undefined,
-            },
-            { onSuccess: onClose },
-          )
+          onDone({
+            id: r.proposal,
+            item: r.item,
+            url: f.url.trim() || undefined,
+            locator: f.locator.trim() || undefined,
+            text: f.text.trim() ? f.text : undefined,
+            note: f.note.trim() || undefined,
+          })
         }
       />
     </Box>
@@ -800,16 +1035,36 @@ function RowDone({ r, onClose }: { r: Row; onClose: () => void }) {
 
 // RowCard shows a row in place as the card of its dossier item, the same card the dossier page
 // shows. The owner's answer saves as a draft of the dossier; Submit submits the dossier's answers.
-function RowCard({ r, decide }: { r: Row; decide: boolean }) {
+function RowCard({
+  r,
+  decide,
+  onSubmitted,
+}: {
+  r: Row
+  decide: boolean
+  onSubmitted: (res: Submitted) => void
+}) {
   const q = useProposal(r.proposal)
   return (
     <Box onClick={(e) => e.stopPropagation()} sx={{ ml: 1 }}>
-      <DataState q={q}>{(d) => <DossierItem d={d} item={r.item} decide={decide} />}</DataState>
+      <DataState q={q}>
+        {(d) => <DossierItem d={d} item={r.item} decide={decide} onSubmitted={onSubmitted} />}
+      </DataState>
     </Box>
   )
 }
 
-function DossierItem({ d, item, decide }: { d: ProposalData; item: string; decide: boolean }) {
+function DossierItem({
+  d,
+  item,
+  decide,
+  onSubmitted,
+}: {
+  d: ProposalData
+  item: string
+  decide: boolean
+  onSubmitted: (res: Submitted) => void
+}) {
   const draft = useDossierDraft(d)
   const submit = useProposalSubmit()
   const [said, setSaid] = useState('')
@@ -826,10 +1081,12 @@ function DossierItem({ d, item, decide }: { d: ProposalData; item: string; decid
     submit.mutate(
       { id: d.proposal.id, revision: d.proposal.revision },
       {
-        onSuccess: (x) =>
+        onSuccess: (x) => {
           setSaid(
             x.failed?.length ? `Submitted. These failed: ${x.failed.join(', ')}.` : 'Submitted.',
-          ),
+          )
+          onSubmitted(x)
+        },
       },
     )
   }
@@ -876,10 +1133,17 @@ function DossierItem({ d, item, decide }: { d: ProposalData; item: string; decid
 
 // VaultQuestion is an open vault question in place: the same question card the dossier shows. The
 // owner picks or edits options, adds one, or answers in their own words, with an optional note;
-// Answer records it at once. Decline, Skip, and Ask agent are on the row.
-function VaultQuestion({ r, decide }: { r: Row; decide: boolean }) {
+// Answer records it at once. Decline, Skip, and Send to agent are on the row.
+function VaultQuestion({
+  r,
+  decide,
+  onAnswer,
+}: {
+  r: Row
+  decide: boolean
+  onAnswer: (body: QuestionReviewBody) => void
+}) {
   const q = useQuestion(r.question ?? r.item)
-  const review = useQuestionReview()
   const [answer, setAnswer] = useState<Answer | null>(null)
   return (
     <Box
@@ -924,20 +1188,15 @@ function VaultQuestion({ r, decide }: { r: Row; decide: boolean }) {
                     onChange={(e) => setAnswer({ ...answer, comment: e.target.value })}
                     sx={{ mt: 1 }}
                   />
-                  {review.isError && (
-                    <Alert severity="error" sx={{ mt: 1 }}>
-                      {errorText(review.error)}
-                    </Alert>
-                  )}
                   <Button
                     size="small"
                     variant="contained"
                     data-act="answer"
                     sx={{ mt: 1 }}
-                    disabled={review.isPending || (choices.length === 0 && own === '')}
+                    disabled={choices.length === 0 && own === ''}
                     onClick={() => {
                       const edited = stringMap(answer?.editedOptions)
-                      review.mutate({
+                      onAnswer({
                         id: x.id,
                         decision: 'answer',
                         choices,

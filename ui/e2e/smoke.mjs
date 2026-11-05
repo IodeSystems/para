@@ -1025,9 +1025,9 @@ try {
   await rcard('a2').locator('[data-act="skip"]').click()
   await rcard('a2').getByLabel('Note (optional)').fill('After the launch.')
 
-  // (c) Ask agent with a note and a document to read.
+  // (c) Send to agent with a note and a document to read.
   await rcard('a3').locator('[data-act="ask"]').click()
-  await rcard('a3').getByLabel('What the agent should do (required)').fill(`duplicate of ${ask}`)
+  await rcard('a3').getByLabel('Note for the agent').fill(`duplicate of ${ask}`)
   await rcard('a3')
     .getByLabel(/Documents for the agent to read/)
     .fill(note.id)
@@ -1115,27 +1115,48 @@ try {
     'Done by me on an outbox draft marks it sent',
   )
 
-  // The stack: Decline needs a note there too; with one the item stays, denied, with the reason.
+  // The stack: Decline needs a note there too. With one the card leaves at once, a toast says what
+  // was done with an Undo, and Undo brings the card back, pending. Declined again, it is denied.
   await rpage.goto(`${base}/stack`)
   await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
-  const msgRow = rpage.locator(`[data-row^="${proposal.id}/"][data-kind="message"]`).first()
+  const msgSel = `[data-row^="${proposal.id}/"][data-kind="message"]`
+  const msgRow = rpage.locator(msgSel).first()
   await msgRow.waitFor()
+  const msgKey = await msgRow.getAttribute('data-row')
   await msgRow.locator('[data-act="decline"]').click()
   const declineForm = msgRow.locator('[data-note-form="decline"]')
   const declineButton = declineForm.getByRole('button', { name: 'Decline', exact: true })
   check(await declineButton.isDisabled(), 'on the stack a decline with no note is refused')
   await declineForm.getByLabel('Why you decline (required)').fill('Sam is away.')
   await declineButton.click()
-  await rpage
-    .locator(`[data-row^="${proposal.id}/"][data-kind="message"][data-state="denied"]`)
-    .waitFor()
+  await rpage.locator(`[data-row="${msgKey}"]`).waitFor({ state: 'detached' })
+  const declined = rpage.locator('[data-toast="info"]').filter({ hasText: 'Declined:' })
+  await declined.waitFor()
+  check(true, 'a decline on the stack removes the card and shows a toast')
+  await declined.getByRole('button', { name: 'Undo' }).click()
+  await rpage.locator(`[data-row="${msgKey}"][data-state="pending"]`).waitFor()
   check(
-    (await rpage
-      .locator(`[data-row^="${proposal.id}/"][data-kind="message"]`)
-      .getByText('Sam is away.')
-      .count()) === 1,
-    'the declined row stays in the stack with the reason',
+    (await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).count()) === 1,
+    'Undo puts the declined card back, pending, and confirms Undone',
   )
+  await rpage.locator(`[data-row="${msgKey}"] [data-act="decline"]`).click()
+  await rpage
+    .locator(`[data-row="${msgKey}"] [data-note-form="decline"]`)
+    .getByLabel('Why you decline (required)')
+    .fill('Sam is away.')
+  await rpage
+    .locator(`[data-row="${msgKey}"] [data-note-form="decline"]`)
+    .getByRole('button', { name: 'Decline', exact: true })
+    .click()
+  await rpage.locator(`[data-row="${msgKey}"]`).waitFor({ state: 'detached' })
+  await rpage.goto(`${base}/stack?state=closed`)
+  await rpage.locator(`[data-row="${msgKey}"][data-state="denied"]`).waitFor()
+  check(
+    (await rpage.locator(`[data-row="${msgKey}"]`).getByText('Sam is away.').count()) === 1,
+    'the declined row is denied, with the reason, under the closed chip',
+  )
+  await rpage.goto(`${base}/stack`)
+  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
 
   // (d) An open vault question answered from the stack leaves it.
   const demo = idOf(
