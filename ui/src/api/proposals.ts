@@ -257,6 +257,11 @@ const ProposalShowDoc = graphql(/* GraphQL */ `
             evidence {
               locator
               quote
+              via {
+                source
+                ref
+              }
+              verify
             }
           }
           history {

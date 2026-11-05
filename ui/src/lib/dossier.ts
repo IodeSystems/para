@@ -158,6 +158,37 @@ export function stringMap(v: unknown): Record<string, string> {
   return out
 }
 
+// EvidenceCheck says how the owner can check evidence, as para decides it: a web address, a
+// vault document, or a private connector item with a sentence on how to find it. Kind none: no
+// way to verify.
+export type EvidenceCheck =
+  | { kind: 'url'; url: string }
+  | { kind: 'vault'; id: string }
+  | { kind: 'via'; source: string; verify: string }
+  | { kind: 'none' }
+
+const WEB_URL = /^https?:\/\/[^\s/]+\S*$/
+const VAULT_ID = /^\[?\[?([a-z][a-z0-9]*(?:-[a-z0-9]+)+)\]?\]?$/
+const VAULT_PATH = /^[a-z][a-z0-9_-]*\/([^\s:/]+)\.md(?::\d+)?$/
+
+export function evidenceCheck(e: {
+  locator: string
+  via?: { source: string; ref: string } | null
+  verify?: string | null
+}): EvidenceCheck {
+  const loc = e.locator.trim()
+  if (WEB_URL.test(loc)) return { kind: 'url', url: loc }
+  const path = VAULT_PATH.exec(loc)
+  if (path?.[1]) return { kind: 'vault', id: path[1] }
+  const id = VAULT_ID.exec(loc)
+  if (id?.[1]) return { kind: 'vault', id: id[1] }
+  const verify = e.verify?.trim() ?? ''
+  if (e.via?.source.trim() && e.via.ref.trim() && verify) {
+    return { kind: 'via', source: e.via.source, verify }
+  }
+  return { kind: 'none' }
+}
+
 // URL_LIKE finds a web address in a value, so a card can show evidence as a link to check.
 const URL_LIKE = /\bhttps?:\/\/[^\s<>"')\]]+/g
 

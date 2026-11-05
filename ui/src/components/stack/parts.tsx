@@ -14,7 +14,9 @@ import type { useProposal } from '@/api/proposals'
 import { StateChip, StatusChip } from '@/components/Bits'
 import { Markdown } from '@/components/Markdown'
 import { diffKind, newDoc, splitDiff, type NewDoc } from '@/lib/diff'
-import { linkParts, type Answer } from '@/lib/dossier'
+import { useDoc } from '@/api/doc'
+import { DocLink } from '@/components/DocLink'
+import { evidenceCheck, linkParts, type Answer } from '@/lib/dossier'
 import { UNTRUSTED_WORDS } from '@/lib/proposal'
 import { noteLabel, noteProblem, parseRefs, withDecision, type Decision } from '@/lib/review'
 
@@ -124,21 +126,62 @@ export function Weighing({ it }: { it: Item }) {
   )
 }
 
-// EvidenceBox is the quote the item rests on and where it came from. A web address is a link.
-export function EvidenceBox({ it }: { it: Item }) {
+// verifyAsk is the note Send to agent starts with when evidence gives no way to verify it.
+export const verifyAsk = (item: string) =>
+  `Add a link or a way to verify the evidence for ${item}`
+
+// SourceName is the title of a source document, or its id.
+function SourceName({ id }: { id: string }) {
+  const q = useDoc(id)
+  return <DocLink id={id}>{q.data?.title || id}</DocLink>
+}
+
+// EvidenceWhere says where the evidence is: a web address opens in a new tab, a vault document in
+// the app, a private connector item as the agent's sentence on how to find it.
+function EvidenceWhere({ it }: { it: Item }) {
+  const c = evidenceCheck(it.evidence)
+  switch (c.kind) {
+    case 'url':
+      return (
+        <Link href={c.url} target="_blank" rel="noreferrer noopener">
+          {c.url}
+        </Link>
+      )
+    case 'vault':
+      return <DocLink id={c.id}>{it.evidence.locator}</DocLink>
+    case 'via':
+      return (
+        <>
+          {c.verify} (<SourceName id={c.source} />)
+        </>
+      )
+  }
+  return <>{it.evidence.locator}</>
+}
+
+// EvidenceBox is the quote the item rests on and where it came from. Evidence with no way to
+// verify it is marked, and onAsk starts a Send to agent note that asks for one.
+export function EvidenceBox({ it, onAsk }: { it: Item; onAsk?: () => void }) {
+  const none = evidenceCheck(it.evidence).kind === 'none'
   return (
-    <Box sx={{ borderLeft: 3, borderColor: 'divider', pl: 1.5, my: 1 }}>
+    <Box sx={{ borderLeft: 3, borderColor: none ? 'warning.main' : 'divider', pl: 1.5, my: 1 }}>
       <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
         <Typography variant="caption" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
           Evidence
           {it.evidence.locator ? (
             <>
               {' ('}
-              <LinkedText text={it.evidence.locator} />
+              <EvidenceWhere it={it} />
               {')'}
             </>
           ) : null}
         </Typography>
+        {none && <StatusChip tone="attn" label="no way to verify" />}
+        {none && onAsk && (
+          <Button size="small" onClick={onAsk}>
+            Ask for a link
+          </Button>
+        )}
         <Tooltip title={UNTRUSTED_WORDS}>
           <span>
             <StatusChip tone="attn" label="untrusted" />

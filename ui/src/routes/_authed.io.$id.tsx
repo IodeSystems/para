@@ -39,6 +39,12 @@ function IoItemPage() {
           <Link href={item.ref} target="_blank" rel="noreferrer" sx={{ overflowWrap: 'anywhere' }}>
             {item.ref}
           </Link>
+        ) : item.verify ? (
+          item.verify
+        ) : item.unverifiable ? (
+          <Box component="span" sx={{ color: 'warning.main' }} data-unverifiable>
+            No way to verify: no link to the message. Ask the agent for its permalink.
+          </Box>
         ) : (
           ''
         )

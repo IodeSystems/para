@@ -4,6 +4,7 @@ import {
   answerInput,
   blockIds,
   blockInfo,
+  evidenceCheck,
   itemKind,
   linkParts,
   parseBlockInfo,
@@ -108,6 +109,26 @@ describe('evidence links', () => {
       { text: '.' },
     ])
     expect(linkParts('note body')).toEqual([{ text: 'note body' }])
+  })
+})
+
+describe('evidence check', () => {
+  it('reads a URL, a vault reference, via with verify, or none', () => {
+    expect(evidenceCheck({ locator: 'https://chat.example/p17' })).toEqual({
+      kind: 'url',
+      url: 'https://chat.example/p17',
+    })
+    expect(evidenceCheck({ locator: '[[note-abc]]' })).toEqual({ kind: 'vault', id: 'note-abc' })
+    expect(evidenceCheck({ locator: 'io/io-x1.md:12' })).toEqual({ kind: 'vault', id: 'io-x1' })
+    expect(
+      evidenceCheck({
+        locator: 'slack #ops',
+        via: { source: 'source-slack', ref: 'C01/p17' },
+        verify: 'Slack #ops, Dana: search rollback',
+      }),
+    ).toEqual({ kind: 'via', source: 'source-slack', verify: 'Slack #ops, Dana: search rollback' })
+    expect(evidenceCheck({ locator: 'slack #ops' })).toEqual({ kind: 'none' })
+    expect(evidenceCheck({ locator: 'chat' })).toEqual({ kind: 'none' })
   })
 })
 

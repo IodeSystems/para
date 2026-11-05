@@ -24,6 +24,8 @@ const IoListDoc = graphql(/* GraphQL */ `
             to
             at
             subject
+            ref
+            unverifiable
             expects
             became
             legacy
@@ -56,6 +58,8 @@ const IoShowDoc = graphql(/* GraphQL */ `
             at
             subject
             ref
+            verify
+            unverifiable
             expects
             route
             became

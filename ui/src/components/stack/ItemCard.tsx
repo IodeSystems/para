@@ -10,7 +10,7 @@ import { useProposalDone } from '@/api/proposals'
 import { errorText } from '@/client/gqlClient'
 import { answerEmpty, type Answer } from '@/lib/dossier'
 import { stateWords } from '@/lib/proposal'
-import { canMarkDone } from '@/lib/review'
+import { canMarkDone, withDecision } from '@/lib/review'
 import { kindWords, stackTone, stackWords } from '@/lib/stack'
 import { ActionCard } from '@/components/stack/ActionCard'
 import { ChangeCard } from '@/components/stack/ChangeCard'
@@ -25,6 +25,7 @@ import {
   BodyFileBox,
   DoneForm,
   EvidenceBox,
+  focusNote,
   NoteField,
   noteIdOf,
   ReviewStateChip,
@@ -33,6 +34,7 @@ import {
   Weighing,
   type CardProps,
   type Item,
+  verifyAsk,
 } from '@/components/stack/parts'
 
 // editStart is what "Edit, then approve" starts from: the agent's own version. A body that names
@@ -180,7 +182,18 @@ export function ItemCard({
       {it.bodyFile && <BodyFileBox file={it.bodyFile} />}
       <Body it={it} answer={answer} onAnswer={onAnswer} />
       <Weighing it={it} />
-      <EvidenceBox it={it} />
+      <EvidenceBox
+        it={it}
+        onAsk={
+          onAnswer && open
+            ? () => {
+                const base = answer?.decision === 'ask' ? answer : withDecision(answer, 'ask')
+                onAnswer({ ...base, comment: verifyAsk(it.title || it.summary || it.id) })
+                focusNote(noteId)
+              }
+            : undefined
+        }
+      />
       {it.state === 'sent_back' && (answer?.comment || (answer?.refs ?? []).length > 0) && (
         <Alert severity="info" sx={{ my: 1 }} data-sent-back>
           You asked the agent: {answer?.comment}
