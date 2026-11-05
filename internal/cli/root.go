@@ -235,6 +235,7 @@ func newRoot(l *loader) *cobra.Command {
 		newReportCmd(l),
 		newFeedbackCmd(l),
 		newTagCmd(l),
+		newSentCmd(l),
 		newTaskCmd(l),
 		newGraphCmd(l),
 		newNextCmd(l),

@@ -27,3 +27,29 @@ func newFeedbackCmd(l *loader) *cobra.Command {
 	}))
 	return cmd
 }
+
+func newSentCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "sent", Short: "Agent work you sent with Send to agent", Args: cobra.NoArgs}
+	cmd.AddCommand(opCommand(l, ops.SentList, binding[ops.SentListInput, ops.SentListOutput]{
+		Use:  "list",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.SentListInput) {
+			fs.IntVar(&in.Limit, "limit", 0, "at most this many; 0 means all")
+		},
+		Text: func(w io.Writer, out ops.SentListOutput) error {
+			p := &printer{w: w}
+			for _, it := range out.Items {
+				status := string(it.Status)
+				if it.ClaimedBy != "" {
+					status += " by " + it.ClaimedBy
+				}
+				if it.Resolution != "" {
+					status += ", " + string(it.Resolution)
+				}
+				p.f("%s\t%s\t%s\t%s\n", it.Request, status, it.Item, it.Note)
+			}
+			return p.err
+		},
+	}))
+	return cmd
+}

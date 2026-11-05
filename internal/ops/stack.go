@@ -117,7 +117,10 @@ type ProposalStackInput struct {
 	Group    string `json:"group,omitempty" query:"group"`
 	Proposal string `json:"proposal,omitempty" query:"proposal"`
 	Actor    string `json:"actor,omitempty" query:"actor"`
-	Tag      string `json:"tag,omitempty" query:"tag"`       // a topic: dossier items and vault questions with this tag
+	Tag      string `json:"tag,omitempty" query:"tag"` // a topic: dossier items and vault questions with this tag
+	// NeedsYou lists only what waits on the owner: proposed, and not sent
+	// back to an agent. The web app's default view.
+	NeedsYou bool   `json:"needs_you,omitempty" query:"needs_you"`
 	Cursor   string `json:"cursor,omitempty" query:"cursor"` // from next_cursor
 	Limit    int    `json:"limit,omitempty" query:"limit"`   // default 200
 }
@@ -125,18 +128,21 @@ type ProposalStackInput struct {
 // ProposalStackOutput is the output of proposal_stack. Counts and groups cover
 // every filter but state.
 type ProposalStackOutput struct {
-	Counts     []StackCount `json:"counts"`
-	Groups     []StackGroup `json:"groups"`
-	Rows       []StackRow   `json:"rows"`
-	Total      int          `json:"total"` // rows that match, over all pages
-	NextCursor string       `json:"next_cursor,omitempty"`
+	Counts []StackCount `json:"counts"`
+	Groups []StackGroup `json:"groups"`
+	Rows   []StackRow   `json:"rows"`
+	Total  int          `json:"total"` // rows that match, over all pages
+	// NeedsYou counts the items that wait on the owner (needs_you), over
+	// every filter but state.
+	NeedsYou   int    `json:"needs_you"`
+	NextCursor string `json:"next_cursor,omitempty"`
 }
 
 const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); needs_you lists only what waits on the owner (proposed, not sent to an agent); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -184,6 +190,10 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			}
 			st := stackState(it, today)
 			counts[st]++
+			needs := needsYou(st, it.State)
+			if needs {
+				out.NeedsYou++
+			}
 			if it.Group != "" && st != StackClosed {
 				g, ok := groups[it.Group]
 				if !ok {
@@ -199,7 +209,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 					g.Proposed++
 				}
 			}
-			if in.State == "" && (st == StackClosed && it.State != model.ItemDenied || st == StackLater) || in.State != "" && st != in.State {
+			if in.State == "" && (st == StackClosed && it.State != model.ItemDenied || st == StackLater) || in.State != "" && st != in.State || in.NeedsYou && !needs {
 				continue
 			}
 			row := StackRow{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Kind: it.Kind, State: it.State, Stack: st, Group: it.Group,
@@ -227,7 +237,11 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 				continue
 			}
 			counts[r.Stack]++
-			if in.State == "" && r.Stack != StackLater || in.State == r.Stack {
+			needs := needsYou(r.Stack, r.State)
+			if needs {
+				out.NeedsYou++
+			}
+			if (in.State == "" && r.Stack != StackLater || in.State == r.Stack) && (!in.NeedsYou || needs) {
 				rows = append(rows, r)
 			}
 		}
@@ -245,3 +259,9 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 	}
 	return out, nil
 })
+
+// needsYou is true for an item that waits on the owner: proposed, and not
+// sent back to an agent.
+func needsYou(stack string, state model.ItemState) bool {
+	return stack == StackProposed && state != model.ItemSentBack
+}

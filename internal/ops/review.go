@@ -96,7 +96,7 @@ func sendBackItem(ctx context.Context, d Deps, prop, item, note string, refs []s
 		return Decision{}, "", err
 	}
 	ask := askInstruction("item "+item+" of dossier "+p.doc.ID, "Then revise the item with proposal_revise (the dossier keeps the owner's other answers), or reply with proposal_reply when no change is right.", note, refs)
-	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: askPrefix + title, Ask: ask, Links: []string{p.doc.ID}, Context: refs})
+	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: askPrefix + title, Ask: ask, Links: []string{p.doc.ID}, Context: refs, Kind: SentKind})
 	if err != nil {
 		return Decision{}, "", fmt.Errorf("item %s is sent back, but no agent work was queued: %w", item, err)
 	}
@@ -250,7 +250,7 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 			return out, err
 		}
 		ask := askInstruction("question "+doc.ID, "Then answer it with question_answer and sources, or tell the owner why you cannot.", note, refs)
-		r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: askPrefix + doc.Title, Ask: ask, Links: []string{doc.ID}, Context: refs})
+		r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: askPrefix + doc.Title, Ask: ask, Links: []string{doc.ID}, Context: refs, Kind: SentKind})
 		if err != nil {
 			return out, err
 		}

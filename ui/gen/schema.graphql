@@ -161,6 +161,8 @@ type ParaV1MutationNamespace {
   sourceAdd(body: para_SourceAddInputInput!): para_SourceAddOutput @derived(operationId: "sourceAdd")
   sourceStatus(body: para_SourceStatusInputInput!): para_SourceStatusOutput @derived(operationId: "sourceStatus")
   stackDecide(body: para_StackDecideInputInput!): para_StackDecideOutput @derived(operationId: "stackDecide")
+  stackLater(body: para_StackLaterInputInput!): para_DeferOutput @derived(operationId: "stackLater")
+  stackReturn(body: para_StackReturnInputInput!): para_DeferOutput @derived(operationId: "stackReturn")
   stackUndo(body: para_StackUndoInputInput!): para_StackUndoOutput @derived(operationId: "stackUndo")
   sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
   tagAdd(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagAdd")
@@ -263,7 +265,7 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalResponse(id: String!): para_ProposalResponseOutput @derived(operationId: "proposalResponse")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
-  proposalStack(actor: String, cursor: String, group: String, kind: String, limit: Int, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
+  proposalStack(actor: String, cursor: String, group: String, kind: String, limit: Int, needs_you: Boolean, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
   proposalUndone: para_ProposalUndoneOutput @derived(operationId: "proposalUndone")
   proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
@@ -300,6 +302,7 @@ type ParaV1QueryNamespace {
     """document type, such as task, project, note, policy"""
     type: String
   ): para_SearchOutput @derived(operationId: "search")
+  sentList(limit: Int): para_SentListOutput @derived(operationId: "sentList")
   similar(title: String!, type: para_similarType!): para_SimilarOutput @derived(operationId: "similar")
   sourceExample(system: para_sourceExampleSystem!): para_SourceExampleOutput @derived(operationId: "sourceExample")
   sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
@@ -4976,6 +4979,7 @@ input para_ProposalReviseInputInput {
 type para_ProposalStackOutput {
   counts: [para_StackCount!]!
   groups: [para_StackGroup!]!
+  needsYou: Int!
   nextCursor: String
   rows: [para_StackRow!]!
   total: Int!
@@ -6337,6 +6341,44 @@ type para_SelfServe {
   priorRfx: [para_RFXSummary!]!
 }
 
+type para_SentItem {
+  claimedBy: String
+  item: String
+  itemName: String
+  note: String
+  queuedAt: String!
+  request: String!
+  resolution: para_SentItemResolution
+  results: [String!]
+  status: para_SentItemStatus!
+  summary: String
+  title: String!
+  undoable: Boolean!
+}
+
+enum para_SentItemResolution {
+  blocked
+  cancelled
+  done
+  failed
+  needs_clarification
+  partial
+  stuck
+}
+
+enum para_SentItemStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+type para_SentListOutput {
+  items: [para_SentItem!]!
+}
+
 type para_SessionCreateBody {
   admin: Boolean!
   expires: String
@@ -6695,6 +6737,18 @@ type para_StackGroup {
 input para_StackItemRefInput {
   item: String!
   proposal: String!
+}
+
+input para_StackLaterInputInput {
+  items: [para_ItemRefInput!]
+  questions: [String!]
+  reason: String
+  until: String
+}
+
+input para_StackReturnInputInput {
+  items: [para_ItemRefInput!]
+  questions: [String!]
 }
 
 type para_StackRow {

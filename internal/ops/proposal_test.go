@@ -185,6 +185,14 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := MeetingRSVP.Run(t.Context(), d, MeetingAttendInput{ID: "x", Attend: "yes"})
 			return err
 		}},
+		{"stack_later", func(d Deps) error {
+			_, err := StackLaterOp.Run(t.Context(), d, StackLaterInput{Questions: []string{"x"}})
+			return err
+		}},
+		{"stack_return", func(d Deps) error {
+			_, err := StackReturn.Run(t.Context(), d, StackReturnInput{Questions: []string{"x"}})
+			return err
+		}},
 	}
 	for _, surface := range []string{"mcp", "api", surfaceProposal, ""} {
 		d := Deps{Store: f.owner.Store.ActAs("user", surface)}

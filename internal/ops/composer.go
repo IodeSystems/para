@@ -98,7 +98,7 @@ var AgentSend = definePerson("agent_send", "Send what the owner wrote about an i
 		}
 	}
 	typ := doc.Meta.Header().Type
-	add := RequestAddInput{Title: composerPrefix + firstOf(doc.Title, id), Ask: composerAsk(id, typ, doc.Title, text, atts, in.Done)}
+	add := RequestAddInput{Title: composerPrefix + firstOf(doc.Title, id), Ask: composerAsk(id, typ, doc.Title, text, atts, in.Done), Kind: SentKind}
 	if slices.Contains(linkTypes, typ) {
 		add.Links = []string{id}
 	} else {

@@ -246,6 +246,7 @@ func newProposalCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Proposal, "proposal", "", "only this dossier")
 				fs.StringVar(&in.Actor, "actor-filter", "", "only dossiers this agent filed")
 				fs.StringVar(&in.Tag, "tag", "", "only items with this topic")
+				fs.BoolVar(&in.NeedsYou, "needs-you", false, "only items that wait on you: proposed, not sent to an agent")
 				fs.StringVar(&in.Cursor, "cursor", "", "next_cursor of the page before")
 				fs.IntVar(&in.Limit, "limit", 0, "rows per page; default 200")
 			},
@@ -350,8 +351,50 @@ func newStackCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		stackLaterCmd(l),
+		stackReturnCmd(l),
 	)
 	return cmd
+}
+
+// stackLaterCmd is `para stack later`: put stack items off as the owner.
+func stackLaterCmd(l *loader) *cobra.Command {
+	var items []string
+	return opCommand(l, ops.StackLaterOp, binding[ops.StackLaterInput, ops.DeferOutput]{
+		Use:  "later [--item <proposal>#<item>]... [--question <id>]... [--until YYYY-MM-DD]",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.StackLaterInput) {
+			fs.StringArrayVar(&items, "item", nil, "a dossier item as <proposal>#<item>; repeatable")
+			fs.StringArrayVar(&in.Questions, "question", nil, "an open vault question; repeatable")
+			fs.StringVar(&in.Until, "until", "", "YYYY-MM-DD it comes back; leave out for someday")
+			fs.StringVar(&in.Reason, "reason", "", "why it can wait")
+		},
+		Bind: func(_ []string, in *ops.StackLaterInput) error {
+			var err error
+			in.Items, err = itemRefs(items)
+			return err
+		},
+		Text: deferText,
+	})
+}
+
+// stackReturnCmd is `para stack return`: the undo of stack later.
+func stackReturnCmd(l *loader) *cobra.Command {
+	var items []string
+	return opCommand(l, ops.StackReturn, binding[ops.StackReturnInput, ops.DeferOutput]{
+		Use:  "return [--item <proposal>#<item>]... [--question <id>]...",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.StackReturnInput) {
+			fs.StringArrayVar(&items, "item", nil, "a dossier item as <proposal>#<item>; repeatable")
+			fs.StringArrayVar(&in.Questions, "question", nil, "a vault question; repeatable")
+		},
+		Bind: func(_ []string, in *ops.StackReturnInput) error {
+			var err error
+			in.Items, err = itemRefs(items)
+			return err
+		},
+		Text: deferText,
+	})
 }
 
 func reasonCmd(l *loader, op *ops.Op[ops.ProposalReasonInput, ops.ProposalReviewOutput], use string) *cobra.Command {
