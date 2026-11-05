@@ -6,6 +6,8 @@ import {
   rowActions,
   rowKey,
   STACK_STATES,
+  laterDates,
+  needsYou,
   stackLines,
   VAULT_QUESTIONS,
 } from '@/lib/stack'
@@ -27,7 +29,15 @@ const row = (
 
 describe('review stack', () => {
   it('has the stack states in the order para gives them', () => {
-    expect(STACK_STATES).toEqual(['proposed', 'decided', 'executing', 'done', 'failed', 'closed'])
+    expect(STACK_STATES).toEqual([
+      'proposed',
+      'later',
+      'decided',
+      'executing',
+      'done',
+      'failed',
+      'closed',
+    ])
   })
   it('groups rows by dossier, then group, loose items first', () => {
     const rows = [row('p1', 'a', 'g1'), row('p2', 'x'), row('p1', 'b'), row('p1', 'c', 'g1')]
@@ -176,5 +186,33 @@ describe('stack row actions', () => {
       count: 2,
     })
     expect(lines).toHaveLength(3)
+  })
+})
+
+describe('needs you', () => {
+  it('keeps only what waits on the owner', () => {
+    expect(needsYou({ stack: 'proposed', state: 'pending' })).toBe(true)
+    expect(needsYou({ stack: 'proposed', state: 'skipped' })).toBe(true)
+    expect(needsYou({ stack: 'proposed', state: 'sent_back' })).toBe(false)
+    expect(needsYou({ stack: 'later', state: 'pending' })).toBe(false)
+    expect(needsYou({ stack: 'decided', state: 'approved' })).toBe(false)
+    expect(needsYou({ stack: 'done', state: 'answered' })).toBe(false)
+  })
+})
+
+describe('later dates', () => {
+  it('offers tomorrow and the next Monday', () => {
+    // Thursday 2026-11-05
+    expect(laterDates(new Date(2026, 10, 5, 9))).toEqual({
+      tomorrow: '2026-11-06',
+      nextWeek: '2026-11-09',
+    })
+    // A Monday goes to the Monday after.
+    expect(laterDates(new Date(2026, 10, 9, 9))).toEqual({
+      tomorrow: '2026-11-10',
+      nextWeek: '2026-11-16',
+    })
+    // Month end.
+    expect(laterDates(new Date(2026, 10, 30, 9)).tomorrow).toBe('2026-12-01')
   })
 })

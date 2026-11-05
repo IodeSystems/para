@@ -81,7 +81,13 @@ export function newDoc(lines: string[]): NewDoc | null {
       last.value = [last.value, l.trim()].filter(Boolean).join(' ')
     }
   }
-  return { fields, body: text.slice(end + 1).join('\n').trim() }
+  return {
+    fields,
+    body: text
+      .slice(end + 1)
+      .join('\n')
+      .trim(),
+  }
 }
 
 function unquote(v: string): string {

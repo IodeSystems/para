@@ -79,7 +79,8 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
 // outbox draft done by the owner, checks or reverts an agent write from its receipt, marks a
 // tracked document's change seen, and edits the notes of an item (owner 2026-11-04). The composer on
 // every item sends the owner's words to an agent, takes them back while unclaimed, and closes a task
-// or a meeting the owner saved notes on (owner 2026-11-05).
+// or a meeting the owner saved notes on (owner 2026-11-05). Later on the stack puts items off until a
+// date and its Undo brings them back (owner approved the snooze and topic web actions 2026-11-05).
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
 const REVIEW_MUTATIONS = new Set([
   'ProposalDraft',
@@ -99,6 +100,8 @@ const REVIEW_MUTATIONS = new Set([
   // Attend and Skip on the agenda: the owner says whether they go to a meeting (meeting_rsvp, a
   // person op). Owner approved 2026-11-05.
   'MeetingRsvp',
+  'StackLater',
+  'StackReturn',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

@@ -1,12 +1,13 @@
 // Words and rules for what the review stack tells the owner after an action: the toast text, whether
 // the action can be undone, and which card takes focus when one leaves.
 
-export type Verb = 'approve' | 'decline' | 'skip' | 'ask' | 'done' | 'answer' | 'submit'
+export type Verb = 'approve' | 'decline' | 'skip' | 'later' | 'ask' | 'done' | 'answer' | 'submit'
 
 const DONE: Record<Verb, string> = {
   approve: 'Approved',
   decline: 'Declined',
   skip: 'Skipped',
+  later: 'Put off',
   ask: 'Sent to agent',
   done: 'Marked done',
   answer: 'Answered',
@@ -17,6 +18,7 @@ const TO: Record<Verb, string> = {
   approve: 'approve',
   decline: 'decline',
   skip: 'skip',
+  later: 'put off',
   ask: 'send to agent',
   done: 'mark done',
   answer: 'answer',

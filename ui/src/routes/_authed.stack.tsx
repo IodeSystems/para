@@ -10,6 +10,8 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Link from '@mui/material/Link'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import {
@@ -18,8 +20,11 @@ import {
   useProposalSubmit,
   useProposals,
   useStack,
+  stackReturn,
   useStackDecide,
+  useStackLater,
   useStackUndo,
+  useTags,
   type DoneBody,
   type StackFilter,
 } from '@/api/proposals'
@@ -35,6 +40,8 @@ import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
+import { LaterButton } from '@/components/stack/LaterButton'
+import { SentList } from '@/components/stack/SentList'
 import { QuestionCard } from '@/components/stack/QuestionCard'
 import { DoneForm, RefsField, ReviewStateChip, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft } from '@/components/stack/useDossierDraft'
@@ -54,6 +61,7 @@ import { prefersReducedMotion } from '@/lib/toasts'
 import type { StackKey } from '@/lib/keys'
 import { noteLabel, noteProblem } from '@/lib/review'
 import {
+  canLater,
   canStackDecide,
   kindWords,
   nextItem,
@@ -70,13 +78,18 @@ const KINDS = ['question', 'para', 'message', 'action', 'doc_edit', 'upstream'] 
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
 
+// StackSearch is the stack's filter, and the view: the stack, or what the owner sent to agents.
+type StackSearch = StackFilter & { view?: 'sent' }
+
 export const Route = createFileRoute('/_authed/stack')({
-  validateSearch: (s: Record<string, unknown>): StackFilter => ({
+  validateSearch: (s: Record<string, unknown>): StackSearch => ({
     state: STACK_STATES.find((x) => x === s.state),
     kind: KINDS.find((x) => x === s.kind),
     group: text(s.group),
     proposal: text(s.proposal),
     actor: text(s.actor),
+    tag: text(s.tag),
+    view: s.view === 'sent' ? 'sent' : undefined,
   }),
   component: StackPage,
 })
@@ -89,22 +102,82 @@ type Submitted = { items: { item: string; state: string; undo?: string | null }[
 // question, by stack state. With a review:decide key the owner approves, declines, skips, asks an
 // agent, or marks done by me, here. A row opens in place as the same card the dossier shows.
 function StackPage() {
-  const f = Route.useSearch()
+  const { view, ...f } = Route.useSearch()
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
-  const q = useStack(f)
+  const navigate = useNavigate({ from: '/stack' })
   return (
     <>
-      <PageTitle subtitle="Every item agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card.">
+      <PageTitle subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list.">
         Stack
       </PageTitle>
-      <Filters f={f} counts={q.data?.pages[0]?.counts ?? []} />
+      <Tabs
+        value={view ?? 'stack'}
+        onChange={(_, v: string) =>
+          void navigate({ search: (p) => ({ ...p, view: v === 'sent' ? 'sent' : undefined }) })
+        }
+        sx={{ mb: 2 }}
+      >
+        <Tab value="stack" label="To decide" />
+        <Tab value="sent" label="Sent to agent" data-tab="sent" />
+      </Tabs>
+      {view === 'sent' ? <SentList decide={decide} /> : <StackView f={f} decide={decide} />}
+    </>
+  )
+}
+
+function StackView({ f, decide }: { f: StackFilter; decide: boolean }) {
+  const q = useStack(f)
+  const page = q.data?.pages[0]
+  return (
+    <>
+      <Filters f={f} counts={page?.counts ?? []} needsYou={page?.needsYou ?? 0} />
       <DataState q={q}>{(d) => <StackList d={d} decide={decide} q={q} />}</DataState>
     </>
   )
 }
 
-function Filters({ f, counts }: { f: StackFilter; counts: { state: string; count: number }[] }) {
+// Topics are the stack's saved views: one chip per tag in use, with what waits in it.
+function Topics({ tag, onTag }: { tag?: string; onTag: (t: string | undefined) => void }) {
+  const q = useTags()
+  const tags = (q.data ?? []).filter((t) => t.stack + t.later > 0 || t.tag === tag)
+  if (tags.length === 0) return null
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      useFlexGap
+      sx={{ flexWrap: 'wrap', mb: 1.5 }}
+      role="group"
+      aria-label="Topics"
+    >
+      {tags.map((t) => {
+        const on = tag === t.tag
+        return (
+          <Chip
+            key={t.tag}
+            data-topic={t.tag}
+            label={`#${t.tag} ${t.stack}${t.later ? ` (+${t.later} later)` : ''}`}
+            color={on ? 'secondary' : 'default'}
+            variant={on ? 'filled' : 'outlined'}
+            aria-pressed={on}
+            onClick={() => onTag(on ? undefined : t.tag)}
+          />
+        )
+      })}
+    </Stack>
+  )
+}
+
+function Filters({
+  f,
+  counts,
+  needsYou,
+}: {
+  f: StackFilter
+  counts: { state: string; count: number }[]
+  needsYou: number
+}) {
   const navigate = useNavigate({ from: '/stack' })
   const set = (p: Partial<StackFilter>) =>
     void navigate({ search: (prev) => ({ ...prev, ...p }), replace: true })
@@ -120,9 +193,11 @@ function Filters({ f, counts }: { f: StackFilter; counts: { state: string; count
         aria-label="Show by state"
       >
         <Chip
-          label="all open"
+          data-state-chip="needs-you"
+          label={`${needsYou} need you`}
           color={f.state ? 'default' : 'primary'}
           variant={f.state ? 'outlined' : 'filled'}
+          aria-pressed={!f.state}
           onClick={() => set({ state: undefined })}
         />
         {STACK_STATES.map((s) => {
@@ -141,6 +216,7 @@ function Filters({ f, counts }: { f: StackFilter; counts: { state: string; count
           )
         })}
       </Stack>
+      <Topics tag={f.tag} onTag={(t) => set({ tag: t })} />
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
         <TextField
           select
@@ -223,6 +299,7 @@ type Applied = { undo?: string | null }[]
 function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<typeof useStack> }) {
   const act = useStackDecide()
   const review = useQuestionReview()
+  const later = useStackLater()
   const proposalDone = useProposalDone()
   const undoCall = useStackUndo()
   const toasts = useToasts()
@@ -420,6 +497,27 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
       }
     })
   }
+  // laterRows puts rows off until a date. Undo in the toast brings them back now.
+  const laterRows = (list: Row[], until: string) => {
+    if (!decide) return
+    const ok = list.filter(canLater)
+    if (ok.length === 0) return
+    setPicked(new Set())
+    const items = ok.filter((r) => !r.question).map((r) => ({ proposal: r.proposal, item: r.item }))
+    const questions = ok.flatMap((r) => (r.question ? [r.question] : []))
+    const body = {
+      items: items.length ? items : undefined,
+      questions: questions.length ? questions : undefined,
+    }
+    void perform('later', ok, async () => {
+      const res = await later.mutateAsync({ ...body, until })
+      return {
+        applied: res.changed.map(() => ({ undo: 'reset' })),
+        failed: res.changed.length === 0,
+        undo: () => stackReturn(body),
+      }
+    })
+  }
   // markDone is Done by me on a row. It takes effect at once and cannot be undone.
   const markDone = (r: Row, body: Parameters<typeof proposalDone.mutate>[0]) => {
     setForm(null)
@@ -539,7 +637,14 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
     }
   })
 
-  if (lines.length === 0) return <Empty>Nothing here. No agent waits on you for this.</Empty>
+  if (lines.length === 0)
+    return (
+      <Empty>
+        {f.state
+          ? 'Nothing here.'
+          : 'Nothing needs you. What you answered, sent to an agent, or put off is under the state chips.'}
+      </Empty>
+    )
   const pickedRows = [...picked].flatMap((x) => byKey.get(x) ?? [])
   const busy = pending > 0
   return (
@@ -572,6 +677,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
             <Button size="small" disabled={busy} onClick={() => openForm('skip', undefined)}>
               Skip selected
             </Button>
+            <LaterButton disabled={busy} onLater={(u) => laterRows(pickedRows, u)} />
             <Button size="small" disabled={busy} onClick={() => openForm('ask', undefined)}>
               Send to agent about selected
             </Button>
@@ -640,6 +746,7 @@ function StackList({ d, decide, q }: { d: Data; decide: boolean; q: ReturnType<t
                   setForm(a ? { key: rowKey(r), act: a } : null)
                 }}
                 onDecide={(r, a, note, refs) => decideRows([r], a, note, refs)}
+                onLater={(r, until) => laterRows([r], until)}
                 onOpen={(r) => {
                   setCursor(rowKey(r))
                   toggleOpen(r)
@@ -671,6 +778,7 @@ function LineView({
   onApprove,
   onForm,
   onDecide,
+  onLater,
   onOpen,
   onGroup,
   onFocusRow,
@@ -689,6 +797,7 @@ function LineView({
   onApprove: (r: Row) => void
   onForm: (r: Row, a: Act | null) => void
   onDecide: (r: Row, a: Exclude<Act, 'done'>, note: string, refs: string[]) => void
+  onLater: (r: Row, until: string) => void
   onOpen: (r: Row) => void
   onGroup: (proposal: string, group: string) => void
   onFocusRow: (r: Row) => void
@@ -832,6 +941,15 @@ function LineView({
             {r.drafted && <StatusChip tone="wait" label="drafted" />}
             {r.proposed && <StatusChip tone="wait" label="an agent proposed an answer" />}
             {r.bundle && <StatusChip tone="quiet" label={`bundle ${r.bundle}`} />}
+            {r.deferUntil && (
+              <StatusChip
+                tone="quiet"
+                label={r.deferUntil === 'someday' ? 'later: someday' : `back ${r.deferUntil}`}
+              />
+            )}
+            {(r.tags ?? []).map((t) => (
+              <StatusChip key={t} tone="quiet" label={`#${t}`} />
+            ))}
             {r.actor && (
               <Typography variant="caption" color="text.secondary">
                 by {r.actor}
@@ -896,6 +1014,9 @@ function LineView({
           )}
           {actButton('decline', 'error')}
           {actButton('skip')}
+          {decide && canLater(r) && (
+            <LaterButton disabled={busy} onLater={(until) => onLater(r, until)} />
+          )}
           {actButton('ask')}
           {actButton('done')}
           <Button size="small" data-act="open" aria-expanded={opened} onClick={() => onOpen(r)}>

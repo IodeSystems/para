@@ -7,6 +7,7 @@ import type { Tone } from '@/lib/status'
 // STACK_STATES lists the stack states in order. They match ops.StackStates.
 export const STACK_STATES = [
   'proposed',
+  'later',
   'decided',
   'executing',
   'done',
@@ -20,6 +21,8 @@ export function stackWords(state: string): string {
   switch (state) {
     case 'proposed':
       return 'to decide'
+    case 'later':
+      return 'later'
     case 'decided':
       return 'decided, not done'
     case 'executing':
@@ -204,4 +207,27 @@ export function nextItem<R>(lines: Line<R>[], cursor: string | null, step: 1 | -
   if (at < 0) return items[step === 1 ? 0 : items.length - 1]?.key ?? null
   const to = Math.min(items.length - 1, Math.max(0, at + step))
   return items[to]?.key ?? null
+}
+
+// needsYou says whether a row waits on the owner: to decide, and not sent to an agent. It matches
+// ops needsYou; the default stack and dossier views show only these.
+export function needsYou(row: { stack: string; state: string }): boolean {
+  return row.stack === 'proposed' && row.state !== 'sent_back'
+}
+
+// canLater says whether a row may be put off from the stack: it waits on the owner.
+export const canLater = (row: { stack: string }): boolean => row.stack === 'proposed'
+
+const day = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+// laterDates are the dates Later offers, in local time: tomorrow, and next week (the Monday after
+// today).
+export function laterDates(now: Date): { tomorrow: string; nextWeek: string } {
+  const t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  const ahead = (8 - now.getDay()) % 7 || 7
+  const w = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ahead)
+  return { tomorrow: day(t), nextWeek: day(w) }
 }

@@ -343,6 +343,8 @@ const StackDoc = graphql(/* GraphQL */ `
     $group: String
     $proposal: String
     $actor: String
+    $tag: String
+    $needsYou: Boolean
     $cursor: String
     $limit: Int
   ) {
@@ -354,6 +356,8 @@ const StackDoc = graphql(/* GraphQL */ `
           group: $group
           proposal: $proposal
           actor: $actor
+          tag: $tag
+          needs_you: $needsYou
           cursor: $cursor
           limit: $limit
         ) {
@@ -389,8 +393,11 @@ const StackDoc = graphql(/* GraphQL */ `
             refs
             request
             proposed
+            deferUntil
+            tags
           }
           total
+          needsYou
           nextCursor
         }
       }
@@ -550,6 +557,7 @@ export type StackFilter = {
   group?: string
   proposal?: string
   actor?: string
+  tag?: string
 }
 
 const STACK_PAGE = 200
@@ -564,6 +572,8 @@ export function useStack(f: StackFilter) {
         (
           await gqlClient.request(StackDoc, {
             ...f,
+            // With no state the stack shows what waits on the owner.
+            needsYou: f.state ? undefined : true,
             cursor: pageParam || undefined,
             limit: STACK_PAGE,
           })
@@ -629,5 +639,113 @@ export function useProposalDone() {
     mutationFn: async (body: DoneBody) =>
       need((await gqlClient.request(DoneDoc, { body })).para.v1.proposalDone, 'done'),
     onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+const StackLaterDoc = graphql(/* GraphQL */ `
+  mutation StackLater($body: para_StackLaterInputInput!) {
+    para {
+      v1 {
+        stackLater(body: $body) {
+          changed
+          skipped
+          until
+        }
+      }
+    }
+  }
+`)
+
+const StackReturnDoc = graphql(/* GraphQL */ `
+  mutation StackReturn($body: para_StackReturnInputInput!) {
+    para {
+      v1 {
+        stackReturn(body: $body) {
+          changed
+          skipped
+        }
+      }
+    }
+  }
+`)
+
+export type LaterBody = {
+  items?: { proposal: string; item: string }[]
+  questions?: string[]
+  until?: string
+}
+
+// useStackLater puts stack items off until a date (stack_later); stackReturn brings them back, as
+// the toast's Undo.
+export function useStackLater() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: LaterBody) =>
+      need((await gqlClient.request(StackLaterDoc, { body })).para.v1.stackLater, 'later'),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+export async function stackReturn(body: Omit<LaterBody, 'until'>) {
+  return need((await gqlClient.request(StackReturnDoc, { body })).para.v1.stackReturn, 'return')
+}
+
+const TagListDoc = graphql(/* GraphQL */ `
+  query TagList {
+    para {
+      v1 {
+        tagList {
+          tags {
+            tag
+            open
+            stack
+            later
+          }
+        }
+      }
+    }
+  }
+`)
+
+// useTags lists the topics in use: the stack's saved views.
+export function useTags() {
+  return useQuery({
+    queryKey: ['tags'],
+    queryFn: async () =>
+      need((await gqlClient.request(TagListDoc, {})).para.v1.tagList, 'tags').tags,
+  })
+}
+
+const SentListDoc = graphql(/* GraphQL */ `
+  query SentList {
+    para {
+      v1 {
+        sentList {
+          items {
+            request
+            title
+            item
+            itemName
+            note
+            status
+            claimedBy
+            resolution
+            summary
+            queuedAt
+            results
+            undoable
+          }
+        }
+      }
+    }
+  }
+`)
+
+// useSent lists the agent work the owner sent with Send to agent, newest first.
+export function useSent() {
+  return useQuery({
+    queryKey: ['sent'],
+    queryFn: async () =>
+      need((await gqlClient.request(SentListDoc, {})).para.v1.sentList, 'sent').items,
   })
 }

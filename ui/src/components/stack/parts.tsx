@@ -127,8 +127,7 @@ export function Weighing({ it }: { it: Item }) {
 }
 
 // verifyAsk is the note Send to agent starts with when evidence gives no way to verify it.
-export const verifyAsk = (item: string) =>
-  `Add a link or a way to verify the evidence for ${item}`
+export const verifyAsk = (item: string) => `Add a link or a way to verify the evidence for ${item}`
 
 // SourceName is the title of a source document, or its id.
 function SourceName({ id }: { id: string }) {

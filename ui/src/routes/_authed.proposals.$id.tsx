@@ -27,6 +27,7 @@ import { DiffBlock, mono, block, type Item, type ProposalData } from '@/componen
 import { useDossierDraft, type SaveState } from '@/components/stack/useDossierDraft'
 import { answerEmpty, blockIds, parseBlockInfo, sectionId, type Answer } from '@/lib/dossier'
 import { UNTRUSTED_WORDS } from '@/lib/proposal'
+import { needsYou } from '@/lib/stack'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/proposals/$id')({ component: ProposalPage })
@@ -123,6 +124,8 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
   const undoCall = useStackUndo()
   const toasts = useToasts()
   const [done, setDone] = useState('')
+  // all shows every item; by default only what waits on the owner, so an answered item leaves.
+  const [all, setAll] = useState(false)
   // current is the card the page keys act on: the one the owner last clicked or typed in.
   const [current, setCurrent] = useState<string | null>(() => {
     const hash = window.location.hash
@@ -147,7 +150,7 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
   const replies = (sid: string) => d.replies.filter((r) => r.section === sid)
   // Items with no block in the narrative show at the end, so none is lost.
   const inText = new Set(blockIds(d.markdown ?? ''))
-  const rest = d.items.filter((it) => !inText.has(it.id))
+  const rest = d.items.filter((it) => !inText.has(it.id) && (all || needsYou(it)))
 
   // setAnswer sets one answer. A decision on an item of a bundle is the decision of every item of
   // the bundle: they are decided as one.
@@ -164,7 +167,9 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
     }
   }
 
+  const hidden = d.items.filter((it) => !needsYou(it) && it.state !== 'withdrawn').length
   const card = (it: Item) => {
+    if (!all && !needsYou(it)) return null
     const may = decide && it.stack === 'proposed'
     return (
       <ItemCard
@@ -274,6 +279,18 @@ function Dossier({ d, decide }: { d: ProposalData; decide: boolean }) {
           You submitted your answers
           {d.response.submittedAt ? ` ${humanTime(d.response.submittedAt)}` : ''}.
         </Alert>
+      )}
+      {hidden > 0 && (
+        <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            {all
+              ? 'Showing every item.'
+              : `${hidden} ${hidden === 1 ? 'item does' : 'items do'} not need you now (decided, sent to an agent, put off, or done).`}
+          </Typography>
+          <Button size="small" data-show-all={all} onClick={() => setAll((x) => !x)}>
+            {all ? 'Show only what needs you' : 'Show all items'}
+          </Button>
+        </Stack>
       )}
       <Box component="article" aria-label="Dossier">
         {narrative}
