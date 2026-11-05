@@ -36,6 +36,11 @@ const ListDoc = graphql(/* GraphQL */ `
             docName
             why
             sources
+            sourceLinks {
+              text
+              url
+              internal
+            }
             verify
             confidence
             check

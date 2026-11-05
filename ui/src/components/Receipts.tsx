@@ -22,16 +22,14 @@ import { Empty, Section, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
+import { LinkButton, TextLink } from '@/components/links'
+import { DoItTask } from '@/components/DoIt'
+import { useToasts } from '@/components/ToastStack'
+import { useRouteContext, useRouter } from '@tanstack/react-router'
+import { canDecide } from '@/client/session'
 import { diffKind } from '@/lib/diff'
-import {
-  checkTone,
-  isUrl,
-  newestFirst,
-  noteRequired,
-  receiptTime,
-  undoCommand,
-} from '@/lib/receipts'
+import { checkTone, newestFirst, noteRequired, receiptTime, undoCommand } from '@/lib/receipts'
+import { refKind, refLinks } from '@/lib/refs'
 import { exactTime, humanTime } from '@/lib/when'
 
 const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
@@ -72,7 +70,17 @@ function DiffLines({ id }: { id: string }) {
 
 // ReceiptCard shows one agent write: when, who, what, to which document, why, and from what.
 // Undo is a command to copy: the viewer never writes.
-export function ReceiptCard({ r, showActor = true }: { r: Receipt; showActor?: boolean }) {
+// withActions adds Open, Undo, and for a task the Do it block; the section on a document's own page
+// leaves them off, since the document is already open.
+export function ReceiptCard({
+  r,
+  showActor = true,
+  withActions = true,
+}: {
+  r: Receipt
+  showActor?: boolean
+  withActions?: boolean
+}) {
   const t = receiptTime(r)
   const cmd = undoCommand(r.id)
   // The diff loads when a person opens it, not for every row.
@@ -112,16 +120,14 @@ export function ReceiptCard({ r, showActor = true }: { r: Receipt; showActor?: b
           Why: {r.why}
         </Typography>
       )}
-      {(r.sources ?? []).length > 0 && (
-        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          Sources: {r.sources?.join(', ')}
-        </Typography>
-      )}
+      <SourceLinks r={r} />
       {r.verify && (
         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
           Verify: {r.verify}
         </Typography>
       )}
+      {withActions && r.doc !== 'vault' && r.op.startsWith('task_') && <DoItTask id={r.doc} />}
+      {withActions && <ReceiptActions r={r} />}
       <Box
         component="details"
         onToggle={(e) => setOpen(e.currentTarget.open)}
@@ -155,7 +161,7 @@ export function ReceiptSection({ title, doc }: { title: string; doc: string }) {
       <List dense disablePadding>
         {items.map((r) => (
           <ListItem key={r.id} disableGutters divider sx={{ display: 'block' }}>
-            <ReceiptCard r={r} />
+            <ReceiptCard r={r} withActions={false} />
           </ListItem>
         ))}
       </List>
@@ -163,9 +169,13 @@ export function ReceiptSection({ title, doc }: { title: string; doc: string }) {
   )
 }
 
-// SourceLinks shows the sources of a write: a vault id opens its document, an address opens
-// the page it names.
-function SourceLinks({ sources }: { sources: string[] }) {
+// SourceLinks shows the sources of a write, resolved by the server and without repeats: a vault
+// document opens in the app, a web address or a source reference with a link template opens in a
+// new tab, and the rest is plain text (a source with no link says its title).
+function SourceLinks({ r }: { r: Pick<Receipt, 'sources' | 'sourceLinks'> }) {
+  const router = useRouter()
+  const links = refLinks(r)
+  if (links.length === 0) return null
   return (
     <Typography
       variant="body2"
@@ -175,19 +185,79 @@ function SourceLinks({ sources }: { sources: string[] }) {
       sx={{ overflowWrap: 'anywhere' }}
     >
       Sources:{' '}
-      {sources.map((s, i) => (
-        <span key={`${s}-${i}`}>
-          {i > 0 && ', '}
-          {isUrl(s) ? (
-            <Link href={s} target="_blank" rel="noopener noreferrer" underline="hover">
-              {s}
-            </Link>
-          ) : (
-            <DocLink id={s} />
-          )}
-        </span>
-      ))}
+      {links.map((l, i) => {
+        const kind = refKind(l)
+        return (
+          <span key={`${l.text}-${i}`}>
+            {i > 0 && ', '}
+            {kind === 'web' ? (
+              <Link
+                href={l.url ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                underline="hover"
+              >
+                {l.text}
+              </Link>
+            ) : kind === 'app' ? (
+              <Link
+                href={l.url ?? undefined}
+                underline="hover"
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || !l.url) return
+                  e.preventDefault()
+                  router.history.push(l.url)
+                }}
+              >
+                {l.text}
+              </Link>
+            ) : (
+              l.text
+            )}
+          </span>
+        )
+      })}
     </Typography>
+  )
+}
+
+// ReceiptActions: Open the document, and Undo the write (a toast says what happened). Undo is
+// disabled with the reason once the write is undone; the server refuses it, with the reason, when a
+// later write changed the document.
+function ReceiptActions({ r }: { r: Receipt }) {
+  const { session } = useRouteContext({ from: '/_authed' })
+  const revert = useReceiptRevert()
+  const toasts = useToasts()
+  const undone = !!r.undone
+  const run = () =>
+    revert.mutate(r.id, {
+      onSuccess: () =>
+        toasts.push({ text: `Undid ${r.op.replace(/_/g, ' ')}: ${r.docName || r.title || r.doc}` }),
+      onError: (e) => toasts.push({ text: `Could not undo: ${errorText(e)}`, tone: 'error' }),
+    })
+  return (
+    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+      {r.doc !== 'vault' && (
+        <LinkButton size="small" variant="outlined" to="/doc/$id" params={{ id: r.doc }}>
+          Open
+        </LinkButton>
+      )}
+      {canDecide(session) && (
+        <Tooltip title={undone ? 'Already undone.' : ''}>
+          <span>
+            <Button
+              size="small"
+              color="warning"
+              disabled={undone || revert.isPending}
+              onClick={run}
+              aria-label={undone ? 'Undo (already undone)' : 'Undo this write'}
+            >
+              Undo
+            </Button>
+          </span>
+        </Tooltip>
+      )}
+    </Stack>
   )
 }
 
@@ -251,7 +321,7 @@ export function ReceiptRow({ r, undone }: { r: Receipt; undone: boolean }) {
           Why: {r.why}
         </Typography>
       )}
-      {(r.sources ?? []).length > 0 && <SourceLinks sources={r.sources ?? []} />}
+      <SourceLinks r={r} />
       {r.verify && (
         <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
           Verify: {r.verify}

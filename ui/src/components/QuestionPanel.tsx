@@ -8,6 +8,7 @@ import { ProposedAnswer, SourceList } from '@/components/AnswerCheck'
 import { Section, StateChip } from '@/components/Bits'
 import { RulesInEffect } from '@/components/RulesInEffect'
 import { DataState } from '@/components/DataState'
+import { DoIt } from '@/components/DoIt'
 import { DoneWhen } from '@/components/DoneWhen'
 import { questionState } from '@/lib/answer'
 import { nameList, nameOr } from '@/lib/names'
@@ -119,6 +120,13 @@ export function TaskPanel({ id }: { id: string }) {
           </Section>
         ))}
       <RulesInEffect rules={parts?.rules ?? []} />
+      {open && (
+        <DoIt
+          id={q.data.id}
+          title={q.data.title}
+          how={{ doUrl: q.data.doUrl, doCommand: q.data.doCommand, steps: q.data.steps }}
+        />
+      )}
       <DoneWhen value={q.data.doneWhen} prompt="No done-when yet." />
       {!open && q.data.outcome && q.data.outcome !== 'done' && (
         <Typography variant="body2" sx={{ mb: 2 }}>

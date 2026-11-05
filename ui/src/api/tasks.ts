@@ -13,6 +13,9 @@ const TaskShowDoc = graphql(/* GraphQL */ `
             title
             status
             doneWhen
+            doUrl
+            doCommand
+            steps
             outcome
             assignee
             project
