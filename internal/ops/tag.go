@@ -257,12 +257,17 @@ var TagList = defineRead("tag_list", "List the topics (tags) in use, the most us
 			continue
 		}
 		for _, it := range p.content.Items {
-			if stackState(it) != StackProposed {
+			st := stackState(it, today)
+			if st != StackProposed && st != StackLater {
 				continue
 			}
 			for _, t := range normTags(model.ItemTags(p.meta.Tags, it)) {
 				if c := at(t); c != nil {
-					c.Stack++
+					if st == StackLater {
+						c.Later++
+					} else {
+						c.Stack++
+					}
 				}
 			}
 		}

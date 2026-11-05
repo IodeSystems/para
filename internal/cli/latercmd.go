@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -35,8 +36,23 @@ func deferText(w io.Writer, out ops.DeferOutput) error {
 	return p.err
 }
 
-// newDeferCmd is `para defer`: put questions, tasks, or goals off.
+// itemRefs reads --item values, <proposal>#<item>.
+func itemRefs(list []string) ([]ops.ItemRef, error) {
+	var out []ops.ItemRef
+	for _, s := range list {
+		p, it, ok := strings.Cut(s, "#")
+		if !ok || p == "" || it == "" {
+			return nil, fmt.Errorf("--item %q: want <proposal>#<item>", s)
+		}
+		out = append(out, ops.ItemRef{Proposal: p, Item: it})
+	}
+	return out, nil
+}
+
+// newDeferCmd is `para defer`: put questions, tasks, goals, io items, or
+// dossier items off.
 func newDeferCmd(l *loader) *cobra.Command {
+	var items []string
 	return opCommand(l, ops.Defer, binding[ops.DeferInput, ops.DeferOutput]{
 		Use:  "defer [id]...",
 		Args: cobra.ArbitraryArgs,
@@ -48,18 +64,35 @@ func newDeferCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.When, "when", "", "a condition in words, such as \"AI policy notes updated\": makes a task with that done_when and waits on it")
 			fs.StringVar(&in.Place, "place", "", "goal or area for the task --when makes; default the item's own")
 			fs.BoolVar(&in.New, "new", false, "with --when: make the task even when a similar open task exists")
+			fs.StringArrayVar(&items, "item", nil, "a dossier item as <proposal>#<item>; repeatable")
+			fs.StringVar(&in.Tag, "tag", "", "a topic: every tagged open item and dossier item")
 		},
-		Bind: func(args []string, in *ops.DeferInput) error { in.IDs = args; return nil },
+		Bind: func(args []string, in *ops.DeferInput) error {
+			in.IDs = args
+			var err error
+			in.Items, err = itemRefs(items)
+			return err
+		},
 		Text: deferText,
 	})
 }
 
 // newUndeferCmd is `para undefer`.
 func newUndeferCmd(l *loader) *cobra.Command {
+	var items []string
 	return opCommand(l, ops.Undefer, binding[ops.UndeferInput, ops.DeferOutput]{
-		Use:  "undefer <id>...",
-		Args: cobra.MinimumNArgs(1),
-		Bind: func(args []string, in *ops.UndeferInput) error { in.IDs = args; return nil },
+		Use:  "undefer [id]... [--item <proposal>#<item>]... [--tag <topic>]",
+		Args: cobra.ArbitraryArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.UndeferInput) {
+			fs.StringArrayVar(&items, "item", nil, "a dossier item as <proposal>#<item>; repeatable")
+			fs.StringVar(&in.Tag, "tag", "", "a topic: every tagged item put off")
+		},
+		Bind: func(args []string, in *ops.UndeferInput) error {
+			in.IDs = args
+			var err error
+			in.Items, err = itemRefs(items)
+			return err
+		},
 		Text: deferText,
 	})
 }

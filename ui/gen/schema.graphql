@@ -1246,10 +1246,12 @@ enum para_DecisionState {
 input para_DeferInputInput {
   after: String
   ids: [String!]
+  items: [para_ItemRefInput!]
   new: Boolean
   place: String
   reason: String
   scope: String
+  tag: String
   until: String
   when: String
 }
@@ -2749,6 +2751,7 @@ type para_IOItem {
   at: String
   became: String
   created: String!
+  deferUntil: String
   direction: para_IOItemDirection!
   effort: para_IOItemEffort
   expects: para_IOItemExpects
@@ -3434,6 +3437,8 @@ type para_ItemView {
   cons: [para_Claim!]
   cost: para_Claim
   decided: para_ItemDecision
+  deferUntil: String
+  deferredReason: String
   diff: String
   edited: Boolean
   evidence: para_Evidence!
@@ -6696,6 +6701,7 @@ type para_StackRow {
   actor: String!
   bundle: String
   claimedBy: String
+  deferUntil: String
   drafted: Boolean
   group: String
   item: String!
@@ -7648,6 +7654,8 @@ type para_UITodayBody {
 
 input para_UndeferInputInput {
   ids: [String!]
+  items: [para_ItemRefInput!]
+  tag: String
 }
 
 type para_UndoRow {

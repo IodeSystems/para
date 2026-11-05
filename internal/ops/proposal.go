@@ -645,12 +645,12 @@ type ProposalView struct {
 	SourceName string `json:"source_name,omitempty" nameof:"Source"`
 }
 
-func (p *proposal) view() ProposalView {
+func (p *proposal) view(today string) ProposalView {
 	v := ProposalView{ID: p.doc.ID, Title: p.doc.Title, Status: p.meta.Status, Revision: p.meta.Revision,
 		Source: p.meta.Source.Target(), SourcePath: p.meta.SourcePath, Supersedes: p.meta.Supersedes.Target(), ProposedBy: p.meta.ProposedBy,
 		Created: p.meta.Created, ItemCount: len(p.content.Items)}
 	for _, it := range p.content.Items {
-		if it.State == model.ItemPending {
+		if it.State == model.ItemPending && !it.Deferred(today) {
 			v.Pending++
 		}
 	}
@@ -712,7 +712,7 @@ var ProposalList = defineRead("proposal_list", "List proposals, oldest first; su
 		if in.Status == "" && p.meta.Status == model.ProposalSuperseded || in.Status != "" && p.meta.Status != in.Status {
 			continue
 		}
-		out.Items = append(out.Items, p.view())
+		out.Items = append(out.Items, p.view(d.Store.Now().Format(dateLayout)))
 	}
 	if in.Limit > 0 && len(out.Items) > in.Limit {
 		out.Items = out.Items[:in.Limit]
@@ -859,7 +859,7 @@ func supersededBy(ctx context.Context, d Deps, id string) (string, error) {
 }
 
 func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, error) {
-	out := ProposalDetail{Proposal: p.view(), TLDR: p.content.TLDR, Context: p.content.Context, Untrusted: UntrustedNotice,
+	out := ProposalDetail{Proposal: p.view(d.Store.Now().Format(dateLayout)), TLDR: p.content.TLDR, Context: p.content.Context, Untrusted: UntrustedNotice,
 		ReviewCommand: reviewCommand(p.doc.ID), Items: []ItemView{}, Rev: p.doc.Rev, Sections: []model.DossierSection{}, Replies: []SectionReply{}}
 	if dz := p.dossier; dz != nil {
 		out.Dossier, out.Markdown, out.Response = true, p.doc.Body, dz.Header.Response
@@ -904,7 +904,7 @@ func proposalDetail(ctx context.Context, d Deps, p *proposal) (ProposalDetail, e
 			return out, err
 		}
 		v := ItemView{ProposalItem: *it, Hash: hash, Actions: p.actions(it), Summary: sum.of(*it), Change: sum.change(*it), ResultName: sum.resultName(*it),
-			Stack: stackState(*it), BodyFile: bodyFile(ctx, d, *it)}
+			Stack: stackState(*it, d.Store.Now().Format(dateLayout)), BodyFile: bodyFile(ctx, d, *it)}
 		if it.Kind.Outward() {
 			v.GateHash = it.GateHash()
 			if f := fillText(p, it.GateBody()); f != it.GateBody() {

@@ -38,6 +38,7 @@ func paraOwned(it model.ProposalItem) []string {
 	add(it.ClaimedBy != "" || it.LeaseUntil != "", "claimed_by")
 	add(it.Decided != nil, "decided")
 	add(len(it.Thread) > 0, "thread")
+	add(it.DeferUntil != "" || it.DeferredReason != "", "defer_until")
 	return out
 }
 
@@ -45,6 +46,7 @@ func paraOwned(it model.ProposalItem) []string {
 func clearParaOwned(it *model.ProposalItem) {
 	it.Answer, it.State, it.Execution, it.Rev, it.Reason, it.Edited = nil, "", nil, 0, "", false
 	it.ApprovedHash, it.Result, it.Waits, it.ClaimedBy, it.LeaseUntil, it.Decided, it.Thread = "", "", false, "", "", nil, nil
+	it.DeferUntil, it.DeferredReason = "", ""
 }
 
 // checkBlockItem checks one agent-written item beyond the grammar: an op item
@@ -281,11 +283,13 @@ func mergeRevision(p *proposal, next *model.Dossier, rev int) error {
 }
 
 // carryTags keeps the tags of the item before a revision when the agent's
-// new block names none: tag_add tags stay through a revision.
+// new block names none: tag_add tags stay through a revision. A deferral is
+// para's and always stays.
 func carryTags(it *model.ProposalItem, old model.ProposalItem) {
 	if len(it.Tags) == 0 {
 		it.Tags = old.Tags
 	}
+	it.DeferUntil, it.DeferredReason = old.DeferUntil, old.DeferredReason
 }
 
 func keepParaOwned(it *model.ProposalItem, old model.ProposalItem) {
@@ -375,7 +379,7 @@ var ProposalResponse = defineRead("proposal_response", "Read the owner's respons
 	}
 	now := d.Store.Now()
 	for _, it := range p.content.Items {
-		ri := ResponseItem{ID: it.ID, Kind: it.Kind, State: it.State, Stack: stackState(it), Title: it.Title, For: it.For, Answer: it.Answer,
+		ri := ResponseItem{ID: it.ID, Kind: it.Kind, State: it.State, Stack: stackState(it, now.Format(dateLayout)), Title: it.Title, For: it.For, Answer: it.Answer,
 			Submitted: submitted && it.Answer != nil, Reason: it.Reason, Result: it.Result, Receipts: receipts[it.ID], Execution: it.Execution,
 			ClaimedBy: it.ClaimedBy}
 		for _, t := range it.Thread {

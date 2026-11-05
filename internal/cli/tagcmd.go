@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"fmt"
 	"io"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -43,14 +41,9 @@ func tagWriteCmd(l *loader, op *ops.Op[ops.TagInput, ops.TagOutput], verb string
 		},
 		Bind: func(args []string, in *ops.TagInput) error {
 			in.Tags = args
-			for _, s := range items {
-				p, it, ok := strings.Cut(s, "#")
-				if !ok || p == "" || it == "" {
-					return fmt.Errorf("--item %q: want <proposal>#<item>", s)
-				}
-				in.Items = append(in.Items, ops.ItemRef{Proposal: p, Item: it})
-			}
-			return nil
+			var err error
+			in.Items, err = itemRefs(items)
+			return err
 		},
 		Text: func(w io.Writer, out ops.TagOutput) error {
 			p := &printer{w: w}

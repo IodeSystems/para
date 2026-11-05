@@ -293,8 +293,12 @@ func vaultQuestionRows(ctx context.Context, d Deps) ([]StackRow, error) {
 		if err != nil {
 			continue
 		}
-		if q.Status != model.QuestionOpen || deferred[doc.ID].any() {
+		if q.Status != model.QuestionOpen {
 			continue
+		}
+		stack := StackProposed
+		if deferred[doc.ID].any() {
+			stack = StackLater
 		}
 		state := model.ItemPending
 		switch q.ReviewState {
@@ -303,7 +307,7 @@ func vaultQuestionRows(ctx context.Context, d Deps) ([]StackRow, error) {
 		case string(model.ItemSentBack):
 			state = model.ItemSentBack
 		}
-		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: StackProposed,
+		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: stack, DeferUntil: q.DeferUntil,
 			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
 			Tags: normTags(q.Tags)})
 	}

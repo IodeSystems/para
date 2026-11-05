@@ -20,6 +20,8 @@ import (
 //	failed:    failed, halted
 //	closed:    denied (listed, with the owner's reason), withdrawn (listed
 //	           only when asked)
+//	later:     waits for the owner, put off until a date or someday (listed
+//	           only when asked); it returns to proposed on its date
 const (
 	StackProposed  = "proposed"
 	StackDecided   = "decided"
@@ -27,15 +29,19 @@ const (
 	StackDone      = "done"
 	StackFailed    = "failed"
 	StackClosed    = "closed"
+	StackLater     = "later"
 )
 
 // StackStates lists every stack state, in order.
-var StackStates = []string{StackProposed, StackDecided, StackExecuting, StackDone, StackFailed, StackClosed}
+var StackStates = []string{StackProposed, StackLater, StackDecided, StackExecuting, StackDone, StackFailed, StackClosed}
 
-// stackState is the stack state of an item.
-func stackState(it model.ProposalItem) string {
+// stackState is the stack state of an item on the date today.
+func stackState(it model.ProposalItem, today string) string {
 	switch it.State {
 	case model.ItemPending, model.ItemHeld, model.ItemSentBack, model.ItemSkipped:
+		if it.Deferred(today) {
+			return StackLater
+		}
 		return StackProposed
 	case model.ItemApproved:
 		if it.Kind.Outward() || it.Waits {
@@ -75,6 +81,8 @@ type StackRow struct {
 	Receipt   string          `json:"receipt,omitempty"` // the receipt of an outward result
 	Result    string          `json:"result,omitempty"`  // what a vault change made
 	Reason    string          `json:"reason,omitempty"`
+	// DeferUntil is the date a later item returns, or someday.
+	DeferUntil string `json:"defer_until,omitempty"`
 	// Tags are the item's topics: its own and its dossier's.
 	Tags []string `json:"tags,omitempty"`
 	// Question is set on a row that is an open vault question, not a dossier
@@ -128,7 +136,7 @@ const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question that is not put off (question set, proposal empty), with its stack state (proposed, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -148,6 +156,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 		start = n
 	}
 	tag := normTag(in.Tag)
+	today := d.Store.Now().Format(dateLayout)
 	all, err := allProposals(ctx, d)
 	if err != nil {
 		return ProposalStackOutput{}, err
@@ -173,7 +182,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			if tag != "" && !slices.Contains(tags, tag) {
 				continue
 			}
-			st := stackState(it)
+			st := stackState(it, today)
 			counts[st]++
 			if it.Group != "" && st != StackClosed {
 				g, ok := groups[it.Group]
@@ -190,12 +199,15 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 					g.Proposed++
 				}
 			}
-			if in.State == "" && st == StackClosed && it.State != model.ItemDenied || in.State != "" && st != in.State {
+			if in.State == "" && (st == StackClosed && it.State != model.ItemDenied || st == StackLater) || in.State != "" && st != in.State {
 				continue
 			}
 			row := StackRow{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Kind: it.Kind, State: it.State, Stack: st, Group: it.Group,
 				Bundle: it.Bundle, Actor: p.meta.ProposedBy, Summary: firstOf(it.Title, sum.of(it)), Drafted: !it.Answer.Empty() && st == StackProposed,
 				ClaimedBy: it.ClaimedBy, Result: it.Result, Reason: it.Reason, Tags: tags}
+			if st == StackLater {
+				row.DeferUntil = it.DeferUntil
+			}
 			if it.Execution != nil {
 				row.URL, row.Receipt = firstOf(it.Execution.URL, it.Execution.Locator), it.Execution.Receipt
 			}
@@ -215,7 +227,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 				continue
 			}
 			counts[r.Stack]++
-			if in.State == "" || in.State == r.Stack {
+			if in.State == "" && r.Stack != StackLater || in.State == r.Stack {
 				rows = append(rows, r)
 			}
 		}

@@ -271,13 +271,15 @@ type IOItem struct {
 	Verify    string            `json:"verify,omitempty"` // how the owner finds a message with via and no ref
 	// Unverifiable: an incoming message of a medium with permalinks that has
 	// no ref and no via with verify; the owner cannot check it.
-	Unverifiable bool            `json:"unverifiable,omitempty"`
-	Expects      model.IOExpects `json:"expects,omitempty"`
-	Route        string          `json:"route,omitempty"`
-	Became       string          `json:"became,omitempty"` // id
-	Thread       string          `json:"thread,omitempty"` // id
-	Reason       string          `json:"reason,omitempty"`
-	Created      model.Date      `json:"created"`
+	Unverifiable bool `json:"unverifiable,omitempty"`
+	// DeferUntil: the item is put off until this date, or someday.
+	DeferUntil string          `json:"defer_until,omitempty"`
+	Expects    model.IOExpects `json:"expects,omitempty"`
+	Route      string          `json:"route,omitempty"`
+	Became     string          `json:"became,omitempty"` // id
+	Thread     string          `json:"thread,omitempty"` // id
+	Reason     string          `json:"reason,omitempty"`
+	Created    model.Date      `json:"created"`
 	// Legacy marks a type inbox capture that upgrade step io-folder has not
 	// moved yet. It reads as unread incoming; file it after the upgrade.
 	Legacy bool         `json:"legacy,omitempty"`
@@ -288,7 +290,7 @@ func ioItem(doc model.Document, m *model.IO) IOItem {
 	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From, Effort: m.Effort,
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
 		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created,
-		Verify: m.Verify, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable()}
+		Verify: m.Verify, DeferUntil: m.DeferUntil, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable()}
 }
 
 // IOCounts counts open items: the inbox and the outbox.

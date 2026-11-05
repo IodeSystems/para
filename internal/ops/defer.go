@@ -12,7 +12,9 @@ import (
 	"github.com/iodesystems/para/internal/store"
 )
 
-// Later: a person puts a question, a task, or a goal off. It keeps its place in
+// Later: a person puts a question, a task, a goal, an io item, or a dossier
+// item that waits for them off. A dossier item and an io item return on their
+// date only; the others may also wait on an item. It keeps its place in
 // the dependency graph, so it still blocks what depends on it, and it comes
 // back on its date in local time. An agent's defer is held for review unless
 // it carries the owner's words (owner_said), so an agent cannot hide work.
@@ -26,6 +28,8 @@ func deferralOf(m model.Meta) *model.Deferral {
 	case *model.Question:
 		return &x.Deferral
 	case *model.Project:
+		return &x.Deferral
+	case *model.IO:
 		return &x.Deferral
 	}
 	return nil
@@ -45,9 +49,17 @@ func addDepends(ctx context.Context, d Deps, doc model.Document, dep string) err
 
 // DeferInput is the input of defer. Give ids, scope, or both.
 type DeferInput struct {
-	IDs    []string `json:"ids,omitempty"`    // questions, tasks, or goals to put off
-	Until  string   `json:"until,omitempty"`  // YYYY-MM-DD; empty means someday
-	Reason string   `json:"reason,omitempty"` // why it can wait
+	// IDs are questions, tasks, goals, or io items to put off; a dossier's id
+	// puts off every item of it that waits for the owner.
+	IDs []string `json:"ids,omitempty"`
+	// Items are dossier items that wait for the owner.
+	Items []ItemRef `json:"items,omitempty"`
+	// Tag is a topic: every open tagged question, task, goal, and io item,
+	// and every tagged dossier item (or item of a tagged dossier) that waits
+	// for the owner.
+	Tag    string `json:"tag,omitempty"`
+	Until  string `json:"until,omitempty"`  // YYYY-MM-DD; empty means someday
+	Reason string `json:"reason,omitempty"` // why it can wait
 	// Scope is a goal or an area: every open question in it that blocks nothing
 	// and has no proposed answer is put off.
 	Scope string `json:"scope,omitempty"`
@@ -65,7 +77,7 @@ type DeferInput struct {
 
 // DeferOutput is the output of defer and undefer.
 type DeferOutput struct {
-	Changed []string `json:"changed"` // ids that changed
+	Changed []string `json:"changed"` // ids, and proposal#item for dossier items, that changed
 	Skipped []string `json:"skipped"` // ids left as they were, with the reason after a colon
 	Until   string   `json:"until,omitempty"`
 	// After is the id the items wait on; Created is the task made for When.
@@ -103,7 +115,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 	}
 	df := deferralOf(doc.Meta)
 	if df == nil {
-		return false, "", fmt.Errorf("%s is a %s: only a question, a task, or a goal can be put off", doc.ID, doc.Meta.Header().Type)
+		return false, "", fmt.Errorf("%s is a %s: only a question, a task, a goal, an io item, or a dossier item can be put off", doc.ID, doc.Meta.Header().Type)
 	}
 	switch m := doc.Meta.(type) {
 	case *model.Task:
@@ -118,6 +130,10 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 		if m.Status == model.ProjectDone || m.Status == model.ProjectDropped {
 			return false, doc.ID + ": already " + string(m.Status), nil
 		}
+	case *model.IO:
+		if !m.State.Open() {
+			return false, doc.ID + ": already " + string(m.State), nil
+		}
 	}
 	if clear {
 		if df.DeferUntil == "" && len(df.DeferredAfter) == 0 {
@@ -130,7 +146,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 		if after != "" {
 			dl := dependsOf(doc.Meta)
 			if dl == nil {
-				return false, "", fmt.Errorf("%s is a goal: a goal cannot wait on an item, put it off with a date", doc.ID)
+				return false, "", fmt.Errorf("%s is a %s: it cannot wait on an item, put it off with a date", doc.ID, doc.Meta.Header().Type)
 			}
 			dep, err := d.Store.Get(ctx, after)
 			if err != nil {
@@ -165,7 +181,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off until a date, or someday with no date; they leave the agenda and next but still block what depends on them. With scope, put off every open question in a goal or area that blocks nothing. "+
+var Defer = withProposalReceipts(withGateRule(define("defer", "Put questions, tasks, goals, io items, or dossier items off until a date, or someday with no date; they leave the agenda, next, the order, and the review stack (state later) but still block what depends on them, and return on their date. ids may name a dossier (its items that wait for the owner); items name dossier items {proposal, item}; tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed. "+
 	"Gate: an agent's defer is held for review unless the call carries owner_said (the owner's words in this session)", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
@@ -173,8 +189,8 @@ var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off unt
 	if after != "" && when != "" {
 		return DeferOutput{}, errors.New("give after or when, not both")
 	}
-	if (after != "" || when != "") && strings.TrimSpace(in.Scope) != "" {
-		return DeferOutput{}, errors.New("after and when apply to ids, not to a scope")
+	if (after != "" || when != "") && (strings.TrimSpace(in.Scope) != "" || len(in.Items) > 0 || strings.TrimSpace(in.Tag) != "") {
+		return DeferOutput{}, errors.New("after and when apply to ids, not to a scope, items, or a tag")
 	}
 	switch {
 	case until == "" && (after != "" || when != ""):
@@ -195,7 +211,15 @@ var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off unt
 	if err := lintText("reason", reason); err != nil {
 		return DeferOutput{}, err
 	}
-	ids := slices.Clone(in.IDs)
+	ids, items, skipped, err := deferTargets(ctx, d, in.IDs, in.Items, in.Tag, false)
+	if err != nil {
+		return DeferOutput{}, err
+	}
+	if after != "" || when != "" {
+		if len(items) > 0 {
+			return DeferOutput{}, errors.New("after and when apply to vault items: a dossier item returns on a date")
+		}
+	}
 	if scope := normID(in.Scope); scope != "" {
 		sd, err := d.Store.Get(ctx, scope)
 		if err != nil {
@@ -219,10 +243,13 @@ var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off unt
 			}
 		}
 	}
-	if len(ids) == 0 {
-		return DeferOutput{}, errors.New("nothing to put off: give ids or a scope with open questions that block nothing")
+	if len(ids) == 0 && len(items) == 0 {
+		if len(skipped) > 0 {
+			return DeferOutput{Changed: []string{}, Skipped: skipped, Until: until}, nil
+		}
+		return DeferOutput{}, errors.New("nothing to put off: give ids, items, a tag, or a scope with open questions that block nothing")
 	}
-	out := DeferOutput{Changed: []string{}, Skipped: []string{}, Until: until}
+	out := DeferOutput{Changed: []string{}, Skipped: skipped, Until: until}
 	if when != "" {
 		if err := lintText("when", when); err != nil {
 			return DeferOutput{}, err
@@ -250,21 +277,30 @@ var Defer = withGateRule(define("defer", "Put questions, tasks, or goals off unt
 			out.Skipped = append(out.Skipped, skip)
 		}
 	}
+	if err := deferItems(ctx, d, items, until, reason, &out); err != nil {
+		return out, err
+	}
 	return out, nil
-}), deferGate)
+}), deferGate))
 
 // UndeferInput is the input of undefer.
 type UndeferInput struct {
-	IDs []string `json:"ids"`
+	IDs   []string  `json:"ids,omitempty"`   // a dossier's id brings back every item of it put off
+	Items []ItemRef `json:"items,omitempty"` // dossier items
+	Tag   string    `json:"tag,omitempty"`   // a topic: every tagged item put off
 }
 
 // Undefer brings put-off items back.
-var Undefer = definePerson("undefer", "Bring questions, tasks, or goals that were put off back to Today", func(ctx context.Context, d Deps, in UndeferInput) (DeferOutput, error) {
-	if len(in.IDs) == 0 {
-		return DeferOutput{}, errors.New("ids is empty")
+var Undefer = withProposalReceipts(definePerson("undefer", "Bring questions, tasks, goals, io items, or dossier items that were put off back now: ids (a dossier's id: its items), items, or a tag", func(ctx context.Context, d Deps, in UndeferInput) (DeferOutput, error) {
+	if len(in.IDs) == 0 && len(in.Items) == 0 && strings.TrimSpace(in.Tag) == "" {
+		return DeferOutput{}, errors.New("nothing to bring back: give ids, items, or a tag")
 	}
-	out := DeferOutput{Changed: []string{}, Skipped: []string{}}
-	for _, id := range in.IDs {
+	ids, items, skipped, err := deferTargets(ctx, d, in.IDs, in.Items, in.Tag, true)
+	if err != nil {
+		return DeferOutput{}, err
+	}
+	out := DeferOutput{Changed: []string{}, Skipped: skipped}
+	for _, id := range ids {
 		if id = normID(id); id == "" {
 			continue
 		}
@@ -278,8 +314,11 @@ var Undefer = definePerson("undefer", "Bring questions, tasks, or goals that wer
 			out.Skipped = append(out.Skipped, skip)
 		}
 	}
+	if err := deferItems(ctx, d, items, "", "", &out); err != nil {
+		return out, err
+	}
 	return out, nil
-})
+}))
 
 // deferHold says why an item is under Later, or that it has just become ready.
 type deferHold struct {
@@ -347,7 +386,7 @@ func deferredSet(ctx context.Context, s store.Store, today string) (map[string]d
 	scope := map[string]string{}
 	for _, r := range refs {
 		switch r.Type {
-		case model.TypeTask, model.TypeQuestion, model.TypeProject:
+		case model.TypeTask, model.TypeQuestion, model.TypeProject, model.TypeIO:
 		default:
 			continue
 		}
@@ -481,4 +520,170 @@ func deferGate(_ DeferInput, m WriteMeta) (gateVerdict, string) {
 		return gatePass, ""
 	}
 	return gateStage, "owner_said"
+}
+
+// deferrable lists the vault types defer puts off by id.
+var deferrable = []model.Type{model.TypeTask, model.TypeQuestion, model.TypeProject, model.TypeIO}
+
+// deferTargets splits what defer or undefer names into vault ids and dossier
+// items: a dossier's id becomes its items, and a tag becomes every tagged
+// open vault item and every tagged dossier item. For undefer (clear) only
+// items now put off are taken. Skipped says why a named item was left.
+func deferTargets(ctx context.Context, d Deps, ids []string, refs []ItemRef, tag string, clear bool) ([]string, []ItemRef, []string, error) {
+	var vault, skipped []string
+	items := slices.Clone(refs)
+	today := d.Store.Now().Format(dateLayout)
+	take := func(p *proposal, it model.ProposalItem, named bool) {
+		switch {
+		case clear && it.DeferUntil == "":
+			if named {
+				skipped = append(skipped, ItemRef{Proposal: p.doc.ID, Item: it.ID}.String()+": not put off")
+			}
+		case !clear && !answerable(it.State):
+			if named {
+				skipped = append(skipped, ItemRef{Proposal: p.doc.ID, Item: it.ID}.String()+": already "+string(it.State)+", only an item that waits for the owner is put off")
+			}
+		default:
+			items = append(items, ItemRef{Proposal: p.doc.ID, Item: it.ID})
+		}
+	}
+	for _, id := range ids {
+		id = normID(id)
+		if id == "" {
+			continue
+		}
+		doc, err := d.Store.Get(ctx, id)
+		if err != nil {
+			return nil, nil, nil, linkErr("id", id, err)
+		}
+		if _, ok := doc.Meta.(*model.Proposal); !ok {
+			vault = append(vault, id)
+			continue
+		}
+		p, err := readProposal(ctx, d, id)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if p.dossier == nil || p.broken != nil {
+			return nil, nil, nil, fmt.Errorf("%s is not a readable dossier: only dossier items are put off", id)
+		}
+		// Defer says why each decided item stays; undefer names only what it brings back.
+		for _, it := range p.content.Items {
+			if it.State != model.ItemWithdrawn {
+				take(p, it, !clear)
+			}
+		}
+	}
+	if tag = normTag(tag); tag != "" {
+		refs, err := d.Store.List(ctx, store.Filter{})
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for _, r := range refs {
+			if r.Type == model.TypeProposal || r.Type == model.TypeReceipt {
+				continue
+			}
+			doc, err := d.Store.Get(ctx, r.ID)
+			if err != nil || !slices.Contains(normTags(doc.Meta.Header().Tags), tag) {
+				continue
+			}
+			df := deferralOf(doc.Meta)
+			switch {
+			case !slices.Contains(deferrable, r.Type) || df == nil:
+				skipped = append(skipped, doc.ID+": a "+string(r.Type)+" is not put off")
+			case !openDoc(doc):
+			case clear && df.DeferUntil == "" && len(df.DeferredAfter) == 0:
+			case !clear && df.IsDeferred(today):
+			default:
+				vault = append(vault, doc.ID)
+			}
+		}
+		all, err := allProposals(ctx, d)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for _, p := range all {
+			if p.meta.Status == model.ProposalSuperseded || p.broken != nil || p.dossier == nil {
+				continue
+			}
+			for _, it := range p.content.Items {
+				if slices.Contains(normTags(model.ItemTags(p.meta.Tags, it)), tag) && (clear || !it.Deferred(today)) {
+					take(p, it, false)
+				}
+			}
+		}
+	}
+	return vault, items, skipped, nil
+}
+
+// deferItems puts dossier items off until until, or brings them back when
+// until is empty. Each dossier is one write; an item that does not wait for
+// the owner is skipped with the reason.
+func deferItems(ctx context.Context, d Deps, refs []ItemRef, until, reason string, out *DeferOutput) error {
+	byProp := map[string][]string{}
+	var props []string
+	seen := map[string]bool{}
+	for _, r := range refs {
+		p := normID(r.Proposal)
+		if p == "" || r.Item == "" {
+			return errors.New("an item needs proposal and item")
+		}
+		key := ItemRef{Proposal: p, Item: r.Item}.String()
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		if _, ok := byProp[p]; !ok {
+			props = append(props, p)
+		}
+		byProp[p] = append(byProp[p], r.Item)
+	}
+	for _, id := range props {
+		var changed, skipped []string
+		p, err := changeProposal(ctx, d, id, func(p *proposal) error {
+			changed, skipped = nil, nil
+			if p.dossier == nil {
+				return fmt.Errorf("%s is not a dossier: only dossier items are put off", p.doc.ID)
+			}
+			for _, item := range byProp[id] {
+				it, err := p.item(item)
+				if err != nil {
+					return err
+				}
+				ref := ItemRef{Proposal: p.doc.ID, Item: item}.String()
+				switch {
+				case until == "" && it.DeferUntil == "":
+					skipped = append(skipped, ref+": not put off")
+					continue
+				case until != "" && !answerable(it.State):
+					skipped = append(skipped, ref+": already "+string(it.State)+", only an item that waits for the owner is put off")
+					continue
+				}
+				it.DeferUntil, it.DeferredReason = until, reason
+				changed = append(changed, ref)
+			}
+			if len(changed) == 0 {
+				return errNoChange
+			}
+			return nil
+		})
+		if err != nil && !errors.Is(err, errNoChange) {
+			return err
+		}
+		if p != nil {
+			for _, ref := range changed {
+				_, item, _ := strings.Cut(ref, "#")
+				op := "proposal_defer"
+				if until == "" {
+					op = "proposal_undefer"
+				}
+				if err := d.Store.Record(ctx, op, p.doc.ID, item, "", ""); err != nil {
+					return err
+				}
+			}
+		}
+		out.Changed = append(out.Changed, changed...)
+		out.Skipped = append(out.Skipped, skipped...)
+	}
+	return nil
 }
