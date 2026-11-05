@@ -264,6 +264,8 @@ try {
       person,
       '--medium',
       'email',
+      '--ref',
+      'https://mail.example/m/quota-1',
       'Seed: ask platform about the quota',
       '--json',
     ),
@@ -363,7 +365,7 @@ try {
         pros: [{ text: 'Sam owns the quota', source: 'https://example.com/owners' }],
         confidence: 80,
         confidence_basis: 'Sam answered quota asks before',
-        evidence: { quote: 'Staging uses 80 percent', locator: 'note body' },
+        evidence: { quote: 'Staging uses 80 percent', locator: 'https://acme.example/notes/quota' },
       },
       {
         kind: 'para',
@@ -372,7 +374,7 @@ try {
         how: 'Adds a task under Launch.',
         impact: 'The follow-up shows on the Agenda.',
         reversible: 'yes',
-        evidence: { quote: 'Staging uses 80 percent', locator: 'note body' },
+        evidence: { quote: 'Staging uses 80 percent', locator: 'https://acme.example/notes/quota' },
       },
     ],
   })
@@ -695,7 +697,7 @@ try {
       '```yaml para-message id=m1',
       'people: [ada@acme.example]',
       'body: Hi Ada.',
-      'evidence: {quote: q, locator: l}',
+      'evidence: {quote: q, locator: https://acme.example/l}',
       '```',
       '',
     ].join('\n'),
@@ -769,6 +771,13 @@ try {
   // Submit: the answers become decisions.
   await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
   await rpage.getByText('Submitted.', { exact: false }).waitFor()
+  // What the owner decided leaves the dossier view; Show all items brings it back.
+  await rpage.locator('[data-item="m1"]').waitFor({ state: 'detached' })
+  check(
+    (await rpage.locator('[data-item="q1"]').count()) === 0,
+    'after submit the decided items leave the dossier view',
+  )
+  await rpage.getByRole('button', { name: 'Show all items' }).click()
   await rpage.locator('[data-item="m1"][data-stack="decided"]').waitFor()
   check(
     (await rpage.locator('[data-item="q1"][data-stack="decided"]').count()) === 1,
@@ -959,7 +968,7 @@ try {
   })
   const planFile = vaultPath(join(work, 'vault'), plan.id)
   check(planFile !== '', 'the seeded note has a file in the vault')
-  const ev = 'evidence: {quote: "Rooms are short.", locator: "note line 1"}'
+  const ev = 'evidence: {quote: "Rooms are short.", locator: "https://acme.example/rooms"}'
   const action = (id, what, extra = []) => [
     `\`\`\`yaml para-action id=${id}`,
     `what: ${what}`,
@@ -1040,6 +1049,9 @@ try {
   await rpage.locator('[data-save="saved"]').waitFor()
   await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
   await rpage.getByText('Submitted.', { exact: false }).waitFor()
+  // Decided items leave the dossier view; Show all items brings them back.
+  await rpage.locator('[data-item="a1"]').waitFor({ state: 'detached' })
+  await rpage.getByRole('button', { name: 'Show all items' }).click()
   await rpage.locator('[data-item="a1"][data-state="denied"]').waitFor()
   check(
     (await rcard('a1').getByText('Room 1 is closed.').count()) > 0,
@@ -1047,6 +1059,12 @@ try {
   )
   await rpage.reload()
   await rcard('a2').waitFor()
+  check(
+    (await rpage.locator('[data-item="a3"]').count()) === 0,
+    'an item sent to an agent is not in the default dossier view',
+  )
+  await rpage.getByRole('button', { name: 'Show all items' }).click()
+  await rcard('a3').waitFor()
   check(
     (await rpage
       .locator('[data-item="a2"][data-state="skipped"] [data-review="skipped"]')
