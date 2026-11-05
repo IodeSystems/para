@@ -137,9 +137,9 @@ func editLinks(ctx context.Context, d Deps, kind model.Type, id string, fn func(
 // The link ops. Each kind shares one implementation.
 var (
 	AreaLinkAdd       = defineSafe("area_link_add", "Point an area at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeArea))
-	AreaLinkRemove    = define("area_link_remove", "Remove a link from an area by label", linkRemove(model.TypeArea))
+	AreaLinkRemove    = defineSafe("area_link_remove", "Remove a link from an area by label", linkRemove(model.TypeArea))
 	ProjectLinkAdd    = defineSafe("project_link_add", "Point a project at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeProject))
-	ProjectLinkRemove = define("project_link_remove", "Remove a link from a project by label", linkRemove(model.TypeProject))
+	ProjectLinkRemove = defineSafe("project_link_remove", "Remove a link from a project by label", linkRemove(model.TypeProject))
 )
 
 // WhereInput is the input of where.

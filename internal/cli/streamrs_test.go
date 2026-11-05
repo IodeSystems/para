@@ -101,3 +101,29 @@ func TestGateStagesCLIAgentWrites(t *testing.T) {
 		t.Fatalf("applied = %+v", added)
 	}
 }
+
+// TestGateLinkRemoveRated: an agent's link remove is rated by --minor and
+// --obvious like any safe op; unrated it is staged.
+func TestGateLinkRemoveRated(t *testing.T) {
+	e := newEnv(t)
+	path := e.init("acme")
+	props := filepath.Join(path, ".para", "vault.properties")
+	if err := os.WriteFile(props, []byte(strings.ReplaceAll(readFile(t, props), "gate.require=none\n", "")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var area ops.AreaAddOutput
+	e.json(&area, "area", "add", "Synthetic Area")
+	for _, label := range []string{"One", "Two"} {
+		e.ok("area", "link", "add", area.ID, label, "--kind", "repo", "--target", "https://example.invalid/"+label)
+	}
+	var staged ops.Staged
+	e.json(&staged, "--actor", "claude", "--why", "Stale link.", "area", "link", "remove", area.ID, "One")
+	if !staged.Staged || staged.Op != "area_link_remove" {
+		t.Fatalf("unrated = %+v", staged)
+	}
+	var out ops.LinkOutput
+	e.json(&out, "--actor", "claude", "--why", "Stale link.", "--minor", "--obvious", "area", "link", "remove", area.ID, "One")
+	if len(out.Links) != 1 || out.Links[0].Label != "Two" {
+		t.Fatalf("rated = %+v", out)
+	}
+}

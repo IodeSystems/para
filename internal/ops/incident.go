@@ -358,5 +358,5 @@ func saveIncident(ctx context.Context, d Deps, doc model.Document, m *model.Inci
 // The link ops of an incident share the area and project implementation.
 var (
 	IncidentLinkAdd    = defineSafe("incident_link_add", "Point an incident at a dashboard, runbook, or ticket that lives elsewhere", linkAdd(model.TypeIncident))
-	IncidentLinkRemove = define("incident_link_remove", "Remove a link from an incident by label", linkRemove(model.TypeIncident))
+	IncidentLinkRemove = defineSafe("incident_link_remove", "Remove a link from an incident by label", linkRemove(model.TypeIncident))
 )
