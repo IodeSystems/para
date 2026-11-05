@@ -13,6 +13,7 @@ import { localDate } from '@/api/today'
 import { stackReturn, useStackLater } from '@/api/proposals'
 import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
+import { DoItTask } from '@/components/DoIt'
 import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
 import { useToasts } from '@/components/ToastStack'
@@ -20,9 +21,6 @@ import { agendaActions, openTarget } from '@/lib/agenda'
 import { notesWithEntry } from '@/lib/composer'
 import { prefersReducedMotion } from '@/lib/toasts'
 import { failText, toastText, whyNoUndo } from '@/lib/stackToast'
-
-// TODO(DoIt): show the "Do it" part (link, command, steps) of a task here once
-// ui/src/components/DoIt.tsx is on main.
 
 type Row = { id: string; title: string; kind?: string | null }
 
@@ -112,6 +110,7 @@ export function AgendaRow({
   const later = useStackLater()
   const [gone, setGone] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [how, setHow] = useState(false)
   const name = x.title || x.id
   const acts = agendaActions(x.kind)
   const decide = canDecide(session)
@@ -168,6 +167,11 @@ export function AgendaRow({
         </Button>
       )}
       {decide && acts.later && <LaterButton disabled={busy} onLater={(u) => void putOff(u)} />}
+      {acts.done === 'task' && (
+        <Button size="small" data-act="how" aria-expanded={how} onClick={() => setHow((v) => !v)}>
+          How
+        </Button>
+      )}
       <OpenButton x={x} />
     </Stack>
   )
@@ -180,6 +184,7 @@ export function AgendaRow({
       data-agenda-row={x.id}
     >
       {children(actions)}
+      {how && <DoItTask id={x.id} />}
     </Collapse>
   )
 }
