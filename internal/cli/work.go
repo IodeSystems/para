@@ -230,7 +230,16 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.BoolVar(&in.Deferred, "deferred", false, "include the tasks put off with defer (Later); they are marked")
 				fs.StringVar((*string)(&in.Outcome), "outcome", "", "only closed tasks with this outcome, such as failed")
 			},
-			Text: func(w io.Writer, out ops.TaskListOutput) error { return writeTasks(w, out.Tasks) },
+			Text: func(w io.Writer, out ops.TaskListOutput) error {
+				if err := writeTasks(w, out.Tasks); err != nil {
+					return err
+				}
+				if out.DeferredHidden > 0 {
+					_, err := fmt.Fprintf(w, "%d shown; %d put off with defer (Later) not shown, use --deferred\n", len(out.Tasks), out.DeferredHidden)
+					return err
+				}
+				return nil
+			},
 		}),
 		opCommand(l, ops.TaskShow, binding[ops.TaskShowInput, ops.TaskShowOutput]{
 			Use:  "show <id>",

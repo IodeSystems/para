@@ -6868,6 +6868,7 @@ type para_TaskEditOutput {
 }
 
 type para_TaskListOutput {
+  deferredHidden: Int
   tasks: [para_TaskView!]!
 }
 

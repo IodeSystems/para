@@ -369,6 +369,9 @@ type TaskListInput struct {
 // TaskListOutput is the output of task_list.
 type TaskListOutput struct {
 	Tasks []TaskView `json:"tasks"`
+	// DeferredHidden counts the tasks that match the filters but are left out
+	// because a person put them off (Later). Pass deferred to list them.
+	DeferredHidden int `json:"deferred_hidden,omitempty"`
 }
 
 // TaskList lists tasks.
@@ -414,15 +417,20 @@ var TaskList = defineRead("task_list", "List tasks; open: true lists every task 
 	// A blocked task stays listed while it waits for its follow-up date: only
 	// next and the agenda leave it out until then.
 	today := d.Store.Now().Format(dateLayout)
+	hidden := 0
 	tasks = slices.DeleteFunc(tasks, func(t TaskView) bool {
-		return t.Deferred && !in.Deferred && t.Status != model.TaskBlocked
+		drop := t.Deferred && !in.Deferred && t.Status != model.TaskBlocked
+		if drop {
+			hidden++
+		}
+		return drop
 	})
 	for i := range tasks {
 		if t := &tasks[i]; t.Status == model.TaskBlocked && t.DeferUntil != "" && t.DeferUntil != model.SomedayWord && t.DeferUntil > today {
 			t.Returns = t.DeferUntil
 		}
 	}
-	return TaskListOutput{Tasks: tasks}, nil
+	return TaskListOutput{Tasks: tasks, DeferredHidden: hidden}, nil
 })
 
 // TaskShowInput is the input of task_show.
