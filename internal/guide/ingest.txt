@@ -11,8 +11,11 @@ Ingest one thing the owner points at: a document, a thread, a transcript, a tick
    - a date that moved: `task_due` for a task, `project_edit` for a goal, `meeting_schedule` for a meeting, `rfx_nudge` for the follow-up date of an Ask.
    - an unknown that blocks work and that the source does not settle: `question_add`, with one scope.
    - a person the vault lacks: `org_person_add`.
+   - a message that waits on the owner's reply: `io_add` direction in with expects response and effort, so `order` lists it in the reply batch. Check this for every thread you ingest.
 4. A source is required on every write: its quote, and a locator (a URL with an anchor, a file path and line, a message link). No source, no change. A guess is not a source. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
 5. Say in your reply what you read, what you matched, and what you left out and why.
 6. Name the receipts. The owner can undo one with `receipt_undo`.
+
+Do not add a task, question, or proposal to ingest, sweep, or check for replies later: that check is part of this ingest, so do it now.
 
 Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
