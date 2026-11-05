@@ -201,6 +201,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know it is done (optional for you; an agent must give it)")
+				fs.StringVar(&in.DoURL, "do-url", "", "the page where it is done")
+				fs.StringVar(&in.DoCommand, "do-command", "", "the exact command to run (no secret in it)")
+				fs.StringVar(&in.Steps, "steps", "", "1 to 5 steps, a markdown list")
 			},
 			Bind: func(args []string, in *ops.TaskAddInput) error {
 				in.Title = strings.Join(args, " ")
@@ -250,6 +253,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 				t := out.Task
 				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\ndone_when\t%s\n%s\n",
 					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), dash(t.DoneWhen), out.Body)
+				if err == nil && (t.DoURL != "" || t.DoCommand != "" || t.Steps != "") {
+					_, err = fmt.Fprintf(w, "do_url\t%s\ndo_command\t%s\nsteps\t%s\n", dash(t.DoURL), dash(t.DoCommand), dash(t.Steps))
+				}
 				if err == nil && len(out.Questions) > 0 {
 					p := &printer{w: w}
 					p.f("questions\n")
@@ -260,11 +266,15 @@ func newTaskCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.TaskEdit, binding[ops.TaskEditInput, ops.TaskEditOutput]{
-			Use:  "edit <id> [--done-when <text>] [--effort xs|s|m|l]",
+			Use:  "edit <id> [--done-when <text>] [--effort xs|s|m|l] [--do-url <url>] [--do-command <cmd>] [--steps <list>]",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskEditInput) {
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the task is done (one of --done-when and --effort is required)")
 				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
+				fs.StringVar(&in.DoURL, "do-url", "", "the page where it is done")
+				fs.StringVar(&in.DoCommand, "do-command", "", "the exact command to run (no secret in it)")
+				fs.StringVar(&in.Steps, "steps", "", "1 to 5 steps, a markdown list")
+				fs.BoolVar(&in.ClearHow, "clear-how", false, "remove do-url, do-command, and steps")
 			},
 			Bind: func(args []string, in *ops.TaskEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.TaskEditOutput) string { return o.ID }),

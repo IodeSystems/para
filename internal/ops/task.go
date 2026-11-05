@@ -27,6 +27,11 @@ type TaskView struct {
 	Previous string           `json:"previous,omitempty"`  // the task this one recurred from
 	Incident string           `json:"incident,omitempty"`  // the incident this task follows up
 	DoneWhen string           `json:"done_when,omitempty"` // how we know it is done
+	// DoURL, DoCommand, and Steps say how the owner does it: the page, the
+	// exact command, a short markdown list.
+	DoURL     string `json:"do_url,omitempty"`
+	DoCommand string `json:"do_command,omitempty"`
+	Steps     string `json:"steps,omitempty"`
 	// Parent is the task this one is an action item of. The parent does not wait
 	// on it. Items counts this task's open action items; Commitment is true for
 	// a task tagged commitment.
@@ -94,7 +99,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{}, Optional: t.Optional, Attend: t.Attend,
 	}
 	for _, l := range t.DependsOn {
@@ -192,6 +197,12 @@ type TaskAddInput struct {
 	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
 	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
+	// DoURL is the page where the owner does it, DoCommand the exact command
+	// to run (no secret in it), Steps a short markdown list. An agent that
+	// adds a task for the owner gives at least one when it can find out how.
+	DoURL     string `json:"do_url,omitempty"`
+	DoCommand string `json:"do_command,omitempty"`
+	Steps     string `json:"steps,omitempty"`
 	// Effort is about how long it takes the owner: xs (under 15 min), s
 	// (under an hour), m (half a day), l (a day or more). The value order uses it.
 	Effort model.Effort `json:"effort,omitempty"`
@@ -231,7 +242,7 @@ type TaskAddOutput struct {
 
 // TaskAdd creates a todo task in a project, an area, or both. Tasks live in
 // projects/. A dependency may be any task or rfx, in any project or area.
-var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at least one)", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at least one). A task for the owner says how to do it: do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines); prepare drafts, config, and the command first. A secret never goes in them: say where the owner pastes it", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return TaskAddOutput{}, errors.New("title is empty")
@@ -246,6 +257,10 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	doneWhen, err := checkDoneWhen(in.DoneWhen, doneWhenNeeded(d))
 	if err != nil {
 		return TaskAddOutput{}, fmt.Errorf("%w (every task an agent writes says how we know it is done)", err)
+	}
+	how, err := checkHow(in.DoURL, in.DoCommand, in.Steps)
+	if err != nil {
+		return TaskAddOutput{}, err
 	}
 	in.Project = normID(in.Project)
 	var parent model.Link
@@ -335,6 +350,9 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			Assignee:  assignee,
 			Incident:  incident,
 			DoneWhen:  doneWhen,
+			DoURL:     how.url,
+			DoCommand: how.command,
+			Steps:     how.steps,
 			DependsOn: deps,
 			Effort:    in.Effort,
 			Kind:      kind,
@@ -351,6 +369,9 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	out := TaskAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
 	if w := recurWarning(in.Recur); w != "" {
 		out.Warnings = append(out.Warnings, w)
+	}
+	if doneWhenNeeded(d) && (kind == "" || kind == model.KindTask) && assignee == "" && how.empty() {
+		out.Warnings = append(out.Warnings, "say how to do it: add do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines) with task_edit "+doc.ID+", and prepare what you can first")
 	}
 	if (kind == "" || kind == model.KindTask) && readsLikeWaiting(doc.Title) {
 		out.Warnings = append(out.Warnings, waitingWarning(doc.ID))
@@ -838,18 +859,56 @@ type TaskEditInput struct {
 	ID       string       `json:"id"`
 	DoneWhen string       `json:"done_when,omitempty"` // how we know the task is done
 	Effort   model.Effort `json:"effort,omitempty"`    // xs, s, m, or l
+	// DoURL, DoCommand, and Steps say how the owner does it. A value replaces
+	// the old one; clear_how removes all three.
+	DoURL     string `json:"do_url,omitempty"`
+	DoCommand string `json:"do_command,omitempty"`
+	Steps     string `json:"steps,omitempty"`
+	ClearHow  bool   `json:"clear_how,omitempty"`
 }
 
 // TaskEditOutput is the output of task_edit.
 type TaskEditOutput struct {
-	ID       string       `json:"id"`
-	DoneWhen string       `json:"done_when"`
-	Effort   model.Effort `json:"effort,omitempty"`
-	Rev      string       `json:"rev"`
+	ID        string       `json:"id"`
+	DoneWhen  string       `json:"done_when"`
+	Effort    model.Effort `json:"effort,omitempty"`
+	DoURL     string       `json:"do_url,omitempty"`
+	DoCommand string       `json:"do_command,omitempty"`
+	Steps     string       `json:"steps,omitempty"`
+	Rev       string       `json:"rev"`
+}
+
+// howFields are the checked do_url, do_command, and steps.
+type howFields struct{ url, command, steps string }
+
+func (h howFields) empty() bool { return h.url == "" && h.command == "" && h.steps == "" }
+
+// checkHow checks how a task is done: do_url an http(s) address, do_command a
+// command of up to 2000 characters (a short block is fine), steps a short
+// markdown list. None may hold a secret: the owner pastes one where the tool asks.
+func checkHow(doURL, command, steps string) (howFields, error) {
+	var h howFields
+	h.url = strings.TrimSpace(doURL)
+	if h.url != "" {
+		if !isWebURL(h.url) || strings.ContainsAny(h.url, " \t\n") {
+			return h, errors.New("do_url: want one http(s) address")
+		}
+	}
+	h.command = strings.TrimSpace(command)
+	h.steps = strings.TrimSpace(steps)
+	for _, f := range []struct{ name, v string }{{"do_command", h.command}, {"steps", h.steps}} {
+		if len([]rune(f.v)) > 2000 {
+			return h, fmt.Errorf("%s is over 2000 characters", f.name)
+		}
+		if err := lintText(f.name, f.v); err != nil {
+			return h, err
+		}
+	}
+	return h, nil
 }
 
 // TaskEdit sets the done condition or the effort of an open task.
-var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), or both. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), how the owner does it (do_url: the page, do_command: the exact command, steps: 1 to 5 lines; no secrets), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), or both. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err
@@ -860,7 +919,24 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if err := checkEffort(in.Effort); err != nil {
 		return TaskEditOutput{}, err
 	}
-	if in.Effort == "" || in.DoneWhen != "" {
+	how, err := checkHow(in.DoURL, in.DoCommand, in.Steps)
+	if err != nil {
+		return TaskEditOutput{}, err
+	}
+	changesHow := !how.empty() || in.ClearHow
+	if in.ClearHow {
+		t.DoURL, t.DoCommand, t.Steps = "", "", ""
+	}
+	if how.url != "" {
+		t.DoURL = how.url
+	}
+	if how.command != "" {
+		t.DoCommand = how.command
+	}
+	if how.steps != "" {
+		t.Steps = how.steps
+	}
+	if (in.Effort == "" && !changesHow) || in.DoneWhen != "" {
 		dw, err := checkDoneWhen(in.DoneWhen, true)
 		if err != nil {
 			return TaskEditOutput{}, err
@@ -874,7 +950,7 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if err != nil {
 		return TaskEditOutput{}, err
 	}
-	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, Rev: saved.Rev}, nil
+	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Rev: saved.Rev}, nil
 })
 
 // markDeferred sets Deferred on open tasks, and drops them unless keep is set.

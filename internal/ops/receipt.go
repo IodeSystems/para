@@ -14,15 +14,18 @@ import (
 
 // ReceiptView is a receipt without its text. DocName is the document's title.
 type ReceiptView struct {
-	ID           string             `json:"id"`
-	Title        string             `json:"title"`
-	Actor        string             `json:"actor"`
-	Op           string             `json:"op"`
-	Doc          string             `json:"doc"`
-	DocName      string             `json:"doc_name,omitempty" nameof:"Doc"`
-	Request      string             `json:"request,omitempty"`
-	Why          string             `json:"why,omitempty"`
-	Sources      []string           `json:"sources,omitempty"`
+	ID      string   `json:"id"`
+	Title   string   `json:"title"`
+	Actor   string   `json:"actor"`
+	Op      string   `json:"op"`
+	Doc     string   `json:"doc"`
+	DocName string   `json:"doc_name,omitempty" nameof:"Doc"`
+	Request string   `json:"request,omitempty"`
+	Why     string   `json:"why,omitempty"`
+	Sources []string `json:"sources,omitempty"`
+	// SourceLinks is Sources resolved for a reader: deduplicated, with an
+	// address where one is known. Sources keeps the stored strings.
+	SourceLinks  []RefLink          `json:"source_links,omitempty"`
 	Verify       string             `json:"verify,omitempty"`
 	Confidence   model.Confidence   `json:"confidence,omitempty"`
 	Check        model.ReceiptCheck `json:"check"`
@@ -85,12 +88,15 @@ func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
 		return nil, err
 	}
 	out := make([]ReceiptView, 0, len(refs))
+	res := newRefResolver(ctx, s)
 	for _, ref := range refs {
 		doc, r, err := getReceipt(ctx, s, ref.ID)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, receiptView(doc, r))
+		v := receiptView(doc, r)
+		v.SourceLinks = res.resolveRefs(r.Sources)
+		out = append(out, v)
 	}
 	slices.SortStableFunc(out, func(a, b ReceiptView) int {
 		if c := strings.Compare(b.At, a.At); c != 0 && a.At != "" && b.At != "" {
@@ -157,7 +163,9 @@ var ReceiptShow = defineRead("receipt_show", "Show a receipt: what changed, why,
 	if err != nil {
 		return ReceiptDetail{}, fmt.Errorf("%s: %w", doc.ID, err)
 	}
-	out := ReceiptDetail{Receipt: receiptView(doc, r), Lines: trimContext(diffLines(c.Before, c.After), 2), Rev: doc.Rev, Also: []string{}}
+	view := receiptView(doc, r)
+	view.SourceLinks = ResolveRefs(ctx, d.Store, r.Sources)
+	out := ReceiptDetail{Receipt: view, Lines: trimContext(diffLines(c.Before, c.After), 2), Rev: doc.Rev, Also: []string{}}
 	for _, p := range c.Also {
 		out.Also = append(out.Also, p.Doc)
 		out.Lines = append(out.Lines, "  ", "  == "+p.Doc+" ==")

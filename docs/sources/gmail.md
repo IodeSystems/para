@@ -4,6 +4,7 @@ created: 2026-11-04
 system: gmail
 status: active
 via: mcp
+ref_url: "https://mail.google.com/mail/u/0/#all/{ref}"
 server: gmail
 tools: [search_threads, get_thread, list_drafts]
 fetch:

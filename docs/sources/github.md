@@ -4,6 +4,7 @@ created: 2026-11-04
 system: github
 status: active
 via: cli
+ref_url: "https://github.com/{ref}"
 fetch:
   command: "gh issue view {url} --json title,body,state,comments"
 scan_in:

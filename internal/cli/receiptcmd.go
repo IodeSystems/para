@@ -43,7 +43,7 @@ func newReceiptCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.ReceiptDetail) error {
 				p := &printer{w: w}
 				r := out.Receipt
-				p.f("%s\t%s\nactor\t%s\nop\t%s\ndoc\t%s\nwhy\t%s\nsources\t%s\nverify\t%s\ncheck\t%s\n", r.ID, r.Title, r.Actor, r.Op, r.Doc, r.Why, strings.Join(r.Sources, ", "), r.Verify, r.Check)
+				p.f("%s\t%s\nactor\t%s\nop\t%s\ndoc\t%s\nwhy\t%s\nsources\t%s\nverify\t%s\ncheck\t%s\n", r.ID, r.Title, r.Actor, r.Op, r.Doc, r.Why, strings.Join(refLines(r), ", "), r.Verify, r.Check)
 				for _, l := range out.Lines {
 					p.f("%s\n", l)
 				}
@@ -116,4 +116,17 @@ func newActivityCmd(l *loader) *cobra.Command {
 			return p.err
 		},
 	})
+}
+
+// refLines prints the sources of a receipt resolved: the address after each
+// ref that has one, repeats dropped. Falls back to the stored strings.
+func refLines(r ops.ReceiptView) []string {
+	if len(r.SourceLinks) == 0 {
+		return r.Sources
+	}
+	out := make([]string, 0, len(r.SourceLinks))
+	for _, l := range r.SourceLinks {
+		out = append(out, l.Line())
+	}
+	return out
 }

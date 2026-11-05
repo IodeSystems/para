@@ -4,6 +4,7 @@ created: 2026-11-04
 system: gdocs
 status: active
 via: mcp
+ref_url: "https://docs.google.com/document/d/{ref}"
 server: google-drive
 tools: [search_files, read_file_content, get_file_metadata]
 fetch:

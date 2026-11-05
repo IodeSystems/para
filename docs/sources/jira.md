@@ -4,6 +4,7 @@ created: 2026-11-04
 system: jira
 status: active
 via: cli
+ref_url: "https://example.atlassian.net/browse/{ref}"
 fetch:
   command: "acli jira workitem view {ref} --json"
 scan_in:

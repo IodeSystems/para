@@ -28,6 +28,7 @@ func newSourceCmd(l *loader) *cobra.Command {
 			fs.StringVar((*string)(&in.System), "system", "", "gmail, gdocs, gcal, slack, github, jira, confluence, folder, or other")
 			fs.StringVar((*string)(&in.Via), "via", "", "mcp, cli, or none (default none)")
 			fs.StringVar(&in.Server, "server", "", "MCP server name (via mcp)")
+			fs.StringVar(&in.RefURL, "ref-url", "", "link template with {ref}, such as https://mail.google.com/mail/u/0/#all/{ref}")
 			fs.StringArrayVar(&in.Tools, "tool", nil, "MCP tool name (via mcp); repeatable")
 			fs.StringVar(&step.fetch, "fetch", "", "fetch step as JSON: {tool, args, command, query, how}")
 			fs.StringVar(&step.scanIn, "scan-in", "", "scan_in step as JSON")

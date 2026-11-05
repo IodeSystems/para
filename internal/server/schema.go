@@ -134,6 +134,10 @@ type Meta struct {
 	Supersedes      string                `json:"supersedes,omitempty"`
 	ProposedBy      string                `json:"proposed_by,omitempty"`
 	DoneWhen        string                `json:"done_when,omitempty"`
+	DoURL           string                `json:"do_url,omitempty"`
+	DoCommand       string                `json:"do_command,omitempty"`
+	Steps           string                `json:"steps,omitempty"`
+	RefURL          string                `json:"ref_url,omitempty"`
 	ProposedAnswer  string                `json:"proposed_answer,omitempty"`
 	ProposedChoice  string                `json:"proposed_choice,omitempty"`
 	ProposedSources *jsonValue            `json:"proposed_sources,omitempty"`

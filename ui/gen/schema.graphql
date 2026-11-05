@@ -3923,6 +3923,8 @@ type para_Meta {
   deferredReason: String
   dependsOn: [String!]
   direction: String
+  doCommand: String
+  doUrl: String
   doc: String
   doneWhen: String
   due: String
@@ -3986,6 +3988,7 @@ type para_Meta {
   recommended: String
   recur: String
   ref: String
+  refUrl: String
   refines: String
   rejectedBy: String
   rejectedReason: String
@@ -4030,6 +4033,7 @@ type para_Meta {
   started: String
   state: JSON
   status: String
+  steps: String
   subject: String
   supersedes: String
   surface: String
@@ -5754,6 +5758,7 @@ type para_ReceiptView {
   ownerSaid: String
   request: String
   selfReported: Boolean
+  sourceLinks: [para_RefLink!]
   sources: [String!]
   surface: String
   title: String!
@@ -5875,6 +5880,12 @@ enum para_RefFolder {
   rfx
   sources
   tracked
+}
+
+type para_RefLink {
+  internal: Boolean
+  text: String!
+  url: String
 }
 
 enum para_RefType {
@@ -6511,6 +6522,7 @@ input para_SourceAddInputInput {
   id: String
   note: String
   reachedBy: [String!]
+  refUrl: String
   scanIn: para_SourceStepInput
   scanOut: para_SourceStepInput
   server: String
@@ -6625,6 +6637,7 @@ type para_SourceRow {
   lastScan: String
   overdue: Boolean!
   reachedBy: [String!]!
+  refUrl: String
   request: String
   server: String
   status: para_SourceRowStatus!
@@ -7046,6 +7059,8 @@ input para_TaskAddInputInput {
   calendarUids: [para_CalendarEventInput!]
   commitment: Boolean
   dependsOn: [String!]
+  doCommand: String
+  doUrl: String
   doneWhen: String
   due: String
   effort: para_TaskAddInputEffort
@@ -7057,6 +7072,7 @@ input para_TaskAddInputInput {
   project: String
   recur: String
   scheduled: String
+  steps: String
   title: String!
   with: [String!]
 }
@@ -7232,16 +7248,23 @@ enum para_TaskEditInputEffort {
 }
 
 input para_TaskEditInputInput {
+  clearHow: Boolean
+  doCommand: String
+  doUrl: String
   doneWhen: String
   effort: para_TaskEditInputEffort
   id: String!
+  steps: String
 }
 
 type para_TaskEditOutput {
+  doCommand: String
+  doUrl: String
   doneWhen: String!
   effort: para_TaskEditOutputEffort
   id: String!
   rev: String!
+  steps: String
 }
 
 enum para_TaskEditOutputEffort {
@@ -7450,6 +7473,8 @@ type para_TaskView {
   deferredReason: String
   dependsOn: [String!]!
   dependsOnNames: [String!]
+  doCommand: String
+  doUrl: String
   doneWhen: String
   due: String
   end: String
@@ -7475,6 +7500,7 @@ type para_TaskView {
   rev: String!
   scheduled: String
   status: para_TaskViewStatus!
+  steps: String
   stuck: Boolean
   title: String!
   waitsOn: [String!]!

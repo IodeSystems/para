@@ -193,7 +193,13 @@ type Task struct {
 	Assignee string `yaml:"assignee,omitempty" json:"assignee,omitempty"`
 	// DoneWhen says how we know the task is done. Optional for a person;
 	// an agent must give it.
-	DoneWhen  string   `yaml:"done_when,omitempty" json:"done_when,omitempty"`
+	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
+	// DoURL is the page where the owner does the task, DoCommand the exact
+	// command to run, Steps a short markdown list. All optional; no secret goes
+	// in them: a step that needs one says where to paste it.
+	DoURL     string   `yaml:"do_url,omitempty" json:"do_url,omitempty"`
+	DoCommand string   `yaml:"do_command,omitempty" json:"do_command,omitempty"`
+	Steps     string   `yaml:"steps,omitempty" json:"steps,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
 	// Outcome says how a closed task ended (task_resolve). The note is under
@@ -641,20 +647,23 @@ var PermalinkMediums = []Medium{MediumEmail, MediumSlack, MediumJira, MediumConf
 // kept on this machine, not in the vault. LastScan and Cursor are what the
 // last sweep recorded: the cursor is opaque text the agent returns.
 type SourceDoc struct {
-	Common    `yaml:",inline"`
-	System    SourceSystem `yaml:"system" json:"system"`
-	Status    SourceStatus `yaml:"status" json:"status"`
-	Via       SourceVia    `yaml:"via" json:"via"`
-	Server    string       `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
-	Tools     []string     `yaml:"tools,omitempty" json:"tools,omitempty"`   // MCP tool names
-	Fetch     *SourceStep  `yaml:"fetch,omitempty" json:"fetch,omitempty"`
-	ScanIn    *SourceStep  `yaml:"scan_in,omitempty" json:"scan_in,omitempty"`
-	ScanOut   *SourceStep  `yaml:"scan_out,omitempty" json:"scan_out,omitempty"`
-	State     *SourceStep  `yaml:"state,omitempty" json:"state,omitempty"`
-	ReachedBy []string     `yaml:"reached_by,omitempty" json:"reached_by,omitempty"`
-	Cadence   string       `yaml:"cadence,omitempty" json:"cadence,omitempty"` // recur grammar
-	LastScan  string       `yaml:"last_scan,omitempty" json:"last_scan,omitempty"`
-	Cursor    string       `yaml:"cursor,omitempty" json:"cursor,omitempty"`
+	Common `yaml:",inline"`
+	System SourceSystem `yaml:"system" json:"system"`
+	Status SourceStatus `yaml:"status" json:"status"`
+	Via    SourceVia    `yaml:"via" json:"via"`
+	Server string       `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
+	// RefURL turns a ref of this source into a link: a template with {ref}.
+	// String templating only; para fetches nothing.
+	RefURL    string      `yaml:"ref_url,omitempty" json:"ref_url,omitempty"`
+	Tools     []string    `yaml:"tools,omitempty" json:"tools,omitempty"` // MCP tool names
+	Fetch     *SourceStep `yaml:"fetch,omitempty" json:"fetch,omitempty"`
+	ScanIn    *SourceStep `yaml:"scan_in,omitempty" json:"scan_in,omitempty"`
+	ScanOut   *SourceStep `yaml:"scan_out,omitempty" json:"scan_out,omitempty"`
+	State     *SourceStep `yaml:"state,omitempty" json:"state,omitempty"`
+	ReachedBy []string    `yaml:"reached_by,omitempty" json:"reached_by,omitempty"`
+	Cadence   string      `yaml:"cadence,omitempty" json:"cadence,omitempty"` // recur grammar
+	LastScan  string      `yaml:"last_scan,omitempty" json:"last_scan,omitempty"`
+	Cursor    string      `yaml:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
 // SourceStep is one thing an agent does on a source. Tool and Args are an

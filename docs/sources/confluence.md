@@ -4,6 +4,7 @@ created: 2026-11-04
 system: confluence
 status: active
 via: cli
+ref_url: "https://example.atlassian.net/wiki/pages/viewpage.action?pageId={ref}"
 fetch:
   command: "acli confluence page view --id {ref} --body-format storage --json"
   how: Convert the body to para-md (no raw HTML) before doc_version_add.

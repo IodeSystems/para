@@ -135,6 +135,7 @@ type SourceRow struct {
 	Status    model.SourceStatus `json:"status"`
 	Via       model.SourceVia    `json:"via"`
 	Server    string             `json:"server,omitempty"`
+	RefURL    string             `json:"ref_url,omitempty"`
 	Cadence   string             `json:"cadence,omitempty"`
 	LastScan  string             `json:"last_scan,omitempty"`
 	ReachedBy []string           `json:"reached_by"`
@@ -327,6 +328,7 @@ type SourceAddInput struct {
 	System    model.SourceSystem `json:"system,omitempty"`
 	Via       model.SourceVia    `json:"via,omitempty"`
 	Server    string             `json:"server,omitempty"`
+	RefURL    string             `json:"ref_url,omitempty"` // link template with {ref}: how a ref of this source opens in a browser
 	Tools     []string           `json:"tools,omitempty"`
 	Fetch     *model.SourceStep  `json:"fetch,omitempty"`
 	ScanIn    *model.SourceStep  `json:"scan_in,omitempty"`
@@ -382,6 +384,12 @@ var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or g
 	}
 	if in.Tools != nil {
 		m.Tools = in.Tools
+	}
+	if u := strings.TrimSpace(in.RefURL); u != "" {
+		if fillRefURL(u, "x") == "" {
+			return SourceAddOutput{}, errors.New("ref_url: want an http(s) address with {ref} in it, such as https://mail.google.com/mail/u/0/#all/{ref}")
+		}
+		m.RefURL = u
 	}
 	for _, p := range []struct {
 		in  *model.SourceStep

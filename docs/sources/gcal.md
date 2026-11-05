@@ -4,6 +4,7 @@ created: 2026-11-04
 system: gcal
 status: active
 via: mcp
+ref_url: "https://calendar.google.com/calendar/u/0/r/eventedit/{ref}"
 server: google-calendar
 tools: [list_events, get_event]
 fetch:

@@ -153,6 +153,9 @@ var typeFields = map[string][]field{
 		{Name: "parent", Kind: kLink}, // the task this is an action item of; not a dependency
 		{Name: "assignee", Kind: kString},
 		{Name: "done_when", Kind: kString},
+		{Name: "do_url", Kind: kString},     // where the owner does it
+		{Name: "do_command", Kind: kString}, // the exact command to run; no secrets
+		{Name: "steps", Kind: kString},      // short markdown list
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
 		{Name: "outcome", Kind: kEnum, Enum: taskOutcome},
@@ -358,6 +361,7 @@ var typeFields = map[string][]field{
 		{Name: "status", Kind: kEnum, Enum: sourceStatuses, Required: true},
 		{Name: "via", Kind: kEnum, Enum: sourceVias, Required: true},
 		{Name: "server", Kind: kString},
+		{Name: "ref_url", Kind: kString}, // link template with {ref}
 		{Name: "tools", Kind: kList},
 		{Name: "fetch", Kind: kMap}, // steps: Lint source
 		{Name: "scan_in", Kind: kMap},
