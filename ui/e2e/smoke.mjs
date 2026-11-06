@@ -1066,10 +1066,8 @@ try {
   await rpage.getByRole('button', { name: 'Show all items' }).click()
   await rcard('a3').waitFor()
   check(
-    (await rpage
-      .locator('[data-item="a2"][data-state="skipped"] [data-review="skipped"]')
-      .count()) === 1,
-    'after reload the skipped item is still skipped, with its chip',
+    (await rpage.locator('[data-item="a2"][data-state="pending"]').count()) === 1,
+    'a skip is not stored: after submit the skipped item is still to decide',
   )
   check(
     (await rpage
@@ -1081,8 +1079,8 @@ try {
     const resp = await agent.call('proposal_response', { id: rooms.id })
     const item = (id) => resp.items.find((x) => x.id === id) ?? {}
     check(
-      item('a2').answer?.decision === 'skip' && item('a2').answer?.comment === 'After the launch.',
-      'proposal_response shows decision skip and the note',
+      item('a2').answer?.decision !== 'skip' && item('a2').answer?.comment === 'After the launch.',
+      'proposal_response shows no skip, and the note stays as a comment',
     )
     check(
       item('a3').answer?.decision === 'ask' &&
@@ -1382,24 +1380,15 @@ try {
     'Reopen on a closed task page opens it again',
   )
 
-  // Keys: j moves to the first row, s opens its skip note, Esc closes it.
-  await rpage.goto(`${base}/stack?state=proposed`)
-  await rpage.locator('[data-row]').first().waitFor()
-  await rpage.keyboard.press('j')
-  await rpage.keyboard.press('s')
-  await rpage.locator('[data-note-form="skip"]').waitFor()
-  await rpage.keyboard.press('Escape')
-  await rpage.locator('[data-note-form]').waitFor({ state: 'detached' })
-  check(true, 's opens the skip note on the stack and Esc closes it')
-
-  // Skip is "not in this batch": the card leaves this visit's to-decide view, stays proposed with
-  // no date, and returns the next time the stack is opened (a reload is a new visit).
+  // Skip is navigation in one visit, stored nowhere: j moves to the first row, s skips it at once
+  // (no note), the card leaves this visit's to-decide view, stays proposed with no date, and returns
+  // the next time the stack is opened (a reload is a new visit).
   await rpage.goto(`${base}/stack`)
   await rpage.locator('[data-row]').first().waitFor()
   const skipKey = await rpage.locator('[data-row]').first().getAttribute('data-row')
   await rpage.keyboard.press('j')
   await rpage.keyboard.press('s')
-  await rpage.locator('[data-note-form="skip"]').getByRole('button', { name: 'Skip' }).click()
+  check((await rpage.locator('[data-note-form="skip"]').count()) === 0, 's skips with no note form')
   await rpage.locator('[data-toast]').filter({ hasText: 'Skipped' }).first().waitFor()
   await rpage.locator(`[data-row="${skipKey}"]`).waitFor({ state: 'detached' })
   check(true, 'a skipped card leaves the to-decide view with a toast')

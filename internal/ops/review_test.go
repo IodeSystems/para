@@ -97,7 +97,8 @@ func TestStackVaultQuestions(t *testing.T) {
 		t.Fatalf("an agent reviewed: %v", err)
 	}
 	mustRun(t, QuestionReview, f.owner, QuestionReviewInput{ID: q, Decision: ReviewSkip, Note: "After the launch."})
-	if r := row(); r.State != model.ItemSkipped || r.Reason != "After the launch." {
+	// A skip is not stored: the row stays pending.
+	if r := row(); r.State != model.ItemPending || r.Reason != "" {
 		t.Fatalf("skipped row = %+v", r)
 	}
 	ask := mustRun(t, QuestionReview, f.owner, QuestionReviewInput{ID: q, Decision: ReviewAsk, Note: "Check the ops calendar.", Refs: []string{f.source}})

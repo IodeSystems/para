@@ -220,31 +220,17 @@ export function needsYou(row: { stack: string; state: string }): boolean {
   return row.stack === 'proposed' && row.state !== 'sent_back'
 }
 
-// newBatchId makes the id of one visit to the stack. A skip means "not in this batch": the visit's
-// to-decide view leaves it out, and the next visit shows it again. It is kept in memory, never
-// stored. crypto.randomUUID needs a secure context and the app may be served over http.
-export function newBatchId(): string {
-  const r = () => Math.random().toString(36).slice(2, 10)
-  return `${Date.now().toString(36)}-${r()}${r()}`
-}
-
-// skippedInBatch says whether the owner skipped the row in this batch.
-export function skippedInBatch(
-  row: { state: string; skipBatch?: string | null },
-  batch: string,
-): boolean {
-  return !!batch && row.state === 'skipped' && row.skipBatch === batch
-}
-
-// inView filters rows for the view. The to-decide view (no state filter) leaves out what this
-// visit skipped; any other view shows every row the server gave. Later rows stay: the server lists
+// inView filters rows for the view. A skip is navigation in one visit to the stack, stored nowhere:
+// the to-decide view (no state filter) leaves out the rows this visit skipped (keys), and any other
+// view shows every row the server gave. A reload is a new visit. Later rows stay: the server lists
 // them only in a scoped view.
-export function inView<R extends { state: string; skipBatch?: string | null }>(
+export function inView<R>(
   rows: R[],
-  batch: string,
+  skipped: ReadonlySet<string>,
+  key: (r: R) => string,
   toDecide: boolean,
 ): R[] {
-  return toDecide ? rows.filter((r) => !skippedInBatch(r, batch)) : rows
+  return toDecide ? rows.filter((r) => !skipped.has(key(r))) : rows
 }
 
 // laterChip is the words of a put-off item's chip.

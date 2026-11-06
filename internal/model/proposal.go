@@ -87,7 +87,10 @@ const (
 	ItemWithdrawn ItemState = "withdrawn" // the agent removed it in a revision
 	ItemAnswered  ItemState = "answered"  // a question the owner answered
 	ItemClaimed   ItemState = "claimed"   // an approved outward item an agent is carrying out
-	ItemSkipped   ItemState = "skipped"   // the owner skipped it in a submit; it waits for a later one
+	// ItemSkipped is read in older files only: para no longer writes it (a
+	// skip is navigation in one web visit, stored nowhere). It waits for the
+	// owner as pending does.
+	ItemSkipped ItemState = "skipped"
 
 	// itemRework is the old word for sent_back, in older files.
 	itemRework ItemState = "rework"
@@ -424,9 +427,8 @@ type ProposalItem struct {
 	// why. Para's: an agent sets them with defer, never in a block.
 	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
 	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
-	// SkippedAt and SkipBatch record the owner's skip: when, and in which
-	// batch (one visit to the review stack). A skip is not in this batch only;
-	// it never defers. Para's, read while State is skipped.
+	// SkippedAt and SkipBatch are an older record of a skip, read and ignored:
+	// para no longer writes them, and keeps what an older file holds.
 	SkippedAt string `yaml:"skipped_at,omitempty" json:"skipped_at,omitempty"`
 	SkipBatch string `yaml:"skip_batch,omitempty" json:"skip_batch,omitempty"`
 

@@ -199,13 +199,15 @@ func planSubmit(p *proposal) (submitPlan, error) {
 		if bad := model.CheckAnswer(*it, *a); len(bad) > 0 {
 			return plan, fmt.Errorf("item %s: %s", it.ID, strings.Join(bad, "; "))
 		}
-		// A skip or an ask that already took effect is not done again.
+		// A skip is not stored: the draft is cleared and the item stays to
+		// decide. An ask that already took effect is not done again.
 		if a.Decision == model.AnswerSkip {
-			if it.State != model.ItemSkipped {
-				plan.skip = append(plan.skip, it.ID)
-			} else {
-				plan.left = append(plan.left, SubmitNote{it.ID, "skipped: not in this batch, still to decide"})
+			plan.skip = append(plan.skip, it.ID)
+			why := "skipped: still to decide (a skip is not stored)"
+			if strings.TrimSpace(a.Comment) != "" {
+				why = "skipped: still to decide (a skip is not stored; the comment stays)"
 			}
+			plan.left = append(plan.left, SubmitNote{it.ID, why})
 			continue
 		}
 		if a.Decision == model.AnswerAsk {
@@ -329,7 +331,12 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 			if err != nil {
 				return err
 			}
-			it.State = model.ItemSkipped
+			// The skip goes; the owner's comment stays as a comment-only draft.
+			if strings.TrimSpace(it.Answer.Comment) != "" {
+				it.Answer.Decision = ""
+			} else {
+				it.Answer = nil
+			}
 		}
 		for _, id := range plan.answers {
 			it, err := p.item(id)
@@ -352,14 +359,6 @@ var ProposalSubmit = definePerson("proposal_submit", "Submit the owner's answers
 		if err := record(ctx, d, "proposal_edit", p.doc.ID, id, it.State, it.State, hash); err != nil {
 			return out, err
 		}
-	}
-	for _, id := range plan.skip {
-		it, _ := p.item(id)
-		hash, _ := it.Hash()
-		if err := record(ctx, d, "proposal_skip", p.doc.ID, id, model.ItemPending, model.ItemSkipped, hash); err != nil {
-			return out, err
-		}
-		out.Items = append(out.Items, decisions([]model.ProposalItem{*it})...)
 	}
 	for _, it := range answered {
 		hash, _ := it.Hash()
@@ -486,9 +485,8 @@ type StackDecideInput struct {
 	Decision string         `json:"decision"` // approve, reject, skip, or ask
 	Comment  string         `json:"comment,omitempty"`
 	Refs     []string       `json:"refs,omitempty"` // ask: vault ids the agent should read
-	// Batch is the visit to the review stack (a client-made id) that skips the
-	// items: skip only. A skip means not in this batch; the stack's default
-	// view hides the item for the same batch and shows it again for another.
+	// Batch is accepted and ignored: a skip is not stored. It goes in a later
+	// release.
 	Batch string `json:"batch,omitempty"`
 }
 
@@ -496,18 +494,16 @@ type StackDecideInput struct {
 type StackDecideOutput struct {
 	Proposals []ProposalReviewOutput `json:"proposals"`
 	Requests  []string               `json:"requests,omitempty"` // agent work an ask queued
+	Note      string                 `json:"note,omitempty"`     // an input that was ignored, and why
 }
 
 // StackDecide approves or rejects items across dossiers.
-var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (send back to the agent) items of the review stack across dossiers, by item or by group. reject needs comment, the reason; rejected items stay in the stack as denied with it. skip keeps an optional comment; ask needs comment (what the agent should do) and takes refs, queues agent work, and marks the items sent_back. Open vault questions are reviewed with question_review. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
+var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (send back to the agent) items of the review stack across dossiers, by item or by group. reject needs comment, the reason; rejected items stay in the stack as denied with it. skip changes nothing (a skip is navigation in one web visit, stored nowhere); ask needs comment (what the agent should do) and takes refs, queues agent work, and marks the items sent_back. Open vault questions are reviewed with question_review. A bundle is decided as one; approving an item of a choice closes the others; questions are answered in their dossier. People only", func(ctx context.Context, d Deps, in StackDecideInput) (StackDecideOutput, error) {
 	if !slices.Contains([]string{model.AnswerApprove, model.AnswerReject, model.AnswerSkip, model.AnswerAsk}, in.Decision) {
 		return StackDecideOutput{}, fmt.Errorf("decision %q: want approve, reject, skip, or ask", in.Decision)
 	}
 	if in.Decision == model.AnswerAsk && strings.TrimSpace(in.Comment) == "" {
 		return StackDecideOutput{}, errors.New("ask needs a comment: what the agent should do")
-	}
-	if in.Batch != "" && in.Decision != model.AnswerSkip {
-		return StackDecideOutput{}, errors.New("batch goes with decision skip")
 	}
 	if len(in.Refs) > 0 && in.Decision != model.AnswerAsk {
 		return StackDecideOutput{}, errors.New("refs go with decision ask")
@@ -578,6 +574,12 @@ var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (s
 		}
 	}
 	out := StackDecideOutput{Proposals: []ProposalReviewOutput{}}
+	if in.Batch != "" {
+		out.Note = batchNote
+	}
+	if in.Decision == model.AnswerSkip {
+		out.Note = withNote(out.Note, skipNote)
+	}
 	comment := strings.TrimSpace(in.Comment)
 	for _, prop := range order {
 		if in.Decision == model.AnswerApprove {
@@ -594,7 +596,7 @@ var StackDecide = definePerson("stack_decide", "Approve, reject, skip, or ask (s
 				var dec Decision
 				var err error
 				if in.Decision == model.AnswerSkip {
-					dec, err = skipItem(ctx, d, prop, id, comment, in.Batch)
+					dec, err = skipItem(ctx, d, prop, id)
 				} else {
 					var req string
 					dec, req, err = sendBackItem(ctx, d, prop, id, comment, in.Refs)

@@ -5086,6 +5086,7 @@ type para_ProposalStackOutput {
   groups: [para_StackGroup!]!
   needsYou: Int!
   nextCursor: String
+  note: String
   requests: [para_SentItem!]!
   rows: [para_StackRow!]!
   total: Int!
@@ -5328,6 +5329,7 @@ input para_QuestionReviewInputInput {
 
 type para_QuestionReviewOutput {
   id: String!
+  note: String
   request: String
   rev: String!
   review: String
@@ -6936,6 +6938,7 @@ input para_StackDecideInputInput {
 }
 
 type para_StackDecideOutput {
+  note: String
   proposals: [para_ProposalReviewOutput!]!
   requests: [String!]
 }
@@ -6984,7 +6987,6 @@ type para_StackRow {
   refs: [String!]
   request: String
   result: String
-  skipBatch: String
   stack: String!
   state: para_StackRowState!
   summary: String!

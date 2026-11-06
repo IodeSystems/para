@@ -30,14 +30,14 @@ func TestStackUndo(t *testing.T) {
 		return out.Proposals[0].Items[0]
 	}
 
-	// Skip and decline only record a decision: undo resets.
-	if d := decide(StackDecideInput{Decision: "skip", Items: ref("m1")}); d.Undo != UndoReset {
-		t.Fatalf("skip undo = %q", d.Undo)
+	// A skip records nothing: the item stays pending, with nothing to undo.
+	if d := decide(StackDecideInput{Decision: "skip", Items: ref("m1")}); d.Undo != "" || d.State != model.ItemPending {
+		t.Fatalf("skip = %+v", d)
 	}
-	mustRun(t, StackUndo, f.owner, StackUndoInput{Items: ref("m1")})
 	if s := itemState(t, f, id, "m1"); s != model.ItemPending {
-		t.Fatalf("after undo of skip: %s", s)
+		t.Fatalf("after skip: %s", s)
 	}
+	// Decline only records a decision: undo resets.
 	if d := decide(StackDecideInput{Decision: "reject", Items: ref("m1"), Comment: "No."}); d.Undo != UndoReset {
 		t.Fatalf("decline undo = %q", d.Undo)
 	}
@@ -103,13 +103,21 @@ func TestStackUndo(t *testing.T) {
 	}
 }
 
-// A vault question skipped or sent to an agent goes back; an answer cannot.
+// A vault question sent to an agent goes back; a skip stores nothing, and an
+// answer cannot be undone.
 func TestStackUndoQuestion(t *testing.T) {
 	f := newAgentFix(t)
 	q := mustRun(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which vendor?", Root: true, Options: []string{"A", "B"}})
-	out := mustRun(t, QuestionReview, f.owner, QuestionReviewInput{ID: q.ID, Decision: ReviewSkip})
-	if out.Undo != UndoReset || out.Review != string(model.ItemSkipped) {
-		t.Fatalf("skip = %+v", out)
+	skip := mustRun(t, QuestionReview, f.owner, QuestionReviewInput{ID: q.ID, Decision: ReviewSkip})
+	if skip.Undo != "" || skip.Review != "" || skip.Note == "" {
+		t.Fatalf("skip = %+v", skip)
+	}
+	if _, err := StackUndo.Run(t.Context(), f.owner, StackUndoInput{Question: q.ID}); err == nil {
+		t.Fatal("undid a skip that stored nothing")
+	}
+	out := mustRun(t, QuestionReview, f.owner, QuestionReviewInput{ID: q.ID, Decision: ReviewAsk, Note: "Check the vendor list."})
+	if out.Undo != UndoReset || out.Review != string(model.ItemSentBack) {
+		t.Fatalf("ask = %+v", out)
 	}
 	mustRun(t, StackUndo, f.owner, StackUndoInput{Question: q.ID})
 	if _, got, err := getQuestion(t.Context(), f.owner.Store, q.ID); err != nil || got.ReviewState != "" {

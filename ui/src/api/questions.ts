@@ -159,15 +159,13 @@ const QuestionReviewDoc = graphql(/* GraphQL */ `
 
 export type QuestionReviewBody = {
   id: string
-  decision: 'answer' | 'decline' | 'skip' | 'ask'
+  decision: 'answer' | 'decline' | 'ask'
   choices?: string[]
   addedOptions?: string[]
   editedOptions?: Record<string, string>
   ownWords?: string
   note?: string
   refs?: string[]
-  // batch is the visit to the stack that skips the question (skip only).
-  batch?: string
 }
 
 // useQuestionReview is the owner's action on an open vault question from the stack: answer,

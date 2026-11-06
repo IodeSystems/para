@@ -9,8 +9,6 @@ import {
   inView,
   laterChip,
   laterDates,
-  newBatchId,
-  skippedInBatch,
   topicLabel,
   needsYou,
   stackLines,
@@ -226,27 +224,15 @@ describe('later dates', () => {
   })
 })
 
-describe('skip is not in this batch', () => {
-  const row = (item: string, state: string, skipBatch?: string) => ({ item, state, skipBatch })
-  const rows = [
-    row('a', 'pending'),
-    row('b', 'skipped', 'visit-1'),
-    row('c', 'skipped', 'visit-0'),
-    row('d', 'sent_back'),
-  ]
-  it('the to-decide view hides what this visit skipped and shows other skips', () => {
-    expect(inView(rows, 'visit-1', true).map((r) => r.item)).toEqual(['a', 'c', 'd'])
-    expect(inView(rows, 'visit-2', true).map((r) => r.item)).toEqual(['a', 'b', 'c', 'd'])
+describe('skip is navigation in one visit', () => {
+  const rows = [{ item: 'a' }, { item: 'b' }, { item: 'c' }]
+  const key = (r: { item: string }) => r.item
+  it('the to-decide view hides what this visit skipped', () => {
+    expect(inView(rows, new Set(['b']), key, true).map((r) => r.item)).toEqual(['a', 'c'])
+    expect(inView(rows, new Set(), key, true)).toHaveLength(3)
   })
   it('another view shows every row', () => {
-    expect(inView(rows, 'visit-1', false)).toHaveLength(4)
-  })
-  it('a skipped item that was reset (pending) is not hidden, whatever its batch', () => {
-    expect(skippedInBatch(row('a', 'pending', 'visit-1'), 'visit-1')).toBe(false)
-    expect(skippedInBatch(row('a', 'skipped', 'visit-1'), '')).toBe(false)
-  })
-  it('each visit gets its own id', () => {
-    expect(newBatchId()).not.toBe(newBatchId())
+    expect(inView(rows, new Set(['b']), key, false)).toHaveLength(3)
   })
 })
 

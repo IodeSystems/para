@@ -2,46 +2,84 @@ package ops
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/iodesystems/para/internal/model"
 )
 
-func skipOf(t *testing.T, d Deps, batch string, refs ...StackItemRef) {
-	t.Helper()
-	must(t, StackDecide, d, StackDecideInput{Decision: model.AnswerSkip, Items: refs, Batch: batch})
-}
-
-func TestSkipIsNotInThisBatchAndNeverDefers(t *testing.T) {
+// A skip is navigation in one web visit: stack_decide and question_review
+// with skip change nothing, batch is accepted and ignored with a note, and the
+// stack lists the skipped items for any visit.
+func TestSkipIsNotStored(t *testing.T) {
 	f, _ := clockFix(t)
 	p := fileDossierMD(t, f, socialMD("Posts"))
 	q := must(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which window?", Project: f.proj}).ID
-	before := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true})
-	skipOf(t, f.owner, "visit-1", StackItemRef{Proposal: p, Item: "q1"})
-	must(t, QuestionReview, f.owner, QuestionReviewInput{ID: q, Decision: ReviewSkip, Batch: "visit-1"})
-
-	same := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true, Batch: "visit-1"})
-	if got := stackRefs(same); slices.Contains(got, p+"#q1") || slices.Contains(got, q) || !slices.Contains(got, p+"#q2") {
-		t.Fatalf("same batch = %v: the skips should be hidden, q2 shown", got)
-	}
-	if same.NeedsYou != before.NeedsYou-2 {
-		t.Fatalf("needs_you = %d, want %d", same.NeedsYou, before.NeedsYou-2)
-	}
-	other := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true, Batch: "visit-2"})
-	if got := stackRefs(other); !slices.Contains(got, p+"#q1") || !slices.Contains(got, q) || other.NeedsYou != before.NeedsYou {
-		t.Fatalf("other batch = %v (needs %d)", got, other.NeedsYou)
-	}
-	none := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true})
-	if !slices.Contains(stackRefs(none), p+"#q1") {
-		t.Fatal("no batch hides a skip")
-	}
-	for _, r := range other.Rows {
-		if r.Item == "q1" && (r.Stack != StackProposed || r.State != model.ItemSkipped || r.SkipBatch != "visit-1" || r.DeferUntil != "") {
-			t.Fatalf("skipped row = %+v: a skip must stay proposed with no date", r)
+	text := func(id string) string {
+		doc, err := f.owner.Store.Get(t.Context(), id)
+		if err != nil {
+			t.Fatal(err)
 		}
+		return renderText(doc)
 	}
-	if _, err := StackDecide.Run(t.Context(), f.owner, StackDecideInput{Decision: model.AnswerAsk, Comment: "x", Items: []StackItemRef{{Proposal: p, Item: "q2"}}, Batch: "v"}); err == nil {
-		t.Fatal("batch with ask was accepted")
+	beforeP, beforeQ := text(p), text(q)
+	before := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true})
+	dec := must(t, StackDecide, f.owner, StackDecideInput{Decision: model.AnswerSkip, Items: []StackItemRef{{Proposal: p, Item: "q1"}}, Batch: "visit-1"})
+	if !strings.Contains(dec.Note, "skip is not stored") || !strings.Contains(dec.Note, "batch is ignored") {
+		t.Fatalf("stack_decide note = %q", dec.Note)
+	}
+	rev := must(t, QuestionReview, f.owner, QuestionReviewInput{ID: q, Decision: ReviewSkip, Batch: "visit-1"})
+	if !strings.Contains(rev.Note, "skip is not stored") {
+		t.Fatalf("question_review note = %q", rev.Note)
+	}
+	if text(p) != beforeP || text(q) != beforeQ {
+		t.Fatal("a skip wrote to the vault")
+	}
+	same := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true, Batch: "visit-1"})
+	if got := stackRefs(same); !slices.Contains(got, p+"#q1") || !slices.Contains(got, q) || same.NeedsYou != before.NeedsYou {
+		t.Fatalf("stack after skip = %v (needs %d, was %d)", got, same.NeedsYou, before.NeedsYou)
+	}
+	if !strings.Contains(same.Note, "batch is ignored") {
+		t.Fatalf("proposal_stack note = %q", same.Note)
+	}
+	// ask with a batch is accepted: batch is ignored.
+	if _, err := StackDecide.Run(t.Context(), f.owner, StackDecideInput{Decision: model.AnswerAsk, Comment: "x", Items: []StackItemRef{{Proposal: p, Item: "q2"}}, Batch: "v"}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A skip an older para stored (state skipped, skip_batch) is read and
+// ignored: the item waits for the owner, and the keys stay on disk.
+func TestOldSkipBatchIsReadAndIgnored(t *testing.T) {
+	f, _ := clockFix(t)
+	p := fileDossierMD(t, f, socialMD("Posts"))
+	if _, err := changeProposal(t.Context(), f.owner, p, func(pp *proposal) error {
+		it, err := pp.item("q1")
+		if err != nil {
+			return err
+		}
+		it.State, it.SkippedAt, it.SkipBatch = model.ItemSkipped, "2026-11-01T09:00:00Z", "visit-old"
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	raw := func() string {
+		doc, err := f.owner.Store.Get(t.Context(), p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return renderText(doc)
+	}
+	if !strings.Contains(raw(), "skip_batch: visit-old") {
+		t.Fatalf("fixture has no skip_batch:\n%s", raw())
+	}
+	out := must(t, ProposalStack, f.owner, ProposalStackInput{NeedsYou: true, Batch: "visit-old"})
+	if !slices.Contains(stackRefs(out), p+"#q1") {
+		t.Fatalf("an old skip hides the item: %v", stackRefs(out))
+	}
+	must(t, StackDecide, f.owner, StackDecideInput{Decision: model.AnswerAsk, Comment: "Check the date.", Items: []StackItemRef{{Proposal: p, Item: "q2"}}})
+	if !strings.Contains(raw(), "skip_batch: visit-old") {
+		t.Fatal("a later write dropped the old skip_batch key")
 	}
 }
 

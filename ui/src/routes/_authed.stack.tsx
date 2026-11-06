@@ -67,7 +67,6 @@ import {
   inView,
   kindWords,
   laterChip,
-  newBatchId,
   nextItem,
   rowActions,
   rowKey,
@@ -111,9 +110,10 @@ function StackPage() {
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
   const navigate = useNavigate({ from: '/stack' })
-  // batch is this visit to the stack. A skip is "not in this batch": the to-decide view hides it
-  // until the owner opens the stack again. Kept in memory, so a reload is a new visit.
-  const [batch] = useState(newBatchId)
+  // skipped are the rows this visit skipped. A skip is navigation, stored nowhere: the to-decide
+  // view hides them until the owner opens the stack again. Kept in memory, so a reload is a new
+  // visit.
+  const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set())
   return (
     <>
       <PageTitle subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list.">
@@ -132,20 +132,32 @@ function StackPage() {
       {view === 'sent' ? (
         <SentList decide={decide} />
       ) : (
-        <StackView f={f} decide={decide} batch={batch} />
+        <StackView f={f} decide={decide} skipped={skipped} setSkipped={setSkipped} />
       )}
     </>
   )
 }
 
-function StackView({ f, decide, batch }: { f: StackFilter; decide: boolean; batch: string }) {
-  const q = useStack(f, batch)
+type SkipProps = {
+  skipped: ReadonlySet<string>
+  setSkipped: (f: (s: ReadonlySet<string>) => ReadonlySet<string>) => void
+}
+
+function StackView({
+  f,
+  decide,
+  skipped,
+  setSkipped,
+}: { f: StackFilter; decide: boolean } & SkipProps) {
+  const q = useStack(f)
   const page = q.data?.pages[0]
   return (
     <>
       <Filters f={f} counts={page?.counts ?? []} needsYou={page?.needsYou ?? 0} />
       {!f.state && <WaitingOnYou items={page?.requests ?? []} />}
-      <DataState q={q}>{(d) => <StackList d={d} decide={decide} q={q} batch={batch} />}</DataState>
+      <DataState q={q}>
+        {(d) => <StackList d={d} decide={decide} q={q} skipped={skipped} setSkipped={setSkipped} />}
+      </DataState>
     </>
   )
 }
@@ -313,13 +325,13 @@ function StackList({
   d,
   decide,
   q,
-  batch,
+  skipped,
+  setSkipped,
 }: {
   d: Data
   decide: boolean
   q: ReturnType<typeof useStack>
-  batch: string
-}) {
+} & SkipProps) {
   const act = useStackDecide()
   const review = useQuestionReview()
   const later = useStackLater()
@@ -340,7 +352,8 @@ function StackList({
   const hides = !f.state || f.state === 'proposed'
   const allRows = inView(
     d.pages.flatMap((p) => p.rows),
-    batch,
+    skipped,
+    rowKey,
     !f.state,
   )
   const rows = hides ? allRows.filter((r) => !gone.has(rowKey(r))) : allRows
@@ -476,9 +489,35 @@ function StackList({
       }
     })
   }
-  // decideRows declines, skips, or sends to an agent rows with the owner's note. Vault questions go
-  // through question_review, one at a time; dossier items in one stack_decide.
-  const decideRows = (list: Row[], a: Exclude<Act, 'done'>, note: string, refs: string[]) => {
+  // skipRows moves past rows for this visit: nothing is sent or stored. Undo brings them back.
+  const skipRows = (list: Row[]) => {
+    const ok = list.filter((r) => rowActions(r).skip)
+    if (ok.length === 0) return
+    const keys = ok.map(rowKey)
+    setForm(null)
+    setPicked(new Set())
+    leave(keys)
+    setSkipped((s) => new Set([...s, ...keys]))
+    toasts.push({
+      text: toastText(
+        'skip',
+        ok.map((r) => r.summary),
+      ),
+      undo: () => {
+        setSkipped((s) => new Set([...s].filter((k) => !keys.includes(k))))
+        restore(keys)
+        return Promise.resolve()
+      },
+    })
+  }
+  // decideRows declines or sends to an agent rows with the owner's note. Vault questions go through
+  // question_review, one at a time; dossier items in one stack_decide.
+  const decideRows = (
+    list: Row[],
+    a: Exclude<Act, 'done' | 'skip'>,
+    note: string,
+    refs: string[],
+  ) => {
     if (!decide) return
     const ok = list.filter((r) => rowActions(r)[a])
     if (ok.length === 0) return
@@ -497,7 +536,6 @@ function StackList({
           decision,
           comment: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
-          batch: a === 'skip' ? batch : undefined,
         })
         applied.push(...res.proposals.flatMap((p) => p.items))
         requests = res.requests ?? []
@@ -508,7 +546,6 @@ function StackList({
           decision: a,
           note: note || undefined,
           refs: a === 'ask' && refs.length ? refs : undefined,
-          batch: a === 'skip' ? batch : undefined,
         })
         applied.push({ undo: res.undo })
         asked.push({ id: r.question ?? r.item, request: res.request })
@@ -665,6 +702,12 @@ function StackList({
   // openForm opens an action form on the selection, or else on the row under the cursor.
   const openForm = (a: Act, row: Row | undefined) => {
     if (!decide) return
+    // A skip needs no words: it moves on at once.
+    if (a === 'skip') {
+      const chosen =
+        picked.size > 0 ? [...picked].flatMap((x) => byKey.get(x) ?? []) : row ? [row] : []
+      return skipRows(chosen)
+    }
     if (a !== 'done' && picked.size > 0) return setForm({ key: '', act: a })
     if (row && rowActions(row)[a]) setForm({ key: rowKey(row), act: a })
   }
@@ -759,9 +802,10 @@ function StackList({
           busy={busy}
           attachTo={pickedRows[0] ? (pickedRows[0].question ?? pickedRows[0].proposal) : undefined}
           onCancel={() => setForm(null)}
-          onConfirm={(note, refs) =>
-            decideRows(pickedRows, form.act as Exclude<Act, 'done'>, note, refs)
-          }
+          onConfirm={(note, refs) => {
+            const a = form.act
+            if (a !== 'skip' && a !== 'done') decideRows(pickedRows, a, note, refs)
+          }}
         />
       )}
       <Box
@@ -811,9 +855,10 @@ function StackList({
                 onApprove={(r) => approveRows([r])}
                 onForm={(r, a) => {
                   setCursor(rowKey(r))
+                  if (a === 'skip') return skipRows([r])
                   setForm(a ? { key: rowKey(r), act: a } : null)
                 }}
-                onDecide={(r, a, note, refs) => decideRows([r], a, note, refs)}
+                onDecide={(r, a, note, refs) => a !== 'skip' && decideRows([r], a, note, refs)}
                 onLater={(r, until) => laterRows([r], until)}
                 onBring={(r) => bringRows([r])}
                 onOpen={(r) => {
@@ -1217,12 +1262,7 @@ function NoteForm({
         label={noteLabel(decision)}
         value={note}
         error={tried && problem !== ''}
-        helperText={
-          problem ||
-          (act === 'skip'
-            ? 'Not in this batch. It returns the next time you open the stack.'
-            : undefined)
-        }
+        helperText={problem || undefined}
         onChange={(e) => setNote(e.target.value)}
         onKeyDown={keys}
       />

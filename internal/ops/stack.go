@@ -88,8 +88,6 @@ type StackRow struct {
 	Reason    string          `json:"reason,omitempty"`
 	// DeferUntil is the date a later item returns, or someday.
 	DeferUntil string `json:"defer_until,omitempty"`
-	// SkipBatch is the batch that skipped the item, while it is skipped.
-	SkipBatch string `json:"skip_batch,omitempty"`
 	// Tags are the item's topics: its own and its dossier's.
 	Tags []string `json:"tags,omitempty"`
 	// Question is set on a row that is an open vault question, not a dossier
@@ -137,8 +135,8 @@ type ProposalStackInput struct {
 	// group filter it also lists later items (put off), which only surface
 	// later and may still be relevant to the scope.
 	NeedsYou bool `json:"needs_you,omitempty" query:"needs_you"`
-	// Batch is the visit to the stack (a client-made id). With needs_you it
-	// leaves out the items that visit skipped; another batch shows them again.
+	// Batch is accepted and ignored: a skip is not stored, so no visit hides
+	// what it skipped here. It goes in a later release.
 	Batch  string `json:"batch,omitempty" query:"batch"`
 	Cursor string `json:"cursor,omitempty" query:"cursor"` // from next_cursor
 	Limit  int    `json:"limit,omitempty" query:"limit"`   // default 200
@@ -152,7 +150,7 @@ type ProposalStackOutput struct {
 	Rows   []StackRow   `json:"rows"`
 	Total  int          `json:"total"` // rows that match, over all pages
 	// NeedsYou counts the items that wait on the owner (needs_you), over
-	// every filter but state: not later, and not skipped in batch.
+	// every filter but state: not later.
 	NeedsYou int `json:"needs_you"`
 	// Requests is agent work that ended stuck, blocked, or
 	// needs_clarification and waits for the owner's response, newest first.
@@ -160,13 +158,14 @@ type ProposalStackOutput struct {
 	// group, proposal, actor, or tag); listed with needs_you on the first page.
 	Requests   []SentItem `json:"requests"`
 	NextCursor string     `json:"next_cursor,omitempty"`
+	Note       string     `json:"note,omitempty"` // an input that was ignored, and why
 }
 
 const defaultStackLimit = 200
 
 // ProposalStack lists the review stack. It reads the dossier files; a vault
 // with many thousands of items may need an index (not measured yet).
-var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); needs_you lists only what waits on the owner (proposed, not sent to an agent, not put off, and with batch not skipped in that batch; a skip is not in this batch only and never defers); a view scoped by tag, proposal, or group also lists later items, which may be relevant (bring one back with stack_return); unscoped, requests lists agent work that ended stuck, blocked, or needs_clarification and waits for the owner (counted in needs_you); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
+var ProposalStack = defineRead("proposal_stack", "List the review stack: every item of every current dossier, and every open vault question (question set, proposal empty), with its stack state (proposed, later, decided, executing, done, failed, closed; a denied item is listed with the owner's reason, a withdrawn one only with state closed, an item put off only with state later), counts per state, and progress per group. Filter by state, kind, group, proposal, actor, or tag (a topic: tagged dossier items, items of a tagged dossier, and tagged vault questions); needs_you lists only what waits on the owner (proposed, not sent to an agent, and not put off; a skip is navigation in one web visit and is not stored); a view scoped by tag, proposal, or group also lists later items, which may be relevant (bring one back with stack_return); unscoped, requests lists agent work that ended stuck, blocked, or needs_clarification and waits for the owner (counted in needs_you); page with cursor", func(ctx context.Context, d Deps, in ProposalStackInput) (ProposalStackOutput, error) {
 	if in.State != "" && !slices.Contains(StackStates, in.State) {
 		return ProposalStackOutput{}, fmt.Errorf("state %q: want one of %v", in.State, StackStates)
 	}
@@ -197,6 +196,9 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 		return ProposalStackOutput{}, err
 	}
 	out := ProposalStackOutput{Counts: []StackCount{}, Groups: []StackGroup{}, Rows: []StackRow{}, Requests: []SentItem{}}
+	if in.Batch != "" {
+		out.Note = batchNote
+	}
 	counts := map[string]int{}
 	sum := newItemSummarizer(ctx, d)
 	var rows []StackRow
@@ -219,7 +221,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			}
 			st := stackState(it, today)
 			counts[st]++
-			needs := needsYou(st, it.State) && forNeedsYou(sn, it) && !skippedIn(it.State, it.SkipBatch, in.Batch)
+			needs := needsYou(st, it.State) && forNeedsYou(sn, it)
 			if needs {
 				out.NeedsYou++
 			}
@@ -247,9 +249,6 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			if st == StackLater {
 				row.DeferUntil = it.DeferUntil
 			}
-			if it.State == model.ItemSkipped {
-				row.SkipBatch = it.SkipBatch
-			}
 			if it.Execution != nil {
 				row.URL, row.Receipt = firstOf(it.Execution.URL, it.Execution.Locator), it.Execution.Receipt
 			}
@@ -265,8 +264,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 				continue
 			}
 			counts[r.Stack]++
-			needs := r.NeedsYou && !skippedIn(r.State, r.SkipBatch, in.Batch)
-			r.NeedsYou = needs
+			needs := r.NeedsYou
 			if needs {
 				out.NeedsYou++
 			}
@@ -345,10 +343,4 @@ func hide(in ProposalStackInput, st string, state model.ItemState, needs, scoped
 		}
 	}
 	return in.NeedsYou && !needs && (!scoped || st != StackLater)
-}
-
-// skippedIn says whether an item was skipped in the batch (a visit to the
-// stack). No batch matches nothing.
-func skippedIn(state model.ItemState, skipBatch, batch string) bool {
-	return batch != "" && state == model.ItemSkipped && skipBatch == batch
 }

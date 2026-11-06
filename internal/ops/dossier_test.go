@@ -472,8 +472,9 @@ func TestSubmitRejectNeedsComment(t *testing.T) {
 	}
 }
 
-// Skip leaves an item undecided: it stays in the stack as skipped (proposed),
-// the agent reads the skip and the note, and a later submit decides it.
+// Skip leaves an item undecided and is not stored: a submit clears the skip,
+// the item stays pending in the stack, the owner's comment stays as a draft
+// the agent reads, and a later submit decides it.
 func TestSubmitSkip(t *testing.T) {
 	f := newAgentFix(t)
 	id := fileDossierMD(t, f, dossierMD(f))
@@ -489,9 +490,9 @@ func TestSubmitSkip(t *testing.T) {
 	st := mustRun(t, ProposalStack, f.owner, ProposalStackInput{Proposal: id})
 	for _, item := range []string{"m1", "q1"} {
 		if !slices.ContainsFunc(st.Rows, func(r StackRow) bool {
-			return r.Item == item && r.State == model.ItemSkipped && r.Stack == StackProposed
+			return r.Item == item && r.State == model.ItemPending && r.Stack == StackProposed
 		}) {
-			t.Fatalf("%s is not skipped in the stack: %+v", item, st.Rows)
+			t.Fatalf("%s is not pending in the stack: %+v", item, st.Rows)
 		}
 	}
 	resp := mustRun(t, ProposalResponse, f.agent, ProposalIDInput{ID: id})
@@ -501,7 +502,7 @@ func TestSubmitSkip(t *testing.T) {
 			m1 = it
 		}
 	}
-	if m1.State != model.ItemSkipped || m1.Decision != model.AnswerSkip || m1.Answer == nil || m1.Answer.Comment != "Ask me after the launch." {
+	if m1.State != model.ItemPending || m1.Decision == model.AnswerSkip || m1.Answer == nil || m1.Answer.Comment != "Ask me after the launch." {
 		t.Fatalf("response m1 = %+v", m1)
 	}
 	if resp.Status != model.ProposalOpen {

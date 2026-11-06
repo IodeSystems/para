@@ -37,8 +37,8 @@ const (
 	AnswerApprove = "approve"
 	AnswerReject  = "reject"
 	AnswerEdit    = "edit"
-	// AnswerSkip leaves the item undecided in this submit: it stays in the
-	// stack as skipped, with the note in comment, for a later submit.
+	// AnswerSkip leaves the item undecided in this submit: a submit clears the
+	// draft and the item stays pending. A skip is stored nowhere.
 	AnswerSkip = "skip"
 	// AnswerAsk sends the item back to the agent with the owner's note
 	// (comment, required) and refs: para queues agent work and the item
@@ -225,7 +225,7 @@ type dossierItem struct {
 	// DeferUntil and DeferredReason: the owner or defer put the item off.
 	DeferUntil     string `yaml:"defer_until,omitempty" json:"defer_until,omitempty"`
 	DeferredReason string `yaml:"deferred_reason,omitempty" json:"deferred_reason,omitempty"`
-	// SkippedAt and SkipBatch: see ProposalItem.
+	// SkippedAt and SkipBatch: older keys, read and ignored (ProposalItem).
 	SkippedAt string `yaml:"skipped_at,omitempty" json:"skipped_at,omitempty"`
 	SkipBatch string `yaml:"skip_batch,omitempty" json:"skip_batch,omitempty"`
 

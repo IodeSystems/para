@@ -247,7 +247,7 @@ func newProposalCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Actor, "actor-filter", "", "only dossiers this agent filed")
 				fs.StringVar(&in.Tag, "tag", "", "only items with this topic")
 				fs.BoolVar(&in.NeedsYou, "needs-you", false, "only items that wait on you: proposed, not sent to an agent")
-				fs.StringVar(&in.Batch, "batch", "", "with --needs-you: leave out items skipped in this batch (one visit)")
+				fs.StringVar(&in.Batch, "batch", "", "ignored: a skip is not stored (goes in a later release)")
 				fs.StringVar(&in.Cursor, "cursor", "", "next_cursor of the page before")
 				fs.IntVar(&in.Limit, "limit", 0, "rows per page; default 200")
 			},

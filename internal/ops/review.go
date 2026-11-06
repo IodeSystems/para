@@ -102,31 +102,36 @@ func sendBackItem(ctx context.Context, d Deps, prop, item, note string, refs []s
 	return decisions([]model.ProposalItem{*it})[0], r.ID, nil
 }
 
-// skipItem leaves one item undecided, with the note.
-func skipItem(ctx context.Context, d Deps, prop, item, note, batch string) (Decision, error) {
-	p, err := changeProposal(ctx, d, prop, func(p *proposal) error {
-		it, err := p.item(item)
-		if err != nil {
-			return err
-		}
-		if !answerable(it.State) {
-			return fmt.Errorf("item %s is %s: it is decided", it.ID, it.State)
-		}
-		a := model.ItemAnswer{Decision: model.AnswerSkip, Comment: strings.TrimSpace(note), Via: d.Store.Info().Surface}
-		it.Answer, it.State = &a, model.ItemSkipped
-		it.SkippedAt, it.SkipBatch = d.Store.Now().UTC().Format(time.RFC3339), batch
-		return nil
-	})
+// skipItem checks that one item waits for a decision and changes nothing: a
+// skip is navigation in one web visit, stored nowhere.
+func skipItem(ctx context.Context, d Deps, prop, item string) (Decision, error) {
+	p, err := loadProposal(ctx, d, prop)
 	if err != nil {
 		return Decision{}, err
 	}
-	it, _ := p.item(item)
-	hash, _ := it.Hash()
-	if err := record(ctx, d, "proposal_skip", p.doc.ID, item, model.ItemPending, model.ItemSkipped, hash); err != nil {
+	it, err := p.item(item)
+	if err != nil {
 		return Decision{}, err
+	}
+	if !answerable(it.State) {
+		return Decision{}, fmt.Errorf("item %s is %s: it is decided", it.ID, it.State)
 	}
 	return decisions([]model.ProposalItem{*it})[0], nil
 }
+
+// withNote joins two notes of an output.
+func withNote(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "; " + b
+}
+
+// Notes of an input that is accepted and ignored for one release (D10).
+const (
+	skipNote  = "skip is not stored: it is navigation in one web visit, and nothing changed"
+	batchNote = "batch is ignored: a skip is not stored (batch goes in a later release)"
+)
 
 // Question review decisions (question_review).
 const (
@@ -151,8 +156,8 @@ type QuestionReviewInput struct {
 	// otherwise (kept with the answer as its reason).
 	Note string   `json:"note,omitempty"`
 	Refs []string `json:"refs,omitempty"` // ask: vault ids the agent should read
-	// Batch is the visit to the review stack that skipped the question: skip
-	// only. The stack's default view hides it for the same batch.
+	// Batch is accepted and ignored (a skip is not stored); it goes in a later
+	// release.
 	Batch string `json:"batch,omitempty"`
 }
 
@@ -164,11 +169,12 @@ type QuestionReviewOutput struct {
 	Request string               `json:"request,omitempty"` // the agent work an ask queued
 	Undo    string               `json:"undo,omitempty"`    // UndoReset when stack_undo can put the question back; empty when it cannot
 	Rev     string               `json:"rev"`
+	Note    string               `json:"note,omitempty"` // an input that was ignored, and why
 }
 
 // QuestionReview answers, declines, skips, or sends back an open vault
 // question, as the owner.
-var QuestionReview = definePerson("question_review", "The owner's action on an open vault question from the review stack: answer (choices, added or edited options, own words; note kept as the reason), decline (note required: the question is dropped), skip (optional note: it stays open, marked skipped), or ask (note required, optional refs: queues agent work and marks it sent back until the agent answers with sources). People only", func(ctx context.Context, d Deps, in QuestionReviewInput) (QuestionReviewOutput, error) {
+var QuestionReview = definePerson("question_review", "The owner's action on an open vault question from the review stack: answer (choices, added or edited options, own words; note kept as the reason), decline (note required: the question is dropped), skip (changes nothing: a skip is navigation in one web visit, stored nowhere), or ask (note required, optional refs: queues agent work and marks it sent back until the agent answers with sources). People only", func(ctx context.Context, d Deps, in QuestionReviewInput) (QuestionReviewOutput, error) {
 	doc, q, err := getQuestion(ctx, d.Store, in.ID)
 	if err != nil {
 		return QuestionReviewOutput{}, err
@@ -178,6 +184,9 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 	}
 	note := strings.TrimSpace(in.Note)
 	out := QuestionReviewOutput{ID: doc.ID}
+	if in.Batch != "" {
+		out.Note = batchNote
+	}
 	switch in.Decision {
 	case ReviewAnswer:
 		if len(in.EditedOptions) > 0 || len(in.AddedOptions) > 0 {
@@ -243,8 +252,8 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 		out.Status, out.Rev = r.Status, r.Rev
 		return out, nil
 	case ReviewSkip:
-		q.ReviewState, q.ReviewNote, q.ReviewRefs, q.ReviewRequest = string(model.ItemSkipped), note, nil, ""
-		q.ReviewAt, q.ReviewBatch = d.Store.Now().UTC().Format(time.RFC3339), in.Batch
+		out.Status, out.Rev, out.Note = q.Status, doc.Rev, withNote(out.Note, skipNote)
+		return out, nil
 	case ReviewAsk:
 		if note == "" {
 			return out, errors.New("ask needs a note: what the agent should do")
@@ -262,7 +271,7 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 			return out, err
 		}
 		q.ReviewState, q.ReviewNote, q.ReviewRequest = string(model.ItemSentBack), note, model.LinkTo(r.ID)
-		q.ReviewAt, q.ReviewBatch = "", ""
+		q.ReviewAt = ""
 		q.ReviewRefs = nil
 		for _, id := range refs {
 			q.ReviewRefs = append(q.ReviewRefs, model.LinkTo(id))
@@ -296,17 +305,14 @@ func vaultQuestionRows(sn *Snapshot) []StackRow {
 		if need.Life == LifeLater {
 			stack = StackLater
 		}
+		// An older review_state of skipped is read as pending.
 		state := model.ItemPending
-		batch := ""
-		switch {
-		case need.Turn == TurnAgent:
+		if need.Turn == TurnAgent {
 			state = model.ItemSentBack
-		case q.ReviewState == string(model.ItemSkipped):
-			state, batch = model.ItemSkipped, q.ReviewBatch
 		}
 		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: stack, DeferUntil: q.DeferUntil,
 			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
-			Tags: normTags(q.Tags), SkipBatch: batch, NeedsYou: need.Yes, NeedsYouReason: need.Reason})
+			Tags: normTags(q.Tags), NeedsYou: need.Yes, NeedsYouReason: need.Reason})
 	}
 	return out
 }

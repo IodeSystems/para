@@ -7,7 +7,7 @@ import (
 )
 
 // An answer that only holds a comment, or a skip, decides nothing: a submit
-// names each such item and why, and the draft is not "answered" by them.
+// names each such item and why. A skip is not stored: the submit clears it.
 func TestSubmitNamesWhyADraftedItemStayedPending(t *testing.T) {
 	f := newAgentFix(t)
 	id := fileDossierMD(t, f, dossierMD(f))
@@ -20,17 +20,17 @@ func TestSubmitNamesWhyADraftedItemStayedPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	sub := mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
-	for _, d := range sub.Items {
-		if d.State != model.ItemSkipped {
-			t.Fatalf("decided %+v: only the two skips were recorded", d)
-		}
-	}
-	if len(sub.Items) != 2 || len(sub.Left) != 2 || sub.Left[0].Item != "q1" || sub.Left[1].Item != "m1" || sub.Left[0].Why == "" {
+	if len(sub.Items) != 0 || len(sub.Left) != 4 || sub.Left[0].Item != "q1" || sub.Left[1].Item != "m1" || sub.Left[0].Why == "" {
 		t.Fatalf("items = %+v, left = %+v", sub.Items, sub.Left)
 	}
-	// Submitting again: the skips already took effect, so nothing is decided and all four are named.
+	for _, it := range []string{"a1", "a2"} {
+		if s := itemState(t, f, id, it); s != model.ItemPending {
+			t.Fatalf("%s after a skip = %s", it, s)
+		}
+	}
+	// Submitting again: the skips were cleared, so only the two comments are named.
 	again := mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1})
-	if len(again.Items) != 0 || len(again.Left) != 4 {
+	if len(again.Items) != 0 || len(again.Left) != 2 {
 		t.Fatalf("again: items = %+v, left = %+v", again.Items, again.Left)
 	}
 }

@@ -792,8 +792,9 @@ type Question struct {
 	ReviewNote    string `yaml:"review_note,omitempty" json:"review_note,omitempty"`
 	ReviewRefs    []Link `yaml:"review_refs,omitempty" json:"review_refs,omitempty"`
 	ReviewRequest Link   `yaml:"review_request,omitempty" json:"review_request,omitempty"`
-	// ReviewAt and ReviewBatch record a skip: when, and in which batch (one
-	// visit to the review stack).
+	// ReviewAt is when the owner last reviewed the question. ReviewBatch and
+	// a review_state of skipped are older keys, read and ignored: a skip is
+	// stored nowhere.
 	ReviewAt    string `yaml:"review_at,omitempty" json:"review_at,omitempty"`
 	ReviewBatch string `yaml:"review_batch,omitempty" json:"review_batch,omitempty"`
 	Deferral    `yaml:",inline"`
