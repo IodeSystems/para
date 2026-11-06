@@ -1,10 +1,12 @@
 // Keyboard shortcuts: digits switch tabs, / searches, ? shows help. On the review stack, letters
-// move and decide (stackKeyFor); on a dossier page, letters act on the current card (cardKeyFor).
+// move and decide (stackKeyFor); on a dossier page, letters act on the current card (cardKeyFor);
+// on Next, letters act on the one card (nextKeyFor).
 // No global key opens a form.
 
 export type Tab = { key: string; to: string; label: string; hint?: string }
 
 export const TABS: Tab[] = [
+  { key: '7', to: '/next', label: 'Next', hint: 'the one thing to do now, as a card' },
   { key: '1', to: '/agenda', label: 'Agenda', hint: 'what needs you, in value order' },
   {
     key: '2',
@@ -135,4 +137,26 @@ export const CARD_KEYS: { key: string; action: CardKey; words: string }[] = [
 export function cardKeyFor(e: KeyLike): CardKey | null {
   if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return null
   return CARD_KEYS.find((k) => k.key === e.key)?.action ?? null
+}
+
+export type NextKey = 'next' | 'back' | 'done' | 'later' | 'send' | 'approve' | 'open'
+
+// NEXT_KEYS are the keys of the Next page. s is Send to agent here (on the stack it is Skip); g,
+// the stack's key to ask an agent, does the same.
+export const NEXT_KEYS: { key: string; action: NextKey; words: string }[] = [
+  { key: 'j', action: 'next', words: 'Skip to the next card' },
+  { key: 'n', action: 'next', words: 'Skip, as j' },
+  { key: 'k', action: 'back', words: 'Back to the card you skipped last' },
+  { key: 'd', action: 'done', words: 'Done (Drop or Held, as the item allows)' },
+  { key: 'l', action: 'later', words: 'Later: put it off to a date' },
+  { key: 's', action: 'send', words: 'Send to agent: write what it should do' },
+  { key: 'g', action: 'send', words: 'Send to agent, as s' },
+  { key: 'a', action: 'approve', words: 'Approve the draft, or accept the proposed answer' },
+  { key: 'o', action: 'open', words: "Open the item's page" },
+]
+
+// nextKeyFor maps a key press on the Next page to an action, or null.
+export function nextKeyFor(e: KeyLike): NextKey | null {
+  if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return null
+  return NEXT_KEYS.find((k) => k.key === e.key)?.action ?? null
 }

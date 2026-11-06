@@ -30,25 +30,25 @@ function OpenButton({ x }: { x: Row }) {
   switch (openTarget(x.kind)) {
     case 'incident':
       return (
-        <LinkButton size="small" to="/incidents/$id" params={{ id: x.id }}>
+        <LinkButton size="small" data-act="open" to="/incidents/$id" params={{ id: x.id }}>
           Open
         </LinkButton>
       )
     case 'rfx':
       return (
-        <LinkButton size="small" to="/rfx/$id" params={{ id: x.id }}>
+        <LinkButton size="small" data-act="open" to="/rfx/$id" params={{ id: x.id }}>
           Open
         </LinkButton>
       )
     case 'io':
       return (
-        <LinkButton size="small" to="/io/$id" params={{ id: x.id }}>
+        <LinkButton size="small" data-act="open" to="/io/$id" params={{ id: x.id }}>
           Open
         </LinkButton>
       )
     default:
       return (
-        <LinkButton size="small" to="/doc/$id" params={{ id: x.id }}>
+        <LinkButton size="small" data-act="open" to="/doc/$id" params={{ id: x.id }}>
           Open
         </LinkButton>
       )

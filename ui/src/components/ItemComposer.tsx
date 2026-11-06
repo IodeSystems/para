@@ -18,7 +18,8 @@ import { closable, composerPrompt, notesWithEntry, type ItemMeta } from '@/lib/c
 // with the owner's words and files (agent_send); the agent formats them into the item's notes and
 // updates what they touch. Save as notes writes them into the notes now, below what is there. Mark
 // done asks the agent to close the item, or with Save as notes closes a task or a meeting at once.
-// It needs review:decide: without it the page only reads.
+// It needs review:decide: without it the page only reads. onSent runs after a send to an agent, or
+// a save that closed the item: the item left the owner's hands. Undo of that send runs onBack.
 
 const today = () => {
   const d = new Date()
@@ -26,7 +27,19 @@ const today = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
 }
 
-export function ItemComposer({ id, title, meta }: { id: string; title: string; meta: ItemMeta }) {
+export function ItemComposer({
+  id,
+  title,
+  meta,
+  onSent,
+  onBack,
+}: {
+  id: string
+  title: string
+  meta: ItemMeta
+  onSent?: () => void
+  onBack?: () => void
+}) {
   const { session } = useRouteContext({ from: '/_authed' })
   const toasts = useToasts()
   const qc = useQueryClient()
@@ -67,10 +80,12 @@ export function ItemComposer({ id, title, meta }: { id: string; title: string; m
         note: res.note ?? undefined,
         undo: async () => {
           await agentUnsend(res.request)
+          onBack?.()
           await qc.invalidateQueries()
         },
       })
       setDone(false)
+      onSent?.()
       return true
     } catch (e) {
       return fail('send', e)
@@ -102,6 +117,7 @@ export function ItemComposer({ id, title, meta }: { id: string; title: string; m
           ? receipt
             ? async () => {
                 await revertReceipt(receipt)
+                onBack?.()
                 await qc.invalidateQueries()
               }
             : undefined
@@ -114,6 +130,7 @@ export function ItemComposer({ id, title, meta }: { id: string; title: string; m
             },
       })
       setDone(false)
+      if (closed) onSent?.()
       return true
     } catch (e) {
       return fail('save notes on', e)

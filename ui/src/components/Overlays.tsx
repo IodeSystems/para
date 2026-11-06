@@ -14,7 +14,7 @@ import useMediaQuery from '@mui/material/useMediaQuery'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { useClose } from '@/components/OverlayFrame'
-import { CARD_KEYS, EXTRA_SCREENS, STACK_KEYS, TABS } from '@/lib/keys'
+import { CARD_KEYS, EXTRA_SCREENS, NEXT_KEYS, STACK_KEYS, TABS } from '@/lib/keys'
 import { UI_COMMIT } from '@/buildStamp'
 import { Details, StatusChip } from '@/components/Bits'
 import { NotifySetting } from '@/components/NotifySetting'
@@ -52,6 +52,14 @@ function HelpDialog() {
               <Row k="/" v="Search or go to (also Ctrl K)" />
               <Row k="?" v="This help" />
               <Row k="Esc" v="Close a dialog" />
+            </Stack>
+            <Typography variant="subtitle2" component="h3" sx={{ mt: 1.5, mb: 0.5 }}>
+              On Next
+            </Typography>
+            <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
+              {NEXT_KEYS.map((k) => (
+                <Row key={k.key} k={k.key} v={k.words} />
+              ))}
             </Stack>
             <Typography variant="subtitle2" component="h3" sx={{ mt: 1.5, mb: 0.5 }}>
               On the Stack

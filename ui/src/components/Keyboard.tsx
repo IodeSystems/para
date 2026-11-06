@@ -2,7 +2,15 @@ import { useEffect, useEffectEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { OMNI_FOCUS } from '@/components/OmniBar'
 import { noteIdOf, focusNote } from '@/components/stack/parts'
-import { actionFor, cardKeyFor, stackKeyFor, type CardKey, type StackKey } from '@/lib/keys'
+import {
+  actionFor,
+  cardKeyFor,
+  nextKeyFor,
+  stackKeyFor,
+  type CardKey,
+  type NextKey,
+  type StackKey,
+} from '@/lib/keys'
 
 // dialogOpen says a dialog or a menu is open: its own keys rule.
 const dialogOpen = () => !!document.querySelector('[role="dialog"], .MuiDrawer-root')
@@ -72,6 +80,28 @@ export function useCardKeys(onKey: (k: CardKey) => void) {
     const listen = (e: KeyboardEvent) => {
       const t = e.target instanceof HTMLElement ? e.target : null
       const k = cardKeyFor({
+        key: e.key,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        altKey: e.altKey,
+        target: t,
+      })
+      if (!k || dialogOpen()) return
+      e.preventDefault()
+      handle(k)
+    }
+    window.addEventListener('keydown', listen)
+    return () => window.removeEventListener('keydown', listen)
+  }, [])
+}
+
+// useNextKeys gives the Next page's keys (NEXT_KEYS) to the page while it is shown.
+export function useNextKeys(onKey: (k: NextKey) => void) {
+  const handle = useEffectEvent(onKey)
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => {
+      const t = e.target instanceof HTMLElement ? e.target : null
+      const k = nextKeyFor({
         key: e.key,
         ctrlKey: e.ctrlKey,
         metaKey: e.metaKey,
