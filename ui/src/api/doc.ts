@@ -27,6 +27,9 @@ const DocDoc = graphql(/* GraphQL */ `
             kind
             optional
             attend
+            deferUntil
+            deferredAfter
+            state
             source {
               url
               fidelity

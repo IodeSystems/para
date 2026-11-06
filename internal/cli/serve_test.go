@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"syscall"
 	"testing"
@@ -237,6 +238,9 @@ func fetch(t *testing.T, port, host, path, token string) (int, string) {
 	return resp.StatusCode, string(b)
 }
 
+// aliasOfLine is the alias_of key an alias call adds as the last key.
+var aliasOfLine = regexp.MustCompile(`,\n  "alias_of": "[a-z_]+"`)
+
 // TestAPIEqualsCLIJSON runs the real binary: the API body is the bytes of
 // `para <cmd> --json`, and a key's writes land under its name.
 func TestAPIEqualsCLIJSON(t *testing.T) {
@@ -269,7 +273,9 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		if code != 200 {
 			t.Fatalf("%s: %d %s", c.path, code, body)
 		}
-		if want := e.ok(append(c.args, "--json")...); want != body {
+		// project show is an alias of show: the CLI adds alias_of, the route
+		// serves the old op.
+		if want := aliasOfLine.ReplaceAllString(e.ok(append(c.args, "--json")...), ""); want != body {
 			t.Errorf("%s differs from para %v --json:\n got: %s\nwant: %s", c.path, c.args, body, want)
 		}
 	}

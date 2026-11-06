@@ -272,6 +272,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTickCmd(l),
 		newAgentCmd(l),
 	)
+	root.AddCommand(newVerbCmds(l)...)
 	addGovernanceCmds(root, l)
 	root.SetHelpCommand(newHelpCmd(l, root))
 	return root

@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuestions } from '@/api/questions'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
-import { QuestionRows } from '@/components/Questions'
+import { DoneQuestions, QuestionRows } from '@/components/Questions'
 
 export const Route = createFileRoute('/_authed/questions/')({ component: Questions })
 
@@ -31,6 +31,7 @@ function Questions() {
               <Section title="Later" count={later.length} hideEmpty>
                 {rows(later)}
               </Section>
+              <DoneQuestions />
             </>
           )
         }}

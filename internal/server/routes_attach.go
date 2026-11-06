@@ -34,6 +34,15 @@ func registerAttachments(r *registrar) {
 	reg(r, ops.AgentSend, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentUnsend, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ItemClose, post, netguard.ScopeReviewDecide)
+	// The generic verbs. Each runs the op of the item's type; a caller on a
+	// bearer key must hold that op's own scope too (boundVault.deps
+	// Authorize), so review:decide alone writes nothing an agent could not.
+	reg(r, ops.Close, post, netguard.ScopeReviewDecide)
+	reg(r, ops.Later, post, netguard.ScopeReviewDecide)
+	reg(r, ops.Reopen, post, netguard.ScopeReviewDecide)
+	reg(r, ops.SendToAgent, post, netguard.ScopeReviewDecide)
+	reg(r, ops.Show, get, read)
+	reg(r, ops.List, get, read)
 }
 
 // attachmentRoutes are chi routes, like /ws: the gate finds their scope in

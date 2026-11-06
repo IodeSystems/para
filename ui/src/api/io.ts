@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import { closeAny } from '@/api/verbs'
 
 const IoListDoc = graphql(/* GraphQL */ `
   query IoList($direction: para_ioListDirection, $all: Boolean) {
@@ -96,29 +97,17 @@ export function useIoItem(id: string) {
   })
 }
 
-const IODoneDoc = graphql(/* GraphQL */ `
-  mutation IODone($body: para_IODoneInputInput!) {
-    para {
-      v1 {
-        ioDone(body: $body) {
-          id
-          state
-          became
-          warnings
-        }
-      }
-    }
-  }
-`)
-
 export type IODoneBody = { id: string; url?: string; locator?: string; text?: string }
 
-// useIODone marks an outbox draft sent by the owner: it is filed as an agent's send would be.
+// useIODone marks an outbox draft sent by the owner: it is filed as an agent's send would be
+// (close with outcome sent, which runs io_done).
 export function useIODone() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: IODoneBody) =>
-      need((await gqlClient.request(IODoneDoc, { body })).para.v1.ioDone, 'io done'),
+    mutationFn: async ({ id, ...fields }: IODoneBody) => {
+      const r = await closeAny({ id, outcome: 'sent', fields })
+      return { id, state: r.result.state as string, became: r.result.became as string | null }
+    },
     onSettled: () => qc.invalidateQueries(),
   })
 }

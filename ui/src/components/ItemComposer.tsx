@@ -5,6 +5,7 @@ import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CheckIcon from '@mui/icons-material/Check'
 import { agentUnsend, closeItem, useAgentSend } from '@/api/composer'
+import { revertReceipt } from '@/api/receipts'
 import { readNotes, saveNotes } from '@/api/notes'
 import { canDecide } from '@/client/session'
 import { uploadAttachment } from '@/client/upload'
@@ -88,16 +89,22 @@ export function ItemComposer({ id, title, meta }: { id: string; title: string; m
       )
       const saved = await saveNotes(id, before.hash, md)
       let closed = false
+      let receipt: string | null | undefined
       if (done && close) {
-        await closeItem(id)
+        receipt = (await closeItem(id)).receipt
         closed = true
       }
       await qc.invalidateQueries()
       toasts.push({
         text: `${closed ? 'Saved as notes and closed' : 'Saved as notes'}: ${name}`,
-        note: closed ? 'Closing cannot be undone here; the notes stay.' : undefined,
+        note: closed ? 'Undo opens it again; the notes stay.' : undefined,
         undo: closed
-          ? undefined
+          ? receipt
+            ? async () => {
+                await revertReceipt(receipt)
+                await qc.invalidateQueries()
+              }
+            : undefined
           : async () => {
               const now = await readNotes(id)
               if (now.hash !== saved.hash)

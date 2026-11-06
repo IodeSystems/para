@@ -225,6 +225,12 @@ export function useReceiptCheck() {
   })
 }
 
+// revertReceipt undoes one write from its receipt, as the owner: the Undo of Done, Later, and
+// Reopen on an item row.
+export async function revertReceipt(id: string) {
+  return need((await gqlClient.request(RevertDoc, { body: { id } })).para.v1.receiptRevert, 'undo')
+}
+
 // useReceiptRevert undoes one agent write, as the owner. The server refuses it when the document
 // changed since.
 export function useReceiptRevert() {

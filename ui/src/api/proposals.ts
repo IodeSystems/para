@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import { laterAny, reopenAny, strings } from '@/api/verbs'
 
 // Proposals (dossiers) and the review stack. A session with review:decide drafts answers, submits
 // them, and approves or rejects items across dossiers. Every other change goes through the chat.
@@ -670,52 +671,32 @@ export function useProposalDone() {
   })
 }
 
-const StackLaterDoc = graphql(/* GraphQL */ `
-  mutation StackLater($body: para_StackLaterInputInput!) {
-    para {
-      v1 {
-        stackLater(body: $body) {
-          changed
-          skipped
-          until
-        }
-      }
-    }
-  }
-`)
-
-const StackReturnDoc = graphql(/* GraphQL */ `
-  mutation StackReturn($body: para_StackReturnInputInput!) {
-    para {
-      v1 {
-        stackReturn(body: $body) {
-          changed
-          skipped
-        }
-      }
-    }
-  }
-`)
-
 export type LaterBody = {
   items?: { proposal: string; item: string }[]
   questions?: string[]
   until?: string
 }
 
-// useStackLater puts stack items off until a date (stack_later); stackReturn brings them back, as
-// the toast's Undo.
+// useStackLater puts stack items off until a date (later, which runs defer); stackReturn brings
+// them back (reopen, which runs undefer), as the toast's Undo.
 export function useStackLater() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (body: LaterBody) =>
-      need((await gqlClient.request(StackLaterDoc, { body })).para.v1.stackLater, 'later'),
+    mutationFn: async (body: LaterBody) => {
+      const r = await laterAny({ ids: body.questions, items: body.items, until: body.until })
+      return {
+        changed: strings(r.result.changed),
+        skipped: strings(r.result.skipped),
+        until: body.until,
+      }
+    },
     onSettled: () => qc.invalidateQueries(),
   })
 }
 
 export async function stackReturn(body: Omit<LaterBody, 'until'>) {
-  return need((await gqlClient.request(StackReturnDoc, { body })).para.v1.stackReturn, 'return')
+  const r = await reopenAny({ ids: body.questions, items: body.items })
+  return { changed: strings(r.result.changed), skipped: strings(r.result.skipped) }
 }
 
 const TagListDoc = graphql(/* GraphQL */ `

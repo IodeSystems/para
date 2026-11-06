@@ -116,6 +116,11 @@ func TestRESTEqualsInvoke(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			// A route of an old name serves the old op; alias_of is what MCP
+			// and the CLI add.
+			if a, ok := out.(ops.AliasOutput); ok {
+				out = a.Value()
+			}
 			if want := encodeJSON(t, out); want != text {
 				t.Errorf("differs from Invoke:\n got: %s\nwant: %s", text, want)
 			}

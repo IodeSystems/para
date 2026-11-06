@@ -70,6 +70,9 @@ type Op[I, O any] struct {
 	// gateRule, when set, can let a write through the gate or hold it back
 	// whatever gate.require says (withGateRule).
 	gateRule func(I, WriteMeta) (gateVerdict, string)
+	// verb: a generic verb (verbs.go) that routes to the op of the item's
+	// type. That op gates and files receipts; the verb does neither.
+	verb bool
 }
 
 // Entry is the untyped view of an Op, for surfaces that iterate All.
@@ -131,7 +134,7 @@ func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }
 
 // Run calls the op.
 func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
-	if o.risk != RiskRead && (needsRecord(ctx, d) || (o.oneReceipt && ctx.Value(recordingKey{}) == nil)) {
+	if o.risk != RiskRead && !o.verb && (needsRecord(ctx, d) || (o.oneReceipt && ctx.Value(recordingKey{}) == nil)) {
 		return runRecorded(ctx, d, o, in)
 	}
 	return o.run(ctx, d, in)
@@ -256,10 +259,14 @@ func ForAgents() []Entry {
 	return slices.DeleteFunc(All(), Entry.PersonOnly)
 }
 
-// All returns every op, sorted by name.
+// All returns every op, sorted by name. An old name with an alias
+// (opalias.go) is its alias entry.
 func All() []Entry {
 	out := make([]Entry, 0, len(registry))
-	for _, e := range registry {
+	for name, e := range registry {
+		if a, ok := aliases[name]; ok {
+			e = a
+		}
 		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })

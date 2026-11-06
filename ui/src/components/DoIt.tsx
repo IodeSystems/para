@@ -8,6 +8,7 @@ import { useRouteContext } from '@tanstack/react-router'
 import { canDecide } from '@/client/session'
 import { useQueryClient } from '@tanstack/react-query'
 import { closeItem } from '@/api/composer'
+import { revertReceipt } from '@/api/receipts'
 import { useTask } from '@/api/tasks'
 import { errorText } from '@/client/gqlClient'
 import { CopyButton } from '@/components/CopyButton'
@@ -45,11 +46,18 @@ export function DoIt({
   const markDone = async () => {
     setBusy(true)
     try {
-      await closeItem(id)
+      const r = await closeItem(id)
       await qc.invalidateQueries()
+      const receipt = r.receipt
       toasts.push({
         text: `Marked done: ${title}`,
-        note: 'Marking done cannot be undone here. Ask an agent to reopen it.',
+        undo: receipt
+          ? async () => {
+              await revertReceipt(receipt)
+              await qc.invalidateQueries()
+            }
+          : undefined,
+        note: receipt ? undefined : 'This close left no receipt to undo.',
       })
     } catch (e) {
       toasts.push({ text: `Could not mark done: ${title}: ${errorText(e)}`, tone: 'error' })

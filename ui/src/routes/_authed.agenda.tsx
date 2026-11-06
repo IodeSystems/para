@@ -73,24 +73,31 @@ function aboutItem(kind: Kind, i: Item): string {
   return parts.join(' - ')
 }
 
-function ItemRows({ kind, items }: { kind: Kind; items: Item[] }) {
+// ItemRows lists a group of the agenda. rowKind gives its rows Done and Later (blocked tasks);
+// constraints and exceptions to review have none.
+function ItemRows({ kind, items, rowKind }: { kind: Kind; items: Item[]; rowKind?: string }) {
   return (
     <List dense disablePadding>
       {items.map((i) => (
-        <ListItem key={i.id} disableGutters sx={CHIP_ROW}>
-          <ListItemText
-            primary={<ItemLink kind={kind} item={i} />}
-            secondary={aboutItem(kind, i) || undefined}
-            slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-          />
-          {kind === 'incident' && i.detail && (
-            <StatusChip
-              tone={toneOfSeverity(i.detail.split(' ')[0] ?? '')}
-              label={i.detail.split(' ')[0] ?? ''}
-            />
+        <AgendaRow key={i.id} x={{ id: i.id, title: i.title, kind: rowKind }}>
+          {(actions) => (
+            <ListItem disableGutters sx={CHIP_ROW}>
+              <ListItemText
+                primary={<ItemLink kind={kind} item={i} />}
+                secondary={aboutItem(kind, i) || undefined}
+                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+              />
+              {kind === 'incident' && i.detail && (
+                <StatusChip
+                  tone={toneOfSeverity(i.detail.split(' ')[0] ?? '')}
+                  label={i.detail.split(' ')[0] ?? ''}
+                />
+              )}
+              {i.due && <DueChip due={i.due} />}
+              {rowKind && actions}
+            </ListItem>
           )}
-          {i.due && <DueChip due={i.due} />}
-        </ListItem>
+        </AgendaRow>
       ))}
     </List>
   )
@@ -290,17 +297,22 @@ function Agenda() {
             const inboxOf = (list: typeof inboxRows) => (
               <List dense disablePadding>
                 {list.map((i) => (
-                  <ListItem key={i.id} disableGutters>
-                    <ListItemText
-                      primary={
-                        <TextLink to="/io/$id" params={{ id: i.id }} underline="hover">
-                          {i.title || 'Untitled message'}
-                        </TextLink>
-                      }
-                      secondary={humanTime(i.at || i.created)}
-                      sx={{ overflowWrap: 'anywhere' }}
-                    />
-                  </ListItem>
+                  <AgendaRow key={i.id} x={{ id: i.id, title: i.title, kind: 'io' }}>
+                    {(actions) => (
+                      <ListItem disableGutters sx={CHIP_ROW}>
+                        <ListItemText
+                          primary={
+                            <TextLink to="/io/$id" params={{ id: i.id }} underline="hover">
+                              {i.title || 'Untitled message'}
+                            </TextLink>
+                          }
+                          secondary={humanTime(i.at || i.created)}
+                          sx={{ overflowWrap: 'anywhere' }}
+                        />
+                        {actions}
+                      </ListItem>
+                    )}
+                  </AgendaRow>
                 ))}
               </List>
             )
@@ -315,7 +327,7 @@ function Agenda() {
                 key: 'blocked',
                 label: 'Blocked',
                 count: t.blocked.count,
-                body: <ItemRows kind="doc" items={t.blocked.items} />,
+                body: <ItemRows kind="doc" items={t.blocked.items} rowKind="task" />,
               },
               {
                 key: 'due',

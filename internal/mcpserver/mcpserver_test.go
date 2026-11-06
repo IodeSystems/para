@@ -146,7 +146,7 @@ func withWhy(name string, a any) any {
 		}
 		if _, has := m["why"]; ok && !has {
 			m["why"] = "test"
-			if name == "defer" {
+			if name == "defer" || name == "later" {
 				m["owner_said"] = "put it off" // else the gate holds it
 			}
 			return m
@@ -369,6 +369,14 @@ func TestParity(t *testing.T) {
 			args, haveSample := sampleInputs[e.Name()]
 			if !haveSample {
 				args = "{}"
+			}
+			if e.Name() == "reopen" {
+				// An agent reopens a closed item; bringing back a put-off
+				// one (the sample) is undefer, people only.
+				if _, err := ops.TaskDone.Run(t.Context(), ops.Deps{Store: s}, ops.TaskDoneInput{ID: "task-free"}); err != nil {
+					t.Fatal(err)
+				}
+				args = `{"id":"task-free","reason":"Not done after all."}`
 			}
 			res := call(t, c, e.Name(), args)
 			text := textOf(t, res)

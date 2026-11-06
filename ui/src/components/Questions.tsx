@@ -1,9 +1,12 @@
+import { useState } from 'react'
+import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import { useQuestions, type QuestionScope } from '@/api/questions'
+import { useClosedList } from '@/api/verbs'
 import { errorText } from '@/client/gqlClient'
 import { Empty, Section, StateChip, StatusChip } from '@/components/Bits'
 import { questionState } from '@/lib/answer'
@@ -11,6 +14,7 @@ import { laterLabel, nameList } from '@/lib/names'
 import { nameOr } from '@/lib/names'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
+import { ItemActions } from '@/components/AgendaActions'
 
 // Open questions in a scope, in the order the server gives: the ones that block most come first.
 export function QuestionsSection({
@@ -80,6 +84,11 @@ export function QuestionRows({ list }: { list: Rows }) {
                 .join(' - ')}
               slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
             />
+            <ItemActions
+              x={{ id: x.id, title: x.title, kind: 'question' }}
+              deferred={!!x.deferred}
+              open={false}
+            />
           </Stack>
           <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
             <StatusChip tone="quiet" label={x.kind} />
@@ -97,5 +106,43 @@ export function QuestionRows({ list }: { list: Rows }) {
         </ListItem>
       ))}
     </List>
+  )
+}
+
+// DoneQuestions lists closed questions (answered or dropped) once the owner asks to see them, each
+// with Reopen.
+export function DoneQuestions() {
+  const [show, setShow] = useState(false)
+  const q = useClosedList('question', show)
+  const rows = q.data ?? []
+  return (
+    <>
+      <Button size="small" color="inherit" aria-pressed={show} onClick={() => setShow((v) => !v)}>
+        {show ? 'Hide done' : 'Show done'}
+      </Button>
+      {show && (
+        <Section title="Done" count={q.isError ? undefined : rows.length}>
+          {q.isError ? (
+            <Alert severity="error">{errorText(q.error)}</Alert>
+          ) : rows.length === 0 ? (
+            <Empty>No closed question.</Empty>
+          ) : (
+            <List dense disablePadding>
+              {rows.map((x) => (
+                <ListItem key={x.id} disableGutters divider>
+                  <ListItemText primary={<DocLink id={x.id}>{x.title || x.id}</DocLink>} />
+                  {x.status && <StateChip state={x.status} />}
+                  <ItemActions
+                    x={{ id: x.id, title: x.title, kind: 'question' }}
+                    closed
+                    open={false}
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Section>
+      )}
+    </>
   )
 }

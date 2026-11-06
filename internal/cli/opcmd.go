@@ -67,6 +67,9 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		for _, s := range ops.SimilarFor(ctx, deps.Store, op.Name(), in) {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "similar: %s\n", s.Title)
 		}
+		if a := ops.Alias(op.Name()); a != nil {
+			return runAlias(cmd, a, ctx, deps, in, b.Text)
+		}
 		out, err := op.Run(ctx, deps, in)
 		if s, ok := ops.AsStaged(err); ok {
 			return emitStaged(cmd, s)
@@ -77,6 +80,39 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		return emit(cmd, out, b.Text)
 	}
 	return cmd
+}
+
+// runAlias runs an old op name through its alias (ops.Alias), as MCP does.
+// --json prints the output with alias_of; the text form is the old op's, with
+// a note on stderr that names the op to use.
+func runAlias[I, O any](cmd *cobra.Command, a ops.Entry, ctx context.Context, deps ops.Deps, in I, text func(io.Writer, O) error) error {
+	raw, err := json.Marshal(in)
+	if err != nil {
+		return fmt.Errorf("cli: %s: %w", a.Name(), err)
+	}
+	res, err := a.Invoke(ctx, deps, raw)
+	if s, ok := ops.AsStaged(err); ok {
+		return emitStaged(cmd, s)
+	}
+	if err != nil {
+		return err
+	}
+	ao, _ := res.(ops.AliasOutput)
+	if asJSON, _ := cmd.Flags().GetBool("json"); asJSON {
+		return emit(cmd, ao, func(io.Writer, ops.AliasOutput) error { return nil })
+	}
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s is an alias of %s; use %s\n", a.Name(), ao.Of(), ao.Of())
+	out, ok := ao.Value().(O)
+	if !ok {
+		b, err := json.Marshal(ao.Value())
+		if err == nil {
+			err = json.Unmarshal(b, &out)
+		}
+		if err != nil {
+			return fmt.Errorf("cli: %s: output: %w", a.Name(), err)
+		}
+	}
+	return emit(cmd, out, text)
 }
 
 func addJSONFlag(cmd *cobra.Command) {

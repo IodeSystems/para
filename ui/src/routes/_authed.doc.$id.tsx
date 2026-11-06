@@ -21,6 +21,8 @@ import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
+import { ItemActions } from '@/components/AgendaActions'
+import { isClosed, rowKind } from '@/lib/agenda'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
 
@@ -63,6 +65,14 @@ function Doc() {
                     Open the source
                   </LinkButton>
                 )}
+                <ItemActions
+                  x={{ id: d.id, title: d.title, kind: rowKind(d.meta.type, d.meta.kind) }}
+                  closed={isClosed(
+                    d.meta.status ?? (typeof d.meta.state === 'string' ? d.meta.state : null),
+                  )}
+                  deferred={!!d.meta.deferUntil || (d.meta.deferredAfter?.length ?? 0) > 0}
+                  open={false}
+                />
                 {d.meta.type === 'tracked_doc' && (
                   <LinkButton size="small" variant="outlined" to="/docs/$id" params={{ id: d.id }}>
                     Open versions and comments

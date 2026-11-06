@@ -102,6 +102,13 @@ const REVIEW_MUTATIONS = new Set([
   'MeetingRsvp',
   'StackLater',
   'StackReturn',
+  // owner 2026-11-06: stage 2 generic verbs. Done, Later, and Reopen on every item row, and the
+  // composer's send, call the generic ops (close, later, reopen, send_to_agent); each runs the op
+  // of the item's type with that op's rules, and leaves a receipt that ReceiptRevert undoes.
+  'Close',
+  'Later',
+  'Reopen',
+  'SendToAgent',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

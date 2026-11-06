@@ -142,6 +142,12 @@ func checkJSONTags(t *testing.T, op string, typ reflect.Type) {
 	}
 	for i := range typ.NumField() {
 		f := typ.Field(i)
+		// An embedded struct with no tag is promoted (an alias's output): its
+		// own fields need the tags.
+		if f.Anonymous && f.Tag.Get("json") == "" && f.Type.Kind() == reflect.Struct {
+			checkJSONTags(t, op, f.Type)
+			continue
+		}
 		if f.IsExported() && f.Tag.Get("json") == "" {
 			t.Errorf("%s: %s.%s has no json tag", op, typ, f.Name)
 		}

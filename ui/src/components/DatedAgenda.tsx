@@ -10,6 +10,8 @@ import TextField from '@mui/material/TextField'
 import { useAgenda, useCalendarExport } from '@/api/meetings'
 import { Empty, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { AgendaRow } from '@/components/AgendaActions'
+import { datedKind } from '@/lib/agenda'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
@@ -112,39 +114,48 @@ export function DatedAgenda() {
                   <Section key={d} title={dateWords(d)} count={items.length}>
                     <List dense disablePadding>
                       {items.map((i) => (
-                        <ListItem key={`${i.kind}-${i.id}`} disableGutters>
-                          <ListItemText
-                            primary={
-                              i.kind === 'meeting' ? (
-                                <TextLink
-                                  to="/meetings/$id"
-                                  params={{ id: i.id }}
-                                  underline="hover"
-                                >
-                                  {i.title}
-                                </TextLink>
-                              ) : (
-                                <DocLink id={i.id}>{i.title}</DocLink>
-                              )
-                            }
-                            secondary={[
-                              i.kind === 'meeting' ? meetingWhen(i.at, i.until) : i.time,
-                              i.detail,
-                              i.why,
-                              i.who.length > 0 && `with ${joinNames(nameList(i.who, i.whoNames))}`,
-                              i.projectName && `goal ${i.projectName}`,
-                            ]
-                              .filter(Boolean)
-                              .join(' - ')}
-                            slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-                          />
-                          <StatusChip
-                            tone={i.overdue ? 'bad' : 'quiet'}
-                            label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
-                          />
-                          <AgentLooking id={i.id} />
-                          <AgentWorking id={i.id} />
-                        </ListItem>
+                        <AgendaRow
+                          key={`${i.kind}-${i.id}`}
+                          x={{ id: i.id, title: i.title, kind: datedKind(i.kind) }}
+                        >
+                          {(actions) => (
+                            <ListItem disableGutters>
+                              <ListItemText
+                                primary={
+                                  i.kind === 'meeting' ? (
+                                    <TextLink
+                                      to="/meetings/$id"
+                                      params={{ id: i.id }}
+                                      underline="hover"
+                                    >
+                                      {i.title}
+                                    </TextLink>
+                                  ) : (
+                                    <DocLink id={i.id}>{i.title}</DocLink>
+                                  )
+                                }
+                                secondary={[
+                                  i.kind === 'meeting' ? meetingWhen(i.at, i.until) : i.time,
+                                  i.detail,
+                                  i.why,
+                                  i.who.length > 0 &&
+                                    `with ${joinNames(nameList(i.who, i.whoNames))}`,
+                                  i.projectName && `goal ${i.projectName}`,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' - ')}
+                                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+                              />
+                              <StatusChip
+                                tone={i.overdue ? 'bad' : 'quiet'}
+                                label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
+                              />
+                              <AgentLooking id={i.id} />
+                              <AgentWorking id={i.id} />
+                              {actions}
+                            </ListItem>
+                          )}
+                        </AgendaRow>
                       ))}
                     </List>
                   </Section>

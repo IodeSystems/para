@@ -1278,7 +1278,10 @@ try {
       ask: 'Check that last night backups ran.',
       owner_said: 'can you check the backups ran last night?',
     })
-    check(ask.status === 'claimed', `an owner-ask the agent records is claimed by it (${ask.status})`)
+    check(
+      ask.status === 'claimed',
+      `an owner-ask the agent records is claimed by it (${ask.status})`,
+    )
     await rpage.goto(`${base}/stack?view=sent`)
     const row = rpage.locator(`[data-sent="${ask.id}"][data-kind="owner-ask"]`)
     await row.waitFor()
@@ -1356,10 +1359,27 @@ try {
   await agendaRow.waitFor()
   await agendaRow.getByRole('button', { name: 'Done' }).click()
   await agendaRow.waitFor({ state: 'detached' })
-  await rpage.locator('[data-toast]').filter({ hasText: 'Marked done' }).first().waitFor()
+  const doneToast = rpage.locator('[data-toast]').filter({ hasText: 'Marked done' }).first()
+  await doneToast.waitFor()
   check(
     /"status":\s*"done"/.test(para(...v, 'task', 'show', agendaTask, '--json')),
     'Done on an agenda task closes it and the row leaves the agenda',
+  )
+  // Undo in the toast undoes the close from its receipt: the task is open again.
+  await doneToast.getByRole('button', { name: 'Undo' }).click()
+  await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
+  check(
+    /"status":\s*"todo"/.test(para(...v, 'task', 'show', agendaTask, '--json')),
+    'Undo of Done on the agenda opens the task again',
+  )
+  // Reopen on a closed task's page opens it again.
+  para(...v, 'close', agendaTask)
+  await rpage.goto(`${base}/doc/${agendaTask}`)
+  await rpage.locator(`[data-item-actions="${agendaTask}"] [data-act="reopen"]`).click()
+  await rpage.locator('[data-toast]').filter({ hasText: 'Reopened' }).first().waitFor()
+  check(
+    /"status":\s*"todo"/.test(para(...v, 'task', 'show', agendaTask, '--json')),
+    'Reopen on a closed task page opens it again',
   )
 
   // Keys: j moves to the first row, s opens its skip note, Esc closes it.

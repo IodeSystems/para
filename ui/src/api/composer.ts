@@ -2,25 +2,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import { closeAny, sendToAgent } from '@/api/verbs'
 
-// The composer's calls: send the owner's words about an item to an agent (agent_send), take it back
-// while no agent has it (agent_unsend), and close a task or a meeting the owner saved notes on
-// (item_close).
-
-const AgentSendDoc = graphql(/* GraphQL */ `
-  mutation AgentSend($body: para_AgentSendInputInput!) {
-    para {
-      v1 {
-        agentSend(body: $body) {
-          request
-          status
-          title
-          note
-        }
-      }
-    }
-  }
-`)
+// The composer's calls: send the owner's words about an item to an agent (send_to_agent, which runs
+// agent_send), take it back while no agent has it (agent_unsend), and close a task or a meeting the
+// owner saved notes on (close).
 
 const AgentUnsendDoc = graphql(/* GraphQL */ `
   mutation AgentUnsend($body: para_AgentUnsendInputInput!) {
@@ -35,19 +21,6 @@ const AgentUnsendDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const ItemCloseDoc = graphql(/* GraphQL */ `
-  mutation ItemClose($body: para_ItemCloseInputInput!) {
-    para {
-      v1 {
-        itemClose(body: $body) {
-          id
-          by
-        }
-      }
-    }
-  }
-`)
-
 export function useAgentSend() {
   const qc = useQueryClient()
   return useMutation({
@@ -56,7 +29,20 @@ export function useAgentSend() {
       text?: string
       attachments?: string[]
       done?: boolean
-    }) => need((await gqlClient.request(AgentSendDoc, { body })).para.v1.agentSend, 'agent send'),
+    }) => {
+      const r = await sendToAgent({
+        id: body.id,
+        note: body.text,
+        attachments: body.attachments,
+        done: body.done,
+      })
+      return {
+        request: r.result.request as string,
+        status: r.result.status as string,
+        title: r.result.title as string,
+        note: (r.result.note as string | undefined) ?? null,
+      }
+    },
     onSettled: () => qc.invalidateQueries(),
   })
 }
@@ -68,7 +54,9 @@ export async function agentUnsend(request: string) {
   )
 }
 
-// closeItem marks a task done or a meeting held (item_close) after the owner saved notes on it.
+// closeItem marks a task done, a meeting held, or an ask closed (close with no outcome) after the
+// owner saved notes on it. receipt undoes it.
 export async function closeItem(id: string) {
-  return need((await gqlClient.request(ItemCloseDoc, { body: { id } })).para.v1.itemClose, 'close')
+  const r = await closeAny({ id })
+  return { id, by: r.op, receipt: r.receipt }
 }

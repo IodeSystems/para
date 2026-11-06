@@ -66,7 +66,7 @@ func writeMeta(ctx context.Context) WriteMeta {
 
 // FlowOps run the work itself: claiming, reporting, filing. They hold their own
 // record, so they take no why and leave no receipt.
-var FlowOps = []string{"request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record",
+var FlowOps = []string{"send_to_agent", "request_next", "request_note", "request_done", "request_fail", "request_add", "align_record", "action_record",
 	"proposal_add", "proposal_revise", "proposal_decide", "proposal_executed", "proposal_claim", "proposal_reply",
 	"agent_sources", "sweep_record"}
 
@@ -256,6 +256,13 @@ func (r *recorder) file(ctx context.Context, d Deps, op string, m WriteMeta) err
 // fileOne writes one receipt for every document that changed: the first is
 // the receipt's doc, the others go in also.
 func (r *recorder) fileOne(ctx context.Context, d Deps, op string, m WriteMeta) error {
+	_, err := r.fileOneID(ctx, d, op, m)
+	return err
+}
+
+// fileOneID is fileOne, and returns the receipt's id ("" when nothing
+// changed).
+func (r *recorder) fileOneID(ctx context.Context, d Deps, op string, m WriteMeta) (string, error) {
 	info := d.Store.Info()
 	if m.Request == "" {
 		m.Request = heldRequest(ctx, d.Store, info.Actor)
@@ -279,9 +286,9 @@ func (r *recorder) fileOne(ctx context.Context, d Deps, op string, m WriteMeta) 
 		c.Also = append(c.Also, model.ReceiptPart{Doc: t.id, Folder: t.folder, Before: t.before, After: after})
 	}
 	if main == "" {
-		return nil
+		return "", nil
 	}
-	return fileReceipt(ctx, d, receiptInput{op: op, doc: main, title: title, meta: m, content: c,
+	return createReceipt(ctx, d, receiptInput{op: op, doc: main, title: title, meta: m, content: c,
 		selfReported: m.OwnerSaid != "", ownerSaid: m.OwnerSaid})
 }
 
