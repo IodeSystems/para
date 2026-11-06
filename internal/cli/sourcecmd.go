@@ -24,11 +24,13 @@ func newSourceCmd(l *loader) *cobra.Command {
 		Flags: func(fs *pflag.FlagSet, in *ops.SourceAddInput) {
 			fs.StringVar(&in.Title, "title", "", "name of the source, such as \"Work mailbox\"")
 			fs.StringVar(&in.ID, "id", "", "document id (default the slug of the title)")
-			fs.StringVar((*string)(&in.Example), "example", "", "start from the example of this system (para source example)")
-			fs.StringVar((*string)(&in.System), "system", "", "gmail, gdocs, gcal, slack, github, jira, confluence, folder, or other")
+			fs.StringVar((*string)(&in.Example), "example", "", "start from this example (para source example)")
+			fs.StringVar((*string)(&in.System), "system", "", "class: mail, chat, tracker, wiki, calendar, or other")
+			fs.StringVar(&in.Vendor, "vendor", "", "the product, a free label")
+			fs.StringVar((*string)(&in.Priority), "priority", "", "high (every incoming message needs you), normal, or low")
 			fs.StringVar((*string)(&in.Via), "via", "", "mcp, cli, or none (default none)")
 			fs.StringVar(&in.Server, "server", "", "MCP server name (via mcp)")
-			fs.StringVar(&in.RefURL, "ref-url", "", "link template with {ref}, such as https://mail.google.com/mail/u/0/#all/{ref}")
+			fs.StringVar(&in.RefURL, "ref-url", "", "link template with {ref}, such as https://mail.example.com/thread/{ref}")
 			fs.StringArrayVar(&in.Tools, "tool", nil, "MCP tool name (via mcp); repeatable")
 			fs.StringVar(&step.fetch, "fetch", "", "fetch step as JSON: {tool, args, command, query, how}")
 			fs.StringVar(&step.scanIn, "scan-in", "", "scan_in step as JSON")
@@ -67,7 +69,7 @@ func newSourceCmd(l *loader) *cobra.Command {
 		Text: func(w io.Writer, out ops.SourceListOutput) error {
 			p := &printer{w: w}
 			for _, s := range out.Sources {
-				p.f("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, s.Status, s.System, s.Via, firstNonEmpty(s.Cadence, "on demand"),
+				p.f("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", s.ID, s.Status, sourceKind(s), s.Via, firstNonEmpty(s.Cadence, "on demand"),
 					"last "+firstNonEmpty(s.LastScan, "never"), reachWords(s), overdueWord(s))
 			}
 			return p.err
@@ -80,7 +82,10 @@ func newSourceCmd(l *loader) *cobra.Command {
 		Text: func(w io.Writer, out ops.SourceShowOutput) error {
 			s := out.Source
 			p := &printer{w: w}
-			p.f("%s\t%s\t%s\t%s\n", s.ID, s.Status, s.System, s.Title)
+			p.f("%s\t%s\t%s\t%s\n", s.ID, s.Status, sourceKind(s), s.Title)
+			if s.Priority != "" {
+				p.f("priority\t%s\n", s.Priority)
+			}
 			p.f("via\t%s %s %s\n", s.Via, s.Server, strings.Join(out.Tools, ", "))
 			p.f("cadence\t%s\tdue %s\tlast %s\t%s\n", firstNonEmpty(s.Cadence, "on demand"), firstNonEmpty(s.Due, "-"), firstNonEmpty(s.LastScan, "never"), overdueWord(s))
 			p.f("reach\t%s\n", reachWords(s))
@@ -114,7 +119,7 @@ func newSourceCmd(l *loader) *cobra.Command {
 		},
 	})
 	example := opCommand(l, ops.SourceExample, binding[ops.SourceExampleInput, ops.SourceExampleOutput]{
-		Use:  "example <system>",
+		Use:  "example <name>",
 		Args: cobra.ExactArgs(1),
 		Bind: func(args []string, in *ops.SourceExampleInput) error {
 			in.System = model.SourceSystem(args[0])
@@ -268,3 +273,11 @@ func (o optString) String() string {
 }
 func (o optString) Set(v string) error { *o.p = &v; return nil }
 func (o optString) Type() string       { return "string" }
+
+// sourceKind is a source's class, with its vendor after a slash when set.
+func sourceKind(s ops.SourceRow) string {
+	if s.Vendor == "" {
+		return string(s.System)
+	}
+	return string(s.System) + "/" + s.Vendor
+}

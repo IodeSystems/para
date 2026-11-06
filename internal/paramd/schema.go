@@ -76,7 +76,8 @@ var (
 	attends            = []string{"yes", "no", "maybe"}
 	docSystems         = []string{"confluence", "jira", "github", "gdoc", "other"}
 	docStatuses        = []string{"watching", "paused", "archived"}
-	sourceSystems      = []string{"gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder", "other"}
+	sourceSystems      = []string{"mail", "chat", "tracker", "wiki", "calendar", "other", "gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder"}
+	priorities         = []string{"high", "normal", "low"}
 	sourceVias         = []string{"mcp", "cli", "none"}
 	sourceStatuses     = []string{"active", "paused"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
@@ -262,10 +263,12 @@ var typeFields = map[string][]field{
 		{Name: "groups", Kind: kLinkList},
 		{Name: "away_until", Kind: kDate},
 		{Name: "quiet_days", Kind: kCount},
+		{Name: "priority", Kind: kEnum, Enum: priorities},
 	},
 	"group": {
 		{Name: "org", Kind: kString, Required: true},
 		{Name: "kind", Kind: kEnum, Enum: groupKinds, Required: true},
+		{Name: "priority", Kind: kEnum, Enum: priorities},
 	},
 	"interaction": {
 		{Name: "date", Kind: kDate, Required: true},
@@ -361,8 +364,10 @@ var typeFields = map[string][]field{
 		{Name: "comments", Kind: kMaps}, // Lint trackedDoc
 	},
 	"source": {
-		{Name: "system", Kind: kEnum, Enum: sourceSystems, Required: true},
+		{Name: "system", Kind: kEnum, Enum: sourceSystems, Required: true}, // a class, or an older alias
+		{Name: "vendor", Kind: kString},
 		{Name: "status", Kind: kEnum, Enum: sourceStatuses, Required: true},
+		{Name: "priority", Kind: kEnum, Enum: priorities},
 		{Name: "via", Kind: kEnum, Enum: sourceVias, Required: true},
 		{Name: "server", Kind: kString},
 		{Name: "ref_url", Kind: kString}, // link template with {ref}

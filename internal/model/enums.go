@@ -593,10 +593,22 @@ func (CommentResolution) Enum() []string { return enumStrings(CommentResolutions
 // CommentResolutions lists every CommentResolution.
 var CommentResolutions = []CommentResolution{CommentBecame, CommentResolved, CommentDropped}
 
-// SourceSystem is source.system: the kind of system a source is.
+// SourceSystem is source.system: the class of system a source is (mail,
+// chat, tracker, wiki, calendar, other). The product is source.vendor, a free
+// label. An older source names a product here (gmail, slack, jira, ...): it
+// reads as an alias of a class and a vendor (ops/sourceclass.go) and is not
+// rewritten; a new or edited source is written as class and vendor.
 type SourceSystem string
 
 const (
+	SourceMail     SourceSystem = "mail"
+	SourceChat     SourceSystem = "chat"
+	SourceTracker  SourceSystem = "tracker"
+	SourceWiki     SourceSystem = "wiki"
+	SourceCalendar SourceSystem = "calendar"
+	SourceOther    SourceSystem = "other"
+
+	// Older values, read as aliases of a class and a vendor.
 	SourceGmail      SourceSystem = "gmail"
 	SourceGDocs      SourceSystem = "gdocs"
 	SourceGCal       SourceSystem = "gcal"
@@ -605,14 +617,35 @@ const (
 	SourceJira       SourceSystem = "jira"
 	SourceConfluence SourceSystem = "confluence"
 	SourceFolder     SourceSystem = "folder"
-	SourceOther      SourceSystem = "other"
 )
 
 // Enum lists the allowed values, for schema generation.
 func (SourceSystem) Enum() []string { return enumStrings(SourceSystems) }
 
-// SourceSystems lists every SourceSystem.
-var SourceSystems = []SourceSystem{SourceGmail, SourceGDocs, SourceGCal, SourceSlack, SourceGitHub, SourceJira, SourceConfluence, SourceFolder, SourceOther}
+// SourceClasses lists the classes a new source is written with.
+var SourceClasses = []SourceSystem{SourceMail, SourceChat, SourceTracker, SourceWiki, SourceCalendar, SourceOther}
+
+// SourceSystems lists every SourceSystem a file may hold: the classes, then
+// the older aliases.
+var SourceSystems = []SourceSystem{SourceMail, SourceChat, SourceTracker, SourceWiki, SourceCalendar, SourceOther,
+	SourceGmail, SourceGDocs, SourceGCal, SourceSlack, SourceGitHub, SourceJira, SourceConfluence, SourceFolder}
+
+// Priority is how much a person, a group, or a source matters to the owner:
+// an incoming message from a high one needs the owner (ops/needs.go). Empty
+// is normal.
+type Priority string
+
+const (
+	PriorityHigh   Priority = "high"
+	PriorityNormal Priority = "normal"
+	PriorityLow    Priority = "low"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Priority) Enum() []string { return enumStrings(Priorities) }
+
+// Priorities lists every Priority.
+var Priorities = []Priority{PriorityHigh, PriorityNormal, PriorityLow}
 
 // SourceVia is source.via: how an agent reaches the source. mcp: tools of an
 // MCP server the agent has (it may exist only inside the agent's harness, so

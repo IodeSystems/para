@@ -78,7 +78,7 @@ func TestSourcesAndSweepFromTheCLI(t *testing.T) {
 	if plan.Sources[0].Cursor != "page-2" || plan.Sources[0].Since != rec.LastScan {
 		t.Fatalf("plan again = %+v", plan.Sources[0])
 	}
-	if out := e.ok("source", "list"); !strings.Contains(out, "code-reviews\tactive\tgithub\tcli\tdaily") || !strings.Contains(out, "claude") {
+	if out := e.ok("source", "list"); !strings.Contains(out, "code-reviews\tactive\ttracker/github\tcli\tdaily") || !strings.Contains(out, "claude") {
 		t.Fatalf("list = %q", out)
 	}
 	e.ok("lint")

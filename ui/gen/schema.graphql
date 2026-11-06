@@ -114,6 +114,7 @@ type ParaV1MutationNamespace {
   orgTeamAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgTeamAdd")
   policyRefresh(body: para_PolicyRefreshInputInput!): para_PolicyRefreshOutput @derived(operationId: "policyRefresh")
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
+  prioritySet(body: para_PrioritySetInputInput!): para_PrioritySetOutput @derived(operationId: "prioritySet")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
   projectEdit(body: para_ProjectEditInputInput!): para_ProjectEditOutput @derived(operationId: "projectEdit")
@@ -4115,6 +4116,7 @@ type para_Meta {
   policy: String
   policyText: String
   previous: String
+  priority: String
   project: String
   proposal: String
   proposed: String
@@ -4196,6 +4198,7 @@ type para_Meta {
   updated: String
   url: String
   validation: String
+  vendor: String
   verified: Boolean
   verify: String
   version: Int
@@ -4736,6 +4739,29 @@ enum para_PolicyViewFidelity {
   none
   ocr
   partial
+}
+
+input para_PrioritySetInputInput {
+  id: String!
+  priority: para_PrioritySetInputPriority
+}
+
+enum para_PrioritySetInputPriority {
+  high
+  low
+  normal
+}
+
+type para_PrioritySetOutput {
+  id: String!
+  priority: para_PrioritySetOutputPriority
+  rev: String!
+}
+
+enum para_PrioritySetOutputPriority {
+  high
+  low
+  normal
 }
 
 input para_ProjectAddInputInput {
@@ -6760,6 +6786,8 @@ type para_Source {
 }
 
 enum para_SourceAddInputExample {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -6767,8 +6795,11 @@ enum para_SourceAddInputExample {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 input para_SourceAddInputInput {
@@ -6777,6 +6808,7 @@ input para_SourceAddInputInput {
   fetch: para_SourceStepInput
   id: String
   note: String
+  priority: para_SourceAddInputPriority
   reachedBy: [String!]
   refUrl: String
   scanIn: para_SourceStepInput
@@ -6786,10 +6818,19 @@ input para_SourceAddInputInput {
   system: para_SourceAddInputSystem
   title: String
   tools: [String!]
+  vendor: String
   via: para_SourceAddInputVia
 }
 
+enum para_SourceAddInputPriority {
+  high
+  low
+  normal
+}
+
 enum para_SourceAddInputSystem {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -6797,8 +6838,11 @@ enum para_SourceAddInputSystem {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 enum para_SourceAddInputVia {
@@ -6862,6 +6906,8 @@ type para_SourceExampleOutput {
 }
 
 enum para_SourceExampleOutputSystem {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -6869,8 +6915,11 @@ enum para_SourceExampleOutputSystem {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 enum para_SourceFidelity {
@@ -6894,6 +6943,7 @@ type para_SourceRow {
   lastScan: String
   lastSweep: String
   overdue: Boolean!
+  priority: para_SourceRowPriority
   reachedBy: [String!]!
   refUrl: String
   request: String
@@ -6901,7 +6951,14 @@ type para_SourceRow {
   status: para_SourceRowStatus!
   system: para_SourceRowSystem!
   title: String!
+  vendor: String
   via: para_SourceRowVia!
+}
+
+enum para_SourceRowPriority {
+  high
+  low
+  normal
 }
 
 enum para_SourceRowStatus {
@@ -6910,6 +6967,8 @@ enum para_SourceRowStatus {
 }
 
 enum para_SourceRowSystem {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -6917,8 +6976,11 @@ enum para_SourceRowSystem {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 enum para_SourceRowVia {
@@ -7177,6 +7239,8 @@ type para_SweepSource {
   id: String!
   known: [para_SweepItem!]!
   lastScan: String
+  medium: para_SweepSourceMedium
+  priority: para_SweepSourcePriority
   request: String
   scanIn: para_SweepStep
   scanOut: para_SweepStep
@@ -7187,10 +7251,31 @@ type para_SweepSource {
   title: String!
   tools: [String!]!
   tracked: [para_SweepItem!]!
+  vendor: String
   via: para_SweepSourceVia!
 }
 
+enum para_SweepSourceMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_SweepSourcePriority {
+  high
+  low
+  normal
+}
+
 enum para_SweepSourceSystem {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -7198,8 +7283,11 @@ enum para_SweepSourceSystem {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 enum para_SweepSourceVia {
@@ -8461,6 +8549,8 @@ enum para_similarType {
 }
 
 enum para_sourceExampleSystem {
+  calendar
+  chat
   confluence
   folder
   gcal
@@ -8468,8 +8558,11 @@ enum para_sourceExampleSystem {
   github
   gmail
   jira
+  mail
   other
   slack
+  tracker
+  wiki
 }
 
 enum para_sourceListStatus {

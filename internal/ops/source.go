@@ -62,7 +62,8 @@ func loadSources(ctx context.Context, s store.Store) ([]model.Document, error) {
 }
 
 // sourceResolver resolves via.source text to a source document: its id or a
-// link to it, else the one source of that system.
+// link to it, else the one source of that vendor or of that class (an older
+// system value names both).
 type sourceResolver struct {
 	byID     map[string]model.Document
 	bySystem map[string][]string
@@ -72,8 +73,12 @@ func newSourceResolver(sources []model.Document) sourceResolver {
 	r := sourceResolver{byID: map[string]model.Document{}, bySystem: map[string][]string{}}
 	for _, d := range sources {
 		r.byID[strings.ToLower(d.ID)] = d
-		sys := string(d.Meta.(*model.SourceDoc).System)
-		r.bySystem[sys] = append(r.bySystem[sys], d.ID)
+		k := sourceKindOf(d.Meta.(*model.SourceDoc))
+		for _, key := range []string{k.vendor, string(k.class)} {
+			if key != "" && !slices.Contains(r.bySystem[key], d.ID) {
+				r.bySystem[key] = append(r.bySystem[key], d.ID)
+			}
+		}
 	}
 	return r
 }
@@ -132,7 +137,9 @@ func sourceOverdue(m *model.SourceDoc, today string) bool {
 type SourceRow struct {
 	ID        string             `json:"id"`
 	Title     string             `json:"title"`
-	System    model.SourceSystem `json:"system"`
+	System    model.SourceSystem `json:"system"` // the class, also for an older system value
+	Vendor    string             `json:"vendor,omitempty"`
+	Priority  model.Priority     `json:"priority,omitempty"`
 	Status    model.SourceStatus `json:"status"`
 	Via       model.SourceVia    `json:"via"`
 	Server    string             `json:"server,omitempty"`
@@ -165,7 +172,8 @@ type SourceDeclared struct {
 // this machine; open maps a source id to its open sweep request.
 func sourceView(doc model.Document, decl []Declaration, cut time.Time, open map[string]string, today string) SourceRow {
 	m := doc.Meta.(*model.SourceDoc)
-	v := SourceRow{ID: doc.ID, Title: doc.Title, System: m.System, Status: m.Status, Via: m.Via, Server: m.Server,
+	k := sourceKindOf(m)
+	v := SourceRow{ID: doc.ID, Title: doc.Title, System: k.class, Vendor: k.vendor, Priority: m.Priority, Status: m.Status, Via: m.Via, Server: m.Server,
 		Cadence: m.Cadence, LastScan: m.LastScan, ReachedBy: append([]string{}, m.ReachedBy...), Declared: []SourceDeclared{},
 		Due: sourceDue(m), Overdue: sourceOverdue(m, today), Request: open[doc.ID]}
 	_, _, v.LastSweep = splitSourceBody(doc.Body)
@@ -334,8 +342,10 @@ func viaOf(doc model.Document) *model.IOVia {
 type SourceAddInput struct {
 	ID        string             `json:"id,omitempty"` // default: the slug of the title
 	Title     string             `json:"title,omitempty"`
-	Example   model.SourceSystem `json:"example,omitempty"`
-	System    model.SourceSystem `json:"system,omitempty"`
+	Example   model.SourceSystem `json:"example,omitempty"`  // the name of an example (source_example)
+	System    model.SourceSystem `json:"system,omitempty"`   // the class: mail, chat, tracker, wiki, calendar, other
+	Vendor    string             `json:"vendor,omitempty"`   // the product, a free label
+	Priority  model.Priority     `json:"priority,omitempty"` // high: every incoming message from it needs the owner
 	Via       model.SourceVia    `json:"via,omitempty"`
 	Server    string             `json:"server,omitempty"`
 	RefURL    string             `json:"ref_url,omitempty"` // link template with {ref}: how a ref of this source opens in a browser
@@ -356,7 +366,7 @@ type SourceAddOutput struct {
 }
 
 // SourceAdd makes a source document.
-var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or goes out (gmail, gdocs, gcal, slack, github, jira, confluence, folder, other), how an agent reaches it (via mcp with server and tools, cli with command templates, or none), and what to scan. Start from example <system> and change what differs. No secrets: the connector keeps its own", func(ctx context.Context, d Deps, in SourceAddInput) (SourceAddOutput, error) {
+var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or goes out, as a class in system (mail, chat, tracker, wiki, calendar, other) and the product in vendor (a free label), how an agent reaches it (via mcp with server and tools, cli with command templates, or none), and what to scan. Priority high makes every incoming message from it need the owner (default normal). Start from an example (source_example) and change what differs. No secrets: the connector keeps its own", func(ctx context.Context, d Deps, in SourceAddInput) (SourceAddOutput, error) {
 	doc := model.Document{Folder: model.FolderSources, Meta: &model.SourceDoc{Common: model.Common{Type: model.TypeSource}, Status: model.SourceActive}}
 	if in.Example != "" {
 		ex, err := exampleDoc(in.Example)
@@ -381,7 +391,17 @@ var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or g
 		doc.Body = strings.TrimSpace(in.Note)
 	}
 	if in.System != "" {
-		m.System = in.System
+		m.System, m.Vendor = in.System, ""
+	}
+	if v := normVendor(in.Vendor); v != "" {
+		m.Vendor = v
+	}
+	if in.Priority != "" {
+		m.Priority = in.Priority
+	}
+	newForm(m)
+	if m.Priority != "" && !slices.Contains(model.Priorities, m.Priority) {
+		return SourceAddOutput{}, fmt.Errorf("priority %q: want high, normal, or low", m.Priority)
 	}
 	if in.Via != "" {
 		m.Via = in.Via
@@ -397,7 +417,7 @@ var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or g
 	}
 	if u := strings.TrimSpace(in.RefURL); u != "" {
 		if fillRefURL(u, "x") == "" {
-			return SourceAddOutput{}, errors.New("ref_url: want an http(s) address with {ref} in it, such as https://mail.google.com/mail/u/0/#all/{ref}")
+			return SourceAddOutput{}, errors.New("ref_url: want an http(s) address with {ref} in it, such as https://mail.example.com/thread/{ref}")
 		}
 		m.RefURL = u
 	}
@@ -415,8 +435,8 @@ var SourceAdd = defineSafe("source_add", "Add a source: where work comes in or g
 	if in.Cadence != "" {
 		m.Cadence = strings.TrimSpace(in.Cadence)
 	}
-	if !slices.Contains(model.SourceSystems, m.System) {
-		return SourceAddOutput{}, fmt.Errorf("system %q: want one of %v", m.System, model.SourceSystems)
+	if !slices.Contains(model.SourceClasses, m.System) {
+		return SourceAddOutput{}, fmt.Errorf("system %q: want a class, one of %v", m.System, model.SourceClasses)
 	}
 	if m.Via == "" {
 		m.Via = model.SourceViaNone
@@ -486,7 +506,7 @@ type SourceExampleOutput struct {
 }
 
 // SourceExample prints the example source of a system.
-var SourceExample = defineRead("source_example", "Print the example source document of a system (gmail, gdocs, gcal, slack, github, jira, confluence, folder) to copy and adapt; source_add with example makes one from it", func(_ context.Context, _ Deps, in SourceExampleInput) (SourceExampleOutput, error) {
+var SourceExample = defineRead("source_example", "Print an example source document by name (systems in the output lists the names) to copy and adapt; source_add with example makes one from it", func(_ context.Context, _ Deps, in SourceExampleInput) (SourceExampleOutput, error) {
 	raw, err := exampleText(in.System)
 	if err != nil {
 		return SourceExampleOutput{}, err

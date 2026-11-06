@@ -32,19 +32,6 @@ import (
 // versionID is the id of version n of a tracked document.
 func versionID(doc string, n int) string { return fmt.Sprintf("%s-v%d.source", doc, n) }
 
-// mediumOf is the medium of a comment made in a system.
-func mediumOf(s model.DocSystem) model.Medium {
-	switch s {
-	case model.SystemConfluence:
-		return model.MediumConfluence
-	case model.SystemJira:
-		return model.MediumJira
-	case model.SystemGitHub:
-		return model.MediumGithub
-	}
-	return model.MediumOther
-}
-
 // getTracked reads a tracked document.
 func getTracked(ctx context.Context, d Deps, id string) (model.Document, *model.TrackedDoc, error) {
 	id = normID(id)

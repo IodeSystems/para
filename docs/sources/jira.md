@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: jira
+system: tracker
+vendor: jira
 status: active
 via: cli
 ref_url: "https://example.atlassian.net/browse/{ref}"

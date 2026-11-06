@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: folder
+system: other
+vendor: folder
 status: active
 via: cli
 fetch:

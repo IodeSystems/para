@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: gmail
+system: mail
+vendor: gmail
 status: active
 via: mcp
 ref_url: "https://mail.google.com/mail/u/0/#all/{ref}"

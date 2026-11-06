@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: slack
+system: chat
+vendor: slack
 status: active
 via: cli
 fetch:

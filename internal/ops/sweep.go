@@ -26,40 +26,6 @@ const sweepListMax = 50
 // sweepDefaultDays is how far back a source never swept is read.
 const sweepDefaultDays = 7
 
-// mediumOfSource is the io and Ask medium of a source system.
-func mediumOfSource(s model.SourceSystem) model.Medium {
-	switch s {
-	case model.SourceGmail:
-		return model.MediumEmail
-	case model.SourceSlack:
-		return model.MediumSlack
-	case model.SourceJira:
-		return model.MediumJira
-	case model.SourceConfluence:
-		return model.MediumConfluence
-	case model.SourceGitHub:
-		return model.MediumGithub
-	case model.SourceGCal:
-		return model.MediumMeeting
-	}
-	return ""
-}
-
-// docSystemOfSource is the tracked_doc system of a source system.
-func docSystemOfSource(s model.SourceSystem) model.DocSystem {
-	switch s {
-	case model.SourceGDocs:
-		return model.SystemGDoc
-	case model.SourceJira:
-		return model.SystemJira
-	case model.SourceConfluence:
-		return model.SystemConfluence
-	case model.SourceGitHub:
-		return model.SystemGitHub
-	}
-	return ""
-}
-
 // SweepStep is a source step with its templates filled for this sweep:
 // {cursor}, {since}, {since_date}, and {query}. {ref} and {url} stay for
 // each item.
@@ -80,15 +46,20 @@ type SweepItem struct {
 
 // SweepSource is one source in a plan.
 type SweepSource struct {
-	ID       string             `json:"id"`
-	Title    string             `json:"title"`
-	System   model.SourceSystem `json:"system"`
-	Via      model.SourceVia    `json:"via"`
-	Server   string             `json:"server,omitempty"`
-	Tools    []string           `json:"tools"`
-	Due      string             `json:"due,omitempty"`
-	LastScan string             `json:"last_scan,omitempty"`
-	Cursor   string             `json:"cursor,omitempty"`
+	ID     string             `json:"id"`
+	Title  string             `json:"title"`
+	System model.SourceSystem `json:"system"` // the class: mail, chat, tracker, wiki, calendar, other
+	Vendor string             `json:"vendor,omitempty"`
+	// Medium is what io_add takes for a message from this source; empty:
+	// other.
+	Medium   model.Medium    `json:"medium,omitempty"`
+	Priority model.Priority  `json:"priority,omitempty"`
+	Via      model.SourceVia `json:"via"`
+	Server   string          `json:"server,omitempty"`
+	Tools    []string        `json:"tools"`
+	Due      string          `json:"due,omitempty"`
+	LastScan string          `json:"last_scan,omitempty"`
+	Cursor   string          `json:"cursor,omitempty"`
 	// Since is where this sweep starts: the last scan, else sweepDefaultDays
 	// ago.
 	Since   string     `json:"since"`
@@ -255,7 +226,8 @@ func (r sweepRel) plan(doc model.Document, now time.Time, request string) SweepS
 	if m.LastScan != "" {
 		since = m.LastScan
 	}
-	s := SweepSource{ID: doc.ID, Title: doc.Title, System: m.System, Via: m.Via, Server: m.Server, Tools: append([]string{}, m.Tools...),
+	k := sourceKindOf(m)
+	s := SweepSource{ID: doc.ID, Title: doc.Title, System: k.class, Vendor: k.vendor, Medium: mediumOfSource(m), Priority: m.Priority, Via: m.Via, Server: m.Server, Tools: append([]string{}, m.Tools...),
 		Due: sourceDue(m), LastScan: m.LastScan, Cursor: m.Cursor, Since: since, Request: request,
 		Known: []SweepItem{}, Drafts: []SweepItem{}, Asks: []SweepItem{}, Tracked: []SweepItem{}}
 	fill := func(st *model.SourceStep) *SweepStep {
@@ -268,7 +240,7 @@ func (r sweepRel) plan(doc model.Document, now time.Time, request string) SweepS
 		return &SweepStep{SourceStep: *st, Query: q, Rendered: renderTemplate(st.Args+st.Command, vals)}
 	}
 	s.Fetch, s.ScanIn, s.ScanOut, s.State = fill(m.Fetch), fill(m.ScanIn), fill(m.ScanOut), fill(m.State)
-	medium := mediumOfSource(m.System)
+	medium := s.Medium
 	add := func(list *[]SweepItem, it SweepItem) {
 		if len(*list) < sweepListMax {
 			*list = append(*list, it)
@@ -304,7 +276,7 @@ func (r sweepRel) plan(doc model.Document, now time.Time, request string) SweepS
 			}
 		}
 	}
-	sys := docSystemOfSource(m.System)
+	sys := docSystemOfSource(m)
 	for _, td := range r.tracked {
 		v := td.Meta.(*model.TrackedDoc)
 		if v.Status != model.DocWatching {

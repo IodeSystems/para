@@ -129,7 +129,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			Aliases:  []string{"Jo"},
 			Contacts: []Contact{{Method: MediumSlack, Value: "@jordan", Label: "day to day", Preferred: true}, {Method: MediumEmail, Value: "jordan@acme.example"}},
 			Groups:   []Link{LinkTo("atlas-group")}}, "## Notes\n\n- 2026-11-01: Prefers Slack."},
-		{"atlas-group", &Group{c(TypeGroup), "acme.example", GroupChannel}, ""},
+		{"atlas-group", &Group{c(TypeGroup), "acme.example", GroupChannel, PriorityHigh}, ""},
 		{"interaction-one", &Interaction{Common: c(TypeInteraction), Date: "2026-11-01", With: []Link{LinkTo("jordan-example")}, Medium: MediumSlack,
 			Direction: InteractionObserved, Visibility: VisibilityPublic, URL: "https://acme.example.slack.com/archives/C0/p1"}, "Agreed to move the review."},
 		{"atlas-team", &Team{c(TypeTeam), "acme.example"}, ""},

@@ -189,6 +189,10 @@ func TestReviewRefusedInsideTheOp(t *testing.T) {
 			_, err := MeetingRSVP.Run(t.Context(), d, MeetingAttendInput{ID: "x", Attend: "yes"})
 			return err
 		}},
+		{"priority_set", func(d Deps) error {
+			_, err := PrioritySet.Run(t.Context(), d, PrioritySetInput{ID: "x", Priority: model.PriorityHigh})
+			return err
+		}},
 		{"stack_later", func(d Deps) error {
 			_, err := StackLaterOp.Run(t.Context(), d, StackLaterInput{Questions: []string{"x"}})
 			return err

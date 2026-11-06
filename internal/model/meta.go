@@ -481,6 +481,9 @@ type Person struct {
 	// QuietDays is how many days to leave between Asks to the person, as the
 	// person stated it.
 	QuietDays int `yaml:"quiet_days,omitempty" json:"quiet_days,omitempty"`
+	// Priority is how much the person matters to the owner. Empty takes the
+	// highest priority set on the person's groups, else normal.
+	Priority Priority `yaml:"priority,omitempty" json:"priority,omitempty"`
 }
 
 // Contact is one way to reach a person. At most one contact per method is
@@ -506,6 +509,9 @@ type Group struct {
 	Common `yaml:",inline"`
 	Org    string    `yaml:"org" json:"org"` // free text
 	Kind   GroupKind `yaml:"kind" json:"kind"`
+	// Priority is how much the group matters to the owner; a member with no
+	// priority of their own takes it. Empty is normal.
+	Priority Priority `yaml:"priority,omitempty" json:"priority,omitempty"`
 }
 
 // Interaction is type: interaction, one logged contact with someone. The body
@@ -675,7 +681,14 @@ var PermalinkMediums = []Medium{MediumEmail, MediumSlack, MediumJira, MediumConf
 type SourceDoc struct {
 	Common `yaml:",inline"`
 	System SourceSystem `yaml:"system" json:"system"`
+	// Vendor is the product, as a free label (for example the name of a mail
+	// or chat product). Para compares it as text; vendor names are in one
+	// mapping table only (ops/sourceclass.go).
+	Vendor string       `yaml:"vendor,omitempty" json:"vendor,omitempty"`
 	Status SourceStatus `yaml:"status" json:"status"`
+	// Priority is how much the source matters to the owner: an incoming
+	// message from a high one needs the owner. Empty is normal.
+	Priority Priority `yaml:"priority,omitempty" json:"priority,omitempty"`
 	Via    SourceVia    `yaml:"via" json:"via"`
 	Server string       `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
 	// RefURL turns a ref of this source into a link: a template with {ref}.

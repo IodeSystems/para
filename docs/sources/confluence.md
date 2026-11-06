@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: confluence
+system: wiki
+vendor: confluence
 status: active
 via: cli
 ref_url: "https://example.atlassian.net/wiki/pages/viewpage.action?pageId={ref}"

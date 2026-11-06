@@ -241,6 +241,7 @@ func newRoot(l *loader) *cobra.Command {
 		newNextCmd(l),
 		newRFXCmd(l),
 		newOrgCmd(l),
+		newPriorityCmd(l),
 		newRouteCmd(l),
 		newWhoCmd(l),
 		newInteractionCmd(l),

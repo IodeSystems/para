@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: gcal
+system: calendar
+vendor: gcal
 status: active
 via: mcp
 ref_url: "https://calendar.google.com/calendar/u/0/r/eventedit/{ref}"

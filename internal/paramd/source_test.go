@@ -62,7 +62,10 @@ func TestSourceExamplesLintClean(t *testing.T) {
 		if f.Type() != "source" {
 			t.Errorf("%s: type %s", e.Name(), f.Type())
 		}
+		// An example is written as class and vendor; an older system value
+		// is the vendor of one.
 		seen[str(f.Frontmatter["system"])] = true
+		seen[str(f.Frontmatter["vendor"])] = true
 		if got := Lint(f); len(got) != 0 {
 			t.Errorf("%s:\n  %s", e.Name(), joinFindings(got))
 		}

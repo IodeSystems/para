@@ -128,6 +128,8 @@ func registerOrg(r *registrar) {
 	reg(r, ops.OrgGroupAdd, post, write)
 	reg(r, ops.OrgGroupList, get, read)
 	reg(r, ops.OrgGroupShow, get, read)
+	// The owner sets who and what matters from the web app (a person op).
+	reg(r, ops.PrioritySet, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Route, get, read)
 	reg(r, ops.Who, get, read)
 }

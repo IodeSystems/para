@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: gdocs
+system: wiki
+vendor: gdocs
 status: active
 via: mcp
 ref_url: "https://docs.google.com/document/d/{ref}"

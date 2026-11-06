@@ -427,6 +427,15 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 		if doc, err = doc.WithFields(in.Fields); err != nil {
 			return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
 		}
+		_, sys := in.Fields["system"]
+		_, ven := in.Fields["vendor"]
+		if src, ok := doc.Meta.(*model.SourceDoc); ok && (sys || ven) {
+			// An edited source is written as class and vendor.
+			if sys && !ven {
+				src.Vendor = ""
+			}
+			newForm(src)
+		}
 	}
 	if err := checkDoc(doc); err != nil {
 		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)

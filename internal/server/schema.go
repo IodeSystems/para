@@ -234,6 +234,8 @@ type Meta struct {
 	Cursor          string                `json:"cursor,omitempty"`
 	RequiresSource  string                `json:"requires_source,omitempty"`
 	Seen            string                `json:"seen,omitempty"`
+	Vendor          string                `json:"vendor,omitempty"`
+	Priority        string                `json:"priority,omitempty"` // person, group, source: high, normal, low
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
@@ -312,6 +314,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.SourceSystems)
 	addEnum(reg, model.SourceVias)
 	addEnum(reg, model.SourceStatuses)
+	addEnum(reg, model.Priorities)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
 	addEnum(reg, model.Levels)

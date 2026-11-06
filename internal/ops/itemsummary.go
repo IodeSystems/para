@@ -13,13 +13,8 @@ import (
 
 // A proposal item's summary is one plain line for a person: what approving it
 // records. It is made from the item's own fields, never from the evidence. The
-// full input stays on the item.
-
-var mediumWords = map[model.Medium]string{
-	model.MediumEmail: "Email", model.MediumSlack: "Slack message", model.MediumJira: "Jira ticket",
-	model.MediumConfluence: "Confluence page", model.MediumGithub: "GitHub message", model.MediumTeams: "Teams message",
-	model.MediumPhone: "Phone call", model.MediumMeeting: "Meeting", model.MediumOther: "Message",
-}
+// full input stays on the item. Medium names are in mediumWords
+// (sourceclass.go).
 
 // itemSummarizer builds summaries. name resolves an id to a title; who resolves
 // an address or handle to a person's name ("" when unknown).

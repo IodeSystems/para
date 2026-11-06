@@ -1,7 +1,8 @@
 ---
 type: source
 created: 2026-11-04
-system: github
+system: tracker
+vendor: github
 status: active
 via: cli
 ref_url: "https://github.com/{ref}"
