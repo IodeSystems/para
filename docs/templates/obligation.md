@@ -18,7 +18,7 @@ tags: []
 
 # Launch window sync with Jordan
 
-An obligation is something the owner owes or must attend: kind `meeting` (people at a time) or `commitment` (something owed, `owed_to` the people). `schedule` is `once` (by `due`), `at` (`scheduled` to `end`, RFC 3339 with the zone it was booked in), `series` (by `recur`: each occurrence is its own file, made when the one before closes, with `occurrence_of` and `previous`), or `ongoing` (no date, reviewed on `cadence`). `state` is `open` or `closed` with an `outcome`: done (held), skipped, dropped, declined. Para does not write a calendar, record, or transcribe.
+An obligation is something the owner owes or must attend: kind `meeting` (people at a time) or `commitment` (something owed, `owed_to` the people). `schedule` is `once` (by `due`), `at` (`scheduled` to `end`, RFC 3339 with the zone it was booked in), `series` (by `recur`: each occurrence is its own file, made when the one before closes, with `occurrence_of` and `previous`), or `ongoing` (no date, reviewed on `cadence`). `state` is `open` or `closed` with an `outcome`: done (held), skipped, dropped, declined. An obligation an agent owes is a recurring artifact: `owed_by: [agent:<name>]` and `produce: {kind: journal|report|message|doc|other, template: "[[note-id]]" or the text, to: ["[[group-id]]"], medium: email}`; tick asks the agent for it when each occurrence comes due, and the owner approves it. Para does not write a calendar, record, or transcribe.
 
 ## Questions
 
