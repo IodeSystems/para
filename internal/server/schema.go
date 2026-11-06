@@ -242,6 +242,7 @@ type Meta struct {
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
 	DuplicateOf     string                  `json:"duplicate_of,omitempty"`
+	Prepared        *model.Prepared         `json:"prepared,omitempty"`
 }
 
 // registerAliases changes only the schema, never the JSON.
@@ -300,6 +301,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Confidences)
 	addEnum(reg, model.TurnStates)
 	addEnum(reg, model.Reversibles)
+	addEnum(reg, model.PreparedKinds)
 	addEnum(reg, []model.ChangeKind{model.ChangeAdded, model.ChangeChanged, model.ChangeRemoved})
 	addEnum(reg, []model.Outcome{model.OutcomeLogged, model.OutcomeSynced, model.OutcomePending})
 	addEnum(reg, ops.CopyFormats)

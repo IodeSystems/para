@@ -225,6 +225,10 @@ func registerProposals(r *registrar) {
 	reg(r, ops.QuestionReview, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ProposalDone, post, netguard.ScopeReviewDecide)
 	reg(r, ops.IODone, post, netguard.ScopeReviewDecide)
+	// Approve on an outgoing draft in the web app: the owner's path of
+	// io_approve (a browser session is a person; a bearer key still needs
+	// owner_said). Owner 2026-11-06: PU-PREP.
+	reg(r, ops.IOApprove, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentActivity, get, read)
 }
 

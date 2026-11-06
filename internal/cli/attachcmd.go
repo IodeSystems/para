@@ -56,11 +56,20 @@ func newAttachmentCmd(l *loader) *cobra.Command {
 // newItemCmd: what the composer at the foot of any item's page does from a
 // terminal. agent send and agent unsend are under para agent.
 func newItemCmd(l *loader) *cobra.Command {
-	cmd := group("item", "Any item, by id: close a task or a meeting from its page")
+	cmd := group("item", "Any item, by id: close a task or a meeting from its page, or record that an agent prepared it")
 	cmd.AddCommand(opCommand(l, ops.ItemClose, binding[ops.ItemCloseInput, ops.ItemCloseOutput]{
 		Use: "close <id>", Args: cobra.ExactArgs(1),
 		Bind: func(args []string, in *ops.ItemCloseInput) error { in.ID = args[0]; return nil },
 		Text: printID(func(o ops.ItemCloseOutput) string { return o.ID + "\t" + o.By }),
+	}))
+	cmd.AddCommand(opCommand(l, ops.ItemPrepared, binding[ops.ItemPreparedInput, ops.ItemPreparedOutput]{
+		Use: "prepared <id> --kind draft|answer|fields|brief|plan [--ref <id>]", Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.ItemPreparedInput) {
+			fs.StringVar((*string)(&in.Kind), "kind", "", "what was prepared: draft, answer, fields, brief, or plan")
+			fs.StringVar(&in.Ref, "ref", "", "the document that holds it, such as an io draft; empty when it is on the item")
+		},
+		Bind: func(args []string, in *ops.ItemPreparedInput) error { in.ID = args[0]; return nil },
+		Text: printID(func(o ops.ItemPreparedOutput) string { return o.ID }),
 	}))
 	return cmd
 }

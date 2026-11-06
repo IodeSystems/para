@@ -120,10 +120,11 @@ func requestOpen(r *model.Request) bool {
 
 // resultUnseen: work that ended done, partial, or failed whose result the
 // owner has not opened (seen). A sweep's result is what it wrote in the
-// vault, so it has nothing to check. Work with no active_at ended before
-// 0.3.0 made seen, so it does not wait either.
+// vault, so it has nothing to check, and so is a done prepare: its result is
+// the Ready mark on the item (prepared.go). Work with no active_at ended
+// before 0.3.0 made seen, so it does not wait either.
 func resultUnseen(r *model.Request) bool {
-	if r.Seen != "" || r.RequiresSource != "" || r.ActiveAt == "" {
+	if r.Seen != "" || r.RequiresSource != "" || r.ActiveAt == "" || r.Kind == PrepareKind && r.Status == model.RequestDone {
 		return false
 	}
 	return r.Status == model.RequestFailed || (r.Status == model.RequestDone && !r.Resolution.NeedsOwner())
@@ -136,8 +137,9 @@ func requestNeedsOwner(r *model.Request) bool {
 }
 
 // sideWork is agent work made for an item that does not take the item from
-// the owner: filling its gaps (gap.go). The owner can still act on it.
-func sideWork(r *model.Request) bool { return r.Kind == FillGapKind }
+// the owner: filling its gaps (gap.go) or preparing it (prepared.go). The
+// owner can still act on it.
+func sideWork(r *model.Request) bool { return r.Kind == FillGapKind || r.Kind == PrepareKind }
 
 // agentHas: an agent holds the request now.
 func agentHas(r *model.Request) bool {
@@ -187,7 +189,8 @@ type Snapshot struct {
 	later       map[string]deferHold
 	agent       map[string]string // item id -> request id an agent holds
 	needs       map[string]Need
-	sources     *sourceResolver // read on first use (inbound.go)
+	sources     *sourceResolver   // read on first use (inbound.go)
+	replies     map[string]string // item id -> open io draft that answers it (prepared.go)
 }
 
 // snapTypes are the types a snapshot loads at once; any other document is

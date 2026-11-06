@@ -38,7 +38,9 @@ import (
 //     incident is never rechecked.
 //  6. Everything else by the same score, highest first.
 //
-// Not yet startable comes last, by the day it can start.
+// Not yet startable comes last, by the day it can start. Within each group,
+// ready items (prepared by an agent and not changed since, Snapshot.Ready)
+// come before raw ones; focus picks by score before that.
 //
 // Effort is the item's effort field. Unset, it is xs for an ask made to the
 // owner, a question, and an incoming message that expects a response, and m
@@ -198,6 +200,9 @@ type ValueNode struct {
 	// Prep is true when an agent can prepare the item in full and the owner
 	// only approves.
 	Prep bool
+	// Ready is set when the item is prepared and not stale (Snapshot.Ready):
+	// what was prepared and the document that holds it.
+	Ready *Readiness
 	// NeedsYou and Reason are the predicate (NeedsYou) on the item.
 	NeedsYou bool
 	Reason   string
@@ -235,6 +240,13 @@ type ValueRow struct {
 	// Prep is true when an agent can prepare it in full and the owner only
 	// approves.
 	Prep bool `json:"prep,omitempty"`
+	// Ready is true when an agent prepared it and it did not change since
+	// (Snapshot.Ready); ReadyKind is what was prepared (draft, answer,
+	// fields, brief, plan) and ReadyRef the document that holds it, "" when
+	// it is on the item. Within a group, ready rows come first.
+	Ready     bool               `json:"ready,omitempty"`
+	ReadyKind model.PreparedKind `json:"ready_kind,omitempty"`
+	ReadyRef  string             `json:"ready_ref,omitempty"`
 	// NeedsYou is true on every row of order: it lists only what needs the
 	// owner. Reason says why, in words.
 	NeedsYou bool   `json:"needs_you"`
@@ -366,6 +378,9 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed, Prep: n.Prep,
 			NeedsYou: n.NeedsYou, Reason: n.Reason}
+		if n.Ready != nil {
+			r.Ready, r.ReadyKind, r.ReadyRef = true, n.Ready.Kind, n.Ready.Ref
+		}
 		r.Effort, r.EffortSet = effortOf(n)
 		waitDays := 0
 		if n.Owed {
@@ -496,9 +511,18 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	score := func(a, b ValueRow) int {
 		return cmp.Compare(weigh(b)*effortWeight[a.Effort], weigh(a)*effortWeight[b.Effort])
 	}
+	// readyFirst puts ready rows first within a group. It is off while focus
+	// picks, so focus picks by score alone.
+	readyFirst := false
 	order := func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
 			return c
+		}
+		if readyFirst && a.Ready != b.Ready {
+			if a.Ready {
+				return -1
+			}
+			return 1
 		}
 		var c int
 		switch a.Group {
@@ -537,6 +561,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			sum.Focus++
 		}
 	}
+	readyFirst = true
 	slices.SortStableFunc(rows, order)
 	for _, r := range rows {
 		if r.Group == GroupReply {
@@ -701,8 +726,12 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			continue
 		}
 		hold := sn.Later(doc.ID)
+		var ready *Readiness
+		if rd, ok := sn.Ready(doc.ID); ok {
+			ready = &rd
+		}
 		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: hold.any(),
-			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason}
+			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason, Ready: ready}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil
 			n.WaitOnly, n.WaitDeps, n.ReadyWhy = hold.waitOnly(), hold.Waits, hold.Ready
@@ -910,7 +939,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err

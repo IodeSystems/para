@@ -49,6 +49,8 @@ type Common struct {
 	// DuplicateOf links the primary this document was merged into (doc_merge).
 	// A merged document leaves every list and search; its id still resolves.
 	DuplicateOf Link `yaml:"duplicate_of,omitempty" json:"duplicate_of,omitempty"`
+	// Prepared says an agent prepared the item for the owner (prepared.go).
+	Prepared *Prepared `yaml:"prepared,omitempty" json:"prepared,omitempty"`
 }
 
 // ImportedFrom is the source file of an imported document: the path as the

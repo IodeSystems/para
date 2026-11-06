@@ -79,12 +79,14 @@ type ParaV1MutationNamespace {
   interactionAdd(body: para_InteractionAddInputInput!): para_InteractionAddOutput @derived(operationId: "interactionAdd")
   investigate(body: para_InvestigateInputInput!): para_InvestigateOutput @derived(operationId: "investigate")
   ioAdd(body: para_IOAddInputInput!): para_IOAddOutput @derived(operationId: "ioAdd")
+  ioApprove(body: para_IOApproveInputInput!): para_IOApproveOutput @derived(operationId: "ioApprove")
   ioDone(body: para_IODoneInputInput!): para_IOSendOutput @derived(operationId: "ioDone")
   ioDrop(body: para_IODropInputInput!): para_IODropOutput @derived(operationId: "ioDrop")
   ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
   ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
   ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
   itemClose(body: para_ItemCloseInputInput!): para_ItemCloseOutput @derived(operationId: "itemClose")
+  itemPrepared(body: para_ItemPreparedInputInput!): para_ItemPreparedOutput @derived(operationId: "itemPrepared")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
   journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
@@ -2639,6 +2641,29 @@ enum para_IOAddOutputState {
   unread
 }
 
+input para_IOApproveInputInput {
+  id: String!
+  ownerSaid: String
+}
+
+type para_IOApproveOutput {
+  approvedHash: String!
+  id: String!
+  rev: String!
+  selfReported: Boolean!
+  state: para_IOApproveOutputState!
+}
+
+enum para_IOApproveOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
 type para_IOCounts {
   draft: Int!
   read: Int!
@@ -3489,6 +3514,26 @@ enum para_ItemInputReversible {
   yes
 }
 
+input para_ItemPreparedInputInput {
+  id: String!
+  kind: para_ItemPreparedInputKind!
+  ref: String
+}
+
+enum para_ItemPreparedInputKind {
+  answer
+  brief
+  draft
+  fields
+  plan
+}
+
+type para_ItemPreparedOutput {
+  id: String!
+  prepared: para_Prepared!
+  rev: String!
+}
+
 type para_ItemPreview {
   changes: [para_DocChange!]!
   downstream: [para_Downstream!]!
@@ -4126,6 +4171,7 @@ type para_Meta {
   playbook: String
   policy: String
   policyText: String
+  prepared: para_Prepared
   previous: String
   priority: String
   project: String
@@ -4752,6 +4798,22 @@ enum para_PolicyViewFidelity {
   none
   ocr
   partial
+}
+
+type para_Prepared {
+  at: String!
+  by: String!
+  hash: String!
+  kind: para_PreparedKind!
+  ref: String
+}
+
+enum para_PreparedKind {
+  answer
+  brief
+  draft
+  fields
+  plan
 }
 
 input para_PrioritySetInputInput {
@@ -7956,6 +8018,9 @@ type para_TodayItem {
   project: String
   projectName: String
   proposal: Boolean
+  ready: Boolean
+  readyKind: para_TodayItemReady_kind
+  readyRef: String
   scope: String
   scopeName: String
   title: String!
@@ -7974,6 +8039,14 @@ enum para_TodayItemEffort {
   m
   s
   xs
+}
+
+enum para_TodayItemReady_kind {
+  answer
+  brief
+  draft
+  fields
+  plan
 }
 
 type para_TodayVaultToday {
@@ -8182,6 +8255,9 @@ type para_ValueRow {
   parent: String
   prep: Boolean
   proposal: Boolean
+  ready: Boolean
+  readyKind: para_ValueRowReady_kind
+  readyRef: String
   reason: String
   starts: String
   title: String!
@@ -8194,6 +8270,14 @@ enum para_ValueRowEffort {
   m
   s
   xs
+}
+
+enum para_ValueRowReady_kind {
+  answer
+  brief
+  draft
+  fields
+  plan
 }
 
 type para_VaultConfigListOutput {

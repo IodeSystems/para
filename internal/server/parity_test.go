@@ -424,7 +424,6 @@ func TestEveryOpIsRegistered(t *testing.T) {
 		"proposal_approve": "a person decides at a terminal or in the chat; the web app only reads proposals",
 		"proposal_deny":    "a person decides at a terminal or in the chat; the web app only reads proposals",
 		"proposal_open":    "opens a browser on the machine para runs on: CLI and MCP only",
-		"io_approve":       "the owner approves at a terminal or in the chat (MCP, with their words); the web app marks a draft ready with io_edit",
 	}
 	f := newFixture(t)
 	seen := map[string]bool{}

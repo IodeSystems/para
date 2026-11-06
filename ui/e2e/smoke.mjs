@@ -957,6 +957,7 @@ try {
   const ioEdit = outDraft('Room booking', 'Hi Sam, the room is booked.')
   const ioMine = outDraft('Agenda', 'Hi Sam, here is the agenda.')
   const ioPage = outDraft('Minutes', 'Hi Sam, the minutes.')
+  const ioApprove = outDraft('Slides', 'Hi Sam, the slides are attached.')
   const plan = await agent.call('note_add', {
     title: 'E2E room plan',
     body: 'Room 4 on Friday at 10.',
@@ -1128,6 +1129,28 @@ try {
     (await agent.call('io_show', { id: ioPage })).item.state === 'sent',
     'Done by me on an outbox draft marks it sent',
   )
+
+  // PU-PREP: an outgoing draft with text is ready; the agenda marks it, and the chip opens the
+  // draft. Approve on its page approves its exact text (io_approve, the owner's path).
+  await rpage.goto(`${base}/agenda`)
+  await rpage.locator(`[data-ready="${ioApprove}"]`).first().waitFor()
+  check(
+    /Ready: draft reply/.test(
+      (await rpage.locator(`[data-ready="${ioApprove}"]`).first().textContent()) ?? '',
+    ),
+    'the agenda marks a prepared draft Ready',
+  )
+  await rpage.goto(`${base}/io/${ioApprove}`)
+  await rpage.getByRole('heading', { name: 'Slides' }).waitFor()
+  await rpage.locator('[data-act="approve"]').click()
+  await rpage.locator('[data-approved]').waitFor()
+  {
+    const ok = (await agent.call('io_show', { id: ioApprove })).item
+    check(
+      ok.state === 'ready',
+      `Approve on an outgoing draft makes it ready (${ok.state})`,
+    )
+  }
 
   // The stack: Decline needs a note there too. With one the card leaves at once, a toast says what
   // was done with an Undo, and Undo brings the card back, pending. Declined again, it is denied.

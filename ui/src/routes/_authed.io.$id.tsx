@@ -7,7 +7,7 @@ import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import type { ReactNode } from 'react'
-import { useIODone, useIoItem } from '@/api/io'
+import { useIOApprove, useIODone, useIoItem } from '@/api/io'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
@@ -96,7 +96,7 @@ function IoItemPage() {
               action={<StateChip state={item.state} />}
               subtitle={
                 out
-                  ? 'A message to send. An agent sends it with its own tools after you approve it in a dossier.'
+                  ? 'A message to send. Approve its text here, or edit or drop it; an agent sends it with its own tools after you approve.'
                   : 'A message that came in. An agent files it into a task, question, Ask, note, or interaction.'
               }
             >
@@ -130,6 +130,9 @@ function IoItemPage() {
                   </Stack>
                 ))}
             </Stack>
+            {decide && out && (item.state === 'draft' || item.state === 'ready') && (
+              <Approve id={item.id} approved={item.state === 'ready'} />
+            )}
             {decide && out && (
               <SentByMe
                 id={item.id}
@@ -166,6 +169,38 @@ function Parties({ list }: { list: readonly string[] }) {
         </span>
       ))}
     </>
+  )
+}
+
+// Approve is the owner's approval of an outgoing draft: its exact text, as it is now, becomes ready
+// to send. An edit after it makes it a draft again. approved says the draft is approved already.
+function Approve({ id, approved }: { id: string; approved: boolean }) {
+  const approve = useIOApprove()
+  if (approve.isSuccess || approved) {
+    return (
+      <Alert severity="success" sx={{ mb: 2 }} data-approved>
+        Approved. An agent sends it with its own tools and reports it sent.
+      </Alert>
+    )
+  }
+  return (
+    <Box sx={{ mb: 1 }}>
+      <Button
+        size="small"
+        variant="contained"
+        color="success"
+        data-act="approve"
+        disabled={approve.isPending}
+        onClick={() => approve.mutate(id)}
+      >
+        Approve
+      </Button>
+      {approve.isError && (
+        <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
+          {errorText(approve.error)}
+        </Typography>
+      )}
+    </Box>
   )
 }
 

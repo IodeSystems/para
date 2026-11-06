@@ -29,6 +29,7 @@ import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
 import { humanTime } from '@/lib/when'
 import { openLine } from '@/lib/sent'
+import { readyTarget, readyWords } from '@/lib/ready'
 
 export const Route = createFileRoute('/_authed/agenda')({
   validateSearch: (s: Record<string, unknown>): { by?: 'date' } => ({
@@ -116,6 +117,22 @@ type AgendaItem = Item & {
   why?: string | null
   bucket?: string | null
   group?: string | null
+  ready?: boolean | null
+  readyKind?: string | null
+  readyRef?: string | null
+}
+
+// ReadyChip marks a row an agent prepared and that has not changed since. One click opens what was
+// prepared: the draft reply, or the item with its proposed answer or plan.
+function ReadyChip({ x }: { x: AgendaItem }) {
+  if (!x.ready) return null
+  return (
+    <Box component="span" data-ready={x.id}>
+      <DocLink id={readyTarget(x)}>
+        <StatusChip tone="good" label={readyWords(x.readyKind)} />
+      </DocLink>
+    </Box>
+  )
 }
 
 type OrderSummary = { reply: number; replyMinutes: number; replyPrep: number }
@@ -175,6 +192,7 @@ function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSum
               {x.kind && (
                 <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
               )}
+              <ReadyChip x={x} />
               <AgentLooking id={x.id} />
               <AgentWorking id={x.id} />
               {x.due && <DueChip due={x.due} />}
@@ -201,6 +219,7 @@ function leadCard(lead: Lead, actions: ReactNode) {
         <Typography variant="h6" component="p" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
           {lead.title}
         </Typography>
+        {lead.row && <ReadyChip x={lead.row} />}
         {actions}
       </Stack>
     </Paper>

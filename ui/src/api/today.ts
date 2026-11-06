@@ -23,6 +23,9 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       group
       effort
       prep
+      ready
+      readyKind
+      readyRef
       at
       attend
     }

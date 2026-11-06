@@ -57,6 +57,9 @@ type TickOutput struct {
 	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
 	// are in Requests too.
 	Gaps []string `json:"gaps"`
+	// Prepares lists the prepare requests tick made this pass (prepared.go);
+	// they are in Requests too.
+	Prepares []string `json:"prepares"`
 	// NotQueued says why tick made no fill-gap or prepare work: it cannot
 	// queue work, and proposed work would ask the owner to approve each.
 	NotQueued string `json:"not_queued,omitempty"`
@@ -94,7 +97,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Gaps: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Gaps: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -132,6 +135,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickGaps(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: gaps: %w", err)
+	}
+	if err := tickPrepare(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: prepare: %w", err)
 	}
 	if err := tickJournals(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: journals: %w", err)

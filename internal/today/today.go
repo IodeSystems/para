@@ -44,6 +44,11 @@ type Item struct {
 	Group  string       `json:"group,omitempty"`
 	Effort model.Effort `json:"effort,omitempty"`
 	Prep   bool         `json:"prep,omitempty"`
+	// Ready, ReadyKind, and ReadyRef are set on an Agenda item an agent
+	// prepared, as in ops.ValueRow.
+	Ready     bool               `json:"ready,omitempty"`
+	ReadyKind model.PreparedKind `json:"ready_kind,omitempty"`
+	ReadyRef  string             `json:"ready_ref,omitempty"`
 	// Proposal marks a question with an answer to check.
 	Proposal bool `json:"proposal,omitempty"`
 	// Names, for people. Project is a task's project id, Scope a question's
@@ -449,7 +454,7 @@ func fillAgenda(ctx context.Context, st *local.Store, sn *ops.Snapshot, date str
 	}
 	for _, r := range rows {
 		vt.Agenda.Items = append(vt.Agenda.Items, Item{ID: r.ID, Title: r.Title, Due: r.EffDue, Kind: r.Kind, Why: r.Why, Bucket: r.Bucket, Blocks: r.Blocks, Proposal: r.Proposal,
-			Group: r.Group, Effort: r.Effort, Prep: r.Prep})
+			Group: r.Group, Effort: r.Effort, Prep: r.Prep, Ready: r.Ready, ReadyKind: r.ReadyKind, ReadyRef: r.ReadyRef})
 	}
 	vt.Agenda.Count = len(vt.Agenda.Items)
 	if err := fillMeetings(ctx, st, sn, date, soon, vt); err != nil {

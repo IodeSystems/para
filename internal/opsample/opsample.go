@@ -145,6 +145,7 @@ var Inputs = map[string]string{
 	"recheck_record":            `{"id":"constraint-sample","result":"holds","source":"https://wiki.acme.example/access"}`,
 	"project_edit":              `{"id":"project-sample","done_when":"Every sample check passes."}`,
 	"task_edit":                 `{"id":"task-sample","done_when":"The sample is checked."}`,
+	"item_prepared":             `{"id":"task-sample","kind":"plan"}`,
 	"question_edit":             `{"id":"question-sample","title":"Sample question, edited"}`,
 	"question_depends_add":      `{"id":"question-sample","depends_on":["task-sample"]}`,
 	"question_depends_remove":   `{"id":"question-waiting","depends_on":["task-sample"]}`,

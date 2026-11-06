@@ -116,6 +116,9 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: PU-IO. Priority on a person, group, or source page: how much it matters,
   // which decides whether its incoming messages need the owner (priority_set, a person op).
   'PrioritySet',
+  // owner 2026-11-06: PU-PREP. Approve on an outgoing draft (a prepared reply) approves its exact
+  // text: io_approve on the owner's path.
+  'IOApprove',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

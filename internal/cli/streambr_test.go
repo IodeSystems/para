@@ -37,7 +37,8 @@ func seedStreamBRParity(t *testing.T, deps ops.Deps) {
 
 func streamBRParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"brief": {`{"id":"task-br-sync"}`, []string{"brief", "task-br-sync"}, true},
+		"brief":         {`{"id":"task-br-sync"}`, []string{"brief", "task-br-sync"}, true},
+		"item_prepared": {`{"id":"task-br-sync","kind":"brief"}`, []string{"item", "prepared", "task-br-sync", "--kind", "brief"}, false},
 	}
 }
 

@@ -103,6 +103,31 @@ export function useIoItem(id: string) {
   })
 }
 
+const IOApproveDoc = graphql(/* GraphQL */ `
+  mutation IOApprove($body: para_IOApproveInputInput!) {
+    para {
+      v1 {
+        ioApprove(body: $body) {
+          id
+          state
+          approvedHash
+        }
+      }
+    }
+  }
+`)
+
+// useIOApprove is Approve on an outgoing draft: the owner approves its exact medium, to, subject,
+// and text (io_approve, the owner's path), and it is ready for an agent to send. People only.
+export function useIOApprove() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) =>
+      need((await gqlClient.request(IOApproveDoc, { body: { id } })).para.v1.ioApprove, 'approve'),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
 export type IODoneBody = { id: string; url?: string; locator?: string; text?: string }
 
 // useIODone marks an outbox draft sent by the owner: it is filed as an agent's send would be
