@@ -419,17 +419,23 @@ func (h *histBuild) undos(evs []model.Event) {
 // --- notes ---
 
 var (
-	// noteHead is the header of an entry the composer writes: **YYYY-MM-DD**.
-	noteHead = regexp.MustCompile(`^\*\*(\d{4}-\d{2}-\d{2})\*\*\s*$`)
+	// noteHead is the header of an entry the composer writes: **YYYY-MM-DD**,
+	// or **YYYY-MM-DD HH:MM** (local time) since entries carry the time.
+	noteHead = regexp.MustCompile(`^\*\*(\d{4}-\d{2}-\d{2})(?: (\d{2}:\d{2}))?\*\*\s*$`)
 	// noteLine is a dated line an op writes: - YYYY-MM-DD: text.
 	noteLine = regexp.MustCompile(`^- (\d{4}-\d{2}-\d{2}): (.*)$`)
 )
 
+// noteSlack is how far a write may be from the time in a note's header and
+// still be the write that added the note.
+const noteSlack = 10 * time.Minute
+
 // noteEntry is one entry of an item's notes. Date is empty for the text
 // before the first dated entry.
 type noteEntry struct {
-	Date string
-	Text string
+	Date  string
+	Clock string // HH:MM when the header has it
+	Text  string
 }
 
 // noteEntries splits notes into dated entries. Text before the first entry is
@@ -440,7 +446,7 @@ func noteEntries(md string) []noteEntry {
 	var plain []string
 	for _, l := range strings.Split(md, "\n") {
 		if m := noteHead.FindStringSubmatch(strings.TrimSpace(l)); m != nil {
-			out = append(out, noteEntry{Date: m[1]})
+			out = append(out, noteEntry{Date: m[1], Clock: m[2]})
 			cur = &out[len(out)-1]
 			continue
 		}
@@ -483,13 +489,25 @@ func (h *histBuild) notes(doc model.Document) {
 		if err != nil {
 			continue
 		}
+		var at time.Time
+		if en.Clock != "" {
+			at, _ = time.ParseInLocation(dateLayout+" 15:04", en.Date+" "+en.Clock, time.Local)
+		}
 		j := last - 1
 		for ; j >= 0; j-- {
 			e := h.mine[j]
 			if e.note || e.e.Op != evlog.OpUpdate || e.e.From != e.e.To || e.e.TS.In(time.Local).Format(dateLayout) != en.Date {
 				continue
 			}
+			// With a time in the header, the write must be within minutes of it.
+			if !at.IsZero() && (e.e.TS.Sub(at) > noteSlack || at.Sub(e.e.TS) > noteSlack) {
+				continue
+			}
 			break
+		}
+		if j < 0 && !at.IsZero() {
+			h.add(at, -1, row)
+			continue
 		}
 		if j < 0 {
 			row.DateOnly = true

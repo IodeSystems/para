@@ -6,6 +6,7 @@ import Chip from '@mui/material/Chip'
 import CheckIcon from '@mui/icons-material/Check'
 import { agentUnsend, closeItem, useAgentSend } from '@/api/composer'
 import { readNotes, saveNotes } from '@/api/notes'
+import { localStamp } from '@/api/today'
 import { canDecide } from '@/client/session'
 import { uploadAttachment } from '@/client/upload'
 import { errorText } from '@/client/gqlClient'
@@ -24,12 +25,6 @@ import { closable, composerPrompt, notesWithEntry, type ItemMeta } from '@/lib/c
 // details, check whether it is already done, and recheck its assumptions. It needs review:decide:
 // without it the page only reads. onSent runs after a send to an agent, or a save that closed the
 // item: the item left the owner's hands. Undo of that send runs onBack.
-
-const today = () => {
-  const d = new Date()
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
-}
 
 export function ItemComposer({
   id,
@@ -114,7 +109,7 @@ export function ItemComposer({
       const before = await readNotes(id)
       const md = notesWithEntry(
         before.md,
-        today(),
+        localStamp(),
         text,
         atts.map((a) => a.embed),
       )

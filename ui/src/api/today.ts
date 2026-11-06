@@ -122,6 +122,13 @@ export function useToday() {
   })
 }
 
+// localStamp is the date and minute in the browser's zone, as YYYY-MM-DD HH:MM: the header of a
+// notes entry, so the item's Activity can place it.
+export function localStamp(d = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${localDate(d)} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
 // localDate is today's date in the browser's zone, as YYYY-MM-DD.
 export function localDate(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, '0')

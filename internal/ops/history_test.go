@@ -224,3 +224,10 @@ func TestChangedFields(t *testing.T) {
 		t.Fatalf("%v", got)
 	}
 }
+
+func TestNoteEntriesReadTheTimeInTheHeader(t *testing.T) {
+	got := noteEntries("**2026-11-05**\n\nold\n\n**2026-11-06 14:32**\n\nnew")
+	if len(got) != 2 || got[0].Clock != "" || got[1].Date != "2026-11-06" || got[1].Clock != "14:32" || got[1].Text != "new" {
+		t.Fatalf("entries = %+v", got)
+	}
+}

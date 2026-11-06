@@ -1,5 +1,5 @@
 import { readNotes, saveNotes } from '@/api/notes'
-import { localDate } from '@/api/today'
+import { localStamp } from '@/api/today'
 import { closeAny, investigate } from '@/api/verbs'
 import { agentUnsend } from '@/api/composer'
 import { revertReceipt } from '@/api/receipts'
@@ -21,7 +21,7 @@ async function addNote(id: string, text: string, files: File[]): Promise<Note> {
   const before = await readNotes(id)
   const md = notesWithEntry(
     before.md,
-    localDate(),
+    localStamp(),
     text,
     atts.map((a) => a.embed),
   )
