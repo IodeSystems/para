@@ -70,3 +70,16 @@ func TestChangesUsesTheSessionSinceWhenGivenNone(t *testing.T) {
 		t.Fatalf("explicit since: %+v, %v", out, err)
 	}
 }
+
+// Judgement steps (annotation-placement, notes-placement) file agent work
+// that links areas and notes, so request_add must take them.
+func TestRequestLinksAreasAndNotes(t *testing.T) {
+	tv := newTickVault(t, "2026-11-03T12:00:00Z")
+	d := tv.open("one", "cli")
+	ctx := t.Context()
+	area := must(t, AreaAdd, d, AreaAddInput{Title: "Ops"}).ID
+	note := must(t, NoteAdd, d, NoteAddInput{Title: "X", Area: area}).ID
+	if _, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: "Place", Ask: "Place them.", Links: []string{area, note}, Kind: upgradeKind}); err != nil {
+		t.Fatal(err)
+	}
+}
