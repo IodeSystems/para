@@ -184,6 +184,10 @@ try {
     para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
   )
   const task = idOf(para(...v, 'task', 'add', 'Write the plan', '-p', proj, '--json'))
+  // A new vault is at format 10: an incident is a task of kind incident.
+  const incident = idOf(
+    para(...v, 'incident', 'add', 'Cache outage', '--severity', 'sev2', '--json'),
+  )
   const question = idOf(
     para(
       ...v,
@@ -520,6 +524,7 @@ try {
     [`/doc/${closedDossier}`, 'Vendor pick'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
+    [`/incidents/${incident}`, 'Cache outage'],
     [`/doc/${question}`, 'Which region first?'],
     [`/doc/${note.id}`, 'Quota numbers'],
     [`/doc/${policy}`, 'Logging policy'],
@@ -560,6 +565,21 @@ try {
       .then(() => true)
       .catch(() => false),
     'the agenda counts unread and ready messages',
+  )
+
+  // An incident is a task of kind incident: /incidents/<id> lands on its document page, which shows
+  // the severity and the status.
+  await page.goto(`${base}/incidents/${incident}`)
+  await page.waitForURL((u) => u.pathname === `/doc/${incident}`)
+  await page.getByRole('heading', { name: 'Cache outage' }).first().waitFor()
+  check(
+    await page
+      .locator(`[data-incident="${incident}"]`)
+      .getByText('sev2')
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false),
+    '/incidents/<id> redirects to the document page, which shows the incident',
   )
 
   // Policy is part of areas: /policy lands on /areas, which lists the exception due for review;

@@ -18,6 +18,7 @@ import { hitKindLabel } from '@/lib/hitkind'
 import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
 import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
+import { IncidentPanel } from '@/components/IncidentPanel'
 import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
@@ -125,7 +126,10 @@ function Doc() {
             </Box>
           )}
           {d.meta.type === 'question' && <QuestionPanel id={d.id} />}
-          {d.meta.type === 'task' && <TaskPanel id={d.id} />}
+          {(d.meta.type === 'incident' || (d.meta.type === 'task' && d.meta.kind === 'incident')) && (
+            <IncidentPanel id={d.id} />
+          )}
+          {d.meta.type === 'task' && d.meta.kind !== 'incident' && <TaskPanel id={d.id} />}
           <ReceiptSection doc={d.id} title="Agent writes" />
           {copy.isError && (
             <Alert severity="error" sx={{ mb: 2 }}>

@@ -30,7 +30,7 @@ function OpenButton({ x }: { x: Row }) {
   switch (openTarget(x.kind)) {
     case 'incident':
       return (
-        <LinkButton size="small" data-act="open" to="/incidents/$id" params={{ id: x.id }}>
+        <LinkButton size="small" data-act="open" to="/doc/$id" params={{ id: x.id }}>
           Open
         </LinkButton>
       )
