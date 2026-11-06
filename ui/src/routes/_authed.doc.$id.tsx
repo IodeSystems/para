@@ -20,7 +20,7 @@ import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
 import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import { IncidentPanel } from '@/components/IncidentPanel'
-import { ReceiptSection } from '@/components/Receipts'
+import { Activity } from '@/components/Activity'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
@@ -133,7 +133,6 @@ function Doc() {
           {(d.meta.type === 'incident' ||
             (d.meta.type === 'task' && d.meta.kind === 'incident')) && <IncidentPanel id={d.id} />}
           {d.meta.type === 'task' && d.meta.kind !== 'incident' && <TaskPanel id={d.id} />}
-          <ReceiptSection doc={d.id} title="Agent writes" />
           {copy.isError && (
             <Alert severity="error" sx={{ mb: 2 }}>
               The server refused the copy.
@@ -142,6 +141,7 @@ function Doc() {
           <Markdown source={withSourceLink(withoutSection(d.body, 'Notes'), d.meta.source?.url)} />
           <MergedFrom id={id} />
           <NotesEditor id={id} />
+          <Activity id={d.id} />
           <ItemComposer id={d.id} title={d.title} meta={d.meta} />
         </ItemDraftProvider>
       )}

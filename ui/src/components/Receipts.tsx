@@ -14,28 +14,22 @@ import {
   useReceipt,
   useReceiptCheck,
   useReceiptRevert,
-  useReceipts,
   type Receipt,
 } from '@/api/receipts'
 import { errorText } from '@/client/gqlClient'
 import { Empty, Section, StatusChip } from '@/components/Bits'
-import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton } from '@/components/links'
-import { DoItTask } from '@/components/DoIt'
-import { useToasts } from '@/components/ToastStack'
-import { useRouteContext, useRouter } from '@tanstack/react-router'
-import { canDecide } from '@/client/session'
+import { useRouter } from '@tanstack/react-router'
 import { diffKind } from '@/lib/diff'
-import { checkTone, newestFirst, noteRequired, receiptTime, undoCommand } from '@/lib/receipts'
+import { checkTone, noteRequired, receiptTime } from '@/lib/receipts'
 import { refKind, refLinks } from '@/lib/refs'
 import { exactTime, humanTime } from '@/lib/when'
 
 const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
 
 // DiffLines shows the before and after of one write. It loads only when opened.
-function DiffLines({ id }: { id: string }) {
+export function DiffLines({ id }: { id: string }) {
   const q = useReceipt(id, true)
   return (
     <DataState q={q}>
@@ -65,107 +59,6 @@ function DiffLines({ id }: { id: string }) {
         </Box>
       )}
     </DataState>
-  )
-}
-
-// ReceiptCard shows one agent write: when, who, what, to which document, why, and from what.
-// Undo is a command to copy: the viewer never writes.
-// withActions adds Open, Undo, and for a task the Do it block; the section on a document's own page
-// leaves them off, since the document is already open.
-export function ReceiptCard({
-  r,
-  showActor = true,
-  withActions = true,
-}: {
-  r: Receipt
-  showActor?: boolean
-  withActions?: boolean
-}) {
-  const t = receiptTime(r)
-  const cmd = undoCommand(r.id)
-  // The diff loads when a person opens it, not for every row.
-  const [open, setOpen] = useState(false)
-  return (
-    <Box data-receipt={r.id} sx={{ width: '100%' }}>
-      <Stack
-        direction="row"
-        spacing={0.75}
-        useFlexGap
-        sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-      >
-        <Tooltip title={exactTime(t)}>
-          <Typography component="time" dateTime={t} variant="body2" color="text.secondary">
-            {humanTime(t)}
-          </Typography>
-        </Tooltip>
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          {showActor && <>{r.actor}: </>}
-          {r.op.replace(/_/g, ' ')}{' '}
-          {r.doc === 'vault' ? (
-            'the vault'
-          ) : (
-            <DocLink id={r.doc}>{r.docName || r.title || r.doc}</DocLink>
-          )}
-        </Typography>
-        {r.selfReported && <StatusChip tone="wait" label="self-reported" />}
-        {r.background && <StatusChip tone="quiet" label="background" />}
-      </Stack>
-      {r.ownerSaid && (
-        <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          Owner said: &ldquo;{r.ownerSaid}&rdquo;
-        </Typography>
-      )}
-      {r.why && (
-        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          Why: {r.why}
-        </Typography>
-      )}
-      <SourceLinks r={r} />
-      {r.verify && (
-        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          Verify: {r.verify}
-        </Typography>
-      )}
-      {withActions && r.doc !== 'vault' && r.op.startsWith('task_') && <DoItTask id={r.doc} />}
-      {withActions && <ReceiptActions r={r} />}
-      <Box
-        component="details"
-        onToggle={(e) => setOpen(e.currentTarget.open)}
-        sx={{ mt: 0.5, fontSize: '0.8125rem' }}
-      >
-        <Box component="summary" sx={{ cursor: 'pointer', width: 'fit-content' }}>
-          What changed
-        </Box>
-        {open && <DiffLines id={r.id} />}
-      </Box>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mt: 0.5 }}>
-        <Typography
-          component="code"
-          aria-label="Undo command"
-          sx={{ ...mono, overflowWrap: 'anywhere', flexGrow: 1 }}
-        >
-          {cmd}
-        </Typography>
-        <CopyButton getText={() => cmd} label="Copy undo command" />
-      </Stack>
-    </Box>
-  )
-}
-
-// ReceiptSection lists the agent writes to one document, newest first.
-export function ReceiptSection({ title, doc }: { title: string; doc: string }) {
-  const q = useReceipts({ doc, limit: 30 })
-  const items = newestFirst(q.data ?? [])
-  return (
-    <Section title={title} count={items.length} hideEmpty>
-      <List dense disablePadding>
-        {items.map((r) => (
-          <ListItem key={r.id} disableGutters divider sx={{ display: 'block' }}>
-            <ReceiptCard r={r} withActions={false} />
-          </ListItem>
-        ))}
-      </List>
-    </Section>
   )
 }
 
@@ -218,46 +111,6 @@ function SourceLinks({ r }: { r: Pick<Receipt, 'sources' | 'sourceLinks'> }) {
         )
       })}
     </Typography>
-  )
-}
-
-// ReceiptActions: Open the document, and Undo the write (a toast says what happened). Undo is
-// disabled with the reason once the write is undone; the server refuses it, with the reason, when a
-// later write changed the document.
-function ReceiptActions({ r }: { r: Receipt }) {
-  const { session } = useRouteContext({ from: '/_authed' })
-  const revert = useReceiptRevert()
-  const toasts = useToasts()
-  const undone = !!r.undone
-  const run = () =>
-    revert.mutate(r.id, {
-      onSuccess: () =>
-        toasts.push({ text: `Undid ${r.op.replace(/_/g, ' ')}: ${r.docName || r.title || r.doc}` }),
-      onError: (e) => toasts.push({ text: `Could not undo: ${errorText(e)}`, tone: 'error' }),
-    })
-  return (
-    <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-      {r.doc !== 'vault' && (
-        <LinkButton size="small" variant="outlined" to="/doc/$id" params={{ id: r.doc }}>
-          Open
-        </LinkButton>
-      )}
-      {canDecide(session) && (
-        <Tooltip title={undone ? 'Already undone.' : ''}>
-          <span>
-            <Button
-              size="small"
-              color="warning"
-              disabled={undone || revert.isPending}
-              onClick={run}
-              aria-label={undone ? 'Undo (already undone)' : 'Undo this write'}
-            >
-              Undo
-            </Button>
-          </span>
-        </Tooltip>
-      )}
-    </Stack>
   )
 }
 

@@ -1311,6 +1311,47 @@ try {
     check(md.includes(`](attachments/${noted}/`), 'an image saved with the notes shows inline')
   }
 
+  // Activity on the item page: it refreshes after a composer action, Conversation keeps only what
+  // was said, and Undo on the row of an agent write puts the write back.
+  {
+    const act = rpage.locator(`[data-activity="${noted}"]`)
+    await act
+      .locator('[data-history-row="note"]')
+      .filter({ hasText: 'Deposit paid.' })
+      .first()
+      .waitFor()
+    check(true, 'Activity shows the note the composer just saved')
+    check(
+      (await act.locator('[data-history-row="created"]').count()) >= 1,
+      'Everything shows when the item was made',
+    )
+    await rpage.locator('[data-history-filter="conversation"]').click()
+    await act.locator('[data-history-row="created"]').first().waitFor({ state: 'detached' })
+    // The conversation page loads after the toggle: wait for its first row.
+    await act.locator('[data-history-row="note"]').first().waitFor()
+    const kinds = await act
+      .locator('[data-history-row]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-history-row')))
+    const said = ['note', 'message_in', 'message_out', 'agent_result', 'asked_agent']
+    check(
+      kinds.length > 0 && kinds.every((k) => said.includes(k)),
+      `Conversation keeps only what was said (${kinds.join(', ')})`,
+    )
+    await rpage.locator('[data-history-filter="all"]').click()
+
+    const undoTask = idOf(para(...v, 'task', 'add', 'Order the cables', '-p', proj, '--json'))
+    await agent.call('task_start', { id: undoTask, why: 'Sam said the order is placed.' })
+    await rpage.goto(`${base}/doc/${undoTask}`)
+    const row = rpage.locator(`[data-activity="${undoTask}"] [data-history-row="receipt"]`).first()
+    await row.waitFor()
+    await row.locator('[data-history-undo]').click()
+    await rpage.locator('[data-toast="info"]').filter({ hasText: 'Undid the write.' }).waitFor()
+    check(
+      /"status":\s*"todo"/.test(para(...v, 'task', 'show', undoTask, '--json')),
+      'Undo on an agent write in Activity puts the task back',
+    )
+  }
+
   // Merge: a duplicate leaves the lists, links to it point to the one that stays, and that page
   // lists it as merged from.
   const keepTask = idOf(para(...v, 'task', 'add', 'Renew the cert', '-p', proj, '--json'))
