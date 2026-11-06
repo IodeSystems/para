@@ -4099,6 +4099,7 @@ type para_Meta {
   nextNudge: String
   notDuplicate: String
   notIn: [String!]
+  observed: Boolean
   occurrenceOf: String
   of: String
   onBehalfOf: String
