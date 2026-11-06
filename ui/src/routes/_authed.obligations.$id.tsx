@@ -16,10 +16,12 @@ import { MeetingChip } from '@/components/MeetingChip'
 import { meetingWhen } from '@/lib/meeting'
 import { nameList } from '@/lib/names'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { ProduceSection } from '@/components/RecurringArtifact'
 
 export const Route = createFileRoute('/_authed/obligations/$id')({ component: ObligationPage })
 
-// ObligationPage is a meeting's page, or a commitment's: what is owed, to whom, by when.
+// ObligationPage is a meeting's page, or a commitment's: what is owed, to whom, by when. One an
+// agent owes shows what it produces, its template, and the last artifact with its state.
 function ObligationPage() {
   const { id } = Route.useParams()
   // Opening the item, or the agent work itself, marks its finished agent work seen.
@@ -27,7 +29,7 @@ function ObligationPage() {
   const q = useObligation(id)
   return (
     <DataState q={q}>
-      {({ task: o, body }) =>
+      {({ task: o, body, produce }) =>
         o.kind === 'meeting' ? (
           <MeetingDetail id={id} />
         ) : (
@@ -53,7 +55,8 @@ function ObligationPage() {
                 </Typography>
               )}
             </Section>
-            {o.assignee && (
+            {produce && <ProduceSection id={id} p={produce} />}
+            {o.assignee && !produce && (
               <Section title="Owed by">
                 <Typography variant="body2">{o.assigneeName || o.assignee}</Typography>
               </Section>

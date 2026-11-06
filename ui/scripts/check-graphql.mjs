@@ -104,6 +104,9 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: PU-PREP. Approve on an outgoing draft (a prepared reply) approves its exact
   // text: io_approve on the owner's path.
   'IOApprove',
+  // owner 2026-11-06: PU-REC. New recurring artifact on the Obligations page makes an obligation an
+  // agent owes, with what it produces (obligation_add with produce, on the owner's session).
+  'ObligationAdd',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

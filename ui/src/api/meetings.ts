@@ -1,7 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import { recurringBody, type RecurringInput } from '@/lib/recurring'
 
 export const MeetingFields = graphql(/* GraphQL */ `
   fragment MeetingFields on para_MeetingView {
@@ -139,6 +140,26 @@ const ObligationShowDoc = graphql(/* GraphQL */ `
             needsYou
             reason
           }
+          produce {
+            agent
+            kind
+            template
+            templateName
+            to
+            medium
+            builtin
+            ready
+            request
+            requestStatus
+            artifact {
+              id
+              type
+              title
+              state
+              occurrence
+              at
+            }
+          }
         }
       }
     }
@@ -252,4 +273,35 @@ export async function meetingRsvp(id: string, attend: Attend) {
     (await gqlClient.request(MeetingRsvpDoc, { body: { id, attend } })).para.v1.meetingRsvp,
     'attend',
   )
+}
+
+// ObligationAdd from the web: New recurring artifact makes an obligation an agent owes, with
+// what it produces (obligation_add with produce; owner 2026-11-06: PU-REC).
+const ObligationAddDoc = graphql(/* GraphQL */ `
+  mutation ObligationAdd($body: para_ObligationAddInputInput!) {
+    para {
+      v1 {
+        obligationAdd(body: $body) {
+          id
+          schedule
+          warnings
+        }
+      }
+    }
+  }
+`)
+
+export function useAddRecurring() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (i: RecurringInput) =>
+      need(
+        (await gqlClient.request(ObligationAddDoc, { body: recurringBody(i) })).para.v1
+          .obligationAdd,
+        'obligation',
+      ),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['obligations'] })
+    },
+  })
 }

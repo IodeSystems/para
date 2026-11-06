@@ -4,6 +4,7 @@ import FormControlLabel from '@mui/material/FormControlLabel'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
+import Stack from '@mui/material/Stack'
 import Switch from '@mui/material/Switch'
 import { useMeetings, useObligations } from '@/api/meetings'
 import { CHIP_ROW, Empty, PageTitle, Section } from '@/components/Bits'
@@ -11,6 +12,7 @@ import { DataState } from '@/components/DataState'
 import { LinkButton, TextLink } from '@/components/links'
 import { AgentLooking } from '@/components/FindContext'
 import { MeetingChip } from '@/components/MeetingChip'
+import { NewRecurringButton } from '@/components/RecurringArtifact'
 import { meetingWhen } from '@/lib/meeting'
 import { joinNames, nameList } from '@/lib/names'
 
@@ -24,11 +26,14 @@ function Obligations() {
   return (
     <>
       <PageTitle
-        subtitle="What you owe or must attend: meetings you asked for or booked (booked first, by start time), and what you owe people."
+        subtitle="What you owe or must attend: meetings you asked for or booked (booked first, by start time), what you owe people, and recurring artifacts an agent prepares for you to approve."
         action={
-          <LinkButton size="small" to="/agenda">
-            Agenda
-          </LinkButton>
+          <Stack direction="row" spacing={1}>
+            <NewRecurringButton />
+            <LinkButton size="small" to="/agenda">
+              Agenda
+            </LinkButton>
+          </Stack>
         }
       >
         Obligations

@@ -1036,6 +1036,28 @@ try {
     'an owed obligation is type obligation',
   )
 
+  // New recurring artifact: the owner makes an obligation an agent owes from the web form; its
+  // page shows the owner, the template, and that nothing is produced yet.
+  await rpage.goto(`${base}/obligations`)
+  await rpage.locator('[data-new-recurring]').click()
+  await rpage.locator('[data-field="title"]').fill('Weekly hall report')
+  await rpage.locator('[data-field="agent"]').fill('writer')
+  await rpage.locator('[data-field="template"]').fill('Bookings, money in, repairs.')
+  await rpage.locator('[data-recurring-submit]').click()
+  await rpage.waitForURL(/\/obligations\/obligation-[^/]+$/)
+  const recurring = rpage.url().split('/').pop()
+  await rpage.locator('[data-produce-agent]').waitFor()
+  check(
+    (await rpage.locator('[data-produce-agent]').innerText()) === 'agent:writer' &&
+      (await rpage.locator('[data-produce-template]').innerText()).includes('Bookings, money in') &&
+      (await rpage.locator('[data-produce-state]').innerText()).includes('nothing produced yet'),
+    'the recurring artifact page shows the agent, the template, and its state',
+  )
+  check(
+    /"produce":\s*\{[^}]*"kind":\s*"report"/.test(para(...v, 'show', recurring, '--json')),
+    'the form made an obligation with a produce block',
+  )
+
   // A meeting that needs you (booked for tomorrow, within due_soon_days) shows its brief on the
   // agenda without a click, with an attendee not in the directory as unresolved.
   const soon = new Date(Date.now() + 26 * 3600 * 1000)
