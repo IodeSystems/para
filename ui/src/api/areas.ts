@@ -100,11 +100,107 @@ const AreaShowDoc = graphql(/* GraphQL */ `
             type
             title
           }
+          sections {
+            heading
+            level
+            parts {
+              text
+              annotation {
+                ...AnnotationFields
+              }
+            }
+          }
+          follows {
+            url
+            fidelity
+            verified
+            reviewedBy
+            sourceStatus
+            rules
+          }
         }
       }
     }
   }
 `)
+
+export const AnnotationFields = graphql(/* GraphQL */ `
+  fragment AnnotationFields on para_AnnotationView {
+    id
+    area
+    areaTitle
+    kind
+    heading
+    anchor
+    text
+    reviewBy
+    quote
+    lost
+    from
+    fields {
+      key
+      value
+    }
+  }
+`)
+
+const AreasPageDoc = graphql(/* GraphQL */ `
+  query AreasPage($expiring: Int) {
+    para {
+      v1 {
+        areaList {
+          areas {
+            id
+            title
+            status
+            kind
+            cadence
+            nextReview
+          }
+        }
+        policyList {
+          policies {
+            id
+            title
+            url
+            verified
+            fidelity
+            rules
+            sourceStatus
+          }
+        }
+        annotationList(expiring: $expiring) {
+          annotations {
+            daysLeft
+            id
+            area
+            areaTitle
+            kind
+            text
+            reviewBy
+          }
+        }
+      }
+    }
+  }
+`)
+
+// EXPIRING_DAYS is the window of the areas page's due-for-review list, as exception_expiring.
+export const EXPIRING_DAYS = 30
+
+export function useAreasPage() {
+  return useQuery({
+    queryKey: ['areas-page'],
+    queryFn: async () => {
+      const v = (await gqlClient.request(AreasPageDoc, { expiring: EXPIRING_DAYS })).para.v1
+      return {
+        areas: need(v.areaList, 'areas').areas,
+        followed: need(v.policyList, 'policies').policies,
+        expiring: need(v.annotationList, 'annotations').annotations,
+      }
+    },
+  })
+}
 
 const ProjectShowDoc = graphql(/* GraphQL */ `
   query ProjectShow($id: String!) {

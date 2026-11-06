@@ -24,6 +24,7 @@ import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
 import { Route as AuthedStackRouteImport } from './routes/_authed.stack'
 import { Route as AuthedTodayRouteImport } from './routes/_authed.today'
 import { Route as AuthedWorkRouteImport } from './routes/_authed.work'
+import { Route as AuthedAreasIndexRouteImport } from './routes/_authed.areas.index'
 import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
 import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
 import { Route as AuthedDocsIndexRouteImport } from './routes/_authed.docs.index'
@@ -117,6 +118,11 @@ const AuthedTodayRoute = AuthedTodayRouteImport.update({
 const AuthedWorkRoute = AuthedWorkRouteImport.update({
   id: '/work',
   path: '/work',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAreasIndexRoute = AuthedAreasIndexRouteImport.update({
+  id: '/areas/',
+  path: '/areas/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAreasIdRoute = AuthedAreasIdRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
   '/sources/$id': typeof AuthedSourcesIdRoute
+  '/areas/': typeof AuthedAreasIndexRoute
   '/docs/': typeof AuthedDocsIndexRoute
   '/io/': typeof AuthedIoIndexRoute
   '/meetings/': typeof AuthedMeetingsIndexRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/proposals/$id': typeof AuthedProposalsIdRoute
   '/rfx/$id': typeof AuthedRfxIdRoute
   '/sources/$id': typeof AuthedSourcesIdRoute
+  '/areas': typeof AuthedAreasIndexRoute
   '/docs': typeof AuthedDocsIndexRoute
   '/io': typeof AuthedIoIndexRoute
   '/meetings': typeof AuthedMeetingsIndexRoute
@@ -321,6 +329,7 @@ export interface FileRoutesById {
   '/_authed/proposals/$id': typeof AuthedProposalsIdRoute
   '/_authed/rfx/$id': typeof AuthedRfxIdRoute
   '/_authed/sources/$id': typeof AuthedSourcesIdRoute
+  '/_authed/areas/': typeof AuthedAreasIndexRoute
   '/_authed/docs/': typeof AuthedDocsIndexRoute
   '/_authed/io/': typeof AuthedIoIndexRoute
   '/_authed/meetings/': typeof AuthedMeetingsIndexRoute
@@ -359,6 +368,7 @@ export interface FileRouteTypes {
     | '/proposals/$id'
     | '/rfx/$id'
     | '/sources/$id'
+    | '/areas/'
     | '/docs/'
     | '/io/'
     | '/meetings/'
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/proposals/$id'
     | '/rfx/$id'
     | '/sources/$id'
+    | '/areas'
     | '/docs'
     | '/io'
     | '/meetings'
@@ -432,6 +443,7 @@ export interface FileRouteTypes {
     | '/_authed/proposals/$id'
     | '/_authed/rfx/$id'
     | '/_authed/sources/$id'
+    | '/_authed/areas/'
     | '/_authed/docs/'
     | '/_authed/io/'
     | '/_authed/meetings/'
@@ -553,6 +565,13 @@ declare module '@tanstack/react-router' {
       path: '/work'
       fullPath: '/work'
       preLoaderRoute: typeof AuthedWorkRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/areas/': {
+      id: '/_authed/areas/'
+      path: '/areas'
+      fullPath: '/areas/'
+      preLoaderRoute: typeof AuthedAreasIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/areas/$id': {
@@ -723,6 +742,7 @@ interface AuthedRouteChildren {
   AuthedProposalsIdRoute: typeof AuthedProposalsIdRoute
   AuthedRfxIdRoute: typeof AuthedRfxIdRoute
   AuthedSourcesIdRoute: typeof AuthedSourcesIdRoute
+  AuthedAreasIndexRoute: typeof AuthedAreasIndexRoute
   AuthedDocsIndexRoute: typeof AuthedDocsIndexRoute
   AuthedIoIndexRoute: typeof AuthedIoIndexRoute
   AuthedMeetingsIndexRoute: typeof AuthedMeetingsIndexRoute
@@ -758,6 +778,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedProposalsIdRoute: AuthedProposalsIdRoute,
   AuthedRfxIdRoute: AuthedRfxIdRoute,
   AuthedSourcesIdRoute: AuthedSourcesIdRoute,
+  AuthedAreasIndexRoute: AuthedAreasIndexRoute,
   AuthedDocsIndexRoute: AuthedDocsIndexRoute,
   AuthedIoIndexRoute: AuthedIoIndexRoute,
   AuthedMeetingsIndexRoute: AuthedMeetingsIndexRoute,

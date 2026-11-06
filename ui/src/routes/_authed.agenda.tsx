@@ -412,7 +412,7 @@ function Agenda() {
                         </Button>
                       ))}
                       {t.unverified > 0 && (
-                        <LinkButton size="small" color="inherit" to="/policy">
+                        <LinkButton size="small" color="inherit" to="/areas">
                           Summaries to verify {t.unverified}
                         </LinkButton>
                       )}

@@ -237,6 +237,23 @@ try {
       { encoding: 'utf8', input: '# Logging policy\n\nLogs are kept 30 days.\n' },
     ),
   )
+  // The policy is an area that follows its source; an exception is an annotation in its body,
+  // due for review in a week.
+  const reviewBy = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+  para(
+    ...v,
+    'annotate',
+    policy,
+    'Thirty days from write or from rotate?',
+    '--kind',
+    'exception',
+    '--field',
+    'kind=underspecified',
+    '--field',
+    'by=Sam Rivera',
+    '--field',
+    `review_by=${reviewBy}`,
+  )
   const meeting = idOf(
     para(...v, 'meeting', 'add', 'Quota sync', '--with', person, '--rfx', ask, '--json'),
   )
@@ -479,7 +496,9 @@ try {
     [`/rfx/${ask}`, 'Need the staging quota raised'],
     ['/people', 'People'],
     [`/people/${person}`, 'Sam Rivera'],
-    ['/policy', 'Policy'],
+    ['/policy', 'Areas'],
+    ['/areas', 'Areas'],
+    [`/areas/${policy}`, 'Logging policy'],
     ['/questions', 'Questions'],
     ['/requests', 'Asked of agents'],
     ['/obligations', 'Obligations'],
@@ -541,6 +560,37 @@ try {
       .then(() => true)
       .catch(() => false),
     'the agenda counts unread and ready messages',
+  )
+
+  // Policy is part of areas: /policy lands on /areas, which lists the exception due for review;
+  // the policy's area page shows the exception inline as a callout card.
+  await page.goto(`${base}/policy`)
+  await page.waitForURL(/\/areas$/)
+  await page.getByRole('heading', { name: 'Areas' }).first().waitFor()
+  check(
+    await page
+      .locator('[data-expiring]')
+      .getByText('Thirty days from write or from rotate?', { exact: false })
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false),
+    '/policy redirects to /areas, which lists the exception due for review',
+  )
+  await page.goto(`${base}/areas/${policy}`)
+  await page.getByRole('heading', { name: 'Logging policy' }).first().waitFor()
+  const callout = page.locator('aside[data-kind="exception"]')
+  check(
+    await callout
+      .getByText('Thirty days from write or from rotate?')
+      .waitFor({ timeout: 5000 })
+      .then(() => true)
+      .catch(() => false),
+    'the area page shows the exception as a callout',
+  )
+  check(
+    (await callout.getByText(`review by ${reviewBy}`).count()) === 1 &&
+      (await page.locator('[data-follows]').count()) === 1,
+    'the callout shows its review date, and the page the source it follows',
   )
 
   // Sources: who reaches each, and which no agent reaches.

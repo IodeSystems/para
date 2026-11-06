@@ -25,7 +25,11 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
   { label: 'Work', to: '/work', words: ['work', 'goals'] },
   { label: 'Asks', to: '/rfx', words: ['asks', 'rfx'] },
   { label: 'People', to: '/people', words: ['people'] },
-  { label: 'Policy', to: '/policy', words: ['policy'] },
+  {
+    label: 'Areas',
+    to: '/areas',
+    words: ['areas', 'policy', 'exceptions', 'conventions', 'constraints'],
+  },
   { label: 'Questions', to: '/questions', words: ['questions'] },
   { label: 'Receipts', to: '/receipts', words: ['receipts'] },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },

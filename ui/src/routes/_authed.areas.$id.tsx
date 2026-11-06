@@ -1,5 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
+import Box from '@mui/material/Box'
+import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
+import { AnnotationCard } from '@/components/Annotation'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
@@ -109,9 +112,44 @@ function AreaPage() {
               </List>
             </Section>
           )}
+          {d.follows && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }} data-follows>
+              {`Follows a source: ${d.follows.sourceStatus}, ${d.follows.rules} ${d.follows.rules === 1 ? 'rule' : 'rules'}, `}
+              {d.follows.verified
+                ? `checked by ${d.follows.reviewedBy || 'a person'}`
+                : 'summary not checked against the source yet'}
+              {d.follows.url && (
+                <>
+                  {' - '}
+                  <Link href={d.follows.url} target="_blank" rel="noreferrer">
+                    source
+                  </Link>
+                </>
+              )}
+            </Typography>
+          )}
           {d.body.trim() !== '' && (
-            <Section title="About">
-              <Markdown source={d.body} />
+            <Section title={d.follows ? 'Summary' : 'About'}>
+              {d.sections.map((s, i) => (
+                <Box key={`${i}-${s.heading}`} component="section">
+                  {s.heading && (
+                    <Typography
+                      variant={s.level <= 2 ? 'h6' : 'subtitle1'}
+                      component={s.level <= 2 ? 'h3' : 'h4'}
+                      sx={{ mt: i > 0 ? 2 : 0, overflowWrap: 'anywhere' }}
+                    >
+                      {s.heading}
+                    </Typography>
+                  )}
+                  {s.parts.map((p, j) =>
+                    p.annotation ? (
+                      <AnnotationCard key={p.annotation.id} annotation={p.annotation} />
+                    ) : (
+                      <Markdown key={j} source={p.text ?? ''} />
+                    ),
+                  )}
+                </Box>
+              ))}
             </Section>
           )}
           <MergedFrom id={id} />
