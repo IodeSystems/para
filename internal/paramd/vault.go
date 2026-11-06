@@ -63,14 +63,18 @@ func CheckVault(files []*File) []Finding {
 		}
 		if _, ok := f.Frontmatter["version"].(int); ok && f.Type() == "transcript" {
 			if m := linkValRe.FindStringSubmatch(str(f.Frontmatter["of"])); m != nil {
-				if dst, ok := byName[strings.ToLower(m[1])]; ok && dst.Type() != "tracked_doc" {
+				if dst, ok := byName[strings.ToLower(m[1])]; ok && dst.Type() != "tracked_doc" && dst.Type() != "area" {
 					out = append(out, Finding{Path: f.Path, Code: CodeFieldValue, Severity: Error,
-						Msg: fmt.Sprintf("a transcript with version is a version of a tracked document; %s is a %s", m[1], dst.Type())})
+						Msg: fmt.Sprintf("a transcript with version is a version of a tracked document or an area; %s is a %s", m[1], dst.Type())})
 				}
 			}
 		}
-		if f.Type() == "policy" {
-			if src, ok := f.Frontmatter["source"].(map[string]any); ok && src["fidelity"] != "none" {
+		src, _ := f.Frontmatter["source"].(map[string]any)
+		if fl, ok := f.Frontmatter["follows"].(map[string]any); ok && f.Type() == "area" {
+			src, _ = fl["source"].(map[string]any)
+		}
+		if f.Type() == "policy" || f.Type() == "area" {
+			if src != nil && src["fidelity"] != "none" {
 				if _, ok := byName[strings.ToLower(f.Name+".source")]; !ok {
 					out = append(out, Finding{Path: f.Path, Code: CodeNoTranscript, Severity: Error,
 						Msg: fmt.Sprintf("no transcript %s.source.md; set source.fidelity to none if the document must not be copied", f.Name)})

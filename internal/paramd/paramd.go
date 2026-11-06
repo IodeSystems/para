@@ -85,6 +85,7 @@ type File struct {
 	Blocks    []Block
 	Rules     []Rule
 	PageMarks []PageMark
+	Callouts  []Callout // annotation callouts of the body (callout.go)
 }
 
 // Type is the frontmatter "type" value, or "".
@@ -167,6 +168,15 @@ func Parse(path string, data []byte) *File {
 	}
 
 	f.scan()
+	// The title is not a section heading: callouts under it are at the top.
+	if from := max(bodyIdx, f.TitleLine); from < len(f.Lines) {
+		var lines []string
+		var code []bool
+		for _, l := range f.Lines[from:] {
+			lines, code = append(lines, l.Text), append(code, l.Code)
+		}
+		f.Callouts = calloutsOf(lines, code, from+1)
+	}
 	return f
 }
 

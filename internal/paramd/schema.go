@@ -27,6 +27,7 @@ const (
 	kAssumptions  // list of assumption maps (assumptionFields)
 	kImported     // {path, hash}: the file a document was imported from
 	kCalendarUIDs // list of {uid, role} maps: calendar events of a meeting
+	kFollows      // {source, verified, reviewed_by}: the remote source an area follows
 )
 
 type field struct {
@@ -136,6 +137,8 @@ var typeFields = map[string][]field{
 		{Name: "last_reviewed", Kind: kDate},
 		{Name: "concepts", Kind: kLinkList}, // kind project only; areas of kind concept (vault check)
 		{Name: "links", Kind: kPointers},
+		{Name: "follows", Kind: kFollows},               // the source the area summarizes (a policy before format 9)
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // the type the area was before upgrade step policy-docs
 	},
 	"incident": {
 		{Name: "severity", Kind: kEnum, Enum: severities, Required: true},
@@ -268,7 +271,8 @@ var typeFields = map[string][]field{
 		{Name: "applies_in", Kind: kList, Required: true},
 		{Name: "not_in", Kind: kList, Required: true},
 		{Name: "review_by", Kind: kDate, Required: true},
-		{Name: "refines", Kind: kLink}, // a constraint (vault check)
+		{Name: "refines", Kind: kLink},     // a constraint (vault check)
+		{Name: "folded_into", Kind: kLink}, // the area it is an annotation in (upgrade step policy-docs)
 	},
 	"policy": {
 		{Name: "source", Kind: kSourceMap, Required: true},
@@ -291,6 +295,7 @@ var typeFields = map[string][]field{
 		{Name: "by", Kind: kString, Required: true},
 		{Name: "with", Kind: kLink}, // required when kind is conflict_with
 		{Name: "review_by", Kind: kDate},
+		{Name: "folded_into", Kind: kLink}, // the area it is an annotation in (upgrade step policy-docs)
 	},
 	"person": {
 		{Name: "org", Kind: kString},
@@ -360,7 +365,8 @@ var typeFields = map[string][]field{
 	"convention": {
 		{Name: "status", Kind: kEnum, Enum: conventionState, Required: true},
 		{Name: "applies_in", Kind: kList, Required: true},
-		{Name: "refines", Kind: kLink}, // a convention (vault check)
+		{Name: "refines", Kind: kLink},     // a convention (vault check)
+		{Name: "folded_into", Kind: kLink}, // the area it is an annotation in (upgrade step policy-docs)
 	},
 	"journal": {
 		{Name: "date", Kind: kDate, Required: true},
@@ -527,7 +533,7 @@ var kindNames = map[kind]string{
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
 	kScope: "scope", kSources: "sources", kWhen: "date_or_time", kMap: "map", kMaps: "maps",
-	kRisks: "risks", kAssumptions: "assumptions", kImported: "imported", kCalendarUIDs: "calendar_uids",
+	kRisks: "risks", kAssumptions: "assumptions", kImported: "imported", kCalendarUIDs: "calendar_uids", kFollows: "follows",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,
@@ -545,6 +551,7 @@ var editLocked = map[string][]string{
 	"obligation":  {"state", "outcome", "closed", "previous", "occurrence_of", "rfx", "folded_from"},
 	"rfx":         {"targets", "question"},
 	"policy":      {"source", "verified"},
+	"area":        {"follows", "folded_from"},
 	"transcript":  {"source", "of", "version", "fetched_by", "proposal", "item"},
 	"tracked_doc": {"latest", "last_seen", "seen_at", "checked", "comments"},
 	"source":      {"last_scan", "cursor"},

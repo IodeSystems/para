@@ -48,6 +48,7 @@ const (
 	CodeSummaryLong  = "summary-long"
 	CodeRecur        = "recur"
 	CodeScope        = "scope"
+	CodeAnnotation   = "annotation"
 )
 
 // MaxRuleLen is the longest allowed rule line, in characters. raglit
@@ -117,6 +118,7 @@ func Lint(f *File) []Finding {
 	l.urls()
 	l.links()
 	l.blocksAndRules()
+	l.annotations()
 	l.transcript()
 	l.journal()
 	l.interaction()
@@ -619,6 +621,16 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
+	case kFollows:
+		m, ok := v.(map[string]any)
+		if !ok {
+			bad("must be a mapping with source and verified")
+			return
+		}
+		l.checkSource(fd.Name+".source", m["source"])
+		if _, ok := m["verified"].(bool); !ok {
+			bad("verified must be true or false")
+		}
 	case kCalendarUIDs:
 		list, ok := v.([]any)
 		if !ok {
@@ -950,7 +962,8 @@ func (l *linter) blocksAndRules() {
 		}
 		seen[b.ID] = b.Line
 	}
-	isPolicy := f.Type() == "policy"
+	// An area that follows a source keeps the rules of the policy it was.
+	isPolicy := f.Type() == "policy" || f.Type() == "area" && f.Frontmatter["follows"] != nil
 	ruleAt := map[int]bool{}
 	for _, r := range f.Rules {
 		ruleAt[r.Line] = true
@@ -961,7 +974,7 @@ func (l *linter) blocksAndRules() {
 		}
 		switch {
 		case !isPolicy:
-			l.errf(b.Line, CodeRule, "rule block ^%s is only allowed in a policy file", b.ID)
+			l.errf(b.Line, CodeRule, "rule block ^%s is only allowed in a policy file or an area that follows a source", b.ID)
 		case !ruleAt[b.Line]:
 			l.errf(b.Line, CodeRule, "rule line must read 'R<n> <policy-id>: <text> ^R<n>' with matching ids")
 		}
@@ -983,9 +996,25 @@ func (l *linter) blocksAndRules() {
 				l.errf(ln.N, CodeRule, "rule line has no ^R<n> block id")
 			}
 		}
-		if len(f.Rules) == 0 {
+		if len(f.Rules) == 0 && f.Type() == "policy" {
 			l.add(0, CodeRule, Warn, "policy has no rules")
 		}
+	}
+}
+
+// annotations warns on a callout header para cannot read and on an id used
+// twice. The text stays as written either way.
+func (l *linter) annotations() {
+	seen := map[string]int{}
+	for _, c := range l.f.Callouts {
+		if c.Broken != "" {
+			l.add(c.Line, CodeAnnotation, Warn, "%s callout: %s; para does not read it as an annotation", c.Kind, c.Broken)
+			continue
+		}
+		if first, dup := seen[c.ID]; dup {
+			l.add(c.Line, CodeAnnotation, Warn, "annotation id %s already used on line %d", c.ID, first)
+		}
+		seen[c.ID] = c.Line
 	}
 }
 
