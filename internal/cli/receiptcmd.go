@@ -118,6 +118,34 @@ func newActivityCmd(l *loader) *cobra.Command {
 	})
 }
 
+// newHistoryCmd is `para history <id>`: the timeline of an item.
+func newHistoryCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.History, binding[ops.HistoryInput, ops.HistoryOutput]{
+		Use:  "history <id>",
+		Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.HistoryInput) error { in.ID = args[0]; return nil },
+		Flags: func(fs *pflag.FlagSet, in *ops.HistoryInput) {
+			fs.StringVar((*string)(&in.Filter), "filter", "", "all, or conversation: notes, messages, agent results, and what the owner asked")
+			fs.IntVar(&in.Limit, "limit", 0, "most rows; default 50")
+			fs.StringVar(&in.Before, "before", "", "only rows before this RFC 3339 time (next_before of the last page)")
+		},
+		Text: func(w io.Writer, out ops.HistoryOutput) error {
+			p := &printer{w: w}
+			for _, r := range out.Items {
+				at := r.At
+				if r.DateOnly && len(at) >= 10 {
+					at = at[:10]
+				}
+				p.f("%s\t%s\t%s\t%s\t%s\n", at, r.Who, r.Kind, r.Summary, r.Ref)
+			}
+			if out.More {
+				p.f("more\t--before %s\n", out.NextBefore)
+			}
+			return p.err
+		},
+	})
+}
+
 // refLines prints the sources of a receipt resolved: the address after each
 // ref that has one, repeats dropped. Falls back to the stored strings.
 func refLines(r ops.ReceiptView) []string {

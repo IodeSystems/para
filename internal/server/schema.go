@@ -335,6 +335,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.IOTriages)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
+	addEnum(reg, ops.HistoryFilters)
 	addEnum(reg, model.Levels)
 	addEnum(reg, model.AssumptionStatuses)
 }

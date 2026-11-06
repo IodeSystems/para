@@ -230,6 +230,7 @@ type ParaV1QueryNamespace {
   graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
   grillContext(id: String!): para_GrillContextOutput @derived(operationId: "grillContext")
   health: para_HealthOutput @derived(operationId: "health")
+  history(before: String, filter: para_historyFilter, id: String!, limit: Int): para_HistoryOutput @derived(operationId: "history")
   importList(
     """only documents imported from this path or under it"""
     root: String
@@ -2541,6 +2542,26 @@ type para_HeldUp {
   holdsTitle: String!
   id: String!
   title: String!
+}
+
+type para_HistoryOutput {
+  id: String!
+  items: [para_HistoryRow!]!
+  more: Boolean!
+  nextBefore: String
+}
+
+type para_HistoryRow {
+  actor: String
+  at: String!
+  dateOnly: Boolean
+  kind: String!
+  ref: String
+  summary: String!
+  text: String
+  undo: Boolean!
+  url: String
+  who: String!
 }
 
 type para_Hit {
@@ -8420,6 +8441,11 @@ enum para_exceptionListStatus {
   accepted
   open
   resolved
+}
+
+enum para_historyFilter {
+  all
+  conversation
 }
 
 enum para_incidentListStatus {

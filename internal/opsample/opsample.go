@@ -198,6 +198,7 @@ var Inputs = map[string]string{
 	"task_start":                `{"id":"task-sample"}`,
 	"who":                       `{"query":"Sample person"}`,
 	"receipt_show":              `{"id":"receipt-sample"}`,
+	"history":                   `{"id":"task-sample"}`,
 	"receipt_check":             `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_undo":              `{"id":"receipt-sample"}`,
 	"receipt_revert":            `{"id":"receipt-sample"}`,
