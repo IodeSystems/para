@@ -27,6 +27,9 @@ type Document struct {
 	Body   string `json:"body"` // text after the title line
 	Meta   Meta   `json:"meta"`
 	Rev    string `json:"rev,omitempty"` // content hash; Update requires the current value
+	// Sub is a folder under Folder that a batch rewrite moves the file to, such
+	// as folded under archive (store.Rewrite, RewriteExpand). Other writes ignore it.
+	Sub string `json:"-"`
 
 	// extra holds frontmatter keys that Meta does not declare. format.md
 	// allows them, and an update must not drop them.

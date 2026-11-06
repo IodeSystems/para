@@ -79,8 +79,8 @@ func (v *Vault) Scan(_ context.Context, fn func(model.Document) error) error {
 // Rewrite applies fn to every document under the lock, as one batch: the old
 // bytes of each changed file go to this machine's state directory (never the
 // vault), each change logs one OpUpgrade event, and UndoBatch restores them.
-// fn may set another folder on the document: the file then moves there under
-// the same name, so links still resolve.
+// fn may set another folder on the document, and Sub, a folder under it: the
+// file then moves there under the same name, so links still resolve.
 // A failure part way restores what it wrote. With dry set it writes nothing
 // and logs nothing, and lists the documents it would change.
 func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error) {
@@ -144,8 +144,8 @@ func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn mo
 			nd.ID, nd.Folder = f.id, to
 			nd.Meta.Header().Updated = v.today()
 			entry := batchEntry{Rel: f.rel, ID: f.id, Old: events.Hash(old)}
-			if to != f.folder {
-				entry.To = path.Join(string(to), path.Base(f.rel))
+			if want := path.Join(string(to), nd.Sub, path.Base(f.rel)); (to != f.folder || nd.Sub != "") && want != f.rel {
+				entry.To = want
 				if _, err := os.Stat(v.abs(entry.To)); err == nil {
 					return fmt.Errorf("%s: %s already exists", f.id, entry.To)
 				}
