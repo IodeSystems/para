@@ -67,6 +67,9 @@ type Store interface {
 	// reverse on this machine, with one event per changed document. A dry run
 	// changes nothing and lists what would change.
 	Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error)
+	// RewriteExpand is Rewrite whose fn may also make new documents in the
+	// batch; UndoBatch removes them while they are unchanged.
+	RewriteExpand(ctx context.Context, batch string, dry bool, fn model.ExpandFunc) (model.BatchResult, error)
 	// UndoBatch restores the documents a batch changed, unless edited since.
 	UndoBatch(ctx context.Context, batch string) (model.BatchResult, error)
 

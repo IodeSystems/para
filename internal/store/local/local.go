@@ -149,6 +149,10 @@ func (s *Store) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 	return s.v.Rewrite(ctx, batch, dry, fn)
 }
 
+func (s *Store) RewriteExpand(ctx context.Context, batch string, dry bool, fn model.ExpandFunc) (model.BatchResult, error) {
+	return s.v.RewriteExpand(ctx, batch, dry, fn)
+}
+
 func (s *Store) UndoBatch(ctx context.Context, batch string) (model.BatchResult, error) {
 	return s.v.UndoBatch(ctx, batch)
 }

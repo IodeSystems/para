@@ -36,6 +36,9 @@ type batchEntry struct {
 	// To is the new path when the rewrite moved the document to another
 	// folder; empty when it stayed at Rel.
 	To string `json:"to,omitempty"`
+	// Made is a document the batch made: Old is empty, and an undo removes
+	// the file.
+	Made bool `json:"made,omitempty"`
 }
 
 // at is where the document is after the batch.
@@ -81,6 +84,17 @@ func (v *Vault) Scan(_ context.Context, fn func(model.Document) error) error {
 // A failure part way restores what it wrote. With dry set it writes nothing
 // and logs nothing, and lists the documents it would change.
 func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error) {
+	return v.RewriteExpand(ctx, batch, dry, func(d model.Document) (model.Document, []model.Document, bool, error) {
+		nd, ok, err := fn(d)
+		return nd, nil, ok, err
+	})
+}
+
+// RewriteExpand is Rewrite whose fn may also make new documents, each with
+// its folder and id set: they are part of the batch, listed in Docs after
+// the document that made them, and UndoBatch removes them while they are
+// unchanged. A new document's id must be free in the vault and in the batch.
+func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn model.ExpandFunc) (model.BatchResult, error) {
 	res := model.BatchResult{Batch: batch, DryRun: dry, Docs: []string{}}
 	if !batchRe.MatchString(batch) {
 		return res, fmt.Errorf("vault: rewrite: batch id %q must be lowercase letters, digits, '.' and '-'", batch)
@@ -98,6 +112,10 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 			fold  model.Folder
 		}
 		var plan []change
+		taken := map[string]bool{}
+		for _, f := range files {
+			taken[strings.ToLower(f.id)] = true
+		}
 		for _, f := range files {
 			old, err := os.ReadFile(v.abs(f.rel))
 			if err != nil {
@@ -109,7 +127,7 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 				continue
 			}
 			d.Rev = events.Hash(old)
-			nd, ok, err := fn(d)
+			nd, made, ok, err := fn(d)
 			if err != nil {
 				return fmt.Errorf("%s: %w", f.id, err)
 			}
@@ -146,6 +164,25 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 			entry.New = events.Hash(data)
 			plan = append(plan, change{entry: entry, old: old, data: data, mode: st.Mode().Perm(), fold: to})
 			res.Docs = append(res.Docs, f.id)
+			for _, n := range made {
+				if !n.Folder.Valid() || n.Meta == nil || !paramd.ValidStem(n.ID) {
+					return fmt.Errorf("%s: new document %q: needs a folder, meta, and a valid id", f.id, n.ID)
+				}
+				if taken[strings.ToLower(n.ID)] {
+					return fmt.Errorf("%s: new document %s: the id is taken", f.id, n.ID)
+				}
+				taken[strings.ToLower(n.ID)] = true
+				if n.Meta.Header().Created == "" {
+					n.Meta.Header().Created = v.today()
+				}
+				rel := path.Join(string(n.Folder), n.ID+".md")
+				data, err := renderChecked(rel, n, nil)
+				if err != nil {
+					return fmt.Errorf("%s: new document %s: %w", f.id, n.ID, err)
+				}
+				plan = append(plan, change{entry: batchEntry{Rel: rel, ID: n.ID, New: events.Hash(data), Made: true}, data: data, mode: fileMode, fold: n.Folder})
+				res.Docs = append(res.Docs, n.ID)
+			}
 		}
 		if dry || len(plan) == 0 {
 			return nil
@@ -163,6 +200,9 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 		index := make([]batchEntry, 0, len(plan))
 		for _, c := range plan {
 			index = append(index, c.entry)
+			if c.entry.Made {
+				continue
+			}
 			bak := filepath.Join(dir, "files", filepath.FromSlash(c.entry.Rel))
 			if err := os.MkdirAll(filepath.Dir(bak), 0o700); err != nil {
 				return err
@@ -183,6 +223,12 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 		restore := func(cause error) error {
 			var errs []error
 			for _, c := range plan[:written] {
+				if c.entry.Made {
+					if err := os.Remove(v.abs(c.entry.Rel)); err != nil {
+						errs = append(errs, err)
+					}
+					continue
+				}
 				if err := v.write(c.entry.Rel, c.old, c.mode); err != nil {
 					errs = append(errs, err)
 				}
@@ -197,6 +243,20 @@ func (v *Vault) Rewrite(ctx context.Context, batch string, dry bool, fn model.Re
 		}
 		recs := make([]events.Rec, 0, len(plan))
 		for _, c := range plan {
+			if c.entry.Made {
+				if _, err := os.Stat(v.abs(c.entry.Rel)); err == nil {
+					return restore(fmt.Errorf("%s already exists", c.entry.Rel))
+				}
+				if err := os.MkdirAll(filepath.Dir(v.abs(c.entry.Rel)), 0o700); err != nil {
+					return restore(err)
+				}
+				if err := v.write(c.entry.Rel, c.data, c.mode); err != nil {
+					return restore(err)
+				}
+				written++
+				recs = append(recs, events.Rec{Op: OpUpgrade, Doc: c.entry.ID, From: batch, To: string(c.fold), Hash: c.entry.New})
+				continue
+			}
 			if err := v.noteExternalEdit(m, c.entry.Rel, c.entry.Old); err != nil {
 				return restore(err)
 			}
@@ -247,6 +307,15 @@ func (v *Vault) UndoBatch(ctx context.Context, batch string) (model.BatchResult,
 			cur, err := os.ReadFile(v.abs(e.at()))
 			if err != nil || events.Hash(cur) != e.New {
 				res.Skipped = append(res.Skipped, e.ID)
+				continue
+			}
+			if e.Made {
+				if err := os.Remove(v.abs(e.Rel)); err != nil {
+					return err
+				}
+				delete(m.Files, e.Rel)
+				res.Docs = append(res.Docs, e.ID)
+				recs = append(recs, events.Rec{Op: OpUpgradeUndo, Doc: e.ID, From: batch, To: string(folderOf(e.Rel)), Prev: e.New})
 				continue
 			}
 			old, err := os.ReadFile(filepath.Join(dir, "files", filepath.FromSlash(e.Rel)))
