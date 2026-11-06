@@ -60,6 +60,10 @@ type TickOutput struct {
 	// Goals lists the goals whose pivot date has come or whose signal reading
 	// is due, as "<id>: <reason>". The agenda shows them with the reason.
 	Goals []string `json:"goals"`
+	// MeetingsSkipped lists the past optional meetings this pass marked
+	// skipped (attend no): the owner made no attend choice. Each has a
+	// receipt that undoes it.
+	MeetingsSkipped []string `json:"meetings_skipped"`
 	// Changes counts the files reconcile found changed outside para.
 	Changes  int      `json:"changes"`
 	Warnings []string `json:"warnings"`
@@ -84,7 +88,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Nudges: []string{}, Goals: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -128,6 +132,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickGoals(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: goals: %w", err)
+	}
+	if err := tickOptionalMeetings(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: optional meetings: %w", err)
 	}
 	return out, nil
 }
