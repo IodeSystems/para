@@ -13,9 +13,8 @@ import (
 )
 
 // The outcome report counts how work ended over a window: task closes by
-// outcome and by actor (task_close events), review items the owner denied
-// (with the reason), and receipt undos (receipt_undo events). It reads events
-// and dossiers; it writes nothing.
+// outcome and by actor (task_close events), and receipt undos (receipt_undo
+// events). It reads events; it writes nothing.
 
 // opReceiptUndo is the event of a write undone from its receipt; doc is the
 // receipt, to the document.
@@ -41,18 +40,6 @@ type ActorOutcomes struct {
 	Outcomes []OutcomeCount `json:"outcomes"`
 }
 
-// DeniedItem is a review item the owner denied, with the reason.
-type DeniedItem struct {
-	Proposal string         `json:"proposal"`
-	Title    string         `json:"title"` // the dossier's title
-	Item     string         `json:"item"`
-	Kind     model.ItemKind `json:"kind"`
-	Summary  string         `json:"summary"`
-	Actor    string         `json:"actor"` // who proposed it
-	Reason   string         `json:"reason"`
-	At       string         `json:"at"`
-}
-
 // UndoRow is one write undone from its receipt.
 type UndoRow struct {
 	Receipt string    `json:"receipt"`
@@ -68,12 +55,11 @@ type ReportOutcomesOutput struct {
 	Closes   int             `json:"closes"`
 	Outcomes []OutcomeCount  `json:"outcomes"` // every outcome, in model order, zero included
 	ByActor  []ActorOutcomes `json:"by_actor"`
-	Denied   []DeniedItem    `json:"denied"`
 	Undos    []UndoRow       `json:"undos"`
 }
 
 // ReportOutcomes counts how work ended over a window.
-var ReportOutcomes = defineRead("report_outcomes", "Report how work ended over a window (since, until; default the last 30 days): task closes by outcome and by actor, review items the owner denied with the reason, and writes undone from receipts", func(ctx context.Context, d Deps, in ReportOutcomesInput) (ReportOutcomesOutput, error) {
+var ReportOutcomes = defineRead("report_outcomes", "Report how work ended over a window (since, until; default the last 30 days): task closes by outcome and by actor, and writes undone from receipts", func(ctx context.Context, d Deps, in ReportOutcomesInput) (ReportOutcomesOutput, error) {
 	loc := time.Local
 	until := d.Store.Now().In(loc)
 	if in.Until != "" {
@@ -96,7 +82,7 @@ var ReportOutcomes = defineRead("report_outcomes", "Report how work ended over a
 		return ReportOutcomesOutput{}, errors.New("since is after until")
 	}
 	out := ReportOutcomesOutput{Since: start.Format(dateLayout), Until: end.AddDate(0, 0, -1).Format(dateLayout),
-		Outcomes: []OutcomeCount{}, ByActor: []ActorOutcomes{}, Denied: []DeniedItem{}, Undos: []UndoRow{}}
+		Outcomes: []OutcomeCount{}, ByActor: []ActorOutcomes{}, Undos: []UndoRow{}}
 	inWindow := func(t time.Time) bool { return !t.Before(start) && t.Before(end) }
 	evs, err := d.Store.Events(ctx, math.MaxInt32)
 	if err != nil {
@@ -140,24 +126,5 @@ var ReportOutcomes = defineRead("report_outcomes", "Report how work ended over a
 		return strings.Compare(a.Actor, b.Actor)
 	})
 	slices.SortFunc(out.Undos, func(a, b UndoRow) int { return b.At.Compare(a.At) })
-	all, err := allProposals(ctx, d)
-	if err != nil {
-		return out, err
-	}
-	sum := newItemSummarizer(ctx, d)
-	for _, p := range all {
-		for _, it := range p.content.Items {
-			if it.State != model.ItemDenied || it.Decided == nil {
-				continue
-			}
-			at, err := time.Parse(time.RFC3339, it.Decided.At)
-			if err != nil || !inWindow(at) {
-				continue
-			}
-			out.Denied = append(out.Denied, DeniedItem{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Kind: it.Kind,
-				Summary: firstOf(it.Title, sum.of(it)), Actor: p.meta.ProposedBy, Reason: it.Reason, At: it.Decided.At})
-		}
-	}
-	slices.SortFunc(out.Denied, func(a, b DeniedItem) int { return strings.Compare(b.At, a.At) })
 	return out, nil
 })

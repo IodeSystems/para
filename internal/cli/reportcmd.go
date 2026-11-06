@@ -68,9 +68,6 @@ func newReportCmd(l *loader) *cobra.Command {
 					p.f("actor\t%s\t%s\t%d\n", a.Actor, o.Key, o.Count)
 				}
 			}
-			for _, x := range out.Denied {
-				p.f("denied\t%s\t%s\t%s\t%s\n", x.Proposal, x.Item, x.Actor, x.Reason)
-			}
 			for _, u := range out.Undos {
 				p.f("undo\t%s\t%s\t%s\n", u.Receipt, u.Doc, u.By)
 			}

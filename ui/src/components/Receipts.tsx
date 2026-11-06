@@ -22,7 +22,7 @@ import { Empty, Section, StatusChip } from '@/components/Bits'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { LinkButton, TextLink } from '@/components/links'
+import { LinkButton } from '@/components/links'
 import { DoItTask } from '@/components/DoIt'
 import { useToasts } from '@/components/ToastStack'
 import { useRouteContext, useRouter } from '@tanstack/react-router'
@@ -442,10 +442,9 @@ export function ReceiptRow({ r, undone }: { r: Receipt; undone: boolean }) {
   )
 }
 
-const OUTCOME_HINT = 'Closes, denials, and undos in the window. Empty dates mean the last 30 days.'
+const OUTCOME_HINT = 'Closes and undos in the window. Empty dates mean the last 30 days.'
 
-// OutcomesSection reports how work ended: task closes by outcome and by actor, review items the
-// owner denied with the reason, and writes undone.
+// OutcomesSection reports how work ended: task closes by outcome and by actor, and writes undone.
 export function OutcomesSection({ since, until }: { since?: string; until?: string }) {
   const q = useOutcomes({ since, until })
   return (
@@ -484,35 +483,6 @@ export function OutcomesSection({ since, until }: { since?: string; until?: stri
                   ))}
                 </List>
               </>
-            )}
-            <Typography variant="subtitle2" component="h3" sx={{ mt: 1 }}>
-              Denied review items
-            </Typography>
-            {o.denied.length === 0 ? (
-              <Empty>No review item was denied.</Empty>
-            ) : (
-              <List dense disablePadding>
-                {o.denied.map((d) => (
-                  <ListItem
-                    key={`${d.proposal}/${d.item}`}
-                    disableGutters
-                    divider
-                    data-denied={`${d.proposal}/${d.item}`}
-                    sx={{ display: 'block' }}
-                  >
-                    <TextLink to="/doc/$id" params={{ id: d.proposal }} underline="hover">
-                      {d.summary || d.title || d.item}
-                    </TextLink>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ overflowWrap: 'anywhere' }}
-                    >
-                      {d.actor}, {humanTime(d.at)}. Reason: {d.reason}
-                    </Typography>
-                  </ListItem>
-                ))}
-              </List>
             )}
             <Typography variant="subtitle2" component="h3" sx={{ mt: 1 }}>
               Undone writes

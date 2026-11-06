@@ -1249,28 +1249,6 @@ type para_DeferOutput {
   until: String
 }
 
-type para_DeniedItem {
-  actor: String!
-  at: String!
-  item: String!
-  kind: para_DeniedItemKind!
-  proposal: String!
-  reason: String!
-  summary: String!
-  title: String!
-}
-
-enum para_DeniedItemKind {
-  action
-  doc_edit
-  external
-  message
-  op
-  para
-  question
-  upstream
-}
-
 input para_DependsCutInputInput {
   dep: String!
   id: String!
@@ -6044,7 +6022,6 @@ input para_ReopenInputInput {
 type para_ReportOutcomesOutput {
   byActor: [para_ActorOutcomes!]!
   closes: Int!
-  denied: [para_DeniedItem!]!
   outcomes: [para_OutcomeCount!]!
   since: String!
   undos: [para_UndoRow!]!

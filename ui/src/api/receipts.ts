@@ -146,16 +146,6 @@ const OutcomesDoc = graphql(/* GraphQL */ `
               count
             }
           }
-          denied {
-            proposal
-            title
-            item
-            kind
-            summary
-            actor
-            reason
-            at
-          }
           undos {
             receipt
             doc
