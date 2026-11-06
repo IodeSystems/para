@@ -58,3 +58,16 @@ export function splitTimes(text: string): { text: string; time: boolean }[] {
   if (at < text.length) out.push({ text: text.slice(at), time: false })
   return out
 }
+
+// daysAgo says a bare date relative to today: "today", "yesterday", "5 days ago" within two weeks,
+// then the date ("Oct 3"). A date after today, or one that is not a date, shows as the date.
+export function daysAgo(date: string, today: string): string {
+  if (!DATE_ONLY.test(date) || !DATE_ONLY.test(today)) return date
+  const n = Math.round(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) / 86400000,
+  )
+  if (n === 0) return 'today'
+  if (n === 1) return 'yesterday'
+  if (n > 1 && n < 14) return `${n} days ago`
+  return dateWords(date, today)
+}

@@ -62,6 +62,31 @@ const SendToAgentDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const InvestigateDoc = graphql(/* GraphQL */ `
+  mutation Investigate($body: para_InvestigateInputInput!) {
+    para {
+      v1 {
+        investigate(body: $body) {
+          id
+          request
+          status
+          appended
+        }
+      }
+    }
+  }
+`)
+
+// investigate asks an agent to look into an item: fill in its details, check whether it is already
+// done, and recheck its assumptions; hint is the owner's words on top. appended is true when the
+// item already had open agent work and the hint went into it.
+export async function investigate(body: { id: string; hint?: string }) {
+  return need(
+    (await gqlClient.request(InvestigateDoc, { body })).para.v1.investigate,
+    'investigate',
+  )
+}
+
 // VerbResult is what a verb did: the op that ran, its receipt (the owner's writes), and that op's
 // output.
 export type VerbResult = { op: string; receipt?: string | null; result: Record<string, unknown> }

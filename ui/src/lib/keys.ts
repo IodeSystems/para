@@ -72,7 +72,8 @@ export function actionFor(e: KeyLike): KeyAction | null {
   return null
 }
 
-export type NextKey = 'next' | 'back' | 'done' | 'later' | 'send' | 'approve' | 'open'
+export type NextKey =
+  'next' | 'back' | 'done' | 'investigate' | 'later' | 'send' | 'approve' | 'open'
 
 // NEXT_KEYS are the keys of the Next page. s is Send to agent here; g does the same.
 export const NEXT_KEYS: { key: string; action: NextKey; words: string }[] = [
@@ -80,6 +81,11 @@ export const NEXT_KEYS: { key: string; action: NextKey; words: string }[] = [
   { key: 'n', action: 'next', words: 'Skip, as j' },
   { key: 'k', action: 'back', words: 'Back to the card you skipped last' },
   { key: 'd', action: 'done', words: 'Done (Drop or Held, as the item allows)' },
+  {
+    key: 'i',
+    action: 'investigate',
+    words: 'Investigate: an agent fills in details, checks if done, rechecks assumptions',
+  },
   { key: 'l', action: 'later', words: 'Later: put it off to a date' },
   { key: 's', action: 'send', words: 'Send to agent: write what it should do' },
   { key: 'g', action: 'send', words: 'Send to agent, as s' },

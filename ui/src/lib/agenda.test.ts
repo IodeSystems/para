@@ -4,6 +4,7 @@ import {
   closeBody,
   datedKind,
   doneLabel,
+  investigable,
   isClosed,
   openTarget,
   rowKind,
@@ -92,5 +93,13 @@ describe('splitDone', () => {
     const { open, done } = splitDone(rows, (r) => isClosed(r.s))
     expect(open.map((r) => r.id)).toEqual(['a', 'c'])
     expect(done.map((r) => r.id)).toEqual(['b'])
+  })
+})
+
+describe('investigable', () => {
+  it('gives Investigate to tasks, obligations, asks, and goals', () => {
+    for (const k of ['task', 'obligation', 'ask', 'goal']) expect(investigable(k)).toBe(true)
+    for (const k of ['question', 'meeting', 'io', 'incident', '', undefined])
+      expect(investigable(k)).toBe(false)
   })
 })

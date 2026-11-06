@@ -5,21 +5,25 @@ import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import CheckIcon from '@mui/icons-material/Check'
 import { agentUnsend, closeItem, useAgentSend } from '@/api/composer'
-import { revertReceipt } from '@/api/receipts'
 import { readNotes, saveNotes } from '@/api/notes'
 import { canDecide } from '@/client/session'
 import { uploadAttachment } from '@/client/upload'
 import { errorText } from '@/client/gqlClient'
-import { Composer } from '@/components/Composer'
+import { useItemActions } from '@/components/AgendaActions'
+import { Composer, type ComposerAction } from '@/components/Composer'
+import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
+import { investigable, isClosed, rowKind } from '@/lib/agenda'
 import { closable, composerPrompt, notesWithEntry, type ItemMeta } from '@/lib/composer'
 
 // ItemComposer is the composer at the foot of every item's page. Send to agent queues agent work
 // with the owner's words and files (agent_send); the agent formats them into the item's notes and
-// updates what they touch. Save as notes writes them into the notes now, below what is there. Mark
-// done asks the agent to close the item, or with Save as notes closes a task or a meeting at once.
-// It needs review:decide: without it the page only reads. onSent runs after a send to an agent, or
-// a save that closed the item: the item left the owner's hands. Undo of that send runs onBack.
+// updates what they touch. Save as notes writes them into the notes now, below what is there. With
+// Mark done on, Save as notes closes a task or a meeting at once: that is Done with a note, as the
+// Done button near the box does. Investigate adds them to the notes and asks an agent to fill in
+// details, check whether it is already done, and recheck its assumptions. It needs review:decide:
+// without it the page only reads. onSent runs after a send to an agent, or a save that closed the
+// item: the item left the owner's hands. Undo of that send runs onBack.
 
 const today = () => {
   const d = new Date()
@@ -44,6 +48,12 @@ export function ItemComposer({
   const toasts = useToasts()
   const qc = useQueryClient()
   const send = useAgentSend()
+  const draft = useItemDraft(id)
+  const kind = rowKind(meta.type, meta.kind)
+  const closed = isClosed(meta.status)
+  const item = useItemActions({ id, title, kind }, closed, false, (gone) =>
+    gone ? onSent?.() : onBack?.(),
+  )
   const [done, setDone] = useState(false)
   // now is when the page opened: the prompt does not change while the owner types.
   const [now] = useState(() => new Date())
@@ -93,6 +103,12 @@ export function ItemComposer({
   }
 
   const asNotes = async (text: string, files: File[]) => {
+    // Save as notes with Mark done is Done with a note: the same call and Undo as the Done button.
+    if (done && close) {
+      const ok = await item.done(text, files)
+      if (ok) setDone(false)
+      return ok
+    }
     try {
       const atts = await upload(files)
       const before = await readNotes(id)
@@ -103,39 +119,39 @@ export function ItemComposer({
         atts.map((a) => a.embed),
       )
       const saved = await saveNotes(id, before.hash, md)
-      let closed = false
-      let receipt: string | null | undefined
-      if (done && close) {
-        receipt = (await closeItem(id)).receipt
-        closed = true
-      }
       await qc.invalidateQueries()
       toasts.push({
-        text: `${closed ? 'Saved as notes and closed' : 'Saved as notes'}: ${name}`,
-        note: closed ? 'Undo opens it again; the notes stay.' : undefined,
-        undo: closed
-          ? receipt
-            ? async () => {
-                await revertReceipt(receipt)
-                onBack?.()
-                await qc.invalidateQueries()
-              }
-            : undefined
-          : async () => {
-              const now = await readNotes(id)
-              if (now.hash !== saved.hash)
-                throw new Error('the notes changed since; edit them by hand')
-              await saveNotes(id, now.hash, before.md)
-              await qc.invalidateQueries()
-            },
+        text: `Saved as notes: ${name}`,
+        undo: async () => {
+          const now = await readNotes(id)
+          if (now.hash !== saved.hash) throw new Error('the notes changed since; edit them by hand')
+          await saveNotes(id, now.hash, before.md)
+          await qc.invalidateQueries()
+        },
       })
-      setDone(false)
-      if (closed) onSent?.()
       return true
     } catch (e) {
       return fail('save notes on', e)
     }
   }
+
+  const actions: ComposerAction[] = [
+    {
+      label: done && close ? 'Save as notes and close' : 'Save as notes',
+      hint:
+        done && !close
+          ? 'Only an agent can close this: send it, or turn Mark done off'
+          : 'Add to the notes now, below what is there',
+      disabled: done && !close,
+      run: asNotes,
+    },
+  ]
+  if (!closed && investigable(kind))
+    actions.push({
+      label: 'Investigate',
+      hint: 'Add to the notes, and ask an agent to fill in details, check if it is done, and recheck its assumptions',
+      run: (text, files) => item.look(text, files),
+    })
 
   return (
     <Box
@@ -152,17 +168,8 @@ export function ItemComposer({
         placeholder="What happened, or what to do about this"
         prompt={composerPrompt(meta, now)}
         onSend={toAgent}
-        actions={[
-          {
-            label: done && close ? 'Save as notes and close' : 'Save as notes',
-            hint:
-              done && !close
-                ? 'Only an agent can close this: send it, or turn Mark done off'
-                : 'Add to the notes now, below what is there',
-            disabled: done && !close,
-            run: asNotes,
-          },
-        ]}
+        actions={actions}
+        draft={draft}
         chips={
           <Chip
             size="small"

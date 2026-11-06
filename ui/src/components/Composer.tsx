@@ -17,6 +17,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile'
 import MicIcon from '@mui/icons-material/Mic'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import SupportAgentIcon from '@mui/icons-material/SupportAgent'
+import type { Draft } from '@/components/ItemDraft'
 import { ACCEPT, canSend, composerKey, fileLabel } from '@/lib/composer'
 
 // Composer is the one box for telling an agent something: a rounded field that grows upward as the
@@ -44,6 +45,7 @@ export function Composer({
   files: allowFiles = true,
   autoFocus,
   onCancel,
+  draft,
 }: {
   label: string
   placeholder?: string
@@ -58,9 +60,16 @@ export function Composer({
   autoFocus?: boolean
   // onCancel runs on Escape.
   onCancel?: () => void
+  // draft holds the words and files when the item's buttons share them (ItemDraft); without it
+  // the box keeps its own.
+  draft?: Draft | null
 }) {
-  const [text, setText] = useState('')
-  const [files, setFiles] = useState<File[]>([])
+  const [ownText, setOwnText] = useState('')
+  const [ownFiles, setOwnFiles] = useState<File[]>([])
+  const text = draft ? draft.text : ownText
+  const setText = draft ? draft.setText : setOwnText
+  const files = draft ? draft.files : ownFiles
+  const setFiles = draft ? draft.setFiles : setOwnFiles
   const [busy, setBusy] = useState(false)
   const [addAt, setAddAt] = useState<HTMLElement | null>(null)
   const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)

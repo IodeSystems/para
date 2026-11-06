@@ -11,7 +11,8 @@ import { useSeenOnOpen } from '@/api/requests'
 import { useCopyText, useDoc } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
-import { AgentReplyNote } from '@/components/FindContext'
+import { AgentLooking, AgentReplyNote } from '@/components/FindContext'
+import { ItemDates } from '@/components/ItemDates'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { hitKindLabel } from '@/lib/hitkind'
@@ -23,6 +24,7 @@ import { ReceiptSection } from '@/components/Receipts'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 import { ItemActions } from '@/components/AgendaActions'
 import { PrioritySelect } from '@/components/PrioritySelect'
 import { isClosed, rowKind } from '@/lib/agenda'
@@ -46,7 +48,7 @@ function Doc() {
   return (
     <DataState q={q}>
       {(d) => (
-        <>
+        <ItemDraftProvider id={d.id}>
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -100,9 +102,11 @@ function Doc() {
           >
             {d.title || d.id}
           </PageTitle>
-          <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
+          <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
             <StatusChip tone="quiet" label={hitKindLabel(d.meta.type)} />
             {d.meta.status && <StateChip state={d.meta.status} />}
+            <AgentLooking id={d.id} />
+            <ItemDates created={d.meta.created} updated={d.meta.updated} />
             {d.meta.verified === false && (
               <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 unverified: no person has checked this summary against its source
@@ -126,9 +130,8 @@ function Doc() {
             </Box>
           )}
           {d.meta.type === 'question' && <QuestionPanel id={d.id} />}
-          {(d.meta.type === 'incident' || (d.meta.type === 'task' && d.meta.kind === 'incident')) && (
-            <IncidentPanel id={d.id} />
-          )}
+          {(d.meta.type === 'incident' ||
+            (d.meta.type === 'task' && d.meta.kind === 'incident')) && <IncidentPanel id={d.id} />}
           {d.meta.type === 'task' && d.meta.kind !== 'incident' && <TaskPanel id={d.id} />}
           <ReceiptSection doc={d.id} title="Agent writes" />
           {copy.isError && (
@@ -140,7 +143,7 @@ function Doc() {
           <MergedFrom id={id} />
           <NotesEditor id={id} />
           <ItemComposer id={d.id} title={d.title} meta={d.meta} />
-        </>
+        </ItemDraftProvider>
       )}
     </DataState>
   )

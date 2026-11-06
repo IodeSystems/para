@@ -8,6 +8,7 @@ import { useQuestions } from '@/api/questions'
 import { localDate } from '@/api/today'
 import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
+import { ItemDates } from '@/components/ItemDates'
 import { ItemActions } from '@/components/AgendaActions'
 import { isClosed, splitDone } from '@/lib/agenda'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
@@ -33,6 +34,8 @@ export type TaskRow = {
   deferUntil?: string | null
   waitsOn?: string[]
   waitsOnNames?: string[] | null
+  created?: string | null
+  updated?: string | null
 }
 
 // DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
@@ -119,6 +122,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                 {t.assignee && (
                   <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
                 )}
+                <ItemDates created={t.created} updated={t.updated} />
               </Stack>
             </ListItem>
           )

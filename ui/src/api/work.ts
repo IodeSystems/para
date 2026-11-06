@@ -38,6 +38,8 @@ const WorkDoc = graphql(/* GraphQL */ `
             blockedBy
             doneWhen
             outcome
+            created
+            updated
           }
         }
       }

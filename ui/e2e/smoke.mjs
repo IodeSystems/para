@@ -1365,6 +1365,148 @@ try {
     'Reopen on a closed task page opens it again',
   )
 
+  // Investigate next to Done: on an agenda row it queues one investigate request, the row shows
+  // Agent looking, and Undo cancels the request. Near the composer, Investigate and Done add the
+  // words in the box to the notes first; Undo takes the close or the request and the entry back.
+  {
+    const looksFor = async (id) =>
+      (await agent.call('request_list', {})).items.filter(
+        (r) => r.kind === 'investigate' && (r.links ?? []).includes(id),
+      )
+    const notesOf = (id) => JSON.parse(para(...v, 'notes', 'read', id, '--json')).md
+    const lookTask = idOf(
+      para(
+        ...v,
+        'task',
+        'add',
+        'Look into the agenda',
+        '-p',
+        proj,
+        '--due',
+        '2020-01-01',
+        '--json',
+      ),
+    )
+    await rpage.goto(`${base}/agenda`)
+    const row = rpage.locator(`[data-agenda-row="${lookTask}"]`)
+    await row.waitFor()
+    await row.locator('[data-act="investigate"]').click()
+    const lookToast = rpage
+      .locator('[data-toast="info"]')
+      .filter({ hasText: 'Agent investigating: Look into the agenda' })
+    await lookToast.waitFor()
+    const queued = await looksFor(lookTask)
+    check(
+      queued.length === 1 && queued[0].status === 'queued' && queued[0].investigates,
+      `Investigate on an agenda row queues one investigate request (${queued.length})`,
+    )
+    const body = (await agent.call('request_show', { id: queued[0]?.id ?? '' })).doc?.body ?? ''
+    check(
+      body.includes('Fill in missing details') &&
+        body.includes('Check whether it is already done') &&
+        body.includes('Recheck its assumptions') &&
+        !body.includes('## Ask'),
+      'an Investigate with no words asks for the three parts and has no Ask',
+    )
+    await row.getByText('Agent looking').waitFor()
+    check(
+      (await row.locator('[data-act="investigate"]').count()) === 0,
+      'the row shows Agent looking and no second Investigate',
+    )
+    await lookToast.getByRole('button', { name: 'Undo' }).click()
+    await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
+    const back = await agent.call('request_show', { id: queued[0]?.id ?? '' })
+    check(back.doc?.meta?.status === 'cancelled', 'Undo of Investigate cancels the request')
+
+    // On the task page: dates in the header, Investigate with words in the composer.
+    const pageTask = idOf(para(...v, 'task', 'add', 'Order the badges', '-p', proj, '--json'))
+    await rpage.goto(`${base}/doc/${pageTask}`)
+    await rpage.getByRole('heading', { name: 'Order the badges' }).waitFor()
+    check(
+      /created today/.test((await rpage.locator('[data-item-dates]').first().textContent()) ?? ''),
+      'the doc page header says when the item was created',
+    )
+    const box = rpage.locator(`[data-item-composer="${pageTask}"]`)
+    const actions = rpage.locator(`[data-item-actions="${pageTask}"]`)
+    await box.getByLabel(/Tell the agent about/).fill('Sam may have ordered them.')
+    await actions.locator('[data-act="investigate"]').click()
+    const noteToast = rpage
+      .locator('[data-toast="info"]')
+      .filter({ hasText: 'Agent investigating: Order the badges' })
+    await noteToast.waitFor()
+    {
+      const [req] = await looksFor(pageTask)
+      const b = (await agent.call('request_show', { id: req?.id ?? '' })).doc?.body ?? ''
+      check(
+        b.includes('Fill in missing details') && b.includes('## Ask\n\nSam may have ordered them.'),
+        'Investigate with words in the composer asks the three parts and the Ask on top',
+      )
+      check(
+        notesOf(pageTask).includes('Sam may have ordered them.'),
+        'Investigate adds the composer words to the notes',
+      )
+      check(
+        (await box.getByLabel(/Tell the agent about/).inputValue()) === '',
+        'the composer clears after Investigate',
+      )
+      await noteToast.getByRole('button', { name: 'Undo' }).click()
+      await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
+      check(
+        (await agent.call('request_show', { id: req?.id ?? '' })).doc?.meta?.status ===
+          'cancelled' && !notesOf(pageTask).includes('Sam may have ordered them.'),
+        'Undo of Investigate with words cancels the request and takes the note out',
+      )
+    }
+    // Done with words in the composer: a note, then the close; Undo opens it and takes the note out.
+    await rpage.goto(`${base}/doc/${pageTask}`)
+    await box.getByLabel(/Tell the agent about/).fill('Ordered 40 badges.')
+    await actions.locator('[data-act="done"]').click()
+    const doneNote = rpage
+      .locator('[data-toast="info"]')
+      .filter({ hasText: 'Marked done: Order the badges' })
+    await doneNote.waitFor()
+    check(
+      /"status":\s*"done"/.test(para(...v, 'task', 'show', pageTask, '--json')) &&
+        notesOf(pageTask).includes('Ordered 40 badges.'),
+      'Done with words in the composer adds them to the notes and closes the task',
+    )
+    await doneNote.getByRole('button', { name: 'Undo' }).click()
+    await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
+    check(
+      /"status":\s*"todo"/.test(para(...v, 'task', 'show', pageTask, '--json')) &&
+        !notesOf(pageTask).includes('Ordered 40 badges.'),
+      'Undo of Done with words opens the task and takes the note out',
+    )
+    // Done with an empty composer is a plain close.
+    await rpage.goto(`${base}/doc/${pageTask}`)
+    const before = notesOf(pageTask)
+    await actions.locator('[data-act="done"]').click()
+    const plain = rpage
+      .locator('[data-toast="info"]')
+      .filter({ hasText: 'Marked done: Order the badges' })
+      .last()
+    await plain.waitFor()
+    check(
+      /"status":\s*"done"/.test(para(...v, 'task', 'show', pageTask, '--json')) &&
+        notesOf(pageTask) === before,
+      'Done with an empty composer closes the task and leaves the notes',
+    )
+    await plain.getByRole('button', { name: 'Undo' }).click()
+    await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).last().waitFor()
+    check(
+      /"status":\s*"todo"/.test(para(...v, 'task', 'show', pageTask, '--json')),
+      'Undo of a plain Done opens the task again',
+    )
+    // Task rows on the goal page say when each task was created.
+    await rpage.goto(`${base}/projects/${proj}`)
+    const dated = rpage.locator('[data-item-dates]').first()
+    await dated.waitFor()
+    check(
+      /created /.test((await dated.textContent()) ?? ''),
+      'task rows show when they were created',
+    )
+  }
+
   // Omni bar: / focuses it, typing lists results, a pasted id and Enter open the document.
   await rpage.goto(`${base}/agenda`)
   const omni = rpage.getByRole('combobox', { name: 'Search' })

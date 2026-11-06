@@ -20,6 +20,8 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     dependsOnNames
     blockedBy
     doneWhen
+    created
+    updated
   }
 `)
 

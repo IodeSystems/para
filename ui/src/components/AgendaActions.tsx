@@ -7,20 +7,20 @@ import Collapse from '@mui/material/Collapse'
 import Popover from '@mui/material/Popover'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import { readNotes, saveNotes } from '@/api/notes'
+import { doneWithNote, investigateWithNote } from '@/api/noted'
 import { revertReceipt } from '@/api/receipts'
-import { localDate } from '@/api/today'
-import { closeAny, laterAny, reopenAny } from '@/api/verbs'
+import { useLooking } from '@/api/requests'
+import { laterAny, reopenAny } from '@/api/verbs'
 import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
 import { DoItTask } from '@/components/DoIt'
+import { useItemDraft } from '@/components/ItemDraft'
 import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
 import { useToasts } from '@/components/ToastStack'
 import { BriefBody } from '@/components/MeetingBrief'
-import { agendaActions, closeBody, doneLabel, openTarget, type DoneKind } from '@/lib/agenda'
+import { agendaActions, doneLabel, investigable, openTarget, type DoneKind } from '@/lib/agenda'
 import { briefOpensItself } from '@/lib/brief'
-import { notesWithEntry } from '@/lib/composer'
 import { prefersReducedMotion } from '@/lib/toasts'
 import { failText, toastText } from '@/lib/stackToast'
 
@@ -60,10 +60,13 @@ function OpenButton({ x }: { x: Row }) {
 function WordsDone({
   busy,
   done,
+  draft = '',
   onDone,
 }: {
   busy: boolean
   done: DoneKind
+  // draft is what the owner typed in the composer: the words start from it.
+  draft?: string
   onDone: (text: string) => void
 }) {
   const [at, setAt] = useState<HTMLElement | null>(null)
@@ -71,7 +74,15 @@ function WordsDone({
   const meeting = done === 'meeting'
   return (
     <>
-      <Button size="small" data-act="done" disabled={busy} onClick={(e) => setAt(e.currentTarget)}>
+      <Button
+        size="small"
+        data-act="done"
+        disabled={busy}
+        onClick={(e) => {
+          if (draft.trim()) setText(draft.trim())
+          setAt(e.currentTarget)
+        }}
+      >
         {doneLabel(done)}
       </Button>
       <Popover anchorEl={at} open={!!at} onClose={() => setAt(null)}>
@@ -107,10 +118,15 @@ function WordsDone({
   )
 }
 
-// useItemActions acts on one item: Done (close), Later (later), and Reopen (reopen), each with a
-// toast whose Undo takes it back: the receipt of Done or Reopen is undone (receipt_revert), and an
-// item put off is brought back (reopen). onGone says the item left the list or came back.
-function useItemActions(
+// useItemActions acts on one item: Done (close), Investigate (investigate), Later (later), and
+// Reopen (reopen), each with a toast whose Undo takes it back: the receipt of Done or Reopen is
+// undone (receipt_revert), the agent work of Investigate is cancelled, and an item put off is
+// brought back (reopen). Done and Investigate first add what the owner typed in the item's composer
+// to its notes; their Undo takes that entry out too. onGone says the item left the list or came
+// back.
+type Verb = 'done' | 'later' | 'return' | 'investigate'
+
+export function useItemActions(
   x: Row,
   closed: boolean,
   deferred: boolean,
@@ -118,19 +134,29 @@ function useItemActions(
 ) {
   const toasts = useToasts()
   const qc = useQueryClient()
+  const draft = useItemDraft(x.id)
   const [busy, setBusy] = useState(false)
   const name = x.title || x.id
   const acts = agendaActions(x.kind, closed, deferred)
-  const fail = (verb: 'done' | 'later' | 'return', e: unknown) =>
-    toasts.push({ text: failText(verb, [name], errorText(e)), tone: 'error' })
+  const fail = (verb: Verb, e: unknown) =>
+    toasts.push({
+      text:
+        verb === 'investigate'
+          ? `Could not investigate ${name}: ${errorText(e)}`
+          : failText(verb, [name], errorText(e)),
+      tone: 'error',
+    })
 
-  const run = async (verb: 'done' | 'later' | 'return', call: () => Promise<void>) => {
+  // run says whether the call went through; a failure is a toast.
+  const run = async (verb: Verb, call: () => Promise<void>): Promise<boolean> => {
     setBusy(true)
     try {
       await call()
       await qc.invalidateQueries()
+      return true
     } catch (e) {
       fail(verb, e)
+      return false
     } finally {
       setBusy(false)
     }
@@ -145,20 +171,63 @@ function useItemActions(
         }
       : undefined
 
-  const done = (text: string) =>
+  // done closes the item. words are the note: a meeting's notes or a drop's reason from the Held
+  // or Drop box, or the composer's words; with none, the composer's draft. Files go with the note.
+  const done = (words?: string, files?: File[]) =>
     run('done', async () => {
-      // A meeting's notes go in its notes first, as the composer does; the close keeps them too.
-      if (text && acts.done === 'meeting') {
-        const before = await readNotes(x.id)
-        await saveNotes(x.id, before.hash, notesWithEntry(before.md, localDate(), text, []))
-      }
-      const r = await closeAny(closeBody(acts.done, x.id, acts.done === 'meeting' ? '' : text))
+      const text = words ?? draft?.text.trim() ?? ''
+      const r = await doneWithNote({
+        id: x.id,
+        done: acts.done,
+        text,
+        files: files ?? draft?.files ?? [],
+        // A drop keeps its reason on the close too; anything else keeps the words in the notes.
+        reason: acts.done === 'drop' ? text : undefined,
+      })
+      draft?.clear()
       onGone(true)
-      const undo = undoReceipt(r.receipt)
+      const undo = r.undo
+        ? async () => {
+            await r.undo?.()
+            onGone(false)
+            await qc.invalidateQueries()
+          }
+        : undefined
       toasts.push({
         text: toastText('done', [name]),
         undo,
-        note: undo ? undefined : 'This close left no receipt to undo.',
+        note: !undo
+          ? 'This close left no receipt to undo.'
+          : r.noted
+            ? 'Undo opens it again and takes the note out.'
+            : undefined,
+      })
+    })
+
+  // look sends the item to investigate, with the composer's words as the note and the hint.
+  const look = (words?: string, files?: File[]) =>
+    run('investigate', async () => {
+      const r = await investigateWithNote({
+        id: x.id,
+        text: words ?? draft?.text.trim() ?? '',
+        files: files ?? draft?.files ?? [],
+      })
+      draft?.clear()
+      toasts.push({
+        text: r.appended
+          ? `Added to the open investigation: ${name}`
+          : `Agent investigating: ${name}`,
+        undo: r.undo
+          ? async () => {
+              await r.undo?.()
+              await qc.invalidateQueries()
+            }
+          : undefined,
+        note: r.appended
+          ? 'The item already had open agent work; the note went into it.'
+          : r.noted
+            ? 'Undo cancels the agent work and takes the note out.'
+            : undefined,
       })
     })
 
@@ -187,11 +256,12 @@ function useItemActions(
       })
     })
 
-  return { acts, busy, done, putOff, reopen }
+  return { acts, busy, done, look, putOff, reopen, draft }
 }
 
-// ItemActions are the Done, Later, and Reopen buttons of one item, for a session that may decide.
-// Reopen shows on a closed item; Done and Later on an open one, as its kind allows.
+// ItemActions are the Done, Investigate, Later, and Reopen buttons of one item, for a session that
+// may decide. Reopen shows on a closed item; Done, Investigate, and Later on an open one, as its
+// kind allows. Near a composer, Done and Investigate take what the owner typed there as a note.
 export function ItemActions({
   x,
   closed = false,
@@ -208,8 +278,18 @@ export function ItemActions({
   children?: ReactNode
 }) {
   const { session } = useRouteContext({ from: '/_authed' })
-  const { acts, busy, done, putOff, reopen } = useItemActions(x, closed, deferred, onGone)
+  const { acts, busy, done, look, putOff, reopen, draft } = useItemActions(
+    x,
+    closed,
+    deferred,
+    onGone,
+  )
+  const looking = useLooking()
   const decide = canDecide(session)
+  // Investigate shows on an open item the op takes. While agent work is open on it, the item shows
+  // its Agent looking chip, and Investigate comes back only to add a note the owner typed.
+  const canLook =
+    decide && !closed && investigable(x.kind) && (!looking.has(x.id) || !!draft?.text.trim())
   return (
     <Stack
       direction="row"
@@ -218,11 +298,16 @@ export function ItemActions({
       data-item-actions={x.id}
     >
       {decide && (acts.done === 'meeting' || acts.done === 'drop') && (
-        <WordsDone busy={busy} done={acts.done} onDone={(t) => void done(t)} />
+        <WordsDone busy={busy} done={acts.done} draft={draft?.text} onDone={(t) => void done(t)} />
       )}
       {decide && (acts.done === 'task' || acts.done === 'ask' || acts.done === 'resolve') && (
-        <Button size="small" data-act="done" disabled={busy} onClick={() => void done('')}>
+        <Button size="small" data-act="done" disabled={busy} onClick={() => void done()}>
           {doneLabel(acts.done)}
+        </Button>
+      )}
+      {canLook && (
+        <Button size="small" data-act="investigate" disabled={busy} onClick={() => void look()}>
+          Investigate
         </Button>
       )}
       {decide && acts.later && <LaterButton disabled={busy} onLater={(u) => void putOff(u)} />}

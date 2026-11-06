@@ -107,6 +107,8 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: PU-REC. New recurring artifact on the Obligations page makes an obligation an
   // agent owes, with what it produces (obligation_add with produce, on the owner's session).
   'ObligationAdd',
+  // owner 2026-11-06: Investigate button next to Done (fill details, check done, recheck assumptions)
+  'Investigate',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

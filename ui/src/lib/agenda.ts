@@ -31,6 +31,15 @@ export function agendaActions(
   return deferred ? { ...open, later: false, reopen: true } : open
 }
 
+// INVESTIGABLE are the row kinds with Investigate: an agent fills in details, checks whether it is
+// already done, and rechecks its assumptions (investigate). A question has its own Find evidence.
+const INVESTIGABLE = new Set(['task', 'obligation', 'ask', 'goal'])
+
+// investigable says whether a row kind has Investigate.
+export function investigable(kind: string | null | undefined): boolean {
+  return INVESTIGABLE.has(kind ?? '')
+}
+
 // rowKind is the row kind of a vault document: its type, a task of kind meeting as a meeting, a
 // project as a goal, an rfx as an ask.
 export function rowKind(type: string | null | undefined, taskKind?: string | null): string {

@@ -18,7 +18,10 @@ import { SourceList } from '@/components/AnswerCheck'
 import { PageTitle, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoItTask } from '@/components/DoIt'
+import { AgentLooking } from '@/components/FindContext'
 import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDates } from '@/components/ItemDates'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 import { useNextKeys } from '@/components/Keyboard'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
@@ -201,66 +204,70 @@ function Card({
   const effort = effortWords(x.effort)
   const title = x.title || nameOr('', x.id)
   return (
-    <Paper
-      variant="outlined"
-      data-next-card={x.id}
-      data-next-kind={x.kind}
-      data-next-ready={x.ready ? (x.readyKind ?? 'yes') : undefined}
-      sx={{ p: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
-    >
-      <Typography variant="overline" color="text.secondary" component="p">
-        {[group, x.why].filter(Boolean).join(' - ')}
-      </Typography>
-      <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
-        {title}
-      </Typography>
-      {x.reason && (
-        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
-          {x.reason}
-        </Typography>
-      )}
-      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', my: 1 }}>
-        <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
-        {effort && <StatusChip tone="quiet" label={`effort ${effort}`} />}
-        {x.due && <DueChip due={x.due} />}
-        {x.ready && <StatusChip tone="good" label={readyWords(x.readyKind)} />}
-      </Stack>
-      {x.ready && <Prepared x={x} decide={decide} onGone={onGone} />}
-      {!x.ready && x.kind === 'task' && <DoItTask id={x.id} done={false} />}
-      {x.kind === 'meeting' && (
-        <Box sx={{ pl: 2, my: 1, borderLeft: 2, borderColor: 'divider' }}>
-          <BriefBody id={x.id} />
-        </Box>
-      )}
-      <Stack
-        direction="row"
-        spacing={0.5}
-        useFlexGap
-        sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
+    <ItemDraftProvider id={x.id}>
+      <Paper
+        variant="outlined"
+        data-next-card={x.id}
+        data-next-kind={x.kind}
+        data-next-ready={x.ready ? (x.readyKind ?? 'yes') : undefined}
+        sx={{ p: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
       >
-        <ItemActions x={{ id: x.id, title, kind: x.kind }} onGone={onGone}>
-          <Button size="small" data-act="skip" onClick={onSkip}>
-            Skip
-          </Button>
-          {canBack && (
-            <Button size="small" data-act="back" onClick={onBack}>
-              Back
+        <Typography variant="overline" color="text.secondary" component="p">
+          {[group, x.why].filter(Boolean).join(' - ')}
+        </Typography>
+        <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
+          {title}
+        </Typography>
+        {x.reason && (
+          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+            {x.reason}
+          </Typography>
+        )}
+        <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', my: 1 }}>
+          <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
+          {effort && <StatusChip tone="quiet" label={`effort ${effort}`} />}
+          {x.due && <DueChip due={x.due} />}
+          {x.ready && <StatusChip tone="good" label={readyWords(x.readyKind)} />}
+          <AgentLooking id={x.id} />
+          <ItemDates created={x.created} updated={x.updated} />
+        </Stack>
+        {x.ready && <Prepared x={x} decide={decide} onGone={onGone} />}
+        {!x.ready && x.kind === 'task' && <DoItTask id={x.id} done={false} />}
+        {x.kind === 'meeting' && (
+          <Box sx={{ pl: 2, my: 1, borderLeft: 2, borderColor: 'divider' }}>
+            <BriefBody id={x.id} />
+          </Box>
+        )}
+        <Stack
+          direction="row"
+          spacing={0.5}
+          useFlexGap
+          sx={{ flexWrap: 'wrap', alignItems: 'center', mt: 1 }}
+        >
+          <ItemActions x={{ id: x.id, title, kind: x.kind }} onGone={onGone}>
+            <Button size="small" data-act="skip" onClick={onSkip}>
+              Skip
             </Button>
-          )}
-          {decide && (
-            <Button size="small" data-act="send" onClick={() => focusComposer(x.id)}>
-              Send to agent
-            </Button>
-          )}
-        </ItemActions>
-      </Stack>
-      <CardComposer
-        id={x.id}
-        title={title}
-        onSent={() => onGone(true)}
-        onBack={() => onGone(false)}
-      />
-    </Paper>
+            {canBack && (
+              <Button size="small" data-act="back" onClick={onBack}>
+                Back
+              </Button>
+            )}
+            {decide && (
+              <Button size="small" data-act="send" onClick={() => focusComposer(x.id)}>
+                Send to agent
+              </Button>
+            )}
+          </ItemActions>
+        </Stack>
+        <CardComposer
+          id={x.id}
+          title={title}
+          onSent={() => onGone(true)}
+          onBack={() => onGone(false)}
+        />
+      </Paper>
+    </ItemDraftProvider>
   )
 }
 

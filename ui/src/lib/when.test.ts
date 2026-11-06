@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { humanTime, splitTimes } from '@/lib/when'
+import { daysAgo, humanTime, splitTimes } from '@/lib/when'
 
 describe('humanTime', () => {
   const now = Date.parse('2026-11-02T12:00:00Z')
@@ -29,5 +29,22 @@ describe('splitTimes', () => {
       { text: ' opened sev2', time: false },
     ])
     expect(splitTimes('no time here')).toEqual([{ text: 'no time here', time: false }])
+  })
+})
+
+describe('daysAgo', () => {
+  const today = '2026-11-06'
+  it('says recent days in words', () => {
+    expect(daysAgo('2026-11-06', today)).toBe('today')
+    expect(daysAgo('2026-11-05', today)).toBe('yesterday')
+    expect(daysAgo('2026-10-24', today)).toBe('13 days ago')
+  })
+  it('says older and later days as the date', () => {
+    expect(daysAgo('2026-10-23', today)).toBe('Oct 23')
+    expect(daysAgo('2025-10-23', today)).toBe('Oct 23, 2025')
+    expect(daysAgo('2026-11-08', today)).toBe('Nov 8')
+  })
+  it('gives back what is not a date', () => {
+    expect(daysAgo('soon', today)).toBe('soon')
   })
 })
