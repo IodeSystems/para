@@ -37,7 +37,6 @@ export const EXTRA_SCREENS: Tab[] = [
     hint: 'where work comes in and goes out, and who sweeps it',
   },
   { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
-  { key: '', to: '/activity', label: 'Agent activity', hint: 'what each agent did' },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
 ]
 

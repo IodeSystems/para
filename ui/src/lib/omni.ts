@@ -31,12 +31,11 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
     words: ['areas', 'policy', 'exceptions', 'conventions', 'constraints'],
   },
   { label: 'Questions', to: '/questions', words: ['questions'] },
-  { label: 'Receipts', to: '/receipts', words: ['receipts'] },
+  { label: 'Receipts', to: '/receipts', words: ['receipts', 'activity'] },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },
   { label: 'IO', to: '/io', words: ['io', 'messages'] },
   { label: 'Docs', to: '/docs', words: ['docs', 'tracked'] },
   { label: 'Sources', to: '/sources', words: ['sources'] },
-  { label: 'Agent activity', to: '/activity', words: ['activity'] },
   { label: 'Friction', to: '/friction', words: ['friction'] },
   { label: 'Health', to: '/health', words: ['health'] },
 ]

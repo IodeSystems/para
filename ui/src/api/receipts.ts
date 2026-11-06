@@ -63,27 +63,6 @@ const ListDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const ActivityDoc = graphql(/* GraphQL */ `
-  query AgentActivity {
-    para {
-      v1 {
-        agentActivity {
-          items {
-            ts
-            actor
-            op
-            doc
-            docName
-            request
-            receipt
-            why
-            selfReported
-          }
-        }
-      }
-    }
-  }
-`)
 
 const ShowDoc = graphql(/* GraphQL */ `
   query ReceiptShow($id: String!) {
@@ -184,14 +163,6 @@ export function useReceipt(id: string, enabled: boolean) {
     enabled,
     queryFn: async () =>
       need((await gqlClient.request(ShowDoc, { id })).para.v1.receiptShow, 'receipt'),
-  })
-}
-
-export function useActivity() {
-  return useQuery({
-    queryKey: ['activity'],
-    queryFn: async () =>
-      need((await gqlClient.request(ActivityDoc)).para.v1.agentActivity, 'activity').items,
   })
 }
 

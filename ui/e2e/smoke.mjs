@@ -510,7 +510,6 @@ try {
     [`/obligations/${owed}`, 'Send Sam the numbers'],
     ['/meetings', 'Obligations'],
     [`/meetings/${meeting}`, 'Quota sync'],
-    ['/activity', 'Agent activity'],
     ['/friction', 'Friction'],
     ['/health', 'Health'],
     ['/io', 'IO'],

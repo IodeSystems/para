@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as AuthedActivityRouteImport } from './routes/_authed.activity'
 import { Route as AuthedAgendaRouteImport } from './routes/_authed.agenda'
 import { Route as AuthedFrictionRouteImport } from './routes/_authed.friction'
 import { Route as AuthedHealthRouteImport } from './routes/_authed.health'
@@ -59,11 +58,6 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthedActivityRoute = AuthedActivityRouteImport.update({
-  id: '/activity',
-  path: '/activity',
-  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAgendaRoute = AuthedAgendaRouteImport.update({
   id: '/agenda',
@@ -229,7 +223,6 @@ const AuthedSourcesIdRoute = AuthedSourcesIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/activity': typeof AuthedActivityRoute
   '/agenda': typeof AuthedAgendaRoute
   '/friction': typeof AuthedFrictionRoute
   '/health': typeof AuthedHealthRoute
@@ -266,7 +259,6 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/activity': typeof AuthedActivityRoute
   '/agenda': typeof AuthedAgendaRoute
   '/friction': typeof AuthedFrictionRoute
   '/health': typeof AuthedHealthRoute
@@ -305,7 +297,6 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/login': typeof LoginRoute
-  '/_authed/activity': typeof AuthedActivityRoute
   '/_authed/agenda': typeof AuthedAgendaRoute
   '/_authed/friction': typeof AuthedFrictionRoute
   '/_authed/health': typeof AuthedHealthRoute
@@ -344,7 +335,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/login'
-    | '/activity'
     | '/agenda'
     | '/friction'
     | '/health'
@@ -381,7 +371,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/login'
-    | '/activity'
     | '/agenda'
     | '/friction'
     | '/health'
@@ -419,7 +408,6 @@ export interface FileRouteTypes {
     | '/'
     | '/_authed'
     | '/login'
-    | '/_authed/activity'
     | '/_authed/agenda'
     | '/_authed/friction'
     | '/_authed/health'
@@ -482,13 +470,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authed/activity': {
-      id: '/_authed/activity'
-      path: '/activity'
-      fullPath: '/activity'
-      preLoaderRoute: typeof AuthedActivityRouteImport
-      parentRoute: typeof AuthedRoute
     }
     '/_authed/agenda': {
       id: '/_authed/agenda'
@@ -718,7 +699,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthedRouteChildren {
-  AuthedActivityRoute: typeof AuthedActivityRoute
   AuthedAgendaRoute: typeof AuthedAgendaRoute
   AuthedFrictionRoute: typeof AuthedFrictionRoute
   AuthedHealthRoute: typeof AuthedHealthRoute
@@ -754,7 +734,6 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
-  AuthedActivityRoute: AuthedActivityRoute,
   AuthedAgendaRoute: AuthedAgendaRoute,
   AuthedFrictionRoute: AuthedFrictionRoute,
   AuthedHealthRoute: AuthedHealthRoute,
