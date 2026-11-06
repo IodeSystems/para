@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 	"github.com/iodesystems/para/internal/upgrade"
 )
 
@@ -42,8 +41,14 @@ func exceptionView(doc model.Document, e *model.PolicyException) ExceptionView {
 	return v
 }
 
+// getException reads an exception file, or an exception annotation by its id
+// or the id of the file it was folded from.
 func getException(ctx context.Context, d Deps, id string) (model.Document, *model.PolicyException, error) {
-	doc, err := d.Store.Get(ctx, id)
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return model.Document{}, nil, err
+	}
+	doc, err := x.get(id)
 	if err != nil {
 		return doc, nil, err
 	}
@@ -54,18 +59,21 @@ func getException(ctx context.Context, d Deps, id string) (model.Document, *mode
 	return doc, e, nil
 }
 
+// allExceptions lists the exception files and the exception annotations.
 func allExceptions(ctx context.Context, d Deps) ([]ExceptionView, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicyException})
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	docs, err := x.list(model.TypePolicyException)
 	if err != nil {
 		return nil, err
 	}
 	out := []ExceptionView{}
-	for _, r := range refs {
-		doc, e, err := getException(ctx, d, r.ID)
-		if err != nil {
-			return nil, err
+	for _, doc := range docs {
+		if e, ok := doc.Meta.(*model.PolicyException); ok {
+			out = append(out, exceptionView(doc, e))
 		}
-		out = append(out, exceptionView(doc, e))
 	}
 	return out, nil
 }

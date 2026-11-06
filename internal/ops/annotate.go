@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -41,10 +42,10 @@ var annotateRouted = func() bool {
 // annotationKeys are the fields each kind takes; required lists those it must have.
 var (
 	annotationKeys = map[string][]string{
-		"note":       {"by", "review_by"},
-		"exception":  {"kind", "status", "by", "with", "review_by", "policy_text"},
-		"convention": {"status", "applies_in", "refines"},
-		"constraint": {"why", "by", "source", "applies_in", "not_in", "review_by", "refines"},
+		"note":       {"by", "review_by", "tags"},
+		"exception":  {"kind", "status", "by", "with", "review_by", "policy_text", "tags"},
+		"convention": {"status", "applies_in", "refines", "tags"},
+		"constraint": {"why", "by", "source", "applies_in", "not_in", "review_by", "refines", "tags"},
 	}
 	annotationRequired = map[string][]string{"exception": {"kind", "by"}, "constraint": {"why", "by"}}
 )
@@ -533,4 +534,158 @@ func areaSections(body string, anns []AnnotationView) []AreaSection {
 		out = []AreaSection{}
 	}
 	return out
+}
+
+// ruleIndex reads policies, exceptions, conventions, and constraints as they
+// read when they were files, whatever the vault's format: an area that
+// follows a source reads as a policy (its body without annotations), and
+// each exception, convention, and constraint annotation as the document it
+// was folded from (its id) or would be (the annotation id). A fold never
+// makes one vanish from a read. Files not folded yet read as they are.
+type ruleIndex struct {
+	ctx  context.Context
+	s    store.Store
+	byID map[string]model.Document // annotations and followed areas
+	of   map[model.Type][]model.Document
+}
+
+func newRuleIndex(ctx context.Context, s store.Store) (*ruleIndex, error) {
+	x := &ruleIndex{ctx: ctx, s: s, byID: map[string]model.Document{}, of: map[model.Type][]model.Document{}}
+	refs, err := s.List(ctx, store.Filter{Type: model.TypeArea})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range refs {
+		area, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		a := area.Meta.(*model.Area)
+		if a.Follows != nil {
+			p := &model.Policy{Common: a.Common, Followed: *a.Follows}
+			p.Type = model.TypePolicy
+			v := model.Document{ID: area.ID, Folder: model.FolderPolicies, Title: area.Title, Body: withoutAnnotations(area.Body), Meta: p, Rev: area.Rev}
+			x.byID[v.ID] = v
+			x.of[model.TypePolicy] = append(x.of[model.TypePolicy], v)
+		}
+		for _, c := range paramd.Callouts(area.Body) {
+			if v, ok := annotationDoc(area, c); ok {
+				x.byID[v.ID] = v
+				x.of[v.Meta.Header().Type] = append(x.of[v.Meta.Header().Type], v)
+			}
+		}
+	}
+	for _, docs := range x.of {
+		slices.SortFunc(docs, func(a, b model.Document) int { return cmp.Compare(a.ID, b.ID) })
+	}
+	return x, nil
+}
+
+// get reads id as a file reads, or as the annotation or area it is now.
+func (x *ruleIndex) get(id string) (model.Document, error) {
+	if v, ok := x.byID[id]; ok {
+		return v, nil
+	}
+	return x.s.Get(x.ctx, id)
+}
+
+// list is every document of type t: the files, then the annotations.
+func (x *ruleIndex) list(t model.Type) ([]model.Document, error) {
+	refs, err := x.s.List(x.ctx, store.Filter{Type: t})
+	if err != nil {
+		return nil, err
+	}
+	var out []model.Document
+	for _, r := range refs {
+		doc, err := x.s.Get(x.ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, doc)
+	}
+	// In id order, as a store lists files.
+	out = append(out, x.of[t]...)
+	slices.SortStableFunc(out, func(a, b model.Document) int { return cmp.Compare(a.ID, b.ID) })
+	return out, nil
+}
+
+// withoutAnnotations is a body with its annotation callouts taken out.
+func withoutAnnotations(body string) string {
+	for _, c := range paramd.Callouts(body) {
+		if c.Broken == "" {
+			if b, err := paramd.RemoveCallout(body, c.ID); err == nil {
+				body = b
+			}
+		}
+	}
+	return body
+}
+
+// annotationDoc is an exception, convention, or constraint annotation as the
+// document upgrade.AnnotationOf makes it of: the inverse of that mapping.
+func annotationDoc(area model.Document, c paramd.Callout) (model.Document, bool) {
+	if c.Broken != "" {
+		return model.Document{}, false
+	}
+	list := func(k string) []string {
+		out := []string{}
+		for _, p := range strings.Split(c.Field(k), ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				out = append(out, p)
+			}
+		}
+		return out
+	}
+	common := model.Common{Created: area.Meta.Header().Created, Updated: area.Meta.Header().Updated, Tags: nilIfEmpty(list("tags"))}
+	var meta model.Meta
+	var folder model.Folder
+	switch c.Kind {
+	case "exception":
+		common.Type, folder = model.TypePolicyException, model.FolderPolicies
+		e := &model.PolicyException{Common: common, Kind: model.ExceptionKind(c.Field("kind")), By: c.Field("by"),
+			Status: model.ExceptionStatus(cmp.Or(c.Field("status"), string(model.ExceptionOpen))), With: model.Link(c.Field("with")),
+			ReviewBy: model.Date(c.Field("review_by")), PolicyText: c.Field("policy_text")}
+		if !upgrade.IsOrphanArea(area.ID) {
+			e.Policy = model.LinkTo(area.ID)
+			if b, ok := strings.CutPrefix(c.Field("anchor"), "^"); ok {
+				e.Rule = model.RuleLink(area.ID, b)
+			}
+		}
+		meta = e
+	case "convention":
+		common.Type, folder = model.TypeConvention, model.FolderConventions
+		meta = &model.Convention{Common: common, Status: model.ConventionStatus(cmp.Or(c.Field("status"), string(model.ConventionAdopted))),
+			AppliesIn: list("applies_in"), Refines: model.Link(c.Field("refines"))}
+	case "constraint":
+		common.Type, folder = model.TypeConstraint, model.FolderConstraints
+		meta = &model.Constraint{Common: common, Why: c.Field("why"), By: c.Field("by"),
+			Source:    model.Source{URL: c.Field("source"), Fidelity: model.FidelityNone},
+			AppliesIn: list("applies_in"), NotIn: list("not_in"), ReviewBy: model.Date(c.Field("review_by")), Refines: model.Link(c.Field("refines"))}
+	default:
+		return model.Document{}, false
+	}
+	title, body, _ := strings.Cut(c.Text, "\n\n")
+	id := cmp.Or(model.Link(c.Field(upgrade.FromField)).Target(), c.ID)
+	return model.Document{ID: id, Folder: folder, Title: title, Body: strings.TrimSpace(body), Meta: meta, Rev: area.Rev}, true
+}
+
+func nilIfEmpty(s []string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	return s
+}
+
+// foldedInto is the area an exception, convention, or constraint file was
+// folded into, or "".
+func foldedInto(m model.Meta) string {
+	switch x := m.(type) {
+	case *model.PolicyException:
+		return x.FoldedInto.Target()
+	case *model.Convention:
+		return x.FoldedInto.Target()
+	case *model.Constraint:
+		return x.FoldedInto.Target()
+	}
+	return ""
 }

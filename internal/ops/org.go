@@ -5,9 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/store"
 )
 
@@ -206,6 +208,33 @@ func linkTo(ctx context.Context, d Deps, field, raw string, types ...model.Type)
 		}
 	}
 	return "", fmt.Errorf("%s %s is a %s, want one of %v", field, id, got, types)
+}
+
+// aboutLink links what an Ask target or path is about: a policy (or an area
+// that follows a source), an exception (a file, or the file an exception
+// annotation was folded from), or a domain. An annotation made after the
+// fold has no file to link: name its area.
+func aboutLink(ctx context.Context, d Deps, raw string) (model.Link, error) {
+	id := normID(raw)
+	if id == "" {
+		return "", nil
+	}
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return "", err
+	}
+	doc, err := x.get(id)
+	if err != nil {
+		return "", fmt.Errorf("about %s: %w", id, err)
+	}
+	types := []model.Type{model.TypePolicy, model.TypePolicyException, model.TypeDomain}
+	switch got := doc.Meta.Header().Type; {
+	case !slices.Contains(types, got):
+		return "", fmt.Errorf("about %s is a %s, want one of %v", id, got, types)
+	case paramd.ValidAnnotationID(doc.ID):
+		return "", fmt.Errorf("about %s is an annotation with no file of its own: give its area", id)
+	}
+	return model.LinkTo(doc.ID), nil
 }
 
 // factsBody renders sourced statements. Plain list lines, no commentary.

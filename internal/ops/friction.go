@@ -200,11 +200,17 @@ var ReportFriction = defineRead("report_friction", "Read the friction report of 
 		}
 		return out
 	}
+	// about reads as it did before a fold: an area that follows a source is
+	// a policy, an exception annotation the exception file it was.
+	rx, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return out, err
+	}
 	policyOf := func(about model.Link) string {
 		if about == "" {
 			return ""
 		}
-		doc, err := d.Store.Get(ctx, about.Target())
+		doc, err := rx.get(about.Target())
 		if err != nil {
 			return ""
 		}
@@ -220,7 +226,7 @@ var ReportFriction = defineRead("report_friction", "Read the friction report of 
 		if about == "" {
 			return ""
 		}
-		doc, err := d.Store.Get(ctx, about.Target())
+		doc, err := rx.get(about.Target())
 		if err != nil {
 			return ""
 		}

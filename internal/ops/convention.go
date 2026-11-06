@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 	"github.com/iodesystems/para/internal/upgrade"
 )
 
@@ -24,8 +23,14 @@ func conventionView(doc model.Document, c *model.Convention) ConventionView {
 	return ConventionView{ID: doc.ID, Title: doc.Title, Status: c.Status, AppliesIn: nonNil(c.AppliesIn), Refines: c.Refines.Target()}
 }
 
+// getConvention reads a convention file, or a convention annotation by its id
+// or the id of the file it was folded from.
 func getConvention(ctx context.Context, d Deps, id string) (model.Document, *model.Convention, error) {
-	doc, err := d.Store.Get(ctx, id)
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return model.Document{}, nil, err
+	}
+	doc, err := x.get(id)
 	if err != nil {
 		return doc, nil, err
 	}
@@ -97,17 +102,19 @@ type ConventionListOutput struct {
 
 // ConventionList lists conventions.
 var ConventionList = defineRead("convention_list", "List conventions", func(ctx context.Context, d Deps, _ ConventionListInput) (ConventionListOutput, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeConvention})
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return ConventionListOutput{}, err
+	}
+	docs, err := x.list(model.TypeConvention)
 	if err != nil {
 		return ConventionListOutput{}, err
 	}
 	out := ConventionListOutput{Conventions: []ConventionView{}}
-	for _, r := range refs {
-		doc, c, err := getConvention(ctx, d, r.ID)
-		if err != nil {
-			return ConventionListOutput{}, err
+	for _, doc := range docs {
+		if c, ok := doc.Meta.(*model.Convention); ok {
+			out.Conventions = append(out.Conventions, conventionView(doc, c))
 		}
-		out.Conventions = append(out.Conventions, conventionView(doc, c))
 	}
 	return out, nil
 })

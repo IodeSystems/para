@@ -251,11 +251,15 @@ func (g *griller) asks(ctx context.Context, s store.Store, tasks []model.Documen
 // rules lists each constraint in effect, and each policy or exception that the
 // goal or its open tasks link in their bodies.
 func (g *griller) rules(ctx context.Context, s store.Store, rules []RuleInEffect, tasks []model.Document) error {
+	rx, err := newRuleIndex(ctx, s)
+	if err != nil {
+		return err
+	}
 	for _, r := range rules {
 		if r.Type != model.TypeConstraint {
 			continue
 		}
-		doc, err := s.Get(ctx, r.ID)
+		doc, err := rx.get(r.ID)
 		if err != nil {
 			return err
 		}
@@ -271,7 +275,7 @@ func (g *griller) rules(ctx context.Context, s store.Store, rules []RuleInEffect
 				continue
 			}
 			seen[id] = true
-			doc, err := s.Get(ctx, id)
+			doc, err := rx.get(id)
 			if err != nil {
 				continue
 			}

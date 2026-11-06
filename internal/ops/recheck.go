@@ -226,16 +226,21 @@ func recheckItems(ctx context.Context, s store.Store, scope, tag, cutoff, today 
 			links = append(links, doc.ID)
 		}
 	}
-	// Rules: those in effect along the scope's chains, or every one for the vault.
+	// Rules: those in effect along the scope's chains, or every one for the
+	// vault: files and annotations (ruleIndex).
+	rx, err := newRuleIndex(ctx, s)
+	if err != nil {
+		return nil, "", nil, err
+	}
 	var ruleIDs []string
 	if scope == "" || len(chains) == 0 {
 		for _, typ := range []model.Type{model.TypeConstraint, model.TypePolicyException} {
-			refs, err := s.List(ctx, store.Filter{Type: typ})
+			docs, err := rx.list(typ)
 			if err != nil {
 				return nil, "", nil, err
 			}
-			for _, r := range refs {
-				ruleIDs = append(ruleIDs, r.ID)
+			for _, doc := range docs {
+				ruleIDs = append(ruleIDs, doc.ID)
 			}
 		}
 	} else {
@@ -257,7 +262,7 @@ func recheckItems(ctx context.Context, s store.Store, scope, tag, cutoff, today 
 	}
 	slices.Sort(ruleIDs)
 	for _, id := range ruleIDs {
-		doc, err := s.Get(ctx, id)
+		doc, err := rx.get(id)
 		if err != nil {
 			return nil, "", nil, err
 		}
@@ -327,6 +332,11 @@ var RecheckRecord = define("recheck_record", "Record the result of checking one 
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
 		return RecheckRecordOutput{}, err
+	}
+	// A folded exception or constraint is an annotation now: its archived file
+	// is history and is not written.
+	if into := foldedInto(doc.Meta); into != "" {
+		return RecheckRecordOutput{}, fmt.Errorf("%s is an annotation in %s now: record the check there with annotate {area: %s, id: <annotation>, fields: {review_by: ...}}", doc.ID, into, into)
 	}
 	today := d.Store.Now().Format(dateLayout)
 	out := RecheckRecordOutput{ID: doc.ID, Result: in.Result, Checked: today}

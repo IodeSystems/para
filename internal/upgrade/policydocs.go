@@ -51,6 +51,17 @@ var orphanArea = map[model.Type]struct{ id, title string }{
 	model.TypeConstraint:      {"constraints", "Constraints"},
 }
 
+// IsOrphanArea reports whether id names an area the step makes for documents
+// of a kind with no area of their own (exceptions, or exceptions-folded).
+func IsOrphanArea(id string) bool {
+	for _, o := range orphanArea {
+		if id == o.id || id == o.id+"-folded" {
+			return true
+		}
+	}
+	return false
+}
+
 // AnnotationID is the id of the annotation made of the document id: ann- and
 // the first hex digits of its hash, longer while taken says the id is used.
 func AnnotationID(docID string, taken func(string) bool) string {
@@ -146,6 +157,7 @@ func AnnotationOf(d model.Document, areas Areas) (Fold, bool) {
 	default:
 		return f, false
 	}
+	set("tags", join(d.Meta.Header().Tags))
 	if f.Area == "" {
 		o := orphanArea[d.Meta.Header().Type]
 		f.Area, f.Title, f.Orphan = o.id, o.title, true

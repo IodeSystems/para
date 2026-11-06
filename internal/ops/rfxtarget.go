@@ -105,7 +105,7 @@ var RFXTargetState = defineSafe("rfx_target_state", "Record that a request to on
 		return RFXTargetOutput{}, fmt.Errorf("reason %q: want one of %v", in.Reason, model.FrictionReasons)
 	}
 	why := strings.Join(strings.Fields(in.Why), " ")
-	about, err := linkTo(ctx, d, "about", in.About, model.TypePolicy, model.TypePolicyException, model.TypeDomain)
+	about, err := aboutLink(ctx, d, in.About)
 	if err != nil {
 		return RFXTargetOutput{}, err
 	}

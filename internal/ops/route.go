@@ -23,6 +23,22 @@ type Finder interface {
 	Find(ctx context.Context, s store.Store, q Query) ([]model.Ref, error)
 }
 
+// scanMatch reports whether a term is in the id, title, body, tags, or
+// SearchText of doc.
+func scanMatch(doc model.Document, terms []string) bool {
+	parts := append([]string{doc.ID, doc.Title, doc.Body}, doc.Meta.Header().Tags...)
+	if st, ok := doc.Meta.(searchable); ok {
+		parts = append(parts, st.SearchText()...)
+	}
+	hay := strings.ToLower(strings.Join(parts, "\n"))
+	for _, term := range terms {
+		if term != "" && strings.Contains(hay, term) {
+			return true
+		}
+	}
+	return false
+}
+
 // DefaultFinder is the Finder route uses.
 var DefaultFinder Finder = ScanFinder{}
 
@@ -47,16 +63,8 @@ func (ScanFinder) Find(ctx context.Context, s store.Store, q Query) ([]model.Ref
 			if err != nil {
 				return nil, err
 			}
-			parts := append([]string{doc.ID, doc.Title, doc.Body}, doc.Meta.Header().Tags...)
-			if st, ok := doc.Meta.(searchable); ok {
-				parts = append(parts, st.SearchText()...)
-			}
-			hay := strings.ToLower(strings.Join(parts, "\n"))
-			for _, term := range q.Terms {
-				if term != "" && strings.Contains(hay, term) {
-					out = append(out, r)
-					break
-				}
+			if scanMatch(doc, q.Terms) {
+				out = append(out, r)
 			}
 		}
 	}
@@ -118,11 +126,23 @@ func route(ctx context.Context, d Deps, in RouteInput) (RouteOutput, error) {
 
 	out.Terms = routeTerms(q, out.Domain)
 	ss := SelfServe{Policies: []model.Ref{}, Constraints: []model.Ref{}, Conventions: []model.Ref{}, PriorRFX: []RFXSummary{}}
+	rules, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return RouteOutput{}, err
+	}
+	// The files, then what a fold made of them: areas that follow a source
+	// (as policies) and annotations, matched the way ScanFinder matches.
 	find := func(t model.Type) ([]model.Ref, error) {
 		refs, err := DefaultFinder.Find(ctx, d.Store, Query{Types: []model.Type{t}, Terms: out.Terms})
 		if refs == nil {
 			refs = []model.Ref{}
 		}
+		for _, v := range rules.of[t] {
+			if scanMatch(v, out.Terms) {
+				refs = append(refs, model.Ref{ID: v.ID, Folder: v.Folder, Type: t, Title: v.Title, Rev: v.Rev})
+			}
+		}
+		slices.SortStableFunc(refs, func(a, b model.Ref) int { return strings.Compare(a.ID, b.ID) })
 		return refs, err
 	}
 	if ss.Policies, err = find(model.TypePolicy); err != nil {

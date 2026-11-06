@@ -1,15 +1,12 @@
 package ops
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/paramd"
-	"github.com/iodesystems/para/internal/store"
 )
 
 // PolicyView is a policy as list and show report it.
@@ -118,30 +115,19 @@ var PolicyShow = defineRead("policy_show", "Show a policy summary, rules, and ex
 	return out, nil
 })
 
+// exceptionsOf lists the exceptions of a policy: files that name it, and
+// exception annotations in its area.
 func exceptionsOf(ctx context.Context, d Deps, policy string) ([]ExceptionRef, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicyException})
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	docs, err := x.list(model.TypePolicyException)
 	if err != nil {
 		return nil, err
 	}
 	out := []ExceptionRef{}
-	// An area's exceptions are annotations in its body.
-	if doc, err := d.Store.Get(ctx, policy); err == nil {
-		for _, c := range paramd.Callouts(doc.Body) {
-			if c.Kind != "exception" || c.Broken != "" {
-				continue
-			}
-			x := ExceptionRef{ID: c.ID, Kind: model.ExceptionKind(c.Field("kind")), Status: model.ExceptionStatus(cmp.Or(c.Field("status"), string(model.ExceptionOpen)))}
-			if b, ok := strings.CutPrefix(c.Field("anchor"), "^"); ok {
-				x.Rule = model.RuleLink(doc.ID, b)
-			}
-			out = append(out, x)
-		}
-	}
-	for _, r := range refs {
-		doc, err := d.Store.Get(ctx, r.ID)
-		if err != nil {
-			return nil, err
-		}
+	for _, doc := range docs {
 		if e, ok := doc.Meta.(*model.PolicyException); ok && e.Policy.Target() == policy {
 			out = append(out, ExceptionRef{ID: doc.ID, Kind: e.Kind, Status: e.Status, Rule: e.Rule})
 		}

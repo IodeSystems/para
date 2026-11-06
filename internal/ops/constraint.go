@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 	"github.com/iodesystems/para/internal/upgrade"
 )
 
@@ -38,8 +37,14 @@ func nonNil(s []string) []string {
 	return s
 }
 
+// getConstraint reads a constraint file, or a constraint annotation by its id
+// or the id of the file it was folded from.
 func getConstraint(ctx context.Context, d Deps, id string) (model.Document, *model.Constraint, error) {
-	doc, err := d.Store.Get(ctx, id)
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return model.Document{}, nil, err
+	}
+	doc, err := x.get(id)
 	if err != nil {
 		return doc, nil, err
 	}
@@ -127,17 +132,19 @@ type ConstraintListOutput struct {
 
 // ConstraintList lists constraints.
 var ConstraintList = defineRead("constraint_list", "List constraints", func(ctx context.Context, d Deps, _ ConstraintListInput) (ConstraintListOutput, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeConstraint})
+	x, err := newRuleIndex(ctx, d.Store)
+	if err != nil {
+		return ConstraintListOutput{}, err
+	}
+	docs, err := x.list(model.TypeConstraint)
 	if err != nil {
 		return ConstraintListOutput{}, err
 	}
 	out := ConstraintListOutput{Constraints: []ConstraintView{}}
-	for _, r := range refs {
-		doc, c, err := getConstraint(ctx, d, r.ID)
-		if err != nil {
-			return ConstraintListOutput{}, err
+	for _, doc := range docs {
+		if c, ok := doc.Meta.(*model.Constraint); ok {
+			out.Constraints = append(out.Constraints, constraintView(doc, c))
 		}
-		out.Constraints = append(out.Constraints, constraintView(doc, c))
 	}
 	return out, nil
 })

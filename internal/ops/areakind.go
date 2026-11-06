@@ -424,7 +424,6 @@ func rulesFor(ctx context.Context, s store.Store, chain []string) ([]RuleInEffec
 	}
 	// Conventions and constraints are annotations in areas at the policy docs
 	// format: one holds in its area and in the scopes its applies_in names.
-	from := map[string]string{} // annotation id -> the file it was folded from
 	arefs, err := s.List(ctx, store.Filter{Type: model.TypeArea})
 	if err != nil {
 		return nil, err
@@ -449,9 +448,13 @@ func rulesFor(ctx context.Context, s store.Store, chain []string) ([]RuleInEffec
 			if via == "" {
 				continue
 			}
+			// A folded one keeps the id of its file, so it reads as before the fold.
 			title, _, _ := strings.Cut(c.Text, "\n")
-			from[c.ID] = model.Link(c.Field(upgrade.FromField)).Target()
-			found = append(found, RuleInEffect{ID: c.ID, Type: model.Type(c.Kind), Title: title, Via: via, Refines: model.Link(c.Field("refines")).Target()})
+			id := c.ID
+			if f := model.Link(c.Field(upgrade.FromField)).Target(); f != "" {
+				id = f
+			}
+			found = append(found, RuleInEffect{ID: id, Type: model.Type(c.Kind), Title: title, Via: via, Refines: model.Link(c.Field("refines")).Target()})
 		}
 	}
 	refined := map[string]bool{}
@@ -469,7 +472,7 @@ func rulesFor(ctx context.Context, s store.Store, chain []string) ([]RuleInEffec
 	}
 	out := []RuleInEffect{}
 	for _, r := range found {
-		if !refined[r.ID] && (from[r.ID] == "" || !refined[from[r.ID]]) {
+		if !refined[r.ID] {
 			out = append(out, r)
 		}
 	}

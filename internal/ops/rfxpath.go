@@ -400,7 +400,7 @@ var RFXPathAdd = defineSafe("rfx_path_add", "Take a next move on a stalled Ask, 
 			return RFXPathAddOutput{}, err
 		}
 	}
-	about, err := linkTo(ctx, d, "about", in.About, model.TypePolicy, model.TypePolicyException, model.TypeDomain)
+	about, err := aboutLink(ctx, d, in.About)
 	if err != nil {
 		return RFXPathAddOutput{}, err
 	}
