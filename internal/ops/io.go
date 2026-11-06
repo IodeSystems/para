@@ -141,7 +141,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		out.Warnings = append(out.Warnings, warn...)
 	}
 	if m.Expects == model.ExpectsResponse {
-		if domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain}); err == nil {
+		if domains, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeDomain}); err == nil {
 			if picked, _ := pickDomain(m.Route, domains); picked == nil {
 				out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text", m.Route))
 			}

@@ -725,8 +725,8 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		owed := false
 		if o, ok := doc.Meta.(*model.Obligation); ok {
 			owed = len(o.OwedTo) > 0
-			doc = obligationShape(doc)
 		}
+		doc = obligationShape(doc) // a task of kind incident is an incident node: incidents come first
 		need := sn.Need(doc.ID)
 		if need.Life == LifeClosed {
 			continue

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -155,6 +156,9 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 		if err != nil {
 			return nil, err
 		}
+		if model.IsIncident(doc) {
+			continue // an incident reads as an incident (incident_list), not as a task
+		}
 		v, err := taskView(doc)
 		if err != nil {
 			return nil, err
@@ -215,6 +219,10 @@ type TaskAddInput struct {
 	// more events of it, each with a role in free text.
 	CalendarUID  string                `json:"calendar_uid,omitempty"`
 	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
+	// Severity is kind incident: sev1 (the worst), sev2, or sev3. An
+	// incident takes title, severity, area, and body only; it starts now and
+	// is what incident_add makes.
+	Severity model.IncidentSeverity `json:"severity,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -232,6 +240,12 @@ type TaskAddOutput struct {
 // TaskAdd creates a todo task in a project, an area, or both. Tasks live in
 // projects/. A dependency may be any task or rfx, in any project or area.
 var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at least one). A task for the owner says how to do it: do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines); prepare drafts, config, and the command first. A secret never goes in them: say where the owner pastes it", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+	if in.Kind == model.KindIncident {
+		return addIncidentTask(ctx, d, in)
+	}
+	if in.Severity != "" {
+		return TaskAddOutput{}, errors.New("severity is for kind incident")
+	}
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return TaskAddOutput{}, errors.New("title is empty")
@@ -371,6 +385,21 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	out.Request, out.Warnings = agentRequest(ctx, d, doc, out.Warnings)
 	return out, nil
 })
+
+// addIncidentTask is task_add of kind incident: incident_add with the
+// fields an incident takes. Below vault format 10 it writes an incident file.
+func addIncidentTask(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+	rest := in
+	rest.Kind, rest.Title, rest.Severity, rest.Area, rest.Body, rest.ImportedFrom = "", "", "", "", "", nil
+	if !reflect.ValueOf(rest).IsZero() {
+		return TaskAddOutput{}, errors.New("kind incident takes title, severity, area, and body only (incident_status, incident_note, and incident_link_add do the rest)")
+	}
+	r, err := addIncident(ctx, d, IncidentAddInput{Title: in.Title, Severity: in.Severity, Area: in.Area, Body: in.Body, ImportedFrom: in.ImportedFrom})
+	if err != nil {
+		return TaskAddOutput{}, err
+	}
+	return TaskAddOutput{ID: r.ID, Folder: r.Folder, Rev: r.Rev, Warnings: []string{}}, nil
+}
 
 // TaskListInput is the input of task_list.
 type TaskListInput struct {

@@ -75,6 +75,9 @@ func orgGroupAdd(ctx context.Context, d Deps, in GroupAddInput) (OrgAddOutput, e
 	if !slices.Contains(model.GroupKinds, in.Kind) {
 		return OrgAddOutput{}, fmt.Errorf("kind %q: want one of %v", in.Kind, model.GroupKinds)
 	}
+	if in.Kind == model.GroupDomain {
+		return OrgAddOutput{}, errors.New("kind domain names its owner: use org_domain_add {name, owner}")
+	}
 	id := normID(in.ID)
 	if id == "" {
 		s := slug(name)

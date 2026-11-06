@@ -138,10 +138,23 @@ func meetingAsTask(d model.Document) (model.Document, bool) {
 }
 
 // obligationShape is an obligation read as the task of its kind, for a view
-// that reads tasks; any other document as it is. It is a copy: never save it.
+// that reads tasks, and a task of kind incident as the incident it was before
+// vault format 10 (the views read incidents apart); any other document as it
+// is. It is a copy: never save it.
 func obligationShape(d model.Document) model.Document {
 	if o, ok := d.Meta.(*model.Obligation); ok {
 		d.Meta = o.AsTask()
+	}
+	return incidentShape(d)
+}
+
+// incidentShape is a task of kind incident read as an incident (type
+// incident); any other document as it is. It is a copy: never save it.
+func incidentShape(d model.Document) model.Document {
+	if t, ok := d.Meta.(*model.Task); ok && t.Kind == model.KindIncident {
+		i, _ := model.IncidentOf(d)
+		i.Type = model.TypeIncident
+		d.Meta = i
 	}
 	return d
 }

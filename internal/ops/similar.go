@@ -24,6 +24,10 @@ var nearTypes = map[model.Type][]model.Type{
 	model.TypeProject:  {model.TypeProject, model.TypeArea},
 	model.TypeArea:     {model.TypeArea, model.TypeProject},
 	model.TypeNote:     {model.TypeNote},
+	// A team, role, or domain is a group since vault format 10.
+	model.TypeTeam:   {model.TypeTeam, model.TypeGroup},
+	model.TypeRole:   {model.TypeRole, model.TypeGroup},
+	model.TypeDomain: {model.TypeDomain, model.TypeGroup},
 }
 
 // wordOverlap is how much of the shorter title's words must match.

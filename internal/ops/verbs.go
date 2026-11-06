@@ -204,6 +204,7 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 	bad := func(want string) error {
 		return fmt.Errorf("%s is a %s: outcome %q does not close it; want %s", doc.ID, typeWord(doc), outcome, want)
 	}
+	doc = incidentShape(doc) // a task of kind incident closes as an incident (incident_status resolved)
 	switch m := doc.Meta.(type) {
 	case *model.Task:
 		if m.EffectiveKind() == model.KindMeeting {
@@ -540,6 +541,9 @@ func reopenOne(ctx context.Context, d Deps, id, reason string) (ReopenedItem, st
 	switch m := doc.Meta.(type) {
 	case *model.Task:
 		from, to = string(m.Status), string(model.TaskTodo)
+		if m.Kind == model.KindIncident {
+			from, to = string(model.IncidentStatusOf(m.Status)), string(model.IncidentOpen)
+		}
 		if mt, ok := readMeeting(doc); ok {
 			from = string(mt.Status)
 			to = string(model.MeetingRequested)
@@ -702,7 +706,7 @@ var Show = defineRead("show", "Show any item by id: type, title, status, life (o
 		return ShowOutput{}, err
 	}
 	n := sn.Need(doc.ID)
-	out := ShowOutput{ID: doc.ID, Type: doc.Meta.Header().Type, Title: doc.Title, Status: statusOf(doc.Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
+	out := ShowOutput{ID: doc.ID, Type: doc.Meta.Header().Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
 	if rt.op == nil {
 		return out, nil
 	}
@@ -738,7 +742,7 @@ func showRoute(ctx context.Context, d Deps, in ShowInput) (verbRoute, error) {
 	if err != nil {
 		return verbRoute{}, linkErr("id", id, err)
 	}
-	op, ok := showOps()[doc.Meta.Header().Type]
+	op, ok := showOps()[incidentShape(doc).Meta.Header().Type] // a task of kind incident shows as an incident
 	if doc.Meta.Header().Type == model.TypeObligation {
 		op, ok = TaskShow, true // a meeting or work owed shows as a task of its kind
 	}
@@ -834,7 +838,8 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 		if err != nil {
 			return ListOutput{}, err
 		}
-		refs, err := d.Store.List(ctx, store.Filter{Type: in.Type, All: state == string(LifeClosed) || state == "all"})
+		// An older small type lists its new form too (refsOf), as that type.
+		refs, err := refsOf(ctx, d.Store, store.Filter{Type: in.Type, All: state == string(LifeClosed) || state == "all"})
 		if err != nil {
 			return ListOutput{}, err
 		}
@@ -868,7 +873,7 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 			if in.Limit > 0 && len(out.Rows) >= in.Limit {
 				continue
 			}
-			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(doc.Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
+			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
 			if m, ok := doc.Meta.(*model.Request); ok && in.Type == model.TypeRequest {
 				it := askedItem(ctx, d, doc, m, sn.Now)
 				it.Receipts, it.NeedsYou = receipts[doc.ID], n.Yes

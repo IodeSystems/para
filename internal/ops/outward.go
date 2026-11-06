@@ -143,6 +143,9 @@ func recordedURLs(docs map[string]model.Document) map[string]bool {
 			if m.Direction == model.IOOut && m.State == model.IOSent {
 				add(m.Ref)
 			}
+			if m.Logged() { // an interaction before format 10
+				add(m.URL)
+			}
 		case *model.Interaction:
 			add(m.URL)
 		}

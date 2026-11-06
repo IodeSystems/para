@@ -106,9 +106,14 @@ func orgAdd(kind model.Type) Func[OrgAddInput, OrgAddOutput] {
 		if err != nil {
 			return OrgAddOutput{}, err
 		}
-		doc, err := d.Store.Create(ctx, model.Document{
+		// At the small types format a team, role, or domain is a group of that kind.
+		doc, err := smallShape(d, model.Document{
 			ID: id, Folder: model.FolderOrg, Title: name, Body: factsBody(in.Said, in.Source), Meta: meta,
 		})
+		if err != nil {
+			return OrgAddOutput{}, err
+		}
+		doc, err = d.Store.Create(ctx, doc)
 		if err != nil {
 			return OrgAddOutput{}, err
 		}
@@ -203,7 +208,8 @@ func linkTo(ctx context.Context, d Deps, field, raw string, types ...model.Type)
 	}
 	got := doc.Meta.Header().Type
 	for _, t := range types {
-		if got == t {
+		// A team, role, or domain may be the group step small-types made of it.
+		if got == t || asOlderType(doc, t) {
 			return model.LinkTo(id), nil
 		}
 	}
@@ -228,7 +234,7 @@ func aboutLink(ctx context.Context, d Deps, raw string) (model.Link, error) {
 		return "", fmt.Errorf("about %s: %w", id, err)
 	}
 	types := []model.Type{model.TypePolicy, model.TypePolicyException, model.TypeDomain}
-	switch got := doc.Meta.Header().Type; {
+	switch got := model.OrgKind(doc); {
 	case !slices.Contains(types, got):
 		return "", fmt.Errorf("about %s is a %s, want one of %v", id, got, types)
 	case paramd.ValidAnnotationID(doc.ID):
@@ -253,7 +259,7 @@ func factsBody(said []string, source string) string {
 
 func orgList(kind model.Type) Func[OrgListInput, OrgListOutput] {
 	return func(ctx context.Context, d Deps, _ OrgListInput) (OrgListOutput, error) {
-		refs, err := d.Store.List(ctx, store.Filter{Folder: model.FolderOrg, Type: kind})
+		refs, err := refsOf(ctx, d.Store, store.Filter{Folder: model.FolderOrg, Type: kind}) // and the groups of that kind
 		if err != nil {
 			return OrgListOutput{}, err
 		}
@@ -270,7 +276,7 @@ func orgShow(kind model.Type) Func[OrgShowInput, OrgShowOutput] {
 		if err != nil {
 			return OrgShowOutput{}, err
 		}
-		if got := doc.Meta.Header().Type; got != kind {
+		if got := doc.Meta.Header().Type; got != kind && !asOlderType(doc, kind) {
 			return OrgShowOutput{}, fmt.Errorf("%s is %s, not %s", doc.ID, got, kind)
 		}
 		return OrgShowOutput{Doc: doc}, nil

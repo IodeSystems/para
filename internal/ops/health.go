@@ -80,6 +80,9 @@ const (
 	// HealthAnnotationAtTop is an annotation upgrade step policy-docs could
 	// not place, still at the top of its area (step annotation-placement).
 	HealthAnnotationAtTop = upgrade.AnnotationAtTop
+	// HealthNotePlacement is a note that links an item, at vault format 10:
+	// its text belongs in that item's notes (step notes-placement).
+	HealthNotePlacement = upgrade.NotePlacement
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -95,7 +98,7 @@ var HealthKinds = []string{
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
 	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused, HealthUpgradePending,
-	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop,
+	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop, HealthNotePlacement,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -141,6 +144,7 @@ var HealthKindWords = map[string]string{
 	HealthAnnotationBroken:   "Annotation para cannot read",
 	HealthAnnotationLost:     "Annotation lost its anchor",
 	HealthAnnotationAtTop:    "Annotation not placed in a section",
+	HealthNotePlacement:      "Note not moved to its item",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -261,6 +265,15 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		}
 	}
 
+	if v, err := upgrade.Current(s); err == nil && v >= upgrade.SmallTypesFormat {
+		for _, d := range docs {
+			if upgrade.NotePending(d) {
+				n := d.Meta.(*model.Note)
+				h.add(HealthNotePlacement, d.ID, "", "note links "+cmp.Or(n.Project.Target(), n.Area.Target())+": its text belongs in that item's notes",
+					fmt.Sprintf("notes_read and notes_edit on the item (or annotate kind note in an area section), then doc_archive {id: %s}; or health_dismiss {id: %s, kind: %s}", d.ID, d.ID, HealthNotePlacement))
+			}
+		}
+	}
 	// Dismissed findings are left out and counted.
 	var kept []HealthFinding
 	dismissed := 0

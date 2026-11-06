@@ -291,7 +291,7 @@ var ReportFriction = defineRead("report_friction", "Read the friction report of 
 			}
 		case FrictionByDomain:
 			if hasFriction {
-				if dd, err := d.Store.Get(ctx, normID(f.m.Route)); err == nil && dd.Meta.Header().Type == model.TypeDomain {
+				if dd, err := d.Store.Get(ctx, normID(f.m.Route)); err == nil && model.OrgKind(dd) == model.TypeDomain {
 					keys[dd.ID] = dd.Title
 				} else {
 					keys["(none)"] = "no domain"

@@ -17,7 +17,9 @@ import (
 // bad, when, what happened (a timeline in the body), and the follow-up tasks
 // that stop it happening again. Para is not a pager. Alerts stay in
 // monitoring; an incident is written by a person, or by an agent who was
-// told, after the fact or while it runs.
+// told, after the fact or while it runs. At vault format 10 an incident is a
+// task of kind incident (model.IncidentOf reads both forms): todo is open,
+// doing mitigated, done resolved. These ops read and write either form.
 
 const timelineHeading = "## Timeline"
 
@@ -36,7 +38,7 @@ type IncidentView struct {
 }
 
 func incidentView(d model.Document) (IncidentView, error) {
-	m, ok := d.Meta.(*model.Incident)
+	m, ok := model.IncidentOf(d)
 	if !ok {
 		return IncidentView{}, fmt.Errorf("%s is a %s, not an incident", d.ID, d.Meta.Header().Type)
 	}
@@ -49,7 +51,7 @@ func getIncident(ctx context.Context, s store.Store, id string) (model.Document,
 	if err != nil {
 		return d, nil, missing("incident", normID(id), err)
 	}
-	m, ok := d.Meta.(*model.Incident)
+	m, ok := model.IncidentOf(d)
 	if !ok {
 		return d, nil, fmt.Errorf("%s is a %s, not an incident", d.ID, d.Meta.Header().Type)
 	}
@@ -62,7 +64,7 @@ func incidentOpen(s model.IncidentStatus) bool { return s != model.IncidentResol
 // loadIncidents returns every incident, open ones first, worst severity first,
 // then latest start.
 func loadIncidents(ctx context.Context, s store.Store) ([]IncidentView, error) {
-	refs, err := s.List(ctx, store.Filter{Type: model.TypeIncident})
+	refs, err := refsOf(ctx, s, store.Filter{Type: model.TypeIncident}) // and the tasks of kind incident
 	if err != nil {
 		return nil, err
 	}
@@ -166,7 +168,10 @@ type IncidentAddOutput struct {
 }
 
 // IncidentAdd opens an incident.
-var IncidentAdd = defineSafe("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring)", func(ctx context.Context, d Deps, in IncidentAddInput) (IncidentAddOutput, error) {
+var IncidentAdd = defineSafe("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring). At vault format 10 it is a task of kind incident: task_add {kind: incident, title, severity, area, body} does the same", addIncident)
+
+// addIncident is incident_add, and task_add of kind incident.
+func addIncident(ctx context.Context, d Deps, in IncidentAddInput) (IncidentAddOutput, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
 		return IncidentAddOutput{}, err
@@ -185,7 +190,8 @@ var IncidentAdd = defineSafe("incident_add", "Open an incident record for a syst
 		return IncidentAddOutput{}, err
 	}
 	body := addTimeline(strings.TrimSpace(in.Body), started, fmt.Sprintf("opened %s", in.Severity))
-	doc, err := d.Store.Create(ctx, model.Document{
+	// At the small types format an incident is a task of kind incident.
+	doc, err := smallShape(d, model.Document{
 		Folder: model.FolderIncidents, Title: title, Body: body,
 		Meta: &model.Incident{
 			Common:   model.Common{Type: model.TypeIncident},
@@ -196,8 +202,12 @@ var IncidentAdd = defineSafe("incident_add", "Open an incident record for a syst
 	if err != nil {
 		return IncidentAddOutput{}, err
 	}
+	doc, err = d.Store.Create(ctx, doc)
+	if err != nil {
+		return IncidentAddOutput{}, err
+	}
 	return IncidentAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev}, nil
-})
+}
 
 // IncidentListInput is the input of incident_list.
 type IncidentListInput struct {
@@ -340,6 +350,7 @@ var IncidentStatus = define("incident_status", "Set an incident to open, mitigat
 })
 
 func saveIncident(ctx context.Context, d Deps, doc model.Document, m *model.Incident, after func(*IncidentChangeOutput)) (IncidentChangeOutput, error) {
+	model.SetIncident(doc, m) // a task of kind incident holds the fields
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return IncidentChangeOutput{}, err

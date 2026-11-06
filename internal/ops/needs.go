@@ -376,8 +376,8 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		case o.Schedule == model.ScheduleOngoing:
 			return ongoingTurn(o)
 		}
-		doc = obligationShape(doc)
 	}
+	doc = obligationShape(doc) // and a task of kind incident reads as the incident
 	switch m := doc.Meta.(type) {
 	case *model.Question:
 		if m.HasProposal() {

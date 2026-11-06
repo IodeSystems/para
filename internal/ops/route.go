@@ -108,7 +108,7 @@ func route(ctx context.Context, d Deps, in RouteInput) (RouteOutput, error) {
 		return RouteOutput{}, fmt.Errorf("query is empty")
 	}
 	out := RouteOutput{Query: q, Candidates: []model.Ref{}, People: []model.Ref{}}
-	domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain})
+	domains, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeDomain}) // and the groups of kind domain
 	if err != nil {
 		return RouteOutput{}, err
 	}
@@ -161,8 +161,8 @@ func route(ctx context.Context, d Deps, in RouteInput) (RouteOutput, error) {
 	ss.PriorRFX = prior
 	out.SelfServe = ss
 
-	if dm, ok := domainDoc.Meta.(*model.Domain); ok {
-		if err := resolveOwner(ctx, d, dm.Owner, &out); err != nil {
+	if owner, ok := model.DomainOwner(domainDoc); ok {
+		if err := resolveOwner(ctx, d, owner, &out); err != nil {
 			return RouteOutput{}, err
 		}
 	}
@@ -279,7 +279,7 @@ func resolveOwner(ctx context.Context, d Deps, owner model.Link, out *RouteOutpu
 	if err != nil {
 		return fmt.Errorf("domain owner %s: %w", owner, err)
 	}
-	ref := model.Ref{ID: doc.ID, Folder: doc.Folder, Type: doc.Meta.Header().Type, Title: doc.Title, Rev: doc.Rev}
+	ref := model.Ref{ID: doc.ID, Folder: doc.Folder, Type: model.OrgKind(doc), Title: doc.Title, Rev: doc.Rev}
 	out.Owner = &ref
 	if ref.Type == model.TypePerson {
 		out.People = append(out.People, ref)

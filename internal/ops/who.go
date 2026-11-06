@@ -194,5 +194,6 @@ func refOrNil(ctx context.Context, d Deps, l model.Link) (*model.Ref, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &model.Ref{ID: doc.ID, Folder: doc.Folder, Type: doc.Meta.Header().Type, Title: doc.Title, Rev: doc.Rev}, nil
+	// A role or team the upgrade made a group reads as the role or team it was.
+	return &model.Ref{ID: doc.ID, Folder: doc.Folder, Type: model.OrgKind(doc), Title: doc.Title, Rev: doc.Rev}, nil
 }

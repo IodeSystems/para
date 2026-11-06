@@ -15,7 +15,9 @@ import (
 )
 
 // An interaction is one logged contact with people. The user writes it, or
-// asks para to. Para reads no messages and captures nothing by itself.
+// asks para to. Para reads no messages and captures nothing by itself. At
+// vault format 10 it is a closed io item with a date (model.IO.Logged): filed
+// when it came in or the owner only saw it, sent when the owner wrote it.
 
 // WarnSummaryLong is the warning for an interaction body over the limit.
 var WarnSummaryLong = fmt.Sprintf("summary is over %d characters: write it in your own words and link the original", paramd.MaxSummaryLen)
@@ -86,13 +88,17 @@ var InteractionAdd = defineSafe("interaction_add", "Log an interaction with peop
 			return InteractionAddOutput{}, fmt.Errorf("url %q: want an absolute http(s) URL", u)
 		}
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	doc, err := smallShape(d, model.Document{
 		Folder: model.FolderInteractions, Title: title, Body: body,
 		Meta: &model.Interaction{
 			Common: model.Common{Type: model.TypeInteraction},
 			Date:   model.Date(date), With: with, Medium: in.Medium, Direction: in.Direction, Visibility: vis, URL: u,
 		},
 	})
+	if err != nil {
+		return InteractionAddOutput{}, err
+	}
+	doc, err = d.Store.Create(ctx, doc)
 	if err != nil {
 		return InteractionAddOutput{}, err
 	}
@@ -117,7 +123,7 @@ type InteractionSummary struct {
 
 // loadInteractions returns every interaction, newest first.
 func loadInteractions(ctx context.Context, d Deps) ([]InteractionSummary, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeInteraction})
+	refs, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeInteraction}) // and the logged io items
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +133,7 @@ func loadInteractions(ctx context.Context, d Deps) ([]InteractionSummary, error)
 		if err != nil {
 			return nil, err
 		}
-		m, ok := doc.Meta.(*model.Interaction)
+		m, ok := model.InteractionOf(doc)
 		if !ok {
 			continue
 		}
@@ -203,7 +209,7 @@ var InteractionShow = defineRead("interaction_show", "Show one logged interactio
 	if err != nil {
 		return InteractionShowOutput{}, err
 	}
-	if got := doc.Meta.Header().Type; got != model.TypeInteraction {
+	if got := doc.Meta.Header().Type; !asOlderType(doc, model.TypeInteraction) {
 		return InteractionShowOutput{}, fmt.Errorf("%s is %s, not interaction", doc.ID, got)
 	}
 	return InteractionShowOutput{Doc: doc}, nil

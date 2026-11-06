@@ -69,6 +69,10 @@ func pointers(doc model.Document) (*[]model.Pointer, error) {
 		return &m.Links, nil
 	case *model.Incident:
 		return &m.Links, nil
+	case *model.Task:
+		if m.Kind == model.KindIncident {
+			return &m.Links, nil
+		}
 	}
 	return nil, fmt.Errorf("%s is a %s: links belong to an area, a project, or an incident", doc.ID, doc.Meta.Header().Type)
 }
@@ -117,7 +121,7 @@ func editLinks(ctx context.Context, d Deps, kind model.Type, id string, fn func(
 	if err != nil {
 		return LinkOutput{}, err
 	}
-	if got := doc.Meta.Header().Type; got != kind {
+	if got := doc.Meta.Header().Type; got != kind && !asOlderType(doc, kind) { // a task of kind incident
 		return LinkOutput{}, fmt.Errorf("%s is a %s, not a %s", doc.ID, got, kind)
 	}
 	links, err := pointers(doc)

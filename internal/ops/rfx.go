@@ -128,7 +128,7 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 			meta.SelfServeCheck, warn = SelfServeNone, true
 		}
 	}
-	domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain})
+	domains, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeDomain})
 	if err != nil {
 		return RFXAddOutput{}, err
 	}

@@ -283,7 +283,10 @@ func newInteractionCmd(l *loader) *cobra.Command {
 			Args: cobra.ExactArgs(1),
 			Bind: func(args []string, in *ops.InteractionShowInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.InteractionShowOutput) error {
-				m := out.Doc.Meta.(*model.Interaction)
+				m, ok := model.InteractionOf(out.Doc) // a logged io item too
+				if !ok {
+					return fmt.Errorf("%s is not an interaction", out.Doc.ID)
+				}
 				p := &printer{w: w}
 				p.f("%s\t%s\ndate\t%s\nwith\t%s\nmedium\t%s\ndirection\t%s\nvisibility\t%s\nurl\t%s\n%s\n",
 					out.Doc.ID, out.Doc.Title, m.Date, strings.Join(linkIDs(m.With), ","), m.Medium, m.Direction, m.Visibility, m.URL, out.Doc.Body)

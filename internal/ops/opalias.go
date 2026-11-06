@@ -184,6 +184,25 @@ func aliasTable() []aliasDef {
 	for _, name := range []string{"exception_add", "convention_add", "constraint_add"} {
 		defs = append(defs, aliasDef{name: name, to: Annotate.Name(), in: same})
 	}
+	// The add ops of teams, roles, domains, interactions, and incidents are
+	// the ops of the types that hold them now. They keep their inputs and
+	// outputs and run as before (at the small types format each writes the
+	// same new form the upgrade step makes of such a file: a group of that
+	// kind, a closed io item, a task of kind incident), so they never route.
+	for _, a := range [][2]string{{"org_team_add", "org_group_add"}, {"org_role_add", "org_group_add"}, {"org_domain_add", "org_group_add"},
+		{"interaction_add", "io_add"}, {"incident_add", "task_add"}} {
+		defs = append(defs, aliasDef{name: a[0], to: a[1], in: same})
+	}
+	// incident_status resolved is close; the other statuses run as before.
+	defs = append(defs, aliasDef{name: "incident_status", to: "close", in: func(m map[string]any) (map[string]any, error) {
+		if m["status"] != string(model.IncidentResolved) {
+			return nil, fmt.Errorf("status %v is not a close", m["status"])
+		}
+		delete(m, "status")
+		out := idOnly(m)
+		rename(m, out, "text", "reason")
+		return asFields(m, out), nil
+	}})
 	return defs
 }
 

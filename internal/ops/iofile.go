@@ -144,6 +144,9 @@ func fileExisting(ctx context.Context, d Deps, in IOFileInput) (TriageTarget, st
 		return "", "", fmt.Errorf("existing %s: %w", id, err)
 	}
 	t := doc.Meta.Header().Type
+	if _, ok := model.InteractionOf(doc); ok {
+		t = model.TypeInteraction // a logged io item is the interaction it was
+	}
 	if in.To != "" {
 		if !slices.Contains(triageTypes[in.To], t) {
 			return "", "", fmt.Errorf("existing %s is a %s, not a %s", id, t, in.To)

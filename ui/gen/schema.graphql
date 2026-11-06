@@ -2464,8 +2464,10 @@ input para_GroupAddInputInput {
 enum para_GroupAddInputKind {
   channel
   department
+  domain
   list
   other
+  role
   team
 }
 
@@ -4424,6 +4426,7 @@ input para_ObligationAddInputInput {
 enum para_ObligationAddInputKind {
   call
   commitment
+  incident
   meeting
   task
   work_with
@@ -4475,6 +4478,7 @@ enum para_ObligationAddOutputFolder {
 enum para_ObligationAddOutputKind {
   call
   commitment
+  incident
   meeting
   task
   work_with
@@ -7269,6 +7273,7 @@ input para_TaskAddInputInput {
   project: String
   recur: String
   scheduled: String
+  severity: para_TaskAddInputSeverity
   steps: String
   title: String!
   with: [String!]
@@ -7277,9 +7282,16 @@ input para_TaskAddInputInput {
 enum para_TaskAddInputKind {
   call
   commitment
+  incident
   meeting
   task
   work_with
+}
+
+enum para_TaskAddInputSeverity {
+  sev1
+  sev2
+  sev3
 }
 
 type para_TaskAddOutput {
@@ -7748,6 +7760,7 @@ enum para_TaskViewFolder {
 enum para_TaskViewKind {
   call
   commitment
+  incident
   meeting
   task
   work_with

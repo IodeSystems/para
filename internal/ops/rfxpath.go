@@ -310,8 +310,8 @@ var RFXPaths = defineRead("rfx_paths", "List the path log of an Ask, a request, 
 			}
 		}
 		if dom, err := d.Store.Get(ctx, normID(m.Route)); err == nil {
-			if dm, ok := dom.Meta.(*model.Domain); ok && dm.Owner != "" {
-				other(MoveSameDomain, "Ask", "holds the role that owns the domain "+dom.Title, func(_ string, p *model.Person) bool { return p.Role == dm.Owner })
+			if owner, ok := model.DomainOwner(dom); ok && owner != "" {
+				other(MoveSameDomain, "Ask", "holds the role that owns the domain "+dom.Title, func(_ string, p *model.Person) bool { return p.Role == owner })
 			}
 		}
 		var teams, groups []model.Link

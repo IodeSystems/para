@@ -311,7 +311,8 @@ func TestIncidentFlow(t *testing.T) {
 	var minor, major ops.IncidentAddOutput
 	e.json(&minor, "incident", "add", "Slow search", "--severity", "sev3", "--area", area.ID, "--started", "2026-11-01T08:00:00Z", "--body", "Search p99 is high.")
 	e.json(&major, "incident", "add", "Atlas down", "--severity", "sev1", "--area", area.ID, "--started", "2026-11-01T09:00:00Z")
-	if !strings.HasPrefix(major.ID, "incident-") || major.Folder != model.FolderIncidents {
+	// A new vault is at format 10: an incident is a task of kind incident in projects/.
+	if !strings.HasPrefix(major.ID, "task-") || major.Folder != model.FolderProjects {
 		t.Fatalf("add = %+v", major)
 	}
 
