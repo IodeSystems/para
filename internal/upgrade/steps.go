@@ -1,6 +1,13 @@
 package upgrade
 
-import "github.com/iodesystems/para/internal/model"
+import (
+	"cmp"
+	"context"
+	"slices"
+
+	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/store"
+)
 
 // steps are in version order. A shipped step never changes its ID or Version.
 func steps() []Step {
@@ -95,7 +102,170 @@ func steps() []Step {
 			Select:  func(model.Document) bool { return true },
 			Rewrite: func(d model.Document) (model.Document, error) { return d, nil },
 		},
+		{
+			// A para before this step does not know type obligation and fails
+			// on it: upgrade para on every machine first (Run checks).
+			ID:      "obligations",
+			Version: ObligationFormat,
+			Title:   "Make meetings, commitments, and asks to the owner obligations in obligations/ (upgrade para on every machine of this vault first)",
+			Auto:    true,
+			Types:   []model.Type{model.TypeTask, model.TypeMeeting, model.TypeRFX},
+			Select:  foldsToObligation,
+			Rewrite: func(d model.Document) (model.Document, error) { return asObligation(d, nil) },
+			Prepare: func(ctx context.Context, r Reader) (func(model.Document) (model.Document, error), error) {
+				prev, err := previousLinks(ctx, r)
+				if err != nil {
+					return nil, err
+				}
+				return func(d model.Document) (model.Document, error) { return asObligation(d, prev) }, nil
+			},
+		},
 	}
+}
+
+// ObligationFormat is the format at which meetings, commitments, and asks to
+// the owner are obligations: below it ops write them in the older types.
+const ObligationFormat = 7
+
+// AsObligation is a new document of a type step obligations folds, made an
+// obligation as the step would, without the keys of the old type.
+func AsObligation(d model.Document) (model.Document, error) {
+	out, err := asObligation(d, nil)
+	if err != nil {
+		return d, err
+	}
+	out = out.DropExtra()
+	out.Meta.(*model.Obligation).FoldedFrom = ""
+	return out, nil
+}
+
+// FoldsToObligation reports whether step obligations folds the document.
+func FoldsToObligation(d model.Document) bool { return foldsToObligation(d) }
+
+// foldsToObligation selects a task of kind meeting or commitment (or tagged
+// commitment), an older meeting, and an ask to the owner (rfx direction in).
+func foldsToObligation(d model.Document) bool {
+	switch m := d.Meta.(type) {
+	case *model.Task:
+		k := m.EffectiveKind()
+		return k == model.KindMeeting || k == model.KindCommitment
+	case *model.Meeting:
+		return true
+	case *model.RFX:
+		return m.Direction == model.RFXIn
+	}
+	return false
+}
+
+// previousLinks maps each task id to the task it recurred from, so a series
+// occurrence finds the first of its series.
+func previousLinks(ctx context.Context, r Reader) (map[string]string, error) {
+	refs, err := r.List(ctx, store.Filter{Type: model.TypeTask, All: true})
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, ref := range refs {
+		d, err := r.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		if t, ok := d.Meta.(*model.Task); ok && t.Previous != "" {
+			out[d.ID] = t.Previous.Target()
+		}
+	}
+	return out, nil
+}
+
+// seriesRoot is the first occurrence of id's series: previous followed back
+// as far as it goes.
+func seriesRoot(prev map[string]string, id string) string {
+	seen := map[string]bool{id: true}
+	for {
+		p, ok := prev[id]
+		if !ok || p == "" || seen[p] {
+			return id
+		}
+		seen[p] = true
+		id = p
+	}
+}
+
+// asObligation retypes a meeting, a commitment, or an ask to the owner as an
+// obligation in obligations/ (an archived one stays in archive/). The id and
+// the body stay, so links still resolve; every key of the old type stays in
+// the file (model.Retype), and folded_from names the old type. A task's
+// status maps to state; a closed one keeps its outcome. A recurring one is a
+// series occurrence of the first task of its chain.
+func asObligation(d model.Document, prev map[string]string) (model.Document, error) {
+	from := d.Meta.Header().Type
+	if m, ok := d.Meta.(*model.Meeting); ok {
+		d.Meta = m.AsTask()
+	}
+	set := map[string]any{"folded_from": string(from), "schedule": string(model.ScheduleOnce), "state": string(model.StateOpen)}
+	closed := func(outcome model.TaskOutcome) {
+		set["state"], set["outcome"] = string(model.StateClosed), string(outcome)
+		if day := cmp.Or(d.Meta.Header().Updated, d.Meta.Header().Created); day != "" {
+			set["closed"] = string(day)
+		}
+	}
+	switch m := d.Meta.(type) {
+	case *model.Task:
+		kind := m.EffectiveKind()
+		set["kind"] = string(kind)
+		switch {
+		case m.Recur != "":
+			set["schedule"] = string(model.ScheduleSeries)
+			if root := seriesRoot(prev, d.ID); root != d.ID {
+				set["occurrence_of"] = string(model.LinkTo(root))
+			}
+		case kind == model.KindMeeting:
+			set["schedule"] = string(model.ScheduleAt)
+		}
+		if kind == model.KindCommitment && len(m.With) > 0 {
+			set["owed_to"] = linkStrings(m.With)
+		}
+		switch m.Status {
+		case model.TaskDone:
+			closed(cmp.Or(m.Outcome, model.OutcomeDone))
+		case model.TaskDropped:
+			closed(cmp.Or(m.Outcome, model.OutcomeDropped))
+		}
+	case *model.RFX:
+		set["kind"] = string(model.KindCommitment)
+		var to []model.Link
+		for _, t := range m.Targets {
+			if !slices.Contains(to, t.To) {
+				to = append(to, t.To)
+			}
+		}
+		if len(to) > 0 {
+			set["owed_to"] = linkStrings(to)
+		}
+		switch m.Status {
+		case model.RFXAnswered, model.RFXClosed:
+			closed(model.OutcomeDone)
+		case model.RFXDeclined:
+			closed(model.OutcomeDeclined)
+		}
+	}
+	folder := d.Folder
+	out, err := model.Retype(d, model.TypeObligation, set)
+	if err != nil {
+		return d, err
+	}
+	if folder == model.FolderArchive {
+		out.Folder = folder
+	}
+	return out, nil
+}
+
+func linkStrings(ls []model.Link) []string {
+	out := make([]string, len(ls))
+	for i, l := range ls {
+		out[i] = string(l)
+	}
+	return out
 }
 
 // openInbox selects a capture still in inbox/. A capture triaged before io

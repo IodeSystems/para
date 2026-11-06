@@ -6658,6 +6658,7 @@ type para_RulesInEffectOutput {
 type para_RunResult {
   dryRun: Boolean
   formatVersion: Int!
+  stale: [para_StaleInstall!]
   steps: [para_StepOutcome!]!
 }
 
@@ -7276,6 +7277,13 @@ type para_StackUndoOutput {
   items: [para_Decision!]!
   question: String
   undone: [String!]
+}
+
+type para_StaleInstall {
+  format: Int!
+  install: String!
+  lastSeen: String!
+  version: String
 }
 
 type para_Stats {
@@ -8347,6 +8355,7 @@ input para_VaultConfigUnsetInputInput {
 input para_VaultUpgradeInputInput {
   dryRun: Boolean
   file: Boolean
+  force: Boolean
   undo: String
 }
 

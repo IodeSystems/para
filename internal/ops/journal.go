@@ -13,6 +13,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // JournalInput is the input of journal_daily, journal_weekly, journal_monthly.
@@ -121,7 +122,7 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 	var in2 []model.Event
 	for _, e := range evs {
 		// A journal's own writes are left out, or a rerun would change what it writes.
-		if skip[e.Doc] {
+		if skip[e.Doc] || e.Op == upgrade.OpSession {
 			continue
 		}
 		if t := e.TS.In(loc); !t.Before(p.start) && t.Before(p.end) {

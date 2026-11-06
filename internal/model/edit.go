@@ -144,6 +144,13 @@ func (d Document) WithFields(set map[string]any) (Document, error) {
 	return decodeNode(d, n)
 }
 
+// DropExtra returns d without the frontmatter keys its type does not declare:
+// for a new document made by Retype, whose old keys mean nothing yet.
+func (d Document) DropExtra() Document {
+	d.extra = nil
+	return d
+}
+
 // Retype returns d as type to, with set applied. Keys of the old type that the
 // new one does not declare stay as extra frontmatter; nothing is dropped. The
 // folder is the one for the new type.

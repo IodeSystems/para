@@ -42,6 +42,9 @@ type Step struct {
 	// Rewrite is the automated change to one document selected by Select. It is
 	// deterministic and keeps content and links.
 	Rewrite func(model.Document) (model.Document, error)
+	// Prepare, when set, reads the vault once before a run and returns the
+	// Rewrite of that run, for a change that needs other documents.
+	Prepare func(ctx context.Context, r Reader) (func(model.Document) (model.Document, error), error)
 	// Instructions tell an agent what to do for a judgement step. Done says the
 	// done test in words.
 	Instructions string
@@ -153,11 +156,14 @@ func matching(ctx context.Context, r Reader, s Step) ([]string, int, error) {
 	return ids, n, nil
 }
 
-// RunResult is what Run did, step by step.
+// RunResult is what Run did, step by step. Stale lists the installs seen in
+// StaleDays that run an older para: a run refuses while there is one, unless
+// forced; a dry run lists them.
 type RunResult struct {
-	DryRun        bool          `json:"dry_run,omitempty"`
-	FormatVersion int           `json:"format_version"`
-	Steps         []StepOutcome `json:"steps"`
+	DryRun        bool           `json:"dry_run,omitempty"`
+	FormatVersion int            `json:"format_version"`
+	Steps         []StepOutcome  `json:"steps"`
+	Stale         []StaleInstall `json:"stale,omitempty"`
 }
 
 // StepOutcome is one step in a run. Batch is the id to undo an automated step.
@@ -190,22 +196,47 @@ func stepOfBatch(batch string) (Step, bool) {
 // Run applies each pending automated step in order as one batch, or lists what
 // it would change when dry is set. It then raises format_version over the steps
 // that are done. A judgement step is only counted here: Run changes nothing for it.
+// It refuses while an install seen in StaleDays runs an older para (RunForced
+// skips that check).
 func Run(ctx context.Context, s store.Store, dry bool) (RunResult, error) {
+	return run(ctx, s, dry, false)
+}
+
+// RunForced is Run that does not refuse for an older para on another install.
+func RunForced(ctx context.Context, s store.Store, dry bool) (RunResult, error) {
+	return run(ctx, s, dry, true)
+}
+
+func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error) {
 	cur, err := Current(s)
 	if err != nil {
 		return RunResult{}, err
 	}
 	res := RunResult{DryRun: dry, FormatVersion: cur, Steps: []StepOutcome{}}
+	if cur < Latest() {
+		if res.Stale, err = Stale(ctx, s, Latest()); err != nil {
+			return res, err
+		}
+		if len(res.Stale) > 0 && !dry && !force {
+			return res, staleError(res.Stale)
+		}
+	}
 	for _, step := range steps() {
 		if step.Version <= cur || !step.Auto || step.Marker {
 			continue
+		}
+		rewrite := step.Rewrite
+		if step.Prepare != nil {
+			if rewrite, err = step.Prepare(ctx, s); err != nil {
+				return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
+			}
 		}
 		batch := BatchID(step.ID, s.Now())
 		out, err := s.Rewrite(ctx, batch, dry, func(d model.Document) (model.Document, bool, error) {
 			if !step.Select(d) {
 				return d, false, nil
 			}
-			nd, err := step.Rewrite(d)
+			nd, err := rewrite(d)
 			return nd, err == nil, err
 		})
 		if err != nil {

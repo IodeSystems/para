@@ -76,6 +76,9 @@ server entries for this install. They write nothing.
 			if err == nil {
 				err = upgrade.Check(s)
 			}
+			if err == nil && !readOnly {
+				err = upgrade.RecordSession(cmd.Context(), s, l.stateDir(sel.ID), l.version)
+			}
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}

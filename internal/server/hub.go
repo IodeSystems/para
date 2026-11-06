@@ -38,7 +38,12 @@ type Hub struct {
 	stops   map[string]func() // event and document watchers by vault id
 
 	docDebounce time.Duration // quiet time before a reconcile; tests shorten it
+	version     string        // this para's version, for the session event
 }
+
+// SetVersion names this para's version in the session event each vault logs
+// when it opens (upgrade.RecordSession).
+func (h *Hub) SetVersion(v string) { h.version = v }
 
 // SetLive makes vaults opened from now on push live events: a watcher on the
 // vault's events/ directory publishes each record, whatever process wrote it.
@@ -147,6 +152,9 @@ func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
 	st, err := local.Open(v.Path, opt)
 	if err == nil {
 		err = upgrade.Check(st)
+	}
+	if err == nil {
+		err = upgrade.RecordSession(context.Background(), st, state, h.version)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("vault %s: %w", v.ID, err)

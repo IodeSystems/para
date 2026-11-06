@@ -64,6 +64,10 @@ func (f *fixture) open(install string) store.Store {
 	if err != nil {
 		f.t.Fatal(err)
 	}
+	// Each machine runs this para, as the CLI, MCP, and serve record it.
+	if err := RecordSession(context.Background(), s, filepath.Join(f.home, install), "test"); err != nil {
+		f.t.Fatal(err)
+	}
 	return s
 }
 
@@ -86,7 +90,7 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if st.FormatVersion != 0 || len(st.Pending) != 2 || st.Pending[0].ID != "meeting-as-task" || st.Pending[0].Count != 2 {
+	if st.FormatVersion != 0 || len(st.Pending) != 3 || st.Pending[0].ID != "meeting-as-task" || st.Pending[0].Count != 2 || st.Pending[2].ID != "obligations" {
 		t.Fatalf("status = %+v", st)
 	}
 
@@ -94,8 +98,10 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// proposal-dossier, io-folder, and calendar-uids also run, and find nothing in this vault.
-	if len(dry.Steps) != 4 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
+	// proposal-dossier, io-folder, and calendar-uids also run, and find
+	// nothing in this vault. A dry run does not see one step's change in the
+	// next: obligations finds the two older meetings as they are.
+	if len(dry.Steps) != 5 || dry.Steps[4].Count != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	if raw(t, f, "meetings/meeting-a.md") != before {
@@ -120,19 +126,24 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	if res.FormatVersion != 1 {
 		t.Fatalf("format_version = %d, want 1", res.FormatVersion)
 	}
+	// The obligations step then made each meeting an obligation.
+	folded := res.Steps[len(res.Steps)-1]
+	if folded.ID != "obligations" || folded.Count != 2 || folded.Batch == "" {
+		t.Fatalf("obligations = %+v", folded)
+	}
 	d, err := s.Get(ctx, "meeting-a")
 	if err != nil {
 		t.Fatal(err)
 	}
-	task, ok := d.Meta.(*model.Task)
-	if !ok || task.Kind != model.KindMeeting || task.Scheduled != "2026-11-04T10:00:00-05:00" || len(task.With) != 1 || len(task.RFX) != 1 {
-		t.Fatalf("meeting-a = %#v", d.Meta)
+	ob, ok := d.Meta.(*model.Obligation)
+	if !ok || ob.Kind != model.KindMeeting || ob.Schedule != model.ScheduleAt || ob.Scheduled != "2026-11-04T10:00:00-05:00" || len(ob.With) != 1 || len(ob.RFX) != 1 || d.Folder != model.FolderObligations {
+		t.Fatalf("meeting-a = %s %#v", d.Folder, d.Meta)
 	}
 	if !strings.Contains(d.Body, "Some notes.") || !strings.Contains(d.Body, "[[rfx-x]]") {
 		t.Fatalf("body lost: %q", d.Body)
 	}
 	b, _ := s.Get(ctx, "meeting-b")
-	if bt := b.Meta.(*model.Task); bt.Status != model.TaskDone || bt.Outcome != model.OutcomeDone {
+	if bt := b.Meta.(*model.Obligation); bt.State != model.StateClosed || bt.Outcome != model.OutcomeDone || bt.FoldedFrom != model.TypeTask {
 		t.Fatalf("meeting-b = %#v", bt)
 	}
 	ev, _ := s.Events(ctx, 50)
@@ -147,8 +158,11 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	}
 
 	// The batch is gone from the vault, so the old bytes live only in state.
-	if strings.Contains(raw(t, f, "meetings/meeting-a.md"), "type: meeting") {
+	if strings.Contains(raw(t, f, "obligations/meeting-a.md"), "type: meeting") {
 		t.Fatal("file still says type: meeting")
+	}
+	if _, err := Undo(ctx, s, folded.Batch); err != nil {
+		t.Fatal(err)
 	}
 	un, err := Undo(ctx, s, batch)
 	if err != nil {
@@ -188,7 +202,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Steps) != 3 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 || again.Steps[2].Count != 0 {
+	if len(again.Steps) != 4 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 || again.Steps[2].Count != 0 || again.Steps[3].Count != 0 {
 		t.Fatalf("second run = %+v", again)
 	}
 	// A second machine sees the same vault.properties and the rewritten files.
@@ -204,7 +218,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 3 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 {
+	if len(r.Steps) != 4 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 {
 		t.Fatalf("second install run = %+v", r)
 	}
 	// Without format_version (the property did not sync yet) the selector
@@ -216,7 +230,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 4 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 || r.FormatVersion != 1 {
+	if len(r.Steps) != 5 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 || r.Steps[4].Count != 0 || r.FormatVersion != 1 {
 		t.Fatalf("run with a stale version = %+v", r)
 	}
 	if hasOp(mustEvents(t, two), vault.OpUpgradeUndo) {
@@ -287,7 +301,7 @@ func TestEditedDocumentIsSkippedByUndo(t *testing.T) {
 	if _, err := s.Update(ctx, d); err != nil {
 		t.Fatal(err)
 	}
-	un, err := Undo(ctx, s, res.Steps[0].Batch)
+	un, err := Undo(ctx, s, res.Steps[len(res.Steps)-1].Batch)
 	if err != nil {
 		t.Fatal(err)
 	}

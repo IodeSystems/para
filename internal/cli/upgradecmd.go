@@ -40,12 +40,13 @@ func newChangesCmd(l *loader) *cobra.Command {
 // `status` as the read-only subcommand.
 func newVaultUpgradeCmd(l *loader) *cobra.Command {
 	cmd := opCommand(l, ops.VaultUpgrade, binding[ops.VaultUpgradeInput, ops.VaultUpgradeOutput]{
-		Use:  "upgrade [--dry-run | --file | --undo <batch>]",
+		Use:  "upgrade [--dry-run | --file | --undo <batch>] [--force]",
 		Args: cobra.NoArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.VaultUpgradeInput) {
 			fs.BoolVar(&in.DryRun, "dry-run", false, "list the documents each automated step would rewrite and change nothing")
 			fs.BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work; runs no automated step")
 			fs.StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
+			fs.BoolVar(&in.Force, "force", false, "run while another install seen in 14 days runs an older para; that machine then refuses the vault until it is upgraded")
 		},
 		Text: writeVaultUpgrade,
 	})
@@ -55,7 +56,8 @@ func newVaultUpgradeCmd(l *loader) *cobra.Command {
 
 An automated step rewrites documents through the vault: one batch, one event per
 document. Use --dry-run first. --undo <batch> restores the files on the machine
-that ran the batch. A judgement step needs an agent: --file queues each pending
+that ran the batch. Upgrade para on every machine of the vault first: a run
+refuses while an install seen in 14 days runs an older para (--force runs it). A judgement step needs an agent: --file queues each pending
 one as agent work and changes no document. "upgrade status" lists what is pending.`
 	cmd.AddCommand(opCommand(l, ops.VaultUpgradeStatus, binding[ops.VaultUpgradeStatusInput, upgrade.Status]{
 		Use:  "status",
@@ -97,6 +99,15 @@ func writeVaultUpgrade(w io.Writer, o ops.VaultUpgradeOutput) error {
 			}
 		}
 	case o.Run != nil:
+		for _, s := range o.Run.Stale {
+			what := "a para that logs no version"
+			if s.Format > 0 {
+				what = fmt.Sprintf("para %s (format %d)", s.Version, s.Format)
+			}
+			if _, err := fmt.Fprintf(w, "install %s (seen %s) runs %s: upgrade para there first\n", s.Install, s.LastSeen, what); err != nil {
+				return err
+			}
+		}
 		verb := "rewrote"
 		if o.Run.DryRun {
 			verb = "would rewrite"

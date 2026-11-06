@@ -135,6 +135,9 @@ func (l *loader) depsFor(id, path string) (ops.Deps, error) {
 	if err == nil {
 		err = upgrade.Check(s)
 	}
+	if err == nil {
+		err = upgrade.RecordSession(context.Background(), s, l.stateDir(id), l.version)
+	}
 	if err != nil {
 		return ops.Deps{}, fmt.Errorf("vault %s: %w", id, err)
 	}

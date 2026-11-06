@@ -23,8 +23,11 @@ func TestCalendarUIDsStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	batch := ""
+	batch, folded := "", ""
 	for _, so := range res.Steps {
+		if so.ID == "obligations" {
+			folded = so.Batch
+		}
 		if so.ID == "calendar-uids" {
 			batch = so.Batch
 			if so.Count != 1 {
@@ -36,12 +39,15 @@ func TestCalendarUIDsStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tk := d.Meta.(*model.Task)
+	// The obligations step made the meeting an obligation after.
+	tk := d.Meta.(*model.Obligation)
 	if tk.CalendarUID != "" || len(tk.CalendarUIDs) != 1 || tk.CalendarUIDs[0] != (model.CalendarEvent{UID: "sync@acme.example", Role: model.RolePrimary}) {
 		t.Fatalf("task = %+v", tk)
 	}
-	if _, err := Undo(ctx, s, batch); err != nil {
-		t.Fatal(err)
+	for _, b := range []string{folded, batch} {
+		if _, err := Undo(ctx, s, b); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if got := raw(t, f, "projects/task-sync.md"); got != before {
 		t.Fatalf("undo left:\n%s", got)

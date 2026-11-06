@@ -63,9 +63,11 @@ var VaultUpgradeStatus = defineRead("vault_upgrade_status", "List the format upg
 
 // VaultUpgradeInput is the input of vault_upgrade. Undo is a batch id from an
 // earlier run. File only files each pending judgement step as agent work, and
-// runs no automated step.
+// runs no automated step. Force runs while another install seen in the last
+// 14 days runs an older para: that machine then refuses the vault.
 type VaultUpgradeInput struct {
 	DryRun bool   `json:"dry_run,omitempty"`
+	Force  bool   `json:"force,omitempty"`
 	File   bool   `json:"file,omitempty"`
 	Undo   string `json:"undo,omitempty"`
 }
@@ -80,7 +82,7 @@ type VaultUpgradeOutput struct {
 
 // VaultUpgrade runs the automated steps of a vault upgrade as one batch per
 // step, undoes a batch, or files the judgement steps as agent work.
-var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
+var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. It refuses while another install seen in 14 days runs an older para (upgrade para there first), unless force. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
 	out := VaultUpgradeOutput{Filed: []string{}}
 	switch {
 	case in.File && (in.Undo != "" || in.DryRun):
@@ -97,7 +99,11 @@ var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to
 		}
 		out.Undo = &r
 	default:
-		r, err := upgrade.Run(ctx, d.Store, in.DryRun)
+		run := upgrade.Run
+		if in.Force {
+			run = upgrade.RunForced
+		}
+		r, err := run(ctx, d.Store, in.DryRun)
 		if err != nil {
 			return out, err
 		}

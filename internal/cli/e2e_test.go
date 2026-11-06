@@ -14,7 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 type env struct {
@@ -104,6 +106,7 @@ func TestEndToEnd(t *testing.T) {
 
 	var tail ops.EventsTailOutput
 	e.json(&tail, "events", "tail")
+	tail.Events = noSessions(tail.Events)
 	if len(tail.Events) != 1 {
 		t.Fatalf("events = %+v", tail.Events)
 	}
@@ -288,6 +291,7 @@ func TestInboxAddRefusesBadText(t *testing.T) {
 	}
 	var tail ops.EventsTailOutput
 	e.json(&tail, "events", "tail")
+	tail.Events = noSessions(tail.Events)
 	if len(tail.Events) != 0 {
 		t.Fatalf("events = %+v", tail.Events)
 	}
@@ -549,4 +553,15 @@ func TestTodayShowsSyncConflicts(t *testing.T) {
 	if out := e.ok("lint"); !strings.Contains(out, "sync-conflict") {
 		t.Fatalf("lint = %q", out)
 	}
+}
+
+// noSessions drops the session events each para logs when it opens a vault.
+func noSessions(evs []model.Event) []model.Event {
+	out := []model.Event{}
+	for _, e := range evs {
+		if e.Op != upgrade.OpSession {
+			out = append(out, e)
+		}
+	}
+	return out
 }
