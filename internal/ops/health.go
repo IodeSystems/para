@@ -649,7 +649,7 @@ func (h *healther) annotations(d model.Document, a *model.Area) {
 		}
 		if b, ok := strings.CutPrefix(c.Field("anchor"), "^"); ok && !hasBlock(d.Body, b) {
 			h.add(HealthAnnotationLost, d.ID, "", fmt.Sprintf("annotation %s is about ^%s, which is no longer in the body", c.ID, b),
-				fmt.Sprintf("annotate {area: %s, id: %s, anchor: <heading>}", d.ID, c.ID))
+				fmt.Sprintf("annotate {area: %s, id: %s, anchor: the heading text}", d.ID, c.ID))
 		}
 		if q := c.Field("quote"); q != "" && text != "" {
 			if _, _, ok := locateQuote(text, q, 0); !ok {
@@ -664,7 +664,7 @@ func (h *healther) annotations(d model.Document, a *model.Area) {
 	}
 	if n := len(upgrade.FoldedAtTop(d.Body)); n > 0 {
 		h.add(HealthAnnotationAtTop, d.ID, "", fmt.Sprintf("%d annotation(s) the upgrade folded are at the top of the area, not in a section", n),
-			fmt.Sprintf("annotate {area: %s, id: <annotation>, anchor: <heading>} for each, or health_dismiss {id: %s, kind: %s}", d.ID, d.ID, HealthAnnotationAtTop))
+			fmt.Sprintf("annotate {area: %s, id: the annotation id, anchor: the heading text} for each, or health_dismiss {id: %s, kind: %s}", d.ID, d.ID, HealthAnnotationAtTop))
 	}
 }
 

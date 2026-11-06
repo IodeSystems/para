@@ -166,8 +166,8 @@ func steps() []Step {
 			Select:   placementPending,
 			Instructions: "Step policy-docs put each exception, convention, and constraint it could not anchor to a rule at the top of its area. " +
 				"For each area the selector lists, read the body and each annotation at the top (area_show lists them with their section). " +
-				"Where the text makes the section clear, move the annotation there with annotate {area, id, anchor: \"<heading>\"}. " +
-				"Where it does not, leave it and say so; do not guess. The owner may dismiss the rest with health_dismiss {id: <area>, kind: " + AnnotationAtTop + "}.",
+				"Where the text makes the section clear, move the annotation there with annotate {area, id, anchor: \"the heading text\"}. " +
+				"Where it does not, leave it and say so; do not guess. The owner may dismiss the rest with health_dismiss {id: the area id, kind: " + AnnotationAtTop + "}.",
 			Done: "No folded annotation is at the top of an area, or the owner dismissed it.",
 		},
 		{
@@ -194,9 +194,9 @@ func steps() []Step {
 			Instructions: "Each document the selector lists is a note (type note) that links an area or a goal. Notes now live on the item they are about. " +
 				"For each note, read it (note_show) and the item it links. Where the text is about that item, append it to the item's notes: notes_read {id}, " +
 				"then notes_edit {id, hash, md: the notes as they are, then the note's title and text}; where it is about one section of an area, " +
-				"add it there with annotate {area, anchor: \"<heading>\", kind: note, text}. Then archive the note with doc_archive {id, reason: \"moved to <item>\"}. " +
+				"add it there with annotate {area, anchor: \"the heading text\", kind: note, text}. Then archive the note with doc_archive {id, reason: \"moved to the item id\"}. " +
 				"Where it is not clear where the text belongs, leave the note and say so; do not guess. A note that links nothing stays a note. " +
-				"The owner may keep a note as it is with health_dismiss {id: <note>, kind: " + NotePlacement + "}.",
+				"The owner may keep a note as it is with health_dismiss {id: the note id, kind: " + NotePlacement + "}.",
 			Done: "No note that links an item is left outside archive/, or the owner dismissed it.",
 		},
 	}

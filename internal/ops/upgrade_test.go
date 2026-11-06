@@ -6,6 +6,7 @@ import (
 
 	"github.com/iodesystems/para/changes"
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 func TestVaultUpgradeFilesJudgementWorkOnceAndRefusesAgents(t *testing.T) {
@@ -81,5 +82,21 @@ func TestRequestLinksAreasAndNotes(t *testing.T) {
 	note := must(t, NoteAdd, d, NoteAddInput{Title: "X", Area: area}).ID
 	if _, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: "Place", Ask: "Place them.", Links: []string{area, note}, Kind: upgradeKind}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Every judgement step's instructions become a request body when filed, so
+// they must pass the vault's lint (no raw HTML such as <heading>).
+func TestUpgradeInstructionsFileCleanly(t *testing.T) {
+	tv := newTickVault(t, "2026-11-03T12:00:00Z")
+	d := tv.open("one", "cli")
+	for _, s := range upgrade.Steps() {
+		if s.Instructions == "" {
+			continue
+		}
+		ask := s.Instructions + "\n\n## Done when\n\n" + s.Done
+		if _, err := RequestAdd.Run(t.Context(), d, RequestAddInput{Title: "Step " + s.ID, Ask: ask, Kind: upgradeKind}); err != nil {
+			t.Errorf("step %s: %v", s.ID, err)
+		}
 	}
 }
