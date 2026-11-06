@@ -257,6 +257,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTodayCmd(l),
 		newRequestCmd(l),
 		newProposalCmd(l),
+		newDossierCmd(l),
 		newStackCmd(l),
 		newTopOpenCmd(l),
 		newReceiptCmd(l),

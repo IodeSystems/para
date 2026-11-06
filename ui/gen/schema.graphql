@@ -60,6 +60,7 @@ type ParaV1MutationNamespace {
   docTrack(body: para_DocTrackInputInput!): para_DocTrackOutput @derived(operationId: "docTrack")
   docTrackedStatus(body: para_DocTrackedStatusInputInput!): para_DocTrackedStatusOutput @derived(operationId: "docTrackedStatus")
   docVersionAdd(body: para_DocVersionAddInputInput!): para_DocVersionAddOutput @derived(operationId: "docVersionAdd")
+  dossierRefile(body: para_DossierRefileInputInput!): para_DossierRefileOutput @derived(operationId: "dossierRefile")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   feedbackAdd(body: para_FeedbackAddInputInput!): para_FeedbackAddOutput @derived(operationId: "feedbackAdd")
@@ -368,6 +369,7 @@ enum para_ActionRecordOutputState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -1314,6 +1316,7 @@ enum para_DecisionState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -1856,6 +1859,46 @@ enum para_DocumentFolder {
   rfx
   sources
   tracked
+}
+
+input para_DossierRefileInputInput {
+  dropped: String
+  item: String!
+  proposal: String!
+  result: String
+}
+
+type para_DossierRefileOutput {
+  item: String!
+  left: Int!
+  proposal: String!
+  rev: String!
+  state: para_DossierRefileOutputState!
+  status: para_DossierRefileOutputStatus!
+}
+
+enum para_DossierRefileOutputState {
+  answered
+  approved
+  claimed
+  denied
+  done
+  failed
+  halted
+  held
+  moved
+  pending
+  running
+  sent_back
+  skipped
+  withdrawn
+}
+
+enum para_DossierRefileOutputStatus {
+  closed
+  open
+  sent_back
+  superseded
 }
 
 type para_DossierResponse {
@@ -3668,6 +3711,7 @@ enum para_ItemViewState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -4894,6 +4938,11 @@ type para_PersonNoteOutput {
   rev: String!
 }
 
+type para_PlanLine {
+  doc: String!
+  lines: [String!]!
+}
+
 type para_Pointer {
   kind: para_PointerKind!
   label: String!
@@ -5332,6 +5381,7 @@ enum para_ProposalExecutedOutputState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -6671,6 +6721,7 @@ enum para_ResponseItemState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -7416,6 +7467,7 @@ enum para_StackRowState {
   failed
   halted
   held
+  moved
   pending
   running
   sent_back
@@ -7461,6 +7513,7 @@ type para_StepOutcome {
   count: Int!
   docs: [String!]!
   id: String!
+  plan: [para_PlanLine!]
   title: String!
 }
 

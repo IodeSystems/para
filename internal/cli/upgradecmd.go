@@ -67,6 +67,26 @@ one as agent work and changes no document. "upgrade status" lists what is pendin
 	return cmd
 }
 
+// newDossierCmd is `para dossier refile`: the judgement part of vault
+// upgrade step dossiers.
+func newDossierCmd(l *loader) *cobra.Command {
+	cmd := &cobra.Command{Use: "dossier", Short: "Old dossiers: record what became of a staged change (vault upgrade step dossiers)", Args: cobra.NoArgs}
+	cmd.AddCommand(opCommand(l, ops.DossierRefile, binding[ops.DossierRefileInput, ops.DossierRefileOutput]{
+		Use:  "refile <dossier> <item> (--result <id> | --dropped <reason>)",
+		Args: cobra.ExactArgs(2),
+		Flags: func(fs *pflag.FlagSet, in *ops.DossierRefileInput) {
+			fs.StringVar(&in.Result, "result", "", "the id the direct write made or changed, or its receipt")
+			fs.StringVar(&in.Dropped, "dropped", "", "why the staged change is not needed")
+		},
+		Bind: func(args []string, in *ops.DossierRefileInput) error { in.Proposal, in.Item = args[0], args[1]; return nil },
+		Text: func(w io.Writer, out ops.DossierRefileOutput) error {
+			_, err := fmt.Fprintf(w, "%s %s: %s; dossier %s, %d staged left\n", out.Proposal, out.Item, out.State, out.Status, out.Left)
+			return err
+		},
+	}))
+	return cmd
+}
+
 func writeUpgradeStatus(w io.Writer, s upgrade.Status) error {
 	if len(s.Pending) == 0 {
 		_, err := fmt.Fprintf(w, "format %d of %d: nothing pending\n", s.FormatVersion, s.Latest)
@@ -76,7 +96,7 @@ func writeUpgradeStatus(w io.Writer, s upgrade.Status) error {
 		return err
 	}
 	for _, p := range s.Pending {
-		how := "judgement: agent work (para vault upgrade --file)"
+		how := "judgement: agent work (para vault upgrade --file) titled \"Vault upgrade: " + p.Title + "\""
 		if p.Auto {
 			how = "automated: para vault upgrade --dry-run, then para vault upgrade"
 		}
@@ -119,6 +139,16 @@ func writeVaultUpgrade(w io.Writer, o ops.VaultUpgradeOutput) error {
 			for _, id := range s.Docs {
 				if _, err := fmt.Fprintf(w, "  %s\n", id); err != nil {
 					return err
+				}
+			}
+			for _, p := range s.Plan {
+				if _, err := fmt.Fprintf(w, "  plan %s:\n", p.Doc); err != nil {
+					return err
+				}
+				for _, ln := range p.Lines {
+					if _, err := fmt.Fprintf(w, "    %s\n", ln); err != nil {
+						return err
+					}
 				}
 			}
 			if s.Batch != "" {

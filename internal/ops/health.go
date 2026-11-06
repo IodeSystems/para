@@ -10,6 +10,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // Health. A read that reports gaps in a vault as warnings, grouped by goal.
@@ -66,6 +67,9 @@ const (
 	// HealthGateUnused is the vault setting gate.require, set and read by
 	// nothing since 0.3.0.
 	HealthGateUnused = "gate_setting_unused"
+	// HealthUpgradePending is a vault upgrade step with documents left: the
+	// owner runs an automated one, an agent works a judgement one.
+	HealthUpgradePending = "upgrade_pending"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -80,7 +84,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
-	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused,
+	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused, HealthUpgradePending,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -122,6 +126,7 @@ var HealthKindWords = map[string]string{
 	HealthUnreviewedOutward:  "Sent as the owner with no record",
 	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
 	HealthGateUnused:         "Vault setting no longer used",
+	HealthUpgradePending:     "Vault upgrade step pending",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -229,6 +234,17 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	} else if v != "" {
 		h.add(HealthGateUnused, "", "", fmt.Sprintf("%s is set (%s) and no longer used: an undoable agent write applies at once, and one that cannot be undone needs the owner", GateConfig, v),
 			"the owner runs para vault config unset "+GateConfig)
+	}
+	if st, err := upgrade.StatusOf(ctx, s); err == nil {
+		for _, p := range st.Pending {
+			if p.Auto {
+				h.add(HealthUpgradePending, "", "", fmt.Sprintf("vault upgrade step %s has %d documents for the owner to run (%s)", p.ID, p.Count, p.Title),
+					"the owner runs para vault upgrade --dry-run, then para vault upgrade")
+				continue
+			}
+			h.add(HealthUpgradePending, "", "", fmt.Sprintf("vault upgrade step %s has %d documents for an agent (judgement: %s)", p.ID, p.Count, p.Title),
+				"an agent works the agent work titled \""+upgradePrefix+p.Title+"\" (para vault upgrade --file queues it)")
+		}
 	}
 
 	// Dismissed findings are left out and counted.

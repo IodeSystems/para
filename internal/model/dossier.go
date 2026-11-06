@@ -872,6 +872,28 @@ func NewDossier(h DossierHeader, heading string, items []ProposalItem) *Dossier 
 	return d
 }
 
+// Narrative is the markdown of the item's section that comes before its
+// block, without the heading and without other blocks: the text the owner
+// read the item in.
+func (d *Dossier) Narrative(id string) string {
+	var b strings.Builder
+	for _, p := range d.parts {
+		switch {
+		case p.item == id:
+			return strings.TrimSpace(b.String())
+		case p.text != "":
+			for _, ln := range strings.SplitAfter(p.text, "\n") {
+				if headingRe.MatchString(strings.TrimRight(ln, "\n")) {
+					b.Reset()
+					continue
+				}
+				b.WriteString(ln)
+			}
+		}
+	}
+	return ""
+}
+
 // Content is the dossier as the fields proposal ops work on.
 func (d *Dossier) Content() ProposalContent {
 	items := d.Items

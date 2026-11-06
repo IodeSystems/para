@@ -91,6 +91,9 @@ const (
 	// skip is navigation in one web visit, stored nowhere). It waits for the
 	// owner as pending does.
 	ItemSkipped ItemState = "skipped"
+	// ItemMoved is an item vault upgrade step dossiers moved out of its
+	// dossier: Result names where it went (a question or an io draft).
+	ItemMoved ItemState = "moved"
 
 	// itemRework is the old word for sent_back, in older files.
 	itemRework ItemState = "rework"
@@ -100,7 +103,7 @@ const (
 func (ItemState) Enum() []string { return enumStrings(ItemStates) }
 
 // ItemStates lists every ItemState.
-var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn, ItemAnswered, ItemClaimed, ItemSkipped}
+var ItemStates = []ItemState{ItemPending, ItemHeld, ItemRunning, ItemApproved, ItemDone, ItemFailed, ItemHalted, ItemDenied, ItemSentBack, ItemWithdrawn, ItemAnswered, ItemClaimed, ItemSkipped, ItemMoved}
 
 // TurnKind is thread[].kind. Change, clarify, investigate, and redirect wait for
 // the agent's answer; the others are the record of what the owner did. Redirect

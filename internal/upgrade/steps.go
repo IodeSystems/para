@@ -121,6 +121,28 @@ func steps() []Step {
 				return func(d model.Document) (model.Document, error) { return asObligation(d, prev) }, nil
 			},
 		},
+		{
+			// A para before this step reads the moved state as unknown and
+			// fails on the dossier: upgrade para on every machine first.
+			ID:      "dossiers",
+			Version: DossierFormat,
+			Title:   "Move what open dossiers hold to vault items: questions, io drafts, and Later; an agent re-files each staged change (upgrade para on every machine of this vault first)",
+			Auto:    true,
+			Types:   []model.Type{model.TypeProposal},
+			Select:  DossierMovable,
+			Expand:  expandDossier,
+			Judge:   DossierStaged,
+			Explain: explainDossier,
+			Instructions: "Each document the selector lists is a dossier that still holds staged changes: change (or upstream) blocks in state pending, " +
+				"sent_back, skipped, running, or approved and waiting, which para no longer runs. Para has no review stack now: an undoable write applies at once, with a receipt the owner can undo. " +
+				"For each staged item, read it, its evidence, and the vault as it is now. If the change is still right, make it yourself with the op it names " +
+				"(the input as the block holds it, or as the owner's draft answer edited it), then record it with dossier_refile {proposal, item, result: the id the op wrote or its receipt}. " +
+				"If it is no longer needed (done since, superseded, or the owner denied it in words), record dossier_refile {proposal, item, dropped: the reason}. " +
+				"A change that needs the owner (it cannot be undone, or the owner must decide) becomes a question (question_add) linked to the dossier; then record it with result: that question. " +
+				"An upstream item is marked seen by the owner only (doc_seen): drop it with the reason \"the tracked document still shows the change unseen\". " +
+				"The dossier closes as superseded when its last item is recorded. When no dossier is left, tell the owner to run para vault upgrade once: it raises the vault format.",
+			Done: "No open dossier holds a staged change.",
+		},
 	}
 }
 

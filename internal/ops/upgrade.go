@@ -144,7 +144,7 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 	}
 	for _, p := range st.Pending {
 		step := stepByID(p.ID)
-		if step.Auto || have[upgradePrefix+p.Title] {
+		if p.Auto || step.Instructions == "" || have[upgradePrefix+p.Title] {
 			continue
 		}
 		ask := step.Instructions + "\n\n## Documents\n\n" + upgradeDocs(p) + "\n\n## Done when\n\n" + step.Done +

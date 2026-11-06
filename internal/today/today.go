@@ -422,7 +422,11 @@ func fillAgenda(ctx context.Context, st *local.Store, sn *ops.Snapshot, date str
 		vt.Health = h.Count
 	}
 	if us, err := upgrade.StatusOf(ctx, st); err == nil {
-		vt.UpgradeSteps = len(us.Pending)
+		ids := map[string]bool{}
+		for _, p := range us.Pending {
+			ids[p.ID] = true
+		}
+		vt.UpgradeSteps = len(ids)
 	}
 	soon := date
 	if t, err := time.Parse(dateLayout, date); err == nil {

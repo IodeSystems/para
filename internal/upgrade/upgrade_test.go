@@ -100,8 +100,9 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	}
 	// proposal-dossier, io-folder, and calendar-uids also run, and find
 	// nothing in this vault. A dry run does not see one step's change in the
-	// next: obligations finds the two older meetings as they are.
-	if len(dry.Steps) != 5 || dry.Steps[4].Count != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
+	// next: obligations finds the two older meetings as they are. dossiers
+	// finds no dossier.
+	if len(dry.Steps) != 6 || dry.Steps[5].Count != 0 || dry.Steps[4].Count != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	if raw(t, f, "meetings/meeting-a.md") != before {
@@ -127,7 +128,7 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 		t.Fatalf("format_version = %d, want 1", res.FormatVersion)
 	}
 	// The obligations step then made each meeting an obligation.
-	folded := res.Steps[len(res.Steps)-1]
+	folded := res.Steps[len(res.Steps)-2]
 	if folded.ID != "obligations" || folded.Count != 2 || folded.Batch == "" {
 		t.Fatalf("obligations = %+v", folded)
 	}
@@ -202,7 +203,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Steps) != 4 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 || again.Steps[2].Count != 0 || again.Steps[3].Count != 0 {
+	if len(again.Steps) != 5 || again.Steps[4].Count != 0 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 || again.Steps[2].Count != 0 || again.Steps[3].Count != 0 {
 		t.Fatalf("second run = %+v", again)
 	}
 	// A second machine sees the same vault.properties and the rewritten files.
@@ -218,7 +219,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 4 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 {
+	if len(r.Steps) != 5 || r.Steps[4].Count != 0 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 {
 		t.Fatalf("second install run = %+v", r)
 	}
 	// Without format_version (the property did not sync yet) the selector
@@ -230,7 +231,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 5 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 || r.Steps[4].Count != 0 || r.FormatVersion != 1 {
+	if len(r.Steps) != 6 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 || r.Steps[4].Count != 0 || r.Steps[5].Count != 0 || r.FormatVersion != 1 {
 		t.Fatalf("run with a stale version = %+v", r)
 	}
 	if hasOp(mustEvents(t, two), vault.OpUpgradeUndo) {
@@ -301,7 +302,7 @@ func TestEditedDocumentIsSkippedByUndo(t *testing.T) {
 	if _, err := s.Update(ctx, d); err != nil {
 		t.Fatal(err)
 	}
-	un, err := Undo(ctx, s, res.Steps[len(res.Steps)-1].Batch)
+	un, err := Undo(ctx, s, res.Steps[len(res.Steps)-2].Batch) // obligations
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -320,10 +321,10 @@ func TestStepsAreOrderedAndNamed(t *testing.T) {
 		if s.Select == nil || len(s.Types) == 0 {
 			t.Errorf("step %s has no selector", s.ID)
 		}
-		if s.Auto && s.Rewrite == nil {
+		if s.Auto && s.Rewrite == nil && s.Expand == nil {
 			t.Errorf("automated step %s has no rewrite", s.ID)
 		}
-		if !s.Auto && (s.Instructions == "" || s.Done == "") {
+		if (!s.Auto || s.Judge != nil) && (s.Instructions == "" || s.Done == "") {
 			t.Errorf("judgement step %s lacks instructions or a done test", s.ID)
 		}
 		if got, ok := stepOfBatch(BatchID(s.ID, time.Now())); !ok || got.ID != s.ID {

@@ -93,7 +93,7 @@ func TestObligationsStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dry.Steps) != 1 || dry.Steps[0].ID != "obligations" || strings.Join(dry.Steps[0].Docs, ",") != strings.Join(folded, ",") || dry.Steps[0].Batch != "" {
+	if len(dry.Steps) != 2 || dry.Steps[1].Count != 0 || dry.Steps[0].ID != "obligations" || strings.Join(dry.Steps[0].Docs, ",") != strings.Join(folded, ",") || dry.Steps[0].Batch != "" {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	for _, id := range folded {
@@ -106,7 +106,7 @@ func TestObligationsStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.FormatVersion != 7 || res.Steps[0].Count != len(folded) {
+	if res.FormatVersion != Latest() || res.Steps[0].Count != len(folded) {
 		t.Fatalf("run = %+v", res)
 	}
 	get := func(id string) (model.Document, *model.Obligation) {
@@ -166,13 +166,13 @@ func TestObligationsStep(t *testing.T) {
 		}
 	}
 
-	// A re-run, and a second machine at format 7, do nothing.
+	// A re-run, and a second machine at the latest format, do nothing.
 	again, err := Run(ctx, s, false)
 	if err != nil || len(again.Steps) != 0 {
 		t.Fatalf("re-run = %+v, %v", again, err)
 	}
 	two := f.open("two")
-	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != 7 || len(st.Pending) != 0 {
+	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(st.Pending) != 0 {
 		t.Fatalf("second machine = %+v, %v", st, err)
 	}
 	if r, err := Run(ctx, two, false); err != nil || len(r.Steps) != 0 {
@@ -243,7 +243,7 @@ func TestObligationsStepRefusesAnOlderPara(t *testing.T) {
 	if err := RecordSession(ctx, old, "", "v0.3.0"); err != nil {
 		t.Fatal(err)
 	}
-	if res, err := Run(ctx, s, false); err != nil || res.FormatVersion != 7 {
+	if res, err := Run(ctx, s, false); err != nil || res.FormatVersion != Latest() {
 		t.Fatalf("run after the upgrade = %+v, %v", res, err)
 	}
 }
@@ -269,7 +269,7 @@ func TestObligationsStepForced(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := RunForced(ctx, s, false)
-	if err != nil || res.FormatVersion != 7 || len(res.Stale) != 1 || res.Stale[0].Install != "old" {
+	if err != nil || res.FormatVersion != Latest() || len(res.Stale) != 1 || res.Stale[0].Install != "old" {
 		t.Fatalf("forced = %+v, %v", res, err)
 	}
 }

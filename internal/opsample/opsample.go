@@ -239,6 +239,7 @@ var Inputs = map[string]string{
 	"proposal_submit":   `{"id":"proposal-sample","revision":1}`,
 	"stack_decide":      `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject","comment":"Not now."}`,
 	"stack_undo":        `{"items":[{"proposal":"proposal-decided","item":"i1"}]}`,
+	"dossier_refile":    `{"proposal":"proposal-sample","item":"i1","dropped":"Not needed now."}`,
 }
 
 const (
