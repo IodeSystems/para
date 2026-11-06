@@ -251,6 +251,21 @@ try {
   const meeting = idOf(
     para(...v, 'meeting', 'add', 'Quota sync', '--with', person, '--rfx', ask, '--json'),
   )
+  // A commitment: an obligation owed to a person, due tomorrow.
+  const owedDue = new Date(Date.now() + 24 * 3600 * 1000).toISOString().slice(0, 10)
+  const owed = idOf(
+    para(
+      ...v,
+      'obligation',
+      'add',
+      'Send Sam the numbers',
+      '--owed-to',
+      person,
+      '--due',
+      owedDue,
+      '--json',
+    ),
+  )
   const incoming = idOf(
     para(
       ...v,
@@ -476,7 +491,10 @@ try {
     ['/policy', 'Policy'],
     ['/questions', 'Questions'],
     ['/requests', 'Asked of agents'],
-    ['/meetings', 'Meetings'],
+    ['/obligations', 'Obligations'],
+    [`/obligations/${meeting}`, 'Quota sync'],
+    [`/obligations/${owed}`, 'Send Sam the numbers'],
+    ['/meetings', 'Obligations'],
     [`/meetings/${meeting}`, 'Quota sync'],
     ['/activity', 'Agent activity'],
     ['/friction', 'Friction'],
@@ -1148,10 +1166,7 @@ try {
   await rpage.locator('[data-approved]').waitFor()
   {
     const ok = (await agent.call('io_show', { id: ioApprove })).item
-    check(
-      ok.state === 'ready',
-      `Approve on an outgoing draft makes it ready (${ok.state})`,
-    )
+    check(ok.state === 'ready', `Approve on an outgoing draft makes it ready (${ok.state})`)
   }
 
   // PU-NEXT: one card, the top of the value order that needs you. Skip (j) shows the next card and
@@ -1328,6 +1343,21 @@ try {
     'the save based on the current notes goes through',
   )
 
+  // An obligation owed tomorrow is an agenda row; its page names who it is owed to.
+  await rpage.goto(`${base}/agenda?by=date`)
+  await rpage.locator(`[data-agenda-row="${owed}"]`).first().waitFor()
+  check(true, 'the agenda lists an owed obligation as a row')
+  await rpage.goto(`${base}/obligations/${owed}`)
+  await rpage.locator('[data-owed-to]').waitFor()
+  check(
+    (await rpage.locator('[data-owed-to]').innerText()).includes('Sam Rivera'),
+    'the obligation page names who it is owed to',
+  )
+  check(
+    /"type":\s*"obligation"/.test(para(...v, 'show', owed, '--json')),
+    'an owed obligation is type obligation',
+  )
+
   // A meeting that needs you (booked for tomorrow, within due_soon_days) shows its brief on the
   // agenda without a click, with an attendee not in the directory as unresolved.
   const soon = new Date(Date.now() + 26 * 3600 * 1000)
@@ -1361,6 +1391,7 @@ try {
   // A meeting's page shows its brief (the person and the ask it should settle). With notes saved,
   // Send to agent to file queues agent work of kind meeting-notes.
   await rpage.goto(`${base}/meetings/${meeting}`)
+  await rpage.waitForURL(new RegExp(`/obligations/${meeting}$`))
   await rpage.locator(`[data-brief="${meeting}"] [data-brief-line="${ask}"]`).first().waitFor()
   check(
     (await rpage.locator(`[data-brief-person="${person}"]`).count()) === 1,

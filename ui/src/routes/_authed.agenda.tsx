@@ -239,8 +239,8 @@ function Agenda() {
       <PageTitle
         action={
           <Stack direction="row" spacing={1}>
-            <LinkButton size="small" to="/meetings">
-              Meetings
+            <LinkButton size="small" to="/obligations">
+              Obligations
             </LinkButton>
             <LinkButton
               size="small"

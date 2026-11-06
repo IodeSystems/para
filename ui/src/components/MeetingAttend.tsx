@@ -89,7 +89,7 @@ export function OptionalMeetings({ items }: { items: AttendRow[] }) {
           <ListItemText
             primary={
               <TextLink
-                to="/meetings/$id"
+                to="/obligations/$id"
                 params={{ id: m.id }}
                 underline="hover"
                 color="text.secondary"
@@ -140,7 +140,7 @@ export function SkippedLine({ items }: { items: AttendRow[] }) {
               <ListItemText
                 primary={
                   <TextLink
-                    to="/meetings/$id"
+                    to="/obligations/$id"
                     params={{ id: m.id }}
                     underline="hover"
                     color="text.secondary"

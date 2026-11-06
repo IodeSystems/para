@@ -125,7 +125,7 @@ export function DatedAgenda() {
                                 primary={
                                   i.kind === 'meeting' ? (
                                     <TextLink
-                                      to="/meetings/$id"
+                                      to="/obligations/$id"
                                       params={{ id: i.id }}
                                       underline="hover"
                                     >

@@ -113,6 +113,77 @@ export function useMeeting(id: string) {
   })
 }
 
+// An obligation reads as a task of its kind (task_show): a meeting, or a commitment owed.
+const ObligationShowDoc = graphql(/* GraphQL */ `
+  query ObligationShow($id: String!) {
+    para {
+      v1 {
+        taskShow(id: $id) {
+          body
+          task {
+            id
+            title
+            kind
+            status
+            outcome
+            due
+            scheduled
+            end
+            with
+            withNames
+            assignee
+            assigneeName
+            doneWhen
+            project
+            projectName
+            needsYou
+            reason
+          }
+        }
+      }
+    }
+  }
+`)
+
+export function useObligation(id: string) {
+  return useQuery({
+    queryKey: ['obligations', 'show', id],
+    queryFn: async () =>
+      need((await gqlClient.request(ObligationShowDoc, { id })).para.v1.taskShow, 'obligation'),
+  })
+}
+
+const ObligationListDoc = graphql(/* GraphQL */ `
+  query ObligationList($state: String) {
+    para {
+      v1 {
+        list(type: obligation, state: $state) {
+          rows {
+            id
+            title
+            status
+            life
+            needsYou
+            reason
+          }
+        }
+      }
+    }
+  }
+`)
+
+// useObligations lists obligations: open and put off, or all with closed ones.
+export function useObligations(all: boolean) {
+  return useQuery({
+    queryKey: ['obligations', all],
+    queryFn: async () =>
+      need(
+        (await gqlClient.request(ObligationListDoc, { state: all ? 'all' : '' })).para.v1.list,
+        'obligations',
+      ).rows,
+  })
+}
+
 export function useAgenda(days: number, zone: string) {
   return useQuery({
     queryKey: ['agenda', days, zone],
