@@ -208,6 +208,7 @@ type Meta struct {
 	ApprovedHash    string                `json:"approved_hash,omitempty"`
 	Attendees       []string              `json:"attendees,omitempty"`
 	Optional        *bool                 `json:"optional,omitempty"`
+	Observed        *bool                 `json:"observed,omitempty"` // a logged io item the owner only saw
 	Attend          string                `json:"attend,omitempty"`
 	AttendDefault   string                `json:"attend_default,omitempty"`
 	Became          string                `json:"became,omitempty"`

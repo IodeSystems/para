@@ -49,7 +49,7 @@ var (
 	exceptionStatus    = []string{"open", "resolved", "accepted"}
 	conventionState    = []string{"draft", "adopted", "retired"}
 	mediums            = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
-	groupKinds         = []string{"team", "department", "channel", "list", "other"}
+	groupKinds         = []string{"team", "department", "channel", "list", "other", "role", "domain"}
 	targetStates       = []string{"drafted", "sent", "replied", "no_reply", "requested", "scheduled"}
 	interDirections    = []string{"in", "out", "observed"}
 	visibilities       = []string{"public", "private"}
@@ -65,7 +65,7 @@ var (
 	receiptChecks      = []string{"unchecked", "verified", "wrong"}
 	questionStatus     = []string{"open", "answered", "dropped"}
 	questionKinds      = []string{"question", "decision", "input"}
-	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment"}
+	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment", "incident"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 	obligationKinds    = []string{"meeting", "commitment"}
 	schedules          = []string{"once", "at", "series", "ongoing"}
@@ -186,6 +186,12 @@ var typeFields = map[string][]field{
 		{Name: "attend_default", Kind: kEnum, Enum: attends},
 		{Name: "assumptions", Kind: kAssumptions},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
+		// kind incident: how bad, when, and pointers (an incident file before format 10)
+		{Name: "severity", Kind: kEnum, Enum: severities},
+		{Name: "started", Kind: kTimestamp},
+		{Name: "ended", Kind: kTimestamp},
+		{Name: "links", Kind: kPointers},
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // the type the task was before upgrade step small-types
 	},
 	"rfx": {
 		{Name: "direction", Kind: kEnum, Enum: rfxDirection, Required: true},
@@ -310,9 +316,11 @@ var typeFields = map[string][]field{
 		{Name: "priority", Kind: kEnum, Enum: priorities},
 	},
 	"group": {
-		{Name: "org", Kind: kString, Required: true},
+		{Name: "org", Kind: kString}, // required unless kind domain (lint)
 		{Name: "kind", Kind: kEnum, Enum: groupKinds, Required: true},
 		{Name: "priority", Kind: kEnum, Enum: priorities},
+		{Name: "owner", Kind: kOwner},                   // kind domain: who owns it
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // the type the group was before upgrade step small-types
 	},
 	"interaction": {
 		{Name: "date", Kind: kDate, Required: true},
@@ -394,6 +402,13 @@ var typeFields = map[string][]field{
 		{Name: "triage", Kind: kEnum, Enum: ioTriages}, // set by a triage rule
 		{Name: "triage_by", Kind: kString},
 		{Name: "links", Kind: kLinkList},
+		// A logged contact (an interaction before format 10): closed, with a day and people.
+		{Name: "date", Kind: kDate},
+		{Name: "with", Kind: kLinkList},
+		{Name: "visibility", Kind: kEnum, Enum: visibilities},
+		{Name: "url", Kind: kString},
+		{Name: "observed", Kind: kBool},
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // the type the item was before upgrade step small-types
 	},
 	"tracked_doc": {
 		{Name: "url", Kind: kString, Required: true},
@@ -547,7 +562,9 @@ var editableTypes = []string{
 // owns, per type. status is locked for every type.
 var editLocked = map[string][]string{
 	"request":     {"queued_at", "claimed_by", "lease_until", "claimed_at", "active_at", "resolution", "result_links", "followed"},
-	"task":        {"previous", "rfx"},
+	"task":        {"previous", "rfx", "folded_from"},
+	"group":       {"folded_from"},
+	"io":          {"folded_from"},
 	"obligation":  {"state", "outcome", "closed", "previous", "occurrence_of", "rfx", "folded_from"},
 	"rfx":         {"targets", "question"},
 	"policy":      {"source", "verified"},

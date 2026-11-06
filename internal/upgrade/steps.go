@@ -170,6 +170,35 @@ func steps() []Step {
 				"Where it does not, leave it and say so; do not guess. The owner may dismiss the rest with health_dismiss {id: <area>, kind: " + AnnotationAtTop + "}.",
 			Done: "No folded annotation is at the top of an area, or the owner dismissed it.",
 		},
+		{
+			// A para before this step reads a group of kind role or domain,
+			// a logged io item, and a task of kind incident as values it does
+			// not know and fails; it writes the older types again. Upgrade
+			// para on every machine first (Run checks).
+			ID:      "small-types",
+			Version: SmallTypesFormat,
+			Title:   "Make teams, roles, and domains groups of that kind, interactions closed io items, and incidents tasks of kind incident (upgrade para on every machine of this vault first)",
+			Auto:    true,
+			Types:   []model.Type{model.TypeTeam, model.TypeRole, model.TypeDomain, model.TypeInteraction, model.TypeIncident},
+			Select:  foldsToSmallType,
+			Rewrite: asSmallType,
+			Explain: explainSmallType,
+		},
+		{
+			ID:       "notes-placement",
+			Version:  SmallTypesFormat,
+			Title:    "Move each note that links an item into the notes of that item, or into a section of its area",
+			Optional: true,
+			Types:    []model.Type{model.TypeNote},
+			Select:   notePending,
+			Instructions: "Each document the selector lists is a note (type note) that links an area or a goal. Notes now live on the item they are about. " +
+				"For each note, read it (note_show) and the item it links. Where the text is about that item, append it to the item's notes: notes_read {id}, " +
+				"then notes_edit {id, hash, md: the notes as they are, then the note's title and text}; where it is about one section of an area, " +
+				"add it there with annotate {area, anchor: \"<heading>\", kind: note, text}. Then archive the note with doc_archive {id, reason: \"moved to <item>\"}. " +
+				"Where it is not clear where the text belongs, leave the note and say so; do not guess. A note that links nothing stays a note. " +
+				"The owner may keep a note as it is with health_dismiss {id: <note>, kind: " + NotePlacement + "}.",
+			Done: "No note that links an item is left outside archive/, or the owner dismissed it.",
+		},
 	}
 }
 

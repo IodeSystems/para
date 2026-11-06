@@ -129,7 +129,7 @@ func TestPolicyDocsStep(t *testing.T) {
 		t.Fatal(err)
 	}
 	pd = stepOut(res, "policy-docs")
-	if res.FormatVersion != PolicyDocsFormat || pd.Count != len(want) || pd.Batch == "" {
+	if res.FormatVersion != Latest() || pd.Count != len(want) || pd.Batch == "" {
 		t.Fatalf("run = %+v", res)
 	}
 	// The policy is an area that follows the same source; the summary text is verbatim.
@@ -193,7 +193,7 @@ func TestPolicyDocsStep(t *testing.T) {
 	// The optional placement step lists the areas with folded annotations at
 	// the top, and does not hold the format back.
 	st, _ = StatusOf(ctx, s)
-	if st.FormatVersion != PolicyDocsFormat || len(st.Pending) != 0 {
+	if st.FormatVersion != Latest() || len(st.Pending) != 0 {
 		t.Fatalf("status after = %+v", st)
 	}
 	if ids := placementOf(t, ctx, s); strings.Join(ids, ",") != "area-ops,conventions,exceptions" {
@@ -205,7 +205,7 @@ func TestPolicyDocsStep(t *testing.T) {
 		t.Fatalf("re-run = %+v, %v", again, err)
 	}
 	two := f.open("two")
-	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != PolicyDocsFormat || len(st.Pending) != 0 {
+	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(st.Pending) != 0 {
 		t.Fatalf("second machine = %+v, %v", st, err)
 	}
 	if r, err := Run(ctx, two, false); err != nil || len(r.Steps) != 0 {
@@ -215,7 +215,7 @@ func TestPolicyDocsStep(t *testing.T) {
 	if err := two.SetConfig(ctx, ConfigKey, "8"); err != nil {
 		t.Fatal(err)
 	}
-	if r, err := Run(ctx, two, false); err != nil || changed(r) || r.FormatVersion != PolicyDocsFormat {
+	if r, err := Run(ctx, two, false); err != nil || changed(r) || r.FormatVersion != Latest() {
 		t.Fatalf("second machine at 8 = %+v, %v", r, err)
 	}
 

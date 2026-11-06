@@ -133,7 +133,7 @@ func TestReadersSameAfterPolicyDocsFold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.FormatVersion != upgrade.PolicyDocsFormat {
+	if res.FormatVersion != upgrade.Latest() {
 		t.Fatalf("run = %+v", res)
 	}
 	if doc, _ := v.d.Store.Get(ctx, v.pol); doc.Meta.Header().Type != model.TypeArea {

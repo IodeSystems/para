@@ -230,6 +230,17 @@ type Task struct {
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 	// Effort is about how long the task takes the owner; empty is not set.
 	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	// Severity, Started, Ended, and Links are a task of kind incident: how
+	// bad (sev1 is the worst), RFC 3339 start and end, and pointers to
+	// dashboards, runbooks, and tickets. The body holds the timeline.
+	// Status todo is an open incident, doing mitigated, done resolved.
+	Severity IncidentSeverity `yaml:"severity,omitempty" json:"severity,omitempty"`
+	Started  string           `yaml:"started,omitempty" json:"started,omitempty"`
+	Ended    string           `yaml:"ended,omitempty" json:"ended,omitempty"`
+	Links    []Pointer        `yaml:"links,omitempty" json:"links,omitempty"`
+	// FoldedFrom is the type the task was before upgrade step small-types
+	// (incident); the keys of that type stay in the file.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
 
 // Occasion is the when and the who of a meeting, a call, or an obligation.
@@ -605,11 +616,17 @@ func (p *Person) SearchText() []string {
 // Group is type: group. Members are the people that link to it.
 type Group struct {
 	Common `yaml:",inline"`
-	Org    string    `yaml:"org" json:"org"` // free text
+	Org    string    `yaml:"org,omitempty" json:"org"` // free text; a group of kind domain may have none
 	Kind   GroupKind `yaml:"kind" json:"kind"`
 	// Priority is how much the group matters to the owner; a member with no
 	// priority of their own takes it. Empty is normal.
 	Priority Priority `yaml:"priority,omitempty" json:"priority,omitempty"`
+	// Owner is who owns a group of kind domain: a role, team, or person
+	// link, or self (the vault owner).
+	Owner Link `yaml:"owner,omitempty" json:"owner,omitempty"`
+	// FoldedFrom is the type the group was before upgrade step small-types
+	// (team, role, or domain); the keys of that type stay in the file.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
 
 // Interaction is type: interaction, one logged contact with someone. The body
@@ -749,7 +766,23 @@ type IO struct {
 	// Deferral puts the item off: it leaves the reply lane of the order until
 	// its date. An io item waits on no other item.
 	Deferral `yaml:",inline"`
+	// Date, With, Visibility, URL, and Observed make the item a logged
+	// contact (what an interaction was): the day, the people or groups,
+	// where it happened, a link to the original, and that the owner only saw
+	// it (direction in). A logged contact is closed: filed, or sent when the
+	// owner wrote it. The body is a short summary in the owner's words.
+	Date       Date       `yaml:"date,omitempty" json:"date,omitempty"`
+	With       []Link     `yaml:"with,omitempty" json:"with,omitempty"`
+	Visibility Visibility `yaml:"visibility,omitempty" json:"visibility,omitempty"`
+	URL        string     `yaml:"url,omitempty" json:"url,omitempty"`
+	Observed   bool       `yaml:"observed,omitempty" json:"observed,omitempty"`
+	// FoldedFrom is the type the item was before upgrade step small-types
+	// (interaction); the keys of that type stay in the file.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
+
+// Logged reports whether the item is a logged contact: what an interaction was.
+func (m *IO) Logged() bool { return m.Date != "" }
 
 // DraftHash is the hash an approval of an outgoing draft binds: medium,
 // recipients, subject, and the exact body.

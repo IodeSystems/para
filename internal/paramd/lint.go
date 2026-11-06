@@ -194,6 +194,14 @@ func (l *linter) frontmatter() {
 	if typ == "task" {
 		l.task()
 	}
+	if typ == "group" {
+		switch kind := str(f.Frontmatter["kind"]); {
+		case kind != "domain" && f.Frontmatter["org"] == nil:
+			l.errf(1, CodeField, "type group: missing required field %q", "org")
+		case kind == "domain" && f.Frontmatter["owner"] == nil:
+			l.errf(1, CodeField, "type group: kind domain requires field %q", "owner")
+		}
+	}
 	if typ == "task" {
 		if r := str(f.Frontmatter["recur"]); r != "" {
 			if _, err := recur.Parse(r); err != nil {
@@ -329,8 +337,15 @@ func (l *linter) trackedDoc() {
 func (l *linter) task() {
 	fm := l.f.Frontmatter
 	kind := str(fm["kind"])
-	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" {
+	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" && kind != "incident" {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	}
+	if kind == "incident" {
+		for _, k := range []string{"severity", "started"} {
+			if fm[k] == nil {
+				l.errf(1, CodeField, "type task: kind incident requires field %q", k)
+			}
+		}
 	}
 	for _, k := range []string{"calendar_uid", "calendar_uids"} {
 		if fm[k] != nil && kind != "meeting" && kind != "call" {
@@ -491,7 +506,12 @@ func (l *linter) io() {
 	}
 	// A sent action (to no person) becomes nothing: its ref says where it is.
 	sentAction := state == "sent" && str(fm["ref"]) != "" && str(fm["expects"]) == "none"
-	if (state == "filed" || state == "sent") && str(fm["became"]) == "" && !sentAction {
+	// A logged contact (date set: an interaction before format 10) is the record itself.
+	logged := fm["date"] != nil
+	if logged && state != "filed" && state != "sent" {
+		l.errf(1, CodeFieldValue, "field %q: a logged contact (with date) is filed or sent, not %q", "state", state)
+	}
+	if (state == "filed" || state == "sent") && str(fm["became"]) == "" && !sentAction && !logged {
 		l.errf(1, CodeField, "type io: state %s needs field %q", state, "became")
 	}
 	l.checkVia()

@@ -229,10 +229,14 @@ const (
 	KindCall       TaskKind = "call"
 	KindWorkWith   TaskKind = "work_with"
 	KindCommitment TaskKind = "commitment"
+	// KindIncident is an outage or fault in a system the owner runs: severity,
+	// started, ended, and a timeline in the body. Upgrade step small-types
+	// made the older incident files tasks of this kind.
+	KindIncident TaskKind = "incident"
 )
 
 // TaskKinds lists every TaskKind.
-var TaskKinds = []TaskKind{KindTask, KindMeeting, KindCall, KindWorkWith, KindCommitment}
+var TaskKinds = []TaskKind{KindTask, KindMeeting, KindCall, KindWorkWith, KindCommitment, KindIncident}
 
 // Enum lists the allowed values, for schema generation.
 func (TaskKind) Enum() []string { return enumStrings(TaskKinds) }
@@ -425,13 +429,18 @@ const (
 	GroupChannel    GroupKind = "channel"
 	GroupList       GroupKind = "list"
 	GroupOther      GroupKind = "other"
+	// A role or a domain is a group since vault format 10 (upgrade step
+	// small-types made the older team, role, and domain files groups). A
+	// domain group has an owner.
+	GroupRole   GroupKind = "role"
+	GroupDomain GroupKind = "domain"
 )
 
 // Enum lists the allowed values, for schema generation.
 func (GroupKind) Enum() []string { return enumStrings(GroupKinds) }
 
 // GroupKinds lists every GroupKind.
-var GroupKinds = []GroupKind{GroupTeam, GroupDepartment, GroupChannel, GroupList, GroupOther}
+var GroupKinds = []GroupKind{GroupTeam, GroupDepartment, GroupChannel, GroupList, GroupOther, GroupRole, GroupDomain}
 
 // TargetState is rfx.targets[].state.
 type TargetState string
