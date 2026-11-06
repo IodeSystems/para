@@ -341,6 +341,7 @@ var typeFields = map[string][]field{
 		{Name: "thread", Kind: kLink},
 		{Name: "reason", Kind: kString},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
+		{Name: "approved_hash", Kind: kString},
 	},
 	"tracked_doc": {
 		{Name: "url", Kind: kString, Required: true},

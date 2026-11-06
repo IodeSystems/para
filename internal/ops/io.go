@@ -494,13 +494,16 @@ type IOEditOutput struct {
 }
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
-var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft or ready), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. An edited ready message is a draft again unless state ready is given", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. State ready is the owner's approval: io_approve. An edit of the text, subject, to, or medium of a ready message makes it a draft again", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOEditOutput{}, err
 	}
 	if in.State != "" && (!slices.Contains(model.IOStatesOf(m.Direction), in.State) || !in.State.Open()) {
 		return IOEditOutput{}, fmt.Errorf("state %q: an %s message takes %s here; file, send, or drop it with its own tool", in.State, m.Direction, openStates(m.Direction))
+	}
+	if in.State == model.IOReady && agentSurface(d) {
+		return IOEditOutput{}, errors.New("state ready is the owner's approval: call io_approve with the owner's words (owner_said), or leave it a draft for the owner")
 	}
 	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Route != ""
 	if m.Direction == model.IOIn && content {
@@ -535,6 +538,7 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 		if err := checkMedium(in.Medium); err != nil {
 			return IOEditOutput{}, err
 		}
+		changed = changed || in.Medium != m.Medium
 		m.Medium = in.Medium
 	}
 	if in.Expects != "" {
@@ -574,9 +578,16 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	}
 	doc.Title = ioTitle(m.Subject, doc.Body)
 	if changed && m.State == model.IOReady {
-		m.State = model.IODraft
+		m.State, m.ApprovedHash = model.IODraft, ""
 	}
-	if in.State != "" {
+	switch in.State {
+	case model.IOReady:
+		// The owner marks it ready: that is their approval of this text.
+		m.State, m.ApprovedHash = model.IOReady, m.DraftHash(doc.Body)
+	case model.IODraft:
+		m.State, m.ApprovedHash = model.IODraft, ""
+	case "":
+	default:
 		m.State = in.State
 	}
 	doc, err = d.Store.Update(ctx, doc)
@@ -584,6 +595,55 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 		return IOEditOutput{}, err
 	}
 	return IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, nil
+})
+
+// IOApproveInput is the input of io_approve.
+type IOApproveInput struct {
+	ID string `json:"id"`
+	// OwnerSaid is the owner's words from the chat that approve this draft,
+	// verbatim. Required on an agent surface; the receipt is self-reported.
+	OwnerSaid string `json:"owner_said,omitempty"`
+}
+
+// IOApproveOutput is the output of io_approve.
+type IOApproveOutput struct {
+	ID           string        `json:"id"`
+	State        model.IOState `json:"state"`
+	ApprovedHash string        `json:"approved_hash"`
+	SelfReported bool          `json:"self_reported"` // an agent relayed the owner's words
+	Rev          string        `json:"rev"`
+}
+
+// IOApprove is the owner's approval of an outgoing draft: it binds the
+// draft's hash and makes it ready to send. An agent may record it only with
+// the owner's words from the chat (D3); no other op takes chat approval.
+var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. Send it with your own tool, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
+	said := strings.TrimSpace(in.OwnerSaid)
+	agent := agentSurface(d)
+	if agent && said == "" {
+		return IOApproveOutput{}, errors.New("owner_said is empty: give the owner's words from the chat that approve this draft, verbatim; without them the draft waits for the owner")
+	}
+	if said != "" {
+		if err := lintText("owner_said", said); err != nil {
+			return IOApproveOutput{}, err
+		}
+	}
+	doc, m, err := getOpenIO(ctx, d, in.ID)
+	if err != nil {
+		return IOApproveOutput{}, err
+	}
+	if m.Direction != model.IOOut {
+		return IOApproveOutput{}, fmt.Errorf("%s is incoming: only an outgoing draft is approved", doc.ID)
+	}
+	if err := checkOut(m); err != nil {
+		return IOApproveOutput{}, err
+	}
+	m.State, m.ApprovedHash = model.IOReady, m.DraftHash(doc.Body)
+	saved, err := d.Store.Update(ctx, doc)
+	if err != nil {
+		return IOApproveOutput{}, err
+	}
+	return IOApproveOutput{ID: saved.ID, State: m.State, ApprovedHash: m.ApprovedHash, SelfReported: agent, Rev: saved.Rev}, nil
 })
 
 func openStates(dir model.IODirection) string {
@@ -645,7 +705,7 @@ type IOSendOutput struct {
 // IOSend records that an outgoing message was sent. Expects none logs an
 // interaction; expects response opens an Ask with each person or group as a
 // sent target, so follow-ups use the Ask tools.
-var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets. A draft in a dossier message block is reported with proposal_executed instead", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets. Send only a draft the owner approved (io_approve); a send of another is recorded with a warning. A draft in a dossier message block is reported with proposal_executed instead", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	return sendIO(ctx, d, in)
 })
 
@@ -687,6 +747,9 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	}
 	if err := checkOut(m); err != nil {
 		return out, err
+	}
+	if agentSurface(d) && !m.Approved(doc.Body) {
+		out.Warnings = append(out.Warnings, doc.ID+" was sent without the owner's approval of this text (io_approve): tell the owner")
 	}
 	back := "Sent from [[" + doc.ID + "]]."
 	if locator != "" {

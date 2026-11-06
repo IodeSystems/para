@@ -73,6 +73,62 @@ func TestFormerlyHeldWritesApply(t *testing.T) {
 	}
 }
 
+// D3: an outgoing draft is approved by the owner. An agent records it only
+// with the owner's words, and the receipt is self-reported; it cannot mark a
+// draft ready any other way. An edit after approval makes it a draft again.
+func TestIOApprove(t *testing.T) {
+	f := ioFix(t)
+	w := writeCtx(t)
+	id := outDraft(t, f, model.ExpectsNone, "")
+	if _, err := IOEdit.Run(w, f.agent, IOEditInput{ID: id, State: model.IOReady}); err == nil {
+		t.Fatal("an agent marked a draft ready with io_edit")
+	}
+	if _, err := IOApprove.Run(w, f.agent, IOApproveInput{ID: id}); err == nil || !strings.Contains(err.Error(), "owner_said is empty") {
+		t.Fatalf("agent io_approve without owner_said = %v", err)
+	}
+	if _, m, _ := getIO(t.Context(), f.owner, id); m.State != model.IODraft {
+		t.Fatalf("state = %s", m.State)
+	}
+	out, err := IOApprove.Run(w, f.agent, IOApproveInput{ID: id, OwnerSaid: "Yes, send the quote email."})
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc, m, _ := getIO(t.Context(), f.owner, id)
+	if out.State != model.IOReady || !out.SelfReported || m.ApprovedHash != m.DraftHash(doc.Body) || !m.Approved(doc.Body) {
+		t.Fatalf("approved = %+v, io %+v", out, m)
+	}
+	rs := mustRun(t, ReceiptList, f.owner, ReceiptListInput{Doc: id, Op: "io_approve"}).Items
+	if len(rs) != 1 || !rs[0].SelfReported || rs[0].OwnerSaid != "Yes, send the quote email." {
+		t.Fatalf("receipts = %+v", rs)
+	}
+	// An edit of the text undoes the approval.
+	if o := mustRun(t, IOEdit, f.agent, IOEditInput{ID: id, Text: "Hi Ada, the quote please."}); o.State != model.IODraft {
+		t.Fatalf("edited approved draft = %s", o.State)
+	}
+	if _, m, _ := getIO(t.Context(), f.owner, id); m.ApprovedHash != "" {
+		t.Fatalf("hash kept after edit: %q", m.ApprovedHash)
+	}
+	// A send of an unapproved draft is recorded, with a warning.
+	sent := mustRun(t, IOSend, f.agent, IOSendInput{ID: id, URL: "https://mail.example/m/1"})
+	if len(sent.Warnings) == 0 || !strings.Contains(sent.Warnings[0], "without the owner's approval") {
+		t.Fatalf("warnings = %v", sent.Warnings)
+	}
+
+	// The owner approves without words, at the terminal or with io_edit ready.
+	a := outDraft(t, f, model.ExpectsNone, "")
+	if o := mustRun(t, IOApprove, f.owner, IOApproveInput{ID: a}); o.SelfReported || o.State != model.IOReady {
+		t.Fatalf("owner approve = %+v", o)
+	}
+	b := outDraft(t, f, model.ExpectsNone, "")
+	mustRun(t, IOEdit, f.owner, IOEditInput{ID: b, State: model.IOReady})
+	if doc, m, _ := getIO(t.Context(), f.owner, b); m.ApprovedHash != m.DraftHash(doc.Body) {
+		t.Fatalf("owner ready = %+v", m)
+	}
+	if sent := mustRun(t, IOSend, f.agent, IOSendInput{ID: b, URL: "https://mail.example/m/2"}); len(sent.Warnings) != 0 {
+		t.Fatalf("approved send warned: %v", sent.Warnings)
+	}
+}
+
 // An agent edits only agent work it holds: text it read must not change what
 // another agent runs.
 func TestAgentDocEditOfRequests(t *testing.T) {

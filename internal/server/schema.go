@@ -205,6 +205,7 @@ type Meta struct {
 	Via             *jsonValue            `json:"via,omitempty"` // io and tracked_doc {source, ref}, or a source's mcp, cli, none
 	Expects         string                `json:"expects,omitempty"`
 	Effort          string                `json:"effort,omitempty"`
+	ApprovedHash    string                `json:"approved_hash,omitempty"`
 	Attendees       []string              `json:"attendees,omitempty"`
 	Optional        *bool                 `json:"optional,omitempty"`
 	Attend          string                `json:"attend,omitempty"`

@@ -64,6 +64,18 @@ func newIOCmd(l *loader) *cobra.Command {
 				return err
 			},
 		}),
+		opCommand(l, ops.IOApprove, binding[ops.IOApproveInput, ops.IOApproveOutput]{
+			Use:  "approve <id>",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.IOApproveInput) {
+				fs.StringVar(&in.OwnerSaid, "owner-said", "", "as an agent: the owner's words that approve this draft, verbatim")
+			},
+			Bind: func(args []string, in *ops.IOApproveInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IOApproveOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, out.State, out.ApprovedHash)
+				return err
+			},
+		}),
 		opCommand(l, ops.IOSend, binding[ops.IOSendInput, ops.IOSendOutput]{
 			Use:  "send <id> --url <url> | --locator <text>",
 			Args: cobra.ExactArgs(1),

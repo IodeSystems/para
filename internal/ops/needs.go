@@ -404,6 +404,8 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 			return owner("to sort")
 		case m.State == model.IODraft:
 			return owner("draft to approve")
+		case m.State == model.IOReady && !m.Approved(doc.Body):
+			return owner("draft changed after approval")
 		case m.State == model.IOReady:
 			return Need{Turn: TurnAgent, Reason: "approved, not sent"}
 		}

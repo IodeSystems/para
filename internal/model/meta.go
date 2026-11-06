@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"slices"
 	"strings"
 
@@ -626,9 +627,26 @@ type IO struct {
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`
 	// Effort is about how long the item takes the owner; empty is not set.
 	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	// ApprovedHash is the DraftHash the owner approved (io_approve): an
+	// outgoing draft in state ready whose text still hashes to it may be
+	// sent. Empty on a ready draft from before 0.3.0.
+	ApprovedHash string `yaml:"approved_hash,omitempty" json:"approved_hash,omitempty"`
 	// Deferral puts the item off: it leaves the reply lane of the order until
 	// its date. An io item waits on no other item.
 	Deferral `yaml:",inline"`
+}
+
+// DraftHash is the hash an approval of an outgoing draft binds: medium,
+// recipients, subject, and the exact body.
+func (m *IO) DraftHash(body string) string {
+	b, _ := json.Marshal(map[string]any{"medium": m.Medium, "to": m.To, "subject": m.Subject, "body": body})
+	return hashOf(string(b))
+}
+
+// Approved reports whether an outgoing draft is ready with the text the
+// owner approved. A ready draft with no hash (before 0.3.0) counts.
+func (m *IO) Approved(body string) bool {
+	return m.State == IOReady && (m.ApprovedHash == "" || m.ApprovedHash == m.DraftHash(body))
 }
 
 // Verifiable reports whether the owner can find the message themself: a ref,

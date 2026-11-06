@@ -102,6 +102,7 @@ var Inputs = map[string]string{
 	"io_file":                   `{"id":"io-sample","to":"task","project":"project-sample","done_when":"The capture is handled."}`,
 	"io_drop":                   `{"id":"io-sample","reason":"Handled elsewhere."}`,
 	"io_send":                   `{"id":"io-draft-sample","url":"https://acme.example/m/2"}`,
+	"io_approve":                `{"id":"io-draft-sample","owner_said":"Yes, send it."}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"interaction_add":           `{"summary":"Agreed to review on Friday","with":["person-sample"],"medium":"slack","direction":"in","date":"2026-11-01","url":"https://acme.example/m/1"}`,
 	"interaction_show":          `{"id":"interaction-sample"}`,

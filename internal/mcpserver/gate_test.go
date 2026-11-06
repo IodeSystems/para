@@ -172,6 +172,33 @@ func TestRatingsAreIgnoredWithANote(t *testing.T) {
 	}
 }
 
+// io_approve from MCP: refused without the owner's words, applied with them,
+// and its receipt is self-reported with the words. Outward stays held: no
+// other tool marks a draft ready.
+func TestIOApproveFromMCP(t *testing.T) {
+	s, _ := newVault(t)
+	seedSamples(t, s)
+	c := connect(t, ops.Deps{Store: s})
+	if res := call(t, c, "io_edit", `{"id":"io-draft-sample","state":"ready","owner_said":"send it"}`); !res.IsError {
+		t.Fatalf("io_edit ready from MCP applied: %s", textOf(t, res))
+	}
+	if res := call(t, c, "io_approve", `{"id":"io-draft-sample"}`); !res.IsError || !strings.Contains(textOf(t, res), "owner_said is empty") {
+		t.Fatalf("io_approve without owner_said: %s", textOf(t, res))
+	}
+	res := call(t, c, "io_approve", `{"id":"io-draft-sample","owner_said":"Yes, send it to Sam."}`)
+	if res.IsError || len(res.Content) != 1 {
+		t.Fatalf("io_approve: %s", textOf(t, res))
+	}
+	var out ops.IOApproveOutput
+	if err := json.Unmarshal([]byte(textOf(t, res)), &out); err != nil || out.State != model.IOReady || !out.SelfReported {
+		t.Fatalf("io_approve = %v %+v", err, out)
+	}
+	rs, err := ops.ReceiptList.Run(t.Context(), ops.Deps{Store: s}, ops.ReceiptListInput{Doc: "io-draft-sample", Op: "io_approve"})
+	if err != nil || len(rs.Items) != 1 || !rs.Items[0].SelfReported || rs.Items[0].OwnerSaid != "Yes, send it to Sam." {
+		t.Fatalf("receipt = %v %+v", err, rs.Items)
+	}
+}
+
 // Agent work for another runner from MCP stays proposed: text an agent read
 // cannot queue work (plan N).
 func TestAgentRequestStaysProposed(t *testing.T) {

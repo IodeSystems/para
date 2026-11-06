@@ -23,6 +23,12 @@ func seedStreamGVParity(t *testing.T, deps ops.Deps) {
 		docs = append(docs, task(id, model.TaskTodo))
 	}
 	docs = append(docs, task("task-gv-done-a", model.TaskDone), task("task-gv-done-b", model.TaskDone))
+	// Outgoing drafts for io_approve (stage 3), one per path.
+	for _, id := range []string{"io-gt-out-a", "io-gt-out-b"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderIO, Title: "Draft " + id, Body: "Draft " + id,
+			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
+				To: []string{"[[person-seed]]"}, Expects: model.ExpectsNone}})
+	}
 	for _, doc := range docs {
 		if _, err := deps.Store.Create(ctx, doc); err != nil {
 			t.Fatalf("seed %s: %v", doc.ID, err)
@@ -38,5 +44,6 @@ func streamGVParityCases() map[string]parityCase {
 		"send_to_agent": {`{"id":"task-gv-send","note":"Find the owner."}`, []string{"send-to-agent", "task-gv-send", "Find the owner."}, false},
 		"show":          {`{"id":"task-gv-send"}`, []string{"show", "task-gv-send"}, false},
 		"list":          {`{"type":"project"}`, []string{"list", "project"}, true},
+		"io_approve":    {`{"id":"io-gt-out-a"}`, []string{"io", "approve", "io-gt-out-b"}, false},
 	}
 }

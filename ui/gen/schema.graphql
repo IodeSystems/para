@@ -3978,6 +3978,7 @@ type para_Meta {
   answered: String
   answeredBy: String
   appliesIn: [String!]
+  approvedHash: String
   area: String
   assignee: String
   assumptions: JSON
