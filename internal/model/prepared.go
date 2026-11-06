@@ -9,10 +9,13 @@ const (
 	PreparedFields PreparedKind = "fields" // the gaps of the item filled in
 	PreparedBrief  PreparedKind = "brief"  // a meeting brief and agenda
 	PreparedPlan   PreparedKind = "plan"   // a short "how to do it" plan
+	// PreparedArtifact is what an agent produced for an obligation it owes:
+	// a journal summary, a document, or an outgoing draft (ref).
+	PreparedArtifact PreparedKind = "artifact"
 )
 
 // PreparedKinds lists every PreparedKind.
-var PreparedKinds = []PreparedKind{PreparedDraft, PreparedAnswer, PreparedFields, PreparedBrief, PreparedPlan}
+var PreparedKinds = []PreparedKind{PreparedDraft, PreparedAnswer, PreparedFields, PreparedBrief, PreparedPlan, PreparedArtifact}
 
 // Enum lists the allowed values, for schema generation.
 func (PreparedKind) Enum() []string {

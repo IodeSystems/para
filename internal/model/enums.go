@@ -260,6 +260,26 @@ var Schedules = []Schedule{ScheduleOnce, ScheduleAt, ScheduleSeries, ScheduleOng
 // Enum lists the allowed values, for schema generation.
 func (Schedule) Enum() []string { return enumStrings(Schedules) }
 
+// ProduceKind is obligation.produce.kind: the artifact an agent produces for
+// an agent-owned obligation. Journal is a journal summary inside its markers;
+// report and doc are a document; message is an outgoing io draft the owner
+// approves; other is what the template says.
+type ProduceKind string
+
+const (
+	ProduceJournal ProduceKind = "journal"
+	ProduceReport  ProduceKind = "report"
+	ProduceMessage ProduceKind = "message"
+	ProduceDoc     ProduceKind = "doc"
+	ProduceOther   ProduceKind = "other"
+)
+
+// ProduceKinds lists every ProduceKind.
+var ProduceKinds = []ProduceKind{ProduceJournal, ProduceReport, ProduceMessage, ProduceDoc, ProduceOther}
+
+// Enum lists the allowed values, for schema generation.
+func (ProduceKind) Enum() []string { return enumStrings(ProduceKinds) }
+
 // State is the lifecycle state an obligation stores: open or closed. Later is
 // its deferral, not a state.
 type State string

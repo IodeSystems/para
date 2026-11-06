@@ -363,6 +363,44 @@ type Obligation struct {
 	Effort       Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 	Deferral     `yaml:",inline"`
 	FoldedFrom   Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+	// Produce is set on an obligation an agent owes (owed_by agent or
+	// agent:<name>): the artifact it produces each time one comes due.
+	Produce *Produce `yaml:"produce,omitempty" json:"produce,omitempty"`
+}
+
+// OwedByAgent is the owed_by word of an agent: agent, or agent:<name>.
+const OwedByAgent = "agent"
+
+// IsAgentOwer reports whether an owed_by entry is an agent: agent, or
+// agent:<name>, stored without wikilink brackets.
+func IsAgentOwer(l Link) bool {
+	s := string(l)
+	return s == OwedByAgent || strings.HasPrefix(s, OwedByAgent+":")
+}
+
+// Agent is the first agent the obligation is owed by, or "".
+func (o *Obligation) Agent() string {
+	for _, l := range o.OwedBy {
+		if IsAgentOwer(l) {
+			return string(l)
+		}
+	}
+	return ""
+}
+
+// Produce is what an agent produces for an obligation it owes. Template is
+// the vault document it follows ("[[id]]") or the text itself. To are the
+// people or groups a message goes to (links), or free text such as a
+// channel; Medium is how. Guide names the prompt the agent follows (default
+// produce). Builtin marks an obligation para made itself: journal-summary is
+// the daily journal summary tick makes once when journal.agent is set.
+type Produce struct {
+	Kind     ProduceKind `yaml:"kind" json:"kind"`
+	Template string      `yaml:"template,omitempty" json:"template,omitempty"`
+	To       []string    `yaml:"to,omitempty" json:"to,omitempty"`
+	Medium   Medium      `yaml:"medium,omitempty" json:"medium,omitempty"`
+	Guide    string      `yaml:"guide,omitempty" json:"guide,omitempty"`
+	Builtin  string      `yaml:"builtin,omitempty" json:"builtin,omitempty"`
 }
 
 // Open reports whether the obligation is open.

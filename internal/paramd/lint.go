@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -79,12 +80,13 @@ func (f Finding) String() string {
 }
 
 var (
-	stemRe    = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.source)?$`)
-	blockIDRe = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
-	ruleIDRe  = regexp.MustCompile(`^R\d+$`)
-	dateRe    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	linkValRe = regexp.MustCompile(`^\[\[([^\[\]|#]+)(?:#\^([A-Za-z0-9-]+))?\]\]$`)
-	hashRe    = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	stemRe      = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*(?:\.source)?$`)
+	blockIDRe   = regexp.MustCompile(`^[A-Za-z0-9-]+$`)
+	ruleIDRe    = regexp.MustCompile(`^R\d+$`)
+	dateRe      = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	agentOwerRe = regexp.MustCompile(`^agent:[a-z0-9]+(?:[-_.][a-z0-9]+)*$`)
+	linkValRe   = regexp.MustCompile(`^\[\[([^\[\]|#]+)(?:#\^([A-Za-z0-9-]+))?\]\]$`)
+	hashRe      = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	// pointerTargetRe accepts a URL with any scheme, or a path. ~/ is kept as written.
 	pointerTargetRe = regexp.MustCompile(`^(?:[a-z][a-z0-9+.-]*://\S+|(?:/|~/|\./|\.\./)\S*)$`)
 	htmlTagRe       = regexp.MustCompile(`</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>|<!--|<![A-Za-z]|<\?`)
@@ -694,6 +696,59 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 		if h, _ := m["hash"].(string); !hashRe.MatchString(h) {
 			bad("hash must be sha256:<64 lowercase hex characters>")
+		}
+	case kOwers:
+		list, ok := v.([]any)
+		if !ok {
+			bad("must be a list of quoted wikilinks, or the word agent or agent:<name>")
+			return
+		}
+		for _, e := range list {
+			s, _ := e.(string)
+			if s == "agent" || agentOwerRe.MatchString(s) {
+				continue
+			}
+			if m := linkValRe.FindStringSubmatch(s); m == nil || m[2] != "" {
+				bad("%v is not a wikilink like \"[[name]]\", agent, or agent:<name>", e)
+				return
+			}
+		}
+	case kProduce:
+		m, ok := v.(map[string]any)
+		if !ok {
+			bad("must be a mapping with kind, and optional template, to, medium, guide")
+			return
+		}
+		for k := range m {
+			if !slices.Contains([]string{"kind", "template", "to", "medium", "guide", "builtin"}, k) {
+				bad("unknown key %q (kind, template, to, medium, guide, builtin)", k)
+			}
+		}
+		if k, _ := m["kind"].(string); !slices.Contains(produceKinds, k) {
+			bad("kind must be one of %s", strings.Join(produceKinds, ", "))
+		}
+		for _, k := range []string{"template", "guide", "builtin"} {
+			if x, present := m[k]; present {
+				if _, ok := x.(string); !ok {
+					bad("%s must be text", k)
+				}
+			}
+		}
+		if x, present := m["medium"]; present {
+			if s, _ := x.(string); !slices.Contains(mediums, s) {
+				bad("medium must be one of %s", strings.Join(mediums, ", "))
+			}
+		}
+		if x, present := m["to"]; present {
+			list, ok := x.([]any)
+			if !ok {
+				bad("to must be a list")
+			}
+			for _, e := range list {
+				if _, ok := e.(string); !ok {
+					bad("to: items must be strings, got %v", e)
+				}
+			}
 		}
 	case kLinkList:
 		list, ok := v.([]any)

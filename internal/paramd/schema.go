@@ -28,6 +28,8 @@ const (
 	kImported     // {path, hash}: the file a document was imported from
 	kCalendarUIDs // list of {uid, role} maps: calendar events of a meeting
 	kFollows      // {source, verified, reviewed_by}: the remote source an area follows
+	kOwers        // list of "[[name]]", or the word agent or agent:<name>
+	kProduce      // {kind, template, to, medium, guide, builtin}: what an agent produces
 )
 
 type field struct {
@@ -69,6 +71,7 @@ var (
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 	obligationKinds    = []string{"meeting", "commitment"}
 	schedules          = []string{"once", "at", "series", "ongoing"}
+	produceKinds       = []string{"journal", "report", "message", "doc", "other"}
 	states             = []string{"open", "closed"}
 	obligationOutcome  = append(append([]string(nil), taskOutcome...), "skipped")
 	validationStates   = []string{"idea", "validated", "active", "pivoted", "stopped"}
@@ -238,7 +241,8 @@ var typeFields = map[string][]field{
 		{Name: "closed", Kind: kDate},
 		{Name: "schedule", Kind: kEnum, Enum: schedules, Required: true},
 		{Name: "owed_to", Kind: kLinkList},
-		{Name: "owed_by", Kind: kLinkList}, // empty: the owner owes it
+		{Name: "owed_by", Kind: kOwers},   // empty: the owner owes it; agent or agent:<name>: an agent
+		{Name: "produce", Kind: kProduce}, // owed by an agent: what it produces each time
 		{Name: "project", Kind: kLink},
 		{Name: "area", Kind: kLink},
 		{Name: "parent", Kind: kLink}, // the task it came from
