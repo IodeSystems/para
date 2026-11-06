@@ -117,6 +117,7 @@ export function DatedAgenda() {
                         <AgendaRow
                           key={`${i.kind}-${i.id}`}
                           x={{ id: i.id, title: i.title, kind: datedKind(i.kind) }}
+                          needsYou={i.needsYou}
                         >
                           {(actions) => (
                             <ListItem disableGutters>

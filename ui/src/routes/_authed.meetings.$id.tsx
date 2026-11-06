@@ -9,6 +9,7 @@ import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
+import { BriefBody, FileNotesButton } from '@/components/MeetingBrief'
 import { MeetingChip } from '@/components/MeetingChip'
 import { meetingWhen } from '@/lib/meeting'
 import { nameList } from '@/lib/names'
@@ -40,6 +41,9 @@ function MeetingPage() {
                 </Typography>
               )}
             </Section>
+            <Section title="Brief">
+              <BriefBody id={m.id} />
+            </Section>
             <Section title="Asks it should settle" count={m.rfx.length} hideEmpty>
               <List dense disablePadding>
                 {m.rfx.map((r, i) => (
@@ -68,6 +72,7 @@ function MeetingPage() {
             </Typography>
             <MergedFrom id={id} />
             <NotesEditor id={id} />
+            <FileNotesButton id={id} open={m.status === 'requested' || m.status === 'scheduled'} />
           </>
         )
       }}

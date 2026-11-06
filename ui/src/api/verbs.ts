@@ -101,7 +101,14 @@ export async function reopenAny(body: ReopenBody): Promise<VerbResult> {
   return asResult(need((await gqlClient.request(ReopenDoc, { body })).para.v1.reopen, 'reopen'))
 }
 
-export type SendBody = { id: string; note?: string; attachments?: string[]; done?: boolean }
+// fileNotes, on a meeting, asks the agent to file its notes and close it as held.
+export type SendBody = {
+  id: string
+  note?: string
+  attachments?: string[]
+  done?: boolean
+  fileNotes?: boolean
+}
 
 export async function sendToAgent(body: SendBody): Promise<VerbResult> {
   return asResult(

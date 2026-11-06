@@ -163,7 +163,8 @@ function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSum
             Not yet startable
           </ListSubheader>
         ),
-        <AgendaRow key={x.id} x={x}>
+        // Every row here needs you: a meeting row opens its brief.
+        <AgendaRow key={x.id} x={x} needsYou>
           {(actions) => (
             <ListItem disableGutters sx={CHIP_ROW}>
               <ListItemText

@@ -17,7 +17,9 @@ import { DoItTask } from '@/components/DoIt'
 import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
 import { useToasts } from '@/components/ToastStack'
+import { BriefBody } from '@/components/MeetingBrief'
 import { agendaActions, closeBody, doneLabel, openTarget, type DoneKind } from '@/lib/agenda'
+import { briefOpensItself } from '@/lib/brief'
 import { notesWithEntry } from '@/lib/composer'
 import { prefersReducedMotion } from '@/lib/toasts'
 import { failText, toastText } from '@/lib/stackToast'
@@ -236,22 +238,36 @@ export function ItemActions({
 }
 
 // AgendaRow is one row of the agenda with the actions that fit its kind: Done, Later, and Open. The
-// row collapses out when it is done or put off, and comes back on Undo or when the list reloads.
+// row collapses out when it is done or put off, and comes back on Undo or when the list reloads. A
+// meeting row has Brief; needsYou opens the brief of a meeting row without a click.
 export function AgendaRow({
   x,
+  needsYou = false,
   children,
 }: {
   x: Row
+  needsYou?: boolean
   children: (actions: ReactNode) => ReactNode
 }) {
   const [gone, setGone] = useState(false)
   const [how, setHow] = useState(false)
+  const [brief, setBrief] = useState(() => briefOpensItself(x.kind, needsYou))
   const acts = agendaActions(x.kind)
   const actions = (
     <ItemActions x={x} onGone={setGone}>
       {acts.done === 'task' && x.kind === 'task' && (
         <Button size="small" data-act="how" aria-expanded={how} onClick={() => setHow((v) => !v)}>
           How
+        </Button>
+      )}
+      {x.kind === 'meeting' && (
+        <Button
+          size="small"
+          data-act="brief"
+          aria-expanded={brief}
+          onClick={() => setBrief((v) => !v)}
+        >
+          Brief
         </Button>
       )}
     </ItemActions>
@@ -266,6 +282,11 @@ export function AgendaRow({
     >
       {children(actions)}
       {how && <DoItTask id={x.id} />}
+      {brief && x.kind === 'meeting' && (
+        <Box sx={{ pl: 2, pb: 1, borderLeft: 2, borderColor: 'divider' }}>
+          <BriefBody id={x.id} />
+        </Box>
+      )}
     </Collapse>
   )
 }

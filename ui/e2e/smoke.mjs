@@ -1228,6 +1228,57 @@ try {
     'the save based on the current notes goes through',
   )
 
+  // A meeting that needs you (booked for tomorrow, within due_soon_days) shows its brief on the
+  // agenda without a click, with an attendee not in the directory as unresolved.
+  const soon = new Date(Date.now() + 26 * 3600 * 1000)
+  soon.setUTCMinutes(0, 0, 0)
+  const soonEnd = new Date(soon.getTime() + 30 * 60 * 1000)
+  const briefed = idOf(
+    para(
+      ...v,
+      'meeting',
+      'add',
+      'Brief sync',
+      '--with',
+      person,
+      '--attendee',
+      'Pat Nobody <pat@elsewhere.example>',
+      '--start',
+      soon.toISOString().replace('.000Z', 'Z'),
+      '--end',
+      soonEnd.toISOString().replace('.000Z', 'Z'),
+      '--json',
+    ),
+  )
+  await rpage.goto(`${base}/agenda`)
+  const briefRow = rpage.locator(`[data-agenda-row="${briefed}"] [data-brief="${briefed}"]`)
+  await briefRow.waitFor()
+  check(
+    (await briefRow.locator('[data-brief-unresolved]').count()) === 1,
+    'the agenda opens the brief of a meeting that needs you, with the unknown attendee unresolved',
+  )
+
+  // A meeting's page shows its brief (the person and the ask it should settle). With notes saved,
+  // Send to agent to file queues agent work of kind meeting-notes.
+  await rpage.goto(`${base}/meetings/${meeting}`)
+  await rpage.locator(`[data-brief="${meeting}"] [data-brief-line="${ask}"]`).first().waitFor()
+  check(
+    (await rpage.locator(`[data-brief-person="${person}"]`).count()) === 1,
+    'the meeting brief lists the person it is with',
+  )
+  para(...v, 'notes', 'edit', meeting, '--md', 'Decided: the quota stays at 10.')
+  await rpage.reload()
+  await rpage.locator('[data-act="file-notes"]:not([disabled])').click()
+  const notesSent = rpage.locator('[data-file-notes-sent]')
+  await notesSent.waitFor()
+  const notesReq = (await notesSent.getAttribute('data-file-notes-sent')) ?? ''
+  check(
+    /"kind":\s*"meeting-notes"/.test(para(...v, 'request', 'show', notesReq, '--json')),
+    'Send to agent to file queues meeting-notes agent work',
+  )
+  await rpage.goto(`${base}/doc/${noted}`)
+  await rpage.getByRole('heading', { name: 'Book the venue' }).waitFor()
+
   // The composer at the foot of the page: a file and words go to an agent as composer work, with a
   // toast and Undo; Save as notes adds them below the notes there.
   const composer = rpage.locator(`[data-item-composer="${noted}"]`)
