@@ -401,8 +401,7 @@ function Agenda() {
                         <LinkButton
                           size="small"
                           color="inherit"
-                          to="/stack"
-                          search={{ view: 'sent' }}
+                          to="/requests"
                           data-agent-open={t.agentOpen}
                         >
                           {openLine(t.agentOpen, t.agentStale)}
@@ -439,7 +438,7 @@ function Agenda() {
                   hideEmpty
                   action={
                     <LinkButton size="small" to="/requests">
-                      Agent work
+                      Asked of agents
                     </LinkButton>
                   }
                 >

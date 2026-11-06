@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -11,8 +11,6 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Link from '@mui/material/Link'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import {
@@ -42,7 +40,7 @@ import { TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
 import { LaterButton } from '@/components/stack/LaterButton'
-import { SentList, WaitingOnYou } from '@/components/stack/SentList'
+import { WaitingOnYou } from '@/components/stack/WaitingOnYou'
 import { QuestionCard } from '@/components/stack/QuestionCard'
 import { DoneForm, RefsField, ReviewStateChip, type ProposalData } from '@/components/stack/parts'
 import { useDossierDraft } from '@/components/stack/useDossierDraft'
@@ -82,10 +80,14 @@ const KINDS = ['question', 'para', 'message', 'action', 'doc_edit', 'upstream'] 
 
 const text = (v: unknown) => (typeof v === 'string' && v !== '' ? v : undefined)
 
-// StackSearch is the stack's filter, and the view: the stack, or what the owner asked of agents.
+// StackSearch is the stack's filter. view=sent was the Asked of agents tab: it is /requests now,
+// and old links land there.
 type StackSearch = StackFilter & { view?: 'sent' }
 
 export const Route = createFileRoute('/_authed/stack')({
+  beforeLoad: ({ search }) => {
+    if (search.view === 'sent') throw redirect({ to: '/requests', replace: true })
+  },
   validateSearch: (s: Record<string, unknown>): StackSearch => ({
     state: STACK_STATES.find((x) => x === s.state),
     kind: KINDS.find((x) => x === s.kind),
@@ -106,10 +108,9 @@ type Submitted = { items: { item: string; state: string; undo?: string | null }[
 // question, by stack state. With a review:decide key the owner approves, declines, skips, asks an
 // agent, or marks done by me, here. A row opens in place as the same card the dossier shows.
 function StackPage() {
-  const { view, ...f } = Route.useSearch()
+  const { view: _view, ...f } = Route.useSearch()
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
-  const navigate = useNavigate({ from: '/stack' })
   // skipped are the rows this visit skipped. A skip is navigation, stored nowhere: the to-decide
   // view hides them until the owner opens the stack again. Kept in memory, so a reload is a new
   // visit.
@@ -119,21 +120,7 @@ function StackPage() {
       <PageTitle subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list.">
         Stack
       </PageTitle>
-      <Tabs
-        value={view ?? 'stack'}
-        onChange={(_, v: string) =>
-          void navigate({ search: (p) => ({ ...p, view: v === 'sent' ? 'sent' : undefined }) })
-        }
-        sx={{ mb: 2 }}
-      >
-        <Tab value="stack" label="To decide" />
-        <Tab value="sent" label="Asked of agents" data-tab="sent" />
-      </Tabs>
-      {view === 'sent' ? (
-        <SentList decide={decide} />
-      ) : (
-        <StackView f={f} decide={decide} skipped={skipped} setSkipped={setSkipped} />
-      )}
+      <StackView f={f} decide={decide} skipped={skipped} setSkipped={setSkipped} />
     </>
   )
 }

@@ -474,7 +474,7 @@ try {
     [`/people/${person}`, 'Sam Rivera'],
     ['/policy', 'Policy'],
     ['/questions', 'Questions'],
-    ['/requests', 'Agent work'],
+    ['/requests', 'Asked of agents'],
     ['/meetings', 'Meetings'],
     [`/meetings/${meeting}`, 'Quota sync'],
     ['/activity', 'Agent activity'],
@@ -1317,7 +1317,8 @@ try {
     const after = await agent.call('request_show', { id: work?.id ?? '' })
     check(after.doc?.meta?.status === 'cancelled', 'Undo takes the composer work back')
   }
-  // An owner-ask the agent records from the chat shows under Asked of agents, claimed by it.
+  // An owner-ask the agent records from the chat shows under Asked of agents, claimed by it. The
+  // old Asked of agents tab (/stack?view=sent) lands on /requests.
   {
     const ask = await agent.call('request_add', {
       kind: 'owner-ask',
@@ -1339,7 +1340,23 @@ try {
         text.includes('has it'),
       'Asked of agents lists the owner-ask with the owner words and who has it',
     )
+    check(
+      new URL(rpage.url()).pathname === '/requests',
+      `the old tab lands on /requests (${rpage.url()})`,
+    )
     await agent.call('request_done', { id: ask.id, resolution: 'done', result: 'Backups ran.' })
+    // A done result the owner has not seen needs them; Mark seen clears it.
+    await rpage.goto(`${base}/requests`)
+    const done = rpage.locator(`[data-status-group="done"] [data-sent="${ask.id}"][data-seen="no"]`)
+    await done.waitFor()
+    check(
+      (await done.innerText()).includes('result to check'),
+      'a done owner-ask shows as a result to check',
+    )
+    await rpage.locator('[data-mark-seen]').click()
+    await rpage.locator(`[data-sent="${ask.id}"][data-seen="yes"]`).waitFor()
+    const seen = await agent.call('request_show', { id: ask.id })
+    check(!!seen.doc?.meta?.seen, 'Mark seen sets seen on the request')
     await rpage.goto(`${base}/doc/${noted}`)
   }
   await composer.getByLabel(/Tell the agent about/).fill('Deposit paid.')

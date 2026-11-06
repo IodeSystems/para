@@ -4,6 +4,7 @@ import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useSeenOnOpen } from '@/api/requests'
 import { useMeeting } from '@/api/meetings'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -19,6 +20,8 @@ export const Route = createFileRoute('/_authed/meetings/$id')({ component: Meeti
 
 function MeetingPage() {
   const { id } = Route.useParams()
+  // Opening the item, or the agent work itself, marks its finished agent work seen.
+  useSeenOnOpen(id)
   const q = useMeeting(id)
   return (
     <DataState q={q}>

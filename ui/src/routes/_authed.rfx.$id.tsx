@@ -4,6 +4,7 @@ import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemText from '@mui/material/ListItemText'
 import Typography from '@mui/material/Typography'
+import { useSeenOnOpen } from '@/api/requests'
 import { useRfx } from '@/api/rfx'
 import { useCopyText } from '@/api/doc'
 import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
@@ -21,6 +22,8 @@ export const Route = createFileRoute('/_authed/rfx/$id')({ component: RfxPage })
 
 function RfxPage() {
   const { id } = Route.useParams()
+  // Opening the item, or the agent work itself, marks its finished agent work seen.
+  useSeenOnOpen(id)
   const q = useRfx(id)
   const copy = useCopyText()
   return (

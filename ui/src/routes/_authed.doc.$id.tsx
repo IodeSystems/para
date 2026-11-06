@@ -7,6 +7,7 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
+import { useSeenOnOpen } from '@/api/requests'
 import { useCopyText, useDoc } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
@@ -35,6 +36,8 @@ const FORMATS: Para_CopyInputAs[] = ['plain', 'email', 'slack', 'jira']
 
 function Doc() {
   const { id } = Route.useParams()
+  // Opening the item, or the agent work itself, marks its finished agent work seen.
+  useSeenOnOpen(id)
   const q = useDoc(id)
   const copy = useCopyText()
   const [as, setAs] = useState<Para_CopyInputAs>('plain')

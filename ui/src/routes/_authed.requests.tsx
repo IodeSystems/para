@@ -1,29 +1,30 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
-import Box from '@mui/material/Box'
-import { AgentLooking } from '@/components/FindContext'
 import Stack from '@mui/material/Stack'
-import { useRequestChanges, useRequests } from '@/api/requests'
-import { Empty, PageTitle, StateChip } from '@/components/Bits'
+import Typography from '@mui/material/Typography'
+import { requestSeen, useAsked, useRequestChanges } from '@/api/requests'
+import { agentUnsend } from '@/api/composer'
+import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
+import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
+import { LinkButton } from '@/components/links'
+import { useToasts } from '@/components/ToastStack'
 import { humanTime } from '@/lib/when'
-import { joinNames, nameList, stripIds, withNames } from '@/lib/names'
+import { byStatus, kindWords, resultToCheck, sentStatus, staleWords } from '@/lib/sent'
 
-// What each status says to a person.
-const STATUS_WORDS: Record<string, string> = {
-  queued: 'waiting for an agent',
-  claimed: 'an agent has it',
-  proposed: 'proposal ready',
-  done: 'done',
-  failed: 'failed',
-  cancelled: 'cancelled',
-}
-
-export const Route = createFileRoute('/_authed/requests')({ component: Requests })
+// Asked of agents is every piece of agent work, one request each, from the generic list (type
+// request, state all), grouped by status: what the owner sent from the web, asked in the chat,
+// delegated, or gave to investigate, and the work agents and the tick made. Each row shows the
+// item, the owner's words, where it stands, how it ended, and the receipts it made. Work no agent
+// has claimed can be taken back; results not yet seen can be marked seen.
+export const Route = createFileRoute('/_authed/requests')({ component: Asked })
 
 // Changes lists what finished agent work changed, from its receipts. It loads when opened.
 function Changes({ id }: { id: string }) {
@@ -33,7 +34,7 @@ function Changes({ id }: { id: string }) {
     <Box
       component="details"
       onToggle={(e) => setOpen(e.currentTarget.open)}
-      sx={{ ml: 1, fontSize: '0.8125rem' }}
+      sx={{ fontSize: '0.8125rem' }}
     >
       <Box component="summary" sx={{ cursor: 'pointer' }}>
         What it changed
@@ -50,49 +51,184 @@ function Changes({ id }: { id: string }) {
   )
 }
 
-function Requests() {
-  const q = useRequests()
+type Row = NonNullable<ReturnType<typeof useAsked>['data']>[number]
+type Work = NonNullable<Row['request']> & { needsYou: boolean; reason: string }
+
+function Asked() {
+  const q = useAsked()
+  const qc = useQueryClient()
+  const toasts = useToasts()
+  const { session } = Route.useRouteContext()
+  const decide = canDecide(session)
+  const takeBack = async (request: string, name: string) => {
+    try {
+      await agentUnsend(request)
+      toasts.push({ text: `Taken back: ${name}` })
+    } catch (e) {
+      toasts.push({ text: `Could not take it back: ${errorText(e)}`, tone: 'error' })
+    }
+    await qc.invalidateQueries()
+  }
+  const markSeen = async (ids: string[]) => {
+    try {
+      const r = await requestSeen(ids)
+      toasts.push({ text: `Marked seen: ${r.seen.length}` })
+    } catch (e) {
+      toasts.push({ text: `Could not mark seen: ${errorText(e)}`, tone: 'error' })
+    }
+    await qc.invalidateQueries()
+  }
   return (
     <>
-      <PageTitle subtitle="Work queued for an agent. Not the same as Asks, which are asks to people. Queue, accept, or answer agent work in the chat.">
-        Agent work
+      <PageTitle subtitle="Everything asked of agents, one record each, by status: what you sent from the web, asked in the chat, delegated, or gave to investigate, and the work agents and sweeps made. Not the same as Asks, which are asks to people.">
+        Asked of agents
       </PageTitle>
       <DataState q={q}>
-        {(items) =>
-          items.length === 0 ? (
-            <Empty>No agent work. Agent work is what an agent picks up from the queue.</Empty>
-          ) : (
-            <List disablePadding>
-              {items.map((r) => (
-                <ListItem key={r.id} disableGutters divider>
-                  <ListItemText
-                    primary={
-                      <DocLink id={r.id}>
-                        {stripIds(withNames(r.title, r.links, r.linkNames)) || 'Agent work'}
-                      </DocLink>
-                    }
-                    secondary={[
-                      `queued ${humanTime(r.queuedAt)}`,
-                      r.claimedBy && `taken by ${r.claimedBy}`,
-                      (r.links ?? []).length > 0 &&
-                        `about ${joinNames(nameList(r.links, r.linkNames))}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' - ')}
-                    slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-                  />
-                  <AgentLooking id={r.id} />
-                  <StateChip
-                    state={r.status}
-                    label={r.resolution ? r.resolution.replace(/_/g, ' ') : STATUS_WORDS[r.status]}
-                  />
-                  {(r.status === 'done' || r.status === 'failed') && <Changes id={r.id} />}
-                </ListItem>
-              ))}
-            </List>
+        {(rows) => {
+          const work: Work[] = rows.flatMap((r) =>
+            r.request ? [{ ...r.request, needsYou: r.needsYou, reason: r.reason }] : [],
           )
-        }
+          if (work.length === 0)
+            return (
+              <Empty>
+                Nothing asked of an agent yet. What you send to an agent, and what you ask an agent
+                in the chat that does not end in its reply, shows here.
+              </Empty>
+            )
+          const open = work.filter((w) => ['proposed', 'queued', 'claimed'].includes(w.status))
+          const stale = open.filter((w) => w.stale).length
+          const unseen = work.filter(resultToCheck).map((w) => w.request)
+          return (
+            <>
+              <Stack
+                direction="row"
+                spacing={1}
+                useFlexGap
+                sx={{ mb: 1, alignItems: 'center', flexWrap: 'wrap' }}
+              >
+                <Typography variant="body2" color="text.secondary" data-asked-open={open.length}>
+                  {open.length} open{stale > 0 ? `, ${stale} stale` : ''}
+                  {unseen.length > 0 ? `, ${unseen.length} results to check` : ''}
+                </Typography>
+                {decide && unseen.length > 0 && (
+                  <Button size="small" data-mark-seen onClick={() => void markSeen(unseen)}>
+                    Mark seen ({unseen.length})
+                  </Button>
+                )}
+                <LinkButton size="small" to="/sources">
+                  Sources
+                </LinkButton>
+              </Stack>
+              {byStatus(work).map((g) => (
+                <Section key={g.status} title={g.title} count={g.rows.length}>
+                  <List aria-label={g.title} disablePadding data-status-group={g.status}>
+                    {g.rows.map((it) => (
+                      <WorkRow
+                        key={it.request}
+                        it={it}
+                        decide={decide}
+                        takeBack={takeBack}
+                        markSeen={markSeen}
+                      />
+                    ))}
+                  </List>
+                </Section>
+              ))}
+            </>
+          )
+        }}
       </DataState>
     </>
+  )
+}
+
+function WorkRow({
+  it,
+  decide,
+  takeBack,
+  markSeen,
+}: {
+  it: Work
+  decide: boolean
+  takeBack: (request: string, name: string) => Promise<void>
+  markSeen: (ids: string[]) => Promise<void>
+}) {
+  const s = sentStatus(it)
+  const stale = staleWords(it)
+  const check = resultToCheck(it)
+  return (
+    <ListItem
+      divider
+      disableGutters
+      data-sent={it.request}
+      data-kind={it.kind}
+      data-seen={it.seen ? 'yes' : 'no'}
+      sx={{ display: 'block' }}
+    >
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+          <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+            {it.item ? <DocLink id={it.item}>{it.itemName || it.item}</DocLink> : it.title}
+          </Typography>
+          {it.item && it.kind === 'owner-ask' && (
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+              {it.title}
+            </Typography>
+          )}
+          {it.note && (
+            <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+              You asked: {it.note}
+            </Typography>
+          )}
+          {it.summary && (
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+              Agent: {it.summary}
+            </Typography>
+          )}
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{ mt: 0.25, flexWrap: 'wrap', alignItems: 'center' }}
+          >
+            <StatusChip tone={s.tone} label={s.label} />
+            {stale && <StatusChip tone="attn" label={stale} />}
+            {it.needsYou && <StatusChip tone="attn" label={it.reason || 'needs you'} />}
+            <Typography variant="caption" color="text.secondary">
+              {kindWords(it.kind)}, {humanTime(it.queuedAt)}
+            </Typography>
+            <Typography variant="caption">
+              <DocLink id={it.request}>the request</DocLink>
+            </Typography>
+            {(it.results ?? []).map((r) => (
+              <Typography key={r} variant="caption">
+                <DocLink id={r}>{r}</DocLink>
+              </Typography>
+            ))}
+            {(it.receipts ?? []).length > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                receipts:
+              </Typography>
+            )}
+            {(it.receipts ?? []).map((r) => (
+              <Typography key={r} variant="caption" data-receipt={r}>
+                <DocLink id={r}>{r}</DocLink>
+              </Typography>
+            ))}
+          </Stack>
+          {(it.status === 'done' || it.status === 'failed') && <Changes id={it.request} />}
+        </Box>
+        {decide && it.undoable && (
+          <Button size="small" onClick={() => void takeBack(it.request, it.itemName || it.title)}>
+            Take back
+          </Button>
+        )}
+        {decide && check && (
+          <Button size="small" onClick={() => void markSeen([it.request])}>
+            Mark seen
+          </Button>
+        )}
+      </Stack>
+    </ListItem>
   )
 }

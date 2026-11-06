@@ -109,6 +109,10 @@ const REVIEW_MUTATIONS = new Set([
   'Later',
   'Reopen',
   'SendToAgent',
+  // owner 2026-11-06: stage 4 AW. Opening finished agent work, or its item, and Mark seen on the
+  // Asked of agents view mark the result seen (request_seen, a person op): it no longer needs the
+  // owner.
+  'RequestSeen',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

@@ -16,7 +16,7 @@ export const TABS: Tab[] = [
   { key: '4', to: '/rfx', label: 'Asks', hint: 'asks between you and people' },
   { key: '5', to: '/people', label: 'People' },
   { key: '6', to: '/policy', label: 'Policy' },
-  { key: '8', to: '/requests', label: 'Agent work', hint: 'work queued for an agent' },
+  { key: '8', to: '/requests', label: 'Asked of agents', hint: 'every piece of agent work' },
   { key: '9', to: '/questions', label: 'Questions' },
   {
     key: '0',

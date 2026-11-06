@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import Typography from '@mui/material/Typography'
+import { useSeenOnOpen } from '@/api/requests'
 import { useProject } from '@/api/areas'
 import Stack from '@mui/material/Stack'
 import { AgentLooking } from '@/components/FindContext'
@@ -22,6 +23,8 @@ export const Route = createFileRoute('/_authed/projects/$id')({ component: Proje
 
 function ProjectPage() {
   const { id } = Route.useParams()
+  // Opening the item, or the agent work itself, marks its finished agent work seen.
+  useSeenOnOpen(id)
   const q = useProject(id)
   return (
     <DataState q={q}>
