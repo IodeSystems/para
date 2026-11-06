@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
@@ -103,15 +104,34 @@ func lifeOf(m model.Meta) Lifecycle {
 
 // requestOpen: proposed, queued, and claimed are open, and so is a request
 // whose last turn ended needing the owner (stuck, blocked,
-// needs_clarification).
+// needs_clarification) or whose result the owner has not seen.
 func requestOpen(r *model.Request) bool {
 	switch r.Status {
 	case model.RequestProposed, model.RequestQueued, model.RequestClaimed:
 		return true
 	case model.RequestDone:
-		return r.Resolution.NeedsOwner()
+		return r.Resolution.NeedsOwner() || resultUnseen(r)
+	case model.RequestFailed:
+		return resultUnseen(r)
 	}
 	return false
+}
+
+// resultUnseen: work that ended done, partial, or failed whose result the
+// owner has not opened (seen). A sweep's result is what it wrote in the
+// vault, so it has nothing to check. Work with no active_at ended before
+// 0.3.0 made seen, so it does not wait either.
+func resultUnseen(r *model.Request) bool {
+	if r.Seen != "" || r.RequiresSource != "" || r.ActiveAt == "" {
+		return false
+	}
+	return r.Status == model.RequestFailed || (r.Status == model.RequestDone && !r.Resolution.NeedsOwner())
+}
+
+// requestNeedsOwner: the owner's turn on agent work: accept it, respond to
+// it, or check its result.
+func requestNeedsOwner(r *model.Request) bool {
+	return r.Status == model.RequestProposed || (r.Status == model.RequestDone && r.Resolution.NeedsOwner()) || resultUnseen(r)
 }
 
 // agentHas: an agent holds the request now.
@@ -421,6 +441,10 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 			return owner("agent work to accept")
 		case m.Status == model.RequestDone && m.Resolution.NeedsOwner():
 			return owner("agent work ended " + string(m.Resolution))
+		case m.Status == model.RequestFailed && resultUnseen(m):
+			return owner(strings.TrimSuffix("failed: "+firstLine(lastSection(doc.Body, "Failure")), ": "))
+		case resultUnseen(m):
+			return owner("result to check")
 		}
 		return Need{Turn: TurnAgent, Reason: "agent work " + string(m.Status)}
 	case *model.Area:

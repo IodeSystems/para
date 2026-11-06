@@ -34,7 +34,7 @@ func isFindTitle(title string) bool {
 // last Result section, cut to a short length. Empty when the work is not a done
 // find or has no result.
 func replyNote(title, body string, r *model.Request) string {
-	if r.Status != model.RequestDone || !isFindTitle(title) {
+	if r.Status != model.RequestDone || !(r.Kind == InvestigateKind || isFindTitle(title)) {
 		return ""
 	}
 	var note string
@@ -74,7 +74,7 @@ func investigating(ctx context.Context, s store.Store) (map[string]string, error
 
 // openFind reports whether a request is open agent work made by investigate.
 func openFind(title string, r *model.Request) bool {
-	return (r.Status == model.RequestQueued || r.Status == model.RequestClaimed) && isFindTitle(title)
+	return (r.Status == model.RequestQueued || r.Status == model.RequestClaimed) && (r.Kind == InvestigateKind || isFindTitle(title))
 }
 
 // InvestigateInput is the input of investigate.
@@ -134,7 +134,7 @@ var Investigate = definePerson("investigate", "Ask an agent about an item (task,
 	if q, ok := doc.Meta.(*model.Question); ok && q.Status != model.QuestionOpen {
 		return InvestigateOutput{}, fmt.Errorf("%s is already %s", doc.ID, q.Status)
 	}
-	if _, ok := doc.Meta.(*model.Request); ok && isFindTitle(doc.Title) {
+	if r, ok := doc.Meta.(*model.Request); ok && (r.Kind == InvestigateKind || isFindTitle(doc.Title)) {
 		return InvestigateOutput{}, fmt.Errorf("%s is itself a search for context", doc.ID)
 	}
 	hint := strings.Join(strings.Fields(in.Hint), " ")
@@ -157,7 +157,7 @@ var Investigate = definePerson("investigate", "Ask an agent about an item (task,
 	case typ == model.TypeQuestion:
 		prefix = findEvidencePrefix
 	}
-	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: prefix + doc.Title, Ask: body, Links: []string{doc.ID}, Runner: in.Runner})
+	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: prefix + doc.Title, Ask: body, Links: []string{doc.ID}, Runner: in.Runner, Kind: InvestigateKind})
 	if err != nil {
 		return InvestigateOutput{}, err
 	}

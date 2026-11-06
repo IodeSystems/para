@@ -311,32 +311,11 @@ func tickSweeps(ctx context.Context, d Deps, out *TickOutput) error {
 	return nil
 }
 
-// sweepRequest makes the request to sweep one source.
+// sweepRequest makes the request to sweep one source, through request_add.
 func sweepRequest(ctx context.Context, d Deps, src model.Document) (string, error) {
-	info := d.Store.Info()
-	runner, err := d.Store.Config(runnerConfig)
-	if err != nil {
-		return "", err
-	}
-	if runner = strings.TrimSpace(runner); runner == "" {
-		runner = info.Install
-	}
-	status := model.RequestProposed
-	if ok, err := canQueue(d, info.Surface); err != nil {
-		return "", err
-	} else if ok {
-		status = model.RequestQueued
-	}
 	ask := fmt.Sprintf("Sweep the source %s. Claim this only if you reach it (agent_sources). "+
 		"Run sweep_plan with sources [%s], read it with your own tools from since, write what you find with the usual ops, "+
 		"and end with sweep_record with source %s and request, the id of this request.", src.Title, src.ID, src.ID)
-	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderRequests, Title: "Sweep " + src.Title, Body: ask,
-		Meta: &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: status, Runner: runner,
-			Queued: nowString(d.Store), Kind: SweepKind, RequiresSource: model.LinkTo(src.ID)},
-	})
-	if err != nil {
-		return "", err
-	}
-	return doc.ID, nil
+	out, err := addRequest(ctx, d, RequestAddInput{Title: "Sweep " + src.Title, Ask: ask, Kind: SweepKind}, model.LinkTo(src.ID))
+	return out.ID, err
 }

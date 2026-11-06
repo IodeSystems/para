@@ -27,7 +27,7 @@ func openSort(ctx context.Context, s store.Store) (map[string]string, error) {
 	out := map[string]string{}
 	for _, doc := range docs {
 		r := doc.Meta.(*model.Request)
-		if (r.Status != model.RequestQueued && r.Status != model.RequestClaimed) || !strings.HasPrefix(doc.Title, sortPrefix) {
+		if (r.Status != model.RequestQueued && r.Status != model.RequestClaimed) || !(r.Kind == TaskUpdateKind || strings.HasPrefix(doc.Title, sortPrefix)) {
 			continue
 		}
 		for _, l := range r.Links {
@@ -127,7 +127,7 @@ var TaskUpdate = definePerson("task_update", "Add free text to a task under ## U
 		return out, nil
 	}
 	body := fmt.Sprintf(sortInstruction, id)
-	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: sortPrefix + doc.Title, Ask: body, Links: []string{id}})
+	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: sortPrefix + doc.Title, Ask: body, Links: []string{id}, Kind: TaskUpdateKind})
 	if err != nil {
 		return out, fmt.Errorf("task_update: saved, but queueing the sort failed: %w", err)
 	}

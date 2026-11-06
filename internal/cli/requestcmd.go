@@ -55,7 +55,7 @@ func newRequestCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
-		opCommand(l, ops.RequestShow, binding[ops.RequestShowInput, ops.RequestShowOutput]{
+		seenOnShow(l, opCommand(l, ops.RequestShow, binding[ops.RequestShowInput, ops.RequestShowOutput]{
 			Use:  "show <id>",
 			Args: cobra.ExactArgs(1),
 			Bind: func(args []string, in *ops.RequestShowInput) error { in.ID = args[0]; return nil },
@@ -65,6 +65,21 @@ func newRequestCmd(l *loader) *cobra.Command {
 				p.f("%s\t%s\nstatus\t%s\nresolution\t%s\nturn\t%d\nrunner\t%s\nqueued_at\t%s\nclaimed_by\t%s\nlease_until\t%s\nlinks\t%s\ncontext\t%s\nfollowed\t%s\nresult_links\t%s\n%s\n",
 					out.Doc.ID, out.Doc.Title, m.Status, m.Resolution, m.Turn, m.Runner, m.Queued, m.Claimed, m.Lease,
 					strings.Join(linkIDs(m.Links), ","), strings.Join(linkIDs(m.Context), ","), strings.Join(linkIDs(m.Followed), ","), strings.Join(linkIDs(m.Results), ","), out.Doc.Body)
+				return p.err
+			},
+		})),
+		opCommand(l, ops.RequestSeen, binding[ops.RequestSeenInput, ops.RequestSeenOutput]{
+			Use:  "seen <id>...",
+			Args: cobra.MinimumNArgs(1),
+			Bind: func(args []string, in *ops.RequestSeenInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.RequestSeenOutput) error {
+				p := &printer{w: w}
+				for _, id := range out.Seen {
+					p.f("%s\tseen\n", id)
+				}
+				for _, id := range out.Skipped {
+					p.f("%s\tskipped\n", id)
+				}
 				return p.err
 			},
 		}),
@@ -158,6 +173,27 @@ func newRequestCmd(l *loader) *cobra.Command {
 		}),
 		newRequestWaitCmd(l),
 	)
+	return cmd
+}
+
+// seenOnShow marks the result of finished work seen when the owner shows it
+// (request_seen). An agent's show changes nothing.
+func seenOnShow(l *loader, cmd *cobra.Command) *cobra.Command {
+	run := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if err := run(cmd, args); err != nil {
+			return err
+		}
+		if l.agent() {
+			return nil
+		}
+		deps, err := l.deps()
+		if err != nil {
+			return err
+		}
+		_, err = ops.RequestSeen.Run(cmd.Context(), deps, ops.RequestSeenInput{ID: args[0]})
+		return err
+	}
 	return cmd
 }
 

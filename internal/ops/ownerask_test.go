@@ -154,12 +154,21 @@ func TestStackNeedsYouListsWorkWaitingOnOwner(t *testing.T) {
 	if _, err := RequestDone.Run(ctx, agent, RequestDoneInput{ID: fine.ID, Resolution: model.ResolutionDone, Result: "Ran."}); err != nil {
 		t.Fatal(err)
 	}
+	// Both wait on the owner: one for a response, one to check its result.
 	out := must(t, ProposalStack, person, ProposalStackInput{NeedsYou: true})
-	if len(out.Requests) != 1 || out.Requests[0].Request != ask.ID || !out.Requests[0].NeedsYou || out.Requests[0].Summary != "Which city?" {
+	if len(out.Requests) != 2 || !out.Requests[0].NeedsYou || !out.Requests[1].NeedsYou {
 		t.Fatalf("requests = %+v", out.Requests)
 	}
-	if out.NeedsYou != len(out.Rows)+1 {
+	if out.NeedsYou != len(out.Rows)+2 {
 		t.Fatalf("needs_you %d, rows %d", out.NeedsYou, len(out.Rows))
+	}
+	// Seen clears the result to check; the question stays.
+	if _, err := RequestSeen.Run(ctx, person, RequestSeenInput{ID: fine.ID}); err != nil {
+		t.Fatal(err)
+	}
+	out = must(t, ProposalStack, person, ProposalStackInput{NeedsYou: true})
+	if len(out.Requests) != 1 || out.Requests[0].Request != ask.ID || !out.Requests[0].NeedsYou || out.Requests[0].Summary != "Which city?" {
+		t.Fatalf("requests = %+v", out.Requests)
 	}
 	// The owner's response sends it back to the agent: it leaves the list.
 	if _, err := RequestRespond.Run(ctx, person, RequestRespondInput{ID: ask.ID, Kind: RespondClarify, Text: "Berlin."}); err != nil {

@@ -233,6 +233,7 @@ type Meta struct {
 	LastScan        string                `json:"last_scan,omitempty"`
 	Cursor          string                `json:"cursor,omitempty"`
 	RequiresSource  string                `json:"requires_source,omitempty"`
+	Seen            string                `json:"seen,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`

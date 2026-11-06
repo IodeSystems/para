@@ -294,8 +294,11 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		}
 		_ = m
 	case *model.Request:
-		switch outcome {
-		case "", string(model.RequestCancelled):
+		switch {
+		case outcome == "" && (m.Status == model.RequestDone || m.Status == model.RequestFailed):
+			// Finished work closes when the owner has seen its result.
+			op = RequestSeen
+		case outcome == "", outcome == string(model.RequestCancelled):
 			op = RequestCancel
 		default:
 			return verbRoute{}, bad("none or cancelled (end agent work with request_done or request_fail)")
@@ -615,7 +618,7 @@ var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a n
 		if err != nil {
 			return verbRoute{}, linkErr("id", id, err)
 		}
-		add := RequestAddInput{Title: in.Title, Ask: in.Note}
+		add := RequestAddInput{Title: in.Title, Ask: in.Note, Kind: FromAgentKind}
 		if slices.Contains(linkTypes, doc.Meta.Header().Type) {
 			add.Links = []string{doc.ID}
 		} else {
@@ -771,6 +774,10 @@ type ListRow struct {
 	Turn     Turn       `json:"turn"`
 	NeedsYou bool       `json:"needs_you"`
 	Reason   string     `json:"reason"`
+	// Request is the detail of a request row (type request): its kind, the
+	// item it is about, the owner's words, who has it, how it ended, stale,
+	// seen, and the receipts made under it.
+	Request *SentItem `json:"request,omitempty"`
 }
 
 // ListOutput is the output of list.
@@ -804,6 +811,12 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 			return ListOutput{}, err
 		}
 		tag := normTag(in.Tag)
+		var receipts map[string][]string
+		if in.Type == model.TypeRequest {
+			if receipts, err = requestReceipts(ctx, d); err != nil {
+				return ListOutput{}, err
+			}
+		}
 		out := ListOutput{Rows: []ListRow{}}
 		for _, r := range refs {
 			if r.Type == model.TypeReceipt && in.Type != model.TypeReceipt {
@@ -827,7 +840,13 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 			if in.Limit > 0 && len(out.Rows) >= in.Limit {
 				continue
 			}
-			out.Rows = append(out.Rows, ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(doc.Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason})
+			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(doc.Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
+			if m, ok := doc.Meta.(*model.Request); ok && in.Type == model.TypeRequest {
+				it := askedItem(ctx, d, doc, m, sn.Now)
+				it.Receipts, it.NeedsYou = receipts[doc.ID], n.Yes
+				row.Request = &it
+			}
+			out.Rows = append(out.Rows, row)
 		}
 		return out, nil
 	})

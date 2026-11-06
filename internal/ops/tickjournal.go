@@ -127,7 +127,7 @@ func tickJournals(ctx context.Context, d Deps, out *TickOutput) error {
 			"A week reads the day summaries and a month reads the week summaries; if a lower journal lacks a summary-agent section, write that one first.",
 			p.requestTitle(), p.scope, p.id, AgentPrefix, agent, p.id)
 		title, rest, _ := strings.Cut(ask, "\n")
-		res, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: title, Ask: strings.TrimSpace(rest), Links: []string{p.id}})
+		res, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: title, Ask: strings.TrimSpace(rest), Links: []string{p.id}, Kind: JournalSummaryKind})
 		if err != nil {
 			out.Warnings = append(out.Warnings, "journal "+p.id+": no request made: "+err.Error())
 			continue

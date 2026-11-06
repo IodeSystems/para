@@ -11,24 +11,54 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-// Asked of agents is the list of agent work the owner asked for. Send to
-// agent makes it from the review stack (an item or a vault question sent back
-// with a note) and from the composer on an item's page (agent_send): kind
-// SentKind; older ones are known by their title. An agent records what the
-// owner asked it in the chat: kind OwnerAskKind.
+// Asked of agents is the list of agent work the owner asked for. Every entry
+// point makes one request with a kind, linked to the item: Send to agent from
+// the review stack and from the composer on an item's page (SentKind), the
+// meeting notes slot (MeetingNotesKind), investigate, task_delegate,
+// task_update, and what the owner asked an agent in the chat (OwnerAskKind).
+// Requests made before kinds are known by their title (requestKind).
 
 // SentKind marks a request the owner made with Send to agent.
 const SentKind = "sent-to-agent"
 
-// isSent reports whether a request came from Send to agent.
-func isSent(title string, r *model.Request) bool {
-	return r.Kind == SentKind || strings.HasPrefix(title, askPrefix) || strings.HasPrefix(title, composerPrefix)
+// Kinds of agent work. The first three are what the owner asked for; the rest
+// are made by an agent or by the tick.
+const (
+	InvestigateKind    = "investigate"     // investigate: find context, or answer the owner's text
+	DelegateKind       = "delegate"        // task_delegate: do the task
+	TaskUpdateKind     = "task-update"     // task_update: sort the owner's update
+	FromAgentKind      = "from-agent"      // send_to_agent on an agent's surface
+	JournalSummaryKind = "journal-summary" // tick: write a journal summary
+	RecurringKind      = "recurring-task"  // a recurring task assigned to an agent
+	FixWriteKind       = "fix-write"       // receipt_check wrong with no work to reopen
+)
+
+// askedKinds are the kinds of work the owner asked for.
+var askedKinds = []string{SentKind, OwnerAskKind, MeetingNotesKind, InvestigateKind, DelegateKind, TaskUpdateKind}
+
+// requestKind is the kind of a request: its kind key, or for a request made
+// before kinds, the kind its title or source says.
+func requestKind(title string, r *model.Request) string {
+	switch {
+	case r.Kind != "":
+		return r.Kind
+	case r.RequiresSource != "":
+		return SweepKind
+	case strings.HasPrefix(title, askPrefix), strings.HasPrefix(title, composerPrefix):
+		return SentKind
+	case isFindTitle(title):
+		return InvestigateKind
+	case strings.HasPrefix(title, workPrefix):
+		return DelegateKind
+	case strings.HasPrefix(title, sortPrefix):
+		return TaskUpdateKind
+	}
+	return ""
 }
 
-// isAsked reports whether the owner asked for the work: Send to agent, or an
-// owner-ask an agent recorded from the chat.
+// isAsked reports whether the owner asked for the work.
 func isAsked(title string, r *model.Request) bool {
-	return r.Kind == OwnerAskKind || isSent(title, r)
+	return slices.Contains(askedKinds, requestKind(title, r))
 }
 
 // askedOpen reports whether work is not finished: proposed, queued, or
@@ -55,8 +85,9 @@ type SentListInput struct {
 type SentItem struct {
 	Request string `json:"request"`
 	Title   string `json:"title"`
-	// Kind is sent-to-agent (Send to agent) or owner-ask (asked in the chat);
-	// in the stack's needs-you list, any kind of agent work.
+	// Kind is where the ask came from: sent-to-agent (Send to agent),
+	// owner-ask (asked in the chat), meeting-notes, investigate, delegate, or
+	// task-update; in the stack's needs-you list, any kind of agent work.
 	Kind   string              `json:"kind"`
 	Item   string              `json:"item,omitempty"` // the item it is about
 	Note   string              `json:"note,omitempty"` // the first line of the owner's words
@@ -75,9 +106,11 @@ type SentItem struct {
 	Results  []string `json:"results,omitempty"`
 	// Receipts are the writes made under the work, oldest first.
 	Receipts []string `json:"receipts,omitempty"`
-	// NeedsYou: the turn ended stuck, blocked, or needs_clarification and
-	// waits for the owner's response.
+	// NeedsYou: it waits for the owner: proposed, a turn that ended stuck,
+	// blocked, or needs_clarification, or a result not yet seen.
 	NeedsYou bool `json:"needs_you"`
+	// Seen is when the owner opened the result (request_seen).
+	Seen string `json:"seen,omitempty"`
 	// Undoable: no agent has claimed it, so agent_unsend takes it back.
 	Undoable bool `json:"undoable"`
 	// ItemName is the title of Item, for people.
@@ -93,7 +126,7 @@ type SentListOutput struct {
 }
 
 // SentList lists the agent work the owner asked for, newest first.
-var SentList = defineRead("sent_list", "List the agent work the owner asked for, newest first: Send to agent (kind sent-to-agent) and what the owner asked an agent in the chat (kind owner-ask). Each has the item, the owner's words, the status, the agent that has it and since when, how it ended, the receipts made under it, and stale (queued or claimed with no change in a day)", func(ctx context.Context, d Deps, in SentListInput) (SentListOutput, error) {
+var SentList = defineRead("sent_list", "List the agent work the owner asked for, newest first: Send to agent (kind sent-to-agent), meeting notes, investigate, delegate, task-update, and what the owner asked an agent in the chat (kind owner-ask). Each has the item, the owner's words, the status, the agent that has it and since when, how it ended, the receipts made under it, and stale (queued or claimed with no change in a day)", func(ctx context.Context, d Deps, in SentListInput) (SentListOutput, error) {
 	if in.Limit < 0 {
 		return SentListOutput{}, errors.New("limit is negative")
 	}
@@ -133,16 +166,12 @@ var SentList = defineRead("sent_list", "List the agent work the owner asked for,
 
 // askedItem is the row of one request in the list of asked work.
 func askedItem(ctx context.Context, d Deps, doc model.Document, r *model.Request, now time.Time) SentItem {
-	kind := r.Kind
-	if kind == "" && isSent(doc.Title, r) {
-		kind = SentKind
-	}
-	it := SentItem{Request: doc.ID, Title: plainTitle(ctx, d.Store, doc.Title), Kind: kind, Status: r.Status, ClaimedBy: r.Claimed,
+	it := SentItem{Request: doc.ID, Title: plainTitle(ctx, d.Store, doc.Title), Kind: requestKind(doc.Title, r), Status: r.Status, ClaimedBy: r.Claimed,
 		ClaimedAt: r.ClaimedAt, Resolution: r.Resolution, QueuedAt: firstOf(r.Queued, string(r.Created)), ActiveAt: r.ActiveAt,
 		Stale: requestStale(r, now), Results: targets(r.Results),
 		Note:     firstLine(firstOf(bodySection(doc.Body, "Ask"), bodySection(doc.Body, "Owner's words"))),
 		Summary:  firstLine(lastSection(doc.Body, "Result")),
-		NeedsYou: r.Status == model.RequestDone && r.Resolution.NeedsOwner(),
+		NeedsYou: requestNeedsOwner(r), Seen: r.Seen,
 		Undoable: r.Status == model.RequestQueued || r.Status == model.RequestProposed}
 	switch {
 	case len(r.Links) > 0:

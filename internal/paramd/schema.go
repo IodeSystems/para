@@ -290,6 +290,7 @@ var typeFields = map[string][]field{
 		{Name: "followed", Kind: kLinkList},
 		{Name: "resolution", Kind: kEnum, Enum: requestResolutions},
 		{Name: "requires_source", Kind: kLink},
+		{Name: "seen", Kind: kTimestamp},
 	},
 	"proposal": {
 		{Name: "source", Kind: kLink},

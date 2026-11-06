@@ -15,7 +15,7 @@ const workPrefix = "Work on: "
 
 // openWork reports whether a request is open agent work made by task_delegate.
 func openWork(title string, r *model.Request) bool {
-	return (r.Status == model.RequestQueued || r.Status == model.RequestClaimed) && strings.HasPrefix(title, workPrefix)
+	return (r.Status == model.RequestQueued || r.Status == model.RequestClaimed) && (r.Kind == DelegateKind || strings.HasPrefix(title, workPrefix))
 }
 
 // delegated maps the id of each task that has open delegated work to the id of
@@ -135,7 +135,7 @@ var TaskDelegate = definePerson("task_delegate", "Give a task to an agent: assig
 	if out.Note != "" {
 		body = appendSection(body, "Note", out.Note)
 	}
-	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: workPrefix + doc.Title, Ask: body, Links: []string{id}})
+	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: workPrefix + doc.Title, Ask: body, Links: []string{id}, Kind: DelegateKind})
 	if err != nil {
 		return TaskDelegateOutput{}, err
 	}

@@ -294,8 +294,9 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 	return out, nil
 })
 
-// workWaitingOnOwner lists agent work whose last turn ended stuck, blocked,
-// or needs_clarification, newest first: it waits for the owner's response
+// workWaitingOnOwner lists agent work that ended and waits for the owner,
+// newest first: a turn that ended stuck, blocked, or needs_clarification
+// waits for a response, and a result not yet seen waits to be checked
 // (NeedsYou). Agent work proposed, also the owner's, is accepted on the
 // requests page and listed in Today's work.
 func workWaitingOnOwner(ctx context.Context, d Deps, sn *Snapshot) []SentItem {
@@ -303,7 +304,7 @@ func workWaitingOnOwner(ctx context.Context, d Deps, sn *Snapshot) []SentItem {
 	out := []SentItem{}
 	for i := len(docs) - 1; i >= 0; i-- {
 		r, ok := docs[i].Meta.(*model.Request)
-		if ok && r.Status == model.RequestDone && sn.Need(docs[i].ID).Yes {
+		if ok && (r.Status == model.RequestDone || r.Status == model.RequestFailed) && sn.Need(docs[i].ID).Yes {
 			out = append(out, askedItem(ctx, d, docs[i], r, sn.Now))
 		}
 	}

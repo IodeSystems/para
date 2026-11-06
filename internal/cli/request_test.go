@@ -24,6 +24,7 @@ var requestParityCases = map[string]parityCase{
 	"request_changes": {`{"id":"request-d4"}`, []string{"request", "changes", "request-d4"}, false},
 	"request_done":    {`{"id":"request-d1","resolution":"done","result":"Done."}`, []string{"request", "done", "request-d2", "Done."}, false},
 	"request_fail":    {`{"id":"request-f1","reason":"Blocked."}`, []string{"request", "fail", "request-f2", "Blocked."}, false},
+	"request_seen":    {`{"id":"request-s1"}`, []string{"request", "seen", "request-s2"}, false},
 }
 
 // seedRequestParity runs last in the parity table. Ids sort so that
@@ -53,6 +54,8 @@ func seedRequestParity(t *testing.T, deps ops.Deps) {
 	}
 	mk("request-d4", model.RequestDone, false)
 	mk("request-d5", model.RequestDone, false)
+	mk("request-s1", model.RequestDone, false)
+	mk("request-s2", model.RequestDone, false)
 }
 
 func TestRequestFlow(t *testing.T) {
@@ -77,6 +80,15 @@ func TestRequestFlow(t *testing.T) {
 	e.ok("request", "done", added.ID, "All", "done")
 	if out := e.ok("request", "show", added.ID); !strings.Contains(out, "status\tdone") || !strings.Contains(out, "## Result\n\nAll done") {
 		t.Fatalf("show:\n%s", out)
+	}
+	// The owner's show marked the result seen; an agent's changes nothing.
+	var shown ops.RequestShowOutput
+	e.json(&shown, "--actor", "claude", "request", "show", added.ID)
+	if r := shown.Doc.Meta.(*model.Request); r.Seen == "" {
+		t.Fatalf("show as the owner did not mark seen: %+v", r)
+	}
+	if out := e.ok("request", "seen", added.ID); !strings.Contains(out, added.ID+"\tskipped") {
+		t.Fatalf("seen again: %q", out)
 	}
 	var lint ops.LintOutput
 	e.json(&lint, "lint")

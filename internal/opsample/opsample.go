@@ -172,6 +172,7 @@ var Inputs = map[string]string{
 	"request_fail":              `{"id":"request-sample","reason":"No access."}`,
 	"request_note":              `{"id":"request-sample","text":"Read the project."}`,
 	"request_show":              `{"id":"request-sample"}`,
+	"request_seen":              `{"id":"request-finished"}`,
 	"route":                     `{"query":"domain-sample"}`,
 	"rule_add":                  `{"policy":"policy-sample","text":"Services log every failure."}`,
 	"task_add":                  `{"project":"project-sample","title":"Write parser","done_when":"The parser passes its tests."}`,

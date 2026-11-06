@@ -74,6 +74,8 @@ type RequestView struct {
 	ClaimedAt string `json:"claimed_at,omitempty"`
 	ActiveAt  string `json:"active_at,omitempty"`
 	Stale     bool   `json:"stale"`
+	// Seen is when the owner opened the result of finished work.
+	Seen string `json:"seen,omitempty"`
 }
 
 // ContextDoc is one document a request links as context. Required says a rule
@@ -108,8 +110,8 @@ func contextDocs(ctx context.Context, s store.Store, r *model.Request) []Context
 func requestView(d model.Document, r *model.Request) RequestView {
 	v := RequestView{
 		ID: d.ID, Title: d.Title, Status: r.Status, Runner: r.Runner, QueuedAt: r.Queued,
-		ClaimedBy: r.Claimed, LeaseUntil: r.Lease, Kind: r.Kind, Resolution: r.Resolution, Turn: r.Turn,
-		ClaimedAt: r.ClaimedAt, ActiveAt: r.ActiveAt,
+		ClaimedBy: r.Claimed, LeaseUntil: r.Lease, Kind: requestKind(d.Title, r), Resolution: r.Resolution, Turn: r.Turn,
+		ClaimedAt: r.ClaimedAt, ActiveAt: r.ActiveAt, Seen: r.Seen,
 	}
 	if len(r.Links) > 0 {
 		v.Links = targets(r.Links)
@@ -365,6 +367,13 @@ type RequestAddOutput struct {
 
 // RequestAdd queues a request, or proposes one from a surface that cannot queue.
 var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an agent surface it is only proposed until a person accepts it. Kind owner-ask records what the owner asked you in the chat that does not end in this reply: title in the owner's words, owner_said their message verbatim, links the items it is about. You hold it at once (claimed); renew with request_note and end it with request_done", func(ctx context.Context, d Deps, in RequestAddInput) (RequestAddOutput, error) {
+	return addRequest(ctx, d, in, "")
+})
+
+// addRequest makes one request: every entry point that asks an agent for
+// work comes here. src, for a sweep the tick makes, is the source only a
+// declaring agent may claim; no op input sets it.
+func addRequest(ctx context.Context, d Deps, in RequestAddInput, src model.Link) (RequestAddOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestAddOutput{}, err
@@ -442,7 +451,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 	meta := &model.Request{
 		Common: model.Common{Type: model.TypeRequest},
 		Status: status, Runner: runner, Queued: now, ActiveAt: now, Links: links,
-		Kind: kind, Context: context, Required: required,
+		Kind: kind, Context: context, Required: required, RequiresSource: src,
 	}
 	if claim {
 		meta.Claimed, meta.ClaimedAt = info.Actor, now
@@ -453,7 +462,7 @@ var RequestAdd = defineSafe("request_add", "Queue an ask for an agent; from an a
 		return RequestAddOutput{}, err
 	}
 	return RequestAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, Runner: runner, LeaseUntil: meta.Lease, Rev: doc.Rev}, nil
-})
+}
 
 // RequestListInput is the input of request_list. Empty fields match all.
 type RequestListInput struct {
@@ -813,6 +822,53 @@ var RequestFail = defineSafe("request_fail", "Mark a request you claimed as fail
 	r.Status, r.Lease, r.Resolution, r.ActiveAt = model.RequestFailed, "", model.ResolutionFailed, nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
+})
+
+// RequestSeenInput names finished work whose result the owner opened: id,
+// ids, or both.
+type RequestSeenInput struct {
+	ID  string   `json:"id,omitempty"`
+	IDs []string `json:"ids,omitempty"`
+}
+
+// RequestSeenOutput lists the work marked seen now, and the work skipped:
+// not finished, or seen before.
+type RequestSeenOutput struct {
+	Seen    []string `json:"seen"`
+	Skipped []string `json:"skipped"`
+}
+
+// RequestSeen marks the result of finished work seen: done or failed work no
+// longer waits for the owner to check it. A turn that ended stuck, blocked,
+// or needs_clarification still waits for a response.
+var RequestSeen = definePerson("request_seen", "Mark the result of finished agent work (done or failed) seen by the owner, so it no longer needs them (result to check). Work not finished, or seen before, is skipped. People only", func(ctx context.Context, d Deps, in RequestSeenInput) (RequestSeenOutput, error) {
+	ids := in.IDs
+	if strings.TrimSpace(in.ID) != "" {
+		ids = append([]string{in.ID}, ids...)
+	}
+	if len(ids) == 0 {
+		return RequestSeenOutput{}, errors.New("give id or ids")
+	}
+	out := RequestSeenOutput{Seen: []string{}, Skipped: []string{}}
+	for _, id := range ids {
+		doc, r, err := getRequest(ctx, d.Store, id)
+		if err != nil {
+			return out, err
+		}
+		if slices.Contains(out.Seen, doc.ID) || slices.Contains(out.Skipped, doc.ID) {
+			continue
+		}
+		if r.Seen != "" || (r.Status != model.RequestDone && r.Status != model.RequestFailed) {
+			out.Skipped = append(out.Skipped, doc.ID)
+			continue
+		}
+		r.Seen = nowString(d.Store)
+		if _, err := d.Store.Update(ctx, doc); err != nil {
+			return out, fmt.Errorf("request_seen: %w", err)
+		}
+		out.Seen = append(out.Seen, doc.ID)
+	}
+	return out, nil
 })
 
 // RespondKind is what the owner's response asks for.

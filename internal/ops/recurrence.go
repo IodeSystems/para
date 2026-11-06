@@ -315,7 +315,7 @@ func agentRequest(ctx context.Context, d Deps, doc model.Document, warns []strin
 		return "", warns
 	}
 	ask := fmt.Sprintf("%s\n\nRecurring task %s, assigned to %s, due %s.", doc.Title, doc.ID, t.Assignee, dashOr(string(t.Due)))
-	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: doc.Title, Ask: ask, Links: []string{doc.ID}})
+	out, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: doc.Title, Ask: ask, Links: []string{doc.ID}, Kind: RecurringKind})
 	if err != nil {
 		return "", append(warns, "task "+doc.ID+" is assigned to "+t.Assignee+" but no request was made: "+err.Error())
 	}

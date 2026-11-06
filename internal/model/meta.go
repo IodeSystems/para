@@ -552,6 +552,9 @@ type Request struct {
 	// RequiresSource links a source: only an actor that declared it
 	// (agent_sources) within sources.reach_days may claim the request.
 	RequiresSource Link `yaml:"requires_source,omitempty" json:"requires_source,omitempty"`
+	// Seen is when the owner opened the result of finished work (request_seen).
+	// Done or failed work with no Seen waits for the owner to check it.
+	Seen string `yaml:"seen,omitempty" json:"seen,omitempty"`
 }
 
 // Team is type: team.
