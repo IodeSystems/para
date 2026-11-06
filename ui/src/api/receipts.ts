@@ -63,7 +63,6 @@ const ListDoc = graphql(/* GraphQL */ `
   }
 `)
 
-
 const ShowDoc = graphql(/* GraphQL */ `
   query ReceiptShow($id: String!) {
     para {
