@@ -487,7 +487,9 @@ func (l *linter) io() {
 	if dir == "out" && str(fm["expects"]) == "response" && str(fm["route"]) == "" {
 		l.errf(1, CodeField, "type io: expects response needs field %q, the domain the Ask goes to", "route")
 	}
-	if (state == "filed" || state == "sent") && str(fm["became"]) == "" {
+	// A sent action (to no person) becomes nothing: its ref says where it is.
+	sentAction := state == "sent" && str(fm["ref"]) != "" && str(fm["expects"]) == "none"
+	if (state == "filed" || state == "sent") && str(fm["became"]) == "" && !sentAction {
 		l.errf(1, CodeField, "type io: state %s needs field %q", state, "became")
 	}
 	l.checkVia()

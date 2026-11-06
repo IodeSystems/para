@@ -33,7 +33,8 @@ func TestIOAddChecks(t *testing.T) {
 		{"in bad expects", IOAddInput{Direction: model.IOIn, Text: "x", Expects: "maybe"}, "expects"},
 		{"bad effort", IOAddInput{Direction: model.IOIn, Text: "x", Effort: "huge"}, "effort"},
 		{"out no expects", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"person-ada-example"}}, "expects"},
-		{"out no person", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"ada@acme.example"}, Expects: model.ExpectsNone}, "person or group"},
+		{"out no person", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"ada@acme.example"}, Expects: model.ExpectsResponse, Route: "domain-logging"}, "person or group"},
+		{"action to nowhere", IOAddInput{Direction: model.IOOut, Text: "x", Expects: model.ExpectsNone}, "person or group"},
 		{"response no route", IOAddInput{Direction: model.IOOut, Text: "x", To: []string{"person-ada-example"}, Expects: model.ExpectsResponse}, "route"},
 		{"link to a task", IOAddInput{Direction: model.IOIn, Text: "x", From: "[[" + f.proj + "]]"}, "want a person"},
 		{"missing link", IOAddInput{Direction: model.IOIn, Text: "x", From: "[[person-nobody]]"}, "person-nobody"},
@@ -82,6 +83,24 @@ func TestIOSendLogsAnInteraction(t *testing.T) {
 	}
 	if got := mustRun(t, IOList, f.owner, IOListInput{Direction: model.IOOut}); len(got.Items) != 0 {
 		t.Fatalf("outbox still lists the sent message: %+v", got.Items)
+	}
+	mustLintClean(t, f.owner)
+}
+
+// An action (a PR, a ticket) is a draft to where it lands, not to a person:
+// it is approved and sent like a message, and its send logs nothing else.
+func TestIOSendOfAnAction(t *testing.T) {
+	f := ioFix(t)
+	id := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOOut, Text: "What: open a PR\nHow: bump the version", Subject: "Bump",
+		To: []string{"github.com/acme/site"}, Medium: model.MediumGithub, Expects: model.ExpectsNone}).ID
+	mustRun(t, IOApprove, f.owner, IOApproveInput{ID: id})
+	out := mustRun(t, IOSend, f.owner, IOSendInput{ID: id, URL: "https://github.example/acme/site/pull/2"})
+	if out.State != model.IOSent || out.Became != "" || out.BecameType != "" {
+		t.Fatalf("send = %+v", out)
+	}
+	_, io, _ := getIO(t.Context(), f.owner, id)
+	if io.Became != "" || io.Ref != "https://github.example/acme/site/pull/2" {
+		t.Fatalf("io = %+v", io)
 	}
 	mustLintClean(t, f.owner)
 }

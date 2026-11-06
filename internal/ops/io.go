@@ -62,7 +62,7 @@ type IOAddOutput struct {
 }
 
 // IOAdd captures an incoming message or drafts an outgoing one.
-var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Effort is xs, s, m, or l. Para sends nothing", ioAdd)
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction); an outward action (a PR, a ticket, a deploy, a document edit) is a draft too: to names where it lands (a repo, a URL), expects none, the text says what and how. Effort is xs, s, m, or l. Para sends nothing", ioAdd)
 
 func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if !slices.Contains(model.IODirections, in.Direction) {
@@ -161,10 +161,15 @@ func checkOut(m *model.IO) error {
 	if m.Expects == model.ExpectsNone && m.Route != "" {
 		return errors.New("route is for expects response")
 	}
-	if len(ioLinks(m.To)) == 0 {
-		return errors.New("to needs a person or group id: the interaction or Ask names them (org_person_add first)")
+	if len(ioLinks(m.To)) > 0 {
+		return nil
 	}
-	return nil
+	// An action (a PR, a ticket, a deploy, a document edit) goes to no
+	// person: to names where it lands, and a send logs no interaction.
+	if m.Expects == model.ExpectsNone && len(m.To) > 0 {
+		return nil
+	}
+	return errors.New("to needs a person or group id: the interaction or Ask names them (org_person_add first); an action with expects none may name where it lands instead (a repo, a ticket, a URL)")
 }
 
 func cleanText(s string) string {
@@ -731,7 +736,7 @@ type IOSendOutput struct {
 // IOSend records that an outgoing message was sent. Expects none logs an
 // interaction; expects response opens an Ask with each person or group as a
 // sent target, so follow-ups use the Ask tools.
-var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets. Send only a draft the owner approved (io_approve); a send of another is recorded with a warning. A draft in a dossier message block is reported with proposal_executed instead", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. Send only a draft the owner approved (io_approve); a send of another is recorded with a warning", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	return sendIO(ctx, d, in)
 })
 
@@ -759,6 +764,9 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if link == "" && locator == "" {
 		return out, errors.New("give url or locator: where the owner can see the sent message")
 	}
+	if link == "" && m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0 {
+		return out, errors.New("an action (to no person) needs url: where the owner can see what you did")
+	}
 	if link != "" {
 		if link, err = checkURL(link); err != nil {
 			return out, err
@@ -782,8 +790,10 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 		back += " Where: " + locator + "."
 	}
 	date := at[:10]
-	switch m.Expects {
-	case model.ExpectsNone:
+	switch {
+	case m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0:
+		// An action: nobody to log an interaction with.
+	case m.Expects == model.ExpectsNone:
 		r, err := InteractionAdd.Run(ctx, d, InteractionAddInput{Summary: joinBody(doc.Title, back), With: ioLinks(m.To),
 			Medium: m.Medium, Direction: model.InteractionOut, URL: link, Date: date})
 		if err != nil {
@@ -791,7 +801,7 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 		}
 		out.Became, out.BecameType = r.ID, model.TypeInteraction
 		out.Warnings = append(out.Warnings, r.Warnings...)
-	case model.ExpectsResponse:
+	case m.Expects == model.ExpectsResponse:
 		var tg []TargetInput
 		for _, id := range ioLinks(m.To) {
 			tg = append(tg, TargetInput{To: id, Medium: m.Medium})
@@ -816,7 +826,10 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if err != nil {
 		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, in.ID, err)
 	}
-	m.State, m.Became, m.At = model.IOSent, model.LinkTo(out.Became), at
+	m.State, m.At = model.IOSent, at
+	if out.Became != "" {
+		m.Became = model.LinkTo(out.Became)
+	}
 	if m.Ref == "" {
 		m.Ref = link
 	}
