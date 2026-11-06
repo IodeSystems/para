@@ -143,6 +143,33 @@ func steps() []Step {
 				"The dossier closes as superseded when its last item is recorded. When no dossier is left, tell the owner to run para vault upgrade once: it raises the vault format.",
 			Done: "No open dossier holds a staged change.",
 		},
+		{
+			// A para before this step reads callouts as text and an area
+			// with follows as an area that follows nothing; it writes
+			// policies and exceptions as files again. Upgrade para on every
+			// machine first (Run checks).
+			ID:      "policy-docs",
+			Version: PolicyDocsFormat,
+			Title:   "Make policies areas that follow their source, and exceptions, conventions, and constraints annotations in their areas (upgrade para on every machine of this vault first)",
+			Auto:    true,
+			Types:   []model.Type{model.TypePolicy, model.TypePolicyException, model.TypeConvention, model.TypeConstraint},
+			Select:  foldsToAnnotation,
+			Rewrite: func(d model.Document) (model.Document, error) { return d, nil },
+			Batch:   policyDocsBatch,
+		},
+		{
+			ID:       "annotation-placement",
+			Version:  PolicyDocsFormat,
+			Title:    "Move each folded annotation from the top of its area to the section it is about",
+			Optional: true,
+			Types:    []model.Type{model.TypeArea},
+			Select:   placementPending,
+			Instructions: "Step policy-docs put each exception, convention, and constraint it could not anchor to a rule at the top of its area. " +
+				"For each area the selector lists, read the body and each annotation at the top (area_show lists them with their section). " +
+				"Where the text makes the section clear, move the annotation there with annotate {area, id, anchor: \"<heading>\"}. " +
+				"Where it does not, leave it and say so; do not guess. The owner may dismiss the rest with health_dismiss {id: <area>, kind: " + AnnotationAtTop + "}.",
+			Done: "No folded annotation is at the top of an area, or the owner dismissed it.",
+		},
 	}
 }
 

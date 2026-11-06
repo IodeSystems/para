@@ -93,7 +93,7 @@ func TestObligationsStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dry.Steps) != 2 || dry.Steps[1].Count != 0 || dry.Steps[0].ID != "obligations" || strings.Join(dry.Steps[0].Docs, ",") != strings.Join(folded, ",") || dry.Steps[0].Batch != "" {
+	if len(dry.Steps) != autoSteps(6) || dry.Steps[0].ID != "obligations" || strings.Join(dry.Steps[0].Docs, ",") != strings.Join(folded, ",") || dry.Steps[0].Batch != "" {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	for _, id := range folded {

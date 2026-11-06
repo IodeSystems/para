@@ -134,9 +134,9 @@ func TestRoute(t *testing.T) {
 	seedOrg(t, d)
 	cc := func(typ model.Type) model.Common { return model.Common{Type: typ} }
 	createDoc(t, d, model.Document{ID: "policy-logging", Folder: model.FolderPolicies, Title: "Logging standard",
-		Meta: &model.Policy{Common: cc(model.TypePolicy), Source: src()}})
+		Meta: &model.Policy{Common: cc(model.TypePolicy), Followed: model.Followed{Source: src()}}})
 	createDoc(t, d, model.Document{ID: "policy-billing", Folder: model.FolderPolicies, Title: "Invoice rules",
-		Meta: &model.Policy{Common: cc(model.TypePolicy), Source: src()}})
+		Meta: &model.Policy{Common: cc(model.TypePolicy), Followed: model.Followed{Source: src()}}})
 	createDoc(t, d, model.Document{ID: "no-prod-logs", Folder: model.FolderConstraints, Title: "No production logs in dev",
 		Body: "Applies to logging pipelines.", Meta: &model.Constraint{Common: cc(model.TypeConstraint), Why: "PII", By: "Ada", Source: src(),
 			AppliesIn: []string{"prod"}, NotIn: []string{"dev"}, ReviewBy: "2027-01-01"}})

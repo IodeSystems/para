@@ -15,7 +15,7 @@ import (
 
 func testDoc() model.Document {
 	return model.Document{ID: "policy-x", Title: "Logging", Body: "## Scope\nSee [[policy-y#^R2]] and [[policy-z|Z]]. ^b1\n\n```\n[[keep]] ^b2\n```",
-		Meta: &model.Policy{Source: model.Source{URL: "https://wiki.acme.example/p"}}}
+		Meta: &model.Policy{Followed: model.Followed{Source: model.Source{URL: "https://wiki.acme.example/p"}}}}
 }
 
 func TestParseTarget(t *testing.T) {

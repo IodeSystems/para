@@ -177,7 +177,7 @@ func TestDossiersStep(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(dry.Steps) != 1 || len(dry.Steps[0].Plan) != 3 {
+	if len(dry.Steps) != autoSteps(7) || len(dry.Steps[0].Plan) != 3 {
 		t.Fatalf("dry = %+v", dry)
 	}
 	plan := map[string]string{}
@@ -350,7 +350,7 @@ func TestDossiersStep(t *testing.T) {
 	if _, err := s.Update(ctx, clean); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := Settle(ctx, s); v != DossierFormat {
+	if v, _ := Settle(ctx, s); v != Latest() { // the later steps find nothing in this vault
 		t.Fatalf("format after the judgement part = %d", v)
 	}
 	if st, _ := StatusOf(ctx, s); len(st.Pending) != 0 {

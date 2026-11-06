@@ -161,7 +161,7 @@ func TestAgendaKindsAndOrder(t *testing.T) {
 		Targets: []TargetInput{{To: ada, Medium: model.MediumEmail}}}).ID
 	closed := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Old", Route: "domain-logging", SelfServe: "x", NextNudge: "2026-11-03"}).ID
 	must(t, RFXClose, d, RFXCloseInput{ID: closed})
-	createDoc(t, d, model.Document{ID: "policy-x", Folder: model.FolderPolicies, Title: "Policy X", Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: src()}})
+	createDoc(t, d, model.Document{ID: "policy-x", Folder: model.FolderPolicies, Title: "Policy X", Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Followed: model.Followed{Source: src()}}})
 	exc := must(t, ExceptionAdd, d, ExceptionAddInput{Policy: "policy-x", Kind: model.ExceptionBug, By: "Jordan", ReviewBy: "2026-11-03"}).ID
 	m1 := meet(t, d, ada, "Standup", "2026-11-03T15:00:00Z", "2026-11-03T15:15:00Z")
 	m0 := meet(t, d, ada, "Early", "2026-11-03T09:00:00Z", "2026-11-03T09:30:00Z")

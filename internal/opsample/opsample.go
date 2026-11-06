@@ -396,7 +396,7 @@ func Seed(ctx context.Context, s store.Store) error {
 			Meta: &model.RFX{Common: model.Common{Type: model.TypeRFX}, Direction: model.RFXOut, Status: model.RFXOpen, Route: "domain-sample", SelfServeCheck: "policy read",
 				Targets: []model.Target{{To: model.LinkTo("person-sample"), Medium: model.MediumEmail, Value: "sample@acme.example", State: model.TargetDrafted}}}},
 		{ID: "policy-sample", Folder: model.FolderPolicies, Title: "Sample policy",
-			Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: source()}},
+			Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Followed: model.Followed{Source: source()}}},
 		{ID: "policy-sample.source", Folder: model.FolderPolicies, Title: "Sample policy (transcript)",
 			Body: "Source: https://wiki.acme.example/policies/sample\n\nSample policy text.",
 			Meta: &model.Transcript{Common: model.Common{Type: model.TypeTranscript}, Of: model.LinkTo("policy-sample"), Source: source()}},

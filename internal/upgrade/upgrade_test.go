@@ -100,9 +100,9 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	}
 	// proposal-dossier, io-folder, and calendar-uids also run, and find
 	// nothing in this vault. A dry run does not see one step's change in the
-	// next: obligations finds the two older meetings as they are. dossiers
+	// next: obligations finds the two older meetings as they are; dossiers
 	// finds no dossier.
-	if len(dry.Steps) != 6 || dry.Steps[5].Count != 0 || dry.Steps[4].Count != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
+	if len(dry.Steps) != autoSteps(0) || stepOut(dry, "obligations").Count != 2 || dry.Steps[0].Count != 2 || dry.Steps[0].Batch != "" || dry.Steps[1].Count != 0 || dry.Steps[2].Count != 0 || dry.Steps[3].Count != 0 {
 		t.Fatalf("dry run = %+v", dry)
 	}
 	if raw(t, f, "meetings/meeting-a.md") != before {
@@ -128,7 +128,7 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 		t.Fatalf("format_version = %d, want 1", res.FormatVersion)
 	}
 	// The obligations step then made each meeting an obligation.
-	folded := res.Steps[len(res.Steps)-2]
+	folded := stepOut(res, "obligations")
 	if folded.ID != "obligations" || folded.Count != 2 || folded.Batch == "" {
 		t.Fatalf("obligations = %+v", folded)
 	}
@@ -203,7 +203,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(again.Steps) != 5 || again.Steps[4].Count != 0 || again.Steps[0].ID != "proposal-dossier" || again.Steps[0].Count != 0 || again.Steps[1].Count != 0 || again.Steps[2].Count != 0 || again.Steps[3].Count != 0 {
+	if len(again.Steps) != autoSteps(1) || again.Steps[0].ID != "proposal-dossier" || changed(again) {
 		t.Fatalf("second run = %+v", again)
 	}
 	// A second machine sees the same vault.properties and the rewritten files.
@@ -219,7 +219,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 5 || r.Steps[4].Count != 0 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 {
+	if len(r.Steps) != autoSteps(1) || changed(r) {
 		t.Fatalf("second install run = %+v", r)
 	}
 	// Without format_version (the property did not sync yet) the selector
@@ -231,7 +231,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Steps) != 6 || r.Steps[0].Count != 0 || r.Steps[1].Count != 0 || r.Steps[2].Count != 0 || r.Steps[3].Count != 0 || r.Steps[4].Count != 0 || r.Steps[5].Count != 0 || r.FormatVersion != 1 {
+	if len(r.Steps) != autoSteps(0) || changed(r) || r.FormatVersion != 1 {
 		t.Fatalf("run with a stale version = %+v", r)
 	}
 	if hasOp(mustEvents(t, two), vault.OpUpgradeUndo) {
@@ -302,7 +302,7 @@ func TestEditedDocumentIsSkippedByUndo(t *testing.T) {
 	if _, err := s.Update(ctx, d); err != nil {
 		t.Fatal(err)
 	}
-	un, err := Undo(ctx, s, res.Steps[len(res.Steps)-2].Batch) // obligations
+	un, err := Undo(ctx, s, stepOut(res, "obligations").Batch)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -311,11 +311,46 @@ func TestEditedDocumentIsSkippedByUndo(t *testing.T) {
 	}
 }
 
+// autoSteps counts the automated steps a run from format from goes through.
+func autoSteps(from int) int {
+	n := 0
+	for _, s := range Steps() {
+		if s.Version > from && s.Auto && !s.Marker {
+			n++
+		}
+	}
+	return n
+}
+
+// stepOut is the outcome of step id in a run, or a zero one.
+func stepOut(r RunResult, id string) StepOutcome {
+	for _, so := range r.Steps {
+		if so.ID == id {
+			return so
+		}
+	}
+	return StepOutcome{}
+}
+
+// changed reports whether any step of a run changed or would change a document.
+func changed(r RunResult) bool {
+	for _, so := range r.Steps {
+		if so.Count != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func TestStepsAreOrderedAndNamed(t *testing.T) {
 	prev := 0
 	for _, s := range Steps() {
-		if s.Version <= prev {
+		// An optional judgement step may share the version of the step before it.
+		if s.Version < prev || s.Version == prev && !s.Optional {
 			t.Errorf("step %s version %d is not above %d", s.ID, s.Version, prev)
+		}
+		if s.Optional && s.Auto {
+			t.Errorf("step %s is optional and automated", s.ID)
 		}
 		prev = s.Version
 		if s.Select == nil || len(s.Types) == 0 {

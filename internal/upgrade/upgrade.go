@@ -48,6 +48,11 @@ type Step struct {
 	// Expand, when set, is the Rewrite of a step that also makes new
 	// documents in its batch (an undo removes them).
 	Expand func(model.Document) (model.Document, []model.Document, error)
+	// Batch, when set, reads the vault once and returns the whole change of a
+	// run, for a step that writes one document from others (an annotation
+	// into an area): it picks the documents it changes and may make new ones
+	// (Select still says what is pending).
+	Batch func(ctx context.Context, r Reader) (model.ExpandFunc, error)
 	// Judge, when set, makes an automated step part judgement: it selects
 	// the documents only an agent can clear, after the automated part ran.
 	// The step is pending while Select or Judge finds a document, and Status
@@ -56,6 +61,9 @@ type Step struct {
 	// Explain, when set, says in lines what the step does to one selected
 	// document: a dry run and a run list it as the plan.
 	Explain func(model.Document) []string
+	// Optional is a judgement step that does not hold format_version back:
+	// status lists it while it has documents, and settle goes past it.
+	Optional bool
 	// Instructions tell an agent what to do for a judgement step (or the
 	// judgement part of a step). Done says the done test in words.
 	Instructions string
@@ -276,8 +284,7 @@ func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error)
 				return res, err
 			}
 		}
-		batch := BatchID(step.ID, s.Now())
-		out, err := s.RewriteExpand(ctx, batch, dry, func(d model.Document) (model.Document, []model.Document, bool, error) {
+		fn := func(d model.Document) (model.Document, []model.Document, bool, error) {
 			if !step.Select(d) {
 				return d, nil, false, nil
 			}
@@ -287,7 +294,14 @@ func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error)
 			}
 			nd, err := rewrite(d)
 			return nd, nil, err == nil, err
-		})
+		}
+		if step.Batch != nil {
+			if fn, err = step.Batch(ctx, s); err != nil {
+				return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
+			}
+		}
+		batch := BatchID(step.ID, s.Now())
+		out, err := s.RewriteExpand(ctx, batch, dry, fn)
 		if err != nil {
 			return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
 		}
@@ -332,7 +346,7 @@ func settle(ctx context.Context, s store.Store, cur int) (int, error) {
 		if step.Version <= cur {
 			continue
 		}
-		if step.Marker {
+		if step.Marker || step.Optional {
 			next = step.Version
 			continue
 		}

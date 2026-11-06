@@ -165,6 +165,11 @@ type Area struct {
 	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
 	// Links point at plans, repos, and docs that live elsewhere.
 	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	// Follows is the remote source the area summarizes, as a policy did. The
+	// body is the summary; para never rewrites it from the source.
+	Follows *Followed `yaml:"follows,omitempty" json:"follows,omitempty"`
+	// FoldedFrom is the type the area was before upgrade step policy-docs.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
 
 // Note is type: note, reference material kept in resources/. Area and Project
@@ -433,11 +438,21 @@ type Constraint struct {
 	ReviewBy  Date     `yaml:"review_by" json:"review_by"`
 	// Refines links the constraint this one specializes; optional.
 	Refines Link `yaml:"refines,omitempty" json:"refines,omitempty"`
+	// FoldedInto links the area the constraint is an annotation in now.
+	FoldedInto Link `yaml:"folded_into,omitempty" json:"folded_into,omitempty"`
 }
 
-// Policy is type: policy, the summary file.
+// Policy is type: policy, the summary file. Upgrade step policy-docs makes
+// it an area that follows the same source.
 type Policy struct {
 	Common   `yaml:",inline"`
+	Followed `yaml:",inline"`
+}
+
+// Followed is a remote source a summary follows: a policy's, or an area's
+// (Area.Follows). The transcript <id>.source holds the newest text; a
+// change keeps the text before it as <id>-v<n>.source.
+type Followed struct {
 	Source   Source `yaml:"source" json:"source"`
 	Verified bool   `yaml:"verified" json:"verified"`
 	// ReviewedBy names who reviewed the summary against the source.
@@ -540,6 +555,8 @@ type PolicyException struct {
 	With       Link            `yaml:"with,omitempty" json:"with,omitempty"`
 	// ReviewBy is when to look at the exception again (para exception expiring).
 	ReviewBy Date `yaml:"review_by,omitempty" json:"review_by,omitempty"`
+	// FoldedInto links the area the exception is an annotation in now.
+	FoldedInto Link `yaml:"folded_into,omitempty" json:"folded_into,omitempty"`
 }
 
 // Person is type: person.
@@ -669,6 +686,8 @@ type Convention struct {
 	AppliesIn []string         `yaml:"applies_in" json:"applies_in"`
 	// Refines links the convention this one specializes; optional.
 	Refines Link `yaml:"refines,omitempty" json:"refines,omitempty"`
+	// FoldedInto links the area the convention is an annotation in now.
+	FoldedInto Link `yaml:"folded_into,omitempty" json:"folded_into,omitempty"`
 }
 
 // Journal is type: journal.

@@ -106,7 +106,7 @@ func TestRenderCopy(t *testing.T) {
 		"```",
 		"R1 policy-x: Rule text. ^R1",
 	}, "\n")
-	doc := model.Document{Title: "Logging", Body: body, Meta: &model.Policy{Source: model.Source{URL: "https://wiki.acme.example/p"}}}
+	doc := model.Document{Title: "Logging", Body: body, Meta: &model.Policy{Followed: model.Followed{Source: model.Source{URL: "https://wiki.acme.example/p"}}}}
 	cases := []struct {
 		f     CopyFormat
 		wants []string

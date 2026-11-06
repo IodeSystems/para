@@ -84,7 +84,7 @@ func ingest(ctx context.Context, d Deps, in IngestInput) (IngestOutput, error) {
 		Folder: model.FolderPolicies,
 		Title:  title,
 		Body:   stubBody(),
-		Meta:   &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: src},
+		Meta:   &model.Policy{Common: model.Common{Type: model.TypePolicy}, Followed: model.Followed{Source: src}},
 	})
 	if err != nil {
 		return IngestOutput{}, err

@@ -55,7 +55,7 @@ func src(url string) model.Source {
 
 func policy(id, title, body string, verified bool) model.Document {
 	return model.Document{ID: id, Folder: model.FolderPolicies, Title: title, Body: body,
-		Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Source: src("https://wiki.acme.example/p/" + id), Verified: verified}}
+		Meta: &model.Policy{Common: model.Common{Type: model.TypePolicy}, Followed: model.Followed{Source: src("https://wiki.acme.example/p/" + id), Verified: verified}}}
 }
 
 func transcript(id, title, body string) model.Document {
