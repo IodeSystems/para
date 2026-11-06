@@ -119,6 +119,12 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 	if err != nil {
 		return JournalOutput{}, err
 	}
+	// The receipt of a write to plumbing is plumbing too.
+	for _, e := range evs {
+		if e.Op == "receipt" && skip[e.Doc] && e.To != "" {
+			skip[e.To] = true
+		}
+	}
 	var in2 []model.Event
 	for _, e := range evs {
 		// A journal's own writes are left out, or a rerun would change what it writes.
@@ -188,9 +194,10 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 }
 
 // journalPlumbing returns the ids of documents whose events stay out of a
-// journal: the journals themselves, and the requests for their narratives
-// (a request that links a journal). Counting those would make each narrative
-// request count as activity, and so start the next one.
+// journal: the journals themselves, the built-in journal-summary obligation
+// and its occurrences, and the requests for their narratives (a request that
+// links one of those). Counting those would make each narrative request count
+// as activity, and so start the next one.
 func journalPlumbing(ctx context.Context, d Deps, exist map[string]model.Ref) (map[string]bool, error) {
 	skip := map[string]bool{}
 	hasReq := false
@@ -200,6 +207,14 @@ func journalPlumbing(ctx context.Context, d Deps, exist map[string]model.Ref) (m
 			skip[id] = true
 		case model.TypeRequest:
 			hasReq = true
+		case model.TypeObligation:
+			doc, err := d.Store.Get(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			if o, ok := doc.Meta.(*model.Obligation); ok && o.Produce != nil && o.Produce.Builtin == JournalSummaryBuiltin {
+				skip[id] = true
+			}
 		}
 	}
 	if !hasReq {

@@ -759,6 +759,15 @@ enum para_AreaViewStatus {
   paused
 }
 
+type para_ArtifactView {
+  at: String!
+  id: String!
+  occurrence: String!
+  state: String!
+  title: String!
+  type: String!
+}
+
 type para_AskEffect {
   action: String!
   id: String!
@@ -3457,6 +3466,7 @@ input para_ItemPreparedInputInput {
 
 enum para_ItemPreparedInputKind {
   answer
+  artifact
   brief
   draft
   fields
@@ -4121,6 +4131,7 @@ type para_Meta {
   prepared: para_Prepared
   previous: String
   priority: String
+  produce: para_Produce
   project: String
   proposal: String
   proposed: String
@@ -4414,6 +4425,7 @@ input para_ObligationAddInputInput {
   optional: Boolean
   owedBy: [String!]
   owedTo: [String!]
+  produce: para_ProduceInputInput
   project: String
   recur: String
   rfx: [String!]
@@ -4924,6 +4936,7 @@ type para_Prepared {
 
 enum para_PreparedKind {
   answer
+  artifact
   brief
   draft
   fields
@@ -4951,6 +4964,107 @@ enum para_PrioritySetOutputPriority {
   high
   low
   normal
+}
+
+type para_Produce {
+  builtin: String
+  guide: String
+  kind: para_ProduceKind!
+  medium: para_ProduceMedium
+  template: String
+  to: [String!]
+}
+
+input para_ProduceInputInput {
+  guide: String
+  kind: para_ProduceInputKind!
+  medium: para_ProduceInputMedium
+  template: String
+  to: [String!]
+}
+
+enum para_ProduceInputKind {
+  doc
+  journal
+  message
+  other
+  report
+}
+
+enum para_ProduceInputMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_ProduceKind {
+  doc
+  journal
+  message
+  other
+  report
+}
+
+enum para_ProduceMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+type para_ProduceView {
+  agent: String!
+  artifact: para_ArtifactView
+  builtin: String
+  guide: String
+  kind: para_ProduceViewKind!
+  medium: para_ProduceViewMedium
+  ready: Boolean!
+  request: String
+  requestStatus: para_ProduceViewRequest_status
+  template: String
+  templateName: String
+  to: [String!]
+}
+
+enum para_ProduceViewKind {
+  doc
+  journal
+  message
+  other
+  report
+}
+
+enum para_ProduceViewMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  teams
+}
+
+enum para_ProduceViewRequest_status {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
 }
 
 input para_ProjectAddInputInput {
@@ -7584,6 +7698,7 @@ type para_TaskShowOutput {
   assumptions: [para_AssumptionView!]!
   body: String!
   parts: para_TaskParts!
+  produce: para_ProduceView
   questions: [para_QuestionView!]!
   rules: [para_RuleRef!]!
   task: para_TaskView!
@@ -7831,6 +7946,7 @@ enum para_TodayItemEffort {
 
 enum para_TodayItemReady_kind {
   answer
+  artifact
   brief
   draft
   fields
@@ -8054,6 +8170,7 @@ enum para_ValueRowEffort {
 
 enum para_ValueRowReady_kind {
   answer
+  artifact
   brief
   draft
   fields

@@ -247,6 +247,7 @@ type Meta struct {
 	FoldedFrom      string                `json:"folded_from,omitempty"`
 	FoldedInto      string                `json:"folded_into,omitempty"` // an exception, convention, or constraint: the area it is an annotation in
 	Follows         *model.Followed       `json:"follows,omitempty"`     // area: the source it summarizes
+	Produce         *model.Produce        `json:"produce,omitempty"`     // obligation owed by an agent: what it produces
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
@@ -317,6 +318,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, export.Formats)
 	addEnum(reg, ops.TriageTargets)
 	addEnum(reg, model.Schedules)
+	addEnum(reg, model.ProduceKinds)
 	addEnum(reg, model.States)
 	addEnum(reg, model.IODirections)
 	addEnum(reg, model.IOStates)

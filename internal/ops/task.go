@@ -507,6 +507,9 @@ type TaskShowOutput struct {
 	// Assumptions are the task's assumptions, with ## Assumptions body lines
 	// read as never checked.
 	Assumptions []AssumptionView `json:"assumptions"`
+	// Produce is set on an obligation an agent owes: what it produces, and
+	// the last artifact and its state.
+	Produce *ProduceView `json:"produce,omitempty"`
 }
 
 // TaskShow returns one task.
@@ -554,7 +557,11 @@ var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, 
 	if as == nil {
 		as = []AssumptionView{}
 	}
-	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body), Rules: rules, Assumptions: as}, nil
+	pv, err := produceView(ctx, d, doc)
+	if err != nil {
+		return TaskShowOutput{}, err
+	}
+	return TaskShowOutput{Task: v, Body: doc.Body, Questions: qs, Parts: parts, Updates: updatesText(doc.Body), Rules: rules, Assumptions: as, Produce: pv}, nil
 })
 
 // TaskChangeOutput is the output of task_start, task_done, and task_block.

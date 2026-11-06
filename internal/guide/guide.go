@@ -34,8 +34,8 @@ var (
 	harnessDun string
 	//go:embed processmeeting.txt
 	processMeeting string
-	//go:embed journallod.txt
-	journalLOD string
+	//go:embed produce.txt
+	produce string
 	//go:embed raglit.txt
 	raglitHelp string
 	//go:embed importcorpus.txt
@@ -82,9 +82,9 @@ func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
 // transcript.
 func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
 
-// JournalLOD is the MCP prompt "journal_lod": how to write the day, week, and
-// month summaries of a journal.
-func JournalLOD() string { return trim(journalLOD) + "\n\n" + Rule() }
+// Produce is the MCP prompt "produce": how to make one recurring artifact an
+// agent owes (a journal summary, a report, a message draft, a document).
+func Produce() string { return trim(produce) + "\n\n" + Rule() }
 
 // ImportCorpus is the MCP prompt "import_corpus":
 // how the owner and an agent import and sort a corpus.

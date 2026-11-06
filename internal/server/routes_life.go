@@ -66,7 +66,9 @@ func registerLife(r *registrar) {
 	reg(r, ops.MeetingHold, post, write)
 	reg(r, ops.MeetingAttend, post, write)
 	reg(r, ops.MeetingRSVP, post, netguard.ScopeReviewDecide)
-	reg(r, ops.ObligationAdd, post, write)
+	// owner 2026-11-06: PU-REC. The web form New recurring artifact makes an
+	// obligation on the owner's session (review:decide), as close does.
+	reg(r, ops.ObligationAdd, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ObligationSchedule, post, write)
 	reg(r, ops.ObligationAttend, post, write)
 	reg(r, ops.Agenda, get, read)

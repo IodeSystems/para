@@ -47,9 +47,18 @@ type TickOutput struct {
 	// assigned to an agent; Proposed counts those left for a person to accept.
 	Revived  []string `json:"revived"`
 	Requests []string `json:"requests"`
-	// Journals lists the mechanical journals tick made this pass. A request for
-	// a narrative, when journal.agent is set, is in Requests.
+	// Journals lists the mechanical journals tick made this pass. The
+	// narrative is produce work (Produce) of the built-in journal-summary
+	// obligation, made when journal.agent is set.
 	Journals []string `json:"journals"`
+	// Produce lists the produce requests tick made this pass, one per due
+	// occurrence of an obligation an agent owes (produce.go); they are in
+	// Requests too. Occurrences lists the next occurrences of those series
+	// made this pass; Defaults the built-in obligations made (the daily
+	// journal summary).
+	Produce     []string `json:"produce"`
+	Occurrences []string `json:"occurrences"`
+	Defaults    []string `json:"defaults"`
 	// Sweeps lists the sweep requests tick made this pass, one per due
 	// source with none open; they are in Requests too.
 	Sweeps   []string `json:"sweeps"`
@@ -60,7 +69,7 @@ type TickOutput struct {
 	// Prepares lists the prepare requests tick made this pass (prepared.go);
 	// they are in Requests too.
 	Prepares []string `json:"prepares"`
-	// NotQueued says why tick made no fill-gap or prepare work: it cannot
+	// NotQueued says why tick made no fill-gap, prepare, or produce work: it cannot
 	// queue work, and proposed work would ask the owner to approve each.
 	NotQueued string `json:"not_queued,omitempty"`
 	// Nudges lists open requests whose next_nudge is today or earlier. Today and
@@ -97,7 +106,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Gaps: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -142,6 +151,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	if err := tickJournals(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: journals: %w", err)
 	}
+	if err := tickProduce(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: produce: %w", err)
+	}
 	if err := tickNudges(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: nudges: %w", err)
 	}
@@ -154,10 +166,10 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	return out, nil
 }
 
-// notQueued notes that tick made no gap or prepare work because it cannot
-// queue.
+// notQueued notes that tick made no gap, prepare, or produce work because it
+// cannot queue.
 func (o *TickOutput) notQueued() {
-	o.NotQueued = "gap and prepare work is made only when tick can queue it: add tick to the vault setting request.surfaces"
+	o.NotQueued = "gap, prepare, and produce work is made only when tick can queue it: add tick to the vault setting request.surfaces"
 }
 
 // tickGoals names the goals whose pivot date has come or whose signal reading

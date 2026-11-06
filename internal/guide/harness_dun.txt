@@ -15,7 +15,7 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
    /para-<vault>:process_meeting   turn a transcript into vault updates
-   /para-<vault>:journal_lod   write a day, week, or month journal summary
+   /para-<vault>:produce   make a recurring artifact you owe (journal summary, report, message draft)
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
    A dun that works for another agent (the vault manager delegates to it over

@@ -200,7 +200,7 @@ Dispatch is off unless this machine has $PARA_HOME/vaults/<vault>/agent.json. It
   $ para journal summary 2026-11-01
   $ para journal daily 2026-11-01
 Para keeps a journal of the day, the week, and the month, built from events: counts and links. para tick makes them: the previous local day once it has ended, the previous ISO week after Sunday, the previous month after its last day. It catches up on missed periods after downtime, up to 14 days back, and never rewrites one that exists. This part is mechanical and spends no tokens. Run para tick from cron, for example "5 * * * * para tick --all" (hourly is enough; it is idempotent), or let para serve run it. It still needs request.runner in .para/vault.properties.
-For prose, set journal.agent=<name> in .para/vault.properties. Tick then queues one request per journal, linked to it, for that agent: a day summary from the events, a week from the day summaries, a month from the week summaries. THE NARRATIVE SPENDS TOKENS: one agent run per day, week, and month that had events. A period with no events gets no request. Requests follow request.surfaces: from tick they are only proposed until you add tick to that list (request.surfaces=cli,pwa,tick) or run para request accept. Nothing starts an agent unless dispatch is set up (use case 18) or an agent loops on request_next. The agent uses the prompt journal_lod and the op journal_summary, which writes one marked section of the journal, recorded under its actor. Your own text in the journal is never touched. Without journal.agent you get the mechanical journals only.
+For prose, set journal.agent=<name> in .para/vault.properties. On a vault at format 7 or later, the next tick makes one obligation, "Daily journal summary", owed by that agent (a recurring artifact, use case 28), once per vault. Each day its occurrence asks the agent to write the summaries of the journals that ended: the day, and a week or month when one ended, a week from the day summaries, a month from the week summaries. THE NARRATIVE SPENDS TOKENS: one agent run per day that had events. A day with no events gets no request, and its occurrence closes skipped. Unset journal.agent to pause it; close it dropped to stop it. Below format 7, tick queues one request per journal instead. The agent uses the prompt produce and the op journal_summary, which writes one marked section of the journal, recorded under its actor. Your own text in the journal is never touched. Without journal.agent you get the mechanical journals only.
 20. Bring in what you already have (an agent does it, you review)
 There is no import command. Ask your agent to use the prompt import_corpus. It reads the source with its own tools, confirms what it is with you, links docs instead of copying them, searches for what already exists, and writes one source at a time with ops, each with a receipt.
 
@@ -293,6 +293,11 @@ Triage rules are .para/triage.yaml, read in order. Each rule matches on from (a 
       actions: [mute]
 Each change has a receipt naming the rule; undo it on the Receipts page and the rule leaves that message alone.
 
+28. Recurring artifacts: reports, status messages, journal summaries an agent owes
+  $ para note add "Weekly status template" --body "Done, next, blocked (on whom), dates at risk."
+  $ para obligation add "Weekly status to the team" --owed-by agent:claude --produce message --template note-example --to group-example --medium email --recur weekly --due 2026-11-13
+What recurs and who gets it is yours: a commitment owed by an agent, with what it produces (journal, report, message, doc, or other), a template (a document, or the text), and for a message who it goes to. When an occurrence comes due, tick asks the agent for it (agent work of kind produce, linked to the occurrence) and makes the next occurrence of a series. The agent writes it (a note, a journal summary, or an outgoing draft) and records it on the occurrence, which then shows as ready. You approve a draft (para io approve) and close the occurrence; a message is never sent before you approve it. Like other tick work, it is made only when request.surfaces lists tick. The obligation page in the web app shows the owner, the template, and the last artifact with its state; New recurring artifact on the Obligations page makes one.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -326,4 +331,5 @@ Where does this go?
   a conversation with people at a time      a meeting, linked to the asks it serves
   what is dated this week                    para agenda
   what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens
+  a report or status message that recurs     an obligation owed by an agent, with --produce (use case 28)
   a reminder at a time, a page               not para: use a calendar or a pager

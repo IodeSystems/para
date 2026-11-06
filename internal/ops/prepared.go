@@ -111,7 +111,8 @@ func (sn *Snapshot) replyDraft(id string) string {
 // ItemPreparedInput is the input of item_prepared.
 type ItemPreparedInput struct {
 	ID string `json:"id"` // the item prepared
-	// Kind is what was prepared: draft, answer, fields, brief, or plan.
+	// Kind is what was prepared: draft, answer, fields, brief, plan, or
+	// artifact (what an agent produced for an obligation it owes).
 	Kind model.PreparedKind `json:"kind"`
 	// Ref is the document that holds it, such as an io draft; empty when it
 	// is on the item (its fields, steps, or notes).
@@ -129,9 +130,9 @@ type ItemPreparedOutput struct {
 var preparedTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeIO, model.TypeProject, model.TypeIncident}
 
 // ItemPrepared records that an agent prepared an item.
-var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, or plan, and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item: those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
+var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, or artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref), and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item: those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
 	if !slices.Contains(model.PreparedKinds, in.Kind) {
-		return ItemPreparedOutput{}, fmt.Errorf("kind %q: want draft, answer, fields, brief, or plan", in.Kind)
+		return ItemPreparedOutput{}, fmt.Errorf("kind %q: want draft, answer, fields, brief, plan, or artifact", in.Kind)
 	}
 	doc, err := d.Store.Get(ctx, strings.TrimSpace(in.ID))
 	if err != nil {
@@ -142,6 +143,9 @@ var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open
 	}
 	if lifeOf(doc.Meta) != LifeOpen {
 		return ItemPreparedOutput{}, fmt.Errorf("%s is closed: only an open item is prepared", doc.ID)
+	}
+	if o, ok := doc.Meta.(*model.Obligation); in.Kind == model.PreparedArtifact && (!ok || o.Produce == nil) {
+		return ItemPreparedOutput{}, fmt.Errorf("kind artifact is for an obligation an agent owes (produce): %s is not one", doc.ID)
 	}
 	var ref model.Link
 	if r := strings.TrimSpace(in.Ref); r != "" {

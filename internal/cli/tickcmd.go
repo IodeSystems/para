@@ -38,6 +38,9 @@ func tickLine(v ops.TickOutput) string {
 		return fmt.Sprintf("%s\tskipped: %s", v.Vault, v.Skipped)
 	}
 	line := fmt.Sprintf("%s\tran\trevived %d\trequests %d\tjournals %d\tnudges %d\tchanges %d", v.Vault, len(v.Revived), len(v.Requests), len(v.Journals), len(v.Nudges), v.Changes)
+	if len(v.Produce) > 0 {
+		line += fmt.Sprintf("\tproduce %d", len(v.Produce))
+	}
 	if len(v.Goals) > 0 {
 		line += fmt.Sprintf("\tgoals %d", len(v.Goals))
 	}
@@ -94,7 +97,7 @@ func newTickCmd(l *loader) *cobra.Command {
 			var res tickAllOutput
 			res.Vaults = []ops.TickOutput{}
 			for _, e := range entries {
-				v := ops.TickOutput{Vault: e.ID, Revived: []string{}, Requests: []string{}, Journals: []string{}, Nudges: []string{}, Warnings: []string{}}
+				v := ops.TickOutput{Vault: e.ID, Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Nudges: []string{}, Warnings: []string{}}
 				if e.Err != "" {
 					v.Error = "registry entry is broken: " + e.Err
 				} else if deps, err := l.depsFor(e.ID, e.Path); err != nil {

@@ -371,6 +371,13 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 	// an ongoing one is due on its review cadence.
 	if o, ok := doc.Meta.(*model.Obligation); ok {
 		switch {
+		case o.Agent() != "" && o.Produce != nil:
+			// A recurring artifact: the agent's until it is produced, then the
+			// owner approves it.
+			if _, ok := sn.Ready(doc.ID); ok {
+				return owner(string(o.Produce.Kind) + " ready: approve it or close it")
+			}
+			return Need{Turn: TurnAgent, Reason: "owed by " + o.Agent()}
 		case len(o.OwedBy) > 0:
 			return Need{Turn: TurnWaiting, Reason: "owed by " + strings.Join(targets(o.OwedBy), ", ")}
 		case o.Schedule == model.ScheduleOngoing:

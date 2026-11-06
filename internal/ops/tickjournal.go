@@ -52,12 +52,13 @@ func journalPeriods(now time.Time) []period {
 	return out
 }
 
-// tickJournals makes the journals that are due and, when journal.agent is
-// set, one request per journal for a narrative. A journal that exists is not
-// rewritten, so a pass is safe to repeat.
+// tickJournals makes the journals that are due. A journal that exists is not
+// rewritten, so a pass is safe to repeat. The narratives are agent work: at the
+// obligation format the built-in journal-summary obligation produces them
+// (produce.go); below it, when journal.agent is set, one request per journal
+// (journalRequests).
 func tickJournals(ctx context.Context, d Deps, out *TickOutput) error {
-	now := d.Store.Now()
-	periods := journalPeriods(now)
+	periods := journalPeriods(d.Store.Now())
 	have, err := journalIDs(ctx, d.Store)
 	if err != nil {
 		return err
@@ -72,17 +73,75 @@ func tickJournals(ctx context.Context, d Deps, out *TickOutput) error {
 		have[p.id] = true
 		out.Journals = append(out.Journals, p.id)
 	}
+	if obligationsOn(d) {
+		return nil
+	}
+	return journalRequests(ctx, d, out)
+}
+
+// journalAgent is the agent journal.agent names, without agent:, or "". A
+// value that is not one name is a warning.
+func journalAgent(d Deps, out *TickOutput) (string, error) {
 	agent, err := d.Store.Config(journalAgentConfig)
 	if err != nil {
+		return "", err
+	}
+	agent = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(agent), AgentPrefix))
+	if agent != "" && !agentNameRe.MatchString(agent) {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("%s=%q: want one agent name; no journal summaries made", journalAgentConfig, agent))
+		return "", nil
+	}
+	return agent, nil
+}
+
+// unsummarized lists the journals that ended by until, within the catch-up
+// window, that have events and no agent summary, lower levels first. A month
+// waits for its last week to end, so the weeks it summarizes exist and are
+// whole; a month listed here is made again first, so it lists that week.
+func unsummarized(ctx context.Context, d Deps, until time.Time) ([]period, error) {
+	now := d.Store.Now()
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	have, err := journalIDs(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	var out []period
+	for _, p := range journalPeriods(now) {
+		if !have[p.id] || p.end.After(until) {
+			continue
+		}
+		if kids := p.children(); p.scope == model.JournalMonth && len(kids) > 0 && kids[len(kids)-1].end.After(today) {
+			continue
+		}
+		doc, err := d.Store.Get(ctx, p.id)
+		if err != nil {
+			return nil, err
+		}
+		if strings.TrimSpace(sectionText(doc.Body, SummaryAgentSection)) != "" {
+			continue
+		}
+		// A period with no events has nothing to tell; the agent would spend
+		// tokens to write "quiet".
+		if events(doc.Body) == 0 {
+			continue
+		}
+		if p.scope == model.JournalMonth {
+			if _, err := journal(ctx, d, JournalInput{Date: p.start.Format(dateLayout)}, p.scope); err != nil {
+				return nil, fmt.Errorf("%s: %w", p.id, err)
+			}
+		}
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+// journalRequests is the journal narrative of a vault below the obligation
+// format, where no obligation can hold it: when journal.agent is set, one
+// request per journal that lacks a summary, linked to it.
+func journalRequests(ctx context.Context, d Deps, out *TickOutput) error {
+	agent, err := journalAgent(d, out)
+	if err != nil || agent == "" {
 		return err
-	}
-	agent = strings.TrimPrefix(strings.TrimSpace(agent), AgentPrefix)
-	if agent == "" {
-		return nil
-	}
-	if strings.ContainsAny(agent, " \t\r\n") {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("%s=%q: want one agent name; no journal requests made", journalAgentConfig, agent))
-		return nil
 	}
 	reqs, err := loadRequests(ctx, d.Store)
 	if err != nil {
@@ -94,36 +153,16 @@ func tickJournals(ctx context.Context, d Deps, out *TickOutput) error {
 			asked[l.Target()] = true
 		}
 	}
-	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	periods, err := unsummarized(ctx, d, d.Store.Now())
+	if err != nil {
+		return err
+	}
 	for _, p := range periods {
-		if asked[p.id] || !have[p.id] {
+		if asked[p.id] {
 			continue
-		}
-		// A month waits for its last week to end, so the weeks it summarizes
-		// exist and are whole.
-		if kids := p.children(); p.scope == model.JournalMonth && len(kids) > 0 && kids[len(kids)-1].end.After(today) {
-			continue
-		}
-		doc, err := d.Store.Get(ctx, p.id)
-		if err != nil {
-			return err
-		}
-		if strings.TrimSpace(sectionText(doc.Body, SummaryAgentSection)) != "" {
-			continue
-		}
-		// A period with no events has nothing to tell; the agent would spend
-		// tokens to write "quiet".
-		if events(doc.Body) == 0 {
-			continue
-		}
-		if p.scope == model.JournalMonth {
-			// The month was made before its last week; list that week now.
-			if _, err := journal(ctx, d, JournalInput{Date: p.start.Format(dateLayout)}, p.scope); err != nil {
-				return fmt.Errorf("%s: %w", p.id, err)
-			}
 		}
 		ask := fmt.Sprintf("%s\n\nWrite the %s summary of [[%s]] for %s%s.\n"+
-			"Use the MCP prompt journal_lod. Call journal_summary with id %s and no text to see what to read, then again with the text. "+
+			"Use the MCP prompt produce. Call journal_summary with id %s and no text to see what to read, then again with the text. "+
 			"A week reads the day summaries and a month reads the week summaries; if a lower journal lacks a summary-agent section, write that one first.",
 			p.requestTitle(), p.scope, p.id, AgentPrefix, agent, p.id)
 		title, rest, _ := strings.Cut(ask, "\n")

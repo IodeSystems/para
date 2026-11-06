@@ -71,7 +71,7 @@ type ObligationAddInput struct {
 	// ongoing with cadence, at for a meeting, else once.
 	Schedule model.Schedule `json:"schedule,omitempty"`
 	OwedTo   []string       `json:"owed_to,omitempty"` // person or group ids it is owed to
-	OwedBy   []string       `json:"owed_by,omitempty"` // person or group ids that owe it; empty: the owner
+	OwedBy   []string       `json:"owed_by,omitempty"` // person or group ids that owe it, or agent or agent:<name>; empty: the owner
 	Project  string         `json:"project,omitempty"`
 	Area     string         `json:"area,omitempty"`
 	Due      string         `json:"due,omitempty"`   // YYYY-MM-DD
@@ -91,6 +91,11 @@ type ObligationAddInput struct {
 	CalendarUIDs []model.CalendarEvent `json:"calendar_uids,omitempty"`
 	Optional     bool                  `json:"optional,omitempty"`
 	ImportedFrom *model.ImportedFrom   `json:"imported_from,omitempty"`
+	// Produce makes it a recurring artifact an agent owes: what the agent
+	// produces each time it comes due (kind journal, report, message, doc, or
+	// other), from which template, and for a message to whom. owed_by must
+	// name an agent; empty owed_by is agent.
+	Produce *ProduceInput `json:"produce,omitempty"`
 }
 
 // ObligationAddOutput is the output of obligation_add. Type is obligation,
@@ -107,7 +112,7 @@ type ObligationAddOutput struct {
 }
 
 // ObligationAdd records an obligation.
-var ObligationAdd = defineSafe("obligation_add", "Record an obligation: a meeting (with people at a time; the body gathers the questions of linked requests and of open questions in scope) or a commitment (something owed_to people, by due). schedule: once (by due), at (start and end with a zone), series (recur: each occurrence is its own item, the next made when one closes), or ongoing (no date, reviewed every cadence). Close it with close (outcome done, skipped, dropped, declined)", obligationAdd)
+var ObligationAdd = defineSafe("obligation_add", "Record an obligation: a meeting (with people at a time; the body gathers the questions of linked requests and of open questions in scope) or a commitment (something owed_to people, by due). schedule: once (by due), at (start and end with a zone), series (recur: each occurrence is its own item, the next made when one closes), or ongoing (no date, reviewed every cadence). A recurring artifact an agent owes (a report, a status message, a journal summary) is a commitment with owed_by agent or agent:<name> and produce {kind, template, to, medium, guide}: tick asks the agent for it each time it comes due, and the owner approves it. Close it with close (outcome done, skipped, dropped, declined)", obligationAdd)
 
 func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (ObligationAddOutput, error) {
 	kind := in.Kind
@@ -132,9 +137,29 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	if err != nil {
 		return ObligationAddOutput{}, err
 	}
-	owedBy, err := meetingLinks(ctx, d, "owed_by", in.OwedBy, model.TypePerson, model.TypeGroup)
+	if !on && in.Produce != nil {
+		return ObligationAddOutput{}, fmt.Errorf("this vault is below format %d: a recurring artifact needs it; the owner runs `para vault upgrade`", upgrade.ObligationFormat)
+	}
+	owedBy, err := owers(ctx, d, in.OwedBy)
 	if err != nil {
 		return ObligationAddOutput{}, err
+	}
+	var produce *model.Produce
+	agentOwed := slices.ContainsFunc(owedBy, model.IsAgentOwer)
+	switch {
+	case in.Produce != nil && kind != model.KindCommitment:
+		return ObligationAddOutput{}, errors.New("produce: a meeting is attended, not produced; give kind commitment")
+	case in.Produce != nil && len(owedBy) == 0:
+		owedBy, agentOwed = []model.Link{model.OwedByAgent}, true
+	case in.Produce != nil && !agentOwed:
+		return ObligationAddOutput{}, errors.New("produce is for an obligation an agent owes: give owed_by agent or agent:<name>")
+	case in.Produce == nil && agentOwed:
+		return ObligationAddOutput{}, errors.New("owed_by an agent: give produce, what the agent produces each time ({kind, template})")
+	}
+	if in.Produce != nil {
+		if produce, err = checkProduce(ctx, d, in.Produce); err != nil {
+			return ObligationAddOutput{}, err
+		}
 	}
 	due, err := parseDue(in.Due)
 	if err != nil {
@@ -161,7 +186,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 		}
 	}
 	post := func(o *model.Obligation) {
-		o.OwedTo, o.OwedBy, o.Schedule, o.Cadence = owedTo, owedBy, sched, flatLine(in.Cadence)
+		o.OwedTo, o.OwedBy, o.Schedule, o.Cadence, o.Produce = owedTo, owedBy, sched, flatLine(in.Cadence), produce
 		if kind == model.KindCommitment {
 			o.With = nil
 		}
@@ -390,6 +415,9 @@ var obligationClose = &Op[obligationCloseInput, ObligationCloseOutput]{name: "cl
 		if !o.Open() {
 			return ObligationCloseOutput{}, fmt.Errorf("%s is already closed (%s)", doc.ID, o.Outcome)
 		}
+		if why := messageUnsent(ctx, d, o); why != "" && outcome == model.OutcomeDone {
+			return ObligationCloseOutput{}, fmt.Errorf("%s: %s", doc.ID, why)
+		}
 		reason := flatLine(in.Reason)
 		if err := lintText("reason", reason); err != nil {
 			return ObligationCloseOutput{}, err
@@ -433,6 +461,11 @@ func nextObligation(ctx context.Context, d Deps, doc model.Document, o *model.Ob
 		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Project: o.Project, Area: o.Area, Due: due, Recur: o.Recur,
 		OccurrenceOf: cmp.Or(o.OccurrenceOf, model.LinkTo(doc.ID)), Previous: model.LinkTo(doc.ID),
 		Occasion: nextOccasion(o.Occasion, rfx, sched, end), DoneWhen: o.DoneWhen, Effort: o.Effort}
+	if o.Produce != nil {
+		p := *o.Produce
+		p.To = slices.Clone(o.Produce.To)
+		next.Produce = &p
+	}
 	saved, err := d.Store.Create(ctx, model.Document{Folder: model.FolderObligations, Title: doc.Title, Body: doc.Body, Meta: next})
 	if err != nil {
 		return "", err

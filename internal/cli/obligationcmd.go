@@ -22,7 +22,7 @@ func newObligationCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Kind), "kind", "", "meeting or commitment; default: meeting with --with, --attendee, --rfx, or --start, else commitment")
 				fs.StringVar((*string)(&in.Schedule), "schedule", "", "once, at, series, or ongoing; default from --recur, --cadence, and --start")
 				fs.StringArrayVar(&in.OwedTo, "owed-to", nil, "person or group id it is owed to (repeatable)")
-				fs.StringArrayVar(&in.OwedBy, "owed-by", nil, "person or group id that owes it; default you (repeatable)")
+				fs.StringArrayVar(&in.OwedBy, "owed-by", nil, "person or group id that owes it, or agent or agent:<name>; default you (repeatable)")
 				fs.StringVarP(&in.Project, "project", "p", "", "project id")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD")
@@ -39,9 +39,18 @@ func newObligationCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.CalendarUID, "calendar-uid", "", "meeting: UID of its event in your calendar")
 				fs.Var(&calendarEventsFlag{&in.CalendarUIDs}, "calendar-event", "meeting: another calendar event of it: <uid>=<role> (repeatable)")
 				fs.BoolVar(&in.Optional, "optional", false, "meeting: you are an optional attendee")
+				in.Produce = &ops.ProduceInput{}
+				fs.StringVar((*string)(&in.Produce.Kind), "produce", "", "a recurring artifact an agent owes: journal, report, message, doc, or other (with --owed-by agent:<name>)")
+				fs.StringVar(&in.Produce.Template, "template", "", "produce: the template, a document id or the text")
+				fs.StringArrayVar(&in.Produce.To, "to", nil, "produce message: person or group id, or text such as a channel (repeatable)")
+				fs.StringVar((*string)(&in.Produce.Medium), "medium", "", "produce message: email, slack, ...")
+				fs.StringVar(&in.Produce.Guide, "guide", "", "produce: the prompt the agent follows (default produce)")
 			},
 			Bind: func(args []string, in *ops.ObligationAddInput) error {
 				in.Title = strings.Join(args, " ")
+				if p := in.Produce; p != nil && p.Kind == "" && p.Template == "" && len(p.To) == 0 && p.Medium == "" && p.Guide == "" {
+					in.Produce = nil
+				}
 				return nil
 			},
 			Text: func(w io.Writer, out ops.ObligationAddOutput) error {
