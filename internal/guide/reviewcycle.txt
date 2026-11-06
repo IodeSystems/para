@@ -2,7 +2,7 @@ How to ask the owner through a dossier. A dossier is a proposal written as markd
 
 When to file one: one dossier per investigation, before every outward action (an email, a message, a PR, a ticket, a deploy), for every question only the owner can answer, and for vault changes the owner should see first. Ordinary vault edits go straight through the gate below.
 
-The gate. Every write you make is checked against gate.require (vault setting; default: undoable, minor, and obvious). Rate each write: minor (a small change) and obvious (the owner would make it without asking). Pass minor and obvious on the tool call (CLI: --minor --obvious). Para knows whether the op is undoable; an op of risk review is never minor, and confidence low is never obvious. A write that lacks one does not run: it becomes a change item in your dossier (dossier, else your "Staged writes <you>" dossier, grouped by op) and the call reports staged. That is a success; do not retry it. You cannot change gate.require.
+The gate. A vault write that receipt_undo can reverse applies at once, with a receipt the owner can undo; one that cannot be undone (vault_config_set, vault_config_unset, doc_rename, doc_archive of an item others wait on) is the owner's and is refused. minor, obvious, and dossier decide nothing. File a dossier for what the owner must decide or see first, not to get a write through.
 
 1. File. Call `proposal_add` with a title and markdown, the whole body. Grammar (para guide and docs/format.md, Dossier blocks):
    - One header block, info string "yaml para-dossier", with tldr (and optional context).

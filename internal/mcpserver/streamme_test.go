@@ -9,7 +9,8 @@ import (
 )
 
 // The ME rules reach agents: capture first, waiting is an Ask, merge and
-// notes, defer with owner_said, and a held write is relayed, not a failure.
+// notes, defer, and the gate: a write that cannot be undone is the owner's,
+// and owner_said counts only on io_approve.
 func TestInstructionsCarryStreamME(t *testing.T) {
 	names := map[string]bool{}
 	for _, e := range ops.All() {
@@ -21,7 +22,7 @@ func TestInstructionsCarryStreamME(t *testing.T) {
 		}
 	}
 	for _, want := range []string{"Capture first", "word for word as an io item", "point the owner to the io item",
-		"Waiting on a person is an Ask", "do not report it as a failure", "owner_said"} {
+		"Waiting on a person is an Ask", "it is refused, so ask the owner", "owner_said counts only on io_approve"} {
 		if !strings.Contains(Instructions, want) {
 			t.Errorf("instructions lack %q", want)
 		}
