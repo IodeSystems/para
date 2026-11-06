@@ -83,6 +83,12 @@ var (
 	headingRe     = regexp.MustCompile(`^(#{1,6})\s+(.*?)\s*#*\s*$`)
 )
 
+// isAnnotationHeader reports whether line is the header of a para annotation.
+func isAnnotationHeader(line string) bool {
+	m := calloutHeadRe.FindStringSubmatch(line)
+	return m != nil && slices.Contains(AnnotationKinds, strings.ToLower(m[1])) && strings.HasPrefix(strings.TrimSpace(m[2]), "ann-")
+}
+
 // ValidAnnotationID reports whether s is an annotation id: ann-<lowercase words>.
 func ValidAnnotationID(s string) bool { return annIDRe.MatchString(s) }
 

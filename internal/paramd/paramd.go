@@ -325,7 +325,8 @@ func (f *File) scan() {
 			n, _ := strconv.Atoi(m[1])
 			f.PageMarks = append(f.PageMarks, PageMark{N: n, Line: l.N, Raw: l.Text})
 		}
-		if loc := blockRe.FindStringSubmatchIndex(l.Text); loc != nil {
+		// An annotation header ending "anchor ^R4" names a block; it is not one.
+		if loc := blockRe.FindStringSubmatchIndex(l.Text); loc != nil && !isAnnotationHeader(l.Text) {
 			id := l.Text[loc[2]:loc[3]]
 			txt := strings.TrimSpace(l.Text[:loc[0]])
 			f.Blocks = append(f.Blocks, Block{ID: id, Line: l.N, Text: txt})
