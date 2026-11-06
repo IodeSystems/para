@@ -51,6 +51,7 @@ func registerWork(r *registrar) {
 	reg(r, ops.IOFile, post, write)
 	reg(r, ops.IODrop, post, write)
 	reg(r, ops.IOSend, post, write)
+	reg(r, ops.TriageRun, post, write)
 }
 
 // registerDocs: tracked documents. An agent tracks a document and passes each

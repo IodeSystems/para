@@ -20,6 +20,9 @@ func (f *fakeStore) Info() store.Info { return store.Info{Surface: "cli"} }
 
 func (f *fakeStore) Now() time.Time { return time.Date(2026, 11, 4, 9, 0, 0, 0, time.UTC) }
 
+// ConfigFile: the fake vault has no .para files (no triage rules).
+func (f *fakeStore) ConfigFile(string) ([]byte, error) { return nil, nil }
+
 type fakeStore struct {
 	store.Store
 	created []model.Document

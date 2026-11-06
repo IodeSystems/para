@@ -189,6 +189,7 @@ type ParaV1MutationNamespace {
   taskToAsks(body: para_TaskToAsksInputInput!): para_TaskToAsksOutput @derived(operationId: "taskToAsks")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
+  triageRun(body: para_TriageRunInputInput!): para_TriageRunOutput @derived(operationId: "triageRun")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
@@ -241,7 +242,7 @@ type ParaV1QueryNamespace {
   incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
-  ioList(all: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState): para_IOListOutput @derived(operationId: "ioList")
+  ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState): para_IOListOutput @derived(operationId: "ioList")
   ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
@@ -2600,6 +2601,7 @@ type para_IOAddOutput {
   id: String!
   rev: String!
   state: para_IOAddOutputState!
+  triage: [para_TriageAct!]
   warnings: [String!]!
 }
 
@@ -2821,12 +2823,14 @@ type para_IOItem {
   became: String
   created: String!
   deferUntil: String
+  digest: Boolean
   direction: para_IOItemDirection!
   effort: para_IOItemEffort
   expects: para_IOItemExpects
   from: String
   id: String!
   legacy: Boolean
+  links: [String!]!
   medium: para_IOItemMedium!
   needsYou: Boolean!
   needsYouReason: String
@@ -2838,6 +2842,8 @@ type para_IOItem {
   thread: String
   title: String!
   to: [String!]!
+  triage: para_IOItemTriage
+  triageBy: String
   unverifiable: Boolean
   verify: String
 }
@@ -2879,6 +2885,11 @@ enum para_IOItemState {
   ready
   sent
   unread
+}
+
+enum para_IOItemTriage {
+  digest
+  needs_you
 }
 
 type para_IOListOutput {
@@ -4191,6 +4202,8 @@ type para_Meta {
   thread: String
   to: [String!]
   tools: [String!]
+  triage: String
+  triageBy: String
   turn: Int
   type: para_MetaType!
   undone: String
@@ -7227,7 +7240,9 @@ type para_SweepRecordOutput {
   request: String
   rev: String!
   source: String!
+  triage: [para_TriageAct!]
   unreviewed: [String!]!
+  warnings: [String!]
 }
 
 type para_SweepSource {
@@ -8027,6 +8042,27 @@ enum para_TrackedViewSystem {
   github
   jira
   other
+}
+
+type para_TriageAct {
+  action: String!
+  id: String!
+  name: String
+  receipt: String
+  rule: Int!
+  skipped: String
+}
+
+input para_TriageRunInputInput {
+  dryRun: Boolean
+  ids: [String!]
+}
+
+type para_TriageRunOutput {
+  acts: [para_TriageAct!]!
+  checked: Int!
+  dryRun: Boolean
+  rules: Int!
 }
 
 type para_Turn {

@@ -182,6 +182,7 @@ type Snapshot struct {
 	later       map[string]deferHold
 	agent       map[string]string // item id -> request id an agent holds
 	needs       map[string]Need
+	sources     *sourceResolver // read on first use (inbound.go)
 }
 
 // snapTypes are the types a snapshot loads at once; any other document is
@@ -421,7 +422,7 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 	case *model.IO:
 		switch {
 		case m.Direction == model.IOIn:
-			return owner("to sort")
+			return sn.inboundTurn(m)
 		case m.State == model.IODraft:
 			return owner("draft to approve")
 		case m.State == model.IOReady && !m.Approved(doc.Body):

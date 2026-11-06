@@ -24,5 +24,6 @@ func seedStreamPUParity(t *testing.T, deps ops.Deps) {
 func streamPUParityCases() map[string]parityCase {
 	return map[string]parityCase{
 		"priority_set": {`{"id":"group-pu-a","priority":"high"}`, []string{"priority", "set", "group-pu-b", "high"}, false},
+		"triage_run":   {`{"dry_run":true}`, []string{"triage", "run", "--dry-run"}, true},
 	}
 }

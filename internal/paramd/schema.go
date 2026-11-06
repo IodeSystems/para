@@ -78,6 +78,7 @@ var (
 	docStatuses        = []string{"watching", "paused", "archived"}
 	sourceSystems      = []string{"mail", "chat", "tracker", "wiki", "calendar", "other", "gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder"}
 	priorities         = []string{"high", "normal", "low"}
+	ioTriages          = []string{"needs_you", "digest"}
 	sourceVias         = []string{"mcp", "cli", "none"}
 	sourceStatuses     = []string{"active", "paused"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
@@ -346,6 +347,9 @@ var typeFields = map[string][]field{
 		{Name: "reason", Kind: kString},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 		{Name: "approved_hash", Kind: kString},
+		{Name: "triage", Kind: kEnum, Enum: ioTriages}, // set by a triage rule
+		{Name: "triage_by", Kind: kString},
+		{Name: "links", Kind: kLinkList},
 	},
 	"tracked_doc": {
 		{Name: "url", Kind: kString, Required: true},

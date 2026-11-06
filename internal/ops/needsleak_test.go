@@ -66,7 +66,7 @@ func TestLeakAgendaHidesDoneAndLater(t *testing.T) {
 	failed := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Failed, retry today", DoneWhen: "Done."}).ID
 	must(t, TaskResolve, d, TaskResolveInput{ID: failed, Outcome: model.OutcomeFailed, Tried: "Ran it.", StoppedBecause: "Down.", RetryAfter: "2026-11-05"})
 	later := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Put off, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
-	in := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Can you look at the invoice?", From: "person-ada-example"}).ID
+	in := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Can you look at the invoice?", From: "person-ada-example", Expects: model.ExpectsResponse}).ID
 	inLater := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Newsletter", From: "person-bo-example"}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{later, inLater}, Until: "2026-11-12"})
 

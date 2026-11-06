@@ -542,6 +542,22 @@ func (IOExpects) Enum() []string { return enumStrings(IOExpectsAll) }
 // IOExpectsAll lists every IOExpects.
 var IOExpectsAll = []IOExpects{ExpectsResponse, ExpectsNone}
 
+// IOTriage is io.triage: what a triage rule decided for an incoming message.
+// needs_you: it needs the owner; digest: it goes to the day's inbox digest.
+// Empty: no rule decided, and the default rule applies (ops/needs.go).
+type IOTriage string
+
+const (
+	TriageNeedsYou IOTriage = "needs_you"
+	TriageDigest   IOTriage = "digest"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IOTriage) Enum() []string { return enumStrings(IOTriages) }
+
+// IOTriages lists every IOTriage.
+var IOTriages = []IOTriage{TriageNeedsYou, TriageDigest}
+
 // DocSystem is tracked_doc.system: where the tracked document lives.
 type DocSystem string
 

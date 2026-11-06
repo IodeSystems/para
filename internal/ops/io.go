@@ -57,10 +57,12 @@ type IOAddOutput struct {
 	State    model.IOState `json:"state"`
 	Rev      string        `json:"rev"`
 	Warnings []string      `json:"warnings"`
+	// Triage is what the owner's triage rules did to an incoming message.
+	Triage []TriageAct `json:"triage,omitempty"`
 }
 
 // IOAdd captures an incoming message or drafts an outgoing one.
-var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply. Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Effort is xs, s, m, or l. Para sends nothing", ioAdd)
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction). Effort is xs, s, m, or l. Para sends nothing", ioAdd)
 
 func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if !slices.Contains(model.IODirections, in.Direction) {
@@ -129,6 +131,15 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		return IOAddOutput{}, err
 	}
 	out := IOAddOutput{ID: doc.ID, Folder: doc.Folder, State: m.State, Rev: doc.Rev, Warnings: []string{}}
+	if in.Direction == model.IOIn {
+		var warn []string
+		if out.Triage, warn = triageNew(ctx, d, doc.ID); len(out.Triage) > 0 {
+			if cur, err := d.Store.Get(ctx, doc.ID); err == nil {
+				out.Rev, out.State = cur.Rev, cur.Meta.(*model.IO).State
+			}
+		}
+		out.Warnings = append(out.Warnings, warn...)
+	}
 	if m.Expects == model.ExpectsResponse {
 		if domains, err := d.Store.List(ctx, store.Filter{Type: model.TypeDomain}); err == nil {
 			if picked, _ := pickDomain(m.Route, domains); picked == nil {
@@ -288,10 +299,20 @@ type IOItem struct {
 	// moved yet. It reads as unread incoming; file it after the upgrade.
 	Legacy bool         `json:"legacy,omitempty"`
 	Effort model.Effort `json:"effort,omitempty"`
+	// Digest: an open incoming message that is not the owner's turn (no
+	// reply expected, sender and source not high, or a triage rule): it is
+	// listed in the day's inbox digest. Set by io_list.
+	Digest bool `json:"digest,omitempty"`
+	// Triage and TriageBy are what a triage rule decided and which rule;
+	// Links are the items a rule linked the message to (ids).
+	Triage   model.IOTriage `json:"triage,omitempty"`
+	TriageBy string         `json:"triage_by,omitempty"`
+	Links    []string       `json:"links"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
 	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From, Effort: m.Effort,
+		Triage: m.Triage, TriageBy: m.TriageBy, Links: targets(m.Links),
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
 		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created,
 		Verify: m.Verify, DeferUntil: m.DeferUntil, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable()}
@@ -313,6 +334,9 @@ type IOListInput struct {
 	Medium    model.Medium      `json:"medium,omitempty" query:"medium"`
 	Expects   model.IOExpects   `json:"expects,omitempty" query:"expects"`
 	All       bool              `json:"all,omitempty" query:"all"` // include filed, sent, and dropped items
+	// Digest keeps only open incoming messages that are not the owner's
+	// turn: what goes to the day's inbox digest.
+	Digest bool `json:"digest,omitempty" query:"digest"`
 }
 
 // IOListOutput is the output of io_list. Counts covers every open item,
@@ -323,7 +347,7 @@ type IOListOutput struct {
 }
 
 // IOList lists io items, oldest first.
-var IOList = defineRead("io_list", "List io items, oldest first: the inbox (direction in: unread, read) and the outbox (direction out: draft, ready). all adds filed, sent, and dropped items", func(ctx context.Context, d Deps, in IOListInput) (IOListOutput, error) {
+var IOList = defineRead("io_list", "List io items, oldest first: the inbox (direction in: unread, read) and the outbox (direction out: draft, ready). all adds filed, sent, and dropped items. digest keeps open incoming messages that do not need the owner (each row has needs_you and digest)", func(ctx context.Context, d Deps, in IOListInput) (IOListOutput, error) {
 	if in.Direction != "" && !slices.Contains(model.IODirections, in.Direction) {
 		return IOListOutput{}, fmt.Errorf("direction %q: want in or out", in.Direction)
 	}
@@ -345,6 +369,7 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 	for _, it := range all {
 		need := sn.Need(it.ID)
 		it.NeedsYou, it.NeedsYouReason = need.Yes, need.Reason
+		it.Digest = it.Direction == model.IOIn && need.Life == LifeOpen && need.Turn == TurnNone
 		switch it.State {
 		case model.IOUnread:
 			out.Counts.Unread++
@@ -360,7 +385,8 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 			in.State != "" && it.State != in.State,
 			in.State == "" && !in.All && !it.State.Open(),
 			in.Medium != "" && it.Medium != in.Medium,
-			in.Expects != "" && it.Expects != in.Expects:
+			in.Expects != "" && it.Expects != in.Expects,
+			in.Digest && !it.Digest:
 			continue
 		}
 		out.Items = append(out.Items, it)
@@ -389,7 +415,7 @@ func loadIO(ctx context.Context, d Deps) ([]IOItem, error) {
 				out = append(out, ioItem(doc, m))
 			case *model.Inbox:
 				out = append(out, IOItem{ID: doc.ID, Title: doc.Title, Direction: model.IOIn, Medium: model.MediumOther,
-					State: model.IOUnread, To: []string{}, Created: m.Created, Legacy: true})
+					State: model.IOUnread, To: []string{}, Links: []string{}, Created: m.Created, Legacy: true})
 			}
 		}
 	}
@@ -429,7 +455,7 @@ var IOShow = defineRead("io_show", "Show one io item: the message and its state"
 		return IOShowOutput{Doc: doc, Item: ioItem(doc, m)}, nil
 	case *model.Inbox:
 		return IOShowOutput{Doc: doc, Item: IOItem{ID: doc.ID, Title: doc.Title, Direction: model.IOIn, Medium: model.MediumOther,
-			State: model.IOUnread, To: []string{}, Created: m.Created, Legacy: doc.Folder == model.FolderInbox}}, nil
+			State: model.IOUnread, To: []string{}, Links: []string{}, Created: m.Created, Legacy: doc.Folder == model.FolderInbox}}, nil
 	}
 	return IOShowOutput{}, fmt.Errorf("%s is %s, not io", id, doc.Meta.Header().Type)
 })

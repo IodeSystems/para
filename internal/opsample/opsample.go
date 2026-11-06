@@ -112,6 +112,7 @@ var Inputs = map[string]string{
 	"org_group_add":             `{"name":"Atlas","org":"acme","kind":"team"}`,
 	"org_group_show":            `{"id":"group-sample"}`,
 	"priority_set":              `{"id":"group-sample","priority":"high"}`,
+	"triage_run":                `{"dry_run":true}`,
 	"org_person_add":            `{"name":"Riley Example","org":"acme","aliases":["Ri"]}`,
 	"org_person_alias_add":      `{"id":"person-sample","alias":"Ri"}`,
 	"org_person_alias_remove":   `{"id":"person-sample","alias":"Sam"}`,

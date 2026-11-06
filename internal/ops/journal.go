@@ -134,6 +134,18 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 		if lines := agentDigest(ctx, d, p.start, p.end); len(lines) > 0 {
 			sections = append(sections, section{"agent-activity", lines})
 		}
+		lines, err := inboxDigest(ctx, d, p.start, p.end)
+		if err != nil {
+			return JournalOutput{}, err
+		}
+		if len(lines) == 0 {
+			if cur, err := d.Store.Get(ctx, p.id); err == nil && strings.Contains(cur.Body, "%% para:begin "+inboxDigestSection+" %%") {
+				lines = []string{inboxDigestHeading, "Nothing came in that did not need you."}
+			}
+		}
+		if len(lines) > 0 {
+			sections = append(sections, section{inboxDigestSection, lines})
+		}
 	} else {
 		lines, err := rollupLines(ctx, d, p, exist)
 		if err != nil {

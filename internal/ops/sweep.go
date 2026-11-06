@@ -338,6 +338,10 @@ type SweepRecordOutput struct {
 	// record in the vault: no approved item done, no action_record.
 	Unreviewed []string `json:"unreviewed"`
 	Rev        string   `json:"rev"`
+	// Triage is what the owner's triage rules did to the open incoming
+	// messages from this source; Warnings say why a rule did not apply.
+	Triage   []TriageAct `json:"triage,omitempty"`
+	Warnings []string    `json:"warnings,omitempty"`
 }
 
 const lastSweepHeading = "## Last sweep"
@@ -404,6 +408,13 @@ var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the 
 			out.Unreviewed = append(out.Unreviewed, o.url)
 		}
 	}
+	if !in.Failed {
+		ids, err := openInboundOf(ctx, d, doc.ID)
+		if err != nil {
+			return out, err
+		}
+		out.Triage, out.Warnings = triageNew(ctx, d, ids...)
+	}
 	if in.Request != "" {
 		rq, r, err := ownClaim(ctx, d, in.Request)
 		if err != nil {
@@ -428,6 +439,30 @@ var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the 
 	}
 	return out, nil
 })
+
+// openInboundOf lists the open incoming io items whose via names the source.
+func openInboundOf(ctx context.Context, d Deps, source string) ([]string, error) {
+	sources, err := loadSources(ctx, d.Store)
+	if err != nil {
+		return nil, err
+	}
+	res := newSourceResolver(sources)
+	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeIO})
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, r := range refs {
+		doc, err := d.Store.Get(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		if m, ok := doc.Meta.(*model.IO); ok && m.Direction == model.IOIn && m.State.Open() && m.Via != nil && res.resolve(m.Via.Source) == source {
+			out = append(out, doc.ID)
+		}
+	}
+	return out, nil
+}
 
 // sweepLine is the one line a sweep leaves in the source body.
 func sweepLine(at, actor string, in SweepRecordInput) string {

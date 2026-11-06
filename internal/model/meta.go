@@ -640,6 +640,12 @@ type IO struct {
 	// outgoing draft in state ready whose text still hashes to it may be
 	// sent. Empty on a ready draft from before 0.3.0.
 	ApprovedHash string `yaml:"approved_hash,omitempty" json:"approved_hash,omitempty"`
+	// Triage is what a triage rule (.para/triage.yaml) decided for an
+	// incoming message, and TriageBy names the rule ("rule 2" or "rule 2
+	// (name)"). Links are items a rule linked the message to; it stays open.
+	Triage   IOTriage `yaml:"triage,omitempty" json:"triage,omitempty"`
+	TriageBy string   `yaml:"triage_by,omitempty" json:"triage_by,omitempty"`
+	Links    []Link   `yaml:"links,omitempty" json:"links,omitempty"`
 	// Deferral puts the item off: it leaves the reply lane of the order until
 	// its date. An io item waits on no other item.
 	Deferral `yaml:",inline"`
