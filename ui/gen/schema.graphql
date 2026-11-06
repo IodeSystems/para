@@ -8369,6 +8369,8 @@ type para_WhoOutput {
 type para_WhoPerson {
   aliases: [String!]!
   contacts: [para_Contact!]!
+  effectiveFrom: String
+  effectivePriority: para_WhoPersonEffective_priority!
   groups: [para_Ref!]!
   id: String!
   interactions: [para_InteractionSummary!]!
@@ -8377,8 +8379,21 @@ type para_WhoPerson {
   openRfx: [para_WhoRFX!]!
   openTasks: [para_TaskView!]!
   org: String!
+  priority: para_WhoPersonPriority
   role: para_Ref
   team: para_Ref
+}
+
+enum para_WhoPersonEffective_priority {
+  high
+  low
+  normal
+}
+
+enum para_WhoPersonPriority {
+  high
+  low
+  normal
 }
 
 type para_WhoRFX {

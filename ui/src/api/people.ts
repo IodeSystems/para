@@ -34,6 +34,9 @@ const WhoDoc = graphql(/* GraphQL */ `
             org
             aliases
             notes
+            priority
+            effectivePriority
+            effectiveFrom
             role {
               id
               title

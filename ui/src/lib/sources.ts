@@ -35,3 +35,8 @@ export function reachWords(r: Pick<Row, 'reachedBy' | 'declared'>): string {
 export function cadenceWords(r: Pick<Row, 'cadence'>): string {
   return r.cadence ? r.cadence : 'on demand'
 }
+
+// kindWords is a source's class, with its vendor after a slash when set: mail/outlook.
+export function kindWords(r: { system: string; vendor?: string | null }): string {
+  return r.vendor ? `${r.system}/${r.vendor}` : r.system
+}

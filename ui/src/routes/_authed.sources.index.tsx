@@ -6,7 +6,7 @@ import { useSourceList } from '@/api/sources'
 import { CHIP_ROW, Empty, PageTitle, StateChip, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
-import { cadenceWords, reachWords, viaWords } from '@/lib/sources'
+import { cadenceWords, kindWords, reachWords, viaWords } from '@/lib/sources'
 import { humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/sources/')({ component: SourcesPage })
@@ -35,7 +35,8 @@ function SourcesPage() {
                       </TextLink>
                     }
                     secondary={[
-                      s.system,
+                      kindWords(s),
+                      s.priority && `priority ${s.priority}`,
                       viaWords(s),
                       cadenceWords(s),
                       s.lastScan ? `swept ${humanTime(s.lastScan)}` : 'never swept',

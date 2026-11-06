@@ -278,6 +278,23 @@ An agent reaches each source with its own tools (an MCP connector or a CLI); par
   $ para --actor claude sweep plan
   $ para --actor claude sweep record code-reviews --cursor page-2 --count in=3
   $ para source list
+A source is a class (mail, chat, tracker, wiki, calendar, other) and a vendor, the product's name. An older source that names a product in system (gmail, slack, jira, ...) still reads.
+  $ para source add --title "Home mail" --system mail --vendor outlook
+
+27. What needs you from the inbox: priority, triage rules, the digest
+An incoming message needs you only when the sender waits for your reply (expects response), the sender (or a group they are in) or the source is priority high, or a triage rule says so. The rest is listed in the day's journal under Inbox digest and in the Inbox under Digest, until you file or drop it.
+  $ para priority set group-family high
+  $ para priority set src-newsletters low
+  $ para triage run --dry-run
+  $ para triage run
+Triage rules are .para/triage.yaml, read in order. Each rule matches on from (a person or group id), tag, class, vendor, medium, or subject (contains), and takes actions needs_you, digest, link <id>, tag <tag>, or mute (drops it with reason "muted by rule N"). Tags and links add up; the first rule with needs_you, digest, or mute decides.
+  rules:
+    - name: release notes
+      match: {from: group-vendors, subject: "release notes"}
+      actions: [digest, tag release]
+    - match: {vendor: teams, tag: lunch}
+      actions: [mute]
+Each change has a receipt naming the rule; undo it on the Receipts page and the rule leaves that message alone.
 
 Where does this go?
   You have                                   It goes in

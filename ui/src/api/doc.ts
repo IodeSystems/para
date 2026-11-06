@@ -30,6 +30,7 @@ const DocDoc = graphql(/* GraphQL */ `
             deferUntil
             deferredAfter
             state
+            priority
             source {
               url
               fidelity

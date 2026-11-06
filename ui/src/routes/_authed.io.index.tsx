@@ -7,6 +7,7 @@ import ListItemText from '@mui/material/ListItemText'
 import Switch from '@mui/material/Switch'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
+import Typography from '@mui/material/Typography'
 import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
@@ -15,9 +16,10 @@ import { CHIP_ROW, Empty, PageTitle, Section, StateChip, StatusChip } from '@/co
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
 import { ioParty } from '@/lib/io'
+import { digestRows, splitInbox } from '@/lib/priority'
 import { humanTime } from '@/lib/when'
 
-type View = 'inbox' | 'outbox'
+type View = 'inbox' | 'digest' | 'outbox'
 
 const MEDIUMS = [
   'email',
@@ -35,7 +37,7 @@ export const Route = createFileRoute('/_authed/io/')({
   validateSearch: (
     s: Record<string, unknown>,
   ): { view?: View; medium?: string; all?: boolean } => ({
-    view: s.view === 'outbox' ? 'outbox' : undefined,
+    view: s.view === 'outbox' || s.view === 'digest' ? s.view : undefined,
     medium: typeof s.medium === 'string' && MEDIUMS.includes(s.medium) ? s.medium : undefined,
     all: s.all === true || s.all === 'true' ? true : undefined,
   }),
@@ -57,13 +59,14 @@ function IoPage() {
         value={view ?? 'inbox'}
         onChange={(_e, v: View) =>
           void navigate({
-            search: (p) => ({ ...p, view: v === 'outbox' ? 'outbox' : undefined }),
+            search: (p) => ({ ...p, view: v === 'inbox' ? undefined : v }),
             replace: true,
           })
         }
         sx={{ mb: 2 }}
       >
         <Tab value="inbox" label={c ? `Inbox (${c.unread + c.read})` : 'Inbox'} />
+        <Tab value="digest" label="Digest" />
         <Tab value="outbox" label={c ? `Outbox (${c.draft + c.ready})` : 'Outbox'} />
       </Tabs>
       <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -105,11 +108,33 @@ function IoPage() {
       <DataState q={q}>
         {(d) => {
           const items = d.items.filter((x) => !medium || x.medium === medium)
-          if (dir === 'in') {
-            return items.length === 0 ? (
-              <Empty>Nothing in the inbox.</Empty>
+          if (view === 'digest') {
+            const list = digestRows(items)
+            return list.length === 0 ? (
+              <Empty>Nothing in the digest.</Empty>
             ) : (
-              <IoRows items={items} />
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Messages that do not need you: no reply expected, and the sender and the source
+                  are not high priority, or a triage rule sent them here. The day&apos;s journal
+                  lists them under Inbox digest.
+                </Typography>
+                <IoRows items={list} />
+              </>
+            )
+          }
+          if (dir === 'in') {
+            if (items.length === 0) return <Empty>Nothing in the inbox.</Empty>
+            const { needsYou, rest } = splitInbox(items)
+            return (
+              <>
+                <Section title="Needs you" count={needsYou.length} hideEmpty>
+                  <IoRows items={needsYou} />
+                </Section>
+                <Section title="The rest" count={rest.length} hideEmpty>
+                  <IoRows items={rest} />
+                </Section>
+              </>
             )
           }
           const groups = [
@@ -155,6 +180,7 @@ function IoRows({ items }: { items: Row[] }) {
                 who && (x.direction === 'in' ? `from ${who}` : `to ${who}`),
                 x.medium,
                 humanTime(x.at || x.created),
+                x.direction === 'in' && x.needsYouReason,
                 x.legacy && 'old inbox capture: run para vault upgrade',
               ]
                 .filter(Boolean)

@@ -113,6 +113,9 @@ const REVIEW_MUTATIONS = new Set([
   // Asked of agents view mark the result seen (request_seen, a person op): it no longer needs the
   // owner.
   'RequestSeen',
+  // owner 2026-11-06: PU-IO. Priority on a person, group, or source page: how much it matters,
+  // which decides whether its incoming messages need the owner (priority_set, a person op).
+  'PrioritySet',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

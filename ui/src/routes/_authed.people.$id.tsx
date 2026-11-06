@@ -11,6 +11,7 @@ import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { PrioritySelect } from '@/components/PrioritySelect'
 
 export const Route = createFileRoute('/_authed/people/$id')({ component: Person })
 
@@ -43,6 +44,7 @@ function Person() {
                 <StatusChip key={g.id} tone="quiet" label={g.title || nameOr('', g.id)} />
               ))}
             </Stack>
+            <PrioritySelect id={p.id} value={p.priority} inherited={p.effectivePriority} />
             {p.contacts.length + p.openRfx.length + p.interactions.length + p.notes.length ===
               0 && <Empty>Nothing recorded about this person yet.</Empty>}
             <Section title="Contact" count={p.contacts.length} hideEmpty>

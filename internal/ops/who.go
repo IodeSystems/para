@@ -30,6 +30,12 @@ type WhoPerson struct {
 	OpenRFX      []WhoRFX             `json:"open_rfx"`
 	// OpenTasks are open tasks assigned to the person.
 	OpenTasks []TaskView `json:"open_tasks"`
+	// Priority is the person's own priority (empty: not set). Effective is
+	// what counts: their own, else the highest of their groups
+	// (EffectiveFrom names it), else normal.
+	Priority      model.Priority `json:"priority,omitempty"`
+	Effective     model.Priority `json:"effective_priority"`
+	EffectiveFrom string         `json:"effective_from,omitempty"`
 }
 
 // WhoRFX is an open RFX that targets the person.
@@ -119,6 +125,11 @@ func describe(ctx context.Context, d Deps, id string, recent int) (*WhoPerson, e
 		Groups:   []model.Ref{},
 		Contacts: append([]model.Contact{}, p.Contacts...),
 		Notes:    sectionLines(doc.Body, notesHeading),
+		Priority: p.Priority,
+	}
+	wp.Effective, wp.EffectiveFrom = partyPriority(func(id string) (model.Document, error) { return d.Store.Get(ctx, id) }, doc)
+	if wp.Effective == "" {
+		wp.Effective = model.PriorityNormal
 	}
 	if wp.Role, err = refOrNil(ctx, d, p.Role); err != nil {
 		return nil, err

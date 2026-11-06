@@ -32,6 +32,9 @@ const IoListDoc = graphql(/* GraphQL */ `
             legacy
             created
             needsYou
+            needsYouReason
+            digest
+            triageBy
           }
         }
       }
@@ -69,6 +72,9 @@ const IoShowDoc = graphql(/* GraphQL */ `
             reason
             legacy
             created
+            triage
+            triageBy
+            links
           }
         }
       }

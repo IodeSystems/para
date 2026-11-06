@@ -10,7 +10,8 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { hitKindLabel } from '@/lib/hitkind'
-import { cadenceWords, reachWords, viaWords } from '@/lib/sources'
+import { cadenceWords, kindWords, reachWords, viaWords } from '@/lib/sources'
+import { PrioritySelect } from '@/components/PrioritySelect'
 import { exactTime, humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/sources/$id')({ component: SourcePage })
@@ -77,7 +78,7 @@ function SourcePage() {
             <PageTitle
               action={
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <StatusChip tone="quiet" label={s.system} />
+                  <StatusChip tone="quiet" label={kindWords(s)} />
                   {s.overdue && <StatusChip tone="attn" label="Overdue" />}
                   {s.status !== 'active' && <StateChip state={s.status} />}
                 </Stack>
@@ -86,6 +87,7 @@ function SourcePage() {
             >
               {s.title || s.id}
             </PageTitle>
+            <PrioritySelect id={s.id} value={s.priority} />
             <Section title="Sweeps">
               <Typography variant="body2">
                 Cadence: {cadenceWords(s)}.{' '}

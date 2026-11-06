@@ -17,6 +17,8 @@ const SourceListDoc = graphql(/* GraphQL */ `
             id
             title
             system
+            vendor
+            priority
             status
             via
             server
@@ -49,6 +51,8 @@ const SourceShowDoc = graphql(/* GraphQL */ `
             id
             title
             system
+            vendor
+            priority
             status
             via
             server

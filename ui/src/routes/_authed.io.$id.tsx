@@ -67,6 +67,28 @@ function IoItemPage() {
           { k: 'Answers', v: thread },
           { k: item.state === 'sent' ? 'Became' : 'Filed as', v: became },
           { k: 'Dropped because', v: item.reason },
+          {
+            k: 'Triage',
+            v: item.triage
+              ? `${item.triage === 'digest' ? 'digest' : 'needs you'} by ${item.triageBy ?? 'a rule'}`
+              : '',
+          },
+          {
+            k: 'Linked to',
+            v:
+              item.links.length > 0 ? (
+                <>
+                  {item.links.map((l, i) => (
+                    <span key={l}>
+                      {i > 0 && ', '}
+                      <DocLink id={l} />
+                    </span>
+                  ))}
+                </>
+              ) : (
+                ''
+              ),
+          },
         ]
         return (
           <>

@@ -23,6 +23,7 @@ import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemActions } from '@/components/AgendaActions'
+import { PrioritySelect } from '@/components/PrioritySelect'
 import { isClosed, rowKind } from '@/lib/agenda'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
@@ -117,6 +118,7 @@ function Doc() {
               </Typography>
             )}
           </Stack>
+          {d.meta.type === 'group' && <PrioritySelect id={d.id} value={d.meta.priority} />}
           <AgentReplyNote id={d.id} />
           {d.meta.source?.url && (
             <Box sx={{ mb: 2 }}>
