@@ -172,7 +172,7 @@ func checkRule(n int, tr TriageRule) (rule, error) {
 		}
 		return out
 	}
-	r.match.From = norm(r.match.From, normID)
+	r.match.From = norm(r.match.From, func(s string) string { return strings.ToLower(normID(s)) })
 	r.match.Tag = norm(r.match.Tag, normTag)
 	r.match.Vendor = norm(r.match.Vendor, normVendor)
 	r.match.Class = norm(r.match.Class, func(s string) string {
@@ -257,6 +257,8 @@ func (t *triager) facts(ctx context.Context, doc model.Document, m *model.IO) tr
 				}
 			}
 		}
+	} else if from := strings.ToLower(normID(m.From)); from != "" {
+		f.parties = []string{from} // an address or a name not in the directory
 	}
 	if src := ioSource(t.sources, m.Via); src != nil {
 		k := sourceKindOf(src.Meta.(*model.SourceDoc))

@@ -837,6 +837,16 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, doc.ID, err)
 	}
 	out.State, out.Rev = m.State, doc.Rev
+	// A reply threaded to an incoming message answers it: the message is
+	// filed, and became the reply.
+	if th := m.Thread.Target(); th != "" {
+		if tdoc, tm, err := getIO(ctx, d, th); err == nil && tm.Direction == model.IOIn && (tm.State == model.IOUnread || tm.State == model.IORead) {
+			tm.State, tm.Became = model.IOFiled, model.LinkTo(doc.ID)
+			if _, err := d.Store.Update(ctx, tdoc); err != nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("%s was sent, but %s it answers was not filed: %v", doc.ID, th, err))
+			}
+		}
+	}
 	return out, nil
 }
 
