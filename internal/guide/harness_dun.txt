@@ -14,13 +14,13 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
 4. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
    /para-<vault>:bootstrap   an interview that fills a new vault
-   /para-<vault>:process_meeting   turn a transcript into vault updates
-   /para-<vault>:produce   make a recurring artifact you owe (journal summary, report, message draft)
+   /para-<vault>:ingest_source   take in one source: a document, a transcript, an update
+   /para-<vault>:loop   work the agent queue, produce what you owe
 
 5. Events record the actor `dun`. Change "--actor" to tell agents apart.
    A dun that works for another agent (the vault manager delegates to it over
    chat) needs no para by default: outward acts go back to that agent for the
-   owner's review (prompt delegate). For policy and search only, add
+   owner's review (prompt loop, part Delegate). For policy and search only, add
    "--read-only": the server then lists only tools that change nothing.
 
 6. Agents change the vault with ops and tell the owner in the chat. Before an

@@ -64,12 +64,8 @@ func newSkillCmd() *cobra.Command {
 				{guide.SkillImportFile, guide.SkillImport()},
 				{guide.SkillIngestFile, guide.SkillIngest()},
 				{guide.SkillAlignFile, guide.SkillAlign()},
-				{guide.SkillUpdateFile, guide.SkillUpdate()},
-				{guide.SkillValidateFile, guide.SkillValidate()},
 				{guide.SkillGrillFile, guide.SkillGrill()},
-				{guide.SkillTrackFile, guide.SkillTrack()},
 				{guide.SkillSweepFile, guide.SkillSweep()},
-				{guide.SkillDelegateFile, guide.SkillDelegate()},
 				{guide.SkillLoopFile, guide.SkillLoop()},
 			} {
 				extra := filepath.Join(target, f.name)
@@ -77,6 +73,11 @@ func newSkillCmd() *cobra.Command {
 					return fmt.Errorf("skill: %w", err)
 				}
 				installed = append(installed, extra)
+			}
+			for _, name := range guide.SkillRetired {
+				if err := os.Remove(filepath.Join(target, name)); err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("skill: %w", err)
+				}
 			}
 			_, err := fmt.Fprintln(cmd.OutOrStdout(), installed...)
 			return err

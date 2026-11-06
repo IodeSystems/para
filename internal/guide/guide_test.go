@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "process_meeting": ProcessMeeting(), "produce": Produce(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal(), "grill_goal": GrillGoal(), "track_doc": TrackDoc(), "sweep": Sweep(), "delegate": Delegate()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "grill_goal": GrillGoal(), "sweep": Sweep(), "loop": Loop()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -120,7 +120,7 @@ func TestExtendedHasTheStreamVAndXUseCases(t *testing.T) {
 	text := flat(Extended())
 	for _, want := range []string{"para meeting add", "para meeting hold", "para agenda", "para calendar export", "para tick",
 		"request.runner=<install id>", "tick.interval", "request.surfaces", "para agent status", "dispatch spends tokens",
-		"agent.json", "Para does not record or transcribe", "never writes an external calendar", "process_meeting"} {
+		"agent.json", "Para does not record or transcribe", "never writes an external calendar", "ingest_source"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("extended lacks %q", want)
 		}
@@ -214,26 +214,26 @@ func TestGuideNamesUpgrades(t *testing.T) {
 // The delegate text states the outward rule, the record by the worker on
 // behalf of the owner, the read-only worker, and the health check.
 func TestDelegateStatesTheOutwardRule(t *testing.T) {
-	text := Delegate()
+	text := Loop()
 	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`io_send`", "sent as the owner", "--read-only", "unreviewed_outward"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("delegate text lacks %q", want)
 		}
 	}
-	if !strings.Contains(Skill(), SkillDelegateFile) {
-		t.Error("the skill does not route to delegate.md")
+	if !strings.Contains(Skill(), "`delegate <task>`, read `loop.md` and follow its part Delegate") {
+		t.Error("the skill does not route delegate to loop.md")
 	}
 }
 
-// sort_update covers work from an item's composer: the owner's words, the
+// ingest_source, part An update on an item, covers work from an item's composer: the owner's words, the
 // attachments, notes first, and closing the item.
 func TestSortUpdateCoversTheComposer(t *testing.T) {
-	text := flat(SortUpdate())
+	text := flat(IngestSource())
 	for _, want := range []string{"From the owner: <title>", "## Owner's words", "## Attachments", "`attachment_read`",
 		"`notes_read`, then `notes_edit` with the hash", "![description](path)", "Mark done: yes", "`task_done`",
 		"`meeting_hold`", "clearly say it is done", "say in your reply that you closed it"} {
 		if !strings.Contains(text, want) {
-			t.Errorf("sort_update lacks %q", want)
+			t.Errorf("ingest_source lacks %q", want)
 		}
 	}
 	if !strings.Contains(flat(Orient()), "`attachment_read`") {

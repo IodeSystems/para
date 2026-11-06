@@ -8,3 +8,5 @@ a calendar app, a general scheduler, or a sync tool. Those stay where they live.
 It lists dated work (agenda), exports an .ics, and runs its own recurring work
 (tick); it never writes an external calendar.
 Alerts stay in monitoring; para keeps the incident record and its follow-up tasks.
+
+The rule: para tracks what you owe and who you wait on. Plans and docs stay where they live, and para links to them (area and goal links). Do not copy a plan or a document into a vault; write the commitment, the due date, or the blocker, and link the rest.

@@ -50,7 +50,7 @@ type ProduceInput struct {
 	// as a channel, and how it goes (email, slack, ...).
 	To     []string     `json:"to,omitempty"`
 	Medium model.Medium `json:"medium,omitempty"`
-	// Guide names the prompt the agent follows; empty is produce.
+	// Guide names the prompt the agent follows; empty is the loop prompt, part Produce.
 	Guide string `json:"guide,omitempty"`
 }
 
@@ -448,7 +448,7 @@ func produceAsk(ctx context.Context, d Deps, doc model.Document, o *model.Obliga
 	}
 	fmt.Fprintf(&b, "\nThen item_prepared {id: %s, kind: artifact, ref: %s}, after your last write: a message occurrence is then ready for the owner to approve; any other closes done at once (undoable, the owner can reopen it). ", doc.ID, ref)
 	b.WriteString("Cite what you used. Pass request (this request's id) on each write. End with request_done linking what you made; when there is nothing to produce, say why.\n\n")
-	fmt.Fprintf(&b, "Prompt: %s.\n", cmp.Or(p.Guide, "produce"))
+	fmt.Fprintf(&b, "Prompt: %s.\n", cmp.Or(p.Guide, "loop, part Produce"))
 	return b.String(), "", nil
 }
 

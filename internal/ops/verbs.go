@@ -632,7 +632,7 @@ type SendToAgentInput struct {
 
 // SendToAgent queues agent work about an item: agent_send on a person's
 // surface, request_add linked to the item on an agent's.
-var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it runs agent_send (note is the owner's words; attachments and done as agent_send takes them); on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). file_notes (people only), on a meeting, asks the agent to file its notes and close it as held (prompt process_meeting). Outputs op and result",
+var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it runs agent_send (note is the owner's words; attachments and done as agent_send takes them); on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). file_notes (people only), on a meeting, asks the agent to file its notes and close it as held (prompt ingest_source). Outputs op and result",
 	RiskSafe, func(ctx context.Context, d Deps, in SendToAgentInput) (verbRoute, error) {
 		if !agentSurface(d) {
 			return newRoute(AgentSend, AgentSendInput{ID: in.ID, Text: in.Note, Attachments: in.Attachments, Done: in.Done, FileNotes: in.FileNotes}, false)

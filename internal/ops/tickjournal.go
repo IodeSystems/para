@@ -162,7 +162,7 @@ func journalRequests(ctx context.Context, d Deps, out *TickOutput) error {
 			continue
 		}
 		ask := fmt.Sprintf("%s\n\nWrite the %s summary of [[%s]] for %s%s.\n"+
-			"Use the MCP prompt produce. Call journal_summary with id %s and no text to see what to read, then again with the text. "+
+			"Use the MCP prompt loop, part Produce. Call journal_summary with id %s and no text to see what to read, then again with the text. "+
 			"A week reads the day summaries and a month reads the week summaries; if a lower journal lacks a summary-agent section, write that one first.",
 			p.requestTitle(), p.scope, p.id, AgentPrefix, agent, p.id)
 		title, rest, _ := strings.Cut(ask, "\n")

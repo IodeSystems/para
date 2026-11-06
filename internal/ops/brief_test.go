@@ -191,7 +191,7 @@ func TestAgentSendFileNotes(t *testing.T) {
 	if r.Kind != MeetingNotesKind || !slices.Equal(targets(r.Links), []string{f.meeting}) {
 		t.Errorf("request kind %q links %v", r.Kind, r.Links)
 	}
-	for _, want := range []string{"process_meeting", "Notes on a meeting", "`brief`", "`question_answer`", "`task_add`", "`rfx_add`", "`close`"} {
+	for _, want := range []string{"ingest_source", "Notes on a meeting", "`brief`", "`question_answer`", "`task_add`", "`rfx_add`", "`close`"} {
 		if !strings.Contains(doc.Body, want) {
 			t.Errorf("ask lacks %q:\n%s", want, doc.Body)
 		}

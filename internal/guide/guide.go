@@ -5,9 +5,9 @@
 // every "$ para ..." line against the command tree and checks every backticked
 // tool name against ops.All.
 //
-// Para does not run meetings. The one text about them is ProcessMeeting, which
-// works from a transcript the owner gives it, or from the notes the owner
-// wrote on the meeting (agent work of kind meeting-notes).
+// Para does not run meetings. The ingest text works from a transcript the
+// owner gives it, or from the notes the owner wrote on the meeting (agent work
+// of kind meeting-notes).
 package guide
 
 import (
@@ -17,9 +17,7 @@ import (
 
 var (
 	//go:embed intro.txt
-	intro string
-	//go:embed rule.txt
-	rule string
+	introText string
 	//go:embed orient.txt
 	orient string
 	//go:embed bootstrap.txt
@@ -32,43 +30,30 @@ var (
 	harnessClaude string
 	//go:embed harness_dun.txt
 	harnessDun string
-	//go:embed processmeeting.txt
-	processMeeting string
-	//go:embed produce.txt
-	produce string
 	//go:embed raglit.txt
 	raglitHelp string
-	//go:embed importcorpus.txt
-	importCorpus string
-	//go:embed healthtriage.txt
-	healthTriage string
-	//go:embed importsteps.txt
-	importSteps string
+	//go:embed import.txt
+	importText string
 	//go:embed ingest.txt
 	ingestSource string
 	//go:embed align.txt
 	alignVault string
-	//go:embed sortupdate.txt
-	sortUpdate string
-	//go:embed validategoal.txt
-	validateGoal string
 	//go:embed grill.txt
 	grillGoal string
-	//go:embed track.txt
-	trackDoc string
 	//go:embed sweep.txt
 	sweep string
-	//go:embed delegate.txt
-	delegate string
 	//go:embed loop.txt
 	loop string
 )
 
+// ruleStart begins the last paragraph of intro.txt: the one rule.
+const ruleStart = "The rule:"
+
 // Intro says what para is and is not, in under 12 lines.
-func Intro() string { return trim(intro) }
+func Intro() string { return trim(introText[:strings.Index(introText, ruleStart)]) }
 
 // Rule is the one rule: what para tracks, and where plans and docs stay.
-func Rule() string { return trim(rule) }
+func Rule() string { return trim(introText[strings.Index(introText, ruleStart):]) }
 
 // Orient is the MCP prompt "orient": what para is and is not, the rule, and
 // how to work a vault.
@@ -78,58 +63,35 @@ func Orient() string { return Intro() + "\n\n" + Rule() + "\n\n" + trim(orient) 
 // prompt "bootstrap" and `para bootstrap` print it.
 func Bootstrap() string { return trim(bootstrap) + "\n\n" + Rule() }
 
-// ProcessMeeting is the MCP prompt "process_meeting": vault updates from a
-// transcript.
-func ProcessMeeting() string { return trim(processMeeting) + "\n\n" + Rule() }
-
-// Produce is the MCP prompt "produce": how to make one recurring artifact an
-// agent owes (a journal summary, a report, a message draft, a document).
-func Produce() string { return trim(produce) + "\n\n" + Rule() }
-
-// ImportCorpus is the MCP prompt "import_corpus":
+// ImportCorpus is the MCP prompt "import_corpus" and the skill's import.md:
 // how the owner and an agent import and sort a corpus.
-func ImportCorpus() string { return trim(importCorpus) + "\n\n" + Rule() }
-
-// HealthTriage is the MCP prompt "health_triage": settle health findings with
-// evidence and fix them.
-func HealthTriage() string { return trim(healthTriage) + "\n\n" + Rule() }
+func ImportCorpus() string { return trim(importText) + "\n\n" + Rule() }
 
 // IngestSource is the MCP prompt "ingest_source": read one source with your own
-// tools and update the vault.
+// tools and update the vault. Its parts cover a meeting transcript, the
+// owner's notes on a meeting, and the owner's update on an item.
 func IngestSource() string { return trim(ingestSource) + "\n\n" + Rule() }
 
 // AlignVault is the MCP prompt "align_vault": compare a goal, an area, or the
-// vault with reality and fix the differences.
+// vault with reality and fix the differences; its part Health findings
+// triages `health`.
 func AlignVault() string { return trim(alignVault) + "\n\n" + Rule() }
 
-// SortUpdate is the MCP prompt "sort_update": sort an owner's update on a task
-// into typed items.
-func SortUpdate() string { return trim(sortUpdate) + "\n\n" + Rule() }
-
-// ValidateGoal is the MCP prompt "validate_goal": draft or challenge a goal's
-// brief with sources, and argue against it.
-func ValidateGoal() string { return trim(validateGoal) + "\n\n" + Rule() }
-
 // GrillGoal is the MCP prompt "grill_goal": interview the owner on a goal's
-// risks, unknowns, owners, policies, and assumptions, and recheck what might
-// no longer be true.
+// risks, unknowns, owners, policies, and assumptions; draft or challenge its
+// brief; recheck what might no longer be true.
 func GrillGoal() string { return trim(grillGoal) + "\n\n" + Rule() }
 
-// TrackDoc is the MCP prompt "track_doc": track a remote document, refresh
-// it with the text read again, and carry out an approved edit of it.
-func TrackDoc() string { return trim(trackDoc) + "\n\n" + Rule() }
-
 // Sweep is the MCP prompt "sweep": declare the sources you reach, read the
-// due ones with your own tools, write what you found, and record the sweep.
+// due ones with your own tools, write what you found, and record the sweep;
+// its part Tracked documents tracks, refreshes, and edits remote documents.
 func Sweep() string { return trim(sweep) + "\n\n" + Rule() }
 
 // Loop is the MCP prompt "loop": declare sources, then claim and end agent
-// work with request_next and request_done until the queue is empty.
+// work with request_next and request_done until the queue is empty. Its parts
+// Produce and Delegate cover a recurring artifact you owe and work handed to
+// another agent.
 func Loop() string { return trim(loop) + "\n\n" + Rule() }
-
-// Delegate is the MCP prompt "delegate": hand work to another agent over
-// chat, stage what it would send as the owner for review, record the result.
-func Delegate() string { return trim(delegate) + "\n\n" + Rule() }
 
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
@@ -146,28 +108,39 @@ func Skill() string {
 }
 
 // skillRoute reads the skill's arguments. Other subcommands can come here.
-const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. If they are `update <task>`, read `update.md` beside this file and follow it for that task. If they are `validate <goal>`, read `validate.md` beside this file and follow it for that goal. If they are `grill <goal>`, read `grill.md` beside this file and follow it for that goal. If they are `recheck <scope>`, read `grill.md` beside this file and follow its Recheck part for that scope: goal, area, or task ids, or the word vault for all. If they are `track <url>`, read `track.md` beside this file and follow it for that document. If they are `sweep`, with or without source ids, read `sweep.md` beside this file and follow it for those sources, or every declared source that is due. If they are `delegate <task>`, read `delegate.md` beside this file and follow it for that task. If they are `loop`, read `loop.md` beside this file and follow it until the agent queue is empty. With no arguments, work as below."
+const skillRoute = "If the arguments are `import <path>`, read `import.md` beside this file and follow it for that path, a folder or a single file. " +
+	"If they are `ingest <url|file|text>`, read `ingest.md` beside this file and follow it for that one source. " +
+	"If they are `update <task>`, read `ingest.md` and follow its part An update on an item for that task. " +
+	"If they are `align <goal|area|vault>`, read `align.md` beside this file and follow it for that scope. " +
+	"If they are `health`, read `align.md` and follow its part Health findings. " +
+	"If they are `grill <goal>`, read `grill.md` beside this file and follow it for that goal. " +
+	"If they are `validate <goal>`, read `grill.md` and follow its part Brief for that goal. " +
+	"If they are `recheck <scope>`, read `grill.md` and follow its part Recheck for that scope: goal, area, or task ids, or the word vault for all. " +
+	"If they are `sweep`, with or without source ids, read `sweep.md` beside this file and follow it for those sources, or every declared source that is due. " +
+	"If they are `track <url>`, read `sweep.md` and follow its part Tracked documents for that document. " +
+	"If they are `loop`, read `loop.md` beside this file and follow it until the agent queue is empty. " +
+	"If they are `delegate <task>`, read `loop.md` and follow its part Delegate for that task. " +
+	"With no arguments, work as below."
 
-// SkillImportFile is the name of the import steps, beside SKILL.md.
-const SkillImportFile = "import.md"
-
-// SkillImport is the import reference file of the skill, loaded only when import
-// is asked.
-func SkillImport() string { return trim(importSteps) + "\n\n" + Rule() + "\n" }
-
-// SkillIngestFile and SkillAlignFile are the names of the ingest and align
-// steps, beside SKILL.md.
+// The reference files of the skill, beside SKILL.md, each loaded only when
+// its argument is asked.
 const (
-	SkillIngestFile   = "ingest.md"
-	SkillAlignFile    = "align.md"
-	SkillUpdateFile   = "update.md"
-	SkillValidateFile = "validate.md"
-	SkillGrillFile    = "grill.md"
-	SkillTrackFile    = "track.md"
-	SkillSweepFile    = "sweep.md"
-	SkillDelegateFile = "delegate.md"
-	SkillLoopFile     = "loop.md"
+	SkillImportFile = "import.md"
+	SkillIngestFile = "ingest.md"
+	SkillAlignFile  = "align.md"
+	SkillGrillFile  = "grill.md"
+	SkillSweepFile  = "sweep.md"
+	SkillLoopFile   = "loop.md"
 )
+
+// SkillRetired names reference files earlier versions installed beside
+// SKILL.md, whose text is now part of another file. `para skill install`
+// removes them so no stale copy is read.
+var SkillRetired = []string{"update.md", "validate.md", "track.md", "delegate.md"}
+
+// SkillImport is the import reference file of the skill. It is the text of
+// the prompt import_corpus.
+func SkillImport() string { return ImportCorpus() + "\n" }
 
 // SkillIngest is the ingest reference file of the skill. It is the text of the
 // prompt ingest_source.
@@ -177,33 +150,17 @@ func SkillIngest() string { return IngestSource() + "\n" }
 // prompt align_vault.
 func SkillAlign() string { return AlignVault() + "\n" }
 
-// SkillUpdate is the update reference file of the skill. It is the text of the
-// prompt sort_update.
-func SkillUpdate() string { return SortUpdate() + "\n" }
-
-// SkillValidate is the validate reference file of the skill. It is the text of
-// the prompt validate_goal.
-func SkillValidate() string { return ValidateGoal() + "\n" }
-
-// SkillGrill is the grill and recheck reference file of the skill. It is the
-// text of the prompt grill_goal.
+// SkillGrill is the grill, validate, and recheck reference file of the skill.
+// It is the text of the prompt grill_goal.
 func SkillGrill() string { return GrillGoal() + "\n" }
 
-// SkillTrack is the track reference file of the skill. It is the text of the
-// prompt track_doc.
-func SkillTrack() string { return TrackDoc() + "\n" }
-
-// SkillSweep is the sweep reference file of the skill. It is the text of the
-// prompt sweep.
+// SkillSweep is the sweep and track reference file of the skill. It is the
+// text of the prompt sweep.
 func SkillSweep() string { return Sweep() + "\n" }
 
-// SkillLoop is the loop reference file of the skill. It is the text of the
-// prompt loop.
+// SkillLoop is the loop, produce, and delegate reference file of the skill.
+// It is the text of the prompt loop.
 func SkillLoop() string { return Loop() + "\n" }
-
-// SkillDelegate is the delegate reference file of the skill. It is the text
-// of the prompt delegate.
-func SkillDelegate() string { return Delegate() + "\n" }
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.

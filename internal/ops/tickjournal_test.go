@@ -268,7 +268,7 @@ func TestTickJournalRequests(t *testing.T) {
 			t.Errorf("no request for %s; have %v", want, keys(links))
 			continue
 		}
-		if !strings.Contains(r.Body, "agent:claude") || !strings.Contains(r.Body, "prompt produce") || !strings.Contains(r.Body, "journal_summary") {
+		if !strings.Contains(r.Body, "agent:claude") || !strings.Contains(r.Body, "prompt loop, part Produce") || !strings.Contains(r.Body, "journal_summary") {
 			t.Errorf("%s ask:\n%s", want, r.Body)
 		}
 	}

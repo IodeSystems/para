@@ -59,7 +59,7 @@ var gapHow = map[string]string{
 	GapDoIt:     "do_it: where or how the owner does it: do_url (the page), do_command (the exact command), or steps (1 to 5 lines), with task_edit; no secrets",
 	GapEffort:   "effort: xs, s, m, or l (task_edit effort)",
 	GapAnswer:   "proposed_answer: research the question and propose an answer with sources (question_answer from you proposes; the owner accepts it)",
-	GapBrief:    "brief: draft the goal's brief (prompt validate_goal)",
+	GapBrief:    "brief: draft the goal's brief (prompt grill_goal, part Brief)",
 }
 
 // itemGaps lists what an item lacks, or nil.

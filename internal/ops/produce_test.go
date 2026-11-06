@@ -85,7 +85,7 @@ func TestProduceDueOccurrenceMakesOneRequest(t *testing.T) {
 	if st := r.Meta.(*model.Request).Status; st != model.RequestQueued {
 		t.Errorf("status = %s", st)
 	}
-	for _, want := range []string{"[[" + tpl + "]]", "item_prepared", "kind: artifact", "Prompt: produce", "agent:writer", "note_add", "2026-11-06"} {
+	for _, want := range []string{"[[" + tpl + "]]", "item_prepared", "kind: artifact", "Prompt: loop, part Produce", "agent:writer", "note_add", "2026-11-06"} {
 		if !strings.Contains(r.Body, want) {
 			t.Errorf("ask lacks %q:\n%s", want, r.Body)
 		}

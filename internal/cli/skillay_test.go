@@ -13,8 +13,20 @@ import (
 func TestSkillInstallWritesIngestAndAlign(t *testing.T) {
 	e := newEnv(t)
 	dir := t.TempDir()
+	// A file an earlier version installed is removed, so no stale copy is read.
+	if err := os.MkdirAll(filepath.Join(dir, "para"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "para", "update.md"), []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	e.ok("skill", "install", "--dir", dir)
-	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillUpdateFile: guide.SkillUpdate(), guide.SkillValidateFile: guide.SkillValidate(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillTrackFile: guide.SkillTrack(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillDelegateFile: guide.SkillDelegate(), guide.SkillLoopFile: guide.SkillLoop()} {
+	for _, old := range guide.SkillRetired {
+		if _, err := os.Stat(filepath.Join(dir, "para", old)); !os.IsNotExist(err) {
+			t.Errorf("%s still installed: %v", old, err)
+		}
+	}
+	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillLoopFile: guide.SkillLoop()} {
 		b, err := os.ReadFile(filepath.Join(dir, "para", name))
 		if err != nil || string(b) != want {
 			t.Errorf("%s differs from the guide text: %v", name, err)
