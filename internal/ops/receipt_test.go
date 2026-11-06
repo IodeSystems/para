@@ -226,45 +226,6 @@ func TestAgentWorkTurns(t *testing.T) {
 	}
 }
 
-func TestActionRecordKeepsAReceipt(t *testing.T) {
-	f := newAgentFix(t)
-	if _, err := ActionRecord.Run(t.Context(), f.agent, ActionRecordInput{What: "Opened a PR"}); err == nil {
-		t.Fatal("recorded with no where")
-	}
-	if _, err := ActionRecord.Run(t.Context(), f.agent, ActionRecordInput{What: "Opened a PR", Where: "repo", URL: "javascript:alert(1)"}); err == nil {
-		t.Fatal("recorded a bad url")
-	}
-	out := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Opened a PR", Where: "github.example/acme/portal", URL: "https://github.example/acme/portal/pull/1", OwnerSaid: "yes, open it", Sources: []string{f.source}})
-	sh := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: out.Receipt})
-	r := sh.Receipt
-	if r.Op != "action_record" || !r.SelfReported || r.OwnerSaid != "yes, open it" || r.Surface != "mcp" || r.Background || r.Verify != "https://github.example/acme/portal/pull/1" {
-		t.Fatalf("receipt = %+v", r)
-	}
-	if _, err := ReceiptUndo.Run(t.Context(), f.owner, ReceiptUndoInput{ID: out.Receipt}); err == nil || !strings.Contains(err.Error(), "nothing in the vault to undo") {
-		t.Fatalf("undo of an action: %v", err)
-	}
-}
-
-func TestActionRecordByWorkerOnBehalfOfOwner(t *testing.T) {
-	f := newAgentFix(t)
-	for _, in := range []ActionRecordInput{{OnBehalfOf: "boss"}, {By: "two words"}} {
-		in.What, in.Where = "Replied to a review comment", "github.example/acme/portal"
-		if _, err := ActionRecord.Run(t.Context(), f.agent, in); err == nil {
-			t.Fatalf("recorded %+v", in)
-		}
-	}
-	out := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Committed the fix", Where: "github.example/acme/portal", URL: "https://github.example/acme/portal/commit/abc", By: "dun", OnBehalfOf: "owner"})
-	r := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: out.Receipt}).Receipt
-	if r.By != "dun" || r.OnBehalfOf != "owner" || r.Actor == "dun" {
-		t.Fatalf("receipt = %+v", r)
-	}
-	// by equal to the caller is the caller: nothing stored.
-	self := must(t, ActionRecord, f.agent, ActionRecordInput{What: "Pushed", Where: "repo", By: r.Actor})
-	if r := must(t, ReceiptShow, f.owner, ReceiptIDInput{ID: self.Receipt}).Receipt; r.By != "" {
-		t.Fatalf("self by = %q", r.By)
-	}
-}
-
 func TestReceiptUndoManyNewestFirst(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := writeCtx(t)

@@ -727,8 +727,8 @@ type IOSendInput struct {
 type IOSendOutput struct {
 	ID         string        `json:"id"`
 	State      model.IOState `json:"state"`
-	Became     string        `json:"became"`      // id of the interaction or Ask
-	BecameType model.Type    `json:"became_type"` // interaction or rfx
+	Became     string        `json:"became"`                // id of the interaction or Ask
+	BecameType model.Type    `json:"became_type,omitempty"` // interaction or rfx; empty for an action
 	Rev        string        `json:"rev"`
 	Warnings   []string      `json:"warnings"`
 }

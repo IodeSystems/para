@@ -304,6 +304,9 @@ var ReceiptRevert = definePerson("receipt_revert", "Undo one agent write from it
 	return undoReceipts(ctx, d, []string{in.ID})
 })
 
+// opActionRecord is the op of receipts action_record wrote before 0.3.0.
+const opActionRecord = "action_record"
+
 func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) {
 	doc, r, err := getReceipt(ctx, d.Store, id)
 	if err != nil {

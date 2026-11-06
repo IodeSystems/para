@@ -41,7 +41,6 @@ func receiptParityCases() map[string]parityCase {
 		"receipt_list":    {`{}`, []string{"receipt", "list"}, false},
 		"receipt_show":    {`{"id":"receipt-rc-a"}`, []string{"receipt", "show", "receipt-rc-a"}, false},
 		"receipt_check":   {`{"id":"receipt-rc-a","verdict":"verified"}`, []string{"receipt", "check", "receipt-rc-b", "verified"}, false},
-		"action_record":   {`{"what":"Opened a PR","where":"github.example/acme/portal","url":"https://github.example/acme/portal/pull/1","owner_said":"go ahead"}`, []string{"action", "record", "--what", "Opened a PR", "--where", "github.example/acme/portal", "--url", "https://github.example/acme/portal/pull/1", "--owner-said", "go ahead"}, false},
 		"receipt_undo":    {`{"id":"receipt-rc-c"}`, []string{"receipt", "undo", "receipt-rc-d"}, false},
 		"receipt_revert":  {`{"id":"receipt-rc-e"}`, []string{"receipt", "revert", "receipt-rc-f"}, false},
 		"report_outcomes": {`{}`, []string{"report", "outcomes"}, false},

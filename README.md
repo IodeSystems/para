@@ -2,7 +2,7 @@
 
 para tracks what you owe and who you wait on. It keeps bounded goals, areas for ongoing responsibilities, tasks with dependencies, blockers with reasons, and people, in vaults of markdown. Plans and docs stay where they live, and para links to them.
 
-It is not a documentation system, a pager, a calendar, or a sync tool. You direct the work, agents act through MCP, and proposals let you review what they intend.
+It is not a documentation system, a pager, a calendar, or a sync tool. You direct the work, agents act through MCP, and you approve what goes out of the vault.
 
 ## Install
 

@@ -13,8 +13,8 @@ import (
 // para fills the item's people, subject, and body from it when it reads the
 // dossier, so the hash an approval binds to covers the draft's text, and an
 // io_edit after approval stops the item from being reported done. An owner's
-// edit in the block is written to the draft; approval makes the draft ready,
-// and proposal_executed marks it sent and files it as an interaction or an Ask.
+// edit in the block was written to the draft. Since vault format 8 a dossier
+// is read-only: hydrateIO only shows the draft's text in an old dossier.
 
 // hydrateIO fills each message item that names an io draft. strict (an agent
 // writing the dossier) refuses a draft that is missing, incoming, or dealt

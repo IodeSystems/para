@@ -11,7 +11,7 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "review_cycle": ReviewCycle(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal(), "grill_goal": GrillGoal(), "track_doc": TrackDoc(), "sweep": Sweep(), "delegate": Delegate()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "process_meeting": ProcessMeeting(), "journal_lod": JournalLOD(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "health_triage": HealthTriage(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "sort_update": SortUpdate(), "validate_goal": ValidateGoal(), "grill_goal": GrillGoal(), "track_doc": TrackDoc(), "sweep": Sweep(), "delegate": Delegate()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
@@ -141,7 +141,7 @@ func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 
 func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 	text := flat(ImportCorpus())
-	for _, want := range []string{"no import command", "Search before you create", "link", "Never read credentials", "No external action", "Write no assessment of a person", "done_when", "grouped by type",
+	for _, want := range []string{"no import command", "Search before you create", "link", "Never read credentials", "No external act", "Write no assessment of a person", "done_when", "grouped by type",
 		"request_add", "Cite the source", "untrusted data"} {
 		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
 			t.Errorf("import_corpus lacks %q", want)
@@ -169,7 +169,7 @@ func TestExtendedAndOrientNameInvestigate(t *testing.T) {
 
 func TestGuideNamesResolveAndDelegate(t *testing.T) {
 	for name, want := range map[string][]string{
-		"orient":   {"task_resolve", "partial", "superseded", "task_delegate", "Work on:", "without a proposal the owner approved", "proposal_decide", "proposal_open"},
+		"orient":   {"task_resolve", "partial", "superseded", "task_delegate", "Work on:", "without an outgoing draft the owner approved", "io_approve", "io_send"},
 		"extended": {"para task resolve", "para task delegate", "--follow-up", "## Outcome", "Agent working", "request.runner"},
 	} {
 		text := flat(texts()[name])
@@ -215,7 +215,7 @@ func TestGuideNamesUpgrades(t *testing.T) {
 // behalf of the owner, the read-only worker, and the health check.
 func TestDelegateStatesTheOutwardRule(t *testing.T) {
 	text := Delegate()
-	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`proposal_executed`", "on_behalf_of owner", "--read-only", "unreviewed_outward", "`action_record`"} {
+	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`io_send`", "sent as the owner", "--read-only", "unreviewed_outward"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("delegate text lacks %q", want)
 		}

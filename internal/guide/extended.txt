@@ -126,8 +126,7 @@ The server listens on 127.0.0.1:7700 by default and every request needs a token.
 (--vault for one). Each tab gets a new login key, vault:read and review:decide, that lasts 30
 days (--days, at most 90); the web app renews it when it is within 7 days of its end. It finds
 the running server itself (var/serve.json in the para home), so it needs no URL. "para open"
-signs the browser in the same way when no login key of the vault is active; an agent's
-proposal_open never does, and says the owner is not signed in. "para serve sessions" lists the
+signs the browser in the same way when no login key of the vault is active; an agent cannot sign the browser in. "para serve sessions" lists the
 login keys and "para serve logout" revokes them. --admin signs in with the admin token, which
 works from this machine only. For a phone or another machine, make a key with --print-url and
 give the URL of that machine.
@@ -138,19 +137,17 @@ The web app can show browser notifications while a tab or the installed app is o
   $ para receipt show receipt-example
   $ para receipt check receipt-example verified
   $ para receipt undo receipt-example
-  $ para action record --what "Opened the PR" --where github.example/acme/portal --url https://github.example/acme/portal/pull/1 --owner-said "yes, open it"
   $ para agent activity --since 2026-11-01
-Agents change the vault with ops. Each write leaves a receipt: who, which op, why, sources, how to verify, and the document before and after. You read receipts in the web app under Recent agent writes, newest first, each with its undo command to copy, and on the Receipts page: filter by agent, op, check, and day; Undo (it asks for a confirm in the row), Mark verified, or Mark wrong with a note. Its Outcomes section, and para report outcomes, count task closes by outcome and by agent, the review items you declined with your reasons, and the writes undone. receipt undo puts the document back if nothing changed it since, and refuses with the reason if something did. Ordinary vault edits need no proposal. Para sends nothing.
+Agents change the vault with ops. Each write leaves a receipt: who, which op, why, sources, how to verify, and the document before and after. You read receipts in the web app under Recent agent writes, newest first, each with its undo command to copy, and on the Receipts page: filter by agent, op, check, and day; Undo (it asks for a confirm in the row), Mark verified, or Mark wrong with a note. Its Outcomes section, and para report outcomes, count task closes by outcome and by agent, the review items you declined with your reasons, and the writes undone. receipt undo puts the document back if nothing changed it since, and refuses with the reason if something did. A vault write that `receipt_undo` can reverse applies at once, with a receipt you can undo; bulk or risky changes need no approval step. Para sends nothing.
 
-12. Proposals: an agent asks, you decide in the chat
+12. Old dossiers and outward drafts
   $ para proposal list
   $ para proposal show proposal-example
   $ para open proposal-example
-  $ para proposal approve proposal-example i1
-  $ para proposal deny proposal-example i2 --reason "Not this quarter"
-  $ para proposal wait proposal-example --timeout 1h
-  $ para proposal undone
-Before an outward action (an email, a PR, a ticket, a message), always, and before a large or risky vault change (for example a bulk merge of duplicates) when it judges so, an agent files a proposal: a tldr, context, and items, each a message, an action, or a para change, with evidence, pros and cons, and for a para change the before and after. It opens the page for you (para open, the tool proposal_open: a browser on the machine para runs on, or the URL to copy when none opens), gives you the tldr in the chat, and asks. You answer in the chat: approve, deny, or change each item. The agent records your words with proposal_decide; they are stored on the item and marked self-reported. An approved para change runs at once under the agent's name, with a receipt. An approved message or action stays "approved, not done" until the agent sends it with its own tool and reports it (proposal executed, or action record with the proposal and item). A change makes a new revision for you to read. The web app shows proposals and decides nothing; at a terminal you can approve and deny. On the review stack and in a dossier every card takes the same actions: approve, edit (every field the agent proposed, or each option of a question), decline (a note is required, and the item stays listed with it), skip (an optional note; it waits for a later submit), ask agent (a note and links: the item goes back to the agent as sent back, with queued agent work), and on a message, action, or doc edit, done by me (you did it yourself: the item is done, a message's draft is marked sent). Open questions show on the stack too. Keys: a approve, d decline, s skip, g ask agent, m done by me, e edit, o open. Background agent work cannot ask you: it files the proposal and stops.
+  $ para io list
+  $ para io approve io-example
+Older vaults hold dossiers (proposals) that were closed when the vault moved to format 8. You read them, read-only, with para proposal list and para proposal show; para open shows one in the browser. Nothing new is filed as a dossier.
+Before an agent sends an outward act (an email, a post, a ticket, a PR, a deploy, a remote document edit), it drafts it as an outgoing io item (io_add direction out). You read the exact text with para io list, and approve it in the web app or with para io approve <id>. An agent may approve only when it passes your verbatim words in the chat (owner_said). The agent sends the text with its own tool and reports it (para io send, or the tool io_send); until then the draft is not sent. A change only you can decide arrives as a question (para questions).
 
 14. Questions: unknowns, decisions, and inputs are not tasks
   $ para question add "Which config path does prod use?" --project project-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
@@ -232,7 +229,7 @@ Merge, archive, notes, and waiting
   $ para task to-asks task-waiting --person person-example
   $ para task block task-cert --reason "Ops said the CA is down until Thursday" --until 2026-11-12
   $ para meeting schedule task-weekly-sync --start 2026-11-10T10:00:00Z --end 2026-11-10T11:00:00Z --calendar-event room@acme.example=room
-doc merge folds a duplicate of any type into the item that stays: every link to the duplicate points to the one that stays, its people, Asks, dependencies, calendar events, and notes move over, and the duplicate leaves every list and search. Its id still opens, and the page of the one that stays lists it under merged from. task resolve --outcome duplicate does the same for a task. doc archive is para's delete: the item leaves every list and its links still open. A meeting that moved is merged into the new one, or archived. Both leave one receipt, and receipt undo reverses all of it. Notes are the ## Notes section of any item: notes read gives the text and a hash, and notes edit replaces the notes only when the hash is still current, so two writers never lose each other's words; the web app has a notes editor on every item page. Waiting on a person is an Ask, not a task: task add warns on a title like "waiting on Ada", health lists such tasks, and task to-asks makes one Ask per person and closes the task. task block --until <date> sets the follow-up date: the blocked task leaves next and the agenda until then and comes back on the day; task list still shows it, with "returns <date>". The due date is when the work must be done, and never hides it. A meeting can hold several calendar events (the invite, the room, a prep slot); calendar compare matches any of them and calls an event with no attendees over a meeting an alias of it. When you paste or dictate something to an agent, it saves your words as an io item first, so nothing is lost if the rest fails. A write the gate holds says where it went: the dossier, the item, and the link.
+doc merge folds a duplicate of any type into the item that stays: every link to the duplicate points to the one that stays, its people, Asks, dependencies, calendar events, and notes move over, and the duplicate leaves every list and search. Its id still opens, and the page of the one that stays lists it under merged from. task resolve --outcome duplicate does the same for a task. doc archive is para's delete: the item leaves every list and its links still open. A meeting that moved is merged into the new one, or archived. Both leave one receipt, and receipt undo reverses all of it. Notes are the ## Notes section of any item: notes read gives the text and a hash, and notes edit replaces the notes only when the hash is still current, so two writers never lose each other's words; the web app has a notes editor on every item page. Waiting on a person is an Ask, not a task: task add warns on a title like "waiting on Ada", health lists such tasks, and task to-asks makes one Ask per person and closes the task. task block --until <date> sets the follow-up date: the blocked task leaves next and the agenda until then and comes back on the day; task list still shows it, with "returns <date>". The due date is when the work must be done, and never hides it. A meeting can hold several calendar events (the invite, the room, a prep slot); calendar compare matches any of them and calls an event with no attendees over a meeting an alias of it. When you paste or dictate something to an agent, it saves your words as an io item first, so nothing is lost if the rest fails.
 
 23. Stalled asks: next moves
   $ para rfx paths rfx-example
@@ -324,8 +321,8 @@ Where does this go?
   a plan, doc, runbook, or repository        stays where it lives; link it from the area or goal
   a phone or browser view of the vault       para serve, with a key from para key create
   a change an agent suggests                 the agent changes it and leaves a receipt; undo with receipt undo
-  a large or risky change an agent suggests  a proposal: you read it with para open and decide in the chat
-  an email or PR an agent wants to send      a proposal with a message or an action; after your go it sends it
+  a change only you can decide               a question from an agent: para questions, then para answer
+  an email or PR an agent wants to send      an outgoing draft: you approve its text (para io approve); the agent sends it
   a conversation with people at a time      a meeting, linked to the asks it serves
   what is dated this week                    para agenda
   what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens

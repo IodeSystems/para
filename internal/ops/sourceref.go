@@ -99,16 +99,9 @@ func (r *refResolver) resolve(raw string) RefLink {
 		return RefLink{Text: s}
 	}
 	// A vault id, <id>#<item>, a wikilink, or a path.
-	id, item, _ := strings.Cut(strings.TrimSuffix(strings.TrimPrefix(s, "[["), "]]"), "#")
+	id, _, _ := strings.Cut(strings.TrimSuffix(strings.TrimPrefix(s, "[["), "]]"), "#")
 	id = strings.ToLower(strings.TrimSuffix(path.Base(id), ".md"))
 	if d := r.doc(id); d != nil {
-		if _, ok := d.Meta.(*model.Proposal); ok {
-			u := "/proposals/" + url.PathEscape(d.ID)
-			if item != "" {
-				u += "#item-" + url.PathEscape(item)
-			}
-			return RefLink{Text: s, URL: u, Internal: true}
-		}
 		return RefLink{Text: s, URL: "/doc/" + url.PathEscape(d.ID), Internal: true}
 	}
 	return RefLink{Text: s}

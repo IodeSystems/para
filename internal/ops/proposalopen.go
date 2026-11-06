@@ -17,8 +17,8 @@ import (
 // ErrNoServer is a viewer URL asked for when no para serve runs on this machine.
 var ErrNoServer = errors.New("no para serve runs on this machine: start it with `para serve`, then open the page again")
 
-// proposalPath is the viewer path of a proposal; docPath of any other document.
-func proposalPath(id string) string { return "/proposals/" + url.PathEscape(id) }
+// proposalPath is the viewer path of a dossier: the document page, read-only.
+func proposalPath(id string) string { return "/doc/" + url.PathEscape(id) }
 func docPath(id string) string      { return "/doc/" + url.PathEscape(id) }
 
 // viewerBase is the web app's base URL for this vault.
@@ -73,7 +73,7 @@ func (e *OpenError) Error() string { return e.Detail }
 
 // ProposalOpen opens the web app's page of a proposal or a document. It writes
 // nothing. A URL must be one of this vault's web app.
-var ProposalOpen = defineRead("proposal_open", "Open the web page of a proposal or any document (an id, or a URL of the web app) in a browser on the machine para runs on, when that machine has a graphical session; otherwise it only returns the URL. Always returns the URL and opened: when opened is false, reason and note say why and what to do, so print the URL for the owner", func(ctx context.Context, d Deps, in ProposalOpenInput) (ProposalOpenOutput, error) {
+var ProposalOpen = definePerson("proposal_open", "People only (para open). Open the web page of any document (an id, or a URL of the web app) in a browser on the machine para runs on, when that machine has a graphical session; otherwise it only returns the URL. Always returns the URL and opened: when opened is false, reason and note say why and what to do, so print the URL for the owner", func(ctx context.Context, d Deps, in ProposalOpenInput) (ProposalOpenOutput, error) {
 	raw := strings.TrimSpace(in.ID)
 	if raw == "" {
 		return ProposalOpenOutput{}, errors.New("id is empty: give a proposal id, a document id, or a URL of the web app")

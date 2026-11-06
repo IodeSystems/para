@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/iodesystems/para/internal/model"
 )
@@ -60,65 +59,6 @@ func wikiList(ids []string) []string {
 	return out
 }
 
-// sendBackItem sends one dossier item back to its agent: the answer keeps the
-// note and refs (decision ask), the item waits as sent_back, and agent work is
-// queued, linked to the dossier and the refs.
-func sendBackItem(ctx context.Context, d Deps, prop, item, note string, refs []string) (Decision, string, error) {
-	note = strings.TrimSpace(note)
-	if note == "" {
-		return Decision{}, "", errors.New("ask agent needs a note: what the agent should do")
-	}
-	refs, err := askRefs(ctx, d, refs)
-	if err != nil {
-		return Decision{}, "", err
-	}
-	var title string
-	p, err := changeProposal(ctx, d, prop, func(p *proposal) error {
-		it, err := p.item(item)
-		if err != nil {
-			return err
-		}
-		if !answerable(it.State) {
-			return fmt.Errorf("item %s is %s: it is decided", it.ID, it.State)
-		}
-		a := model.ItemAnswer{Decision: model.AnswerAsk, Comment: note, Refs: refs, Via: d.Store.Info().Surface}
-		it.Answer, it.State = &a, model.ItemSentBack
-		title = firstOf(it.Title, it.What, it.Subject, string(it.Kind)+" "+it.ID)
-		return nil
-	})
-	if err != nil {
-		return Decision{}, "", err
-	}
-	it, _ := p.item(item)
-	hash, _ := it.Hash()
-	if err := record(ctx, d, "proposal_ask", p.doc.ID, item, model.ItemPending, model.ItemSentBack, hash); err != nil {
-		return Decision{}, "", err
-	}
-	ask := askInstruction("item "+item+" of dossier "+p.doc.ID, "Then revise the item with proposal_revise (the dossier keeps the owner's other answers), or reply with proposal_reply when no change is right.", note, refs)
-	r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: askPrefix + title, Ask: ask, Links: []string{p.doc.ID}, Context: refs, Kind: SentKind})
-	if err != nil {
-		return Decision{}, "", fmt.Errorf("item %s is sent back, but no agent work was queued: %w", item, err)
-	}
-	return decisions([]model.ProposalItem{*it})[0], r.ID, nil
-}
-
-// skipItem checks that one item waits for a decision and changes nothing: a
-// skip is navigation in one web visit, stored nowhere.
-func skipItem(ctx context.Context, d Deps, prop, item string) (Decision, error) {
-	p, err := loadProposal(ctx, d, prop)
-	if err != nil {
-		return Decision{}, err
-	}
-	it, err := p.item(item)
-	if err != nil {
-		return Decision{}, err
-	}
-	if !answerable(it.State) {
-		return Decision{}, fmt.Errorf("item %s is %s: it is decided", it.ID, it.State)
-	}
-	return decisions([]model.ProposalItem{*it})[0], nil
-}
-
 // withNote joins two notes of an output.
 func withNote(a, b string) string {
 	if a == "" {
@@ -167,7 +107,6 @@ type QuestionReviewOutput struct {
 	Status  model.QuestionStatus `json:"status"`
 	Review  string               `json:"review,omitempty"`  // skipped or sent_back
 	Request string               `json:"request,omitempty"` // the agent work an ask queued
-	Undo    string               `json:"undo,omitempty"`    // UndoReset when stack_undo can put the question back; empty when it cannot
 	Rev     string               `json:"rev"`
 	Note    string               `json:"note,omitempty"` // an input that was ignored, and why
 }
@@ -285,37 +224,8 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 		return out, err
 	}
 	out.Status, out.Review, out.Rev = q.Status, q.ReviewState, saved.Rev
-	out.Undo = UndoReset
 	return out, nil
 })
-
-// vaultQuestionRows are the open vault questions as stack rows: later when
-// put off, sent back while an agent has it (a request linked to it is queued
-// or claimed), else pending or skipped. NeedsYou says which wait on the
-// owner. Reviewing a question is the owner's, so the rows have no actor.
-func vaultQuestionRows(sn *Snapshot) []StackRow {
-	var out []StackRow
-	for _, doc := range sn.Docs() {
-		q, ok := doc.Meta.(*model.Question)
-		if !ok || q.Status != model.QuestionOpen {
-			continue
-		}
-		need := sn.Need(doc.ID)
-		stack := StackProposed
-		if need.Life == LifeLater {
-			stack = StackLater
-		}
-		// An older review_state of skipped is read as pending.
-		state := model.ItemPending
-		if need.Turn == TurnAgent {
-			state = model.ItemSentBack
-		}
-		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: stack, DeferUntil: q.DeferUntil,
-			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
-			Tags: normTags(q.Tags), NeedsYou: need.Yes, NeedsYouReason: need.Reason})
-	}
-	return out
-}
 
 // ProposalDoneInput is the input of proposal_done: the owner did an outward
 // item themself.
@@ -331,108 +241,6 @@ type ProposalDoneInput struct {
 	Note string `json:"note,omitempty"`
 	At   string `json:"at,omitempty"` // RFC 3339; default now
 }
-
-// ProposalDone marks an outward item done by the owner: no agent claim. A
-// message that names an io draft marks the draft sent and files it as io_send
-// does; a doc edit with text stores the next version; a receipt says the
-// owner did it.
-var ProposalDone = definePerson("proposal_done", "The owner did an outward item (message, action, doc edit) themself: it becomes done with exec.by the owner and no agent claim. Optional url or locator, text (what was sent, or the document after a doc edit), note, at. A message's io draft is marked sent and filed; a doc edit's text becomes the next version. People only", func(ctx context.Context, d Deps, in ProposalDoneInput) (ProposalExecutedOutput, error) {
-	info := d.Store.Info()
-	at := d.Store.Now().UTC().Format(time.RFC3339)
-	if s := strings.TrimSpace(in.At); s != "" {
-		t, err := time.Parse(time.RFC3339, s)
-		if err != nil {
-			return ProposalExecutedOutput{}, errors.New("at: want an RFC 3339 time")
-		}
-		at = t.UTC().Format(time.RFC3339)
-	}
-	url := strings.TrimSpace(in.URL)
-	if url != "" {
-		var err error
-		if url, err = checkURL(url); err != nil {
-			return ProposalExecutedOutput{}, err
-		}
-	}
-	locator := firstOf(ioLine(in.Locator), "done by the owner")
-	text := cleanText(in.Text)
-	var from model.ItemState
-	p, err := changeProposal(ctx, d, in.ID, func(p *proposal) error {
-		it, err := p.item(in.Item)
-		if err != nil {
-			return err
-		}
-		if !it.Kind.Outward() {
-			return fmt.Errorf("item %s is not a message, action, or doc edit", it.ID)
-		}
-		if !answerable(it.State) && it.State != model.ItemApproved && it.State != model.ItemClaimed {
-			return fmt.Errorf("item %s is %s", it.ID, it.State)
-		}
-		from = it.State
-		if text != "" && it.Kind != model.ItemDocEdit {
-			it.Body, it.Edited = text, true
-		}
-		rec := newDecision(d, model.DecideApprove, "")
-		it.Decided = &rec
-		if h, err := it.Hash(); err == nil {
-			it.ApprovedHash = h
-		}
-		it.Execution = &model.Execution{Result: ExecDone, URL: url, Locator: locator, By: info.Actor, At: at}
-		it.State, it.Reason, it.ClaimedBy, it.LeaseUntil = model.ItemDone, "", "", ""
-		return nil
-	})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	it, err := p.item(in.Item)
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	if err := record(ctx, d, "proposal_done", p.doc.ID, it.ID, from, it.State, it.ApprovedHash); err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	sources := []string{}
-	if url != "" {
-		sources = append(sources, url)
-	}
-	receipt, err := createReceipt(ctx, d, receiptInput{op: "proposal_done", doc: p.doc.ID, title: p.doc.Title + " " + it.ID,
-		meta:    WriteMeta{Why: firstOf(strings.TrimSpace(in.Note), "Done by the owner"), Sources: sources, Verify: firstOf(url, locator)},
-		content: model.ReceiptContent{After: firstOf(url, locator)}})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	p, err = changeProposal(ctx, d, in.ID, func(p *proposal) error {
-		x, err := p.item(in.Item)
-		if err == nil && x.Execution != nil {
-			x.Execution.Receipt = receipt
-		}
-		return err
-	})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	out := ProposalExecutedOutput{ID: p.doc.ID, Item: it.ID, State: it.State, Receipt: receipt}
-	if it.IO != "" {
-		sent, err := sendIO(ctx, d, IOSendInput{ID: it.IO, URL: url, Locator: locator, At: at})
-		if err != nil {
-			return out, fmt.Errorf("item %s is done, but io %s was not marked sent: %w", it.ID, normID(it.IO), err)
-		}
-		out.IO = &sent
-	}
-	if it.Kind == model.ItemDocEdit && text != "" {
-		if _, _, tracked := trackedTarget(ctx, d, it.Target); tracked {
-			v, err := recordEditVersion(ctx, d, p.doc.ID, *it, text)
-			if err != nil {
-				return out, fmt.Errorf("item %s is done, but the new text was not stored: %w", it.ID, err)
-			}
-			out.Version = v
-		}
-	}
-	if p, err = runReady(ctx, d, in.ID); err != nil {
-		return out, err
-	}
-	out.Rev = p.doc.Rev
-	return out, nil
-})
 
 // IODoneInput is the input of io_done: the owner sent an outbox draft.
 type IODoneInput struct {

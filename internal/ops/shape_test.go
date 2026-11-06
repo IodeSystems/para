@@ -12,10 +12,9 @@ func TestUnknownFieldNamesTheShape(t *testing.T) {
 		input      string
 		hint, want string
 	}{
-		{ProposalDecide, `{"id":"p","decision":"approve"}`, "(did you mean items[].decision?)", "fields: id*, items[]*{item*, decision*, text}, owner_said*"},
+		{IOApprove, `{"id":"p","owner_says":"yes"}`, "(did you mean owner_said?)", "owner_said"},
 		{Search, `{"q":"x"}`, "(did you mean query?)", "query"},
 		{Defer, `{"ids":["t"],"date":"2026-12-01"}`, "(did you mean until?)", "until"},
-		{ProposalStack, `{"stat":"proposed"}`, "(did you mean state?)", "state"},
 	}
 	for _, c := range cases {
 		_, err := c.op.Invoke(ctx, Deps{}, json.RawMessage(c.input))

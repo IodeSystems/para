@@ -53,8 +53,8 @@ func (h *healther) sources(s store.Store) error {
 	recorded := recordedURLs(h.docs)
 	for _, d := range srcs {
 		for _, o := range unreviewedOutward(d.Body, recorded) {
-			h.add(HealthUnreviewedOutward, d.ID, "", fmt.Sprintf("%s at %s (%s): no approved item and no record", o.what, o.url, firstOf(dayOf(o.at), o.at)),
-				"if an agent did it, record it with action_record (url, by the agent, on_behalf_of owner) and have the owner check it in receipts; if the owner did it, the owner records it with para action record")
+			h.add(HealthUnreviewedOutward, d.ID, "", fmt.Sprintf("%s at %s (%s): no record in the vault", o.what, o.url, firstOf(dayOf(o.at), o.at)),
+				"record what was sent: an outgoing io draft of it (io_add direction out, the act's text) and io_send with this url; if an agent did it without the owner's approval, tell the owner")
 		}
 	}
 	res := newSourceResolver(srcs)

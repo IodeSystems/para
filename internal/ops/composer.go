@@ -168,18 +168,6 @@ type AgentUnsendInput struct {
 	Request string `json:"request"`
 }
 
-// AgentUnsend cancels agent work the owner sent while no agent has claimed it.
-var AgentUnsend = definePerson("agent_unsend", "Take back agent work the owner sent (agent_send) while no agent has claimed it. People only", func(ctx context.Context, d Deps, in AgentUnsendInput) (RequestChangeOutput, error) {
-	doc, r, err := getRequest(ctx, d.Store, in.Request)
-	if err != nil {
-		return RequestChangeOutput{}, err
-	}
-	if r.Status != model.RequestQueued && r.Status != model.RequestProposed {
-		return RequestChangeOutput{}, fmt.Errorf("%s is %s: an agent has it or it ended, so it cannot be taken back here", doc.ID, r.Status)
-	}
-	return RequestCancel.Run(ctx, d, RequestCancelInput{ID: doc.ID})
-})
-
 // ItemCloseInput names an item the owner marks done from its page.
 type ItemCloseInput struct {
 	ID string `json:"id"`

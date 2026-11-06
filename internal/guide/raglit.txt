@@ -6,7 +6,7 @@ Without a connection, nothing changes.
 
 1. Connect this machine to a daemon. One command per vault. It runs raglit
    project create, stores the key in $PARA_HOME/vaults/<id>/raglit.json (mode
-   0600, never in the vault), ignores .para, events, proposals and .git, watches
+   0600, never in the vault), ignores .para, events, and .git, watches
    the vault folder, and runs a test search. Running it again repairs, and never
    creates twice:
    $ para raglit connect --url http://127.0.0.1:7420

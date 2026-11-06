@@ -15,7 +15,7 @@ scan_in:
 scan_out:
   command: "acli jira workitem search --jql '{query}' --json"
   query: 'reporter = currentUser() AND updated >= "{since_date}"'
-  how: A work item the owner opened that answers an Ask or an approved action is rfx_reply or proposal_executed.
+  how: A work item the owner opened that answers an Ask or an approved outgoing draft is rfx_reply or io_send.
 state:
   command: "acli jira workitem view {ref} --fields status --json"
 cadence: daily

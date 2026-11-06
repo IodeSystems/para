@@ -10,10 +10,10 @@ Track (/para track followed by a URL):
 Refresh (one document, or each one /para sweep gives you):
 1. Read the document again with your own tools and pass the text with `doc_version_add`. The same text (by hash) stores nothing but the check time; a changed text becomes the next version, and the result names comments whose quote is no longer there (anchors_lost).
 2. Add new comments as in Track, step 4.
-3. Show the owner the change: `doc_diff` (default: the last version they saw against the latest). For a change that needs the owner, file a dossier with a para-upstream block (target, and comments to settle): the owner reads the diff and the comments in the web app, marks it seen, and says what each comment becomes. Only the owner marks a document seen.
+3. Show the owner the change: `doc_diff` (default: the last version they saw against the latest). For a change the owner must see, show `doc_diff`: the owner reads the diff and the comments in the web app, marks it seen (`doc_seen`), and says what each comment becomes. Only the owner marks a document seen.
 
 Edit (a change the owner wants made to the remote document):
-1. Propose it in a dossier: a para-doc-edit block with target "[[doc-id]]", old (the exact text it replaces, as it is in the latest version: para refuses old that is not there; read the document again first if it may have changed), new, and range in words. Bundle it with the para-message block that announces it, when there is one.
-2. When approved, claim it, make the edit with your own tool, read the document again, and report it with `proposal_executed` done, the url, and text (the document as it is now). The text becomes the next version, so the edit and its diff are on record.
+1. Draft it as an outgoing draft: `io_add` direction out, medium the system of the document, text the edit with old (the exact text it replaces, as it is in the latest version; read the document again first if it may have changed) and new.
+2. When the owner approved it (`io_approve`), make the edit with your own tool and read the document again. Report it with `io_send` and the url, then record the new version with `doc_version_add` (the document as it is now). The text becomes the next version, so the edit and its diff are on record.
 
 /para sweep refreshes the watched documents of each source you declared with `agent_sources` (the prompt sweep). Refresh the documents `health` names as doc_stale (not read in docs.check_days days) too. Do not track documents the owner did not ask for.

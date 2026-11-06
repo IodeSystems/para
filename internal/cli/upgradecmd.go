@@ -78,7 +78,10 @@ func newDossierCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Result, "result", "", "the id the direct write made or changed, or its receipt")
 			fs.StringVar(&in.Dropped, "dropped", "", "why the staged change is not needed")
 		},
-		Bind: func(args []string, in *ops.DossierRefileInput) error { in.Proposal, in.Item = args[0], args[1]; return nil },
+		Bind: func(args []string, in *ops.DossierRefileInput) error {
+			in.Proposal, in.Item = args[0], args[1]
+			return nil
+		},
 		Text: func(w io.Writer, out ops.DossierRefileOutput) error {
 			_, err := fmt.Fprintf(w, "%s %s: %s; dossier %s, %d staged left\n", out.Proposal, out.Item, out.State, out.Status, out.Left)
 			return err

@@ -7,4 +7,4 @@ Triage the health findings of a vault. Settle what evidence settles, and list th
 5. What you cannot settle goes in one short list in your reply, in value order (the order `health` printed them): id, kind, and in a few words what you looked at and what is missing. Do not turn the list into new questions or tasks.
 6. Tell the owner what you fixed, with the receipts, and what is left.
 
-Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
+A vault write that `receipt_undo` can reverse applies at once, with a receipt the owner can undo; bulk or risky changes need no approval step. A change only the owner can decide becomes a question (`question_add`) with context and options. An outward act (a message, a post, a ticket, a PR) is an outgoing draft (`io_add` direction out) the owner approves.

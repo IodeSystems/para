@@ -15,6 +15,6 @@ Grill a goal: hunt down its risks, unknowns, owners, policies, and constraints, 
 
 Recheck. To check again what might no longer be true in a goal, an area, a task, or the vault (/para recheck followed by the scope), run `recheck` with the scope; give no scope for the whole vault. It lists assumptions not checked lately (older than older_than days, default the vault's recheck.days), and constraints and policy exceptions whose review date has come, and queues one agent work item that lists them. Use dry_run to see the list only. When you do the work, check each item with your own tools and record one result with `recheck_record`: holds (with the source), changed (with the fact that is true now and the source, and a question when a decision follows), or unknown (it opens a question). Do not guess: no source, no holds.
 
-Ordinary vault edits need no proposal. A bulk or risky change is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
+A vault write that `receipt_undo` can reverse applies at once, with a receipt the owner can undo; bulk or risky changes need no approval step. A change only the owner can decide becomes a question (`question_add`) with context and options. An outward act (a message, a post, a ticket, a PR) is an outgoing draft (`io_add` direction out) the owner approves.
 
 Write no assessment of a person. Record what a source says, with the source.

@@ -157,94 +157,10 @@ func TestIOEditDraft(t *testing.T) {
 	}
 }
 
-// A message block that names an io draft shows the draft's text, writes the
-// owner's edit to the draft, makes it ready on approval, and sends it when the
-// agent reports it done.
-func TestDossierMessageNamesIODraft(t *testing.T) {
-	f := ioFix(t)
-	io1 := outDraft(t, f, model.ExpectsNone, "")
-	io2 := outDraft(t, f, model.ExpectsNone, "")
-	ev := "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
-	block := func(id, ioID string) string {
-		return "```yaml para-message id=" + id + "\nio: \"[[" + ioID + "]]\"\n" + ev + "```\n\n"
-	}
-	header := "```yaml para-dossier\ntldr: Ask Ada for the quote\n```\n\n## Messages\n\n"
-	bad := header + "```yaml para-message id=m1\nio: \"[[" + io1 + "]]\"\nbody: Hi.\n" + ev + "```\n"
-	if _, err := ProposalAdd.Run(writeCtx(t), f.agent, ProposalAddInput{Title: "Quote", Markdown: bad}); err == nil || !strings.Contains(err.Error(), "io draft") {
-		t.Fatalf("a block with io and body: %v", err)
-	}
-	in := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOIn, Text: "incoming"}).ID
-	if _, err := ProposalAdd.Run(writeCtx(t), f.agent, ProposalAddInput{Title: "Quote", Markdown: header + block("m1", in)}); err == nil || !strings.Contains(err.Error(), "incoming") {
-		t.Fatalf("a block naming an incoming item: %v", err)
-	}
-	id := fileDossierMD(t, f, header+block("m1", io1)+block("m2", io2))
-	raw, _ := f.owner.Store.Get(t.Context(), id)
-	if strings.Contains(raw.Body, "can you send the quote?") {
-		t.Fatal("the dossier file holds a copy of the draft's text")
-	}
-	show := mustRun(t, ProposalShow, f.owner, ProposalIDInput{ID: id})
-	if show.Items[0].Body != "Hi Ada,\n\ncan you send the quote?" || show.Items[0].Subject != "Quote" || len(show.Items[0].People) != 2 {
-		t.Fatalf("m1 = %+v", show.Items[0])
-	}
-	if _, err := draft(t, f.owner, id, 1,
-		DraftAnswer{Item: "m1", Answer: &model.ItemAnswer{Decision: model.AnswerEdit, Body: "Hi Ada,\n\nplease send the quote by Friday.\n"}},
-		DraftAnswer{Item: "m2", Answer: &model.ItemAnswer{Decision: model.AnswerApprove}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, m, _ := getIO(t.Context(), f.owner, io1); m.State != model.IODraft {
-		t.Fatal("a draft answer changed the io item")
-	}
-	if sub := mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1}); len(sub.Failed) != 0 {
-		t.Fatalf("submit failed: %v", sub.Failed)
-	}
-	doc, m, _ := getIO(t.Context(), f.owner, io1)
-	if m.State != model.IOReady || doc.Body != "Hi Ada,\n\nplease send the quote by Friday." {
-		t.Fatalf("io1 after submit = %s %q", m.State, doc.Body)
-	}
-	if _, m, _ := getIO(t.Context(), f.owner, io2); m.State != model.IOReady {
-		t.Fatalf("io2 after submit = %s", m.State)
-	}
-	// An edit after approval stops the report.
-	mustRun(t, IOEdit, f.owner, IOEditInput{ID: io2, Text: "Changed after approval."})
-	if _, err := ProposalExecuted.Run(t.Context(), f.agent, ProposalExecutedInput{ID: id, Item: "m2", Result: ExecDone, URL: "https://mail.acme.example/2"}); err == nil ||
-		!strings.Contains(err.Error(), "changed since it was approved") {
-		t.Fatalf("executed after an edit: %v", err)
-	}
-	// The approved text is reported done: the draft is sent and filed.
-	ex := mustRun(t, ProposalExecuted, f.agent, ProposalExecutedInput{ID: id, Item: "m1", Result: ExecDone, URL: "https://mail.acme.example/1"})
-	if ex.IO == nil || ex.IO.State != model.IOSent || ex.IO.BecameType != model.TypeInteraction {
-		t.Fatalf("executed = %+v", ex)
-	}
-	if _, m, _ := getIO(t.Context(), f.owner, io1); m.State != model.IOSent || m.Became != model.LinkTo(ex.IO.Became) {
-		t.Fatalf("io1 = %+v", m)
-	}
-	mustLintClean(t, f.owner)
-}
-
 func rfxIDs(w RFXWaitingOutput) []string {
 	var out []string
 	for _, x := range w.Items {
 		out = append(out, x.ID)
 	}
 	return out
-}
-
-// Inbox triage in a dossier: a change item names io_file and runs on submit.
-func TestDossierFilesIO(t *testing.T) {
-	f := ioFix(t)
-	in := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOIn, Text: "Renew the cert", From: "person-ada-example"}).ID
-	ev := "evidence: {quote: \"Ship it.\", locator: \"https://acme.example/notes#L1\"}\n"
-	md := "```yaml para-dossier\ntldr: Sort the inbox\n```\n\n" +
-		"```yaml para-change id=c1\nop: io_file\ninput: {id: " + in + ", to: task, project: " + f.proj + ", done_when: Renewed.}\nhow: file as a task\nimpact: one task\ngroup: io_file\n" + ev + "```\n"
-	id := fileDossierMD(t, f, md)
-	if _, err := draft(t, f.owner, id, 1, DraftAnswer{Item: "c1", Answer: &model.ItemAnswer{Decision: model.AnswerApprove}}); err != nil {
-		t.Fatal(err)
-	}
-	if sub := mustRun(t, ProposalSubmit, f.owner, ProposalSubmitInput{ID: id, Revision: 1}); len(sub.Failed) != 0 {
-		t.Fatalf("failed: %v", sub.Failed)
-	}
-	_, m, _ := getIO(t.Context(), f.owner, in)
-	if m.State != model.IOFiled || !strings.HasPrefix(m.Became.Target(), "task-") {
-		t.Fatalf("io = %+v", m)
-	}
 }

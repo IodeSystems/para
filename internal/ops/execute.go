@@ -5,279 +5,77 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/iodesystems/para/internal/model"
 )
 
-// The owner directs and agents act with their own tools: gh, slackcli, acli, a
-// browser. Para stays the record. An approved message or action waits as
-// approved, not done, until the agent reports it with proposal_executed or
-// action_record. Para sends nothing.
+// proposal_executed is an alias of io_send for one release (0.3.0): a
+// dossier is read-only since vault format 8, and what a dossier held to send
+// is an outgoing io draft (vault upgrade step dossiers). The alias finds the
+// draft of the item and records its send with io_send.
 
+// ExecDone and ExecFailed are the results an agent reported.
 const (
-	// ExecDone and ExecFailed are the results an agent reports.
 	ExecDone   = "done"
 	ExecFailed = "failed"
 )
 
-// ProposalExecutedInput is the input of proposal_executed.
+// ProposalExecutedInput is the input of proposal_executed, as before 0.3.0.
+// By, OnBehalfOf, Reason, and Text are read and not used: io_send takes none.
 type ProposalExecutedInput struct {
-	ID      string `json:"id"`
-	Item    string `json:"item"`
-	Result  string `json:"result"`            // done or failed
-	URL     string `json:"url,omitempty"`     // where the result is
-	Locator string `json:"locator,omitempty"` // where the result is, when it has no URL
-	Reason  string `json:"reason,omitempty"`  // required when failed
-	// Text is the document as you read it after a done doc edit of a tracked
-	// document; it becomes the next version. Required there, refused elsewhere.
-	Text string `json:"text,omitempty"`
-	// By is the actor that carried the item out, when you record it for
-	// another agent (a worker you delegated to over chat); default you.
-	By string `json:"by,omitempty"`
-	// OnBehalfOf is "owner" when the act was done as the owner (sent from the
-	// owner's account, committed under the owner's name).
+	ID         string `json:"id"`
+	Item       string `json:"item"`
+	Result     string `json:"result"`            // done; failed is refused: the draft waits
+	URL        string `json:"url,omitempty"`     // where the result is
+	Locator    string `json:"locator,omitempty"` // where the result is, when it has no URL
+	Reason     string `json:"reason,omitempty"`
+	Text       string `json:"text,omitempty"`
+	By         string `json:"by,omitempty"`
 	OnBehalfOf string `json:"on_behalf_of,omitempty"`
 }
 
-// actOwner is the only value of on_behalf_of.
-const actOwner = "owner"
-
-// outwardBy checks by and on_behalf_of of an outward record. by is an actor
-// name: one plain word; it is the caller when empty.
-func outwardBy(caller, by, onBehalfOf string) (string, string, error) {
-	by = strings.TrimSpace(by)
-	onBehalfOf = strings.TrimSpace(onBehalfOf)
-	if onBehalfOf != "" && onBehalfOf != actOwner {
-		return "", "", fmt.Errorf("on_behalf_of %q: want owner or nothing", onBehalfOf)
-	}
-	if by != "" && !wordRe.MatchString(by) {
-		return "", "", fmt.Errorf("by %q: want an actor name, one plain word", by)
-	}
-	if by == caller {
-		by = ""
-	}
-	return by, onBehalfOf, nil
-}
-
-// ProposalExecutedOutput is the output of proposal_executed.
+// ProposalExecutedOutput is io_send's output, with alias_of.
 type ProposalExecutedOutput struct {
-	ID           string          `json:"id"`
-	Item         string          `json:"item"`
-	State        model.ItemState `json:"state"`
-	Receipt      string          `json:"receipt"`
-	SelfReported bool            `json:"self_reported"`
-	Halted       []string        `json:"halted,omitempty"` // items of the bundle that will not run
-	// IO is the io draft a done message named, now sent and filed.
-	IO *IOSendOutput `json:"io,omitempty"`
-	// Version is the version a done doc edit of a tracked document stored.
-	Version *DocVersionAddOutput `json:"version,omitempty"`
-	Rev     string               `json:"rev"`
+	IOSendOutput
+	AliasOf string `json:"alias_of"`
 }
 
-// ProposalExecuted records that an agent carried out an approved item. What it
-// reports is self-reported: para cannot see the act. Only placeholder values
-// may differ from the approved text, and they are kept in the receipt, with the
-// owner's words from the decision.
-var ProposalExecuted = defineSafe("proposal_executed", "Report that you carried out an approved (or claimed) message, action, or doc edit, with the result and its URL or locator. A done doc edit of a tracked document takes text: the document as you read it after the edit, stored as its next version. A later item can use them as {{i1.url}}", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
-	if in.Result != ExecDone && in.Result != ExecFailed {
-		return ProposalExecutedOutput{}, fmt.Errorf("result %q: want done or failed", in.Result)
+// ProposalExecuted runs io_send on the io draft of a dossier item.
+var ProposalExecuted = defineSafe("proposal_executed", "Alias of io_send (this name goes in a later release; call io_send). Reports that you sent what a dossier item held: since vault format 8 that is an outgoing io draft (the item's io, or the draft vault upgrade moved it to), and this records its send with io_send (url or locator)", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
+	out := ProposalExecutedOutput{AliasOf: "io_send"}
+	if r := strings.TrimSpace(in.Result); r != "" && r != ExecDone {
+		return out, errors.New("result " + r + ": only done is recorded; a draft that was not sent stays a draft (io_edit, or close it with a reason)")
 	}
-	reason := strings.TrimSpace(in.Reason)
-	if in.Result == ExecFailed && reason == "" {
-		return ProposalExecutedOutput{}, errors.New("reason is empty: say why it failed")
-	}
-	if in.Result == ExecDone && strings.TrimSpace(in.URL) == "" && strings.TrimSpace(in.Locator) == "" {
-		return ProposalExecutedOutput{}, errors.New("give url or locator: where the owner can see the result")
-	}
-	info, err := identity(d)
+	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	by, behalf, err := outwardBy(info.Actor, in.By, in.OnBehalfOf)
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	var from model.ItemState
-	var exec model.Execution
-	var said string
-	p, err := changeProposal(ctx, d, in.ID, func(p *proposal) error {
-		it, err := p.item(in.Item)
-		if err != nil {
-			return err
-		}
-		if !it.Kind.Outward() {
-			return fmt.Errorf("item %s is a vault change: para ran it", it.ID)
-		}
-		if it.State != model.ItemApproved && it.State != model.ItemClaimed {
-			return fmt.Errorf("item %s is %s, not approved", it.ID, it.State)
-		}
-		if it.State == model.ItemClaimed && it.ClaimedBy != info.Actor && !leaseOver(*it, d.Store.Now()) {
-			return fmt.Errorf("item %s is claimed by %s until %s", it.ID, it.ClaimedBy, it.LeaseUntil)
-		}
-		if now, err := it.Hash(); err != nil || now != it.ApprovedHash {
-			return fmt.Errorf("item %s changed since it was approved", it.ID)
-		}
-		if !afterDone(p, it) {
-			return fmt.Errorf("item %s runs after %s, which is not done", it.ID, it.After)
-		}
-		if err := checkEditText(ctx, d, *it, in); err != nil {
-			return err
-		}
-		from = it.State
-		if it.Decided != nil {
-			said = it.Decided.OwnerSaid
-		}
-		exec = model.Execution{Result: in.Result, URL: strings.TrimSpace(in.URL), Locator: strings.TrimSpace(in.Locator), By: firstOf(by, info.Actor),
-			At: d.Store.Now().UTC().Format(time.RFC3339), SelfReported: true, Filled: filledValues(p, *it)}
-		it.Execution = &exec
-		it.State, it.Reason, it.LeaseUntil = model.ItemDone, "", ""
-		if in.Result == ExecFailed {
-			it.State, it.Reason = model.ItemFailed, reason
-		}
-		return nil
-	})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	it, err := p.item(in.Item)
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	if err := record(ctx, d, "proposal_executed", p.doc.ID, it.ID, from, it.State, it.ApprovedHash); err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	sources := []string{}
-	if exec.URL != "" {
-		sources = append(sources, exec.URL)
-	}
-	if exec.Locator != "" {
-		sources = append(sources, exec.Locator)
-	}
-	receipt, err := createReceipt(ctx, d, receiptInput{op: "proposal_executed", doc: p.doc.ID, title: p.doc.Title + " " + it.ID,
-		meta:    WriteMeta{Why: firstOf(reason, it.What, it.How, it.Subject, "Approved item "+it.ID), Sources: sources, Verify: firstOf(exec.URL, exec.Locator), Request: heldRequest(ctx, d.Store, info.Actor)},
-		content: model.ReceiptContent{After: firstOf(exec.Locator, exec.URL, it.ID) + filledLine(exec.Filled)}, selfReported: true, ownerSaid: said,
-		by: by, onBehalfOf: behalf})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	p, err = changeProposal(ctx, d, in.ID, func(p *proposal) error {
-		x, err := p.item(in.Item)
-		if err != nil {
-			return err
-		}
-		if x.Execution != nil {
-			x.Execution.Receipt = receipt
-		}
-		return nil
-	})
-	if err != nil {
-		return ProposalExecutedOutput{}, err
-	}
-	out := ProposalExecutedOutput{ID: p.doc.ID, Item: in.Item, State: it.State, Receipt: receipt, SelfReported: true}
-	if it.IO != "" && it.State == model.ItemDone {
-		sent, err := sendIO(ctx, d, IOSendInput{ID: it.IO, URL: exec.URL, Locator: exec.Locator, At: exec.At})
-		if err != nil {
-			return out, fmt.Errorf("item %s is done, but io %s was not marked sent: %w", it.ID, normID(it.IO), err)
-		}
-		out.IO = &sent
-	}
-	if it.Kind == model.ItemDocEdit && it.State == model.ItemDone && in.Text != "" {
-		v, err := recordEditVersion(ctx, d, p.doc.ID, *it, in.Text)
-		if err != nil {
-			return out, fmt.Errorf("item %s is done, but the new text was not stored: %w", it.ID, err)
-		}
-		out.Version = v
-	}
-	if it.State == model.ItemFailed {
-		if p, err = haltAfterFailure(ctx, d, in.ID, *it); err != nil {
-			return out, err
-		}
-		for _, o := range p.content.Items {
-			if o.State == model.ItemHalted {
-				out.Halted = append(out.Halted, o.ID)
-			}
-		}
-	} else if p, err = runReady(ctx, d, in.ID); err != nil {
 		return out, err
 	}
-	out.Rev = p.doc.Rev
-	return out, nil
-})
-
-// checkEditText: a done doc edit of a tracked document comes with the text
-// read after it; text goes nowhere else.
-func checkEditText(ctx context.Context, d Deps, it model.ProposalItem, in ProposalExecutedInput) error {
-	tracked := false
-	if it.Kind == model.ItemDocEdit {
-		_, _, tracked = trackedTarget(ctx, d, it.Target)
+	if _, ok := doc.Meta.(*model.Proposal); !ok {
+		return out, fmt.Errorf("%s is not a dossier: call io_send with the draft", doc.ID)
 	}
-	switch {
-	case !tracked && strings.TrimSpace(in.Text) != "":
-		return fmt.Errorf("item %s: text is for a doc edit of a tracked document", it.ID)
-	case tracked && in.Result == ExecDone && strings.TrimSpace(in.Text) == "":
-		return fmt.Errorf("item %s edits tracked document %s: give text, the document as you read it after the edit", it.ID, normID(it.Target))
-	case tracked && in.Result == ExecFailed && strings.TrimSpace(in.Text) != "":
-		return fmt.Errorf("item %s failed: pass the text you read with doc_version_add", it.ID)
-	}
-	return nil
-}
-
-func filledLine(m map[string]any) string {
-	if len(m) == 0 {
-		return ""
-	}
-	return " " + inputJSON(m)
-}
-
-// filledValues lists the placeholders of an item with the values they took.
-func filledValues(p *proposal, it model.ProposalItem) map[string]any {
-	out := map[string]any{}
-	for _, ph := range itemPlaceholders(it) {
-		if v, ok := itemValue(p, ph[0], ph[1]); ok {
-			out[ph[0]+"."+ph[1]] = v
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-// UndoneItem is an approved outward item that nobody has reported done.
-type UndoneItem struct {
-	Proposal string `json:"proposal"`
-	Title    string `json:"title"`
-	Item     string `json:"item"`
-	Summary  string `json:"summary"`
-	Target   string `json:"target,omitempty"`
-}
-
-// ProposalUndoneInput has no fields.
-type ProposalUndoneInput struct{}
-
-// ProposalUndoneOutput is the output of proposal_undone.
-type ProposalUndoneOutput struct {
-	Items []UndoneItem `json:"items"`
-}
-
-// ProposalUndone lists what the owner approved and nobody has carried out.
-var ProposalUndone = defineRead("proposal_undone", "List messages and actions the owner approved that are not done yet", func(ctx context.Context, d Deps, _ ProposalUndoneInput) (ProposalUndoneOutput, error) {
-	all, err := allProposals(ctx, d)
+	c, err := model.ParseProposalBody(doc.Body)
 	if err != nil {
-		return ProposalUndoneOutput{}, err
+		return out, fmt.Errorf("%s: %w", doc.ID, err)
 	}
-	out := ProposalUndoneOutput{Items: []UndoneItem{}}
-	sum := newItemSummarizer(ctx, d)
-	for _, p := range all {
-		if p.meta.Status == model.ProposalSuperseded {
+	draft := ""
+	for _, it := range c.Items {
+		if it.ID != in.Item {
 			continue
 		}
-		for _, it := range p.content.Items {
-			if it.Kind.Outward() && (it.State == model.ItemApproved || it.State == model.ItemClaimed) {
-				out.Items = append(out.Items, UndoneItem{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Summary: sum.of(it), Target: it.GateTarget()})
-			}
+		switch {
+		case it.State == model.ItemMoved:
+			draft = it.Result
+		case it.Kind == model.ItemMessage && it.IO != "":
+			draft = normID(it.IO)
 		}
 	}
-	return out, nil
+	if draft == "" {
+		return out, fmt.Errorf("%s %s has no io draft: a dossier is read-only since vault format 8; draft what you send with io_add and report it with io_send", doc.ID, in.Item)
+	}
+	if _, m, err := getIO(ctx, d, draft); err != nil || m.Direction != model.IOOut {
+		return out, fmt.Errorf("%s %s went to %s, which is not an outgoing io draft: call io_send with the draft", doc.ID, in.Item, draft)
+	}
+	res, err := IOSend.Run(ctx, d, IOSendInput{ID: draft, URL: in.URL, Locator: in.Locator})
+	out.IOSendOutput = res
+	return out, err
 })

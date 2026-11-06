@@ -23,12 +23,10 @@ type ParaQueryNamespace {
 }
 
 type ParaV1MutationNamespace {
-  actionRecord(body: para_ActionRecordInputInput!): para_ActionRecordOutput @derived(operationId: "actionRecord")
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
   agentSend(body: para_AgentSendInputInput!): para_AgentSendOutput @derived(operationId: "agentSend")
   agentSources(body: para_AgentSourcesInputInput!): para_AgentSourcesOutput @derived(operationId: "agentSources")
-  agentUnsend(body: para_AgentUnsendInputInput!): para_RequestChangeOutput @derived(operationId: "agentUnsend")
   alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
@@ -126,15 +124,7 @@ type ParaV1MutationNamespace {
   projectEdit(body: para_ProjectEditInputInput!): para_ProjectEditOutput @derived(operationId: "projectEdit")
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
-  proposalAdd(body: para_ProposalAddInputInput!): para_ProposalFiled @derived(operationId: "proposalAdd")
-  proposalClaim(body: para_ProposalClaimInputInput!): para_ProposalClaimOutput @derived(operationId: "proposalClaim")
-  proposalDecide(body: para_ProposalDecideInputInput!): para_ProposalDecideOutput @derived(operationId: "proposalDecide")
-  proposalDone(body: para_ProposalDoneInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalDone")
-  proposalDraft(body: para_ProposalDraftInputInput!): para_ProposalDraftOutput @derived(operationId: "proposalDraft")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
-  proposalReply(body: para_ProposalReplyInputInput!): para_ProposalReplyOutput @derived(operationId: "proposalReply")
-  proposalRevise(body: para_ProposalReviseInputInput!): para_ProposalFiled @derived(operationId: "proposalRevise")
-  proposalSubmit(body: para_ProposalSubmitInputInput!): para_ProposalSubmitOutput @derived(operationId: "proposalSubmit")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
   questionAsk(body: para_QuestionAskInputInput!): para_QuestionAskOutput @derived(operationId: "questionAsk")
@@ -172,10 +162,8 @@ type ParaV1MutationNamespace {
   sendToAgent(body: para_SendToAgentInputInput!): para_VerbOutput @derived(operationId: "sendToAgent")
   sourceAdd(body: para_SourceAddInputInput!): para_SourceAddOutput @derived(operationId: "sourceAdd")
   sourceStatus(body: para_SourceStatusInputInput!): para_SourceStatusOutput @derived(operationId: "sourceStatus")
-  stackDecide(body: para_StackDecideInputInput!): para_StackDecideOutput @derived(operationId: "stackDecide")
   stackLater(body: para_StackLaterInputInput!): para_DeferOutput @derived(operationId: "stackLater")
   stackReturn(body: para_StackReturnInputInput!): para_DeferOutput @derived(operationId: "stackReturn")
-  stackUndo(body: para_StackUndoInputInput!): para_StackUndoOutput @derived(operationId: "stackUndo")
   sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
   tagAdd(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagAdd")
   tagRemove(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagRemove")
@@ -275,14 +263,8 @@ type ParaV1QueryNamespace {
   policyShow(id: String!): para_PolicyShowOutput @derived(operationId: "policyShow")
   projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
   projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
-  proposalApproved(hash: String!): para_ProposalApprovedOutput @derived(operationId: "proposalApproved")
-  proposalDiff(id: String!): para_ProposalDiffOutput @derived(operationId: "proposalDiff")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
-  proposalResponse(id: String!): para_ProposalResponseOutput @derived(operationId: "proposalResponse")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
-  proposalStack(actor: String, batch: String, cursor: String, group: String, kind: String, limit: Int, needs_you: Boolean, proposal: String, state: String, tag: String): para_ProposalStackOutput @derived(operationId: "proposalStack")
-  proposalUndone: para_ProposalUndoneOutput @derived(operationId: "proposalUndone")
-  proposalWait(id: String!, timeout_seconds: Int): para_ProposalWaitOutput @derived(operationId: "proposalWait")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
@@ -341,40 +323,6 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
-}
-
-input para_ActionRecordInputInput {
-  by: String
-  item: String
-  onBehalfOf: String
-  ownerSaid: String
-  proposal: String
-  sources: [String!]
-  url: String
-  what: String!
-  where: String!
-}
-
-type para_ActionRecordOutput {
-  receipt: String!
-  state: para_ActionRecordOutputState
-}
-
-enum para_ActionRecordOutputState {
-  answered
-  approved
-  claimed
-  denied
-  done
-  failed
-  halted
-  held
-  moved
-  pending
-  running
-  sent_back
-  skipped
-  withdrawn
 }
 
 type para_ActivityRow {
@@ -482,10 +430,6 @@ type para_AgentSourcesOutput {
   reachDays: Int!
   sources: [String!]!
   unknown: [String!]!
-}
-
-input para_AgentUnsendInputInput {
-  request: String!
 }
 
 type para_AlignItem {
@@ -1083,13 +1027,6 @@ type para_CommentAnswer {
   to: String!
 }
 
-input para_CommentAnswerInput {
-  due: String
-  id: String!
-  note: String
-  to: String!
-}
-
 type para_CommentView {
   anchor: para_DocAnchor
   at: String!
@@ -1288,40 +1225,6 @@ enum para_CopyOutputAs {
   jira
   plain
   slack
-}
-
-input para_DecideItemInput {
-  decision: String!
-  item: String!
-  text: String
-}
-
-type para_Decision {
-  approvedHash: String
-  item: String!
-  ownerSaid: String
-  reason: String
-  receipts: [String!]
-  result: String
-  state: para_DecisionState!
-  undo: String
-}
-
-enum para_DecisionState {
-  answered
-  approved
-  claimed
-  denied
-  done
-  failed
-  halted
-  held
-  moved
-  pending
-  running
-  sent_back
-  skipped
-  withdrawn
 }
 
 input para_DeferInputInput {
@@ -1920,11 +1823,6 @@ type para_Downstream {
   title: String!
 }
 
-input para_DraftAnswerInput {
-  answer: para_ItemAnswerInput
-  item: String!
-}
-
 type para_Ecosystem {
   costs: [para_Claim!]
   gains: [para_Claim!]
@@ -2204,11 +2102,6 @@ type para_FeedbackAddOutput {
   id: String!
   rev: String!
   tags: [String!]!
-}
-
-type para_FieldChange {
-  field: String!
-  lines: [String!]!
 }
 
 type para_Finding {
@@ -2987,7 +2880,7 @@ input para_IOSendInputInput {
 
 type para_IOSendOutput {
   became: String!
-  becameType: para_IOSendOutputBecame_type!
+  becameType: para_IOSendOutputBecame_type
   id: String!
   rev: String!
   state: para_IOSendOutputState!
@@ -3477,24 +3370,6 @@ type para_ItemAnswer {
   via: String
 }
 
-input para_ItemAnswerInput {
-  addedOptions: [String!]
-  body: String
-  choices: [String!]
-  comment: String
-  comments: [para_CommentAnswerInput!]
-  decision: String
-  editedOptions: JSON
-  input: JSON
-  new: String
-  ownWords: String
-  people: [String!]
-  refs: [String!]
-  stale: Boolean
-  subject: String
-  via: String
-}
-
 input para_ItemCloseInputInput {
   id: String!
 }
@@ -3512,68 +3387,6 @@ type para_ItemDecision {
   ownerSaid: String
   selfReported: Boolean
   surface: String
-}
-
-type para_ItemDiff {
-  change: String!
-  fields: [para_FieldChange!]!
-  item: String!
-}
-
-input para_ItemInputInput {
-  after: String
-  benefit: para_ClaimInput
-  body: String
-  bundle: String
-  channel: String
-  choice: String
-  confidence: Int
-  confidenceBasis: String
-  cons: [para_ClaimInput!]
-  cost: para_ClaimInput
-  diff: String
-  draft: String
-  evidence: para_EvidenceInput!
-  fields: JSON
-  for: String
-  group: String
-  how: String
-  id: String
-  impact: String
-  input: JSON
-  kind: para_ItemInputKind!
-  medium: String
-  notDuplicate: String
-  op: String
-  people: [String!]
-  previous: String
-  pros: [para_ClaimInput!]
-  recommendation: Int
-  reversible: para_ItemInputReversible
-  reversibleHow: String
-  subject: String
-  subtype: String
-  tags: [String!]
-  target: String
-  title: String
-  what: String
-}
-
-enum para_ItemInputKind {
-  action
-  doc_edit
-  external
-  message
-  op
-  para
-  question
-  upstream
-}
-
-enum para_ItemInputReversible {
-  no
-  partly
-  yes
 }
 
 input para_ItemPreparedInputInput {
@@ -5239,62 +5052,6 @@ enum para_ProjectViewStatus {
   paused
 }
 
-input para_ProposalAddInputInput {
-  context: String
-  items: [para_ItemInputInput!]
-  markdown: String
-  source: String
-  sourcePath: String
-  tags: [String!]
-  title: String!
-  tldr: String
-}
-
-type para_ProposalApprovedOutput {
-  approved: Boolean!
-  hash: String!
-  item: String
-  proposal: String
-  subtype: String
-  target: String
-}
-
-input para_ProposalClaimInputInput {
-  group: String
-  id: String!
-  items: [String!]
-  leaseSeconds: Int
-}
-
-type para_ProposalClaimOutput {
-  claimed: [String!]!
-  id: String!
-  leaseUntil: String!
-  rev: String!
-}
-
-input para_ProposalDecideInputInput {
-  id: String!
-  items: [para_DecideItemInput!]
-  ownerSaid: String!
-}
-
-type para_ProposalDecideOutput {
-  failed: [String!]
-  id: String!
-  items: [para_Decision!]!
-  rev: String!
-  revision: String
-  status: para_ProposalDecideOutputStatus!
-}
-
-enum para_ProposalDecideOutputStatus {
-  closed
-  open
-  sent_back
-  superseded
-}
-
 type para_ProposalDetail {
   context: String
   dossier: Boolean!
@@ -5315,39 +5072,6 @@ type para_ProposalDetail {
   urlNote: String
 }
 
-type para_ProposalDiffOutput {
-  id: String!
-  items: [para_ItemDiff!]!
-  previous: String
-  revision: Int!
-}
-
-input para_ProposalDoneInputInput {
-  at: String
-  id: String!
-  item: String!
-  locator: String
-  note: String
-  text: String
-  url: String
-}
-
-input para_ProposalDraftInputInput {
-  id: String!
-  items: [para_DraftAnswerInput!]
-  overall: String
-  revision: Int!
-  sections: [para_SectionCommentInput!]
-}
-
-type para_ProposalDraftOutput {
-  drafted: Int!
-  id: String!
-  rev: String!
-  revision: Int!
-  total: Int!
-}
-
 input para_ProposalExecutedInputInput {
   by: String
   id: String!
@@ -5361,151 +5085,58 @@ input para_ProposalExecutedInputInput {
 }
 
 type para_ProposalExecutedOutput {
-  halted: [String!]
+  aliasOf: String!
+  became: String!
+  becameType: para_ProposalExecutedOutputBecame_type
   id: String!
-  io: para_IOSendOutput
-  item: String!
-  receipt: String!
   rev: String!
-  selfReported: Boolean!
   state: para_ProposalExecutedOutputState!
-  version: para_DocVersionAddOutput
+  warnings: [String!]!
+}
+
+enum para_ProposalExecutedOutputBecame_type {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
 }
 
 enum para_ProposalExecutedOutputState {
-  answered
-  approved
-  claimed
-  denied
-  done
-  failed
-  halted
-  held
-  moved
-  pending
-  running
-  sent_back
-  skipped
-  withdrawn
-}
-
-type para_ProposalFiled {
-  id: String!
-  rev: String!
-  reviewCommand: String!
-  reviewUrl: String
-  revision: Int!
-  status: para_ProposalFiledStatus!
-  supersedes: String
-  urlNote: String
-}
-
-enum para_ProposalFiledStatus {
-  closed
-  open
-  sent_back
-  superseded
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
 }
 
 type para_ProposalListOutput {
   items: [para_ProposalView!]!
-}
-
-input para_ProposalReplyInputInput {
-  id: String!
-  item: String
-  section: String
-  text: String!
-}
-
-type para_ProposalReplyOutput {
-  id: String!
-  reply: String!
-  rev: String!
-}
-
-type para_ProposalResponseOutput {
-  id: String!
-  items: [para_ResponseItem!]!
-  overall: String
-  replies: JSON
-  response: String!
-  rev: String!
-  revision: Int!
-  sections: JSON
-  status: para_ProposalResponseOutputStatus!
-  submittedAt: String
-  title: String!
-  todo: para_ResponseTodo!
-  untrusted: String!
-}
-
-enum para_ProposalResponseOutputStatus {
-  closed
-  open
-  sent_back
-  superseded
-}
-
-type para_ProposalReviewOutput {
-  failed: [String!]
-  id: String!
-  items: [para_Decision!]!
-  rev: String!
-  status: para_ProposalReviewOutputStatus!
-}
-
-enum para_ProposalReviewOutputStatus {
-  closed
-  open
-  sent_back
-  superseded
-}
-
-input para_ProposalReviseInputInput {
-  context: String
-  id: String!
-  items: [para_ItemInputInput!]
-  markdown: String
-  tldr: String
-  withdraw: [String!]
-}
-
-type para_ProposalStackOutput {
-  counts: [para_StackCount!]!
-  groups: [para_StackGroup!]!
-  needsYou: Int!
-  nextCursor: String
-  note: String
-  requests: [para_SentItem!]!
-  rows: [para_StackRow!]!
-  total: Int!
-}
-
-input para_ProposalSubmitInputInput {
-  id: String!
-  revision: Int
-}
-
-type para_ProposalSubmitOutput {
-  failed: [String!]
-  id: String!
-  items: [para_Decision!]!
-  left: [para_SubmitNote!]
-  requests: [String!]
-  rev: String!
-  status: para_ProposalSubmitOutputStatus!
-}
-
-enum para_ProposalSubmitOutputStatus {
-  closed
-  open
-  sent_back
-  superseded
-}
-
-type para_ProposalUndoneOutput {
-  items: [para_UndoneItem!]!
 }
 
 type para_ProposalView {
@@ -5525,21 +5156,6 @@ type para_ProposalView {
 }
 
 enum para_ProposalViewStatus {
-  closed
-  open
-  sent_back
-  superseded
-}
-
-type para_ProposalWaitOutput {
-  decisions: [para_Decision!]!
-  id: String!
-  pending: Boolean!
-  status: para_ProposalWaitOutputStatus!
-  supersededBy: String
-}
-
-enum para_ProposalWaitOutputStatus {
   closed
   open
   sent_back
@@ -5725,7 +5341,6 @@ type para_QuestionReviewOutput {
   rev: String!
   review: String
   status: para_QuestionReviewOutputStatus!
-  undo: String
 }
 
 enum para_QuestionReviewOutputStatus {
@@ -6683,58 +6298,6 @@ enum para_RequestViewStatus {
   queued
 }
 
-type para_ResponseItem {
-  answer: para_ItemAnswer
-  claimedBy: String
-  decision: String
-  execution: para_Execution
-  for: String
-  id: String!
-  kind: para_ResponseItemKind!
-  reason: String
-  receipts: [String!]
-  replies: [para_Turn!]
-  result: String
-  stack: String!
-  state: para_ResponseItemState!
-  submitted: Boolean!
-  title: String
-}
-
-enum para_ResponseItemKind {
-  action
-  doc_edit
-  external
-  message
-  op
-  para
-  question
-  upstream
-}
-
-enum para_ResponseItemState {
-  answered
-  approved
-  claimed
-  denied
-  done
-  failed
-  halted
-  held
-  moved
-  pending
-  running
-  sent_back
-  skipped
-  withdrawn
-}
-
-type para_ResponseTodo {
-  answered: [String!]!
-  claim: [String!]!
-  reply: [String!]!
-}
-
 type para_ReviewEvent {
   actor: String!
   doc: String!
@@ -6872,11 +6435,6 @@ type para_RunResult {
 type para_SearchOutput {
   degraded: String
   hits: [para_Hit!]!
-}
-
-input para_SectionCommentInput {
-  comment: String!
-  section: String!
 }
 
 type para_SectionReply {
@@ -7374,40 +6932,6 @@ type para_Span {
   start: Int!
 }
 
-type para_StackCount {
-  count: Int!
-  state: String!
-}
-
-input para_StackDecideInputInput {
-  batch: String
-  comment: String
-  decision: String!
-  group: String
-  items: [para_StackItemRefInput!]
-  proposal: String
-  refs: [String!]
-}
-
-type para_StackDecideOutput {
-  note: String
-  proposals: [para_ProposalReviewOutput!]!
-  requests: [String!]
-}
-
-type para_StackGroup {
-  done: Int!
-  group: String!
-  proposal: String!
-  proposed: Int!
-  total: Int!
-}
-
-input para_StackItemRefInput {
-  item: String!
-  proposal: String!
-}
-
 input para_StackLaterInputInput {
   items: [para_ItemRefInput!]
   questions: [String!]
@@ -7418,73 +6942,6 @@ input para_StackLaterInputInput {
 input para_StackReturnInputInput {
   items: [para_ItemRefInput!]
   questions: [String!]
-}
-
-type para_StackRow {
-  actor: String!
-  bundle: String
-  claimedBy: String
-  deferUntil: String
-  drafted: Boolean
-  group: String
-  item: String!
-  kind: para_StackRowKind!
-  needsYou: Boolean!
-  needsYouReason: String
-  proposal: String!
-  proposed: Boolean
-  question: String
-  reason: String
-  receipt: String
-  refs: [String!]
-  request: String
-  result: String
-  stack: String!
-  state: para_StackRowState!
-  summary: String!
-  tags: [String!]
-  title: String!
-  url: String
-}
-
-enum para_StackRowKind {
-  action
-  doc_edit
-  external
-  message
-  op
-  para
-  question
-  upstream
-}
-
-enum para_StackRowState {
-  answered
-  approved
-  claimed
-  denied
-  done
-  failed
-  halted
-  held
-  moved
-  pending
-  running
-  sent_back
-  skipped
-  withdrawn
-}
-
-input para_StackUndoInputInput {
-  items: [para_StackItemRefInput!]
-  question: String
-  requests: [String!]
-}
-
-type para_StackUndoOutput {
-  items: [para_Decision!]!
-  question: String
-  undone: [String!]
 }
 
 type para_StaleInstall {
@@ -7515,11 +6972,6 @@ type para_StepOutcome {
   id: String!
   plan: [para_PlanLine!]
   title: String!
-}
-
-type para_SubmitNote {
-  item: String!
-  why: String!
 }
 
 type para_SweepItem {
@@ -8483,14 +7935,6 @@ type para_UndoRow {
   by: String!
   doc: String!
   receipt: String!
-}
-
-type para_UndoneItem {
-  item: String!
-  proposal: String!
-  summary: String!
-  target: String
-  title: String!
 }
 
 type para_Unknown {

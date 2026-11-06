@@ -54,16 +54,6 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 		t.Fatal("next lists a blocked task with no follow-up date")
 	}
 }
-func TestDescriptionsPointTheWay(t *testing.T) {
-	if !strings.Contains(TaskEdit.Description(), "doc_edit") {
-		t.Errorf("task_edit = %q", TaskEdit.Description())
-	}
-	for _, w := range []string{"matched by id only", "appended", "same title but another id does not replace", "marked stale"} {
-		if !strings.Contains(ProposalRevise.Description(), w) {
-			t.Errorf("proposal_revise lacks %q", w)
-		}
-	}
-}
 
 func TestUnblockClearsOnlyTheBlockFollowUp(t *testing.T) {
 	d, proj := laterVault(t)

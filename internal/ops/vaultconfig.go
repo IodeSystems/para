@@ -256,7 +256,7 @@ type VaultConfigSetOutput struct {
 }
 
 // VaultConfigSet sets one known setting after checking its value.
-var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. A setting cannot be undone, so the owner sets it: an agent's call is refused (an approved dossier item may set the keys vault_config_list marks agent_may_set). The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
+var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. A setting cannot be undone, so the owner sets it: an agent's call is refused. The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
 	k, err := checkConfigWrite(d, in.Key)
 	if err != nil {
 		return VaultConfigSetOutput{}, err

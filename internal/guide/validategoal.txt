@@ -17,6 +17,6 @@ Draft or challenge the brief of a goal, then argue against it. Para fetches noth
 6. Choosing among the alternatives is the owner's call, and it is a decision question: `question_add` with kind decision, scoped to the goal, the alternatives as option_details, and your recommendation as a percent. Do not choose for the owner. Do not set the owner's rank (`goal_rank` is people only).
 7. Name the receipt. The owner can undo it with `receipt_undo`.
 
-Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
+A vault write that `receipt_undo` can reverse applies at once, with a receipt the owner can undo; bulk or risky changes need no approval step. A change only the owner can decide becomes a question (`question_add`) with context and options. An outward act (a message, a post, a ticket, a PR) is an outgoing draft (`io_add` direction out) the owner approves.
 
 Write no assessment of a person. Record what a source says, with the source.

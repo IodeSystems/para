@@ -45,32 +45,6 @@ func bodyDoc(ctx context.Context, d Deps, body string) (model.Document, error) {
 	return d.Store.Get(ctx, id)
 }
 
-// resolveBodyPaths checks each item whose body is a path, before the io
-// drafts are read: a message's path to an io draft becomes its io reference.
-func resolveBodyPaths(ctx context.Context, d Deps, items []model.ProposalItem) error {
-	for i := range items {
-		it := &items[i]
-		if !isPathBody(it.Body) {
-			continue
-		}
-		doc, err := bodyDoc(ctx, d, it.Body)
-		if err != nil {
-			return fmt.Errorf("item %s: %w", it.ID, err)
-		}
-		if it.Kind != model.ItemMessage {
-			continue
-		}
-		if doc.Meta.Header().Type != model.TypeIO || it.IO != "" {
-			return fmt.Errorf("item %s: the body names %s: put the message in an io draft (io_add direction out) and reference it", it.ID, doc.ID)
-		}
-		if len(it.People) > 0 || it.Subject != "" {
-			return fmt.Errorf("item %s: the body names io draft %s: leave out people and subject, the draft holds them", it.ID, doc.ID)
-		}
-		it.IO, it.Body = string(model.LinkTo(doc.ID)), ""
-	}
-	return nil
-}
-
 // BodyFile is the vault document an item's body names, for the review page.
 type BodyFile struct {
 	Path  string `json:"path"`
@@ -90,21 +64,6 @@ func bodyFile(ctx context.Context, d Deps, it model.ProposalItem) *BodyFile {
 		return nil
 	}
 	return &BodyFile{Path: strings.TrimSpace(it.Body), Doc: doc.ID, Title: doc.Title, Text: doc.Body}
-}
-
-// inlineBody puts the text of the file a path body names in an owner's edit
-// that left the body out, so the approved text is the text shown.
-func inlineBody(ctx context.Context, d Deps, it *model.ProposalItem) error {
-	a := it.Answer
-	if a == nil || a.Decision != model.AnswerEdit || a.Body != "" || it.Kind == model.ItemMessage || !isPathBody(it.Body) {
-		return nil
-	}
-	doc, err := bodyDoc(ctx, d, it.Body)
-	if err != nil {
-		return fmt.Errorf("item %s: %w", it.ID, err)
-	}
-	a.Body = doc.Body
-	return nil
 }
 
 // urlNoteText is said beside a page URL when server.base_url is unset.

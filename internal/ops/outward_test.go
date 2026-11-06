@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/iodesystems/para/internal/model"
 )
 
 func unreviewedFindings(t *testing.T, d Deps) []string {
@@ -51,9 +53,13 @@ func TestUnreviewedOutward(t *testing.T) {
 	if f := unreviewedFindings(t, d); len(f) != 2 || !strings.Contains(f[0]+f[1], "reply to a review comment") {
 		t.Fatalf("findings = %v", f)
 	}
-	// The manager records the worker's commit: one finding left.
-	if _, err := ActionRecord.Run(ctx, claude, ActionRecordInput{What: "Committed the fix", Where: "github.example/acme/portal",
-		URL: "https://github.example/acme/portal/commit/abc/", By: "dun", OnBehalfOf: "owner"}); err != nil {
+	// The manager records the worker's commit as a sent action: one finding left.
+	act, err := IOAdd.Run(ctx, claude, IOAddInput{Direction: model.IOOut, Text: "Committed the fix", To: []string{"github.example/acme/portal"},
+		Medium: model.MediumGithub, Expects: model.ExpectsNone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := IOSend.Run(ctx, claude, IOSendInput{ID: act.ID, URL: "https://github.example/acme/portal/commit/abc/"}); err != nil {
 		t.Fatal(err)
 	}
 	f := unreviewedFindings(t, d)

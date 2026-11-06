@@ -407,7 +407,7 @@ type LaterInput struct {
 }
 
 // Later puts items off: defer, with defer's rules.
-var Later = defineVerb("later", "Put items off until a date (until), after an item is done (after), when a condition holds (when, makes a task), or someday: id or ids, items (dossier items), a tag, or a scope (a goal or area). It runs defer, with defer's rules. Outputs op and result (defer's output); on a person's surface also receipt",
+var Later = defineVerb("later", "Put items off until a date (until), after an item is done (after), when a condition holds (when, makes a task), or someday: id or ids, a tag, or a scope (a goal or area). It runs defer, with defer's rules. Outputs op and result (defer's output); on a person's surface also receipt",
 	RiskReview, func(_ context.Context, _ Deps, in LaterInput) (verbRoute, error) {
 		ids := in.IDs
 		if id := strings.TrimSpace(in.ID); id != "" {

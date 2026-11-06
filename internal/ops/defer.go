@@ -187,7 +187,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, io items, or dossier items off until a date, or someday with no date; they leave the agenda, next, the order, and the review stack (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag, dossier, or group still lists it (state later), and an agent that builds a stack for a topic may include it and say so, but must not undefer it. ids may name a dossier (its items that wait for the owner); items name dossier items {proposal, item}; tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
+var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, obligations, or io items off until a date, or someday with no date; they leave the agenda, next, and the order (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag still lists it (state later), and an agent that builds a list for a topic may include it and say so, but must not undefer it. tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
 	after, when := normID(in.After), strings.Join(strings.Fields(in.When), " ")
@@ -576,4 +576,9 @@ func deferItems(ctx context.Context, d Deps, refs []ItemRef, until, reason strin
 		out.Skipped = append(out.Skipped, skipped...)
 	}
 	return nil
+}
+
+// answerable reports whether a dossier item still waits for the owner.
+func answerable(s model.ItemState) bool {
+	return s == model.ItemPending || s == model.ItemHeld || s == model.ItemSentBack || s == model.ItemSkipped
 }

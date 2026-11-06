@@ -173,10 +173,10 @@ func tagNoChange(add bool) string {
 	return "not tagged"
 }
 
-const tagDesc = "ids are vault documents (a dossier's id tags the dossier, so every item in it); items are dossier items {proposal, item}. Tags are lower case, without #. Undo with receipt_undo"
+const tagDesc = "ids are vault documents. Tags are lower case, without #. Undo with receipt_undo"
 
 // TagAdd tags vault documents and dossier items with topics.
-var TagAdd = withProposalReceipts(withOneReceipt(defineSafe("tag_add", "Tag items with a topic, such as socials, where they are: nothing moves. Tag at filing instead (tags on proposal_add, its blocks, and io_add) when you can; tag existing items rather than withdraw and refile them. "+tagDesc, func(ctx context.Context, d Deps, in TagInput) (TagOutput, error) {
+var TagAdd = withProposalReceipts(withOneReceipt(defineSafe("tag_add", "Tag items with a topic, such as socials, where they are: nothing moves. Tag at filing instead (tags on io_add, task_add, question_add) when you can; tag existing items rather than withdraw and refile them. "+tagDesc, func(ctx context.Context, d Deps, in TagInput) (TagOutput, error) {
 	return tagWrite(ctx, d, in, true)
 })))
 
@@ -203,7 +203,7 @@ type TagListOutput struct {
 }
 
 // TagList lists the topics in use.
-var TagList = defineRead("tag_list", "List the topics (tags) in use, the most used first, each with counts: open vault items, items waiting in the review stack, and items put off (later). Para's own tags are left out", func(ctx context.Context, d Deps, _ TagListInput) (TagListOutput, error) {
+var TagList = defineRead("tag_list", "List the topics (tags) in use, the most used first, each with counts: open vault items, items that need the owner, and items put off (later). Para's own tags are left out", func(ctx context.Context, d Deps, _ TagListInput) (TagListOutput, error) {
 	counts := map[string]*TagCount{}
 	at := func(t string) *TagCount {
 		if slices.Contains(systemTags, t) {

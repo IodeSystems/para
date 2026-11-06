@@ -1,14 +1,9 @@
 package ops
 
 import (
-	"context"
 	"errors"
-	"fmt"
 	"reflect"
-	"sort"
 	"strings"
-
-	"github.com/iodesystems/para/internal/model"
 )
 
 // An op item's input is the input of that op's own tool. The three receipt
@@ -113,84 +108,9 @@ func cleanInput(op string, input map[string]any) map[string]any {
 	return clean
 }
 
-// unknownInputFields names every field of input the op does not take, sorted.
-func unknownInputFields(op string, input map[string]any) []string {
-	e, ok := registry[op]
-	if !ok {
-		return nil
-	}
-	own := inputFieldNames(e.InputType())
-	var out []string
-	for k := range input {
-		if !own[k] {
-			out = append(out, k)
-		}
-	}
-	sort.Strings(out)
-	return out
-}
-
 // linkInputFields are the input fields that name existing documents, in the
 // ops an agent proposes. id names one in an op that does not create.
 var linkInputFields = map[string]bool{
 	"project": true, "area": true, "parent": true, "incident": true, "depends_on": true,
 	"blocks": true, "question": true, "task": true, "concepts": true, "ids": true, "team": true,
-}
-
-// checkItemLinks checks that each link-valued input of each op item names a
-// document that exists, or an id an earlier item creates with its own id input.
-// It lists every problem. A value with a placeholder is filled when the item runs.
-func checkItemLinks(ctx context.Context, d Deps, items []model.ProposalItem) error {
-	created := map[string]string{}
-	var problems []string
-	for i, it := range items {
-		if it.Kind != model.ItemPara || it.Op == "" {
-			continue
-		}
-		creates := strings.HasSuffix(it.Op, "_add")
-		for field, v := range cleanInput(it.Op, it.Input) {
-			if !linkInputFields[field] && (field != "id" || creates) {
-				continue
-			}
-			for _, raw := range stringValues(v) {
-				id := normID(raw)
-				if id == "" || strings.Contains(raw, "{{") {
-					continue
-				}
-				if from, ok := created[id]; ok && from != "" {
-					continue
-				}
-				if _, err := d.Store.Get(ctx, id); err != nil {
-					if !errors.Is(err, model.ErrNotFound) {
-						return err
-					}
-					problems = append(problems, fmt.Sprintf("item %d: %s %q is not a document in this vault and no earlier item creates it (create it with an id on an earlier item)", i+1, field, id))
-				}
-			}
-		}
-		if id, _ := it.Input["id"].(string); creates && normID(id) != "" {
-			created[normID(id)] = it.ID
-		}
-	}
-	if len(problems) == 0 {
-		return nil
-	}
-	sort.Strings(problems)
-	return errors.New(strings.Join(problems, "; "))
-}
-
-func stringValues(v any) []string {
-	switch x := v.(type) {
-	case string:
-		return []string{x}
-	case []any:
-		var out []string
-		for _, e := range x {
-			if s, ok := e.(string); ok {
-				out = append(out, s)
-			}
-		}
-		return out
-	}
-	return nil
 }

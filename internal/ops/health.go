@@ -59,7 +59,7 @@ const (
 	// someone: that is an Ask (task_to_asks).
 	HealthTaskIsWaiting = "task_is_waiting"
 	// HealthUnreviewedOutward is an outward act a sweep saw with no record in
-	// the vault: no approved item reported done, no action_record.
+	// the vault: no receipt, sent io item, or interaction at its URL.
 	HealthUnreviewedOutward = "unreviewed_outward"
 	// HealthAgentWorkStale is work the owner asked of agents (owner-ask,
 	// sent-to-agent) queued or claimed with no change in a day.

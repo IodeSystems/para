@@ -43,7 +43,6 @@ func streamATParityCases(t *testing.T, e *env) map[string]parityCase {
 		"attachment_add":  {`{"id":"task-at-a","name":"board photo.txt","data":"U3ludGhldGljIGJvYXJkLg=="}`, []string{"attachment", "add", "task-at-b", file}, false},
 		"attachment_read": {`{"file":"` + att + `"}`, []string{"attachment", "read", att}, true},
 		"agent_send":      {`{"id":"task-at-a","text":"Met Sam.","attachments":["` + att + `"],"done":true}`, []string{"agent", "send", "task-at-b", "Met", "Sam.", "--attach", att, "--done"}, false},
-		"agent_unsend":    {`{"request":"request-at-a"}`, []string{"agent", "unsend", "request-at-b"}, false},
 		"item_close":      {`{"id":"task-at-c"}`, []string{"item", "close", "task-at-d"}, false},
 	}
 }

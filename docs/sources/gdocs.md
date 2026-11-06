@@ -18,7 +18,7 @@ scan_in:
   args: '{"query": "{query}"}'
   how: For each changed document that is a tracked_doc (via.source this source, via.ref the file id), read it and pass the text with doc_version_add; record new comments with doc_comment_add.
 scan_out:
-  how: Documents the owner shared or edited since the last scan that match an approved doc edit; report the edit with proposal_executed.
+  how: Documents the owner shared or edited since the last scan that match an approved outgoing draft; report the edit with io_send, then record the new version with doc_version_add.
 state:
   tool: get_file_metadata
   args: '{"file_id": "{ref}"}'

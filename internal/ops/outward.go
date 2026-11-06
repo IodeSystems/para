@@ -15,9 +15,7 @@ import (
 // sweeping agent passes each act it cannot match to a draft, an Ask, or an
 // interaction as outward on sweep_record; para keeps it in the source body
 // under "## Outward seen", and health names every one with no record:
-// no receipt (an approved item reported done with proposal_executed, an
-// action_record, an owner's proposal_done) and no sent io item or
-// interaction at that URL. A later record clears the finding.
+// no receipt and no sent io item or interaction at that URL. A later record clears the finding.
 
 const (
 	outwardHeading = "## Outward seen"

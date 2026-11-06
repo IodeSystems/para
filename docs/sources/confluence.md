@@ -12,7 +12,7 @@ fetch:
 scan_in:
   how: For each tracked_doc whose via.source is this source, fetch it and pass the text with doc_version_add; record new comments with doc_comment_add.
 scan_out:
-  how: A page edit that an approved doc edit names is proposal_executed with the text after the edit.
+  how: A page edit that an approved outgoing draft names is io_send with the url; record the new version with doc_version_add.
 cadence: weekly
 ---
 

@@ -44,19 +44,6 @@ func agendaIDs(t *testing.T, d Deps, days int) map[string]bool {
 	return out
 }
 
-func stackNeeds(t *testing.T, d Deps) (map[string]bool, int) {
-	t.Helper()
-	st := must(t, ProposalStack, d, ProposalStackInput{NeedsYou: true})
-	out := map[string]bool{}
-	for _, r := range st.Rows {
-		out[r.Item] = true
-	}
-	for _, r := range st.Requests {
-		out[r.Request] = true
-	}
-	return out, st.NeedsYou
-}
-
 // Leak 1: the agenda listed done items and items put off.
 func TestLeakAgendaHidesDoneAndLater(t *testing.T) {
 	d, proj := leakVault(t)
@@ -130,7 +117,7 @@ func TestLeakOptionalMeetingsDoNotCount(t *testing.T) {
 	}
 }
 
-// Leaks 3 and 4: an item stayed pending in the stack after the owner answered
+// Leaks 3 and 4: an item stayed listed after the owner answered
 // it or sent it to an agent, and an item whose agent work is queued or
 // claimed showed as needing the owner.
 func TestLeakSentToAgentLeavesEveryView(t *testing.T) {
@@ -138,8 +125,8 @@ func TestLeakSentToAgentLeavesEveryView(t *testing.T) {
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region?", Project: proj}).ID
 	answered := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which vendor?", Project: proj}).ID
 	tk := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "File the form", Due: "2026-11-05", DoneWhen: "Filed."}).ID
-	if st, _ := stackNeeds(t, d); !st[q] || !st[answered] {
-		t.Fatalf("open questions not in the stack: %v", st)
+	if set := setOf(t, d); !set[q] || !set[answered] {
+		t.Fatalf("open questions do not need the owner: %v", set)
 	}
 	must(t, QuestionAnswer, d, QuestionAnswerInput{ID: answered, Text: "Vendor A.", Why: "Cheapest.", Source: "the owner"})
 	sq := must(t, AgentSend, d, AgentSendInput{ID: q, Text: "Find out what legal said."})
@@ -150,29 +137,22 @@ func TestLeakSentToAgentLeavesEveryView(t *testing.T) {
 	views := func(label string, want bool) {
 		t.Helper()
 		set := setOf(t, d)
-		st, _ := stackNeeds(t, d)
 		order := orderIDs(t, d)
 		ag := agendaIDs(t, d, 1)
 		for _, id := range []string{q, tk} {
 			_, inOrder := order[id]
-			if set[id] != want || st[id] != (want && id == q) || inOrder != want || ag[id] != (want && id == tk) {
-				t.Errorf("%s %s: set %v, stack %v, order %v, agenda %v; want %v", label, id, set[id], st[id], inOrder, ag[id], want)
+			if set[id] != want || inOrder != want || ag[id] != (want && id == tk) {
+				t.Errorf("%s %s: set %v, order %v, agenda %v; want %v", label, id, set[id], inOrder, ag[id], want)
 			}
 		}
 		if slices.Contains(nextIDs(t, d), tk) != want {
 			t.Errorf("%s: next has the task: %v", label, !want)
 		}
-		if set[answered] || st[answered] {
+		if set[answered] {
 			t.Errorf("%s: an answered question still needs the owner", label)
 		}
 	}
 	views("queued", false)
-	// The stack row says an agent has it.
-	for _, r := range must(t, ProposalStack, d, ProposalStackInput{}).Rows {
-		if r.Item == q && (r.State != model.ItemSentBack || r.NeedsYou) {
-			t.Errorf("stack row of a question sent to an agent: %+v", r)
-		}
-	}
 	// Claimed is still the agent's.
 	if _, err := RequestNext.Run(ctx, d, RequestNextInput{}); err != nil {
 		t.Fatal(err)
@@ -185,7 +165,7 @@ func TestLeakSentToAgentLeavesEveryView(t *testing.T) {
 			t.Fatal(err)
 		}
 		if r.Status == model.RequestQueued {
-			must(t, AgentUnsend, d, AgentUnsendInput{Request: doc.ID})
+			must(t, RequestCancel, d, RequestCancelInput{ID: doc.ID})
 			continue
 		}
 		must(t, RequestFail, d, RequestFailInput{ID: doc.ID, Reason: "Gave up."})

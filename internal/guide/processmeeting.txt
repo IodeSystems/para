@@ -15,7 +15,7 @@ Turn a meeting transcript into vault updates. Para does not record or transcribe
 5. Leave out anything nobody said. Medical, immigration, compensation, or performance details about anyone stay out.
 6. Name the receipts. The owner can undo one with `receipt_undo`.
 
-Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
+A vault write that `receipt_undo` can reverse applies at once, with a receipt the owner can undo; bulk or risky changes need no approval step. A change only the owner can decide becomes a question (`question_add`) with context and options. An outward act (a message, a post, a ticket, a PR) is an outgoing draft (`io_add` direction out) the owner approves.
 
 Notes on a meeting (agent work of kind meeting-notes: the owner pressed "Send to agent to file" on the meeting's page). The notes are in the meeting's ## Notes section; they are the owner's words and the only source. Do these steps in order, with request (the request id) on each write:
 

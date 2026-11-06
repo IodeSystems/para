@@ -17,10 +17,6 @@ func TestResolveRefs(t *testing.T) {
 	if _, err := SourceAdd.Run(ctx, f.owner, SourceAddInput{Title: "Team chat", Example: model.SourceSlack}); err != nil {
 		t.Fatal(err)
 	}
-	prop, err := ProposalAdd.Run(ctx, f.agent, ProposalAddInput{Title: "Sweep", TLDR: "t", Context: "c", Source: f.source, Items: []ItemInput{reviewItem("Hi.")}})
-	if err != nil {
-		t.Fatal(err)
-	}
 	got := ResolveRefs(ctx, f.owner.Store, []string{
 		"work-mailbox:1a1a", "work-mailbox:1a1a", // repeat
 		"gmail:1a1a", // the one source of the system: same address, dropped
@@ -28,7 +24,6 @@ func TestResolveRefs(t *testing.T) {
 		"team-chat:C1/p123",          // source without ref_url
 		"nope:abc",                   // unknown source
 		f.source,                     // vault id
-		prop.ID + "#s1",              // proposal item
 		"sources/" + mail.ID + ".md", // vault path
 		"zzz-missing",
 	})
@@ -38,7 +33,6 @@ func TestResolveRefs(t *testing.T) {
 		{Text: "team-chat:C1/p123 (Team chat)"},
 		{Text: "nope:abc"},
 		{Text: f.source, URL: "/doc/" + f.source, Internal: true},
-		{Text: prop.ID + "#s1", URL: "/proposals/" + prop.ID + "#item-s1", Internal: true},
 		{Text: "sources/" + mail.ID + ".md", URL: "/doc/" + mail.ID, Internal: true},
 		{Text: "zzz-missing"},
 	}

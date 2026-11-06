@@ -44,7 +44,6 @@ func seedStreamOCParity(t *testing.T, deps ops.Deps) {
 func streamOCParityCases() map[string]parityCase {
 	return map[string]parityCase{
 		"question_review": {`{"id":"question-oc-a","decision":"skip","note":"Later."}`, []string{"question", "review", "question-oc-b", "skip", "--note", "Later."}, false},
-		"proposal_done":   {`{"id":"proposal-oc","item":"a1","url":"https://cal.acme.example/1"}`, []string{"proposal", "done", "proposal-oc", "a2", "--url", "https://cal.acme.example/2"}, false},
 		"io_done":         {`{"id":"io-oc-a","url":"https://mail.acme.example/1"}`, []string{"io", "done", "io-oc-b", "--url", "https://mail.acme.example/2"}, false},
 	}
 }

@@ -2,12 +2,9 @@ package ops
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
-
-	"github.com/iodesystems/para/internal/model"
 )
 
 // A vault may define subtype rules in .para/proposals.yaml, so a workflow is
@@ -56,47 +53,4 @@ func loadProposalRules(d Deps) (ProposalRules, error) {
 		return r, fmt.Errorf(".para/%s: %w", proposalRulesFile, err)
 	}
 	return r, nil
-}
-
-func (r ProposalRules) subtype(name string) (SubtypeRule, bool) {
-	for k, v := range r.Subtypes {
-		if strings.EqualFold(k, name) {
-			return v, true
-		}
-	}
-	return SubtypeRule{}, false
-}
-
-// apply checks an item against its subtype's rule and sets its default risk.
-func (r ProposalRules) apply(it *model.ProposalItem) error {
-	rule, ok := r.subtype(it.Subtype)
-	if !ok {
-		return nil
-	}
-	if it.Risk == "" {
-		it.Risk = rule.DefaultRisk
-	}
-	for _, f := range rule.Required {
-		if !itemHas(*it, f) {
-			return fmt.Errorf("subtype %s needs %s (.para/%s)", it.Subtype, f, proposalRulesFile)
-		}
-	}
-	return nil
-}
-
-func itemHas(it model.ProposalItem, field string) bool {
-	known := map[string]string{"subject": it.Subject, "target": it.Target, "channel": it.Channel, "what": it.What, "previous": it.Previous,
-		"how": it.How, "impact": it.Impact, "title": it.Title, "body": it.Body, "diff": it.Diff, "after": it.After}
-	if v, ok := known[field]; ok {
-		return strings.TrimSpace(v) != ""
-	}
-	if field == "people" {
-		return len(slices.DeleteFunc(slices.Clone(it.People), func(s string) bool { return strings.TrimSpace(s) == "" })) > 0
-	}
-	v, ok := it.Fields[field]
-	if !ok {
-		return false
-	}
-	s, isText := v.(string)
-	return !isText || strings.TrimSpace(s) != ""
 }

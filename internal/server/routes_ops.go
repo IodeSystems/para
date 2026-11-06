@@ -193,37 +193,17 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
 }
 
-// registerProposals: the owner answers dossiers in the web app (draft, submit,
-// stack_decide: review:decide, person ops, so a bearer key is refused) or in
-// the chat, where the agent records it with proposal_decide. Filing, revising,
-// claiming, replying, and reporting take vault:write. An op an approval runs is
-// checked against the caller's scopes, and review:decide covers it
-// (boundVault.deps). proposal_approve, proposal_deny, and proposal_open are not
-// served.
+// registerProposals: closed dossiers are read-only records (vault format 8);
+// the owner's actions on what needs them: open vault questions, outgoing
+// drafts, and agent work.
 func registerProposals(r *registrar) {
 	reg(r, ops.ProposalList, get, read)
 	reg(r, ops.ProposalShow, get, read)
-	reg(r, ops.ProposalDiff, get, read)
-	reg(r, ops.ProposalWait, get, read)
-	reg(r, ops.ProposalApproved, get, read)
-	reg(r, ops.ProposalUndone, get, read)
-	reg(r, ops.ProposalAdd, post, write)
-	reg(r, ops.ProposalRevise, post, write)
-	reg(r, ops.ProposalDecide, post, write)
 	reg(r, ops.ProposalExecuted, post, write)
-	reg(r, ops.ProposalClaim, post, write)
-	reg(r, ops.ProposalReply, post, write)
-	reg(r, ops.ProposalResponse, get, read)
-	reg(r, ops.ProposalStack, get, read)
-	reg(r, ops.ProposalDraft, post, netguard.ScopeReviewDecide)
-	reg(r, ops.ProposalSubmit, post, netguard.ScopeReviewDecide)
-	reg(r, ops.StackDecide, post, netguard.ScopeReviewDecide)
-	reg(r, ops.StackUndo, post, netguard.ScopeReviewDecide)
 	reg(r, ops.StackLaterOp, post, netguard.ScopeReviewDecide)
 	reg(r, ops.StackReturn, post, netguard.ScopeReviewDecide)
 	reg(r, ops.SentList, get, read)
 	reg(r, ops.QuestionReview, post, netguard.ScopeReviewDecide)
-	reg(r, ops.ProposalDone, post, netguard.ScopeReviewDecide)
 	reg(r, ops.IODone, post, netguard.ScopeReviewDecide)
 	// Approve on an outgoing draft in the web app: the owner's path of
 	// io_approve (a browser session is a person; a bearer key still needs
@@ -243,7 +223,6 @@ func registerReceipts(r *registrar) {
 	reg(r, ops.ReceiptCheck, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ReceiptRevert, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ReceiptUndo, post, write)
-	reg(r, ops.ActionRecord, post, write)
 	reg(r, ops.AlignScope, get, read)
 	reg(r, ops.AlignRecord, post, netguard.ScopeVaultWrite)
 	// import_verify and calendar_compare take lists, so they are POST; they

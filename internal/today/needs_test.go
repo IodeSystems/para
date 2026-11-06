@@ -172,15 +172,13 @@ func TestViewsAreTheNeedsYouSet(t *testing.T) {
 		}
 	}
 	part("agenda", ag)
-	stack := must(t, ops.ProposalStack, d, ops.ProposalStackInput{NeedsYou: true})
-	var st []string
-	for _, r := range stack.Rows {
-		st = append(st, r.Item)
+	// The Next page: the value order, every row of which needs the owner.
+	order := must(t, ops.OrderOp, d, ops.OrderInput{})
+	var next []string
+	for _, r := range order.Rows {
+		next = append(next, r.ID)
 	}
-	for _, r := range stack.Requests {
-		st = append(st, r.Request)
-	}
-	part("stack", st)
+	part("next", next)
 	var inbox []string
 	for _, it := range must(t, ops.IOList, d, ops.IOListInput{Direction: model.IOIn}).Items {
 		if it.NeedsYou {
@@ -198,12 +196,9 @@ func TestViewsAreTheNeedsYouSet(t *testing.T) {
 	if len(missing) > 0 {
 		t.Errorf("needs the owner but no view lists it: %v", missing)
 	}
-	// Counts: Today's is the set; the stack's is the part of it the stack holds.
+	// Counts: Today's is the set.
 	if vt.NeedsYou != len(set) {
 		t.Errorf("today needs_you = %d, set = %d", vt.NeedsYou, len(set))
-	}
-	if stack.NeedsYou != len(st) {
-		t.Errorf("stack needs_you = %d, rows = %d", stack.NeedsYou, len(st))
 	}
 	if len(set) < 12 {
 		t.Errorf("fixture too small: %d items need the owner: %v", len(set), sn.Set())

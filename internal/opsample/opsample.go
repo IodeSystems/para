@@ -26,7 +26,6 @@ var Inputs = map[string]string{
 	"attachment_add":            `{"id":"task-sample","name":"photo of board.txt","data":"U2FtcGxlIHRleHQu"}`,
 	"attachment_read":           `{"file":"` + SampleAttachment + `"}`,
 	"agent_send":                `{"id":"task-sample","text":"Met Sam; decided to ship.","attachments":["` + SampleAttachment + `"],"done":true}`,
-	"agent_unsend":              `{"request":"request-queued"}`,
 	"item_close":                `{"id":"task-free"}`,
 	"close":                     `{"id":"task-free","reason":"Sent it."}`,
 	"later":                     `{"ids":["task-sample"],"until":"2027-01-15","reason":"After the audit."}`,
@@ -201,7 +200,6 @@ var Inputs = map[string]string{
 	"receipt_undo":              `{"id":"receipt-sample"}`,
 	"receipt_revert":            `{"id":"receipt-sample"}`,
 	"question_review":           `{"id":"question-sample","decision":"skip"}`,
-	"proposal_done":             `{"id":"proposal-sample","item":"i2","locator":"sent by hand"}`,
 	"io_done":                   `{"id":"io-draft-sample","locator":"sent by hand"}`,
 	"doc_merge":                 `{"keep":"note-sample","alias":"note-receipted"}`,
 	"doc_archive":               `{"id":"note-receipted","reason":"Sample is old."}`,
@@ -210,7 +208,6 @@ var Inputs = map[string]string{
 	"notes_read":                `{"id":"task-sample"}`,
 	"notes_edit":                `{"id":"task-sample","md":"Sample notes."}`,
 	"notes_save":                `{"id":"task-free","md":"Sample notes."}`,
-	"action_record":             `{"what":"Opened the sample PR","where":"github.example/acme/portal","url":"https://github.example/acme/portal/pull/1","owner_said":"yes, open it","sources":["note-sample"]}`,
 	"align_scope":               `{"scope":"project-sample"}`,
 	"align_record":              `{"scope":"project-sample","checked":4,"matched":3,"differ":1,"unreachable":["jira"]}`,
 	"import_verify":             `{"files":[{"path":"/old/notes/a.md","hash":"` + "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" + `"}],"root":"/old"}`,
@@ -218,28 +215,10 @@ var Inputs = map[string]string{
 	"similar":                   `{"type":"task","title":"Sample task"}`,
 	"request_respond":           `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,
 	"request_changes":           `{"id":"request-finished"}`,
-	"proposal_add": `{"title":"Sample proposal","tldr":"Add a task and tell Sam.","context":"Sam asked in the sample note.","source":"note-sample","items":[` +
-		`{"kind":"para","op":"task_add","input":{"project":"project-sample","title":"From a proposal","done_when":"It exists."},"how":"Adds a task.","impact":"The sample project gets one more task.","reversible":"yes","confidence":70,"confidence_basis":"Sam said so.","pros":[{"text":"Tracks the work.","source":"note-sample"}],"evidence":{"quote":"Sample text.","locator":"https://acme.example/line-1"}},` +
-		`{"kind":"message","subtype":"email","people":["sample@acme.example"],"subject":"Sample","body":"Hi Sam.","reversible":"no","bundle":"b1","evidence":{"quote":"Sample text.","locator":"https://acme.example/line-1"}}]}`,
-	"proposal_executed": `{"id":"proposal-decided","item":"i1","result":"done","url":"https://acme.example/m/2"}`,
-	"proposal_show":     `{"id":"proposal-sample"}`,
-	"proposal_diff":     `{"id":"proposal-sample"}`,
-	"proposal_wait":     `{"id":"proposal-decided"}`,
-	"proposal_approved": `{"hash":"` + model.ExternalHash(sampleTarget, sampleDraft) + `"}`,
-	"proposal_revise":   `{"id":"proposal-sample","tldr":"Add a task only."}`,
-	"proposal_approve":  `{"id":"proposal-sample","items":["i1"]}`,
-	"proposal_deny":     `{"id":"proposal-sample","item":"i1","reason":"Not now."}`,
-	"proposal_decide":   `{"id":"proposal-sample","items":[{"item":"i2","decision":"approve"}],"owner_said":"Yes, send it."}`,
-	"proposal_open":     `{"id":"proposal-sample"}`,
-	"proposal_response": `{"id":"proposal-sample"}`,
-	"proposal_claim":    `{"id":"proposal-decided","items":["i1"],"lease_seconds":600}`,
-	"proposal_reply":    `{"id":"proposal-sample","section":"items","text":"Noted."}`,
-	"proposal_stack":    `{"state":"proposed","limit":10}`,
-	"proposal_draft":    `{"id":"proposal-sample","revision":1,"items":[{"item":"i2","answer":{"decision":"approve","comment":"Fine."}}],"sections":[{"section":"items","comment":"Looks right."}]}`,
-	"proposal_submit":   `{"id":"proposal-sample","revision":1}`,
-	"stack_decide":      `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject","comment":"Not now."}`,
-	"stack_undo":        `{"items":[{"proposal":"proposal-decided","item":"i1"}]}`,
-	"dossier_refile":    `{"proposal":"proposal-sample","item":"i1","dropped":"Not needed now."}`,
+	"proposal_executed":         `{"id":"proposal-moved","item":"i1","result":"done","url":"https://acme.example/m/3"}`,
+	"proposal_show":             `{"id":"proposal-sample"}`,
+	"proposal_open":             `{"id":"proposal-sample"}`,
+	"dossier_refile":            `{"proposal":"proposal-sample","item":"i1","dropped":"Not needed now."}`,
 }
 
 const (
@@ -266,12 +245,22 @@ func sampleProposals() ([]model.Document, error) {
 	if err != nil {
 		return nil, err
 	}
+	moved, err := model.NewDossier(model.DossierHeader{TLDR: "Tell Sam."}, "Items", []model.ProposalItem{
+		{ID: "i1", Kind: model.ItemAction, Subtype: "email", Target: sampleTarget, Body: sampleDraft, Evidence: ev, State: model.ItemMoved, Result: "io-moved-sample"},
+	}).Render()
+	if err != nil {
+		return nil, err
+	}
 	meta := func(s model.ProposalStatus) *model.Proposal {
 		return &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Source: model.LinkTo("note-sample"), Status: s, Revision: 1, ProposedBy: "claude-agent"}
 	}
 	return []model.Document{
 		{ID: "proposal-sample", Folder: model.FolderProposals, Title: "Sample proposal", Body: open, Meta: meta(model.ProposalOpen)},
 		{ID: "proposal-decided", Folder: model.FolderProposals, Title: "Decided proposal", Body: closed, Meta: meta(model.ProposalClosed)},
+		{ID: "proposal-moved", Folder: model.FolderProposals, Title: "Moved proposal", Body: moved, Meta: meta(model.ProposalSuperseded)},
+		{ID: "io-moved-sample", Folder: model.FolderIO, Title: "Moved draft", Body: sampleDraft,
+			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
+				To: []string{sampleTarget}, Expects: model.ExpectsNone, Links: []model.Link{model.LinkTo("proposal-moved")}}},
 	}, nil
 }
 

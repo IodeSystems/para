@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -213,24 +212,6 @@ func TestAgentSendBody(t *testing.T) {
 		if _, err := AgentSend.Run(ctx, d, in); err == nil {
 			t.Errorf("%s: sent", name)
 		}
-	}
-}
-
-func TestAgentUnsend(t *testing.T) {
-	d, id := attachDeps(t)
-	out := must(t, AgentSend, d, AgentSendInput{ID: id, Text: "Met Sam."})
-	got := must(t, AgentUnsend, d, AgentUnsendInput{Request: out.Request})
-	if got.Status != model.RequestCancelled {
-		t.Fatalf("status = %s", got.Status)
-	}
-	out = must(t, AgentSend, d, AgentSendInput{ID: id, Text: "Again."})
-	doc, r, _ := getRequest(ctx, d.Store, out.Request)
-	r.Status, r.Claimed = model.RequestClaimed, "agent"
-	if _, err := d.Store.Update(ctx, doc); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := AgentUnsend.Run(ctx, d, AgentUnsendInput{Request: out.Request}); err == nil || errors.Is(err, ErrPersonOnly) {
-		t.Fatalf("unsent a claimed request: %v", err)
 	}
 }
 

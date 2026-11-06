@@ -5,12 +5,10 @@ Each vault is an MCP server named para-<vault>. Use the vault the owner names. I
 none is named, ask. Do not move work between vaults.
 
 Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
-empty vault, `process_meeting` for a transcript, and `review_cycle` to prepare one
-dossier per investigation: markdown with typed blocks (yaml para-question, change,
-message, action, doc-edit) the owner answers in the web app. A write that can be
-undone applies at once with a receipt; one that cannot is the owner's. Read the owner's
-answers with one `proposal_response` call, then `proposal_claim` and carry out
-outward items and report each with `proposal_executed`.
+empty vault, and `process_meeting` for a transcript. A write that can be
+undone applies at once with a receipt. A change only the owner can decide becomes a
+question (`question_add`). An outward act is an outgoing draft (`io_add` direction out)
+the owner approves; send it with your own tool, then report it with `io_send`.
 
 Arguments. If the request starts with the word health (as in /para health), use the
 `health_triage` prompt: run `health`, settle what evidence settles with ops. With no argument, start with `orient`.

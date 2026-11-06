@@ -102,7 +102,7 @@ type SweepPlanOutput struct {
 }
 
 // SweepPlan says what the calling agent should sweep now.
-var SweepPlan = defineRead("sweep_plan", "Plan a sweep: for you, the sources you declared (agent_sources) that are due, or the ones you name, each with how to fetch and scan it, its cursor and since, and the vault's io items, drafts, Asks, and tracked documents to match against. Read with your own tools, write findings with io_add, doc_version_add, doc_comment_add, io_send, rfx_reply, and one dossier, then sweep_record each source", func(ctx context.Context, d Deps, in SweepPlanInput) (SweepPlanOutput, error) {
+var SweepPlan = defineRead("sweep_plan", "Plan a sweep: for you, the sources you declared (agent_sources) that are due, or the ones you name, each with how to fetch and scan it, its cursor and since, and the vault's io items, drafts, Asks, and tracked documents to match against. Read with your own tools, write findings with io_add, doc_version_add, doc_comment_add, io_send, rfx_reply, and question_add, then sweep_record each source", func(ctx context.Context, d Deps, in SweepPlanInput) (SweepPlanOutput, error) {
 	info := d.Store.Info()
 	out := SweepPlanOutput{Sources: []SweepSource{}, Skipped: []string{}}
 	days, err := reachDays(d.Store)
@@ -335,7 +335,7 @@ type SweepRecordOutput struct {
 	Due      string `json:"due,omitempty"` // the next sweep
 	Request  string `json:"request,omitempty"`
 	// Unreviewed are the URLs of outward acts seen at this source with no
-	// record in the vault: no approved item done, no action_record.
+	// record in the vault: no receipt, sent io item, or interaction at its URL.
 	Unreviewed []string `json:"unreviewed"`
 	Rev        string   `json:"rev"`
 	// Triage is what the owner's triage rules did to the open incoming

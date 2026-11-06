@@ -21,14 +21,13 @@ const fallbackCheck = 30 * time.Second
 
 // Kinds of session notification, as the channel meta "kind".
 const (
-	kindProposalDecided  = "proposal_decided"
 	kindRequestClaimable = "request_claimable"
 	kindRequestCancelled = "request_cancelled"
 )
 
-// notifier tells the client about the three things that concern this session:
-// a proposal it filed is decided, a request became claimable by this install,
-// a request it claimed was cancelled. Nothing else is sent; there is no
+// notifier tells the client about the two things that concern this session:
+// a request became claimable by this install, and a request it claimed was
+// cancelled. Nothing else is sent; there is no
 // vault-wide stream.
 //
 // Every message holds ids, kinds, and states only. Vault text can be hostile,
@@ -38,15 +37,14 @@ const (
 // The messages are plain strings, not JSON: dun files a JSON notice in a
 // server log, not in the conversation.
 type notifier struct {
-	mu        sync.Mutex
-	proposals map[string]bool // filed by this session, not yet decided
-	claims    map[string]bool // claimed by this session, not yet closed
-	seen      map[string]bool // ids claimable at the last check
-	primed    bool
+	mu     sync.Mutex
+	claims map[string]bool // claimed by this session, not yet closed
+	seen   map[string]bool // ids claimable at the last check
+	primed bool
 }
 
 func newNotifier() *notifier {
-	return &notifier{proposals: map[string]bool{}, claims: map[string]bool{}, seen: map[string]bool{}}
+	return &notifier{claims: map[string]bool{}, seen: map[string]bool{}}
 }
 
 // note is one notification: a plain sentence, and the structured fields a
@@ -61,54 +59,21 @@ func (s *Server) track(out any) (added bool) {
 	n := s.notes
 	n.mu.Lock()
 	switch v := out.(type) {
-	case ops.ProposalFiled:
-		n.proposals[v.ID], added = true, true
 	case ops.RequestNextOutput:
 		if v.Request != nil {
 			n.claims[v.Request.ID], added = true, true
-		}
-	case ops.ProposalWaitOutput:
-		// The caller has the answer from the tool; a message would repeat it.
-		if !v.Pending {
-			delete(n.proposals, v.ID)
-		}
-	case ops.ProposalDecideOutput:
-		// This session recorded the decision: it knows. Items left pending, or
-		// a new revision made by a change, still wait for the owner.
-		if v.Status != model.ProposalOpen {
-			delete(n.proposals, v.ID)
-		}
-		if v.Revision != "" {
-			n.proposals[v.Revision], added = true, true
 		}
 	}
 	n.mu.Unlock()
 	return added
 }
 
-// check looks at the state behind the three cases and sends what is new.
+// check looks at the state behind the two cases and sends what is new.
 func (s *Server) check(ctx context.Context) {
 	n := s.notes
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	var out []note
-	for _, id := range slices.Sorted(mapKeys(n.proposals)) {
-		p, err := ops.ProposalPoll(ctx, s.deps, id)
-		if err != nil {
-			continue // not readable now; the next check tries again
-		}
-		if p.Pending {
-			continue
-		}
-		delete(n.proposals, id)
-		if p.Status == model.ProposalSuperseded {
-			continue // this session revised it: it knows
-		}
-		out = append(out, note{
-			text: fmt.Sprintf("para: proposal %s is decided (status %s). Call proposal_wait with this id for the decisions.", id, p.Status),
-			meta: map[string]string{"kind": kindProposalDecided, "id": id, "status": string(p.Status)},
-		})
-	}
 	for _, id := range slices.Sorted(mapKeys(n.claims)) {
 		doc, err := s.deps.Store.Get(ctx, id)
 		if err != nil {

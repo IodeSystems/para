@@ -13,7 +13,7 @@ scan_in:
   how: An issue or pull request that asks the owner for something is an io item, or a comment on a tracked_doc (doc_comment_add).
 scan_out:
   command: "gh search prs --author @me --updated '>={since}' --json url,title,state"
-  how: A pull request the owner opened that an approved action item names is proposal_executed.
+  how: A pull request the owner opened that an approved outgoing draft names is io_send.
 state:
   command: "gh pr view {url} --json state,reviewDecision,mergedAt"
 cadence: daily

@@ -11,7 +11,7 @@ func TestFeedbackAddFilesTaggedIO(t *testing.T) {
 	d, _ := laterVault(t)
 	ag := agentDeps(d, "scribe")
 	out, err := FeedbackAdd.Run(WithWrite(ctx, WriteMeta{Why: "The error lacked the field."}), ag,
-		FeedbackAddInput{Text: "proposal_decide refused decision with no hint.", Kind: FeedbackBug, Tool: "proposal_decide"})
+		FeedbackAddInput{Text: "io_approve refused a draft with no hint.", Kind: FeedbackBug, Tool: "io_approve"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -20,7 +20,7 @@ func TestFeedbackAddFilesTaggedIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	m := doc.Meta.(*model.IO)
-	if m.Direction != model.IOIn || !slices.Contains(m.Tags, FeedbackTag) || m.Subject != "para bug: proposal_decide" {
+	if m.Direction != model.IOIn || !slices.Contains(m.Tags, FeedbackTag) || m.Subject != "para bug: io_approve" {
 		t.Fatalf("feedback io = %+v", m)
 	}
 	if rs := must(t, ReceiptList, d, ReceiptListInput{Doc: out.ID}).Items; len(rs) != 1 {
