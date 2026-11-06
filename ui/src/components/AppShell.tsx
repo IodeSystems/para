@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography'
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
+import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
 import TodayIcon from '@mui/icons-material/Today'
 import { OmniBar } from '@/components/OmniBar'
@@ -113,7 +114,7 @@ export function AppShell({ session, children }: { session: SessionView; children
       <Box component="main" sx={{ px: { xs: 1.5, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
         {children}
       </Box>
-      {/* On a phone the four screens you open most are one tap away. */}
+      {/* On a phone the screens you open most are one tap away. */}
       <Paper
         component="nav"
         aria-label="Quick screens"
@@ -130,8 +131,13 @@ export function AppShell({ session, children }: { session: SessionView; children
       >
         <BottomNavigation
           showLabels
-          value={current?.to === '/agenda' || current?.to === '/writes' ? current.to : false}
+          value={
+            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/writes'
+              ? current.to
+              : false
+          }
         >
+          <LinkBottomNavAction value="/next" label="Next" icon={<PlayArrowIcon />} to="/next" />
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           <LinkBottomNavAction
             value="/writes"

@@ -464,6 +464,7 @@ try {
   )
 
   const pages = [
+    ['/next', 'Next'],
     ['/agenda', 'Agenda'],
     ['/agenda?by=date', 'Agenda'],
     ['/writes', 'Recent agent writes'],
@@ -724,7 +725,8 @@ try {
       rerrors.push(`console ${rpage.url()}: ${m.text()}`)
   })
   await rpage.goto(reviewUrl)
-  await rpage.waitForURL(/\/agenda/)
+  // The owner (review:decide) lands on Next.
+  await rpage.waitForURL(/\/next/)
   await rpage.goto(`${base}/proposals/${dossier.id}`)
   await rpage.getByRole('heading', { name: 'Vendor pick' }).waitFor()
   const q1 = rpage.locator('[data-item="q1"]')
@@ -1152,6 +1154,81 @@ try {
     )
   }
 
+  // PU-NEXT: one card, the top of the value order that needs you. Skip (j) shows the next card and
+  // writes nothing; k brings the skipped card back. Done leaves with a toast whose Undo brings the
+  // card back. Approve on a ready draft approves it and the card leaves.
+  {
+    const ioNext = outDraft('Badge photo', 'Hi Sam, here is the badge photo.')
+    const deck = (await agent.call('order', {})).rows.filter(
+      (r) => r.needs_you && r.bucket !== 'not_yet',
+    )
+    const cardOf = (id) => rpage.locator(`[data-next-card="${id}"]`)
+    await rpage.goto(`${base}/next`)
+    await rpage.locator('[data-next-card]').waitFor()
+    check(
+      (await rpage.locator('[data-next-card]').getAttribute('data-next-card')) === deck[0].id,
+      `/next shows the top of the order (${deck[0].id})`,
+    )
+    check(
+      /needs? you/.test((await rpage.locator('[data-next-header]').textContent()) ?? ''),
+      'the Next header counts what needs you',
+    )
+    const writes = []
+    const onWrite = (r) => {
+      const body = r.postData() ?? ''
+      if (r.method() === 'POST' && /"query":"\s*mutation (?!LiveSubscribe)/.test(body))
+        writes.push(body.slice(0, 80))
+    }
+    rpage.on('request', onWrite)
+    await rpage.keyboard.press('j')
+    await cardOf(deck[1].id).waitFor()
+    await rpage.keyboard.press('k')
+    await cardOf(deck[0].id).waitFor()
+    await rpage.locator('[data-next-card] [data-act="skip"]').click()
+    await cardOf(deck[1].id).waitFor()
+    rpage.off('request', onWrite)
+    check(writes.length === 0, `Skip shows the next card and sends no write (${writes.join(' | ')})`)
+    // Skip on to the first task, then Done.
+    await rpage.goto(`${base}/next`)
+    await cardOf(deck[0].id).waitFor()
+    const ti = deck.findIndex((r) => r.kind === 'task')
+    for (let i = 0; i < ti; i++) {
+      await rpage.keyboard.press('j')
+      await cardOf(deck[i + 1].id).waitFor()
+    }
+    const t = deck[ti]
+    await cardOf(t.id).locator('[data-act="done"]').click()
+    await cardOf(t.id).waitFor({ state: 'detached' })
+    check(
+      /"status":\s*"done"/.test(para(...v, 'task', 'show', t.id, '--json')),
+      `Done on the Next card closes the task (${t.id})`,
+    )
+    const toast = rpage.locator('[data-toast="info"]').filter({ hasText: t.title }).last()
+    await toast.locator('[data-act="undo"]').click()
+    await cardOf(t.id).waitFor()
+    check(
+      /"status":\s*"todo"/.test(para(...v, 'task', 'show', t.id, '--json')),
+      'Undo of Done reopens the task and its card comes back',
+    )
+    // Approve on a ready draft.
+    const di = deck.findIndex((r) => r.id === ioNext)
+    check(di >= 0 && deck[di].ready_kind === 'draft', `the new draft is in the deck, ready (${di})`)
+    await rpage.goto(`${base}/next`)
+    await cardOf(deck[0].id).waitFor()
+    for (let i = 0; i < di; i++) {
+      await rpage.keyboard.press('j')
+      await cardOf(deck[i + 1].id).waitFor()
+    }
+    check(
+      /badge photo/.test((await cardOf(ioNext).locator('[data-next-draft]').textContent()) ?? ''),
+      'a ready draft shows its text on the card',
+    )
+    await rpage.keyboard.press('a')
+    await cardOf(ioNext).waitFor({ state: 'detached' })
+    const ok = (await agent.call('io_show', { id: ioNext })).item
+    check(ok.state === 'ready', `a on a ready draft approves it and the card leaves (${ok.state})`)
+  }
+
   // The stack: Decline needs a note there too. With one the card leaves at once, a toast says what
   // was done with an Undo, and Undo brings the card back, pending. Declined again, it is denied.
   await rpage.goto(`${base}/stack`)
@@ -1516,7 +1593,7 @@ try {
   watched = lpage
   const renewed = lpage.waitForResponse((r) => r.url().endsWith('/auth/session/renew'))
   await lpage.goto(loginUrl)
-  await lpage.waitForURL(/\/agenda/)
+  await lpage.waitForURL(/\/next/)
   check((await renewed).status() === 200, 'the web app renews a login key near its end')
   const me = await lpage.evaluate(async () => (await fetch('/auth/session')).json())
   check(
@@ -1529,7 +1606,7 @@ try {
     'serve sessions lists the new key only; the old one is revoked',
   )
   await lpage.reload()
-  await lpage.getByRole('heading', { name: 'Agenda' }).waitFor()
+  await lpage.getByRole('heading', { name: 'Next', exact: true }).waitFor()
   check(
     (await lpage.locator('[data-banner="read-only"]').count()) === 0,
     'after renew the page is still signed in and can decide',

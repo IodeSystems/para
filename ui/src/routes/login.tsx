@@ -9,6 +9,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { HttpBanner } from '@/components/Banners'
 import { ensureSession, lastSignInError, signIn } from '@/client/auth'
+import { homeFor } from '@/lib/next'
 
 // CODE is how a command reads inside a sentence.
 const CODE = {
@@ -31,7 +32,8 @@ export const Route = createFileRoute('/login')({
   }),
   // A valid session needs no sign-in.
   beforeLoad: async ({ search }) => {
-    if (await ensureSession()) throw redirect({ href: search.redirect ?? '/agenda', replace: true })
+    const s = await ensureSession()
+    if (s) throw redirect({ href: search.redirect ?? homeFor(s), replace: true })
   },
   component: Login,
 })
@@ -43,15 +45,15 @@ function Login() {
   const [error, setError] = useState(lastSignInError)
   const [busy, setBusy] = useState(false)
 
-  const go = () => void navigate({ href: redirect ?? '/agenda', replace: true })
+  const go = (s: Parameters<typeof homeFor>[0]) =>
+    void navigate({ href: redirect ?? homeFor(s), replace: true })
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError('')
     try {
-      await signIn(token)
-      go()
+      go(await signIn(token))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'sign-in failed')
     } finally {

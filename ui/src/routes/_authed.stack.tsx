@@ -36,7 +36,7 @@ import { useToasts } from '@/components/ToastStack'
 import { Composer } from '@/components/Composer'
 import { uploadAttachment } from '@/client/upload'
 import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
+import { LinkButton, TextLink } from '@/components/links'
 import { useStackKeys } from '@/components/Keyboard'
 import { ItemCard } from '@/components/stack/ItemCard'
 import { LaterButton } from '@/components/stack/LaterButton'
@@ -117,7 +117,14 @@ function StackPage() {
   const [skipped, setSkipped] = useState<ReadonlySet<string>>(() => new Set())
   return (
     <>
-      <PageTitle subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list.">
+      <PageTitle
+        subtitle="What agents asked you to decide, by dossier and group, and the open questions in the vault. A row opens here as its card; what you answered leaves the list."
+        action={
+          <LinkButton size="small" to="/next" data-next-link>
+            Next: one card at a time
+          </LinkButton>
+        }
+      >
         Stack
       </PageTitle>
       <StackView f={f} decide={decide} skipped={skipped} setSkipped={setSkipped} />
