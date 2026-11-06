@@ -364,10 +364,11 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		case m.EffectiveKind() == model.KindMeeting:
 			return owner("meeting to book")
 		case m.EffectiveKind() == model.KindCommitment:
-			// An obligation owed to someone: its turn starts due_soon_days
-			// before its date, as a meeting's does.
+			// Work owed to someone: the owner's turn while open. The due
+			// date sorts it; it is not a start date, so large work owed
+			// next week still shows now.
 			if m.Due != "" {
-				return Need{Turn: TurnOwner, On: sn.ahead(string(m.Due), sn.DueSoonDays), Reason: "owed, due " + string(m.Due)}
+				return owner("owed, due " + string(m.Due))
 			}
 			return owner("owed")
 		case m.Status == model.TaskBlocked || len(m.BlockedBy) > 0:

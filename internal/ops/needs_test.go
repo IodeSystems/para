@@ -134,7 +134,7 @@ func TestNeedsYouTable(t *testing.T) {
 		{doc: nTask("task-req-done", nil), extra: []model.Document{nRequest("request-d", model.RequestDone, model.ResolutionDone, "task-req-done")}, want: true},
 		{doc: nTask("task-blocked", func(m *model.Task) { m.Status = model.TaskBlocked }), want: true, reason: "blocked"},
 		{doc: nTask("task-blocked-until", func(m *model.Task) { m.Status, m.DeferUntil = model.TaskBlocked, "2026-11-09" }), reason: "later"},
-		{doc: nTask("task-owed-far", func(m *model.Task) { m.Kind, m.Due = model.KindCommitment, "2026-11-20" }), reason: "owed"},
+		{doc: nTask("task-owed-far", func(m *model.Task) { m.Kind, m.Due = model.KindCommitment, "2026-11-20" }), want: true, reason: "owed"},
 		{doc: nTask("task-owed-near", func(m *model.Task) { m.Kind, m.Due = model.KindCommitment, "2026-11-06" }), want: true, reason: "owed"},
 		// Meetings (task kind meeting).
 		{doc: nMeeting("meeting-today", "2026-11-05T15:00:00Z", "2026-11-05T16:00:00Z", nil), want: true, reason: "meeting 2026-11-05"},
