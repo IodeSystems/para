@@ -348,6 +348,7 @@ type para_ActorOutcomes {
 type para_AgendaItem {
   at: String
   attend: para_AgendaItemAttend
+  created: String
   date: String!
   detail: String
   id: String!
@@ -361,6 +362,7 @@ type para_AgendaItem {
   time: String
   title: String!
   until: String
+  updated: String
   who: [String!]!
   whoNames: [String!]
   why: String
@@ -7833,6 +7835,7 @@ type para_TaskView {
   steps: String
   stuck: Boolean
   title: String!
+  updated: String
   waitsOn: [String!]!
   waitsOnNames: [String!]
   with: [String!]!
@@ -8139,6 +8142,7 @@ type para_ValueRow {
   after: String
   blocks: Int!
   bucket: String!
+  created: String
   due: String
   effDue: String
   effort: para_ValueRowEffort!
@@ -8159,6 +8163,7 @@ type para_ValueRow {
   reason: String
   starts: String
   title: String!
+  updated: String
   waitingDays: Int
   why: String!
 }

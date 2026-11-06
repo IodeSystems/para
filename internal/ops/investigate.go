@@ -94,31 +94,51 @@ type InvestigateOutput struct {
 	Appended bool                `json:"appended"`
 }
 
+// askNote is what the agent does with the owner's text: answer it or fix the item.
+const askNote = "Answer the text in words in your result, or fix it: rewrite it (doc_edit), retype it (doc_retype, task_to_question), " +
+	"split it (task_add with parent), drop or duplicate it (task_resolve), or add context. " +
+	"Every change leaves a receipt; do not decide for the owner. "
+
+// findInstruction is the body of the agent work investigate queues. A question
+// gets an answer with sources (or, with the owner's text, the ask). Any other
+// item gets three parts: fill in details, check whether it is already done, and
+// recheck its assumptions; the owner's text, when given, comes on top.
 func findInstruction(id string, question, asked bool) string {
-	if asked {
+	if question && asked {
 		return "Ask about " + id + ".\n\nThe owner wrote text about this item (see Ask below); the item may be wrong, mistyped, or missing context. " +
 			"Read the item and the text. Gather context and sources with your own tools; stay read-only outside para. " +
-			"Answer the text in words in your result, or fix it: rewrite it (doc_edit), retype it (doc_retype, task_to_question), " +
-			"split it (task_add with parent), drop or duplicate it (task_resolve), or add context. " +
-			"Every change leaves a receipt; do not decide for the owner. " +
+			askNote +
 			"Every claim cites a source (a URL or a document id, with a quote): a guess is not a source. " +
 			"If you find nothing, end the work and say so."
 	}
-	s := "Investigate " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
-		"stay read-only outside para. "
 	if question {
-		s += "Answer with question_answer and at least one source (a URL or a document id, with a quote). " +
-			"Cite every source. "
-	} else {
-		s += "Add the context and sources to the item. "
+		return "Investigate " + id + ".\n\nRead the item. Gather context and sources with your own tools; " +
+			"stay read-only outside para. " +
+			"Answer with question_answer and at least one source (a URL or a document id, with a quote). " +
+			"Cite every source. No source, no item: a guess is not a source. If you find nothing, end the work and say so."
 	}
-	return s + "No source, no item: a guess is not a source. If you find nothing, end the work and say so."
+	s := "Investigate " + id + ".\n\nRead the item, its goal, and what it depends on. Gather context and sources with your own tools; " +
+		"stay read-only outside para. Do three things:\n\n" +
+		"1. Fill in missing details: how we know it is done (done_when), how the owner does it (do_url, do_command, or steps), " +
+		"its effort (xs, s, m, l), and context with sources (task_edit, doc_edit). Do not overwrite a detail the owner set unless a source shows it is wrong.\n" +
+		"2. Check whether it is already done: look in the owner's sources (mail, chat, calendar, trackers, repositories) with your own tools. " +
+		"If an observed act shows it done, close it (close) with evidence the owner can open: a URL or a vault id, or {source, ref} with verify; " +
+		"free text is not evidence. Do not ask the owner to confirm an act you observed.\n" +
+		"3. Recheck its assumptions: what it depends on (depends_on), its due date, who does it, and whether it is still needed. " +
+		"Fix what a source shows is wrong with the normal ops; each write leaves a receipt the owner can undo.\n\n"
+	if asked {
+		s += "The owner also wrote text about this item (see Ask below); the item may be wrong, mistyped, or missing context. " + askNote + "\n\n"
+	}
+	return s + "Every change and claim cites a source (a URL or a document id, with a quote): a guess is not a source. " +
+		"If nothing changed, end the work with a short note that says what you checked."
 }
 
-// Investigate ("Ask agent") queues agent work for an item. With text, the agent answers it or proposes a fix; without, it finds context. A question
-// gets an answer with sources; any other item gets context and sources added. One open run per item: a
-// second call adds its hint to the open request.
-var Investigate = definePerson("investigate", "Ask an agent about an item (task, meeting, question, ask, goal, or agent work): queues agent work linked to the item. With text the agent answers in words or fixes the item (rewrite, retype, split, drop, add context); with no text it finds context and sources. If the item already has open work, the text is added to it. Changes leave receipts", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
+// Investigate ("Ask agent") queues agent work for an item. A question gets an
+// answer with sources; any other item gets details filled in, a check whether
+// it is already done, and its assumptions rechecked. With text, the agent also
+// answers it or proposes a fix. One open run per item: a second call adds its
+// hint to the open request.
+var Investigate = definePerson("investigate", "Ask an agent about an item (task, meeting, question, ask, goal, or agent work): queues agent work linked to the item. For anything but a question the agent fills in missing details, checks whether it is already done, and rechecks its assumptions; a question gets an answer with sources. With text the agent also answers it in words or fixes the item (rewrite, retype, split, drop, add context). If the item already has open work, the text is added to it. Changes leave receipts", func(ctx context.Context, d Deps, in InvestigateInput) (InvestigateOutput, error) {
 	id := normID(in.ID)
 	if id == "" {
 		return InvestigateOutput{}, errors.New("id is empty")

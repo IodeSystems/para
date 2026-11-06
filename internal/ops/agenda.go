@@ -89,6 +89,9 @@ type AgendaItem struct {
 	// Friday) is listed with false. Reason says why, in words.
 	NeedsYou bool   `json:"needs_you"`
 	Reason   string `json:"reason,omitempty"`
+	// Created and Updated are the item's own dates, YYYY-MM-DD.
+	Created model.Date `json:"created,omitempty"`
+	Updated model.Date `json:"updated,omitempty"`
 }
 
 // AgendaInput is the input of agenda.
@@ -365,6 +368,14 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 		for j := range items {
 			if items[j].ID == r.ID {
 				items[j].Why = r.Why
+			}
+		}
+	}
+	for _, l := range [][]AgendaItem{items, skipped, optional} {
+		for j := range l {
+			if doc, err := sn.Get(l[j].ID); err == nil {
+				h := doc.Meta.Header()
+				l[j].Created, l[j].Updated = h.Created, h.Updated
 			}
 		}
 	}

@@ -486,7 +486,7 @@ func TestInvestigateEmptyAndReply(t *testing.T) {
 	if r := must(t, RequestShow, d, RequestShowInput{ID: oq.Request}).Doc; r.Title != "Find evidence: Which port?" {
 		t.Errorf("question title = %q", r.Title)
 	}
-	if r := must(t, RequestShow, d, RequestShowInput{ID: ot.Request}).Doc; r.Title != "Investigate: Fix it" || !strings.Contains(r.Body, "Add the context") {
+	if r := must(t, RequestShow, d, RequestShowInput{ID: ot.Request}).Doc; r.Title != "Investigate: Fix it" || !strings.Contains(r.Body, "Fill in missing details") {
 		t.Errorf("task = %q %s", r.Title, r.Body)
 	}
 	if !isFindTitle("Ask: x") || !isFindTitle("Find context: x") || isFindTitle("Work on: x") {
@@ -512,5 +512,82 @@ func TestInvestigateEmptyAndReply(t *testing.T) {
 	}
 	if got.Reply != "Yes: retype it. Source: question-x." {
 		t.Errorf("reply = %q", got.Reply)
+	}
+}
+
+// With no text, investigate on a task asks for three things: fill in details,
+// check whether it is already done, and recheck assumptions. With text, the Ask
+// comes on top of the three; a question keeps its own instruction.
+func TestInvestigateTaskInstruction(t *testing.T) {
+	d, proj := laterVault(t)
+	three := []string{
+		"Fill in missing details", "done_when", "do_url, do_command, or steps", "effort",
+		"Check whether it is already done", "close it (close) with evidence the owner can open", "{source, ref} with verify",
+		"Do not ask the owner to confirm an act you observed",
+		"Recheck its assumptions", "depends_on", "due date", "who does it", "still needed",
+		"stay read-only outside para", "a guess is not a source", "a short note",
+	}
+	plain := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID})
+	body := must(t, RequestShow, d, RequestShowInput{ID: plain.Request}).Doc.Body
+	for _, w := range three {
+		if !strings.Contains(body, w) {
+			t.Errorf("no note: body lacks %q:\n%s", w, body)
+		}
+	}
+	if strings.Contains(body, "## Ask") {
+		t.Errorf("no note: body has an Ask:\n%s", body)
+	}
+	noted := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Book the venue"}).ID, Hint: "I think Sam did this already"})
+	doc := must(t, RequestShow, d, RequestShowInput{ID: noted.Request}).Doc
+	for _, w := range append(three, "## Ask\n\nI think Sam did this already", "doc_retype") {
+		if !strings.Contains(doc.Body, w) {
+			t.Errorf("note: body lacks %q:\n%s", w, doc.Body)
+		}
+	}
+	if !strings.HasPrefix(doc.Title, "Ask: ") {
+		t.Errorf("note: title = %q", doc.Title)
+	}
+	q := must(t, Investigate, d, InvestigateInput{ID: must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID})
+	if b := must(t, RequestShow, d, RequestShowInput{ID: q.Request}).Doc.Body; strings.Contains(b, "Fill in missing details") || !strings.Contains(b, "question_answer") {
+		t.Errorf("question body:\n%s", b)
+	}
+	mustLintClean(t, d)
+}
+
+// Rows for agents carry the item's created and updated dates: task_list,
+// order, and agenda.
+func TestRowsCarryCreatedAndUpdated(t *testing.T) {
+	d, proj := laterVault(t)
+	day := model.Date(azNow.Format("2006-01-02"))
+	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Pay the invoice", Due: string(day)}).ID
+	azClock = azNow.AddDate(0, 0, 1)
+	next := model.Date(azClock.Format("2006-01-02"))
+	must(t, TaskEdit, d, TaskEditInput{ID: id, DoneWhen: "The bank shows it paid."})
+	var tv TaskView
+	for _, v := range must(t, TaskList, d, TaskListInput{}).Tasks {
+		if v.ID == id {
+			tv = v
+		}
+	}
+	if tv.Created != day || tv.Updated != next {
+		t.Errorf("task_list: created %q updated %q, want %q %q", tv.Created, tv.Updated, day, next)
+	}
+	var row ValueRow
+	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+		if r.ID == id {
+			row = r
+		}
+	}
+	if row.Created != string(day) || row.Updated != string(next) {
+		t.Errorf("order: %+v", row)
+	}
+	var it AgendaItem
+	for _, a := range must(t, Agenda, d, AgendaInput{Days: 3, Zone: "UTC"}).Items {
+		if a.ID == id {
+			it = a
+		}
+	}
+	if it.Created != day || it.Updated != next {
+		t.Errorf("agenda: %+v", it)
 	}
 }

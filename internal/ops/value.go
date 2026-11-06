@@ -162,6 +162,7 @@ type ValueNode struct {
 	Title   string
 	Due     string   // own date, YYYY-MM-DD, or ""
 	Created string   // for the tie-break
+	Updated string   // the last write, YYYY-MM-DD; shown, not ranked
 	Deps    []string // ids this waits on
 	Goal    string   // for a task: the goal it belongs to
 	Parent  string   // for a task: the task it is an action item of; not a dependency
@@ -251,6 +252,9 @@ type ValueRow struct {
 	// owner. Reason says why, in words.
 	NeedsYou bool   `json:"needs_you"`
 	Reason   string `json:"reason,omitempty"`
+	// Created and Updated are the item's own dates, YYYY-MM-DD.
+	Created string `json:"created,omitempty"`
+	Updated string `json:"updated,omitempty"`
 }
 
 // OrderSummary sums up the reply group: how many items, about how many
@@ -377,7 +381,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			continue
 		}
 		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed, Prep: n.Prep,
-			NeedsYou: n.NeedsYou, Reason: n.Reason}
+			NeedsYou: n.NeedsYou, Reason: n.Reason, Created: n.Created, Updated: n.Updated}
 		if n.Ready != nil {
 			r.Ready, r.ReadyKind, r.ReadyRef = true, n.Ready.Kind, n.Ready.Ref
 		}
@@ -746,7 +750,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		if rd, ok := sn.Ready(doc.ID); ok {
 			ready = &rd
 		}
-		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: hold.any(),
+		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Updated: string(doc.Meta.Header().Updated), Deferred: hold.any(),
 			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason, Ready: ready}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil

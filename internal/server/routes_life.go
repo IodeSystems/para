@@ -45,7 +45,9 @@ func registerLife(r *registrar) {
 	reg(r, ops.QuestionShow, get, read)
 	reg(r, ops.QuestionAnswer, post, write)
 	reg(r, ops.QuestionDrop, post, write)
-	reg(r, ops.Investigate, post, write)
+	// owner 2026-11-06: Investigate next to Done in the web app, on the
+	// owner's session (review:decide), as close does.
+	reg(r, ops.Investigate, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Defer, post, write)
 	reg(r, ops.Undefer, post, write)
 	reg(r, ops.DependsCut, post, write)
