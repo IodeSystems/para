@@ -76,8 +76,6 @@ export function OmniBar() {
     reset()
     input.current?.blur()
     if (e.to) void navigate({ href: e.to })
-    else if (e.id?.startsWith('proposal-'))
-      void navigate({ to: '/proposals/$id', params: { id: e.id } })
     else if (e.id) void navigate({ to: '/doc/$id', params: { id: e.id } })
   }
 

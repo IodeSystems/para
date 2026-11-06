@@ -500,7 +500,7 @@ export function OutcomesSection({ since, until }: { since?: string; until?: stri
                     data-denied={`${d.proposal}/${d.item}`}
                     sx={{ display: 'block' }}
                   >
-                    <TextLink to="/proposals/$id" params={{ id: d.proposal }} underline="hover">
+                    <TextLink to="/doc/$id" params={{ id: d.proposal }} underline="hover">
                       {d.summary || d.title || d.item}
                     </TextLink>
                     <Typography

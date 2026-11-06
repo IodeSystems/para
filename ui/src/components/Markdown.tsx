@@ -1,21 +1,11 @@
-import {
-  Children,
-  createContext,
-  isValidElement,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
-import ReactMarkdown, { type Components, type ExtraProps } from 'react-markdown'
+import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
+import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { TextLink } from '@/components/links'
 import Box from '@mui/material/Box'
 import Link from '@mui/material/Link'
 import Typography from '@mui/material/Typography'
 import { useDoc } from '@/api/doc'
-import { blockInfo } from '@/lib/dossier'
 import { isInternalHref, linkWikilinks, WIKI_TITLE } from '@/lib/markdown'
 import { nameOr } from '@/lib/names'
 import { Mermaid } from '@/components/Mermaid'
@@ -28,18 +18,6 @@ import { attachmentKind, attachmentSrc, isAttachmentPath } from '@/lib/composer'
 // render as their alt text: the CSP allows no remote images, and a vault is no place to fetch from.
 // An image whose path is a file attached to an item (attachments/<id>/<file>) shows from the server:
 // an image inline, audio and video in a player, anything else as a link.
-// A dossier page gives Blocks (below): it draws its own card for a fenced block (a para item) and
-// adds a part under each ## heading (a comment box).
-
-export type Blocks = {
-  // block gets the info string of a fenced block ("yaml para-question id=q1") and its text. It
-  // gives undefined to render the block as code.
-  block?: (info: string, body: string) => ReactNode | undefined
-  // section gets the text of a ## heading and gives what goes under it.
-  section?: (title: string) => ReactNode
-}
-
-const BlocksContext = createContext<Blocks | null>(null)
 
 function text(node: ReactNode): string {
   return Children.toArray(node)
@@ -211,29 +189,12 @@ function ScrollTable({ children }: { children?: ReactNode }) {
   )
 }
 
-// codeMeta is the info string after the language of a fenced block. The parser keeps it on the
-// data of the <code> node, not on its props.
-function codeMeta(node: ExtraProps['node']): string | undefined {
-  const code = node?.children[0]
-  if (!code || code.type !== 'element') return undefined
-  const meta: unknown = (code.data as { meta?: unknown } | undefined)?.meta
-  return typeof meta === 'string' ? meta : undefined
-}
-
-function Pre({ children, node }: { children?: ReactNode } & ExtraProps) {
-  const blocks = useContext(BlocksContext)
+function Pre({ children }: { children?: ReactNode }) {
   const only = Children.toArray(children)[0]
   if (isValidElement<{ className?: string; children?: ReactNode }>(only)) {
     // A mermaid fence is a <pre><code class="language-mermaid">.
     if (/\blanguage-mermaid\b/.test(only.props.className ?? '')) {
       return <Mermaid source={text(only.props.children)} label="Diagram from the document" />
-    }
-    if (blocks?.block) {
-      const drawn = blocks.block(
-        blockInfo(only.props.className, codeMeta(node)),
-        text(only.props.children),
-      )
-      if (drawn !== undefined) return <>{drawn}</>
     }
   }
   return (
@@ -243,16 +204,6 @@ function Pre({ children, node }: { children?: ReactNode } & ExtraProps) {
     >
       {children}
     </Box>
-  )
-}
-
-function H2({ children }: { children?: ReactNode }) {
-  const blocks = useContext(BlocksContext)
-  return (
-    <>
-      <h2>{children}</h2>
-      {blocks?.section?.(text(children))}
-    </>
   )
 }
 
@@ -331,7 +282,6 @@ const components: Components = {
     return <ScrollTable>{children}</ScrollTable>
   },
   pre: Pre,
-  h2: H2,
   code({ className, children }) {
     return (
       <Box
@@ -345,9 +295,9 @@ const components: Components = {
   },
 }
 
-export function Markdown({ source, blocks }: { source: string; blocks?: Blocks }) {
+export function Markdown({ source }: { source: string }) {
   return (
-    <BlocksContext.Provider value={blocks ?? null}>
+    <>
       <Box
         sx={{
           overflowWrap: 'anywhere',
@@ -361,6 +311,6 @@ export function Markdown({ source, blocks }: { source: string; blocks?: Blocks }
           {linkWikilinks(source)}
         </ReactMarkdown>
       </Box>
-    </BlocksContext.Provider>
+    </>
   )
 }

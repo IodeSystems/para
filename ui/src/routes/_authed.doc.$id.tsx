@@ -49,16 +49,6 @@ function Doc() {
           <PageTitle
             action={
               <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                {d.meta.type === 'proposal' && (
-                  <LinkButton
-                    size="small"
-                    variant="outlined"
-                    to="/proposals/$id"
-                    params={{ id: d.id }}
-                  >
-                    Open the proposal
-                  </LinkButton>
-                )}
                 {d.meta.type === 'source' && (
                   <LinkButton
                     size="small"

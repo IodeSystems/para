@@ -120,11 +120,7 @@ function DocPage() {
                             <>
                               {' '}
                               - after the edit{' '}
-                              <TextLink
-                                to="/proposals/$id"
-                                params={{ id: v.proposal }}
-                                underline="hover"
-                              >
+                              <TextLink to="/doc/$id" params={{ id: v.proposal }} underline="hover">
                                 {v.item || v.proposal}
                               </TextLink>
                             </>

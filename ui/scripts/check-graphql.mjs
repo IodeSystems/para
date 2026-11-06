@@ -74,34 +74,19 @@ for (const err of validate(schema, { kind: 'Document', definitions }, specifiedR
 
 // The web app does not author: the agent writes through MCP. The only GraphQL mutations it may send
 // are vault:read ops that change no document (they POST because they mint a cap or log an egress
-// event), and the review:decide person ops: the owner drafts answers, submits them, approves or
-// rejects what an agent proposed, answers or sends back an open question, marks an outward item or an
-// outbox draft done by the owner, checks or reverts an agent write from its receipt, marks a
-// tracked document's change seen, and edits the notes of an item (owner 2026-11-04). The composer on
-// every item sends the owner's words to an agent, takes them back while unclaimed, and closes a task
-// or a meeting the owner saved notes on (owner 2026-11-05). Later on the stack puts items off until a
-// date and its Undo brings them back (owner approved the snooze and topic web actions 2026-11-05).
+// event), and the review:decide person ops: answer or send back an open question, check or revert an
+// agent write from its receipt, mark a tracked document's change seen, edit the notes of an item
+// (owner 2026-11-04), and the generic verbs on every item (close, later, reopen, send_to_agent).
 const READ_MUTATIONS = new Set(['LiveSubscribe', 'CopyDoc', 'CalendarExport'])
 const REVIEW_MUTATIONS = new Set([
-  'ProposalDraft',
-  'ProposalSubmit',
-  'StackDecide',
-  'StackUndo',
   'DocSeen',
   'ReceiptCheck',
   'ReceiptRevert',
   'QuestionReview',
-  'ProposalDone',
-  'IODone',
   'NotesSave',
-  'AgentSend',
-  'AgentUnsend',
-  'ItemClose',
   // Attend and Skip on the agenda: the owner says whether they go to a meeting (meeting_rsvp, a
   // person op). Owner approved 2026-11-05.
   'MeetingRsvp',
-  'StackLater',
-  'StackReturn',
   // owner 2026-11-06: stage 2 generic verbs. Done, Later, and Reopen on every item row, and the
   // composer's send, call the generic ops (close, later, reopen, send_to_agent); each runs the op
   // of the item's type with that op's rules, and leaves a receipt that ReceiptRevert undoes.

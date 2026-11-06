@@ -132,7 +132,7 @@ export function AppShell({ session, children }: { session: SessionView; children
         <BottomNavigation
           showLabels
           value={
-            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/writes'
+            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/receipts'
               ? current.to
               : false
           }
@@ -140,10 +140,10 @@ export function AppShell({ session, children }: { session: SessionView; children
           <LinkBottomNavAction value="/next" label="Next" icon={<PlayArrowIcon />} to="/next" />
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           <LinkBottomNavAction
-            value="/writes"
-            label="Writes"
+            value="/receipts"
+            label="Receipts"
             icon={<RateReviewOutlinedIcon />}
-            to="/writes"
+            to="/receipts"
           />
           <LinkBottomNavAction
             value="menu"

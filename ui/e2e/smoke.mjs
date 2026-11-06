@@ -1,10 +1,11 @@
 // Smoke test against the real binary. Agents write through MCP; the owner only reviews in the web
 // app. It builds para with the embedded UI (or uses PARA_E2E_BIN), makes a temp install with one
-// synthetic vault, seeds it with the CLI and the MCP server, runs `para serve` on 127.0.0.1, signs
-// in Chrome with a read-only key, and checks that every main page loads, shows no write control,
-// and logs no console error. Then it signs in with a review:decide key and answers a dossier:
-// draft, reload, submit, and the stack state chips. Needs Google Chrome (playwright channel 'chrome') and a built ui/dist
-// (`pnpm build`) when it builds the binary.
+// synthetic vault, seeds it with the CLI, the MCP server, and one closed dossier file, runs
+// `para serve` on 127.0.0.1, signs in Chrome with a read-only key, and checks that every main page
+// loads, shows no write control, and logs no console error; that /stack lands on /next; and that a
+// closed dossier is read only on /doc/<id>. Then it signs in with a review:decide key and checks
+// receipts, Next, IO drafts, notes, the composer, and Asked of agents. Needs Google Chrome
+// (playwright channel 'chrome') and a built ui/dist (`pnpm build`) when it builds the binary.
 //
 //   pnpm build && PARA_E2E_PORT=8245 pnpm e2e
 //
@@ -14,14 +15,14 @@ import { spawn, execFileSync } from 'node:child_process'
 import {
   existsSync,
   mkdtempSync,
+  mkdirSync,
   openSync,
-  readdirSync,
   readFileSync,
   rmSync,
-  statSync,
+  writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, relative, resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { request } from 'node:http'
 import { chromium } from 'playwright'
 
@@ -48,18 +49,6 @@ const idOf = (json) => /"id":\s*"([^"]+)"/.exec(json)?.[1]
 // paraIn runs para with text on stdin, as an agent passes a document it read.
 const paraIn = (input, ...args) =>
   execFileSync(bin, ['--home', home, ...args], { encoding: 'utf8', input })
-
-// vaultPath finds the file of a vault document by its id, relative to the vault root.
-function vaultPath(root, id) {
-  for (const name of readdirSync(root)) {
-    const p = join(root, name)
-    if (statSync(p).isDirectory()) {
-      const found = vaultPath(p, id)
-      if (found) return found
-    } else if (name === `${id}.md`) return p
-  }
-  return ''
-}
 
 // api calls the server with a bearer token. node's fetch cannot set Host, and the vault is chosen
 // by Host, so this uses http.request.
@@ -356,42 +345,45 @@ try {
     sources: ['https://example.com/quota-dashboard'],
     verify: 'Open the note.',
   })
-  const acted = await agent.call('action_record', {
-    what: 'Opened ticket OPS-1 for the quota',
-    where: 'OPS ticket queue',
-    url: 'https://tickets.example.com/OPS-1',
-    owner_said: 'yes, open the ticket',
-  })
-  const proposal = await agent.call('proposal_add', {
-    title: 'Quota follow-ups',
-    tldr: 'Email Sam and add a follow-up task.',
-    context: 'The quota runs out next week.',
-    source: note.id,
-    items: [
-      {
-        kind: 'message',
-        people: [person],
-        channel: 'email',
-        subject: 'Staging quota',
-        body: 'Hi Sam, could you raise the staging quota?',
-        reversible: 'no',
-        pros: [{ text: 'Sam owns the quota', source: 'https://example.com/owners' }],
-        confidence: 80,
-        confidence_basis: 'Sam answered quota asks before',
-        evidence: { quote: 'Staging uses 80 percent', locator: 'https://acme.example/notes/quota' },
-      },
-      {
-        kind: 'para',
-        op: 'task_add',
-        input: { title: 'Follow up on quota', project: proj, done_when: 'The ticket is open.' },
-        how: 'Adds a task under Launch.',
-        impact: 'The follow-up shows on the Agenda.',
-        reversible: 'yes',
-        evidence: { quote: 'Staging uses 80 percent', locator: 'https://acme.example/notes/quota' },
-      },
-    ],
-  })
-  check(!!note.id && !!acted.receipt && !!proposal.id, 'MCP seeds a note, an action, a proposal')
+  check(!!note.id, 'MCP seeds a note')
+
+  // A closed dossier from before dossiers were retired: a file in proposals/, read only. It is
+  // written straight into the vault, since nothing makes a dossier now.
+  const closedDossier = 'proposal-e2e-closed'
+  const closedTldr = 'Pick vendor B, it costs less.'
+  mkdirSync(join(work, 'vault', 'proposals'), { recursive: true })
+  writeFileSync(
+    join(work, 'vault', 'proposals', `${closedDossier}.md`),
+    [
+      '---',
+      'type: proposal',
+      'created: 2026-11-01',
+      'status: superseded',
+      'revision: 1',
+      'proposed_by: agent',
+      '---',
+      '# Vendor pick',
+      '',
+      '````yaml para-dossier',
+      `tldr: ${closedTldr}`,
+      '````',
+      '',
+      '## Findings',
+      '',
+      'Two vendors answered.',
+      '',
+      '```yaml para-message id=m1',
+      'people: [ada@acme.example]',
+      'body: Hi Ada.',
+      'evidence: {quote: "B costs less", locator: "https://acme.example/l"}',
+      'state: moved',
+      `result: ${task}`,
+      '```',
+      '',
+    ].join('\n'),
+  )
+  para(...v, 'reconcile')
+  check(para(...v, 'lint').includes('0 errors'), 'para lint accepts the closed dossier')
 
   const serverLog = join(work, 'server.log')
   server = spawn(bin, ['--home', home, 'serve', '--addr', `127.0.0.1:${port}`], {
@@ -482,7 +474,6 @@ try {
     ['/next', 'Next'],
     ['/agenda', 'Agenda'],
     ['/agenda?by=date', 'Agenda'],
-    ['/writes', 'Recent agent writes'],
     ['/work', 'Work'],
     ['/rfx', 'Asks'],
     [`/rfx/${ask}`, 'Need the staging quota raised'],
@@ -499,8 +490,6 @@ try {
     ['/activity', 'Agent activity'],
     ['/friction', 'Friction'],
     ['/health', 'Health'],
-    ['/proposals', 'Proposals'],
-    ['/stack', 'Stack'],
     ['/io', 'IO'],
     ['/io?view=outbox', 'IO'],
     [`/io/${incoming}`, 'Seed: ask platform about the quota'],
@@ -509,7 +498,7 @@ try {
     [`/docs/${tracked}`, 'Portal runbook'],
     ['/sources', 'Sources'],
     ['/sources/work-mailbox', 'Work mailbox'],
-    [`/proposals/${proposal.id}`, 'Quota follow-ups'],
+    [`/doc/${closedDossier}`, 'Vendor pick'],
     [`/projects/${proj}`, 'Launch'],
     [`/doc/${task}`, 'Write the plan'],
     [`/doc/${question}`, 'Which region first?'],
@@ -610,77 +599,49 @@ try {
   check(
     (await page
       .getByRole('dialog')
-      .getByText('Decide what agents propose', { exact: false })
+      .getByText('Agents write through the chat', { exact: false })
       .count()) === 1,
-    'help says where to decide',
+    'help says where agents write',
   )
   await page.keyboard.press('Escape')
 
-  // Recent agent writes: receipts newest first, the self-reported mark, owner said, undo command.
-  await page.goto(`${base}/writes`)
-  await page.getByRole('heading', { name: 'Recent agent writes' }).waitFor()
-  const card = page.locator('[data-receipt]', { hasText: 'Quota numbers' }).first()
-  await card.getByText('Sam asked for the numbers in one place.').waitFor()
-  check(true, 'a write shows its why')
+  // The review stack is retired: /stack lands on /next, and so does an old stack link with a filter.
+  await page.goto(`${base}/stack`)
+  await page.waitForURL((u) => u.pathname === '/next')
+  check(new URL(page.url()).pathname === '/next', `/stack lands on /next (${page.url()})`)
+  await page.goto(`${base}/stack?state=closed`)
+  await page.waitForURL((u) => u.pathname === '/next')
+  check(true, '/stack with a filter lands on /next')
+
+  // A closed dossier is a read-only document: /proposals/<id> lands on /doc/<id>, shows the tldr,
+  // and has no write control.
+  await page.goto(`${base}/proposals/${closedDossier}`)
+  await page.waitForURL((u) => u.pathname === `/doc/${closedDossier}`)
   check(
-    (await card.getByText('https://example.com/quota-dashboard').count()) > 0,
-    'a write shows its sources',
+    new URL(page.url()).pathname === `/doc/${closedDossier}`,
+    `/proposals/<id> lands on /doc/<id> (${page.url()})`,
   )
-  const actCard = page.locator(`[data-receipt="${acted.receipt}"]`)
-  await actCard.waitFor()
-  check((await actCard.getByText('self-reported').count()) === 1, 'action_record is self-reported')
+  await page.getByRole('heading', { name: 'Vendor pick' }).first().waitFor()
+  await page.getByText(closedTldr, { exact: false }).first().waitFor()
+  check(true, 'the closed dossier page shows the tldr')
   check(
-    (await actCard.getByText(/Owner said: .yes, open the ticket./).count()) === 1,
-    'the owner-said words show',
+    (await page.getByText('Two vendors answered.').count()) === 1,
+    'the closed dossier page shows its body',
   )
   check(
-    (await actCard.getByText(`para receipt undo ${acted.receipt}`).count()) === 1,
-    'the undo command shows',
-  )
-  check(
-    (await actCard.getByRole('button', { name: 'Copy undo command' }).count()) === 1,
-    'the undo command has a copy button',
+    (await page.getByRole('link', { name: 'Open the proposal' }).count()) === 0 &&
+      (await page
+        .getByRole('button', { name: /^(approve|decline|reject|submit|skip|done|send to agent)/i })
+        .count()) === 0,
+    'the closed dossier page has no write button',
   )
   {
-    const ids = await page
-      .locator('[data-receipt]')
-      .evaluateAll((els) => els.map((e) => e.getAttribute('data-receipt')))
-    const noteRid = await card.getAttribute('data-receipt')
-    check(ids.indexOf(acted.receipt) < ids.indexOf(noteRid), 'the newest write is first')
+    const bad = await writeControls(page)
+    check(
+      bad.length === 0,
+      `the closed dossier page has no write controls${bad.length ? `: ${bad.join(' | ')}` : ''}`,
+    )
   }
-  await card.locator('summary', { hasText: 'What changed' }).click()
-  await card.getByLabel('What this write changed').waitFor()
-  check(true, 'a write opens its before and after')
-  check(
-    (await page.getByRole('link', { name: 'Quota follow-ups' }).count()) > 0,
-    'Waiting for your review links the open proposal',
-  )
-  check((await page.getByRole('link', { name: 'All proposals' }).count()) === 1, 'links /proposals')
-
-  // The proposal page: tldr, items as the real thing, untrusted evidence, no decide control.
-  await page.goto(`${base}/proposals/${proposal.id}`)
-  await page.getByRole('heading', { name: 'Quota follow-ups' }).waitFor()
-  check(
-    (await page.getByText('Email Sam and add a follow-up task.').count()) === 1,
-    'shows the tldr',
-  )
-  check((await page.locator('[data-item]').count()) === 2, 'shows both items')
-  check(
-    (await page.getByText('Hi Sam, could you raise the staging quota?').count()) === 1,
-    'the message item shows its body',
-  )
-  check((await page.getByText('Staging quota').count()) > 0, 'the message item shows its subject')
-  check(
-    (await page.getByText('Sam owns the quota', { exact: false }).count()) > 0,
-    'shows the pros',
-  )
-  check((await page.getByText('untrusted').count()) >= 2, 'evidence is marked untrusted')
-  check(
-    (await page
-      .getByRole('button', { name: /^(approve|reject|deny|request|hold|edit)/i })
-      .count()) === 0,
-    'with a read-only key the proposal page has no decide buttons',
-  )
 
   // Sign out works and lands on the sign-in page.
   await page.getByRole('button', { name: 'Sign out' }).click()
@@ -692,34 +653,7 @@ try {
     `the read-only browser sent no write${writes.length ? `: ${writes.join(' | ')}` : ''}`,
   )
 
-  // The review flow: a dossier filed by an agent, answered by the owner with a review:decide key.
-  const dossier = await agent.call('proposal_add', {
-    title: 'Vendor pick',
-    markdown: [
-      '```yaml para-dossier',
-      'tldr: Pick a vendor',
-      '```',
-      '',
-      '## Findings',
-      '',
-      'Two vendors answered.',
-      '',
-      '```yaml para-question id=q1',
-      'title: Which vendor?',
-      'options: [A, B]',
-      'recommended: B',
-      'evidence: {quote: "B costs less", locator: "https://acme.example/q"}',
-      '```',
-      '',
-      '```yaml para-message id=m1',
-      'people: [ada@acme.example]',
-      'body: Hi Ada.',
-      'evidence: {quote: q, locator: https://acme.example/l}',
-      '```',
-      '',
-    ].join('\n'),
-  })
-  check(!!dossier.id, 'MCP files a dossier')
+  // The owner: a key that may decide.
   const reviewUrl = para(
     ...v,
     'key',
@@ -745,64 +679,6 @@ try {
   await rpage.goto(reviewUrl)
   // The owner (review:decide) lands on Next.
   await rpage.waitForURL(/\/next/)
-  await rpage.goto(`${base}/proposals/${dossier.id}`)
-  await rpage.getByRole('heading', { name: 'Vendor pick' }).waitFor()
-  const q1 = rpage.locator('[data-item="q1"]')
-  const m1 = rpage.locator('[data-item="m1"]')
-  await q1.waitFor()
-  check((await m1.count()) === 1, 'the dossier shows each block as a card')
-  check(
-    (await q1.getByRole('link', { name: 'https://acme.example/q' }).count()) === 1,
-    'an evidence address is a link',
-  )
-  check((await rpage.locator('[data-drafted="0/2"]').count()) === 1, 'the footer says 0 of 2')
-
-  // Draft: accept the recommended option, approve the message, comment on the section.
-  const saved = rpage.waitForResponse(
-    (r) =>
-      r.url().includes('/api/graphql') && (r.request().postData() ?? '').includes('ProposalDraft'),
-  )
-  await q1.getByRole('button', { name: /Accept the recommended/ }).click()
-  await m1.getByRole('button', { name: 'Approve', exact: true }).click()
-  await rpage.getByLabel('Comment on Findings').fill('Check the price again.')
-  await rpage.locator('[data-drafted="2/2"]').waitFor()
-  await saved
-  await rpage.locator('[data-save="saved"]').waitFor()
-  check(true, 'the answers save as a draft')
-
-  // Reload: the draft is read back from the file.
-  await rpage.reload()
-  await q1.waitFor()
-  check(await q1.getByRole('radio', { name: 'B' }).isChecked(), 'after reload B is still chosen')
-  check(
-    (await m1
-      .getByRole('button', { name: 'Approve', exact: true })
-      .getAttribute('aria-pressed')) === 'true',
-    'after reload the message is still approved',
-  )
-  check(
-    (await rpage.getByLabel('Comment on Findings').inputValue()) === 'Check the price again.',
-    'after reload the section comment is still there',
-  )
-  check((await rpage.locator('[data-drafted="2/2"]').count()) === 1, 'the footer says 2 of 2')
-
-  // Submit: the answers become decisions.
-  await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
-  await rpage.getByText('Submitted.', { exact: false }).waitFor()
-  // What the owner decided leaves the dossier view; Show all items brings it back.
-  await rpage.locator('[data-item="m1"]').waitFor({ state: 'detached' })
-  check(
-    (await rpage.locator('[data-item="q1"]').count()) === 0,
-    'after submit the decided items leave the dossier view',
-  )
-  await rpage.getByRole('button', { name: 'Show all items' }).click()
-  await rpage.locator('[data-item="m1"][data-stack="decided"]').waitFor()
-  check(
-    (await rpage.locator('[data-item="q1"][data-stack="decided"]').count()) === 1,
-    'after submit the question is decided',
-  )
-  check(true, 'after submit the message is decided, waiting for an agent')
-
   // Mark seen: the owner read the change; the new-versions chip goes.
   await rpage.goto(`${base}/docs/${tracked}`)
   await rpage.getByRole('heading', { name: 'Portal runbook' }).waitFor()
@@ -814,40 +690,6 @@ try {
     'Mark seen marks the document read to the latest version',
   )
 
-  // The stack: state chips count the items, and a click on one shows only those.
-  await rpage.goto(`${base}/stack`)
-  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
-  await rpage.locator('[data-row]').first().waitFor()
-  const chip = (s) => rpage.locator(`[data-state-chip="${s}"]`)
-  check((await chip('decided').innerText()).startsWith('2 '), 'the decided chip counts 2')
-  check(
-    (await chip('proposed').innerText()).startsWith('3 '),
-    'the proposed chip counts 3: two dossier items and the open vault question',
-  )
-  await chip('decided').click()
-  await rpage.waitForURL(/state=decided/)
-  await rpage.locator(`[data-row="${dossier.id}/m1"]`).waitFor()
-  check(
-    (await rpage.locator('[data-row][data-stack="proposed"]').count()) === 0,
-    'the decided chip shows only decided items',
-  )
-  await chip('decided').click()
-  await rpage.waitForURL((u) => !u.search.includes('state='))
-  // One click approves an item across dossiers: the vault change runs at once.
-  const taskRow = rpage.locator(`[data-row^="${proposal.id}/"][data-kind="para"]`)
-  if ((await taskRow.count()) > 0) {
-    await taskRow.first().getByRole('button', { name: 'Approve', exact: true }).click()
-    await rpage.waitForFunction(() =>
-      document.querySelector('[data-state-chip="done"]')?.textContent?.startsWith('1 '),
-    )
-    check(true, 'approve on the stack runs the vault change')
-  } else {
-    check(false, 'the stack lists the task_add item of the first proposal')
-  }
-  check(
-    rerrors.length === 0,
-    `the review pages log no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
-  )
   // Receipts: the owner checks or undoes agent writes. The confirm is in the row, never a dialog.
   const rcDialogs = []
   rpage.on('dialog', (d) => {
@@ -953,7 +795,6 @@ try {
     `the receipts page logs no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
   // The shared card frame: decline, skip, ask agent, edit a message, done by me, a path body.
-  const ada = idOf(para(...v, 'org', 'person', 'add', 'Ada Lane', '--org', 'Acme', '--json'))
   const outDraft = (subject, text) =>
     idOf(
       para(
@@ -974,170 +815,8 @@ try {
         '--json',
       ),
     )
-  const ioEdit = outDraft('Room booking', 'Hi Sam, the room is booked.')
-  const ioMine = outDraft('Agenda', 'Hi Sam, here is the agenda.')
   const ioPage = outDraft('Minutes', 'Hi Sam, the minutes.')
   const ioApprove = outDraft('Slides', 'Hi Sam, the slides are attached.')
-  const plan = await agent.call('note_add', {
-    title: 'E2E room plan',
-    body: 'Room 4 on Friday at 10.',
-    project: proj,
-    why: 'Seeded for a path body.',
-    verify: 'Open the note.',
-  })
-  const planFile = vaultPath(join(work, 'vault'), plan.id)
-  check(planFile !== '', 'the seeded note has a file in the vault')
-  const ev = 'evidence: {quote: "Rooms are short.", locator: "https://acme.example/rooms"}'
-  const action = (id, what, extra = []) => [
-    `\`\`\`yaml para-action id=${id}`,
-    `what: ${what}`,
-    'how: calendar',
-    ...extra,
-    ev,
-    '```',
-    '',
-  ]
-  const rooms = await agent.call('proposal_add', {
-    title: 'Room actions',
-    markdown: [
-      '```yaml para-dossier',
-      'tldr: Book rooms and tell Sam',
-      '```',
-      '',
-      '## Rooms',
-      '',
-      ...action('a1', 'Book room 1'),
-      ...action('a2', 'Book room 2'),
-      ...action('a3', 'Book room 3'),
-      ...action('a4', 'Book room 4', [`body: ${relative(join(work, 'vault'), planFile)}`]),
-      '```yaml para-message id=m2',
-      `io: "[[${ioEdit}]]"`,
-      ev,
-      '```',
-      '',
-      '```yaml para-message id=m3',
-      `io: "[[${ioMine}]]"`,
-      ev,
-      '```',
-      '',
-    ].join('\n'),
-  })
-  check(!!rooms.id, 'MCP files a dossier of actions and messages')
-  await rpage.goto(`${base}/proposals/${rooms.id}`)
-  await rpage.getByRole('heading', { name: 'Room actions' }).waitFor()
-  const rcard = (id) => rpage.locator(`[data-item="${id}"]`)
-  await rcard('a1').waitFor()
-
-  // (g) A body that is a path to a vault file shows the file's text.
-  check(
-    (await rcard('a4').locator('[data-body-file]').innerText()).includes('Room 4 on Friday at 10.'),
-    "a path body shows the file's text beside the item",
-  )
-
-  // (a) Decline needs a note: the field shows an error and Submit is blocked until it has one.
-  await rcard('a1').locator('[data-act="reject"]').click()
-  await rcard('a1').getByText('Decline needs a note: why.').first().waitFor()
-  check(
-    await rpage.getByRole('button', { name: 'Submit', exact: true }).isDisabled(),
-    'a decline with no note blocks Submit',
-  )
-  check(
-    await rcard('a1')
-      .getByLabel('Why you decline (required)')
-      .evaluate((e) => e === document.activeElement),
-    'Decline puts the cursor in the note',
-  )
-  await rcard('a1').getByLabel('Why you decline (required)').fill('Room 1 is closed.')
-
-  // (b) Skip with a note.
-  await rcard('a2').locator('[data-act="skip"]').click()
-  await rcard('a2').getByLabel('Note (optional)').fill('After the launch.')
-
-  // (c) Send to agent with a note and a document to read.
-  await rcard('a3').locator('[data-act="ask"]').click()
-  await rcard('a3').getByLabel('Note for the agent').fill(`duplicate of ${ask}`)
-  await rcard('a3')
-    .getByLabel(/Documents for the agent to read/)
-    .fill(note.id)
-
-  // (e) Edit a message that names an io draft: who it goes to, the subject, and the body.
-  await rcard('m2').getByRole('button', { name: 'Edit, then approve' }).click()
-  await rcard('m2').getByLabel(/^To/).fill(`${person}, ${ada}`)
-  await rcard('m2').getByLabel('Subject of your version').fill('Room booking, updated')
-  await rcard('m2').getByLabel('Body of your version').fill('Hi Sam and Ada, room 4 is booked.')
-  await rpage.locator('[data-save="saved"]').waitFor()
-  await rpage.getByRole('button', { name: 'Submit', exact: true }).click()
-  await rpage.getByText('Submitted.', { exact: false }).waitFor()
-  // Decided items leave the dossier view; Show all items brings them back.
-  await rpage.locator('[data-item="a1"]').waitFor({ state: 'detached' })
-  await rpage.getByRole('button', { name: 'Show all items' }).click()
-  await rpage.locator('[data-item="a1"][data-state="denied"]').waitFor()
-  check(
-    (await rcard('a1').getByText('Room 1 is closed.').count()) > 0,
-    'a declined item shows denied with the reason',
-  )
-  await rpage.reload()
-  await rcard('a2').waitFor()
-  check(
-    (await rpage.locator('[data-item="a3"]').count()) === 0,
-    'an item sent to an agent is not in the default dossier view',
-  )
-  await rpage.getByRole('button', { name: 'Show all items' }).click()
-  await rcard('a3').waitFor()
-  check(
-    (await rpage.locator('[data-item="a2"][data-state="pending"]').count()) === 1,
-    'a skip is not stored: after submit the skipped item is still to decide',
-  )
-  check(
-    (await rpage
-      .locator('[data-item="a3"][data-state="sent_back"] [data-review="sent_back"]')
-      .count()) === 1,
-    'the asked item shows the sent back chip',
-  )
-  {
-    const resp = await agent.call('proposal_response', { id: rooms.id })
-    const item = (id) => resp.items.find((x) => x.id === id) ?? {}
-    check(
-      item('a2').answer?.decision !== 'skip' && item('a2').answer?.comment === 'After the launch.',
-      'proposal_response shows no skip, and the note stays as a comment',
-    )
-    check(
-      item('a3').answer?.decision === 'ask' &&
-        item('a3').answer?.comment === `duplicate of ${ask}` &&
-        (item('a3').answer?.refs ?? []).some((r) => r.includes(note.id)),
-      'proposal_response shows the ask note and the ref',
-    )
-    const queued = await agent.call('request_list', {})
-    check(
-      queued.items.some(
-        (r) => r.title === 'Ask: Book room 3' && (r.links ?? []).some((l) => l.includes(rooms.id)),
-      ),
-      'the ask queued agent work',
-    )
-    const drafted = await agent.call('io_show', { id: ioEdit })
-    check(
-      drafted.doc.body.includes('Hi Sam and Ada, room 4 is booked.') &&
-        drafted.item.subject === 'Room booking, updated' &&
-        drafted.item.to.some((t) => t.includes(ada)),
-      `the io draft holds the edited text (${JSON.stringify(drafted.item.to)} ${drafted.item.subject})`,
-    )
-  }
-
-  // (f) Done by me on a message: the item is done, its io draft is sent and filed.
-  await rcard('m3').locator('[data-act="done"]').click()
-  await rcard('m3')
-    .getByLabel('Link to the result (optional)')
-    .fill('https://mail.acme.example/sent/42')
-  await rcard('m3').getByRole('button', { name: 'Confirm done' }).click()
-  await rpage.locator('[data-item="m3"][data-state="done"]').waitFor()
-  {
-    const sent = await agent.call('io_show', { id: ioMine })
-    check(
-      sent.item.state === 'sent' && /^interaction-/.test(sent.item.became ?? ''),
-      `Done by me marks the io draft sent and files an interaction (${sent.item.state} ${sent.item.became})`,
-    )
-  }
-
   // Done by me on an outbox draft page.
   await rpage.goto(`${base}/io/${ioPage}`)
   await rpage.getByRole('heading', { name: 'Minutes' }).waitFor()
@@ -1202,7 +881,10 @@ try {
     await rpage.locator('[data-next-card] [data-act="skip"]').click()
     await cardOf(deck[1].id).waitFor()
     rpage.off('request', onWrite)
-    check(writes.length === 0, `Skip shows the next card and sends no write (${writes.join(' | ')})`)
+    check(
+      writes.length === 0,
+      `Skip shows the next card and sends no write (${writes.join(' | ')})`,
+    )
     // Skip on to the first task, then Done.
     await rpage.goto(`${base}/next`)
     await cardOf(deck[0].id).waitFor()
@@ -1243,80 +925,6 @@ try {
     const ok = (await agent.call('io_show', { id: ioNext })).item
     check(ok.state === 'ready', `a on a ready draft approves it and the card leaves (${ok.state})`)
   }
-
-  // The stack: Decline needs a note there too. With one the card leaves at once, a toast says what
-  // was done with an Undo, and Undo brings the card back, pending. Declined again, it is denied.
-  await rpage.goto(`${base}/stack`)
-  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
-  const msgSel = `[data-row^="${proposal.id}/"][data-kind="message"]`
-  const msgRow = rpage.locator(msgSel).first()
-  await msgRow.waitFor()
-  const msgKey = await msgRow.getAttribute('data-row')
-  await msgRow.locator('[data-act="decline"]').click()
-  const declineForm = msgRow.locator('[data-note-form="decline"]')
-  const declineButton = declineForm.getByRole('button', { name: 'Decline', exact: true })
-  check(await declineButton.isDisabled(), 'on the stack a decline with no note is refused')
-  await declineForm.getByLabel('Why you decline (required)').fill('Sam is away.')
-  await declineButton.click()
-  await rpage.locator(`[data-row="${msgKey}"]`).waitFor({ state: 'detached' })
-  const declined = rpage.locator('[data-toast="info"]').filter({ hasText: 'Declined:' })
-  await declined.waitFor()
-  check(true, 'a decline on the stack removes the card and shows a toast')
-  await declined.getByRole('button', { name: 'Undo' }).click()
-  await rpage.locator(`[data-row="${msgKey}"][data-state="pending"]`).waitFor()
-  check(
-    (await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).count()) === 1,
-    'Undo puts the declined card back, pending, and confirms Undone',
-  )
-  await rpage.locator(`[data-row="${msgKey}"] [data-act="decline"]`).click()
-  await rpage
-    .locator(`[data-row="${msgKey}"] [data-note-form="decline"]`)
-    .getByLabel('Why you decline (required)')
-    .fill('Sam is away.')
-  await rpage
-    .locator(`[data-row="${msgKey}"] [data-note-form="decline"]`)
-    .getByRole('button', { name: 'Decline', exact: true })
-    .click()
-  await rpage.locator(`[data-row="${msgKey}"]`).waitFor({ state: 'detached' })
-  await rpage.goto(`${base}/stack?state=closed`)
-  await rpage.locator(`[data-row="${msgKey}"][data-state="denied"]`).waitFor()
-  check(
-    (await rpage.locator(`[data-row="${msgKey}"]`).getByText('Sam is away.').count()) === 1,
-    'the declined row is denied, with the reason, under the closed chip',
-  )
-  await rpage.goto(`${base}/stack`)
-  await rpage.getByRole('heading', { name: 'Stack' }).waitFor()
-
-  // (d) An open vault question answered from the stack leaves it.
-  const demo = idOf(
-    para(
-      ...v,
-      'question',
-      'add',
-      'Which day for the demo?',
-      '-p',
-      proj,
-      '--kind',
-      'decision',
-      '--option',
-      'Tue',
-      '--option',
-      'Thu',
-      '--json',
-    ),
-  )
-  await rpage.reload()
-  const qRow = rpage.locator(`[data-row][data-question="${demo}"]`)
-  await qRow.waitFor()
-  await qRow.locator('[data-act="open"]').click()
-  const qCard = qRow.locator('[data-vault-question]')
-  await qCard.getByRole('radio', { name: 'Thu' }).click()
-  await qCard.getByRole('button', { name: 'Answer', exact: true }).click()
-  await qRow.waitFor({ state: 'detached' })
-  check(
-    para(...v, 'question', 'show', demo, '--json').includes('Thu'),
-    'a vault question answered on the stack leaves it, answered',
-  )
 
   // Notes on any item: a save on notes that changed since they were opened is refused, the page
   // shows the current notes, and the next save, based on them, goes through.
@@ -1576,26 +1184,6 @@ try {
     /"status":\s*"todo"/.test(para(...v, 'task', 'show', agendaTask, '--json')),
     'Reopen on a closed task page opens it again',
   )
-
-  // Skip is navigation in one visit, stored nowhere: j moves to the first row, s skips it at once
-  // (no note), the card leaves this visit's to-decide view, stays proposed with no date, and returns
-  // the next time the stack is opened (a reload is a new visit).
-  await rpage.goto(`${base}/stack`)
-  await rpage.locator('[data-row]').first().waitFor()
-  const skipKey = await rpage.locator('[data-row]').first().getAttribute('data-row')
-  await rpage.keyboard.press('j')
-  await rpage.keyboard.press('s')
-  check((await rpage.locator('[data-note-form="skip"]').count()) === 0, 's skips with no note form')
-  await rpage.locator('[data-toast]').filter({ hasText: 'Skipped' }).first().waitFor()
-  await rpage.locator(`[data-row="${skipKey}"]`).waitFor({ state: 'detached' })
-  check(true, 'a skipped card leaves the to-decide view with a toast')
-  await rpage.goto(`${base}/stack?state=proposed`)
-  await rpage.locator(`[data-row="${skipKey}"][data-stack="proposed"]`).waitFor()
-  check(true, 'a skip never defers: the item is still proposed')
-  await rpage.goto(`${base}/stack`)
-  await rpage.reload()
-  await rpage.locator(`[data-row="${skipKey}"]`).waitFor()
-  check(true, 'reopening the stack (a new batch) returns the skipped item')
 
   // Omni bar: / focuses it, typing lists results, a pasted id and Enter open the document.
   await rpage.goto(`${base}/agenda`)

@@ -17,13 +17,11 @@ export type OmniEntry = {
 export const PAGES: { label: string; to: string; words: string[] }[] = [
   { label: 'Today', to: '/today', words: ['today'] },
   { label: 'Agenda', to: '/agenda', words: ['agenda'] },
-  { label: 'Stack', to: '/stack', words: ['stack', 'review'] },
   {
     label: 'Asked of agents',
     to: '/requests',
     words: ['asked', 'sent', 'loop', 'requests', 'agent', 'agent work'],
   },
-  { label: 'Recent agent writes', to: '/writes', words: ['writes', 'recent'] },
   { label: 'Work', to: '/work', words: ['work', 'goals'] },
   { label: 'Asks', to: '/rfx', words: ['asks', 'rfx'] },
   { label: 'People', to: '/people', words: ['people'] },
@@ -31,7 +29,6 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
   { label: 'Questions', to: '/questions', words: ['questions'] },
   { label: 'Receipts', to: '/receipts', words: ['receipts'] },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },
-  { label: 'Proposals', to: '/proposals', words: ['proposals'] },
   { label: 'IO', to: '/io', words: ['io', 'messages'] },
   { label: 'Docs', to: '/docs', words: ['docs', 'tracked'] },
   { label: 'Sources', to: '/sources', words: ['sources'] },

@@ -1,25 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { graphql } from '@/gql'
-import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
 import { closeAny, sendToAgent } from '@/api/verbs'
 
 // The composer's calls: send the owner's words about an item to an agent (send_to_agent, which runs
-// agent_send), take it back while no agent has it (agent_unsend), and close a task or a meeting the
+// agent_send), take it back while no agent has it (close on the request), and close a task or a meeting the
 // owner saved notes on (close).
-
-const AgentUnsendDoc = graphql(/* GraphQL */ `
-  mutation AgentUnsend($body: para_AgentUnsendInputInput!) {
-    para {
-      v1 {
-        agentUnsend(body: $body) {
-          id
-          status
-        }
-      }
-    }
-  }
-`)
 
 export function useAgentSend() {
   const qc = useQueryClient()
@@ -47,11 +31,10 @@ export function useAgentSend() {
   })
 }
 
+// agentUnsend takes a request back while no agent has it: close on the request id with no outcome
+// cancels it.
 export async function agentUnsend(request: string) {
-  return need(
-    (await gqlClient.request(AgentUnsendDoc, { body: { request } })).para.v1.agentUnsend,
-    'agent unsend',
-  )
+  await closeAny({ id: request })
 }
 
 // closeItem marks a task done, a meeting held, or an ask closed (close with no outcome) after the

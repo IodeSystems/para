@@ -23,7 +23,6 @@ import { useWork } from '@/api/work'
 import { Empty, PageTitle, StatusChip } from '@/components/Bits'
 import { SearchState } from '@/components/SearchState'
 import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
 import { highlight, readable } from '@/lib/highlight'
 import { hitKindLabel } from '@/lib/hitkind'
 import { nameOr } from '@/lib/names'
@@ -262,13 +261,7 @@ function Search() {
                         {h.unverified && <StatusChip tone="attn" label="unverified" />}
                       </Stack>
                       <Typography sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
-                        {h.kind === 'proposal' ? (
-                          <TextLink to="/proposals/$id" params={{ id: h.id }} underline="hover">
-                            {h.title || nameOr('', h.id)}
-                          </TextLink>
-                        ) : (
-                          <DocLink id={h.id}>{h.title || nameOr('', h.id)}</DocLink>
-                        )}
+                        <DocLink id={h.id}>{h.title || nameOr('', h.id)}</DocLink>
                       </Typography>
                       <Typography
                         variant="body2"
