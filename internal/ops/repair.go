@@ -80,7 +80,9 @@ type DocRenameOutput struct {
 }
 
 // DocRename renames a document's file and rewrites every wikilink to it.
-var DocRename = define("doc_rename", "Rename a document (its id and file name) and rewrite every link to it; refuses an id that is taken", func(ctx context.Context, d Deps, in DocRenameInput) (DocRenameOutput, error) {
+// receipt_undo cannot reverse it: the undo restores text, not the old id, and
+// dossiers keep no receipt of their rewritten links.
+var DocRename = withNoUndo(define("doc_rename", "Rename a document (its id and file name) and rewrite every link to it; refuses an id that is taken. It cannot be undone, so the owner makes it", func(ctx context.Context, d Deps, in DocRenameInput) (DocRenameOutput, error) {
 	id, newID := normID(in.ID), normID(in.NewID)
 	if id == "" || newID == "" {
 		return DocRenameOutput{}, errors.New("doc_rename: id and new_id are required")
@@ -125,7 +127,7 @@ var DocRename = define("doc_rename", "Rename a document (its id and file name) a
 		}
 	}
 	return out, nil
-})
+}))
 
 // DocRetypeInput is the input of doc_retype. Fields are frontmatter keys to set;
 // give each field the new type requires and the document lacks.
@@ -389,6 +391,13 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 	allowed := paramd.EditableFields(string(typ))
 	if allowed == nil {
 		return DocEditOutput{}, fmt.Errorf("doc_edit: a %s is not edited here; it has its own ops", typ)
+	}
+	if r, ok := doc.Meta.(*model.Request); ok && agentSurface(d) && d.Store.Info().Surface != surfaceProposal {
+		// Text an agent read must not change what another agent runs: an
+		// agent edits only agent work it holds itself (plan N).
+		if r.Status != model.RequestClaimed || r.Claimed != d.Store.Info().Actor {
+			return DocEditOutput{}, fmt.Errorf("doc_edit: %s is agent work you do not hold (%s): an agent edits only its own claimed work; note on it with request_note, or ask the owner", doc.ID, r.Status)
+		}
 	}
 	in.Fields = snakeFields(in.Fields)
 	for k := range in.Fields {

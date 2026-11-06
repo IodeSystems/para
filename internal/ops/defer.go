@@ -16,8 +16,8 @@ import (
 // item that waits for them off. A dossier item and an io item return on their
 // date only; the others may also wait on an item. It keeps its place in
 // the dependency graph, so it still blocks what depends on it, and it comes
-// back on its date in local time. An agent's defer is held for review unless
-// it carries the owner's words (owner_said), so an agent cannot hide work.
+// back on its date in local time. An agent's defer applies, with a receipt
+// the owner can undo; undefer is the owner's.
 // Events carry ids and metadata, never the reason.
 
 // deferralOf returns the deferral of a deferrable document, or nil.
@@ -181,8 +181,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = withProposalReceipts(withGateRule(define("defer", "Put questions, tasks, goals, io items, or dossier items off until a date, or someday with no date; they leave the agenda, next, the order, and the review stack (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag, dossier, or group still lists it (state later), and an agent that builds a stack for a topic may include it and say so, but must not undefer it. ids may name a dossier (its items that wait for the owner); items name dossier items {proposal, item}; tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed. "+
-	"Gate: an agent's defer is held for review unless the call carries owner_said (the owner's words in this session)", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
+var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, io items, or dossier items off until a date, or someday with no date; they leave the agenda, next, the order, and the review stack (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag, dossier, or group still lists it (state later), and an agent that builds a stack for a topic may include it and say so, but must not undefer it. ids may name a dossier (its items that wait for the owner); items name dossier items {proposal, item}; tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
 	after, when := normID(in.After), strings.Join(strings.Fields(in.When), " ")
@@ -281,7 +280,7 @@ var Defer = withProposalReceipts(withGateRule(define("defer", "Put questions, ta
 		return out, err
 	}
 	return out, nil
-}), deferGate))
+}))
 
 // UndeferInput is the input of undefer.
 type UndeferInput struct {
@@ -405,14 +404,6 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		return "", nil, fmt.Errorf("when: %w", err)
 	}
 	return out.ID, nil, nil
-}
-
-// deferGate holds an agent's defer for review unless the owner said it.
-func deferGate(_ DeferInput, m WriteMeta) (gateVerdict, string) {
-	if strings.TrimSpace(m.OwnerSaid) != "" {
-		return gatePass, ""
-	}
-	return gateStage, "owner_said"
 }
 
 // deferrable lists the vault types defer puts off by id.

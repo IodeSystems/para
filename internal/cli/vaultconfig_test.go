@@ -55,11 +55,15 @@ func TestVaultConfigCLI(t *testing.T) {
 		t.Fatalf("unset vault.id: %s", out)
 	}
 
-	// Agent: tuning keys yes, egress.* no, and why is required.
+	// Agent: why is required, and a setting cannot be undone, so every key is
+	// the owner's.
 	if out := fail("--actor", "claude", "vault", "config", "set", "align.days", "7"); !strings.Contains(out, "--why is required") {
 		t.Fatalf("agent, no why: %s", out)
 	}
-	e.ok("--actor", "claude", "--why", "The owner asked for a 7 day check.", "vault", "config", "set", "align.days", "7")
+	if out := fail("--actor", "claude", "--why", "The owner asked for a 7 day check.", "vault", "config", "set", "align.days", "7"); !strings.Contains(out, "cannot be undone") {
+		t.Fatalf("agent tuning key: %s", out)
+	}
+	e.ok("vault", "config", "set", "align.days", "7")
 	if out := fail("--actor", "claude", "--why", "Open it up.", "vault", "config", "set", "egress.default", "allow"); !strings.Contains(out, "only the owner") {
 		t.Fatalf("agent egress: %s", out)
 	}

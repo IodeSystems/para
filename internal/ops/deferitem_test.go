@@ -78,26 +78,20 @@ func TestDeferDossierHidesItsOpenItemsUntilTheDate(t *testing.T) {
 	}
 }
 
-func TestAgentDeferOfItemsIsGatedAndUndoable(t *testing.T) {
+// An agent's defer of dossier items is undoable: it applies at once, and its
+// receipt undoes it.
+func TestAgentDeferOfItemsAppliesAndUndoes(t *testing.T) {
 	f, _ := clockFix(t)
 	p := fileDossierMD(t, f, dossierMD(f))
 	in := DeferInput{Items: []ItemRef{{Proposal: p, Item: "q1"}}, Until: "2026-11-20"}
-	if _, err := Defer.Run(WithWrite(t.Context(), WriteMeta{Why: "Not now.", Minor: true, Obvious: true}), f.agent, in); err == nil {
-		t.Fatal("an agent defer without owner_said ran")
-	} else if _, ok := AsStaged(err); !ok {
-		t.Fatalf("agent defer = %v, want staged", err)
-	}
-	if got := stackItems(t, f.owner, ProposalStackInput{State: StackLater}); len(got) != 0 {
-		t.Fatalf("a staged defer ran: %v", got)
-	}
-	if _, err := Defer.Run(WithWrite(t.Context(), WriteMeta{Why: "Owner asked.", OwnerSaid: "push the vendor question to the 20th"}), f.agent, in); err != nil {
+	if _, err := Defer.Run(WithWrite(t.Context(), WriteMeta{Why: "Not now."}), f.agent, in); err != nil {
 		t.Fatal(err)
 	}
 	if got := stackItems(t, f.owner, ProposalStackInput{State: StackLater}); !slices.Equal(got, []string{p + "#q1"}) {
 		t.Fatalf("later = %v", got)
 	}
 	rs := must(t, ReceiptList, f.owner, ReceiptListInput{Op: "defer", Actor: "claude"}).Items
-	if len(rs) != 1 || !rs[0].SelfReported {
+	if len(rs) != 1 || rs[0].SelfReported {
 		t.Fatalf("receipts = %+v", rs)
 	}
 	must(t, ReceiptUndo, f.owner, ReceiptUndoInput{ID: rs[0].ID})

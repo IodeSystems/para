@@ -23,8 +23,7 @@ const TaskResolveDescription = "Close a task with an outcome. " +
 	"failed: it was tried and could not be done; needs tried and stopped_because, optional retry_after (health and agenda list it again on that day). " +
 	"rerouted: another task, Ask, or an outside system holds the work now; needs to (a vault id or a URL) and reason; dependents move to a vault task or Ask, else they are released with a warning. " +
 	"follow_ups are titles of new tasks in the same goal or area; dependents move to the first one. " +
-	"On declined, failed, rerouted, and dropped, the output lists the open Asks that hang on this task only: declined and dropped close them, failed and rerouted leave them open for a decision. " +
-	"Gate: failed and rerouted are always held for review unless the call carries owner_said; declined with declined_by owner passes with owner_said."
+	"On declined, failed, rerouted, and dropped, the output lists the open Asks that hang on this task only: declined and dropped close them, failed and rerouted leave them open for a decision."
 
 // closeFields are the checked outcome fields of a task_resolve.
 type closeFields struct {
@@ -268,23 +267,4 @@ func settleAsks(ctx context.Context, d Deps, id string, outcome model.TaskOutcom
 		out = append(out, e)
 	}
 	return out, nil
-}
-
-// taskResolveGate: failed and rerouted wait for review unless the owner said
-// so in the session (owner_said); declined by the owner passes with
-// owner_said. Every other close is gated as any write.
-func taskResolveGate(in TaskResolveInput, m WriteMeta) (gateVerdict, string) {
-	said := strings.TrimSpace(m.OwnerSaid) != ""
-	switch in.Outcome {
-	case model.OutcomeFailed, model.OutcomeRerouted:
-		if said {
-			return gatePass, ""
-		}
-		return gateStage, "owner_said"
-	case model.OutcomeDeclined:
-		if said && in.DeclinedBy == model.DeclinedByOwner {
-			return gatePass, ""
-		}
-	}
-	return gateDefault, ""
 }

@@ -60,6 +60,7 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		if err != nil {
 			return err
 		}
+		l.ratingsNote(cmd)
 		deps, err := l.deps()
 		if err != nil {
 			return err
@@ -71,9 +72,6 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 			return runAlias(cmd, a, ctx, deps, in, b.Text)
 		}
 		out, err := op.Run(ctx, deps, in)
-		if s, ok := ops.AsStaged(err); ok {
-			return emitStaged(cmd, s)
-		}
 		if err != nil {
 			return err
 		}
@@ -91,9 +89,6 @@ func runAlias[I, O any](cmd *cobra.Command, a ops.Entry, ctx context.Context, de
 		return fmt.Errorf("cli: %s: %w", a.Name(), err)
 	}
 	res, err := a.Invoke(ctx, deps, raw)
-	if s, ok := ops.AsStaged(err); ok {
-		return emitStaged(cmd, s)
-	}
 	if err != nil {
 		return err
 	}
@@ -164,18 +159,22 @@ func (l *loader) writeContext(ctx context.Context, e ops.Entry, in any) (context
 	if why == "" {
 		return ctx, fmt.Errorf("%s: --why is required: say why you make this write as actor %s", e.Name(), l.actor())
 	}
-	return ops.WithWrite(ctx, ops.WriteMeta{Why: why, Minor: l.minorFlag, Obvious: l.obviousFlag, Dossier: strings.TrimSpace(l.dossierFlag)}), nil
+	return ops.WithWrite(ctx, ops.WriteMeta{Why: why}), nil
 }
 
-// emitStaged prints a write the gate held back. It is a success: the write
-// waits in the review stack.
-func emitStaged(cmd *cobra.Command, s *ops.Staged) error {
-	return emit(cmd, *s, func(w io.Writer, s ops.Staged) error {
-		p := &printer{w: w}
-		p.f("staged\t%s\t%s\t%s\n%s\n", s.Proposal, s.Item, strings.Join(s.Missing, ","), s.Message)
-		if s.URL != "" {
-			p.f("url: %s\n", s.URL)
+// ratingsNote says on stderr that --minor, --obvious, and --dossier decide
+// nothing since 0.3.0. They are accepted for one release.
+func (l *loader) ratingsNote(cmd *cobra.Command) {
+	var names []string
+	for _, f := range []struct {
+		name string
+		set  bool
+	}{{"minor", l.minorFlag}, {"obvious", l.obviousFlag}, {"dossier", strings.TrimSpace(l.dossierFlag) != ""}} {
+		if f.set {
+			names = append(names, f.name)
 		}
-		return p.err
-	})
+	}
+	if len(names) > 0 {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", ops.RatingsNote(names))
+	}
 }

@@ -34,7 +34,6 @@ func attachVault(t *testing.T) (Deps, string) {
 	if err := vault.Init(root, "acme", tpl, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	noGate(t, root)
 	now := time.Date(2026, 11, 5, 14, 3, 9, 0, time.Local)
 	s, err := local.Open(root, vault.Options{ID: "acme", Actor: "user", Surface: "cli", Install: "m1",
 		StateDir: filepath.Join(filepath.Dir(root), "state"), Now: func() time.Time { return now }})

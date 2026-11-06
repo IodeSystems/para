@@ -63,6 +63,9 @@ const (
 	// HealthAgentWorkStale is work the owner asked of agents (owner-ask,
 	// sent-to-agent) queued or claimed with no change in a day.
 	HealthAgentWorkStale = "agent_work_stale"
+	// HealthGateUnused is the vault setting gate.require, set and read by
+	// nothing since 0.3.0.
+	HealthGateUnused = "gate_setting_unused"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -77,7 +80,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
-	HealthUnreviewedOutward, HealthAgentWorkStale,
+	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -118,6 +121,7 @@ var HealthKindWords = map[string]string{
 	HealthSourceMissing:      "Item cites a source not in the vault",
 	HealthUnreviewedOutward:  "Sent as the owner with no record",
 	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
+	HealthGateUnused:         "Vault setting no longer used",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -219,6 +223,12 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	}
 	if err := h.tooManyActive(s, goalRank); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
+	if v, err := s.Config(GateConfig); err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	} else if v != "" {
+		h.add(HealthGateUnused, "", "", fmt.Sprintf("%s is set (%s) and no longer used: an undoable agent write applies at once, and one that cannot be undone needs the owner", GateConfig, v),
+			"the owner runs para vault config unset "+GateConfig)
 	}
 
 	// Dismissed findings are left out and counted.

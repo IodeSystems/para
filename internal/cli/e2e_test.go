@@ -75,7 +75,6 @@ func (e *env) init(id string) string {
 	e.t.Helper()
 	path := filepath.Join(e.dir, id)
 	e.ok("init", id, path)
-	noGate(e.t, path)
 	return path
 }
 

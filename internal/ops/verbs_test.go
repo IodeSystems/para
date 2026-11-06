@@ -21,8 +21,6 @@ type verbVault struct {
 	person          string
 }
 
-func isStaged(err error) bool { _, ok := AsStaged(err); return ok }
-
 func newVerbVault(t *testing.T) *verbVault {
 	t.Helper()
 	rv := newReqVault(t)
@@ -298,8 +296,8 @@ func TestAliasFallsBackToOldOp(t *testing.T) {
 }
 
 // Every alias lands in its old op's gate class: the same risk, person flag,
-// and undo, and with the default gate an agent's call is held back with the
-// same missing properties as the old op's.
+// and undo, and an agent's call applies the same way through the old op, the
+// alias, and the verb.
 func TestAliasGateClass(t *testing.T) {
 	for _, name := range AliasNames() {
 		a := aliases[name]
@@ -307,58 +305,32 @@ func TestAliasGateClass(t *testing.T) {
 			t.Errorf("%s: class differs from the old op", name)
 		}
 	}
-	gated := func(t *testing.T) *verbVault {
-		v := newVerbVault(t)
-		if err := v.cli.Store.SetConfig(t.Context(), gateConfig, "undoable,minor,obvious"); err != nil {
-			t.Fatal(err)
-		}
-		return v
-	}
-	cases := []struct {
-		old, oldIn, verb, verbIn string
-		minor                    bool
-	}{
-		{"task_done", `{"id":"%s"}`, "close", `{"id":"%s"}`, true},
-		{"task_done", `{"id":"%s"}`, "close", `{"id":"%s"}`, false},
+	cases := []struct{ old, oldIn, verb, verbIn string }{
+		{"task_done", `{"id":"%s"}`, "close", `{"id":"%s"}`},
 		{"task_resolve", `{"id":"%s","outcome":"failed","tried":"Twice.","stopped_because":"No access."}`, "close",
-			`{"id":"%s","outcome":"failed","fields":{"tried":"Twice.","stopped_because":"No access."}}`, true},
-		{"defer", `{"ids":["%s"],"until":"2026-12-01"}`, "later", `{"ids":["%s"],"until":"2026-12-01"}`, true},
+			`{"id":"%s","outcome":"failed","fields":{"tried":"Twice.","stopped_because":"No access."}}`},
+		{"defer", `{"ids":["%s"],"until":"2026-12-01"}`, "later", `{"ids":["%s"],"until":"2026-12-01"}`},
 	}
 	for _, c := range cases {
-		run := func(t *testing.T, call func(ctx context.Context, d Deps, id string) error) (staged *Staged, applied bool) {
-			v := gated(t)
+		run := func(t *testing.T, call func(ctx context.Context, d Deps, id string) error) {
+			v := newVerbVault(t)
 			id := v.task(t, "Send the plan")
-			ctx := WithWrite(t.Context(), WriteMeta{Why: "The owner asked.", Minor: c.minor, Obvious: true, Confidence: model.ConfidenceHigh})
-			err := call(ctx, v.agent, id)
-			if s, ok := AsStaged(err); ok {
-				return s, false
+			if err := call(WithWrite(t.Context(), WriteMeta{Why: "The owner asked."}), v.agent, id); err != nil {
+				t.Fatalf("%s: %v", c.old, err)
 			}
-			if err != nil {
-				t.Fatal(err)
-			}
-			return nil, true
 		}
-		direct := func(ctx context.Context, d Deps, id string) error {
+		run(t, func(ctx context.Context, d Deps, id string) error {
 			_, err := registry[c.old].Invoke(ctx, d, json.RawMessage(fill(c.oldIn, id)))
 			return err
-		}
-		viaAlias := func(ctx context.Context, d Deps, id string) error {
+		})
+		run(t, func(ctx context.Context, d Deps, id string) error {
 			_, err := Alias(c.old).Invoke(ctx, d, json.RawMessage(fill(c.oldIn, id)))
 			return err
-		}
-		viaVerb := func(ctx context.Context, d Deps, id string) error {
+		})
+		run(t, func(ctx context.Context, d Deps, id string) error {
 			_, err := registry[c.verb].Invoke(ctx, d, json.RawMessage(fill(c.verbIn, id)))
 			return err
-		}
-		sd, ad := run(t, direct)
-		sa, aa := run(t, viaAlias)
-		sv, av := run(t, viaVerb)
-		if ad != aa || ad != av {
-			t.Fatalf("%s minor=%v: applied old %v alias %v verb %v", c.old, c.minor, ad, aa, av)
-		}
-		if sd != nil && (!reflect.DeepEqual(sd.Missing, sa.Missing) || !reflect.DeepEqual(sd.Missing, sv.Missing) || sd.Op != sa.Op || sd.Op != sv.Op) {
-			t.Fatalf("%s: staged old %+v alias %+v verb %+v", c.old, sd, sa, sv)
-		}
+		})
 	}
 }
 
@@ -413,8 +385,6 @@ func TestVerbScopeMatrix(t *testing.T) {
 				if !errors.Is(err, ErrPersonOnly) {
 					t.Errorf("%s %s on %s: err %v, want person only", c.name, c.input, surface, err)
 				}
-			case agent && isStaged(err):
-				continue // the routed op's gate held it back, as it holds the op itself
 			case err != nil:
 				t.Errorf("%s %s on %s: %v", c.name, c.input, surface, err)
 			}

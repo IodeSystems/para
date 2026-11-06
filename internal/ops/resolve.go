@@ -87,7 +87,7 @@ type TaskResolveOutput struct {
 // TaskResolve closes a task with an outcome. done is task_done, recurrence
 // included. The others close the task without claiming it was finished, and a
 // dependent never waits on a closed item that did not finish.
-var TaskResolve = withOneReceipt(withGateRule(defineSafe("task_resolve", TaskResolveDescription, func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
+var TaskResolve = withOneReceipt(defineSafe("task_resolve", TaskResolveDescription, func(ctx context.Context, d Deps, in TaskResolveInput) (TaskResolveOutput, error) {
 	id := normID(in.ID)
 	outcome := in.Outcome
 	if outcome == "" {
@@ -304,7 +304,7 @@ var TaskResolve = withOneReceipt(withGateRule(defineSafe("task_resolve", TaskRes
 		}
 	}
 	return out, nil
-}), taskResolveGate))
+}))
 
 func wikilinks(ids []string) string {
 	parts := make([]string, len(ids))

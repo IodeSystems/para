@@ -141,12 +141,19 @@ func (s *Server) access(next http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" || r.Header.Get("X-Para-Dossier") != "" ||
-			r.Header.Get("X-Para-Minor") != "" || r.Header.Get("X-Para-Obvious") != "" || r.Header.Get("X-Para-Owner-Said") != "" {
+		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" {
 			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
-				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate"),
-				Minor: headerTrue(r.Header.Get("X-Para-Minor")), Obvious: headerTrue(r.Header.Get("X-Para-Obvious")), Dossier: r.Header.Get("X-Para-Dossier"),
-				OwnerSaid: r.Header.Get("X-Para-Owner-Said")}))
+				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate")}))
+		}
+		// Rating headers are accepted and ignored for one release, with a note.
+		var ignored []string
+		for _, name := range ops.IgnoredRatings {
+			if r.Header.Get(ratingHeader(name)) != "" {
+				ignored = append(ignored, name)
+			}
+		}
+		if len(ignored) > 0 {
+			w.Header().Set("X-Para-Note", ops.RatingsNote(ignored))
 		}
 		next.ServeHTTP(sw, r)
 		req, _ := netguard.From(r.Context())
@@ -155,13 +162,14 @@ func (s *Server) access(next http.Handler) http.Handler {
 	})
 }
 
-// headerTrue reads a rating header: true, 1, or yes.
-func headerTrue(v string) bool {
-	switch strings.ToLower(strings.TrimSpace(v)) {
-	case "true", "1", "yes":
-		return true
+// ratingHeader is the header an agent sent a rating in before 0.3.0:
+// owner_said is X-Para-Owner-Said.
+func ratingHeader(name string) string {
+	parts := strings.Split(name, "_")
+	for i, p := range parts {
+		parts[i] = strings.ToUpper(p[:1]) + p[1:]
 	}
-	return false
+	return "X-Para-" + strings.Join(parts, "-")
 }
 
 func isAPIPath(p string) bool {

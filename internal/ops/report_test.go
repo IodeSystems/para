@@ -18,7 +18,7 @@ func TestReportOutcomes(t *testing.T) {
 	}
 	mustRun(t, TaskDone, f.owner, TaskDoneInput{ID: add("One")})
 	mustRun(t, TaskResolve, f.owner, TaskResolveInput{ID: add("Two"), Outcome: model.OutcomeDropped, Note: "Not needed."})
-	said := WithWrite(t.Context(), WriteMeta{Why: "Owner said.", OwnerSaid: "it failed", Confidence: model.ConfidenceHigh, Minor: true, Obvious: true})
+	said := WithWrite(t.Context(), WriteMeta{Why: "Owner said.", OwnerSaid: "it failed", Confidence: model.ConfidenceHigh})
 	if _, err := TaskResolve.Run(said, f.agent, TaskResolveInput{ID: add("Three"), Outcome: model.OutcomeFailed, Tried: "x", StoppedBecause: "y"}); err != nil {
 		t.Fatal(err)
 	}

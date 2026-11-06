@@ -7,20 +7,10 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-// gatedVault is laterVault with the default gate: undoable, minor, obvious.
-func gatedVault(t *testing.T) (Deps, string) {
-	t.Helper()
-	d, proj := laterVault(t)
-	if err := d.Store.SetConfig(ctx, gateConfig, "undoable,minor,obvious"); err != nil {
-		t.Fatal(err)
-	}
-	return d, proj
-}
-
 func TestFeedbackAddFilesTaggedIO(t *testing.T) {
-	d, _ := gatedVault(t)
+	d, _ := laterVault(t)
 	ag := agentDeps(d, "scribe")
-	out, err := FeedbackAdd.Run(WithWrite(ctx, WriteMeta{Why: "The error lacked the field.", Minor: true, Obvious: true}), ag,
+	out, err := FeedbackAdd.Run(WithWrite(ctx, WriteMeta{Why: "The error lacked the field."}), ag,
 		FeedbackAddInput{Text: "proposal_decide refused decision with no hint.", Kind: FeedbackBug, Tool: "proposal_decide"})
 	if err != nil {
 		t.Fatal(err)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/iodesystems/para/internal/netguard"
@@ -30,4 +31,23 @@ func TestReviewDecideScope(t *testing.T) {
 	writer := f.key(f.keyA, "writer", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/stack/decide", header: f.cookieHeader(writer),
 		body: `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject"}`}), 403)
+}
+
+// An agent's undoable REST write applies at once; rating headers are ignored
+// and named in X-Para-Note. A write that cannot be undone is the owner's: 403.
+func TestGateOverREST(t *testing.T) {
+	f := newFixture(t)
+	agent := f.key(f.keyA, "claude", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
+	why := map[string]string{"X-Para-Why": "The owner asked."}
+	w := f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: why, body: `{"direction":"in","text":"plain capture"}`})
+	wantStatus(t, w, 200)
+	if w.Header().Get("X-Para-Note") != "" {
+		t.Fatalf("note on an unrated write: %q", w.Header().Get("X-Para-Note"))
+	}
+	rated := map[string]string{"X-Para-Why": "The owner asked.", "X-Para-Minor": "true", "X-Para-Obvious": "true"}
+	w = f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: rated, body: `{"direction":"in","text":"rated capture"}`})
+	wantStatus(t, w, 200)
+	if note := w.Header().Get("X-Para-Note"); !strings.HasPrefix(note, "minor, obvious ignored") {
+		t.Fatalf("X-Para-Note = %q", note)
+	}
 }

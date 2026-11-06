@@ -3,7 +3,6 @@ package today
 import (
 	"context"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -39,17 +38,6 @@ func fixture(t *testing.T) (registry.Install, ops.Deps) {
 		t.Fatal(err)
 	}
 	if err := vault.Init(root, "acme", tpl, vault.InitOptions{}); err != nil {
-		t.Fatal(err)
-	}
-	props := filepath.Join(root, ".para", "vault.properties")
-	b, err := os.ReadFile(props)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(b) > 0 && b[len(b)-1] != '\n' {
-		b = append(b, '\n')
-	}
-	if err := os.WriteFile(props, append(b, "gate.require=none\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	in := registry.Install{Home: home}

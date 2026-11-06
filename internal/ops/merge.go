@@ -221,7 +221,7 @@ type DocArchiveOutput struct {
 
 // DocArchive is para's delete: the document moves to archive/ and leaves
 // every list; links to it still resolve; receipt_undo puts it back.
-var DocArchive = withOneReceipt(define("doc_archive", "Archive a document of any type (para's delete): it moves to archive/ and leaves every list, agenda, order, stack, and search; links to it still resolve. For a meeting that moved, prefer doc_merge into the new one. reason goes under ## Archived. One receipt; receipt_undo restores it", func(ctx context.Context, d Deps, in DocArchiveInput) (DocArchiveOutput, error) {
+var DocArchive = withOwnerWhen(withOneReceipt(define("doc_archive", "Archive a document of any type (para's delete): it moves to archive/ and leaves every list, agenda, order, stack, and search; links to it still resolve. For a meeting that moved, prefer doc_merge into the new one. reason goes under ## Archived. One receipt; receipt_undo restores it. An item that other items wait on is archived by the owner only", func(ctx context.Context, d Deps, in DocArchiveInput) (DocArchiveOutput, error) {
 	id := normID(in.ID)
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
@@ -249,7 +249,20 @@ var DocArchive = withOneReceipt(define("doc_archive", "Archive a document of any
 	}
 	out.Folder, out.Rev = string(moved.Folder), moved.Rev
 	return out, nil
-}))
+})), archiveNeedsOwner)
+
+// archiveNeedsOwner: an archive of an item that others wait on is the
+// owner's. Their work changes with it, and an undo does not bring that back.
+func archiveNeedsOwner(ctx context.Context, d Deps, in DocArchiveInput) (string, error) {
+	dp, err := loadDependents(ctx, d.Store)
+	if err != nil {
+		return "", err
+	}
+	if by := dp.by[normID(in.ID)]; len(by) > 0 {
+		return fmt.Sprintf("%d items wait on %s: %s", len(by), normID(in.ID), strings.Join(by, ", ")), nil
+	}
+	return "", nil
+}
 
 // DocMergesInput names a document.
 type DocMergesInput struct {

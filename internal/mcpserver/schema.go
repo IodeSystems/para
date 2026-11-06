@@ -180,10 +180,10 @@ var metaProps = map[string]schema{
 	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. Say low when you doubt the write; it is stored in the receipt"},
 	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
 	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
-	"minor":         {"type": "boolean", "description": "Rate the write minor: a small change. With obvious (and undoable, which para knows), it applies directly; otherwise it goes to the owner's review stack and does not run yet"},
-	"obvious":       {"type": "boolean", "description": "Rate the write obvious: the owner would make it without asking. Never with confidence low"},
-	"dossier":       {"type": "string", "description": "The id of your dossier a held-back write goes to; default your Staged writes dossier"},
-	"owner_said":    {"type": "string", "description": "The owner's words in this session that asked for this write. An undoable safe write with them applies without minor and obvious; some writes (defer, task_resolve failed or rerouted) are held for review without them. Stored in the receipt as self-reported"},
+	"minor":         {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
+	"obvious":       {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
+	"dossier":       {"type": "string", "description": "Ignored since 0.3.0 (goes in a later release): no write is held back"},
+	"owner_said":    {"type": "string", "description": "Ignored since 0.3.0 (goes in a later release) on every tool but io_approve: it lets no write through"},
 }
 
 // toolSchema is the input schema of a tool: the op's Input and, on a write, the
@@ -217,12 +217,13 @@ func toolSchema(e ops.Entry) (json.RawMessage, error) {
 }
 
 // takeWriteMeta moves the receipt fields out of a tool call and onto the
-// context. It refuses a write with no why.
-func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (context.Context, json.RawMessage, error) {
+// context. It refuses a write with no why. ignored lists the rating fields
+// the call carried that decide nothing (ops.IgnoredRatings).
+func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (_ context.Context, _ json.RawMessage, ignored []string, _ error) {
 	args := map[string]any{}
 	if len(input) > 0 {
 		if err := json.Unmarshal(input, &args); err != nil {
-			return ctx, input, errors.New("input: not an object")
+			return ctx, input, nil, errors.New("input: not an object")
 		}
 	}
 	own := fieldNames(e.InputType())
@@ -236,7 +237,7 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (con
 	var m ops.WriteMeta
 	m.Why, _ = take("why").(string)
 	if strings.TrimSpace(m.Why) == "" {
-		return ctx, input, errors.New("why is required: say why you make this write")
+		return ctx, input, nil, errors.New("why is required: say why you make this write")
 	}
 	if list, ok := take("sources").([]any); ok {
 		for _, v := range list {
@@ -249,19 +250,27 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (con
 	c, _ := take("confidence").(string)
 	m.Confidence = model.Confidence(c)
 	if c != "" && !slices.Contains(model.Confidences, m.Confidence) {
-		return ctx, input, fmt.Errorf("confidence %q: want low, medium, or high", c)
+		return ctx, input, nil, fmt.Errorf("confidence %q: want low, medium, or high", c)
 	}
 	m.Request, _ = take("request").(string)
 	m.NotDuplicate, _ = take("not_duplicate").(string)
-	m.Minor, _ = take("minor").(bool)
-	m.Obvious, _ = take("obvious").(bool)
-	m.Dossier, _ = take("dossier").(string)
-	m.OwnerSaid, _ = take("owner_said").(string)
+	// An op with its own owner_said (io_approve) keeps it, and its receipt
+	// is self-reported. Elsewhere it and the ratings are ignored.
+	for _, name := range ops.IgnoredRatings {
+		_, sent := args[name]
+		v := take(name)
+		switch {
+		case own[name] && name == "owner_said":
+			m.OwnerSaid, _ = v.(string)
+		case sent && !own[name]:
+			ignored = append(ignored, name)
+		}
+	}
 	b, err := json.Marshal(args)
 	if err != nil {
-		return ctx, input, errors.New("input: not JSON")
+		return ctx, input, nil, errors.New("input: not JSON")
 	}
-	return ops.WithWrite(ctx, m), b, nil
+	return ops.WithWrite(ctx, m), b, ignored, nil
 }
 
 // fieldNames lists the JSON names of a struct's fields.

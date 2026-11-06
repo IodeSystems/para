@@ -43,7 +43,6 @@ func newVault(t *testing.T) (store.Store, string) {
 	if err := vault.Init(root, "test", templates, vault.InitOptions{}); err != nil {
 		t.Fatal(err)
 	}
-	noGate(t, root)
 	s, err := local.Open(root, vault.Options{ID: "test", Actor: "agent", Surface: "mcp", Install: "install-test", StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatal(err)
@@ -146,9 +145,6 @@ func withWhy(name string, a any) any {
 		}
 		if _, has := m["why"]; ok && !has {
 			m["why"] = "test"
-			if name == "defer" || name == "later" {
-				m["owner_said"] = "put it off" // else the gate holds it
-			}
 			return m
 		}
 	}
@@ -383,6 +379,9 @@ func TestParity(t *testing.T) {
 			if res.IsError {
 				if f := failingOutput(text, e); f {
 					return
+				}
+				if !e.Undoable() && strings.Contains(text, "cannot be undone") {
+					return // the owner's write: gate_test.go
 				}
 				t.Fatalf("%s with %s failed: %s\nadd a valid input to sampleInputs", e.Name(), args, text)
 			}

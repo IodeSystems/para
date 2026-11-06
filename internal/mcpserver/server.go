@@ -237,17 +237,14 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 			}
 			input = b
 		}
+		var ignored []string
 		if ops.NeedsWhy(e) {
 			var err error
-			if ctx, input, err = takeWriteMeta(ctx, e, input); err != nil {
+			if ctx, input, ignored, err = takeWriteMeta(ctx, e, input); err != nil {
 				return mcp.NewToolResultError(e.Name() + ": " + err.Error()), nil
 			}
 		}
 		out, err := e.Invoke(ctx, s.deps, input)
-		if staged, ok := ops.AsStaged(err); ok {
-			// The gate held the write back: a success, not an error.
-			out, err = *staged, nil
-		}
 		if err != nil {
 			return mcp.NewToolResultError(s.clean(err)), nil
 		}
@@ -268,6 +265,10 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 			return mcp.NewToolResultError(e.Name() + ": output: encode failed"), nil
 		}
 		res = mcp.NewToolResultText(text)
+		if len(ignored) > 0 {
+			// The output stays as the CLI prints it; the note is its own text.
+			res.Content = append(res.Content, mcp.NewTextContent("note: "+ops.RatingsNote(ignored)))
+		}
 		if img != nil {
 			res.Content = append(res.Content, *img)
 		}

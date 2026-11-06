@@ -67,9 +67,9 @@ type Op[I, O any] struct {
 	// receipt_undo restores it (tags, deferral). Other writes leave a dossier
 	// out: it is its own record.
 	proposalReceipts bool
-	// gateRule, when set, can let a write through the gate or hold it back
-	// whatever gate.require says (withGateRule).
-	gateRule func(I, WriteMeta) (gateVerdict, string)
+	// ownerWhen, when set, names inputs that make one write of the op need
+	// the owner, as a write that cannot be undone does (withOwnerWhen).
+	ownerWhen func(ctx context.Context, d Deps, in I) (string, error)
 	// verb: a generic verb (verbs.go) that routes to the op of the item's
 	// type. That op gates and files receipts; the verb does neither.
 	verb bool
@@ -86,7 +86,7 @@ type Entry interface {
 	// Risk is the op's class: read, safe, or review.
 	Risk() Risk
 	// Undoable reports whether receipt_undo can reverse a write of the op. The
-	// gate (gate.go) lets only undoable writes apply directly.
+	// gate (gate.go) refuses an agent a write that is not undoable.
 	Undoable() bool
 	InputType() reflect.Type
 	OutputType() reflect.Type

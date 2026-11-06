@@ -39,14 +39,9 @@ type WriteMeta struct {
 	// NotDuplicate is why this create is not one of the likely matches.
 	NotDuplicate string
 	// OwnerSaid is the owner's words from a chat that approved this write, as
-	// an agent relayed them. A receipt with them is self-reported.
+	// an agent relayed them (io_approve), or that the owner gave on a dossier
+	// item. A receipt with them is self-reported. It lets no write through.
 	OwnerSaid string
-	// Minor and Obvious are the agent's ratings of the write, for the gate:
-	// minor is a small change, obvious is one the owner would make without
-	// asking. Dossier is the dossier a write the gate holds back goes to.
-	Minor   bool
-	Obvious bool
-	Dossier string
 }
 
 type (
@@ -94,35 +89,12 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 			return zero, fmt.Errorf("%s: %w", o.name, err)
 		}
 	}
-	if gated(d, o) {
-		verdict, lacks := gateDefault, ""
-		if o.gateRule != nil {
-			verdict, lacks = o.gateRule(in, writeMeta(ctx))
+	if why, err := needsOwner(ctx, d, o, in); err != nil || why != "" {
+		var zero O
+		if err != nil {
+			return zero, fmt.Errorf("%s: %w", o.name, err)
 		}
-		// The owner asked for it: an undoable safe write applies, and its
-		// receipt carries their words, self-reported.
-		if verdict == gateDefault && o.risk == RiskSafe && o.Undoable() && strings.TrimSpace(writeMeta(ctx).OwnerSaid) != "" {
-			verdict = gatePass
-		}
-		var missing []string
-		var err error
-		if verdict != gatePass {
-			missing, err = gateMissing(d, o, writeMeta(ctx))
-		}
-		if verdict == gateStage && !slices.Contains(missing, lacks) {
-			missing = append(missing, lacks)
-		}
-		if err != nil || len(missing) > 0 {
-			var zero O
-			if err != nil {
-				return zero, fmt.Errorf("%s: %w", o.name, err)
-			}
-			staged, err := stageWrite(ctx, d, o.name, inputMap(in), writeMeta(ctx), missing, o.Undoable())
-			if err != nil {
-				return zero, fmt.Errorf("%s: the gate held this write back, and staging it failed: %w", o.name, err)
-			}
-			return zero, staged
-		}
+		return zero, ownerError(o.name, why)
 	}
 	rec := newRecorder(d.Store)
 	inner := d
@@ -136,7 +108,13 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	if o.oneReceipt {
 		file = rec.fileOne
 	}
-	if ferr := file(ctx, d, o.name, writeMeta(ctx)); ferr != nil {
+	m := writeMeta(ctx)
+	// An op that takes the owner's words itself (io_approve) files a
+	// self-reported receipt with them, on every surface.
+	if said, _ := inputMap(in)["owner_said"].(string); m.OwnerSaid == "" && strings.TrimSpace(said) != "" {
+		m.OwnerSaid = strings.TrimSpace(said)
+	}
+	if ferr := file(ctx, d, o.name, m); ferr != nil {
 		return out, errors.Join(err, fmt.Errorf("%s: the write happened, but its receipt failed: %w", o.name, ferr))
 	}
 	return out, err

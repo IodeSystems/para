@@ -124,7 +124,13 @@ var configKeys = []configKey{
 	{name: "journal.agent", help: "agent name that writes journal prose; each journal period then spends tokens", check: checkWord},
 	{name: "server.base_url", help: "base URL of review links", check: checkBaseURL},
 	{name: "owner", help: "default owner of new goals; unset means self", check: checkText},
-	{name: "gate.require", help: "what an agent write needs to apply directly, else it goes to the review stack: a comma list of undoable, minor, obvious, or none; unset means all three", check: checkGate},
+	{name: GateConfig, help: "no longer used (0.3.0): an undoable agent write applies at once and one that cannot be undone needs the owner; unset it", check: checkGateUnused},
+}
+
+// checkGateUnused refuses a value for gate.require: the setting is read by
+// nothing, and only unset remains.
+func checkGateUnused(string) (string, error) {
+	return "", errors.New("no longer used: the gate needs no setting (an undoable write applies, one that cannot be undone needs the owner); unset it")
 }
 
 func findConfigKey(name string) (configKey, bool) {
@@ -156,6 +162,8 @@ type ConfigSetting struct {
 	Set      bool   `json:"set"`
 	Known    bool   `json:"known"`
 	ReadOnly bool   `json:"read_only"`
+	// AgentMay: an item the owner approved in an agent's dossier may set
+	// it. An agent's own call is refused: a setting cannot be undone.
 	AgentMay bool   `json:"agent_may_set"`
 	Help     string `json:"help,omitempty"`
 }
@@ -245,7 +253,7 @@ type VaultConfigSetOutput struct {
 }
 
 // VaultConfigSet sets one known setting after checking its value.
-var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. An agent may change only the keys vault_config_list marks agent_may_set; the other keys are the owner's. The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
+var VaultConfigSet = withNoUndo(define("vault_config_set", "Set one setting of the vault (.para/vault.properties). The value is checked for its key. A setting cannot be undone, so the owner sets it: an agent's call is refused (an approved dossier item may set the keys vault_config_list marks agent_may_set). The event holds the key, not the value", func(ctx context.Context, d Deps, in VaultConfigSetInput) (VaultConfigSetOutput, error) {
 	k, err := checkConfigWrite(d, in.Key)
 	if err != nil {
 		return VaultConfigSetOutput{}, err
@@ -277,7 +285,7 @@ type VaultConfigUnsetInput struct {
 }
 
 // VaultConfigUnset removes one known setting.
-var VaultConfigUnset = withNoUndo(define("vault_config_unset", "Remove one setting of the vault (.para/vault.properties), so para uses its default. An agent may change only the keys vault_config_list marks agent_may_set", func(ctx context.Context, d Deps, in VaultConfigUnsetInput) (VaultConfigSetOutput, error) {
+var VaultConfigUnset = withNoUndo(define("vault_config_unset", "Remove one setting of the vault (.para/vault.properties), so para uses its default. It cannot be undone, so the owner unsets it: an agent's call is refused", func(ctx context.Context, d Deps, in VaultConfigUnsetInput) (VaultConfigSetOutput, error) {
 	k, err := checkConfigWrite(d, in.Key)
 	if err != nil {
 		return VaultConfigSetOutput{}, err

@@ -191,8 +191,6 @@ try {
   }
   // Seed a synthetic vault with the CLI.
   para('init', 'acme', join(work, 'vault'), '--no-git')
-  // The seed's agent writes apply at once: the gate that holds them for review is tested in Go.
-  para(...v, 'vault', 'config', 'set', 'gate.require', 'none')
   const proj = idOf(
     para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
   )
