@@ -68,10 +68,13 @@ var CalendarExport = defineRead("calendar_export", "Render scheduled meetings an
 		return CalendarExportOutput{}, fmt.Errorf("transport %s is not in this vault's egress.export", target.Kind)
 	}
 	w := newWindow(d.Store.Now(), loc, days)
-	items, _, err := agendaItems(ctx, d, w, false)
+	items, _, optional, err := agendaItems(ctx, d, w, false)
 	if err != nil {
 		return CalendarExportOutput{}, err
 	}
+	// The calendar holds every booked meeting the owner may go to: an optional
+	// one asks nothing, but it is still on the calendar.
+	items = append(items, optional...)
 	fillNames(ctx, d.Store, &items)
 	vault := d.Store.VaultID()
 	cal := ical.Calendar{ProdID: "-//para//agenda//EN", Marking: dec.Marking, Stamp: d.Store.Now()}

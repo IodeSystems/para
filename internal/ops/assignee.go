@@ -25,6 +25,9 @@ var agentNameRe = regexp.MustCompile(`^[a-z0-9]+(?:[-_.][a-z0-9]+)*$`)
 // IsOther reports whether a stored assignee is someone other than the owner.
 func IsOther(assignee string) bool { return assignee != "" && assignee != SelfAssignee }
 
+// IsAgent reports whether a task is assigned to an agent (agent:<name>).
+func IsAgent(assignee string) bool { return strings.HasPrefix(assignee, AgentPrefix) }
+
 // resolveAssignee checks an assignee input and returns the stored form: empty
 // for self, agent:<name>, or the id of an existing person.
 func resolveAssignee(ctx context.Context, d Deps, raw string) (string, error) {

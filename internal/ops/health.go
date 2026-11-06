@@ -180,7 +180,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		}
 		docs[r.ID] = d
 	}
-	order, err := OrderAt(ctx, s, today)
+	order, err := openWorkAt(ctx, s, today)
 	if err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}

@@ -64,7 +64,7 @@ func TestResolved(t *testing.T) {
 		{"rfx open", rfx(model.RFXOpen), false},
 		{"rfx answered", rfx(model.RFXAnswered), true},
 		{"rfx closed", rfx(model.RFXClosed), true},
-		{"rfx declined", rfx(model.RFXDeclined), false},
+		{"rfx declined", rfx(model.RFXDeclined), true}, // closed: what waits on it can go (needs_you)
 		{"other type", model.Document{Meta: &model.Inbox{}}, false},
 	}
 	for _, c := range cases {

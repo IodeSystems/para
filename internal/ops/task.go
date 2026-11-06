@@ -67,6 +67,10 @@ type TaskView struct {
 	DependsOn      []string         `json:"depends_on"`
 	BlockedBy      []string         `json:"blocked_by"`
 	Rev            string           `json:"rev"`
+	// NeedsYou is ops.NeedsYou for the row: open, not put off, not an
+	// agent's turn, and the owner's turn. Reason says why, in words.
+	NeedsYou bool   `json:"needs_you"`
+	Reason   string `json:"reason,omitempty"`
 	// Deferred is true while a person has put the task off (itself, or its
 	// goal). DeferUntil is the date or "someday". It still blocks its dependents.
 	Deferred bool `json:"deferred"`
@@ -165,24 +169,6 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 		}
 	}
 	return out, nil
-}
-
-// resolved reports whether a document no longer holds back its dependents.
-func resolved(d model.Document) bool {
-	switch m := d.Meta.(type) {
-	case *model.Task:
-		// A meeting the owner skips holds nothing up: what waits on it can go.
-		return taskTerminal(m.Status) || meetingSkipped(m)
-	case *model.RFX:
-		return m.Status == model.RFXAnswered || m.Status == model.RFXClosed
-	case *model.Question:
-		return m.Status != model.QuestionOpen
-	case *model.Project:
-		return m.Status == model.ProjectDone || m.Status == model.ProjectDropped
-	case *model.Request:
-		return m.Status != model.RequestQueued && m.Status != model.RequestClaimed
-	}
-	return false
 }
 
 // TaskAddInput is the input of task_add.
@@ -953,14 +939,18 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Rev: saved.Rev}, nil
 })
 
-// markDeferred sets Deferred on open tasks, and drops them unless keep is set.
+// markDeferred sets Deferred, NeedsYou, and Reason on tasks, and drops the
+// deferred ones unless keep is set.
 func markDeferred(ctx context.Context, s store.Store, tasks []TaskView, keep bool) ([]TaskView, error) {
-	set, err := deferredSet(ctx, s, s.Now().Format(dateLayout))
+	sn, err := NewSnapshot(ctx, s)
 	if err != nil {
 		return nil, err
 	}
 	out := tasks[:0]
 	for _, t := range tasks {
+		need := sn.Need(t.ID)
+		t.NeedsYou, t.Reason = need.Yes, need.Reason
+		set := sn.later
 		t.Deferred = set[t.ID].any() && !taskTerminal(t.Status)
 		if !taskTerminal(t.Status) {
 			if t.WaitsOn = set[t.ID].Waits; t.WaitsOn == nil {

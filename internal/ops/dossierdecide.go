@@ -135,8 +135,11 @@ var ProposalDraft = definePerson("proposal_draft", "Save the owner's answers to 
 		}
 	}
 	out := ProposalDraftOutput{ID: p.doc.ID, Revision: p.meta.Revision, Rev: p.doc.Rev}
+	// Total and Drafted count what waits on the owner: not put off, not sent
+	// back to an agent (the stack's needs-you rule).
+	today := d.Store.Now().Format(dateLayout)
 	for _, it := range p.content.Items {
-		if answerable(it.State) {
+		if answerable(it.State) && needsYou(stackState(it, today), it.State) {
 			out.Total++
 			if !it.Answer.Empty() {
 				out.Drafted++

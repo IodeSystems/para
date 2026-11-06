@@ -40,6 +40,10 @@ var DefaultQueueSurfaces = []string{"cli", "pwa"}
 
 // RequestView is one request in a list.
 type RequestView struct {
+	// NeedsYou is ops.NeedsYou for the row: open, not put off, not an
+	// agent's turn, and the owner's turn. Reason says why, in words.
+	NeedsYou   bool                `json:"needs_you"`
+	Reason     string              `json:"reason,omitempty"`
 	ID         string              `json:"id"`
 	Title      string              `json:"title"`
 	Status     model.RequestStatus `json:"status"`
@@ -474,6 +478,10 @@ var RequestList = defineRead("request_list", "List agent requests, oldest first"
 	if err != nil {
 		return RequestListOutput{}, err
 	}
+	sn, err := NewSnapshot(ctx, d.Store)
+	if err != nil {
+		return RequestListOutput{}, err
+	}
 	out := RequestListOutput{Items: []RequestView{}}
 	now := d.Store.Now()
 	for _, doc := range docs {
@@ -482,6 +490,8 @@ var RequestList = defineRead("request_list", "List agent requests, oldest first"
 			continue
 		}
 		v := requestView(doc, r)
+		need := sn.Need(doc.ID)
+		v.NeedsYou, v.Reason = need.Yes, need.Reason
 		v.Stale = requestStale(r, now)
 		v.Title = plainTitle(ctx, d.Store, v.Title)
 		out.Items = append(out.Items, v)

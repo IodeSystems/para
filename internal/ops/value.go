@@ -198,6 +198,9 @@ type ValueNode struct {
 	// Prep is true when an agent can prepare the item in full and the owner
 	// only approves.
 	Prep bool
+	// NeedsYou and Reason are the predicate (NeedsYou) on the item.
+	NeedsYou bool
+	Reason   string
 }
 
 // ValueRow is one listed item with the reason it is where it is.
@@ -232,6 +235,10 @@ type ValueRow struct {
 	// Prep is true when an agent can prepare it in full and the owner only
 	// approves.
 	Prep bool `json:"prep,omitempty"`
+	// NeedsYou is true on every row of order: it lists only what needs the
+	// owner. Reason says why, in words.
+	NeedsYou bool   `json:"needs_you"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // OrderSummary sums up the reply group: how many items, about how many
@@ -357,7 +364,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 			continue
 		}
-		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed, Prep: n.Prep}
+		r := ValueRow{ID: n.ID, Kind: n.Kind, Title: n.Title, Due: n.Due, Proposal: n.Proposal, Items: items[n.ID], Owed: n.Owed, Prep: n.Prep,
+			NeedsYou: n.NeedsYou, Reason: n.Reason}
 		r.Effort, r.EffortSet = effortOf(n)
 		waitDays := 0
 		if n.Owed {
@@ -668,38 +676,36 @@ func why(n ValueNode, r ValueRow, from *ValueNode, waits []string) string {
 	return strings.Join(parts, ", ")
 }
 
-// valueNodes reads the open items of the vault.
-func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, error) {
-	deferred, err := deferredSet(ctx, s, today)
-	if err != nil {
-		return nil, err
-	}
-	refs, err := s.List(ctx, store.Filter{})
-	if err != nil {
-		return nil, err
+// valueNodes reads the open items of the vault. Every open item is a node, so
+// impact and dates flow through the whole graph; only what needs the owner
+// (NeedsYou) is listed: the rest is Hidden, and what is put off is Deferred.
+// With all set, every open item the owner works is listed (goals, tasks that
+// wait, asks that wait), for views that rank open work and not what needs the
+// owner: health and align.
+func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
+	horizon := sn.Today
+	if t, err := time.Parse(dateLayout, sn.Today); err == nil {
+		horizon = t.AddDate(0, 0, 14).Format(dateLayout)
 	}
 	var nodes []ValueNode
 	rfxBlocks := map[string][]string{} // rfx id -> items it blocks
 	meetingOf := map[string][]string{} // rfx id -> meetings that serve it
-	horizon := today
-	if t, err := time.Parse(dateLayout, today); err == nil {
-		horizon = t.AddDate(0, 0, 14).Format(dateLayout)
-	}
-	for _, r := range refs {
-		switch r.Type {
+	for _, doc := range sn.Docs() {
+		switch doc.Meta.Header().Type {
 		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO:
 		default:
 			continue
 		}
-		doc, err := s.Get(ctx, r.ID)
-		if err != nil {
-			return nil, err
+		need := sn.Need(doc.ID)
+		if need.Life == LifeClosed {
+			continue
 		}
-		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: deferred[doc.ID].any()}
+		hold := sn.Later(doc.ID)
+		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Deferred: hold.any(),
+			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil
-			h := deferred[doc.ID]
-			n.WaitOnly, n.WaitDeps, n.ReadyWhy = h.waitOnly(), h.Waits, h.Ready
+			n.WaitOnly, n.WaitDeps, n.ReadyWhy = hold.waitOnly(), hold.Waits, hold.Ready
 		}
 		// A booked meeting, in either shape, is a meeting node. A task meeting
 		// that is not booked is a task below; an older one that is not booked
@@ -711,13 +717,16 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				// what depends on it, and the asks it serves, can start.
 				continue
 			}
-			n.Kind, n.Due, n.Start = KindMeeting, day, day
 			// An optional meeting the owner has not said they go to is not
-			// listed; it still sets the day what depends on it can start.
-			n.Hidden = n.Due > horizon || meetingQuiet(mt.t)
+			// listed (NeedsYou); it still sets the day what depends on it can
+			// start.
+			n.Kind, n.Due, n.Start = KindMeeting, day, day
+			if all {
+				n.Hidden = n.Due > horizon || meetingQuiet(mt.t)
+			}
 			if t, isTask := doc.Meta.(*model.Task); isTask {
-				n.Hidden = n.Hidden || IsOther(t.Assignee)
 				n.Parent, n.Deps = t.Parent.Target(), targets(t.DependsOn)
+				n.Hidden = n.Hidden || all && IsOther(t.Assignee)
 			}
 			for _, l := range mt.RFX {
 				meetingOf[l.Target()] = append(meetingOf[l.Target()], doc.ID)
@@ -727,38 +736,33 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 		}
 		switch m := doc.Meta.(type) {
 		case *model.Incident:
-			if m.Status == model.IncidentResolved {
-				continue
-			}
 			n.Kind, n.Sev = KindIncident, string(m.Severity)
 		case *model.Project:
+			// A goal shapes the order and is never listed: it asks nothing.
+			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
 			if m.Status != model.ProjectActive {
 				continue
 			}
-			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
 		case *model.Task:
-			if taskTerminal(m.Status) || meetingSkipped(m) {
+			if meetingSkipped(m) {
 				continue
 			}
-			n.Kind, n.Due, n.Goal, n.Hidden = KindTask, string(m.Due), m.Project.Target(), IsOther(m.Assignee) || meetingQuiet(m)
+			n.Kind, n.Due, n.Goal = KindTask, string(m.Due), m.Project.Target()
+			if all {
+				n.Hidden = IsOther(m.Assignee) || meetingQuiet(m)
+			}
 			n.Parent, n.Effort = m.Parent.Target(), m.Effort
 			n.Deps = targets(m.DependsOn)
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
 				n.Start, _ = meetingDay(m.Scheduled)
 			}
 		case *model.Question:
-			if m.Status != model.QuestionOpen {
-				continue
-			}
 			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(m.DependsOn), m.HasProposal()
 			n.Effort, n.Prep = m.Effort, true
 		case *model.RFX:
-			if m.Status != model.RFXOpen {
-				continue
-			}
 			n.Kind, n.Due, n.Deps, n.Effort = KindAsk, string(m.NextNudge), targets(m.DependsOn), m.Effort
 			// An ask to the owner is owed; an ask the owner made waits on
-			// someone else and is listed for its nudge date.
+			// someone else and is listed when it needs a follow-up.
 			if m.Direction == model.RFXIn {
 				n.Owed, n.Prep, n.Waiters, n.Arrived = true, true, len(m.Targets), askArrived(m)
 			}
@@ -768,13 +772,16 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 		case *model.Meeting:
 			continue
 		case *model.Request:
-			if m.Status != model.RequestQueued && m.Status != model.RequestClaimed {
+			// Agent work is a node while open: listed when it waits on the
+			// owner (to accept, or it ended needing them).
+			n.Kind = KindWork
+			if all && !agentHas(m) {
 				continue
 			}
-			n.Kind = KindWork
 		case *model.IO:
 			// Listed: an incoming message whose sender waits for a reply, and
-			// an outgoing draft. An agent can prepare both.
+			// an outgoing draft. An agent can prepare both. Other incoming
+			// messages are sorted in the inbox.
 			switch {
 			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Expects == model.ExpectsResponse:
 				n.Owed, n.Waiters = true, 1
@@ -784,6 +791,9 @@ func valueNodes(ctx context.Context, s store.Store, today string) ([]ValueNode, 
 				continue
 			}
 			n.Kind, n.Effort, n.Prep = KindIO, m.Effort, true
+		}
+		if n.Kind == KindGoal && !all {
+			n.Hidden = !n.Deferred
 		}
 		nodes = append(nodes, n)
 	}
@@ -814,11 +824,30 @@ func Order(ctx context.Context, s store.Store) (ValueOrder, error) {
 
 // OrderAt is Order for the local date today (YYYY-MM-DD).
 func OrderAt(ctx context.Context, s store.Store, today string) (ValueOrder, error) {
-	nodes, err := valueNodes(ctx, s, today)
+	sn, err := SnapshotAt(ctx, s, today)
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	days, err := configInt(s, DueSoonKey, DefaultDueSoonDays)
+	return OrderOf(sn)
+}
+
+// OrderOf is the value order of a snapshot: what needs the owner.
+func OrderOf(sn *Snapshot) (ValueOrder, error) { return orderOf(sn, false) }
+
+// openWorkAt ranks every open item the owner works, needed now or not (goals,
+// tasks that wait, asks that wait), in value order: for health and align,
+// which look at open work, not at what needs the owner.
+func openWorkAt(ctx context.Context, s store.Store, today string) (ValueOrder, error) {
+	sn, err := SnapshotAt(ctx, s, today)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	return orderOf(sn, true)
+}
+
+func orderOf(sn *Snapshot, all bool) (ValueOrder, error) {
+	s, today, days := sn.s, sn.Today, sn.DueSoonDays
+	nodes, err := valueNodes(sn, all)
 	if err != nil {
 		return ValueOrder{}, err
 	}
@@ -881,7 +910,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List open incidents, goals, tasks, questions, asks, meetings, agent work, and io items (an incoming message that expects a response, an outgoing draft) in value order, each with why it is there, its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err

@@ -136,7 +136,7 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 		return out, err
 	}
 	today := d.Store.Now().Format(dateLayout)
-	order, err := OrderAt(ctx, d.Store, today)
+	order, err := openWorkAt(ctx, d.Store, today)
 	if err != nil {
 		return out, err
 	}

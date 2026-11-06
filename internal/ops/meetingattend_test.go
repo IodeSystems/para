@@ -121,10 +121,15 @@ func TestOptionalMeetingAsksNothing(t *testing.T) {
 	if slices.Contains(nextIDs(t, d), passed) {
 		t.Errorf("optional meeting is in next")
 	}
+	// The agenda lists it apart, in optional: it is not an item and does not
+	// count (needs_you).
 	ag := must(t, Agenda, d, AgendaInput{Days: 1, Zone: "UTC"})
-	i := slices.IndexFunc(ag.Items, func(x AgendaItem) bool { return x.ID == passed })
-	if i < 0 || !ag.Items[i].Optional {
-		t.Errorf("agenda lacks the optional meeting, marked optional: %+v", ag.Items)
+	if slices.ContainsFunc(ag.Items, func(x AgendaItem) bool { return x.ID == passed }) {
+		t.Errorf("optional meeting is in the agenda items: %+v", ag.Items)
+	}
+	i := slices.IndexFunc(ag.Optional, func(x AgendaItem) bool { return x.ID == passed })
+	if i < 0 || !ag.Optional[i].Optional || ag.Optional[i].NeedsYou {
+		t.Errorf("agenda optional lacks the optional meeting: %+v", ag.Optional)
 	}
 	// maybe on an optional meeting still asks nothing.
 	must(t, MeetingAttend, d, MeetingAttendInput{ID: passed, Attend: "maybe"})
@@ -143,15 +148,15 @@ func TestOptionalMeetingAsksNothing(t *testing.T) {
 	}
 }
 
-// attend no takes a meeting off the agenda and frees what waits on it. An
-// optional meeting with no answer still sets the day what waits on it starts.
+// attend no takes a meeting off the agenda and frees what waits on it. While
+// an optional meeting has no answer, what waits on it waits (not needs_you).
 func TestSkippedMeetingFreesDependents(t *testing.T) {
 	d, proj, person := attendFixture(t)
 	m := addMeeting(t, d, "Planning", person, "2026-11-09T10:00:00Z", "2026-11-09T11:00:00Z", true)
 	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Write the plan", DoneWhen: "The plan is shared."}).ID
 	must(t, TaskDependsAdd, d, TaskDependsInput{ID: task, DependsOn: []string{m}})
-	if r := orderIDs(t, d)[task]; r.Bucket != BucketNotYet || r.After != m {
-		t.Fatalf("task waiting on an undecided optional meeting = %+v; want not_yet after %s", r, m)
+	if r, ok := orderIDs(t, d)[task]; ok {
+		t.Fatalf("task waiting on an undecided optional meeting is listed: %+v", r)
 	}
 	must(t, MeetingAttend, d, MeetingAttendInput{ID: m, Attend: "no"})
 	rows := orderIDs(t, d)

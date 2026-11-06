@@ -73,27 +73,6 @@ func (m *mtg) sync() {
 	}
 }
 
-// Attendance. A meeting the owner skips (attend no) asks nothing and holds
-// nothing up. An optional meeting asks nothing unless the owner said they go
-// (attend yes). A required meeting asks as before unless the owner declined
-// it. An older `type: meeting` document has no attendance: it is required.
-
-// meetingSkipped reports whether the owner said they do not go.
-func meetingSkipped(t *model.Task) bool {
-	return t != nil && t.EffectiveKind() == model.KindMeeting && t.Attend == model.AttendNo
-}
-
-// meetingQuiet reports whether the meeting asks nothing of the owner: no
-// health finding, no row in the value order, no notes prompt once it passed.
-func meetingQuiet(t *model.Task) bool {
-	return t != nil && attendQuiet(t.EffectiveKind(), t.Optional, t.Attend)
-}
-
-// attendQuiet is meetingQuiet on the fields of a task view.
-func attendQuiet(kind model.TaskKind, optional bool, attend model.Attend) bool {
-	return kind == model.KindMeeting && (attend == model.AttendNo || optional && attend != model.AttendYes)
-}
-
 func typeName(d model.Document) string { return string(d.Meta.Header().Type) }
 
 func notMeeting(d model.Document) error {

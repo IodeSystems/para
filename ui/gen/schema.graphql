@@ -385,10 +385,12 @@ type para_AgendaItem {
   detail: String
   id: String!
   kind: para_AgendaItemKind!
+  needsYou: Boolean!
   optional: Boolean
   overdue: Boolean!
   project: String
   projectName: String
+  reason: String
   time: String
   title: String!
   until: String
@@ -416,6 +418,7 @@ enum para_AgendaItemKind {
 type para_AgendaOutput {
   from: String!
   items: [para_AgendaItem!]!
+  optional: [para_AgendaItem!]!
   skipped: [para_AgendaItem!]!
   to: String!
   zone: String!
@@ -2762,6 +2765,8 @@ type para_IOItem {
   id: String!
   legacy: Boolean
   medium: para_IOItemMedium!
+  needsYou: Boolean!
+  needsYouReason: String
   reason: String
   ref: String
   route: String
@@ -5271,6 +5276,7 @@ type para_QuestionView {
   hasProposal: Boolean!
   id: String!
   kind: para_QuestionViewKind!
+  needsYou: Boolean!
   optionDetails: [para_OptionDetail!]
   options: [String!]!
   proposed: String
@@ -5280,6 +5286,7 @@ type para_QuestionView {
   proposedSources: [para_AnswerSource!]
   proposedWhy: String
   readyWhy: String
+  reason: String
   recommended: String
   rejectedBy: String
   rejectedReason: String
@@ -6038,7 +6045,9 @@ type para_RequestDetail {
   leaseUntil: String
   linkNames: [String!]
   links: [String!]
+  needsYou: Boolean!
   queuedAt: String!
+  reason: String
   reply: String
   requiresSource: String
   resolution: para_RequestDetailResolution
@@ -6137,7 +6146,9 @@ type para_RequestView {
   leaseUntil: String
   linkNames: [String!]
   links: [String!]
+  needsYou: Boolean!
   queuedAt: String!
+  reason: String
   reply: String
   requiresSource: String
   resolution: para_RequestViewResolution
@@ -6804,6 +6815,8 @@ type para_StackRow {
   group: String
   item: String!
   kind: para_StackRowKind!
+  needsYou: Boolean!
+  needsYouReason: String
   proposal: String!
   proposed: Boolean
   question: String
@@ -7506,6 +7519,7 @@ type para_TaskView {
   items: Int!
   kind: para_TaskViewKind!
   lastAttempt: String
+  needsYou: Boolean!
   optional: Boolean
   outcome: para_TaskViewOutcome
   parent: String
@@ -7514,6 +7528,7 @@ type para_TaskView {
   project: String!
   projectName: String
   readyWhy: String
+  reason: String
   recur: String
   reroutedTo: String
   retryAfter: String
@@ -7651,6 +7666,7 @@ type para_TodayVaultToday {
   inbox: Int!
   incidents: para_TodayGroup!
   lostUpdates: [String!]!
+  needsYou: Int!
   nudges: para_TodayGroup!
   optional: para_TodayGroup!
   orderSummary: para_OrderSummary!
@@ -7663,6 +7679,7 @@ type para_TodayVaultToday {
   upgradeSteps: Int!
   vault: String!
   waiting: Int!
+  work: para_TodayGroup!
 }
 
 type para_TrackedView {
@@ -7810,10 +7827,12 @@ type para_ValueRow {
   impact: Int!
   items: Int
   kind: String!
+  needsYou: Boolean!
   owed: Boolean
   parent: String
   prep: Boolean
   proposal: Boolean
+  reason: String
   starts: String
   title: String!
   waitingDays: Int

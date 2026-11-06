@@ -8,7 +8,6 @@ package today
 import (
 	"context"
 	"fmt"
-	"slices"
 	"sort"
 	"time"
 
@@ -128,6 +127,12 @@ type VaultToday struct {
 	// not seen; DocComments counts their comments with no resolution.
 	DocsUnseen  int `json:"docs_unseen"`
 	DocComments int `json:"doc_comments"`
+	// NeedsYou counts every item that needs the owner (ops.NeedsYou): the
+	// one count the agenda, the stack, and Today agree on.
+	NeedsYou int `json:"needs_you"`
+	// Work lists agent work that waits on the owner: proposed (to accept), or
+	// it ended stuck, blocked, or needs_clarification.
+	Work Group `json:"work"`
 	// AgentOpen counts work the owner asked of agents (owner-ask,
 	// sent-to-agent) not finished; AgentStale the part of it with no change in
 	// a day (health agent_work_stale).
@@ -177,7 +182,7 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 	rep := Report{Date: date, Vaults: []VaultToday{}}
 	for _, rv := range vaults {
 		vt := VaultToday{Vault: rv.ID, Incidents: Group{Items: []Item{}}, Agenda: Group{Items: []Item{}}, Optional: Group{Items: []Item{}}, Skipped: Group{Items: []Item{}}, HeldUp: []ops.HeldUp{}, Due: Group{Items: []Item{}}, Blocked: Group{Items: []Item{}},
-			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
+			Nudges: Group{Items: []Item{}}, Overdue: Group{Items: []Item{}}, DueSoon: Group{Items: []Item{}}, Expiring: Group{Items: []Item{}}, Work: Group{Items: []Item{}}, SyncConflicts: []string{}, LostUpdates: []string{}}
 		if rv.Err != "" {
 			vt.Error = "registry entry is broken: " + rv.Err
 			rep.Vaults = append(rep.Vaults, vt)
@@ -210,6 +215,16 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 	if err != nil {
 		return err
 	}
+	st, err := local.Open(rv.Path, vault.Options{ID: rv.ID, ReadOnly: true})
+	if err != nil {
+		return fmt.Errorf("today: %w", err)
+	}
+	sn, err := ops.SnapshotAt(ctx, st, date)
+	if err != nil {
+		return fmt.Errorf("today: %w", err)
+	}
+	// Every list of what needs the owner keeps only what NeedsYou says.
+	needs := func(id string) bool { return sn.Need(id).Yes }
 	limit, soon := "", ""
 	if t, err := time.Parse(dateLayout, date); err == nil {
 		limit = t.AddDate(0, 0, ExpiringDays).Format(dateLayout)
@@ -251,6 +266,9 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			continue
 		case model.TypeRequest:
 			if d, err := v.Get(ctx, r.ID); err == nil {
+				if n := sn.Need(d.ID); n.Yes {
+					vt.Work.Items = append(vt.Work.Items, Item{ID: d.ID, Title: d.Title, Kind: ops.KindWork, Why: n.Reason})
+				}
 				if m, ok := d.Meta.(*model.Request); ok {
 					if open, stale := ops.AskedCounts(d.Title, m, v.Now()); open {
 						vt.AgentOpen++
@@ -280,18 +298,16 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		item := Item{ID: d.ID, Title: d.Title}
 		switch m := d.Meta.(type) {
 		case *model.Question:
-			if m.Status == model.QuestionOpen {
-				if m.HasProposal() {
-					vt.AnswersToCheck++
-				}
+			if m.HasProposal() && needs(d.ID) {
+				vt.AnswersToCheck++
 			}
 		case *model.Incident:
-			if m.Status != model.IncidentResolved {
+			if needs(d.ID) {
 				item.Detail = string(m.Severity) + " " + string(m.Status)
 				vt.Incidents.Items = append(vt.Incidents.Items, item)
 			}
 		case *model.Constraint:
-			if m.ReviewBy != "" && string(m.ReviewBy) <= date {
+			if m.ReviewBy != "" && string(m.ReviewBy) <= date && needs(d.ID) {
 				vt.Due.Items = append(vt.Due.Items, item)
 			}
 		case *model.RFX:
@@ -300,7 +316,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 					item.With = append(item.With, n)
 				}
 			}
-			if m.Status == model.RFXOpen && m.NextNudge != "" && string(m.NextNudge) <= date {
+			if m.NextNudge != "" && string(m.NextNudge) <= date && needs(d.ID) {
 				vt.Nudges.Items = append(vt.Nudges.Items, item)
 			}
 			if m.Status == model.RFXOpen && m.Direction == model.RFXOut && waitsOnSomeone(m) {
@@ -323,10 +339,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			if open && m.Assignee != "" && m.Assignee != "self" {
 				vt.Waiting++
 			}
-			if open && (m.Status == model.TaskBlocked || len(m.BlockedBy) > 0) {
+			if needs(d.ID) && (m.Status == model.TaskBlocked || len(m.BlockedBy) > 0) {
 				vt.Blocked.Items = append(vt.Blocked.Items, item)
 			}
-			if open && m.Due != "" {
+			if needs(d.ID) && m.Due != "" {
 				item.Due = string(m.Due)
 				switch {
 				case string(m.Due) < date:
@@ -346,10 +362,11 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		return a.ID < b.ID
 	})
 	vt.Incidents.Count = len(vt.Incidents.Items)
-	if err := fillAgenda(ctx, rv, date, vt); err != nil {
+	vt.NeedsYou = len(sn.Set())
+	if err := fillAgenda(ctx, st, sn, date, vt); err != nil {
 		return err
 	}
-	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon} {
+	for _, g := range []*Group{&vt.Due, &vt.Blocked, &vt.Nudges, &vt.Expiring, &vt.Overdue, &vt.DueSoon, &vt.Work} {
 		sort.Slice(g.Items, func(i, j int) bool {
 			if a, b := g.Items[i], g.Items[j]; a.Due != b.Due {
 				return a.Due < b.Due
@@ -388,13 +405,9 @@ const AgendaDays = 14
 const AgendaLimit = 12
 
 // fillAgenda sets the Agenda, OtherOpen, Deferred, and HeldUp of the vault
-// from the shared value order.
-func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultToday) error {
-	st, err := local.Open(rv.Path, vault.Options{ID: rv.ID, ReadOnly: true})
-	if err != nil {
-		return fmt.Errorf("today: agenda: %w", err)
-	}
-	o, err := ops.OrderAt(ctx, st, date)
+// from the shared value order, which lists only what needs the owner.
+func fillAgenda(ctx context.Context, st *local.Store, sn *ops.Snapshot, date string, vt *VaultToday) error {
+	o, err := ops.OrderOf(sn)
 	if err != nil {
 		return fmt.Errorf("today: agenda: %w", err)
 	}
@@ -405,47 +418,20 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 	if us, err := upgrade.StatusOf(ctx, st); err == nil {
 		vt.UpgradeSteps = len(us.Pending)
 	}
-	ready, err := ops.Next.Run(ctx, ops.Deps{Store: st}, ops.NextInput{})
-	if err != nil {
-		return fmt.Errorf("today: agenda: %w", err)
-	}
-	isReady := map[string]bool{}
-	for _, t := range ready.Tasks {
-		isReady[t.ID] = true
-	}
 	soon := date
 	if t, err := time.Parse(dateLayout, date); err == nil {
 		soon = t.AddDate(0, 0, AgendaDays).Format(dateLayout)
 	}
-	// Overdue, due soon, and blocked tasks are not listed while the owner has
-	// put them off (Later, or blocked until a date).
-	put, err := ops.DeferredIDs(ctx, st, date)
-	if err != nil {
-		return fmt.Errorf("today: agenda: %w", err)
-	}
-	for _, g := range []*Group{&vt.Overdue, &vt.DueSoon, &vt.Blocked} {
-		g.Items = slices.DeleteFunc(g.Items, func(i Item) bool { return put[i.ID] })
-	}
-	// Goals shape the order and are not listed. A task shows when it can be
-	// worked or its date is near; the rest of the tasks wait behind what blocks
-	// them, which is listed. Asks and meetings show when their date is near.
+	// The order lists only what needs the owner (ops.NeedsYou): a task that
+	// waits on another item, an ask that waits on a reply, and a meeting not
+	// yet near are not in it. Goals shape the order and are not listed;
+	// agent work is listed in Work.
 	var rows []ops.ValueRow
 	for _, r := range o.Rows {
 		switch r.Kind {
-		case ops.KindIncident, ops.KindQuestion, ops.KindIO:
-		case ops.KindTask:
-			if !isReady[r.ID] && (r.EffDue == "" || r.EffDue > soon) {
-				continue
-			}
-		case ops.KindAsk, ops.KindMeeting:
-			// An ask made to the owner is always listed: the owner owes it.
-			if !r.Owed && (r.EffDue == "" || r.EffDue > soon) {
-				continue
-			}
-		default:
-			continue
+		case ops.KindIncident, ops.KindQuestion, ops.KindIO, ops.KindTask, ops.KindAsk, ops.KindMeeting:
+			rows = append(rows, r)
 		}
-		rows = append(rows, r)
 	}
 	other := func(r ops.ValueRow) bool {
 		return r.Kind == ops.KindQuestion && r.Group == ops.GroupImpact && r.EffDue == "" && r.Impact == 0 && !r.Proposal
@@ -466,7 +452,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 			Group: r.Group, Effort: r.Effort, Prep: r.Prep})
 	}
 	vt.Agenda.Count = len(vt.Agenda.Items)
-	if err := fillMeetings(ctx, st, date, soon, vt); err != nil {
+	if err := fillMeetings(ctx, st, sn, date, soon, vt); err != nil {
 		return fmt.Errorf("today: agenda: %w", err)
 	}
 	vt.OrderSummary = o.Summary
@@ -494,7 +480,7 @@ func fillAgenda(ctx context.Context, rv registry.Vault, date string, vt *VaultTo
 
 // fillMeetings sets Optional and Skipped: booked meetings from date through
 // soon that ask nothing of the owner, by start time.
-func fillMeetings(ctx context.Context, st *local.Store, date, soon string, vt *VaultToday) error {
+func fillMeetings(ctx context.Context, st *local.Store, sn *ops.Snapshot, date, soon string, vt *VaultToday) error {
 	ms, err := ops.MeetingList.Run(ctx, ops.Deps{Store: st}, ops.MeetingListInput{Status: model.MeetingScheduled})
 	if err != nil {
 		return err
@@ -505,7 +491,7 @@ func fillMeetings(ctx context.Context, st *local.Store, date, soon string, vt *V
 			continue
 		}
 		day := t.In(time.Local).Format(dateLayout)
-		if day < date || day > soon {
+		if day < date || day > soon || sn.Need(m.ID).Life != ops.LifeOpen {
 			continue
 		}
 		it := Item{ID: m.ID, Title: m.Title, Due: day, Kind: ops.KindMeeting, At: m.Start, Attend: m.Attend, With: append(append([]string{}, m.WithNames...), m.Attendees...)}

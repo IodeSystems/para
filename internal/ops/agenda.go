@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 )
 
 // The agenda is what has a time or a date in the next few days: meetings,
@@ -41,7 +40,9 @@ const (
 	// AgendaArea is an area review that is due: one cadence after the last
 	// review, or today for an area never reviewed.
 	AgendaArea AgendaKind = "area"
-	// AgendaRetry is a failed task whose retry_after has come.
+	// AgendaRetry was a failed task whose retry_after had come. A failed task
+	// is closed, so the agenda no longer lists it; health says it may be
+	// tried again (retry_due). Kept so older clients read the enum.
 	AgendaRetry AgendaKind = "retry"
 )
 
@@ -82,6 +83,11 @@ type AgendaItem struct {
 	// the owner has not said they go to shows quietly.
 	Optional bool         `json:"optional,omitempty"`
 	Attend   model.Attend `json:"attend,omitempty"`
+	// NeedsYou is true when the item needs the owner today; an item that is
+	// the owner's turn only on its date (a meeting next week, a nudge on
+	// Friday) is listed with false. Reason says why, in words.
+	NeedsYou bool   `json:"needs_you"`
+	Reason   string `json:"reason,omitempty"`
 }
 
 // AgendaInput is the input of agenda.
@@ -100,6 +106,9 @@ type AgendaOutput struct {
 	// Skipped are the meetings of the window the owner does not go to
 	// (attend no). They are not in Items.
 	Skipped []AgendaItem `json:"skipped"`
+	// Optional are the optional meetings of the window the owner has not said
+	// they go to (attend is not yes). They ask nothing and are not in Items.
+	Optional []AgendaItem `json:"optional"`
 }
 
 // agendaZone returns the location to show times in.
@@ -166,49 +175,23 @@ var Agenda = defineRead("agenda", "List meetings, tasks due, requests to nudge, 
 		return AgendaOutput{}, err
 	}
 	w := newWindow(d.Store.Now(), loc, days)
-	items, skipped, err := agendaItems(ctx, d, w, true)
+	items, skipped, optional, err := agendaItems(ctx, d, w, true)
 	if err != nil {
 		return AgendaOutput{}, err
 	}
-	return AgendaOutput{From: w.today, To: w.lastDay, Zone: w.zone, Items: items, Skipped: skipped}, nil
+	return AgendaOutput{From: w.today, To: w.lastDay, Zone: w.zone, Items: items, Skipped: skipped, Optional: optional}, nil
 })
 
 // agendaItems gathers the items of the window, and apart from them the
-// meetings the owner skips. Overdue dated items are included when overdue is
-// set.
-func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, skipped []AgendaItem, err error) {
-	items, skipped = []AgendaItem{}, []AgendaItem{}
-	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
+// meetings the owner skips and the optional meetings the owner has not said
+// they go to. Overdue dated items are included when overdue is set. An item
+// is listed when it is the owner's turn now or on its date (NeedsYou, or
+// upcoming): never closed, put off, an agent's turn, or waiting on someone.
+func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, skipped, optional []AgendaItem, err error) {
+	items, skipped, optional = []AgendaItem{}, []AgendaItem{}, []AgendaItem{}
+	sn, err := NewSnapshot(ctx, d.Store)
 	if err != nil {
-		return nil, nil, err
-	}
-	meetings, err := loadMeetings(ctx, d.Store)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, v := range meetings {
-		if v.Status != model.MeetingScheduled || deferred[v.ID].any() {
-			continue
-		}
-		start, serr := time.Parse(time.RFC3339, v.Start)
-		end, eerr := time.Parse(time.RFC3339, v.End)
-		if serr != nil || eerr != nil {
-			continue // lint reports a bad time; the agenda skips it
-		}
-		if !end.After(w.start) || !start.Before(w.end) {
-			continue
-		}
-		s := start.In(w.loc)
-		it := AgendaItem{
-			Kind: AgendaMeeting, ID: v.ID, Title: v.Title, Date: s.Format(dateLayout), Time: s.Format("15:04"),
-			At: s.Format(time.RFC3339), Until: end.In(w.loc).Format(time.RFC3339), Detail: string(v.Status), Who: v.With,
-			Optional: v.Optional, Attend: v.Attend,
-		}
-		if v.Attend == model.AttendNo {
-			skipped = append(skipped, it)
-			continue
-		}
-		items = append(items, it)
+		return nil, nil, nil, err
 	}
 	inWindow := func(date string) (late, ok bool) {
 		switch {
@@ -219,80 +202,120 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 		}
 		return false, true
 	}
-	tasks, err := listTasks(ctx, d.Store, "", "")
-	if err != nil {
-		return nil, nil, err
+	add := func(it AgendaItem, need Need) {
+		it.NeedsYou, it.Reason = need.Yes, need.Reason
+		items = append(items, it)
 	}
-	for _, t := range tasks {
-		if t.Outcome == model.OutcomeFailed && t.RetryAfter != "" && !IsOther(t.Assignee) && !deferred[t.ID].any() {
-			if late, ok := inWindow(string(t.RetryAfter)); ok {
-				items = append(items, AgendaItem{Kind: AgendaRetry, ID: t.ID, Title: t.Title, Date: string(t.RetryAfter), Overdue: late,
-					Detail: "failed; retry after", Who: []string{}, Project: cmp.Or(t.Project, t.Area)})
+	for _, doc := range sn.Docs() {
+		need := sn.Need(doc.ID)
+		if need.Life != LifeOpen {
+			continue // closed, or put off
+		}
+		if mt, ok := readMeeting(doc); ok && mt.Status == model.MeetingScheduled {
+			v, err := meetingView(doc)
+			if err != nil {
+				return nil, nil, nil, err
 			}
-		}
-		// A call or work with someone shows on the day it is scheduled, apart
-		// from its due date. A meeting shows above, with its time.
-		date := string(t.Due)
-		if (t.Kind == model.KindCall || t.Kind == model.KindWorkWith) && t.Scheduled != "" {
-			if day, ok := meetingDay(t.Scheduled); ok {
-				date = day
+			start, serr := time.Parse(time.RFC3339, v.Start)
+			end, eerr := time.Parse(time.RFC3339, v.End)
+			if serr != nil || eerr != nil {
+				continue // lint reports a bad time; the agenda skips it
 			}
-		}
-		if taskTerminal(t.Status) || IsOther(t.Assignee) || date == "" || t.Kind == model.KindMeeting || deferred[t.ID].any() {
+			if !end.After(w.start) || !start.Before(w.end) {
+				continue
+			}
+			s := start.In(w.loc)
+			it := AgendaItem{
+				Kind: AgendaMeeting, ID: v.ID, Title: v.Title, Date: s.Format(dateLayout), Time: s.Format("15:04"),
+				At: s.Format(time.RFC3339), Until: end.In(w.loc).Format(time.RFC3339), Detail: string(v.Status), Who: v.With,
+				Optional: v.Optional, Attend: v.Attend, Reason: need.Reason,
+			}
+			switch {
+			case v.Attend == model.AttendNo:
+				skipped = append(skipped, it)
+			case v.Optional && v.Attend != model.AttendYes:
+				optional = append(optional, it)
+			case need.Pending():
+				add(it, need)
+			}
 			continue
 		}
-		late, ok := inWindow(date)
-		if !ok {
-			continue
+		if !need.Pending() {
+			continue // an agent's turn, waiting on someone, or asks nothing
 		}
-		detail := ""
-		switch {
-		case t.Stuck:
-			detail = "stuck"
-		case t.Status == model.TaskBlocked || len(t.BlockedBy) > 0:
-			detail = "blocked"
-		case t.Kind == model.KindCall || t.Kind == model.KindWorkWith:
-			detail = string(t.Kind)
+		switch m := doc.Meta.(type) {
+		case *model.Task:
+			// A call or work with someone shows on the day it is scheduled,
+			// apart from its due date. A meeting shows above, with its time.
+			date := string(m.Due)
+			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
+				if day, ok := meetingDay(m.Scheduled); ok {
+					date = day
+				}
+			}
+			if date == "" || m.EffectiveKind() == model.KindMeeting {
+				continue
+			}
+			late, ok := inWindow(date)
+			if !ok {
+				continue
+			}
+			v, err := taskView(doc)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			detail := ""
+			switch {
+			case v.Stuck:
+				detail = "stuck"
+			case m.Status == model.TaskBlocked || len(m.BlockedBy) > 0:
+				detail = "blocked"
+			case m.Kind == model.KindCall || m.Kind == model.KindWorkWith:
+				detail = string(m.Kind)
+			}
+			add(AgendaItem{Kind: AgendaDue, ID: doc.ID, Title: doc.Title, Date: date, Overdue: late,
+				Detail: detail, Who: []string{}, Project: cmp.Or(m.Project.Target(), m.Area.Target())}, need)
+		case *model.RFX:
+			if m.NextNudge == "" {
+				continue
+			}
+			late, ok := inWindow(string(m.NextNudge))
+			if !ok {
+				continue
+			}
+			who := []string{}
+			for _, t := range m.Targets {
+				who = append(who, t.To.Target())
+			}
+			add(AgendaItem{Kind: AgendaNudge, ID: doc.ID, Title: doc.Title, Date: string(m.NextNudge), Overdue: late, Who: who}, need)
+		case *model.PolicyException:
+			late, ok := inWindow(string(m.ReviewBy))
+			if !ok {
+				continue
+			}
+			add(AgendaItem{Kind: AgendaException, ID: doc.ID, Title: doc.Title, Date: string(m.ReviewBy), Overdue: late,
+				Detail: string(m.Kind), Who: []string{}}, need)
+		case *model.Area:
+			date, detail := nextReview(m), "review "+m.Cadence
+			if m.LastReviewed == "" {
+				date, detail = w.today, "review "+m.Cadence+"; never reviewed"
+			}
+			if date == "" {
+				continue // a cadence para cannot read: lint warns
+			}
+			late, ok := inWindow(date)
+			if !ok {
+				continue
+			}
+			add(AgendaItem{Kind: AgendaArea, ID: doc.ID, Title: doc.Title, Date: date, Overdue: late,
+				Detail: detail, Who: []string{}}, need)
 		}
-		items = append(items, AgendaItem{Kind: AgendaDue, ID: t.ID, Title: t.Title, Date: date, Overdue: late,
-			Detail: detail, Who: []string{}, Project: cmp.Or(t.Project, t.Area)})
 	}
-	rfx, err := loadRFX(ctx, d)
+	// A goal's dates (a pivot to decide, a signal to read) are listed by name:
+	// a goal itself never needs the owner, but its watch dates come.
+	watches, err := goalWatches(ctx, d.Store, sn.Today)
 	if err != nil {
-		return nil, nil, err
-	}
-	for _, r := range rfx {
-		if r.Status != model.RFXOpen || r.NextNudge == "" {
-			continue
-		}
-		late, ok := inWindow(r.NextNudge)
-		if !ok {
-			continue
-		}
-		who := []string{}
-		for _, t := range r.Targets {
-			who = append(who, t.To.Target())
-		}
-		items = append(items, AgendaItem{Kind: AgendaNudge, ID: r.ID, Title: r.Title, Date: r.NextNudge, Overdue: late, Who: who})
-	}
-	excs, err := allExceptions(ctx, d)
-	if err != nil {
-		return nil, nil, err
-	}
-	for _, e := range excs {
-		if e.Status == model.ExceptionResolved || e.ReviewBy == "" {
-			continue
-		}
-		late, ok := inWindow(string(e.ReviewBy))
-		if !ok {
-			continue
-		}
-		items = append(items, AgendaItem{Kind: AgendaException, ID: e.ID, Title: e.Title, Date: string(e.ReviewBy), Overdue: late,
-			Detail: string(e.Kind), Who: []string{}})
-	}
-	watches, err := goalWatches(ctx, d.Store, d.Store.Now().Format(dateLayout))
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	for _, g := range watches {
 		late, ok := inWindow(g.Date)
@@ -300,37 +323,11 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 			continue
 		}
 		items = append(items, AgendaItem{Kind: AgendaGoal, ID: g.ID, Title: g.Title, Date: g.Date, Overdue: late,
-			Detail: g.Reason, Who: []string{}})
+			Detail: g.Reason, Who: []string{}, Reason: "goal watch"})
 	}
-	areas, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
+	order, err := OrderOf(sn)
 	if err != nil {
-		return nil, nil, err
-	}
-	for _, r := range areas {
-		doc, a, err := getArea(ctx, d.Store, r.ID)
-		if err != nil {
-			return nil, nil, err
-		}
-		if a.Status != model.AreaActive || a.Cadence == "" {
-			continue
-		}
-		date, detail := nextReview(a), "review "+a.Cadence
-		if a.LastReviewed == "" {
-			date, detail = w.today, "review "+a.Cadence+"; never reviewed"
-		}
-		if date == "" {
-			continue // a cadence para cannot read: lint warns
-		}
-		late, ok := inWindow(date)
-		if !ok {
-			continue
-		}
-		items = append(items, AgendaItem{Kind: AgendaArea, ID: doc.ID, Title: doc.Title, Date: date, Overdue: late,
-			Detail: detail, Who: []string{}})
-	}
-	order, err := Order(ctx, d.Store)
-	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	pos := map[string]int{}
 	for i, r := range order.Rows {
@@ -344,7 +341,10 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 		}
 	}
 	sortAgenda(items, pos)
-	return items, skipped, nil
+	byAt := func(a, b AgendaItem) int { return cmp.Or(cmp.Compare(a.At, b.At), cmp.Compare(a.ID, b.ID)) }
+	slices.SortStableFunc(skipped, byAt)
+	slices.SortStableFunc(optional, byAt)
+	return items, skipped, optional, nil
 }
 
 // sortAgenda orders by day, date-only items before timed ones, timed items by
@@ -371,22 +371,4 @@ func posOf(pos map[string]int, id string) int {
 		return p
 	}
 	return 1 << 30
-}
-
-// DeferredIDs returns the ids of the questions, tasks, goals, and io items that
-// are under Later on the date today (YYYY-MM-DD): a lasting or dated deferral,
-// an open wait, or a put-off goal. Surfaces that list what needs the owner
-// leave them out.
-func DeferredIDs(ctx context.Context, s store.Store, today string) (map[string]bool, error) {
-	set, err := deferredSet(ctx, s, today)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]bool{}
-	for id, h := range set {
-		if h.any() {
-			out[id] = true
-		}
-	}
-	return out, nil
 }

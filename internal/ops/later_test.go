@@ -351,9 +351,11 @@ func TestOrderPutsABlockerOfADatedGoalFirst(t *testing.T) {
 	for _, r := range rows {
 		order = append(order, r.ID)
 	}
-	// Focus picks the two questions (quick, by default); the task waits on q
-	// and the goal is never picked.
-	want := []string{q, idle, tk, proj}
+	// Focus picks the two questions (quick, by default). The task waits on q
+	// and the goal asks nothing: neither needs the owner, so neither is
+	// listed, but both still rank q first.
+	_ = tk
+	want := []string{q, idle}
 	if strings.Join(order, ",") != strings.Join(want, ",") {
 		t.Errorf("order = %v, want %v", order, want)
 	}

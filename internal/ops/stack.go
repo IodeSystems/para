@@ -100,6 +100,13 @@ type StackRow struct {
 	Refs     []string `json:"refs,omitempty"`
 	Request  string   `json:"request,omitempty"`
 	Proposed bool     `json:"proposed,omitempty"`
+	// NeedsYou is true when the row waits on the owner: for a vault question,
+	// ops.NeedsYou (open, not put off, not an agent's); for a dossier item,
+	// proposed and not sent back, and not for a vault question that no
+	// longer needs the owner. NeedsYouReason says why, in words, on a vault
+	// question.
+	NeedsYou       bool   `json:"needs_you"`
+	NeedsYouReason string `json:"needs_you_reason,omitempty"`
 }
 
 // StackGroup is the progress of one group of one dossier.
@@ -180,7 +187,11 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 	}
 	tag := normTag(in.Tag)
 	scoped := tag != "" || in.Proposal != "" || in.Group != ""
-	today := d.Store.Now().Format(dateLayout)
+	sn, err := NewSnapshot(ctx, d.Store)
+	if err != nil {
+		return ProposalStackOutput{}, err
+	}
+	today := sn.Today
 	all, err := allProposals(ctx, d)
 	if err != nil {
 		return ProposalStackOutput{}, err
@@ -208,7 +219,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			}
 			st := stackState(it, today)
 			counts[st]++
-			needs := needsYou(st, it.State) && !skippedIn(it.State, it.SkipBatch, in.Batch)
+			needs := needsYou(st, it.State) && forNeedsYou(sn, it) && !skippedIn(it.State, it.SkipBatch, in.Batch)
 			if needs {
 				out.NeedsYou++
 			}
@@ -232,7 +243,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 			}
 			row := StackRow{Proposal: p.doc.ID, Title: p.doc.Title, Item: it.ID, Kind: it.Kind, State: it.State, Stack: st, Group: it.Group,
 				Bundle: it.Bundle, Actor: p.meta.ProposedBy, Summary: firstOf(it.Title, sum.of(it)), Drafted: !it.Answer.Empty() && st == StackProposed,
-				ClaimedBy: it.ClaimedBy, Result: it.Result, Reason: it.Reason, Tags: tags}
+				ClaimedBy: it.ClaimedBy, Result: it.Result, Reason: it.Reason, Tags: tags, NeedsYou: needs}
 			if st == StackLater {
 				row.DeferUntil = it.DeferUntil
 			}
@@ -249,16 +260,13 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 		}
 	}
 	if in.Proposal == "" && in.Actor == "" && in.Group == "" && (in.Kind == "" || in.Kind == string(model.ItemQuestion)) {
-		qs, err := vaultQuestionRows(ctx, d)
-		if err != nil {
-			return out, err
-		}
-		for _, r := range qs {
+		for _, r := range vaultQuestionRows(sn) {
 			if tag != "" && !slices.Contains(r.Tags, tag) {
 				continue
 			}
 			counts[r.Stack]++
-			needs := needsYou(r.Stack, r.State) && !skippedIn(r.State, r.SkipBatch, in.Batch)
+			needs := r.NeedsYou && !skippedIn(r.State, r.SkipBatch, in.Batch)
+			r.NeedsYou = needs
 			if needs {
 				out.NeedsYou++
 			}
@@ -268,10 +276,7 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 		}
 	}
 	if in.Proposal == "" && in.Actor == "" && in.Group == "" && in.Kind == "" && tag == "" {
-		waits, err := workWaitingOnOwner(ctx, d)
-		if err != nil {
-			return out, err
-		}
+		waits := workWaitingOnOwner(ctx, d, sn)
 		out.NeedsYou += len(waits)
 		if in.NeedsYou && start == 0 {
 			out.Requests = waits
@@ -292,21 +297,31 @@ var ProposalStack = defineRead("proposal_stack", "List the review stack: every i
 })
 
 // workWaitingOnOwner lists agent work whose last turn ended stuck, blocked,
-// or needs_clarification, newest first: it waits for the owner's response.
-func workWaitingOnOwner(ctx context.Context, d Deps) ([]SentItem, error) {
-	docs, err := loadRequests(ctx, d.Store)
-	if err != nil {
-		return nil, err
-	}
-	now := d.Store.Now()
+// or needs_clarification, newest first: it waits for the owner's response
+// (NeedsYou). Agent work proposed, also the owner's, is accepted on the
+// requests page and listed in Today's work.
+func workWaitingOnOwner(ctx context.Context, d Deps, sn *Snapshot) []SentItem {
+	docs := sn.Docs()
 	out := []SentItem{}
 	for i := len(docs) - 1; i >= 0; i-- {
-		r := docs[i].Meta.(*model.Request)
-		if r.Status == model.RequestDone && r.Resolution.NeedsOwner() {
-			out = append(out, askedItem(ctx, d, docs[i], r, now))
+		r, ok := docs[i].Meta.(*model.Request)
+		if ok && r.Status == model.RequestDone && sn.Need(docs[i].ID).Yes {
+			out = append(out, askedItem(ctx, d, docs[i], r, sn.Now))
 		}
 	}
-	return out, nil
+	return out
+}
+
+// forNeedsYou is false for a dossier question for a vault question that no
+// longer needs the owner: answered, put off, or an agent has it.
+func forNeedsYou(sn *Snapshot, it model.ProposalItem) bool {
+	if it.Kind != model.ItemQuestion || it.For == "" {
+		return true
+	}
+	if _, err := sn.Get(it.For); err != nil {
+		return true
+	}
+	return sn.Need(it.For).Yes
 }
 
 // needsYou is true for an item that waits on the owner: proposed, and not

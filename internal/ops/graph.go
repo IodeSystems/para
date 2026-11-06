@@ -139,6 +139,8 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 	if out.Tasks, err2 = markDeferred(ctx, d.Store, out.Tasks, false); err2 != nil {
 		return NextOutput{}, err2
 	}
+	// Only what needs the owner: not an agent's turn (work sent to an agent).
+	out.Tasks = slices.DeleteFunc(out.Tasks, func(t TaskView) bool { return !t.NeedsYou })
 	sortNext(out.Tasks)
 	// The value order decides: effective due date, then impact. Undated and
 	// unlisted tasks keep the order above.

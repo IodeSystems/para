@@ -258,17 +258,21 @@ func ioRef(s string) (string, error) {
 
 // IOItem is one io item in a list.
 type IOItem struct {
-	ID        string            `json:"id"`
-	Title     string            `json:"title"`
-	Direction model.IODirection `json:"direction"`
-	Medium    model.Medium      `json:"medium"`
-	State     model.IOState     `json:"state"`
-	From      string            `json:"from,omitempty"`
-	To        []string          `json:"to"`
-	At        string            `json:"at,omitempty"`
-	Subject   string            `json:"subject,omitempty"`
-	Ref       string            `json:"ref,omitempty"`
-	Verify    string            `json:"verify,omitempty"` // how the owner finds a message with via and no ref
+	// NeedsYou is ops.NeedsYou for the row: open, not put off, not an
+	// agent's turn, and the owner's turn. NeedsYouReason says why, in words.
+	NeedsYou       bool              `json:"needs_you"`
+	NeedsYouReason string            `json:"needs_you_reason,omitempty"`
+	ID             string            `json:"id"`
+	Title          string            `json:"title"`
+	Direction      model.IODirection `json:"direction"`
+	Medium         model.Medium      `json:"medium"`
+	State          model.IOState     `json:"state"`
+	From           string            `json:"from,omitempty"`
+	To             []string          `json:"to"`
+	At             string            `json:"at,omitempty"`
+	Subject        string            `json:"subject,omitempty"`
+	Ref            string            `json:"ref,omitempty"`
+	Verify         string            `json:"verify,omitempty"` // how the owner finds a message with via and no ref
 	// Unverifiable: an incoming message of a medium with permalinks that has
 	// no ref and no via with verify; the owner cannot check it.
 	Unverifiable bool `json:"unverifiable,omitempty"`
@@ -333,8 +337,14 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 	if err != nil {
 		return IOListOutput{}, err
 	}
+	sn, err := NewSnapshot(ctx, d.Store)
+	if err != nil {
+		return IOListOutput{}, err
+	}
 	out := IOListOutput{Items: []IOItem{}}
 	for _, it := range all {
+		need := sn.Need(it.ID)
+		it.NeedsYou, it.NeedsYouReason = need.Yes, need.Reason
 		switch it.State {
 		case model.IOUnread:
 			out.Counts.Unread++

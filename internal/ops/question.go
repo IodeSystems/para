@@ -88,6 +88,10 @@ type QuestionView struct {
 	// AgentLooking is true while queued or claimed agent work looks for context
 	// for this question. The question stays open.
 	AgentLooking bool `json:"agent_looking"`
+	// NeedsYou is ops.NeedsYou for the row: open, not put off, not an
+	// agent's turn, and the owner's turn. Reason says why, in words.
+	NeedsYou bool   `json:"needs_you"`
+	Reason   string `json:"reason,omitempty"`
 	// ScopeName is the title of Scope, for people. A root question has none.
 	ScopeName string `json:"scope_name,omitempty" nameof:"Scope"`
 }
@@ -255,10 +259,11 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			projArea[r.ID] = p.Area.Target()
 		}
 	}
-	deferred, err := deferredSet(ctx, s, s.Now().Format(dateLayout))
+	sn, err := NewSnapshot(ctx, s)
 	if err != nil {
 		return nil, err
 	}
+	deferred := sn.later
 	looking, err := investigating(ctx, s)
 	if err != nil {
 		return nil, err
@@ -279,6 +284,8 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			v.WaitsOn = []string{}
 		}
 		v.AgentLooking = looking[v.ID] != ""
+		need := sn.Need(v.ID)
+		v.NeedsYou, v.Reason = need.Yes, need.Reason
 		x := qrow{v: v}
 		sd, gerr := scopeDoc(ctx, s, v.Scope)
 		switch {

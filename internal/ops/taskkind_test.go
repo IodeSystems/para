@@ -44,8 +44,9 @@ func TestOlderMeetingReadsAsTaskAndStaysOlder(t *testing.T) {
 	if got := must(t, MeetingList, d, MeetingListInput{}).Meetings; len(got) != 1 || got[0].ID != id {
 		t.Fatalf("meeting_list = %+v", got)
 	}
-	// In the agenda and in value order, with its time (a clock fixed before it).
-	ad, ada := agendaVault(t, "2026-11-01T12:00:00Z")
+	// In the agenda and in value order, with its time (a clock fixed a day
+	// before it: the order lists a meeting from due_soon_days before).
+	ad, ada := agendaVault(t, "2026-11-03T12:00:00Z")
 	af := meetingFixture{d: ad, person: ada}
 	aid := oldMeeting(t, af, model.MeetingScheduled, "2026-11-04T10:00:00-05:00", "2026-11-04T10:30:00-05:00")
 	ag := must(t, Agenda, ad, AgendaInput{Days: 14, Zone: "UTC"})

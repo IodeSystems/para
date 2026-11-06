@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 )
 
 // Everything the owner may review or answer is one stack: dossier items,
@@ -281,44 +280,35 @@ var QuestionReview = definePerson("question_review", "The owner's action on an o
 	return out, nil
 })
 
-// vaultQuestionRows are the open vault questions as stack rows: not put off
-// (Later), every one proposed unless the owner sent it back. Reviewing a
-// question is the owner's, so the rows have no actor.
-func vaultQuestionRows(ctx context.Context, d Deps) ([]StackRow, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeQuestion})
-	if err != nil {
-		return nil, err
-	}
-	deferred, err := deferredSet(ctx, d.Store, d.Store.Now().Format(dateLayout))
-	if err != nil {
-		return nil, err
-	}
+// vaultQuestionRows are the open vault questions as stack rows: later when
+// put off, sent back while an agent has it (a request linked to it is queued
+// or claimed), else pending or skipped. NeedsYou says which wait on the
+// owner. Reviewing a question is the owner's, so the rows have no actor.
+func vaultQuestionRows(sn *Snapshot) []StackRow {
 	var out []StackRow
-	for _, r := range refs {
-		doc, q, err := getQuestion(ctx, d.Store, r.ID)
-		if err != nil {
+	for _, doc := range sn.Docs() {
+		q, ok := doc.Meta.(*model.Question)
+		if !ok || q.Status != model.QuestionOpen {
 			continue
 		}
-		if q.Status != model.QuestionOpen {
-			continue
-		}
+		need := sn.Need(doc.ID)
 		stack := StackProposed
-		if deferred[doc.ID].any() {
+		if need.Life == LifeLater {
 			stack = StackLater
 		}
 		state := model.ItemPending
 		batch := ""
-		switch q.ReviewState {
-		case string(model.ItemSkipped):
-			state, batch = model.ItemSkipped, q.ReviewBatch
-		case string(model.ItemSentBack):
+		switch {
+		case need.Turn == TurnAgent:
 			state = model.ItemSentBack
+		case q.ReviewState == string(model.ItemSkipped):
+			state, batch = model.ItemSkipped, q.ReviewBatch
 		}
 		out = append(out, StackRow{Question: doc.ID, Item: doc.ID, Title: doc.Title, Kind: model.ItemQuestion, State: state, Stack: stack, DeferUntil: q.DeferUntil,
 			Summary: doc.Title, Reason: q.ReviewNote, Refs: targets(q.ReviewRefs), Request: q.ReviewRequest.Target(), Proposed: q.ProposedBy != "",
-			Tags: normTags(q.Tags), SkipBatch: batch})
+			Tags: normTags(q.Tags), SkipBatch: batch, NeedsYou: need.Yes, NeedsYouReason: need.Reason})
 	}
-	return out, nil
+	return out
 }
 
 // ProposalDoneInput is the input of proposal_done: the owner did an outward

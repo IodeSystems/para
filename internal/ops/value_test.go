@@ -250,13 +250,32 @@ func TestOrderPutsWorkThatCanStartNowFirst(t *testing.T) {
 			}
 		}
 	}
-	// p is due within 14 days, so its focus score doubles and passes h.
-	check("default", p, h, l, m, t1)
+	// p is due within 14 days, so its focus score doubles and passes h. The
+	// meeting is more than due_soon_days away and t1 waits on it: neither
+	// needs the owner yet, so neither is listed (needs_you).
+	listed := func() map[string]bool {
+		out := map[string]bool{}
+		for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+			out[r.ID] = true
+		}
+		return out
+	}
+	check("default", p, h, l)
+	if at := listed(); at[m] || at[t1] {
+		t.Errorf("default: meeting or what waits on it listed: %v", at)
+	}
 	must(t, VaultConfigSet, d, VaultConfigSetInput{Key: DueSoonKey, Value: "7"})
-	check("due soon 7", p, h, l, m, t1)
+	check("due soon 7", p, h, l)
+	// From due_soon_days before it, the meeting is listed as not yet
+	// startable; what waits on it still waits.
+	must(t, VaultConfigSet, d, VaultConfigSetInput{Key: DueSoonKey, Value: "8"})
+	check("due soon 8", p, h, l, m)
 	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
-		if r.ID == t1 && (r.Bucket != BucketNotYet || r.After != m || !strings.HasPrefix(r.Why, "not yet, waits on meeting Design review on Nov 12")) {
-			t.Errorf("t1 = %+v", r)
+		if r.ID == m && (r.Bucket != BucketNotYet || !strings.HasPrefix(r.Why, "not yet, starts Nov 12")) {
+			t.Errorf("m = %+v", r)
+		}
+		if r.ID == t1 {
+			t.Errorf("t1 waits on the meeting and is listed: %+v", r)
 		}
 	}
 }

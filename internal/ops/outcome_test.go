@@ -162,7 +162,9 @@ func TestTaskResolveGate(t *testing.T) {
 func rfxStatus(r RFXShowOutput) model.RFXStatus { return r.Doc.Meta.(*model.RFX).Status }
 
 // A failed task with retry_after on or before today shows in health and agenda.
-func TestFailedRetryShows(t *testing.T) {
+// A failed task is closed: health says it may be tried again, and the agenda
+// (what needs the owner) does not list it.
+func TestFailedRetryShowsInHealthOnly(t *testing.T) {
 	d, proj := laterVault(t)
 	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew", DoneWhen: "Renewed."}).ID
 	today := d.Store.Now().Format(dateLayout)
@@ -178,7 +180,7 @@ func TestFailedRetryShows(t *testing.T) {
 		t.Fatalf("health has no retry_due for %s: %+v", id, h)
 	}
 	a := must(t, Agenda, d, AgendaInput{Days: 1})
-	if !slices.ContainsFunc(a.Items, func(it AgendaItem) bool { return it.Kind == AgendaRetry && it.ID == id }) {
-		t.Fatalf("agenda = %+v", a.Items)
+	if slices.ContainsFunc(a.Items, func(it AgendaItem) bool { return it.ID == id }) {
+		t.Fatalf("agenda lists a closed task: %+v", a.Items)
 	}
 }
