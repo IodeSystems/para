@@ -54,6 +54,12 @@ type TickOutput struct {
 	// source with none open; they are in Requests too.
 	Sweeps   []string `json:"sweeps"`
 	Proposed int      `json:"proposed"`
+	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
+	// are in Requests too.
+	Gaps []string `json:"gaps"`
+	// NotQueued says why tick made no fill-gap or prepare work: it cannot
+	// queue work, and proposed work would ask the owner to approve each.
+	NotQueued string `json:"not_queued,omitempty"`
 	// Nudges lists open requests whose next_nudge is today or earlier. Today and
 	// agenda show them; tick only names them.
 	Nudges []string `json:"nudges"`
@@ -88,7 +94,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Sweeps: []string{}, Gaps: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -124,6 +130,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	if err := tickSweeps(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: sweeps: %w", err)
 	}
+	if err := tickGaps(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: gaps: %w", err)
+	}
 	if err := tickJournals(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: journals: %w", err)
 	}
@@ -137,6 +146,12 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 		return out, fmt.Errorf("tick: optional meetings: %w", err)
 	}
 	return out, nil
+}
+
+// notQueued notes that tick made no gap or prepare work because it cannot
+// queue.
+func (o *TickOutput) notQueued() {
+	o.NotQueued = "gap and prepare work is made only when tick can queue it: add tick to the vault setting request.surfaces"
 }
 
 // tickGoals names the goals whose pivot date has come or whose signal reading

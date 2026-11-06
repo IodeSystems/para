@@ -17,11 +17,12 @@ import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
 import { useToasts } from '@/components/ToastStack'
 import { humanTime } from '@/lib/when'
-import { byStatus, kindWords, resultToCheck, sentStatus, staleWords } from '@/lib/sent'
+import { byStatus, isFillGap, kindWords, resultToCheck, sentStatus, staleWords } from '@/lib/sent'
 
 // Asked of agents is every piece of agent work, one request each, from the generic list (type
 // request, state all), grouped by status: what the owner sent from the web, asked in the chat,
-// delegated, or gave to investigate, and the work agents and the tick made. Each row shows the
+// delegated, or gave to investigate, and the work agents and the tick made; fill-gap work the tick
+// made has its own group, Filled in by agents, and is not in the open count. Each row shows the
 // item, the owner's words, where it stands, how it ended, and the receipts it made. Work no agent
 // has claimed can be taken back; results not yet seen can be marked seen.
 export const Route = createFileRoute('/_authed/requests')({ component: Asked })
@@ -80,7 +81,7 @@ function Asked() {
   }
   return (
     <>
-      <PageTitle subtitle="Everything asked of agents, one record each, by status: what you sent from the web, asked in the chat, delegated, or gave to investigate, and the work agents and sweeps made. Not the same as Asks, which are asks to people.">
+      <PageTitle subtitle="Everything asked of agents, one record each, by status: what you sent from the web, asked in the chat, delegated, or gave to investigate, and the work agents and sweeps made. Filled in by agents lists the gaps agents fill on their own (a missing done-when, how to do it, effort, an answer to research, a goal brief). Not the same as Asks, which are asks to people.">
         Asked of agents
       </PageTitle>
       <DataState q={q}>
@@ -95,7 +96,10 @@ function Asked() {
                 in the chat that does not end in its reply, shows here.
               </Empty>
             )
-          const open = work.filter((w) => ['proposed', 'queued', 'claimed'].includes(w.status))
+          // Fill-gap work is not what the owner asked: the open count leaves it out.
+          const open = work.filter(
+            (w) => !isFillGap(w) && ['proposed', 'queued', 'claimed'].includes(w.status),
+          )
           const stale = open.filter((w) => w.stale).length
           const unseen = work.filter(resultToCheck).map((w) => w.request)
           return (

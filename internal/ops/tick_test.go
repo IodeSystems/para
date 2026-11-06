@@ -254,8 +254,9 @@ func TestTickRequestsForAgentTasks(t *testing.T) {
 	// Opting tick in to the queue makes the next one queued. The first two keep their state.
 	tv.addProps("request.surfaces=cli,pwa,tick")
 	tv.now = tv.now.Add(24 * time.Hour) // Nov 3: "Tomorrow" is due
+	// It also queues fill-gap work (gap.go) for the owner's task and the goal.
 	out = tick(t, d)
-	if len(out.Requests) != 1 || out.Proposed != 0 {
+	if len(out.Requests) != 1+len(out.Gaps) || out.Proposed != 0 {
 		t.Fatalf("pass 3 = %+v", out)
 	}
 	if _, r, _ := getRequest(ctx, d.Store, out.Requests[0]); r.Status != model.RequestQueued || r.Links[0].Target() != later {

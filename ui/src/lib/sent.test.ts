@@ -68,6 +68,17 @@ describe('asked of agents status', () => {
     expect(g[0].rows.map((r) => r.id)).toEqual(['c', 'b'])
   })
 
+  it('puts fill-gap work in its own group, last', () => {
+    const g = byStatus([
+      { id: 'a', status: 'queued', queuedAt: '2026-11-05T10:00:00Z' },
+      { id: 'f', status: 'queued', queuedAt: '2026-11-06T10:00:00Z', kind: 'fill-gap' },
+      { id: 'e', status: 'done', queuedAt: '2026-11-04T10:00:00Z', kind: 'fill-gap' },
+    ])
+    expect(g.map((x) => x.title)).toEqual(['Queued', 'Filled in by agents'])
+    expect(g[0].rows.map((r) => r.id)).toEqual(['a'])
+    expect(g[1].rows.map((r) => r.id)).toEqual(['f', 'e'])
+  })
+
   it('names each kind', () => {
     expect(kindWords('owner-ask')).toBe('asked in the chat')
     expect(kindWords('sent-to-agent')).toBe('sent from the web')

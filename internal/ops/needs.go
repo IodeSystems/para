@@ -22,7 +22,8 @@ import (
 // later_in_force is the item's own deferral in force, an open deferred_after
 // item, or a put-off goal or scope task (deferredSet below). agent_turn is an
 // open request (queued or claimed) linked to the item, a task assigned to an
-// agent, or an approved io draft not sent yet. owner_turn is per kind (need).
+// agent, or an approved io draft not sent yet; side work (sideWork) does not
+// count. owner_turn is per kind (need).
 // Some owner turns start on a date (On): a meeting due_soon_days before it
 // starts, an ask on its nudge date, an area on its review date, an exception
 // or a constraint 14 days before review_by. Before that day the item is
@@ -134,6 +135,10 @@ func requestNeedsOwner(r *model.Request) bool {
 	return r.Status == model.RequestProposed || (r.Status == model.RequestDone && r.Resolution.NeedsOwner()) || resultUnseen(r)
 }
 
+// sideWork is agent work made for an item that does not take the item from
+// the owner: filling its gaps (gap.go). The owner can still act on it.
+func sideWork(r *model.Request) bool { return r.Kind == FillGapKind }
+
 // agentHas: an agent holds the request now.
 func agentHas(r *model.Request) bool {
 	return r.Status == model.RequestQueued || r.Status == model.RequestClaimed
@@ -229,7 +234,7 @@ func (sn *Snapshot) index() error {
 	for _, r := range sn.refs {
 		doc := sn.docs[r.ID]
 		req, ok := doc.Meta.(*model.Request)
-		if !ok || !agentHas(req) {
+		if !ok || !agentHas(req) || sideWork(req) {
 			continue
 		}
 		sn.agent[doc.ID] = doc.ID

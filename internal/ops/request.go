@@ -155,15 +155,18 @@ func requestStale(r *model.Request, now time.Time) bool {
 func requeues(r *model.Request) bool { return r.Kind != OwnerAskKind }
 
 // claimRank orders claimable work: sweeps first, then what the owner asked
-// (owner-ask, sent-to-agent), then other agent work.
+// (owner-ask, sent-to-agent), then filling gaps (fill-gap), then other agent
+// work.
 func claimRank(title string, r *model.Request) int {
 	switch {
 	case r.RequiresSource != "":
 		return 0
 	case isAsked(title, r):
 		return 1
+	case r.Kind == FillGapKind:
+		return 2
 	}
-	return 2
+	return 3
 }
 
 // identity returns the caller's identity. A request op needs an install id.
@@ -611,7 +614,7 @@ type RequestNextOutput struct {
 
 // RequestNext claims queued work for the caller: sweeps first, then what the
 // owner asked, then other work, each oldest first.
-var RequestNext = defineSafe("request_next", "Claim the next queued request for this actor, with a lease: sweeps of sources you declared first, then what the owner asked (owner-ask, sent-to-agent), then other agent work, each oldest first; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
+var RequestNext = defineSafe("request_next", "Claim the next queued request for this actor, with a lease: sweeps of sources you declared first, then what the owner asked (owner-ask, sent-to-agent), then gaps to fill (fill-gap), then other agent work, each oldest first; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
 	info, err := identity(d)
 	if err != nil {
 		return RequestNextOutput{}, err

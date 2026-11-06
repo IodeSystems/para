@@ -71,6 +71,7 @@ const KIND_WORDS: Record<string, string> = {
   'journal-summary': 'journal summary',
   'recurring-task': 'recurring task',
   'fix-write': 'fix a write marked wrong',
+  'fill-gap': 'gaps to fill',
 }
 
 // kindWords names where an ask came from.
@@ -95,16 +96,29 @@ export const STATUS_GROUPS: { status: string; title: string }[] = [
   { status: 'cancelled', title: 'Taken back' },
 ]
 
-// byStatus groups rows by status in STATUS_GROUPS order, newest queued first in each group. A
-// group with no rows is left out.
-export function byStatus<T extends { status: string; queuedAt: string }>(
+// FILL_GAP is the kind of work the tick makes to fill an item's gaps: the owner did not ask for
+// it, so it is not counted as asked and has its own group.
+export const FILL_GAP = 'fill-gap'
+
+// isFillGap is work that fills an item's gaps.
+export function isFillGap(it: { kind?: string | null }): boolean {
+  return it.kind === FILL_GAP
+}
+
+// byStatus groups rows by status in STATUS_GROUPS order, newest queued first in each group, then
+// the fill-gap work in its own group, Filled in by agents, whatever its status. A group with no
+// rows is left out.
+export function byStatus<T extends { status: string; queuedAt: string; kind?: string | null }>(
   rows: T[],
 ): { status: string; title: string; rows: T[] }[] {
   const newest = [...rows].sort((a, b) =>
     a.queuedAt < b.queuedAt ? 1 : a.queuedAt > b.queuedAt ? -1 : 0,
   )
-  return STATUS_GROUPS.map((g) => ({
-    ...g,
-    rows: newest.filter((r) => r.status === g.status),
-  })).filter((g) => g.rows.length > 0)
+  return [
+    ...STATUS_GROUPS.map((g) => ({
+      ...g,
+      rows: newest.filter((r) => !isFillGap(r) && r.status === g.status),
+    })),
+    { status: 'filled', title: 'Filled in by agents', rows: newest.filter(isFillGap) },
+  ].filter((g) => g.rows.length > 0)
 }
