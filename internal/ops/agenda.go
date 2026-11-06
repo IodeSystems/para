@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 )
 
 // The agenda is what has a time or a date in the next few days: meetings,
@@ -308,6 +309,21 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 			add(AgendaItem{Kind: AgendaException, ID: doc.ID, Title: doc.Title, Date: string(m.ReviewBy), Overdue: late,
 				Detail: string(m.Kind), Who: []string{}}, need)
 		case *model.Area:
+			// An exception or a constraint annotation lists on its review date.
+			for _, c := range paramd.Callouts(doc.Body) {
+				rb := c.Field("review_by")
+				if c.Broken != "" || rb == "" || c.Kind != "exception" && c.Kind != "constraint" || c.Field("status") == string(model.ExceptionResolved) {
+					continue
+				}
+				if late, ok := inWindow(rb); ok {
+					title, _, _ := strings.Cut(c.Text, "\n")
+					add(AgendaItem{Kind: AgendaException, ID: doc.ID, Title: doc.Title + ": " + title, Date: rb, Overdue: late,
+						Detail: cmp.Or(c.Field("kind"), c.Kind), Who: []string{}}, need)
+				}
+			}
+			if m.Cadence == "" {
+				continue
+			}
 			date, detail := nextReview(m), "review "+m.Cadence
 			if m.LastReviewed == "" {
 				date, detail = w.today, "review "+m.Cadence+"; never reviewed"

@@ -14,6 +14,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/store"
 )
 
 // Helpers shared by the policy, rule, exception, constraint, convention, and
@@ -85,22 +86,48 @@ func hashText(norm string) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-// getPolicy reads a policy summary.
-func getPolicy(ctx context.Context, d Deps, id string) (model.Document, *model.Policy, error) {
-	doc, err := d.Store.Get(ctx, id)
+// getPolicy reads a summary that follows a source: a policy, or an area with
+// follows (what step policy-docs made of a policy).
+func getPolicy(ctx context.Context, d Deps, id string) (model.Document, *model.Followed, error) {
+	doc, err := d.Store.Get(ctx, normID(id))
 	if err != nil {
 		return doc, nil, err
 	}
-	p, ok := doc.Meta.(*model.Policy)
-	if !ok {
-		return doc, nil, fmt.Errorf("%s is a %s, not a policy", id, doc.Meta.Header().Type)
+	switch m := doc.Meta.(type) {
+	case *model.Policy:
+		return doc, &m.Followed, nil
+	case *model.Area:
+		if m.Follows != nil {
+			return doc, m.Follows, nil
+		}
+		return doc, nil, fmt.Errorf("%s is an area that follows no source", doc.ID)
 	}
-	return doc, p, nil
+	return doc, nil, fmt.Errorf("%s is a %s, not a policy", id, doc.Meta.Header().Type)
+}
+
+// followedSummaries lists the policies and the areas that follow a source.
+func followedSummaries(ctx context.Context, d Deps) ([]string, error) {
+	var ids []string
+	for _, t := range []model.Type{model.TypePolicy, model.TypeArea} {
+		refs, err := d.Store.List(ctx, store.Filter{Type: t})
+		if err != nil {
+			return nil, err
+		}
+		for _, r := range refs {
+			if t == model.TypeArea {
+				if doc, err := d.Store.Get(ctx, r.ID); err != nil || doc.Meta.(*model.Area).Follows == nil {
+					continue
+				}
+			}
+			ids = append(ids, r.ID)
+		}
+	}
+	return ids, nil
 }
 
 // getTranscript reads the transcript of a policy. It returns nil, nil when
 // the policy has none by design (fidelity none).
-func getTranscript(ctx context.Context, d Deps, policy string, p *model.Policy) (*model.Document, *model.Transcript, error) {
+func getTranscript(ctx context.Context, d Deps, policy string, p *model.Followed) (*model.Document, *model.Transcript, error) {
 	if p.Source.Fidelity == model.FidelityNone {
 		return nil, nil, nil
 	}
@@ -205,13 +232,14 @@ func addRuleLine(body, line string) string {
 		}
 		return strings.Join(append(lines, rulesHead, "", line), "\n")
 	}
-	// Place after the last non-blank line of the section.
+	// Place after the last non-blank line of the section. After an
+	// annotation, a blank line first, or the rule would read as its text.
 	at := end
 	for at > head+1 && strings.TrimSpace(lines[at-1]) == "" {
 		at--
 	}
 	out := append([]string{}, lines[:at]...)
-	if at == head+1 {
+	if at == head+1 || strings.HasPrefix(lines[at-1], ">") {
 		out = append(out, "")
 	}
 	out = append(out, line)

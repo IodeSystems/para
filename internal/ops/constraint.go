@@ -7,6 +7,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // ConstraintView is a constraint as list and show report it. Says is the
@@ -91,7 +92,7 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 	if err != nil {
 		return ConstraintAddOutput{}, err
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	nd := model.Document{
 		Folder: model.FolderConstraints,
 		Title:  f[0],
 		Body:   strings.TrimSpace(in.Text),
@@ -102,7 +103,14 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 			AppliesIn: splitList(in.AppliesIn), NotIn: splitList(in.NotIn),
 			ReviewBy: model.Date(in.ReviewBy), Refines: refines,
 		},
-	})
+	}
+	if policyDocsOn(d) {
+		// An alias of annotate: the constraint is an annotation in the first area applies_in names.
+		f, _ := upgrade.AnnotationOf(nd, storeAreas{ctx, d.Store})
+		out, err := insertFold(ctx, d, f)
+		return ConstraintAddOutput{ID: out.ID, Rev: out.Rev}, err
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return ConstraintAddOutput{}, err
 	}

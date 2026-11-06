@@ -38,8 +38,10 @@ type Fold struct {
 	Anchor  paramd.Anchor
 	Callout paramd.Callout
 	// Orphan: no area of the document's was found, so Area is the area of
-	// its kind that the step makes (exceptions, conventions, constraints).
+	// its kind that the step makes (exceptions, conventions, constraints),
+	// with Title.
 	Orphan bool
+	Title  string
 }
 
 // orphanArea names the area of documents of a kind with no area.
@@ -145,7 +147,8 @@ func AnnotationOf(d model.Document, areas Areas) (Fold, bool) {
 		return f, false
 	}
 	if f.Area == "" {
-		f.Area, f.Orphan = orphanArea[d.Meta.Header().Type].id, true
+		o := orphanArea[d.Meta.Header().Type]
+		f.Area, f.Title, f.Orphan = o.id, o.title, true
 	}
 	f.Callout.Text = annotationText(d.Title, d.Body)
 	return f, true

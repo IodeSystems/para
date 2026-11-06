@@ -1,11 +1,14 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/store"
 )
 
@@ -22,7 +25,7 @@ type PolicyView struct {
 	Rules         int            `json:"rules"`
 }
 
-func policyView(ctx context.Context, d Deps, doc model.Document, p *model.Policy) (PolicyView, error) {
+func policyView(ctx context.Context, d Deps, doc model.Document, p *model.Followed) (PolicyView, error) {
 	v := PolicyView{
 		ID: doc.ID, Title: doc.Title, URL: p.Source.URL, Fidelity: p.Source.Fidelity,
 		Verified: p.Verified, ReviewedBy: p.ReviewedBy, Rules: len(parseRules(doc.ID, doc.Body)),
@@ -51,15 +54,15 @@ type PolicyListOutput struct {
 	Policies []PolicyView `json:"policies"`
 }
 
-// PolicyList lists policies.
-var PolicyList = defineRead("policy_list", "List policies with review and source state", func(ctx context.Context, d Deps, _ PolicyListInput) (PolicyListOutput, error) {
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicy})
+// PolicyList lists policies, and the areas that follow a source.
+var PolicyList = defineRead("policy_list", "List policies (areas that follow a source) with review and source state", func(ctx context.Context, d Deps, _ PolicyListInput) (PolicyListOutput, error) {
+	ids, err := followedSummaries(ctx, d)
 	if err != nil {
 		return PolicyListOutput{}, err
 	}
 	out := PolicyListOutput{Policies: []PolicyView{}}
-	for _, r := range refs {
-		doc, p, err := getPolicy(ctx, d, r.ID)
+	for _, id := range ids {
+		doc, p, err := getPolicy(ctx, d, id)
 		if err != nil {
 			return PolicyListOutput{}, err
 		}
@@ -121,6 +124,19 @@ func exceptionsOf(ctx context.Context, d Deps, policy string) ([]ExceptionRef, e
 		return nil, err
 	}
 	out := []ExceptionRef{}
+	// An area's exceptions are annotations in its body.
+	if doc, err := d.Store.Get(ctx, policy); err == nil {
+		for _, c := range paramd.Callouts(doc.Body) {
+			if c.Kind != "exception" || c.Broken != "" {
+				continue
+			}
+			x := ExceptionRef{ID: c.ID, Kind: model.ExceptionKind(c.Field("kind")), Status: model.ExceptionStatus(cmp.Or(c.Field("status"), string(model.ExceptionOpen)))}
+			if b, ok := strings.CutPrefix(c.Field("anchor"), "^"); ok {
+				x.Rule = model.RuleLink(doc.ID, b)
+			}
+			out = append(out, x)
+		}
+	}
 	for _, r := range refs {
 		doc, err := d.Store.Get(ctx, r.ID)
 		if err != nil {
@@ -200,6 +216,11 @@ type PolicyRefreshOutput struct {
 	Checked            string         `json:"checked"`
 	AffectedRules      []Rule         `json:"affected_rules"`      // set when changed
 	AffectedExceptions []ExceptionRef `json:"affected_exceptions"` // set when changed
+	// Version is the version of the source the transcript now holds, for an
+	// area; the text before a change is kept as <id>-v<n>.source.
+	Version int `json:"version,omitempty"`
+	// AnchorsLost are annotations whose quote is not in the new text.
+	AnchorsLost []string `json:"anchors_lost"`
 }
 
 // PolicyRefresh compares new source text with the transcript by hash over
@@ -229,8 +250,10 @@ func policyRefresh(ctx context.Context, d Deps, in PolicyRefreshInput) (PolicyRe
 	}
 	out := PolicyRefreshOutput{
 		ID: in.ID, Hash: hashText(norm), PreviousHash: t.Source.Hash, Checked: timestamp(),
-		AffectedRules: []Rule{}, AffectedExceptions: []ExceptionRef{},
+		AffectedRules: []Rule{}, AffectedExceptions: []ExceptionRef{}, AnchorsLost: []string{},
 	}
+	_, isArea := doc.Meta.(*model.Area)
+	prev := *tdoc
 	t.Source.Checked = out.Checked
 	switch {
 	case t.Source.Backend != "" && t.Source.Backend != backend:
@@ -240,6 +263,30 @@ func policyRefresh(ctx context.Context, d Deps, in PolicyRefreshInput) (PolicyRe
 	default:
 		out.Result = RefreshChanged
 		t.Source.Status = sourceChanged
+	}
+	if out.Result == RefreshChanged && isArea {
+		// An area keeps each version: the text before this one as a version file.
+		n, err := sourceVersion(ctx, d, doc.ID)
+		if err != nil {
+			return out, err
+		}
+		pt := *prev.Meta.(*model.Transcript)
+		pt.Version, pt.Common.Updated = n, ""
+		pt.Source.Status, pt.Source.Checked = "", ""
+		v := model.Document{ID: fmt.Sprintf("%s-v%d.source", doc.ID, n), Folder: tdoc.Folder,
+			Title: fmt.Sprintf("%s (version %d)", doc.Title, n), Body: prev.Body, Meta: &pt}
+		pt.Common.Created = ""
+		if _, err := d.Store.Create(ctx, v); err != nil {
+			return out, fmt.Errorf("version %d of %s not kept: %w", n, doc.ID, err)
+		}
+		out.Version = n + 1
+		for _, c := range paramd.Callouts(doc.Body) {
+			if q := c.Field("quote"); q != "" && c.Broken == "" {
+				if _, _, ok := locateQuote(norm, q, 0); !ok {
+					out.AnchorsLost = append(out.AnchorsLost, c.ID)
+				}
+			}
+		}
 	}
 	if out.Result != RefreshUnchanged {
 		t.Source.Hash, t.Source.Retrieved, t.Source.Backend = out.Hash, out.Checked, backend

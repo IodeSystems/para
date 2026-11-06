@@ -151,6 +151,8 @@ func registerGovernance(r *registrar) {
 	reg(r, ops.PolicyShow, get, read)
 	reg(r, ops.PolicyReview, post, write)
 	reg(r, ops.PolicyRefresh, post, write)
+	reg(r, ops.Annotate, post, write)
+	reg(r, ops.AnnotationList, get, read)
 	reg(r, ops.RuleAdd, post, write)
 	reg(r, ops.RuleList, get, read)
 	reg(r, ops.Ingest, post, write)

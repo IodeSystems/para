@@ -206,6 +206,12 @@ type AreaShowOutput struct {
 	LastAligned string `json:"last_aligned,omitempty"`
 	// DrawnOnBy are the goals and project areas whose concepts name this area.
 	DrawnOnBy []AreaUser `json:"drawn_on_by"`
+	// Sections are the body by heading, its text and annotations in order;
+	// Annotations lists the annotations alone. Follows is the source the
+	// area summarizes, when it follows one (a policy before format 9).
+	Sections    []AreaSection    `json:"sections"`
+	Annotations []AnnotationView `json:"annotations"`
+	Follows     *PolicyView      `json:"follows,omitempty"`
 }
 
 // AreaUser is a goal or a project area that draws on a concept area.
@@ -216,8 +222,8 @@ type AreaUser struct {
 }
 
 // AreaShow returns an area with its projects and tasks.
-var AreaShow = defineRead("area_show", "Show an area with its projects and tasks", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
-	doc, _, err := getArea(ctx, d.Store, in.ID)
+var AreaShow = defineRead("area_show", "Show an area with its projects and tasks, its body by section with its annotations (notes, exceptions, conventions, constraints), and the source it follows", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
+	doc, a, err := getArea(ctx, d.Store, in.ID)
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
@@ -226,6 +232,17 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		return AreaShowOutput{}, err
 	}
 	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}, DrawnOnBy: []AreaUser{}}
+	if out.Annotations, err = annotationsOf(ctx, d, doc); err != nil {
+		return AreaShowOutput{}, err
+	}
+	out.Sections = areaSections(doc.Body, out.Annotations)
+	if a.Follows != nil {
+		pv, err := policyView(ctx, d, doc, a.Follows)
+		if err != nil {
+			return AreaShowOutput{}, err
+		}
+		out.Follows = &pv
+	}
 	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
 	if err != nil {
 		return AreaShowOutput{}, err

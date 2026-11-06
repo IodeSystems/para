@@ -669,7 +669,7 @@ func TestInstructions(t *testing.T) {
 	for _, e := range ops.All() {
 		names[e.Name()] = true
 	}
-	for _, tool := range []string{"route", "search", "policy_show", "rule_list", "constraint_list", "convention_list", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "io_add", "io_file", "io_send", "io_list", "io_drop"} {
+	for _, tool := range []string{"route", "search", "policy_show", "area_show", "annotation_list", "annotate", "rules_in_effect", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "io_add", "io_file", "io_send", "io_list", "io_drop"} {
 		if !names[tool] {
 			t.Errorf("instructions name tool %s, which does not exist", tool)
 		}

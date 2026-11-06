@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/recur"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // Area kinds. An area of kind project is an ongoing body of work that goals
@@ -160,6 +162,29 @@ func checkRefines(ctx context.Context, s store.Store, id string, typ model.Type,
 func refinesLink(ctx context.Context, s store.Store, raw string, typ model.Type) (model.Link, error) {
 	if normID(raw) == "" {
 		return "", nil
+	}
+	// An annotation of the same kind in an area, by its id (no link: it is
+	// not a file).
+	if id := normID(raw); paramd.ValidAnnotationID(id) {
+		refs, err := s.List(ctx, store.Filter{Type: model.TypeArea})
+		if err != nil {
+			return "", err
+		}
+		for _, r := range refs {
+			doc, err := s.Get(ctx, r.ID)
+			if err != nil {
+				return "", err
+			}
+			for _, c := range paramd.Callouts(doc.Body) {
+				if c.ID == id {
+					if c.Kind != string(typ) {
+						return "", fmt.Errorf("refines: %s is a %s: want a %s", id, c.Kind, typ)
+					}
+					return model.Link(id), nil
+				}
+			}
+		}
+		return "", fmt.Errorf("refines: no annotation %s in an area", id)
 	}
 	doc, err := s.Get(ctx, normID(raw))
 	if err != nil {
@@ -397,6 +422,38 @@ func rulesFor(ctx context.Context, s store.Store, chain []string) ([]RuleInEffec
 			}
 		}
 	}
+	// Conventions and constraints are annotations in areas at the policy docs
+	// format: one holds in its area and in the scopes its applies_in names.
+	from := map[string]string{} // annotation id -> the file it was folded from
+	arefs, err := s.List(ctx, store.Filter{Type: model.TypeArea})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range arefs {
+		doc, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range paramd.Callouts(doc.Body) {
+			if c.Broken != "" || c.Kind != "convention" && c.Kind != "constraint" {
+				continue
+			}
+			names := scopeNames(append(splitList([]string{c.Field("applies_in")}), doc.ID))
+			via := ""
+			switch {
+			case c.Kind == "convention" && c.Field("status") != "" && c.Field("status") != string(model.ConventionAdopted):
+			case c.Kind == "constraint" && firstScope(chain, scopeNames(splitList([]string{c.Field("not_in")}))) != "":
+			default:
+				via = firstScope(chain, names)
+			}
+			if via == "" {
+				continue
+			}
+			title, _, _ := strings.Cut(c.Text, "\n")
+			from[c.ID] = model.Link(c.Field(upgrade.FromField)).Target()
+			found = append(found, RuleInEffect{ID: c.ID, Type: model.Type(c.Kind), Title: title, Via: via, Refines: model.Link(c.Field("refines")).Target()})
+		}
+	}
 	refined := map[string]bool{}
 	for _, r := range found {
 		seen := map[string]bool{r.ID: true}
@@ -412,7 +469,7 @@ func rulesFor(ctx context.Context, s store.Store, chain []string) ([]RuleInEffec
 	}
 	out := []RuleInEffect{}
 	for _, r := range found {
-		if !refined[r.ID] {
+		if !refined[r.ID] && (from[r.ID] == "" || !refined[from[r.ID]]) {
 			out = append(out, r)
 		}
 	}

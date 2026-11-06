@@ -6,7 +6,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/iodesystems/para/internal/model"
-	"github.com/iodesystems/para/internal/store"
 )
 
 // ruleMax is the longest rule line (docs/format.md § 6).
@@ -62,13 +61,9 @@ type RuleListOutput struct {
 var RuleList = defineRead("rule_list", "List rules of one policy or of all policies", func(ctx context.Context, d Deps, in RuleListInput) (RuleListOutput, error) {
 	ids := []string{in.Policy}
 	if in.Policy == "" {
-		refs, err := d.Store.List(ctx, store.Filter{Type: model.TypePolicy})
-		if err != nil {
+		var err error
+		if ids, err = followedSummaries(ctx, d); err != nil {
 			return RuleListOutput{}, err
-		}
-		ids = ids[:0]
-		for _, r := range refs {
-			ids = append(ids, r.ID)
 		}
 	}
 	out := RuleListOutput{Rules: []Rule{}}

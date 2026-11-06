@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,8 @@ func addGovernanceCmds(root *cobra.Command, l *loader) {
 		newExceptionCmd(l),
 		newConstraintCmd(l),
 		newConventionCmd(l),
+		newAnnotateCmd(l),
+		newAnnotationCmd(l),
 		newCopyCmd(l),
 		newExportCmd(l),
 	)
@@ -359,6 +362,64 @@ func newConventionCmd(l *loader) *cobra.Command {
 			},
 		}),
 	)
+	return cmd
+}
+
+func newAnnotateCmd(l *loader) *cobra.Command {
+	var fields []string
+	return opCommand(l, ops.Annotate, binding[ops.AnnotateInput, ops.AnnotateOutput]{
+		Use: "annotate <area> [text...] --kind note|exception|convention|constraint [--anchor <heading>|^R4|top] [--field key=value]... [--quote ..] [--id ann-..]", Args: cobra.MinimumNArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.AnnotateInput) {
+			fs.StringVar(&in.Kind, "kind", "", "note, exception, convention, or constraint (a new one)")
+			fs.StringVar(&in.Anchor, "anchor", "", "a section heading, ^R4 (a rule or block id), or top")
+			fs.StringArrayVar(&fields, "field", nil, "key=value (repeat); an empty value removes the field")
+			fs.StringVar(&in.Quote, "quote", "", "words of the source the area follows that it is about")
+			fs.StringVar(&in.ID, "id", "", "an annotation of the area to change or move")
+		},
+		Bind: func(args []string, in *ops.AnnotateInput) error {
+			in.Area, in.Text = args[0], strings.Join(args[1:], " ")
+			for _, f := range fields {
+				k, v, ok := strings.Cut(f, "=")
+				if !ok {
+					return fmt.Errorf("--field %q: want key=value", f)
+				}
+				if in.Fields == nil {
+					in.Fields = map[string]string{}
+				}
+				in.Fields[strings.TrimSpace(k)] = v
+			}
+			return nil
+		},
+		Text: func(w io.Writer, out ops.AnnotateOutput) error {
+			_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, out.Area, cmp.Or(out.Anchor, out.Heading, "top"))
+			return err
+		},
+	})
+}
+
+func newAnnotationCmd(l *loader) *cobra.Command {
+	cmd := group("annotation", "Annotations in area bodies")
+	cmd.AddCommand(opCommand(l, ops.AnnotationList, binding[ops.AnnotationListInput, ops.AnnotationListOutput]{
+		Use: "list [--area <id>] [--kind ..] [--expiring <days>]", Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.AnnotationListInput) {
+			fs.StringVar(&in.Area, "area", "", "one area")
+			fs.StringVar(&in.Kind, "kind", "", "note, exception, convention, or constraint")
+			fs.IntVar(&in.Expiring, "expiring", 0, "only those due for review within this many days")
+		},
+		Text: func(w io.Writer, out ops.AnnotationListOutput) error {
+			for _, a := range out.Annotations {
+				title, _, _ := strings.Cut(a.Text, "\n")
+				due := ""
+				if a.ReviewBy != "" {
+					due = "review by " + a.ReviewBy
+				}
+				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", a.ID, a.Kind, a.Area, cmp.Or(a.Heading, "top"), title, due); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	}))
 	return cmd
 }
 

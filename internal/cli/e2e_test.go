@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -77,6 +79,27 @@ func (e *env) init(id string) string {
 	e.t.Helper()
 	path := filepath.Join(e.dir, id)
 	e.ok("init", id, path)
+	return path
+}
+
+// initAt makes a vault at an older format, as a para before that format
+// made it: policies, exceptions, conventions, and constraints are files
+// below format 9 (upgrade.PolicyDocsFormat).
+func (e *env) initAt(id string, format int) string {
+	e.t.Helper()
+	path := e.init(id)
+	p := filepath.Join(path, ".para", "vault.properties")
+	b, err := os.ReadFile(p)
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	re := regexp.MustCompile(`(?m)^format_version=\d+$`)
+	if !re.Match(b) {
+		e.t.Fatalf("no format_version in %s", b)
+	}
+	if err := os.WriteFile(p, re.ReplaceAll(b, []byte("format_version="+strconv.Itoa(format))), 0o600); err != nil {
+		e.t.Fatal(err)
+	}
 	return path
 }
 
@@ -371,7 +394,9 @@ func jsonKeys(t *testing.T, raw []byte) []string {
 // read-only ops the whole value is compared.
 func TestInvokeMatchesCLIJSON(t *testing.T) {
 	e := newEnv(t)
-	e.init("acme")
+	// Below format 9, so the show ops of exceptions, conventions, and
+	// constraints find files; annotate works on an area at any format.
+	e.initAt("acme", 8)
 	l := &loader{env: func(k string) string {
 		if k == "PARA_HOME" {
 			return e.home

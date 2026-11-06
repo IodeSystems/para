@@ -11,6 +11,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // expiringDefault is the default window of exception_expiring, in days.
@@ -108,7 +109,10 @@ var ExceptionAdd = define("exception_add", "Record a policy exception", func(ctx
 	case in.Policy != "":
 		var err error
 		if pol, _, err = getPolicy(ctx, d, in.Policy); err != nil {
-			return ExceptionAddOutput{}, err
+			// At the policy docs format any area takes an exception.
+			if _, isArea := pol.Meta.(*model.Area); !isArea || !policyDocsOn(d) {
+				return ExceptionAddOutput{}, err
+			}
 		}
 		e.Policy, e.PolicyText = model.LinkTo(pol.ID), text
 	case text != "":
@@ -150,9 +154,14 @@ var ExceptionAdd = define("exception_add", "Record a policy exception", func(ctx
 	if strings.ContainsAny(title, "\r\n") {
 		return ExceptionAddOutput{}, errors.New("title must be one line")
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderPolicies, Title: title, Body: strings.TrimSpace(in.Text), Meta: e,
-	})
+	nd := model.Document{Folder: model.FolderPolicies, Title: title, Body: strings.TrimSpace(in.Text), Meta: e}
+	if policyDocsOn(d) {
+		// An alias of annotate: the exception is an annotation in its area.
+		f, _ := upgrade.AnnotationOf(nd, storeAreas{ctx, d.Store})
+		out, err := insertFold(ctx, d, f)
+		return ExceptionAddOutput{ID: out.ID, Rev: out.Rev}, err
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return ExceptionAddOutput{}, err
 	}

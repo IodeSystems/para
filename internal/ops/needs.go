@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/store"
 )
 
@@ -25,8 +26,8 @@ import (
 // agent, or an approved io draft not sent yet; side work (sideWork) does not
 // count. owner_turn is per kind (need).
 // Some owner turns start on a date (On): a meeting due_soon_days before it
-// starts, an ask on its nudge date, an area on its review date, an exception
-// or a constraint 14 days before review_by. Before that day the item is
+// starts, an ask on its nudge date, an area on its review date or 14 days
+// before the review_by of an exception or a constraint annotation in it. Before that day the item is
 // upcoming: dated views (agenda) list it, the needs-you set does not.
 
 // Lifecycle is the one state every kind has: open, later, or closed.
@@ -470,16 +471,33 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		}
 		return Need{Turn: TurnAgent, Reason: "agent work " + string(m.Status)}
 	case *model.Area:
-		if m.Status != model.AreaActive || m.Cadence == "" {
+		if m.Status != model.AreaActive {
 			return none("area")
 		}
-		if m.LastReviewed == "" {
-			return owner("review " + m.Cadence + "; never reviewed")
+		n := none("area")
+		switch {
+		case m.Cadence == "":
+		case m.LastReviewed == "":
+			n = owner("review " + m.Cadence + "; never reviewed")
+		default:
+			if next := nextReview(m); next != "" {
+				n = Need{Turn: TurnOwner, On: next, Reason: "review " + m.Cadence}
+			}
 		}
-		if next := nextReview(m); next != "" {
-			return Need{Turn: TurnOwner, On: next, Reason: "review " + m.Cadence}
+		// An exception or a constraint in the body is the owner's from
+		// reviewAheadDays before its review_by, unless it is resolved.
+		for _, c := range paramd.Callouts(doc.Body) {
+			rb := c.Field("review_by")
+			if c.Broken != "" || rb == "" || c.Kind != "exception" && c.Kind != "constraint" || c.Field("status") == string(model.ExceptionResolved) {
+				continue
+			}
+			if on := sn.ahead(rb, reviewAheadDays); n.Turn != TurnOwner || on < n.On {
+				n = Need{Turn: TurnOwner, On: on, Reason: c.Kind + " " + c.ID + " to review by " + rb}
+			}
 		}
-		return none("area")
+		return n
+	// An exception or a constraint file, until step policy-docs makes it an
+	// annotation (archived files are not in the snapshot).
 	case *model.PolicyException:
 		if m.ReviewBy == "" {
 			return none("exception")

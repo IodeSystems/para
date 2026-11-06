@@ -28,6 +28,7 @@ type ParaV1MutationNamespace {
   agentSend(body: para_AgentSendInputInput!): para_AgentSendOutput @derived(operationId: "agentSend")
   agentSources(body: para_AgentSourcesInputInput!): para_AgentSourcesOutput @derived(operationId: "agentSources")
   alignRecord(body: para_AlignRecordInputInput!): para_AlignRecordOutput @derived(operationId: "alignRecord")
+  annotate(body: para_AnnotateInputInput!): para_AnnotateOutput @derived(operationId: "annotate")
   areaAdd(body: para_AreaAddInputInput!): para_AreaAddOutput @derived(operationId: "areaAdd")
   areaLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "areaLinkAdd")
   areaLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "areaLinkRemove")
@@ -204,6 +205,7 @@ type ParaV1QueryNamespace {
     """meetings up to this date (included) or time; default 14 days from today"""
     to: String
   ): para_AlignScopeOutput @derived(operationId: "alignScope")
+  annotationList(area: String, expiring: Int, kind: String): para_AnnotationListOutput @derived(operationId: "annotationList")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   attachmentRead(file: String!): para_AttachmentReadOutput @derived(operationId: "attachmentRead")
@@ -507,6 +509,64 @@ type para_AlignTarget {
   to: String!
 }
 
+input para_AnnotateInputInput {
+  anchor: String
+  area: String!
+  fields: JSON
+  id: String
+  kind: String
+  quote: String
+  text: String
+}
+
+type para_AnnotateOutput {
+  anchor: String
+  area: String!
+  heading: String!
+  id: String!
+  rev: String!
+}
+
+type para_AnnotationField {
+  key: String!
+  value: String!
+}
+
+type para_AnnotationListOutput {
+  annotations: [para_AnnotationRow!]!
+}
+
+type para_AnnotationRow {
+  anchor: String
+  area: String!
+  areaTitle: String
+  daysLeft: Int
+  fields: [para_AnnotationField!]!
+  from: String
+  heading: String!
+  id: String!
+  kind: String!
+  lost: Boolean
+  quote: String
+  reviewBy: String
+  text: String!
+}
+
+type para_AnnotationView {
+  anchor: String
+  area: String!
+  areaTitle: String
+  fields: [para_AnnotationField!]!
+  from: String
+  heading: String!
+  id: String!
+  kind: String!
+  lost: Boolean
+  quote: String
+  reviewBy: String
+  text: String!
+}
+
 type para_AnswerSource {
   quote: String
   ref: String!
@@ -574,6 +634,11 @@ type para_AreaListOutput {
   areas: [para_AreaView!]!
 }
 
+type para_AreaPart {
+  annotation: para_AnnotationView
+  text: String
+}
+
 input para_AreaReviewInputInput {
   id: String!
   note: String
@@ -586,16 +651,25 @@ type para_AreaReviewOutput {
   rev: String!
 }
 
+type para_AreaSection {
+  heading: String!
+  level: Int!
+  parts: [para_AreaPart!]!
+}
+
 type para_AreaShowOutput {
+  annotations: [para_AnnotationView!]!
   area: para_AreaView!
   body: String!
   drawnOnBy: [para_AreaUser!]!
+  follows: para_PolicyView
   incidents: [para_IncidentView!]!
   lastAligned: String
   notes: [para_NoteView!]!
   projects: [para_ProjectView!]!
   questions: [para_QuestionView!]!
   recurring: [para_TaskView!]!
+  sections: [para_AreaSection!]!
   tasks: [para_TaskView!]!
 }
 
@@ -2088,6 +2162,12 @@ type para_Finding {
   message: String!
   path: String!
   severity: String!
+}
+
+type para_Followed {
+  reviewedBy: String
+  source: para_Source!
+  verified: Boolean!
 }
 
 type para_FrictionOutput {
@@ -3997,7 +4077,9 @@ type para_Meta {
   fetch: para_SourceStep
   fetchedBy: String
   foldedFrom: String
+  foldedInto: String
   followed: [String!]
+  follows: para_Followed
   from: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
@@ -4763,11 +4845,13 @@ input para_PolicyRefreshInputInput {
 type para_PolicyRefreshOutput {
   affectedExceptions: [para_ExceptionRef!]!
   affectedRules: [para_Rule!]!
+  anchorsLost: [String!]!
   checked: String!
   hash: String!
   id: String!
   previousHash: String!
   result: String!
+  version: Int
 }
 
 input para_PolicyReviewInputInput {

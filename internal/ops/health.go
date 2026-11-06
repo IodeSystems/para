@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/store"
 	"github.com/iodesystems/para/internal/upgrade"
 )
@@ -70,6 +71,15 @@ const (
 	// HealthUpgradePending is a vault upgrade step with documents left: the
 	// owner runs an automated one, an agent works a judgement one.
 	HealthUpgradePending = "upgrade_pending"
+	// HealthAnnotationBroken is a callout of an annotation kind in an area
+	// whose header para cannot read (a hand edit): its text stays, unread.
+	HealthAnnotationBroken = "annotation_broken"
+	// HealthAnnotationLost is an annotation whose rule or block is gone from
+	// the body, or whose quote is not in the newest version of the source.
+	HealthAnnotationLost = "annotation_anchor_lost"
+	// HealthAnnotationAtTop is an annotation upgrade step policy-docs could
+	// not place, still at the top of its area (step annotation-placement).
+	HealthAnnotationAtTop = upgrade.AnnotationAtTop
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
@@ -85,6 +95,7 @@ var HealthKinds = []string{
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
 	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused, HealthUpgradePending,
+	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -127,6 +138,9 @@ var HealthKindWords = map[string]string{
 	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
 	HealthGateUnused:         "Vault setting no longer used",
 	HealthUpgradePending:     "Vault upgrade step pending",
+	HealthAnnotationBroken:   "Annotation para cannot read",
+	HealthAnnotationLost:     "Annotation lost its anchor",
+	HealthAnnotationAtTop:    "Annotation not placed in a section",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -581,6 +595,7 @@ func (h *healther) scan() {
 				}
 				h.add(HealthAreaNeglected, id, "", msg, fmt.Sprintf("review it with the owner, then area_review {id: %s}", id))
 			}
+			h.annotations(d, m)
 		case *model.Constraint:
 			// A constraint always has a source: lint refuses one without.
 			if strings.EqualFold(m.By, model.ByUnknown) {
@@ -600,6 +615,43 @@ func (h *healther) scan() {
 				h.add(HealthPolicyReviewDue, id, "", "policy exception review date is "+string(m.ReviewBy), fmt.Sprintf("exception_show {id: %s}, then ask the owner", id))
 			}
 		}
+	}
+}
+
+// annotations flags the annotations of an area: a header para cannot read,
+// an anchor that is gone, a review date that has come, and a folded one
+// still at the top.
+func (h *healther) annotations(d model.Document, a *model.Area) {
+	var text string
+	if a.Follows != nil {
+		if t, ok := h.docs[transcriptID(d.ID)]; ok {
+			text = transcriptText(t.Body)
+		}
+	}
+	for _, c := range paramd.Callouts(d.Body) {
+		if c.Broken != "" {
+			h.add(HealthAnnotationBroken, d.ID, "", fmt.Sprintf("line %d: %s callout: %s", c.Line, c.Kind, c.Broken),
+				"fix the header by hand (> [!"+c.Kind+"] ann-<id> · key value), or annotate the text again and remove the callout")
+			continue
+		}
+		if b, ok := strings.CutPrefix(c.Field("anchor"), "^"); ok && !hasBlock(d.Body, b) {
+			h.add(HealthAnnotationLost, d.ID, "", fmt.Sprintf("annotation %s is about ^%s, which is no longer in the body", c.ID, b),
+				fmt.Sprintf("annotate {area: %s, id: %s, anchor: <heading>}", d.ID, c.ID))
+		}
+		if q := c.Field("quote"); q != "" && text != "" {
+			if _, _, ok := locateQuote(text, q, 0); !ok {
+				h.add(HealthAnnotationLost, d.ID, "", fmt.Sprintf("annotation %s quotes words not in the newest version of the source", c.ID),
+					fmt.Sprintf("read the source again, then annotate {area: %s, id: %s, quote: <the words now>}", d.ID, c.ID))
+			}
+		}
+		if rb := c.Field("review_by"); rb != "" && rb <= h.today && c.Field("status") != string(model.ExceptionResolved) && c.Kind != "convention" {
+			h.add(HealthPolicyReviewDue, d.ID, "", fmt.Sprintf("%s %s review date is %s", c.Kind, c.ID, rb),
+				fmt.Sprintf("ask the owner, then annotate {area: %s, id: %s, fields: {review_by: <new date>}}", d.ID, c.ID))
+		}
+	}
+	if n := len(upgrade.FoldedAtTop(d.Body)); n > 0 {
+		h.add(HealthAnnotationAtTop, d.ID, "", fmt.Sprintf("%d annotation(s) the upgrade folded are at the top of the area, not in a section", n),
+			fmt.Sprintf("annotate {area: %s, id: <annotation>, anchor: <heading>} for each, or health_dismiss {id: %s, kind: %s}", d.ID, d.ID, HealthAnnotationAtTop))
 	}
 }
 

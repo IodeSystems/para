@@ -47,6 +47,8 @@ func governanceParityCases(e *env) (map[string]parityCase, map[string]string) {
 	e.json(&conv, "convention", "add", "Branch names", "--applies-in", "acme")
 
 	cases := map[string]parityCase{
+		"annotate":           {`{"area":"area-u-seed","kind":"note","text":"Ask first."}`, []string{"annotate", "area-u-seed", "Ask", "first.", "--kind", "note"}, false},
+		"annotation_list":    {`{"kind":"exception"}`, []string{"annotation", "list", "--kind", "exception"}, true},
 		"ingest":             {`{"url":"` + govURL + `","text":"Body."}`, []string{"ingest", "--url", govURL}, false},
 		"policy_list":        {`{}`, []string{"policy", "list"}, true},
 		"policy_show":        {`{"id":"` + pol.ID + `"}`, []string{"policy", "show", pol.ID}, true},
@@ -81,7 +83,7 @@ func readFile(t *testing.T, path string) string {
 
 func TestIngestRefreshFlow(t *testing.T) {
 	e := newEnv(t)
-	vault := e.init("acme")
+	vault := e.initAt("acme", 8)
 	pol := e.ingest(govText)
 	if !strings.HasPrefix(pol.ID, "policy-") || pol.TranscriptID != pol.ID+".source" || pol.Verified || pol.Fidelity != "exact" {
 		t.Fatalf("ingest = %+v", pol)
@@ -210,7 +212,7 @@ func TestIngestFailures(t *testing.T) {
 
 func TestIngestNoCopy(t *testing.T) {
 	e := newEnv(t)
-	vault := e.init("acme")
+	vault := e.initAt("acme", 8)
 	e.stdin = ""
 	var out ops.IngestOutput
 	e.json(&out, "ingest", "--url", govURL, "--no-copy", "--title", "Restricted policy")
@@ -285,7 +287,7 @@ func TestRuleAndExceptionFailures(t *testing.T) {
 
 func TestExceptionKindsAndExpiring(t *testing.T) {
 	e := newEnv(t)
-	e.init("acme")
+	e.initAt("acme", 8)
 	pol := e.ingest("Body.")
 	other := e.ingest("Other.")
 	e.json(&ops.RuleAddOutput{}, "rule", "add", pol.ID, "A rule.")
@@ -325,7 +327,7 @@ func TestExceptionKindsAndExpiring(t *testing.T) {
 
 func TestConstraintAndConvention(t *testing.T) {
 	e := newEnv(t)
-	vault := e.init("acme")
+	vault := e.initAt("acme", 8)
 	var con ops.ConstraintAddOutput
 	e.json(&con, "constraint", "add", "--says", "No prod access", "--why", "Audit scope", "--by", "Jordan Example",
 		"--source", "https://wiki.acme.example/access", "--applies-in", "prod,staging", "--applies-in", "dr", "--review-by", "2027-01-01", "--text", "Details.")
@@ -361,7 +363,7 @@ func TestConstraintAndConvention(t *testing.T) {
 
 func TestCopy(t *testing.T) {
 	e := newEnv(t)
-	vault := e.init("acme")
+	vault := e.initAt("acme", 8)
 	pol := e.ingest("# Logging policy\n\nServices **must** log failures. See [the wiki](https://wiki.acme.example/x).\n\n| Level | Use |\n|---|---|\n| info | normal |\n")
 	e.json(&ops.RuleAddOutput{}, "rule", "add", pol.ID, "Log every failure.")
 	// Marking comes from vault.properties.

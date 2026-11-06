@@ -61,7 +61,7 @@ func policyFixture(t *testing.T) (*fixture, store.Store) {
 			Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: model.ConventionDraft, AppliesIn: []string{"writing"}}},
 		{ID: "con-ops", Folder: model.FolderConstraints, Title: "No shared accounts",
 			Meta: &model.Constraint{Common: model.Common{Type: model.TypeConstraint}, Why: "audit", By: "[[person-x]]",
-				Source: model.Source{URL: "https://acme.example/audit", Retrieved: "2026-11-01T09:00:00Z", Fidelity: model.FidelityNone, Backend: "manual"},
+				Source:    model.Source{URL: "https://acme.example/audit", Retrieved: "2026-11-01T09:00:00Z", Fidelity: model.FidelityNone, Backend: "manual"},
 				AppliesIn: []string{"area-ops", "prod"}, NotIn: []string{"dev"}, ReviewBy: "2027-02-01"}},
 		{ID: "person-x", Folder: model.FolderOrg, Title: "Person X", Meta: &model.Person{Common: model.Common{Type: model.TypePerson}}},
 	} {

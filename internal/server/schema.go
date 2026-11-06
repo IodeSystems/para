@@ -244,6 +244,8 @@ type Meta struct {
 	OwedBy          []string              `json:"owed_by,omitempty"`
 	OccurrenceOf    string                `json:"occurrence_of,omitempty"`
 	FoldedFrom      string                `json:"folded_from,omitempty"`
+	FoldedInto      string                `json:"folded_into,omitempty"` // an exception, convention, or constraint: the area it is an annotation in
+	Follows         *model.Followed       `json:"follows,omitempty"`     // area: the source it summarizes
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`

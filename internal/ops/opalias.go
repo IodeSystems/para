@@ -177,6 +177,13 @@ func aliasTable() []aliasDef {
 		aliasDef{name: "meeting_rsvp", to: ObligationAttend.Name(), in: same, want: attend},
 		aliasDef{name: "meeting_show", to: "show", in: same},
 	)
+	// The add ops of exceptions, conventions, and constraints are annotate
+	// now. They keep their inputs and outputs and run as before (each old op
+	// writes an annotation itself at the policy docs format, the same one the
+	// upgrade step makes of such a file), so they never route.
+	for _, name := range []string{"exception_add", "convention_add", "constraint_add"} {
+		defs = append(defs, aliasDef{name: name, to: Annotate.Name(), in: same})
+	}
 	return defs
 }
 

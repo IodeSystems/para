@@ -9,10 +9,12 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/store/local"
 	"github.com/iodesystems/para/internal/upgrade"
@@ -244,7 +246,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			continue
 		}
 		switch r.Type {
-		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeObligation, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeObligation, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy, model.TypeArea:
 		case model.TypeProposal:
 			if d, err := v.Get(ctx, r.ID); err == nil {
 				vt.ApprovedNotDone += approvedNotDone(d)
@@ -335,6 +337,19 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		case *model.Policy:
 			if !m.Verified {
 				vt.Unverified++
+			}
+		case *model.Area:
+			// An area that follows a source is what a policy was; its
+			// exceptions are annotations in its body.
+			if m.Follows != nil && !m.Follows.Verified {
+				vt.Unverified++
+			}
+			for _, c := range paramd.Callouts(d.Body) {
+				rb := c.Field("review_by")
+				if c.Kind == "exception" && c.Broken == "" && rb != "" && rb <= limit && c.Field("status") != string(model.ExceptionResolved) {
+					title, _, _ := strings.Cut(c.Text, "\n")
+					vt.Expiring.Items = append(vt.Expiring.Items, Item{ID: d.ID, Title: d.Title + ": " + title, Detail: c.ID})
+				}
 			}
 		case *model.Task:
 			if item.Project = m.Project.Target(); item.Project == "" {

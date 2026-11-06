@@ -10,6 +10,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // IngestInput is the input of ingest. Text is the source as the manual
@@ -35,7 +36,8 @@ type IngestOutput struct {
 }
 
 // Ingest stores a source document as a policy: a summary stub marked
-// unverified, and a transcript.
+// unverified, and a transcript. At the policy docs format the summary is an
+// area of kind concept that follows the source.
 var Ingest = defineSafe("ingest", "Store a source document as a policy summary stub and transcript", ingest)
 
 func ingest(ctx context.Context, d Deps, in IngestInput) (IngestOutput, error) {
@@ -79,13 +81,22 @@ func ingest(ctx context.Context, d Deps, in IngestInput) (IngestOutput, error) {
 		}
 	}
 
-	pol, err := d.Store.Create(ctx, model.Document{
+	sum := model.Document{
 		ID:     in.ID,
 		Folder: model.FolderPolicies,
 		Title:  title,
 		Body:   stubBody(),
 		Meta:   &model.Policy{Common: model.Common{Type: model.TypePolicy}, Followed: model.Followed{Source: src}},
-	})
+	}
+	if policyDocsOn(d) {
+		// At the policy docs format a policy is an area that follows its source.
+		if sum, err = upgrade.AsFollowedArea(sum); err != nil {
+			return IngestOutput{}, err
+		}
+		sum = sum.DropExtra()
+		sum.Meta.(*model.Area).FoldedFrom = ""
+	}
+	pol, err := d.Store.Create(ctx, sum)
 	if err != nil {
 		return IngestOutput{}, err
 	}

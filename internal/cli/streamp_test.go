@@ -110,7 +110,7 @@ func TestIOFileCommand(t *testing.T) {
 
 func TestRFXReplyCommand(t *testing.T) {
 	e := newEnv(t)
-	e.init("acme")
+	e.initAt("acme", 8)
 	e.ok("org", "role", "add", "Lead", "--org", "acme.example")
 	e.ok("org", "domain", "add", "Logging", "--owner", "role-lead")
 	var bo ops.OrgAddOutput

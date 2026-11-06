@@ -39,6 +39,8 @@ var Inputs = map[string]string{
 	"vault_config_unset":        `{"key":"align.days"}`,
 	"area_add":                  `{"title":"Health"}`,
 	"area_show":                 `{"id":"area-sample"}`,
+	"annotate":                  `{"area":"area-sample","kind":"note","text":"Ask the owner before a change."}`,
+	"annotation_list":           `{"expiring":30}`,
 	"area_review":               `{"id":"area-sample","note":"Checked the sample."}`,
 	"rules_in_effect":           `{"id":"area-sample"}`,
 	"area_link_add":             `{"id":"area-sample","label":"Repo","kind":"repo","target":"~/src/sample"}`,

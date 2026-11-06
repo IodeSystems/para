@@ -8,6 +8,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
+	"github.com/iodesystems/para/internal/upgrade"
 )
 
 // ConventionView is a convention as list and show report it.
@@ -69,10 +70,17 @@ var ConventionAdd = define("convention_add", "Record a convention", func(ctx con
 	if err != nil {
 		return ConventionAddOutput{}, err
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	nd := model.Document{
 		Folder: model.FolderConventions, Title: title, Body: strings.TrimSpace(in.Text),
 		Meta: &model.Convention{Common: model.Common{Type: model.TypeConvention}, Status: status, AppliesIn: splitList(in.AppliesIn), Refines: refines},
-	})
+	}
+	if policyDocsOn(d) {
+		// An alias of annotate: the convention is an annotation in the first area applies_in names.
+		f, _ := upgrade.AnnotationOf(nd, storeAreas{ctx, d.Store})
+		out, err := insertFold(ctx, d, f)
+		return ConventionAddOutput{ID: out.ID, Rev: out.Rev}, err
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return ConventionAddOutput{}, err
 	}
