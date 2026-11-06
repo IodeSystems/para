@@ -30,6 +30,7 @@ const IoListDoc = graphql(/* GraphQL */ `
             became
             legacy
             created
+            needsYou
           }
         }
       }

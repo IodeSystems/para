@@ -109,6 +109,21 @@ export function OptionalMeetings({ items }: { items: AttendRow[] }) {
   )
 }
 
+// OptionalLine is one collapsed line for the optional meetings the owner has not said they go to.
+// They ask nothing and count for nothing (needs_you); open, the line lists them with Attend.
+export function OptionalLine({ items }: { items: AttendRow[] }) {
+  const [open, setOpen] = useState(false)
+  if (items.length === 0) return null
+  return (
+    <>
+      <Button size="small" color="inherit" aria-expanded={open} onClick={() => setOpen(!open)}>
+        {items.length} optional
+      </Button>
+      {open && <OptionalMeetings items={items} />}
+    </>
+  )
+}
+
 // SkippedLine is one collapsed line for the meetings the owner skips; open, it lists them.
 export function SkippedLine({ items }: { items: AttendRow[] }) {
   const [open, setOpen] = useState(false)

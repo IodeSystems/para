@@ -65,6 +65,9 @@ const AgendaDoc = graphql(/* GraphQL */ `
           skipped {
             ...AgendaItemFields
           }
+          optional {
+            ...AgendaItemFields
+          }
         }
       }
     }
@@ -89,6 +92,7 @@ export const AgendaItemFields = graphql(/* GraphQL */ `
     whoNames
     optional
     attend
+    needsYou
   }
 `)
 

@@ -7,6 +7,7 @@ export const QuestionFields = graphql(/* GraphQL */ `
   fragment QuestionFields on para_QuestionView {
     id
     title
+    needsYou
     kind
     status
     scope

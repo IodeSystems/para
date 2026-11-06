@@ -24,7 +24,7 @@ import { LinkButton, TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { DueChip } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
-import { OptionalMeetings, SkippedLine } from '@/components/MeetingAttend'
+import { OptionalLine, SkippedLine } from '@/components/MeetingAttend'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
 import { humanTime } from '@/lib/when'
@@ -235,12 +235,16 @@ function Agenda() {
         <DataState q={q}>
           {(d) => {
             const t = d.today
-            // An answer an older agent version proposed: shown, decided in the chat.
-            const checks = (questions.data ?? []).filter((x) => x.hasProposal)
+            // Every list here is what needs you (needs_you on the server): nothing closed, put off,
+            // or an agent's. An answer an older agent version proposed: shown, decided in the chat.
+            const checks = (questions.data ?? []).filter((x) => x.hasProposal && x.needsYou)
             const agenda: AgendaItem[] = t.agenda.items
-            const agentWork = (requests.data ?? []).filter((x) => x.status === 'proposed')
-            const inboxItems = inbox.data?.items ?? []
-            const need = t.answersToCheck + agentWork.length + agenda.length + inboxItems.length
+            const agentWork = (requests.data ?? []).filter(
+              (x) => x.status === 'proposed' && x.needsYou,
+            )
+            const inboxItems = (inbox.data?.items ?? []).filter((x) => x.needsYou)
+            // need is the one count of what needs you; the stack and Today count the same set.
+            const need = t.needsYou
 
             // The lead is the one thing to look at first: a proposed answer, then the top
             // of the agenda, then the inbox. It is not listed again.
@@ -462,12 +466,7 @@ function Agenda() {
                 </Section>
                 {(t.optional.count > 0 || t.skipped.count > 0) && (
                   <Box sx={{ mt: 1 }}>
-                    {t.optional.count > 0 && (
-                      <Typography variant="overline" color="text.secondary">
-                        Optional meetings, if you want them
-                      </Typography>
-                    )}
-                    <OptionalMeetings items={t.optional.items} />
+                    <OptionalLine items={t.optional.items} />
                     <SkippedLine items={t.skipped.items} />
                   </Box>
                 )}

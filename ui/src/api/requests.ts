@@ -28,6 +28,8 @@ const RequestListDoc = graphql(/* GraphQL */ `
             claimedAt
             activeAt
             stale
+            needsYou
+            reason
           }
         }
       }

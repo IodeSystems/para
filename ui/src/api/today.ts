@@ -44,6 +44,7 @@ const TodayDoc = graphql(/* GraphQL */ `
             docComments
             agentOpen
             agentStale
+            needsYou
             unverified
             waiting
             answersToCheck
