@@ -9,7 +9,7 @@ Ingest one thing the owner points at: a document, a thread, a transcript, a tick
    - a question the source answers: `question_answer` with the choice or text, the reason, and sources. 
    - an Ask the source resolves: `rfx_reply`, with the outcome, who said it, and sources. A no records the constraint.
    - an attempt, something tried and what came of it: `attempt_add`, with the task or Ask as target, what was tried, the result, and sources.
-   - a date that moved: `task_due` for a task, `project_edit` for a goal, `meeting_schedule` for a meeting, `rfx_nudge` for the follow-up date of an Ask.
+   - a date that moved: `task_due` for a task, `project_edit` for a goal, `obligation_schedule` for a meeting, `rfx_nudge` for the follow-up date of an Ask.
    - an unknown that blocks work and that the source does not settle: `question_add`, with one scope.
    - a person the vault lacks: `org_person_add`.
    - a message that waits on the owner's reply: `io_add` direction in with expects response and effort, so `order` lists it in the reply batch. Check this for every thread you ingest, and set it honestly: without it, an incoming message needs the owner only when its sender, a group they are in, or its source is priority high, or a triage rule says so; the rest goes to the day's inbox digest.

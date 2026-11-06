@@ -313,6 +313,8 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, ops.CopyFormats)
 	addEnum(reg, export.Formats)
 	addEnum(reg, ops.TriageTargets)
+	addEnum(reg, model.Schedules)
+	addEnum(reg, model.States)
 	addEnum(reg, model.IODirections)
 	addEnum(reg, model.IOStates)
 	addEnum(reg, model.IOExpectsAll)

@@ -211,6 +211,18 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 		if need.Life != LifeOpen {
 			continue // closed, or put off
 		}
+		ongoing := false
+		if o, ok := doc.Meta.(*model.Obligation); ok {
+			ongoing = o.Schedule == model.ScheduleOngoing
+			if ongoing && need.Pending() {
+				if date := cmp.Or(need.On, w.today); date < w.after {
+					add(AgendaItem{Kind: AgendaDue, ID: doc.ID, Title: doc.Title, Date: date, Overdue: date < w.today,
+						Detail: need.Reason, Who: targets(o.OwedTo), Project: cmp.Or(o.Project.Target(), o.Area.Target())}, need)
+				}
+				continue
+			}
+			doc = obligationShape(doc) // a meeting or work owed, as a task of its kind
+		}
 		if mt, ok := readMeeting(doc); ok && mt.Status == model.MeetingScheduled {
 			v, err := meetingView(doc)
 			if err != nil {

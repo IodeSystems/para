@@ -271,10 +271,12 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 			return nil, err
 		}
 		var deps []string
+		typ := doc.Meta.Header().Type
+		doc = obligationShape(doc)
 		switch m := doc.Meta.(type) {
 		case *model.Task:
 			t := w.tasks[id]
-			add(GraphNode{ID: id, Type: model.TypeTask, Title: doc.Title, Status: string(m.Status),
+			add(GraphNode{ID: id, Type: typ, Title: doc.Title, Status: string(m.Status),
 				Project: t.Project, Area: t.Area, BlockedBy: t.BlockedBy}, resolved(doc), m.Status == model.TaskBlocked)
 			deps = t.DependsOn
 		case *model.RFX:

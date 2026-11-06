@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/store"
@@ -224,6 +225,10 @@ func asObligation(d model.Document, prev map[string]string) (model.Document, err
 		}
 		if kind == model.KindCommitment && len(m.With) > 0 {
 			set["owed_to"] = linkStrings(m.With)
+		}
+		// A commitment assigned to a person is owed by them.
+		if a := strings.TrimSpace(m.Assignee); a != "" && !strings.Contains(a, ":") && a != "self" {
+			set["owed_by"] = []string{string(model.LinkTo(a))}
 		}
 		switch m.Status {
 		case model.TaskDone:

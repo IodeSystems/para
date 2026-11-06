@@ -29,6 +29,11 @@ func streamVParityCases() map[string]parityCase {
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
 		"meeting_attend":   {`{"id":"meeting-v-g","attend":"no","optional":true,"all_future":true}`, []string{"meeting", "attend", "meeting-v-h", "no", "--optional", "--all-future"}, false},
 		"meeting_rsvp":     {`{"id":"meeting-v-i","attend":"yes"}`, []string{"meeting", "rsvp", "meeting-v-j", "yes"}, false},
+		"obligation_add": {`{"title":"Send Vera the plan","owed_to":["person-v-seed"],"due":"2026-11-20","project":"project-v-seed"}`,
+			[]string{"obligation", "add", "Send", "Vera", "the", "plan", "--owed-to", "person-v-seed", "--due", "2026-11-20", "-p", "project-v-seed"}, false},
+		"obligation_schedule": {`{"id":"meeting-v-k","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,
+			[]string{"obligation", "schedule", "meeting-v-l", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
+		"obligation_attend": {`{"id":"meeting-v-m","attend":"yes"}`, []string{"obligation", "attend", "meeting-v-n", "yes"}, false},
 	}
 }
 
@@ -49,7 +54,7 @@ func seedStreamVParity(t *testing.T, deps ops.Deps) {
 				Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-v-seed")}}})
 	}
 	// meeting_attend works on a task meeting: the older shape has no attendance.
-	for _, id := range []string{"meeting-v-g", "meeting-v-h", "meeting-v-i", "meeting-v-j"} {
+	for _, id := range []string{"meeting-v-g", "meeting-v-h", "meeting-v-i", "meeting-v-j", "meeting-v-k", "meeting-v-l", "meeting-v-m", "meeting-v-n"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "V standing meeting " + id,
 			Body: "## Questions\n\nNone yet.\n\n## Notes\n",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Recur: "weekly",

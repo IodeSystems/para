@@ -331,8 +331,10 @@ type Obligation struct {
 	OwedBy   []Link      `yaml:"owed_by,omitempty" json:"owed_by,omitempty"`
 	Project  Link        `yaml:"project,omitempty" json:"project,omitempty"`
 	Area     Link        `yaml:"area,omitempty" json:"area,omitempty"`
-	Due      Date        `yaml:"due,omitempty" json:"due,omitempty"`
-	Recur    string      `yaml:"recur,omitempty" json:"recur,omitempty"`
+	// Parent links the task this one came from, as a task's parent does.
+	Parent Link   `yaml:"parent,omitempty" json:"parent,omitempty"`
+	Due    Date   `yaml:"due,omitempty" json:"due,omitempty"`
+	Recur  string `yaml:"recur,omitempty" json:"recur,omitempty"`
 	// Cadence is how often an ongoing obligation is reviewed, in the recur
 	// grammar; LastReviewed is the date of the last review.
 	Cadence      string `yaml:"cadence,omitempty" json:"cadence,omitempty"`
@@ -353,8 +355,9 @@ func (o *Obligation) Open() bool { return o.State != StateClosed }
 // AsTask is the task of kind meeting or commitment that holds the same
 // obligation: for task views, and for a vault not yet at the obligation
 // format. Open is todo; closed done (held) is done, any other outcome dropped.
+// The first of OwedBy is the assignee; a commitment's OwedTo is its with.
 func (o *Obligation) AsTask() *Task {
-	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Area: o.Area, Due: o.Due, Recur: o.Recur,
+	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Area: o.Area, Parent: o.Parent, Due: o.Due, Recur: o.Recur,
 		Previous: o.Previous, Occasion: o.Occasion, DoneWhen: o.DoneWhen, DependsOn: o.DependsOn, Effort: o.Effort,
 		Deferral: o.Deferral, Status: TaskTodo}
 	t.Type = TypeTask
@@ -366,6 +369,12 @@ func (o *Obligation) AsTask() *Task {
 		case OutcomeSkipped:
 			t.Outcome = OutcomeDropped
 		}
+	}
+	if len(o.OwedBy) > 0 {
+		t.Assignee = o.OwedBy[0].Target()
+	}
+	if o.Kind == KindCommitment && len(t.With) == 0 {
+		t.With = o.OwedTo // a commitment task names who it is owed to in with
 	}
 	t.Tags = append([]string(nil), o.Tags...)
 	return t

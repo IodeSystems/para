@@ -244,7 +244,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 			continue
 		}
 		switch r.Type {
-		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
+		case model.TypeIncident, model.TypeQuestion, model.TypeTask, model.TypeObligation, model.TypeConstraint, model.TypeRFX, model.TypePolicyException, model.TypePolicy:
 		case model.TypeProposal:
 			if d, err := v.Get(ctx, r.ID); err == nil {
 				vt.ApprovedNotDone += approvedNotDone(d)
@@ -300,6 +300,7 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 		if err != nil {
 			return err
 		}
+		d = ops.ObligationShape(d) // a meeting or work owed reads as a task of its kind
 		item := Item{ID: d.ID, Title: d.Title}
 		switch m := d.Meta.(type) {
 		case *model.Question:

@@ -80,6 +80,8 @@ func lifeOf(m model.Meta) Lifecycle {
 		open = !taskTerminal(x.Status)
 	case *model.Meeting:
 		open = x.Status == model.MeetingRequested || x.Status == model.MeetingScheduled
+	case *model.Obligation:
+		open = x.Open()
 	case *model.Question:
 		open = x.Status == model.QuestionOpen
 	case *model.Project:
@@ -149,7 +151,7 @@ func agentHas(r *model.Request) bool {
 // resolved is true for an item that holds nothing up: closed, or a meeting
 // the owner skips (what waits on it can go).
 func resolved(d model.Document) bool {
-	if t, ok := d.Meta.(*model.Task); ok && meetingSkipped(t) {
+	if t, ok := obligationShape(d).Meta.(*model.Task); ok && meetingSkipped(t) {
 		return true
 	}
 	return lifeOf(d.Meta) == LifeClosed
@@ -195,7 +197,7 @@ type Snapshot struct {
 
 // snapTypes are the types a snapshot loads at once; any other document is
 // read on first use.
-var snapTypes = []model.Type{model.TypeTask, model.TypeMeeting, model.TypeQuestion, model.TypeProject, model.TypeRFX,
+var snapTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeProject, model.TypeRFX,
 	model.TypeRequest, model.TypeIO, model.TypeInbox, model.TypeIncident, model.TypeArea, model.TypePolicyException, model.TypeConstraint}
 
 // NewSnapshot reads the vault for the store's date.
@@ -364,6 +366,17 @@ func (sn *Snapshot) need(doc model.Document) Need {
 func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 	owner := func(reason string) Need { return Need{Turn: TurnOwner, Reason: reason} }
 	none := func(reason string) Need { return Need{Turn: TurnNone, Reason: reason} }
+	// An obligation's turn is its task kind's (a meeting, or work owed), but
+	// an ongoing one is due on its review cadence.
+	if o, ok := doc.Meta.(*model.Obligation); ok {
+		switch {
+		case len(o.OwedBy) > 0:
+			return Need{Turn: TurnWaiting, Reason: "owed by " + strings.Join(targets(o.OwedBy), ", ")}
+		case o.Schedule == model.ScheduleOngoing:
+			return ongoingTurn(o)
+		}
+		doc = obligationShape(doc)
+	}
 	switch m := doc.Meta.(type) {
 	case *model.Question:
 		if m.HasProposal() {
@@ -554,6 +567,8 @@ func (sn *Snapshot) deferredSet() (map[string]deferHold, error) {
 		}
 		switch m := doc.Meta.(type) {
 		case *model.Task:
+			goal[doc.ID] = m.Project.Target()
+		case *model.Obligation:
 			goal[doc.ID] = m.Project.Target()
 		case *model.Question:
 			scope[doc.ID] = scopeID(m)

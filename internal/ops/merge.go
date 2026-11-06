@@ -72,13 +72,24 @@ var DocMerge = withOneReceipt(define("doc_merge", DocMergeDescription, func(ctx 
 		out.Warnings = append(out.Warnings, r.Warnings...)
 		return out, nil
 	}
+	if o, ok := adoc.Meta.(*model.Obligation); ok && o.Open() {
+		// An open obligation closes as a duplicate first.
+		if _, err := obligationClose.Run(ctx, d, obligationCloseInput{ID: alias, Outcome: string(model.OutcomeDuplicate), Reason: "Merged into [[" + keep + "]]. " + in.Note}); err != nil {
+			return DocMergeOutput{}, err
+		}
+		out, err := mergeDocs(ctx, d, keep, alias)
+		out.Closed = err == nil
+		return out, err
+	}
 	return mergeDocs(ctx, d, keep, alias)
 }))
 
 // sameKind reports whether two types may merge: the same type, or a task and
 // a legacy meeting.
 func sameKind(a, b model.Type) bool {
-	meetingish := func(t model.Type) bool { return t == model.TypeTask || t == model.TypeMeeting }
+	meetingish := func(t model.Type) bool {
+		return t == model.TypeTask || t == model.TypeMeeting || t == model.TypeObligation
+	}
 	return a == b || (meetingish(a) && meetingish(b))
 }
 

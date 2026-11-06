@@ -132,11 +132,20 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	if err != nil {
 		return RFXAddOutput{}, err
 	}
-	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderRFX, Title: title, Body: body, Meta: meta})
+	// An ask to the owner is an obligation at the obligation format.
+	doc, err := storedShape(d, model.Document{Folder: model.FolderRFX, Title: title, Body: body, Meta: meta})
 	if err != nil {
 		return RFXAddOutput{}, err
 	}
+	folded := doc.Meta.Header().Type == model.TypeObligation
+	if doc, err = d.Store.Create(ctx, doc); err != nil {
+		return RFXAddOutput{}, err
+	}
 	out := RFXAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
+	if folded {
+		out.Warnings = append(out.Warnings, "direction in is an obligation now (a commitment owed to who asked): stored in obligations/; rfx_add direction in is an alias of obligation_add, use it")
+		return out, nil
+	}
 	// Route is free text that should name a domain (id, slug, or title). It is
 	// kept as given, so an unknown one is a warning, not a refusal.
 	if picked, _ := pickDomain(meta.Route, domains); picked == nil {
@@ -475,6 +484,9 @@ func getRFX(ctx context.Context, d Deps, id string) (model.Document, *model.RFX,
 		return doc, nil, missing("rfx", id, err)
 	}
 	m, ok := doc.Meta.(*model.RFX)
+	if _, ob := doc.Meta.(*model.Obligation); ob {
+		return doc, nil, fmt.Errorf("%s is an obligation (an ask to the owner is one): close it with close, read it with show", id)
+	}
 	if !ok {
 		return doc, nil, fmt.Errorf("%s is %s, not rfx", id, doc.Meta.Header().Type)
 	}

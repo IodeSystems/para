@@ -45,7 +45,7 @@ func taskParts(ctx context.Context, s store.Store, id string) (TaskParts, error)
 	}
 	for _, r := range refs {
 		switch r.Type {
-		case model.TypeTask, model.TypeConstraint, model.TypePolicyException, model.TypeQuestion:
+		case model.TypeTask, model.TypeObligation, model.TypeConstraint, model.TypePolicyException, model.TypeQuestion:
 		default:
 			continue
 		}
@@ -56,6 +56,7 @@ func taskParts(ctx context.Context, s store.Store, id string) (TaskParts, error)
 		if err != nil {
 			return out, err
 		}
+		doc = obligationShape(doc) // a commitment reads as a task of its kind
 		switch m := doc.Meta.(type) {
 		case *model.Task:
 			ref := PartRef{ID: doc.ID, Title: doc.Title, Kind: "task", Status: string(m.Status), Due: string(m.Due), Owner: m.Assignee}
@@ -109,14 +110,14 @@ func openChildren(ctx context.Context, s store.Store, id string) (items, questio
 		return nil, nil, err
 	}
 	for _, r := range refs {
-		if r.Type != model.TypeTask && r.Type != model.TypeQuestion {
+		if r.Type != model.TypeTask && r.Type != model.TypeObligation && r.Type != model.TypeQuestion {
 			continue
 		}
 		doc, err := s.Get(ctx, r.ID)
 		if err != nil {
 			return nil, nil, err
 		}
-		switch m := doc.Meta.(type) {
+		switch m := obligationShape(doc).Meta.(type) {
 		case *model.Task:
 			if m.Parent.Target() == id && !taskTerminal(m.Status) {
 				items = append(items, doc.ID)

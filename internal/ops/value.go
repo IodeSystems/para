@@ -717,9 +717,15 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 	meetingOf := map[string][]string{} // rfx id -> meetings that serve it
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
-		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO:
+		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO, model.TypeObligation:
 		default:
 			continue
+		}
+		// An obligation is a node of its task kind; one owed to people is owed.
+		owed := false
+		if o, ok := doc.Meta.(*model.Obligation); ok {
+			owed = len(o.OwedTo) > 0
+			doc = obligationShape(doc)
 		}
 		need := sn.Need(doc.ID)
 		if need.Life == LifeClosed {
@@ -776,7 +782,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			if meetingSkipped(m) {
 				continue
 			}
-			n.Kind, n.Due, n.Goal = KindTask, string(m.Due), m.Project.Target()
+			n.Kind, n.Due, n.Goal, n.Owed = KindTask, string(m.Due), m.Project.Target(), owed
 			if all {
 				n.Hidden = IsOther(m.Assignee) || meetingQuiet(m)
 			}

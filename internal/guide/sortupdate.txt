@@ -8,7 +8,7 @@ Sort an update the owner wrote on a task, or on any item, into typed items. The 
    - action items: `task_add` with parent set to the task, done_when, assignee. The parent does not wait on it.
    - open questions: `question_add` scoped to the task.
    - questions answered: `question_answer` for an open question of the task, with the update as the source (the task id, with the quote).
-   - commitments: `task_add` with kind commitment, a due date, parent set to the task, and the person who owes it as assignee. A commitment without a due date is not written: say so under unsorted.
+   - commitments: `task_add` with kind commitment, a due date, parent set to the task, and the person who owes it as assignee (it is stored as an obligation owed by that person). A commitment without a due date is not written: say so under unsorted.
    - resolved policy: `constraint_add` (a no) or `exception_add` (a policy unclear, wrong, or waived), with the wikilink of the task in text so the task page shows it.
    - follow-up tasks: `task_add` with the wikilink of the task in body; depends_on the task or another item when it waits.
 4. Close the item when it is done. Composer work says "Mark done: yes" when the owner asked: close it with the op that fits its type (`task_done`, `meeting_hold`, `question_answer`, `rfx_close`). When it says no, close it only when the words clearly say it is done (for example "met with Sam, decided to ship"), and say in your reply that you closed it and why. An act that completes an open task (an approval, a merge, a reply, a filed form): close the task with the act as the source; do not stage it for the owner.

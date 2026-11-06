@@ -162,12 +162,27 @@ func aliasTable() []aliasDef {
 	for _, name := range showAliases {
 		defs = append(defs, aliasDef{name: name, to: "show", in: func(m map[string]any) (map[string]any, error) { return m, nil }})
 	}
+	// The meeting ops are obligation ops now. meeting_add and meeting_schedule
+	// keep their own outputs, so they run as before (on the same code as
+	// obligation_add and obligation_schedule); attend and rsvp run
+	// obligation_attend, rsvp after its person check.
+	same := func(m map[string]any) (map[string]any, error) { return m, nil }
+	attend := func(_ context.Context, _ Deps, raw json.RawMessage) (Entry, any, error) {
+		return ObligationAttend, raw, nil
+	}
+	defs = append(defs,
+		aliasDef{name: "meeting_add", to: ObligationAdd.Name(), in: same},
+		aliasDef{name: "meeting_schedule", to: ObligationSchedule.Name(), in: same},
+		aliasDef{name: "meeting_attend", to: ObligationAttend.Name(), in: same, want: attend},
+		aliasDef{name: "meeting_rsvp", to: ObligationAttend.Name(), in: same, want: attend},
+		aliasDef{name: "meeting_show", to: "show", in: same},
+	)
 	return defs
 }
 
 // showAliases are the show ops that take only an id and are the show op of
-// their type (showOps). meeting_show is not one: show shows a meeting task
-// with task_show.
+// their type (showOps). meeting_show is an alias of show too, but show shows
+// a meeting with task_show, so meeting_show runs as before.
 var showAliases = []string{"task_show", "question_show", "project_show", "rfx_show", "io_show", "request_show", "area_show",
 	"incident_show", "receipt_show", "source_show", "exception_show", "convention_show", "constraint_show", "interaction_show",
 	"note_show", "policy_show", "org_person_show", "org_team_show", "org_role_show", "org_domain_show"}
@@ -183,13 +198,13 @@ func itemCloseWant(ctx context.Context, d Deps, raw json.RawMessage) (Entry, any
 	if err != nil {
 		return nil, nil, err
 	}
-	switch m := doc.Meta.(type) {
-	case *model.Meeting:
+	if _, ok := readMeeting(doc); ok {
 		return MeetingHold, MeetingHoldInput{ID: id}, nil
+	}
+	switch m := doc.Meta.(type) {
+	case *model.Obligation:
+		return obligationClose, obligationCloseInput{ID: id}, nil
 	case *model.Task:
-		if m.Kind == model.KindMeeting {
-			return MeetingHold, MeetingHoldInput{ID: id}, nil
-		}
 		return TaskDone, TaskDoneInput{ID: id}, nil
 	case *model.RFX:
 		if m.Direction == model.RFXOut {

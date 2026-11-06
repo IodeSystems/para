@@ -216,6 +216,7 @@ func newRoot(l *loader) *cobra.Command {
 		newWaitingCmd(l),
 		newIncidentCmd(l),
 		newMeetingCmd(l),
+		newObligationCmd(l),
 		newAgendaCmd(l),
 		newCalendarCmd(l),
 		newQuestionCmd(l),

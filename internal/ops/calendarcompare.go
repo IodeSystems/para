@@ -55,7 +55,7 @@ type calItem struct {
 // A date-only time is midnight in loc. An item with no time has a zero Start.
 func paraCalendarItems(ctx context.Context, s store.Store, loc *time.Location) ([]calItem, error) {
 	var out []calItem
-	for _, typ := range []model.Type{model.TypeTask, model.TypeMeeting} {
+	for _, typ := range []model.Type{model.TypeTask, model.TypeMeeting, model.TypeObligation} {
 		refs, err := s.List(ctx, store.Filter{Type: typ})
 		if err != nil {
 			return nil, err
@@ -65,6 +65,7 @@ func paraCalendarItems(ctx context.Context, s store.Store, loc *time.Location) (
 			if err != nil {
 				return nil, err
 			}
+			doc = obligationShape(doc)
 			it := calItem{ID: doc.ID, Title: doc.Title}
 			var when, end string
 			switch m := doc.Meta.(type) {

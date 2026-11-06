@@ -62,10 +62,10 @@ func meetingView(d model.Document) (MeetingView, error) {
 	}
 	v := MeetingView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: m.Status, Start: m.Start, End: m.End,
 		With: targets(m.With), Attendees: []string{}, RFX: targets(m.RFX), CalendarUIDs: []model.CalendarEvent{}, Rev: d.Rev}
-	if m.t != nil {
-		v.CalendarUIDs = append(v.CalendarUIDs, m.t.UIDs()...)
-		v.Attendees = append(v.Attendees, m.t.Attendees...)
-		v.Optional, v.Attend, v.AttendDefault = m.t.Optional, m.t.Attend, m.t.AttendDefault
+	if m.occ != nil {
+		v.CalendarUIDs = append(v.CalendarUIDs, m.occ.UIDs()...)
+		v.Attendees = append(v.Attendees, m.occ.Attendees...)
+		v.Optional, v.Attend, v.AttendDefault = m.occ.Optional, m.occ.Attend, m.occ.AttendDefault
 	}
 	return v, nil
 }
@@ -85,6 +85,7 @@ func getMeeting(ctx context.Context, s store.Store, id string) (model.Document, 
 	if !ok {
 		return d, nil, notMeeting(d)
 	}
+	m.Day = s.Now().Format(dateLayout)
 	return d, m, nil
 }
 
@@ -97,7 +98,7 @@ func meetingOpen(s model.MeetingStatus) bool {
 // time, then requested; then held and cancelled, latest first.
 func loadMeetings(ctx context.Context, s store.Store) ([]MeetingView, error) {
 	out := []MeetingView{}
-	for _, typ := range []model.Type{model.TypeMeeting, model.TypeTask} {
+	for _, typ := range []model.Type{model.TypeMeeting, model.TypeTask, model.TypeObligation} {
 		refs, err := s.List(ctx, store.Filter{Type: typ})
 		if err != nil {
 			return nil, err
@@ -357,23 +358,30 @@ type MeetingAddOutput struct {
 // MeetingAdd asks for a meeting, or books one when it has a time. The body
 // gathers the questions to settle.
 var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with people: with takes person or group ids, names, or emails (a match in the directory links; no match is kept as an attendee with a warning); attendees takes invitee names or emails as text; calendar_uid allows a hold with no one else. The body gathers the questions from linked requests and open questions in scope; linked requests move to requested or scheduled", func(ctx context.Context, d Deps, in MeetingAddInput) (MeetingAddOutput, error) {
+	out, _, err := addMeetingDoc(ctx, d, in, nil, nil)
+	return out, err
+})
+
+// addMeetingDoc makes a meeting: pre edits it as a task before it is stored,
+// post edits it as an obligation when the vault stores one.
+func addMeetingDoc(ctx context.Context, d Deps, in MeetingAddInput, pre func(*model.Task), post func(*model.Obligation)) (MeetingAddOutput, model.Document, error) {
 	title, err := oneLine("title", in.Title)
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	rfx, err := meetingLinks(ctx, d, "rfx", in.RFX, model.TypeRFX)
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	with, attendees, warns, err := resolveWith(ctx, d, in.With, in.Attendees)
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	if len(with) == 0 {
 		for _, rl := range rfx {
 			_, m, err := getRFX(ctx, d, rl.Target())
 			if err != nil {
-				return MeetingAddOutput{}, err
+				return MeetingAddOutput{}, model.Document{}, err
 			}
 			for _, t := range m.Targets {
 				if !slices.Contains(with, t.To) {
@@ -384,42 +392,49 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	}
 	uids, err := calendarEvents(in.CalendarUID, in.CalendarUIDs)
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	if err := needsSomeone(with, attendees, uids, &warns); err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	for _, rl := range rfx {
 		if _, m, err := getRFX(ctx, d, rl.Target()); err == nil && m.Status == model.RFXClosed {
-			return MeetingAddOutput{}, fmt.Errorf("request %s is closed", rl.Target())
+			return MeetingAddOutput{}, model.Document{}, fmt.Errorf("request %s is closed", rl.Target())
 		}
 	}
 	for _, s := range in.Scope {
 		if _, err := linkTo(ctx, d, "scope", s, model.TypeProject, model.TypeArea, model.TypeTask); err != nil {
-			return MeetingAddOutput{}, err
+			return MeetingAddOutput{}, model.Document{}, err
 		}
 	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Occasion: model.Occasion{With: with, Attendees: attendees, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask, ImportedFrom: in.ImportedFrom}, Status: model.TaskTodo, Kind: model.KindMeeting, Occasion: model.Occasion{With: with, Attendees: attendees, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":
 	case in.Start == "" || in.End == "":
-		return MeetingAddOutput{}, errors.New("start and end: give both or neither")
+		return MeetingAddOutput{}, model.Document{}, errors.New("start and end: give both or neither")
 	default:
 		if meta.Scheduled, meta.End, err = checkSlot(in.Start, in.End); err != nil {
-			return MeetingAddOutput{}, err
+			return MeetingAddOutput{}, model.Document{}, err
 		}
 		status = model.MeetingScheduled
 	}
 	qs, err := gatherQuestions(ctx, d, rfx, in.Scope)
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderProjects, Title: title, Body: meetingBody(in.Body, qs), Meta: meta,
-	})
+	if pre != nil {
+		pre(meta)
+	}
+	doc, err := storedShape(d, model.Document{Folder: model.FolderProjects, Title: title, Body: meetingBody(in.Body, qs), Meta: meta})
 	if err != nil {
-		return MeetingAddOutput{}, err
+		return MeetingAddOutput{}, model.Document{}, err
+	}
+	if o, ok := doc.Meta.(*model.Obligation); ok && post != nil {
+		post(o)
+	}
+	if doc, err = d.Store.Create(ctx, doc); err != nil {
+		return MeetingAddOutput{}, model.Document{}, err
 	}
 	to := model.TargetRequested
 	if status == model.MeetingScheduled {
@@ -428,10 +443,10 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 	changed, swarns, err := syncTargets(ctx, d, rfx, with, true, askState(to))
 	out := MeetingAddOutput{ID: doc.ID, Folder: doc.Folder, Status: status, RFX: nonNil(changed), Warnings: nonNil(append(warns, swarns...)), Rev: doc.Rev}
 	if err != nil {
-		return out, fmt.Errorf("meeting %s was made but its requests were not all updated: %w", doc.ID, err)
+		return out, doc, fmt.Errorf("meeting %s was made but its requests were not all updated: %w", doc.ID, err)
 	}
-	return out, nil
-})
+	return out, doc, nil
+}
 
 // needsSomeone refuses a meeting with no with link, no attendee, and no
 // linked-request target, unless it has a calendar event of the owner's (a
@@ -656,7 +671,9 @@ type MeetingScheduleInput struct {
 
 // MeetingSchedule books a requested meeting, or moves a booked one. The linked
 // requests move to scheduled, and the questions list picks up new open ones.
-var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of a requested or scheduled meeting; linked requests move to scheduled", func(ctx context.Context, d Deps, in MeetingScheduleInput) (MeetingChangeOutput, error) {
+var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of a requested or scheduled meeting; linked requests move to scheduled", meetingSchedule)
+
+func meetingSchedule(ctx context.Context, d Deps, in MeetingScheduleInput) (MeetingChangeOutput, error) {
 	doc, m, err := getMeeting(ctx, d.Store, in.ID)
 	if err != nil {
 		return MeetingChangeOutput{}, err
@@ -673,11 +690,11 @@ var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of 
 		return MeetingChangeOutput{}, err
 	}
 	if len(uids) > 0 {
-		if m.t == nil {
+		if m.occ == nil {
 			return MeetingChangeOutput{}, fmt.Errorf("%s is an older meeting document with no calendar_uids: the owner runs `para vault upgrade` to make it a task, then set calendar_uids", doc.ID)
 		}
 		for _, e := range uids {
-			m.t.AddUID(e)
+			m.occ.AddUID(e)
 		}
 	}
 	if m.Status == model.MeetingScheduled && m.Start != "" && (m.Start != start || m.End != end) {
@@ -699,7 +716,7 @@ var MeetingSchedule = defineSafe("meeting_schedule", "Set or change the time of 
 		return out, fmt.Errorf("meeting %s was scheduled but its requests were not all updated: %w", doc.ID, err)
 	}
 	return out, nil
-})
+}
 
 // MeetingCancelInput is the input of meeting_cancel.
 type MeetingCancelInput struct {

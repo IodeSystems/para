@@ -114,7 +114,7 @@ func TestTodayCountsNudgesExceptionsUnverifiedInbox(t *testing.T) {
 	e.json(&late, "rfx", "add", "late ask", "--route", "domain-logging", "--self-serve", "x", "--next-nudge", "2020-01-01")
 	e.json(&future, "rfx", "add", "future ask", "--route", "domain-logging", "--self-serve", "x", "--next-nudge", "2999-01-01")
 	e.json(&closed, "rfx", "add", "closed ask", "--direction", "in", "--route", "domain-logging", "--next-nudge", "2020-01-01")
-	e.ok("rfx", "close", closed.ID, "--playbook", "role-lead")
+	e.ok("close", closed.ID) // an ask to the owner is an obligation
 
 	pol := e.ingest(govText)
 	e.ok("exception", "add", "--policy", pol.ID, "--kind", "bug", "--by", "Jordan Example", "--review-by", "2020-01-01")

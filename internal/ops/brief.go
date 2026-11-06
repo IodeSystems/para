@@ -97,6 +97,7 @@ func brief(ctx context.Context, d Deps, in BriefInput) (BriefOutput, error) {
 	if err != nil {
 		return BriefOutput{}, linkErr("id", id, err)
 	}
+	doc = obligationShape(doc) // a meeting or work owed, as a task of its kind
 	sn, err := NewSnapshot(ctx, d.Store)
 	if err != nil {
 		return BriefOutput{}, err
@@ -380,7 +381,7 @@ func (b *briefer) previous(id string) *BriefPrevious {
 		if err != nil {
 			return nil
 		}
-		t, ok := doc.Meta.(*model.Task)
+		t, ok := obligationShape(doc).Meta.(*model.Task)
 		if !ok {
 			return nil
 		}

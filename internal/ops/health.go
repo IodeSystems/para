@@ -182,7 +182,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		if err != nil {
 			return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 		}
-		docs[r.ID] = d
+		docs[r.ID] = obligationShape(d) // a meeting or work owed is checked as a task of its kind
 	}
 	order, err := openWorkAt(ctx, s, today)
 	if err != nil {

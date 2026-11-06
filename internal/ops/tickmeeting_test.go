@@ -52,7 +52,7 @@ func TestTickSkipsPastOptionalMeetings(t *testing.T) {
 	list := must(t, ReceiptList, d, ReceiptListInput{Actor: TickSurface})
 	var mine []ReceiptView
 	for _, r := range list.Items {
-		if r.Op == MeetingAttend.Name() {
+		if r.Op == ObligationAttend.Name() {
 			mine = append(mine, r)
 		}
 	}

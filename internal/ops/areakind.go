@@ -313,7 +313,7 @@ func scopeChain(ctx context.Context, s store.Store, id string) ([]string, error)
 	add(doc.ID)
 	var goal *model.Project
 	var home string
-	switch m := doc.Meta.(type) {
+	switch m := obligationShape(doc).Meta.(type) {
 	case *model.Task:
 		if p, ok := get(m.Project.Target()).(*model.Project); ok {
 			add(m.Project.Target())

@@ -102,6 +102,9 @@ type ParaV1MutationNamespace {
   noteEdit(body: para_NoteEditInputInput!): para_NoteEditOutput @derived(operationId: "noteEdit")
   notesEdit(body: para_NotesEditInputInput!): para_NotesEditOutput @derived(operationId: "notesEdit")
   notesSave(body: para_NotesEditInputInput!): para_NotesEditOutput @derived(operationId: "notesSave")
+  obligationAdd(body: para_ObligationAddInputInput!): para_ObligationAddOutput @derived(operationId: "obligationAdd")
+  obligationAttend(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "obligationAttend")
+  obligationSchedule(body: para_ObligationScheduleInputInput!): para_ObligationScheduleOutput @derived(operationId: "obligationSchedule")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
@@ -4474,6 +4477,159 @@ type para_NotesReadOutput {
   hash: String!
   id: String!
   md: String!
+}
+
+input para_ObligationAddInputInput {
+  area: String
+  attendees: [String!]
+  body: String
+  cadence: String
+  calendarUid: String
+  calendarUids: [para_CalendarEventInput!]
+  doneWhen: String
+  due: String
+  end: String
+  importedFrom: para_ImportedFromInput
+  kind: para_ObligationAddInputKind
+  optional: Boolean
+  owedBy: [String!]
+  owedTo: [String!]
+  project: String
+  recur: String
+  rfx: [String!]
+  schedule: para_ObligationAddInputSchedule
+  scope: [String!]
+  start: String
+  title: String!
+  with: [String!]
+}
+
+enum para_ObligationAddInputKind {
+  call
+  commitment
+  meeting
+  task
+  work_with
+}
+
+enum para_ObligationAddInputSchedule {
+  at
+  once
+  ongoing
+  series
+}
+
+type para_ObligationAddOutput {
+  folder: para_ObligationAddOutputFolder!
+  id: String!
+  kind: para_ObligationAddOutputKind!
+  rev: String!
+  rfx: [String!]!
+  schedule: para_ObligationAddOutputSchedule
+  type: para_ObligationAddOutputType!
+  warnings: [String!]!
+}
+
+enum para_ObligationAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  inbox
+  incidents
+  interactions
+  io
+  journal
+  meetings
+  obligations
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+  sources
+  tracked
+}
+
+enum para_ObligationAddOutputKind {
+  call
+  commitment
+  meeting
+  task
+  work_with
+}
+
+enum para_ObligationAddOutputSchedule {
+  at
+  once
+  ongoing
+  series
+}
+
+enum para_ObligationAddOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
+}
+
+input para_ObligationScheduleInputInput {
+  calendarUid: String
+  calendarUids: [para_CalendarEventInput!]
+  due: String
+  end: String
+  id: String!
+  reviewed: Boolean
+  start: String
+}
+
+type para_ObligationScheduleOutput {
+  due: String
+  end: String
+  id: String!
+  lastReviewed: String
+  next: String
+  request: String
+  rev: String!
+  rfx: [String!]!
+  start: String
+  status: para_ObligationScheduleOutputStatus!
+  warnings: [String!]!
+}
+
+enum para_ObligationScheduleOutputStatus {
+  cancelled
+  held
+  requested
+  scheduled
 }
 
 type para_OptionDetail {

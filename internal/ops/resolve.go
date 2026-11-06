@@ -154,7 +154,7 @@ var TaskResolve = withOneReceipt(defineSafe("task_resolve", TaskResolveDescripti
 			merge = true
 		}
 	}
-	if _, recurring := recurRule(t); recurring && outcome != model.OutcomeDone && outcome != model.OutcomeDropped {
+	if _, recurring := recurRule(t.Recur); recurring && outcome != model.OutcomeDone && outcome != model.OutcomeDropped {
 		return TaskResolveOutput{}, fmt.Errorf("%s recurs: resolve it done, or dropped to skip this one", id)
 	}
 	// A changed condition is recorded before closing; the old text stays.
@@ -184,7 +184,7 @@ var TaskResolve = withOneReceipt(defineSafe("task_resolve", TaskResolveDescripti
 			out.Warnings = append(out.Warnings, fmt.Sprintf("%s has %d open action items and %d open questions; they stay open: finish, drop, or move each", id, len(items), len(qs)))
 		}
 	}
-	if _, recurring := recurRule(t); outcome == model.OutcomeDone || (recurring && outcome == model.OutcomeDropped) {
+	if _, recurring := recurRule(t.Recur); outcome == model.OutcomeDone || (recurring && outcome == model.OutcomeDropped) {
 		r, err := finishTask(ctx, d, TaskDoneInput{ID: id, Note: note, Skip: outcome == model.OutcomeDropped}, outcome)
 		if err != nil {
 			return TaskResolveOutput{}, err

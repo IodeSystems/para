@@ -399,7 +399,7 @@ func addRequest(ctx context.Context, d Deps, in RequestAddInput, src model.Link)
 		}
 		body += "\n\n## Owner's words\n\n" + flattenHeadings(said)
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}

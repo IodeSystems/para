@@ -52,11 +52,15 @@ type MeetingAttendOutput struct {
 // MeetingAttendDescription is the description of meeting_attend.
 const MeetingAttendDescription = "Record whether the owner goes to a meeting (attend yes, no, maybe, or unset) and whether it is optional. An optional meeting asks nothing of the owner until attend is yes; attend no takes it off the agenda and frees what waits on it. all_future makes attend the answer of each next occurrence of a recurring meeting; a recurrence copies optional, never attend. Set optional from the calendar; never ask the owner to confirm attendance"
 
-// MeetingAttend records the owner's attendance of a meeting.
+// ObligationAttend records the owner's attendance of a meeting.
+var ObligationAttend = defineSafe("obligation_attend", MeetingAttendDescription, meetingAttend)
+
+// MeetingAttend is obligation_attend by its older name (an alias, opalias.go).
 var MeetingAttend = defineSafe("meeting_attend", MeetingAttendDescription, meetingAttend)
 
-// MeetingRSVP is meeting_attend for the owner in the web app: Attend
-// and Skip on the agenda.
+// MeetingRSVP is meeting_attend for the owner in the web app: Attend and Skip
+// on the agenda. It is an alias of obligation_attend that keeps its person
+// check (opalias.go).
 var MeetingRSVP = definePerson("meeting_rsvp", "Record from the web app whether the owner goes to a meeting (attend yes, no, maybe, or unset), and whether it is optional. People only", meetingAttend)
 
 func meetingAttend(ctx context.Context, d Deps, in MeetingAttendInput) (MeetingAttendOutput, error) {
@@ -76,13 +80,13 @@ func meetingAttend(ctx context.Context, d Deps, in MeetingAttendInput) (MeetingA
 	if err != nil {
 		return MeetingAttendOutput{}, err
 	}
-	if m.t == nil {
+	if m.occ == nil {
 		return MeetingAttendOutput{}, fmt.Errorf("%s is an older meeting document: the owner runs `para vault upgrade` to make it a task, then set attend", doc.ID)
 	}
 	if !meetingOpen(m.Status) {
 		return MeetingAttendOutput{}, fmt.Errorf("%s is %s: attendance is for a meeting still ahead", doc.ID, m.Status)
 	}
-	t := m.t
+	t := m.occ
 	out := MeetingAttendOutput{ID: doc.ID, Title: doc.Title, Warnings: []string{},
 		Previous: MeetingAttendState{Attend: t.Attend, Optional: t.Optional, AttendDefault: t.AttendDefault}}
 	if set {
@@ -95,7 +99,7 @@ func meetingAttend(ctx context.Context, d Deps, in MeetingAttendInput) (MeetingA
 		t.Optional = *in.Optional
 	}
 	if in.AllFuture {
-		if _, ok := recurRule(t); !ok {
+		if _, ok := recurRule(m.recur); !ok {
 			out.Warnings = append(out.Warnings, doc.ID+" does not recur: all_future has no next occurrence to apply to")
 		}
 	}

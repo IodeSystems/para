@@ -232,6 +232,7 @@ var typeFields = map[string][]field{
 		{Name: "owed_by", Kind: kLinkList}, // empty: the owner owes it
 		{Name: "project", Kind: kLink},
 		{Name: "area", Kind: kLink},
+		{Name: "parent", Kind: kLink}, // the task it came from
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString},   // series: the recur grammar
 		{Name: "cadence", Kind: kString}, // ongoing: the recur grammar

@@ -21,7 +21,7 @@ const composerPrefix = "From the owner: "
 
 // linkTypes are the item types a request may link (request_add links);
 // the composer names any other item in context.
-var linkTypes = []model.Type{model.TypeTask, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
+var linkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
 	model.TypeMeeting, model.TypeRFX, model.TypeRequest}
 
 // AgentSendInput is what the owner wrote about an item. Text or attachments
@@ -203,10 +203,7 @@ var ItemClose = definePerson("item_close", "Mark a task done, a scheduled meetin
 	if err != nil {
 		return ItemCloseOutput{}, linkErr("id", id, err)
 	}
-	isMeeting := doc.Meta.Header().Type == model.TypeMeeting
-	if t, ok := doc.Meta.(*model.Task); ok && t.Kind == model.KindMeeting {
-		isMeeting = true
-	}
+	_, isMeeting := readMeeting(doc)
 	switch {
 	case isMeeting:
 		out, err := MeetingHold.Run(ctx, d, MeetingHoldInput{ID: id})
@@ -214,6 +211,9 @@ var ItemClose = definePerson("item_close", "Mark a task done, a scheduled meetin
 	case doc.Meta.Header().Type == model.TypeTask:
 		out, err := TaskDone.Run(ctx, d, TaskDoneInput{ID: id})
 		return ItemCloseOutput{ID: id, By: TaskDone.Name(), Rev: out.Rev}, err
+	case doc.Meta.Header().Type == model.TypeObligation:
+		out, err := obligationClose.Run(ctx, d, obligationCloseInput{ID: id})
+		return ItemCloseOutput{ID: id, By: obligationClose.Name(), Rev: out.Rev}, err
 	case doc.Meta.Header().Type == model.TypeRFX:
 		// An ask the owner made closes alone. One made to the owner closes
 		// by a playbook, which an agent links.

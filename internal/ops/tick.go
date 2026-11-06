@@ -198,7 +198,7 @@ func tickRecurring(ctx context.Context, d Deps, out *TickOutput) error {
 		if err != nil {
 			return err
 		}
-		rule, ok := recurRule(tm)
+		rule, ok := recurRule(tm.Recur)
 		if !ok {
 			continue
 		}

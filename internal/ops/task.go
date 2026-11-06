@@ -139,12 +139,15 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 	if err != nil {
 		return nil, err
 	}
-	// Older `type: meeting` documents are tasks of kind meeting.
-	old, err := s.List(ctx, store.Filter{Type: model.TypeMeeting})
-	if err != nil {
-		return nil, err
+	// Older `type: meeting` documents are tasks of kind meeting, and an
+	// obligation a task of its kind.
+	for _, typ := range []model.Type{model.TypeMeeting, model.TypeObligation} {
+		old, err := s.List(ctx, store.Filter{Type: typ})
+		if err != nil {
+			return nil, err
+		}
+		refs = append(refs, old...)
 	}
-	refs = append(refs, old...)
 	all := make([]TaskView, 0, len(refs))
 	items := map[string]int{} // parent id -> open action items
 	for _, r := range refs {
@@ -321,7 +324,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			deps = append(deps, l)
 		}
 	}
-	doc, err := d.Store.Create(ctx, model.Document{
+	doc, err := storedShape(d, model.Document{
 		Folder: model.FolderProjects,
 		Title:  title,
 		Body:   demoteH1(in.Body),
@@ -348,7 +351,14 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
+	folded := doc.Meta.Header().Type == model.TypeObligation
+	if doc, err = d.Store.Create(ctx, doc); err != nil {
+		return TaskAddOutput{}, err
+	}
 	out := TaskAddOutput{ID: doc.ID, Folder: doc.Folder, Rev: doc.Rev, Warnings: []string{}}
+	if folded {
+		out.Warnings = append(out.Warnings, "kind "+string(kind)+" is an obligation now: stored as one in obligations/; this is an alias of obligation_add, use it")
+	}
 	if w := recurWarning(in.Recur); w != "" {
 		out.Warnings = append(out.Warnings, w)
 	}
@@ -477,7 +487,7 @@ var TaskShow = defineRead("task_show", "Show a task", func(ctx context.Context, 
 		return TaskShowOutput{}, err
 	}
 	switch doc.Meta.(type) {
-	case *model.Task, *model.Meeting:
+	case *model.Task, *model.Meeting, *model.Obligation:
 	default:
 		return TaskShowOutput{}, fmt.Errorf("%s is a %s, not a task", doc.ID, doc.Meta.Header().Type)
 	}

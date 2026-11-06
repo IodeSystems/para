@@ -78,7 +78,7 @@ func finishTask(ctx context.Context, d Deps, in TaskDoneInput, outcome model.Tas
 	if err := closeGuard(doc, t, outcome); err != nil {
 		return TaskDoneOutput{}, err
 	}
-	rule, recurring := recurRule(t)
+	rule, recurring := recurRule(t.Recur)
 	if in.Skip && !recurring {
 		return TaskDoneOutput{}, fmt.Errorf("%s does not recur: skip is for a recurring task (recur: %s)", id, recur.Forms)
 	}
@@ -132,11 +132,11 @@ func finishTask(ctx context.Context, d Deps, in TaskDoneInput, outcome model.Tas
 	return out, nil
 }
 
-func recurRule(t *model.Task) (recur.Rule, bool) {
-	if strings.TrimSpace(t.Recur) == "" {
+func recurRule(rule string) (recur.Rule, bool) {
+	if strings.TrimSpace(rule) == "" {
 		return recur.Rule{}, false
 	}
-	r, err := recur.Parse(t.Recur)
+	r, err := recur.Parse(rule)
 	return r, err == nil
 }
 
@@ -171,25 +171,7 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			return "", "", []string{"project " + p + " is closed: no next task was made"}, nil
 		}
 	}
-	today := d.Store.Now().Local()
-	from := today
-	switch {
-	case t.Due != "":
-		if from, err = parseDay(string(t.Due)); err != nil {
-			return "", "", nil, fmt.Errorf("next task: %w", err)
-		}
-	case t.Scheduled != "":
-		if from, err = scheduledDay(t.Scheduled); err != nil {
-			return "", "", nil, fmt.Errorf("next task: %w", err)
-		}
-	}
-	step := rule.Next(from, today)
-	days := int(step.Sub(day(from)).Round(24*time.Hour) / (24 * time.Hour))
-	var due model.Date
-	if t.Due != "" || t.Scheduled == "" {
-		due = model.Date(step.Format(recur.Layout))
-	}
-	sched, end, err := shiftSlot(t.Scheduled, t.End, days)
+	due, sched, end, err := nextSlot(rule, t.Due, t.Scheduled, t.End, d.Store.Now().Local())
 	if err != nil {
 		return "", "", nil, fmt.Errorf("next task: %w", err)
 	}
@@ -221,6 +203,33 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 	}
 	request, warns = agentRequest(ctx, d, next, nil)
 	return next.ID, request, warns, nil
+}
+
+// nextSlot is the due date, scheduled, and end of the next occurrence: one
+// step of rule from the due date (from today when there is none, else from
+// the scheduled day), then on to the first step that is not in the past. A
+// timed slot keeps its wall-clock time and length.
+func nextSlot(rule recur.Rule, due model.Date, scheduled, end string, today time.Time) (model.Date, string, string, error) {
+	from := today
+	var err error
+	switch {
+	case due != "":
+		if from, err = parseDay(string(due)); err != nil {
+			return "", "", "", err
+		}
+	case scheduled != "":
+		if from, err = scheduledDay(scheduled); err != nil {
+			return "", "", "", err
+		}
+	}
+	step := rule.Next(from, today)
+	days := int(step.Sub(day(from)).Round(24*time.Hour) / (24 * time.Hour))
+	var next model.Date
+	if due != "" || scheduled == "" {
+		next = model.Date(step.Format(recur.Layout))
+	}
+	sched, en, err := shiftSlot(scheduled, end, days)
+	return next, sched, en, err
 }
 
 // nextOccasion is the occasion of the next occurrence. Optional is the
@@ -292,14 +301,17 @@ func shiftSlot(scheduled, end string, days int) (string, string, error) {
 // it and makes no second one. A meeting that does not recur, or an old-form
 // meeting, gets none. Call it before the closing document is saved.
 func nextMeeting(ctx context.Context, d Deps, doc model.Document, m *mtg) (id, request string, warns []string, err error) {
-	if m.t == nil {
+	rule, ok := recurRule(m.recur)
+	switch {
+	case !ok:
 		return "", "", nil, nil
+	case m.ob != nil:
+		id, err := nextObligation(ctx, d, doc, m.ob, rule)
+		return id, "", nil, err
+	case m.t != nil:
+		return makeNext(ctx, d, doc, m.t, rule)
 	}
-	rule, ok := recurRule(m.t)
-	if !ok {
-		return "", "", nil, nil
-	}
-	return makeNext(ctx, d, doc, m.t, rule)
+	return "", "", nil, nil
 }
 
 // agentRequest queues a request for a recurring task assigned to an agent,
@@ -309,7 +321,7 @@ func agentRequest(ctx context.Context, d Deps, doc model.Document, warns []strin
 	if !ok || !strings.HasPrefix(t.Assignee, AgentPrefix) {
 		return "", warns
 	}
-	if _, ok := recurRule(t); !ok {
+	if _, ok := recurRule(t.Recur); !ok {
 		return "", warns
 	}
 	ask := fmt.Sprintf("%s\n\nRecurring task %s, assigned to %s, due %s.", doc.Title, doc.ID, t.Assignee, dashOr(string(t.Due)))

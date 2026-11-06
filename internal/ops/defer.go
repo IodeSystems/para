@@ -31,6 +31,8 @@ func deferralOf(m model.Meta) *model.Deferral {
 		return &x.Deferral
 	case *model.IO:
 		return &x.Deferral
+	case *model.Obligation:
+		return &x.Deferral
 	}
 	return nil
 }
@@ -115,7 +117,7 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 	}
 	df := deferralOf(doc.Meta)
 	if df == nil {
-		return false, "", fmt.Errorf("%s is a %s: only a question, a task, a goal, an io item, or a dossier item can be put off", doc.ID, doc.Meta.Header().Type)
+		return false, "", fmt.Errorf("%s is a %s: only a question, a task, a goal, an obligation, an io item, or a dossier item can be put off", doc.ID, doc.Meta.Header().Type)
 	}
 	switch m := doc.Meta.(type) {
 	case *model.Task:
@@ -133,6 +135,10 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 	case *model.IO:
 		if !m.State.Open() {
 			return false, doc.ID + ": already " + string(m.State), nil
+		}
+	case *model.Obligation:
+		if !m.Open() {
+			return false, doc.ID + ": already closed (" + string(m.Outcome) + ")", nil
 		}
 	}
 	if clear {
@@ -407,7 +413,7 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 }
 
 // deferrable lists the vault types defer puts off by id.
-var deferrable = []model.Type{model.TypeTask, model.TypeQuestion, model.TypeProject, model.TypeIO}
+var deferrable = []model.Type{model.TypeTask, model.TypeQuestion, model.TypeProject, model.TypeIO, model.TypeObligation}
 
 // deferTargets splits what defer or undefer names into vault ids and dossier
 // items: a dossier's id becomes its items, and a tag becomes every tagged

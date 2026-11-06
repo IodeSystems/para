@@ -101,12 +101,13 @@ func TestRFXCommands(t *testing.T) {
 		t.Errorf("text mode hides the warning: %q", out)
 	}
 
+	// An ask to the owner is an obligation at format 7: close closes it.
 	var in ops.RFXAddOutput
 	e.json(&in, "rfx", "add", "please approve", "--direction", "in", "--route", "domain-logging")
-	if _, _, err := e.run("rfx", "close", in.ID); err == nil || !strings.Contains(err.Error(), "playbook") {
+	if _, _, err := e.run("rfx", "close", in.ID); err == nil || !strings.Contains(err.Error(), "obligation") {
 		t.Fatalf("err = %v", err)
 	}
-	e.ok("rfx", "close", in.ID, "--playbook", "role-platform-lead")
+	e.ok("close", in.ID)
 
 	var wait ops.RFXWaitingOutput
 	e.json(&wait, "rfx", "waiting", "--today", "2026-11-01")
@@ -121,7 +122,7 @@ func TestRFXCommands(t *testing.T) {
 
 	var route ops.RouteOutput
 	e.json(&route, "route", "who", "owns", "logging?")
-	if route.Domain == nil || route.Domain.ID != "domain-logging" || len(route.People) != 1 || len(route.SelfServe.PriorRFX) != 4 {
+	if route.Domain == nil || route.Domain.ID != "domain-logging" || len(route.People) != 1 || len(route.SelfServe.PriorRFX) != 3 { // the ask to the owner is an obligation
 		t.Fatalf("route = %+v", route)
 	}
 	text := e.ok("route", "logging")

@@ -2,6 +2,7 @@ package ops
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -247,6 +248,20 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		default:
 			return verbRoute{}, bad("none or done (held), or dropped (cancelled)")
 		}
+	case *model.Obligation:
+		// A meeting is held (notes, replies, answers, actions) or cancelled
+		// by its own ops; any other close sets the outcome.
+		switch {
+		case m.Kind == model.KindMeeting && (outcome == "" || outcome == "done"):
+			op, reasonAs = MeetingHold, "notes"
+		case m.Kind == model.KindMeeting && outcome == string(model.OutcomeDropped):
+			op, reasonAs = MeetingCancel, "reason"
+		case outcome == "" || slices.Contains(model.ObligationOutcomes, model.TaskOutcome(outcome)):
+			op, reasonAs = obligationClose, "reason"
+			put(base, "outcome", outcome)
+		default:
+			return verbRoute{}, bad(fmt.Sprintf("none or one of %v", model.ObligationOutcomes))
+		}
 	case *model.Question:
 		switch outcome {
 		case string(model.QuestionDropped):
@@ -339,6 +354,8 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 // typeWord is the word for a document's type the owner sees.
 func typeWord(doc model.Document) string {
 	switch t := doc.Meta.(type) {
+	case *model.Obligation:
+		return string(t.Kind)
 	case *model.Task:
 		if k := t.EffectiveKind(); k != model.KindTask {
 			return string(k)
@@ -560,6 +577,12 @@ func reopenOne(ctx context.Context, d Deps, id, reason string) (ReopenedItem, st
 			m.State = model.IODraft
 		}
 		to, m.Reason = string(m.State), ""
+	case *model.Obligation:
+		from, to = string(m.Outcome), string(model.StateOpen)
+		m.State, m.Outcome, m.Reason, m.Closed = model.StateOpen, "", "", ""
+		if next, err := successor(ctx, d, doc.ID); err == nil && next != "" {
+			warn = fmt.Sprintf("%s recurs: its next occurrence %s stays open", doc.ID, next)
+		}
 	case *model.Incident:
 		from, to = string(m.Status), string(model.IncidentOpen)
 		m.Status = model.IncidentOpen
@@ -716,6 +739,9 @@ func showRoute(ctx context.Context, d Deps, in ShowInput) (verbRoute, error) {
 		return verbRoute{}, linkErr("id", id, err)
 	}
 	op, ok := showOps()[doc.Meta.Header().Type]
+	if doc.Meta.Header().Type == model.TypeObligation {
+		op, ok = TaskShow, true // a meeting or work owed shows as a task of its kind
+	}
 	if !ok {
 		return verbRoute{}, nil
 	}
@@ -729,6 +755,8 @@ func statusOf(m model.Meta) string {
 		return string(x.Status)
 	case *model.Meeting:
 		return string(x.Status)
+	case *model.Obligation:
+		return string(cmp.Or(x.State, model.StateOpen))
 	case *model.Question:
 		return string(x.Status)
 	case *model.Project:
