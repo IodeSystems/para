@@ -14,7 +14,7 @@ import (
 )
 
 // The generic verbs (ops/verbs.go): close, later, reopen, show, list, and
-// send-to-agent take any id.
+// send-to-agent take any id; brief takes any item with people.
 
 // verbText prints what a write verb ran and the receipt that undoes it.
 func verbText(w io.Writer, out ops.VerbOutput) error {
@@ -125,6 +125,7 @@ func newVerbCmds(l *loader) []*cobra.Command {
 			fs.StringVar(&in.Title, "title", "", "a short name for the work (an agent must give one)")
 			fs.StringArrayVar(&atts, "attach", nil, "vault path of an attachment; repeatable")
 			fs.BoolVar(&in.Done, "done", false, "ask the agent to close the item after")
+			fs.BoolVar(&in.FileNotes, "file-notes", false, "a meeting: ask the agent to file its notes and close it as held")
 		},
 		Bind: func(args []string, in *ops.SendToAgentInput) error {
 			in.ID, in.Note, in.Attachments = args[0], strings.Join(args[1:], " "), atts
@@ -186,5 +187,13 @@ func newVerbCmds(l *loader) []*cobra.Command {
 			return p.err
 		},
 	})
-	return []*cobra.Command{closeCmd, laterCmd, reopenCmd, sendCmd, showCmd, listCmd}
+	briefCmd := opCommand(l, ops.Brief, binding[ops.BriefInput, ops.BriefOutput]{
+		Use: "brief <id>", Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.BriefInput) error { in.ID = args[0]; return nil },
+		Text: func(w io.Writer, out ops.BriefOutput) error {
+			_, err := io.WriteString(w, out.Markdown)
+			return err
+		},
+	})
+	return []*cobra.Command{closeCmd, laterCmd, reopenCmd, sendCmd, showCmd, listCmd, briefCmd}
 }

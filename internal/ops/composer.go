@@ -32,7 +32,14 @@ type AgentSendInput struct {
 	Text        string   `json:"text,omitempty"`
 	Attachments []string `json:"attachments,omitempty"`
 	Done        bool     `json:"done,omitempty"`
+	// FileNotes asks the agent to file the notes of a meeting: decisions,
+	// action items, and asks become items, and the meeting closes as held
+	// (prompt process_meeting, part Notes on a meeting). Text is optional then.
+	FileNotes bool `json:"file_notes,omitempty"`
 }
+
+// MeetingNotesKind marks agent work that files the notes of a meeting.
+const MeetingNotesKind = "meeting-notes"
 
 // AgentSendOutput is the queued work. Note says why nothing may run it yet.
 type AgentSendOutput struct {
@@ -73,19 +80,53 @@ func composerAsk(id string, typ model.Type, title, text string, attachments []st
 	return b.String()
 }
 
+// meetingNotesAsk is the body of work that files a meeting's notes.
+func meetingNotesAsk(id, title, text string, attachments []string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "The owner asked you to file the notes of the meeting [[%s]] (%s) from its page.\n\n", id, firstOf(title, id))
+	b.WriteString("Follow the prompt process_meeting, part Notes on a meeting: read the brief (`brief`) and the notes (`notes_read`); " +
+		"format the notes in the meeting (`notes_edit` with the hash); file each decision as an answered question (`question_answer`, or `question_add` then `question_answer`), " +
+		"each action item as a task (`task_add`, assignee self or a person, the meeting as parent), and each ask of a person as an ask (`rfx_add`); " +
+		"then close the meeting as held (`close`). Cite the notes as the source of each write, and name the receipts in your result.\n\n")
+	if t := strings.TrimSpace(text); t != "" {
+		b.WriteString("## Owner's words\n\n" + flattenHeadings(t))
+	}
+	if len(attachments) > 0 {
+		b.WriteString("\n\n## Attachments\n")
+		for _, a := range attachments {
+			b.WriteString("\n- " + model.AttachmentEmbed(a))
+		}
+	}
+	return strings.TrimRight(b.String(), "\n")
+}
+
 // AgentSend queues agent work about an item with the owner's words.
-var AgentSend = definePerson("agent_send", "Send what the owner wrote about an item to an agent: queues agent work that carries the words and attachments, linked to the item, to process as an update (prompt sort_update). done asks the agent to close the item. People only", func(ctx context.Context, d Deps, in AgentSendInput) (AgentSendOutput, error) {
+var AgentSend = definePerson("agent_send", "Send what the owner wrote about an item to an agent: queues agent work that carries the words and attachments, linked to the item, to process as an update (prompt sort_update). done asks the agent to close the item. "+
+	"file_notes, on a meeting, asks the agent to file the meeting's notes (decisions, action items, asks) and close it as held (prompt process_meeting); text is optional then. People only", func(ctx context.Context, d Deps, in AgentSendInput) (AgentSendOutput, error) {
 	id := normID(in.ID)
 	if id == "" {
 		return AgentSendOutput{}, errors.New("id is empty")
 	}
 	text := strings.TrimSpace(strings.ReplaceAll(in.Text, "\r\n", "\n"))
-	if text == "" && len(in.Attachments) == 0 {
+	if text == "" && len(in.Attachments) == 0 && !in.FileNotes {
 		return AgentSendOutput{}, errors.New("write what to send, or attach a file")
 	}
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
 		return AgentSendOutput{}, linkErr("id", id, err)
+	}
+	if in.FileNotes {
+		mt, ok := readMeeting(doc)
+		switch {
+		case !ok:
+			return AgentSendOutput{}, fmt.Errorf("file_notes: %w", notMeeting(doc))
+		case in.Done:
+			return AgentSendOutput{}, errors.New("file_notes closes the meeting as held: leave done out")
+		case !meetingOpen(mt.Status):
+			return AgentSendOutput{}, fmt.Errorf("file_notes: %s is %s: reopen it first", doc.ID, mt.Status)
+		case text == "" && headingText(doc.Body, notesHeading) == "":
+			return AgentSendOutput{}, fmt.Errorf("file_notes: %s has no notes yet: write them first", doc.ID)
+		}
 	}
 	var atts []string
 	for _, p := range in.Attachments {
@@ -99,6 +140,9 @@ var AgentSend = definePerson("agent_send", "Send what the owner wrote about an i
 	}
 	typ := doc.Meta.Header().Type
 	add := RequestAddInput{Title: composerPrefix + firstOf(doc.Title, id), Ask: composerAsk(id, typ, doc.Title, text, atts, in.Done), Kind: SentKind}
+	if in.FileNotes {
+		add.Title, add.Ask, add.Kind = composerPrefix+"file the notes of "+firstOf(doc.Title, id), meetingNotesAsk(id, doc.Title, text, atts), MeetingNotesKind
+	}
 	if slices.Contains(linkTypes, typ) {
 		add.Links = []string{id}
 	} else {

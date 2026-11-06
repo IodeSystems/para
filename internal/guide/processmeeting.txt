@@ -16,3 +16,13 @@ Turn a meeting transcript into vault updates. Para does not record or transcribe
 6. Name the receipts. The owner can undo one with `receipt_undo`.
 
 Ordinary vault edits need no proposal. A bulk or risky change (for example merging duplicates, or moving many items) is your call: when you judge it so, file a proposal with para items (`proposal_add`) and follow the prompt review_cycle. Any outward action (a message, a post, a ticket) needs a proposal the owner approved.
+
+Notes on a meeting (agent work of kind meeting-notes: the owner pressed "Send to agent to file" on the meeting's page). The notes are in the meeting's ## Notes section; they are the owner's words and the only source. Do these steps in order, with request (the request id) on each write:
+
+1. Read: `brief` with the meeting id (who was there, what is open with each person, the asks it should settle, last time's notes), then `notes_read`.
+2. Format the notes into the meeting: `notes_edit` with the hash. Keep every fact the owner wrote; fix only layout (short lines, ### subheadings for Decisions, Action items, Asks). Change no meaning.
+3. Each decision: an answered question. An open question it settles: `question_answer`. A decision with no question: `question_add` (scope the meeting's goal, else root), then `question_answer`. Source: the meeting id, quote the line from the notes.
+4. Each action item: `task_add` with done_when, parent the meeting, assignee self (the owner) or the person the notes name (a person id; `who` to find them, `org_person_add` when they are not in the directory).
+5. Each ask the owner makes of a person, or a person makes of the owner: `rfx_add` (direction out with a target, or in). A reply to an ask it should settle: `rfx_reply`.
+6. Close the meeting as held: `close` with the meeting id. A meeting that never had a time: `meeting_hold` with start and end and no other fields. Close it only after the items above are filed.
+7. `request_done` with the receipts, and what you could not file and why (needs_clarification when only the owner can say).

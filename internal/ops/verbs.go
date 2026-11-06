@@ -597,17 +597,18 @@ type SendToAgentInput struct {
 	Attachments []string `json:"attachments,omitempty"` // vault paths (attachment_add); people only
 	Done        bool     `json:"done,omitempty"`        // ask the agent to close the item after; people only
 	Title       string   `json:"title,omitempty"`       // a short name for the work; an agent must give one
+	FileNotes   bool     `json:"file_notes,omitempty"`  // a meeting: file its notes and close it as held; people only
 }
 
 // SendToAgent queues agent work about an item: agent_send on a person's
 // surface, request_add linked to the item on an agent's.
-var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it runs agent_send (note is the owner's words; attachments and done as agent_send takes them); on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). Outputs op and result",
+var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it runs agent_send (note is the owner's words; attachments and done as agent_send takes them); on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). file_notes (people only), on a meeting, asks the agent to file its notes and close it as held (prompt process_meeting). Outputs op and result",
 	RiskSafe, func(ctx context.Context, d Deps, in SendToAgentInput) (verbRoute, error) {
 		if !agentSurface(d) {
-			return newRoute(AgentSend, AgentSendInput{ID: in.ID, Text: in.Note, Attachments: in.Attachments, Done: in.Done}, false)
+			return newRoute(AgentSend, AgentSendInput{ID: in.ID, Text: in.Note, Attachments: in.Attachments, Done: in.Done, FileNotes: in.FileNotes}, false)
 		}
-		if len(in.Attachments) > 0 || in.Done {
-			return verbRoute{}, errors.New("attachments and done are the owner's: leave them out")
+		if len(in.Attachments) > 0 || in.Done || in.FileNotes {
+			return verbRoute{}, errors.New("attachments, done, and file_notes are the owner's: leave them out")
 		}
 		id := normID(in.ID)
 		doc, err := d.Store.Get(ctx, id)

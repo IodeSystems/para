@@ -6,7 +6,8 @@
 // tool name against ops.All.
 //
 // Para does not run meetings. The one text about them is ProcessMeeting, which
-// works from a transcript the owner gives it.
+// works from a transcript the owner gives it, or from the notes the owner
+// wrote on the meeting (agent work of kind meeting-notes).
 package guide
 
 import (

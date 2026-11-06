@@ -211,6 +211,7 @@ type ParaV1QueryNamespace {
   areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   attachmentRead(file: String!): para_AttachmentReadOutput @derived(operationId: "attachmentRead")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
+  brief(id: String!): para_BriefOutput @derived(operationId: "brief")
   changes(since: String): para_ChangesOutput @derived(operationId: "changes")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
@@ -437,6 +438,7 @@ type para_AgentActivityOutput {
 input para_AgentSendInputInput {
   attachments: [String!]
   done: Boolean
+  fileNotes: Boolean
   id: String!
   text: String
 }
@@ -839,6 +841,51 @@ type para_BodyFile {
   doc: String!
   path: String!
   text: String!
+  title: String!
+}
+
+type para_BriefLine {
+  id: String!
+  reason: String!
+  status: String
+  title: String!
+  type: String!
+}
+
+type para_BriefOutput {
+  agenda: String!
+  doneWhen: String
+  end: String
+  id: String!
+  linked: [para_BriefLine!]!
+  markdown: String!
+  people: [para_BriefPerson!]!
+  previous: para_BriefPrevious
+  start: String
+  status: String
+  title: String!
+  type: String!
+}
+
+type para_BriefPerson {
+  id: String
+  name: String!
+  questions: [para_BriefLine!]!
+  resolved: Boolean!
+  tasks: [para_BriefLine!]!
+  text: String
+  theyAsked: [para_BriefLine!]!
+  unresolved: String
+  youAsked: [para_BriefLine!]!
+}
+
+type para_BriefPrevious {
+  id: String!
+  notes: String!
+  outcome: String!
+  skipped: [String!]!
+  start: String
+  status: String!
   title: String!
 }
 
@@ -6484,6 +6531,7 @@ type para_SelfServe {
 input para_SendToAgentInputInput {
   attachments: [String!]
   done: Boolean
+  fileNotes: Boolean
   id: String!
   note: String
   title: String
