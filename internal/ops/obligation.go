@@ -165,6 +165,16 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	if err != nil {
 		return ObligationAddOutput{}, err
 	}
+	// A commitment series with no due is not due at once: its first
+	// occurrence falls on the start's day, else one cadence from today.
+	if kind == model.KindCommitment && sched == model.ScheduleSeries && due == "" {
+		if day, ok := meetingDay(in.Start); ok {
+			due = model.Date(day)
+		} else if rule, err := recur.Parse(in.Recur); err == nil {
+			today, _ := parseDay(d.Store.Now().Format(dateLayout))
+			due = model.Date(rule.After(today).Format(dateLayout))
+		}
+	}
 	doneWhen, err := checkDoneWhen(in.DoneWhen, false)
 	if err != nil {
 		return ObligationAddOutput{}, err

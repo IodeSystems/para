@@ -24,6 +24,7 @@ const (
 	RecheckAssumption = "assumption"
 	RecheckConstraint = "constraint"
 	RecheckException  = "exception"
+	RecheckObligation = "obligation" // an ongoing obligation whose review has come
 )
 
 // recheckKind is the request kind of recheck work.
@@ -35,8 +36,8 @@ const recheckDefaultNext = 90
 
 // RecheckItem is one thing to check again.
 type RecheckItem struct {
-	Kind     string `json:"kind"` // assumption, constraint, or exception
-	ID       string `json:"id"`   // the goal, task, constraint, or exception
+	Kind     string `json:"kind"` // assumption, constraint, exception, or obligation
+	ID       string `json:"id"`   // the goal, task, constraint, exception, or obligation
 	Title    string `json:"title"`
 	Text     string `json:"text,omitempty"` // the assumption; empty for a constraint or an exception
 	Source   string `json:"source,omitempty"`
@@ -63,7 +64,7 @@ type RecheckOutput struct {
 }
 
 // Recheck collects the items and queues one agent work item for them.
-var Recheck = defineSafe("recheck", "Collect what might no longer be true in a scope (goal, area, or task ids; empty is the vault): assumptions unchecked or checked more than older_than days ago (default recheck.days), and constraints and policy exceptions whose review date has come. Queues one agent work item listing each, to check with sources and record with recheck_record. dry_run lists only", func(ctx context.Context, d Deps, in RecheckInput) (RecheckOutput, error) {
+var Recheck = defineSafe("recheck", "Collect what might no longer be true in a scope (goal, area, or task ids; empty is the vault): assumptions unchecked or checked more than older_than days ago (default recheck.days), constraints and policy exceptions whose review date has come, and ongoing obligations whose review is due. Queues one agent work item listing each, to check with sources and record with recheck_record. dry_run lists only", func(ctx context.Context, d Deps, in RecheckInput) (RecheckOutput, error) {
 	if in.OlderThan < 0 {
 		return RecheckOutput{}, errors.New("older_than is negative")
 	}
@@ -226,6 +227,42 @@ func recheckItems(ctx context.Context, s store.Store, scope, tag, cutoff, today 
 			links = append(links, doc.ID)
 		}
 	}
+	// Ongoing obligations whose review has come: in the vault, or with a goal,
+	// area, or parent the scope holds.
+	inScope := map[string]bool{}
+	for _, id := range chains {
+		inScope[id] = true
+	}
+	for _, doc := range holders {
+		inScope[doc.ID] = true
+	}
+	obls, err := s.List(ctx, store.Filter{Type: model.TypeObligation})
+	if err != nil {
+		return nil, "", nil, err
+	}
+	for _, r := range obls {
+		doc, err := s.Get(ctx, r.ID)
+		if err != nil {
+			return nil, "", nil, err
+		}
+		o, ok := doc.Meta.(*model.Obligation)
+		if !ok || !o.Open() || o.Schedule != model.ScheduleOngoing || !tagged(o) {
+			continue
+		}
+		if scope != "" && !inScope[o.Project.Target()] && !inScope[o.Area.Target()] && !inScope[o.Parent.Target()] {
+			continue
+		}
+		turn := ongoingTurn(o)
+		if turn.On != "" && turn.On > today {
+			continue
+		}
+		verify := "never reviewed: is it still owed, to whom, and on what terms?"
+		if o.LastReviewed != "" {
+			verify = fmt.Sprintf("review every %s, last %s: is it still owed, to whom, and on what terms?", o.Cadence, o.LastReviewed)
+		}
+		items = append(items, RecheckItem{Kind: RecheckObligation, ID: doc.ID, Title: doc.Title, Checked: string(o.LastReviewed), ReviewBy: turn.On, Verify: verify})
+		links = append(links, doc.ID)
+	}
 	// Rules: those in effect along the scope's chains, or every one for the
 	// vault: files and annotations (ruleIndex).
 	rx, err := newRuleIndex(ctx, s)
@@ -313,7 +350,7 @@ type RecheckRecordOutput struct {
 const rechecksHeading = "## Rechecks"
 
 // RecheckRecord records the result of checking one item again.
-var RecheckRecord = define("recheck_record", "Record the result of checking one item again: an assumption of a goal or a task (give its text), a constraint, or a policy exception. holds (with source) marks it checked today, and moves a constraint's or exception's review date; changed (with the fact that is true now and its source) records the change; unknown records it and opens a question. A changed item opens a question when you give one", func(ctx context.Context, d Deps, in RecheckRecordInput) (RecheckRecordOutput, error) {
+var RecheckRecord = define("recheck_record", "Record the result of checking one item again: an assumption of a goal or a task (give its text), a constraint, a policy exception, or an ongoing obligation. holds (with source) marks it checked today, moves a constraint's or exception's review date, and marks an ongoing obligation reviewed; changed (with the fact that is true now and its source) records the change; unknown records it and opens a question. A changed item opens a question when you give one", func(ctx context.Context, d Deps, in RecheckRecordInput) (RecheckRecordOutput, error) {
 	if !slices.Contains(model.AssumptionStatuses, in.Result) {
 		return RecheckRecordOutput{}, fmt.Errorf("result %q: want holds, changed, or unknown", in.Result)
 	}
@@ -403,8 +440,24 @@ var RecheckRecord = define("recheck_record", "Record the result of checking one 
 		line += " (" + d.Store.Info().Actor + ")"
 		doc.Body = appendToSection(doc.Body, rechecksHeading, line)
 		what = doc.Title
+	case *model.Obligation:
+		if m.Schedule != model.ScheduleOngoing || fold(in.Assumption) != "" || in.NextReview != "" {
+			return RecheckRecordOutput{}, fmt.Errorf("%s: recheck takes an ongoing obligation, with no assumption or next_review (its cadence sets the next review)", doc.ID)
+		}
+		if in.Result == model.AssumptionHolds {
+			m.LastReviewed = model.Date(today)
+		}
+		line := "- " + today + ": " + string(in.Result)
+		if fact != "" {
+			line += ": " + fact
+		}
+		if source != "" {
+			line += " (source: " + source + ")"
+		}
+		doc.Body = appendToSection(doc.Body, rechecksHeading, line+" ("+d.Store.Info().Actor+")")
+		what = doc.Title
 	default:
-		return RecheckRecordOutput{}, fmt.Errorf("%s is a %s: want a goal, a task, a constraint, or a policy exception", doc.ID, doc.Meta.Header().Type)
+		return RecheckRecordOutput{}, fmt.Errorf("%s is a %s: want a goal, a task, a constraint, a policy exception, or an ongoing obligation", doc.ID, doc.Meta.Header().Type)
 	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {

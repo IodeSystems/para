@@ -320,11 +320,14 @@ func producedThisTurn(reqs []*model.Request, o *model.Obligation, turn string) b
 
 // journalDefault makes the built-in daily journal-summary obligation once per
 // vault, when journal.agent is set. One that exists in any state, or was
-// closed, is never made again.
+// closed, is never made again. When journal.agent names another agent, the
+// open occurrences are owed by that agent from then on.
 func journalDefault(ctx context.Context, d Deps, agent string, out *TickOutput) error {
 	if agent == "" {
 		return nil
 	}
+	owner := model.Link(AgentPrefix + agent)
+	found := false
 	for _, f := range []model.Folder{model.FolderObligations, model.FolderArchive} {
 		refs, err := d.Store.List(ctx, store.Filter{Folder: f, Type: model.TypeObligation, All: true})
 		if err != nil {
@@ -335,10 +338,22 @@ func journalDefault(ctx context.Context, d Deps, agent string, out *TickOutput) 
 			if err != nil {
 				return err
 			}
-			if o, ok := doc.Meta.(*model.Obligation); ok && o.Produce != nil && o.Produce.Builtin == JournalSummaryBuiltin {
-				return nil
+			o, ok := doc.Meta.(*model.Obligation)
+			if !ok || o.Produce == nil || o.Produce.Builtin != JournalSummaryBuiltin {
+				continue
+			}
+			found = true
+			if !o.Open() || slices.Equal(o.OwedBy, []model.Link{owner}) {
+				continue
+			}
+			o.OwedBy = []model.Link{owner}
+			if _, err := d.Store.Update(ctx, doc); err != nil {
+				return err
 			}
 		}
+	}
+	if found {
+		return nil
 	}
 	today := d.Store.Now().Local().Format(recur.Layout)
 	o := &model.Obligation{Common: model.Common{Type: model.TypeObligation}, Kind: model.KindCommitment, State: model.StateOpen,

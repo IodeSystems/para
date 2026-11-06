@@ -144,6 +144,14 @@ func (d Document) WithFields(set map[string]any) (Document, error) {
 	return decodeNode(d, n)
 }
 
+// Kept decodes the frontmatter key its type does not declare, kept from the
+// type it was before a retype (such as blocks on an obligation folded from an
+// ask), into v. It reports whether the key is there and decodes.
+func (d Document) Kept(key string, v any) bool {
+	n, ok := d.extra[key]
+	return ok && n.Decode(v) == nil
+}
+
 // DropExtra returns d without the frontmatter keys its type does not declare:
 // for a new document made by Retype, whose old keys mean nothing yet.
 func (d Document) DropExtra() Document {

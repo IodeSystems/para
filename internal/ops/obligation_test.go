@@ -30,6 +30,23 @@ func getOb(t *testing.T, d Deps, id string) (model.Document, *model.Obligation) 
 	return doc, o
 }
 
+// A commitment series with no due is not due at once: its first occurrence
+// is the start's day, else one cadence from today.
+func TestCommitmentSeriesWithNoDue(t *testing.T) {
+	d, proj, person := obFixture(t)
+	weekly := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the invoice", OwedTo: []string{person}, Recur: "weekly", Project: proj})
+	if _, o := getOb(t, d, weekly.ID); o.Due != "2026-11-12" {
+		t.Errorf("weekly from today: due %q, want 2026-11-12", o.Due)
+	}
+	started := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Send the report", OwedTo: []string{person}, Recur: "monthly", Start: "2026-11-20T09:00:00Z", Project: proj})
+	if _, o := getOb(t, d, started.ID); o.Due != "2026-11-20" {
+		t.Errorf("from start: due %q, want 2026-11-20", o.Due)
+	}
+	if got := needOf(t, d, weekly.ID); !strings.Contains(got.Reason, "2026-11-12") {
+		t.Errorf("need of the series: %+v", got)
+	}
+}
+
 func TestObligationAddKindsAndSchedules(t *testing.T) {
 	d, proj, person := obFixture(t)
 	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Sync", With: []string{person}, Start: "2026-11-06T10:00:00Z", End: "2026-11-06T10:30:00Z"})

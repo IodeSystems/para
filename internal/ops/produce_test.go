@@ -263,6 +263,18 @@ func TestProduceJournalSummaryDefault(t *testing.T) {
 	if out := tick(t, d); len(out.Produce) != 0 || len(produceReqs(t, d, third)) != 0 {
 		t.Fatalf("produced with journal.agent unset: %+v", out)
 	}
+
+	// journal.agent names another agent: the open occurrence is owed by it,
+	// and it is the one asked.
+	tv.addProps("journal.agent=agent:dun")
+	tv.at("2026-11-06T08:10:00Z")
+	tick(t, d)
+	if _, o := getOb(t, d, third); o.Agent() != "agent:dun" {
+		t.Fatalf("after journal.agent changed: owed_by %v", o.OwedBy)
+	}
+	if r := produceReqs(t, d, third); len(r) != 1 || !strings.Contains(r[0].Body, "owed by agent:dun") {
+		t.Fatalf("produce request after the change: %d", len(r))
+	}
 }
 
 // A vault below the obligation format keeps the old journal requests.

@@ -1087,6 +1087,80 @@ try {
     'the agenda opens the brief of a meeting that needs you, with the unknown attendee unresolved',
   )
 
+  // Next: Later with a picked date puts a task off to that date; Drop asks why before it closes a
+  // question; Held closes a meeting with what came of it. Each card leaves.
+  {
+    const deck = (await agent.call('order', {})).rows.filter(
+      (r) => r.needs_you && r.bucket !== 'not_yet',
+    )
+    const cardOf = (id) => rpage.locator(`[data-next-card="${id}"]`)
+    const walkTo = async (id) => {
+      const live = (await agent.call('order', {})).rows.filter(
+        (r) => r.needs_you && r.bucket !== 'not_yet',
+      )
+      const at = live.findIndex((r) => r.id === id)
+      check(at >= 0, `${id} is in the Next deck`)
+      await rpage.goto(`${base}/next`)
+      await cardOf(live[0].id).waitFor()
+      for (let i = 0; i < at; i++) {
+        await rpage.keyboard.press('j')
+        await cardOf(live[i + 1].id).waitFor()
+      }
+    }
+    const later = deck.find((r) => r.kind === 'task')
+    const drop = deck.find((r) => r.kind === 'question')
+    check(!!later && !!drop, `the deck holds a task and a question (${deck.map((r) => r.kind)})`)
+    const until = new Date(Date.now() + 10 * 86400 * 1000).toISOString().slice(0, 10)
+    await walkTo(later.id)
+    await cardOf(later.id).locator('[data-act="later"]').click()
+    await rpage.locator('[data-later="pick"]').click()
+    await rpage.getByLabel('Until').fill(until)
+    await rpage.getByRole('button', { name: 'Put off' }).click()
+    await cardOf(later.id).waitFor({ state: 'detached' })
+    check(
+      para(...v, 'show', later.id, '--json').includes(`"defer_until": "${until}"`),
+      `Later with a picked date on Next puts the task off to ${until}`,
+    )
+    await walkTo(drop.id)
+    await cardOf(drop.id).locator('[data-act="done"]').click()
+    const dropped = rpage.locator('[data-act="dropped"]')
+    check(await dropped.isDisabled(), 'Drop on Next waits for a reason')
+    await rpage.getByLabel('Why it needs nothing (required)').fill('Settled in the planning call.')
+    await dropped.click()
+    await cardOf(drop.id).waitFor({ state: 'detached' })
+    check(
+      /"status":\s*"dropped"/.test(para(...v, 'show', drop.id, '--json')),
+      'Drop with a reason on Next closes the question',
+    )
+    // A meeting going on now is on the Next deck (one tomorrow is not yet).
+    const nowStart = new Date(Date.now() - 30 * 60 * 1000)
+    nowStart.setUTCSeconds(0, 0)
+    const held = idOf(
+      para(
+        ...v,
+        'meeting',
+        'add',
+        'Standup now',
+        '--with',
+        person,
+        '--start',
+        nowStart.toISOString().replace('.000Z', 'Z'),
+        '--end',
+        new Date(nowStart.getTime() + 60 * 60 * 1000).toISOString().replace('.000Z', 'Z'),
+        '--json',
+      ),
+    )
+    await walkTo(held)
+    await cardOf(held).locator('[data-act="done"]').click()
+    await rpage.getByLabel('What came of it (optional)').fill('Quota stays at 10.')
+    await rpage.locator('[data-act="held"]').click()
+    await cardOf(held).waitFor({ state: 'detached' })
+    check(
+      /"life":\s*"closed"/.test(para(...v, 'show', held, '--json')),
+      'Held on Next closes the meeting',
+    )
+  }
+
   // A meeting's page shows its brief (the person and the ask it should settle). With notes saved,
   // Send to agent to file queues agent work of kind meeting-notes.
   await rpage.goto(`${base}/meetings/${meeting}`)
@@ -1187,7 +1261,22 @@ try {
     await rpage.locator(`[data-sent="${ask.id}"][data-seen="yes"]`).waitFor()
     const seen = await agent.call('request_show', { id: ask.id })
     check(!!seen.doc?.meta?.seen, 'Mark seen sets seen on the request')
+    // Opening the page of the item finished agent work is about marks its result seen.
+    const linked = await agent.call('request_add', {
+      kind: 'owner-ask',
+      title: 'Price the venue',
+      ask: 'Find the price of the venue.',
+      owner_said: 'what does the venue cost?',
+      links: [noted],
+    })
+    await agent.call('request_done', { id: linked.id, resolution: 'done', result: 'Priced.' })
     await rpage.goto(`${base}/doc/${noted}`)
+    let opened = false
+    for (let i = 0; i < 50 && !opened; i++) {
+      opened = !!(await agent.call('request_show', { id: linked.id })).doc?.meta?.seen
+      if (!opened) await new Promise((r) => setTimeout(r, 100))
+    }
+    check(opened, 'opening the item page marks the finished agent work about it seen')
   }
   await composer.getByLabel(/Tell the agent about/).fill('Deposit paid.')
   // A 1x1 PNG: the notes show it inline from the attachment route.

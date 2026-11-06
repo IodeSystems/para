@@ -160,18 +160,24 @@ func nonEmpty(s ...string) []string {
 	return out
 }
 
-// goalDocs returns the open tasks of a goal, sorted by id.
+// goalDocs returns the open tasks of a goal and its open obligations (read
+// as tasks), sorted by id.
 func goalDocs(ctx context.Context, s store.Store, goal string) ([]model.Document, error) {
 	refs, err := s.List(ctx, store.Filter{Type: model.TypeTask})
 	if err != nil {
 		return nil, err
 	}
+	obls, err := s.List(ctx, store.Filter{Type: model.TypeObligation})
+	if err != nil {
+		return nil, err
+	}
 	var out []model.Document
-	for _, r := range refs {
+	for _, r := range append(refs, obls...) {
 		doc, err := s.Get(ctx, r.ID)
 		if err != nil {
 			return nil, err
 		}
+		doc = obligationShape(doc)
 		if t, ok := doc.Meta.(*model.Task); ok && t.Project.Target() == goal && !taskTerminal(t.Status) {
 			out = append(out, doc)
 		}

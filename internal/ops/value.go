@@ -722,9 +722,19 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			continue
 		}
 		// An obligation is a node of its task kind; one owed to people is owed.
-		owed := false
+		// An ask to the owner folded into an obligation (format 7) keeps the
+		// ask's signals: when it came, who waits, and what it blocks (its kept
+		// keys targets and blocks).
+		owed, askIn := false, false
+		var askTargets []model.Target
+		var askBlocks []model.Link
 		if o, ok := doc.Meta.(*model.Obligation); ok {
 			owed = len(o.OwedTo) > 0
+			if o.FoldedFrom == model.TypeRFX {
+				askIn = true
+				doc.Kept("targets", &askTargets)
+				doc.Kept("blocks", &askBlocks)
+			}
 		}
 		doc = obligationShape(doc) // a task of kind incident is an incident node: incidents come first
 		need := sn.Need(doc.ID)
@@ -790,6 +800,13 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			n.Deps = targets(m.DependsOn)
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
 				n.Start, _ = meetingDay(m.Scheduled)
+			}
+			if askIn {
+				n.Owed, n.Prep, n.Waiters = true, true, max(len(askTargets), 1)
+				n.Arrived = askArrived(&model.RFX{Targets: askTargets})
+				for _, l := range askBlocks {
+					rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
+				}
 			}
 		case *model.Question:
 			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(m.DependsOn), m.HasProposal()

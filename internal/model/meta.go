@@ -392,7 +392,7 @@ func (o *Obligation) Agent() string {
 // the vault document it follows ("[[id]]") or the text itself. To are the
 // people or groups a message goes to (links), or free text such as a
 // channel; Medium is how. Guide names the prompt the agent follows (default
-// produce). Builtin marks an obligation para made itself: journal-summary is
+// the loop prompt, part Produce). Builtin marks an obligation para made itself: journal-summary is
 // the daily journal summary tick makes once when journal.agent is set.
 type Produce struct {
 	Kind     ProduceKind `yaml:"kind" json:"kind"`

@@ -152,7 +152,7 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 		if err != nil {
 			return doc, false
 		}
-		doc = incidentShape(doc) // a task of kind incident is checked as an incident
+		doc = obligationShape(doc) // an obligation is checked as its task, an incident task as an incident
 		docs[id] = doc
 		return doc, true
 	}
