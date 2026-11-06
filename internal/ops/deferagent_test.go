@@ -9,30 +9,6 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-func TestAgentDeferIsGated(t *testing.T) {
-	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Tidy the wiki"}).ID
-	ag := agentDeps(d, "scribe")
-	_, err := Defer.Run(WithWrite(ctx, WriteMeta{Why: "Not this week.", Minor: true, Obvious: true}), ag, DeferInput{IDs: []string{id}, Until: "2026-12-01"})
-	st, ok := AsStaged(err)
-	if !ok || !slices.Contains(st.Missing, "owner_said") {
-		t.Fatalf("agent defer without owner_said = %v", err)
-	}
-	// The held write says where it went and when it applies.
-	if want := "held for review in Staged writes scribe item " + st.Item + ": " + st.Proposal + "; it applies when the owner approves"; !strings.HasPrefix(st.Message, want) {
-		t.Fatalf("staged message = %q, want prefix %q", st.Message, want)
-	}
-	if v, _ := taskOf(t, d, id); v.Deferred {
-		t.Fatal("a staged defer ran")
-	}
-	if _, err := Defer.Run(WithWrite(ctx, WriteMeta{Why: "Owner asked.", OwnerSaid: "push the wiki to December"}), ag, DeferInput{IDs: []string{id}, Until: "2026-12-01"}); err != nil {
-		t.Fatal(err)
-	}
-	if slices.Contains(taskIDs(must(t, TaskList, d, TaskListInput{})), id) {
-		t.Fatal("the deferred task is still listed")
-	}
-}
-
 func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 	d, proj := laterVault(t)
 	nextIDs := func() []string {

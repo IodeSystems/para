@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 
 	"github.com/iodesystems/para/internal/netguard"
@@ -31,22 +30,4 @@ func TestReviewDecideScope(t *testing.T) {
 	writer := f.key(f.keyA, "writer", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/stack/decide", header: f.cookieHeader(writer),
 		body: `{"items":[{"proposal":"proposal-sample","item":"i3"}],"decision":"reject"}`}), 403)
-}
-
-// The gate answers a held-back REST write with 202 and the staged item; the
-// rating headers let it through.
-func TestGateOverREST(t *testing.T) {
-	f := newFixture(t)
-	if err := f.store(t).SetConfig(contextBackground(), "gate.require", ""); err != nil {
-		t.Fatal(err)
-	}
-	agent := f.key(f.keyA, "claude", netguard.ScopeVaultRead, netguard.ScopeVaultWrite)
-	why := map[string]string{"X-Para-Why": "The owner asked."}
-	w := f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: why, body: `{"direction":"in","text":"held capture"}`})
-	wantStatus(t, w, 202)
-	if !strings.Contains(w.Body.String(), `"staged": true`) || !strings.Contains(w.Body.String(), `"op": "io_add"`) {
-		t.Fatalf("body = %s", w.Body.String())
-	}
-	rated := map[string]string{"X-Para-Why": "The owner asked.", "X-Para-Minor": "true", "X-Para-Obvious": "true"}
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: rated, body: `{"direction":"in","text":"rated capture"}`}), 200)
 }

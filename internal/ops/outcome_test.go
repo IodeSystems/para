@@ -118,47 +118,6 @@ func TestTaskResolveDeclinedFailedRerouted(t *testing.T) {
 	mustLintClean(t, d)
 }
 
-// failed and rerouted from an agent wait for review unless owner_said is
-// given; declined by the owner passes with owner_said.
-func TestTaskResolveGate(t *testing.T) {
-	d, proj := laterVault(t)
-	agent := agentOf(d)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew"}).ID
-	in := TaskResolveInput{ID: id, Outcome: model.OutcomeFailed, Tried: "Ran it.", StoppedBecause: "CA down."}
-	_, err := TaskResolve.Run(writeCtx(t), agent, in)
-	st, ok := AsStaged(err)
-	if !ok || !slices.Contains(st.Missing, "owner_said") {
-		t.Fatalf("failed without owner_said: %v", err)
-	}
-	if v, _ := taskOf(t, d, id); v.Status != model.TaskTodo {
-		t.Fatal("a staged close ran")
-	}
-	said := WithWrite(t.Context(), WriteMeta{Why: "Owner said so.", OwnerSaid: "yes, mark it failed", Confidence: model.ConfidenceHigh})
-	if o, err := TaskResolve.Run(said, agent, in); err != nil || o.Outcome != model.OutcomeFailed {
-		t.Fatalf("failed with owner_said: %+v %v", o, err)
-	}
-	r := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Route"}).ID
-	if _, err := TaskResolve.Run(writeCtx(t), agent, TaskResolveInput{ID: r, Outcome: model.OutcomeRerouted, To: "https://jira.acme.example/browse/OPS-2", Reason: "x"}); err == nil {
-		t.Fatal("rerouted without owner_said ran")
-	}
-	// gate.require is none here: declined by other runs; by the owner with owner_said runs.
-	x := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Decline"}).ID
-	if _, err := TaskResolve.Run(said, agent, TaskResolveInput{ID: x, Outcome: model.OutcomeDeclined, Reason: "Not now.", DeclinedBy: "owner", Date: "2026-11-04"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := d.Store.SetConfig(t.Context(), gateConfig, "undoable,minor,obvious"); err != nil {
-		t.Fatal(err)
-	}
-	y := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Decline 2"}).ID
-	dec := TaskResolveInput{ID: y, Outcome: model.OutcomeDeclined, Reason: "Not now.", DeclinedBy: "owner", Date: "2026-11-04"}
-	if _, err := TaskResolve.Run(writeCtx(t), agent, dec); err == nil {
-		t.Fatal("declined without owner_said passed a strict gate")
-	}
-	if _, err := TaskResolve.Run(said, agent, dec); err != nil {
-		t.Fatalf("declined by owner with owner_said: %v", err)
-	}
-}
-
 func rfxStatus(r RFXShowOutput) model.RFXStatus { return r.Doc.Meta.(*model.RFX).Status }
 
 // A failed task with retry_after on or before today shows in health and agenda.

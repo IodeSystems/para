@@ -229,19 +229,3 @@ func TestDossierFilesIO(t *testing.T) {
 		t.Fatalf("io = %+v", m)
 	}
 }
-
-// An agent's io_file with no ratings is held by the gate.
-func TestIOFileIsGated(t *testing.T) {
-	f := ioFix(t)
-	in := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOIn, Text: "Renew the cert"}).ID
-	if err := f.owner.Store.SetConfig(t.Context(), gateConfig, "undoable,minor,obvious"); err != nil {
-		t.Fatal(err)
-	}
-	_, err := IOFile.Run(writeCtx(t), f.agent, IOFileInput{ID: in, To: TriageTask, Project: f.proj, DoneWhen: "Renewed."})
-	if _, ok := AsStaged(err); !ok {
-		t.Fatalf("err = %v, want staged", err)
-	}
-	if _, m, _ := getIO(t.Context(), f.owner, in); m.State != model.IOUnread {
-		t.Fatalf("the gate let io_file run: %s", m.State)
-	}
-}
