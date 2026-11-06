@@ -124,13 +124,18 @@ type ItemPreparedOutput struct {
 	ID       string         `json:"id"`
 	Prepared model.Prepared `json:"prepared"`
 	Rev      string         `json:"rev"`
+	// Closed is set when the artifact closed its occurrence: an in-vault
+	// artifact (journal, report, doc, other) can be undone, so it needs no
+	// approval; Next is the next occurrence of its series.
+	Closed bool   `json:"closed,omitempty"`
+	Next   string `json:"next,omitempty"`
 }
 
 // preparedTypes are the types item_prepared marks: what needs the owner.
 var preparedTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeIO, model.TypeProject, model.TypeIncident}
 
 // ItemPrepared records that an agent prepared an item.
-var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, or artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref), and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item: those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
+var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, or artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref; any artifact but a message closes the occurrence done at once, undoable), and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item: those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
 	if !slices.Contains(model.PreparedKinds, in.Kind) {
 		return ItemPreparedOutput{}, fmt.Errorf("kind %q: want draft, answer, fields, brief, plan, or artifact", in.Kind)
 	}
@@ -168,7 +173,17 @@ var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open
 	if err != nil {
 		return ItemPreparedOutput{}, fmt.Errorf("item_prepared: %w", err)
 	}
-	return ItemPreparedOutput{ID: saved.ID, Prepared: *p, Rev: saved.Rev}, nil
+	out := ItemPreparedOutput{ID: saved.ID, Prepared: *p, Rev: saved.Rev}
+	if o, ok := doc.Meta.(*model.Obligation); ok && in.Kind == model.PreparedArtifact && o.Produce.Kind != model.ProduceMessage {
+		// An in-vault artifact is undoable, so it needs no approval: the
+		// occurrence closes done (its receipt undoes it; reopen brings it back).
+		cl, err := obligationClose.Run(ctx, d, obligationCloseInput{ID: saved.ID, Reason: "produced " + string(o.Produce.Kind) + artifactRef(ref)})
+		if err != nil {
+			return out, fmt.Errorf("item_prepared: close: %w", err)
+		}
+		out.Closed, out.Next, out.Rev = true, cl.Next, cl.Rev
+	}
+	return out, nil
 })
 
 // tickPrepare makes the prepare requests of this pass.
@@ -258,4 +273,12 @@ func prepareAsk(doc model.Document, version string) string {
 	b.WriteString("End with request_done linking what you made; when you cannot prepare it, say why.\n\n")
 	b.WriteString("Item version: " + version + "\n")
 	return b.String()
+}
+
+// artifactRef is " [[id]]" for a produced document, or "".
+func artifactRef(ref model.Link) string {
+	if ref == "" {
+		return ""
+	}
+	return " " + string(ref)
 }

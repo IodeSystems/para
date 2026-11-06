@@ -194,6 +194,7 @@ type Snapshot struct {
 	needs       map[string]Need
 	sources     *sourceResolver   // read on first use (inbound.go)
 	replies     map[string]string // item id -> open io draft that answers it (prepared.go)
+	newest      map[string]string // series -> its latest open occurrence with a ready message (produce.go)
 }
 
 // snapTypes are the types a snapshot loads at once; any other document is
@@ -375,7 +376,10 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 			// A recurring artifact: the agent's until it is produced, then the
 			// owner approves it.
 			if _, ok := sn.Ready(doc.ID); ok {
-				return owner(string(o.Produce.Kind) + " ready: approve it or close it")
+				if newer := sn.newerReady(doc.ID, o); newer != "" {
+					return none("superseded by " + newer)
+				}
+				return owner(string(o.Produce.Kind) + " ready: approve it")
 			}
 			return Need{Turn: TurnAgent, Reason: "owed by " + o.Agent()}
 		case len(o.OwedBy) > 0:

@@ -446,7 +446,7 @@ func produceAsk(ctx context.Context, d Deps, doc model.Document, o *model.Obliga
 	default:
 		b.WriteString("Write it as a note (note_add, linked to the same goal or area), or edit the document the template names when it is the artifact itself.\n")
 	}
-	fmt.Fprintf(&b, "\nThen item_prepared {id: %s, kind: artifact, ref: %s}, after your last write: the occurrence is ready and the owner approves or closes it. ", doc.ID, ref)
+	fmt.Fprintf(&b, "\nThen item_prepared {id: %s, kind: artifact, ref: %s}, after your last write: a message occurrence is then ready for the owner to approve; any other closes done at once (undoable, the owner can reopen it). ", doc.ID, ref)
 	b.WriteString("Cite what you used. Pass request (this request's id) on each write. End with request_done linking what you made; when there is nothing to produce, say why.\n\n")
 	fmt.Fprintf(&b, "Prompt: %s.\n", cmp.Or(p.Guide, "produce"))
 	return b.String(), "", nil
@@ -563,6 +563,33 @@ func messageUnsent(ctx context.Context, d Deps, o *model.Obligation) string {
 	}
 	if io, ok := rd.Meta.(*model.IO); ok && io.Direction == model.IOOut && (io.State == model.IODraft || io.State == model.IOReady) {
 		return fmt.Sprintf("its message %s is not sent (%s): the owner approves it (io_approve), it is sent with your own tool and recorded with io_send, then close this; or close it skipped or dropped", rd.ID, io.State)
+	}
+	return ""
+}
+
+// newerReady is the latest open occurrence of the same series as id, after
+// it, whose message is ready too, or "": only the newest needs the owner.
+func (sn *Snapshot) newerReady(id string, o *model.Obligation) string {
+	if sn.newest == nil {
+		sn.newest = map[string]string{}
+		due := map[string]string{}
+		for _, doc := range sn.Docs() {
+			x, ok := doc.Meta.(*model.Obligation)
+			if !ok || !x.Open() || x.Produce == nil || x.Produce.Kind != model.ProduceMessage || x.Prepared == nil {
+				continue
+			}
+			if _, ready := sn.Ready(doc.ID); !ready {
+				continue
+			}
+			series := cmp.Or(x.OccurrenceOf.Target(), doc.ID)
+			_, at := produceDue(x, time.Time{})
+			if cur, seen := sn.newest[series]; !seen || at > due[series] || at == due[series] && doc.ID > cur {
+				sn.newest[series], due[series] = doc.ID, at
+			}
+		}
+	}
+	if n := sn.newest[cmp.Or(o.OccurrenceOf.Target(), id)]; n != id {
+		return n
 	}
 	return ""
 }

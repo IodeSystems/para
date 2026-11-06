@@ -108,33 +108,48 @@ func TestProduceDueOccurrenceMakesOneRequest(t *testing.T) {
 		t.Fatalf("requests grew to %d", n)
 	}
 
-	// The agent writes the artifact and records it: the occurrence is ready
-	// and needs the owner.
+	// The agent writes the artifact and records it. A report is in the vault
+	// and undoable: the occurrence closes done at once, with a receipt, and
+	// never becomes the owner's turn. The next one is the one tick made.
 	agent := tv.open("ia", "mcp")
 	claim(t, agent, r.ID)
 	wctx := WithWrite(ctx, agentWrite("Weekly status from the template."))
 	note := must(t, NoteAdd, agent, NoteAddInput{Title: "Status Nov 6", Body: "Done: one thing."}).ID
-	if _, err := ItemPrepared.Run(wctx, agent, ItemPreparedInput{ID: ob, Kind: model.PreparedArtifact, Ref: note}); err != nil {
+	prep, err := ItemPrepared.Run(wctx, agent, ItemPreparedInput{ID: ob, Kind: model.PreparedArtifact, Ref: note})
+	if err != nil {
 		t.Fatal(err)
 	}
+	if !prep.Closed || prep.Next != next {
+		t.Fatalf("item_prepared: %+v, want closed with next %s", prep, next)
+	}
 	must(t, RequestDone, agent, RequestDoneInput{ID: r.ID, Resolution: model.ResolutionDone, Result: "Wrote the status.", Links: []string{note}})
-	if row := rowOf(t, d, ob); !row.Ready || row.ReadyKind != model.PreparedArtifact || row.ReadyRef != note || !row.NeedsYou {
-		t.Fatalf("row after produce: %+v", row)
+	if _, co := getOb(t, d, ob); co.Open() || co.Outcome != model.OutcomeDone {
+		t.Fatalf("occurrence: state %s outcome %s", co.State, co.Outcome)
+	}
+	sn, err = NewSnapshot(ctx, d.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := sn.Need(ob); n.Yes {
+		t.Fatalf("a produced report needs the owner: %+v", n)
+	}
+	if !closeReceipted(t, d, ob) {
+		t.Fatal("no close receipt for the produced occurrence")
 	}
 	show := must(t, TaskShow, d, TaskShowInput{ID: ob})
-	if p := show.Produce; p == nil || !p.Ready || p.Artifact == nil || p.Artifact.ID != note || p.TemplateName != "Status template" || p.Agent != "agent:writer" {
+	if p := show.Produce; p == nil || p.Artifact == nil || p.Artifact.ID != note || p.TemplateName != "Status template" || p.Agent != "agent:writer" {
 		t.Fatalf("task_show produce: %+v", show.Produce)
 	}
 	// The next occurrence shows the last artifact, of the one before it.
 	if p := must(t, TaskShow, d, TaskShowInput{ID: next}).Produce; p == nil || p.Ready || p.Artifact == nil || p.Artifact.Occurrence != ob {
 		t.Fatalf("next occurrence produce view: %+v", p)
 	}
-
-	// The owner closes it: the next occurrence is the one tick made.
-	cl := must(t, obligationClose, d, obligationCloseInput{ID: ob})
-	if cl.Next != next {
-		t.Fatalf("close made %q, want %q", cl.Next, next)
+	// The owner can take the close back.
+	must(t, Reopen, d, ReopenInput{ID: ob, Reason: "Wrong week."})
+	if _, co := getOb(t, d, ob); !co.Open() {
+		t.Fatal("reopen left it closed")
 	}
+
 	tv.at("2026-11-13T09:00:00Z")
 	out = tick(t, d)
 	if len(out.Produce) != 1 || len(produceReqs(t, d, next)) != 1 {
@@ -302,6 +317,42 @@ func TestProduceWeeklyMessageToAGroup(t *testing.T) {
 	if p := must(t, TaskShow, d, TaskShowInput{ID: ob}).Produce; p == nil || p.Artifact == nil || p.Artifact.State != string(model.IODraft) {
 		t.Fatalf("artifact before approval: %+v", p)
 	}
+	// The message stays open: the owner approves it.
+	if _, mo := getOb(t, d, ob); !mo.Open() {
+		t.Fatal("a message occurrence closed before approval")
+	}
+	if row := rowOf(t, d, ob); !row.NeedsYou || !strings.Contains(row.Reason, "ready: approve it") {
+		t.Fatalf("message row: %+v", row)
+	}
+
+	// A week later the next one is ready too, while this one is unsent: only
+	// the newest needs the owner; the older says it is superseded.
+	tv.at("2026-11-13T09:00:00Z")
+	out2 := tick(t, d)
+	if len(out2.Produce) != 1 {
+		t.Fatalf("week two: %+v", out2)
+	}
+	_, r2, _ := getRequest(ctx, d.Store, out2.Produce[0])
+	week2 := r2.Links[0].Target()
+	claim(t, agent, out2.Produce[0])
+	draft2, err := IOAdd.Run(wctx, agent, IOAddInput{Direction: model.IOOut, Text: "Club update\n\nGarlic is up.", Medium: model.MediumEmail, To: []string{grp}, Expects: model.ExpectsNone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ItemPrepared.Run(wctx, agent, ItemPreparedInput{ID: week2, Kind: model.PreparedArtifact, Ref: draft2.ID}); err != nil {
+		t.Fatal(err)
+	}
+	must(t, RequestDone, agent, RequestDoneInput{ID: out2.Produce[0], Resolution: model.ResolutionDone, Result: "Drafted.", Links: []string{draft2.ID}})
+	sn2, err := NewSnapshot(ctx, d.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := sn2.Need(ob); n.Yes || n.Reason != "superseded by "+week2 {
+		t.Fatalf("older occurrence: %+v", n)
+	}
+	if n := sn2.Need(week2); !n.Yes {
+		t.Fatalf("newest occurrence: %+v", n)
+	}
 	// Not sent, not approved: it cannot close done.
 	if _, err := obligationClose.Run(ctx, d, obligationCloseInput{ID: ob}); err == nil || !strings.Contains(err.Error(), "io_approve") {
 		t.Fatalf("close done before approval: %v", err)
@@ -355,4 +406,20 @@ func TestProduceOngoingOncePerTurn(t *testing.T) {
 	if out := tick(t, d); len(out.Produce) != 1 {
 		t.Fatalf("next turn: %+v", out)
 	}
+}
+
+// closeReceipted reports whether the item_prepared that closed id left a
+// receipt of it (the close runs inside it, so its receipt undoes both).
+func closeReceipted(t *testing.T, d Deps, id string) bool {
+	t.Helper()
+	rs, err := listReceipts(ctx, d.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range rs {
+		if r.Doc == id && r.Op == ItemPrepared.Name() {
+			return true
+		}
+	}
+	return false
 }
