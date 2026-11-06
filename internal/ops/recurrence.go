@@ -212,18 +212,8 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 			DoneWhen: t.DoneWhen,
 			Previous: model.LinkTo(doc.ID),
 
-			Kind:         t.Kind,
-			With:         t.With,
-			Attendees:    t.Attendees,
-			RFX:          rfx,
-			Scheduled:    sched,
-			End:          end,
-			CalendarUIDs: t.UIDs(),
-			// Optional is the series' and carries on; attend is one
-			// occurrence's answer, so the next starts from the default.
-			Optional:      t.Optional,
-			Attend:        t.AttendDefault,
-			AttendDefault: t.AttendDefault,
+			Kind:     t.Kind,
+			Occasion: nextOccasion(t.Occasion, rfx, sched, end),
 		},
 	})
 	if err != nil {
@@ -231,6 +221,14 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 	}
 	request, warns = agentRequest(ctx, d, next, nil)
 	return next.ID, request, warns, nil
+}
+
+// nextOccasion is the occasion of the next occurrence. Optional is the
+// series' and carries on; attend is one occurrence's answer, so the next
+// starts from the default.
+func nextOccasion(o model.Occasion, rfx []model.Link, sched, end string) model.Occasion {
+	return model.Occasion{With: o.With, Attendees: o.Attendees, RFX: rfx, Scheduled: sched, End: end, CalendarUIDs: o.UIDs(),
+		Optional: o.Optional, Attend: o.AttendDefault, AttendDefault: o.AttendDefault}
 }
 
 // slotZone returns the location to read an RFC 3339 time in. A time is stored

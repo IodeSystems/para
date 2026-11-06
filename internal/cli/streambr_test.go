@@ -25,8 +25,7 @@ func seedStreamBRParity(t *testing.T, deps ops.Deps) {
 		{ID: "task-br-sync", Folder: model.FolderProjects, Title: "Plan sync",
 			Body: "Walk through the plan.\n\n## Questions\n\n- [[rfx-br-ask]] Can Sam review the plan?\n\n## Notes\n",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Project: model.LinkTo("project-br"),
-				Scheduled: "2026-11-10T10:00:00-05:00", End: "2026-11-10T10:30:00-05:00",
-				With: []model.Link{model.LinkTo("person-br-sam")}, Attendees: []string{"Pat Nobody <pat@elsewhere.example>"}}},
+				Occasion: model.Occasion{Scheduled: "2026-11-10T10:00:00-05:00", End: "2026-11-10T10:30:00-05:00", With: []model.Link{model.LinkTo("person-br-sam")}, Attendees: []string{"Pat Nobody <pat@elsewhere.example>"}}}},
 	}
 	for _, doc := range docs {
 		if _, err := deps.Store.Create(ctx, doc); err != nil {

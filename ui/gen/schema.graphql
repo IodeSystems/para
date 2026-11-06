@@ -607,6 +607,7 @@ enum para_AreaAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -668,6 +669,7 @@ enum para_AreaUserType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -710,6 +712,7 @@ enum para_AreaViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -1477,6 +1480,7 @@ enum para_DocCommentFileOutputType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -1613,6 +1617,7 @@ enum para_DocRetypeInputType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -1649,6 +1654,7 @@ enum para_DocRetypeOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -1675,6 +1681,7 @@ enum para_DocRetypeOutputType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -1834,6 +1841,7 @@ enum para_DocumentFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -2402,6 +2410,7 @@ enum para_GraphNodeType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -2618,6 +2627,7 @@ enum para_IOAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -2951,6 +2961,7 @@ enum para_IOSendOutputBecame_type {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -3044,6 +3055,7 @@ enum para_ImportedDocFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -3070,6 +3082,7 @@ enum para_ImportedDocType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -3129,6 +3142,7 @@ enum para_IncidentAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -3209,6 +3223,7 @@ enum para_IncidentViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -3311,6 +3326,7 @@ enum para_InteractionAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -3831,6 +3847,7 @@ enum para_ListRowType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -3883,6 +3900,7 @@ enum para_MeetingAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4055,6 +4073,7 @@ enum para_MeetingViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4108,6 +4127,7 @@ type para_Meta {
   choice: String
   claimedAt: String
   claimedBy: String
+  closed: String
   comments: JSON
   concepts: [String!]
   confidence: JSON
@@ -4138,6 +4158,7 @@ type para_Meta {
   extensions: [String!]
   fetch: para_SourceStep
   fetchedBy: String
+  foldedFrom: String
   followed: [String!]
   from: String
   groups: [String!]
@@ -4156,6 +4177,7 @@ type para_Meta {
   nextNudge: String
   notDuplicate: String
   notIn: [String!]
+  occurrenceOf: String
   of: String
   onBehalfOf: String
   op: String
@@ -4164,6 +4186,8 @@ type para_Meta {
   options: [String!]
   org: String
   outcome: para_MetaOutcome
+  owedBy: [String!]
+  owedTo: [String!]
   owner: String
   ownerSaid: String
   parent: String
@@ -4220,6 +4244,7 @@ type para_Meta {
   runner: String
   scanIn: para_SourceStep
   scanOut: para_SourceStep
+  schedule: String
   scheduled: String
   scope: String
   seen: String
@@ -4309,6 +4334,7 @@ enum para_MetaType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -4362,6 +4388,7 @@ enum para_NoteAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4417,6 +4444,7 @@ enum para_NoteViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4516,6 +4544,7 @@ enum para_OrgAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4869,6 +4898,7 @@ enum para_ProjectAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4906,6 +4936,7 @@ enum para_ProjectCloseOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -4982,6 +5013,7 @@ enum para_ProjectViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -5353,6 +5385,7 @@ enum para_QuestionAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -5554,6 +5587,7 @@ enum para_QuestionViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -5624,6 +5658,7 @@ enum para_RFXAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -6120,6 +6155,7 @@ enum para_RefFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -6152,6 +6188,7 @@ enum para_RefType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -6228,6 +6265,7 @@ enum para_RequestAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -6583,6 +6621,7 @@ enum para_RuleInEffectType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -6764,6 +6803,7 @@ enum para_ShowOutputType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -6831,6 +6871,7 @@ enum para_SimilarType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -6951,6 +6992,7 @@ enum para_SourceCiteType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -7529,6 +7571,7 @@ enum para_TaskAddOutputFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -7958,6 +8001,7 @@ enum para_TaskViewFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -8397,6 +8441,7 @@ enum para_WhereMatchFolder {
   io
   journal
   meetings
+  obligations
   org
   policies
   projects
@@ -8423,6 +8468,7 @@ enum para_WhereMatchType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -8584,6 +8630,7 @@ enum para_listType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception
@@ -8666,6 +8713,7 @@ enum para_similarType {
   journal
   meeting
   note
+  obligation
   person
   policy
   policy_exception

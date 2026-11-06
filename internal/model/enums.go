@@ -2,6 +2,8 @@
 // filesystem code: every surface and store shares these types.
 package model
 
+import "slices"
+
 // Type is the frontmatter "type" value.
 type Type string
 
@@ -33,6 +35,7 @@ const (
 	TypeReceipt         Type = "receipt"
 	TypeQuestion        Type = "question"
 	TypeMeeting         Type = "meeting"
+	TypeObligation      Type = "obligation"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -40,7 +43,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeSource, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt,
+	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt, TypeObligation,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -68,6 +71,7 @@ const (
 	FolderQuestions    Folder = "questions"
 	FolderMeetings     Folder = "meetings"
 	FolderReceipts     Folder = "receipts"
+	FolderObligations  Folder = "obligations"
 )
 
 // Folders lists every document folder.
@@ -75,7 +79,7 @@ var Folders = []Folder{
 	FolderInbox, FolderIO, FolderTracked, FolderSources, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
-	FolderReceipts,
+	FolderReceipts, FolderObligations,
 }
 
 // Valid reports whether f is a document folder.
@@ -232,6 +236,51 @@ var TaskKinds = []TaskKind{KindTask, KindMeeting, KindCall, KindWorkWith, KindCo
 
 // Enum lists the allowed values, for schema generation.
 func (TaskKind) Enum() []string { return enumStrings(TaskKinds) }
+
+// Schedule is obligation.schedule: when an obligation falls due. Once is owed
+// by a date (due), or with no date; at is a time (scheduled with its zone, and
+// end); series repeats by recur, one occurrence per file; ongoing has no date
+// and is reviewed on its cadence.
+type Schedule string
+
+const (
+	ScheduleOnce    Schedule = "once"
+	ScheduleAt      Schedule = "at"
+	ScheduleSeries  Schedule = "series"
+	ScheduleOngoing Schedule = "ongoing"
+)
+
+// Schedules lists every Schedule.
+var Schedules = []Schedule{ScheduleOnce, ScheduleAt, ScheduleSeries, ScheduleOngoing}
+
+// Enum lists the allowed values, for schema generation.
+func (Schedule) Enum() []string { return enumStrings(Schedules) }
+
+// State is the lifecycle state an obligation stores: open or closed. Later is
+// its deferral, not a state.
+type State string
+
+const (
+	StateOpen   State = "open"
+	StateClosed State = "closed"
+)
+
+// States lists every State.
+var States = []State{StateOpen, StateClosed}
+
+// Enum lists the allowed values, for schema generation.
+func (State) Enum() []string { return enumStrings(States) }
+
+// OutcomeSkipped closes one occurrence of an obligation that did not happen.
+const OutcomeSkipped TaskOutcome = "skipped"
+
+// ObligationOutcomes are the outcomes an obligation closes with: a task's, and
+// skipped. A held meeting is done.
+var ObligationOutcomes = append(slices.Clone(TaskOutcomes), OutcomeSkipped)
+
+// ObligationKinds are the kinds of obligation: a meeting (people at a time),
+// or a commitment (something owed).
+var ObligationKinds = []TaskKind{KindMeeting, KindCommitment}
 
 // RFXDirection is rfx.direction. Out: the user asks someone. In: someone asks
 // the user.

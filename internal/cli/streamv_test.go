@@ -53,7 +53,7 @@ func seedStreamVParity(t *testing.T, deps ops.Deps) {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "V standing meeting " + id,
 			Body: "## Questions\n\nNone yet.\n\n## Notes\n",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Recur: "weekly",
-				Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-v-seed")}}})
+				Occasion: model.Occasion{Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-v-seed")}}}})
 	}
 	for _, d := range docs {
 		if _, err := deps.Store.Create(ctx, d); err != nil {

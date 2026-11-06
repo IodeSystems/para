@@ -66,6 +66,10 @@ var (
 	questionKinds      = []string{"question", "decision", "input"}
 	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
+	obligationKinds    = []string{"meeting", "commitment"}
+	schedules          = []string{"once", "at", "series", "ongoing"}
+	states             = []string{"open", "closed"}
+	obligationOutcome  = append(append([]string(nil), taskOutcome...), "skipped")
 	validationStates   = []string{"idea", "validated", "active", "pivoted", "stopped"}
 	levels             = []string{"low", "medium", "high"}
 	assumptionStatus   = []string{"holds", "changed", "unknown"}
@@ -88,7 +92,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc", "source",
-	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt",
+	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt", "obligation",
 }
 
 // commonFields apply to every type.
@@ -216,6 +220,38 @@ var typeFields = map[string][]field{
 		{Name: "rejected_reason", Kind: kString},
 		{Name: "rejected_by", Kind: kString},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
+	},
+	"obligation": {
+		{Name: "kind", Kind: kEnum, Enum: obligationKinds, Required: true},
+		{Name: "state", Kind: kEnum, Enum: states, Required: true},
+		{Name: "outcome", Kind: kEnum, Enum: obligationOutcome}, // closed only
+		{Name: "reason", Kind: kString},
+		{Name: "closed", Kind: kDate},
+		{Name: "schedule", Kind: kEnum, Enum: schedules, Required: true},
+		{Name: "owed_to", Kind: kLinkList},
+		{Name: "owed_by", Kind: kLinkList}, // empty: the owner owes it
+		{Name: "project", Kind: kLink},
+		{Name: "area", Kind: kLink},
+		{Name: "due", Kind: kDate},
+		{Name: "recur", Kind: kString},   // series: the recur grammar
+		{Name: "cadence", Kind: kString}, // ongoing: the recur grammar
+		{Name: "last_reviewed", Kind: kDate},
+		{Name: "occurrence_of", Kind: kLink}, // series: the first occurrence
+		{Name: "previous", Kind: kLink},      // series: the occurrence before
+		{Name: "scheduled", Kind: kWhen},
+		{Name: "end", Kind: kTimestamp},
+		{Name: "with", Kind: kLinkList},
+		{Name: "attendees", Kind: kList},
+		{Name: "rfx", Kind: kLinkList},
+		{Name: "calendar_uid", Kind: kString},
+		{Name: "calendar_uids", Kind: kCalendarUIDs},
+		{Name: "optional", Kind: kBool},
+		{Name: "attend", Kind: kEnum, Enum: attends},
+		{Name: "attend_default", Kind: kEnum, Enum: attends},
+		{Name: "done_when", Kind: kString},
+		{Name: "depends_on", Kind: kList},
+		{Name: "effort", Kind: kEnum, Enum: efforts},
+		{Name: "folded_from", Kind: kString}, // upgrade step obligations: the type before
 	},
 	"meeting": {
 		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},
@@ -496,7 +532,7 @@ var kindNames = map[kind]string{
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,
 // and note keep their own ops; a note goes through note_edit.
 var editableTypes = []string{
-	"task", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
+	"task", "obligation", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
 	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript", "tracked_doc", "source",
 }
 
@@ -505,6 +541,7 @@ var editableTypes = []string{
 var editLocked = map[string][]string{
 	"request":     {"queued_at", "claimed_by", "lease_until", "claimed_at", "active_at", "resolution", "result_links", "followed"},
 	"task":        {"previous", "rfx"},
+	"obligation":  {"state", "outcome", "closed", "previous", "occurrence_of", "rfx", "folded_from"},
 	"rfx":         {"targets", "question"},
 	"policy":      {"source", "verified"},
 	"transcript":  {"source", "of", "version", "fetched_by", "proposal", "item"},

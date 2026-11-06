@@ -208,6 +208,9 @@ func (l *linter) frontmatter() {
 	if typ == "meeting" {
 		l.meeting()
 	}
+	if typ == "obligation" {
+		l.obligation()
+	}
 	if typ == "io" {
 		l.io()
 	}
@@ -332,6 +335,40 @@ func (l *linter) task() {
 			l.errf(1, CodeFieldValue, "field %q: only a task of kind meeting or call has a calendar event", k)
 		}
 	}
+	l.slot()
+}
+
+// obligation checks what the field kinds cannot: a series has recur, ongoing
+// has cadence, a closed one has an outcome, and the slot reads as a task's.
+func (l *linter) obligation() {
+	fm := l.f.Frontmatter
+	switch str(fm["schedule"]) {
+	case "series":
+		if str(fm["recur"]) == "" {
+			l.errf(1, CodeField, "type obligation: schedule series requires field %q", "recur")
+		}
+	case "ongoing":
+		if str(fm["cadence"]) == "" {
+			l.errf(1, CodeField, "type obligation: schedule ongoing requires field %q", "cadence")
+		}
+	}
+	for _, k := range []string{"recur", "cadence"} {
+		if r := str(fm[k]); r != "" {
+			if _, err := recur.Parse(r); err != nil {
+				l.add(1, CodeRecur, Warn, "%s: %v: para will not make the next occurrence or review from it", k, err)
+			}
+		}
+	}
+	if str(fm["state"]) == "closed" && str(fm["outcome"]) == "" {
+		l.errf(1, CodeField, "type obligation: state closed requires field %q", "outcome")
+	}
+	l.slot()
+}
+
+// slot checks scheduled and end: scheduled is a date or an RFC 3339 time; end
+// needs a timed scheduled and follows it.
+func (l *linter) slot() {
+	fm := l.f.Frontmatter
 	if fm["scheduled"] == nil {
 		if fm["end"] != nil {
 			l.errf(1, CodeFieldValue, "field %q: needs scheduled", "end")

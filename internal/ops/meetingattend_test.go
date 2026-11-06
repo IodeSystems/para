@@ -68,8 +68,7 @@ func nextIDs(t *testing.T, d Deps) []string {
 // never from the answer of the occurrence before.
 func TestMeetingAttendRecurrence(t *testing.T) {
 	d, proj, person := attendFixture(t)
-	doc, _ := recurSlotTask(t, d, proj, &model.Task{Kind: model.KindMeeting, Scheduled: "2026-11-05T09:00:00Z", End: "2026-11-05T09:30:00Z",
-		With: []model.Link{model.LinkTo(person)}})
+	doc, _ := recurSlotTask(t, d, proj, &model.Task{Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-11-05T09:00:00Z", End: "2026-11-05T09:30:00Z", With: []model.Link{model.LinkTo(person)}}})
 	yes := true
 	out := must(t, MeetingAttend, d, MeetingAttendInput{ID: doc.ID, Attend: "yes", Optional: &yes})
 	if out.Previous.Optional || out.Previous.Attend != "" || !out.Now.Optional || out.Now.Attend != model.AttendYes || out.Now.AttendDefault != "" {

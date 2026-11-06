@@ -342,11 +342,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			DependsOn: deps,
 			Effort:    in.Effort,
 			Kind:      kind,
-			Scheduled: scheduled,
-			End:       end,
-			With:      with,
-
-			CalendarUIDs: uids,
+			Occasion:  model.Occasion{Scheduled: scheduled, End: end, With: with, CalendarUIDs: uids},
 		},
 	})
 	if err != nil {

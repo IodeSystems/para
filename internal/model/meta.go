@@ -218,9 +218,20 @@ type Task struct {
 	// Kind is what sort of work this is; empty means task. A kind commitment
 	// replaces the older commitment tag; both are read (EffectiveKind).
 	Kind TaskKind `yaml:"kind,omitempty" json:"kind,omitempty"`
-	// Scheduled is when the task happens, apart from Due: a date YYYY-MM-DD, or
-	// an RFC 3339 start with the zone it was booked in. End is the RFC 3339 end
-	// of a timed one. With names the people (person or group links) it is with.
+	// Occasion is when the task happens and with whom: a meeting or a call.
+	Occasion `yaml:",inline"`
+	Deferral `yaml:",inline"`
+	// Assumptions are what the task takes as true (grill.go).
+	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
+	// Effort is about how long the task takes the owner; empty is not set.
+	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+}
+
+// Occasion is the when and the who of a meeting, a call, or an obligation.
+// Scheduled is when it happens, apart from Due: a date YYYY-MM-DD, or an RFC
+// 3339 start with the zone it was booked in. End is the RFC 3339 end of a
+// timed one. With names the people (person or group links) it is with.
+type Occasion struct {
 	Scheduled string `yaml:"scheduled,omitempty" json:"scheduled,omitempty"`
 	End       string `yaml:"end,omitempty" json:"end,omitempty"`
 	With      []Link `yaml:"with,omitempty" json:"with,omitempty"`
@@ -243,11 +254,6 @@ type Task struct {
 	Optional      bool   `yaml:"optional,omitempty" json:"optional,omitempty"`
 	Attend        Attend `yaml:"attend,omitempty" json:"attend,omitempty"`
 	AttendDefault Attend `yaml:"attend_default,omitempty" json:"attend_default,omitempty"`
-	Deferral      `yaml:",inline"`
-	// Assumptions are what the task takes as true (grill.go).
-	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
-	// Effort is about how long the task takes the owner; empty is not set.
-	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
 }
 
 // CalendarEvent is one calendar event of a meeting: its UID, and its role in
@@ -260,9 +266,9 @@ type CalendarEvent struct {
 // RolePrimary is the role of the event a single calendar_uid named.
 const RolePrimary = "primary"
 
-// UIDs lists the calendar events of the task, the older calendar_uid first
+// UIDs lists the calendar events, the older calendar_uid first
 // as role primary when it is not also in the list.
-func (t *Task) UIDs() []CalendarEvent {
+func (t *Occasion) UIDs() []CalendarEvent {
 	out := []CalendarEvent{}
 	if t.CalendarUID != "" && !slices.ContainsFunc(t.CalendarUIDs, func(e CalendarEvent) bool { return e.UID == t.CalendarUID }) {
 		out = append(out, CalendarEvent{UID: t.CalendarUID, Role: RolePrimary})
@@ -272,7 +278,7 @@ func (t *Task) UIDs() []CalendarEvent {
 
 // AddUID adds a calendar event, or sets the role of one already there (an
 // empty role keeps the stored one). It folds the older field into the list.
-func (t *Task) AddUID(e CalendarEvent) {
+func (t *Occasion) AddUID(e CalendarEvent) {
 	t.CalendarUIDs, t.CalendarUID = t.UIDs(), ""
 	for i := range t.CalendarUIDs {
 		if t.CalendarUIDs[i].UID == e.UID {
@@ -299,6 +305,70 @@ func (t *Task) EffectiveKind() TaskKind {
 		return KindCommitment
 	}
 	return KindTask
+}
+
+// Obligation is type: obligation, something the owner owes someone or must
+// attend: a meeting, or a commitment. OwedTo are the people it is owed to;
+// OwedBy is who owes it, empty for the owner. Schedule says when it falls due:
+// once by Due (or no date), at Scheduled to End, a series by Recur (each
+// occurrence is a file of its own, made one at a time, with OccurrenceOf the
+// first of the series and Previous the one before), or ongoing with no date,
+// reviewed on Cadence. Notes are in the body. FoldedFrom is the type it was
+// before upgrade step obligations (task, meeting, or rfx); the keys of that
+// type stay in the file.
+type Obligation struct {
+	Common `yaml:",inline"`
+	// Kind is meeting or commitment.
+	Kind TaskKind `yaml:"kind" json:"kind"`
+	// State is open or closed. A closed one has Outcome, and Reason and Closed
+	// when they are known.
+	State    State       `yaml:"state" json:"state"`
+	Outcome  TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
+	Reason   string      `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Closed   Date        `yaml:"closed,omitempty" json:"closed,omitempty"`
+	Schedule Schedule    `yaml:"schedule" json:"schedule"`
+	OwedTo   []Link      `yaml:"owed_to,omitempty" json:"owed_to,omitempty"`
+	OwedBy   []Link      `yaml:"owed_by,omitempty" json:"owed_by,omitempty"`
+	Project  Link        `yaml:"project,omitempty" json:"project,omitempty"`
+	Area     Link        `yaml:"area,omitempty" json:"area,omitempty"`
+	Due      Date        `yaml:"due,omitempty" json:"due,omitempty"`
+	Recur    string      `yaml:"recur,omitempty" json:"recur,omitempty"`
+	// Cadence is how often an ongoing obligation is reviewed, in the recur
+	// grammar; LastReviewed is the date of the last review.
+	Cadence      string `yaml:"cadence,omitempty" json:"cadence,omitempty"`
+	LastReviewed Date   `yaml:"last_reviewed,omitempty" json:"last_reviewed,omitempty"`
+	OccurrenceOf Link   `yaml:"occurrence_of,omitempty" json:"occurrence_of,omitempty"`
+	Previous     Link   `yaml:"previous,omitempty" json:"previous,omitempty"`
+	Occasion     `yaml:",inline"`
+	DoneWhen     string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
+	DependsOn    []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	Effort       Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	Deferral     `yaml:",inline"`
+	FoldedFrom   Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+}
+
+// Open reports whether the obligation is open.
+func (o *Obligation) Open() bool { return o.State != StateClosed }
+
+// AsTask is the task of kind meeting or commitment that holds the same
+// obligation: for task views, and for a vault not yet at the obligation
+// format. Open is todo; closed done (held) is done, any other outcome dropped.
+func (o *Obligation) AsTask() *Task {
+	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Area: o.Area, Due: o.Due, Recur: o.Recur,
+		Previous: o.Previous, Occasion: o.Occasion, DoneWhen: o.DoneWhen, DependsOn: o.DependsOn, Effort: o.Effort,
+		Deferral: o.Deferral, Status: TaskTodo}
+	t.Type = TypeTask
+	if !o.Open() {
+		t.Status, t.Outcome = TaskDropped, o.Outcome
+		switch o.Outcome {
+		case OutcomeDone, "":
+			t.Status, t.Outcome = TaskDone, OutcomeDone
+		case OutcomeSkipped:
+			t.Outcome = OutcomeDropped
+		}
+	}
+	t.Tags = append([]string(nil), o.Tags...)
+	return t
 }
 
 // RFX is type: rfx.
@@ -696,9 +766,9 @@ type SourceDoc struct {
 	Status SourceStatus `yaml:"status" json:"status"`
 	// Priority is how much the source matters to the owner: an incoming
 	// message from a high one needs the owner. Empty is normal.
-	Priority Priority `yaml:"priority,omitempty" json:"priority,omitempty"`
-	Via    SourceVia    `yaml:"via" json:"via"`
-	Server string       `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
+	Priority Priority  `yaml:"priority,omitempty" json:"priority,omitempty"`
+	Via      SourceVia `yaml:"via" json:"via"`
+	Server   string    `yaml:"server,omitempty" json:"server,omitempty"` // MCP server name
 	// RefURL turns a ref of this source into a link: a template with {ref}.
 	// String templating only; para fetches nothing.
 	RefURL    string      `yaml:"ref_url,omitempty" json:"ref_url,omitempty"`
@@ -771,7 +841,7 @@ type Meeting struct {
 // common fields, links, times, and tags. A meeting that was requested or
 // scheduled is a todo task; the time is what tells them apart.
 func (m *Meeting) AsTask() *Task {
-	t := &Task{Common: m.Common, Kind: KindMeeting, Scheduled: m.Start, End: m.End, With: m.With, RFX: m.RFX, Status: TaskTodo}
+	t := &Task{Common: m.Common, Kind: KindMeeting, Occasion: Occasion{Scheduled: m.Start, End: m.End, With: m.With, RFX: m.RFX}, Status: TaskTodo}
 	t.Type = TypeTask
 	switch m.Status {
 	case MeetingHeld:
@@ -925,6 +995,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Meeting{Common: c}, true
 	case TypeReceipt:
 		return &Receipt{Common: c}, true
+	case TypeObligation:
+		return &Obligation{Common: c}, true
 	}
 	return nil, false
 }

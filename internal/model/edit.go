@@ -54,6 +54,8 @@ func FolderOf(t Type) Folder {
 		return FolderMeetings
 	case TypeReceipt:
 		return FolderReceipts
+	case TypeObligation:
+		return FolderObligations
 	}
 	return ""
 }

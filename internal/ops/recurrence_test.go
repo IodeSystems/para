@@ -50,8 +50,7 @@ func TestRecurringMeetingKeepsSlot(t *testing.T) {
 	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	person := "person-ada-example"
 	doc, tk := recurSlotTask(t, d, proj, &model.Task{
-		Kind: model.KindMeeting, Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00",
-		With: []model.Link{model.LinkTo(person)}, Attendees: []string{"Bob Nobody <bob@vendor.example>"}, RFX: []model.Link{model.LinkTo("rfx-x")}, CalendarUID: "uid-1@example.com"})
+		Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00", With: []model.Link{model.LinkTo(person)}, Attendees: []string{"Bob Nobody <bob@vendor.example>"}, RFX: []model.Link{model.LinkTo("rfx-x")}, CalendarUID: "uid-1@example.com"}})
 	if _, _, _, err := makeNext(ctx, d, doc, tk, mustRule(t, "weekly")); err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +76,7 @@ func TestRecurringCallDateAndDue(t *testing.T) {
 	seedOrg(t, d)
 	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	doc, tk := recurSlotTask(t, d, proj, &model.Task{
-		Kind: model.KindCall, Scheduled: "2026-11-02", Due: "2026-11-03", RFX: []model.Link{model.LinkTo("rfx-x")}})
+		Kind: model.KindCall, Occasion: model.Occasion{Scheduled: "2026-11-02", RFX: []model.Link{model.LinkTo("rfx-x")}}, Due: "2026-11-03"})
 	if _, _, _, err := makeNext(ctx, d, doc, tk, mustRule(t, "weekly")); err != nil {
 		t.Fatal(err)
 	}
@@ -111,8 +110,7 @@ func TestMeetingHoldRecurs(t *testing.T) {
 	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	person := "person-ada-example"
 	doc, _ := recurSlotTask(t, d, proj, &model.Task{
-		Kind: model.KindMeeting, Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00",
-		With: []model.Link{model.LinkTo(person)}, CalendarUID: "uid-1@example.com"})
+		Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00", With: []model.Link{model.LinkTo(person)}, CalendarUID: "uid-1@example.com"}})
 	h := must(t, MeetingHold, d, MeetingHoldInput{ID: doc.ID, Notes: "Went well."})
 	if h.Next == "" {
 		t.Fatalf("meeting_hold made no next occurrence: %+v", h)
@@ -128,8 +126,7 @@ func TestMeetingHoldRecurs(t *testing.T) {
 		t.Errorf("second makeNext = %q, %v; want %s", id, err, h.Next)
 	}
 	// A cancelled occurrence also recurs.
-	c, _ := recurSlotTask(t, d, proj, &model.Task{Kind: model.KindMeeting, Scheduled: "2026-11-02T10:00:00-08:00", End: "2026-11-02T10:30:00-08:00",
-		With: []model.Link{model.LinkTo(person)}})
+	c, _ := recurSlotTask(t, d, proj, &model.Task{Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-11-02T10:00:00-08:00", End: "2026-11-02T10:30:00-08:00", With: []model.Link{model.LinkTo(person)}}})
 	if o := must(t, MeetingCancel, d, MeetingCancelInput{ID: c.ID, Reason: "Out."}); o.Next == "" {
 		t.Errorf("meeting_cancel made no next: %+v", o)
 	}

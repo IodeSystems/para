@@ -238,6 +238,12 @@ type Meta struct {
 	Priority        string                `json:"priority,omitempty"` // person, group, source: high, normal, low
 	Triage          string                `json:"triage,omitempty"`   // io: needs_you or digest, set by a triage rule
 	TriageBy        string                `json:"triage_by,omitempty"`
+	Closed          string                `json:"closed,omitempty"` // obligation: the day it closed
+	Schedule        string                `json:"schedule,omitempty"`
+	OwedTo          []string              `json:"owed_to,omitempty"`
+	OwedBy          []string              `json:"owed_by,omitempty"`
+	OccurrenceOf    string                `json:"occurrence_of,omitempty"`
+	FoldedFrom      string                `json:"folded_from,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`

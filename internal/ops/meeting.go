@@ -399,7 +399,7 @@ var MeetingAdd = defineSafe("meeting_add", "Ask for or book a meeting with peopl
 			return MeetingAddOutput{}, err
 		}
 	}
-	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, With: with, Attendees: attendees, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}
+	meta := &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Occasion: model.Occasion{With: with, Attendees: attendees, RFX: rfx, CalendarUIDs: uids, Optional: in.Optional}}
 	status := model.MeetingRequested
 	switch {
 	case in.Start == "" && in.End == "":

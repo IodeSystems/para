@@ -15,7 +15,7 @@ func TestCalendarUIDsStep(t *testing.T) {
 	ctx := context.Background()
 	if _, err := s.Create(ctx, model.Document{ID: "task-sync", Folder: model.FolderProjects, Title: "Sync",
 		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting,
-			With: []model.Link{model.LinkTo("person-ada")}, CalendarUID: "sync@acme.example"}}); err != nil {
+			Occasion: model.Occasion{With: []model.Link{model.LinkTo("person-ada")}, CalendarUID: "sync@acme.example"}}}); err != nil {
 		t.Fatal(err)
 	}
 	before := raw(t, f, "projects/task-sync.md")
