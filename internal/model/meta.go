@@ -51,6 +51,9 @@ type Common struct {
 	DuplicateOf Link `yaml:"duplicate_of,omitempty" json:"duplicate_of,omitempty"`
 	// Prepared says an agent prepared the item for the owner (prepared.go).
 	Prepared *Prepared `yaml:"prepared,omitempty" json:"prepared,omitempty"`
+	// Publish names the publish sets the document belongs to (para publish).
+	// Only the owner sets it (publish_set): it decides what leaves the vault.
+	Publish []string `yaml:"publish,omitempty" json:"publish,omitempty"`
 }
 
 // ImportedFrom is the source file of an imported document: the path as the

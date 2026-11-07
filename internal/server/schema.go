@@ -266,6 +266,7 @@ type Meta struct {
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
 	DuplicateOf     string                  `json:"duplicate_of,omitempty"`
 	Prepared        *model.Prepared         `json:"prepared,omitempty"`
+	Publish         []string                `json:"publish,omitempty"` // publish sets (owner only)
 }
 
 // registerAliases changes only the schema, never the JSON.

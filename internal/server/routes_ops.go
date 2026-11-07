@@ -173,6 +173,8 @@ func registerGovernance(r *registrar) {
 func registerRecords(r *registrar) {
 	reg(r, ops.Copy, post, read)
 	reg(r, ops.Export, post, read)
+	reg(r, ops.PublishPreview, get, read)
+	reg(r, ops.PublishSet, post, write)
 	reg(r, ops.ExportList, get, read)
 	reg(r, ops.CalendarExport, post, read)
 	reg(r, ops.InteractionAdd, post, write)

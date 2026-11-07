@@ -131,6 +131,7 @@ type ParaV1MutationNamespace {
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
+  publishSet(body: para_PublishSetInputInput!): para_PublishSetOutput @derived(operationId: "publishSet")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
   questionAsk(body: para_QuestionAskInputInput!): para_QuestionAskOutput @derived(operationId: "questionAsk")
@@ -278,6 +279,7 @@ type ParaV1QueryNamespace {
   projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
+  publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
@@ -4400,6 +4402,7 @@ type para_Meta {
   proposedChoice: String
   proposedSources: JSON
   proposedWhy: String
+  publish: [String!]
   question: String
   queuedAt: String
   quietDays: Int
@@ -5940,6 +5943,32 @@ enum para_ProposalViewStatus {
   superseded
 }
 
+type para_PublishPreviewFile {
+  id: String!
+  name: String!
+  title: String!
+}
+
+type para_PublishPreviewOutput {
+  files: [para_PublishPreviewFile!]!
+  marking: String!
+  refused: [para_Refusal!]!
+  review: [para_ReviewItem!]!
+  rewrites: [para_Rewrite!]!
+  set: String!
+}
+
+input para_PublishSetInputInput {
+  id: String!
+  sets: [String!]
+}
+
+type para_PublishSetOutput {
+  id: String!
+  publish: [String!]!
+  rev: String!
+}
+
 enum para_QuestionAddInputEffort {
   l
   m
@@ -6832,6 +6861,12 @@ enum para_RefType {
   transcript
 }
 
+type para_Refusal {
+  doc: String!
+  target: String!
+  why: String!
+}
+
 type para_Release {
   agents: [String!]!
   people: [String!]!
@@ -7184,6 +7219,13 @@ type para_ReviewGroup {
   events: [para_ReviewEvent!]!
 }
 
+type para_ReviewItem {
+  from: [String!]!
+  id: String!
+  title: String!
+  type: String!
+}
+
 type para_ReviewNeed {
   id: String!
   kind: String!
@@ -7202,6 +7244,13 @@ enum para_RevisionViewStatus {
   open
   sent_back
   superseded
+}
+
+type para_Rewrite {
+  doc: String!
+  inSet: Boolean!
+  target: String!
+  to: String!
 }
 
 type para_RouteOutput {

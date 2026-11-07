@@ -32,6 +32,9 @@ type configKey struct {
 	readOnly bool
 	agent    bool                         // an agent may set or unset it
 	check    func(string) (string, error) // validates and normalizes
+	// match, when set, makes name a template such as publish.<set>.marking:
+	// every key it matches is this setting.
+	match *regexp.Regexp
 }
 
 var (
@@ -130,6 +133,8 @@ var configKeys = []configKey{
 	{name: "journal.agent", help: "agent name that writes journal prose: tick makes the daily journal-summary obligation it owes, once; each day with events then spends tokens; unset pauses it", check: checkWord},
 	{name: "server.base_url", help: "base URL of review links", check: checkBaseURL},
 	{name: "owner", help: "default owner of new goals; unset means self", check: checkText},
+	{name: "publish.<set>.marking", help: "banner text on each file para publish writes for the set; unset uses classification. The set's folder is per machine (para publish dir), not a vault setting", check: checkText,
+		match: regexp.MustCompile(`^publish\.[a-z][a-z0-9_-]{0,47}\.marking$`)},
 	{name: GateConfig, help: "no longer used (0.3.0): an undoable agent write applies at once and one that cannot be undone needs the owner; unset it", check: checkGateUnused},
 }
 
@@ -142,6 +147,10 @@ func checkGateUnused(string) (string, error) {
 func findConfigKey(name string) (configKey, bool) {
 	for _, k := range configKeys {
 		if k.name == name {
+			return k, k.match == nil
+		}
+		if k.match != nil && k.match.MatchString(name) {
+			k.name = name
 			return k, true
 		}
 	}
@@ -196,7 +205,24 @@ var VaultConfigList = defineRead("vault_config_list", "List the vault's settings
 	}
 	out := VaultConfigListOutput{Settings: []ConfigSetting{}}
 	for _, k := range configKeys {
-		out.Settings = append(out.Settings, settingOf(k, cfg))
+		if k.match == nil {
+			out.Settings = append(out.Settings, settingOf(k, cfg))
+			continue
+		}
+		var names []string
+		for name := range cfg {
+			if k.match.MatchString(name) {
+				names = append(names, name)
+			}
+		}
+		sort.Strings(names)
+		if len(names) == 0 {
+			out.Settings = append(out.Settings, settingOf(k, cfg)) // the template, unset
+		}
+		for _, name := range names {
+			k.name = name
+			out.Settings = append(out.Settings, settingOf(k, cfg))
+		}
 	}
 	var extra []string
 	for name := range cfg {

@@ -21,6 +21,8 @@ import (
 var Inputs = map[string]string{
 	"search":                    `{"query":"sample"}`,
 	"feedback_add":              `{"text":"The error did not name the field.","kind":"bug","tool":"search"}`,
+	"publish_preview":           `{"set":"design"}`,
+	"publish_set":               `{"id":"task-sample","sets":["design"]}`,
 	"tag_add":                   `{"ids":["task-sample"],"tags":["socials"]}`,
 	"tag_remove":                `{"ids":["task-sample"],"tags":["socials"]}`,
 	"stack_later":               `{"questions":["question-sample"],"until":"2999-01-01"}`,

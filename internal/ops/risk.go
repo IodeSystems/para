@@ -164,7 +164,13 @@ func (r *recorder) note(ctx context.Context, id string) {
 	*r.list = append(*r.list, t)
 }
 
+// A recorder wraps every write of an agent surface, so it is where an agent's
+// change of a document's publish sets is refused, whatever op makes it.
+
 func (r *recorder) Create(ctx context.Context, d model.Document) (model.Document, error) {
+	if err := checkPublishField(nil, d); err != nil {
+		return d, err
+	}
 	out, err := r.Store.Create(ctx, d)
 	if err == nil {
 		*r.list = append(*r.list, touched{id: out.ID})
@@ -173,6 +179,11 @@ func (r *recorder) Create(ctx context.Context, d model.Document) (model.Document
 }
 
 func (r *recorder) Update(ctx context.Context, d model.Document) (model.Document, error) {
+	if cur, err := r.Get(ctx, d.ID); err == nil {
+		if err := checkPublishField(&cur, d); err != nil {
+			return d, err
+		}
+	}
 	r.note(ctx, d.ID)
 	return r.Store.Update(ctx, d)
 }

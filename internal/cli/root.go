@@ -255,6 +255,7 @@ func newRoot(l *loader) *cobra.Command {
 		newIndexCmd(l),
 		newSearchCmd(l),
 		newRaglitCmd(l),
+		newPublishCmd(l),
 		newJournalCmd(l),
 		newTodayCmd(l),
 		newRequestCmd(l),

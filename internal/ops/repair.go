@@ -400,6 +400,9 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 		}
 	}
 	in.Fields = snakeFields(in.Fields)
+	if _, ok := in.Fields["publish"]; ok {
+		return DocEditOutput{}, errors.New("doc_edit: publish is not edited here: the owner sets it with publish_set (para publish set)")
+	}
 	for k := range in.Fields {
 		if !slices.ContainsFunc(allowed, func(f paramd.FieldInfo) bool { return f.Name == k }) {
 			names := make([]string, len(allowed))
