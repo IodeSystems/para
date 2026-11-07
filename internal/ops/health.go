@@ -65,6 +65,9 @@ const (
 	// HealthAgentWorkStale is work the owner asked of agents (owner-ask,
 	// sent-to-agent) queued or claimed with no change in a day.
 	HealthAgentWorkStale = "agent_work_stale"
+	// HealthRetryWriteOpen is a refused agent write, filed as retry-write
+	// work, that is not retried yet or waits for the owner's decision.
+	HealthRetryWriteOpen = "retry_write_open"
 	// HealthGateUnused is the vault setting gate.require, set and read by
 	// nothing since 0.3.0.
 	HealthGateUnused = "gate_setting_unused"
@@ -100,7 +103,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
-	HealthUnreviewedOutward, HealthAgentWorkStale, HealthGateUnused, HealthUpgradePending,
+	HealthUnreviewedOutward, HealthAgentWorkStale, HealthRetryWriteOpen, HealthGateUnused, HealthUpgradePending,
 	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop, HealthNotePlacement,
 }
 
@@ -142,6 +145,7 @@ var HealthKindWords = map[string]string{
 	HealthSourceMissing:      "Item cites a source not in the vault",
 	HealthUnreviewedOutward:  "Sent as the owner with no record",
 	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
+	HealthRetryWriteOpen:     "Refused agent write not retried yet",
 	HealthGateUnused:         "Vault setting no longer used",
 	HealthUpgradePending:     "Vault upgrade step pending",
 	HealthAnnotationBroken:   "Annotation para cannot read",
@@ -248,6 +252,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
 	h.agentWorkStale()
+	h.retryWriteOpen()
 	if err := h.notAligned(ctx, s); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}

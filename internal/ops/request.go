@@ -418,7 +418,7 @@ func addRequest(ctx context.Context, d Deps, in RequestAddInput, src model.Link)
 	status := model.RequestProposed
 	if ok, err := canQueue(d, info.Surface); err != nil {
 		return RequestAddOutput{}, err
-	} else if ok {
+	} else if ok || ctx.Value(forceQueueKey{}) != nil {
 		status = model.RequestQueued
 	}
 	// An agent records an owner-ask for its own work: it is claimed by the

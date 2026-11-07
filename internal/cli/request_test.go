@@ -25,6 +25,8 @@ var requestParityCases = map[string]parityCase{
 	"request_done":    {`{"id":"request-d1","resolution":"done","result":"Done."}`, []string{"request", "done", "request-d2", "Done."}, false},
 	"request_fail":    {`{"id":"request-f1","reason":"Blocked."}`, []string{"request", "fail", "request-f2", "Blocked."}, false},
 	"request_seen":    {`{"id":"request-s1"}`, []string{"request", "seen", "request-s2"}, false},
+	"retry_propose":   {`{"request":"request-r1","input":{"title":"Plan"},"why":"Meaning changes."}`, []string{"retry", "propose", "request-r2", "Meaning", "changes.", "--input", `{"title":"Plan"}`}, false},
+	"retry_decide":    {`{"request":"request-r3","action":"drop","notes":"Not wanted."}`, []string{"retry", "decide", "request-r4", "drop", "--notes", "Not wanted."}, false},
 }
 
 // seedRequestParity runs last in the parity table. Ids sort so that
@@ -43,6 +45,23 @@ func seedRequestParity(t *testing.T, deps ops.Deps) {
 			t.Fatal(err)
 		}
 	}
+	retry := func(id string, status model.RequestStatus) {
+		t.Helper()
+		r := &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: status, Runner: install, Queued: "2026-11-01T09:00:00Z", Kind: ops.RetryWriteKind}
+		if status == model.RequestClaimed {
+			r.Claimed, r.Lease = "user", lease
+		} else {
+			r.Resolution = model.ResolutionNeedsClarification
+		}
+		body := "Op: note_add\nActor: agent\nInput hash: 0011223344556677\n\nLint refused the write."
+		if _, err := deps.Store.Create(t.Context(), model.Document{ID: id, Folder: model.FolderRequests, Title: "Retry " + id, Body: body, Meta: r}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	retry("request-r1", model.RequestClaimed)
+	retry("request-r2", model.RequestClaimed)
+	retry("request-r3", model.RequestDone)
+	retry("request-r4", model.RequestDone)
 	mk("request-show", model.RequestCancelled, false)
 	mk("request-p1", model.RequestProposed, false)
 	mk("request-p2", model.RequestProposed, false)

@@ -129,6 +129,7 @@ var configKeys = []configKey{
 	{name: "request.surfaces", help: "comma separated surfaces whose agent work is queued, not proposed", check: checkList(wordRe)},
 	{name: GapEnabledKey, help: "false: tick makes no fill-gap agent work; unset or true: it does, when it can queue (request.surfaces lists tick)", check: checkEnum("true", "false")},
 	{name: GapCapKey, help: "how many fill-gap requests tick makes per day, best value order first; unset means 10, 0 is none", check: checkInt(0)},
+	{name: RetryCapKey, help: "how many retry-write requests an agent's lint-refused writes file per day; unset means 20, 0 is none", check: checkInt(0)},
 	{name: PrepAheadKey, help: "how many of the top needs-you items an agent can prepare tick keeps prepared (prepare agent work), when it can queue; unset means 5, 0 is none", check: checkInt(0)},
 	{name: "journal.agent", help: "agent name that writes journal prose: tick makes the daily journal-summary obligation it owes, once; each day with events then spends tokens; unset pauses it", check: checkWord},
 	{name: "server.base_url", help: "base URL of review links", check: checkBaseURL},

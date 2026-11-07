@@ -198,6 +198,7 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestAcceptOp, post, netguard.ScopeVaultWrite)
 	reg(r, ops.RequestRespond, post, netguard.ScopeVaultWrite)
 	reg(r, ops.RequestSeen, post, netguard.ScopeReviewDecide)
+	reg(r, ops.RetryDecide, post, netguard.ScopeReviewDecide)
 	reg(r, ops.RequestChanges, get, read)
 	reg(r, ops.RequestList, get, read)
 	reg(r, ops.RequestShow, get, read)
@@ -205,6 +206,7 @@ func registerRequests(r *registrar) {
 	reg(r, ops.RequestNote, post, netguard.ScopeRequestRun)
 	reg(r, ops.RequestDone, post, netguard.ScopeRequestRun)
 	reg(r, ops.RequestFail, post, netguard.ScopeRequestRun)
+	reg(r, ops.RetryPropose, post, netguard.ScopeRequestRun)
 }
 
 // registerProposals: closed dossiers are read-only records (vault format 8);

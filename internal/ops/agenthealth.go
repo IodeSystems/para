@@ -6,6 +6,22 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
+// retryWriteOpen names each refused agent write (kind retry-write) that is
+// still open: queued or claimed for an agent, or proposed to the owner.
+func (h *healther) retryWriteOpen() {
+	for id, d := range h.docs {
+		r, ok := d.Meta.(*model.Request)
+		if !ok || r.Kind != RetryWriteKind || !retryActive(r) {
+			continue
+		}
+		if r.Status == model.RequestDone {
+			h.add(HealthRetryWriteOpen, id, "", "an agent proposed a fix of a refused write; it waits for you", "decide on it: accept, edit, drop, or reject with notes")
+			continue
+		}
+		h.add(HealthRetryWriteOpen, id, "", "a write an agent made was refused by lint and is not retried yet", "run /para loop in an agent: request_next claims it; or cancel it with para request cancel "+id)
+	}
+}
+
 // agentWorkStale names work the owner asked of agents (owner-ask,
 // sent-to-agent) that is queued or claimed with no change in
 // AgentWorkStaleAfter.

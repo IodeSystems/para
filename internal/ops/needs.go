@@ -486,6 +486,8 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		switch {
 		case m.Status == model.RequestProposed:
 			return owner("agent work to accept")
+		case m.Kind == RetryWriteKind && m.Status == model.RequestDone && m.Resolution.NeedsOwner():
+			return owner("agent write refused: review the fix")
 		case m.Status == model.RequestDone && m.Resolution.NeedsOwner():
 			return owner("agent work ended " + string(m.Resolution))
 		case m.Status == model.RequestFailed && resultUnseen(m):

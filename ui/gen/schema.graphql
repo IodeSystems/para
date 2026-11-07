@@ -156,6 +156,8 @@ type ParaV1MutationNamespace {
   requestNote(body: para_RequestNoteInputInput!): para_RequestChangeOutput @derived(operationId: "requestNote")
   requestRespond(body: para_RequestRespondInputInput!): para_RequestChangeOutput @derived(operationId: "requestRespond")
   requestSeen(body: para_RequestSeenInputInput!): para_RequestSeenOutput @derived(operationId: "requestSeen")
+  retryDecide(body: para_RetryDecideInputInput!): para_RetryDecideOutput @derived(operationId: "retryDecide")
+  retryPropose(body: para_RetryProposeInputInput!): para_RetryProposeOutput @derived(operationId: "retryPropose")
   rfxAdd(body: para_RFXAddInputInput!): para_RFXAddOutput @derived(operationId: "rfxAdd")
   rfxClose(body: para_RFXCloseInputInput!): para_RFXStatusOutput @derived(operationId: "rfxClose")
   rfxDraft(body: para_RFXDraftInputInput!): para_RFXDraftOutput @derived(operationId: "rfxDraft")
@@ -7247,6 +7249,59 @@ enum para_RequestViewResolution {
 }
 
 enum para_RequestViewStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+enum para_RetryDecideInputAction {
+  accept
+  drop
+  edit
+  reject
+}
+
+input para_RetryDecideInputInput {
+  action: para_RetryDecideInputAction!
+  approve: Boolean
+  input: JSON
+  notes: String
+  request: String!
+}
+
+type para_RetryDecideOutput {
+  applied: Boolean!
+  doc: String
+  id: String!
+  status: para_RetryDecideOutputStatus!
+}
+
+enum para_RetryDecideOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+input para_RetryProposeInputInput {
+  input: JSON!
+  links: [String!]
+  request: String!
+  why: String!
+}
+
+type para_RetryProposeOutput {
+  id: String!
+  rev: String!
+  status: para_RetryProposeOutputStatus!
+}
+
+enum para_RetryProposeOutputStatus {
   cancelled
   claimed
   done

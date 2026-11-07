@@ -327,6 +327,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.TurnKinds)
 	addEnum(reg, model.RequestResolutions)
 	addEnum(reg, ops.RespondKinds)
+	addEnum(reg, ops.RetryActions)
 	addEnum(reg, model.ReceiptChecks)
 	addEnum(reg, model.Confidences)
 	addEnum(reg, model.TurnStates)

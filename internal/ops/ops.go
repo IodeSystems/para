@@ -134,6 +134,16 @@ func (o *Op[I, O]) OutputType() reflect.Type { return reflect.TypeFor[O]() }
 
 // Run calls the op.
 func (o *Op[I, O]) Run(ctx context.Context, d Deps, in I) (O, error) {
+	out, err := o.runOne(ctx, d, in)
+	// A lint refusal of an agent's outermost write is filed as agent work, so
+	// the write is not lost (retrywrite.go).
+	if err != nil && o.risk != RiskRead && !o.person && !slices.Contains(FlowOps, o.name) && needsRecord(ctx, d) {
+		err = fileRetry(ctx, d, o.name, in, err)
+	}
+	return out, err
+}
+
+func (o *Op[I, O]) runOne(ctx context.Context, d Deps, in I) (O, error) {
 	if o.risk != RiskRead && !o.verb && (needsRecord(ctx, d) || (o.oneReceipt && ctx.Value(recordingKey{}) == nil)) {
 		return runRecorded(ctx, d, o, in)
 	}
