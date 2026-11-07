@@ -2,7 +2,6 @@ package ops
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -141,9 +140,12 @@ func newestAt(docs []model.Document) string {
 
 // markApproved records the owner's approval of a draft: the hash of its
 // text, when, and the newest incoming message of its conversation then. A
-// hold or an earlier check is cleared: the owner has seen the situation.
-func markApproved(ctx context.Context, d Deps, doc model.Document, m *model.IO) error {
-	conv, err := conversation(ctx, d, doc, m)
+// hold or an earlier check is cleared: the owner has seen the situation. A
+// for_me draft becomes as_me first: the stamp comes off, and the owner
+// approves the text without it (delegation.go).
+func markApproved(ctx context.Context, d Deps, doc *model.Document, m *model.IO) error {
+	asMe(doc, m)
+	conv, err := conversation(ctx, d, *doc, m)
 	if err != nil {
 		return err
 	}
@@ -197,15 +199,32 @@ type IOSendCheckOutput struct {
 
 // IOSendCheck is the pre-send check: call it right before you send an
 // approved draft, after you read the channel again.
-var IOSendCheck = defineSafe("io_send_check", "Check an approved outgoing draft right before you send it: first read its channel again with your own tool and io_add what is new (with via {source, ref, thread}). If an incoming message joined the draft's conversation (thread links, the same via source and thread, or a recipient writing on the same medium) after the owner approved, the draft goes back to the owner (held: draft state, approval cleared, reason) and you must not send it; tell the owner what changed. If nothing is new, send within 30 minutes and record it with io_send, which refuses an agent's send without a passing check", func(ctx context.Context, d Deps, in IOSendCheckInput) (IOSendCheckOutput, error) {
+var IOSendCheck = defineSafe("io_send_check", "Check an outgoing draft right before you send it: an approved draft, or a for_me draft a delegation rule allows (stamped). First read its channel again with your own tool and io_add what is new (with via {source, ref, thread}). If an incoming message joined the draft's conversation (thread links, the same via source and thread, or a recipient writing on the same medium) after the owner approved (for_me: after it was drafted), the draft goes to the owner (held: draft state, approval cleared, reason) and you must not send it; tell the owner what changed. If nothing is new, send within 30 minutes and record it with io_send, which refuses an agent's send without a passing check", func(ctx context.Context, d Deps, in IOSendCheckInput) (IOSendCheckOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOSendCheckOutput{}, err
 	}
 	out := IOSendCheckOutput{ID: doc.ID, New: []IOSendCheckMessage{}, State: m.State}
+	since, sinceWhat := m.ApprovedSeen, "since you approved"
 	switch {
 	case m.Direction != model.IOOut:
 		return out, fmt.Errorf("%s is incoming: only an outgoing draft is checked", doc.ID)
+	case m.ForMe() && m.State == model.IODraft:
+		if m.Held != "" {
+			return out, fmt.Errorf("%s is held: %s; the owner approves it first", doc.ID, m.Held)
+		}
+		v, err := judge(ctx, d, doc, m)
+		if err != nil {
+			return out, err
+		}
+		if v.rule == "" {
+			return out, fmt.Errorf("%s is for_me, but no delegation rule allows it: it waits for the owner's approval (io_approve); delegation_run says why", doc.ID)
+		}
+		if !stamped(doc.Body, v.stamp) || m.Stamp != v.stamp {
+			return out, fmt.Errorf("%s does not end with its stamp %q: io_edit with voice for_me to stamp it again", doc.ID, v.stamp)
+		}
+		m.AllowedBy = v.rule
+		since, sinceWhat = m.DraftedSeen, "since the agent drafted it"
 	case m.State != model.IOReady || !m.Approved(doc.Body):
 		return out, fmt.Errorf("%s is not approved as it is: the owner approves it first (io_approve)", doc.ID)
 	case m.ApprovedAt == "":
@@ -215,7 +234,7 @@ var IOSendCheck = defineSafe("io_send_check", "Check an approved outgoing draft 
 	if err != nil {
 		return out, err
 	}
-	fresh := newSince(conv, m.ApprovedSeen)
+	fresh := newSince(conv, since)
 	if len(fresh) == 0 {
 		m.CheckedAt = nowString(d.Store)
 		saved, err := d.Store.Update(ctx, doc)
@@ -225,6 +244,9 @@ var IOSendCheck = defineSafe("io_send_check", "Check an approved outgoing draft 
 		t, _ := time.Parse(time.RFC3339Nano, m.CheckedAt)
 		out.OK, out.CheckedAt, out.SendBy, out.Rev = true, m.CheckedAt, t.Add(sendCheckWindow).UTC().Format(time.RFC3339), saved.Rev
 		out.Next = "nothing new since the owner approved: send the exact approved text now with your own tool, then io_send by send_by"
+		if m.ForMe() {
+			out.Next = "nothing new since you drafted it: " + m.AllowedBy + " allows it. Send the exact text, with its stamp, now with your own tool, then io_send by send_by"
+		}
 		return out, nil
 	}
 	m.State, m.ApprovedHash, m.CheckedAt = model.IODraft, "", ""
@@ -234,7 +256,7 @@ var IOSendCheck = defineSafe("io_send_check", "Check an approved outgoing draft 
 		out.New = append(out.New, IOSendCheckMessage{ID: f.ID, Title: f.Title, From: fm.From, At: fm.At})
 		m.HeldBy = append(m.HeldBy, model.LinkTo(f.ID))
 	}
-	m.Held = fmt.Sprintf("Situation changed: %s since you approved", plural(len(fresh), "new message"))
+	m.Held = fmt.Sprintf("Situation changed: %s %s", plural(len(fresh), "new message"), sinceWhat)
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return out, err
@@ -252,16 +274,30 @@ func sendGate(d Deps, doc model.Document, m *model.IO) error {
 		return fmt.Errorf("%s is held: %s; the owner approves it again first", doc.ID, m.Held)
 	case m.State != model.IOReady || !m.Approved(doc.Body):
 		return fmt.Errorf("%s is not approved as it is: the owner approves it (io_approve), then io_send_check, then send; if the owner sent it themself and you only saw it, give observed", doc.ID)
-	case m.CheckedAt == "" || m.ApprovedAt == "":
+	case m.ApprovedAt == "":
 		return fmt.Errorf("%s has no pre-send check: read the channel again, io_add what is new, then io_send_check before you send", doc.ID)
 	}
-	checked, err1 := time.Parse(time.RFC3339Nano, m.CheckedAt)
-	approved, err2 := time.Parse(time.RFC3339Nano, m.ApprovedAt)
-	if err := errors.Join(err1, err2); err != nil {
-		return fmt.Errorf("%s: pre-send check times: %w", doc.ID, err)
+	return checkFresh(d, doc, m.CheckedAt, m.ApprovedAt)
+}
+
+// checkFresh refuses a send with no passing check, a check before the
+// approval (approved empty: none), or one older than sendCheckWindow.
+func checkFresh(d Deps, doc model.Document, checkedAt, approvedAt string) error {
+	if checkedAt == "" {
+		return fmt.Errorf("%s has no pre-send check: read the channel again, io_add what is new, then io_send_check before you send", doc.ID)
 	}
-	if checked.Before(approved) {
-		return fmt.Errorf("%s was approved again after its last check: io_send_check again before you send", doc.ID)
+	checked, err := time.Parse(time.RFC3339Nano, checkedAt)
+	if err != nil {
+		return fmt.Errorf("%s: pre-send check time: %w", doc.ID, err)
+	}
+	if approvedAt != "" {
+		approved, err := time.Parse(time.RFC3339Nano, approvedAt)
+		if err != nil {
+			return fmt.Errorf("%s: approval time: %w", doc.ID, err)
+		}
+		if checked.Before(approved) {
+			return fmt.Errorf("%s was approved again after its last check: io_send_check again before you send", doc.ID)
+		}
 	}
 	if d.Store.Now().Sub(checked) > sendCheckWindow {
 		return fmt.Errorf("%s: the pre-send check is older than %s: read the channel again and io_send_check again", doc.ID, sendCheckWindow)

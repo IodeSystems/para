@@ -465,6 +465,10 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 			return sn.inboundTurn(m)
 		case m.State == model.IODraft && m.Held != "":
 			return owner(m.Held)
+		case m.State == model.IODraft && m.ForMe() && m.AllowedBy != "":
+			return Need{Turn: TurnAgent, Reason: "for you, stamped: an agent sends it under delegation " + m.AllowedBy}
+		case m.State == model.IODraft && m.ForMe():
+			return owner("for you, but no delegation rule allows it: approve it to send it as you")
 		case m.State == model.IODraft:
 			return owner("draft to approve")
 		case m.State == model.IOReady && !m.Approved(doc.Body):

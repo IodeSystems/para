@@ -115,6 +115,7 @@ var Inputs = map[string]string{
 	"io_send":                   `{"id":"io-draft-sample","url":"https://acme.example/m/2","observed":true}`,
 	"io_approve":                `{"id":"io-draft-sample","owner_said":"Yes, send it."}`,
 	"io_send_check":             `{"id":"io-ready-sample"}`,
+	"delegation_run":            `{"id":"io-ready-sample","agent":"worker-sample"}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"interaction_add":           `{"summary":"Agreed to review on Friday","with":["person-sample"],"medium":"slack","direction":"in","date":"2026-11-01","url":"https://acme.example/m/1"}`,
 	"interaction_show":          `{"id":"interaction-sample"}`,

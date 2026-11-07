@@ -59,6 +59,7 @@ func registerWork(r *registrar) {
 	reg(r, ops.PoolList, get, read)
 	reg(r, ops.PoolRun, post, write)
 	reg(r, ops.PoolPick, post, netguard.ScopeReviewDecide)
+	reg(r, ops.DelegationRun, get, read)
 }
 
 // registerDocs: tracked documents. An agent tracks a document and passes each

@@ -45,9 +45,19 @@ type WriteMeta struct {
 }
 
 type (
-	writeMetaKey struct{}
-	recordingKey struct{}
+	writeMetaKey   struct{}
+	recordingKey   struct{}
+	receiptNoteKey struct{}
 )
+
+// addReceiptNote adds a sentence the op says about its write to the why of
+// the receipts runRecorded files for it (io_send: the delegation rule).
+// Outside a recorded write it does nothing.
+func addReceiptNote(ctx context.Context, note string) {
+	if p, ok := ctx.Value(receiptNoteKey{}).(*[]string); ok {
+		*p = append(*p, note)
+	}
+}
 
 // WithWrite sets the WriteMeta of the write made under ctx.
 func WithWrite(ctx context.Context, m WriteMeta) context.Context {
@@ -98,7 +108,8 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	rec := newRecorder(d.Store)
 	inner := d
 	inner.Store = rec
-	out, err := o.run(context.WithValue(ctx, recordingKey{}, o.name), inner, in)
+	var notes []string
+	out, err := o.run(context.WithValue(context.WithValue(ctx, recordingKey{}, o.name), receiptNoteKey{}, &notes), inner, in)
 	if slices.Contains(FlowOps, o.name) {
 		return out, err
 	}
@@ -108,6 +119,9 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		file = rec.fileOne
 	}
 	m := writeMeta(ctx)
+	if len(notes) > 0 {
+		m.Why = strings.TrimSpace(m.Why + " " + strings.Join(notes, " "))
+	}
 	// An op that takes the owner's words itself (io_approve) files a
 	// self-reported receipt with them, on every surface.
 	if said, _ := inputMap(in)["owner_said"].(string); m.OwnerSaid == "" && strings.TrimSpace(said) != "" {

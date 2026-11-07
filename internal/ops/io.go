@@ -48,6 +48,14 @@ type IOAddInput struct {
 	Effort model.Effort `json:"effort,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
+	// Voice of an outgoing draft: as_me (default: the owner approves it and
+	// it goes out as theirs) or for_me (an agent sends it for the owner,
+	// stamped, when a delegation rule allows it). Kind is a free label the
+	// rules match (scheduling, acknowledgement, status). Agent: for_me from
+	// a person, the agent that sends it; on an agent surface, you.
+	Voice model.IOVoice `json:"voice,omitempty"`
+	Kind  string        `json:"kind,omitempty"`
+	Agent string        `json:"agent,omitempty"`
 }
 
 // IOAddOutput is the output of io_add.
@@ -65,7 +73,7 @@ type IOAddOutput struct {
 }
 
 // IOAdd captures an incoming message or drafts an outgoing one.
-var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction); an outward action (a PR, a ticket, a deploy, a document edit) is a draft too: to names where it lands (a repo, a URL), expects none, the text says what and how. Effort is xs, s, m, or l. An incoming message with expects response gets a reply obligation (output reply), due io.reply_days after at; the reply closes it. Give via.thread, your tool's id of the conversation, so the pre-send check (io_send_check) sees replies in it. Para sends nothing", ioAdd)
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction); an outward action (a PR, a ticket, a deploy, a document edit) is a draft too: to names where it lands (a repo, a URL), expects none, the text says what and how. Effort is xs, s, m, or l. An incoming message with expects response gets a reply obligation (output reply), due io.reply_days after at; the reply closes it. Give via.thread, your tool's id of the conversation, so the pre-send check (io_send_check) sees replies in it. Voice: as_me (default) goes out as the owner's after their approval; for_me is one you send for the owner without their review, only when a rule of the owner's .para/delegation.yaml allows it: para appends the stamp that says so (output warnings say whether a rule allows it), and kind is a label the rules match. Never present a for_me message as the owner's own words. Para sends nothing", ioAdd)
 
 func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if !slices.Contains(model.IODirections, in.Direction) {
@@ -80,6 +88,10 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if err := checkEffort(in.Effort); err != nil {
 		return IOAddOutput{}, err
 	}
+	if err := checkVoice(in.Voice); err != nil {
+		return IOAddOutput{}, err
+	}
+	m.Kind = normTag(in.Kind)
 	if m.Medium == "" {
 		m.Medium = model.MediumOther
 	}
@@ -129,11 +141,25 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 			return IOAddOutput{}, err
 		}
 	}
-	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderIO, Title: ioTitle(m.Subject, text), Body: text, Meta: m})
+	nd := model.Document{Folder: model.FolderIO, Title: ioTitle(m.Subject, text), Body: text, Meta: m}
+	var notes []string
+	if in.Voice == model.VoiceForMe {
+		agent, err := draftAgent(d, in.Agent)
+		if err != nil {
+			return IOAddOutput{}, err
+		}
+		m.Created = model.Date(d.Store.Now().Format(dateLayout)) // the stamp's {date}
+		if notes, err = forMe(ctx, d, &nd, m, agent); err != nil {
+			return IOAddOutput{}, err
+		}
+	} else if in.Agent != "" {
+		return IOAddOutput{}, errors.New("agent is for voice for_me")
+	}
+	doc, err := d.Store.Create(ctx, nd)
 	if err != nil {
 		return IOAddOutput{}, err
 	}
-	out := IOAddOutput{ID: doc.ID, Folder: doc.Folder, State: m.State, Rev: doc.Rev, Warnings: []string{}}
+	out := IOAddOutput{ID: doc.ID, Folder: doc.Folder, State: m.State, Rev: doc.Rev, Warnings: append([]string{}, notes...)}
 	if in.Direction == model.IOIn {
 		var warn []string
 		if out.Triage, warn = triageNew(ctx, d, doc.ID); len(out.Triage) > 0 {
@@ -322,6 +348,15 @@ type IOItem struct {
 	Triage   model.IOTriage `json:"triage,omitempty"`
 	TriageBy string         `json:"triage_by,omitempty"`
 	Links    []string       `json:"links"`
+	// Voice of an outgoing item: as_me or for_me. A for_me item names its
+	// Agent and Stamp; AllowedBy is the delegation rule that lets the agent
+	// send it, stamped, without the owner's review (or that did). Kind is
+	// its label for the rules.
+	Voice     model.IOVoice `json:"voice,omitempty"`
+	Agent     string        `json:"agent,omitempty"`
+	Stamp     string        `json:"stamp,omitempty"`
+	Kind      string        `json:"kind,omitempty"`
+	AllowedBy string        `json:"allowed_by,omitempty"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
@@ -329,7 +364,20 @@ func ioItem(doc model.Document, m *model.IO) IOItem {
 		Triage: m.Triage, TriageBy: m.TriageBy, Links: targets(m.Links),
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
 		Became: m.Became.Target(), Thread: m.Thread.Target(), Reason: m.Reason, Created: m.Created,
-		Verify: m.Verify, DeferUntil: m.DeferUntil, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable()}
+		Verify: m.Verify, DeferUntil: m.DeferUntil, Unverifiable: m.Direction == model.IOIn && slices.Contains(model.PermalinkMediums, m.Medium) && !m.Verifiable(),
+		Voice: ioVoice(m), Agent: m.Agent, Stamp: m.Stamp, Kind: m.Kind, AllowedBy: m.AllowedBy}
+}
+
+// ioVoice is the voice of an outgoing item, as_me when not set; "" for
+// incoming.
+func ioVoice(m *model.IO) model.IOVoice {
+	switch {
+	case m.Direction != model.IOOut:
+		return ""
+	case m.Voice == "":
+		return model.VoiceAsMe
+	}
+	return m.Voice
 }
 
 // IOCounts counts open items: the inbox and the outbox.
@@ -351,6 +399,9 @@ type IOListInput struct {
 	// Digest keeps only open incoming messages that are not the owner's
 	// turn: what goes to the day's inbox digest.
 	Digest bool `json:"digest,omitempty" query:"digest"`
+	// Voice keeps outgoing items of that voice: for_me with all lists what
+	// agents sent for the owner, stamped, without review.
+	Voice model.IOVoice `json:"voice,omitempty" query:"voice"`
 }
 
 // IOListOutput is the output of io_list. Counts covers every open item,
@@ -361,7 +412,7 @@ type IOListOutput struct {
 }
 
 // IOList lists io items, oldest first.
-var IOList = defineRead("io_list", "List io items, oldest first: the inbox (direction in: unread, read) and the outbox (direction out: draft, ready). all adds filed, sent, and dropped items. digest keeps open incoming messages that do not need the owner (each row has needs_you and digest)", func(ctx context.Context, d Deps, in IOListInput) (IOListOutput, error) {
+var IOList = defineRead("io_list", "List io items, oldest first: the inbox (direction in: unread, read) and the outbox (direction out: draft, ready). all adds filed, sent, and dropped items. digest keeps open incoming messages that do not need the owner (each row has needs_you and digest). voice for_me with all lists what agents sent for the owner, stamped (allowed_by names the rule)", func(ctx context.Context, d Deps, in IOListInput) (IOListOutput, error) {
 	if in.Direction != "" && !slices.Contains(model.IODirections, in.Direction) {
 		return IOListOutput{}, fmt.Errorf("direction %q: want in or out", in.Direction)
 	}
@@ -370,6 +421,9 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 	}
 	if in.Expects != "" && !slices.Contains(model.IOExpectsAll, in.Expects) {
 		return IOListOutput{}, fmt.Errorf("expects %q: want response or none", in.Expects)
+	}
+	if err := checkVoice(in.Voice); err != nil {
+		return IOListOutput{}, err
 	}
 	all, err := loadIO(ctx, d)
 	if err != nil {
@@ -400,6 +454,7 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 			in.State == "" && !in.All && !it.State.Open(),
 			in.Medium != "" && it.Medium != in.Medium,
 			in.Expects != "" && it.Expects != in.Expects,
+			in.Voice != "" && it.Voice != in.Voice,
 			in.Digest && !it.Digest:
 			continue
 		}
@@ -524,6 +579,12 @@ type IOEditInput struct {
 	Ref    string       `json:"ref,omitempty"`
 	Via    *model.IOVia `json:"via,omitempty"`
 	Verify string       `json:"verify,omitempty"`
+	// Voice as_me takes the stamp off (the owner then approves it); for_me
+	// stamps it again for the delegation rule that matches now. Kind is the
+	// label rules match; Agent as on io_add.
+	Voice model.IOVoice `json:"voice,omitempty"`
+	Kind  string        `json:"kind,omitempty"`
+	Agent string        `json:"agent,omitempty"`
 }
 
 // IOEditOutput is the output of io_edit.
@@ -535,7 +596,7 @@ type IOEditOutput struct {
 }
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
-var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. State ready is the owner's approval: io_approve. An edit of the text, subject, to, or medium of a ready message makes it a draft again", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. State ready is the owner's approval: io_approve. An edit of the text, subject, to, or medium of a ready message makes it a draft again. Voice as_me or for_me changes whose words a draft goes out as (io_add); the text of a for_me draft must keep its stamp at the end, and para stamps it again when the matching rule changes", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOEditOutput{}, err
@@ -546,7 +607,8 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if in.State == model.IOReady && agentSurface(d) {
 		return IOEditOutput{}, errors.New("state ready is the owner's approval: call io_approve with the owner's words (owner_said), or leave it a draft for the owner")
 	}
-	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Route != ""
+	content := in.Text != "" || in.Subject != "" || in.To != nil || in.Medium != "" || in.Route != "" ||
+		in.Voice != "" || in.Kind != "" || in.Agent != ""
 	if m.Direction == model.IOIn && content {
 		return IOEditOutput{}, errors.New("an incoming message keeps its text and fields: give state, expects, or effort, or file or drop it")
 	}
@@ -559,9 +621,18 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if m.Direction == model.IOIn && in.Expects != "" && !slices.Contains(model.IOExpectsAll, in.Expects) {
 		return IOEditOutput{}, fmt.Errorf("expects %q: want response or none", in.Expects)
 	}
+	if err := checkVoice(in.Voice); err != nil {
+		return IOEditOutput{}, err
+	}
 	changed := false
 	if t := cleanText(in.Text); t != "" && t != doc.Body {
+		if m.ForMe() && in.Voice == "" && !stamped(t, m.Stamp) {
+			return IOEditOutput{}, fmt.Errorf("the text of a for_me draft ends with its stamp %q: keep it, or give voice as_me so the owner approves it as their own", m.Stamp)
+		}
 		doc.Body, changed = t, true
+	}
+	if k := normTag(in.Kind); in.Kind != "" && k != m.Kind {
+		m.Kind, changed = k, true
 	}
 	if s := ioLine(in.Subject); s != "" && s != m.Subject {
 		m.Subject, changed = s, true
@@ -617,14 +688,39 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 			return IOEditOutput{}, err
 		}
 	}
+	var notes []string
+	switch {
+	case in.Voice == model.VoiceAsMe:
+		if m.ForMe() {
+			asMe(&doc, m)
+			changed = true
+		}
+	case in.Voice == model.VoiceForMe || m.ForMe():
+		agent := m.Agent
+		if in.Voice == model.VoiceForMe {
+			if agent, err = draftAgent(d, firstOf(in.Agent, m.Agent)); err != nil {
+				return IOEditOutput{}, err
+			}
+		}
+		before, stamp := doc.Body, m.Stamp
+		if notes, err = forMe(ctx, d, &doc, m, agent); err != nil {
+			return IOEditOutput{}, err
+		}
+		changed = changed || doc.Body != before || m.Stamp != stamp
+	case in.Agent != "":
+		return IOEditOutput{}, errors.New("agent is for voice for_me")
+	}
 	doc.Title = ioTitle(m.Subject, doc.Body)
 	if changed && m.State == model.IOReady {
 		m.State, m.ApprovedHash = model.IODraft, ""
 	}
+	if changed {
+		m.CheckedAt = "" // a check covers the text it saw
+	}
 	switch in.State {
 	case model.IOReady:
 		// The owner marks it ready: that is their approval of this text.
-		if err := markApproved(ctx, d, doc, m); err != nil {
+		if err := markApproved(ctx, d, &doc, m); err != nil {
 			return IOEditOutput{}, err
 		}
 	case model.IODraft:
@@ -637,7 +733,7 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if err != nil {
 		return IOEditOutput{}, err
 	}
-	out := IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}
+	out := IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev, Warnings: notes}
 	if m.Direction == model.IOIn && in.Expects != "" {
 		out.Warnings = syncReplyWarn(ctx, d, doc.ID)
 		if cur, err := d.Store.Get(ctx, doc.ID); err == nil {
@@ -667,7 +763,7 @@ type IOApproveOutput struct {
 // IOApprove is the owner's approval of an outgoing draft: it binds the
 // draft's hash and makes it ready to send. An agent may record it only with
 // the owner's words from the chat (D3); no other op takes chat approval.
-var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
+var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. A for_me draft becomes as_me: its stamp comes off, and the owner approves the text without it. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
 	said := strings.TrimSpace(in.OwnerSaid)
 	agent := agentSurface(d)
 	if agent && said == "" {
@@ -688,7 +784,7 @@ var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending:
 	if err := checkOut(m); err != nil {
 		return IOApproveOutput{}, err
 	}
-	if err := markApproved(ctx, d, doc, m); err != nil {
+	if err := markApproved(ctx, d, &doc, m); err != nil {
 		return IOApproveOutput{}, err
 	}
 	saved, err := d.Store.Update(ctx, doc)
@@ -763,7 +859,7 @@ type IOSendOutput struct {
 // IOSend records that an outgoing message was sent. Expects none logs an
 // interaction; expects response opens an Ask with each person or group as a
 // sent target, so follow-ups use the Ask tools.
-var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. From an agent it is refused unless the owner approved the draft (io_approve) and io_send_check passed after that, within 30 minutes; observed records a send the owner made themself that scan_out saw. A send threaded to an incoming message closes its reply obligation", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. From an agent it is refused unless the owner approved the draft (io_approve), or it is for_me and a rule of the owner's delegation.yaml allows it now and its text ends with the stamp, and io_send_check passed after that, within 30 minutes (the item and the receipt then name the rule in allowed_by); observed records a send the owner made themself that scan_out saw. A send threaded to an incoming message closes its reply obligation", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	return sendIO(ctx, d, in)
 })
 
@@ -809,7 +905,15 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if err := checkOut(m); err != nil {
 		return out, err
 	}
-	if agentSurface(d) && !in.Observed {
+	allowedBy := ""
+	switch {
+	case !agentSurface(d) || in.Observed:
+	case m.ForMe() && m.State == model.IODraft:
+		if allowedBy, err = delegationGate(ctx, d, doc, m); err != nil {
+			return out, err
+		}
+		addReceiptNote(ctx, fmt.Sprintf("Sent for the owner without their review, stamped, allowed by delegation %s.", allowedBy))
+	default:
 		if err := sendGate(d, doc, m); err != nil {
 			return out, err
 		}
@@ -856,6 +960,9 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, in.ID, err)
 	}
 	m.State, m.At = model.IOSent, at
+	if allowedBy != "" {
+		m.AllowedBy = allowedBy
+	}
 	if out.Became != "" {
 		m.Became = model.LinkTo(out.Became)
 	}
