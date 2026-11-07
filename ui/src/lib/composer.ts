@@ -69,8 +69,7 @@ export function attends(m: { optional?: boolean | null; attend?: string | null }
 const isMeeting = (m: ItemMeta) =>
   m.type === 'meeting' || (m.type === 'task' && (m.kind === 'meeting' || m.kind === 'call'))
 
-// MANAGED_PROMPT is what the box asks on a page of a record the agent manages. Nothing closes one
-// of these from the box, so Mark done is hidden there (markable).
+// MANAGED_PROMPT is what the box asks on a page of a record the agent manages.
 const MANAGED_PROMPT: Record<string, string> = {
   person: 'Say what changed with them: what they asked, what you owe them, what was agreed.',
   group: 'Say what changed with this group: its threads, who asked what, what you owe it.',
@@ -79,14 +78,8 @@ const MANAGED_PROMPT: Record<string, string> = {
   area: 'Say what changed in this area, or what to do about its items.',
 }
 
-// markable says the composer shows Mark done: every item that can end, not a person, a group, a
-// tracked document, or an area.
-export function markable(m: ItemMeta): boolean {
-  return !(m.type in MANAGED_PROMPT) && !openQuestion(m)
-}
-
-// openQuestion: a question still to answer. Its box has Answer and Decline, which close it; Mark
-// done and Investigate do not show.
+// openQuestion: a question still to answer. Its box has Answer and Decline, which close it;
+// Investigate does not show.
 export function openQuestion(m: ItemMeta): boolean {
   return m.type === 'question' && m.status === 'open'
 }
@@ -115,14 +108,6 @@ export function composerPrompt(m: ItemMeta, now: Date): string | null {
   const t = Date.parse(when)
   if (Number.isNaN(t) || t > now.getTime()) return null
   return 'This has passed. Say what came of it: what was said, what was decided, who does what next.'
-}
-
-// closable says Save as notes with Mark done can close the item itself (item_close): an open task,
-// a meeting task, or a scheduled meeting. Anything else only an agent can close (a question needs
-// an answer, an ask a reply).
-export function closable(m: ItemMeta): boolean {
-  if (m.type === 'task') return OPEN_TASK.includes(m.status ?? '')
-  return m.type === 'meeting' && (m.status === 'scheduled' || m.status === 'requested')
 }
 
 // Attachments are served by the server at one route; an embed names the vault path.

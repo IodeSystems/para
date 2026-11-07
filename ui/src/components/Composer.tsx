@@ -55,7 +55,7 @@ export function Composer({
   sendLabel?: string
   onSend: (text: string, files: File[]) => Promise<boolean>
   actions?: ComposerAction[]
-  // chips sit under the box: toggles such as Mark done, or the documents to read.
+  // chips sit under the box: a question's choices, or the documents to read.
   chips?: ReactNode
   // actionsReady lets the menu actions run with an empty box (a picked choice stands for the words).
   actionsReady?: boolean

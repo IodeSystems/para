@@ -3,8 +3,7 @@ import { useRouteContext } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
-import CheckIcon from '@mui/icons-material/Check'
-import { agentUnsend, closeItem, useAgentSend } from '@/api/composer'
+import { agentUnsend, useAgentSend } from '@/api/composer'
 import { readNotes, saveNotes } from '@/api/notes'
 import { localStamp } from '@/api/today'
 import { canDecide } from '@/client/session'
@@ -18,9 +17,7 @@ import { useToasts } from '@/components/ToastStack'
 import { investigable, isClosed, rowKind } from '@/lib/agenda'
 import {
   answerState,
-  closable,
   composerPrompt,
-  markable,
   notable,
   notesWithEntry,
   openQuestion,
@@ -29,9 +26,8 @@ import {
 
 // ItemComposer is the composer at the foot of every item's page. Send to agent queues agent work
 // with the owner's words and files (agent_send); the agent formats them into the item's notes and
-// updates what they touch. Save as notes writes them into the notes now, below what is there. With
-// Mark done on, Save as notes closes a task or a meeting at once: that is Done with a note, as the
-// Done button near the box does. Investigate adds them to the notes and asks an agent to fill in
+// updates what they touch. Save as notes writes them into the notes now, below what is there. Done,
+// the button near the box, closes the item and adds the box's words as a note. Investigate adds them to the notes and asks an agent to fill in
 // details, check whether it is already done, and recheck its assumptions. It needs review:decide:
 // without it the page only reads. onSent runs after a send to an agent, or a save that closed the
 // item: the item left the owner's hands. Undo of that send runs onBack.
@@ -59,7 +55,6 @@ export function ItemComposer({
   const item = useItemActions({ id, title, kind }, closed, false, (gone) =>
     gone ? onSent?.() : onBack?.(),
   )
-  const [done, setDone] = useState(false)
   // An open question is answered from its box: a picked choice, or the words.
   const asking = openQuestion(meta)
   const qn = useQuestion(id, asking).data?.question
@@ -70,7 +65,6 @@ export function ItemComposer({
   const [now] = useState(() => new Date())
   if (!canDecide(session)) return null
   const name = title || id
-  const close = closable(meta)
 
   // upload stores each file; a failure stops and says which file.
   const upload = async (files: File[]) => {
@@ -86,18 +80,13 @@ export function ItemComposer({
   const toAgent = async (text: string, files: File[]) => {
     try {
       const atts = await upload(files)
-      // Mark done on an item the owner can close closes it now. Waiting for an agent left it at the
-      // top of the agenda.
-      const closeNow = done && close
-      if (closeNow) await closeItem(id)
       const res = await send.mutateAsync({
         id,
         text: text || undefined,
         attachments: atts.length ? atts.map((a) => a.path) : undefined,
-        done: (done && !close) || undefined,
       })
       toasts.push({
-        text: closeNow ? `Closed, and sent to agent: ${name}` : `Sent to agent: ${name}`,
+        text: `Sent to agent: ${name}`,
         note: res.note ?? undefined,
         undo: async () => {
           await agentUnsend(res.request)
@@ -105,7 +94,6 @@ export function ItemComposer({
           await qc.invalidateQueries()
         },
       })
-      setDone(false)
       onSent?.()
       return true
     } catch (e) {
@@ -114,12 +102,6 @@ export function ItemComposer({
   }
 
   const asNotes = async (text: string, files: File[]) => {
-    // Save as notes with Mark done is Done with a note: the same call and Undo as the Done button.
-    if (done && close) {
-      const ok = await item.done(text, files)
-      if (ok) setDone(false)
-      return ok
-    }
     try {
       const atts = await upload(files)
       const before = await readNotes(id)
@@ -178,12 +160,8 @@ export function ItemComposer({
   const actions: ComposerAction[] = notable(meta)
     ? [
         {
-          label: done && close ? 'Save as notes and close' : 'Save as notes',
-          hint:
-            done && !close
-              ? 'Only an agent can close this: send it, or turn Mark done off'
-              : 'Add to the notes now, below what is there',
-          disabled: done && !close,
+          label: 'Save as notes',
+          hint: 'Add to the notes now, below what is there',
           run: asNotes,
         },
       ]
@@ -242,18 +220,6 @@ export function ItemComposer({
                 data-composer-choice
               />
             ))}
-            {markable(meta) && (
-              <Chip
-                size="small"
-                label="Mark done"
-                icon={done ? <CheckIcon /> : undefined}
-                color={done ? 'primary' : 'default'}
-                variant={done ? 'filled' : 'outlined'}
-                aria-pressed={done}
-                onClick={() => setDone((v) => !v)}
-                data-composer-done
-              />
-            )}
           </>
         }
       />
