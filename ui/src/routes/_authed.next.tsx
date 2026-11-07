@@ -42,6 +42,7 @@ import {
   left,
   skipCard,
 } from '@/lib/next'
+import { RetryFix } from '@/components/RetryFix'
 import { nameOr } from '@/lib/names'
 import { isPoolRow } from '@/lib/pools'
 import { readyTarget, readyWords } from '@/lib/ready'
@@ -247,6 +248,7 @@ function Card({
         </Stack>
         {x.ready && <Prepared x={x} decide={decide} onGone={onGone} />}
         {!x.ready && x.kind === 'task' && <DoItTask id={x.id} done={false} />}
+        {x.kind === 'request' && <RetryFix id={x.id} decide={decide} />}
         {x.kind === 'meeting' && (
           <Box sx={{ pl: 2, my: 1, borderLeft: 2, borderColor: 'divider' }}>
             <BriefBody id={x.id} />

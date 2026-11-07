@@ -15,6 +15,7 @@ import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { LinkButton } from '@/components/links'
+import { RetryFix } from '@/components/RetryFix'
 import { useToasts } from '@/components/ToastStack'
 import { humanTime } from '@/lib/when'
 import { byStatus, isFillGap, kindWords, resultToCheck, sentStatus, staleWords } from '@/lib/sent'
@@ -220,6 +221,7 @@ function WorkRow({
               </Typography>
             ))}
           </Stack>
+          {it.kind === 'retry-write' && it.needsYou && <RetryFix id={it.request} decide={decide} />}
           {(it.status === 'done' || it.status === 'failed') && <Changes id={it.request} />}
         </Box>
         {decide && it.undoable && (

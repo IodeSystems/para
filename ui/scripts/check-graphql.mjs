@@ -125,6 +125,10 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: IP idea pools. Add idea to pool on the Pools page keeps a title and a
   // sentence as an item put off someday with the pool's tag (idea_add, the owner's own capture).
   'IdeaAdd',
+  // owner 2026-11-06: an agent's write that lint refused is filed as agent work; the owner card
+  // decides on its proposed fix: accept, edit (save, or save and run), drop, or reject with notes
+  // (retry_decide, a person op).
+  'RetryDecide',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
