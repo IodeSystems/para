@@ -3,6 +3,7 @@ package ops
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -106,18 +107,22 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 })
 
 // relinkDependents replaces a dependency on from with one on to, in every open
-// task and open request. It returns the ids it changed.
+// task, Ask, and question. It returns the ids it changed.
 func relinkDependents(ctx context.Context, s store.Store, from, to string) ([]string, error) {
 	return relinkDependentsTo(ctx, s, from, []string{to})
 }
 
-// relinkDependentsTo replaces a dependency on from with one on each of to.
+// relinkDependentsTo replaces a dependency on from with one on each of to. A
+// hard one (depends_on) stays hard and an optional one (optional_after) stays
+// optional; a link already hard is not made optional too, and no item is
+// made to wait on itself.
 func relinkDependentsTo(ctx context.Context, s store.Store, from string, to []string) ([]string, error) {
-	dp, err := loadDependents(ctx, s)
+	docs, err := allDocs(ctx, s)
 	if err != nil {
 		return nil, err
 	}
-	swap := func(links []model.Link) []model.Link {
+	names := func(l model.Link) bool { return l.Target() == from }
+	swap := func(self string, links []model.Link, skip []model.Link) []model.Link {
 		var out []model.Link
 		for _, l := range links {
 			repl := []model.Link{l}
@@ -128,7 +133,7 @@ func relinkDependentsTo(ctx context.Context, s store.Store, from string, to []st
 				}
 			}
 			for _, x := range repl {
-				if !slices.Contains(out, x) {
+				if x.Target() != self && !slices.Contains(out, x) && !slices.Contains(skip, x) {
 					out = append(out, x)
 				}
 			}
@@ -136,26 +141,23 @@ func relinkDependentsTo(ctx context.Context, s store.Store, from string, to []st
 		return out
 	}
 	var done []string
-	for _, id := range dp.by[from] {
-		doc, err := s.Get(ctx, id)
-		if err != nil {
-			return done, err
-		}
-		switch m := doc.Meta.(type) {
-		case *model.Task:
-			m.DependsOn = swap(m.DependsOn)
-		case *model.RFX:
-			m.DependsOn = swap(m.DependsOn)
-		case *model.Question:
-			m.DependsOn = swap(m.DependsOn)
+	for _, id := range slices.Sorted(maps.Keys(docs)) {
+		doc := docs[id]
+		switch doc.Meta.(type) {
+		case *model.Task, *model.RFX, *model.Question:
 		default:
 			continue
 		}
+		hard, opt := model.DepLists(doc.Meta)
+		if lifeOf(doc.Meta) != LifeOpen || !slices.ContainsFunc(*hard, names) && !slices.ContainsFunc(*opt, names) {
+			continue
+		}
+		*hard = swap(id, *hard, nil)
+		*opt = swap(id, *opt, *hard)
 		if _, err := s.Update(ctx, doc); err != nil {
 			return done, fmt.Errorf("relink %s: %w", id, err)
 		}
 		done = append(done, id)
 	}
-	slices.Sort(done)
 	return done, nil
 }
