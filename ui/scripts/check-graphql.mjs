@@ -129,6 +129,12 @@ const REVIEW_MUTATIONS = new Set([
   // decides on its proposed fix: accept, edit (save, or save and run), drop, or reject with notes
   // (retry_decide, a person op).
   'RetryDecide',
+  // owner 2026-11-06: Save on an outgoing draft's text (io_edit, a person op); "and approve" sends
+  // state ready in the same call, which is the owner's approval of the text it saves.
+  'IOEdit',
+  // owner 2026-11-06: Make a task of it in the Log a conversation dialog files the item it just
+  // added into a new task (io_file, a person op), so the task's Context shows Came from.
+  'IOFile',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

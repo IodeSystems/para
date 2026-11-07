@@ -18,6 +18,7 @@ import { SourceList } from '@/components/AnswerCheck'
 import { PageTitle, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoItTask } from '@/components/DoIt'
+import { DraftEditor } from '@/components/DraftEditor'
 import { AgentLooking } from '@/components/FindContext'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDates } from '@/components/ItemDates'
@@ -383,7 +384,7 @@ const box = {
 } as const
 
 // DraftReady is an outgoing draft: its text, Approve (its exact text becomes ready to send), and
-// Edit on its page.
+// Edit in place (Save, with "and approve" to approve the saved text in the same click).
 function DraftReady({
   id,
   decide,
@@ -398,6 +399,7 @@ function DraftReady({
   const toasts = useToasts()
   const it = q.data?.item
   const approved = it?.state === 'ready'
+  const [editing, setEditing] = useState(false)
   const run = async () => {
     try {
       await approve.mutateAsync(id)
@@ -416,13 +418,33 @@ function DraftReady({
         Draft reply{it?.to?.length ? ` to ${it.to.join(', ')}` : ''}
       </Typography>
       {it?.subject && <Typography variant="body2">Subject: {it.subject}</Typography>}
-      <Typography
-        component="div"
-        variant="body2"
-        sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', my: 1 }}
-      >
-        {q.data?.doc.body ?? ''}
-      </Typography>
+      {editing && q.data ? (
+        <DraftEditor
+          key={q.data.doc.body}
+          id={id}
+          text={q.data.doc.body}
+          approved={approved}
+          onSaved={(approvedNow) => {
+            setEditing(false)
+            if (approvedNow) onGone(true)
+            toasts.push({
+              text: approvedNow
+                ? `Saved and approved: ${it?.subject || it?.title || id}`
+                : `Saved: ${it?.subject || it?.title || id}`,
+              note: approvedNow ? 'An agent sends it.' : undefined,
+            })
+          }}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <Typography
+          component="div"
+          variant="body2"
+          sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', my: 1 }}
+        >
+          {q.data?.doc.body ?? ''}
+        </Typography>
+      )}
       {it && <VoiceNote item={it} />}
       <Stack direction="row" spacing={1}>
         {decide && !approved && (
@@ -442,9 +464,17 @@ function DraftReady({
             Approved. An agent sends it.
           </Typography>
         )}
-        <LinkButton size="small" data-act="edit" to="/io/$id" params={{ id }}>
-          Edit
-        </LinkButton>
+        {decide && !editing ? (
+          <Button size="small" data-act="edit" disabled={!q.data} onClick={() => setEditing(true)}>
+            Edit
+          </Button>
+        ) : (
+          !decide && (
+            <LinkButton size="small" data-act="edit" to="/io/$id" params={{ id }}>
+              Edit
+            </LinkButton>
+          )
+        )}
       </Stack>
     </Box>
   )

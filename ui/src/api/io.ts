@@ -3,6 +3,7 @@ import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 import { closeAny } from '@/api/verbs'
+import type { DraftEditBody } from '@/lib/draft'
 
 const IoListDoc = graphql(/* GraphQL */ `
   query IoList($direction: para_ioListDirection, $all: Boolean, $voice: para_ioListVoice) {
@@ -186,6 +187,31 @@ export function useIODone() {
       const r = await closeAny({ id, outcome: 'sent', fields })
       return { id, state: r.result.state as string, became: r.result.became as string | null }
     },
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+const IOEditDoc = graphql(/* GraphQL */ `
+  mutation IOEdit($body: para_IOEditInputInput!) {
+    para {
+      v1 {
+        ioEdit(body: $body) {
+          id
+          state
+          warnings
+        }
+      }
+    }
+  }
+`)
+
+// useIOEdit saves the owner's edit of an outgoing draft's text (io_edit). With state ready the same
+// call approves the text it saves.
+export function useIOEdit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: DraftEditBody) =>
+      need((await gqlClient.request(IOEditDoc, { body })).para.v1.ioEdit, 'edit'),
     onSettled: () => qc.invalidateQueries(),
   })
 }

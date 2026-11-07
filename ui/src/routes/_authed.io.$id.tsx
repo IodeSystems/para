@@ -14,6 +14,7 @@ import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
+import { DraftEditor } from '@/components/DraftEditor'
 import { DoneForm } from '@/components/stack/parts'
 import { ioParty, ioTarget } from '@/lib/io'
 import { exactTime, humanTime } from '@/lib/when'
@@ -149,7 +150,11 @@ function IoItemPage() {
               />
             )}
             <Section title="Message">
-              <Markdown source={doc.body} />
+              {decide && out && (item.state === 'draft' || item.state === 'ready') ? (
+                <EditableMessage id={item.id} text={doc.body} approved={item.state === 'ready'} />
+              ) : (
+                <Markdown source={doc.body} />
+              )}
             </Section>
             <MergedFrom id={id} />
             <NotesEditor id={id} />
@@ -157,6 +162,32 @@ function IoItemPage() {
         )
       }}
     </DataState>
+  )
+}
+
+// EditableMessage shows an open outgoing draft's text with Edit for the owner. Save keeps the
+// text; "and approve" approves it in the same click.
+function EditableMessage({ id, text, approved }: { id: string; text: string; approved: boolean }) {
+  const [editing, setEditing] = useState(false)
+  if (editing) {
+    return (
+      <DraftEditor
+        key={text}
+        id={id}
+        text={text}
+        approved={approved}
+        onSaved={() => setEditing(false)}
+        onCancel={() => setEditing(false)}
+      />
+    )
+  }
+  return (
+    <>
+      <Markdown source={text} />
+      <Button size="small" data-act="edit" onClick={() => setEditing(true)}>
+        Edit text
+      </Button>
+    </>
   )
 }
 
