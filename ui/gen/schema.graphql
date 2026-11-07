@@ -214,6 +214,7 @@ type ParaV1QueryNamespace {
   changes(since: String): para_ChangesOutput @derived(operationId: "changes")
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   constraintShow(id: String!): para_ConstraintShowOutput @derived(operationId: "constraintShow")
+  context(id: String!): para_ItemContextOutput @derived(operationId: "context")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
   conventionShow(id: String!): para_ConventionShowOutput @derived(operationId: "conventionShow")
   docComments(id: String!, open: Boolean): para_DocCommentsOutput @derived(operationId: "docComments")
@@ -1055,6 +1056,33 @@ type para_CalendarUnexpanded {
   why: String!
 }
 
+type para_CameFrom {
+  from: String
+  fromId: String
+  id: String!
+  kind: String!
+  medium: para_CameFromMedium
+  mediumWords: String
+  text: String!
+  title: String
+  url: String
+  when: String
+}
+
+enum para_CameFromMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
 type para_ChainNode {
   depth: Int!
   id: String!
@@ -1219,7 +1247,9 @@ enum para_ContactMethod {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_ContextDoc {
@@ -2182,6 +2212,12 @@ type para_Followed {
   verified: Boolean!
 }
 
+type para_ForParty {
+  id: String
+  name: String!
+  role: String!
+}
+
 type para_FrictionOutput {
   asks: Int!
   by: String!
@@ -2635,7 +2671,9 @@ enum para_IOAddInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_IOAddOutput {
@@ -2777,7 +2815,9 @@ enum para_IOEditInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_IOEditInputState {
@@ -2825,6 +2865,7 @@ input para_IOFileInputInput {
   person: String
   project: String
   recommended: String
+  requestedBy: String
   root: Boolean
   route: String
   selfServe: String
@@ -2940,7 +2981,9 @@ enum para_IOItemMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_IOItemState {
@@ -3331,7 +3374,9 @@ enum para_InteractionAddInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_InteractionAddInputVisibility {
@@ -3405,7 +3450,9 @@ enum para_InteractionSummaryMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_InteractionSummaryVisibility {
@@ -3470,6 +3517,47 @@ type para_ItemCloseOutput {
   by: String!
   id: String!
   rev: String!
+}
+
+type para_ItemContextOutput {
+  cameFrom: [para_CameFrom!]!
+  for: [para_ForParty!]!
+  id: String!
+  looking: String
+  reasons: [para_Reason!]!
+  title: String!
+  type: para_ItemContextOutputType!
+}
+
+enum para_ItemContextOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
 }
 
 type para_ItemDecision {
@@ -4179,6 +4267,7 @@ type para_Meta {
   rejectedBy: String
   rejectedReason: String
   request: String
+  requestedBy: String
   required: [String!]
   requiresSource: String
   reroutedTo: String
@@ -4266,7 +4355,9 @@ enum para_MetaMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_MetaOutcome {
@@ -4735,7 +4826,9 @@ enum para_PathEntryMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_PathEntryReason {
@@ -4782,7 +4875,9 @@ enum para_PathMoveMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_Pending {
@@ -4821,7 +4916,9 @@ enum para_PersonContactInputMethod {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_PersonContactOutput {
@@ -5025,7 +5122,9 @@ enum para_ProduceInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_ProduceKind {
@@ -5045,7 +5144,9 @@ enum para_ProduceMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_ProduceView {
@@ -5080,7 +5181,9 @@ enum para_ProduceViewMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_ProduceViewRequest_status {
@@ -5472,7 +5575,9 @@ enum para_QuestionAskInputVia {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_QuestionAskOutput {
@@ -5751,7 +5856,9 @@ enum para_RFXPathAddInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_RFXPathAddInputReason {
@@ -5816,7 +5923,9 @@ enum para_RFXReplyInputVia {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_RFXReplyOutput {
@@ -5935,7 +6044,9 @@ enum para_RFXTargetAddInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_RFXTargetOutput {
@@ -5966,7 +6077,9 @@ enum para_RFXTargetStateInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_RFXTargetStateInputReason {
@@ -5993,6 +6106,22 @@ enum para_RFXTargetStateInputState {
 type para_RFXWaitingOutput {
   items: [para_WaitingItem!]!
   today: String!
+}
+
+type para_Reason {
+  due: String
+  kind: String!
+  ref: String
+  status: String
+  text: String!
+  title: String
+  via: [para_ReasonStep!]
+}
+
+type para_ReasonStep {
+  how: String!
+  id: String!
+  title: String
 }
 
 input para_ReceiptCheckInputInput {
@@ -7257,7 +7386,9 @@ enum para_SweepSourceMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_SweepSourcePriority {
@@ -7349,7 +7480,9 @@ enum para_TargetInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_TargetMedium {
@@ -7361,7 +7494,9 @@ enum para_TargetMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_TargetReason {
@@ -7412,6 +7547,7 @@ input para_TaskAddInputInput {
   parent: String
   project: String
   recur: String
+  requestedBy: String
   scheduled: String
   severity: para_TaskAddInputSeverity
   steps: String
@@ -7599,11 +7735,13 @@ enum para_TaskEditInputEffort {
 
 input para_TaskEditInputInput {
   clearHow: Boolean
+  clearRequestedBy: Boolean
   doCommand: String
   doUrl: String
   doneWhen: String
   effort: para_TaskEditInputEffort
   id: String!
+  requestedBy: String
   steps: String
 }
 
@@ -7613,6 +7751,7 @@ type para_TaskEditOutput {
   doneWhen: String!
   effort: para_TaskEditOutputEffort
   id: String!
+  requestedBy: String
   rev: String!
   steps: String
 }
@@ -7752,7 +7891,9 @@ enum para_TaskToAsksInputMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 type para_TaskToAsksOutput {
@@ -7847,6 +7988,7 @@ type para_TaskView {
   readyWhy: String
   reason: String
   recur: String
+  requestedBy: String
   reroutedTo: String
   retryAfter: String
   returns: String
@@ -8469,7 +8611,9 @@ enum para_interactionListMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_ioListDirection {
@@ -8491,7 +8635,9 @@ enum para_ioListMedium {
   other
   phone
   slack
+  swivel
   teams
+  verbal
 }
 
 enum para_ioListState {

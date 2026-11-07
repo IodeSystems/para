@@ -428,7 +428,13 @@ const (
 	MediumTeams      Medium = "teams"
 	MediumPhone      Medium = "phone"
 	MediumMeeting    Medium = "meeting"
-	MediumOther      Medium = "other"
+	// MediumVerbal is a conversation in person or by voice that the owner
+	// reports: a logged contact, the body a summary in the owner's words.
+	MediumVerbal Medium = "verbal"
+	// MediumSwivel is something the owner carried in by hand from another
+	// system: from names the system (a label or a URL).
+	MediumSwivel Medium = "swivel"
+	MediumOther  Medium = "other"
 )
 
 // Enum lists the allowed values, for schema generation.
@@ -437,8 +443,12 @@ func (Medium) Enum() []string { return enumStrings(Mediums) }
 // Mediums lists every Medium.
 var Mediums = []Medium{
 	MediumEmail, MediumSlack, MediumJira, MediumConfluence, MediumGithub,
-	MediumTeams, MediumPhone, MediumMeeting, MediumOther,
+	MediumTeams, MediumPhone, MediumMeeting, MediumVerbal, MediumSwivel, MediumOther,
 }
+
+// OwnerMediums are the owner's own capture: what they report or carried in
+// by hand. Such an item needs no permalink and is the owner's turn to sort.
+var OwnerMediums = []Medium{MediumVerbal, MediumSwivel}
 
 // GroupKind is group.kind.
 type GroupKind string

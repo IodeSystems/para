@@ -25,10 +25,12 @@ type TaskView struct {
 	Updated  model.Date       `json:"updated,omitempty"`
 	Due      model.Date       `json:"due,omitempty"`
 	Recur    string           `json:"recur,omitempty"`
-	Assignee string           `json:"assignee,omitempty"`  // empty means self
-	Previous string           `json:"previous,omitempty"`  // the task this one recurred from
-	Incident string           `json:"incident,omitempty"`  // the incident this task follows up
-	DoneWhen string           `json:"done_when,omitempty"` // how we know it is done
+	Assignee string           `json:"assignee,omitempty"` // empty means self
+	// RequestedBy is who the task is for: a person or group link, or free text.
+	RequestedBy string `json:"requested_by,omitempty"`
+	Previous    string `json:"previous,omitempty"`  // the task this one recurred from
+	Incident    string `json:"incident,omitempty"`  // the incident this task follows up
+	DoneWhen    string `json:"done_when,omitempty"` // how we know it is done
 	// DoURL, DoCommand, and Steps say how the owner does it: the page, the
 	// exact command, a short markdown list.
 	DoURL     string `json:"do_url,omitempty"`
@@ -105,7 +107,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Updated: t.Updated, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Updated: t.Updated, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, RequestedBy: t.RequestedBy, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{}, Optional: t.Optional, Attend: t.Attend,
 	}
 	for _, l := range t.DependsOn {
@@ -181,16 +183,19 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 
 // TaskAddInput is the input of task_add.
 type TaskAddInput struct {
-	Project   string   `json:"project,omitempty"` // project id; a task needs a project or an area
-	Area      string   `json:"area,omitempty"`    // area id
-	Title     string   `json:"title"`
-	Body      string   `json:"body,omitempty"`
-	Due       string   `json:"due,omitempty"`        // YYYY-MM-DD
-	Recur     string   `json:"recur,omitempty"`      // daily, weekly, monthly, quarterly, yearly, or every <n> days
-	Assignee  string   `json:"assignee,omitempty"`   // self (default), a person id, or agent:<name>
-	Incident  string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
-	DoneWhen  string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
-	DependsOn []string `json:"depends_on,omitempty"` // task or rfx ids
+	Project  string `json:"project,omitempty"` // project id; a task needs a project or an area
+	Area     string `json:"area,omitempty"`    // area id
+	Title    string `json:"title"`
+	Body     string `json:"body,omitempty"`
+	Due      string `json:"due,omitempty"`      // YYYY-MM-DD
+	Recur    string `json:"recur,omitempty"`    // daily, weekly, monthly, quarterly, yearly, or every <n> days
+	Assignee string `json:"assignee,omitempty"` // self (default), a person id, or agent:<name>
+	// RequestedBy is who the task is for: a person or group id, or free text
+	// (a role, an address). Optional.
+	RequestedBy string   `json:"requested_by,omitempty"`
+	Incident    string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
+	DoneWhen    string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
+	DependsOn   []string `json:"depends_on,omitempty"` // task or rfx ids
 	// DoURL is the page where the owner does it, DoCommand the exact command
 	// to run (no secret in it), Steps a short markdown list. An agent that
 	// adds a task for the owner gives at least one when it can find out how.
@@ -329,6 +334,10 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
+	requestedBy, err := ioParty(ctx, d, "requested_by", in.RequestedBy)
+	if err != nil {
+		return TaskAddOutput{}, err
+	}
 	var deps []model.Link
 	for _, id := range in.DependsOn {
 		l, err := dependencyLink(ctx, d.Store, id)
@@ -344,23 +353,24 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		Title:  title,
 		Body:   demoteH1(in.Body),
 		Meta: &model.Task{
-			Common:    model.Common{Type: model.TypeTask},
-			Status:    model.TaskTodo,
-			Parent:    parent,
-			Project:   project,
-			Area:      area,
-			Due:       due,
-			Recur:     strings.Join(strings.Fields(in.Recur), " "),
-			Assignee:  assignee,
-			Incident:  incident,
-			DoneWhen:  doneWhen,
-			DoURL:     how.url,
-			DoCommand: how.command,
-			Steps:     how.steps,
-			DependsOn: deps,
-			Effort:    in.Effort,
-			Kind:      kind,
-			Occasion:  model.Occasion{Scheduled: scheduled, End: end, With: with, CalendarUIDs: uids},
+			Common:      model.Common{Type: model.TypeTask},
+			Status:      model.TaskTodo,
+			Parent:      parent,
+			Project:     project,
+			Area:        area,
+			Due:         due,
+			Recur:       strings.Join(strings.Fields(in.Recur), " "),
+			Assignee:    assignee,
+			RequestedBy: requestedBy,
+			Incident:    incident,
+			DoneWhen:    doneWhen,
+			DoURL:       how.url,
+			DoCommand:   how.command,
+			Steps:       how.steps,
+			DependsOn:   deps,
+			Effort:      in.Effort,
+			Kind:        kind,
+			Occasion:    model.Occasion{Scheduled: scheduled, End: end, With: with, CalendarUIDs: uids},
 		},
 	})
 	if err != nil {
@@ -894,6 +904,10 @@ type TaskEditInput struct {
 	DoCommand string `json:"do_command,omitempty"`
 	Steps     string `json:"steps,omitempty"`
 	ClearHow  bool   `json:"clear_how,omitempty"`
+	// RequestedBy sets who the task is for: a person or group id, or free
+	// text. ClearRequestedBy removes it.
+	RequestedBy      string `json:"requested_by,omitempty"`
+	ClearRequestedBy bool   `json:"clear_requested_by,omitempty"`
 }
 
 // TaskEditOutput is the output of task_edit.
@@ -904,7 +918,9 @@ type TaskEditOutput struct {
 	DoURL     string       `json:"do_url,omitempty"`
 	DoCommand string       `json:"do_command,omitempty"`
 	Steps     string       `json:"steps,omitempty"`
-	Rev       string       `json:"rev"`
+	// RequestedBy is who the task is for, after the edit.
+	RequestedBy string `json:"requested_by,omitempty"`
+	Rev         string `json:"rev"`
 }
 
 // howFields are the checked do_url, do_command, and steps.
@@ -937,7 +953,7 @@ func checkHow(doURL, command, steps string) (howFields, error) {
 }
 
 // TaskEdit sets the done condition or the effort of an open task.
-var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), how the owner does it (do_url: the page, do_command: the exact command, steps: 1 to 5 lines; no secrets), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), or both. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), how the owner does it (do_url: the page, do_command: the exact command, steps: 1 to 5 lines; no secrets), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), who it is for (requested_by: a person or group id, or free text; clear_requested_by removes it), or several. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err
@@ -953,6 +969,18 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 		return TaskEditOutput{}, err
 	}
 	changesHow := !how.empty() || in.ClearHow
+	if in.RequestedBy != "" && in.ClearRequestedBy {
+		return TaskEditOutput{}, errors.New("give requested_by or clear_requested_by, not both")
+	}
+	changesFor := in.RequestedBy != "" || in.ClearRequestedBy
+	if in.ClearRequestedBy {
+		t.RequestedBy = ""
+	}
+	if in.RequestedBy != "" {
+		if t.RequestedBy, err = ioParty(ctx, d, "requested_by", in.RequestedBy); err != nil {
+			return TaskEditOutput{}, err
+		}
+	}
 	if in.ClearHow {
 		t.DoURL, t.DoCommand, t.Steps = "", "", ""
 	}
@@ -965,7 +993,7 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if how.steps != "" {
 		t.Steps = how.steps
 	}
-	if (in.Effort == "" && !changesHow) || in.DoneWhen != "" {
+	if (in.Effort == "" && !changesHow && !changesFor) || in.DoneWhen != "" {
 		dw, err := checkDoneWhen(in.DoneWhen, true)
 		if err != nil {
 			return TaskEditOutput{}, err
@@ -979,7 +1007,7 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if err != nil {
 		return TaskEditOutput{}, err
 	}
-	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Rev: saved.Rev}, nil
+	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, RequestedBy: t.RequestedBy, Rev: saved.Rev}, nil
 })
 
 // markDeferred sets Deferred, NeedsYou, and Reason on tasks, and drops the

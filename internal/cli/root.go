@@ -262,6 +262,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTopOpenCmd(l),
 		newReceiptCmd(l),
 		newHistoryCmd(l),
+		newContextCmd(l),
 		newAlignCmd(l),
 		newImportCmd(l),
 

@@ -146,6 +146,31 @@ func newHistoryCmd(l *loader) *cobra.Command {
 	})
 }
 
+// newContextCmd is `para context <id>`: what an item is for.
+func newContextCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.ItemContext, binding[ops.ItemContextInput, ops.ItemContextOutput]{
+		Use:  "context <id>",
+		Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.ItemContextInput) error { in.ID = args[0]; return nil },
+		Text: func(w io.Writer, out ops.ItemContextOutput) error {
+			p := &printer{w: w}
+			for _, c := range out.CameFrom {
+				p.f("came from\t%s\t%s\t%s\n", c.Text, c.ID, c.URL)
+			}
+			for _, f := range out.For {
+				p.f("for\t%s\t%s\t%s\n", f.Role, f.Name, f.ID)
+			}
+			for _, r := range out.Reasons {
+				p.f("why\t%s\t%s\n", r.Kind, r.Text)
+			}
+			if out.Looking != "" {
+				p.f("looking\t%s\n", out.Looking)
+			}
+			return p.err
+		},
+	})
+}
+
 // refLines prints the sources of a receipt resolved: the address after each
 // ref that has one, repeats dropped. Falls back to the stored strings.
 func refLines(r ops.ReceiptView) []string {

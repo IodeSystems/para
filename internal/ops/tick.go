@@ -66,6 +66,10 @@ type TickOutput struct {
 	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
 	// are in Requests too.
 	Gaps []string `json:"gaps"`
+	// Reasons lists the reason checks tick made this pass (reasontick.go):
+	// investigate work for an open item with no reason; they are in
+	// Requests too.
+	Reasons []string `json:"reasons"`
 	// Prepares lists the prepare requests tick made this pass (prepared.go);
 	// they are in Requests too.
 	Prepares []string `json:"prepares"`
@@ -106,7 +110,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -144,6 +148,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickGaps(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: gaps: %w", err)
+	}
+	if err := tickReasons(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: reasons: %w", err)
 	}
 	if err := tickPrepare(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: prepare: %w", err)

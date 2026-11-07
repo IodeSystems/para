@@ -50,7 +50,7 @@ var (
 	exceptionKinds     = []string{"underspecified", "overly_broad", "bug", "unenforced", "conflict_with", "interpreted_as", "established_example", "wide_enough_for"}
 	exceptionStatus    = []string{"open", "resolved", "accepted"}
 	conventionState    = []string{"draft", "adopted", "retired"}
-	mediums            = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "other"}
+	mediums            = []string{"email", "slack", "jira", "confluence", "github", "teams", "phone", "meeting", "verbal", "swivel", "other"}
 	groupKinds         = []string{"team", "department", "channel", "list", "other", "role", "domain"}
 	targetStates       = []string{"drafted", "sent", "replied", "no_reply", "requested", "scheduled"}
 	interDirections    = []string{"in", "out", "observed"}
@@ -165,6 +165,7 @@ var typeFields = map[string][]field{
 		{Name: "incident", Kind: kLink},
 		{Name: "parent", Kind: kLink}, // the task this is an action item of; not a dependency
 		{Name: "assignee", Kind: kString},
+		{Name: "requested_by", Kind: kString}, // who it is for: a person or group link, or free text
 		{Name: "done_when", Kind: kString},
 		{Name: "do_url", Kind: kString},     // where the owner does it
 		{Name: "do_command", Kind: kString}, // the exact command to run; no secrets

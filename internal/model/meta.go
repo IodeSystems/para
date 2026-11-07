@@ -199,6 +199,9 @@ type Task struct {
 	Parent Link `yaml:"parent,omitempty" json:"parent,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
 	Assignee string `yaml:"assignee,omitempty" json:"assignee,omitempty"`
+	// RequestedBy is who the task is for: a person or group link, or free
+	// text such as a role or an address. Optional.
+	RequestedBy string `yaml:"requested_by,omitempty" json:"requested_by,omitempty"`
 	// DoneWhen says how we know the task is done. Optional for a person;
 	// an agent must give it.
 	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`

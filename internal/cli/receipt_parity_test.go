@@ -40,6 +40,7 @@ func receiptParityCases() map[string]parityCase {
 		"agent_activity":  {`{}`, []string{"agent", "activity"}, false},
 		"receipt_list":    {`{}`, []string{"receipt", "list"}, false},
 		"history":         {`{"id":"task-d1"}`, []string{"history", "task-d1"}, false},
+		"context":         {`{"id":"task-d1"}`, []string{"context", "task-d1"}, false},
 		"receipt_show":    {`{"id":"receipt-rc-a"}`, []string{"receipt", "show", "receipt-rc-a"}, false},
 		"receipt_check":   {`{"id":"receipt-rc-a","verdict":"verified"}`, []string{"receipt", "check", "receipt-rc-b", "verified"}, false},
 		"receipt_undo":    {`{"id":"receipt-rc-c"}`, []string{"receipt", "undo", "receipt-rc-d"}, false},

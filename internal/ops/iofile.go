@@ -58,6 +58,9 @@ type IOFileInput struct {
 	Existing string `json:"existing,omitempty"`
 	// task
 	Project string `json:"project,omitempty"` // task: project id (or Area); rfx: optional project id
+	// RequestedBy is who the new task is for: a person or group id, or free
+	// text. Default the sender (from), except for medium swivel.
+	RequestedBy string `json:"requested_by,omitempty"`
 	// project
 	Owner string `json:"owner,omitempty"`
 	// rfx
@@ -167,7 +170,17 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 	back := "From [[" + doc.ID + "]]."
 	switch in.To {
 	case TriageTask:
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
+		// The new task is for whoever sent it, unless the filer says who.
+		// A swivel item's from is the system it came from, not a person.
+		requestedBy := in.RequestedBy
+		if requestedBy == "" && m.Medium != model.MediumSwivel {
+			if p, err := ioParty(ctx, d, "from", m.From); err == nil {
+				requestedBy = p
+			} else {
+				requestedBy = model.Link(m.From).Target() // a sender no longer in the vault: as text
+			}
+		}
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen, RequestedBy: requestedBy})
 		if err != nil {
 			return err
 		}
@@ -267,26 +280,27 @@ func checkTriageFields(in IOFileInput) error {
 		return fmt.Errorf("to %q: want one of %v, or give existing", in.To, TriageTargets)
 	}
 	have := map[string]bool{
-		"project":     in.Project != "",
-		"owner":       in.Owner != "",
-		"direction":   in.Direction != "",
-		"route":       in.Route != "",
-		"targets":     len(in.Targets) > 0,
-		"self_serve":  in.SelfServe != "",
-		"next_nudge":  in.NextNudge != "",
-		"area":        in.Area != "",
-		"person":      in.Person != "",
-		"date":        in.Date != "",
-		"task":        in.Task != "",
-		"root":        in.Root,
-		"kind":        in.Kind != "",
-		"options":     len(in.Options) > 0,
-		"recommended": in.Recommended != "",
-		"with":        len(in.With) > 0,
-		"visibility":  in.Visibility != "",
+		"project":      in.Project != "",
+		"requested_by": in.RequestedBy != "",
+		"owner":        in.Owner != "",
+		"direction":    in.Direction != "",
+		"route":        in.Route != "",
+		"targets":      len(in.Targets) > 0,
+		"self_serve":   in.SelfServe != "",
+		"next_nudge":   in.NextNudge != "",
+		"area":         in.Area != "",
+		"person":       in.Person != "",
+		"date":         in.Date != "",
+		"task":         in.Task != "",
+		"root":         in.Root,
+		"kind":         in.Kind != "",
+		"options":      len(in.Options) > 0,
+		"recommended":  in.Recommended != "",
+		"with":         len(in.With) > 0,
+		"visibility":   in.Visibility != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:        {"project", "area"},
+		TriageTask:        {"project", "area", "requested_by"},
 		TriageProject:     {"owner", "area"},
 		TriageRFX:         {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
 		TriageNote:        {"person", "date", "area", "project"},

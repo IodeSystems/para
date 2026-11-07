@@ -71,6 +71,7 @@ var mediumWords = map[model.Medium]string{
 	model.MediumEmail: "Email", model.MediumSlack: "Slack message", model.MediumJira: "Jira ticket",
 	model.MediumConfluence: "Confluence page", model.MediumGithub: "GitHub message", model.MediumTeams: "Teams message",
 	model.MediumPhone: "Phone call", model.MediumMeeting: "Meeting", model.MediumOther: "Message",
+	model.MediumVerbal: "Conversation", model.MediumSwivel: "Carried over by hand",
 }
 
 // normVendor is a vendor label as compared: trimmed, lower case.

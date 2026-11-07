@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/iodesystems/para/internal/model"
@@ -14,7 +15,8 @@ import (
 //  3. the sender is priority high: the person, or for a person with no
 //     priority of their own, a group they are in (priority.go);
 //  4. the source it came through (via.source) is priority high;
-//  5. it is the owner's own capture: no sender, no via, and no link.
+//  5. it is the owner's own capture: no sender, no via, and no link; or a
+//     medium the owner reports or carries in by hand (verbal, swivel).
 //
 // Any other incoming message is not the owner's turn: it is listed in the
 // day's inbox digest (journal, section inbox-digest) and in the Inbox's
@@ -49,7 +51,7 @@ func (sn *Snapshot) inboundVerdict(m *model.IO) (bool, string) {
 	if src := sn.sourceOf(m.Via); src != nil && src.Meta.(*model.SourceDoc).Priority == model.PriorityHigh {
 		return true, "from a high-priority source (" + src.ID + ")"
 	}
-	if strings.TrimSpace(m.From) == "" && m.Via == nil && m.Ref == "" {
+	if strings.TrimSpace(m.From) == "" && m.Via == nil && m.Ref == "" || slices.Contains(model.OwnerMediums, m.Medium) {
 		return true, "to sort: your capture"
 	}
 	return false, "digest: no reply expected; sender and source not high"

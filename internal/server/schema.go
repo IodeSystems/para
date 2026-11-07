@@ -64,6 +64,7 @@ type Meta struct {
 	Scheduled       string                `json:"scheduled,omitempty"`
 	Recur           string                `json:"recur,omitempty"`
 	Assignee        string                `json:"assignee,omitempty"`
+	RequestedBy     string                `json:"requested_by,omitempty"`
 	Previous        string                `json:"previous,omitempty"`
 	Incident        string                `json:"incident,omitempty"`
 	Parent          string                `json:"parent,omitempty"`

@@ -104,7 +104,7 @@ var HealthKinds = []string{
 // HealthKindWords names each finding kind in words, for a screen.
 var HealthKindWords = map[string]string{
 	HealthCycle:              "Circular dependency",
-	HealthNoPath:             "Tied to no goal or area",
+	HealthNoPath:             "No reason recorded",
 	HealthGoalNoOpenTask:     "Goal with no open task",
 	HealthDanglingDependency: "Depends on something missing",
 	HealthGoalNoDue:          "Goal with no due date",
@@ -360,8 +360,8 @@ type healther struct {
 	openGoals map[string]bool
 	// openTasks counts open tasks per goal.
 	openTasks map[string]int
-	// dependents maps an id to the open items that wait on it.
-	dependents map[string][]string
+	// graph is what the reason walker reads (reason.go).
+	graph *reasonGraph
 }
 
 // titles maps ids to titles, keeping the id of a document that is not there.
@@ -435,8 +435,9 @@ func (h *healther) goalOf(d model.Document) (goal string, skip bool) {
 }
 
 func (h *healther) index() {
-	h.openGoals, h.openTasks, h.dependents = map[string]bool{}, map[string]int{}, map[string][]string{}
+	h.openGoals, h.openTasks = map[string]bool{}, map[string]int{}
 	h.openKids = map[string][]string{}
+	h.graph = newReasonGraph(h.docs)
 	for id, d := range h.docs {
 		switch m := d.Meta.(type) {
 		case *model.Project:
@@ -447,26 +448,6 @@ func (h *healther) index() {
 		case *model.Task:
 			if p := m.Parent.Target(); p != "" && !taskTerminal(m.Status) {
 				h.openKids[p] = append(h.openKids[p], id)
-			}
-			if !taskTerminal(m.Status) {
-				for _, dep := range targets(m.DependsOn) {
-					h.dependents[dep] = append(h.dependents[dep], id)
-				}
-			}
-		case *model.Question:
-			if m.Status == model.QuestionOpen {
-				for _, dep := range targets(m.DependsOn) {
-					h.dependents[dep] = append(h.dependents[dep], id)
-				}
-			}
-		case *model.RFX:
-			if m.Status == model.RFXOpen {
-				for _, dep := range targets(m.DependsOn) {
-					h.dependents[dep] = append(h.dependents[dep], id)
-				}
-				for _, b := range m.Blocks {
-					h.dependents[id] = append(h.dependents[id], b.Target())
-				}
 			}
 		}
 	}
@@ -483,45 +464,10 @@ func needsNoPath(k model.TaskKind) bool {
 	return k == model.KindMeeting || k == model.KindCall || k == model.KindCommitment
 }
 
-// hasPath reports whether an open item leads to a goal or an area.
-func (h *healther) hasPath(id string, seen map[string]bool) bool {
-	if seen[id] {
-		return false
-	}
-	seen[id] = true
-	d, ok := h.docs[id]
-	if !ok {
-		return false
-	}
-	switch m := d.Meta.(type) {
-	case *model.Project, *model.Area:
-		return true
-	case *model.Task:
-		for _, l := range []string{m.Project.Target(), m.Area.Target()} {
-			if _, ok := h.docs[l]; ok && l != "" {
-				return true
-			}
-		}
-	case *model.RFX:
-		if _, ok := h.docs[m.Project.Target()]; ok && m.Project.Target() != "" {
-			return true
-		}
-	case *model.Question:
-		if !m.IsRoot() {
-			if sd, ok := h.docs[m.Scope.Target()]; ok {
-				switch sd.Meta.(type) {
-				case *model.Project, *model.Area, *model.Task:
-					return true
-				}
-			}
-		}
-	}
-	for _, u := range h.dependents[id] {
-		if h.hasPath(u, seen) {
-			return true
-		}
-	}
-	return false
+// hasReason reports whether an open item has a reason (reason.go): it leads
+// to a goal, is owed to someone, or keeps something up.
+func (h *healther) hasReason(id string) bool {
+	return len(h.graph.reasons(id)) > 0
 }
 
 func (h *healther) scan() {
@@ -572,8 +518,8 @@ func (h *healther) scan() {
 				h.add(HealthTaskIsWaiting, id, goal, "the task reads like waiting on someone: waiting on a person is an Ask, not a task",
 					fmt.Sprintf("task_to_asks {id: %s, people: [person-...]}: one Ask per person; dependents move to them", id))
 			}
-			if !h.hasPath(id, map[string]bool{}) && !needsNoPath(m.Kind) {
-				h.add(HealthNoPath, id, goal, "open task leads to no goal or area", fmt.Sprintf("task_add again under a goal, or task_done {id: %s}", id))
+			if !h.hasReason(id) && !needsNoPath(m.Kind) {
+				h.add(HealthNoPath, id, goal, NoReasonTask, fmt.Sprintf("link a goal (task_add again under a goal), say who it is for (task_edit {id: %s, requested_by: ...}), or task_done {id: %s}", id, id))
 			}
 			if m.Status == model.TaskBlocked {
 				h.blocker(id, goal, m)
@@ -588,8 +534,8 @@ func (h *healther) scan() {
 			if len(m.Targets) == 0 {
 				h.add(HealthAskNoTarget, id, goal, "ask has no target person or medium", fmt.Sprintf("rfx_target_add {id: %s, to: person-..., medium: ...}", id))
 			}
-			if !h.hasPath(id, map[string]bool{}) {
-				h.add(HealthNoPath, id, goal, "open ask leads to no goal or area", fmt.Sprintf("rfx_close {id: %s}, or ask the owner which goal it serves", id))
+			if !h.hasReason(id) {
+				h.add(HealthNoPath, id, goal, "open ask has no reason: no goal, no one it is owed to, no area", fmt.Sprintf("rfx_close {id: %s}, or ask the owner which goal it serves", id))
 			}
 		case *model.Question:
 			h.question(id, goal, d, m)
@@ -738,8 +684,8 @@ func (h *healther) question(id, goal string, d model.Document, m *model.Question
 		if ok && r.Impact == 0 && h.stale != "" && string(m.Created) != "" && string(m.Created) < h.stale {
 			h.add(HealthQuestionStale, id, goal, fmt.Sprintf("question blocks nothing and is older than %d days", HealthStaleDays), fmt.Sprintf("question_drop {id: %s, reason: ...}, or defer {ids: [%s]}", id, id))
 		}
-		if !h.hasPath(id, map[string]bool{}) {
-			h.add(HealthNoPath, id, goal, "open question leads to no goal or area", fmt.Sprintf("question_drop {id: %s, reason: ...}", id))
+		if !h.hasReason(id) {
+			h.add(HealthNoPath, id, goal, "open question has no reason: no goal, no one it is owed to, no area", fmt.Sprintf("question_drop {id: %s, reason: ...}", id))
 		}
 	case model.QuestionAnswered:
 		kind := ""

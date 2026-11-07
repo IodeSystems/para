@@ -683,44 +683,65 @@ func reqTime(s string) (time.Time, bool) {
 // messages adds a row per io item threaded to the item: filed into it,
 // linked to it, or answering it, and the replies to those.
 func (h *histBuild) messages(byDoc map[string][]idxEvent) error {
-	refs, err := h.d.Store.List(h.ctx, store.Filter{Type: model.TypeIO, All: true})
+	all, err := ioAbout(h.ctx, h.d.Store, h.ids)
 	if err != nil {
 		return err
 	}
-	type ioDoc struct {
-		doc model.Document
-		m   *model.IO
+	for _, x := range all {
+		h.message(x.doc, x.m, byDoc[x.doc.ID])
 	}
-	var all []ioDoc
+	return nil
+}
+
+// aboutIO is an io item and its frontmatter.
+type aboutIO struct {
+	doc model.Document
+	m   *model.IO
+	// direct is true when the item was filed into one of the ids (became)
+	// or links one; false for a message threaded to one, or a reply.
+	direct bool
+}
+
+// ioAbout returns the io items about an item (ids: its id and earlier ids):
+// filed into it, linked to it, or answering it, and the replies to those.
+func ioAbout(ctx context.Context, s store.Store, ids []string) ([]aboutIO, error) {
+	refs, err := s.List(ctx, store.Filter{Type: model.TypeIO, All: true})
+	if err != nil {
+		return nil, err
+	}
+	var all []aboutIO
 	for _, ref := range refs {
-		doc, err := h.d.Store.Get(h.ctx, ref.ID)
+		doc, err := s.Get(ctx, ref.ID)
 		if err != nil {
 			continue
 		}
-		if m, ok := doc.Meta.(*model.IO); ok && !slices.Contains(h.ids, doc.ID) {
-			all = append(all, ioDoc{doc, m})
+		if m, ok := doc.Meta.(*model.IO); ok && !slices.Contains(ids, doc.ID) {
+			all = append(all, aboutIO{doc: doc, m: m})
 		}
 	}
 	in := map[string]bool{}
 	for changed := true; changed; {
 		changed = false
-		for _, x := range all {
+		for i, x := range all {
 			if in[x.doc.ID] {
 				continue
 			}
-			hit := func(l model.Link) bool { t := l.Target(); return slices.Contains(h.ids, t) || in[t] }
-			if hit(x.m.Thread) || (x.m.Became != "" && slices.Contains(h.ids, x.m.Became.Target())) ||
-				slices.ContainsFunc(x.m.Links, func(l model.Link) bool { return slices.Contains(h.ids, l.Target()) }) {
+			direct := (x.m.Became != "" && slices.Contains(ids, x.m.Became.Target())) ||
+				slices.ContainsFunc(x.m.Links, func(l model.Link) bool { return slices.Contains(ids, l.Target()) })
+			t := x.m.Thread.Target()
+			if direct || slices.Contains(ids, t) || in[t] {
 				in[x.doc.ID], changed = true, true
+				all[i].direct = direct
 			}
 		}
 	}
+	out := all[:0]
 	for _, x := range all {
 		if in[x.doc.ID] {
-			h.message(x.doc, x.m, byDoc[x.doc.ID])
+			out = append(out, x)
 		}
 	}
-	return nil
+	return out, nil
 }
 
 func (h *histBuild) message(doc model.Document, m *model.IO, evs []idxEvent) {

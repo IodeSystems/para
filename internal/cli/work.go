@@ -188,6 +188,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
+				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
 				fs.StringVar(&in.Parent, "parent", "", "task id this is an action item of (the parent does not wait on it)")
@@ -275,6 +276,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.DoCommand, "do-command", "", "the exact command to run (no secret in it)")
 				fs.StringVar(&in.Steps, "steps", "", "1 to 5 steps, a markdown list")
 				fs.BoolVar(&in.ClearHow, "clear-how", false, "remove do-url, do-command, and steps")
+				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
+				fs.BoolVar(&in.ClearRequestedBy, "clear-requested-by", false, "remove requested_by")
 			},
 			Bind: func(args []string, in *ops.TaskEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.TaskEditOutput) string { return o.ID }),

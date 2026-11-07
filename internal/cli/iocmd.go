@@ -255,6 +255,7 @@ func newIOFileCmd(l *loader) *cobra.Command {
 			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or interaction (required unless --existing)")
 			fs.StringVar(&in.Existing, "existing", "", "id of a document that already holds it; para links it and makes nothing")
 			fs.StringVar(&in.Project, "project", "", "task: project id (or --area); rfx, note: optional")
+			fs.StringVar(&in.RequestedBy, "requested-by", "", "task: who it is for (default the sender)")
 			fs.StringVar(&in.Owner, "owner", "", "project: owner (default the vault owner, else self)")
 			fs.StringVar((*string)(&in.Direction), "direction", "", "rfx: in or out (default in)")
 			fs.StringVar(&in.Route, "route", "", "rfx: domain id (required)")
