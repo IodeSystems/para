@@ -258,8 +258,8 @@ func (l *linter) checkVia() {
 		l.errf(1, CodeFieldValue, "field %q: want {source, ref}, both non-empty", "via")
 	}
 	for k := range m {
-		if k != "source" && k != "ref" {
-			l.errf(1, CodeFieldValue, "field %q: unknown key %q; want source and ref", "via", k)
+		if k != "source" && k != "ref" && k != "thread" {
+			l.errf(1, CodeFieldValue, "field %q: unknown key %q; want source, ref, and optional thread", "via", k)
 		}
 	}
 }

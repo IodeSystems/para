@@ -103,6 +103,14 @@ func (sn *Snapshot) replyDraft(id string) string {
 			if _, seen := sn.replies[m.Thread.Target()]; !seen {
 				sn.replies[m.Thread.Target()] = doc.ID
 			}
+			// A draft that answers a message answers its reply obligation.
+			if td, err := sn.Get(m.Thread.Target()); err == nil {
+				if tm, ok := td.Meta.(*model.IO); ok && tm.Reply != "" {
+					if _, seen := sn.replies[tm.Reply.Target()]; !seen {
+						sn.replies[tm.Reply.Target()] = doc.ID
+					}
+				}
+			}
 		}
 	}
 	return sn.replies[id]

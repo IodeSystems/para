@@ -34,7 +34,7 @@ type IOAddInput struct {
 	To        []string          `json:"to,omitempty"`   // person or group ids, or free text; out needs one person or group
 	At        string            `json:"at,omitempty"`   // RFC 3339; in: default now; out: set on send
 	Ref       string            `json:"ref,omitempty"`  // public link a person can open
-	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref}
+	Via       *model.IOVia      `json:"via,omitempty"`  // private connector reference: {source, ref, thread}; thread is the tool's conversation id
 	// Verify tells the owner how to find a message with via and no ref.
 	Verify string `json:"verify,omitempty"`
 	// Tags are topics, such as socials.
@@ -59,10 +59,13 @@ type IOAddOutput struct {
 	Warnings []string      `json:"warnings"`
 	// Triage is what the owner's triage rules did to an incoming message.
 	Triage []TriageAct `json:"triage,omitempty"`
+	// Reply is the reply obligation made for an incoming message that
+	// expects a reply (ioreply.go).
+	Reply string `json:"reply,omitempty"`
 }
 
 // IOAdd captures an incoming message or drafts an outgoing one.
-var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction); an outward action (a PR, a ticket, a deploy, a document edit) is a draft too: to names where it lands (a repo, a URL), expects none, the text says what and how. Effort is xs, s, m, or l. Para sends nothing", ioAdd)
+var IOAdd = defineSafe("io_add", "Capture an incoming message (direction in) or draft one to send (direction out). In takes expects response when the sender waits for the owner's reply: set it honestly, since an incoming message needs the owner only when the sender waits for a reply, the sender (or a group they are in) or the source is priority high, or a triage rule says so; the rest goes to the day's inbox digest. The owner's triage rules apply at once (output triage). Out names a person or group in to, and expects: response (sending makes an Ask; give route) or none (sending logs an interaction); an outward action (a PR, a ticket, a deploy, a document edit) is a draft too: to names where it lands (a repo, a URL), expects none, the text says what and how. Effort is xs, s, m, or l. An incoming message with expects response gets a reply obligation (output reply), due io.reply_days after at; the reply closes it. Give via.thread, your tool's id of the conversation, so the pre-send check (io_send_check) sees replies in it. Para sends nothing", ioAdd)
 
 func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 	if !slices.Contains(model.IODirections, in.Direction) {
@@ -102,7 +105,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 			return IOAddOutput{}, errors.New("via: give source and ref, or leave via out")
 		}
 	}
-	if m.Thread, err = linkTo(ctx, d, "thread", in.Thread, model.TypeIO, model.TypeInteraction, model.TypeRFX); err != nil {
+	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX); err != nil {
 		return IOAddOutput{}, err
 	}
 	if err := checkVerifiable(m); err != nil {
@@ -139,8 +142,14 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 			}
 		}
 		out.Warnings = append(out.Warnings, warn...)
+		if replyWanted(m) {
+			out.Warnings = append(out.Warnings, syncReplyWarn(ctx, d, doc.ID)...)
+			if cur, err := d.Store.Get(ctx, doc.ID); err == nil {
+				out.Rev, out.Reply = cur.Rev, cur.Meta.(*model.IO).Reply.Target()
+			}
+		}
 	}
-	if m.Expects == model.ExpectsResponse {
+	if m.Expects == model.ExpectsResponse && in.Direction == model.IOOut {
 		if domains, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeDomain}); err == nil {
 			if picked, _ := pickDomain(m.Route, domains); picked == nil {
 				out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text", m.Route))
@@ -519,9 +528,10 @@ type IOEditInput struct {
 
 // IOEditOutput is the output of io_edit.
 type IOEditOutput struct {
-	ID    string        `json:"id"`
-	State model.IOState `json:"state"`
-	Rev   string        `json:"rev"`
+	ID       string        `json:"id"`
+	State    model.IOState `json:"state"`
+	Rev      string        `json:"rev"`
+	Warnings []string      `json:"warnings,omitempty"`
 }
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
@@ -614,7 +624,9 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	switch in.State {
 	case model.IOReady:
 		// The owner marks it ready: that is their approval of this text.
-		m.State, m.ApprovedHash = model.IOReady, m.DraftHash(doc.Body)
+		if err := markApproved(ctx, d, doc, m); err != nil {
+			return IOEditOutput{}, err
+		}
 	case model.IODraft:
 		m.State, m.ApprovedHash = model.IODraft, ""
 	case "":
@@ -625,7 +637,14 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if err != nil {
 		return IOEditOutput{}, err
 	}
-	return IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, nil
+	out := IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}
+	if m.Direction == model.IOIn && in.Expects != "" {
+		out.Warnings = syncReplyWarn(ctx, d, doc.ID)
+		if cur, err := d.Store.Get(ctx, doc.ID); err == nil {
+			out.Rev = cur.Rev
+		}
+	}
+	return out, nil
 })
 
 // IOApproveInput is the input of io_approve.
@@ -648,7 +667,7 @@ type IOApproveOutput struct {
 // IOApprove is the owner's approval of an outgoing draft: it binds the
 // draft's hash and makes it ready to send. An agent may record it only with
 // the owner's words from the chat (D3); no other op takes chat approval.
-var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. Send it with your own tool, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
+var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
 	said := strings.TrimSpace(in.OwnerSaid)
 	agent := agentSurface(d)
 	if agent && said == "" {
@@ -669,7 +688,9 @@ var IOApprove = defineSafe("io_approve", "Approve an outgoing draft for sending:
 	if err := checkOut(m); err != nil {
 		return IOApproveOutput{}, err
 	}
-	m.State, m.ApprovedHash = model.IOReady, m.DraftHash(doc.Body)
+	if err := markApproved(ctx, d, doc, m); err != nil {
+		return IOApproveOutput{}, err
+	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return IOApproveOutput{}, err
@@ -692,9 +713,10 @@ type IODropInput struct {
 
 // IODropOutput is the output of io_drop.
 type IODropOutput struct {
-	ID    string        `json:"id"`
-	State model.IOState `json:"state"`
-	Rev   string        `json:"rev"`
+	ID       string        `json:"id"`
+	State    model.IOState `json:"state"`
+	Rev      string        `json:"rev"`
+	Warnings []string      `json:"warnings,omitempty"`
 }
 
 // IODrop sets an open item aside with a reason. Nothing is deleted.
@@ -712,7 +734,7 @@ var IODrop = define("io_drop", "Drop an open io item with a reason: an incoming 
 	if err != nil {
 		return IODropOutput{}, err
 	}
-	return IODropOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, nil
+	return IODropOutput{ID: doc.ID, State: m.State, Rev: doc.Rev, Warnings: syncReplyWarn(ctx, d, doc.ID)}, nil
 })
 
 // IOSendInput is the input of io_send.
@@ -721,6 +743,11 @@ type IOSendInput struct {
 	URL     string `json:"url,omitempty"`     // where the sent message is
 	Locator string `json:"locator,omitempty"` // where it is, when it has no URL
 	At      string `json:"at,omitempty"`      // RFC 3339; default now
+	// Observed: you record an act already done without this draft's
+	// approval: the owner sent it themself and scan_out saw it, or an act the
+	// owner allowed without review (a local commit). The pre-send check does
+	// not apply; the receipt shows it.
+	Observed bool `json:"observed,omitempty"`
 }
 
 // IOSendOutput is the output of io_send.
@@ -736,7 +763,7 @@ type IOSendOutput struct {
 // IOSend records that an outgoing message was sent. Expects none logs an
 // interaction; expects response opens an Ask with each person or group as a
 // sent target, so follow-ups use the Ask tools.
-var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. Send only a draft the owner approved (io_approve); a send of another is recorded with a warning", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. From an agent it is refused unless the owner approved the draft (io_approve) and io_send_check passed after that, within 30 minutes; observed records a send the owner made themself that scan_out saw. A send threaded to an incoming message closes its reply obligation", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	return sendIO(ctx, d, in)
 })
 
@@ -782,8 +809,10 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if err := checkOut(m); err != nil {
 		return out, err
 	}
-	if agentSurface(d) && !m.Approved(doc.Body) {
-		out.Warnings = append(out.Warnings, doc.ID+" was sent without the owner's approval of this text (io_approve): tell the owner")
+	if agentSurface(d) && !in.Observed {
+		if err := sendGate(d, doc, m); err != nil {
+			return out, err
+		}
 	}
 	back := "Sent from [[" + doc.ID + "]]."
 	if locator != "" {
@@ -844,6 +873,8 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 			tm.State, tm.Became = model.IOFiled, model.LinkTo(doc.ID)
 			if _, err := d.Store.Update(ctx, tdoc); err != nil {
 				out.Warnings = append(out.Warnings, fmt.Sprintf("%s was sent, but %s it answers was not filed: %v", doc.ID, th, err))
+			} else {
+				out.Warnings = append(out.Warnings, syncReplyWarn(ctx, d, th)...)
 			}
 		}
 	}

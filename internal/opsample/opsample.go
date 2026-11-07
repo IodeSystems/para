@@ -106,8 +106,9 @@ var Inputs = map[string]string{
 	"io_edit":                   `{"id":"io-sample","state":"read"}`,
 	"io_file":                   `{"id":"io-sample","to":"task","project":"project-sample","done_when":"The capture is handled."}`,
 	"io_drop":                   `{"id":"io-sample","reason":"Handled elsewhere."}`,
-	"io_send":                   `{"id":"io-draft-sample","url":"https://acme.example/m/2"}`,
+	"io_send":                   `{"id":"io-draft-sample","url":"https://acme.example/m/2","observed":true}`,
 	"io_approve":                `{"id":"io-draft-sample","owner_said":"Yes, send it."}`,
+	"io_send_check":             `{"id":"io-ready-sample"}`,
 	"ingest":                    `{"url":"https://wiki.acme.example/policies/sample","text":"Sample policy text."}`,
 	"interaction_add":           `{"summary":"Agreed to review on Friday","with":["person-sample"],"medium":"slack","direction":"in","date":"2026-11-01","url":"https://acme.example/m/1"}`,
 	"interaction_show":          `{"id":"interaction-sample"}`,
@@ -219,7 +220,7 @@ var Inputs = map[string]string{
 	"similar":                   `{"type":"task","title":"Sample task"}`,
 	"request_respond":           `{"id":"request-finished","kind":"change","text":"Use the shorter summary."}`,
 	"request_changes":           `{"id":"request-finished"}`,
-	"proposal_executed":         `{"id":"proposal-moved","item":"i1","result":"done","url":"https://acme.example/m/3"}`,
+	"proposal_executed":         `{"id":"proposal-moved","item":"i1","result":"done","url":"https://acme.example/m/3","observed":true}`,
 	"proposal_show":             `{"id":"proposal-sample"}`,
 	"proposal_open":             `{"id":"proposal-sample"}`,
 	"dossier_refile":            `{"proposal":"proposal-sample","item":"i1","dropped":"Not needed now."}`,
@@ -300,6 +301,14 @@ func docVersion(n int, text string) model.Document {
 			Source: model.Source{URL: url, Retrieved: fmt.Sprintf("2026-11-0%dT09:00:00Z", n), Hash: "sha256:" + hex.EncodeToString(sum[:]), Fidelity: model.FidelityExact}}}
 }
 
+// readyDraft is an outgoing draft the owner approved: io_send_check passes it.
+func readyDraft() model.Document {
+	m := &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IOReady,
+		To: []string{"[[person-sample]]"}, Expects: model.ExpectsNone, ApprovedAt: "2026-11-01T09:00:00Z"}
+	m.ApprovedHash = m.DraftHash("Approved draft")
+	return model.Document{ID: "io-ready-sample", Folder: model.FolderIO, Title: "Approved draft", Body: "Approved draft", Meta: m}
+}
+
 // Seed creates the documents that Inputs name.
 func Seed(ctx context.Context, s store.Store) error {
 	proposals, err := sampleProposals()
@@ -359,6 +368,7 @@ func Seed(ctx context.Context, s store.Store) error {
 		{ID: "io-draft-sample", Folder: model.FolderIO, Title: "Sample draft", Body: "Sample draft",
 			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,
 				To: []string{"[[person-sample]]"}, Expects: model.ExpectsNone}},
+		readyDraft(),
 		{ID: "doc-sample", Folder: model.FolderTracked, Title: "Sample runbook", Body: "Tracked from https://wiki.acme.example/runbooks/sample.",
 			Meta: &model.TrackedDoc{Common: model.Common{Type: model.TypeTrackedDoc}, URL: "https://wiki.acme.example/runbooks/sample",
 				System: model.SystemConfluence, Status: model.DocWatching, Project: model.LinkTo("project-sample"), Latest: 2, LastSeen: 1,

@@ -55,12 +55,12 @@ func TestProposalExecutedIsIOSend(t *testing.T) {
 		Meta: &model.Proposal{Common: model.Common{Type: model.TypeProposal}, Status: model.ProposalSuperseded, Revision: 1, ProposedBy: "claude"}}); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := ProposalExecuted.Invoke(t.Context(), f.agent, json.RawMessage(`{"id":"proposal-old","item":"i1","result":"done","url":"https://mail.acme.example/1"}`))
+	raw, err := ProposalExecuted.Invoke(t.Context(), f.agent, json.RawMessage(`{"id":"proposal-old","item":"i1","result":"done","url":"https://mail.acme.example/1","observed":true}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	got := raw.(ProposalExecutedOutput)
-	want := mustRun(t, IOSend, f.agent, IOSendInput{ID: twin, URL: "https://mail.acme.example/2"})
+	want := mustRun(t, IOSend, f.agent, IOSendInput{ID: twin, URL: "https://mail.acme.example/2", Observed: true})
 	if got.AliasOf != "io_send" || got.State != want.State || got.BecameType != want.BecameType || got.ID != id {
 		t.Fatalf("alias = %+v, io_send = %+v", got, want)
 	}

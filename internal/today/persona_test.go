@@ -105,11 +105,14 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	news := capture("studio-mail", "news@fonts.example", "New fonts this week", "")
 	lunch := capture("client-chat", "pat@studio.example", "Lunch later", "")
 	comment := capture("design-board", "bot@board.example", "New comment on LOGO-12", "")
+	// The message that waits for a reply is held by its reply obligation:
+	// that is the item that needs the owner.
+	owed := ioMeta(t, owner, ask).Reply.Target()
 	for _, src := range sources {
 		must(t, ops.SweepRecord, agent, ops.SweepRecordInput{Source: src, Counts: map[string]int{"in": 1}})
 	}
 	set := views("after the sweep")
-	for id, want := range map[string]bool{ask: true, news: false, lunch: false, comment: false, task: true, invoice: false} {
+	for id, want := range map[string]bool{ask: false, owed: true, news: false, lunch: false, comment: false, task: true, invoice: false} {
 		if set[id] != want {
 			t.Errorf("after the sweep: %s needs you %v, want %v", id, set[id], want)
 		}
@@ -132,9 +135,9 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep, produce := requestFor(t, owner, out.Prepares, ask), requestFor(t, owner, out.Produce, invoice)
+	prep, produce := requestFor(t, owner, out.Prepares, owed), requestFor(t, owner, out.Produce, invoice)
 	if prep == "" || produce == "" {
-		t.Fatalf("tick: prepares %v, produce %v: none for %s or %s", out.Prepares, out.Produce, ask, invoice)
+		t.Fatalf("tick: prepares %v, produce %v: none for %s or %s", out.Prepares, out.Produce, owed, invoice)
 	}
 	views("after tick")
 
@@ -147,14 +150,14 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	}
 	reply := must(t, ops.IOAdd, agent, ops.IOAddInput{Direction: model.IOOut, Text: "Yes: the revised logo comes on Thursday.", Subject: "Re: revised logo",
 		To: []string{client}, Medium: model.MediumEmail, Expects: model.ExpectsNone, Thread: ask}).ID
-	must(t, ops.ItemPrepared, agent, ops.ItemPreparedInput{ID: ask, Kind: model.PreparedDraft, Ref: reply})
+	must(t, ops.ItemPrepared, agent, ops.ItemPreparedInput{ID: owed, Kind: model.PreparedDraft, Ref: reply})
 	must(t, ops.RequestDone, agent, ops.RequestDoneInput{ID: prep, Resolution: model.ResolutionDone, Result: "Drafted the reply.", Links: []string{reply}})
 	bill := must(t, ops.IOAdd, agent, ops.IOAddInput{Direction: model.IOOut, Text: "Hi Rae, this week's invoice is attached. It is due on Friday.", Subject: "Invoice",
 		To: []string{client}, Medium: model.MediumEmail, Expects: model.ExpectsNone}).ID
 	must(t, ops.ItemPrepared, agent, ops.ItemPreparedInput{ID: invoice, Kind: model.PreparedArtifact, Ref: bill})
 	must(t, ops.RequestDone, agent, ops.RequestDoneInput{ID: produce, Resolution: model.ResolutionDone, Result: "Drafted the invoice message.", Links: []string{bill}})
 	set = views("after the agent prepared")
-	for _, id := range []string{ask, invoice} {
+	for _, id := range []string{owed, invoice} {
 		r := orderRow(t, owner, id)
 		if !set[id] || !r.Ready {
 			t.Errorf("%s after prepare: needs you %v, row %+v", id, set[id], r)
@@ -166,10 +169,11 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	for _, x := range []struct {
 		draft, item string
 		close       bool
-	}{{reply, ask, false}, {bill, invoice, true}} {
+	}{{reply, owed, false}, {bill, invoice, true}} {
 		if got := must(t, ops.IOApprove, owner, ops.IOApproveInput{ID: x.draft}); got.State != model.IOReady || got.SelfReported {
 			t.Fatalf("approve %s: %+v", x.draft, got)
 		}
+		must(t, ops.IOSendCheck, agent, ops.IOSendCheckInput{ID: x.draft})
 		must(t, ops.IOSend, agent, ops.IOSendInput{ID: x.draft, URL: "https://mail.example/sent/" + x.draft})
 		if x.close {
 			must(t, ops.Close, agent, ops.CloseInput{ID: x.item})
@@ -179,8 +183,8 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 		}
 	}
 	set = views("after send")
-	if set[ask] || set[invoice] {
-		t.Errorf("a closed item needs you: ask %v invoice %v", set[ask], set[invoice])
+	if set[ask] || set[owed] || set[invoice] {
+		t.Errorf("a closed item needs you: ask %v reply %v invoice %v", set[ask], set[owed], set[invoice])
 	}
 	var next string
 	refs, err := owner.Store.List(ctx, store.Filter{Type: model.TypeObligation})

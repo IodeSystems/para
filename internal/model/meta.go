@@ -369,6 +369,9 @@ type Obligation struct {
 	// Produce is set on an obligation an agent owes (owed_by agent or
 	// agent:<name>): the artifact it produces each time one comes due.
 	Produce *Produce `yaml:"produce,omitempty" json:"produce,omitempty"`
+	// ReplyTo links the incoming io item this obligation is the owner's
+	// reply to (io_add with expects response).
+	ReplyTo Link `yaml:"reply_to,omitempty" json:"reply_to,omitempty"`
 }
 
 // OwedByAgent is the owed_by word of an agent: agent, or agent:<name>.
@@ -798,6 +801,20 @@ type IO struct {
 	// outgoing draft in state ready whose text still hashes to it may be
 	// sent. Empty on a ready draft from before 0.3.0.
 	ApprovedHash string `yaml:"approved_hash,omitempty" json:"approved_hash,omitempty"`
+	// ApprovedAt is when the owner approved the draft (RFC 3339), and
+	// ApprovedSeen the newest at of the incoming messages in its
+	// conversation then (empty: none). io_send_check counts what came in
+	// after ApprovedSeen; CheckedAt is when that check last passed. Held says
+	// why a check sent the draft back to the owner; HeldBy links the new
+	// messages.
+	ApprovedAt   string `yaml:"approved_at,omitempty" json:"approved_at,omitempty"`
+	ApprovedSeen string `yaml:"approved_seen,omitempty" json:"approved_seen,omitempty"`
+	CheckedAt    string `yaml:"checked_at,omitempty" json:"checked_at,omitempty"`
+	Held         string `yaml:"held,omitempty" json:"held,omitempty"`
+	HeldBy       []Link `yaml:"held_by,omitempty" json:"held_by,omitempty"`
+	// Reply links the obligation that holds the owner's reply to an incoming
+	// message that expects one (io.reply_days).
+	Reply Link `yaml:"reply,omitempty" json:"reply,omitempty"`
 	// Triage is what a triage rule (.para/triage.yaml) decided for an
 	// incoming message, and TriageBy names the rule ("rule 2" or "rule 2
 	// (name)"). Links are items a rule linked the message to; it stays open.
@@ -883,6 +900,10 @@ type SourceDoc struct {
 	Cadence   string      `yaml:"cadence,omitempty" json:"cadence,omitempty"` // recur grammar
 	LastScan  string      `yaml:"last_scan,omitempty" json:"last_scan,omitempty"`
 	Cursor    string      `yaml:"cursor,omitempty" json:"cursor,omitempty"`
+	// LastFailure is when a sweep last failed or reported errors, and
+	// LastError its error words (never a secret).
+	LastFailure string `yaml:"last_failure,omitempty" json:"last_failure,omitempty"`
+	LastError   string `yaml:"last_error,omitempty" json:"last_error,omitempty"`
 }
 
 // SourceStep is one thing an agent does on a source. Tool and Args are an
@@ -903,6 +924,10 @@ type SourceStep struct {
 type IOVia struct {
 	Source string `yaml:"source" json:"source"`
 	Ref    string `yaml:"ref" json:"ref"`
+	// Thread is the connector's own id of the conversation the message is
+	// in (a mail thread, a chat thread, a ticket), when the tool has one.
+	// Messages with the same source and thread are one conversation.
+	Thread string `yaml:"thread,omitempty" json:"thread,omitempty"`
 }
 
 // Incident is type: incident, the record of one outage or fault in a system

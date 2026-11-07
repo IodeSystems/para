@@ -165,13 +165,13 @@ func TestReplyBatchInOrderAndToday(t *testing.T) {
 	e.json(&task, "task", "add", "Ship", "--area", area.ID, "--effort", "xs")
 	var o ops.OrderOutput
 	e.json(&o, "order")
-	if len(o.Rows) != 2 || o.Rows[0].ID != msg.ID || o.Rows[0].Group != ops.GroupReply || o.Rows[1].Effort != "xs" || !o.Rows[1].EffortSet || o.Summary.ReplyMinutes != 30 {
+	if len(o.Rows) != 2 || msg.Reply == "" || o.Rows[0].ID != msg.Reply || o.Rows[0].Group != ops.GroupReply || o.Rows[1].Effort != "xs" || !o.Rows[1].EffortSet || o.Summary.ReplyMinutes != 30 {
 		t.Fatalf("order = %+v", o)
 	}
 	for _, args := range [][]string{{"order"}, {"today"}} {
 		out := e.ok(args...)
 		batch, focus := strings.Index(out, "reply\t1 waiting on you, about 30 min in all, 1 an agent can prepare\n"), strings.Index(out, "focus\n")
-		if batch < 0 || focus < batch || !strings.Contains(out, msg.ID) {
+		if batch < 0 || focus < batch || !strings.Contains(out, msg.Reply) {
 			t.Errorf("%s: %s", args[0], out)
 		}
 	}

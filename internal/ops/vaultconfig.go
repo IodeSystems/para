@@ -110,6 +110,7 @@ var configKeys = []configKey{
 	{name: "recheck.days", help: "an assumption checked more than this many days ago is stale (health, recheck); 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "docs.check_days", help: "health names a watched tracked document no agent has read again in this many days; 0 or unset is off", agent: true, check: checkInt(0)},
 	{name: "sources.reach_days", help: "an agent's declaration of the sources it reaches (agent_sources) lasts this many days; default 7", check: checkInt(0)},
+	{name: ReplyDaysKey, help: "an incoming message that expects a reply makes a reply obligation due this many days after it came; unset means 2", check: checkInt(0)},
 	{name: "sources.learn_reach", help: "true: an agent's declaration also adds it to the source's reached_by in the vault; unset or false: declarations stay on this machine", check: checkEnum("true", "false")},
 	{name: DueSoonKey, help: "value order: an item overdue or due within this many days ranks by date, before the rest by impact; unset means 2", agent: true, check: checkInt(0)},
 	{name: FocusCountKey, help: "value order: how many items the focus group picks by impact per effort, after due soon and replies; unset means 3, 0 is none", agent: true, check: checkInt(0)},

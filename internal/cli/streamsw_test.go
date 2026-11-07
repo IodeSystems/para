@@ -26,6 +26,9 @@ func streamSWParityCases() map[string]parityCase {
 		"sweep_plan":     {`{"sources":["src-sw-c"]}`, []string{"sweep", "plan", "src-sw-c"}, false},
 		"sweep_record": {`{"source":"src-sw-a","cursor":"c1","counts":{"in":1}}`,
 			[]string{"sweep", "record", "src-sw-b", "--cursor", "c1", "--count", "in=1"}, false},
+		"sweep_report":  {`{"since":"2026-01-01"}`, []string{"sweep", "report", "--since", "2026-01-01"}, false},
+		"io_stats":      {`{}`, []string{"io", "stats"}, false},
+		"io_send_check": {`{"id":"io-sw-ready"}`, []string{"io", "send-check", "io-sw-ready"}, false},
 	}
 }
 
@@ -36,6 +39,20 @@ func seedStreamSWParity(t *testing.T, deps ops.Deps) {
 		if _, err := ops.SourceAdd.Run(context.Background(), deps, ops.SourceAddInput{ID: id, Title: "Tracker " + id, Example: model.SourceGitHub}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	// An approved draft: io_send_check passes it, and may run twice.
+	if _, err := ops.OrgPersonAdd.Run(context.Background(), deps, ops.OrgAddInput{ID: "person-sw", Name: "Sam Sweep", Org: "acme.example"}); err != nil {
+		t.Fatal(err)
+	}
+	draft, err := ops.IOAdd.Run(context.Background(), deps, ops.IOAddInput{Direction: model.IOOut, Text: "Sure.", To: []string{"person-sw"}, Expects: model.ExpectsNone})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ops.DocRename.Run(context.Background(), deps, ops.DocRenameInput{ID: draft.ID, NewID: "io-sw-ready"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ops.IOApprove.Run(context.Background(), deps, ops.IOApproveInput{ID: "io-sw-ready"}); err != nil {
+		t.Fatal(err)
 	}
 }
 

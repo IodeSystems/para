@@ -196,6 +196,9 @@ type ValueNode struct {
 	// only when Owed.
 	Arrived string
 	Waiters int
+	// Reply marks a reply obligation (ioreply.go): the reply batch holds it
+	// until its due date passes, though its due date is near by design.
+	Reply bool
 	// Effort is the item's effort field, or "" when not set.
 	Effort model.Effort
 	// Prep is true when an agent can prepare the item in full and the owner
@@ -420,6 +423,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Group = GroupIncident
 		case eff != "" && opt.StaleDays > 0 && daysBetween(eff, opt.Today) > opt.StaleDays:
 			r.Group = GroupRecheck
+		case n.Reply && effortWeight[r.Effort] <= effortWeight[model.EffortS] && (eff == "" || eff >= opt.Today):
+			r.Group = GroupReply
 		case eff != "" && eff <= soon:
 			r.Group = GroupDueSoon
 		case n.Owed && effortWeight[r.Effort] <= effortWeight[model.EffortS]:
@@ -730,10 +735,12 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		// ask's signals: when it came, who waits, and what it blocks (its kept
 		// keys targets and blocks).
 		owed, askIn := false, false
+		reply := ""
 		var askTargets []model.Target
 		var askBlocks []model.Link
 		if o, ok := doc.Meta.(*model.Obligation); ok {
-			owed = len(o.OwedTo) > 0
+			owed = len(o.OwedTo) > 0 || o.ReplyTo != "" // a reply is owed to its sender, linked or not
+			reply = o.ReplyTo.Target()
 			if o.FoldedFrom == model.TypeRFX {
 				askIn = true
 				doc.Kept("targets", &askTargets)
@@ -797,6 +804,14 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				continue
 			}
 			n.Kind, n.Due, n.Goal, n.Owed = KindTask, string(m.Due), m.Project.Target(), owed
+			if reply != "" {
+				n.Reply, n.Prep, n.Waiters = true, true, 1
+				if rd, err := sn.Get(reply); err == nil {
+					if im, ok := rd.Meta.(*model.IO); ok {
+						n.Arrived, _ = meetingDay(im.At)
+					}
+				}
+			}
 			if all {
 				n.Hidden = IsOther(m.Assignee) || meetingQuiet(m)
 			}
@@ -839,7 +854,8 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			// an outgoing draft. An agent can prepare both. Other incoming
 			// messages are sorted in the inbox.
 			switch {
-			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Expects == model.ExpectsResponse:
+			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Expects == model.ExpectsResponse && m.Reply == "":
+				// With a reply obligation, the obligation is the row.
 				n.Owed, n.Waiters = true, 1
 				n.Arrived, _ = meetingDay(m.At)
 			case m.Direction == model.IOOut && m.State == model.IODraft:

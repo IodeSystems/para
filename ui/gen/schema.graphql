@@ -85,6 +85,7 @@ type ParaV1MutationNamespace {
   ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
   ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
   ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
+  ioSendCheck(body: para_IOSendCheckInputInput!): para_IOSendCheckOutput @derived(operationId: "ioSendCheck")
   itemClose(body: para_ItemCloseInputInput!): para_ItemCloseOutput @derived(operationId: "itemClose")
   itemPrepared(body: para_ItemPreparedInputInput!): para_ItemPreparedOutput @derived(operationId: "itemPrepared")
   journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
@@ -242,6 +243,7 @@ type ParaV1QueryNamespace {
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
   ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState): para_IOListOutput @derived(operationId: "ioList")
   ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
+  ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
   lint: para_LintOutput @derived(operationId: "lint")
@@ -310,6 +312,7 @@ type ParaV1QueryNamespace {
   sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
   sourceShow(id: String!): para_SourceShowOutput @derived(operationId: "sourceShow")
   sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
+  sweepReport(since: String): para_SweepReportOutput @derived(operationId: "sweepReport")
   tagList: para_TagListOutput @derived(operationId: "tagList")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
@@ -2679,6 +2682,7 @@ enum para_IOAddInputMedium {
 type para_IOAddOutput {
   folder: para_IOAddOutputFolder!
   id: String!
+  reply: String
   rev: String!
   state: para_IOAddOutputState!
   triage: [para_TriageAct!]
@@ -2767,6 +2771,7 @@ type para_IODropOutput {
   id: String!
   rev: String!
   state: para_IODropOutputState!
+  warnings: [String!]
 }
 
 enum para_IODropOutputState {
@@ -2834,6 +2839,7 @@ type para_IOEditOutput {
   id: String!
   rev: String!
   state: para_IOEditOutputState!
+  warnings: [String!]
 }
 
 enum para_IOEditOutputState {
@@ -3006,10 +3012,45 @@ type para_IOListOutput {
   items: [para_IOItem!]!
 }
 
+input para_IOSendCheckInputInput {
+  id: String!
+}
+
+type para_IOSendCheckMessage {
+  at: String
+  from: String
+  id: String!
+  title: String!
+}
+
+type para_IOSendCheckOutput {
+  checkedAt: String
+  held: Boolean!
+  id: String!
+  new: [para_IOSendCheckMessage!]!
+  next: String!
+  ok: Boolean!
+  reason: String
+  rev: String!
+  sendBy: String
+  state: para_IOSendCheckOutputState!
+}
+
+enum para_IOSendCheckOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
 input para_IOSendInputInput {
   at: String
   id: String!
   locator: String
+  observed: Boolean
   url: String
 }
 
@@ -3068,14 +3109,76 @@ type para_IOShowOutput {
   item: para_IOItem!
 }
 
+type para_IOSourceStats {
+  held: Int!
+  id: String!
+  lastError: String
+  lastFailure: String
+  lastScan: String
+  openReplies: Int!
+  overdue: Int!
+  reachedBy: [String!]!
+  status: para_IOSourceStatsStatus
+  system: para_IOSourceStatsSystem
+  title: String
+  vendor: String
+  via: para_IOSourceStatsVia
+  windows: [para_IOWindow!]!
+}
+
+enum para_IOSourceStatsStatus {
+  active
+  paused
+}
+
+enum para_IOSourceStatsSystem {
+  calendar
+  chat
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  mail
+  other
+  slack
+  tracker
+  wiki
+}
+
+enum para_IOSourceStatsVia {
+  cli
+  mcp
+  none
+}
+
+type para_IOStatsOutput {
+  sources: [para_IOSourceStats!]!
+  text: String!
+}
+
 type para_IOVia {
   ref: String!
   source: String!
+  thread: String
 }
 
 input para_IOViaInput {
   ref: String!
   source: String!
+  thread: String
+}
+
+type para_IOWindow {
+  days: Int!
+  failed: Int!
+  in: Int!
+  out: Int!
+  replied: Int!
+  replyHours: Float!
+  sweeps: Int!
 }
 
 input para_ImportFileInput {
@@ -4146,7 +4249,9 @@ type para_Meta {
   answered: String
   answeredBy: String
   appliesIn: [String!]
+  approvedAt: String
   approvedHash: String
+  approvedSeen: String
   area: String
   assignee: String
   assumptions: JSON
@@ -4166,6 +4271,7 @@ type para_Meta {
   check: String
   checkNote: String
   checked: String
+  checkedAt: String
   checkedBy: String
   choice: String
   claimedAt: String
@@ -4208,10 +4314,14 @@ type para_Meta {
   from: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
+  held: String
+  heldBy: [String!]
   importedFrom: para_ImportedFrom
   incident: String
   item: String
   kind: String
+  lastError: String
+  lastFailure: String
   lastReviewed: String
   lastScan: String
   lastSeen: Int
@@ -4266,6 +4376,8 @@ type para_Meta {
   refines: String
   rejectedBy: String
   rejectedReason: String
+  reply: String
+  replyTo: String
   request: String
   requestedBy: String
   required: [String!]
@@ -5386,6 +5498,7 @@ input para_ProposalExecutedInputInput {
   id: String!
   item: String!
   locator: String
+  observed: Boolean
   onBehalfOf: String
   reason: String
   result: String!
@@ -6376,6 +6489,22 @@ input para_ReopenInputInput {
   tag: String
 }
 
+type para_ReportItem {
+  at: String
+  became: String!
+  direction: para_ReportItemDirection
+  from: String
+  id: String!
+  link: String
+  reply: String
+  title: String!
+}
+
+enum para_ReportItemDirection {
+  in
+  out
+}
+
 type para_ReportOutcomesOutput {
   byActor: [para_ActorOutcomes!]!
   closes: Int!
@@ -6383,6 +6512,52 @@ type para_ReportOutcomesOutput {
   since: String!
   undos: [para_UndoRow!]!
   until: String!
+}
+
+type para_ReportSource {
+  comments: Int!
+  errors: [String!]!
+  held: [String!]!
+  id: String!
+  in: [para_ReportItem!]!
+  out: [para_ReportItem!]!
+  reachedBy: [String!]!
+  replies: [String!]!
+  status: para_ReportSourceStatus
+  sweeps: Int!
+  system: para_ReportSourceSystem
+  title: String
+  vendor: String
+  versions: [String!]!
+  via: para_ReportSourceVia
+}
+
+enum para_ReportSourceStatus {
+  active
+  paused
+}
+
+enum para_ReportSourceSystem {
+  calendar
+  chat
+  confluence
+  folder
+  gcal
+  gdocs
+  github
+  gmail
+  jira
+  mail
+  other
+  slack
+  tracker
+  wiki
+}
+
+enum para_ReportSourceVia {
+  cli
+  mcp
+  none
 }
 
 input para_RequestAcceptInputInput {
@@ -7350,6 +7525,13 @@ type para_SweepRecordOutput {
   triage: [para_TriageAct!]
   unreviewed: [String!]!
   warnings: [String!]
+}
+
+type para_SweepReportOutput {
+  calendar: [String!]!
+  since: String!
+  sources: [para_ReportSource!]!
+  text: String!
 }
 
 type para_SweepSource {

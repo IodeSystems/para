@@ -108,11 +108,12 @@ func TestIOApprove(t *testing.T) {
 	if _, m, _ := getIO(t.Context(), f.owner, id); m.ApprovedHash != "" {
 		t.Fatalf("hash kept after edit: %q", m.ApprovedHash)
 	}
-	// A send of an unapproved draft is recorded, with a warning.
-	sent := mustRun(t, IOSend, f.agent, IOSendInput{ID: id, URL: "https://mail.example/m/1"})
-	if len(sent.Warnings) == 0 || !strings.Contains(sent.Warnings[0], "without the owner's approval") {
-		t.Fatalf("warnings = %v", sent.Warnings)
+	// An agent's send of an unapproved draft is refused; one the owner made
+	// and the agent only saw is recorded.
+	if _, err := IOSend.Run(t.Context(), f.agent, IOSendInput{ID: id, URL: "https://mail.example/m/1"}); err == nil || !strings.Contains(err.Error(), "not approved") {
+		t.Fatalf("unapproved send: %v", err)
 	}
+	mustRun(t, IOSend, f.agent, IOSendInput{ID: id, URL: "https://mail.example/m/1", Observed: true})
 
 	// The owner approves without words, at the terminal or with io_edit ready.
 	a := outDraft(t, f, model.ExpectsNone, "")
@@ -124,6 +125,7 @@ func TestIOApprove(t *testing.T) {
 	if doc, m, _ := getIO(t.Context(), f.owner, b); m.ApprovedHash != m.DraftHash(doc.Body) {
 		t.Fatalf("owner ready = %+v", m)
 	}
+	mustRun(t, IOSendCheck, f.agent, IOSendCheckInput{ID: b})
 	if sent := mustRun(t, IOSend, f.agent, IOSendInput{ID: b, URL: "https://mail.example/m/2"}); len(sent.Warnings) != 0 {
 		t.Fatalf("approved send warned: %v", sent.Warnings)
 	}

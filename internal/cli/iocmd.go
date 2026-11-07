@@ -83,6 +83,7 @@ func newIOCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.URL, "url", "", "where the sent message is")
 				fs.StringVar(&in.Locator, "locator", "", "where it is, when it has no URL")
 				fs.StringVar(&in.At, "at", "", "RFC 3339 time it was sent; default now")
+				fs.BoolVar(&in.Observed, "observed", false, "as an agent: the owner sent it themself and you only saw it")
 			},
 			Bind: func(args []string, in *ops.IOSendInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.IOSendOutput) error {
@@ -92,6 +93,35 @@ func newIOCmd(l *loader) *cobra.Command {
 				}
 				p.f("%s\t%s\t%s %s\n", out.ID, out.State, out.BecameType, out.Became)
 				return p.err
+			},
+		}),
+		opCommand(l, ops.IOSendCheck, binding[ops.IOSendCheckInput, ops.IOSendCheckOutput]{
+			Use:  "send-check <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.IOSendCheckInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IOSendCheckOutput) error {
+				p := &printer{w: w}
+				if out.Held {
+					p.f("%s\theld\t%s\n", out.ID, out.Reason)
+					for _, n := range out.New {
+						p.f("  %s\t%s\t%s\t%s\n", n.ID, n.At, n.From, n.Title)
+					}
+				} else {
+					p.f("%s\tok\tsend by %s\n", out.ID, out.SendBy)
+				}
+				p.f("next\t%s\n", out.Next)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.IOStats, binding[ops.IOStatsInput, ops.IOStatsOutput]{
+			Use:  "stats [--days <n>]",
+			Args: cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.IOStatsInput) {
+				fs.IntVar(&in.Days, "days", 0, "one window in days; default 7 and 30")
+			},
+			Text: func(w io.Writer, out ops.IOStatsOutput) error {
+				_, err := fmt.Fprintln(w, firstNonEmpty(out.Text, "no sources"))
+				return err
 			},
 		}),
 		opCommand(l, ops.IODone, binding[ops.IODoneInput, ops.IOSendOutput]{
@@ -142,6 +172,7 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 			fs.StringVar(&in.Ref, "ref", "", "public link to the message")
 			fs.StringVar(&via.source, "via-source", "", "private source: connector or source name")
 			fs.StringVar(&via.ref, "via-ref", "", "private source: its id of the message")
+			fs.StringVar(&via.thread, "via-thread", "", "private source: its id of the conversation (thread, channel thread, ticket)")
 			fs.StringVar(&in.Verify, "verify", "", "with via and no ref: how the owner finds the message")
 			fs.StringVar((*string)(&in.Expects), "expects", "", "out: response (sending makes an Ask) or none (sending logs an interaction); in: response when the sender waits for your reply")
 			fs.StringVar(&in.Route, "route", "", "out with expects response: domain id")
@@ -154,7 +185,7 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 				in.Direction = dir
 			}
 			if via.source != "" || via.ref != "" {
-				in.Via = &model.IOVia{Source: via.source, Ref: via.ref}
+				in.Via = &model.IOVia{Source: via.source, Ref: via.ref, Thread: via.thread}
 			}
 			return nil
 		},
@@ -169,7 +200,7 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 	})
 }
 
-type ioViaFlags struct{ source, ref string }
+type ioViaFlags struct{ source, ref, thread string }
 
 // newIOListCmd lists io items; fixed holds the filter of `io inbox` and
 // `io outbox`, which are views of io_list and not ops of their own.

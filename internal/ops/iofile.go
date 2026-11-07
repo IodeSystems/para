@@ -131,6 +131,7 @@ var IOFile = defineSafe("io_file", "File an incoming io item into a new task, As
 		return out, triageHalf(out, err)
 	}
 	out.State, out.Rev = m.State, doc.Rev
+	out.Warnings = append(out.Warnings, syncReplyWarn(ctx, d, doc.ID)...)
 	return out, nil
 })
 

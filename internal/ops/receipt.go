@@ -341,6 +341,13 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 			out.Doc, out.Rev = saved.ID, saved.Rev
 		}
 	}
+	// A message put back to open or closed takes its reply obligation with
+	// it; a failure here is fixed by the next tick.
+	for _, p := range parts {
+		if cur, err := d.Store.Get(ctx, p.Doc); err == nil && cur.Meta.Header().Type == model.TypeIO {
+			_, _ = syncReply(ctx, d, p.Doc)
+		}
+	}
 	return out, nil
 }
 

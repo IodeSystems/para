@@ -454,8 +454,17 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		return Need{Turn: TurnWaiting, Reason: "waiting on a reply"}
 	case *model.IO:
 		switch {
+		case m.Direction == model.IOIn && m.Reply != "":
+			// The reply obligation holds the owner's turn, so the message
+			// shows once: as that obligation (ioreply.go).
+			if od, err := sn.Get(m.Reply.Target()); err == nil && lifeOf(od.Meta) == LifeOpen {
+				return Need{Turn: TurnWaiting, Reason: "reply owed: " + od.ID}
+			}
+			return none("reply obligation closed")
 		case m.Direction == model.IOIn:
 			return sn.inboundTurn(m)
+		case m.State == model.IODraft && m.Held != "":
+			return owner(m.Held)
 		case m.State == model.IODraft:
 			return owner("draft to approve")
 		case m.State == model.IOReady && !m.Approved(doc.Body):

@@ -249,6 +249,15 @@ type Meta struct {
 	FoldedInto      string                `json:"folded_into,omitempty"` // an exception, convention, or constraint: the area it is an annotation in
 	Follows         *model.Followed       `json:"follows,omitempty"`     // area: the source it summarizes
 	Produce         *model.Produce        `json:"produce,omitempty"`     // obligation owed by an agent: what it produces
+	ApprovedAt      string                `json:"approved_at,omitempty"` // io draft: when the owner approved it
+	ApprovedSeen    string                `json:"approved_seen,omitempty"`
+	CheckedAt       string                `json:"checked_at,omitempty"` // io draft: the last passing pre-send check
+	Held            string                `json:"held,omitempty"`       // io draft: why the pre-send check held it
+	HeldBy          []string              `json:"held_by,omitempty"`
+	Reply           string                `json:"reply,omitempty"`    // incoming io: its reply obligation
+	ReplyTo         string                `json:"reply_to,omitempty"` // obligation: the io item it replies to
+	LastFailure     string                `json:"last_failure,omitempty"`
+	LastError       string                `json:"last_error,omitempty"`
 
 	HealthDismissed []model.HealthDismissal `json:"health_dismissed,omitempty"`
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`

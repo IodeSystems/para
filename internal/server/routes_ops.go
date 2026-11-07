@@ -51,6 +51,7 @@ func registerWork(r *registrar) {
 	reg(r, ops.IOFile, post, write)
 	reg(r, ops.IODrop, post, write)
 	reg(r, ops.IOSend, post, write)
+	reg(r, ops.IOSendCheck, post, write)
 	reg(r, ops.TriageRun, post, write)
 }
 
@@ -82,6 +83,8 @@ func registerSources(r *registrar) {
 	reg(r, ops.AgentSources, post, write)
 	reg(r, ops.SweepPlan, get, read)
 	reg(r, ops.SweepRecord, post, write)
+	reg(r, ops.SweepReport, get, read)
+	reg(r, ops.IOStats, get, read)
 }
 
 // registerRFX: rfx:draft prepares an ask. rfx:send records that a person sent

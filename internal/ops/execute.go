@@ -23,14 +23,16 @@ const (
 // ProposalExecutedInput is the input of proposal_executed, as before 0.3.0.
 // By, OnBehalfOf, Reason, and Text are read and not used: io_send takes none.
 type ProposalExecutedInput struct {
-	ID         string `json:"id"`
-	Item       string `json:"item"`
-	Result     string `json:"result"`            // done; failed is refused: the draft waits
-	URL        string `json:"url,omitempty"`     // where the result is
-	Locator    string `json:"locator,omitempty"` // where the result is, when it has no URL
-	Reason     string `json:"reason,omitempty"`
-	Text       string `json:"text,omitempty"`
-	By         string `json:"by,omitempty"`
+	ID      string `json:"id"`
+	Item    string `json:"item"`
+	Result  string `json:"result"`            // done; failed is refused: the draft waits
+	URL     string `json:"url,omitempty"`     // where the result is
+	Locator string `json:"locator,omitempty"` // where the result is, when it has no URL
+	Reason  string `json:"reason,omitempty"`
+	Text    string `json:"text,omitempty"`
+	By      string `json:"by,omitempty"`
+	// Observed is io_send's: the owner sent it themself and scan_out saw it.
+	Observed   bool   `json:"observed,omitempty"`
 	OnBehalfOf string `json:"on_behalf_of,omitempty"`
 }
 
@@ -75,7 +77,7 @@ var ProposalExecuted = defineSafe("proposal_executed", "Alias of io_send (this n
 	if _, m, err := getIO(ctx, d, draft); err != nil || m.Direction != model.IOOut {
 		return out, fmt.Errorf("%s %s went to %s, which is not an outgoing io draft: call io_send with the draft", doc.ID, in.Item, draft)
 	}
-	res, err := IOSend.Run(ctx, d, IOSendInput{ID: draft, URL: in.URL, Locator: in.Locator})
+	res, err := IOSend.Run(ctx, d, IOSendInput{ID: draft, URL: in.URL, Locator: in.Locator, Observed: in.Observed})
 	out.IOSendOutput = res
 	return out, err
 })

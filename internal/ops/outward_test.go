@@ -59,7 +59,7 @@ func TestUnreviewedOutward(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := IOSend.Run(ctx, claude, IOSendInput{ID: act.ID, URL: "https://github.example/acme/portal/commit/abc/"}); err != nil {
+	if _, err := IOSend.Run(ctx, claude, IOSendInput{ID: act.ID, URL: "https://github.example/acme/portal/commit/abc/", Observed: true}); err != nil {
 		t.Fatal(err)
 	}
 	f := unreviewedFindings(t, d)

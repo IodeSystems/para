@@ -383,6 +383,7 @@ func TestProduceWeeklyMessageToAGroup(t *testing.T) {
 	if p := must(t, TaskShow, d, TaskShowInput{ID: ob}).Produce; p == nil || p.Artifact.State != string(model.IOReady) {
 		t.Fatalf("artifact after approval: %+v", p)
 	}
+	must(t, IOSendCheck, agent, IOSendCheckInput{ID: draft.ID})
 	must(t, IOSend, agent, IOSendInput{ID: draft.ID, URL: "https://mail.example/sent/1"})
 	must(t, obligationClose, d, obligationCloseInput{ID: ob})
 	// The series goes on to the next week; no journal obligation in this vault.

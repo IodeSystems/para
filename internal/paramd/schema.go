@@ -267,6 +267,7 @@ var typeFields = map[string][]field{
 		{Name: "depends_on", Kind: kList},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 		{Name: "folded_from", Kind: kString}, // upgrade step obligations: the type before
+		{Name: "reply_to", Kind: kLink},      // the incoming io item it replies to
 	},
 	"meeting": {
 		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},
@@ -404,6 +405,12 @@ var typeFields = map[string][]field{
 		{Name: "reason", Kind: kString},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 		{Name: "approved_hash", Kind: kString},
+		{Name: "approved_at", Kind: kTimestamp},
+		{Name: "approved_seen", Kind: kTimestamp},
+		{Name: "checked_at", Kind: kTimestamp},
+		{Name: "held", Kind: kString},
+		{Name: "held_by", Kind: kLinkList},
+		{Name: "reply", Kind: kLink},                   // the reply obligation
 		{Name: "triage", Kind: kEnum, Enum: ioTriages}, // set by a triage rule
 		{Name: "triage_by", Kind: kString},
 		{Name: "links", Kind: kLinkList},
@@ -448,6 +455,8 @@ var typeFields = map[string][]field{
 		{Name: "cadence", Kind: kString}, // recur grammar: Lint source
 		{Name: "last_scan", Kind: kTimestamp},
 		{Name: "cursor", Kind: kString},
+		{Name: "last_failure", Kind: kTimestamp},
+		{Name: "last_error", Kind: kString},
 	},
 }
 

@@ -382,11 +382,19 @@ var SweepRecord = defineSafe("sweep_record", "Record a sweep of one source: the 
 	if err != nil {
 		return SweepRecordOutput{}, err
 	}
+	if in.Failed || len(in.Errors) > 0 {
+		m.LastFailure, m.LastError = at, firstOf(flatLine(strings.Join(in.Errors, "; ")), "failed")
+	}
 	line := sweepLine(at, info.Actor, in)
 	head, seen, _ := splitSourceBody(doc.Body)
 	doc.Body = joinSourceBody(head, mergeOutward(seen, add), line)
 	doc, err = d.Store.Update(ctx, doc)
 	if err != nil {
+		return SweepRecordOutput{}, err
+	}
+	// One event per sweep, for io_stats and sweep_report: the source id and
+	// whether it finished, never what it read.
+	if err := d.Store.Record(ctx, opSweepRecord, doc.ID, sweepOutcome(in), "", ""); err != nil {
 		return SweepRecordOutput{}, err
 	}
 	out := SweepRecordOutput{Source: doc.ID, LastScan: m.LastScan, Cursor: m.Cursor, Due: sourceDue(m), Unreviewed: []string{}, Rev: doc.Rev}

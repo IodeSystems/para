@@ -153,6 +153,14 @@ func journal(ctx context.Context, d Deps, in JournalInput, scope model.JournalSc
 		if len(lines) > 0 {
 			sections = append(sections, section{inboxDigestSection, lines})
 		}
+		// What the day's sweeps brought, per source (sweep_report).
+		sweeps, err := reportLines(ctx, d, p.start, p.end)
+		if err != nil {
+			return JournalOutput{}, err
+		}
+		if len(sweeps) > 0 {
+			sections = append(sections, section{sweepReportSection, sweeps})
+		}
 	} else {
 		lines, err := rollupLines(ctx, d, p, exist)
 		if err != nil {

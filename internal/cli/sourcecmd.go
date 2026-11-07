@@ -234,7 +234,18 @@ func newSweepCmd(l *loader) *cobra.Command {
 			return nil
 		},
 	})
-	cmd.AddCommand(plan, record)
+	report := opCommand(l, ops.SweepReport, binding[ops.SweepReportInput, ops.SweepReportOutput]{
+		Use:  "report [--since <time>]",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.SweepReportInput) {
+			fs.StringVar(&in.Since, "since", "", "RFC 3339 or YYYY-MM-DD; default the end of the sweep run before the last one, else today")
+		},
+		Text: func(w io.Writer, out ops.SweepReportOutput) error {
+			_, err := fmt.Fprintln(w, out.Text)
+			return err
+		},
+	})
+	cmd.AddCommand(plan, record, report)
 	return cmd
 }
 
