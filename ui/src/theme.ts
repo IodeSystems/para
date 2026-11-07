@@ -3,13 +3,22 @@ import { current } from '@/themes/current'
 import { ledger } from '@/themes/ledger'
 import { consoleTheme } from '@/themes/console'
 import { focus } from '@/themes/focus'
-import { loadFonts, pickDirection, type Direction } from '@/themes/pick'
+import { DEFAULT_DIRECTION, loadFonts, pickDirection, type Direction } from '@/themes/pick'
 
-// The theme is read once at startup. The current theme stays the default; the three proposed
-// directions are a preview (themes/pick.ts).
+// The theme is read once at startup. Focus is the theme of the app; the others stay behind
+// ?theme= for one release (themes/pick.ts).
 export const THEMES: Record<Direction, Theme> = { current, a: ledger, b: consoleTheme, c: focus }
 
-const direction = typeof window === 'undefined' ? 'current' : pickDirection(window.location.search)
+const direction =
+  typeof window === 'undefined' ? DEFAULT_DIRECTION : pickDirection(window.location.search)
 loadFonts(direction)
 
 export const theme = THEMES[direction]
+
+// canSwitchMode says the owner picks light or dark in the header. Only Focus has the switch; the
+// themes behind ?theme= follow the system setting, as before.
+export const canSwitchMode = direction === 'c'
+
+// MODE_KEY is where the light or dark choice is kept in this browser. MUI reads and writes it,
+// each access in a try/catch; public/boot.js reads it before the first paint.
+export const MODE_KEY = 'para.mode'

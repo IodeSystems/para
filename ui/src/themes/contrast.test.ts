@@ -4,7 +4,7 @@ import type { Schemes } from './common'
 import { schemes as current } from './current'
 import { schemes as ledger } from './ledger'
 import { schemes as console_ } from './console'
-import { schemes as focus } from './focus'
+import { raised, schemes as focus } from './focus'
 
 // WCAG AA for normal text is 4.5:1. A colour with alpha is blended onto the surface first.
 const AA = 4.5
@@ -53,6 +53,30 @@ describe('contrast', () => {
         expect(below(palette(s, mode))).toEqual([])
       })
     }
+  }
+
+  // Focus is the theme of the app. Text also sits on its raised surface: the composer, menus,
+  // dialogs, toasts, and the phone's bottom bar.
+  for (const mode of ['light', 'dark'] as const) {
+    it(`focus ${mode}: text on the raised surface meets AA`, () => {
+      const p = palette(focus, mode)
+      const bg = raised[mode]
+      const out = (
+        [
+          ['text.primary', p.text.primary],
+          ['text.secondary', p.text.secondary],
+          ['primary', p.primary.main],
+          ['success', p.success.main],
+          ['warning', p.warning.main],
+          ['error', p.error.main],
+          ['info', p.info.main],
+        ] as const
+      )
+        .map(([what, fg]) => ({ what, r: ratio(fg, bg) }))
+        .filter(({ r }) => r < AA)
+        .map(({ what, r }) => `${what} on raised ${r.toFixed(2)}`)
+      expect(out).toEqual([])
+    })
   }
 
   // The current theme is measured, not held to AA: it is what the owner uses today. Its light

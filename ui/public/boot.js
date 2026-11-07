@@ -48,3 +48,16 @@
     true,
   )
 })(window, document, location)
+
+// Light or dark before the first paint, for Focus, the theme of the app (src/theme.ts): dark
+// unless the owner switched to light. The themes behind ?theme= follow the system setting.
+;(function (d) {
+  try {
+    var t = new URLSearchParams(location.search).get('theme') || localStorage.getItem('para.theme')
+    if (t && t !== 'c') return
+    var m = localStorage.getItem('para.mode')
+    d.documentElement.setAttribute('data-mui-color-scheme', m === 'light' ? 'light' : 'dark')
+  } catch (e) {
+    d.documentElement.setAttribute('data-mui-color-scheme', 'dark')
+  }
+})(document)

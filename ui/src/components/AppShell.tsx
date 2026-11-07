@@ -9,6 +9,9 @@ import Tabs from '@mui/material/Tabs'
 import Toolbar from '@mui/material/Toolbar'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import { useColorScheme } from '@mui/material/styles'
+import DarkModeOutlinedIcon from '@mui/icons-material/DarkModeOutlined'
+import LightModeOutlinedIcon from '@mui/icons-material/LightModeOutlined'
 import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
@@ -21,6 +24,7 @@ import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/comp
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
 import type { SessionView } from '@/client/session'
+import { canSwitchMode } from '@/theme'
 
 // The signed-in frame: app bar, tabs, and the plain-HTTP banner. The viewer writes nothing: the
 // agent does the work in the chat.
@@ -67,6 +71,7 @@ export function AppShell({ session, children }: { session: SessionView; children
             </Box>
           </Typography>
           <OmniBar />
+          {canSwitchMode && <ModeSwitch />}
           <Tooltip title="Keys and about (?)">
             <LinkIconButton
               color="inherit"
@@ -119,6 +124,7 @@ export function AppShell({ session, children }: { session: SessionView; children
         component="nav"
         aria-label="Quick screens"
         elevation={8}
+        data-bottom-bar
         sx={{
           display: { xs: 'block', sm: 'none' },
           position: 'fixed',
@@ -157,5 +163,25 @@ export function AppShell({ session, children }: { session: SessionView; children
         </BottomNavigation>
       </Paper>
     </Box>
+  )
+}
+
+// ModeSwitch picks light or dark for this browser. The app opens dark; the choice is kept in
+// localStorage (theme.ts MODE_KEY).
+function ModeSwitch() {
+  const { mode, systemMode, setMode } = useColorScheme()
+  const dark = (mode === 'system' ? systemMode : mode) !== 'light'
+  const label = dark ? 'Switch to light' : 'Switch to dark'
+  return (
+    <Tooltip title={label}>
+      <IconButton
+        color="inherit"
+        aria-label={label}
+        data-mode-switch={dark ? 'dark' : 'light'}
+        onClick={() => setMode(dark ? 'light' : 'dark')}
+      >
+        {dark ? <LightModeOutlinedIcon /> : <DarkModeOutlinedIcon />}
+      </IconButton>
+    </Tooltip>
   )
 }
