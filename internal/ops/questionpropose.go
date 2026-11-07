@@ -168,6 +168,7 @@ var QuestionDependsAdd = defineSafe("question_depends_add", "Make an open questi
 				doc.ID, l.Target(), doc.ID, strings.Join(back, " -> "))
 		}
 		q.DependsOn = append(q.DependsOn, l)
+		q.OptionalAfter = slices.DeleteFunc(q.OptionalAfter, func(x model.Link) bool { return x == l })
 	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {

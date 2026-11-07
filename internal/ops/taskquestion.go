@@ -75,6 +75,7 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 		Meta: &model.Question{
 			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: kind,
 			Scope: scope, Options: opts, Recommended: rec, DependsOn: slices.Clone(t.DependsOn),
+			OptionalAfter: slices.Clone(t.OptionalAfter),
 		},
 	})
 	if err != nil {

@@ -93,19 +93,19 @@ func newReasonGraph(docs map[string]model.Document) *reasonGraph {
 		switch m := d.Meta.(type) {
 		case *model.Task:
 			if !taskTerminal(m.Status) {
-				wait(id, m.DependsOn)
+				wait(id, model.HardDeps(m))
 			}
 		case *model.Obligation:
 			if m.Open() {
-				wait(id, m.DependsOn)
+				wait(id, model.HardDeps(m))
 			}
 		case *model.Question:
 			if m.Status == model.QuestionOpen {
-				wait(id, m.DependsOn)
+				wait(id, model.HardDeps(m))
 			}
 		case *model.RFX:
 			if m.Status == model.RFXOpen {
-				wait(id, m.DependsOn)
+				wait(id, model.HardDeps(m))
 				for _, b := range m.Blocks {
 					g.dependents[id] = append(g.dependents[id], b.Target())
 				}

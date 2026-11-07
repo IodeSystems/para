@@ -409,7 +409,7 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 		if n, ok := assigneeTurn(m.Assignee); ok {
 			return n
 		}
-		for _, dep := range targets(m.DependsOn) {
+		for _, dep := range targets(model.HardDeps(m)) {
 			if dd, err := sn.Get(dep); err == nil && !resolved(dd) {
 				return Need{Turn: TurnWaiting, Reason: "waits on " + dep}
 			}

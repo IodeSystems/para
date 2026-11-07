@@ -630,7 +630,7 @@ var TaskStart = defineSafe("task_start", "Start a task", func(ctx context.Contex
 		}
 		if !in.Force {
 			var open []string
-			for _, l := range t.DependsOn {
+			for _, l := range model.HardDeps(t) {
 				dep, err := d.Store.Get(ctx, l.Target())
 				if err != nil || !resolved(dep) {
 					open = append(open, l.Target())
@@ -788,16 +788,8 @@ func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]stri
 		if err != nil {
 			return nil, err
 		}
-		var links []model.Link
-		switch m := doc.Meta.(type) {
-		case *model.Task:
-			links = m.DependsOn
-		case *model.RFX:
-			links = m.DependsOn
-		case *model.Question:
-			links = m.DependsOn
-		}
-		for _, l := range links {
+		// Only hard dependencies can deadlock: an optional one never waits.
+		for _, l := range model.HardDeps(doc.Meta) {
 			path, err := walk(l.Target())
 			if err != nil || path != nil {
 				return append([]string{id}, path...), err
@@ -855,6 +847,7 @@ var TaskDependsAdd = defineSafe("task_depends_add", "Make a task wait on other t
 				doc.ID, l.Target(), doc.ID, strings.Join(back, " -> "))
 		}
 		t.DependsOn = append(t.DependsOn, l)
+		t.OptionalAfter = slices.DeleteFunc(t.OptionalAfter, func(x model.Link) bool { return x == l })
 	}
 	return saveDepends(ctx, d, doc, t)
 })

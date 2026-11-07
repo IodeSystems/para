@@ -296,7 +296,7 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 				}
 			}
 			add(gn, resolved(doc), false)
-			deps = targets(m.DependsOn)
+			deps = targets(model.HardDeps(m))
 		default:
 			add(GraphNode{ID: id, Type: doc.Meta.Header().Type, Title: doc.Title}, false, false)
 		}

@@ -901,7 +901,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				n.Hidden = n.Due > horizon || meetingQuiet(mt.t)
 			}
 			if t, isTask := doc.Meta.(*model.Task); isTask {
-				n.Parent, n.Deps = t.Parent.Target(), targets(t.DependsOn)
+				n.Parent, n.Deps = t.Parent.Target(), targets(model.HardDeps(t))
 				n.Hidden = n.Hidden || all && IsOther(t.Assignee)
 			}
 			for _, l := range mt.RFX {
@@ -936,7 +936,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				n.Hidden = IsOther(m.Assignee) || meetingQuiet(m)
 			}
 			n.Parent, n.Effort = m.Parent.Target(), m.Effort
-			n.Deps = targets(m.DependsOn)
+			n.Deps = targets(model.HardDeps(m))
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
 				n.Start, _ = meetingDay(m.Scheduled)
 			}
@@ -948,10 +948,10 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				}
 			}
 		case *model.Question:
-			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(m.DependsOn), m.HasProposal()
+			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(model.HardDeps(m)), m.HasProposal()
 			n.Effort, n.Prep = m.Effort, true
 		case *model.RFX:
-			n.Kind, n.Due, n.Deps, n.Effort = KindAsk, string(m.NextNudge), targets(m.DependsOn), m.Effort
+			n.Kind, n.Due, n.Deps, n.Effort = KindAsk, string(m.NextNudge), targets(model.HardDeps(m)), m.Effort
 			// An ask to the owner is owed; an ask the owner made waits on
 			// someone else and is listed when it needs a follow-up.
 			if m.Direction == model.RFXIn {

@@ -359,7 +359,7 @@ func obligationPrep(docs map[string]model.Document, id string, o *model.Obligati
 			walk(p.ID, PartChild, depsOf(cd.Meta), true)
 		}
 	}
-	walk(id, PartChild, o.DependsOn, true)
+	walk(id, PartChild, model.HardDeps(o), true)
 	return before, after
 }
 
@@ -379,19 +379,8 @@ func parentLink(m model.Meta) string {
 
 // depsOf is what a work item depends on.
 func depsOf(m model.Meta) []model.Link {
-	switch x := m.(type) {
-	case *model.Task:
-		return x.DependsOn
-	case *model.Obligation:
-		return x.DependsOn
-	case *model.RFX:
-		return x.DependsOn
-	case *model.Question:
-		var out []model.Link
-		for _, s := range x.DependsOn {
-			out = append(out, model.Link(s))
-		}
-		return out
+	if deps := model.HardDeps(m); deps != nil {
+		return deps
 	}
 	return nil
 }

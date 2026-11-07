@@ -84,6 +84,7 @@ type Meta struct {
 	ReviewBatch     string                `json:"review_batch,omitempty"`
 	ReroutedTo      string                `json:"rerouted_to,omitempty"`
 	DependsOn       []string              `json:"depends_on,omitempty"`
+	OptionalAfter   []string              `json:"optional_after,omitempty"`
 	Direction       string                `json:"direction,omitempty"`
 	Route           string                `json:"route,omitempty"`
 	SelfServeCheck  string                `json:"self_serve_check,omitempty"`

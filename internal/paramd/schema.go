@@ -175,6 +175,7 @@ var typeFields = map[string][]field{
 		{Name: "steps", Kind: kString},      // short markdown list
 		{Name: "blocked_by", Kind: kList},
 		{Name: "depends_on", Kind: kList},
+		{Name: "optional_after", Kind: kLinkList}, // optional dependencies: shown, never waited on
 		{Name: "outcome", Kind: kEnum, Enum: taskOutcome},
 		{Name: "declined_by", Kind: kEnum, Enum: declinedBy},
 		{Name: "declined_person", Kind: kLink},
@@ -210,6 +211,7 @@ var typeFields = map[string][]field{
 		{Name: "question", Kind: kLink},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 		{Name: "parent", Kind: kLink}, // a task or obligation it is part of (vault check)
+		{Name: "optional_after", Kind: kLinkList},
 	},
 	"question": {
 		{Name: "status", Kind: kEnum, Enum: questionStatus, Required: true},
@@ -228,6 +230,7 @@ var typeFields = map[string][]field{
 		{Name: "answered_by", Kind: kString},
 		{Name: "answered", Kind: kDate},
 		{Name: "depends_on", Kind: kList},
+		{Name: "optional_after", Kind: kLinkList}, // optional dependencies: shown, never waited on
 		{Name: "proposed_answer", Kind: kString},
 		{Name: "proposed_choice", Kind: kString},
 		{Name: "proposed_by", Kind: kString},
@@ -269,6 +272,7 @@ var typeFields = map[string][]field{
 		{Name: "attend_default", Kind: kEnum, Enum: attends},
 		{Name: "done_when", Kind: kString},
 		{Name: "depends_on", Kind: kList},
+		{Name: "optional_after", Kind: kLinkList}, // optional dependencies: shown, never waited on
 		{Name: "effort", Kind: kEnum, Enum: efforts},
 		{Name: "folded_from", Kind: kString},  // upgrade step obligations: the type before
 		{Name: "reply_to", Kind: kLink},       // the incoming io item it replies to

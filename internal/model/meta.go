@@ -217,6 +217,8 @@ type Task struct {
 	Steps     string   `yaml:"steps,omitempty" json:"steps,omitempty"`
 	BlockedBy []string `yaml:"blocked_by,omitempty" json:"blocked_by,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"` // task or rfx links
+	// OptionalAfter: see Deps.
+	OptionalAfter []Link `yaml:"optional_after,omitempty" json:"optional_after,omitempty"`
 	// Outcome says how a closed task ended (task_resolve). The note is under
 	// ## Outcome in the body.
 	Outcome TaskOutcome `yaml:"outcome,omitempty" json:"outcome,omitempty"`
@@ -368,9 +370,11 @@ type Obligation struct {
 	Occasion     `yaml:",inline"`
 	DoneWhen     string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
 	DependsOn    []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	Effort       Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
-	Deferral     `yaml:",inline"`
-	FoldedFrom   Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+	// OptionalAfter: see Deps.
+	OptionalAfter []Link `yaml:"optional_after,omitempty" json:"optional_after,omitempty"`
+	Effort        Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	Deferral      `yaml:",inline"`
+	FoldedFrom    Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 	// Produce is set on an obligation an agent owes (owed_by agent or
 	// agent:<name>): the artifact it produces each time one comes due.
 	Produce *Produce `yaml:"produce,omitempty" json:"produce,omitempty"`
@@ -432,7 +436,7 @@ func (o *Obligation) Open() bool { return o.State != StateClosed }
 // The first of OwedBy is the assignee; a commitment's OwedTo is its with.
 func (o *Obligation) AsTask() *Task {
 	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Area: o.Area, Parent: o.Parent, Due: o.Due, Recur: o.Recur,
-		Previous: o.Previous, Occasion: o.Occasion, DoneWhen: o.DoneWhen, DependsOn: o.DependsOn, Effort: o.Effort,
+		Previous: o.Previous, Occasion: o.Occasion, DoneWhen: o.DoneWhen, DependsOn: o.DependsOn, OptionalAfter: o.OptionalAfter, Effort: o.Effort,
 		Deferral: o.Deferral, Status: TaskTodo}
 	t.Type = TypeTask
 	if !o.Open() {
@@ -467,7 +471,9 @@ type RFX struct {
 	Targets   []Target `yaml:"targets,omitempty" json:"targets,omitempty"`
 	Blocks    []Link   `yaml:"blocks,omitempty" json:"blocks,omitempty"`
 	DependsOn []Link   `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
-	NextNudge Date     `yaml:"next_nudge,omitempty" json:"next_nudge,omitempty"`
+	// OptionalAfter: see Deps.
+	OptionalAfter []Link `yaml:"optional_after,omitempty" json:"optional_after,omitempty"`
+	NextNudge     Date   `yaml:"next_nudge,omitempty" json:"next_nudge,omitempty"`
 	// Playbook links the document that answers this ask for good. An inbound
 	// RFX closes by linking one.
 	Playbook Link `yaml:"playbook,omitempty" json:"playbook,omitempty"`
@@ -1045,6 +1051,8 @@ type Question struct {
 	// DependsOn lists what must close before this question can be answered: a
 	// task, a request, or another question.
 	DependsOn []Link `yaml:"depends_on,omitempty" json:"depends_on,omitempty"`
+	// OptionalAfter: see Deps.
+	OptionalAfter []Link `yaml:"optional_after,omitempty" json:"optional_after,omitempty"`
 	// An agent never answers: it proposes. ProposedAnswer and ProposedChoice
 	// wait for a person to accept, change, or reject them. ProposedSources are
 	// the citations; ProposedWhy is the agent's reason. After an accept the
