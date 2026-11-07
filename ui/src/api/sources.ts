@@ -37,6 +37,25 @@ const SourceListDoc = graphql(/* GraphQL */ `
             lastFailed
           }
         }
+        ioStats {
+          sources {
+            id
+            lastFailure
+            lastError
+            openReplies
+            overdue
+            held
+            windows {
+              days
+              sweeps
+              failed
+              in
+              out
+              replyHours
+              replied
+            }
+          }
+        }
       }
     }
   }
@@ -113,8 +132,13 @@ const SourceShowDoc = graphql(/* GraphQL */ `
 export function useSourceList() {
   return useQuery({
     queryKey: ['sources'],
-    queryFn: async () =>
-      need((await gqlClient.request(SourceListDoc)).para.v1.sourceList, 'sources'),
+    queryFn: async () => {
+      const v1 = (await gqlClient.request(SourceListDoc)).para.v1
+      const list = need(v1.sourceList, 'sources')
+      // The numbers of each source (io_stats), by id; a source with none has no entry.
+      const stats = new Map((v1.ioStats?.sources ?? []).map((s) => [s.id, s]))
+      return { ...list, stats }
+    },
   })
 }
 

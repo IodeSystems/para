@@ -36,6 +36,42 @@ export function cadenceWords(r: Pick<Row, 'cadence'>): string {
   return r.cadence ? r.cadence : 'on demand'
 }
 
+export type IOStatsRow = {
+  openReplies: number
+  overdue: number
+  held: number
+  windows: {
+    days: number
+    sweeps: number
+    failed: number
+    in: number
+    out: number
+    replyHours: number
+    replied: number
+  }[]
+}
+
+// statsWords is one line of a source's numbers (io_stats): its first window's sweeps, messages
+// in and out, and median reply time, then the replies owed now and drafts held.
+export function statsWords(s: IOStatsRow | undefined): string {
+  if (!s) return ''
+  const parts: string[] = []
+  const w = s.windows[0]
+  if (w) {
+    parts.push(
+      `${w.days}d: ${w.sweeps} sweeps${w.failed > 0 ? ` (${w.failed} failed)` : ''}, ${w.in} in, ${w.out} out`,
+    )
+    if (w.replyHours >= 0) parts.push(`median reply ${w.replyHours} h`)
+  }
+  if (s.openReplies > 0) {
+    parts.push(
+      `${s.openReplies} ${s.openReplies === 1 ? 'reply' : 'replies'} owed${s.overdue > 0 ? `, ${s.overdue} overdue` : ''}`,
+    )
+  }
+  if (s.held > 0) parts.push(`${s.held} held by the pre-send check`)
+  return parts.join(' - ')
+}
+
 // kindWords is a source's class, with its vendor after a slash when set: mail/outlook.
 export function kindWords(r: { system: string; vendor?: string | null }): string {
   return r.vendor ? `${r.system}/${r.vendor}` : r.system
