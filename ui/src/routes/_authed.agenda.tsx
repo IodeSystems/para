@@ -220,8 +220,17 @@ function leadCard(lead: Lead, actions: ReactNode) {
       <Typography variant="overline" color="text.secondary">
         Start here - {lead.why}
       </Typography>
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-        <Typography variant="h6" component="p" sx={{ flexGrow: 1, overflowWrap: 'anywhere' }}>
+      {/* The title keeps at least 14em before the actions go under it. */}
+      <Stack
+        direction="row"
+        useFlexGap
+        sx={{ alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.5 }}
+      >
+        <Typography
+          variant="h6"
+          component="p"
+          sx={{ flex: '1 1 14em', minWidth: 0, overflowWrap: 'anywhere' }}
+        >
           {lead.title}
         </Typography>
         {lead.row && <ReadyChip x={lead.row} />}

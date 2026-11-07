@@ -275,7 +275,7 @@ export function useItemActions(
 // may decide. Reopen shows on a closed item; Done, Investigate, and Later on an open one, as its
 // kind allows. Near a composer, Done and Investigate take what the owner typed there as a note,
 // Later and Reopen as the reason; while the box has words, each of them shows a note icon and says
-// so on hover (DraftHint).
+// so on hover (DraftHint). The row wraps, so it never pushes the page wider than the screen.
 export function ItemActions({
   x,
   closed = false,
@@ -308,8 +308,15 @@ export function ItemActions({
   return (
     <Stack
       direction="row"
-      spacing={0.5}
-      sx={{ alignItems: 'center', flexShrink: 0 }}
+      useFlexGap
+      // On a phone the row may shrink and wrap; from 600 px it keeps its buttons on one line.
+      sx={{
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 0.5,
+        minWidth: 0,
+        flexShrink: { xs: 1, sm: 0 },
+      }}
       data-item-actions={x.id}
     >
       {decide && (acts.done === 'meeting' || acts.done === 'drop') && (

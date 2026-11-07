@@ -55,7 +55,11 @@ function Doc() {
         <ItemDraftProvider id={d.id}>
           <PageTitle
             action={
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+              <Stack
+                direction="row"
+                useFlexGap
+                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
+              >
                 {d.meta.type === 'source' && (
                   <LinkButton
                     size="small"
