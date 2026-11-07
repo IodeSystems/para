@@ -19,6 +19,7 @@ import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bi
 import { AgendaRow } from '@/components/AgendaActions'
 import { DataState } from '@/components/DataState'
 import { DatedAgenda } from '@/components/DatedAgenda'
+import { QuestionsView } from '@/components/QuestionsView'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
@@ -33,8 +34,9 @@ import { openLine } from '@/lib/sent'
 import { readyTarget, readyWords } from '@/lib/ready'
 
 export const Route = createFileRoute('/_authed/agenda')({
-  validateSearch: (s: Record<string, unknown>): { by?: 'date' } => ({
+  validateSearch: (s: Record<string, unknown>): { by?: 'date'; show?: 'questions' } => ({
     by: s.by === 'date' ? 'date' : undefined,
+    show: s.show === 'questions' ? 'questions' : undefined,
   }),
   component: Agenda,
 })
@@ -241,7 +243,7 @@ function leadCard(lead: Lead, actions: ReactNode) {
 }
 
 function Agenda() {
-  const { by } = Route.useSearch()
+  const { by, show } = Route.useSearch()
   const q = useToday()
   const inbox = useIoList('in')
   const questions = useQuestions()
@@ -258,9 +260,18 @@ function Agenda() {
             </LinkButton>
             <LinkButton
               size="small"
+              variant={show === 'questions' ? 'contained' : 'outlined'}
+              to="."
+              search={(p) => ({ ...p, show: show === 'questions' ? undefined : 'questions' })}
+              aria-pressed={show === 'questions'}
+            >
+              Questions
+            </LinkButton>
+            <LinkButton
+              size="small"
               variant={by === 'date' ? 'contained' : 'outlined'}
               to="."
-              search={(p) => ({ ...p, by: by === 'date' ? undefined : 'date' })}
+              search={(p) => ({ ...p, show: undefined, by: by === 'date' ? undefined : 'date' })}
               aria-pressed={by === 'date'}
             >
               Group by date
@@ -270,7 +281,9 @@ function Agenda() {
       >
         Agenda
       </PageTitle>
-      {by === 'date' ? (
+      {show === 'questions' ? (
+        <QuestionsView />
+      ) : by === 'date' ? (
         <DatedAgenda />
       ) : (
         <DataState q={q}>
@@ -500,12 +513,12 @@ function Agenda() {
                 >
                   <AgendaRows items={agendaRows} summary={t.orderSummary} />
                   {t.otherOpen > 0 && (
-                    <LinkButton size="small" color="inherit" to="/questions">
+                    <LinkButton size="small" color="inherit" to="." search={{ show: 'questions' }}>
                       {t.otherOpen} other open question{t.otherOpen === 1 ? '' : 's'}
                     </LinkButton>
                   )}
                   {t.deferred > 0 && (
-                    <LinkButton size="small" color="inherit" to="/questions">
+                    <LinkButton size="small" color="inherit" to="." search={{ show: 'questions' }}>
                       {t.deferred} put off (Later)
                     </LinkButton>
                   )}

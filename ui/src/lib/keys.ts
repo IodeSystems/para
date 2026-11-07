@@ -23,7 +23,6 @@ export const TABS: Tab[] = [
     hint: 'areas, the policies they follow, exceptions and conventions',
   },
   { key: '8', to: '/requests', label: 'Asked of agents', hint: 'every piece of agent work' },
-  { key: '9', to: '/questions', label: 'Questions' },
   {
     key: '0',
     to: '/obligations',
@@ -42,7 +41,6 @@ export const EXTRA_SCREENS: Tab[] = [
     label: 'Sources',
     hint: 'where work comes in and goes out, and who sweeps it',
   },
-  { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
   {
     key: '',
     to: '/pools',

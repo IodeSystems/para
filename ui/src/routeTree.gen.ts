@@ -22,7 +22,6 @@ import { Route as AuthedReceiptsRouteImport } from './routes/_authed.receipts'
 import { Route as AuthedRequestsRouteImport } from './routes/_authed.requests'
 import { Route as AuthedSearchRouteImport } from './routes/_authed.search'
 import { Route as AuthedStackRouteImport } from './routes/_authed.stack'
-import { Route as AuthedTodayRouteImport } from './routes/_authed.today'
 import { Route as AuthedWorkRouteImport } from './routes/_authed.work'
 import { Route as AuthedAreasIndexRouteImport } from './routes/_authed.areas.index'
 import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
@@ -108,11 +107,6 @@ const AuthedSearchRoute = AuthedSearchRouteImport.update({
 const AuthedStackRoute = AuthedStackRouteImport.update({
   id: '/stack',
   path: '/stack',
-  getParentRoute: () => AuthedRoute,
-} as any)
-const AuthedTodayRoute = AuthedTodayRouteImport.update({
-  id: '/today',
-  path: '/today',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedWorkRoute = AuthedWorkRouteImport.update({
@@ -239,7 +233,6 @@ export interface FileRoutesByFullPath {
   '/requests': typeof AuthedRequestsRoute
   '/search': typeof AuthedSearchRoute
   '/stack': typeof AuthedStackRoute
-  '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
@@ -276,7 +269,6 @@ export interface FileRoutesByTo {
   '/requests': typeof AuthedRequestsRoute
   '/search': typeof AuthedSearchRoute
   '/stack': typeof AuthedStackRoute
-  '/today': typeof AuthedTodayRoute
   '/work': typeof AuthedWorkRoute
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
@@ -315,7 +307,6 @@ export interface FileRoutesById {
   '/_authed/requests': typeof AuthedRequestsRoute
   '/_authed/search': typeof AuthedSearchRoute
   '/_authed/stack': typeof AuthedStackRoute
-  '/_authed/today': typeof AuthedTodayRoute
   '/_authed/work': typeof AuthedWorkRoute
   '/_authed/areas/$id': typeof AuthedAreasIdRoute
   '/_authed/doc/$id': typeof AuthedDocIdRoute
@@ -354,7 +345,6 @@ export interface FileRouteTypes {
     | '/requests'
     | '/search'
     | '/stack'
-    | '/today'
     | '/work'
     | '/areas/$id'
     | '/doc/$id'
@@ -391,7 +381,6 @@ export interface FileRouteTypes {
     | '/requests'
     | '/search'
     | '/stack'
-    | '/today'
     | '/work'
     | '/areas/$id'
     | '/doc/$id'
@@ -429,7 +418,6 @@ export interface FileRouteTypes {
     | '/_authed/requests'
     | '/_authed/search'
     | '/_authed/stack'
-    | '/_authed/today'
     | '/_authed/work'
     | '/_authed/areas/$id'
     | '/_authed/doc/$id'
@@ -551,13 +539,6 @@ declare module '@tanstack/react-router' {
       path: '/stack'
       fullPath: '/stack'
       preLoaderRoute: typeof AuthedStackRouteImport
-      parentRoute: typeof AuthedRoute
-    }
-    '/_authed/today': {
-      id: '/_authed/today'
-      path: '/today'
-      fullPath: '/today'
-      preLoaderRoute: typeof AuthedTodayRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/work': {
@@ -728,7 +709,6 @@ interface AuthedRouteChildren {
   AuthedRequestsRoute: typeof AuthedRequestsRoute
   AuthedSearchRoute: typeof AuthedSearchRoute
   AuthedStackRoute: typeof AuthedStackRoute
-  AuthedTodayRoute: typeof AuthedTodayRoute
   AuthedWorkRoute: typeof AuthedWorkRoute
   AuthedAreasIdRoute: typeof AuthedAreasIdRoute
   AuthedDocIdRoute: typeof AuthedDocIdRoute
@@ -764,7 +744,6 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedRequestsRoute: AuthedRequestsRoute,
   AuthedSearchRoute: AuthedSearchRoute,
   AuthedStackRoute: AuthedStackRoute,
-  AuthedTodayRoute: AuthedTodayRoute,
   AuthedWorkRoute: AuthedWorkRoute,
   AuthedAreasIdRoute: AuthedAreasIdRoute,
   AuthedDocIdRoute: AuthedDocIdRoute,

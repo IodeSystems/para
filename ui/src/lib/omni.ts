@@ -15,7 +15,7 @@ export type OmniEntry = {
 
 // PAGES are the screens the bar can go to by name.
 export const PAGES: { label: string; to: string; words: string[] }[] = [
-  { label: 'Today', to: '/today', words: ['today'] },
+  { label: 'Today', to: '/agenda', words: ['today'] },
   { label: 'Agenda', to: '/agenda', words: ['agenda'] },
   {
     label: 'Asked of agents',
@@ -30,7 +30,7 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
     to: '/areas',
     words: ['areas', 'policy', 'exceptions', 'conventions', 'constraints'],
   },
-  { label: 'Questions', to: '/questions', words: ['questions'] },
+  { label: 'Questions', to: '/agenda?show=questions', words: ['questions'] },
   { label: 'Receipts', to: '/receipts', words: ['receipts', 'activity'] },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },
   { label: 'IO', to: '/io', words: ['io', 'messages'] },

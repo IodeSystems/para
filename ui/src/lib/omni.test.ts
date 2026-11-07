@@ -13,7 +13,7 @@ describe('omni', () => {
   })
   it('matches page names', () => {
     expect(pagesFor('rec').map((p) => p.to)).toEqual(['/receipts'])
-    expect(pagesFor('Today')[0]?.to).toBe('/today')
+    expect(pagesFor('Today')[0]?.to).toBe('/agenda')
     expect(pagesFor('')).toEqual([])
   })
   it('groups hits in order and caps each group', () => {
