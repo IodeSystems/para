@@ -5,6 +5,7 @@
 package egress
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -46,6 +47,11 @@ const DestRaglit = "raglit:"
 // allowed under egress.default=deny; the record holds the path, never content.
 const DestAgent = "agent:"
 
+// DestPublish is a publish set written to a folder on this machine
+// (publish:<set>). The owner runs it at a terminal, as an export to a file,
+// so it stays allowed under egress.default=deny. One record covers a run.
+const DestPublish = "publish:"
+
 // Decision is the outcome of Check.
 type Decision struct {
 	Default string `json:"default"` // egress.default as applied: "allow" or "deny"
@@ -63,7 +69,7 @@ func Check(cfg map[string]string, dest string) Decision {
 	if m := strings.TrimSpace(cfg[KeyMarking]); m != "" {
 		d.Marking = m
 	}
-	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent)
+	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent) || strings.HasPrefix(dest, DestPublish)
 	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
 		d.Allowed = exportAllowed(cfg[KeyExport], kind)
 	}
@@ -77,6 +83,21 @@ func Log(l *events.Log, doc, dest string, d Decision) error {
 		return fmt.Errorf("egress: log: %w", err)
 	}
 	return nil
+}
+
+// Recorder appends one event with a content hash, as store.Store.Record does.
+type Recorder func(ctx context.Context, op, doc, from, to, hash string) error
+
+// LogRun checks dest and logs one egress record for a run that moves many
+// documents at once: run names it (such as the set), and hash is the hash of
+// the run's manifest of document ids and content hashes. The record holds no
+// content. A denied run is logged too.
+func LogRun(ctx context.Context, cfg map[string]string, rec Recorder, run, dest, hash string) (Decision, error) {
+	d := Check(cfg, dest)
+	if err := rec(ctx, Op, run, d.Default, dest, hash); err != nil {
+		return d, fmt.Errorf("egress: log run: %w", err)
+	}
+	return d, nil
 }
 
 // exportAllowed applies the egress.export allowlist. An unset or blank list
