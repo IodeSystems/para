@@ -191,7 +191,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
-				fs.StringVar(&in.Parent, "parent", "", "task id this is an action item of (the parent does not wait on it)")
+				fs.StringVar(&in.Parent, "parent", "", "task or obligation id this is an action item of: prep for a meeting or a promise, or what came out of it (the parent does not wait on it)")
 				fs.BoolVar(&in.Commitment, "commitment", false, "same as --kind commitment: owed to someone; needs --due")
 				fs.StringVar((*string)(&in.Kind), "kind", "", "task (default), meeting, call, work_with, or commitment; all but task are with someone (--with)")
 				fs.StringVar(&in.Scheduled, "scheduled", "", "when it happens: a date YYYY-MM-DD, or a start with a zone such as 2026-11-04T10:00:00-05:00 (not --due)")
@@ -278,6 +278,8 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.BoolVar(&in.ClearHow, "clear-how", false, "remove do-url, do-command, and steps")
 				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
 				fs.BoolVar(&in.ClearRequestedBy, "clear-requested-by", false, "remove requested_by")
+				fs.StringVar(&in.Parent, "parent", "", "task or obligation id this is an action item of (prep for a meeting or a promise)")
+				fs.BoolVar(&in.ClearParent, "clear-parent", false, "remove parent")
 			},
 			Bind: func(args []string, in *ops.TaskEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.TaskEditOutput) string { return o.ID }),

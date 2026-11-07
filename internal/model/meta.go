@@ -194,8 +194,9 @@ type Task struct {
 	Previous Link   `yaml:"previous,omitempty" json:"previous,omitempty"`
 	// Incident links the incident this task follows up.
 	Incident Link `yaml:"incident,omitempty" json:"incident,omitempty"`
-	// Parent links the task this one is an action item of. The parent does not
-	// wait on it: it is not a dependency.
+	// Parent links the task or obligation this one is an action item of
+	// (prep for a meeting, or what came out of it). The parent does not wait
+	// on it: it is not a dependency.
 	Parent Link `yaml:"parent,omitempty" json:"parent,omitempty"`
 	// Assignee is empty for the owner, else a person id or agent:<name>.
 	Assignee string `yaml:"assignee,omitempty" json:"assignee,omitempty"`
@@ -350,7 +351,8 @@ type Obligation struct {
 	OwedBy   []Link      `yaml:"owed_by,omitempty" json:"owed_by,omitempty"`
 	Project  Link        `yaml:"project,omitempty" json:"project,omitempty"`
 	Area     Link        `yaml:"area,omitempty" json:"area,omitempty"`
-	// Parent links the task this one came from, as a task's parent does.
+	// Parent links the task or obligation this one came from, as a task's
+	// parent does: a follow-up obligation of a meeting.
 	Parent Link   `yaml:"parent,omitempty" json:"parent,omitempty"`
 	Due    Date   `yaml:"due,omitempty" json:"due,omitempty"`
 	Recur  string `yaml:"recur,omitempty" json:"recur,omitempty"`
@@ -372,6 +374,15 @@ type Obligation struct {
 	// ReplyTo links the incoming io item this obligation is the owner's
 	// reply to (io_add with expects response).
 	ReplyTo Link `yaml:"reply_to,omitempty" json:"reply_to,omitempty"`
+	// Interested are more people or groups to tell when the obligation
+	// changes, beside owed_to, with, and attendees.
+	Interested []Link `yaml:"interested,omitempty" json:"interested,omitempty"`
+	// Notices link the outgoing io drafts obligation_change wrote to tell
+	// the interested parties of a change, oldest first.
+	Notices []Link `yaml:"notices,omitempty" json:"notices,omitempty"`
+	// Promise is how it went: kept, renegotiated, or broken. Para sets it on
+	// close, on a change, and on the tick.
+	Promise Promise `yaml:"promise,omitempty" json:"promise,omitempty"`
 }
 
 // OwedByAgent is the owed_by word of an agent: agent, or agent:<name>.
@@ -461,6 +472,9 @@ type RFX struct {
 	Question Link `yaml:"question,omitempty" json:"question,omitempty"`
 	// Effort is about how long the ask takes the owner; empty is not set.
 	Effort Effort `yaml:"effort,omitempty" json:"effort,omitempty"`
+	// Parent links the task or obligation this ask is part of: prep for a
+	// meeting, or what came out of it. The parent does not wait on it.
+	Parent Link `yaml:"parent,omitempty" json:"parent,omitempty"`
 }
 
 // Target is one person or group an RFX goes to, by one medium. Para records

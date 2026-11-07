@@ -254,8 +254,11 @@ type Meta struct {
 	CheckedAt       string                `json:"checked_at,omitempty"` // io draft: the last passing pre-send check
 	Held            string                `json:"held,omitempty"`       // io draft: why the pre-send check held it
 	HeldBy          []string              `json:"held_by,omitempty"`
-	Reply           string                `json:"reply,omitempty"`    // incoming io: its reply obligation
-	ReplyTo         string                `json:"reply_to,omitempty"` // obligation: the io item it replies to
+	Reply           string                `json:"reply,omitempty"`      // incoming io: its reply obligation
+	ReplyTo         string                `json:"reply_to,omitempty"`   // obligation: the io item it replies to
+	Interested      []string              `json:"interested,omitempty"` // obligation: more people to tell of a change
+	Notices         []string              `json:"notices,omitempty"`    // obligation: the drafts that told them
+	Promise         string                `json:"promise,omitempty"`    // obligation: kept, renegotiated, broken
 	LastFailure     string                `json:"last_failure,omitempty"`
 	LastError       string                `json:"last_error,omitempty"`
 
@@ -287,6 +290,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.PointerKinds)
 	addEnum(reg, model.TaskStatuses)
 	addEnum(reg, model.TaskOutcomes)
+	addEnum(reg, model.Promises)
 	addEnum(reg, model.DeclinedBys)
 	addEnum(reg, model.FrictionReasons)
 	addEnum(reg, model.RFXDirections)

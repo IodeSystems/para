@@ -597,6 +597,24 @@ func (Effort) Enum() []string { return enumStrings(Efforts) }
 // Efforts lists every Effort, smallest first.
 var Efforts = []Effort{EffortXS, EffortS, EffortM, EffortL}
 
+// Promise is how an obligation owed to people went: kept (closed done on or
+// before its date), renegotiated (pushed, redirected, or cancelled with a
+// notice approved or sent before its date), or broken (its date passed with
+// no close and no notice). Empty is not settled yet.
+type Promise string
+
+const (
+	PromiseKept         Promise = "kept"
+	PromiseRenegotiated Promise = "renegotiated"
+	PromiseBroken       Promise = "broken"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (Promise) Enum() []string { return enumStrings(Promises) }
+
+// Promises lists every Promise.
+var Promises = []Promise{PromiseKept, PromiseRenegotiated, PromiseBroken}
+
 // Attend is a meeting's attend field: whether the owner goes. Empty is
 // undecided. An undecided optional meeting asks nothing of the owner; a
 // meeting with attend no leaves the agenda and holds nothing up.

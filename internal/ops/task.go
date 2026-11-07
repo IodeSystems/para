@@ -205,8 +205,10 @@ type TaskAddInput struct {
 	// Effort is about how long it takes the owner: xs (under 15 min), s
 	// (under an hour), m (half a day), l (a day or more). The value order uses it.
 	Effort model.Effort `json:"effort,omitempty"`
-	// Parent is the id of an open task this one is an action item of. The parent
-	// does not wait on it. With no project or area the task takes the parent's.
+	// Parent is the id of an open task or obligation this one is an action
+	// item of: prep for a meeting or a promise, or what came out of it. The
+	// parent does not wait on it. With no project or area the task takes the
+	// parent's.
 	Parent string `json:"parent,omitempty"`
 	// Commitment is kind commitment: something owed to someone. It needs a due
 	// date; the owner is the assignee (default self).
@@ -274,16 +276,13 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	in.Project = normID(in.Project)
 	var parent model.Link
 	if id := normID(in.Parent); id != "" {
-		pdoc, pt, err := getTask(ctx, d.Store, id)
+		p, err := parentOf(ctx, d, id)
 		if err != nil {
-			return TaskAddOutput{}, linkErr("parent", id, err)
+			return TaskAddOutput{}, err
 		}
-		if taskTerminal(pt.Status) {
-			return TaskAddOutput{}, fmt.Errorf("parent %s is already %s", id, pt.Status)
-		}
-		parent = model.LinkTo(pdoc.ID)
+		parent = p.link
 		if in.Project == "" && normID(in.Area) == "" {
-			in.Project, in.Area = pt.Project.Target(), pt.Area.Target()
+			in.Project, in.Area = p.project.Target(), p.area.Target()
 		}
 	}
 	kind, err := kindOf(in)
@@ -908,6 +907,10 @@ type TaskEditInput struct {
 	// text. ClearRequestedBy removes it.
 	RequestedBy      string `json:"requested_by,omitempty"`
 	ClearRequestedBy bool   `json:"clear_requested_by,omitempty"`
+	// Parent sets the open task or obligation this one is an action item of
+	// (prep for a meeting, or what came out of it). ClearParent removes it.
+	Parent      string `json:"parent,omitempty"`
+	ClearParent bool   `json:"clear_parent,omitempty"`
 }
 
 // TaskEditOutput is the output of task_edit.
@@ -920,6 +923,7 @@ type TaskEditOutput struct {
 	Steps     string       `json:"steps,omitempty"`
 	// RequestedBy is who the task is for, after the edit.
 	RequestedBy string `json:"requested_by,omitempty"`
+	Parent      string `json:"parent,omitempty"`
 	Rev         string `json:"rev"`
 }
 
@@ -953,7 +957,7 @@ func checkHow(doURL, command, steps string) (howFields, error) {
 }
 
 // TaskEdit sets the done condition or the effort of an open task.
-var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), how the owner does it (do_url: the page, do_command: the exact command, steps: 1 to 5 lines; no secrets), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), who it is for (requested_by: a person or group id, or free text; clear_requested_by removes it), or several. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
+var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_when), how the owner does it (do_url: the page, do_command: the exact command, steps: 1 to 5 lines; no secrets), its effort (xs under 15 min, s under an hour, m half a day, l a day or more), who it is for (requested_by: a person or group id, or free text; clear_requested_by removes it), the task or obligation it is an action item of (parent: prep for a meeting or a promise; clear_parent removes it), or several. To change the title, body, or another field, use doc_edit {id, title}", func(ctx context.Context, d Deps, in TaskEditInput) (TaskEditOutput, error) {
 	doc, t, err := getTask(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return TaskEditOutput{}, err
@@ -973,6 +977,23 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 		return TaskEditOutput{}, errors.New("give requested_by or clear_requested_by, not both")
 	}
 	changesFor := in.RequestedBy != "" || in.ClearRequestedBy
+	if in.Parent != "" && in.ClearParent {
+		return TaskEditOutput{}, errors.New("give parent or clear_parent, not both")
+	}
+	changesParent := in.Parent != "" || in.ClearParent
+	if in.ClearParent {
+		t.Parent = ""
+	}
+	if id := normID(in.Parent); id != "" {
+		if id == doc.ID {
+			return TaskEditOutput{}, errors.New("parent: a task is not its own action item")
+		}
+		p, err := parentOf(ctx, d, id)
+		if err != nil {
+			return TaskEditOutput{}, err
+		}
+		t.Parent = p.link
+	}
 	if in.ClearRequestedBy {
 		t.RequestedBy = ""
 	}
@@ -993,7 +1014,7 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if how.steps != "" {
 		t.Steps = how.steps
 	}
-	if (in.Effort == "" && !changesHow && !changesFor) || in.DoneWhen != "" {
+	if (in.Effort == "" && !changesHow && !changesFor && !changesParent) || in.DoneWhen != "" {
 		dw, err := checkDoneWhen(in.DoneWhen, true)
 		if err != nil {
 			return TaskEditOutput{}, err
@@ -1007,7 +1028,7 @@ var TaskEdit = defineSafe("task_edit", "Set how we know a task is done (done_whe
 	if err != nil {
 		return TaskEditOutput{}, err
 	}
-	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, RequestedBy: t.RequestedBy, Rev: saved.Rev}, nil
+	return TaskEditOutput{ID: doc.ID, DoneWhen: t.DoneWhen, Effort: t.Effort, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, RequestedBy: t.RequestedBy, Parent: t.Parent.Target(), Rev: saved.Rev}, nil
 })
 
 // markDeferred sets Deferred, NeedsYou, and Reason on tasks, and drops the

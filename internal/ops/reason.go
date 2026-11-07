@@ -10,11 +10,13 @@ import (
 // Why the owner does an item. An open work item has one or more reasons:
 //
 //   - goal: it leads to a goal (type project): its project, or through the
-//     task it is an action item of (parent), the item it unblocks (an open
+//     task or obligation it is an action item of (parent; an ask's parent
+//     too), the item it unblocks (an open
 //     item that depends on it, or an Ask's blocks), or a question's scope;
 //   - owed: it is owed to someone: a task's requested_by, a commitment's
-//     with, an obligation's owed_to, an incoming Ask's targets, or an
-//     incoming io item that expects a response and was filed into it;
+//     with, an obligation's owed_to (so prep for an obligation, whose parent
+//     it is, is owed through it), an incoming Ask's targets, or an incoming
+//     io item that expects a response and was filed into it;
 //   - upkeep: it keeps something up: an area, a recurring task or
 //     obligation, or an incident.
 //
@@ -250,6 +252,7 @@ func (g *reasonGraph) reasons(id string) []Reason {
 				}
 			}
 			g.owedByIO(h.id, owed)
+			next(m.Parent.Target(), StepActionItemOf)
 		case *model.Question:
 			if !m.IsRoot() {
 				next(m.Scope.Target(), StepAbout)
@@ -263,6 +266,23 @@ func (g *reasonGraph) reasons(id string) []Reason {
 		out[i].Text = reasonText(out[i], id)
 	}
 	return out
+}
+
+// reasonRank ranks an item's best reason for a tie in the value order:
+// owed 0, goal 1, upkeep 2, none 3.
+func (g *reasonGraph) reasonRank(id string) int {
+	best := 3
+	for _, r := range g.reasons(id) {
+		switch r.Kind {
+		case ReasonOwed:
+			return 0
+		case ReasonGoal:
+			best = min(best, 1)
+		case ReasonUpkeep:
+			best = min(best, 2)
+		}
+	}
+	return best
 }
 
 // owedByIO names the sender of each incoming io item filed into id that

@@ -72,6 +72,7 @@ func registerLife(r *registrar) {
 	// obligation on the owner's session (review:decide), as close does.
 	reg(r, ops.ObligationAdd, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ObligationSchedule, post, write)
+	reg(r, ops.ObligationParts, get, read)
 	reg(r, ops.ObligationAttend, post, write)
 	reg(r, ops.Agenda, get, read)
 	reg(r, ops.TaskToQuestion, post, write)

@@ -70,6 +70,7 @@ var (
 	taskKinds          = []string{"task", "meeting", "call", "work_with", "commitment", "incident"}
 	meetingStatus      = []string{"requested", "scheduled", "held", "cancelled"}
 	obligationKinds    = []string{"meeting", "commitment"}
+	promises           = []string{"kept", "renegotiated", "broken"}
 	schedules          = []string{"once", "at", "series", "ongoing"}
 	produceKinds       = []string{"journal", "report", "message", "doc", "other"}
 	states             = []string{"open", "closed"}
@@ -163,7 +164,7 @@ var typeFields = map[string][]field{
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, quarterly, yearly, every <n> days; another value is a warning
 		{Name: "previous", Kind: kLink},
 		{Name: "incident", Kind: kLink},
-		{Name: "parent", Kind: kLink}, // the task this is an action item of; not a dependency
+		{Name: "parent", Kind: kLink}, // the task or obligation this is an action item of; not a dependency (vault check)
 		{Name: "assignee", Kind: kString},
 		{Name: "requested_by", Kind: kString}, // who it is for: a person or group link, or free text
 		{Name: "done_when", Kind: kString},
@@ -206,6 +207,7 @@ var typeFields = map[string][]field{
 		{Name: "targets", Kind: kTargets},
 		{Name: "question", Kind: kLink},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
+		{Name: "parent", Kind: kLink}, // a task or obligation it is part of (vault check)
 	},
 	"question": {
 		{Name: "status", Kind: kEnum, Enum: questionStatus, Required: true},
@@ -246,7 +248,7 @@ var typeFields = map[string][]field{
 		{Name: "produce", Kind: kProduce}, // owed by an agent: what it produces each time
 		{Name: "project", Kind: kLink},
 		{Name: "area", Kind: kLink},
-		{Name: "parent", Kind: kLink}, // the task it came from
+		{Name: "parent", Kind: kLink}, // the task or obligation it came from (vault check)
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString},   // series: the recur grammar
 		{Name: "cadence", Kind: kString}, // ongoing: the recur grammar
@@ -266,8 +268,11 @@ var typeFields = map[string][]field{
 		{Name: "done_when", Kind: kString},
 		{Name: "depends_on", Kind: kList},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
-		{Name: "folded_from", Kind: kString}, // upgrade step obligations: the type before
-		{Name: "reply_to", Kind: kLink},      // the incoming io item it replies to
+		{Name: "folded_from", Kind: kString},  // upgrade step obligations: the type before
+		{Name: "reply_to", Kind: kLink},       // the incoming io item it replies to
+		{Name: "interested", Kind: kLinkList}, // more people or groups to tell of a change
+		{Name: "notices", Kind: kLinkList},    // the io drafts that told them
+		{Name: "promise", Kind: kEnum, Enum: promises},
 	},
 	"meeting": {
 		{Name: "status", Kind: kEnum, Enum: meetingStatus, Required: true},

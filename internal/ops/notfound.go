@@ -28,6 +28,7 @@ var notFoundHints = map[string]string{
 	"incident": "list incidents with incident_list or search with similar",
 	"question": "list questions with question_list or search with similar",
 	"rfx":      "list requests with rfx_list or search with similar",
+	"parent":   "list tasks with task_list, obligations with list {type: obligation}, or search with similar",
 }
 
 // missing turns a not-found error from a store read into the notFoundError of

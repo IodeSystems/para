@@ -58,6 +58,10 @@ type MeetingHoldOutput struct {
 	Rev          string              `json:"rev"`
 }
 
+// fromMeeting starts the body of an action item meeting_hold files: the
+// obligation page lists it under what came out of the meeting.
+const fromMeeting = "From meeting [[%s]]."
+
 // lintText refuses text a document would reject, before anything is written.
 func lintText(field, text string) error {
 	if strings.TrimSpace(text) == "" {
@@ -176,6 +180,9 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 		}
 	}
 	project, area := normID(in.Project), normID(in.Area)
+	if project == "" && area == "" && m.ob != nil {
+		project, area = m.ob.Project.Target(), m.ob.Area.Target() // the meeting's own goal or area
+	}
 	if project == "" && area == "" {
 		for _, rl := range m.RFX {
 			if _, rm, err := getRFX(ctx, d, rl.Target()); err == nil && rm.Project != "" {
@@ -187,6 +194,9 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 	tasks := make([]TaskAddInput, 0, len(in.Actions))
 	for i, a := range in.Actions {
 		ti := TaskAddInput{Title: a.Title, Assignee: a.Assignee, Due: a.Due, Project: a.Project, Area: a.Area, DoneWhen: a.DoneWhen}
+		if !m.Legacy {
+			ti.Parent = doc.ID // an action item came out of the meeting
+		}
 		if normID(ti.Project) == "" && normID(ti.Area) == "" {
 			ti.Project, ti.Area = project, area
 		}
@@ -215,7 +225,7 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 				return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: %w", i, err)
 			}
 		}
-		body := fmt.Sprintf("From meeting [[%s]].", doc.ID)
+		body := fmt.Sprintf(fromMeeting, doc.ID)
 		if b := strings.TrimSpace(a.Body); b != "" {
 			if err := lintText(fmt.Sprintf("actions[%d].body", i), b); err != nil {
 				return MeetingHoldOutput{}, err

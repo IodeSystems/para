@@ -72,6 +72,12 @@ type ObligationAddInput struct {
 	Schedule model.Schedule `json:"schedule,omitempty"`
 	OwedTo   []string       `json:"owed_to,omitempty"` // person or group ids it is owed to
 	OwedBy   []string       `json:"owed_by,omitempty"` // person or group ids that owe it, or agent or agent:<name>; empty: the owner
+	// Interested are more person or group ids to tell when it changes
+	// (obligation_change), beside owed_to, with, and attendees.
+	Interested []string `json:"interested,omitempty"`
+	// Parent is the open task or obligation this one came out of: a
+	// follow-up of a meeting, or a promise made in it.
+	Parent string `json:"parent,omitempty"`
 	Project  string         `json:"project,omitempty"`
 	Area     string         `json:"area,omitempty"`
 	Due      string         `json:"due,omitempty"`   // YYYY-MM-DD
@@ -144,6 +150,22 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	if err != nil {
 		return ObligationAddOutput{}, err
 	}
+	interested, err := meetingLinks(ctx, d, "interested", in.Interested, model.TypePerson, model.TypeGroup)
+	if err != nil {
+		return ObligationAddOutput{}, err
+	}
+	var parent parentRef
+	if id := normID(in.Parent); id != "" {
+		if parent, err = parentOf(ctx, d, id); err != nil {
+			return ObligationAddOutput{}, err
+		}
+		if normID(in.Project) == "" && normID(in.Area) == "" {
+			in.Project, in.Area = parent.project.Target(), parent.area.Target()
+		}
+	}
+	if !on && (len(interested) > 0 || parent.link != "") {
+		return ObligationAddOutput{}, fmt.Errorf("this vault is below format %d: interested and parent need it; the owner runs `para vault upgrade`", upgrade.ObligationFormat)
+	}
 	var produce *model.Produce
 	agentOwed := slices.ContainsFunc(owedBy, model.IsAgentOwer)
 	switch {
@@ -197,6 +219,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	}
 	post := func(o *model.Obligation) {
 		o.OwedTo, o.OwedBy, o.Schedule, o.Cadence, o.Produce = owedTo, owedBy, sched, flatLine(in.Cadence), produce
+		o.Interested, o.Parent = interested, parent.link
 		if kind == model.KindCommitment {
 			o.With = nil
 		}
@@ -440,6 +463,7 @@ var obligationClose = &Op[obligationCloseInput, ObligationCloseOutput]{name: "cl
 			}
 		}
 		o.State, o.Outcome, o.Reason, o.Closed = model.StateClosed, outcome, reason, model.Date(d.Store.Now().Format(dateLayout))
+		o.Promise = promiseNow(storeGet(ctx, d.Store), o, string(o.Closed))
 		if reason != "" {
 			doc.Body = appendToSection(doc.Body, outcomeHeading, reason)
 		}
@@ -470,7 +494,7 @@ func nextObligation(ctx context.Context, d Deps, doc model.Document, o *model.Ob
 	next := &model.Obligation{Common: model.Common{Type: model.TypeObligation, Tags: slices.Clone(o.Tags)}, Kind: o.Kind, State: model.StateOpen,
 		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Project: o.Project, Area: o.Area, Due: due, Recur: o.Recur,
 		OccurrenceOf: cmp.Or(o.OccurrenceOf, model.LinkTo(doc.ID)), Previous: model.LinkTo(doc.ID),
-		Occasion: nextOccasion(o.Occasion, rfx, sched, end), DoneWhen: o.DoneWhen, Effort: o.Effort}
+		Occasion: nextOccasion(o.Occasion, rfx, sched, end), DoneWhen: o.DoneWhen, Effort: o.Effort, Interested: o.Interested}
 	if o.Produce != nil {
 		p := *o.Produce
 		p.To = slices.Clone(o.Produce.To)

@@ -810,6 +810,25 @@ type ListRow struct {
 	// item it is about, the owner's words, who has it, how it ended, stale,
 	// seen, and the receipts made under it.
 	Request *SentItem `json:"request,omitempty"`
+	// Obligation is the detail of an obligation row: its kind, schedule,
+	// date, start, who it is owed to or with, and how the promise stands.
+	Obligation *ObligationRow `json:"obligation,omitempty"`
+}
+
+// ObligationRow is the detail of an obligation in a list.
+type ObligationRow struct {
+	Kind     model.TaskKind `json:"kind"`
+	Schedule model.Schedule `json:"schedule"`
+	Date     string         `json:"date,omitempty"`
+	Start    string         `json:"start,omitempty"`
+	End      string         `json:"end,omitempty"`
+	Recur    string         `json:"recur,omitempty"`
+	Reply    bool           `json:"reply,omitempty"` // a reply owed to a message
+	Agent    bool           `json:"agent,omitempty"` // an agent owes it (owed_by)
+	OwedBy   []string       `json:"owed_by"`
+	Parties  []string       `json:"parties"` // names
+	Promise  model.Promise  `json:"promise,omitempty"`
+	Outcome  string         `json:"outcome,omitempty"`
 }
 
 // ListOutput is the output of list.
@@ -879,7 +898,30 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 				it.Receipts, it.NeedsYou = receipts[doc.ID], n.Yes
 				row.Request = &it
 			}
+			if o, ok := doc.Meta.(*model.Obligation); ok {
+				row.Obligation = obligationRow(sn, o)
+			}
 			out.Rows = append(out.Rows, row)
 		}
 		return out, nil
 	})
+
+// obligationRow is the list detail of an obligation.
+func obligationRow(sn *Snapshot, o *model.Obligation) *ObligationRow {
+	r := &ObligationRow{Kind: o.Kind, Schedule: o.Schedule, Date: obligationDate(o), Start: o.Scheduled, End: o.End, Recur: o.Recur,
+		Reply: o.ReplyTo != "", Agent: o.Agent() != "", OwedBy: targets(o.OwedBy), Parties: []string{}, Promise: promiseNow(sn.Get, o, sn.Today), Outcome: string(o.Outcome)}
+	if r.OwedBy == nil {
+		r.OwedBy = []string{}
+	}
+	for _, p := range partiesOf(o) {
+		name := p.Text
+		if p.ID != "" {
+			name = p.ID
+			if pd, err := sn.Get(p.ID); err == nil && pd.Title != "" {
+				name = pd.Title
+			}
+		}
+		r.Parties = append(r.Parties, name)
+	}
+	return r
+}

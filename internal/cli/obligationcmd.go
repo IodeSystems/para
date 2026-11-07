@@ -23,6 +23,8 @@ func newObligationCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Schedule), "schedule", "", "once, at, series, or ongoing; default from --recur, --cadence, and --start")
 				fs.StringArrayVar(&in.OwedTo, "owed-to", nil, "person or group id it is owed to (repeatable)")
 				fs.StringArrayVar(&in.OwedBy, "owed-by", nil, "person or group id that owes it, or agent or agent:<name>; default you (repeatable)")
+				fs.StringArrayVar(&in.Interested, "interested", nil, "person or group id to tell when it changes, beside owed-to and with (repeatable)")
+				fs.StringVar(&in.Parent, "parent", "", "task or obligation id it came out of (a follow-up of a meeting)")
 				fs.StringVarP(&in.Project, "project", "p", "", "project id")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD")
@@ -92,6 +94,38 @@ func newObligationCmd(l *loader) *cobra.Command {
 			},
 		}),
 		newMeetingAttendCmd(l, ops.ObligationAttend, "attend"),
+		opCommand(l, ops.ObligationParts, binding[ops.ObligationPartsInput, ops.ObligationPartsOutput]{
+			Use:   "parts <id>",
+			Args:  cobra.ExactArgs(1),
+			Bind:  func(args []string, in *ops.ObligationPartsInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.ObligationPartsOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\t%s\n", out.ID, out.Kind, out.State, out.Date)
+				if out.Promise != "" {
+					p.f("promise\t%s\n", out.Promise)
+				}
+				part := func(label string, x ops.ObligationPart) {
+					p.f("%s\t%s\t%s\t%s\t%s\tby %s\t%s\n", label, x.ID, x.Status, x.Effort, x.Relation, firstNonEmpty(x.Back, "-"), x.Title)
+				}
+				for _, x := range out.Before {
+					part("before", x)
+				}
+				for _, x := range out.CameOut {
+					part("came out", x)
+				}
+				for _, x := range out.Documents {
+					p.f("document\t%s\t%s\t%s\n", x.ID, x.Kind, x.Title)
+				}
+				for _, x := range out.Parties {
+					p.f("tell\t%s\t%s\n", x.Name, x.Medium)
+				}
+				for _, x := range out.Changes {
+					p.f("change\t%s\n", x)
+				}
+				return p.err
+			},
+		}),
 	)
 	return cmd
 }
+

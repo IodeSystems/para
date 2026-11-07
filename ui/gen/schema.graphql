@@ -254,6 +254,7 @@ type ParaV1QueryNamespace {
   noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
   noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
   notesRead(id: String!): para_NotesReadOutput @derived(operationId: "notesRead")
+  obligationParts(id: String!): para_ObligationPartsOutput @derived(operationId: "obligationParts")
   order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
@@ -3959,6 +3960,7 @@ type para_ListRow {
   id: String!
   life: para_ListRowLife!
   needsYou: Boolean!
+  obligation: para_ObligationRow
   reason: String!
   request: para_SentItem
   status: String
@@ -4318,6 +4320,7 @@ type para_Meta {
   heldBy: [String!]
   importedFrom: para_ImportedFrom
   incident: String
+  interested: [String!]
   item: String
   kind: String
   lastError: String
@@ -4332,6 +4335,7 @@ type para_Meta {
   nextNudge: String
   notDuplicate: String
   notIn: [String!]
+  notices: [String!]
   observed: Boolean
   occurrenceOf: String
   of: String
@@ -4356,6 +4360,7 @@ type para_Meta {
   priority: String
   produce: para_Produce
   project: String
+  promise: String
   proposal: String
   proposed: String
   proposedAnswer: String
@@ -4638,6 +4643,38 @@ type para_NotesReadOutput {
   md: String!
 }
 
+type para_NoticeRef {
+  id: String!
+  medium: para_NoticeRefMedium!
+  state: para_NoticeRefState!
+  title: String!
+  to: [String!]!
+}
+
+enum para_NoticeRefMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
+enum para_NoticeRefState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
 input para_ObligationAddInputInput {
   area: String
   attendees: [String!]
@@ -4649,10 +4686,12 @@ input para_ObligationAddInputInput {
   due: String
   end: String
   importedFrom: para_ImportedFromInput
+  interested: [String!]
   kind: para_ObligationAddInputKind
   optional: Boolean
   owedBy: [String!]
   owedTo: [String!]
+  parent: String
   produce: para_ProduceInputInput
   project: String
   recur: String
@@ -4761,6 +4800,167 @@ enum para_ObligationAddOutputType {
   team
   tracked_doc
   transcript
+}
+
+type para_ObligationPart {
+  back: String
+  blocked: Boolean
+  created: String
+  done: Boolean!
+  due: String
+  effort: para_ObligationPartEffort!
+  id: String!
+  kind: String
+  relation: String!
+  status: String!
+  title: String!
+  type: para_ObligationPartType!
+}
+
+enum para_ObligationPartEffort {
+  l
+  m
+  s
+  xs
+}
+
+enum para_ObligationPartType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
+}
+
+type para_ObligationPartsOutput {
+  before: [para_ObligationPart!]!
+  calendar: Boolean!
+  cameOut: [para_ObligationPart!]!
+  changes: [String!]!
+  date: String
+  documents: [para_PartRef!]!
+  end: String
+  id: String!
+  kind: para_ObligationPartsOutputKind!
+  notices: [para_NoticeRef!]!
+  outcome: para_ObligationPartsOutputOutcome
+  parties: [para_ObligationParty!]!
+  promise: para_ObligationPartsOutputPromise
+  series: Boolean!
+  start: String
+  state: para_ObligationPartsOutputState!
+  title: String!
+}
+
+enum para_ObligationPartsOutputKind {
+  call
+  commitment
+  incident
+  meeting
+  task
+  work_with
+}
+
+enum para_ObligationPartsOutputOutcome {
+  declined
+  done
+  dropped
+  duplicate
+  failed
+  partial
+  rerouted
+  superseded
+}
+
+enum para_ObligationPartsOutputPromise {
+  broken
+  kept
+  renegotiated
+}
+
+enum para_ObligationPartsOutputState {
+  closed
+  open
+}
+
+type para_ObligationParty {
+  id: String
+  medium: para_ObligationPartyMedium!
+  name: String!
+}
+
+enum para_ObligationPartyMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
+type para_ObligationRow {
+  agent: Boolean
+  date: String
+  end: String
+  kind: para_ObligationRowKind!
+  outcome: String
+  owedBy: [String!]!
+  parties: [String!]!
+  promise: para_ObligationRowPromise
+  recur: String
+  reply: Boolean
+  schedule: para_ObligationRowSchedule!
+  start: String
+}
+
+enum para_ObligationRowKind {
+  call
+  commitment
+  incident
+  meeting
+  task
+  work_with
+}
+
+enum para_ObligationRowPromise {
+  broken
+  kept
+  renegotiated
+}
+
+enum para_ObligationRowSchedule {
+  at
+  once
+  ongoing
+  series
 }
 
 input para_ObligationScheduleInputInput {
@@ -5878,6 +6078,7 @@ input para_RFXAddInputInput {
   effort: para_RFXAddInputEffort
   importedFrom: para_ImportedFromInput
   nextNudge: String
+  parent: String
   project: String
   question: String
   route: String!
@@ -7917,12 +8118,14 @@ enum para_TaskEditInputEffort {
 
 input para_TaskEditInputInput {
   clearHow: Boolean
+  clearParent: Boolean
   clearRequestedBy: Boolean
   doCommand: String
   doUrl: String
   doneWhen: String
   effort: para_TaskEditInputEffort
   id: String!
+  parent: String
   requestedBy: String
   steps: String
 }
@@ -7933,6 +8136,7 @@ type para_TaskEditOutput {
   doneWhen: String!
   effort: para_TaskEditOutputEffort
   id: String!
+  parent: String
   requestedBy: String
   rev: String!
   steps: String
@@ -8485,6 +8689,7 @@ type para_Unknown {
 
 type para_ValueRow {
   after: String
+  back: String
   blocks: Int!
   bucket: String!
   created: String
@@ -8492,6 +8697,7 @@ type para_ValueRow {
   effDue: String
   effort: para_ValueRowEffort!
   effortSet: Boolean
+  for: String
   group: String!
   id: String!
   impact: Int!

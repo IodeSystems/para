@@ -42,6 +42,7 @@ func newRFXCmd(l *loader) *cobra.Command {
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "RFX ids that must resolve first")
 				fs.StringVar(&in.NextNudge, "next-nudge", "", "YYYY-MM-DD")
 				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
+				fs.StringVar(&in.Parent, "parent", "", "task or obligation id this ask is part of (prep for a meeting, or what came out of it)")
 			},
 			Bind: func(args []string, in *ops.RFXAddInput) error {
 				in.Ask = strings.Join(args, " ")

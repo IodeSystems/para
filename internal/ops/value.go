@@ -25,18 +25,33 @@ import (
 //  1. Open incidents, worst severity first.
 //  2. Items overdue or due within order.due_soon_days (default 2) by their
 //     effective due date, soonest first.
-//  3. Reply: someone waits on the owner (an ask made to the owner, an incoming
+//  3. Owed: promises to people. An open obligation the owner owes people
+//     (owed_to, with, interested, or attendees; or a reply obligation) whose
+//     date (due, or the day of its start) is within order.owed_soon_days
+//     (default 7), and its open prep (its children, whose parent it is, and
+//     what it depends on, through any chain). Prep takes a backward date:
+//     the obligation's date minus the prep's effort lead (xs and s 0 days, m
+//     1, l 2; unset effort is the default below), and that date is its
+//     effective due when it is earlier. Soonest effective date first. A
+//     reply obligation that takes under an hour stays in the reply batch.
+//  4. Reply: someone waits on the owner (an ask made to the owner, an incoming
 //     message that expects a response) and it takes under an hour. Longest
 //     waiting cost first: days waited times the people waiting.
-//  4. Focus: the order.focus_count (default 3) items of the rest with the best
+//  5. Focus: the order.focus_count (default 3) items of the rest with the best
 //     score, (impact+1) / effort weight (xs 1, s 2, m 4, l 8). A goal, agent
 //     work, and an item that waits on another open item are not picked. An
 //     item whose effective due date is within order.goal_soon_days (default
 //     14) scores double, for focus and for the order of the rest.
-//  5. Recheck: an item overdue by more than order.stale_days (default 30; 0 is
+//  6. Recheck: an item overdue by more than order.stale_days (default 30; 0 is
 //     off) is not due soon. It asks "still needed?", oldest date first. An
 //     incident is never rechecked.
-//  6. Everything else by the same score, highest first.
+//  7. Everything else by the same score, highest first.
+//
+// A tie in score goes to the item with the better reason (reason.go): owed
+// before goal before upkeep before none, then by effective due date.
+//
+// A booked meeting after today is not yet startable itself; its prep is
+// startable and rises through the owed tier.
 //
 // Not yet startable comes last, by the day it can start. Within each group,
 // ready items (prepared by an agent and not changed since, Snapshot.Ready)
@@ -48,10 +63,11 @@ import (
 // only approves: an ask made to the owner, a question, an outgoing draft, and
 // an incoming message that expects a response.
 //
-// Effective due is the earliest of the item's own date and the date of any
-// open item downstream of it (anything that waits on it, through depends_on,
-// and the goal a task belongs to). It counts only through the due soon window:
-// prep for a meeting next week ranks by impact. Ties: the effective due date
+// Effective due is the earliest of the item's own date, the date of any open
+// item downstream of it (anything that waits on it, through depends_on, and
+// the goal a task belongs to), and the backward date of prep for a promise.
+// A date counts through the due soon window, and a backward date through the
+// owed soon window: prep for a meeting next week rises a week ahead. Ties: the effective due date
 // (none last), the owner's rank between two goals, the oldest, then the id.
 // Impact is the number of open items it unblocks, through any chain; a goal
 // counts twice. A task also counts toward its parent task (an action item is
@@ -77,6 +93,7 @@ const (
 const (
 	GroupIncident = "incident"
 	GroupDueSoon  = "due_soon"
+	GroupOwed     = "owed"
 	GroupReply    = "reply"
 	GroupFocus    = "focus"
 	GroupRecheck  = "recheck"
@@ -96,6 +113,13 @@ const StaleDaysKey = "order.stale_days"
 
 // DefaultStaleDays is the recheck window when the vault sets none.
 const DefaultStaleDays = 30
+
+// OwedSoonKey is the vault setting of how many days ahead a promise to
+// people, and its prep, rank in the owed tier. 0 is off.
+const OwedSoonKey = "order.owed_soon_days"
+
+// DefaultOwedSoonDays is the owed tier window when the vault sets none.
+const DefaultOwedSoonDays = 7
 
 // GoalSoonKey is the vault setting of how many days ahead a due date doubles
 // the focus score. 0 is off.
@@ -150,6 +174,7 @@ type RankOptions struct {
 	FocusCount   int    // how many items the focus group holds; 0 is none
 	StaleDays    int    // overdue by more than this many days is recheck, not due soon; 0 is off
 	GoalSoonDays int    // a date within this many days doubles the focus score; 0 is off
+	OwedSoonDays int    // a promise within this many days, and its prep, rank in the owed tier; 0 is off
 }
 
 // goalWeight is how many items a goal counts for in impact.
@@ -199,6 +224,13 @@ type ValueNode struct {
 	// Reply marks a reply obligation (ioreply.go): the reply batch holds it
 	// until its due date passes, though its due date is near by design.
 	Reply bool
+	// Promise marks an open obligation the owner owes people; PromiseDate is
+	// its date (due, or the day of its start). Its prep rises with it.
+	Promise     bool
+	PromiseDate string
+	// ReasonRank is the item's best reason for a tie in score: owed 0, goal
+	// 1, upkeep 2, none 3.
+	ReasonRank int
 	// Effort is the item's effort field, or "" when not set.
 	Effort model.Effort
 	// Prep is true when an agent can prepare the item in full and the owner
@@ -223,7 +255,11 @@ type ValueRow struct {
 	Impact   int    `json:"impact"`             // weighted count
 	Blocks   int    `json:"blocks"`             // open items it unblocks, goals not counted
 	Items    int    `json:"items,omitempty"`    // open action items (children) of a task
-	Parent   string `json:"parent,omitempty"`   // the task this is an action item of
+	Parent   string `json:"parent,omitempty"`   // the task or obligation this is an action item of
+	// For is the promise this is prep for, in the owed tier; Back is the
+	// backward date it falls due by.
+	For  string `json:"for,omitempty"`
+	Back string `json:"back,omitempty"`
 	Why      string `json:"why"`                // in words
 	Proposal bool   `json:"proposal,omitempty"` // an answer waits to be checked
 	// Bucket is now (actionable now) or not_yet (not yet startable).
@@ -346,6 +382,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		return out, viaParent
 	}
 	starts := notYet(nodes, by, opt.Today)
+	back, prepFor := backDates(nodes, by, opt)
 	soon := opt.Today
 	if t, err := time.Parse(dateLayout, opt.Today); err == nil {
 		soon = t.AddDate(0, 0, opt.DueSoonDays).Format(dateLayout)
@@ -410,6 +447,13 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 				eff, from = u.Due, u
 			}
 		}
+		if bd, ok := back[n.ID]; ok {
+			r.For, r.Back = prepFor[n.ID], bd
+			if eff == "" || bd < eff {
+				eff = bd
+			}
+		}
+		owedTier := r.For != "" || n.Promise && owedSoon(n.PromiseDate, opt)
 		r.EffDue = eff
 		r.Bucket = BucketNow
 		st, late := starts[n.ID]
@@ -427,6 +471,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Group = GroupReply
 		case eff != "" && eff <= soon:
 			r.Group = GroupDueSoon
+		case owedTier:
+			r.Group = GroupOwed
 		case n.Owed && effortWeight[r.Effort] <= effortWeight[model.EffortS]:
 			r.Group = GroupReply
 		default:
@@ -494,15 +540,21 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Why = "overdue; " + r.Why
 		case r.Group == GroupDueSoon:
 			r.Why = "due soon; " + r.Why
+		case r.Group == GroupOwed && r.For != "":
+			o := by[r.For]
+			r.Why = "prep for " + shorten(cmp.Or(o.Title, o.ID)) + " on " + ShortDate(o.PromiseDate) + ", by " + ShortDate(r.Back) + "; " + r.Why
+		case r.Group == GroupOwed:
+			r.Why = "owed " + ShortDate(n.PromiseDate) + "; " + r.Why
 		}
 		rows = append(rows, r)
 	}
-	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupReply: 2, GroupFocus: 3, GroupRecheck: 4, GroupImpact: 5, GroupNotYet: 6}
+	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupOwed: 2, GroupReply: 3, GroupFocus: 4, GroupRecheck: 5, GroupImpact: 6, GroupNotYet: 7}
 	created := map[string]string{}
+	reasonRank := map[string]int{}
 	sev := map[string]string{}
 	goalRank := map[string]int{}
 	for _, n := range nodes {
-		created[n.ID], sev[n.ID] = n.Created, n.Sev
+		created[n.ID], sev[n.ID], reasonRank[n.ID] = n.Created, n.Sev, n.ReasonRank
 		if n.Kind == KindGoal && n.Rank > 0 {
 			goalRank[n.ID] = n.Rank
 		}
@@ -537,14 +589,14 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		switch a.Group {
 		case GroupIncident:
 			return cmp.Or(cmp.Compare(sev[a.ID], sev[b.ID]), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
-		case GroupDueSoon:
+		case GroupDueSoon, GroupOwed:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
 		case GroupRecheck:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
 		case GroupReply:
 			c = cmp.Or(cmp.Compare(b.WaitingDays, a.WaitingDays), due(a, b))
 		case GroupFocus, GroupImpact:
-			c = cmp.Or(score(a, b), due(a, b))
+			c = cmp.Or(score(a, b), cmp.Compare(reasonRank[a.ID], reasonRank[b.ID]), due(a, b))
 		case GroupNotYet:
 			c = cmp.Or(cmp.Compare(a.Starts, b.Starts), due(a, b), cmp.Compare(b.Impact, a.Impact))
 		}
@@ -589,6 +641,56 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		held = []HeldUp{}
 	}
 	return ValueOrder{Rows: rows, Held: held, Summary: sum}
+}
+
+// owedSoon reports whether a promise's date is within the owed soon window:
+// on or before today plus order.owed_soon_days.
+func owedSoon(date string, opt RankOptions) bool {
+	if date == "" || opt.OwedSoonDays <= 0 {
+		return false
+	}
+	t, err := time.Parse(dateLayout, opt.Today)
+	return err == nil && date <= t.AddDate(0, 0, opt.OwedSoonDays).Format(dateLayout)
+}
+
+// backDates gives the open prep of each promise in the owed soon window its
+// backward date: the promise's date minus the prep's effort lead. Prep is
+// the promise's children (Parent) and what it depends on (Deps), through any
+// chain; a deferred item is not walked. An item that is prep for more than
+// one promise takes the earliest date. prepFor names the promise.
+func backDates(nodes []ValueNode, by map[string]*ValueNode, opt RankOptions) (back, prepFor map[string]string) {
+	back, prepFor = map[string]string{}, map[string]string{}
+	kids := map[string][]string{}
+	for _, n := range nodes {
+		if n.Parent != "" && by[n.Parent] != nil {
+			kids[n.Parent] = append(kids[n.Parent], n.ID)
+		}
+	}
+	for _, o := range nodes {
+		if !o.Promise || o.Deferred || !owedSoon(o.PromiseDate, opt) {
+			continue
+		}
+		seen := map[string]bool{o.ID: true}
+		queue := []string{o.ID}
+		for len(queue) > 0 {
+			cur := queue[0]
+			queue = queue[1:]
+			for _, id := range append(slices.Clone(by[cur].Deps), kids[cur]...) {
+				p := by[id]
+				if p == nil || seen[id] || p.Deferred {
+					continue
+				}
+				seen[id] = true
+				queue = append(queue, id)
+				e, _ := effortOf(*p)
+				bd := backDate(o.PromiseDate, e)
+				if old, ok := back[id]; !ok || bd < old || bd == old && o.ID < prepFor[id] {
+					back[id], prepFor[id] = bd, o.ID
+				}
+			}
+		}
+	}
+	return back, prepFor
 }
 
 // daysBetween is the whole days from day a to day b, both YYYY-MM-DD; 0 when
@@ -723,6 +825,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 	}
 	var nodes []ValueNode
 	rfxBlocks := map[string][]string{} // rfx id -> items it blocks
+	reasons := newReasonGraph(sn.docs)
 	meetingOf := map[string][]string{} // rfx id -> meetings that serve it
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
@@ -736,11 +839,15 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		// keys targets and blocks).
 		owed, askIn := false, false
 		reply := ""
+		promise, promiseDate := false, ""
 		var askTargets []model.Target
 		var askBlocks []model.Link
 		if o, ok := doc.Meta.(*model.Obligation); ok {
 			owed = len(o.OwedTo) > 0 || o.ReplyTo != "" // a reply is owed to its sender, linked or not
 			reply = o.ReplyTo.Target()
+			// A promise to people the owner keeps: its prep rises with it.
+			promise = o.Open() && len(o.OwedBy) == 0 && promised(o) && o.Attend != model.AttendNo
+			promiseDate = obligationDate(o)
 			if o.FoldedFrom == model.TypeRFX {
 				askIn = true
 				doc.Kept("targets", &askTargets)
@@ -758,7 +865,8 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			ready = &rd
 		}
 		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Updated: string(doc.Meta.Header().Updated), Deferred: hold.any(),
-			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason, Ready: ready}
+			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason, Ready: ready,
+			Promise: promise && promiseDate != "", PromiseDate: promiseDate, ReasonRank: reasons.reasonRank(doc.ID)}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil
 			n.WaitOnly, n.WaitDeps, n.ReadyWhy = hold.waitOnly(), hold.Waits, hold.Ready
@@ -935,7 +1043,11 @@ func orderOf(sn *Snapshot, all bool) (ValueOrder, error) {
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus, StaleDays: stale, GoalSoonDays: goalSoon}), nil
+	owedSoonDays, err := configInt(s, OwedSoonKey, DefaultOwedSoonDays)
+	if err != nil {
+		return ValueOrder{}, err
+	}
+	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus, StaleDays: stale, GoalSoonDays: goalSoon, OwedSoonDays: owedSoonDays}), nil
 }
 
 // configInt reads a vault setting that is a count; unset or not a number is
@@ -982,7 +1094,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; owed, promises to people within order.owed_soon_days (default 7) and their prep, which falls due by the promise's date minus its effort lead (m 1 day, l 2), soonest first (rows carry for, the promise, and back, that date); reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score, a tie going to owed before goal before upkeep. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err

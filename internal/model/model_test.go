@@ -56,6 +56,7 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"question.effort", strs(Efforts), paramd.FieldEnum("question", "effort")},
 		{"rfx.effort", strs(Efforts), paramd.FieldEnum("rfx", "effort")},
 		{"io.effort", strs(Efforts), paramd.FieldEnum("io", "effort")},
+		{"obligation.promise", strs(Promises), paramd.FieldEnum("obligation", "promise")},
 		{"tracked_doc.system", strs(DocSystems), paramd.FieldEnum("tracked_doc", "system")},
 		{"tracked_doc.status", strs(DocStatuses), paramd.FieldEnum("tracked_doc", "status")},
 		{"source.system", strs(SourceSystems), paramd.FieldEnum("source", "system")},

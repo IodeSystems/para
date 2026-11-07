@@ -50,6 +50,7 @@ func CheckVault(files []*File) []Finding {
 			out = append(out, checkScope(f, byName)...)
 		}
 		out = append(out, checkAreaKinds(f, byName)...)
+		out = append(out, checkParent(f, byName)...)
 		out = append(out, checkRefines(f, byName)...)
 		if f.Type() == "tracked_doc" {
 			if n, ok := f.Frontmatter["latest"].(int); ok {
@@ -103,6 +104,27 @@ func checkScope(f *File, byName map[string]*File) []Finding {
 			Msg: fmt.Sprintf("scope %s is a %s: want a project, a task, an area, or root", scope, dst.Type())}}
 	}
 	return nil
+}
+
+// checkParent: the parent of a task, an obligation, or an rfx is a task, an
+// obligation, or an older meeting.
+func checkParent(f *File, byName map[string]*File) []Finding {
+	switch f.Type() {
+	case "task", "obligation", "rfx":
+	default:
+		return nil
+	}
+	v := f.Frontmatter["parent"]
+	dst := linkTarget(v, byName)
+	if dst == nil {
+		return nil
+	}
+	switch dst.Type() {
+	case "task", "obligation", "meeting":
+		return nil
+	}
+	return []Finding{{Path: f.Path, Code: CodeFieldValue, Severity: Error,
+		Msg: fmt.Sprintf("parent %s is a %s: want a task or an obligation", str(v), dst.Type())}}
 }
 
 // linkTarget returns the file a frontmatter link names, or nil when the value

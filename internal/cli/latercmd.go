@@ -143,13 +143,15 @@ func printRows(p *printer, indent string, sum ops.OrderSummary, n int, row func(
 		group, kind, id, why, title := row(i)
 		if group != last {
 			switch {
+			case group == ops.GroupOwed:
+				p.f("%sowed: promises to people and their prep\n", indent)
 			case group == ops.GroupReply:
 				p.f("%s%s\n", indent, replyBatch(sum))
 			case group == ops.GroupFocus:
 				p.f("%sfocus\n", indent)
 			case group == ops.GroupRecheck:
 				p.f("%srecheck\n", indent)
-			case group == ops.GroupImpact && (last == ops.GroupReply || last == ops.GroupFocus || last == ops.GroupRecheck):
+			case group == ops.GroupImpact && (last == ops.GroupOwed || last == ops.GroupReply || last == ops.GroupFocus || last == ops.GroupRecheck):
 				p.f("%sthen\n", indent)
 			}
 			last = group

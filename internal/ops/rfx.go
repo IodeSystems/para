@@ -38,6 +38,9 @@ type RFXAddInput struct {
 	Question  string             `json:"question,omitempty"`   // id of the question this request asks; a reply answers it
 	// Effort is about how long the ask takes the owner: xs, s, m, or l.
 	Effort model.Effort `json:"effort,omitempty"`
+	// Parent is the open task or obligation this ask is part of: prep for a
+	// meeting, or what came out of it. The parent does not wait on it.
+	Parent string `json:"parent,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -114,6 +117,16 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 		}
 		meta.Question = model.LinkTo(qd.ID)
 	}
+	if id := normID(in.Parent); id != "" {
+		p, err := parentOf(ctx, d, id)
+		if err != nil {
+			return RFXAddOutput{}, err
+		}
+		meta.Parent = p.link
+		if normID(in.Project) == "" && p.project != "" {
+			in.Project = p.project.Target()
+		}
+	}
 	if p := normID(in.Project); p != "" {
 		links, err := existingLinks(ctx, d, "project", []string{p})
 		if err != nil {
@@ -138,6 +151,9 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 		return RFXAddOutput{}, err
 	}
 	folded := doc.Meta.Header().Type == model.TypeObligation
+	if o, ok := doc.Meta.(*model.Obligation); ok && o.Parent == "" {
+		o.Parent = meta.Parent
+	}
 	if doc, err = d.Store.Create(ctx, doc); err != nil {
 		return RFXAddOutput{}, err
 	}
