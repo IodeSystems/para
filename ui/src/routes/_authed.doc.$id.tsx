@@ -21,6 +21,7 @@ import { withoutSection } from '@/lib/markdown'
 import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import { IncidentPanel } from '@/components/IncidentPanel'
 import { Activity } from '@/components/Activity'
+import { ItemContext } from '@/components/ItemContext'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
@@ -30,6 +31,9 @@ import { PrioritySelect } from '@/components/PrioritySelect'
 import { isClosed, rowKind } from '@/lib/agenda'
 
 export const Route = createFileRoute('/_authed/doc/$id')({ component: Doc })
+
+// CONTEXT_TYPES are the work items whose page starts with what the item is for.
+const CONTEXT_TYPES = ['task', 'obligation', 'question', 'rfx', 'project', 'incident', 'meeting']
 
 // withSourceLink turns "Read the source." in a summary stub into a link to the source.
 function withSourceLink(body: string, url: string | null | undefined): string {
@@ -115,6 +119,7 @@ function Doc() {
           </Stack>
           {d.meta.type === 'group' && <PrioritySelect id={d.id} value={d.meta.priority} />}
           <AgentReplyNote id={d.id} />
+          {CONTEXT_TYPES.includes(d.meta.type) && <ItemContext id={d.id} />}
           {d.meta.source?.url && (
             <Box sx={{ mb: 2 }}>
               <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>

@@ -6,6 +6,7 @@ import Stack from '@mui/material/Stack'
 import { AgentLooking } from '@/components/FindContext'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { ItemContext } from '@/components/ItemContext'
 import { DoneWhen } from '@/components/DoneWhen'
 import { GoalBrief } from '@/components/GoalBrief'
 import { PointerLinks } from '@/components/PointerLinks'
@@ -57,6 +58,7 @@ function ProjectPage() {
               </>
             )}
           </Typography>
+          <ItemContext id={id} />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
             {d.lastAligned
               ? `last checked against sources ${d.lastAligned}`

@@ -11,6 +11,7 @@ import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
 import { NextMoves } from '@/components/NextMoves'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
+import { ItemContext } from '@/components/ItemContext'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { withoutSection } from '@/lib/markdown'
@@ -38,6 +39,7 @@ function RfxPage() {
             {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}
             {r.doc.meta.nextNudge ? ` - follow up ${dateWords(r.doc.meta.nextNudge)}` : ''}
           </Typography>
+          <ItemContext id={id} />
           <Section title="Asked of" count={r.targets.length}>
             {r.targets.length === 0 ? (
               <Empty>Nobody is named yet.</Empty>

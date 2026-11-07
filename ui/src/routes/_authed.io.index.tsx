@@ -13,6 +13,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import { useIoList } from '@/api/io'
 import { CHIP_ROW, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
+import { CaptureButton } from '@/components/CaptureButton'
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
 import { ioParty } from '@/lib/io'
@@ -30,6 +31,8 @@ const MEDIUMS = [
   'teams',
   'phone',
   'meeting',
+  'verbal',
+  'swivel',
   'other',
 ]
 
@@ -52,7 +55,10 @@ function IoPage() {
   const c = q.data?.counts
   return (
     <>
-      <PageTitle subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you decide in dossiers.">
+      <PageTitle
+        subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you decide in dossiers."
+        action={<CaptureButton />}
+      >
         IO
       </PageTitle>
       <Tabs

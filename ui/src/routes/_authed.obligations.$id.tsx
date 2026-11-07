@@ -9,6 +9,7 @@ import { useSeenOnOpen } from '@/api/requests'
 import { useMeeting, useObligation } from '@/api/meetings'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { ItemContext } from '@/components/ItemContext'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody, FileNotesButton } from '@/components/MeetingBrief'
@@ -46,6 +47,7 @@ function ObligationPage() {
                 {[o.due && `due ${o.due}`, o.reason].filter(Boolean).join(' - ')}
               </Typography>
             </Stack>
+            <ItemContext id={id} />
             <Section title="Owed to" count={o.with.length}>
               {o.with.length === 0 ? (
                 <Empty>Nobody is named.</Empty>
@@ -95,6 +97,7 @@ function MeetingDetail({ id }: { id: string }) {
                 {meetingWhen(m.start, m.end)}
               </Typography>
             </Stack>
+            <ItemContext id={id} />
             <Section title="With" count={m.with.length + m.attendees.length}>
               {m.with.length + m.attendees.length === 0 ? (
                 <Empty>Nobody is named yet.</Empty>

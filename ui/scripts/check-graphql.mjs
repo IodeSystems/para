@@ -109,6 +109,11 @@ const REVIEW_MUTATIONS = new Set([
   'ObligationAdd',
   // owner 2026-11-06: Investigate button next to Done (fill details, check done, recheck assumptions)
   'Investigate',
+  // owner 2026-11-06: Context block. Log a conversation (medium verbal) or something carried over by
+  // hand from another system (medium swivel) from the IO page: interaction_add for people in the
+  // directory, io_add otherwise. The owner's own capture; no permalink needed.
+  'InteractionAdd',
+  'IOAdd',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
