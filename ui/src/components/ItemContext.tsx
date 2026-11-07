@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouteContext } from '@tanstack/react-router'
 import Button from '@mui/material/Button'
 import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
@@ -7,6 +8,7 @@ import Typography from '@mui/material/Typography'
 import { useItemContext, type ItemContextData } from '@/api/context'
 import { investigate } from '@/api/verbs'
 import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
 import { Section, StatusChip } from '@/components/Bits'
 import { Dependencies } from '@/components/Dependencies'
 import { DocLink } from '@/components/DocLink'
@@ -99,8 +101,9 @@ function Line({ label, data, children }: { label: string; data?: string; childre
 }
 
 // NoReason is the line of an item with no reason: Agent looking while the agent work is open,
-// else Investigate.
+// else Investigate (only with review:decide; a read-only session sees the line alone).
 function NoReason({ id, text, looking }: { id: string; text: string; looking?: string | null }) {
+  const { session } = useRouteContext({ from: '/_authed' })
   const qc = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -114,7 +117,7 @@ function NoReason({ id, text, looking }: { id: string; text: string; looking?: s
       <span>{text}.</span>
       {looking ? (
         <StatusChip tone="good" label="Agent looking" />
-      ) : (
+      ) : !canDecide(session) ? null : (
         <Button
           size="small"
           disabled={busy}

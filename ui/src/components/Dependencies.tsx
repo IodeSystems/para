@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useRouteContext } from '@tanstack/react-router'
 import Button from '@mui/material/Button'
 import Checkbox from '@mui/material/Checkbox'
 import FormControlLabel from '@mui/material/FormControlLabel'
@@ -12,6 +13,7 @@ import Typography from '@mui/material/Typography'
 import { useDependsSet, type DependsSetBody, type ItemContextData } from '@/api/context'
 import { useSearch } from '@/api/search'
 import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
 import { Section, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { canWait, depActions, WAIT_TYPES } from '@/lib/depends'
@@ -22,8 +24,11 @@ type Row = ItemContextData['waitsOn'][number]
 // Dependencies are two sections under Context: Waits on (what the item waits on, a text reason
 // too) and Blocks (the open items that wait on it). An optional one is shown with an "optional"
 // chip: it is better done first but never holds the item. Each section is hidden when empty; an
-// item that can wait keeps "Add what this waits on".
+// item that can wait keeps "Add what this waits on". A session without review:decide only reads:
+// no Add, Remove, or Make optional.
 export function Dependencies({ c }: { c: ItemContextData }) {
+  const { session } = useRouteContext({ from: '/_authed' })
+  const decide = canDecide(session)
   const set = useDependsSet()
   const [err, setErr] = useState('')
   const [adding, setAdding] = useState(false)
@@ -31,7 +36,7 @@ export function Dependencies({ c }: { c: ItemContextData }) {
     setErr('')
     set.mutate(body, { onError: (e) => setErr(errorText(e)) })
   }
-  const waits = canWait(c.type)
+  const waits = decide && canWait(c.type)
   const add = waits && (
     <Button size="small" onClick={() => setAdding((v) => !v)} aria-expanded={adding}>
       {adding ? 'Close' : 'Add what this waits on'}
@@ -41,7 +46,14 @@ export function Dependencies({ c }: { c: ItemContextData }) {
     <>
       {c.waitsOn.length > 0 ? (
         <Section title="Waits on" count={c.waitsOn.length} action={add}>
-          <Rows item={c.id} side="waits" rows={c.waitsOn} busy={set.isPending} send={send} />
+          <Rows
+            item={c.id}
+            side="waits"
+            rows={c.waitsOn}
+            busy={set.isPending}
+            send={send}
+            decide={decide}
+          />
           {adding && <AddDep item={c.id} type={c.type} send={send} done={() => setAdding(false)} />}
         </Section>
       ) : (
@@ -55,7 +67,14 @@ export function Dependencies({ c }: { c: ItemContextData }) {
         )
       )}
       <Section title="Blocks" count={c.blocks.length} hideEmpty>
-        <Rows item={c.id} side="blocks" rows={c.blocks} busy={set.isPending} send={send} />
+        <Rows
+          item={c.id}
+          side="blocks"
+          rows={c.blocks}
+          busy={set.isPending}
+          send={send}
+          decide={decide}
+        />
       </Section>
       {err && (
         <Typography variant="caption" color="error" sx={{ display: 'block', mb: 2 }}>
@@ -72,17 +91,19 @@ function Rows({
   rows,
   busy,
   send,
+  decide,
 }: {
   item: string
   side: 'waits' | 'blocks'
   rows: Row[]
   busy: boolean
   send: (b: DependsSetBody) => void
+  decide: boolean
 }) {
   return (
     <List dense disablePadding data-depends={side}>
       {rows.map((r) => {
-        const act = depActions(item, side, r)
+        const act = decide ? depActions(item, side, r) : null
         return (
           <ListItem
             key={`${r.via}-${r.id ?? r.reason}`}
