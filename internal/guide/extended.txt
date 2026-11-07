@@ -298,6 +298,13 @@ Each change has a receipt naming the rule; undo it on the Receipts page and the 
   $ para obligation add "Weekly status to the team" --owed-by agent:claude --produce message --template note-example --to group-example --medium email --recur weekly --due 2026-11-13
 What recurs and who gets it is yours: a commitment owed by an agent, with what it produces (journal, report, message, doc, or other), a template (a document, or the text), and for a message who it goes to. When an occurrence comes due, tick asks the agent for it (agent work of kind produce, linked to the occurrence) and makes the next occurrence of a series. The agent writes it (a note, a journal summary, or an outgoing draft) and records it on the occurrence. A note or journal summary is in the vault and can be undone, so the occurrence closes done at once; reopen it if it is wrong. A message stays open as ready until you approve it (para io approve); it is never sent before that, and only the newest ready one of a series needs you. Like other tick work, it is made only when request.surfaces lists tick. The obligation page in the web app shows the owner, the template, and the last artifact with its state; New recurring artifact on the Obligations page makes one.
 
+29. Idea pools: good ideas kept until a trigger comes
+  $ para idea add build-day "Sensor dashboard" --text "Plot the garden sensors live."
+  $ para pool list
+  $ para pool pick build-day task-example
+  $ para pool pick build-day --skip
+A pool is the open tasks, goals, and questions put off someday that carry its tag. You write the pools in .para/pools.yaml: a name, a tag (default the name), pick (default 1), an area for new ideas, and when, one of: date (YYYY-MM-DD, with recur such as quarterly), exists (an open obligation, task, or goal with a tag whose date is within within_days, default 14), or closed (an item id, once it is closed). An agent offers a pool in words; it does not write the file. A title and a sentence are enough for an idea; an agent fills in the rest when the pool fires (fill-gap, within gap.daily_cap). When a pool fires, Next and the agenda show one card for it ("Build day: pick 1 of 4 ideas"), its ideas ranked by the value order's score; the ideas do not flood Next. Pick brings the checked ideas back and makes each task prep of the obligation that fired the pool, so it shows in that obligation's hub; the rest stay put off. Pick or Skip this round ends that instance: the pool asks again at the next date or the next tagged obligation. The Pools page (menu) lists every pool, its trigger, size, and next fire, and has Add idea to pool.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
@@ -332,4 +339,5 @@ Where does this go?
   what is dated this week                    para agenda
   what happened this day, week, or month     para journal; a narrative needs journal.agent and spends tokens
   a report or status message that recurs     an obligation owed by an agent, with --produce (use case 28)
+  a good idea for later, picked on a trigger an idea in a pool: para idea add; triggers in .para/pools.yaml (use case 29)
   a reminder at a time, a page               not para: use a calendar or a pager
