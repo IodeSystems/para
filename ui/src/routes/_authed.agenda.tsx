@@ -140,11 +140,15 @@ type OrderSummary = { reply: number; replyMinutes: number; replyPrep: number }
 // groupHeading names a group of the value order where it starts: the reply batch, focus, and
 // the rest after them. Other groups keep no heading.
 function groupHeading(group: string, last: string, s: OrderSummary): string {
+  if (group === 'owed') return 'Owed: promises to people, and their prep'
   if (group === 'reply')
     return `Reply: ${s.reply} waiting on you, about ${s.replyMinutes} min, ${s.replyPrep} an agent can prepare`
   if (group === 'focus') return 'Focus'
   if (group === 'recheck') return 'Recheck'
-  if (group === 'impact' && (last === 'reply' || last === 'focus' || last === 'recheck'))
+  if (
+    group === 'impact' &&
+    (last === 'owed' || last === 'reply' || last === 'focus' || last === 'recheck')
+  )
     return 'Then'
   return ''
 }

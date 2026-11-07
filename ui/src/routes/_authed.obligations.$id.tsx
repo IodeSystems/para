@@ -10,6 +10,7 @@ import { useMeeting, useObligation } from '@/api/meetings'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { ItemContext } from '@/components/ItemContext'
+import { ObligationHub } from '@/components/ObligationHub'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody, FileNotesButton } from '@/components/MeetingBrief'
@@ -21,7 +22,8 @@ import { ProduceSection } from '@/components/RecurringArtifact'
 
 export const Route = createFileRoute('/_authed/obligations/$id')({ component: ObligationPage })
 
-// ObligationPage is a meeting's page, or a commitment's: what is owed, to whom, by when. One an
+// ObligationPage is a meeting's page, or a commitment's: what is owed, to whom, by when, what it
+// needs first and what came out of it (ObligationHub), with Push out, Redirect, and Cancel. One an
 // agent owes shows what it produces, its template, and the last artifact with its state.
 function ObligationPage() {
   const { id } = Route.useParams()
@@ -48,6 +50,7 @@ function ObligationPage() {
               </Typography>
             </Stack>
             <ItemContext id={id} />
+            <ObligationHub id={id} />
             <Section title="Owed to" count={o.with.length}>
               {o.with.length === 0 ? (
                 <Empty>Nobody is named.</Empty>
@@ -98,6 +101,7 @@ function MeetingDetail({ id }: { id: string }) {
               </Typography>
             </Stack>
             <ItemContext id={id} />
+            <ObligationHub id={id} />
             <Section title="With" count={m.with.length + m.attendees.length}>
               {m.with.length + m.attendees.length === 0 ? (
                 <Empty>Nobody is named yet.</Empty>

@@ -54,6 +54,7 @@ export function headerLine(rows: readonly { ready?: boolean | null }[], s: Order
 const GROUP: Record<string, string> = {
   incident: 'Incident',
   due_soon: 'Due soon',
+  owed: 'Owed',
   reply: 'Reply',
   focus: 'Focus',
   recheck: 'Recheck',

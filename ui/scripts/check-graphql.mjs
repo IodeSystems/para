@@ -114,6 +114,10 @@ const REVIEW_MUTATIONS = new Set([
   // directory, io_add otherwise. The owner's own capture; no permalink needed.
   'InteractionAdd',
   'IOAdd',
+  // owner 2026-11-06: OB. Push out, Redirect, and Cancel on an obligation's page and its rows change
+  // it and write the notices to the people it concerns as drafts the owner approves
+  // (obligation_change, on the owner's session); its receipt undoes the change and the drafts.
+  'ObligationChange',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
