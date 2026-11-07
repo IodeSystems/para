@@ -6,6 +6,10 @@ import {
   composerKey,
   composerPrompt,
   closable,
+  markable,
+  notable,
+  openQuestion,
+  answerState,
   fileLabel,
   isAttachmentPath,
   notesWithEntry,
@@ -87,5 +91,34 @@ describe('attachments', () => {
     expect(attachmentKind('x.M4A')).toBe('audio')
     expect(attachmentKind('x.pdf')).toBe('other')
     expect(fileLabel({ name: '', size: 3 << 20 })).toBe('file (3.0 MB)')
+  })
+})
+
+describe('composer on managed records', () => {
+  it('asks a prompt, hides Mark done, keeps notes', () => {
+    for (const type of ['person', 'group', 'tracked_doc', 'area']) {
+      expect(composerPrompt({ type }, new Date())).toBeTruthy()
+      expect(markable({ type })).toBe(false)
+      expect(notable({ type })).toBe(true)
+      expect(closable({ type })).toBe(false)
+    }
+  })
+  it('leaves other types as they were', () => {
+    expect(markable({ type: 'rfx', status: 'open' })).toBe(true)
+    expect(markable({ type: 'question' })).toBe(true)
+    expect(composerPrompt({ type: 'rfx', status: 'open' }, new Date())).toBeNull()
+    expect(notable({ type: 'receipt' })).toBe(false)
+  })
+})
+
+describe('composer on an open question', () => {
+  it('hides Mark done and answers with words or a choice', () => {
+    expect(openQuestion({ type: 'question', status: 'open' })).toBe(true)
+    expect(openQuestion({ type: 'question', status: 'answered' })).toBe(false)
+    expect(markable({ type: 'question', status: 'open' })).toBe(false)
+    expect(answerState('', '')).toEqual({ answer: false, decline: false })
+    expect(answerState('  ', '')).toEqual({ answer: false, decline: false })
+    expect(answerState('', 'EU')).toEqual({ answer: true, decline: false })
+    expect(answerState('US, per legal', '')).toEqual({ answer: true, decline: true })
   })
 })

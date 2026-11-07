@@ -19,6 +19,8 @@ import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
 import { ConceptLinks } from '@/components/AreaLinks'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 
 export const Route = createFileRoute('/_authed/areas/$id')({ component: AreaPage })
 
@@ -28,7 +30,7 @@ function AreaPage() {
   return (
     <DataState q={q}>
       {(d) => (
-        <>
+        <ItemDraftProvider id={d.area.id}>
           <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {d.area.kind === 'concept' ? 'Concept' : 'Project'}
@@ -154,7 +156,8 @@ function AreaPage() {
           )}
           <MergedFrom id={id} />
           <NotesEditor id={id} />
-        </>
+          <ItemComposer id={d.area.id} title={d.area.title} meta={{ type: 'area' }} />
+        </ItemDraftProvider>
       )}
     </DataState>
   )

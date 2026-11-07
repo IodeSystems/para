@@ -42,6 +42,7 @@ export function Composer({
   onSend,
   actions = [],
   chips,
+  actionsReady = false,
   files: allowFiles = true,
   autoFocus,
   onCancel,
@@ -56,6 +57,8 @@ export function Composer({
   actions?: ComposerAction[]
   // chips sit under the box: toggles such as Mark done, or the documents to read.
   chips?: ReactNode
+  // actionsReady lets the menu actions run with an empty box (a picked choice stands for the words).
+  actionsReady?: boolean
   files?: boolean
   autoFocus?: boolean
   // onCancel runs on Escape.
@@ -85,8 +88,9 @@ export function Composer({
     else el.removeAttribute('capture')
     el.click()
   }
-  const run = async (fn: (t: string, f: File[]) => Promise<boolean>) => {
-    if (!ok) return
+  const okAct = ok || (actionsReady && !busy)
+  const run = async (fn: (t: string, f: File[]) => Promise<boolean>, can = ok) => {
+    if (!can) return
     setBusy(true)
     try {
       if (await fn(text.trim(), files)) {
@@ -228,7 +232,7 @@ export function Composer({
                 <IconButton
                   size="small"
                   aria-label="More ways to save it"
-                  disabled={!ok}
+                  disabled={!okAct}
                   onClick={(e) => setMoreAt(e.currentTarget)}
                   data-composer-more
                   sx={{ alignSelf: 'center', ml: -0.5 }}
@@ -245,7 +249,7 @@ export function Composer({
                   data-composer-action={a.label}
                   onClick={() => {
                     setMoreAt(null)
-                    void run(a.run)
+                    void run(a.run, okAct)
                   }}
                 >
                   <ListItemText primary={a.label} secondary={a.hint} />

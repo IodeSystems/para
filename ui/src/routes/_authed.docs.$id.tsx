@@ -22,6 +22,9 @@ import { TextLink } from '@/components/links'
 import { block } from '@/components/stack/parts'
 import { commentState, markOf, runs } from '@/lib/docs'
 import { exactTime, humanTime } from '@/lib/when'
+import { NotesEditor } from '@/components/NotesEditor'
+import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 
 export const Route = createFileRoute('/_authed/docs/$id')({ component: DocPage })
 
@@ -41,7 +44,7 @@ function DocPage() {
       {(d) => {
         const doc = d.doc
         return (
-          <>
+          <ItemDraftProvider id={doc.id}>
             <PageTitle
               action={
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
@@ -145,7 +148,9 @@ function DocPage() {
                 ))}
               </List>
             </Section>
-          </>
+            <NotesEditor id={doc.id} />
+            <ItemComposer id={doc.id} title={doc.title} meta={{ type: 'tracked_doc' }} />
+          </ItemDraftProvider>
         )
       }}
     </DataState>

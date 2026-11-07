@@ -10,12 +10,22 @@ import { localStamp } from '@/api/today'
 import { canDecide } from '@/client/session'
 import { uploadAttachment } from '@/client/upload'
 import { errorText } from '@/client/gqlClient'
+import { useQuestion, useQuestionReview } from '@/api/questions'
 import { useItemActions } from '@/components/AgendaActions'
 import { Composer, type ComposerAction } from '@/components/Composer'
 import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
 import { investigable, isClosed, rowKind } from '@/lib/agenda'
-import { closable, composerPrompt, notesWithEntry, type ItemMeta } from '@/lib/composer'
+import {
+  answerState,
+  closable,
+  composerPrompt,
+  markable,
+  notable,
+  notesWithEntry,
+  openQuestion,
+  type ItemMeta,
+} from '@/lib/composer'
 
 // ItemComposer is the composer at the foot of every item's page. Send to agent queues agent work
 // with the owner's words and files (agent_send); the agent formats them into the item's notes and
@@ -50,6 +60,12 @@ export function ItemComposer({
     gone ? onSent?.() : onBack?.(),
   )
   const [done, setDone] = useState(false)
+  // An open question is answered from its box: a picked choice, or the words.
+  const asking = openQuestion(meta)
+  const qn = useQuestion(id, asking).data?.question
+  const review = useQuestionReview()
+  const [choice, setChoice] = useState('')
+  const options = asking ? (qn?.options ?? []) : []
   // now is when the page opened: the prompt does not change while the owner types.
   const [now] = useState(() => new Date())
   if (!canDecide(session)) return null
@@ -130,17 +146,63 @@ export function ItemComposer({
     }
   }
 
-  const actions: ComposerAction[] = [
-    {
-      label: done && close ? 'Save as notes and close' : 'Save as notes',
-      hint:
-        done && !close
-          ? 'Only an agent can close this: send it, or turn Mark done off'
-          : 'Add to the notes now, below what is there',
-      disabled: done && !close,
-      run: asNotes,
-    },
-  ]
+  const answer = async (text: string) => {
+    try {
+      await review.mutateAsync(
+        choice
+          ? { id, decision: 'answer', choices: [choice], note: text || undefined }
+          : { id, decision: 'answer', ownWords: text },
+      )
+      toasts.push({ text: `Answered: ${name}`, note: 'An answer cannot be undone here.' })
+      setChoice('')
+      await qc.invalidateQueries()
+      onSent?.()
+      return true
+    } catch (e) {
+      return fail('answer', e)
+    }
+  }
+  const decline = async (text: string) => {
+    try {
+      await review.mutateAsync({ id, decision: 'decline', note: text })
+      toasts.push({ text: `Declined: ${name}` })
+      await qc.invalidateQueries()
+      onSent?.()
+      return true
+    } catch (e) {
+      return fail('decline', e)
+    }
+  }
+
+  const can = answerState(draft?.text ?? '', choice)
+  const actions: ComposerAction[] = notable(meta)
+    ? [
+        {
+          label: done && close ? 'Save as notes and close' : 'Save as notes',
+          hint:
+            done && !close
+              ? 'Only an agent can close this: send it, or turn Mark done off'
+              : 'Add to the notes now, below what is there',
+          disabled: done && !close,
+          run: asNotes,
+        },
+      ]
+    : []
+  if (asking)
+    actions.unshift(
+      {
+        label: 'Answer',
+        hint: can.answer ? 'Answer the question with this' : 'Write the answer, or pick a choice',
+        disabled: !can.answer,
+        run: answer,
+      },
+      {
+        label: 'Decline',
+        hint: can.decline ? 'Decline the question; the words are the reason' : 'Write why first',
+        disabled: !can.decline,
+        run: decline,
+      },
+    )
   if (!closed && investigable(kind))
     actions.push({
       label: 'Investigate',
@@ -165,17 +227,34 @@ export function ItemComposer({
         onSend={toAgent}
         actions={actions}
         draft={draft}
+        actionsReady={asking && choice !== ''}
         chips={
-          <Chip
-            size="small"
-            label="Mark done"
-            icon={done ? <CheckIcon /> : undefined}
-            color={done ? 'primary' : 'default'}
-            variant={done ? 'filled' : 'outlined'}
-            aria-pressed={done}
-            onClick={() => setDone((v) => !v)}
-            data-composer-done
-          />
+          <>
+            {options.map((o) => (
+              <Chip
+                key={o}
+                size="small"
+                label={o}
+                color={choice === o ? 'primary' : 'default'}
+                variant={choice === o ? 'filled' : 'outlined'}
+                aria-pressed={choice === o}
+                onClick={() => setChoice((c) => (c === o ? '' : o))}
+                data-composer-choice
+              />
+            ))}
+            {markable(meta) && (
+              <Chip
+                size="small"
+                label="Mark done"
+                icon={done ? <CheckIcon /> : undefined}
+                color={done ? 'primary' : 'default'}
+                variant={done ? 'filled' : 'outlined'}
+                aria-pressed={done}
+                onClick={() => setDone((v) => !v)}
+                data-composer-done
+              />
+            )}
+          </>
         }
       />
     </Box>

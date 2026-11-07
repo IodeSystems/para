@@ -11,6 +11,8 @@ import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 import { PrioritySelect } from '@/components/PrioritySelect'
 
 export const Route = createFileRoute('/_authed/people/$id')({ component: Person })
@@ -31,7 +33,7 @@ function Person() {
           )
         }
         return (
-          <>
+          <ItemDraftProvider id={p.id}>
             <PageTitle>{p.name}</PageTitle>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {[p.org, p.role?.title, p.team?.title].filter(Boolean).join(' - ')}
@@ -107,7 +109,8 @@ function Person() {
             )}
             <MergedFrom id={id} />
             <NotesEditor id={id} />
-          </>
+            <ItemComposer id={p.id} title={p.name} meta={{ type: 'person' }} />
+          </ItemDraftProvider>
         )
       }}
     </DataState>

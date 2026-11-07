@@ -17,6 +17,8 @@ import { withoutSection } from '@/lib/markdown'
 import { nameList, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { ItemComposer } from '@/components/ItemComposer'
+import { ItemDraftProvider } from '@/components/ItemDraft'
 
 export const Route = createFileRoute('/_authed/rfx/$id')({ component: RfxPage })
 
@@ -29,7 +31,7 @@ function RfxPage() {
   return (
     <DataState q={q}>
       {(r) => (
-        <>
+        <ItemDraftProvider id={r.doc.id}>
           <PageTitle>{r.doc.title || id}</PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {r.doc.meta.direction === 'in' ? 'Asked of you' : 'You ask'} - {r.doc.meta.status}
@@ -101,7 +103,12 @@ function RfxPage() {
           )}
           <MergedFrom id={id} />
           <NotesEditor id={id} />
-        </>
+          <ItemComposer
+            id={r.doc.id}
+            title={r.doc.title}
+            meta={{ type: 'rfx', status: r.doc.meta.status }}
+          />
+        </ItemDraftProvider>
       )}
     </DataState>
   )

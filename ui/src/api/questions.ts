@@ -133,8 +133,9 @@ export function useQuestions(scope: QuestionScope = {}) {
   })
 }
 
-export function useQuestion(id: string) {
+export function useQuestion(id: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: ['question', id],
     queryFn: async () =>
       need((await gqlClient.request(QuestionShowDoc, { id })).para.v1.questionShow, 'question'),
