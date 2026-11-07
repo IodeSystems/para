@@ -231,9 +231,13 @@ export function useItemActions(
       })
     })
 
+  // putOff and reopen take the composer's words as the reason, as Done and Investigate take them as
+  // the note. Files stay in the box: a reason holds no files.
+  const reason = () => draft?.text.trim() || undefined
   const putOff = (until: string) =>
     run('later', async () => {
-      await laterAny({ id: x.id, until })
+      await laterAny({ id: x.id, until, reason: reason() })
+      draft?.setText('')
       onGone(true)
       toasts.push({
         text: toastText('later', [name]),
@@ -248,7 +252,8 @@ export function useItemActions(
   // reopen opens a closed item, or brings back one put off.
   const reopen = () =>
     run('return', async () => {
-      const r = await reopenAny({ id: x.id })
+      const r = await reopenAny({ id: x.id, reason: reason() })
+      draft?.setText('')
       onGone(true)
       toasts.push({
         text: closed ? `Reopened: ${name}` : toastText('return', [name]),
