@@ -26,6 +26,7 @@ import { useNextKeys } from '@/components/Keyboard'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody } from '@/components/MeetingBrief'
+import { PoolCard } from '@/components/Pools'
 import { DueChip } from '@/components/TaskRows'
 import { useToasts } from '@/components/ToastStack'
 import { proposedText } from '@/lib/answer'
@@ -41,6 +42,7 @@ import {
   skipCard,
 } from '@/lib/next'
 import { nameOr } from '@/lib/names'
+import { isPoolRow } from '@/lib/pools'
 import { readyTarget, readyWords } from '@/lib/ready'
 import { prefersReducedMotion } from '@/lib/toasts'
 
@@ -203,6 +205,17 @@ function Card({
   const group = groupWords(x.group)
   const effort = effortWords(x.effort)
   const title = x.title || nameOr('', x.id)
+  if (isPoolRow(x))
+    return (
+      <PoolNext
+        x={x}
+        decide={decide}
+        canBack={canBack}
+        onGone={onGone}
+        onSkip={onSkip}
+        onBack={onBack}
+      />
+    )
   return (
     <ItemDraftProvider id={x.id}>
       <Paper
@@ -268,6 +281,56 @@ function Card({
         />
       </Paper>
     </ItemDraftProvider>
+  )
+}
+
+// PoolNext is the card of a firing idea pool: one card for the pool, its ideas as a checklist to
+// pick from. It is not a document, so it has no composer and no item actions.
+function PoolNext({
+  x,
+  decide,
+  canBack,
+  onGone,
+  onSkip,
+  onBack,
+}: {
+  x: Row
+  decide: boolean
+  canBack: boolean
+  onGone: (gone: boolean) => void
+  onSkip: () => void
+  onBack: () => void
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      data-next-card={x.id}
+      data-next-kind={x.kind}
+      sx={{ p: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
+    >
+      <Typography variant="overline" color="text.secondary" component="p">
+        {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
+      </Typography>
+      <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
+        {x.title}
+      </Typography>
+      {x.reason && (
+        <Typography variant="body2" color="text.secondary">
+          {x.reason}
+        </Typography>
+      )}
+      <PoolCard row={x.id} decide={decide} onDone={() => onGone(true)} />
+      <Stack direction="row" spacing={0.5} sx={{ mt: 1 }}>
+        <Button size="small" data-act="skip" onClick={onSkip}>
+          Skip
+        </Button>
+        {canBack && (
+          <Button size="small" data-act="back" onClick={onBack}>
+            Back
+          </Button>
+        )}
+      </Stack>
+    </Paper>
   )
 }
 

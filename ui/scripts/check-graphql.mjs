@@ -118,6 +118,13 @@ const REVIEW_MUTATIONS = new Set([
   // it and write the notices to the people it concerns as drafts the owner approves
   // (obligation_change, on the owner's session); its receipt undoes the change and the drafts.
   'ObligationChange',
+  // owner 2026-11-06: IP idea pools. Pick and Skip this round on a firing pool's card bring the
+  // picked ideas back and make each prep of the obligation that fired it (pool_pick, a person op);
+  // its receipt undoes the picks.
+  'PoolPick',
+  // owner 2026-11-06: IP idea pools. Add idea to pool on the Pools page keeps a title and a
+  // sentence as an item put off someday with the pool's tag (idea_add, the owner's own capture).
+  'IdeaAdd',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

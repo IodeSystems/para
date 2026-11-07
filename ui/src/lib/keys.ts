@@ -43,6 +43,12 @@ export const EXTRA_SCREENS: Tab[] = [
     hint: 'where work comes in and goes out, and who sweeps it',
   },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
+  {
+    key: '',
+    to: '/pools',
+    label: 'Pools',
+    hint: 'ideas kept for later, picked when a trigger comes',
+  },
 ]
 
 export type KeyAction = { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' }

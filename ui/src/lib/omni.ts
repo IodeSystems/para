@@ -37,6 +37,7 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
   { label: 'Docs', to: '/docs', words: ['docs', 'tracked'] },
   { label: 'Sources', to: '/sources', words: ['sources'] },
   { label: 'Friction', to: '/friction', words: ['friction'] },
+  { label: 'Pools', to: '/pools', words: ['pools', 'ideas', 'icebox'] },
   { label: 'Health', to: '/health', words: ['health'] },
 ]
 

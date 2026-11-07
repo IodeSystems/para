@@ -25,6 +25,7 @@ import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { DueChip } from '@/components/TaskRows'
 import { WaitingSection } from '@/components/Waiting'
 import { OptionalLine, SkippedLine } from '@/components/MeetingAttend'
+import { PoolsDue } from '@/components/Pools'
 import { joinNames, nameOr } from '@/lib/names'
 import { toneOfSeverity } from '@/lib/status'
 import { humanTime } from '@/lib/when'
@@ -475,6 +476,7 @@ function Agenda() {
                     ))}
                   </List>
                 </Section>
+                <PoolsDue />
                 <Section
                   title="What needs you, in order"
                   count={agendaRows.length}

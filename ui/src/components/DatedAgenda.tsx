@@ -30,6 +30,7 @@ const KIND_WORDS: Record<string, string> = {
   exception: 'review',
   goal: 'time to review the goal',
   area: 'time to review the area',
+  pool: 'pick from a pool',
 }
 
 export function DatedAgenda() {
@@ -113,51 +114,66 @@ export function DatedAgenda() {
                 return (
                   <Section key={d} title={dateWords(d)} count={items.length}>
                     <List dense disablePadding>
-                      {items.map((i) => (
-                        <AgendaRow
-                          key={`${i.kind}-${i.id}`}
-                          x={{ id: i.id, title: i.title, kind: datedKind(i.kind) }}
-                          needsYou={i.needsYou}
-                        >
-                          {(actions) => (
-                            <ListItem disableGutters>
-                              <ListItemText
-                                primary={
-                                  i.kind === 'meeting' ? (
-                                    <TextLink
-                                      to="/obligations/$id"
-                                      params={{ id: i.id }}
-                                      underline="hover"
-                                    >
-                                      {i.title}
-                                    </TextLink>
-                                  ) : (
-                                    <DocLink id={i.id}>{i.title}</DocLink>
-                                  )
-                                }
-                                secondary={[
-                                  i.kind === 'meeting' ? meetingWhen(i.at, i.until) : i.time,
-                                  i.detail,
-                                  i.why,
-                                  i.who.length > 0 &&
-                                    `with ${joinNames(nameList(i.who, i.whoNames))}`,
-                                  i.projectName && `goal ${i.projectName}`,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' - ')}
-                                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-                              />
-                              <StatusChip
-                                tone={i.overdue ? 'bad' : 'quiet'}
-                                label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
-                              />
-                              <AgentLooking id={i.id} />
-                              <AgentWorking id={i.id} />
-                              {actions}
-                            </ListItem>
-                          )}
-                        </AgendaRow>
-                      ))}
+                      {items.map((i) =>
+                        // A firing idea pool is not a document: it links to Pools, where you pick.
+                        i.kind === 'pool' ? (
+                          <ListItem key={`${i.kind}-${i.id}`} disableGutters data-pool-due={i.id}>
+                            <ListItemText
+                              primary={
+                                <TextLink to="/pools" underline="hover">
+                                  {i.title}
+                                </TextLink>
+                              }
+                              secondary={i.detail}
+                            />
+                            <StatusChip tone="quiet" label={KIND_WORDS.pool} />
+                          </ListItem>
+                        ) : (
+                          <AgendaRow
+                            key={`${i.kind}-${i.id}`}
+                            x={{ id: i.id, title: i.title, kind: datedKind(i.kind) }}
+                            needsYou={i.needsYou}
+                          >
+                            {(actions) => (
+                              <ListItem disableGutters>
+                                <ListItemText
+                                  primary={
+                                    i.kind === 'meeting' ? (
+                                      <TextLink
+                                        to="/obligations/$id"
+                                        params={{ id: i.id }}
+                                        underline="hover"
+                                      >
+                                        {i.title}
+                                      </TextLink>
+                                    ) : (
+                                      <DocLink id={i.id}>{i.title}</DocLink>
+                                    )
+                                  }
+                                  secondary={[
+                                    i.kind === 'meeting' ? meetingWhen(i.at, i.until) : i.time,
+                                    i.detail,
+                                    i.why,
+                                    i.who.length > 0 &&
+                                      `with ${joinNames(nameList(i.who, i.whoNames))}`,
+                                    i.projectName && `goal ${i.projectName}`,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' - ')}
+                                  slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+                                />
+                                <StatusChip
+                                  tone={i.overdue ? 'bad' : 'quiet'}
+                                  label={i.overdue ? 'overdue' : (KIND_WORDS[i.kind] ?? i.kind)}
+                                />
+                                <AgentLooking id={i.id} />
+                                <AgentWorking id={i.id} />
+                                {actions}
+                              </ListItem>
+                            )}
+                          </AgendaRow>
+                        ),
+                      )}
                     </List>
                   </Section>
                 )
