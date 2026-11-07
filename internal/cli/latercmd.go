@@ -97,9 +97,30 @@ func newUndeferCmd(l *loader) *cobra.Command {
 	})
 }
 
-// newDependsCmd is `para depends cut`: the edge-trimming command.
+// newDependsCmd is `para depends set` and `para depends cut`: what an item
+// waits on.
 func newDependsCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "depends", Short: "Trim what a task or question waits on", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "depends", Short: "Edit what an item waits on", Args: cobra.NoArgs}
+	cmd.AddCommand(opCommand(l, ops.DependsSet, binding[ops.DependsSetInput, ops.DependsSetOutput]{
+		Use:  "set <id> [<on>] [--optional] [--remove] [--reason <text>]",
+		Args: cobra.RangeArgs(1, 2),
+		Flags: func(fs *pflag.FlagSet, in *ops.DependsSetInput) {
+			fs.BoolVar(&in.Optional, "optional", false, "better before: shown, but it never holds the item")
+			fs.BoolVar(&in.Remove, "remove", false, "take the dependency or reason away")
+			fs.StringVar(&in.Reason, "reason", "", "a text reason the task waits (blocked_by), instead of <on>")
+		},
+		Bind: func(args []string, in *ops.DependsSetInput) error {
+			in.ID = args[0]
+			if len(args) > 1 {
+				in.On = args[1]
+			}
+			return nil
+		},
+		Text: func(w io.Writer, out ops.DependsSetOutput) error {
+			_, err := fmt.Fprintf(w, "%s\tdepends_on %s\toptional_after %s\tblocked_by %s\n", out.ID, joinOrDash(out.DependsOn), joinOrDash(out.OptionalAfter), joinOrDash(out.BlockedBy))
+			return err
+		},
+	}))
 	cmd.AddCommand(opCommand(l, ops.DependsCut, binding[ops.DependsCutInput, ops.DependsCutOutput]{
 		Use:  "cut <id> <depends-on> --reason <text>",
 		Args: cobra.ExactArgs(2),

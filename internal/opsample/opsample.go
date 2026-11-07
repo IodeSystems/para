@@ -162,6 +162,7 @@ var Inputs = map[string]string{
 	"task_edit":                 `{"id":"task-sample","done_when":"The sample is checked."}`,
 	"item_prepared":             `{"id":"task-sample","kind":"plan"}`,
 	"question_edit":             `{"id":"question-sample","title":"Sample question, edited"}`,
+	"depends_set":               `{"id":"task-sample","on":"task-free","optional":true}`,
 	"question_depends_add":      `{"id":"question-sample","depends_on":["task-sample"]}`,
 	"question_depends_remove":   `{"id":"question-waiting","depends_on":["task-sample"]}`,
 	"defer":                     `{"ids":["task-sample"],"until":"2027-01-15","reason":"After the audit."}`,

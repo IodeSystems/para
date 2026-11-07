@@ -47,6 +47,7 @@ type ParaV1MutationNamespace {
   copy(body: para_CopyInputInput!): para_CopyOutput @derived(operationId: "copy")
   defer(body: para_DeferInputInput!): para_DeferOutput @derived(operationId: "defer")
   dependsCut(body: para_DependsCutInputInput!): para_DependsCutOutput @derived(operationId: "dependsCut")
+  dependsSet(body: para_DependsSetInputInput!): para_DependsSetOutput @derived(operationId: "dependsSet")
   docArchive(body: para_DocArchiveInputInput!): para_DocArchiveOutput @derived(operationId: "docArchive")
   docCommentAdd(body: para_DocCommentAddInputInput!): para_DocCommentAddOutput @derived(operationId: "docCommentAdd")
   docCommentFile(body: para_DocCommentFileInputInput!): para_DocCommentFileOutput @derived(operationId: "docCommentFile")
@@ -1414,6 +1415,22 @@ input para_DependsCutInputInput {
 type para_DependsCutOutput {
   dependsOn: [String!]!
   id: String!
+  rev: String!
+}
+
+input para_DependsSetInputInput {
+  id: String!
+  on: String
+  optional: Boolean
+  reason: String
+  remove: Boolean
+}
+
+type para_DependsSetOutput {
+  blockedBy: [String!]!
+  dependsOn: [String!]!
+  id: String!
+  optionalAfter: [String!]!
   rev: String!
 }
 

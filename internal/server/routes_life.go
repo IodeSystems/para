@@ -51,6 +51,7 @@ func registerLife(r *registrar) {
 	reg(r, ops.Defer, post, write)
 	reg(r, ops.Undefer, post, write)
 	reg(r, ops.DependsCut, post, write)
+	reg(r, ops.DependsSet, post, write)
 	reg(r, ops.OrderOp, get, read)
 	reg(r, ops.HealthOp, get, read)
 	reg(r, ops.HealthDismiss, post, write)
