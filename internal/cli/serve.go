@@ -38,7 +38,7 @@ const (
 )
 
 type serveFlags struct {
-	addr    string
+	addrs   []string
 	proxies []string
 	bases   []string
 	webRoot string
@@ -78,7 +78,7 @@ func newServeCmd(l *loader) *cobra.Command {
 	}
 	cmd.AddCommand(newLoginCmd(l, "login"), newServeStatusCmd(l), newServeSessionsCmd(l), newServeLogoutCmd(l))
 	fs := cmd.Flags()
-	fs.StringVar(&f.addr, "addr", defaultAddr, "listen address")
+	fs.StringArrayVar(&f.addrs, "addr", []string{defaultAddr}, "listen address ip:port (repeatable: one listener each, such as loopback and a VPN address)")
 	fs.StringArrayVar(&f.proxies, "trusted-proxy", nil, "exact IP of a proxy whose X-Forwarded-For is read (repeatable)")
 	fs.StringArrayVar(&f.bases, "base", nil, "base host: serves <vault>.<base> (repeatable)")
 	fs.StringVar(&f.webRoot, "web-root", "", "serve the UI from this directory, not the embedded one")
@@ -178,10 +178,11 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	bind, err := netip.ParseAddrPort(f.addr)
+	binds, err := parseBinds(f.addrs)
 	if err != nil {
-		return fmt.Errorf("serve: --addr: want ip:port: %w", err)
+		return err
 	}
+	addrList := strings.Join(f.addrs, ",")
 	live, err := server.NewLive()
 	if err != nil {
 		return err
@@ -202,7 +203,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		log.Warn("dispatch", "note", n)
 	}
 	if f.check {
-		log.Info("server can start", "addr", f.addr, "vaults", len(ids))
+		log.Info("server can start", "addr", addrList, "vaults", len(ids))
 		return nil
 	}
 	if len(ids) == 0 {
@@ -222,11 +223,13 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return err
 	}
 	bare := []string{"127.0.0.1", "::1"}
-	if !bind.Addr().IsUnspecified() {
-		bare = append(bare, bind.Addr().String())
+	for _, b := range binds {
+		if !b.Addr().IsUnspecified() {
+			bare = append(bare, b.Addr().String())
+		}
 	}
 	if cfg.bare == "" {
-		log.Warn("no vault for a bare address: it answers 421. Use --vault <id>, run para vault set-default <id>, or open <vault>.localhost", "addr", f.addr)
+		log.Warn("no vault for a bare address: it answers 421. Use --vault <id>, run para vault set-default <id>, or open <vault>.localhost", "addr", addrList)
 	}
 	gate := netguard.New(netguard.Config{
 		Proxies: cfg.proxies,
@@ -235,19 +238,31 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		Policy:  srv.Policy,
 		Log:     log,
 	})
-	ln, err := net.Listen("tcp", f.addr)
-	if err != nil {
-		return fmt.Errorf("serve: %w", err)
+	lns := make([]net.Listener, 0, len(binds))
+	defer func() {
+		for _, ln := range lns {
+			_ = ln.Close()
+		}
+	}()
+	bound := make([]string, 0, len(binds))
+	for _, b := range binds {
+		ln, err := net.Listen("tcp", b.String())
+		if err != nil {
+			return fmt.Errorf("serve: %w", err)
+		}
+		lns = append(lns, ln)
+		bound = append(bound, ln.Addr().String())
 	}
-	defer func() { _ = ln.Close() }()
-	rec := server.Record{PID: os.Getpid(), Addr: ln.Addr().String(), Version: l.version, Vault: cfg.bare,
+	rec := server.Record{PID: os.Getpid(), Addr: clientAddr(bound), Addrs: bound, Version: l.version, Vault: cfg.bare,
 		Vaults: ids, BaseHosts: cfg.bases, Started: time.Now().UTC()}
 	if err := server.WriteRecord(l.install.Home, rec); err != nil {
 		return err
 	}
 	defer server.RemoveRecord(l.install.Home)
-	if !bind.Addr().IsLoopback() {
-		log.Warn("plain HTTP on a non-loopback address: tokens and documents cross the network in the clear; token auth stays on", "addr", f.addr)
+	for _, b := range binds {
+		if !b.Addr().IsLoopback() {
+			log.Warn("plain HTTP on a non-loopback address: tokens and documents cross the network in the clear; token auth stays on", "addr", b.String())
+		}
 	}
 	hs := &http.Server{
 		Handler:           srv.Handler(gate),
@@ -259,8 +274,10 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	relayDone := live.RegisterShutdown(hs, shutdownTimeout, log)
 	ctx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	done := make(chan error, 1)
-	go func() { done <- hs.Serve(ln) }()
+	done := make(chan error, len(lns))
+	for _, ln := range lns {
+		go func() { done <- hs.Serve(ln) }()
+	}
 	tickDone := make(chan struct{})
 	if cfg.tick > 0 {
 		go func() {
@@ -277,7 +294,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		defer close(dispatchDone)
 		hub.RunDispatch(ctx, l.install.Home)
 	}()
-	log.Info("para serving", "addr", ln.Addr().String(), "vaults", strings.Join(ids, ","), "version", l.version)
+	log.Info("para serving", "addr", strings.Join(bound, ","), "vaults", strings.Join(ids, ","), "version", l.version)
 	log.Info("to sign in as admin, run: para serve login" + loginVaultHint(cfg.bare, ids) + " (the token is never logged)")
 	select {
 	case err := <-done:
@@ -293,10 +310,47 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	<-relayDone
 	<-tickDone
 	<-dispatchDone
-	if err := <-done; !errors.Is(err, http.ErrServerClosed) {
-		return fmt.Errorf("serve: %w", err)
+	for range lns {
+		if err := <-done; !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve: %w", err)
+		}
 	}
 	return nil
+}
+
+// parseBinds checks each --addr: ip:port, no address twice.
+func parseBinds(addrs []string) ([]netip.AddrPort, error) {
+	if len(addrs) == 0 {
+		return nil, errors.New("serve: --addr: want at least one ip:port")
+	}
+	seen := map[netip.AddrPort]bool{}
+	out := make([]netip.AddrPort, 0, len(addrs))
+	for _, a := range addrs {
+		b, err := netip.ParseAddrPort(a)
+		if err != nil {
+			return nil, fmt.Errorf("serve: --addr %q: want ip:port: %w", a, err)
+		}
+		if seen[b] {
+			return nil, fmt.Errorf("serve: --addr %s given twice", a)
+		}
+		seen[b] = true
+		out = append(out, b)
+	}
+	return out, nil
+}
+
+// clientAddr is the address a client on this machine uses: the first
+// loopback listener, else the first listener.
+func clientAddr(addrs []string) string {
+	for _, a := range addrs {
+		if b, err := netip.ParseAddrPort(a); err == nil && b.Addr().IsLoopback() {
+			return a
+		}
+	}
+	if len(addrs) == 0 {
+		return ""
+	}
+	return addrs[0]
 }
 
 // loginVaultHint adds --vault when a bare `para serve login` could not pick.

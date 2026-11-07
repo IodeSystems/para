@@ -15,7 +15,8 @@ import (
 // machine and never in a vault. It holds no token.
 type Record struct {
 	PID       int       `json:"pid"`
-	Addr      string    `json:"addr"` // the address it listens on, ip:port
+	Addr      string    `json:"addr"`            // the address a client on this machine uses: a loopback listener when there is one
+	Addrs     []string  `json:"addrs,omitempty"` // every address it listens on, ip:port
 	Version   string    `json:"version"`
 	Vault     string    `json:"vault"` // the vault the bare address serves, or ""
 	Vaults    []string  `json:"vaults"`

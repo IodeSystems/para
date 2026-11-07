@@ -35,7 +35,7 @@ func (l *loader) findServer() serverAt {
 		return serverAt{Addr: rec.Addr, Source: "record", Rec: &rec}
 	}
 	if args, installed := installedArgs(service.DefaultName); installed {
-		if a := service.FlagValue(args, "--addr"); a != "" {
+		if a := clientAddr(service.FlagValues(args, "--addr")); a != "" {
 			return serverAt{Addr: a, Source: "service"}
 		}
 	}
@@ -404,6 +404,7 @@ type serveStatus struct {
 	Running   bool      `json:"running"`
 	PID       int       `json:"pid,omitempty"`
 	Addr      string    `json:"addr,omitempty"`
+	Addrs     []string  `json:"addrs,omitempty"`
 	Version   string    `json:"version,omitempty"`
 	Vault     string    `json:"vault,omitempty"`
 	Vaults    []string  `json:"vaults,omitempty"`
@@ -431,7 +432,7 @@ func newServeStatusCmd(l *loader) *cobra.Command {
 				}
 				return fmt.Errorf("serve: status: no server is running (no live record in %s). Start it: para service start, or para serve", server.RecordPath(l.install.Home))
 			}
-			st := serveStatus{Running: true, PID: rec.PID, Addr: rec.Addr, Version: rec.Version, Vault: rec.Vault,
+			st := serveStatus{Running: true, PID: rec.PID, Addr: rec.Addr, Addrs: rec.Addrs, Version: rec.Version, Vault: rec.Vault,
 				Vaults: rec.Vaults, BaseHosts: rec.BaseHosts, Started: rec.Started}
 			id := l.vaultFlag
 			if id == "" {
@@ -463,6 +464,9 @@ func newServeStatusCmd(l *loader) *cobra.Command {
 			p := &printer{w: w}
 			p.f("pid      %d\n", st.PID)
 			p.f("address  %s\n", st.Addr)
+			if len(st.Addrs) > 1 {
+				p.f("listens  %s\n", strings.Join(st.Addrs, ", "))
+			}
 			p.f("version  %s\n", st.Version)
 			p.f("started  %s\n", st.Started.Local().Format(time.RFC3339))
 			p.f("vaults   %s\n", strings.Join(st.Vaults, ", "))

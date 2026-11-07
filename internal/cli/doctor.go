@@ -281,12 +281,14 @@ func doctorService(r *report) {
 		return
 	}
 	r.ok("service", "installed")
-	addr := service.FlagValue(args, "--addr")
-	if addr == "" {
-		addr = defaultAddr
+	addrs := service.FlagValues(args, "--addr")
+	if len(addrs) == 0 {
+		addrs = []string{defaultAddr}
 	}
-	if ap, err := netip.ParseAddrPort(addr); err == nil && !ap.Addr().IsLoopback() {
-		r.warn("service address", addr+" is plain HTTP on a non-loopback address: tokens and documents cross that network in the clear; put hz in front or bind 127.0.0.1")
+	for _, addr := range addrs {
+		if ap, err := netip.ParseAddrPort(addr); err == nil && !ap.Addr().IsLoopback() {
+			r.warn("service address", addr+" is plain HTTP on a non-loopback address: tokens and documents cross that network in the clear; put hz in front or bind 127.0.0.1")
+		}
 	}
 	if p, err := unitPath(service.DefaultName); err == nil {
 		path := service.EnvValue(p, "PATH")

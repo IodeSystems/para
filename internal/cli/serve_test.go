@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -92,9 +93,12 @@ func TestServeCheckProvesFlags(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
 	e.ok("serve", "--check", "--trusted-proxy", "10.0.0.1", "--vault", "acme")
+	e.ok("serve", "--check", "--addr", "127.0.0.1:7701", "--addr", "[::1]:7701", "--vault", "acme")
 	for _, bad := range [][]string{
 		{"serve", "--check", "--trusted-proxy", "10.0.0.0/8"},
 		{"serve", "--check", "--addr", "nonsense"},
+		{"serve", "--check", "--addr", "127.0.0.1:7701", "--addr", "nonsense"},
+		{"serve", "--check", "--addr", "127.0.0.1:7701", "--addr", "127.0.0.1:7701"},
 		{"serve", "--check", "--vault", "missing"},
 		{"serve", "--check", "--web-root", "/nonexistent/web"},
 		{"serve", "--check", "--insecure"},
@@ -212,8 +216,59 @@ func runningServer(t *testing.T, e *env, args ...string) (string, func() error) 
 		return cmd.Wait()
 	}
 	t.Cleanup(func() { _ = stop() })
-	_, port, _ := strings.Cut(addr, ":")
+	first, _, _ := strings.Cut(addr, ",")
+	_, port, _ := strings.Cut(first, ":")
 	return port, stop
+}
+
+func TestServeListensOnEveryAddr(t *testing.T) {
+	probe, err := net.Listen("tcp", "127.0.0.2:0")
+	if err != nil {
+		t.Skip("127.0.0.2 is not a loopback address here:", err)
+	}
+	_ = probe.Close()
+	e := newEnv(t)
+	e.init("acme")
+	_, stop := runningServer(t, e, "--addr", "127.0.0.2:0", "--vault", "acme")
+	rec, ok := server.ReadRecord(e.home)
+	if !ok {
+		t.Fatal("no server record")
+	}
+	if len(rec.Addrs) != 2 || !strings.HasPrefix(rec.Addrs[0], "127.0.0.1:") || !strings.HasPrefix(rec.Addrs[1], "127.0.0.2:") {
+		t.Fatalf("addrs %v", rec.Addrs)
+	}
+	if rec.Addr != rec.Addrs[0] {
+		t.Errorf("client addr %s, want the loopback listener %s", rec.Addr, rec.Addrs[0])
+	}
+	for _, a := range rec.Addrs {
+		resp, err := http.Get("http://" + a + "/healthz")
+		if err != nil {
+			t.Fatalf("%s: %v", a, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("%s: /healthz %d", a, resp.StatusCode)
+		}
+	}
+	if err := stop(); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+}
+
+func TestClientAddrPrefersLoopback(t *testing.T) {
+	for _, c := range []struct {
+		in   []string
+		want string
+	}{
+		{nil, ""},
+		{[]string{"10.100.0.8:7700"}, "10.100.0.8:7700"},
+		{[]string{"10.100.0.8:7700", "127.0.0.1:7700"}, "127.0.0.1:7700"},
+		{[]string{"[::1]:7700", "127.0.0.1:7700"}, "[::1]:7700"},
+	} {
+		if got := clientAddr(c.in); got != c.want {
+			t.Errorf("clientAddr(%v) = %q, want %q", c.in, got, c.want)
+		}
+	}
 }
 
 func fetch(t *testing.T, port, host, path, token string) (int, string) {

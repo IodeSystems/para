@@ -76,3 +76,14 @@ func TestUnitAllowsTimeToStopADispatchedCommand(t *testing.T) {
 		t.Errorf("unit:\n%s", text)
 	}
 }
+
+func TestFlagValuesRepeats(t *testing.T) {
+	args := []string{"serve", "--addr", "127.0.0.1:7700", "--vault", "a", "--addr=10.100.0.8:7700"}
+	got := FlagValues(args, "--addr")
+	if len(got) != 2 || got[0] != "127.0.0.1:7700" || got[1] != "10.100.0.8:7700" {
+		t.Errorf("FlagValues = %v", got)
+	}
+	if FlagValues(args, "--web-root") != nil {
+		t.Error("absent flag gave values")
+	}
+}

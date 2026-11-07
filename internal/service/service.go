@@ -201,3 +201,17 @@ func FlagValue(args []string, name string) string {
 	}
 	return ""
 }
+
+// FlagValues returns every value of a repeatable flag in args, in order.
+func FlagValues(args []string, name string) []string {
+	var out []string
+	for i, a := range args {
+		if a == name && i+1 < len(args) {
+			out = append(out, args[i+1])
+		}
+		if v, ok := strings.CutPrefix(a, name+"="); ok {
+			out = append(out, v)
+		}
+	}
+	return out
+}
