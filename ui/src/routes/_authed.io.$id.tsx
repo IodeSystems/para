@@ -18,6 +18,7 @@ import { DoneForm } from '@/components/stack/parts'
 import { ioParty, ioTarget } from '@/lib/io'
 import { exactTime, humanTime } from '@/lib/when'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { VoiceNote, voiceWords } from '@/components/Voice'
 
 export const Route = createFileRoute('/_authed/io/$id')({ component: IoItemPage })
 
@@ -60,6 +61,8 @@ function IoItemPage() {
           { k: out ? 'To' : 'From', v: out ? to : from },
           { k: out ? 'From' : 'To', v: out ? from : to },
           { k: 'Medium', v: item.medium },
+          { k: 'Voice', v: out ? voiceWords(item) : '' },
+          { k: 'Kind', v: item.kind },
           { k: 'When', v: when },
           { k: 'Subject', v: item.subject },
           { k: 'Link', v: link },
@@ -130,8 +133,13 @@ function IoItemPage() {
                   </Stack>
                 ))}
             </Stack>
+            {out && <VoiceNote item={item} />}
             {decide && out && (item.state === 'draft' || item.state === 'ready') && (
-              <Approve id={item.id} approved={item.state === 'ready'} />
+              <Approve
+                id={item.id}
+                approved={item.state === 'ready'}
+                forMe={item.voice === 'for_me'}
+              />
             )}
             {decide && out && (
               <SentByMe
@@ -174,7 +182,8 @@ function Parties({ list }: { list: readonly string[] }) {
 
 // Approve is the owner's approval of an outgoing draft: its exact text, as it is now, becomes ready
 // to send. An edit after it makes it a draft again. approved says the draft is approved already.
-function Approve({ id, approved }: { id: string; approved: boolean }) {
+// A for_me draft becomes as you: its stamp comes off, and you approve the text without it.
+function Approve({ id, approved, forMe }: { id: string; approved: boolean; forMe: boolean }) {
   const approve = useIOApprove()
   if (approve.isSuccess || approved) {
     return (
@@ -193,7 +202,7 @@ function Approve({ id, approved }: { id: string; approved: boolean }) {
         disabled={approve.isPending}
         onClick={() => approve.mutate(id)}
       >
-        Approve
+        {forMe ? 'Approve as you' : 'Approve'}
       </Button>
       {approve.isError && (
         <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>

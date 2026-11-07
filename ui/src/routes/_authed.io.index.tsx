@@ -17,6 +17,7 @@ import { CaptureButton } from '@/components/CaptureButton'
 import { DataState } from '@/components/DataState'
 import { TextLink } from '@/components/links'
 import { ioParty } from '@/lib/io'
+import { voiceWords } from '@/components/Voice'
 import { digestRows, splitInbox } from '@/lib/priority'
 import { humanTime } from '@/lib/when'
 
@@ -39,19 +40,22 @@ const MEDIUMS = [
 export const Route = createFileRoute('/_authed/io/')({
   validateSearch: (
     s: Record<string, unknown>,
-  ): { view?: View; medium?: string; all?: boolean } => ({
+  ): { view?: View; medium?: string; all?: boolean; forMe?: boolean } => ({
     view: s.view === 'outbox' || s.view === 'digest' ? s.view : undefined,
     medium: typeof s.medium === 'string' && MEDIUMS.includes(s.medium) ? s.medium : undefined,
     all: s.all === true || s.all === 'true' ? true : undefined,
+    forMe: s.forMe === true || s.forMe === 'true' ? true : undefined,
   }),
   component: IoPage,
 })
 
 function IoPage() {
-  const { view, medium, all } = Route.useSearch()
+  const { view, medium, all, forMe: forMeSearch } = Route.useSearch()
   const navigate = Route.useNavigate()
   const dir = view === 'outbox' ? 'out' : 'in'
-  const q = useIoList(dir, all ?? false)
+  // Sent for you: what agents sent in your stead, stamped, without your review.
+  const forMe = dir === 'out' && (forMeSearch ?? false)
+  const q = useIoList(dir, forMe || (all ?? false), forMe ? 'for_me' : undefined)
   const c = q.data?.counts
   return (
     <>
@@ -110,10 +114,42 @@ function IoPage() {
           }
           label={dir === 'in' ? 'Show filed and dropped' : 'Show sent and dropped'}
         />
+        {dir === 'out' && (
+          <FormControlLabel
+            control={
+              <Switch
+                checked={forMe}
+                data-filter="sent-for-you"
+                onChange={(e) =>
+                  void navigate({
+                    search: (p) => ({ ...p, forMe: e.target.checked || undefined }),
+                    replace: true,
+                  })
+                }
+              />
+            }
+            label="Sent for you"
+          />
+        )}
       </Stack>
       <DataState q={q}>
         {(d) => {
-          const items = d.items.filter((x) => !medium || x.medium === medium)
+          const items = d.items.filter(
+            (x) => (!medium || x.medium === medium) && (!forMe || x.state === 'sent'),
+          )
+          if (forMe) {
+            return items.length === 0 ? (
+              <Empty>No agent sent anything for you without your review.</Empty>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  Messages agents sent for you, stamped, without your review, under a rule of your
+                  .para/delegation.yaml. Each names the rule that allowed it.
+                </Typography>
+                <IoRows items={items} />
+              </>
+            )
+          }
           if (view === 'digest') {
             const list = digestRows(items)
             return list.length === 0 ? (
@@ -187,6 +223,7 @@ function IoRows({ items }: { items: Row[] }) {
                 x.medium,
                 humanTime(x.at || x.created),
                 x.direction === 'in' && x.needsYouReason,
+                x.voice === 'for_me' && voiceWords(x),
                 x.legacy && 'old inbox capture: run para vault upgrade',
               ]
                 .filter(Boolean)

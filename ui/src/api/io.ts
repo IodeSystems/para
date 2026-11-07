@@ -5,10 +5,10 @@ import { need } from '@/client/need'
 import { closeAny } from '@/api/verbs'
 
 const IoListDoc = graphql(/* GraphQL */ `
-  query IoList($direction: para_ioListDirection, $all: Boolean) {
+  query IoList($direction: para_ioListDirection, $all: Boolean, $voice: para_ioListVoice) {
     para {
       v1 {
-        ioList(direction: $direction, all: $all) {
+        ioList(direction: $direction, all: $all, voice: $voice) {
           counts {
             unread
             read
@@ -35,6 +35,8 @@ const IoListDoc = graphql(/* GraphQL */ `
             needsYouReason
             digest
             triageBy
+            voice
+            allowedBy
           }
         }
       }
@@ -75,6 +77,11 @@ const IoShowDoc = graphql(/* GraphQL */ `
             triage
             triageBy
             links
+            voice
+            agent
+            stamp
+            kind
+            allowedBy
           }
         }
       }
@@ -83,14 +90,54 @@ const IoShowDoc = graphql(/* GraphQL */ `
 `)
 
 export type IoDirection = 'in' | 'out'
+export type IoVoice = 'as_me' | 'for_me'
 
 // The open items of one direction (the inbox or the outbox), or every item with all, and the
-// counts of every open item.
-export function useIoList(direction?: IoDirection, all = false) {
+// counts of every open item. voice keeps outgoing items of that voice (for_me with all: what
+// agents sent for the owner, stamped).
+export function useIoList(direction?: IoDirection, all = false, voice?: IoVoice) {
   return useQuery({
-    queryKey: ['io', direction ?? '', all],
+    queryKey: ['io', direction ?? '', all, voice ?? ''],
     queryFn: async () =>
-      need((await gqlClient.request(IoListDoc, { direction, all })).para.v1.ioList, 'io items'),
+      need(
+        (await gqlClient.request(IoListDoc, { direction, all, voice })).para.v1.ioList,
+        'io items',
+      ),
+  })
+}
+
+const DelegationRunDoc = graphql(/* GraphQL */ `
+  query DelegationRun($id: String!) {
+    para {
+      v1 {
+        delegationRun(id: $id) {
+          voice
+          agent
+          file
+          rules
+          rule
+          stamp
+          stamped
+          misses {
+            rule
+            name
+            why
+          }
+          next
+        }
+      }
+    }
+  }
+`)
+
+// useDelegationRun is the dry run of the owner's delegation rules on one outgoing draft: the
+// rule that would let its agent send it for the owner, stamped, without review, or why none.
+export function useDelegationRun(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['io', 'delegation', id],
+    enabled: enabled && id !== '',
+    queryFn: async () =>
+      need((await gqlClient.request(DelegationRunDoc, { id })).para.v1.delegationRun, 'delegation'),
   })
 }
 

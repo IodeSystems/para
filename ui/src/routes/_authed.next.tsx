@@ -22,6 +22,7 @@ import { AgentLooking } from '@/components/FindContext'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemDraftProvider } from '@/components/ItemDraft'
+import { VoiceNote } from '@/components/Voice'
 import { useNextKeys } from '@/components/Keyboard'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
@@ -420,6 +421,7 @@ function DraftReady({
       >
         {q.data?.doc.body ?? ''}
       </Typography>
+      {it && <VoiceNote item={it} />}
       <Stack direction="row" spacing={1}>
         {decide && !approved && (
           <Button
@@ -430,7 +432,7 @@ function DraftReady({
             disabled={approve.isPending || !q.data}
             onClick={() => void run()}
           >
-            Approve
+            {it?.voice === 'for_me' ? 'Approve as you' : 'Approve'}
           </Button>
         )}
         {approved && (
