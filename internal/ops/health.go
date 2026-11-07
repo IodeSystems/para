@@ -71,6 +71,9 @@ const (
 	// HealthGateUnused is the vault setting gate.require, set and read by
 	// nothing since 0.3.0.
 	HealthGateUnused = "gate_setting_unused"
+	// HealthPoolsInvalid is a .para/pools.yaml that does not parse or check:
+	// no pool shows until the owner fixes it.
+	HealthPoolsInvalid = "pools_invalid"
 	// HealthUpgradePending is a vault upgrade step with documents left: the
 	// owner runs an automated one, an agent works a judgement one.
 	HealthUpgradePending = "upgrade_pending"
@@ -103,7 +106,7 @@ var HealthKinds = []string{
 	HealthTooManyActive, HealthRiskUnmitigated, HealthAssumptionStale,
 	HealthDocUnseen, HealthDocStale, HealthDocCommentOpen,
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
-	HealthUnreviewedOutward, HealthAgentWorkStale, HealthRetryWriteOpen, HealthGateUnused, HealthUpgradePending,
+	HealthUnreviewedOutward, HealthAgentWorkStale, HealthRetryWriteOpen, HealthGateUnused, HealthPoolsInvalid, HealthUpgradePending,
 	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop, HealthNotePlacement,
 }
 
@@ -147,6 +150,7 @@ var HealthKindWords = map[string]string{
 	HealthAgentWorkStale:     "Asked of an agent, no change in a day",
 	HealthRetryWriteOpen:     "Refused agent write not retried yet",
 	HealthGateUnused:         "Vault setting no longer used",
+	HealthPoolsInvalid:       "Idea pools file does not parse",
 	HealthUpgradePending:     "Vault upgrade step pending",
 	HealthAnnotationBroken:   "Annotation para cannot read",
 	HealthAnnotationLost:     "Annotation lost its anchor",
@@ -264,6 +268,9 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	} else if v != "" {
 		h.add(HealthGateUnused, "", "", fmt.Sprintf("%s is set (%s) and no longer used: an undoable agent write applies at once, and one that cannot be undone needs the owner", GateConfig, v),
 			"the owner runs para vault config unset "+GateConfig)
+	}
+	if _, err := loadPools(s); err != nil {
+		h.add(HealthPoolsInvalid, "", "", "no idea pool shows: "+err.Error(), "the owner fixes .para/"+poolsFile)
 	}
 	if st, err := upgrade.StatusOf(ctx, s); err == nil {
 		for _, p := range st.Pending {
