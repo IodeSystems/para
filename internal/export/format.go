@@ -100,6 +100,50 @@ func Render(ctx context.Context, f Format, doc model.Document, marking string) (
 // markdown is the md format: marking, title heading, body without block ids
 // and wikilink syntax, source line. Frontmatter is never included.
 func markdown(doc model.Document, marking string) string {
+	return Markdown(doc, marking, nil)
+}
+
+// WikiLink is one wikilink of a body, as Markdown hands it to a LinkFunc.
+type WikiLink struct {
+	Target string // the document id
+	Frag   string // heading, or block id without '^', after '#'
+	Block  bool   // Frag is a block id: [[id#^b]]
+	Alias  string
+	Embed  bool // ![[...]]
+}
+
+// LinkFunc returns the text that replaces a wikilink.
+type LinkFunc func(WikiLink) string
+
+// PlainLink is a wikilink as the md format writes it: the alias, else the
+// target and the heading or block id, else the target.
+func PlainLink(l WikiLink) string {
+	switch {
+	case l.Alias != "":
+		return l.Alias
+	case l.Frag != "":
+		return l.Target + " " + l.Frag
+	}
+	return l.Target
+}
+
+// embedWikiRe is wikiRe with the embed mark.
+var embedWikiRe = regexp.MustCompile(`(!?)` + wikiRe.String())
+
+// ParseWikiLink splits one wikilink, with or without the embed mark.
+func ParseWikiLink(m string) WikiLink {
+	p := embedWikiRe.FindStringSubmatch(m)
+	if p == nil {
+		return WikiLink{}
+	}
+	return WikiLink{Embed: p[1] == "!", Target: p[2], Frag: p[3], Alias: p[4], Block: strings.Contains(m, "#^")}
+}
+
+// Markdown is the md format with a hook for wikilinks. link, when set, gets
+// each wikilink outside code fences, an embed with its '!', and returns the
+// text that replaces it. Nil writes PlainLink and leaves an embed's '!', as
+// the md format does.
+func Markdown(doc model.Document, marking string, link LinkFunc) string {
 	var b strings.Builder
 	banner := "**[" + marking + "]**"
 	b.WriteString(banner + "\n\n# " + doc.Title + "\n\n")
@@ -111,16 +155,14 @@ func markdown(doc model.Document, marking string) string {
 		}
 		if !fenced {
 			line = blockIDRe.ReplaceAllString(line, "")
-			line = wikiRe.ReplaceAllStringFunc(line, func(m string) string {
-				p := wikiRe.FindStringSubmatch(m)
-				switch {
-				case p[3] != "":
-					return p[3]
-				case p[2] != "":
-					return p[1] + " " + p[2]
-				}
-				return p[1]
-			})
+			if link == nil {
+				line = wikiRe.ReplaceAllStringFunc(line, func(m string) string {
+					p := wikiRe.FindStringSubmatch(m)
+					return PlainLink(WikiLink{Target: p[1], Frag: p[2], Alias: p[3]})
+				})
+			} else {
+				line = embedWikiRe.ReplaceAllStringFunc(line, func(m string) string { return link(ParseWikiLink(m)) })
+			}
 		}
 		body = append(body, line)
 	}
