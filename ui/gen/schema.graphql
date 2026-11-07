@@ -68,6 +68,7 @@ type ParaV1MutationNamespace {
   goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
   healthDismiss(body: para_HealthDismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthDismiss")
   healthUndismiss(body: para_HealthUndismissInputInput!): para_HealthDismissOutput @derived(operationId: "healthUndismiss")
+  ideaAdd(body: para_IdeaAddInputInput!): para_IdeaAddOutput @derived(operationId: "ideaAdd")
   importVerify(body: para_ImportVerifyInputInput!): para_ImportVerifyOutput @derived(operationId: "importVerify")
   incidentAdd(body: para_IncidentAddInputInput!): para_IncidentAddOutput @derived(operationId: "incidentAdd")
   incidentLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "incidentLinkAdd")
@@ -121,6 +122,8 @@ type ParaV1MutationNamespace {
   orgTeamAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgTeamAdd")
   policyRefresh(body: para_PolicyRefreshInputInput!): para_PolicyRefreshOutput @derived(operationId: "policyRefresh")
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
+  poolPick(body: para_PoolPickInputInput!): para_PoolPickOutput @derived(operationId: "poolPick")
+  poolRun(body: para_PoolRunInputInput!): para_PoolRunOutput @derived(operationId: "poolRun")
   prioritySet(body: para_PrioritySetInputInput!): para_PrioritySetOutput @derived(operationId: "prioritySet")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   projectClose(body: para_ProjectCloseInputInput!): para_ProjectCloseOutput @derived(operationId: "projectClose")
@@ -270,6 +273,7 @@ type ParaV1QueryNamespace {
   orgTeamShow(id: String!): para_OrgShowOutput @derived(operationId: "orgTeamShow")
   policyList: para_PolicyListOutput @derived(operationId: "policyList")
   policyShow(id: String!): para_PolicyShowOutput @derived(operationId: "policyShow")
+  poolList(name: String): para_PoolListOutput @derived(operationId: "poolList")
   projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
   projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
@@ -389,6 +393,7 @@ enum para_AgendaItemKind {
   goal
   meeting
   nudge
+  pool
   retry
 }
 
@@ -3184,6 +3189,31 @@ type para_IOWindow {
   sweeps: Int!
 }
 
+enum para_IdeaAddInputEffort {
+  l
+  m
+  s
+  xs
+}
+
+input para_IdeaAddInputInput {
+  area: String
+  effort: para_IdeaAddInputEffort
+  kind: String
+  pool: String!
+  project: String
+  text: String
+  title: String!
+}
+
+type para_IdeaAddOutput {
+  id: String!
+  pool: String!
+  rev: String!
+  tag: String!
+  warnings: [String!]!
+}
+
 input para_ImportFileInput {
   hash: String!
   path: String!
@@ -5416,6 +5446,74 @@ enum para_PolicyViewFidelity {
   none
   ocr
   partial
+}
+
+type para_PoolIdea {
+  effort: para_PoolIdeaEffort!
+  effortSet: Boolean
+  id: String!
+  impact: Int!
+  kind: String!
+  score: Float!
+  text: String
+  title: String!
+}
+
+enum para_PoolIdeaEffort {
+  l
+  m
+  s
+  xs
+}
+
+type para_PoolListOutput {
+  pools: [para_PoolView!]!
+}
+
+input para_PoolPickInputInput {
+  ids: [String!]
+  pool: String!
+  skip: Boolean
+}
+
+type para_PoolPickOutput {
+  instance: String!
+  linked: [String!]!
+  picked: [String!]!
+  pool: String!
+  skipped: Boolean
+  warnings: [String!]!
+}
+
+input para_PoolRunInputInput {
+  dryRun: Boolean
+}
+
+type para_PoolRunOutput {
+  dryRun: Boolean
+  gaps: [String!]!
+  pools: [para_PoolView!]!
+  warnings: [String!]!
+}
+
+type para_PoolView {
+  area: String
+  date: String
+  fires: Boolean!
+  ideas: [para_PoolIdea!]!
+  instance: String
+  name: String!
+  next: String
+  pick: Int!
+  problem: String
+  project: String
+  row: String!
+  size: Int!
+  tag: String!
+  title: String!
+  trigger: String!
+  triggerId: String
+  triggerTitle: String
 }
 
 type para_Prepared {

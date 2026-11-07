@@ -53,6 +53,12 @@ func registerWork(r *registrar) {
 	reg(r, ops.IOSend, post, write)
 	reg(r, ops.IOSendCheck, post, write)
 	reg(r, ops.TriageRun, post, write)
+	// Idea pools: an agent keeps ideas and lists pools (vault:write); the
+	// owner picks (review:decide, a person op).
+	reg(r, ops.IdeaAdd, post, write)
+	reg(r, ops.PoolList, get, read)
+	reg(r, ops.PoolRun, post, write)
+	reg(r, ops.PoolPick, post, netguard.ScopeReviewDecide)
 }
 
 // registerDocs: tracked documents. An agent tracks a document and passes each

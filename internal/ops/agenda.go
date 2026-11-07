@@ -45,10 +45,13 @@ const (
 	// is closed, so the agenda no longer lists it; health says it may be
 	// tried again (retry_due). Kept so older clients read the enum.
 	AgendaRetry AgendaKind = "retry"
+	// AgendaPool is an idea pool whose trigger fired (pool.go), on today: id
+	// pool:<name>, not a document. Detail is the trigger; pool_pick picks.
+	AgendaPool AgendaKind = "pool"
 )
 
 // AgendaKinds lists every AgendaKind.
-var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal, AgendaArea, AgendaRetry}
+var AgendaKinds = []AgendaKind{AgendaMeeting, AgendaDue, AgendaNudge, AgendaException, AgendaGoal, AgendaArea, AgendaRetry, AgendaPool}
 
 // Enum lists the allowed values, for schema generation.
 func (AgendaKind) Enum() []string {
@@ -356,6 +359,13 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 		items = append(items, AgendaItem{Kind: AgendaGoal, ID: g.ID, Title: g.Title, Date: g.Date, Overdue: late,
 			Detail: g.Reason, Who: []string{}, Reason: "goal watch"})
 	}
+	// A firing idea pool is one line, on today; its ideas stay put off.
+	if pools, err := firingPools(sn); err == nil {
+		for _, f := range pools {
+			items = append(items, AgendaItem{Kind: AgendaPool, ID: poolRowPrefix + f.p.name, Title: f.title(), Date: w.today,
+				Detail: f.p.trigger(), Who: []string{}, NeedsYou: true, Reason: "pick from pool " + f.p.name})
+		}
+	}
 	order, err := OrderOf(sn)
 	if err != nil {
 		return nil, nil, nil, err
@@ -390,7 +400,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 // instant (so two meetings at "01:30" on the day the clocks go back keep their
 // real order), then kind and id.
 func sortAgenda(items []AgendaItem, pos map[string]int) {
-	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaGoal: 3, AgendaArea: 4, AgendaMeeting: 5}
+	rank := map[AgendaKind]int{AgendaDue: 0, AgendaNudge: 1, AgendaException: 2, AgendaGoal: 3, AgendaPool: 3, AgendaArea: 4, AgendaMeeting: 5}
 	instant := func(it AgendaItem) time.Time {
 		t, _ := time.Parse(time.RFC3339, it.At)
 		return t

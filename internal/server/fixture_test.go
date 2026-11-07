@@ -97,6 +97,9 @@ func buildHome(base string) error {
 	if err != nil {
 		return err
 	}
+	if err := opsample.WriteConfigFiles(root); err != nil {
+		return err
+	}
 	return opsample.Seed(contextBackground(), s)
 }
 

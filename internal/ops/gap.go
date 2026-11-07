@@ -137,7 +137,8 @@ func workOf(sn *Snapshot, kind string) itemWork {
 }
 
 // gapCandidates are the items gap work looks at, best first: the needs-you
-// rows in value order, then the active goals in the order of open work.
+// rows in value order (a firing pool's row is its ideas, ranked), then the
+// active goals in the order of open work.
 func gapCandidates(sn *Snapshot) ([]string, error) {
 	o, err := OrderOf(sn)
 	if err != nil {
@@ -145,7 +146,17 @@ func gapCandidates(sn *Snapshot) ([]string, error) {
 	}
 	var ids []string
 	for _, r := range o.Rows {
-		ids = append(ids, r.ID)
+		if r.Kind != KindPool {
+			ids = append(ids, r.ID)
+			continue
+		}
+		// A firing pool's row stands for its ideas: they get filled in, best
+		// first, when the trigger comes.
+		ideas, err := pooledIdeas(sn, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, ideas...)
 	}
 	all, err := orderOf(sn, true)
 	if err != nil {
@@ -186,6 +197,12 @@ func tickGaps(ctx context.Context, d Deps, out *TickOutput) error {
 	if err != nil {
 		return err
 	}
+	return fileGaps(ctx, d, sn, ids, limit, out)
+}
+
+// fileGaps makes fill-gap requests for the items, in order, up to limit a
+// local day: tick and pool_run.
+func fileGaps(ctx context.Context, d Deps, sn *Snapshot, ids []string, limit int, out *TickOutput) error {
 	w := workOf(sn, FillGapKind)
 	for _, id := range ids {
 		if w.today >= limit {

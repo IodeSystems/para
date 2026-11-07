@@ -396,7 +396,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	e := newEnv(t)
 	// Below format 9, so the show ops of exceptions, conventions, and
 	// constraints find files; annotate works on an area at any format.
-	e.initAt("acme", 8)
+	root := e.initAt("acme", 8)
 	l := &loader{env: func(k string) string {
 		if k == "PARA_HOME" {
 			return e.home
@@ -513,6 +513,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	maps.Copy(cases, refileParityCases())
 	seedStreamOBParity(t, deps)
 	maps.Copy(cases, streamOBParityCases())
+	seedStreamIPParity(t, deps, root)
+	maps.Copy(cases, streamIPParityCases())
 	all := ops.All()
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))

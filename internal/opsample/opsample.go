@@ -7,6 +7,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/iodesystems/para/internal/model"
@@ -120,6 +122,9 @@ var Inputs = map[string]string{
 	"org_group_show":            `{"id":"group-sample"}`,
 	"priority_set":              `{"id":"group-sample","priority":"high"}`,
 	"triage_run":                `{"dry_run":true}`,
+	"idea_add":                  `{"pool":"sample","title":"Try a sample idea","text":"A short synthetic idea."}`,
+	"pool_run":                  `{"dry_run":true}`,
+	"pool_pick":                 `{"pool":"sample","skip":true}`,
 	"org_person_add":            `{"name":"Riley Example","org":"acme","aliases":["Ri"]}`,
 	"org_person_alias_add":      `{"id":"person-sample","alias":"Ri"}`,
 	"org_person_alias_remove":   `{"id":"person-sample","alias":"Sam"}`,
@@ -309,6 +314,23 @@ func readyDraft() model.Document {
 		To: []string{"[[person-sample]]"}, Expects: model.ExpectsNone, ApprovedAt: "2026-11-01T09:00:00Z"}
 	m.ApprovedHash = m.DraftHash("Approved draft")
 	return model.Document{ID: "io-ready-sample", Folder: model.FolderIO, Title: "Approved draft", Body: "Approved draft", Meta: m}
+}
+
+// ConfigFiles are the owner's files of .para that Inputs need: a pool that
+// has fired since 2000 (pool_pick), whose ideas go in area-sample (idea_add).
+var ConfigFiles = map[string]string{
+	"pools.yaml": "pools:\n  - name: sample\n    tag: sample\n    area: area-sample\n    when: {date: 2000-01-01}\n",
+}
+
+// WriteConfigFiles writes ConfigFiles into the .para directory of the vault
+// at root, as the owner writes them by hand.
+func WriteConfigFiles(root string) error {
+	for name, text := range ConfigFiles {
+		if err := os.WriteFile(filepath.Join(root, ".para", name), []byte(text), 0o600); err != nil {
+			return fmt.Errorf("opsample: config files: %w", err)
+		}
+	}
+	return nil
 }
 
 // Seed creates the documents that Inputs name.

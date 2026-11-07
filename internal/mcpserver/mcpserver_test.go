@@ -57,6 +57,9 @@ func seededTemplate(t *testing.T) string {
 	t.Helper()
 	s, root := newVault(t)
 	seedSamples(t, s)
+	if err := opsample.WriteConfigFiles(root); err != nil {
+		t.Fatal(err)
+	}
 	return root
 }
 

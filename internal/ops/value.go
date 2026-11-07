@@ -87,6 +87,9 @@ const (
 	// KindIO is an io item: an incoming message that expects a response, or
 	// an outgoing draft.
 	KindIO = "io"
+	// KindPool is an idea pool whose trigger fired (pool.go): one row per
+	// pool, id "pool:<name>", not a document. The ideas are not rows.
+	KindPool = "pool"
 )
 
 // Groups of ValueRow, in order. All but not_yet are actionable now.
@@ -246,20 +249,20 @@ type ValueNode struct {
 
 // ValueRow is one listed item with the reason it is where it is.
 type ValueRow struct {
-	ID       string `json:"id"`
-	Kind     string `json:"kind"`
-	Title    string `json:"title"`
-	Group    string `json:"group"`
-	Due      string `json:"due,omitempty"`      // own date
-	EffDue   string `json:"eff_due,omitempty"`  // effective date
-	Impact   int    `json:"impact"`             // weighted count
-	Blocks   int    `json:"blocks"`             // open items it unblocks, goals not counted
-	Items    int    `json:"items,omitempty"`    // open action items (children) of a task
-	Parent   string `json:"parent,omitempty"`   // the task or obligation this is an action item of
+	ID     string `json:"id"`
+	Kind   string `json:"kind"`
+	Title  string `json:"title"`
+	Group  string `json:"group"`
+	Due    string `json:"due,omitempty"`     // own date
+	EffDue string `json:"eff_due,omitempty"` // effective date
+	Impact int    `json:"impact"`            // weighted count
+	Blocks int    `json:"blocks"`            // open items it unblocks, goals not counted
+	Items  int    `json:"items,omitempty"`   // open action items (children) of a task
+	Parent string `json:"parent,omitempty"`  // the task or obligation this is an action item of
 	// For is the promise this is prep for, in the owed tier; Back is the
 	// backward date it falls due by.
-	For  string `json:"for,omitempty"`
-	Back string `json:"back,omitempty"`
+	For      string `json:"for,omitempty"`
+	Back     string `json:"back,omitempty"`
 	Why      string `json:"why"`                // in words
 	Proposal bool   `json:"proposal,omitempty"` // an answer waits to be checked
 	// Bucket is now (actionable now) or not_yet (not yet startable).
@@ -294,6 +297,27 @@ type ValueRow struct {
 	// Created and Updated are the item's own dates, YYYY-MM-DD.
 	Created string `json:"created,omitempty"`
 	Updated string `json:"updated,omitempty"`
+	// boost is true when the row's effective date is within the goal window:
+	// its score doubles (scoreOf).
+	boost bool
+}
+
+// scoreOf is a row's score as a fraction: (impact+1), doubled for a date
+// within the goal window, over the effort weight. The order compares two
+// without division (scoreCmp); pools show it as a number.
+func scoreOf(r ValueRow) (num, den int) {
+	num = r.Impact + 1
+	if r.boost {
+		num *= 2
+	}
+	return num, max(effortWeight[r.Effort], 1)
+}
+
+// scoreCmp puts the better score first.
+func scoreCmp(a, b ValueRow) int {
+	an, ad := scoreOf(a)
+	bn, bd := scoreOf(b)
+	return cmp.Compare(bn*ad, an*bd)
 }
 
 // OrderSummary sums up the reply group: how many items, about how many
@@ -391,7 +415,6 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	if t, err := time.Parse(dateLayout, opt.Today); err == nil && opt.GoalSoonDays > 0 {
 		goalSoon = t.AddDate(0, 0, opt.GoalSoonDays).Format(dateLayout)
 	}
-	boosted := map[string]bool{} // impact rows whose date is within the goal window
 	var rows []ValueRow
 	var held []HeldUp
 	focusable := map[string]func() string{} // impact rows focus may pick, to their reason
@@ -486,7 +509,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		r.Why = why(n, r, from, waits)
 		boost := r.Group == GroupImpact && goalSoon != "" && eff != "" && eff <= goalSoon
-		boosted[n.ID] = boost
+		r.boost = boost
 		if r.Group == GroupImpact && len(waits) == 0 && n.Kind != KindGoal && n.Kind != KindWork {
 			// Focus picks among these below; the reason is set then.
 			focusable[n.ID] = func() string {
@@ -561,17 +584,6 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	}
 	// due compares effective dates, an item with none last.
 	due := func(a, b ValueRow) int { return cmp.Compare(dueKey(a.EffDue), dueKey(b.EffDue)) }
-	// weigh is impact plus one, doubled for a date within the goal window.
-	weigh := func(r ValueRow) int {
-		if boosted[r.ID] {
-			return (r.Impact + 1) * 2
-		}
-		return r.Impact + 1
-	}
-	// score puts the better (impact+1) / effort weight first, without division.
-	score := func(a, b ValueRow) int {
-		return cmp.Compare(weigh(b)*effortWeight[a.Effort], weigh(a)*effortWeight[b.Effort])
-	}
 	// readyFirst puts ready rows first within a group. It is off while focus
 	// picks, so focus picks by score alone.
 	readyFirst := false
@@ -596,7 +608,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		case GroupReply:
 			c = cmp.Or(cmp.Compare(b.WaitingDays, a.WaitingDays), due(a, b))
 		case GroupFocus, GroupImpact:
-			c = cmp.Or(score(a, b), cmp.Compare(reasonRank[a.ID], reasonRank[b.ID]), due(a, b))
+			c = cmp.Or(scoreCmp(a, b), cmp.Compare(reasonRank[a.ID], reasonRank[b.ID]), due(a, b))
 		case GroupNotYet:
 			c = cmp.Or(cmp.Compare(a.Starts, b.Starts), due(a, b), cmp.Compare(b.Impact, a.Impact))
 		}
@@ -1026,28 +1038,19 @@ func openWorkAt(ctx context.Context, s store.Store, today string) (ValueOrder, e
 }
 
 func orderOf(sn *Snapshot, all bool) (ValueOrder, error) {
-	s, today, days := sn.s, sn.Today, sn.DueSoonDays
 	nodes, err := valueNodes(sn, all)
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	focus, err := configInt(s, FocusCountKey, DefaultFocusCount)
+	if !all {
+		// A firing idea pool is one row; its ideas stay put off (pool.go).
+		nodes = append(nodes, poolNodes(sn)...)
+	}
+	opt, err := rankOptions(sn)
 	if err != nil {
 		return ValueOrder{}, err
 	}
-	stale, err := configInt(s, StaleDaysKey, DefaultStaleDays)
-	if err != nil {
-		return ValueOrder{}, err
-	}
-	goalSoon, err := configInt(s, GoalSoonKey, DefaultGoalSoonDays)
-	if err != nil {
-		return ValueOrder{}, err
-	}
-	owedSoonDays, err := configInt(s, OwedSoonKey, DefaultOwedSoonDays)
-	if err != nil {
-		return ValueOrder{}, err
-	}
-	return RankValue(nodes, RankOptions{Today: today, DueSoonDays: days, FocusCount: focus, StaleDays: stale, GoalSoonDays: goalSoon, OwedSoonDays: owedSoonDays}), nil
+	return RankValue(nodes, opt), nil
 }
 
 // configInt reads a vault setting that is a count; unset or not a number is
