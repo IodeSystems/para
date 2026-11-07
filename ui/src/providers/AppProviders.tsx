@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
-import { canSwitchMode, MODE_KEY, theme } from '@/theme'
+import { defaultMode, MODE_KEY, theme } from '@/theme'
 import { forbidden, httpStatus } from '@/client/gqlClient'
 
 // Polling every 60 s is the fallback when the live socket is down or unsupported. A push only
@@ -33,10 +33,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Focus opens dark until the owner switches (AppShell ModeSwitch); the other themes
-          follow the system setting. */}
+          follow the system setting until the owner switches. */}
       <ThemeProvider
         theme={theme}
-        defaultMode={canSwitchMode ? 'dark' : 'system'}
+        defaultMode={defaultMode}
         modeStorageKey={MODE_KEY}
       >
         <CssBaseline enableColorScheme />

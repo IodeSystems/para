@@ -35,7 +35,7 @@ export const schemes: Schemes = {
 }
 
 export const consoleTheme = createTheme({
-  cssVariables: { colorSchemeSelector: 'media' },
+  cssVariables: { colorSchemeSelector: 'data-mui-color-scheme' },
   colorSchemes: { light: { palette: schemes.light }, dark: { palette: schemes.dark } },
   shape: { borderRadius: 3 },
   spacing: 6,

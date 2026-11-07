@@ -24,7 +24,6 @@ import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/comp
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
 import type { SessionView } from '@/client/session'
-import { canSwitchMode } from '@/theme'
 
 // The signed-in frame: app bar, tabs, and the plain-HTTP banner. The viewer writes nothing: the
 // agent does the work in the chat.
@@ -71,7 +70,7 @@ export function AppShell({ session, children }: { session: SessionView; children
             </Box>
           </Typography>
           <OmniBar />
-          {canSwitchMode && <ModeSwitch />}
+          <ModeSwitch />
           <Tooltip title="Keys and about (?)">
             <LinkIconButton
               color="inherit"
@@ -166,7 +165,8 @@ export function AppShell({ session, children }: { session: SessionView; children
   )
 }
 
-// ModeSwitch picks light or dark for this browser. The app opens dark; the choice is kept in
+// ModeSwitch picks light or dark for this browser, in every theme. Focus opens dark, the others
+// follow the system setting until picked; the choice is kept in
 // localStorage (theme.ts MODE_KEY).
 function ModeSwitch() {
   const { mode, systemMode, setMode } = useColorScheme()

@@ -9,7 +9,7 @@ export const schemes: Schemes = {
 // The theme in use today. Light and dark from the system setting. CSS variables keep the first
 // paint and the `color-scheme` declaration in step with the theme.
 export const current = createTheme({
-  cssVariables: { colorSchemeSelector: 'media' },
+  cssVariables: { colorSchemeSelector: 'data-mui-color-scheme' },
   colorSchemes: { light: { palette: schemes.light }, dark: { palette: schemes.dark } },
   typography: { fontSize: 15 },
   components: {

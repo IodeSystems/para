@@ -15,9 +15,9 @@ loadFonts(direction)
 
 export const theme = THEMES[direction]
 
-// canSwitchMode says the owner picks light or dark in the header. Only Focus has the switch; the
-// themes behind ?theme= follow the system setting, as before.
-export const canSwitchMode = direction === 'c'
+// defaultMode is the mode before the owner picks one. Focus opens dark; the themes behind ?theme=
+// follow the system setting until the header switch picks light or dark.
+export const defaultMode = direction === 'c' ? 'dark' : 'system'
 
 // MODE_KEY is where the light or dark choice is kept in this browser. MUI reads and writes it,
 // each access in a try/catch; public/boot.js reads it before the first paint.
