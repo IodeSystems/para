@@ -15,7 +15,7 @@ Sweep (/para sweep or /para io, optionally followed by source ids; io.md has the
 5. `sweep_record` for each source: the cursor your tool returned (omit to keep the stored one), counts of what you wrote ({in, out, docs}), errors in words (never a token or a key), and failed true when the scan did not finish (last_scan then stays). Name the request when you claimed a scheduled sweep: it is ended with the counts.
 6. `sweep_report` with since the time the sweep began, and print its text to the owner: per source what came in and went out and what each became, reply obligations, tracked-document versions and comments, meetings changed, drafts held, and errors.
 
-Send (any approved draft): right before you send, read its channel again, `io_add` what is new, then `io_send_check`. Held: do not send; tell the owner what came in and wait for their approval again. OK: send the exact approved text now, then `io_send` before send_by. `io_send` from you is refused without that check.
+Send (any approved draft, or a for_me draft a delegation rule allows): right before you send, read its channel again, `io_add` what is new, then `io_send_check`. Held: do not send; tell the owner what came in and wait for their approval again. OK: send the exact text now (a for_me draft with its stamp at the end, never as the owner's own words), then `io_send` before send_by. `io_send` from you is refused without that check.
 
 Scheduled sweeps: para serve makes one request of kind sweep per due source on the runner install, and makes no second one while it is open. It waits in the queue until an agent that declared the source claims it with `request_next`; then follow the steps above for that source and end it with `sweep_record` and its request.
 

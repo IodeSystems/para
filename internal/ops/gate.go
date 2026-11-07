@@ -16,7 +16,9 @@ import (
 //
 // Outward acts (send, PR, ticket, deploy, remote doc edit) never run here:
 // they are io out drafts the owner approves (io_approve), and the agent
-// reports what it sent (io_send). Approval binds the draft's hash.
+// reports what it sent (io_send). Approval binds the draft's hash. A for_me
+// draft, stamped, goes out without approval only under a rule of the
+// owner's delegation.yaml (delegation.go).
 //
 // The tick, and a write an approved dossier item runs, skip the gate: the
 // owner decided those. Ratings (minor, obvious) and owner_said on other ops are
