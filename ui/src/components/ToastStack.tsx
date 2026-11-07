@@ -7,7 +7,7 @@ import { keyframes } from '@mui/material/styles'
 import { errorText } from '@/client/gqlClient'
 import { COLLAPSE_MS, FADE_MS, prefersReducedMotion, ToastStore, type Toast } from '@/lib/toasts'
 
-// ToastStack shows what the owner just did, at the right edge (the bottom on a phone), one line per
+// ToastStack shows what the owner just did, at the right edge (under the app bar on a phone), one line per
 // action with Undo. Any page gets the store from useToasts(); the stack is mounted once, behind
 // sign-in. See lib/toasts.ts for the lifecycle.
 
@@ -51,9 +51,9 @@ function ToastStack({ store }: { store: ToastStore }) {
         pointerEvents: 'none',
         display: 'flex',
         flexDirection: 'column',
-        top: { xs: 'auto', sm: 72 },
-        // On a phone the toasts sit above the bottom bar, not over it.
-        bottom: { xs: 'calc(72px + env(safe-area-inset-bottom))', sm: 'auto' },
+        // On a phone the toasts sit under the app bar: the bottom holds the sticky composer and
+        // the bottom bar, and a toast there would cover what the owner types.
+        top: { xs: 'calc(64px + env(safe-area-inset-top))', sm: 72 },
         right: { xs: 0, sm: 16 },
         left: { xs: 0, sm: 'auto' },
         width: { xs: 'auto', sm: 360 },
