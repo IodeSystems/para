@@ -72,6 +72,10 @@ func registerLife(r *registrar) {
 	// obligation on the owner's session (review:decide), as close does.
 	reg(r, ops.ObligationAdd, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ObligationSchedule, post, write)
+	// owner 2026-11-06: OB. Push out, Redirect, and Cancel on the obligation
+	// page and its rows, on the owner's session (review:decide); the notices
+	// it writes are drafts the owner approves.
+	reg(r, ops.ObligationChange, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ObligationParts, get, read)
 	reg(r, ops.ObligationAttend, post, write)
 	reg(r, ops.Agenda, get, read)

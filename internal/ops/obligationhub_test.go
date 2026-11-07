@@ -204,3 +204,119 @@ func TestRankValueBackwardDate(t *testing.T) {
 		}
 	}
 }
+
+// addPeople gives the fixture's people contacts: Ada by email, Bo by slack.
+func addPeople(t *testing.T, d Deps) {
+	t.Helper()
+	must(t, OrgPersonContactAdd, d, PersonContactInput{ID: "person-ada-example", Method: model.MediumEmail, Value: "ada@acme.example", Preferred: true})
+	must(t, OrgPersonContactAdd, d, PersonContactInput{ID: "person-bo-example", Method: model.MediumSlack, Value: "@bo", Preferred: true})
+}
+
+func noticeOf(t *testing.T, d Deps, id string) (model.Document, *model.IO) {
+	t.Helper()
+	doc, err := d.Store.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return doc, doc.Meta.(*model.IO)
+}
+
+// Push out writes one draft per medium to the interested parties, saying what
+// changed and why; the receipt undoes the change and takes the drafts back.
+func TestObligationChangePushNotifiesPerChannel(t *testing.T) {
+	d, proj, person := obFixture(t)
+	addPeople(t, d)
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Interested: []string{"person-bo-example"}, Due: "2026-11-11", Project: proj})
+	urgent := must(t, TaskAdd, d, TaskAddInput{Title: "Fix the outage review", Project: proj, DoneWhen: "Done."})
+	if _, err := ObligationChange.Run(ctx, d, ObligationChangeInput{ID: ob.ID, Action: ChangePush, Due: "2026-11-13"}); err == nil || !strings.Contains(err.Error(), "give reason") {
+		t.Fatalf("no reason: %v", err)
+	}
+	out := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangePush, Due: "2026-11-13", Reason: "The numbers come Thursday", Because: urgent.ID})
+	if len(out.Notices) != 2 || out.Receipt == "" || out.Due != "2026-11-13" || len(out.Told) != 2 {
+		t.Fatalf("push = %+v", out)
+	}
+	media := map[model.Medium][]string{}
+	for _, id := range out.Notices {
+		doc, m := noticeOf(t, d, id)
+		media[m.Medium] = m.To
+		if m.Direction != model.IOOut || m.State != model.IODraft || m.Expects != model.ExpectsNone ||
+			!strings.Contains(doc.Body, "from Nov 11 to Nov 13") || !strings.Contains(doc.Body, "The numbers come Thursday") || !strings.Contains(doc.Body, "Fix the outage review") {
+			t.Fatalf("notice %s = %+v\n%s", id, m, doc.Body)
+		}
+	}
+	if !slices.Equal(media[model.MediumEmail], []string{"[[person-ada-example]]"}) || !slices.Equal(media[model.MediumSlack], []string{"[[person-bo-example]]"}) {
+		t.Fatalf("notices by medium = %v", media)
+	}
+	doc, o := getOb(t, d, ob.ID)
+	if o.Due != "2026-11-13" || len(o.Notices) != 2 || !strings.Contains(doc.Body, "## Changes") || !strings.Contains(doc.Body, "pushed from Nov 11 to Nov 13") {
+		t.Fatalf("after push: %+v\n%s", o, doc.Body)
+	}
+	// A second change threads on the last notice.
+	again := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangePush, Due: "2026-11-16", Reason: "Still waiting"})
+	if _, m := noticeOf(t, d, again.Notices[0]); m.Thread != o.Notices[1] {
+		t.Fatalf("thread = %q, want %q", m.Thread, o.Notices[1])
+	}
+	must(t, ReceiptRevert, d, ReceiptIDInput{ID: again.Receipt})
+	must(t, ReceiptRevert, d, ReceiptIDInput{ID: out.Receipt})
+	if _, o := getOb(t, d, ob.ID); o.Due != "2026-11-11" || len(o.Notices) != 0 {
+		t.Fatalf("after undo: %+v", o)
+	}
+	for _, id := range out.Notices {
+		if doc, _ := noticeOf(t, d, id); doc.Folder != model.FolderArchive {
+			t.Fatalf("undo left the draft %s in %s", id, doc.Folder)
+		}
+	}
+	// notify false writes no notice.
+	quiet := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangePush, Due: "2026-11-12", Reason: "Said so in person", Notify: new(bool)})
+	if len(quiet.Notices) != 0 {
+		t.Fatalf("notify false = %+v", quiet)
+	}
+	if doc, _ := getOb(t, d, ob.ID); !strings.Contains(doc.Body, "no notice") {
+		t.Fatalf("body = %s", doc.Body)
+	}
+}
+
+// Redirect hands an obligation to someone else, or reroutes it and closes
+// it; cancel closes it declined; a meeting is cancelled as meeting_cancel
+// does, with a calendar draft for its event; a series occurrence moves alone.
+func TestObligationChangeRedirectCancelSeries(t *testing.T) {
+	d, proj, person := obFixture(t)
+	addPeople(t, d)
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	r := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangeRedirect, To: "person-bo-example", Reason: "Bo owns the plan now"})
+	if !slices.Equal(r.OwedBy, []string{"person-bo-example"}) || r.State != model.StateOpen || len(r.Notices) != 2 {
+		t.Fatalf("redirect = %+v", r)
+	}
+	away := must(t, ObligationAdd, d, ObligationAddInput{Title: "File the expense", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	rr := must(t, ObligationChange, d, ObligationChangeInput{ID: away.ID, Action: ChangeRedirect, To: "https://tracker.acme.example/EXP-4", Reason: "The tracker holds it", Notify: new(bool)})
+	if _, o := getOb(t, d, away.ID); rr.State != model.StateClosed || o.Outcome != model.OutcomeRerouted {
+		t.Fatalf("reroute = %+v / %+v", rr, o)
+	}
+	c := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	cc := must(t, ObligationChange, d, ObligationChangeInput{ID: c.ID, Action: ChangeCancel, Reason: "The launch moved a quarter"})
+	if _, o := getOb(t, d, c.ID); o.State != model.StateClosed || o.Outcome != model.OutcomeDeclined || len(cc.Notices) != 1 {
+		t.Fatalf("cancel = %+v / %+v", cc, o)
+	}
+	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-10T14:00:00Z", End: "2026-11-10T15:00:00Z", CalendarUID: "uid-plan-review@cal.example"})
+	mc := must(t, ObligationChange, d, ObligationChangeInput{ID: m.ID, Action: ChangeCancel, Reason: "The plan is not ready"})
+	if mc.Calendar == "" {
+		t.Fatalf("meeting cancel = %+v", mc)
+	}
+	if doc, cal := noticeOf(t, d, mc.Calendar); cal.Medium != model.MediumMeeting || !strings.Contains(doc.Body, "uid-plan-review@cal.example") {
+		t.Fatalf("calendar draft = %+v\n%s", cal, doc.Body)
+	}
+	if _, o := getOb(t, d, m.ID); o.State != model.StateClosed || len(o.Notices) != 2 {
+		t.Fatalf("meeting after cancel = %+v", o)
+	}
+	s := must(t, ObligationAdd, d, ObligationAddInput{Title: "Weekly 1:1", With: []string{person}, Start: "2026-11-06T09:00:00Z", End: "2026-11-06T09:30:00Z", Recur: "weekly"})
+	sp := must(t, ObligationChange, d, ObligationChangeInput{ID: s.ID, Action: ChangePush, Start: "2026-11-06T15:00:00Z", End: "2026-11-06T15:30:00Z", Reason: "A clash", Notify: new(bool)})
+	if sp.Next == "" {
+		t.Fatalf("series push = %+v", sp)
+	}
+	if _, next := getOb(t, d, sp.Next); next.Scheduled != "2026-11-13T09:00:00Z" {
+		t.Fatalf("next occurrence starts %q, want the old slot a week on", next.Scheduled)
+	}
+	if _, cur := getOb(t, d, s.ID); cur.Scheduled != "2026-11-06T15:00:00Z" {
+		t.Fatalf("pushed occurrence = %q", cur.Scheduled)
+	}
+}

@@ -59,6 +59,7 @@ var Inputs = map[string]string{
 	"obligation_add":            `{"title":"Send the sample report","owed_to":["person-sample"],"due":"2026-11-20","project":"project-sample"}`,
 	"obligation_schedule":       `{"id":"meeting-task-sample","start":"2026-11-07T10:00:00-05:00","end":"2026-11-07T10:30:00-05:00"}`,
 	"obligation_attend":         `{"id":"meeting-task-sample","attend":"yes"}`,
+	"obligation_change":         `{"id":"obligation-sample","action":"push","due":"2099-01-20","reason":"The vendor is late."}`,
 	"obligation_parts":          `{"id":"obligation-sample"}`,
 	"meeting_rsvp":              `{"id":"meeting-task-sample","attend":"yes"}`,
 	"doc_rename":                `{"id":"note-sample","new_id":"note-sample-renamed"}`,

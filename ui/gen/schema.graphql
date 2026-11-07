@@ -105,6 +105,7 @@ type ParaV1MutationNamespace {
   notesSave(body: para_NotesEditInputInput!): para_NotesEditOutput @derived(operationId: "notesSave")
   obligationAdd(body: para_ObligationAddInputInput!): para_ObligationAddOutput @derived(operationId: "obligationAdd")
   obligationAttend(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "obligationAttend")
+  obligationChange(body: para_ObligationChangeInputInput!): para_ObligationChangeOutput @derived(operationId: "obligationChange")
   obligationSchedule(body: para_ObligationScheduleInputInput!): para_ObligationScheduleOutput @derived(operationId: "obligationSchedule")
   orgDomainAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgDomainAdd")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
@@ -4800,6 +4801,47 @@ enum para_ObligationAddOutputType {
   team
   tracked_doc
   transcript
+}
+
+input para_ObligationChangeInputInput {
+  action: String!
+  because: String
+  due: String
+  end: String
+  id: String!
+  notify: Boolean
+  outcome: String
+  reason: String
+  start: String
+  to: String
+}
+
+type para_ObligationChangeOutput {
+  action: String!
+  calendar: String
+  due: String
+  end: String
+  id: String!
+  next: String
+  notices: [String!]!
+  owedBy: [String!]!
+  promise: para_ObligationChangeOutputPromise
+  receipt: String
+  start: String
+  state: para_ObligationChangeOutputState!
+  told: [String!]!
+  warnings: [String!]!
+}
+
+enum para_ObligationChangeOutputPromise {
+  broken
+  kept
+  renegotiated
+}
+
+enum para_ObligationChangeOutputState {
+  closed
+  open
 }
 
 type para_ObligationPart {

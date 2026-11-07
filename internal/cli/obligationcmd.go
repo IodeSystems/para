@@ -94,6 +94,46 @@ func newObligationCmd(l *loader) *cobra.Command {
 			},
 		}),
 		newMeetingAttendCmd(l, ops.ObligationAttend, "attend"),
+		opCommand(l, ops.ObligationChange, binding[ops.ObligationChangeInput, ops.ObligationChangeOutput]{
+			Use:   "change <id> <push|redirect|cancel>",
+			Args:  cobra.ExactArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.ObligationChangeInput) {
+				fs.StringVar(&in.Due, "due", "", "push: the new date, YYYY-MM-DD")
+				fs.StringVar(&in.Start, "start", "", "push: the new start, RFC 3339 with a zone (a meeting)")
+				fs.StringVar(&in.End, "end", "", "push: the new end, RFC 3339 with a zone")
+				fs.StringVar(&in.To, "to", "", "redirect: person or group id or agent:<name> who owes it now, or the item id or URL that holds it")
+				fs.StringVar(&in.Outcome, "outcome", "", "cancel: declined (default) or dropped")
+				fs.StringVar(&in.Reason, "reason", "", "why: the facts on the ground")
+				fs.StringVar(&in.Because, "because", "", "id of the higher-priority item it gives way to")
+				in.Notify = new(bool)
+				*in.Notify = true
+				fs.BoolVar(in.Notify, "notify", true, "draft a notice to the people it concerns; --notify=false writes none")
+			},
+			Bind: func(args []string, in *ops.ObligationChangeInput) error { in.ID, in.Action = args[0], args[1]; return nil },
+			Text: func(w io.Writer, out ops.ObligationChangeOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\t%s\n", out.ID, out.Action, out.State)
+				if out.Next != "" {
+					p.f("next\t%s\n", out.Next)
+				}
+				for _, id := range out.Notices {
+					p.f("notice\t%s\n", id)
+				}
+				if len(out.Told) > 0 {
+					p.f("told\t%s\n", strings.Join(out.Told, ", "))
+				}
+				if out.Calendar != "" {
+					p.f("calendar\t%s\n", out.Calendar)
+				}
+				if out.Promise != "" {
+					p.f("promise\t%s\n", out.Promise)
+				}
+				for _, wn := range out.Warnings {
+					p.f("warning: %s\n", wn)
+				}
+				return p.err
+			},
+		}),
 		opCommand(l, ops.ObligationParts, binding[ops.ObligationPartsInput, ops.ObligationPartsOutput]{
 			Use:   "parts <id>",
 			Args:  cobra.ExactArgs(1),
