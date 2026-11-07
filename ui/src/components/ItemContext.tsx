@@ -8,6 +8,7 @@ import { useItemContext, type ItemContextData } from '@/api/context'
 import { investigate } from '@/api/verbs'
 import { errorText } from '@/client/gqlClient'
 import { Section, StatusChip } from '@/components/Bits'
+import { Dependencies } from '@/components/Dependencies'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
 import { forGroups, roleLabel } from '@/lib/context'
@@ -15,11 +16,17 @@ import { forGroups, roleLabel } from '@/lib/context'
 // ItemContext is the block at the top of an item page that says what the item is for: where it
 // came from (the message or conversation it was filed from, with a link to the original), who it is
 // for, and why the owner does it (the goal it leads to and how, who it is owed to, the area it keeps
-// up). An item with no reason says so; an agent looks into it, or Investigate asks one.
+// up). An item with no reason says so; an agent looks into it, or Investigate asks one. Under it,
+// Waits on and Blocks (Dependencies).
 export function ItemContext({ id }: { id: string }) {
   const q = useItemContext(id)
   if (!q.data) return null
-  return <ContextBody c={q.data} />
+  return (
+    <>
+      <ContextBody c={q.data} />
+      <Dependencies c={q.data} />
+    </>
+  )
 }
 
 function ContextBody({ c }: { c: ItemContextData }) {

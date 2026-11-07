@@ -135,6 +135,10 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: Make a task of it in the Log a conversation dialog files the item it just
   // added into a new task (io_file, a person op), so the task's Context shows Came from.
   'IOFile',
+  // owner 2026-11-06: Waits on and Blocks on every item page. Add what an item waits on (an item
+  // or a reason in words), Remove, and Make optional / Make required change one dependency
+  // (depends_set, the owner's own edit); the owner wants to see and mark blockers optional.
+  'DependsSet',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

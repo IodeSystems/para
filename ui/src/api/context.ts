@@ -7,13 +7,34 @@ import type { CaptureCall, FileTask } from '@/lib/context'
 // Context is what an item is for: where it came from, who it is for, and why the owner does it.
 // The server reads what the vault already links; it stores nothing.
 
+// DepRowFields is one row of what an item waits on or what waits on it.
+export const DepRowFields = graphql(/* GraphQL */ `
+  fragment DepRowFields on para_DepRow {
+    id
+    title
+    type
+    state
+    open
+    optional
+    reason
+    via
+  }
+`)
+
 const ContextDoc = graphql(/* GraphQL */ `
   query Context($id: String!) {
     para {
       v1 {
         context(id: $id) {
           id
+          type
           looking
+          waitsOn {
+            ...DepRowFields
+          }
+          blocks {
+            ...DepRowFields
+          }
           cameFrom {
             kind
             id
@@ -130,6 +151,37 @@ export function useCapture() {
         throw new Error(`Logged, but could not make a task (it is in your inbox): ${errorText(e)}`)
       }
     },
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+const DependsSetDoc = graphql(/* GraphQL */ `
+  mutation DependsSet($body: para_DependsSetInputInput!) {
+    para {
+      v1 {
+        dependsSet(body: $body) {
+          id
+          rev
+        }
+      }
+    }
+  }
+`)
+
+export type DependsSetBody = {
+  id: string
+  on?: string
+  reason?: string
+  optional?: boolean
+  remove?: boolean
+}
+
+// useDependsSet records, removes, or makes optional one thing an item waits on (depends_set).
+export function useDependsSet() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: DependsSetBody) =>
+      need((await gqlClient.request(DependsSetDoc, { body })).para.v1.dependsSet, 'depends'),
     onSettled: () => qc.invalidateQueries(),
   })
 }
