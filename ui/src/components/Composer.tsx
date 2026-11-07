@@ -12,19 +12,20 @@ import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpwardRounded'
 import AttachFileIcon from '@mui/icons-material/AttachFile'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import MicIcon from '@mui/icons-material/Mic'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
-import SupportAgentIcon from '@mui/icons-material/SupportAgent'
 import type { Draft } from '@/components/ItemDraft'
 import { ACCEPT, canSend, composerKey, fileLabel } from '@/lib/composer'
 
-// Composer is the one box for telling an agent something: a rounded field that grows upward as the
-// owner types (up to 40% of the screen, then it scrolls), + to attach files (on a phone: a photo or
-// a recording too), and the send button. Enter sends, Shift-Enter starts a new line. A send needs
-// words or a file. Other actions (Save as notes) sit in the menu beside the send button. The parent
-// does the work: onSend gets the text and the files and says whether to clear the box.
+// Composer is the one box for telling an agent something: a large rounded card, the text on top
+// that grows upward as the owner types (up to half the screen, then it scrolls), and a toolbar
+// under it: + to attach files (on a phone: a photo or a recording too), the chips, the menu of
+// other actions (Save as notes), and the round send button. Enter sends, Shift-Enter starts a new
+// line. A send needs words or a file. The parent does the work: onSend gets the text and the
+// files and says whether to clear the box.
 
 export type ComposerAction = {
   label: string
@@ -55,7 +56,7 @@ export function Composer({
   sendLabel?: string
   onSend: (text: string, files: File[]) => Promise<boolean>
   actions?: ComposerAction[]
-  // chips sit under the box: a question's choices, or the documents to read.
+  // chips sit in the toolbar under the text: a question's choices, or the documents to read.
   chips?: ReactNode
   // actionsReady lets the menu actions run with an empty box (a picked choice stands for the words).
   actionsReady?: boolean
@@ -104,22 +105,42 @@ export function Composer({
 
   return (
     <Paper
-      variant="outlined"
+      elevation={0}
       data-composer
-      sx={{ borderRadius: 4, px: 1, py: 0.75, bgcolor: 'background.paper' }}
+      sx={(t) => {
+        // Every theme has CSS variables; the channel lets the ring take the accent at a low alpha.
+        const accent = t.vars?.palette.primary.mainChannel ?? '0 0 0'
+        return {
+          borderRadius: '24px',
+          border: 1,
+          borderColor: 'divider',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05), 0 8px 28px rgba(0, 0, 0, 0.09)',
+          transition: 'border-color 120ms ease, box-shadow 120ms ease',
+          ...t.applyStyles('dark', {
+            boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.03), 0 10px 36px rgba(0, 0, 0, 0.5)',
+          }),
+          // The card shows the focus; the text inside needs no ring of its own.
+          '&:focus-within': {
+            borderColor: `rgba(${accent} / 0.6)`,
+            boxShadow: `0 0 0 3px rgba(${accent} / 0.16), 0 8px 28px rgba(0, 0, 0, 0.12)`,
+          },
+          '& textarea:focus-visible': { outline: 'none' },
+          '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+        }
+      }}
     >
       {prompt && (
         <Typography
           variant="body2"
           color="text.secondary"
           data-composer-prompt
-          sx={{ px: 1, pt: 0.5, pb: 0.75 }}
+          sx={{ px: 2.25, pt: 1.5, overflowWrap: 'anywhere' }}
         >
           {prompt}
         </Typography>
       )}
       {files.length > 0 && (
-        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, px: 0.5, pb: 0.75 }}>
+        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, px: 1.75, pt: 1.25 }}>
           {files.map((f, i) => (
             <Chip
               key={`${f.name}-${f.size}-${f.lastModified}-${i}`}
@@ -133,7 +154,50 @@ export function Composer({
           ))}
         </Stack>
       )}
-      <Stack direction="row" sx={{ alignItems: 'flex-end', gap: 0.5 }}>
+      {/* The text is on top and grows as lines are added, up to half the screen, then scrolls.
+          The box is anchored at the bottom (sticky), so it grows upward. */}
+      <InputBase
+        multiline
+        fullWidth
+        minRows={1}
+        autoFocus={autoFocus}
+        value={text}
+        placeholder={placeholder}
+        inputProps={{ 'aria-label': label }}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && onCancel) return onCancel()
+          if (
+            composerKey({
+              key: e.key,
+              shiftKey: e.shiftKey,
+              isComposing: e.nativeEvent.isComposing,
+            })
+          ) {
+            e.preventDefault()
+            void run(onSend)
+          }
+        }}
+        sx={{
+          display: 'block',
+          px: 2.25,
+          pt: 1.75,
+          pb: 0.5,
+          fontSize: '1rem',
+          lineHeight: 1.5,
+          '& textarea': {
+            maxHeight: '50vh',
+            overflowY: 'auto !important',
+            transition: 'height 140ms ease-out',
+            '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+          },
+          '& textarea::placeholder': { color: 'text.secondary', opacity: 0.85 },
+        }}
+      />
+      <Stack
+        direction="row"
+        sx={{ alignItems: 'flex-end', gap: 0.5, px: 1, pb: 1, pt: 0.5, minWidth: 0 }}
+      >
         {allowFiles && (
           <>
             <Tooltip title="Attach a file">
@@ -143,8 +207,9 @@ export function Composer({
                   disabled={busy}
                   onClick={(e) => setAddAt(e.currentTarget)}
                   data-composer-add
+                  sx={{ border: 1, borderColor: 'divider', width: 36, height: 36 }}
                 >
-                  <AddIcon />
+                  <AddIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
@@ -183,61 +248,33 @@ export function Composer({
             />
           </>
         )}
-        <InputBase
-          multiline
-          fullWidth
-          autoFocus={autoFocus}
-          value={text}
-          placeholder={placeholder}
-          inputProps={{ 'aria-label': label }}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape' && onCancel) return onCancel()
-            if (
-              composerKey({
-                key: e.key,
-                shiftKey: e.shiftKey,
-                isComposing: e.nativeEvent.isComposing,
-              })
-            ) {
-              e.preventDefault()
-              void run(onSend)
-            }
-          }}
+        {/* The chips sit in the toolbar: a question's choices, or the documents to read. */}
+        <Box
           sx={{
             flex: 1,
-            px: 1,
-            py: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
             alignSelf: 'center',
-            '& textarea': { maxHeight: '40vh', overflowY: 'auto !important' },
+            gap: 0.75,
+            px: 0.5,
           }}
-        />
-        <Tooltip title={sendLabel}>
-          <span>
-            <IconButton
-              color="primary"
-              aria-label={sendLabel}
-              disabled={!ok}
-              onClick={() => void run(onSend)}
-              data-composer-send
-            >
-              <SupportAgentIcon />
-            </IconButton>
-          </span>
-        </Tooltip>
+        >
+          {chips}
+        </Box>
         {actions.length > 0 && (
           <>
             <Tooltip title="More ways to save it">
               <span>
                 <IconButton
-                  size="small"
                   aria-label="More ways to save it"
                   disabled={!okAct}
                   onClick={(e) => setMoreAt(e.currentTarget)}
                   data-composer-more
-                  sx={{ alignSelf: 'center', ml: -0.5 }}
+                  sx={{ width: 36, height: 36 }}
                 >
-                  <ArrowDropDownIcon />
+                  <ExpandMoreIcon />
                 </IconButton>
               </span>
             </Tooltip>
@@ -258,10 +295,33 @@ export function Composer({
             </Menu>
           </>
         )}
+        <Tooltip title={sendLabel}>
+          <span>
+            <IconButton
+              aria-label={sendLabel}
+              disabled={!ok}
+              onClick={() => void run(onSend)}
+              data-composer-send
+              sx={{
+                width: 36,
+                height: 36,
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                transition: 'background-color 120ms ease, transform 120ms ease',
+                '&:hover': { bgcolor: 'primary.dark' },
+                '&:active': { transform: 'scale(0.94)' },
+                '&.Mui-disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  color: 'action.disabled',
+                },
+                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+              }}
+            >
+              <ArrowUpwardIcon fontSize="small" />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Stack>
-      {chips && (
-        <Box sx={{ px: 0.5, pt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>{chips}</Box>
-      )}
     </Paper>
   )
 }

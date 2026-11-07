@@ -193,7 +193,8 @@ export function ItemComposer({
       data-item-composer={id}
       sx={{
         position: 'sticky',
-        bottom: { xs: 'calc(64px + env(safe-area-inset-bottom))', sm: 16 },
+        // On a phone it sits just above the bottom bar, clear of the home indicator.
+        bottom: { xs: 'calc(72px + env(safe-area-inset-bottom))', sm: 16 },
         zIndex: 2,
         mt: 3,
       }}

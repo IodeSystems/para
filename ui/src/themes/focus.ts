@@ -111,6 +111,11 @@ export const focus = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           backgroundImage: 'none',
+          // The composer is a step above the card it sits in.
+          '&[data-composer]': {
+            backgroundColor: raised.light,
+            ...theme.applyStyles('dark', { backgroundColor: raised.dark }),
+          },
           // The phone's bottom bar (AppShell) is a raised sheet with round top corners.
           '&[data-bottom-bar]': {
             borderTopLeftRadius: 20,
