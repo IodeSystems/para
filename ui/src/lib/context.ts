@@ -45,6 +45,9 @@ export type Capture = {
   date: string // YYYY-MM-DD
   summary: string
   url: string
+  // task: also file it into a new task. title empty means the first line of the summary; area is
+  // the area the task goes in (a task needs an area or a project).
+  task?: { on: boolean; title: string; due: string; area: string }
 }
 
 // CaptureCall is the op a capture runs and its input. A conversation with people who are all in
@@ -83,7 +86,7 @@ function noonOf(date: string): string {
 export function captureCall(c: Capture): CaptureCall {
   const summary = c.summary.trim()
   const url = c.url.trim() || undefined
-  if (c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)) {
+  if (c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id) && !c.task?.on) {
     return {
       op: 'interaction_add',
       body: {
@@ -106,9 +109,50 @@ export function captureCall(c: Capture): CaptureCall {
   }
 }
 
-// captureReady says whether the form can be sent: a summary and a date, and who it was with or
-// where it came from.
+// firstLine is the first non-empty line of the summary, the default title of a task made from it.
+export function firstLine(summary: string): string {
+  return (
+    summary
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => l !== '') ?? ''
+  )
+}
+
+// FileTask is the io_file input that files the logged item into a new task, without its id (the
+// item is made first). requested_by is the one person or name the conversation was with; with
+// none or several, io_file chooses (the sender, none for a swivel item).
+export type FileTask = {
+  to: 'task'
+  area: string
+  title?: string
+  due?: string
+  requestedBy?: string
+}
+
+// fileTaskCall is the task to make from a capture, or null when the owner did not ask for one.
+export function fileTaskCall(c: Capture): FileTask | null {
+  if (!c.task?.on) return null
+  const title = c.task.title.trim()
+  const only = c.kind === 'verbal' && c.with.length === 1 ? c.with[0] : undefined
+  return {
+    to: 'task',
+    area: c.task.area,
+    title: title && title !== firstLine(c.summary) ? title : undefined,
+    due: c.task.due || undefined,
+    requestedBy: only ? (only.id ?? only.name.trim()) : undefined,
+  }
+}
+
+// captureReady says whether the form can be sent: a summary and a date, who it was with or where it
+// came from, and with a task, the area it goes in and a due date that is a date.
 export function captureReady(c: Capture): boolean {
   if (!c.summary.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(c.date)) return false
+  if (
+    c.task?.on &&
+    (!c.task.area || (c.task.due !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(c.task.due)))
+  ) {
+    return false
+  }
   return c.kind === 'verbal' ? c.with.some((w) => w.id || w.name.trim()) : c.from.trim() !== ''
 }

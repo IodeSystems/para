@@ -2,6 +2,9 @@ import { useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import MenuItem from '@mui/material/MenuItem'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -13,9 +16,18 @@ import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
 import { useNavigate } from '@tanstack/react-router'
 import { useCapture } from '@/api/context'
+import { useAreas } from '@/api/areas'
 import { usePeople } from '@/api/people'
 import { errorText } from '@/client/gqlClient'
-import { captureCall, captureReady, type Capture, type CaptureKind } from '@/lib/context'
+import { useToasts } from '@/components/ToastStack'
+import {
+  captureCall,
+  captureReady,
+  fileTaskCall,
+  firstLine,
+  type Capture,
+  type CaptureKind,
+} from '@/lib/context'
 
 type Who = { id?: string; name: string }
 
@@ -32,17 +44,21 @@ const empty = (kind: CaptureKind): Capture => ({
   date: today(),
   summary: '',
   url: '',
+  task: { on: false, title: '', due: '', area: '' },
 })
 
 // CaptureButton logs what reached the owner outside a connected source: a conversation they had in
 // person or by voice (verbal), or something they carried over by hand from another system (swivel).
 // A conversation with people in the directory is a logged contact; anything else is an incoming
-// item in the inbox, to file into a task like any other.
+// item in the inbox, to file into a task like any other. "Make a task of it" files it into a new
+// task at once, so the task's Context shows where it came from.
 export function CaptureButton() {
   const [open, setOpen] = useState(false)
   const [c, setC] = useState<Capture>(empty('verbal'))
   const capture = useCapture()
   const people = usePeople()
+  const areas = useAreas()
+  const toasts = useToasts()
   const navigate = useNavigate()
   const options: Who[] = (people.data ?? []).map((p) => ({ id: p.id, name: p.title || p.id }))
   const set = <K extends keyof Capture>(k: K, v: Capture[K]) => setC((x) => ({ ...x, [k]: v }))
@@ -50,19 +66,33 @@ export function CaptureButton() {
     setOpen(false)
     capture.reset()
   }
+  const setTask = (patch: Partial<NonNullable<Capture['task']>>) =>
+    setC((x) => ({ ...x, task: { on: false, title: '', due: '', area: '', ...x.task, ...patch } }))
   const submit = () => {
     const call = captureCall(c)
-    capture.mutate(call, {
-      onSuccess: (out) => {
-        setOpen(false)
-        setC(empty(c.kind))
-        void navigate(
-          call.op === 'io_add'
-            ? { to: '/io/$id', params: { id: out.id } }
-            : { to: '/doc/$id', params: { id: out.id } },
-        )
+    const task = fileTaskCall(c)
+    capture.mutate(
+      { call, task },
+      {
+        onSuccess: (out) => {
+          setOpen(false)
+          setC(empty(c.kind))
+          if (out.became) {
+            toasts.push({
+              text: `Logged and made a task: ${c.task?.title.trim() || firstLine(c.summary)}`,
+              note: 'It shows where it came from. This cannot be undone here.',
+            })
+          }
+          void navigate(
+            out.became
+              ? { to: '/doc/$id', params: { id: out.became } }
+              : call.op === 'io_add'
+                ? { to: '/io/$id', params: { id: out.id } }
+                : { to: '/doc/$id', params: { id: out.id } },
+          )
+        },
       },
-    })
+    )
   }
   return (
     <>
@@ -141,10 +171,58 @@ export function CaptureButton() {
               onChange={(e) => set('url', e.target.value)}
               slotProps={{ htmlInput: { 'data-field': 'url' } }}
             />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!c.task?.on}
+                  onChange={(e) => setTask({ on: e.target.checked })}
+                  slotProps={{ input: { 'data-capture-task': '' } as object }}
+                />
+              }
+              label="Make a task of it"
+            />
+            {c.task?.on && (
+              <Stack spacing={2} data-capture-task-fields>
+                <TextField
+                  label="Task title"
+                  placeholder={firstLine(c.summary) || 'the first line of the summary'}
+                  value={c.task.title}
+                  onChange={(e) => setTask({ title: e.target.value })}
+                  slotProps={{ htmlInput: { 'data-field': 'task-title' } }}
+                />
+                <TextField
+                  select
+                  required
+                  label="Area"
+                  value={c.task.area}
+                  onChange={(e) => setTask({ area: e.target.value })}
+                  helperText={areas.isError ? errorText(areas.error) : undefined}
+                  slotProps={{ htmlInput: { 'data-field': 'task-area' } }}
+                >
+                  {(areas.data ?? []).map((a) => (
+                    <MenuItem key={a.id} value={a.id}>
+                      {a.title || a.id}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Due (optional)"
+                  type="date"
+                  value={c.task.due}
+                  onChange={(e) => setTask({ due: e.target.value })}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { 'data-field': 'task-due' },
+                  }}
+                />
+              </Stack>
+            )}
             <Typography variant="body2" color="text.secondary">
-              {c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)
-                ? 'Logged as a contact with these people.'
-                : 'Goes to your inbox: file it into a task or drop it there.'}
+              {c.task?.on
+                ? 'Logged, then filed into a new task. The task shows where it came from.'
+                : c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)
+                  ? 'Logged as a contact with these people.'
+                  : 'Goes to your inbox: file it into a task or drop it there.'}
             </Typography>
             {capture.isError && <Alert severity="error">{errorText(capture.error)}</Alert>}
           </Stack>

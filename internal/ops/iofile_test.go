@@ -61,6 +61,13 @@ func TestIOFile(t *testing.T) {
 				t.Fatalf("project = %+v, %v", doc, err)
 			}
 		}},
+		{"task with title and due", "write parser\nfor the portal", IOFileInput{To: TriageTask, Project: proj.ID, Title: "Parser for the portal", Due: "2026-12-01"}, "", func(t *testing.T, id string) {
+			doc, err := d.Store.Get(ctx, id)
+			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || doc.Title != "Parser for the portal" || string(m.Due) != "2026-12-01" {
+				t.Fatalf("task = %+v, %v", doc, err)
+			}
+		}},
+		{"title applies to a task", "x", IOFileInput{To: TriageNote, Title: "T"}, "does not apply", nil},
 		{"task in an area", "water plants", IOFileInput{To: TriageTask, Area: area.ID}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
 			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || m.Area != model.LinkTo(area.ID) || m.Project != "" {

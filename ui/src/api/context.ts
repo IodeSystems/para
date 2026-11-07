@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
-import { gqlClient } from '@/client/gqlClient'
+import { errorText, gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { CaptureCall } from '@/lib/context'
+import type { CaptureCall, FileTask } from '@/lib/context'
 
 // Context is what an item is for: where it came from, who it is for, and why the owner does it.
 // The server reads what the vault already links; it stores nothing.
@@ -86,18 +86,49 @@ const IOAddDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const IOFileDoc = graphql(/* GraphQL */ `
+  mutation IOFile($body: para_IOFileInputInput!) {
+    para {
+      v1 {
+        ioFile(body: $body) {
+          id
+          became
+          warnings
+        }
+      }
+    }
+  }
+`)
+
+export type CaptureRun = { call: CaptureCall; task?: FileTask | null }
+export type CaptureDone = { id: string; warnings: string[]; became?: string }
+
 // useCapture logs a conversation the owner had (interaction_add, or io_add for a name not in the
-// vault) or something they carried over by hand (io_add medium swivel).
+// vault) or something they carried over by hand (io_add medium swivel). With task, the item it just
+// added is filed into a new task (io_file), so the task's Context shows Came from. If the filing
+// fails the item stays in the inbox and the error says so.
 export function useCapture() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (c: CaptureCall): Promise<{ id: string; warnings: string[] }> => {
+    mutationFn: async ({ call: c, task }: CaptureRun): Promise<CaptureDone> => {
       if (c.op === 'interaction_add') {
         const r = await gqlClient.request(InteractionAddDoc, { body: c.body })
         return need(r.para.v1.interactionAdd, 'conversation')
       }
       const r = await gqlClient.request(IOAddDoc, { body: c.body })
-      return need(r.para.v1.ioAdd, 'message')
+      const added = need(r.para.v1.ioAdd, 'message')
+      if (!task) return added
+      try {
+        const f = await gqlClient.request(IOFileDoc, { body: { id: added.id, ...task } })
+        const filed = need(f.para.v1.ioFile, 'task')
+        return {
+          id: added.id,
+          warnings: [...added.warnings, ...(filed.warnings ?? [])],
+          became: filed.became,
+        }
+      } catch (e) {
+        throw new Error(`Logged, but could not make a task (it is in your inbox): ${errorText(e)}`)
+      }
     },
     onSettled: () => qc.invalidateQueries(),
   })

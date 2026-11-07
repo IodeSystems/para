@@ -2915,6 +2915,7 @@ input para_IOFileInputInput {
   date: String
   direction: para_IOFileInputDirection
   doneWhen: String
+  due: String
   existing: String
   id: String!
   kind: para_IOFileInputKind
@@ -2930,6 +2931,7 @@ input para_IOFileInputInput {
   selfServe: String
   targets: [para_TargetInputInput!]
   task: String
+  title: String
   to: para_IOFileInputTo
   visibility: para_IOFileInputVisibility
   with: [String!]

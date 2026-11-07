@@ -61,6 +61,10 @@ type IOFileInput struct {
 	// RequestedBy is who the new task is for: a person or group id, or free
 	// text. Default the sender (from), except for medium swivel.
 	RequestedBy string `json:"requested_by,omitempty"`
+	// Title and Due are for the new task: its title (default the first line of the message) and
+	// its due date, YYYY-MM-DD.
+	Title string `json:"title,omitempty"`
+	Due   string `json:"due,omitempty"`
 	// project
 	Owner string `json:"owner,omitempty"`
 	// rfx
@@ -181,7 +185,7 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 				requestedBy = model.Link(m.From).Target() // a sender no longer in the vault: as text
 			}
 		}
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: doc.Title, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen, RequestedBy: requestedBy})
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: firstOf(in.Title, doc.Title), Due: in.Due, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen, RequestedBy: requestedBy})
 		if err != nil {
 			return err
 		}
@@ -283,6 +287,8 @@ func checkTriageFields(in IOFileInput) error {
 	have := map[string]bool{
 		"project":      in.Project != "",
 		"requested_by": in.RequestedBy != "",
+		"title":        in.Title != "",
+		"due":          in.Due != "",
 		"owner":        in.Owner != "",
 		"direction":    in.Direction != "",
 		"route":        in.Route != "",
@@ -301,7 +307,7 @@ func checkTriageFields(in IOFileInput) error {
 		"visibility":   in.Visibility != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:        {"project", "area", "requested_by"},
+		TriageTask:        {"project", "area", "requested_by", "title", "due"},
 		TriageProject:     {"owner", "area"},
 		TriageRFX:         {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
 		TriageNote:        {"person", "date", "area", "project"},
