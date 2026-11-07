@@ -792,6 +792,7 @@ var PoolPick = withOneReceipt(definePerson("pool_pick", "Pick ideas from a firin
 	if err := d.Store.SetConfig(ctx, poolRoundsKey(name), strings.Join(rounds, ",")); err != nil {
 		return out, err
 	}
+	setReceiptRound(ctx, name+":"+f.instance)
 	return out, d.Store.Record(ctx, "pool_round", f.instance, "", "", "")
 }))
 
@@ -918,4 +919,25 @@ func pooledIdeas(sn *Snapshot, row string) ([]string, error) {
 		return ids, nil
 	}
 	return nil, nil
+}
+
+// undoPoolRound takes a pool round back (<pool>:<instance>), so the pool's
+// card returns for that instance. A round no longer held is nothing to do.
+func undoPoolRound(ctx context.Context, d Deps, round string) error {
+	name, inst, ok := strings.Cut(round, ":")
+	if !ok || name == "" || inst == "" {
+		return nil
+	}
+	rounds, err := poolRounds(d.Store, name)
+	if err != nil {
+		return fmt.Errorf("pool: undo round: %w", err)
+	}
+	kept := slices.DeleteFunc(slices.Clone(rounds), func(r string) bool { return r == inst })
+	if len(kept) == len(rounds) {
+		return nil
+	}
+	if err := d.Store.SetConfig(ctx, poolRoundsKey(name), strings.Join(kept, ",")); err != nil {
+		return fmt.Errorf("pool: undo round: %w", err)
+	}
+	return nil
 }

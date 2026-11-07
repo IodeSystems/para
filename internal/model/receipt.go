@@ -60,7 +60,10 @@ type Receipt struct {
 	CheckedBy  string       `yaml:"checked_by,omitempty" json:"checked_by,omitempty"`
 	CheckNote  string       `yaml:"check_note,omitempty" json:"check_note,omitempty"`
 	// Undone is when the write was undone from this receipt, RFC 3339.
-	Undone       string `yaml:"undone,omitempty" json:"undone,omitempty"`
+	Undone string `yaml:"undone,omitempty" json:"undone,omitempty"`
+	// Round is the idea-pool round a pool_pick recorded, "<pool>:<instance>";
+	// undoing the receipt removes it, so the pool asks again.
+	Round        string `yaml:"round,omitempty" json:"round,omitempty"`
 	SelfReported bool   `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
 	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
 	// OwnerSaid is the owner's words from the chat, when the agent gives them

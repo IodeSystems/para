@@ -341,6 +341,11 @@ func undoReceipt(ctx context.Context, d Deps, id string) (ReceiptUndone, error) 
 			out.Doc, out.Rev = saved.ID, saved.Rev
 		}
 	}
+	if r.Round != "" {
+		if err := undoPoolRound(ctx, d, r.Round); err != nil {
+			return out, err
+		}
+	}
 	// A message put back to open or closed takes its reply obligation with
 	// it; a failure here is fixed by the next tick.
 	for _, p := range parts {

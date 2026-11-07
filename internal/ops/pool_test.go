@@ -357,3 +357,27 @@ func TestPoolRunDryRun(t *testing.T) {
 		t.Fatalf("second run asks again: %+v", again)
 	}
 }
+
+// Undoing a pool_pick receipt brings the ideas back and takes the round
+// back, so the card returns for that instance.
+func TestPoolPickUndoRestoresRound(t *testing.T) {
+	d, _, _ := poolFixture(t)
+	a := must(t, IdeaAdd, d, IdeaAddInput{Pool: "build-day", Title: "Sensor dashboard"}).ID
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Build day", OwedTo: []string{"person-ada-example"}, Due: "2026-11-10", Area: "area-tinkering"}).ID
+	must(t, TagAdd, d, TagInput{IDs: []string{ob}, Tags: []string{"build-day"}})
+	must(t, PoolPick, d, PoolPickInput{Pool: "build-day", IDs: []string{a}})
+	if _, ok := rowsOf(t, d)["pool:build-day"]; ok {
+		t.Fatal("the card stays after a pick")
+	}
+	rl := must(t, ReceiptList, d, ReceiptListInput{Op: "pool_pick"})
+	if len(rl.Items) != 1 {
+		t.Fatalf("receipts = %+v", rl.Items)
+	}
+	must(t, ReceiptRevert, d, ReceiptIDInput{ID: rl.Items[0].ID})
+	if doc, _ := d.Store.Get(ctx, a); doc.Meta.(*model.Task).DeferUntil != model.SomedayWord {
+		t.Error("the idea did not go back")
+	}
+	if r, ok := rowsOf(t, d)["pool:build-day"]; !ok || r.Kind != KindPool {
+		t.Errorf("the card did not return: %+v", r)
+	}
+}

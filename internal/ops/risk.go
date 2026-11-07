@@ -42,13 +42,24 @@ type WriteMeta struct {
 	// an agent relayed them (io_approve), or that the owner gave on a dossier
 	// item. A receipt with them is self-reported. It lets no write through.
 	OwnerSaid string
+	// round is the pool round the write recorded (<pool>:<instance>); set by the op.
+	round string
 }
 
 type (
-	writeMetaKey   struct{}
-	recordingKey   struct{}
-	receiptNoteKey struct{}
+	writeMetaKey    struct{}
+	recordingKey    struct{}
+	receiptNoteKey  struct{}
+	receiptRoundKey struct{}
 )
+
+// setReceiptRound names the pool round the write under ctx recorded, so the
+// receipt can take it back on undo. Outside a recorded write it does nothing.
+func setReceiptRound(ctx context.Context, round string) {
+	if p, ok := ctx.Value(receiptRoundKey{}).(*string); ok {
+		*p = round
+	}
+}
 
 // addReceiptNote adds a sentence the op says about its write to the why of
 // the receipts runRecorded files for it (io_send: the delegation rule).
@@ -109,7 +120,8 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	inner := d
 	inner.Store = rec
 	var notes []string
-	out, err := o.run(context.WithValue(context.WithValue(ctx, recordingKey{}, o.name), receiptNoteKey{}, &notes), inner, in)
+	var round string
+	out, err := o.run(context.WithValue(context.WithValue(context.WithValue(ctx, recordingKey{}, o.name), receiptNoteKey{}, &notes), receiptRoundKey{}, &round), inner, in)
 	if slices.Contains(FlowOps, o.name) {
 		return out, err
 	}
@@ -119,6 +131,7 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		file = rec.fileOne
 	}
 	m := writeMeta(ctx)
+	m.round = round
 	if len(notes) > 0 {
 		m.Why = strings.TrimSpace(m.Why + " " + strings.Join(notes, " "))
 	}
@@ -326,7 +339,7 @@ func createReceipt(ctx context.Context, d Deps, in receiptInput) (string, error)
 			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request,
 			Why: strings.TrimSpace(in.meta.Why), Sources: in.meta.Sources, Verify: strings.TrimSpace(in.meta.Verify), Confidence: conf,
 			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, OwnerSaid: strings.TrimSpace(in.ownerSaid),
-			At: d.Store.Now().UTC().Format(time.RFC3339Nano), Surface: info.Surface, By: in.by, OnBehalfOf: in.onBehalfOf, Background: info.Surface == TickSurface || in.meta.Request != "", NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align,
+			At: d.Store.Now().UTC().Format(time.RFC3339Nano), Surface: info.Surface, By: in.by, OnBehalfOf: in.onBehalfOf, Background: info.Surface == TickSurface || in.meta.Request != "", NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align, Round: in.meta.round,
 		},
 	})
 	if err != nil {
