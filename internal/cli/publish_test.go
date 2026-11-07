@@ -111,6 +111,8 @@ func TestPublishWritesTheSet(t *testing.T) {
 		t.Fatal("an agent set a folder")
 	}
 
+	// The test vault denies egress by default: publish runs only once the owner opts in.
+	e.ok("vault", "config", "set", "egress.publish", "allow")
 	stdout := e.ok("publish", "design")
 	for _, want := range []string{"person-pb-jo", "group-pb-ops", "io-pb-mail", "from area-pb-rules"} {
 		if !strings.Contains(stdout, want) {

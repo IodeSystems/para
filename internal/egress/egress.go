@@ -20,6 +20,7 @@ const (
 	KeyDefault = "egress.default" // "allow" or "deny"; anything else means deny
 	KeyMarking = "classification" // text printed on copied documents
 	KeyExport  = "egress.export"  // optional allowlist of export transports, comma separated; unset allows all
+	KeyPublish = "egress.publish" // "allow" lets publish runs out under egress.default=deny; anything else follows egress.default
 )
 
 // UnmarkedMarking is printed when the vault sets no classification.
@@ -48,8 +49,9 @@ const DestRaglit = "raglit:"
 const DestAgent = "agent:"
 
 // DestPublish is a publish set written to a folder on this machine
-// (publish:<set>). The owner runs it at a terminal, as an export to a file,
-// so it stays allowed under egress.default=deny. One record covers a run.
+// (publish:<set>). A run moves many documents at once, so it follows
+// egress.default: under deny it runs only when egress.publish is allow.
+// One record covers a run.
 const DestPublish = "publish:"
 
 // Decision is the outcome of Check.
@@ -69,7 +71,8 @@ func Check(cfg map[string]string, dest string) Decision {
 	if m := strings.TrimSpace(cfg[KeyMarking]); m != "" {
 		d.Marking = m
 	}
-	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent) || strings.HasPrefix(dest, DestPublish)
+	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent) ||
+		(strings.HasPrefix(dest, DestPublish) && strings.EqualFold(strings.TrimSpace(cfg[KeyPublish]), "allow"))
 	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
 		d.Allowed = exportAllowed(cfg[KeyExport], kind)
 	}

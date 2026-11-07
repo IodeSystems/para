@@ -27,7 +27,9 @@ func TestCheck(t *testing.T) {
 		{"export unset list", nil, "export:wormhole", "deny", true, UnmarkedMarking},
 		{"export in list", map[string]string{KeyExport: "stdout, SSH"}, "export:ssh", "deny", true, UnmarkedMarking},
 		{"export not in list", map[string]string{KeyExport: "stdout,ssh", KeyDefault: "allow"}, "export:wormhole", "allow", false, UnmarkedMarking},
-		{"publish under deny", map[string]string{KeyDefault: "deny", KeyExport: "stdout"}, "publish:design", "deny", true, UnmarkedMarking},
+		{"publish under deny", map[string]string{KeyDefault: "deny", KeyExport: "stdout"}, "publish:design", "deny", false, UnmarkedMarking},
+		{"publish under deny, opted in", map[string]string{KeyDefault: "deny", KeyPublish: "allow"}, "publish:design", "deny", true, UnmarkedMarking},
+		{"publish under allow", map[string]string{KeyDefault: "allow"}, "publish:design", "allow", true, UnmarkedMarking},
 		{"marking", map[string]string{KeyMarking: " ACME CONFIDENTIAL "}, "copy:slack", "deny", true, "ACME CONFIDENTIAL"},
 	}
 	for _, c := range cases {
