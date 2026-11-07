@@ -8,11 +8,15 @@ import { useRouteContext } from '@tanstack/react-router'
 import { canDecide } from '@/client/session'
 import { useQueryClient } from '@tanstack/react-query'
 import { closeItem } from '@/api/composer'
+import { doneWithNote } from '@/api/noted'
 import { revertReceipt } from '@/api/receipts'
 import { useTask } from '@/api/tasks'
 import { errorText } from '@/client/gqlClient'
 import { CopyButton } from '@/components/CopyButton'
+import { DraftHint, NoteIcon } from '@/components/DraftHint'
+import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
+import { draftHints } from '@/lib/composer'
 import { hasHow, openableUrl, stepLines, type How } from '@/lib/doit'
 
 const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
@@ -20,7 +24,8 @@ const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
 // DoIt is the "Do it" block of a task: Open the page, the command in a box with Copy, the steps,
 // and Done. Drop it wherever a task row expands. With no how it shows only Done (or nothing, with
 // done={false}). Done is the owner's item_close; a closed task cannot be reopened here, so the toast
-// says so.
+// says so. Near the item's composer, Done first adds what the owner typed there to the notes, as the
+// item's other Done does, and Undo takes that entry out too.
 export function DoIt({
   id,
   title,
@@ -38,6 +43,8 @@ export function DoIt({
   const qc = useQueryClient()
   const toasts = useToasts()
   const [busy, setBusy] = useState(false)
+  const draft = useItemDraft(id)
+  const hint = draftHints(draft?.text ?? '', draft?.files.length ?? 0).note
   const url = openableUrl(how.doUrl)
   const steps = stepLines(how.steps)
   const cmd = how.doCommand?.trim()
@@ -46,6 +53,30 @@ export function DoIt({
   const markDone = async () => {
     setBusy(true)
     try {
+      if (draft && hint) {
+        const r = await doneWithNote({
+          id,
+          done: 'task',
+          text: draft.text.trim(),
+          files: draft.files,
+        })
+        draft.clear()
+        await qc.invalidateQueries()
+        const undo = r.undo
+        toasts.push({
+          text: `Marked done: ${title}`,
+          undo: undo
+            ? async () => {
+                await undo()
+                await qc.invalidateQueries()
+              }
+            : undefined,
+          note: undo
+            ? 'Undo opens it again and takes the note out.'
+            : 'This close left no receipt to undo.',
+        })
+        return
+      }
       const r = await closeItem(id)
       await qc.invalidateQueries()
       const receipt = r.receipt
@@ -114,9 +145,18 @@ export function DoIt({
           </Button>
         )}
         {showDone && (
-          <Button size="small" variant="contained" disabled={busy} onClick={() => void markDone()}>
-            Done
-          </Button>
+          <DraftHint hint={hint}>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={busy}
+              data-uses-draft={hint ? 'yes' : undefined}
+              startIcon={hint ? <NoteIcon /> : undefined}
+              onClick={() => void markDone()}
+            >
+              Done
+            </Button>
+          </DraftHint>
         )}
       </Stack>
     </Box>

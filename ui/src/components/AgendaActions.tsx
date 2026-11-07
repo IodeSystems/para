@@ -7,8 +7,6 @@ import Collapse from '@mui/material/Collapse'
 import Popover from '@mui/material/Popover'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
-import Tooltip from '@mui/material/Tooltip'
-import EditNoteIcon from '@mui/icons-material/EditNote'
 import { doneWithNote, investigateWithNote } from '@/api/noted'
 import { revertReceipt } from '@/api/receipts'
 import { useLooking } from '@/api/requests'
@@ -16,6 +14,7 @@ import { laterAny, reopenAny } from '@/api/verbs'
 import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
 import { DoItTask } from '@/components/DoIt'
+import { DraftHint, NoteIcon } from '@/components/DraftHint'
 import { useItemDraft } from '@/components/ItemDraft'
 import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
@@ -58,20 +57,6 @@ function OpenButton({ x }: { x: Row }) {
   }
 }
 
-// DraftHint shows that a button takes what the owner typed in the item's composer: a note icon on
-// the button, and a tooltip that says what happens to the words. With no hint the button is as it
-// is. The span keeps the tooltip working while the button is disabled.
-function DraftHint({ hint, children }: { hint: string | null; children: ReactNode }) {
-  if (!hint) return children
-  return (
-    <Tooltip title={hint}>
-      <span style={{ display: 'inline-flex' }}>{children}</span>
-    </Tooltip>
-  )
-}
-
-const noteIcon = <EditNoteIcon fontSize="small" />
-
 // WordsDone asks for the owner's words before it closes: what came of a meeting (optional), or why
 // an item is dropped (required).
 function WordsDone({
@@ -98,7 +83,7 @@ function WordsDone({
           data-act="done"
           data-uses-draft={hint ? 'yes' : undefined}
           disabled={busy}
-          startIcon={hint ? noteIcon : undefined}
+          startIcon={hint ? <NoteIcon /> : undefined}
           onClick={(e) => {
             if (draft.trim()) setText(draft.trim())
             setAt(e.currentTarget)
@@ -337,7 +322,7 @@ export function ItemActions({
             data-act="done"
             data-uses-draft={hints.note ? 'yes' : undefined}
             disabled={busy}
-            startIcon={hints.note ? noteIcon : undefined}
+            startIcon={hints.note ? <NoteIcon /> : undefined}
             onClick={() => void done()}
           >
             {doneLabel(acts.done)}
@@ -351,7 +336,7 @@ export function ItemActions({
             data-act="investigate"
             data-uses-draft={hints.look ? 'yes' : undefined}
             disabled={busy}
-            startIcon={hints.look ? noteIcon : undefined}
+            startIcon={hints.look ? <NoteIcon /> : undefined}
             onClick={() => void look()}
           >
             Investigate
@@ -362,7 +347,7 @@ export function ItemActions({
         <LaterButton
           disabled={busy}
           onLater={(u) => void putOff(u)}
-          startIcon={hints.reason ? noteIcon : undefined}
+          startIcon={hints.reason ? <NoteIcon /> : undefined}
           data-uses-draft={hints.reason ? 'yes' : undefined}
           wrap={(b) => <DraftHint hint={hints.reason}>{b}</DraftHint>}
         />
@@ -374,7 +359,7 @@ export function ItemActions({
             data-act="reopen"
             data-uses-draft={hints.reason ? 'yes' : undefined}
             disabled={busy}
-            startIcon={hints.reason ? noteIcon : undefined}
+            startIcon={hints.reason ? <NoteIcon /> : undefined}
             onClick={() => void reopen()}
           >
             {closed ? 'Reopen' : 'Bring back'}
