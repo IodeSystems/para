@@ -1,8 +1,10 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -77,10 +79,35 @@ type ItemContextOutput struct {
 	For      []ForParty `json:"for"`
 	Reasons  []Reason   `json:"reasons"`
 	Looking  string     `json:"looking,omitempty"`
+	// WaitsOn is what the item waits on, Blocks what waits on it (dependsRows).
+	WaitsOn []DepRow `json:"waits_on"`
+	Blocks  []DepRow `json:"blocks"`
+}
+
+// Where a dependency row is recorded.
+const (
+	DepHard      = "depends_on"     // the waiter's depends_on
+	DepOptional  = "optional_after" // the waiter's optional_after: never holds it
+	DepReason    = "blocked_by"     // a text reason of a task: no id
+	DepRFXBlocks = "rfx_blocks"     // an rfx's blocks: change it on the rfx
+)
+
+// DepRow is one dependency of an item, seen from either end. ID is empty for
+// a text reason; State is "missing" for an id with no document. Optional is
+// true when it does not hold the waiter (optional_after).
+type DepRow struct {
+	ID       string     `json:"id,omitempty"`
+	Title    string     `json:"title"`
+	Type     model.Type `json:"type,omitempty"`
+	State    string     `json:"state,omitempty"`
+	Open     bool       `json:"open"`
+	Optional bool       `json:"optional"`
+	Reason   string     `json:"reason,omitempty"`
+	Via      string     `json:"via"`
 }
 
 // ItemContext shows what an item is for.
-var ItemContext = defineRead("context", "Show what an item is for: came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
+var ItemContext = defineRead("context", "Show what an item is for and what it waits on: waits_on (each item it waits on with type, state, and optional: an optional one never holds it; a text reason has reason and no id), blocks (the open items that wait on it, optional too), came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
 	id := normID(in.ID)
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
@@ -106,6 +133,7 @@ var ItemContext = defineRead("context", "Show what an item is for: came_from (th
 	c.links(doc)
 	c.parties(doc)
 	out.Reasons = g.reasonsOrNone(doc.ID)
+	out.WaitsOn, out.Blocks = dependsRows(docs, doc.ID)
 	looking, err := investigating(ctx, d.Store)
 	if err != nil {
 		return out, fmt.Errorf("ops: context: %w", err)
@@ -264,4 +292,58 @@ func (c *ctxBuild) parties(doc model.Document) {
 			}
 		}
 	}
+}
+
+// dependsRows is what id waits on and the open items that wait on it, from
+// depends_on (hard), optional_after (optional), a task's blocked_by (text),
+// and an rfx's blocks. It is the one place both directions are read.
+func dependsRows(docs map[string]model.Document, id string) (waits, blocks []DepRow) {
+	row := func(dep, via string) DepRow {
+		r := DepRow{ID: dep, Title: dep, State: "missing", Via: via, Optional: via == DepOptional}
+		if d, ok := docs[dep]; ok {
+			r.Title, r.Type, r.State, r.Open = cmp.Or(d.Title, dep), d.Meta.Header().Type, statusOf(d.Meta), !resolved(d)
+		}
+		return r
+	}
+	waits, blocks = []DepRow{}, []DepRow{}
+	if d, ok := docs[id]; ok {
+		for _, l := range model.HardDeps(d.Meta) {
+			waits = append(waits, row(l.Target(), DepHard))
+		}
+		for _, l := range model.OptionalDeps(d.Meta) {
+			waits = append(waits, row(l.Target(), DepOptional))
+		}
+		if t, ok := d.Meta.(*model.Task); ok {
+			for _, b := range t.BlockedBy {
+				waits = append(waits, DepRow{Title: b, Reason: b, State: string(t.Status), Open: true, Via: DepReason})
+			}
+		}
+		if r, ok := d.Meta.(*model.RFX); ok && r.Status == model.RFXOpen {
+			for _, l := range r.Blocks {
+				if w, ok := docs[l.Target()]; ok && !resolved(w) {
+					blocks = append(blocks, row(l.Target(), DepRFXBlocks))
+				}
+			}
+		}
+	}
+	names := func(l model.Link) bool { return l.Target() == id }
+	for _, wid := range slices.Sorted(maps.Keys(docs)) {
+		w := docs[wid]
+		if wid == id {
+			continue
+		}
+		if r, ok := w.Meta.(*model.RFX); ok && r.Status == model.RFXOpen && slices.ContainsFunc(r.Blocks, names) {
+			waits = append(waits, row(wid, DepRFXBlocks))
+		}
+		if resolved(w) {
+			continue
+		}
+		switch {
+		case slices.ContainsFunc(model.HardDeps(w.Meta), names):
+			blocks = append(blocks, row(wid, DepHard))
+		case slices.ContainsFunc(model.OptionalDeps(w.Meta), names):
+			blocks = append(blocks, row(wid, DepOptional))
+		}
+	}
+	return waits, blocks
 }

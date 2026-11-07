@@ -166,6 +166,19 @@ func newContextCmd(l *loader) *cobra.Command {
 			if out.Looking != "" {
 				p.f("looking\t%s\n", out.Looking)
 			}
+			dep := func(label string, r ops.DepRow) {
+				opt := ""
+				if r.Optional {
+					opt = "optional"
+				}
+				p.f("%s\t%s\t%s\t%s\t%s\n", label, dash(r.ID), r.State, r.Title, dash(opt))
+			}
+			for _, r := range out.WaitsOn {
+				dep("waits on", r)
+			}
+			for _, r := range out.Blocks {
+				dep("blocks", r)
+			}
 			return p.err
 		},
 	})

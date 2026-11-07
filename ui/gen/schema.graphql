@@ -1406,6 +1406,48 @@ enum para_DelegationRunOutputVoice {
   for_me
 }
 
+type para_DepRow {
+  id: String
+  open: Boolean!
+  optional: Boolean!
+  reason: String
+  state: String
+  title: String!
+  type: para_DepRowType
+  via: String!
+}
+
+enum para_DepRowType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
+}
+
 input para_DependsCutInputInput {
   dep: String!
   id: String!
@@ -3730,6 +3772,7 @@ type para_ItemCloseOutput {
 }
 
 type para_ItemContextOutput {
+  blocks: [para_DepRow!]!
   cameFrom: [para_CameFrom!]!
   for: [para_ForParty!]!
   id: String!
@@ -3737,6 +3780,7 @@ type para_ItemContextOutput {
   reasons: [para_Reason!]!
   title: String!
   type: para_ItemContextOutputType!
+  waitsOn: [para_DepRow!]!
 }
 
 enum para_ItemContextOutputType {
