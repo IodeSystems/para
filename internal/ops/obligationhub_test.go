@@ -81,7 +81,8 @@ func TestObligationPartsBeforeAndCameOut(t *testing.T) {
 	}
 	must(t, Close, d, CloseInput{ID: small.ID, Reason: "Printed."})
 	parts := must(t, ObligationParts, d, ObligationPartsInput{ID: m.ID})
-	if got := partIDs(parts.Before); !slices.Equal(got, []string{dep.ID, prep.ID, small.ID}) {
+	// Ids made in the same millisecond tie on order: compare as a set.
+	if got, want := partIDs(parts.Before), []string{dep.ID, prep.ID, small.ID}; !slices.Equal(slices.Sorted(slices.Values(got)), slices.Sorted(slices.Values(want))) {
 		t.Fatalf("before = %v", got)
 	}
 	back := map[string]string{}
