@@ -194,12 +194,11 @@ func TestAgentSendBody(t *testing.T) {
 	if !strings.Contains(doc.Body, "Mark done: no") || !strings.Contains(doc.Body, "clearly say the item is done") {
 		t.Fatalf("body = %s", doc.Body)
 	}
-
-	// An area is not a link type: it goes in context.
+	// An area is a link type now: the work is linked to it.
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Health"})
 	out = must(t, AgentSend, d, AgentSendInput{ID: area.ID, Text: "Book the checkup."})
 	_, r, _ = getRequest(ctx, d.Store, out.Request)
-	if len(r.Links) != 0 || len(r.Context) != 1 || r.Context[0].Target() != area.ID {
+	if len(r.Context) != 0 || len(r.Links) != 1 || r.Links[0].Target() != area.ID {
 		t.Fatalf("area request = %+v", r)
 	}
 

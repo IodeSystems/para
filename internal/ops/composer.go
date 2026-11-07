@@ -22,7 +22,27 @@ const composerPrefix = "From the owner: "
 // linkTypes are the item types a request may link (request_add links);
 // the composer names any other item in context.
 var linkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
-	model.TypeMeeting, model.TypeRFX, model.TypeRequest}
+	model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypePerson, model.TypeGroup, model.TypeTrackedDoc, model.TypeArea}
+
+// manageNote says what managing an item of this type means, so the agent
+// updates the item and the items around it from the owner's words. The
+// writes go through the normal ops and gate.
+func manageNote(typ model.Type) string {
+	switch typ {
+	case model.TypePerson, model.TypeGroup:
+		return "Manage this " + string(typ) + " from the owner's words: update its record (contacts, role, team, notes) and the items around it " +
+			"(their open asks of the owner, what the owner owes them, threads and messages, obligations, tasks that wait on them), each with the normal op."
+	case model.TypeRFX:
+		return "Manage this ask from the owner's words: its state, the reply (record it when the words carry one), and the follow-ups (a nudge date, a new ask, a task)."
+	case model.TypeQuestion:
+		return "Manage this question from the owner's words: propose or record the answer with its sources (question_answer), and the tasks or questions that follow."
+	case model.TypeTrackedDoc:
+		return "Manage this tracked document from the owner's words: its versions and comments (read them, answer or resolve them), and the tasks, asks, and questions it implies."
+	case model.TypeArea:
+		return "Manage this area from the owner's words: its items (goals, tasks, asks, questions, policies), their state, and its review."
+	}
+	return ""
+}
 
 // AgentSendInput is what the owner wrote about an item. Text or attachments
 // is required. Attachments are vault paths (attachment_add). Done asks the
@@ -59,6 +79,9 @@ func composerAsk(id string, typ model.Type, title, text string, attachments []st
 		"update the items it touches (tasks done, asks answered, new tasks and questions, meeting_hold for a meeting with the notes); " +
 		"cite the owner's words as the source of each write; and name the receipts in your result. " +
 		"Read an attachment with attachment_read.\n\n")
+	if m := manageNote(typ); m != "" {
+		b.WriteString(m + " Cite the owner's words as the source of each write.\n\n")
+	}
 	if done {
 		b.WriteString("Mark done: yes. The owner asked you to close this item after you process the words, with the op that fits its type " +
 			"(task_done for a task, meeting_hold for a meeting, question_answer for a question, rfx_close for an ask).\n\n")

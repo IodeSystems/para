@@ -302,7 +302,7 @@ type RequestAddInput struct {
 	// person may leave it out; the first line of ask is then the title.
 	Title  string   `json:"title,omitempty"`
 	Ask    string   `json:"ask"`              // the ask; with no title, its first line is the title
-	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, io, request, or proposal ids the ask is about
+	Links  []string `json:"links,omitempty"`  // task, project, question, meeting, ask, io, request, proposal, person, or group ids the ask is about
 	Runner string   `json:"runner,omitempty"` // install id that may claim; default request.runner, else this install
 	// Context links what the work must follow: policies, conventions, a goal, documents.
 	Context []string `json:"context,omitempty"`
@@ -399,7 +399,7 @@ func addRequest(ctx context.Context, d Deps, in RequestAddInput, src model.Link)
 		}
 		body += "\n\n## Owner's words\n\n" + flattenHeadings(said)
 	}
-	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO, model.TypeArea, model.TypeNote, model.TypeTrackedDoc)
+	links, err := requestLinks(ctx, d, "links", in.Links, model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion, model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO, model.TypeArea, model.TypeNote, model.TypeTrackedDoc, model.TypePerson, model.TypeGroup)
 	if err != nil {
 		return RequestAddOutput{}, err
 	}
