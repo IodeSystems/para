@@ -44,11 +44,18 @@ func newIOCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 				fs.StringVar(&in.Ref, "ref", "", "the message permalink")
 				fs.StringVar(&in.Verify, "verify", "", "with no ref: how the owner finds the message")
+				fs.StringVar((*string)(&in.Voice), "voice", "", voiceHelp)
+				fs.StringVar(&in.Kind, "kind", "", kindHelp)
+				fs.StringVar(&in.Agent, "agent", "", "with --voice for_me: the agent that sends it for you")
 			},
 			Bind: func(args []string, in *ops.IOEditInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.IOEditOutput) error {
-				_, err := fmt.Fprintf(w, "%s\t%s\n", out.ID, out.State)
-				return err
+				p := &printer{w: w}
+				for _, wn := range out.Warnings {
+					p.f("note: %s\n", wn)
+				}
+				p.f("%s\t%s\n", out.ID, out.State)
+				return p.err
 			},
 		}),
 		newIOFileCmd(l),
@@ -178,6 +185,9 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 			fs.StringVar(&in.Route, "route", "", "out with expects response: domain id")
 			fs.StringVar(&in.Thread, "thread", "", "id of the io item, interaction, or Ask this answers")
 			fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
+			fs.StringVar((*string)(&in.Voice), "voice", "", voiceHelp)
+			fs.StringVar(&in.Kind, "kind", "", kindHelp)
+			fs.StringVar(&in.Agent, "agent", "", "with --voice for_me: the agent that sends it for you")
 		},
 		Bind: func(args []string, in *ops.IOAddInput) error {
 			in.Text = strings.Join(args, " ")
@@ -202,6 +212,11 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 
 type ioViaFlags struct{ source, ref, thread string }
 
+const (
+	voiceHelp = "out: as_me (default: you approve it and it goes out as yours) or for_me (an agent sends it for you, stamped, when a rule of .para/delegation.yaml allows it)"
+	kindHelp  = "out: a free label delegation rules match, such as scheduling or acknowledgement"
+)
+
 // newIOListCmd lists io items; fixed holds the filter of `io inbox` and
 // `io outbox`, which are views of io_list and not ops of their own.
 func newIOListCmd(l *loader, use, short string, fixed *ops.IOListInput) *cobra.Command {
@@ -216,6 +231,7 @@ func newIOListCmd(l *loader, use, short string, fixed *ops.IOListInput) *cobra.C
 			fs.StringVar((*string)(&in.Medium), "medium", "", mediumList)
 			fs.StringVar((*string)(&in.Expects), "expects", "", "response or none")
 			fs.BoolVar(&in.All, "all", false, "include filed, sent, and dropped items")
+			fs.StringVar((*string)(&in.Voice), "voice", "", "out: as_me or for_me; for_me --all lists what agents sent for you, stamped")
 		},
 		Bind: func(_ []string, in *ops.IOListInput) error {
 			if fixed != nil {
@@ -264,6 +280,9 @@ func ioRow(p *printer, it ops.IOItem) {
 		extra = "\t(inbox capture: run para vault upgrade)"
 	case it.Became != "":
 		extra = "\t-> " + it.Became
+	}
+	if it.Voice == model.VoiceForMe {
+		extra += "\t(for you, stamped: " + firstNonEmpty(it.AllowedBy, "no rule") + ")"
 	}
 	p.f("%s\t%s\t%s\t%s\t%s\t%s\t%s%s\n", it.ID, it.Direction, it.State, it.Medium, firstNonEmpty(it.At, string(it.Created)), who, it.Title, extra)
 }

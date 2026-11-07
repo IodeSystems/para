@@ -249,6 +249,7 @@ func newRoot(l *loader) *cobra.Command {
 		newTriageCmd(l),
 		newPoolCmd(l),
 		newIdeaCmd(l),
+		newDelegationCmd(l),
 		newRouteCmd(l),
 		newWhoCmd(l),
 		newInteractionCmd(l),

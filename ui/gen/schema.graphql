@@ -223,6 +223,7 @@ type ParaV1QueryNamespace {
   context(id: String!): para_ItemContextOutput @derived(operationId: "context")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
   conventionShow(id: String!): para_ConventionShowOutput @derived(operationId: "conventionShow")
+  delegationRun(agent: String, id: String!): para_DelegationRunOutput @derived(operationId: "delegationRun")
   docComments(id: String!, open: Boolean): para_DocCommentsOutput @derived(operationId: "docComments")
   docDiff(context: Int, from: Int, id: String!, to: Int, unit: String, whole: Boolean): para_DocDiffOutput @derived(operationId: "docDiff")
   docMerges(id: String!): para_DocMergesOutput @derived(operationId: "docMerges")
@@ -246,7 +247,7 @@ type ParaV1QueryNamespace {
   incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
-  ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState): para_IOListOutput @derived(operationId: "ioList")
+  ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState, voice: para_ioListVoice): para_IOListOutput @derived(operationId: "ioList")
   ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
@@ -1376,6 +1377,30 @@ type para_DeferOutput {
   similar: [para_Similar!]
   skipped: [String!]!
   until: String
+}
+
+type para_DelegationMiss {
+  name: String
+  rule: Int!
+  why: String!
+}
+
+type para_DelegationRunOutput {
+  agent: String
+  file: Boolean!
+  id: String!
+  misses: [para_DelegationMiss!]!
+  next: String!
+  rule: String
+  rules: Int!
+  stamp: String!
+  stamped: Boolean!
+  voice: para_DelegationRunOutputVoice!
+}
+
+enum para_DelegationRunOutputVoice {
+  as_me
+  for_me
 }
 
 input para_DependsCutInputInput {
@@ -2657,12 +2682,14 @@ enum para_IOAddInputExpects {
 }
 
 input para_IOAddInputInput {
+  agent: String
   at: String
   direction: para_IOAddInputDirection!
   effort: para_IOAddInputEffort
   expects: para_IOAddInputExpects
   from: String
   importedFrom: para_ImportedFromInput
+  kind: String
   medium: para_IOAddInputMedium
   ref: String
   route: String
@@ -2673,6 +2700,7 @@ input para_IOAddInputInput {
   to: [String!]
   verify: String
   via: para_IOViaInput
+  voice: para_IOAddInputVoice
 }
 
 enum para_IOAddInputMedium {
@@ -2687,6 +2715,11 @@ enum para_IOAddInputMedium {
   swivel
   teams
   verbal
+}
+
+enum para_IOAddInputVoice {
+  as_me
+  for_me
 }
 
 type para_IOAddOutput {
@@ -2807,9 +2840,11 @@ enum para_IOEditInputExpects {
 }
 
 input para_IOEditInputInput {
+  agent: String
   effort: para_IOEditInputEffort
   expects: para_IOEditInputExpects
   id: String!
+  kind: String
   medium: para_IOEditInputMedium
   ref: String
   route: String
@@ -2819,6 +2854,7 @@ input para_IOEditInputInput {
   to: [String!]
   verify: String
   via: para_IOViaInput
+  voice: para_IOEditInputVoice
 }
 
 enum para_IOEditInputMedium {
@@ -2843,6 +2879,11 @@ enum para_IOEditInputState {
   ready
   sent
   unread
+}
+
+enum para_IOEditInputVoice {
+  as_me
+  for_me
 }
 
 type para_IOEditOutput {
@@ -2942,6 +2983,8 @@ enum para_IOFileOutputTo {
 }
 
 type para_IOItem {
+  agent: String
+  allowedBy: String
   at: String
   became: String
   created: String!
@@ -2952,6 +2995,7 @@ type para_IOItem {
   expects: para_IOItemExpects
   from: String
   id: String!
+  kind: String
   legacy: Boolean
   links: [String!]!
   medium: para_IOItemMedium!
@@ -2960,6 +3004,7 @@ type para_IOItem {
   reason: String
   ref: String
   route: String
+  stamp: String
   state: para_IOItemState!
   subject: String
   thread: String
@@ -2969,6 +3014,7 @@ type para_IOItem {
   triageBy: String
   unverifiable: Boolean
   verify: String
+  voice: para_IOItemVoice
 }
 
 enum para_IOItemDirection {
@@ -3015,6 +3061,11 @@ enum para_IOItemState {
 enum para_IOItemTriage {
   digest
   needs_you
+}
+
+enum para_IOItemVoice {
+  as_me
+  for_me
 }
 
 type para_IOListOutput {
@@ -4279,8 +4330,10 @@ enum para_MeetingViewStatus {
 type para_Meta {
   activeAt: String
   actor: String
+  agent: String
   aliases: [String!]
   align: para_AlignResult
+  allowedBy: String
   alternatives: JSON
   answered: String
   answeredBy: String
@@ -4333,6 +4386,7 @@ type para_Meta {
   doUrl: String
   doc: String
   doneWhen: String
+  draftedSeen: String
   due: String
   duplicateOf: String
   ecosystem: JSON
@@ -4458,6 +4512,7 @@ type para_Meta {
   sourceDoc: String
   sourcePath: String
   sources: [String!]
+  stamp: String
   start: String
   started: String
   state: JSON
@@ -4488,6 +4543,7 @@ type para_Meta {
   version: Int
   via: JSON
   visibility: para_MetaVisibility
+  voice: String
   watchers: [String!]
   why: JSON
   with: JSON
@@ -9274,6 +9330,11 @@ enum para_ioListState {
   ready
   sent
   unread
+}
+
+enum para_ioListVoice {
+  as_me
+  for_me
 }
 
 enum para_listType {
