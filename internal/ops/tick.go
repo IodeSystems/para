@@ -73,6 +73,9 @@ type TickOutput struct {
 	// Replies lists the reply obligations tick made this pass for incoming
 	// messages that expect a reply and had none (ioreply.go).
 	Replies []string `json:"replies"`
+	// Promises lists the obligations whose promise this pass set, as
+	// "<id>: <kept|renegotiated|broken>" (promise.go).
+	Promises []string `json:"promises"`
 	// Prepares lists the prepare requests tick made this pass (prepared.go);
 	// they are in Requests too.
 	Prepares []string `json:"prepares"`
@@ -113,7 +116,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -175,6 +178,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickReplies(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: replies: %w", err)
+	}
+	if err := tickPromises(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: promises: %w", err)
 	}
 	return out, nil
 }

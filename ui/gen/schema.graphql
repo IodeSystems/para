@@ -256,6 +256,7 @@ type ParaV1QueryNamespace {
   noteShow(id: String!): para_NoteShowOutput @derived(operationId: "noteShow")
   notesRead(id: String!): para_NotesReadOutput @derived(operationId: "notesRead")
   obligationParts(id: String!): para_ObligationPartsOutput @derived(operationId: "obligationParts")
+  obligationTimeline(days: Int): para_ObligationTimelineOutput @derived(operationId: "obligationTimeline")
   order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
@@ -5036,6 +5037,21 @@ enum para_ObligationScheduleOutputStatus {
   scheduled
 }
 
+type para_ObligationScore {
+  broken: Int!
+  days: Int!
+  kept: Int!
+  renegotiated: Int!
+}
+
+type para_ObligationTimelineOutput {
+  days: [para_TimelineDay!]!
+  from: String!
+  overdue: [para_TimelinePoint!]!
+  score: para_ObligationScore!
+  to: String!
+}
+
 type para_OptionDetail {
   benefit: para_Claim
   confidence: Int
@@ -8495,6 +8511,39 @@ enum para_TaskViewStatus {
   done
   dropped
   todo
+}
+
+type para_TimelineDay {
+  date: String!
+  hours: Float!
+  points: [para_TimelinePoint!]!
+  weekday: String!
+}
+
+type para_TimelinePoint {
+  atRisk: Boolean!
+  date: String!
+  end: String
+  hoursLeft: Float!
+  id: String!
+  kind: para_TimelinePointKind!
+  overdue: Boolean
+  parties: [String!]!
+  prep: [para_ObligationPart!]!
+  prepHours: Float!
+  promise: Boolean!
+  risk: String
+  start: String
+  title: String!
+}
+
+enum para_TimelinePointKind {
+  call
+  commitment
+  incident
+  meeting
+  task
+  work_with
 }
 
 type para_TodayGroup {

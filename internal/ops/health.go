@@ -83,11 +83,14 @@ const (
 	// HealthNotePlacement is a note that links an item, at vault format 10:
 	// its text belongs in that item's notes (step notes-placement).
 	HealthNotePlacement = upgrade.NotePlacement
+	// HealthPromiseUntold is an open obligation to people past its date that
+	// nobody was told of: no notice approved or sent.
+	HealthPromiseUntold = "promise_untold"
 )
 
 // HealthKinds lists every finding kind, in the order findings print.
 var HealthKinds = []string{
-	HealthCycle, HealthDanglingDependency, HealthNoPath, HealthGoalNoOpenTask,
+	HealthCycle, HealthDanglingDependency, HealthPromiseUntold, HealthNoPath, HealthGoalNoOpenTask,
 	HealthGoalNoDue, HealthAskNoFollowup, HealthBlockerNoFollowup,
 	HealthGoalNoDoneWhen, HealthTaskNoDoneWhen, HealthAskNoTarget, HealthPersonNoContact,
 	HealthBlockerIncomplete, HealthAreaNoLinks,
@@ -145,6 +148,7 @@ var HealthKindWords = map[string]string{
 	HealthAnnotationLost:     "Annotation lost its anchor",
 	HealthAnnotationAtTop:    "Annotation not placed in a section",
 	HealthNotePlacement:      "Note not moved to its item",
+	HealthPromiseUntold:      "Past its date, nobody told: tell them now",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -240,6 +244,9 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
 	}
 	h.graphFindings(ctx, s)
+	if err := h.promiseFindings(ctx, s); err != nil {
+		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)
+	}
 	h.agentWorkStale()
 	if err := h.notAligned(ctx, s); err != nil {
 		return HealthOutput{}, fmt.Errorf("ops: health: %w", err)

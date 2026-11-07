@@ -32,5 +32,6 @@ func streamOBParityCases() map[string]parityCase {
 	return map[string]parityCase{
 		"obligation_change":   {`{"id":"obligation-ob-a","action":"push","due":"2099-01-20","reason":"The vendor is late."}`, []string{"obligation", "change", "obligation-ob-b", "push", "--due", "2099-01-20", "--reason", "The vendor is late."}, false},
 		"obligation_parts":    {`{"id":"obligation-ob-show"}`, []string{"obligation", "parts", "obligation-ob-show"}, true},
+		"obligation_timeline": {`{"days":14}`, []string{"obligation", "timeline", "--days", "14"}, false},
 	}
 }

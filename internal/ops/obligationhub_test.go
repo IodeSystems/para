@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 )
@@ -318,5 +319,124 @@ func TestObligationChangeRedirectCancelSeries(t *testing.T) {
 	}
 	if _, cur := getOb(t, d, s.ID); cur.Scheduled != "2026-11-06T15:00:00Z" {
 		t.Fatalf("pushed occurrence = %q", cur.Scheduled)
+	}
+}
+
+// The promise score: kept when closed done by its date; renegotiated when a
+// notice was approved before it; broken when its date passed with none, and
+// health then says to tell them now.
+func TestPromiseScoreAndHealth(t *testing.T) {
+	d, proj, person := obFixture(t)
+	addPeople(t, d)
+	kept := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	must(t, Close, d, CloseInput{ID: kept.ID, Reason: "Sent."})
+	if _, o := getOb(t, d, kept.ID); o.Promise != model.PromiseKept {
+		t.Fatalf("kept = %q", o.Promise)
+	}
+	late := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the audit", OwedTo: []string{person}, Due: "2026-11-03", Project: proj})
+	if got := healthOf(t, d, late.ID); !slices.Contains(got, HealthPromiseUntold) {
+		t.Fatalf("health of a late promise = %v", got)
+	}
+	reneg := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-09", Project: proj})
+	ch := must(t, ObligationChange, d, ObligationChangeInput{ID: reneg.ID, Action: ChangeCancel, Reason: "The launch moved"})
+	if _, o := getOb(t, d, reneg.ID); o.Promise != "" {
+		t.Fatalf("before approval = %q", o.Promise)
+	}
+	must(t, IOApprove, d, IOApproveInput{ID: ch.Notices[0]})
+	if err := d.Store.SetConfig(ctx, "request.runner", "a1"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := Tick(ctx, d, TickInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(out.Promises, late.ID+": broken") || !slices.Contains(out.Promises, reneg.ID+": renegotiated") {
+		t.Fatalf("tick promises = %v", out.Promises)
+	}
+	// A notice of the late one, approved, settles the finding; broken stays.
+	lc := must(t, ObligationChange, d, ObligationChangeInput{ID: late.ID, Action: ChangePush, Due: "2026-11-12", Reason: "Sorry, it slipped"})
+	must(t, IOApprove, d, IOApproveInput{ID: lc.Notices[0]})
+	if got := healthOf(t, d, late.ID); slices.Contains(got, HealthPromiseUntold) {
+		t.Fatalf("health after the notice = %v", got)
+	}
+	if _, o := getOb(t, d, late.ID); o.Promise != model.PromiseBroken {
+		t.Fatalf("late after push = %q", o.Promise)
+	}
+	tl := must(t, ObligationTimeline, d, ObligationTimelineInput{})
+	// Closed ones count by the day they closed; the late one is dated ahead
+	// now, so it is not in the last 30 days.
+	if tl.Score.Kept != 1 || tl.Score.Renegotiated != 1 || tl.Score.Broken != 0 {
+		t.Fatalf("score = %+v", tl.Score)
+	}
+}
+
+// The timeline lists each day's fixed points with open prep, and marks one
+// at risk when the prep takes more working time than is left (6 hours a
+// weekday from 9:00, none at the weekend), or any prep is blocked.
+func TestObligationTimelineAtRisk(t *testing.T) {
+	d, proj, person := obFixture(t)
+	// Thursday noon: 3 hours left today, 6 on Friday.
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-06", Project: proj})
+	must(t, TaskAdd, d, TaskAddInput{Title: "Draft", Parent: ob.ID, Effort: model.EffortL, DoneWhen: "Drafted."})
+	must(t, TaskAdd, d, TaskAddInput{Title: "Check", Parent: ob.ID, Effort: model.EffortS, DoneWhen: "Checked."})
+	// Monday 11:00: Thursday 3 + Friday 6 + Monday 2 = 11 hours.
+	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-09T11:00:00Z", End: "2026-11-09T12:00:00Z"})
+	blocked := must(t, TaskAdd, d, TaskAddInput{Title: "Get the room", Parent: m.ID, Effort: model.EffortXS, Project: proj, DoneWhen: "Booked."})
+	tl := must(t, ObligationTimeline, d, ObligationTimelineInput{Days: 7})
+	point := func(id string) TimelinePoint {
+		for _, day := range tl.Days {
+			for _, p := range day.Points {
+				if p.ID == id {
+					return p
+				}
+			}
+		}
+		t.Fatalf("%s not on the timeline: %+v", id, tl.Days)
+		return TimelinePoint{}
+	}
+	p := point(ob.ID)
+	if p.PrepHours != 9 || p.HoursLeft != 9 || p.AtRisk || len(p.Prep) != 2 {
+		t.Fatalf("plan = %+v", p)
+	}
+	if len(tl.Days) != 7 || tl.Days[2].Hours != 0 || tl.Days[0].Hours != 6 {
+		t.Fatalf("days = %+v", tl.Days)
+	}
+	must(t, TaskAdd, d, TaskAddInput{Title: "Proofread", Parent: ob.ID, Effort: model.EffortXS, DoneWhen: "Read."})
+	tl = must(t, ObligationTimeline, d, ObligationTimelineInput{Days: 7})
+	if p := point(ob.ID); !p.AtRisk || p.PrepHours != 9.25 || !strings.Contains(p.Risk, "9.25h") {
+		t.Fatalf("plan with more prep = %+v", p)
+	}
+	if p := point(m.ID); p.HoursLeft != 11 || p.AtRisk {
+		t.Fatalf("meeting = %+v", p)
+	}
+	must(t, TaskBlock, d, TaskBlockInput{ID: blocked.ID, Reason: "Facilities have not answered the room request yet"})
+	tl = must(t, ObligationTimeline, d, ObligationTimelineInput{Days: 7})
+	if p := point(m.ID); !p.AtRisk || !strings.Contains(p.Risk, "blocked") {
+		t.Fatalf("meeting with blocked prep = %+v", p)
+	}
+}
+
+// The pure working-time count.
+func TestWorkHoursBetween(t *testing.T) {
+	at := func(s string) time.Time {
+		v, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	for _, c := range []struct {
+		a, b string
+		want float64
+	}{
+		{"2026-11-05T12:00:00Z", "2026-11-05T15:00:00Z", 3},
+		{"2026-11-05T08:00:00Z", "2026-11-05T20:00:00Z", 6},
+		{"2026-11-06T16:00:00Z", "2026-11-09T10:00:00Z", 1},
+		{"2026-11-07T09:00:00Z", "2026-11-08T18:00:00Z", 0},
+		{"2026-11-05T12:00:00Z", "2026-11-05T11:00:00Z", 0},
+	} {
+		if got := workHoursBetween(at(c.a), at(c.b), 6); got != c.want {
+			t.Errorf("%s..%s = %v, want %v", c.a, c.b, got, c.want)
+		}
 	}
 }

@@ -77,6 +77,7 @@ func registerLife(r *registrar) {
 	// it writes are drafts the owner approves.
 	reg(r, ops.ObligationChange, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ObligationParts, get, read)
+	reg(r, ops.ObligationTimeline, get, read)
 	reg(r, ops.ObligationAttend, post, write)
 	reg(r, ops.Agenda, get, read)
 	reg(r, ops.TaskToQuestion, post, write)

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -165,7 +166,46 @@ func newObligationCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.ObligationTimeline, binding[ops.ObligationTimelineInput, ops.ObligationTimelineOutput]{
+			Use:   "timeline",
+			Args:  cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.ObligationTimelineInput) {
+				fs.IntVar(&in.Days, "days", 0, "days from today (default 14)")
+			},
+			Text: func(w io.Writer, out ops.ObligationTimelineOutput) error {
+				p := &printer{w: w}
+				point := func(x ops.TimelinePoint) {
+					risk := ""
+					if x.AtRisk {
+						risk = "\tAT RISK: " + x.Risk
+					}
+					p.f("  %s\t%s\t%s\tprep %s, %s left%s\n", x.ID, x.Kind, x.Title, hoursText(x.PrepHours), hoursText(x.HoursLeft), risk)
+					for _, pr := range x.Prep {
+						p.f("    %s\t%s\t%s\tby %s\t%s\n", pr.ID, pr.Status, pr.Effort, firstNonEmpty(pr.Back, "-"), pr.Title)
+					}
+				}
+				if len(out.Overdue) > 0 {
+					p.f("overdue\n")
+					for _, x := range out.Overdue {
+						point(x)
+					}
+				}
+				for _, dd := range out.Days {
+					if len(dd.Points) == 0 {
+						continue
+					}
+					p.f("%s %s\n", dd.Weekday, dd.Date)
+					for _, x := range dd.Points {
+						point(x)
+					}
+				}
+				p.f("last %d days: kept %d, renegotiated %d, broken %d\n", out.Score.Days, out.Score.Kept, out.Score.Renegotiated, out.Score.Broken)
+				return p.err
+			},
+		}),
 	)
 	return cmd
 }
 
+// hoursText says hours as "1.5h".
+func hoursText(h float64) string { return strconv.FormatFloat(h, 'f', -1, 64) + "h" }

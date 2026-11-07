@@ -117,6 +117,7 @@ var configKeys = []configKey{
 	{name: StaleDaysKey, help: "value order: an item overdue by more than this many days is not due soon; it goes to recheck, oldest first; unset means 30, 0 is off", agent: true, check: checkInt(0)},
 	{name: GoalSoonKey, help: "value order: an item whose date, or the date of the goal it feeds, is within this many days scores double in focus; unset means 14, 0 is off", agent: true, check: checkInt(0)},
 	{name: OwedSoonKey, help: "value order: a promise to people due within this many days, and its prep (by the promise's date minus the prep's effort lead), ranks in the owed tier after due soon; unset means 7, 0 is off", agent: true, check: checkInt(0)},
+	{name: WorkHoursKey, help: "obligation timeline: working hours in a weekday, to say when open prep will not fit before a promise; unset means 6", agent: true, check: checkInt(0)},
 	{name: "egress.default", help: "allow or deny a path out of the vault; deny when unset", check: checkEnum("allow", "deny")},
 	{name: "egress.export", help: "comma separated export transports that stay allowed; unset allows all", check: checkList(exportRe)},
 	{name: "classification", help: "marking printed on copied documents", check: checkText},
