@@ -163,38 +163,94 @@ func checkRule(n int, tr TriageRule) (rule, error) {
 		}
 		r.actions = append(r.actions, triageAction{kind, arg})
 	}
-	norm := func(l strList, f func(string) string) strList {
-		out := make(strList, 0, len(l))
-		for _, s := range l {
-			if s = f(s); s != "" {
-				out = append(out, s)
-			}
-		}
-		return out
+	r.match.From = normList(r.match.From, normParty)
+	r.match.Tag = normList(r.match.Tag, normTag)
+	var err error
+	if r.match.Class, r.match.Vendor, r.match.Medium, err = checkChannel(r.match.Class, r.match.Vendor, r.match.Medium); err != nil {
+		return r, fmt.Errorf("match %w", err)
 	}
-	r.match.From = norm(r.match.From, func(s string) string { return strings.ToLower(normID(s)) })
-	r.match.Tag = norm(r.match.Tag, normTag)
-	r.match.Vendor = norm(r.match.Vendor, normVendor)
-	r.match.Class = norm(r.match.Class, func(s string) string {
+	r.match.Subject = strings.ToLower(strings.TrimSpace(r.match.Subject))
+	return r, nil
+}
+
+// The matchers below are shared by triage rules and delegation rules
+// (delegation.go): a list of a rule is any of, and every key given must
+// match.
+
+// normList normalizes each item of l with f and drops the empty ones.
+func normList(l strList, f func(string) string) strList {
+	out := make(strList, 0, len(l))
+	for _, s := range l {
+		if s = f(s); s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// normParty is a person or group id, or an address, as rules compare it.
+func normParty(s string) string { return strings.ToLower(normID(s)) }
+
+// checkChannel normalizes and checks the class, vendor, and medium keys of a
+// rule.
+func checkChannel(class, vendor, medium strList) (strList, strList, strList, error) {
+	vendor = normList(vendor, normVendor)
+	class = normList(class, func(s string) string {
 		c := model.SourceSystem(strings.ToLower(strings.TrimSpace(s)))
 		if k, ok := legacySystems[c]; ok {
 			c = k.class
 		}
 		return string(c)
 	})
-	for _, c := range r.match.Class {
+	for _, c := range class {
 		if !slices.Contains(model.SourceClasses, model.SourceSystem(c)) {
-			return r, fmt.Errorf("match class %q: want one of %v", c, model.SourceClasses)
+			return nil, nil, nil, fmt.Errorf("class %q: want one of %v", c, model.SourceClasses)
 		}
 	}
-	r.match.Medium = norm(r.match.Medium, func(s string) string { return strings.ToLower(strings.TrimSpace(s)) })
-	for _, m := range r.match.Medium {
+	medium = normList(medium, func(s string) string { return strings.ToLower(strings.TrimSpace(s)) })
+	for _, m := range medium {
 		if err := checkMedium(model.Medium(m)); err != nil {
-			return r, fmt.Errorf("match %w", err)
+			return nil, nil, nil, err
 		}
 	}
-	r.match.Subject = strings.ToLower(strings.TrimSpace(r.match.Subject))
-	return r, nil
+	return class, vendor, medium, nil
+}
+
+// anyIn reports whether want is empty or has an item of have.
+func anyIn(want strList, have []string) bool {
+	return len(want) == 0 || slices.ContainsFunc(want, func(w string) bool { return slices.Contains(have, w) })
+}
+
+// partyFacts reads a from or to party of an io item: its id (a person or
+// group link) or "", the parties a rule may name for it (itself and, for a
+// person, the groups it is in; an address or a name not in the directory as
+// itself), and the tags of the person or group.
+func partyFacts(ctx context.Context, s store.Store, party string) (id string, parties, tags []string) {
+	if strings.HasPrefix(party, "[[") {
+		id = model.Link(party).Target()
+		parties = []string{id}
+		if sd, err := s.Get(ctx, id); err == nil {
+			tags = sd.Meta.Header().Tags
+			if p, ok := sd.Meta.(*model.Person); ok {
+				for _, g := range p.Groups {
+					parties = append(parties, g.Target())
+				}
+			}
+		}
+	} else if p := normParty(party); p != "" {
+		parties = []string{p}
+	}
+	return id, parties, tags
+}
+
+// channelFacts is the class and vendor of the source an io item came or goes
+// by (via.source); "" when it names none.
+func channelFacts(sources []model.Document, via *model.IOVia) (class, vendor string) {
+	if src := ioSource(sources, via); src != nil {
+		k := sourceKindOf(src.Meta.(*model.SourceDoc))
+		return string(k.class), k.vendor
+	}
+	return "", ""
 }
 
 // triageFacts is what rules match on for one incoming message.
@@ -210,9 +266,6 @@ type triageFacts struct {
 
 func (r rule) matches(f triageFacts) bool {
 	m := r.match
-	anyIn := func(want strList, have []string) bool {
-		return len(want) == 0 || slices.ContainsFunc(want, func(w string) bool { return slices.Contains(have, w) })
-	}
 	return anyIn(m.From, f.parties) && anyIn(m.Tag, f.tags) && anyIn(m.Class, []string{f.class}) &&
 		anyIn(m.Vendor, []string{f.vendor}) && anyIn(m.Medium, []string{f.medium}) &&
 		(m.Subject == "" || strings.Contains(f.subject, m.Subject))
@@ -246,24 +299,10 @@ func newTriager(ctx context.Context, d Deps) (*triager, error) {
 // facts reads what rules match on.
 func (t *triager) facts(ctx context.Context, doc model.Document, m *model.IO) triageFacts {
 	f := triageFacts{tags: append([]string{}, m.Tags...), medium: string(m.Medium), subject: strings.ToLower(firstOf(m.Subject, doc.Title))}
-	if strings.HasPrefix(m.From, "[[") {
-		f.sender = model.Link(m.From).Target()
-		f.parties = []string{f.sender}
-		if sd, err := t.d.Store.Get(ctx, f.sender); err == nil {
-			f.tags = append(f.tags, sd.Meta.Header().Tags...)
-			if p, ok := sd.Meta.(*model.Person); ok {
-				for _, g := range p.Groups {
-					f.parties = append(f.parties, g.Target())
-				}
-			}
-		}
-	} else if from := strings.ToLower(normID(m.From)); from != "" {
-		f.parties = []string{from} // an address or a name not in the directory
-	}
-	if src := ioSource(t.sources, m.Via); src != nil {
-		k := sourceKindOf(src.Meta.(*model.SourceDoc))
-		f.class, f.vendor = string(k.class), k.vendor
-	}
+	var tags []string
+	f.sender, f.parties, tags = partyFacts(ctx, t.d.Store, m.From)
+	f.tags = append(f.tags, tags...)
+	f.class, f.vendor = channelFacts(t.sources, m.Via)
 	return f
 }
 
