@@ -64,9 +64,11 @@ export function Section({
   )
 }
 
+// Empty says a list has nothing. data-empty lets a theme draw a page's own empty state (one that
+// stands alone on the page, not inside a section) as a quiet box.
 export function Empty({ children }: { children: ReactNode }) {
   return (
-    <Typography variant="body2" color="text.secondary">
+    <Typography variant="body2" color="text.secondary" data-empty>
       {children}
     </Typography>
   )

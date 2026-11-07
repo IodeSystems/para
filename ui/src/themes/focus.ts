@@ -81,6 +81,30 @@ export const focus = createTheme({
       styleOverrides: (theme) => ({
         ...a11yGlobals(theme),
         body: { WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale' },
+        // A list that stands on the page, not in a section card, gets the card's surface; an
+        // empty state there is a quiet dashed box.
+        'main > .MuiList-root': {
+          backgroundColor: (theme.vars ?? theme).palette.background.paper,
+          border: `1px solid ${(theme.vars ?? theme).palette.divider}`,
+          borderRadius: 16,
+          padding: '4px 16px',
+          boxShadow: shadow.light,
+          ...theme.applyStyles('dark', { boxShadow: shadow.dark }),
+          '& > .MuiListItem-root:last-of-type': { borderBottom: 0 },
+        },
+        // A toast is a raised surface; its accent edge (ToastStack) stays.
+        '[data-toast] .MuiPaper-root': {
+          borderRadius: 14,
+          backgroundColor: raised.light,
+          boxShadow: lift.light,
+          ...theme.applyStyles('dark', { backgroundColor: raised.dark, boxShadow: lift.dark }),
+        },
+        'main > [data-empty]': {
+          border: `1px dashed ${(theme.vars ?? theme).palette.divider}`,
+          borderRadius: 16,
+          padding: theme.spacing(3),
+          textAlign: 'center',
+        },
         '::selection': {
           backgroundColor: `rgba(${(theme.vars ?? theme).palette.primary.mainChannel} / 0.3)`,
         },

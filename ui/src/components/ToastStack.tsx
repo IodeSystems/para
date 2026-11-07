@@ -52,13 +52,13 @@ function ToastStack({ store }: { store: ToastStore }) {
         display: 'flex',
         flexDirection: 'column',
         top: { xs: 'auto', sm: 72 },
-        bottom: { xs: 0, sm: 'auto' },
+        // On a phone the toasts sit above the bottom bar, not over it.
+        bottom: { xs: 'calc(72px + env(safe-area-inset-bottom))', sm: 'auto' },
         right: { xs: 0, sm: 16 },
         left: { xs: 0, sm: 'auto' },
         width: { xs: 'auto', sm: 360 },
         maxWidth: '100vw',
         px: { xs: 2, sm: 0 },
-        pb: { xs: 'env(safe-area-inset-bottom)', sm: 0 },
       })}
     >
       {toasts.map((t) => (
