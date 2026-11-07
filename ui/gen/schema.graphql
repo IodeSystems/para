@@ -4495,6 +4495,7 @@ type para_Meta {
   risks: JSON
   role: String
   roleText: String
+  round: String
   route: String
   rule: String
   runner: String
@@ -4923,6 +4924,7 @@ type para_ObligationChangeOutput {
   state: para_ObligationChangeOutputState!
   told: [String!]!
   warnings: [String!]!
+  work: [String!]
 }
 
 enum para_ObligationChangeOutputPromise {

@@ -73,7 +73,9 @@ type ObligationChangeOutput struct {
 	Calendar string        `json:"calendar,omitempty"`
 	Promise  model.Promise `json:"promise,omitempty"`
 	Receipt  string        `json:"receipt,omitempty"`
-	Warnings []string      `json:"warnings"`
+	// Work is the agent work a redirect to agent:<name> queued.
+	Work     []string `json:"work,omitempty"`
+	Warnings []string `json:"warnings"`
 }
 
 // ObligationChange pushes out, redirects, or cancels an obligation and tells
@@ -173,6 +175,11 @@ func obligationChange(ctx context.Context, d Deps, in ObligationChangeInput) (Ob
 		if _, err := d.Store.Update(ctx, doc); err != nil {
 			return out, err
 		}
+		made, err := queueRedirectWork(ctx, d, doc, o, newOwner, firstOf(reason, "gives way to "+because.Title))
+		if err != nil {
+			return out, err
+		}
+		out.Work = made
 	}
 	// Reread: a push saved the new date itself. The notices come first, so
 	// the change line names them.

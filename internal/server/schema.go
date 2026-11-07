@@ -170,6 +170,7 @@ type Meta struct {
 	Undone          string                `json:"undone,omitempty"`
 	SelfReported    *bool                 `json:"self_reported,omitempty"`
 	NotDuplicate    string                `json:"not_duplicate,omitempty"`
+	Round           string                `json:"round,omitempty"`
 	OwnerSaid       string                `json:"owner_said,omitempty"`
 	OnBehalfOf      string                `json:"on_behalf_of,omitempty"`
 	Surface         string                `json:"surface,omitempty"`
