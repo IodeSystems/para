@@ -65,13 +65,15 @@ import (
 //
 // Effective due is the earliest of the item's own date, the date of any open
 // item downstream of it (anything that waits on it, through depends_on, and
-// the goal a task belongs to), and the backward date of prep for a promise.
+// the goal it leads to), and the backward date of prep for a promise. The
+// edges downstream are the reason walker's hops (reason.go: waitsOn, hop), so
+// an item leads to the same goals here as in its Why.
 // A date counts through the due soon window, and a backward date through the
 // owed soon window: prep for a meeting next week rises a week ahead. Ties: the effective due date
 // (none last), the owner's rank between two goals, the oldest, then the id.
 // Impact is the number of open items it unblocks, through any chain; a goal
-// counts twice. A task also counts toward its parent task (an action item is
-// not a dependency: the parent does not wait on it). A deferred item, and
+// counts twice. An item also counts toward its parent, the incident it
+// follows up, and the item a question is about (none of them waits on it). A deferred item, and
 // everything reachable only through one, adds no impact and gives no effective
 // due.
 
@@ -192,9 +194,13 @@ type ValueNode struct {
 	Created string   // for the tie-break
 	Updated string   // the last write, YYYY-MM-DD; shown, not ranked
 	Deps    []string // ids this waits on
-	Goal    string   // for a task: the goal it belongs to
-	Parent  string   // for a task: the task it is an action item of; not a dependency
-	Sev     string   // for an incident: sev1, sev2, sev3
+	Goal    string   // the goal it names (its project)
+	Parent  string   // the task or obligation it is an action item of; not a dependency
+	// Leads are the other items it leads to without waiting on them: the
+	// incident a task follows up, the item a question is about, a second goal.
+	// Like Parent, they count toward impact and the due date, not blocks.
+	Leads []string
+	Sev   string // for an incident: sev1, sev2, sev3
 	// Deferred is true when the item is put off today. DeferUntil is its date
 	// or "someday".
 	Deferred   bool
@@ -358,28 +364,7 @@ func ShortDate(d string) string {
 // RankValue orders the nodes. It is a pure function: the same nodes and
 // options give the same rows.
 func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
-	by := map[string]*ValueNode{}
-	for i := range nodes {
-		by[nodes[i].ID] = &nodes[i]
-	}
-	down := map[string][]string{} // id -> items waiting on it
-	// parentEdge marks "child parent" pairs: the parent does not wait on the
-	// child, so it counts toward impact and the due date but not toward blocks.
-	parentEdge := map[string]bool{}
-	for _, n := range nodes {
-		for _, dep := range n.Deps {
-			if by[dep] != nil {
-				down[dep] = append(down[dep], n.ID)
-			}
-		}
-		if n.Goal != "" && by[n.Goal] != nil {
-			down[n.ID] = append(down[n.ID], n.Goal)
-		}
-		if n.Parent != "" && by[n.Parent] != nil {
-			down[n.ID] = append(down[n.ID], n.Parent)
-			parentEdge[n.ID+" "+n.Parent] = true
-		}
-	}
+	by, down, parentEdge := valueGraph(nodes)
 	// reach walks downstream of id. A deferred item is not visited and its own
 	// downstream is not followed.
 	reach := func(id string) ([]*ValueNode, map[string]bool) {
@@ -655,6 +640,34 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	return ValueOrder{Rows: rows, Held: held, Summary: sum}
 }
 
+// valueGraph indexes the nodes and their downstream edges: down maps an id
+// to the items downstream of it (what waits on it, its goal, its parent, its
+// leads), and parentEdge marks the "item next" pairs where next does not wait
+// on item, so they count toward impact and the due date but not toward blocks.
+func valueGraph(nodes []ValueNode) (by map[string]*ValueNode, down map[string][]string, parentEdge map[string]bool) {
+	by, down, parentEdge = map[string]*ValueNode{}, map[string][]string{}, map[string]bool{}
+	for i := range nodes {
+		by[nodes[i].ID] = &nodes[i]
+	}
+	for _, n := range nodes {
+		for _, dep := range n.Deps {
+			if by[dep] != nil {
+				down[dep] = append(down[dep], n.ID)
+			}
+		}
+		if n.Goal != "" && by[n.Goal] != nil {
+			down[n.ID] = append(down[n.ID], n.Goal)
+		}
+		for _, l := range append([]string{n.Parent}, n.Leads...) {
+			if l != "" && by[l] != nil && !parentEdge[n.ID+" "+l] {
+				down[n.ID] = append(down[n.ID], l)
+				parentEdge[n.ID+" "+l] = true
+			}
+		}
+	}
+	return by, down, parentEdge
+}
+
 // owedSoon reports whether a promise's date is within the owed soon window:
 // on or before today plus order.owed_soon_days.
 func owedSoon(date string, opt RankOptions) bool {
@@ -843,9 +856,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		horizon = t.AddDate(0, 0, 14).Format(dateLayout)
 	}
 	var nodes []ValueNode
-	rfxBlocks := map[string][]string{} // rfx id -> items it blocks
 	reasons := newReasonGraph(sn.docs)
-	meetingOf := map[string][]string{} // rfx id -> meetings that serve it
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
 		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO, model.TypeObligation:
@@ -860,7 +871,6 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		reply := ""
 		promise, promiseDate := false, ""
 		var askTargets []model.Target
-		var askBlocks []model.Link
 		if o, ok := doc.Meta.(*model.Obligation); ok {
 			owed = len(o.OwedTo) > 0 || o.ReplyTo != "" // a reply is owed to its sender, linked or not
 			reply = o.ReplyTo.Target()
@@ -870,7 +880,6 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			if o.FoldedFrom == model.TypeRFX {
 				askIn = true
 				doc.Kept("targets", &askTargets)
-				doc.Kept("blocks", &askBlocks)
 			}
 		}
 		doc = obligationShape(doc) // a task of kind incident is an incident node: incidents come first
@@ -886,6 +895,28 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		n := ValueNode{ID: doc.ID, Title: doc.Title, Created: string(doc.Meta.Header().Created), Updated: string(doc.Meta.Header().Updated), Deferred: hold.any(),
 			Hidden: !all && need.Life == LifeOpen && !need.Yes, NeedsYou: need.Yes, Reason: need.Reason, Ready: ready,
 			Promise: promise && promiseDate != "", PromiseDate: promiseDate, ReasonRank: reasons.reasonRank(doc.ID)}
+		// What it waits on and where it leads come from the reason walker
+		// (reason.go): the order and the Why lead to the same goals.
+		n.Deps = reasons.waitsOn[doc.ID]
+		hp := reasons.hop(doc.ID)
+		for _, t := range hp.ends {
+			switch {
+			case !reasons.isGoal(t):
+			case n.Goal == "":
+				n.Goal = t
+			default:
+				n.Leads = append(n.Leads, t)
+			}
+		}
+		for _, st := range hp.next {
+			switch {
+			case st.How == StepUnblocks: // the waiter's Deps hold it
+			case st.How == StepActionItemOf && n.Parent == "":
+				n.Parent = st.ID
+			default:
+				n.Leads = append(n.Leads, st.ID)
+			}
+		}
 		if df := deferralOf(doc.Meta); df != nil {
 			n.DeferUntil = df.DeferUntil
 			n.WaitOnly, n.WaitDeps, n.ReadyWhy = hold.waitOnly(), hold.Waits, hold.Ready
@@ -908,11 +939,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				n.Hidden = n.Due > horizon || meetingQuiet(mt.t)
 			}
 			if t, isTask := doc.Meta.(*model.Task); isTask {
-				n.Parent, n.Deps = t.Parent.Target(), targets(model.HardDeps(t))
 				n.Hidden = n.Hidden || all && IsOther(t.Assignee)
-			}
-			for _, l := range mt.RFX {
-				meetingOf[l.Target()] = append(meetingOf[l.Target()], doc.ID)
 			}
 			nodes = append(nodes, n)
 			continue
@@ -930,7 +957,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			if meetingSkipped(m) {
 				continue
 			}
-			n.Kind, n.Due, n.Goal, n.Owed = KindTask, string(m.Due), m.Project.Target(), owed
+			n.Kind, n.Due, n.Owed = KindTask, string(m.Due), owed
 			if reply != "" {
 				n.Reply, n.Prep, n.Waiters = true, true, 1
 				if rd, err := sn.Get(reply); err == nil {
@@ -942,30 +969,23 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			if all {
 				n.Hidden = IsOther(m.Assignee) || meetingQuiet(m)
 			}
-			n.Parent, n.Effort = m.Parent.Target(), m.Effort
-			n.Deps = targets(model.HardDeps(m))
+			n.Effort = m.Effort
 			if (m.Kind == model.KindCall || m.Kind == model.KindWorkWith) && m.Scheduled != "" {
 				n.Start, _ = meetingDay(m.Scheduled)
 			}
 			if askIn {
 				n.Owed, n.Prep, n.Waiters = true, true, max(len(askTargets), 1)
 				n.Arrived = askArrived(&model.RFX{Targets: askTargets})
-				for _, l := range askBlocks {
-					rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
-				}
 			}
 		case *model.Question:
-			n.Kind, n.Deps, n.Proposal = KindQuestion, targets(model.HardDeps(m)), m.HasProposal()
+			n.Kind, n.Proposal = KindQuestion, m.HasProposal()
 			n.Effort, n.Prep = m.Effort, true
 		case *model.RFX:
-			n.Kind, n.Due, n.Deps, n.Effort = KindAsk, string(m.NextNudge), targets(model.HardDeps(m)), m.Effort
+			n.Kind, n.Due, n.Effort = KindAsk, string(m.NextNudge), m.Effort
 			// An ask to the owner is owed; an ask the owner made waits on
 			// someone else and is listed when it needs a follow-up.
 			if m.Direction == model.RFXIn {
 				n.Owed, n.Prep, n.Waiters, n.Arrived = true, true, len(m.Targets), askArrived(m)
-			}
-			for _, l := range m.Blocks {
-				rfxBlocks[doc.ID] = append(rfxBlocks[doc.ID], l.Target())
 			}
 		case *model.Meeting:
 			continue
@@ -995,23 +1015,6 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			n.Hidden = !n.Deferred
 		}
 		nodes = append(nodes, n)
-	}
-	// An ask waits on the meeting that serves it; what an ask blocks waits on it.
-	idx := map[string]int{}
-	for i, n := range nodes {
-		idx[n.ID] = i
-	}
-	for rfx, ms := range meetingOf {
-		if i, ok := idx[rfx]; ok {
-			nodes[i].Deps = append(nodes[i].Deps, ms...)
-		}
-	}
-	for rfx, blocked := range rfxBlocks {
-		for _, b := range blocked {
-			if i, ok := idx[b]; ok {
-				nodes[i].Deps = append(nodes[i].Deps, rfx)
-			}
-		}
 	}
 	return nodes, nil
 }

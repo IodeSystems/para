@@ -700,7 +700,7 @@ func (h *healther) question(id, goal string, d model.Document, m *model.Question
 	switch m.Status {
 	case model.QuestionOpen:
 		r, ok := h.rows[id]
-		if ok && r.Impact == 0 && h.stale != "" && string(m.Created) != "" && string(m.Created) < h.stale {
+		if ok && r.Blocks == 0 && h.stale != "" && string(m.Created) != "" && string(m.Created) < h.stale {
 			h.add(HealthQuestionStale, id, goal, fmt.Sprintf("question blocks nothing and is older than %d days", HealthStaleDays), fmt.Sprintf("question_drop {id: %s, reason: ...}, or defer {ids: [%s]}", id, id))
 		}
 		if !h.hasReason(id) {

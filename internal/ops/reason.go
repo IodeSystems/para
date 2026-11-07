@@ -21,7 +21,10 @@ import (
 //     obligation, or an incident.
 //
 // With none, the item has no reason recorded. This one walker is what the
-// item context, health (no-path), and the tick's reason check read.
+// item context, health (no-path), and the tick's reason check read. The value
+// order (value.go) builds its edges from the same hops (waitsOn and hop), so
+// the ranking and the Why lead to the same goals. Every wait is a hard
+// dependency (model.HardDeps): an optional edge carries no goal.
 
 // Reason kinds.
 const (
@@ -74,7 +77,13 @@ type Reason struct {
 // reasonGraph is the vault as the reason walker reads it.
 type reasonGraph struct {
 	docs map[string]model.Document
-	// dependents maps an id to the open items that wait on it.
+	// waitsOn maps an open item to what it waits on: its hard depends_on,
+	// then an open ask that blocks it (an ask's blocks, or the kept blocks of
+	// an ask folded into an obligation) and a booked meeting that serves it
+	// (an ask), sorted.
+	waitsOn map[string][]string
+	// dependents maps an id to the open items that wait on it: waitsOn
+	// turned around.
 	dependents map[string][]string
 	// cameFrom maps an id to the io items filed into it or linking it.
 	cameFrom map[string][]string
@@ -83,32 +92,35 @@ type reasonGraph struct {
 // newReasonGraph indexes docs. A document may be raw or in the shape health
 // reads (an obligation as a task, an incident task as an incident).
 func newReasonGraph(docs map[string]model.Document) *reasonGraph {
-	g := &reasonGraph{docs: docs, dependents: map[string][]string{}, cameFrom: map[string][]string{}}
-	wait := func(id string, deps []model.Link) {
-		for _, dep := range targets(deps) {
-			g.dependents[dep] = append(g.dependents[dep], id)
+	g := &reasonGraph{docs: docs, waitsOn: map[string][]string{}, dependents: map[string][]string{}, cameFrom: map[string][]string{}}
+	extra := map[string][]string{} // waits an item does not list itself
+	blocks := func(id string, ls []model.Link) {
+		for _, l := range ls {
+			if t := l.Target(); t != "" {
+				extra[t] = append(extra[t], id)
+			}
 		}
 	}
 	for id, d := range docs {
+		open := lifeOf(d.Meta) == LifeOpen
+		if deps := targets(model.HardDeps(d.Meta)); open && len(deps) > 0 {
+			g.waitsOn[id] = deps
+		}
+		if open {
+			for _, a := range servedAsks(d) {
+				extra[a] = append(extra[a], id)
+			}
+		}
 		switch m := d.Meta.(type) {
-		case *model.Task:
-			if !taskTerminal(m.Status) {
-				wait(id, model.HardDeps(m))
+		case *model.RFX:
+			if open {
+				blocks(id, m.Blocks)
 			}
 		case *model.Obligation:
-			if m.Open() {
-				wait(id, model.HardDeps(m))
-			}
-		case *model.Question:
-			if m.Status == model.QuestionOpen {
-				wait(id, model.HardDeps(m))
-			}
-		case *model.RFX:
-			if m.Status == model.RFXOpen {
-				wait(id, model.HardDeps(m))
-				for _, b := range m.Blocks {
-					g.dependents[id] = append(g.dependents[id], b.Target())
-				}
+			if open && m.FoldedFrom == model.TypeRFX {
+				var ls []model.Link
+				d.Kept("blocks", &ls)
+				blocks(id, ls)
 			}
 		case *model.IO:
 			var to []string
@@ -125,12 +137,95 @@ func newReasonGraph(docs map[string]model.Document) *reasonGraph {
 			}
 		}
 	}
+	for id, ws := range extra {
+		if d, ok := docs[id]; !ok || lifeOf(d.Meta) != LifeOpen {
+			continue
+		}
+		slices.Sort(ws)
+		for _, w := range slices.Compact(ws) {
+			if !slices.Contains(g.waitsOn[id], w) {
+				g.waitsOn[id] = append(g.waitsOn[id], w)
+			}
+		}
+	}
+	for id, ws := range g.waitsOn {
+		for _, w := range ws {
+			g.dependents[w] = append(g.dependents[w], id)
+		}
+	}
 	for _, m := range []map[string][]string{g.dependents, g.cameFrom} {
 		for k := range m {
 			slices.Sort(m[k])
 		}
 	}
 	return g
+}
+
+// servedAsks is the asks a booked meeting serves, the owner not skipping it:
+// each ask waits on the meeting. Nil for any other document.
+func servedAsks(d model.Document) []string {
+	mt, ok := readMeeting(obligationShape(d))
+	if !ok || mt.Status != model.MeetingScheduled || meetingSkipped(mt.t) {
+		return nil
+	}
+	if _, ok := meetingDay(mt.Start); !ok {
+		return nil
+	}
+	return targets(mt.RFX)
+}
+
+// reasonHop is one hop of the walk from an item: the targets of the project
+// and area links it names itself (a goal or an area each), and the items the
+// walk goes on to, in order: the item it is an action item of, the incident
+// it follows up, the item a question is about, then the open items that wait
+// on it.
+type reasonHop struct {
+	ends []string
+	next []ReasonStep
+}
+
+func (g *reasonGraph) hop(id string) reasonHop {
+	var h reasonHop
+	end := func(l model.Link) {
+		if t := l.Target(); t != "" {
+			h.ends = append(h.ends, t)
+		}
+	}
+	step := func(l model.Link, how string) {
+		if t := l.Target(); t != "" {
+			h.next = append(h.next, ReasonStep{How: how, ID: t, Title: g.title(t)})
+		}
+	}
+	switch m := g.docs[id].Meta.(type) {
+	case *model.Task:
+		end(m.Project)
+		end(m.Area)
+		step(m.Parent, StepActionItemOf)
+		step(m.Incident, StepFollowsUp)
+	case *model.Obligation:
+		end(m.Project)
+		end(m.Area)
+		step(m.Parent, StepActionItemOf)
+	case *model.Incident:
+		end(m.Area)
+	case *model.RFX:
+		end(m.Project)
+		step(m.Parent, StepActionItemOf)
+	case *model.Question:
+		if !m.IsRoot() {
+			step(m.Scope, StepAbout)
+		}
+	}
+	for _, u := range g.dependents[id] {
+		h.next = append(h.next, ReasonStep{How: StepUnblocks, ID: u, Title: g.title(u)})
+	}
+	return h
+}
+
+// isGoal reports whether id is a goal (type project).
+func (g *reasonGraph) isGoal(id string) bool {
+	_, ok := g.docs[id].Meta.(*model.Project)
+	return ok
 }
 
 func (g *reasonGraph) title(id string) string {
@@ -166,11 +261,10 @@ func (g *reasonGraph) reasons(id string) []Reason {
 			r.Via = h.via
 			out = append(out, r)
 		}
-		// goal adds the goal (or area) a project link names.
-		goal := func(l model.Link) {
-			t := l.Target()
+		// goal adds the goal (or area) a project or area link names.
+		goal := func(t string) {
 			gd, ok := g.docs[t]
-			if t == "" || !ok {
+			if !ok {
 				return
 			}
 			switch p := gd.Meta.(type) {
@@ -193,16 +287,6 @@ func (g *reasonGraph) reasons(id string) []Reason {
 		recurring := func(recur string) {
 			add(Reason{Kind: ReasonUpkeep, Title: strings.TrimSpace("recurring " + recur)})
 		}
-		next := func(to, how string) {
-			if to == "" || seen[to] {
-				return
-			}
-			if _, ok := g.docs[to]; !ok {
-				return
-			}
-			seen[to] = true
-			queue = append(queue, hop{id: to, via: append(slices.Clone(h.via), ReasonStep{How: how, ID: to, Title: g.title(to)})})
-		}
 		switch m := d.Meta.(type) {
 		case *model.Project:
 			add(Reason{Kind: ReasonGoal, Ref: h.id, Title: g.title(h.id), Due: string(m.Due), Status: string(m.Status)})
@@ -210,9 +294,13 @@ func (g *reasonGraph) reasons(id string) []Reason {
 		case *model.Area:
 			add(Reason{Kind: ReasonUpkeep, Ref: h.id, Title: g.title(h.id)})
 			continue
+		}
+		hp := g.hop(h.id)
+		for _, t := range hp.ends {
+			goal(t)
+		}
+		switch m := d.Meta.(type) {
 		case *model.Task:
-			goal(m.Project)
-			goal(m.Area)
 			owed(m.RequestedBy)
 			if m.EffectiveKind() == model.KindCommitment {
 				for _, w := range m.With {
@@ -226,11 +314,7 @@ func (g *reasonGraph) reasons(id string) []Reason {
 				add(Reason{Kind: ReasonUpkeep, Title: "incident"})
 			}
 			g.owedByIO(h.id, owed)
-			next(m.Parent.Target(), StepActionItemOf)
-			next(m.Incident.Target(), StepFollowsUp)
 		case *model.Obligation:
-			goal(m.Project)
-			goal(m.Area)
 			for _, w := range m.OwedTo {
 				owed(string(w))
 			}
@@ -240,26 +324,25 @@ func (g *reasonGraph) reasons(id string) []Reason {
 				recurring("")
 			}
 			g.owedByIO(h.id, owed)
-			next(m.Parent.Target(), StepActionItemOf)
 		case *model.Incident:
-			goal(m.Area)
 			add(Reason{Kind: ReasonUpkeep, Title: "incident"})
 		case *model.RFX:
-			goal(m.Project)
 			if m.Direction == model.RFXIn {
 				for _, t := range m.Targets {
 					owed(string(t.To))
 				}
 			}
 			g.owedByIO(h.id, owed)
-			next(m.Parent.Target(), StepActionItemOf)
-		case *model.Question:
-			if !m.IsRoot() {
-				next(m.Scope.Target(), StepAbout)
-			}
 		}
-		for _, u := range g.dependents[h.id] {
-			next(u, StepUnblocks)
+		for _, st := range hp.next {
+			if seen[st.ID] {
+				continue
+			}
+			if _, ok := g.docs[st.ID]; !ok {
+				continue
+			}
+			seen[st.ID] = true
+			queue = append(queue, hop{id: st.ID, via: append(slices.Clone(h.via), st)})
 		}
 	}
 	for i := range out {
