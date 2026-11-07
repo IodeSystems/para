@@ -254,6 +254,11 @@ type Meta struct {
 	CheckedAt       string                `json:"checked_at,omitempty"` // io draft: the last passing pre-send check
 	Held            string                `json:"held,omitempty"`       // io draft: why the pre-send check held it
 	HeldBy          []string              `json:"held_by,omitempty"`
+	Voice           string                `json:"voice,omitempty"` // outgoing io: as_me or for_me
+	Agent           string                `json:"agent,omitempty"` // for_me io draft: the agent that sends it
+	Stamp           string                `json:"stamp,omitempty"`
+	DraftedSeen     string                `json:"drafted_seen,omitempty"`
+	AllowedBy       string                `json:"allowed_by,omitempty"` // io: the delegation rule that lets an agent send it
 	Reply           string                `json:"reply,omitempty"`      // incoming io: its reply obligation
 	ReplyTo         string                `json:"reply_to,omitempty"`   // obligation: the io item it replies to
 	Interested      []string              `json:"interested,omitempty"` // obligation: more people to tell of a change
@@ -348,6 +353,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.SourceStatuses)
 	addEnum(reg, model.Priorities)
 	addEnum(reg, model.IOTriages)
+	addEnum(reg, model.IOVoices)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.AgendaKinds)
 	addEnum(reg, ops.HistoryFilters)

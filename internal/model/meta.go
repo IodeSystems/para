@@ -829,6 +829,20 @@ type IO struct {
 	CheckedAt    string `yaml:"checked_at,omitempty" json:"checked_at,omitempty"`
 	Held         string `yaml:"held,omitempty" json:"held,omitempty"`
 	HeldBy       []Link `yaml:"held_by,omitempty" json:"held_by,omitempty"`
+	// Voice is as_me (empty) or for_me (IOVoice). A for_me draft names the
+	// Agent that sends it (a name, no agent: prefix), ends with Stamp (the
+	// filled stamp para appended), and may carry Kind, a free label that
+	// delegation rules match (scheduling, acknowledgement). DraftedSeen is
+	// the newest at of the incoming messages of its conversation when it was
+	// drafted: io_send_check of a for_me draft counts what came after it.
+	// AllowedBy names the delegation rule that lets the agent send it ("rule
+	// 2 (name)"): set when it is drafted, checked, and sent.
+	Voice       IOVoice `yaml:"voice,omitempty" json:"voice,omitempty"`
+	Agent       string  `yaml:"agent,omitempty" json:"agent,omitempty"`
+	Stamp       string  `yaml:"stamp,omitempty" json:"stamp,omitempty"`
+	Kind        string  `yaml:"kind,omitempty" json:"kind,omitempty"`
+	DraftedSeen string  `yaml:"drafted_seen,omitempty" json:"drafted_seen,omitempty"`
+	AllowedBy   string  `yaml:"allowed_by,omitempty" json:"allowed_by,omitempty"`
 	// Reply links the obligation that holds the owner's reply to an incoming
 	// message that expects one (io.reply_days).
 	Reply Link `yaml:"reply,omitempty" json:"reply,omitempty"`
@@ -855,6 +869,10 @@ type IO struct {
 	// (interaction); the keys of that type stay in the file.
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
+
+// ForMe reports whether the draft goes out for the owner, stamped, without
+// their review.
+func (m *IO) ForMe() bool { return m.Voice == VoiceForMe }
 
 // Logged reports whether the item is a logged contact: what an interaction was.
 func (m *IO) Logged() bool { return m.Date != "" }

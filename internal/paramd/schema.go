@@ -88,6 +88,7 @@ var (
 	sourceSystems      = []string{"mail", "chat", "tracker", "wiki", "calendar", "other", "gmail", "gdocs", "gcal", "slack", "github", "jira", "confluence", "folder"}
 	priorities         = []string{"high", "normal", "low"}
 	ioTriages          = []string{"needs_you", "digest"}
+	ioVoices           = []string{"as_me", "for_me"}
 	sourceVias         = []string{"mcp", "cli", "none"}
 	sourceStatuses     = []string{"active", "paused"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
@@ -416,6 +417,12 @@ var typeFields = map[string][]field{
 		{Name: "checked_at", Kind: kTimestamp},
 		{Name: "held", Kind: kString},
 		{Name: "held_by", Kind: kLinkList},
+		{Name: "voice", Kind: kEnum, Enum: ioVoices}, // outgoing: as_me or for_me (stamped, under a delegation rule)
+		{Name: "agent", Kind: kString},
+		{Name: "stamp", Kind: kString},
+		{Name: "kind", Kind: kString},
+		{Name: "drafted_seen", Kind: kTimestamp},
+		{Name: "allowed_by", Kind: kString},
 		{Name: "reply", Kind: kLink},                   // the reply obligation
 		{Name: "triage", Kind: kEnum, Enum: ioTriages}, // set by a triage rule
 		{Name: "triage_by", Kind: kString},

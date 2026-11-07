@@ -664,6 +664,24 @@ func (IOTriage) Enum() []string { return enumStrings(IOTriages) }
 // IOTriages lists every IOTriage.
 var IOTriages = []IOTriage{TriageNeedsYou, TriageDigest}
 
+// IOVoice is io.voice: whose words an outgoing draft goes out as. as_me
+// (empty is as_me): the owner approves it and it goes out in the owner's
+// name. for_me: an agent sends it without the owner's review, under a
+// delegation rule (.para/delegation.yaml), and the text ends with a stamp
+// that says so (ops/delegation.go).
+type IOVoice string
+
+const (
+	VoiceAsMe  IOVoice = "as_me"
+	VoiceForMe IOVoice = "for_me"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (IOVoice) Enum() []string { return enumStrings(IOVoices) }
+
+// IOVoices lists every IOVoice.
+var IOVoices = []IOVoice{VoiceAsMe, VoiceForMe}
+
 // DocSystem is tracked_doc.system: where the tracked document lives.
 type DocSystem string
 
