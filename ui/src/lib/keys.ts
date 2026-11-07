@@ -24,6 +24,12 @@ export const TABS: Tab[] = [
   },
   { key: '8', to: '/requests', label: 'Asked of agents', hint: 'every piece of agent work' },
   { key: '9', to: '/questions', label: 'Questions' },
+  {
+    key: '0',
+    to: '/obligations',
+    label: 'Obligations',
+    hint: 'what you promised people: meetings, commitments, and recurring ones, with their prep',
+  },
 ]
 
 // Screens with no digit key and no tab: the menu and the Agenda page link to them.
@@ -36,7 +42,6 @@ export const EXTRA_SCREENS: Tab[] = [
     label: 'Sources',
     hint: 'where work comes in and goes out, and who sweeps it',
   },
-  { key: '', to: '/meetings', label: 'Meetings', hint: 'meetings you asked for or booked' },
   { key: '', to: '/friction', label: 'Friction', hint: 'what slows asks down' },
 ]
 

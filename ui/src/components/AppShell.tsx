@@ -13,7 +13,7 @@ import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import RateReviewOutlinedIcon from '@mui/icons-material/RateReviewOutlined'
+import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import TodayIcon from '@mui/icons-material/Today'
 import { OmniBar } from '@/components/OmniBar'
 import { HttpBanner, ReadOnlyBanner } from '@/components/Banners'
@@ -132,18 +132,20 @@ export function AppShell({ session, children }: { session: SessionView; children
         <BottomNavigation
           showLabels
           value={
-            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/receipts'
+            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/obligations'
               ? current.to
               : false
           }
         >
           <LinkBottomNavAction value="/next" label="Next" icon={<PlayArrowIcon />} to="/next" />
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
+          {/* Obligations took the place of Receipts (owner 2026-11-06: a main item); Receipts is
+              in the menu and on key 2. */}
           <LinkBottomNavAction
-            value="/receipts"
-            label="Receipts"
-            icon={<RateReviewOutlinedIcon />}
-            to="/receipts"
+            value="/obligations"
+            label="Obligations"
+            icon={<HandshakeOutlinedIcon />}
+            to="/obligations"
           />
           <LinkBottomNavAction
             value="menu"

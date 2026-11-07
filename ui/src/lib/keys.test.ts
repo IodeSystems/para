@@ -10,6 +10,10 @@ describe('shortcuts', () => {
     expect(press('-')).toBeNull()
     expect(press('10')).toBeNull()
   })
+  it('0 opens Obligations, and Meetings is a filter of it, not a screen', () => {
+    expect(press('0')).toEqual({ kind: 'tab', to: '/obligations' })
+    expect(TABS.some((t) => t.to === '/meetings')).toBe(false)
+  })
   it('/ searches, ? shows help, c opens nothing', () => {
     expect(press('/')).toEqual({ kind: 'search' })
     expect(press('c')).toBeNull()

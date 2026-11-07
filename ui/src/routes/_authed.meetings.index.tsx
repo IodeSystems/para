@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
-// Meetings are obligations now. Old links and bookmarks land on the obligations page.
+// Meetings are obligations now: a filter of the Obligations page. Old links and bookmarks land there.
 export const Route = createFileRoute('/_authed/meetings/')({
   beforeLoad: () => {
-    throw redirect({ to: '/obligations', replace: true })
+    throw redirect({ to: '/obligations', search: { filter: 'meetings' }, replace: true })
   },
 })
