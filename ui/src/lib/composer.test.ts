@@ -3,6 +3,7 @@ import {
   attachmentKind,
   attachmentSrc,
   canSend,
+  draftHints,
   composerKey,
   composerPrompt,
   notable,
@@ -106,5 +107,27 @@ describe('composer on an open question', () => {
     expect(answerState('  ', '')).toEqual({ answer: false, decline: false })
     expect(answerState('', 'EU')).toEqual({ answer: true, decline: false })
     expect(answerState('US, per legal', '')).toEqual({ answer: true, decline: true })
+  })
+})
+
+describe('draftHints', () => {
+  it('is empty with an empty box', () => {
+    expect(draftHints('  ', 0)).toEqual({ note: null, look: null, reason: null })
+  })
+  it('names the words, and the words alone are a reason', () => {
+    const h = draftHints('called Dev', 0)
+    expect(h.note).toBe('Uses what you typed: added to the notes as a dated entry')
+    expect(h.look).toBe('Uses what you typed: added to the notes and sent to the agent')
+    expect(h.reason).toBe('Uses what you typed as the reason')
+  })
+  it('names the files; files alone give no reason', () => {
+    expect(draftHints('', 2)).toEqual({
+      note: 'Uses the 2 files: added to the notes as a dated entry',
+      look: 'Uses the 2 files: added to the notes and sent to the agent',
+      reason: null,
+    })
+    expect(draftHints('x', 1).note).toBe(
+      'Uses what you typed and the file: added to the notes as a dated entry',
+    )
   })
 })

@@ -7,6 +7,8 @@ import Collapse from '@mui/material/Collapse'
 import Popover from '@mui/material/Popover'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
+import Tooltip from '@mui/material/Tooltip'
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import { doneWithNote, investigateWithNote } from '@/api/noted'
 import { revertReceipt } from '@/api/receipts'
 import { useLooking } from '@/api/requests'
@@ -19,6 +21,7 @@ import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
 import { useToasts } from '@/components/ToastStack'
 import { BriefBody } from '@/components/MeetingBrief'
+import { draftHints } from '@/lib/composer'
 import { agendaActions, doneLabel, investigable, openTarget, type DoneKind } from '@/lib/agenda'
 import { briefOpensItself } from '@/lib/brief'
 import { prefersReducedMotion } from '@/lib/toasts'
@@ -55,6 +58,20 @@ function OpenButton({ x }: { x: Row }) {
   }
 }
 
+// DraftHint shows that a button takes what the owner typed in the item's composer: a note icon on
+// the button, and a tooltip that says what happens to the words. With no hint the button is as it
+// is. The span keeps the tooltip working while the button is disabled.
+function DraftHint({ hint, children }: { hint: string | null; children: ReactNode }) {
+  if (!hint) return children
+  return (
+    <Tooltip title={hint}>
+      <span style={{ display: 'inline-flex' }}>{children}</span>
+    </Tooltip>
+  )
+}
+
+const noteIcon = <EditNoteIcon fontSize="small" />
+
 // WordsDone asks for the owner's words before it closes: what came of a meeting (optional), or why
 // an item is dropped (required).
 function WordsDone({
@@ -69,22 +86,27 @@ function WordsDone({
   draft?: string
   onDone: (text: string) => void
 }) {
+  const hint = draft.trim() ? 'Starts from what you typed' : null
   const [at, setAt] = useState<HTMLElement | null>(null)
   const [text, setText] = useState('')
   const meeting = done === 'meeting'
   return (
     <>
-      <Button
-        size="small"
-        data-act="done"
-        disabled={busy}
-        onClick={(e) => {
-          if (draft.trim()) setText(draft.trim())
-          setAt(e.currentTarget)
-        }}
-      >
-        {doneLabel(done)}
-      </Button>
+      <DraftHint hint={hint}>
+        <Button
+          size="small"
+          data-act="done"
+          data-uses-draft={hint ? 'yes' : undefined}
+          disabled={busy}
+          startIcon={hint ? noteIcon : undefined}
+          onClick={(e) => {
+            if (draft.trim()) setText(draft.trim())
+            setAt(e.currentTarget)
+          }}
+        >
+          {doneLabel(done)}
+        </Button>
+      </DraftHint>
       <Popover anchorEl={at} open={!!at} onClose={() => setAt(null)}>
         <Box sx={{ p: 2, width: 320 }} onKeyDown={(e) => e.stopPropagation()}>
           <TextField
@@ -266,7 +288,9 @@ export function useItemActions(
 
 // ItemActions are the Done, Investigate, Later, and Reopen buttons of one item, for a session that
 // may decide. Reopen shows on a closed item; Done, Investigate, and Later on an open one, as its
-// kind allows. Near a composer, Done and Investigate take what the owner typed there as a note.
+// kind allows. Near a composer, Done and Investigate take what the owner typed there as a note,
+// Later and Reopen as the reason; while the box has words, each of them shows a note icon and says
+// so on hover (DraftHint).
 export function ItemActions({
   x,
   closed = false,
@@ -295,6 +319,7 @@ export function ItemActions({
   // its Agent looking chip, and Investigate comes back only to add a note the owner typed.
   const canLook =
     decide && !closed && investigable(x.kind) && (!looking.has(x.id) || !!draft?.text.trim())
+  const hints = draftHints(draft?.text ?? '', draft?.files.length ?? 0)
   return (
     <Stack
       direction="row"
@@ -306,20 +331,55 @@ export function ItemActions({
         <WordsDone busy={busy} done={acts.done} draft={draft?.text} onDone={(t) => void done(t)} />
       )}
       {decide && (acts.done === 'task' || acts.done === 'ask' || acts.done === 'resolve') && (
-        <Button size="small" data-act="done" disabled={busy} onClick={() => void done()}>
-          {doneLabel(acts.done)}
-        </Button>
+        <DraftHint hint={hints.note}>
+          <Button
+            size="small"
+            data-act="done"
+            data-uses-draft={hints.note ? 'yes' : undefined}
+            disabled={busy}
+            startIcon={hints.note ? noteIcon : undefined}
+            onClick={() => void done()}
+          >
+            {doneLabel(acts.done)}
+          </Button>
+        </DraftHint>
       )}
       {canLook && (
-        <Button size="small" data-act="investigate" disabled={busy} onClick={() => void look()}>
-          Investigate
-        </Button>
+        <DraftHint hint={hints.look}>
+          <Button
+            size="small"
+            data-act="investigate"
+            data-uses-draft={hints.look ? 'yes' : undefined}
+            disabled={busy}
+            startIcon={hints.look ? noteIcon : undefined}
+            onClick={() => void look()}
+          >
+            Investigate
+          </Button>
+        </DraftHint>
       )}
-      {decide && acts.later && <LaterButton disabled={busy} onLater={(u) => void putOff(u)} />}
+      {decide && acts.later && (
+        <LaterButton
+          disabled={busy}
+          onLater={(u) => void putOff(u)}
+          startIcon={hints.reason ? noteIcon : undefined}
+          data-uses-draft={hints.reason ? 'yes' : undefined}
+          wrap={(b) => <DraftHint hint={hints.reason}>{b}</DraftHint>}
+        />
+      )}
       {decide && acts.reopen && (
-        <Button size="small" data-act="reopen" disabled={busy} onClick={() => void reopen()}>
-          {closed ? 'Reopen' : 'Bring back'}
-        </Button>
+        <DraftHint hint={hints.reason}>
+          <Button
+            size="small"
+            data-act="reopen"
+            data-uses-draft={hints.reason ? 'yes' : undefined}
+            disabled={busy}
+            startIcon={hints.reason ? noteIcon : undefined}
+            onClick={() => void reopen()}
+          >
+            {closed ? 'Reopen' : 'Bring back'}
+          </Button>
+        </DraftHint>
       )}
       {children}
       {open && <OpenButton x={x} />}

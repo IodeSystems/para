@@ -158,3 +158,22 @@ export function fileLabel(f: { name: string; size: number }): string {
   const size = kb < 1024 ? `${Math.max(1, Math.round(kb))} KB` : `${(kb / 1024).toFixed(1)} MB`
   return `${f.name || 'file'} (${size})`
 }
+
+// draftHints are the hints of each button, from what is in the composer: words, files, or both.
+// null means the box is empty and the buttons act with no words.
+export function draftHints(text: string, files: number) {
+  const words = text.trim() !== ''
+  if (!words && files === 0) return { note: null, look: null, reason: null }
+  const what = [
+    words && 'what you typed',
+    files > 0 && (files === 1 ? 'the file' : `the ${files} files`),
+  ]
+    .filter(Boolean)
+    .join(' and ')
+  return {
+    note: `Uses ${what}: added to the notes as a dated entry`,
+    look: `Uses ${what}: added to the notes and sent to the agent`,
+    // A reason holds no files: Later and Reopen take the words only.
+    reason: words ? 'Uses what you typed as the reason' : null,
+  }
+}
