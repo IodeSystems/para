@@ -478,7 +478,6 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	maps.Copy(cases, streamBIParityCases())
 	seedStreamAPParity(t, deps)
 	maps.Copy(cases, streamAPParityCases())
-	maps.Copy(cases, streamAQParityCases())
 	seedStreamANParity(t, deps)
 	maps.Copy(cases, streamANParityCases())
 	maps.Copy(cases, streamAXParityCases())

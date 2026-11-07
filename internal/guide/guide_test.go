@@ -190,15 +190,6 @@ func TestGuideNamesNextMoves(t *testing.T) {
 	}
 }
 
-func TestGuideNamesFrictionReport(t *testing.T) {
-	text := flat(texts()["extended"])
-	for _, w := range []string{"para report friction", "no per-person view", "evidence", "egress"} {
-		if !strings.Contains(text, w) {
-			t.Errorf("extended lacks %q", w)
-		}
-	}
-}
-
 func TestGuideNamesUpgrades(t *testing.T) {
 	text := flat(texts()["extended"])
 	for _, w := range []string{"para upgrade", "git pull --ff-only", "para changes", "para vault upgrade --dry-run", "format_version", "--undo", "judgement step"} {

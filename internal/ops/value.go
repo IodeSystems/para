@@ -728,6 +728,13 @@ func ageWords(days int) string {
 	return plural(days/30, "month")
 }
 
+func plural(n int, word string) string {
+	if n == 1 {
+		return "1 " + word
+	}
+	return fmt.Sprintf("%d %ss", n, word)
+}
+
 // startOf is the day an item can start and the item that sets it.
 type startOf struct{ day, root string }
 

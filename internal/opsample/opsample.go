@@ -180,7 +180,6 @@ var Inputs = map[string]string{
 	"rfx_show":                  `{"id":"rfx-sample"}`,
 	"rfx_status":                `{"id":"rfx-sample","status":"answered"}`,
 	"rfx_target_add":            `{"id":"rfx-sample","to":"person-sample","medium":"slack"}`,
-	"report_friction":           `{"by":"reason","since":"2026-01-01"}`,
 	"rfx_paths":                 `{"id":"rfx-sample"}`,
 	"rfx_path_add":              `{"id":"rfx-sample","to":"person-sample","medium":"phone","reason":"no_response","why":"No reply by chat in a week.","nudge":"2026-11-12"}`,
 	"rfx_target_state":          `{"id":"rfx-sample","to":"person-sample","state":"sent","date":"2026-11-01"}`,

@@ -110,9 +110,6 @@ func (v foldVault) reads(t *testing.T) map[string]string {
 		}
 	}
 	put("grill_context", []any{probes, g.Rules})
-	f := must(t, ReportFriction, d, FrictionInput{By: "policy"})
-	f.Text = ""
-	put("report_friction", f)
 	return out
 }
 
@@ -122,7 +119,7 @@ func TestReadersSameAfterPolicyDocsFold(t *testing.T) {
 	// The fixture holds what each reader must find.
 	for name, want := range map[string]string{
 		"exception_list": v.exWords, "convention_list": v.convWords, "constraint_list": "No shared log accounts", "route": v.convWords,
-		"recheck": v.exRule, "recheck tag": v.con, "recheck scope": v.con, "rules_in_effect": v.conv, "grill_context": v.con, "report_friction": `"exceptions_hit":1`,
+		"recheck": v.exRule, "recheck tag": v.con, "recheck scope": v.con, "rules_in_effect": v.conv, "grill_context": v.con,
 		"policy_show exceptions": v.exRule,
 	} {
 		if !strings.Contains(before[name], want) {
