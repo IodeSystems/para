@@ -44,6 +44,8 @@ var (
 	sweep string
 	//go:embed loop.txt
 	loop string
+	//go:embed io.txt
+	ioText string
 )
 
 // ruleStart begins the last paragraph of intro.txt: the one rule.
@@ -93,6 +95,11 @@ func Sweep() string { return trim(sweep) + "\n\n" + Rule() }
 // another agent.
 func Loop() string { return trim(loop) + "\n\n" + Rule() }
 
+// IO is the MCP prompt "io" and the skill's io.md: set up the owner's sources,
+// scan them and report what came in, give the numbers per source, and the
+// pre-send check every send follows.
+func IO() string { return trim(ioText) + "\n\n" + Rule() }
+
 // Raglit is `para mcp --help-raglit`: connecting a vault to a raglit daemon
 // for meaning search.
 func Raglit() string { return trim(raglitHelp) }
@@ -103,7 +110,7 @@ func Extended() string { return Intro() + "\n\n" + trim(extended) }
 
 // Skill is SKILL.md for the Agent Skills format, read by Claude Code and dun.
 func Skill() string {
-	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, and policies. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, `/para validate <goal>` to draft or challenge a goal's brief, `/para grill <goal>` to interview the owner on a goal's risks, unknowns, owners, and policies, and `/para recheck <goal|area|task|vault>` to check again what might no longer be true, and `/para track <url>` to follow a remote document's versions and comments, and `/para sweep [source…]` to read the owner's mailboxes, calendars, chats, and trackers with your own tools and bring the vault up to date, and `/para delegate <task>` to hand work to another agent over chat and stage what it would send as the owner for review, and `/para loop` to work the agent queue (sweeps, what the owner asked, other agent work) until it is empty; pair it with `/loop 30m /para loop`.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | grill <goal> | recheck <scope> | track <url> | sweep [source…] | delegate <task> | loop | health]\"\n---\n\n" +
+	return "---\nname: para\ndescription: \"Track what the owner owes and who they wait on, in para vaults: tasks, blockers, open questions and decisions, requests to people, areas, and policies. Use `/para import <folder|file>` to bring notes, goals, or a tracker export into a vault, `/para ingest <url|file|text>` to take in one source, and `/para align <goal|area|vault>` to compare the vault with reality, `/para update <task>` to sort the owner's update on a task, `/para validate <goal>` to draft or challenge a goal's brief, `/para grill <goal>` to interview the owner on a goal's risks, unknowns, owners, and policies, and `/para recheck <goal|area|task|vault>` to check again what might no longer be true, and `/para track <url>` to follow a remote document's versions and comments, and `/para io setup` to set up the owner's mail, chat, wiki, tracker, and calendar sources, `/para io [source…]` (or `/para sweep`) to read them with your own tools, bring the vault up to date, and report what came in and what it became (replies owed are obligations), and `/para io stats` for the numbers per source, and `/para delegate <task>` to hand work to another agent over chat and stage what it would send as the owner for review, and `/para loop` to work the agent queue (sweeps, what the owner asked, other agent work) until it is empty; pair it with `/loop 30m /para loop`.\"\nargument-hint: \"[import <folder|file> | ingest <url|file|text> | align <goal|area|vault> | update <task> | validate <goal> | grill <goal> | recheck <scope> | track <url> | io [setup | stats | source…] | sweep [source…] | delegate <task> | loop | health]\"\n---\n\n" +
 		"# para\n\n" + skillRoute + "\n\n" + trim(skill) + "\n\n" + Orient() + "\n"
 }
 
@@ -116,7 +123,10 @@ const skillRoute = "If the arguments are `import <path>`, read `import.md` besid
 	"If they are `grill <goal>`, read `grill.md` beside this file and follow it for that goal. " +
 	"If they are `validate <goal>`, read `grill.md` and follow its part Brief for that goal. " +
 	"If they are `recheck <scope>`, read `grill.md` and follow its part Recheck for that scope: goal, area, or task ids, or the word vault for all. " +
-	"If they are `sweep`, with or without source ids, read `sweep.md` beside this file and follow it for those sources, or every declared source that is due. " +
+	"If they are `io setup`, read `io.md` beside this file and follow its part Setup. " +
+	"If they are `io stats`, read `io.md` and follow its part Stats. " +
+	"If they are `io`, with or without source ids, read `io.md` and follow its part Scan for those sources, or every declared source that is due. " +
+	"If they are `sweep`, with or without source ids, read `io.md` beside this file and follow its part Scan, as for `io`. " +
 	"If they are `track <url>`, read `sweep.md` and follow its part Tracked documents for that document. " +
 	"If they are `loop`, read `loop.md` beside this file and follow it until the agent queue is empty. " +
 	"If they are `delegate <task>`, read `loop.md` and follow its part Delegate for that task. " +
@@ -131,6 +141,7 @@ const (
 	SkillGrillFile  = "grill.md"
 	SkillSweepFile  = "sweep.md"
 	SkillLoopFile   = "loop.md"
+	SkillIOFile     = "io.md"
 )
 
 // SkillRetired names reference files earlier versions installed beside
@@ -161,6 +172,10 @@ func SkillSweep() string { return Sweep() + "\n" }
 // SkillLoop is the loop, produce, and delegate reference file of the skill.
 // It is the text of the prompt loop.
 func SkillLoop() string { return Loop() + "\n" }
+
+// SkillIO is the io reference file of the skill: setup, scan, stats, and the
+// send rule. It is the text of the prompt io.
+func SkillIO() string { return IO() + "\n" }
 
 // Harness is the setup text for an agent harness, claude or dun. config is the
 // server entries for this install.

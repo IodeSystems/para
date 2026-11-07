@@ -26,7 +26,7 @@ func TestSkillInstallWritesIngestAndAlign(t *testing.T) {
 			t.Errorf("%s still installed: %v", old, err)
 		}
 	}
-	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillLoopFile: guide.SkillLoop()} {
+	for name, want := range map[string]string{guide.SkillIngestFile: guide.SkillIngest(), guide.SkillAlignFile: guide.SkillAlign(), guide.SkillGrillFile: guide.SkillGrill(), guide.SkillSweepFile: guide.SkillSweep(), guide.SkillLoopFile: guide.SkillLoop(), guide.SkillIOFile: guide.SkillIO()} {
 		b, err := os.ReadFile(filepath.Join(dir, "para", name))
 		if err != nil || string(b) != want {
 			t.Errorf("%s differs from the guide text: %v", name, err)
@@ -37,5 +37,10 @@ func TestSkillInstallWritesIngestAndAlign(t *testing.T) {
 	}
 	if !strings.Contains(guide.Skill(), "`ingest <url|file|text>`") || !strings.Contains(guide.Skill(), "`align <goal|area|vault>`") {
 		t.Error("the skill does not name the ingest and align arguments")
+	}
+	for _, arg := range []string{"`/para io setup`", "`/para io stats`", "`/para io [source…]`", "`io setup`", "`io stats`"} {
+		if !strings.Contains(guide.Skill(), arg) {
+			t.Errorf("the skill does not list %s", arg)
+		}
 	}
 }

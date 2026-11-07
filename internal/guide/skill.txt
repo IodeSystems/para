@@ -8,10 +8,11 @@ Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
 empty vault, and `ingest_source` for a transcript. A write that can be
 undone applies at once with a receipt. A change only the owner can decide becomes a
 question (`question_add`). An outward act is an outgoing draft (`io_add` direction out)
-the owner approves; send it with your own tool, then report it with `io_send`.
+the owner approves; right before you send, read the channel again and call
+`io_send_check`; send it with your own tool only when it passes, then report it with `io_send`.
 Each reference file above is also a prompt: import.md is `import_corpus`, ingest.md
 `ingest_source`, align.md `align_vault`, grill.md `grill_goal`, sweep.md `sweep`,
-loop.md `loop`. Repeat the loop with `/loop 30m /para loop`.
+loop.md `loop`, io.md `io`. Repeat the loop with `/loop 30m /para loop`.
 
 Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `request_add` kind owner-ask (title in the owner's words, owner_said their message verbatim, links to the items) and end it with `request_done`. The owner sees it under Asked of agents.
 

@@ -67,6 +67,7 @@ func newSkillCmd() *cobra.Command {
 				{guide.SkillGrillFile, guide.SkillGrill()},
 				{guide.SkillSweepFile, guide.SkillSweep()},
 				{guide.SkillLoopFile, guide.SkillLoop()},
+				{guide.SkillIOFile, guide.SkillIO()},
 			} {
 				extra := filepath.Join(target, f.name)
 				if err := atomicfile.Write(extra, []byte(f.text), 0o644); err != nil {
