@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/atomicfile"
+	"github.com/iodesystems/para/internal/proc"
 )
 
 // StateFile is the dispatch state in the vault's state directory. It holds the
@@ -102,7 +103,7 @@ func (s *State) rollover(day string) {
 func (s *State) live(now time.Time) []Run {
 	var out []Run
 	for _, r := range s.Running {
-		if r.PID > 0 && now.Sub(r.Started) < maxRunAge && pidAlive(r.PID) {
+		if r.PID > 0 && now.Sub(r.Started) < maxRunAge && proc.Alive(r.PID) {
 			out = append(out, r)
 		}
 	}
