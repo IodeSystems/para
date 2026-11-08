@@ -11,6 +11,7 @@ import { useAgenda, useCalendarExport } from '@/api/meetings'
 import { Empty, Section, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { AgendaRow } from '@/components/AgendaActions'
+import { BulkList, SelectBox } from '@/components/BulkSelect'
 import { datedKind } from '@/lib/agenda'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
@@ -108,7 +109,7 @@ export function DatedAgenda() {
               {quietLines}
             </>
           ) : (
-            <>
+            <BulkList ids={a.items.filter((i) => i.kind !== 'pool').map((i) => i.id)}>
               {dates.map((d) => {
                 const items = a.items.filter((i) => i.date === d)
                 return (
@@ -136,6 +137,7 @@ export function DatedAgenda() {
                           >
                             {(actions) => (
                               <ListItem disableGutters>
+                                <SelectBox id={i.id} title={i.title} />
                                 <ListItemText
                                   primary={
                                     i.kind === 'meeting' ? (
@@ -179,7 +181,7 @@ export function DatedAgenda() {
                 )
               })}
               {quietLines}
-            </>
+            </BulkList>
           )
         }}
       </DataState>

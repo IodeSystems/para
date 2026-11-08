@@ -17,6 +17,7 @@ import { useRequests } from '@/api/requests'
 import { useToday } from '@/api/today'
 import { CHIP_ROW, Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
 import { AgendaRow } from '@/components/AgendaActions'
+import { BulkList, SelectBox } from '@/components/BulkSelect'
 import { DataState } from '@/components/DataState'
 import { DatedAgenda } from '@/components/DatedAgenda'
 import { QuestionsView } from '@/components/QuestionsView'
@@ -169,46 +170,50 @@ function AgendaLink({ x }: { x: AgendaItem }) {
 }
 
 // AgendaRows is the one list of what needs you, in value order. Each row says why it is there.
-// The owner acts on a row in the chat. Replies come as one batch, then focus. What cannot start
+// The owner acts on a row in the chat, or selects rows for one decision on all (BulkList). Replies
+// come as one batch, then focus. What cannot start
 // yet comes last, under its own heading.
 function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSummary }) {
   const firstLater = items.findIndex((x) => x.bucket === 'not_yet')
   return (
-    <List dense disablePadding>
-      {items.map((x, i) => [
-        (i === 0 || items[i - 1].group !== x.group) &&
-          groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary) && (
-            <ListSubheader key={`group-${x.group}`} disableGutters sx={{ lineHeight: 2.5 }}>
-              {groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary)}
+    <BulkList ids={items.map((x) => x.id)}>
+      <List dense disablePadding>
+        {items.map((x, i) => [
+          (i === 0 || items[i - 1].group !== x.group) &&
+            groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary) && (
+              <ListSubheader key={`group-${x.group}`} disableGutters sx={{ lineHeight: 2.5 }}>
+                {groupHeading(x.group ?? '', items[i - 1]?.group ?? '', summary)}
+              </ListSubheader>
+            ),
+          i === firstLater && (
+            <ListSubheader key="not-yet" disableGutters sx={{ lineHeight: 2.5 }}>
+              Not yet startable
             </ListSubheader>
           ),
-        i === firstLater && (
-          <ListSubheader key="not-yet" disableGutters sx={{ lineHeight: 2.5 }}>
-            Not yet startable
-          </ListSubheader>
-        ),
-        // Every row here needs you: a meeting row opens its brief.
-        <AgendaRow key={x.id} x={x} needsYou>
-          {(actions) => (
-            <ListItem disableGutters sx={CHIP_ROW}>
-              <ListItemText
-                primary={<AgendaLink x={x} />}
-                secondary={x.why || undefined}
-                slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-              />
-              {x.kind && (
-                <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
-              )}
-              <ReadyChip x={x} />
-              <AgentLooking id={x.id} />
-              <AgentWorking id={x.id} />
-              {x.due && <DueChip due={x.due} />}
-              {actions}
-            </ListItem>
-          )}
-        </AgendaRow>,
-      ])}
-    </List>
+          // Every row here needs you: a meeting row opens its brief.
+          <AgendaRow key={x.id} x={x} needsYou>
+            {(actions) => (
+              <ListItem disableGutters sx={CHIP_ROW}>
+                <SelectBox id={x.id} title={x.title} />
+                <ListItemText
+                  primary={<AgendaLink x={x} />}
+                  secondary={x.why || undefined}
+                  slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
+                />
+                {x.kind && (
+                  <StatusChip tone={x.kind === 'incident' ? 'bad' : 'quiet'} label={x.kind} />
+                )}
+                <ReadyChip x={x} />
+                <AgentLooking id={x.id} />
+                <AgentWorking id={x.id} />
+                {x.due && <DueChip due={x.due} />}
+                {actions}
+              </ListItem>
+            )}
+          </AgendaRow>,
+        ])}
+      </List>
+    </BulkList>
   )
 }
 

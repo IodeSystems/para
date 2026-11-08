@@ -139,6 +139,11 @@ const REVIEW_MUTATIONS = new Set([
   // or a reason in words), Remove, and Make optional / Make required change one dependency
   // (depends_set, the owner's own edit); the owner wants to see and mark blockers optional.
   'DependsSet',
+  // owner 2026-11-08: bulk actions. Select on the agenda and task lists picks rows; Done, Drop,
+  // Later, and Reopen apply to all of them (bulk): a dry run first shows what would change and what
+  // is refused, then each item runs the verb's own op with its receipt, and Undo takes the batch
+  // back (bulk undo). The owner repeated one decision on about 45 items one at a time.
+  'Bulk',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

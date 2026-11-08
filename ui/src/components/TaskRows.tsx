@@ -10,6 +10,7 @@ import { Empty, StateChip, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemActions } from '@/components/AgendaActions'
+import { BulkList, SelectBox } from '@/components/BulkSelect'
 import { isClosed, splitDone } from '@/lib/agenda'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { dueLabel, dueState } from '@/lib/due'
@@ -62,7 +63,8 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
 }
 
 // showProject adds the project name under each task, for lists that mix projects. Done and
-// dropped tasks are hidden until Show done; each row has Done, Later, or Reopen.
+// dropped tasks are hidden until Show done; each row has Done, Later, or Reopen, and Select picks
+// rows for one decision on all of them (BulkList).
 export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
   const questions = useQuestions({ deferred: true })
   const [showDone, setShowDone] = useState(false)
@@ -76,58 +78,63 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
   return (
     <>
       {shown.length === 0 && <Empty>No open task.</Empty>}
-      <List dense disablePadding>
-        {shown.map((t) => {
-          const open = !isClosed(t.status)
-          return (
-            <ListItem key={t.id} disableGutters divider sx={{ display: 'block' }}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                <ListItemText
-                  primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
-                  secondary={
-                    [
-                      showProject && t.project ? nameOr(t.projectName, t.project) : undefined,
-                      waitingOn(t, waits),
-                      open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,
-                    ]
-                      .filter(Boolean)
-                      .join(' - ') || undefined
-                  }
-                  slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-                />
-                <ItemActions
-                  x={{ id: t.id, title: t.title, kind: 'task' }}
-                  closed={!open}
-                  deferred={!!t.deferred}
-                  open={false}
-                />
-              </Stack>
-              <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
-                {t.status !== 'todo' && <StateChip state={t.status} />}
-                {t.due && open && <DueChip due={t.due} />}
-                {t.deferred && (
-                  <StatusChip
-                    tone="quiet"
-                    label={laterLabel(
-                      t.deferUntil || (t.waitsOn?.length ? null : 'someday'),
-                      t.waitsOn,
-                      t.waitsOnNames,
-                    )}
+      <BulkList ids={shown.map((t) => t.id)}>
+        <List dense disablePadding>
+          {shown.map((t) => {
+            const open = !isClosed(t.status)
+            return (
+              <ListItem key={t.id} disableGutters divider sx={{ display: 'block' }}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                  <SelectBox id={t.id} title={t.title} />
+                  <ListItemText
+                    primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
+                    secondary={
+                      [
+                        showProject && t.project ? nameOr(t.projectName, t.project) : undefined,
+                        waitingOn(t, waits),
+                        open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,
+                      ]
+                        .filter(Boolean)
+                        .join(' - ') || undefined
+                    }
+                    slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
-                )}
-                {t.outcome && t.outcome !== 'done' && <StatusChip tone="quiet" label={t.outcome} />}
-                <AgentLooking id={t.id} />
-                <AgentWorking id={t.id} />
-                {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
-                {t.assignee && (
-                  <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
-                )}
-                <ItemDates created={t.created} updated={t.updated} />
-              </Stack>
-            </ListItem>
-          )
-        })}
-      </List>
+                  <ItemActions
+                    x={{ id: t.id, title: t.title, kind: 'task' }}
+                    closed={!open}
+                    deferred={!!t.deferred}
+                    open={false}
+                  />
+                </Stack>
+                <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
+                  {t.status !== 'todo' && <StateChip state={t.status} />}
+                  {t.due && open && <DueChip due={t.due} />}
+                  {t.deferred && (
+                    <StatusChip
+                      tone="quiet"
+                      label={laterLabel(
+                        t.deferUntil || (t.waitsOn?.length ? null : 'someday'),
+                        t.waitsOn,
+                        t.waitsOnNames,
+                      )}
+                    />
+                  )}
+                  {t.outcome && t.outcome !== 'done' && (
+                    <StatusChip tone="quiet" label={t.outcome} />
+                  )}
+                  <AgentLooking id={t.id} />
+                  <AgentWorking id={t.id} />
+                  {t.recur && <StatusChip tone="quiet" label={`repeats ${t.recur}`} />}
+                  {t.assignee && (
+                    <StatusChip tone="quiet" label={`with ${nameOr(t.assigneeName, t.assignee)}`} />
+                  )}
+                  <ItemDates created={t.created} updated={t.updated} />
+                </Stack>
+              </ListItem>
+            )
+          })}
+        </List>
+      </BulkList>
       {doneRows.length > 0 && (
         <Button
           size="small"
