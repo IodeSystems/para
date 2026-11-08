@@ -28,6 +28,12 @@ const WorkDoc = graphql(/* GraphQL */ `
             status
             project
             projectName
+            partOf {
+              kind
+              via
+              id
+              title
+            }
             area
             areaName
             due

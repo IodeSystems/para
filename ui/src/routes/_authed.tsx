@@ -4,6 +4,7 @@ import { AppShell } from '@/components/AppShell'
 import { Keyboard } from '@/components/Keyboard'
 import { Overlays } from '@/components/Overlays'
 import { ToastProvider } from '@/components/ToastStack'
+import { ThemeReviewProvider } from '@/components/ThemeReview'
 import { dropSession, ensureSession, signingOut } from '@/client/auth'
 import { UNAUTHORIZED_EVENT } from '@/client/gqlClient'
 import { useLiveRefresh } from '@/client/live'
@@ -45,11 +46,13 @@ function Authed() {
   }, [navigate])
   return (
     <ToastProvider>
-      <AppShell session={session}>
-        <Outlet />
-        <Keyboard />
-        <Overlays />
-      </AppShell>
+      <ThemeReviewProvider>
+        <AppShell session={session}>
+          <Outlet />
+          <Keyboard />
+          <Overlays />
+        </AppShell>
+      </ThemeReviewProvider>
     </ToastProvider>
   )
 }

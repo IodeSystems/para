@@ -15,6 +15,7 @@ import { Markdown } from '@/components/Markdown'
 import { nameOr } from '@/lib/names'
 import { QuestionRows } from '@/components/Questions'
 import { TaskRows } from '@/components/TaskRows'
+import { ItemsUnder, underGoalOnly } from '@/components/ItemsUnder'
 import { ConceptLinks } from '@/components/AreaLinks'
 import { RulesInEffect } from '@/components/RulesInEffect'
 import { Assumptions, Risks } from '@/components/RisksAssumptions'
@@ -71,8 +72,9 @@ function ProjectPage() {
           <PointerLinks links={d.project.links} />
           <RulesInEffect rules={d.rules} />
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
-            <TaskRows tasks={d.tasks} />
+            <TaskRows tasks={d.tasks} omit={id} />
           </Section>
+          <ItemsUnder theme={id} hide={underGoalOnly} />
           <Section title="Questions" count={d.questions.length} hideEmpty>
             <QuestionRows list={d.questions} />
           </Section>

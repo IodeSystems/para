@@ -30,6 +30,7 @@ import { Markdown } from '@/components/Markdown'
 import { BriefBody } from '@/components/MeetingBrief'
 import { PoolCard } from '@/components/Pools'
 import { DueChip } from '@/components/TaskRows'
+import { PartOfLine } from '@/components/PartOf'
 import { useToasts } from '@/components/ToastStack'
 import { proposedText } from '@/lib/answer'
 import type { NextKey } from '@/lib/keys'
@@ -237,6 +238,11 @@ function Card({
         {x.reason && (
           <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
             {x.reason}
+          </Typography>
+        )}
+        {(x.partOf?.length ?? 0) > 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+            <PartOfLine parts={x.partOf} />
           </Typography>
         )}
         <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', my: 1 }}>

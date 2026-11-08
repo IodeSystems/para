@@ -92,7 +92,7 @@ function Tasks({ w }: { w: WorkData }) {
               </Stack>
             }
           >
-            <TaskRows tasks={byProject.get(p.id) ?? []} />
+            <TaskRows tasks={byProject.get(p.id) ?? []} omit={p.id} />
           </Section>
         ))}
       {bare.length > 0 && (

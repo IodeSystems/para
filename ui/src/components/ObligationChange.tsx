@@ -17,6 +17,7 @@ import { revertReceipt } from '@/api/receipts'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { useToasts } from '@/components/ToastStack'
+import { useThemeReview } from '@/components/ThemeReview'
 import {
   ACTION_WORDS,
   changeBody,
@@ -82,6 +83,7 @@ function ChangeDialog({
 }) {
   const toasts = useToasts()
   const qc = useQueryClient()
+  const review = useThemeReview()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
   const set = (p: Partial<ChangeForm>) => setForm({ ...form, ...p })
@@ -95,6 +97,15 @@ function ChangeDialog({
     setBusy(true)
     setErr('')
     try {
+      // A cancel of an obligation that open items hang on opens the review: Confirm cancels it
+      // with the owner's drops and moves as one batch.
+      if (
+        form.action === 'cancel' &&
+        (await review({ theme: x.id, title: name, end: { kind: 'change', change: body } }))
+      ) {
+        setForm(null)
+        return
+      }
       const out = await obligationChange(body)
       setForm(null)
       await qc.invalidateQueries()

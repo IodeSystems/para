@@ -11,6 +11,7 @@ import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { ItemContext } from '@/components/ItemContext'
 import { ObligationHub } from '@/components/ObligationHub'
+import { ItemsUnder } from '@/components/ItemsUnder'
 import { DocLink, RfxLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody, FileNotesButton } from '@/components/MeetingBrief'
@@ -51,6 +52,7 @@ function ObligationPage() {
             </Stack>
             <ItemContext id={id} />
             <ObligationHub id={id} />
+            <ItemsUnder theme={id} />
             <Section title="Owed to" count={o.with.length}>
               {o.with.length === 0 ? (
                 <Empty>Nobody is named.</Empty>
@@ -102,6 +104,7 @@ function MeetingDetail({ id }: { id: string }) {
             </Stack>
             <ItemContext id={id} />
             <ObligationHub id={id} />
+            <ItemsUnder theme={id} />
             <Section title="With" count={m.with.length + m.attendees.length}>
               {m.with.length + m.attendees.length === 0 ? (
                 <Empty>Nobody is named yet.</Empty>

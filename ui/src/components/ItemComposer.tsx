@@ -14,6 +14,7 @@ import { useItemActions } from '@/components/AgendaActions'
 import { Composer, type ComposerAction } from '@/components/Composer'
 import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
+import { useThemeReview } from '@/components/ThemeReview'
 import { investigable, isClosed, rowKind } from '@/lib/agenda'
 import {
   answerState,
@@ -59,6 +60,7 @@ export function ItemComposer({
   const asking = openQuestion(meta)
   const qn = useQuestion(id, asking).data?.question
   const review = useQuestionReview()
+  const themeReview = useThemeReview()
   const [choice, setChoice] = useState('')
   const options = asking ? (qn?.options ?? []) : []
   // now is when the page opened: the prompt does not change while the owner types.
@@ -139,6 +141,8 @@ export function ItemComposer({
       setChoice('')
       await qc.invalidateQueries()
       onSent?.()
+      // What waited on the question may be moot now: the owner reviews it (only drops and moves).
+      void themeReview({ theme: id, title: name, end: { kind: 'closed' } }).catch(() => false)
       return true
     } catch (e) {
       return fail('answer', e)

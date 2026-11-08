@@ -27,6 +27,12 @@ const OrderDoc = graphql(/* GraphQL */ `
             readyRef
             created
             updated
+            partOf {
+              kind
+              via
+              id
+              title
+            }
           }
           summary {
             reply

@@ -13,6 +13,7 @@ import { Section, StatusChip } from '@/components/Bits'
 import { Dependencies } from '@/components/Dependencies'
 import { DocLink } from '@/components/DocLink'
 import { TextLink } from '@/components/links'
+import { PartOfLinks } from '@/components/PartOf'
 import { forGroups, roleLabel } from '@/lib/context'
 
 // ItemContext is the block at the top of an item page that says what the item is for: where it
@@ -36,6 +37,11 @@ function ContextBody({ c }: { c: ItemContextData }) {
   return (
     <Section title="Context">
       <Stack spacing={0.75} data-context={c.id}>
+        {(c.partOf?.length ?? 0) > 0 && (
+          <Line label="Part of" data="part-of">
+            <PartOfLinks parts={c.partOf} full />
+          </Line>
+        )}
         {c.cameFrom.length > 0 && (
           <Line label="Came from">
             {c.cameFrom.map((f, i) => (

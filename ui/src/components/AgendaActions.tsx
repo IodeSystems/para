@@ -19,6 +19,8 @@ import { useItemDraft } from '@/components/ItemDraft'
 import { LinkButton } from '@/components/links'
 import { LaterButton } from '@/components/stack/LaterButton'
 import { useToasts } from '@/components/ToastStack'
+import { useThemeReview } from '@/components/ThemeReview'
+import { reviewsOnClose } from '@/lib/theme'
 import { BriefBody } from '@/components/MeetingBrief'
 import { draftHints } from '@/lib/composer'
 import { agendaActions, doneLabel, investigable, openTarget, type DoneKind } from '@/lib/agenda'
@@ -158,6 +160,7 @@ export function useItemActions(
   const toasts = useToasts()
   const qc = useQueryClient()
   const draft = useItemDraft(x.id)
+  const review = useThemeReview()
   const [busy, setBusy] = useState(false)
   const name = x.title || x.id
   const acts = agendaActions(x.kind, closed, deferred)
@@ -199,6 +202,22 @@ export function useItemActions(
   const done = (words?: string, files?: File[]) =>
     run('done', async () => {
       const text = words ?? draft?.text.trim() ?? ''
+      // Closing a theme that open items hang on opens the review instead: the owner decides on
+      // each, and Confirm closes the theme with them as one batch.
+      const outcome = acts.done === 'drop' ? 'dropped' : undefined
+      if (
+        reviewsOnClose(x.kind, outcome) &&
+        (await review({
+          theme: x.id,
+          title: name,
+          end: { kind: 'close', outcome, reason: text || undefined },
+          onDone: () => {
+            draft?.clear()
+            onGone(true)
+          },
+        }))
+      )
+        return
       const r = await doneWithNote({
         id: x.id,
         done: acts.done,

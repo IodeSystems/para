@@ -28,6 +28,12 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       readyRef
       at
       attend
+      partOf {
+        kind
+        via
+        id
+        title
+      }
     }
   }
 `)

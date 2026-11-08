@@ -25,6 +25,8 @@ import { DocLink, RfxLink } from '@/components/DocLink'
 import { LinkButton, TextLink } from '@/components/links'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { DueChip } from '@/components/TaskRows'
+import { PartOfLine } from '@/components/PartOf'
+import type { PartRef } from '@/lib/partof'
 import { WaitingSection } from '@/components/Waiting'
 import { OptionalLine, SkippedLine } from '@/components/MeetingAttend'
 import { PoolsDue } from '@/components/Pools'
@@ -124,6 +126,7 @@ type AgendaItem = Item & {
   ready?: boolean | null
   readyKind?: string | null
   readyRef?: string | null
+  partOf?: PartRef[] | null
 }
 
 // ReadyChip marks a row an agent prepared and that has not changed since. One click opens what was
@@ -197,7 +200,14 @@ function AgendaRows({ items, summary }: { items: AgendaItem[]; summary: OrderSum
                 <SelectBox id={x.id} title={x.title} />
                 <ListItemText
                   primary={<AgendaLink x={x} />}
-                  secondary={x.why || undefined}
+                  secondary={
+                    x.why || x.partOf?.length ? (
+                      <>
+                        {x.why}
+                        <PartOfLine parts={x.partOf} />
+                      </>
+                    ) : undefined
+                  }
                   slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                 />
                 {x.kind && (

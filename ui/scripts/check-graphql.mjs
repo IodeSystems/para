@@ -144,6 +144,11 @@ const REVIEW_MUTATIONS = new Set([
   // is refused, then each item runs the verb's own op with its receipt, and Undo takes the batch
   // back (bulk undo). The owner repeated one decision on about 45 items one at a time.
   'Bulk',
+  // owner 2026-11-08: owner approved theme-end review. Closing a goal, an obligation, or a question
+  // that items hang on opens a review list: each item Drop or Keep (Keep may move it to an area),
+  // Drop the rest / Keep the rest, and nothing changes until Confirm. Confirm closes the theme and
+  // applies the drops and moves as one batch (theme_close, a person op): one Undo.
+  'ThemeClose',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

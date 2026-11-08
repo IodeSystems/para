@@ -31,6 +31,12 @@ const ContextDoc = graphql(/* GraphQL */ `
           looking
           later
           laterRef
+          partOf {
+            kind
+            via
+            id
+            title
+          }
           waitsOn {
             ...DepRowFields
           }

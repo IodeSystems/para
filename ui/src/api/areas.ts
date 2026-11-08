@@ -22,6 +22,12 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     doneWhen
     created
     updated
+    partOf {
+      kind
+      via
+      id
+      title
+    }
   }
 `)
 

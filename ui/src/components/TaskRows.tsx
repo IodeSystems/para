@@ -11,6 +11,8 @@ import { DocLink } from '@/components/DocLink'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemActions } from '@/components/AgendaActions'
 import { BulkList, SelectBox } from '@/components/BulkSelect'
+import { PartOfLine } from '@/components/PartOf'
+import type { PartRef } from '@/lib/partof'
 import { isClosed, splitDone } from '@/lib/agenda'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
 import { dueLabel, dueState } from '@/lib/due'
@@ -38,6 +40,7 @@ export type TaskRow = {
   waitsOnNames?: string[] | null
   created?: string | null
   updated?: string | null
+  partOf?: PartRef[] | null
 }
 
 // DueChip shows a due date. Overdue is red, due today or soon is amber, later is gray.
@@ -63,10 +66,20 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
   return after.length ? `after ${after.join(', ')}` : undefined
 }
 
-// showProject adds the project name under each task, for lists that mix projects. Done and
+// Each row says what the task is part of (its parent, obligation, goal, tags), as links; omit leaves
+// out the page the list is on, such as a goal page's own goal. showProject is the older plain
+// project name, for a row with no Part of. Done and
 // dropped tasks are hidden until Show done; each row has Done, Later, or Reopen, and Select picks
 // rows for one decision on all of them (BulkList).
-export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject?: boolean }) {
+export function TaskRows({
+  tasks,
+  showProject,
+  omit,
+}: {
+  tasks: TaskRow[]
+  showProject?: boolean
+  omit?: string
+}) {
   const questions = useQuestions({ deferred: true })
   const [showDone, setShowDone] = useState(false)
   // task id -> titles of the open questions it waits on
@@ -90,13 +103,18 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                   <ListItemText
                     primary={<DocLink id={t.id}>{t.title || t.id}</DocLink>}
                     secondary={
-                      [
-                        showProject && t.project ? nameOr(t.projectName, t.project) : undefined,
-                        waitingOn(t, waits),
-                        open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,
-                      ]
-                        .filter(Boolean)
-                        .join(' - ') || undefined
+                      <>
+                        <PartOfLine parts={t.partOf} omit={omit} />
+                        {[
+                          showProject && t.project && !t.partOf?.length
+                            ? nameOr(t.projectName, t.project)
+                            : undefined,
+                          waitingOn(t, waits),
+                          open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,
+                        ]
+                          .filter(Boolean)
+                          .join(' - ') || null}
+                      </>
                     }
                     slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
