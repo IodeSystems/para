@@ -20,10 +20,14 @@ func convert(in []paramd.Finding) []model.Finding {
 }
 
 // lintFile is paramd.Lint plus the dossier blocks of a proposal body
-// (model.LintDossier), which paramd cannot import.
+// (model.LintDossier), which paramd cannot import. A closed or superseded
+// proposal is a record no one acts on: its blocks are not linted.
 func lintFile(f *paramd.File) []paramd.Finding {
 	out := paramd.Lint(f)
 	if f.Type() != string(model.TypeProposal) || !model.IsDossier(f.Body) {
+		return out
+	}
+	if s, _ := f.Frontmatter["status"].(string); s == string(model.ProposalClosed) || s == string(model.ProposalSuperseded) {
 		return out
 	}
 	for _, d := range model.LintDossier(f.Body) {

@@ -214,6 +214,7 @@ func registerRequests(r *registrar) {
 func registerProposals(r *registrar) {
 	reg(r, ops.ProposalList, get, read)
 	reg(r, ops.ProposalShow, get, read)
+	reg(r, ops.ProposalRetire, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ProposalExecuted, post, write)
 	reg(r, ops.StackLaterOp, post, netguard.ScopeReviewDecide)
 	reg(r, ops.StackReturn, post, netguard.ScopeReviewDecide)

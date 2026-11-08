@@ -15,7 +15,7 @@ import (
 // newProposalCmd builds `para proposal`: dossiers are read-only records since
 // vault format 8. executed is an alias of io_send for one release.
 func newProposalCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "proposal", Short: "Old dossiers, read-only: list and show them", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "proposal", Short: "Old dossiers, read-only: list and show them; retire one nothing runs", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.ProposalList, binding[ops.ProposalListInput, ops.ProposalListOutput]{
 			Use:  "list",
@@ -39,6 +39,40 @@ func newProposalCmd(l *loader) *cobra.Command {
 			Text: proposalDetailText,
 		}),
 		newOpenCmd(l, "open <id|url>"),
+		opCommand(l, ops.ProposalRetire, binding[ops.ProposalRetireInput, ops.ProposalRetireOutput]{
+			Use:  "retire [<id>...] [--all-applied] [--note <why>] [--dry-run]",
+			Args: cobra.ArbitraryArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.ProposalRetireInput) {
+				fs.BoolVar(&in.AllApplied, "all-applied", false, "every open proposal whose open items are all staged changes already made by a direct write")
+				fs.StringVar(&in.Note, "note", "", "why, one line (default: pre-0.3.0 proposal: nothing runs it)")
+				fs.BoolVar(&in.DryRun, "dry-run", false, "list what it would do and change nothing")
+			},
+			Bind: func(args []string, in *ops.ProposalRetireInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.ProposalRetireOutput) error {
+				p := &printer{w: w}
+				did := "retired"
+				if out.DryRun {
+					did = "would retire"
+				}
+				for _, r := range out.Rows {
+					what := did
+					if !r.Retired {
+						what = "skipped: " + r.Skipped
+					}
+					p.f("%s\t%s\t%s\n", r.ID, what, r.Title)
+					for _, it := range r.Open {
+						state := "not applied"
+						if it.Applied != "" {
+							state = "applied, " + it.Applied
+						} else if it.Op == "" {
+							state = "not carried out"
+						}
+						p.f("  %s\t%s %s\t%s\n", it.ID, it.Kind, it.Op, state)
+					}
+				}
+				return p.err
+			},
+		}),
 		opCommand(l, ops.ProposalExecuted, binding[ops.ProposalExecutedInput, ops.ProposalExecutedOutput]{
 			Use:  "executed <id> <item> done",
 			Args: cobra.ExactArgs(3),

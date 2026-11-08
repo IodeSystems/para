@@ -132,6 +132,7 @@ type ParaV1MutationNamespace {
   projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
   projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
+  proposalRetire(body: para_ProposalRetireInputInput!): para_ProposalRetireOutput @derived(operationId: "proposalRetire")
   publishSet(body: para_PublishSetInputInput!): para_PublishSetOutput @derived(operationId: "publishSet")
   questionAdd(body: para_QuestionAddInputInput!): para_QuestionAddOutput @derived(operationId: "questionAdd")
   questionAnswer(body: para_QuestionAnswerInputInput!): para_QuestionAnswerOutput @derived(operationId: "questionAnswer")
@@ -6031,6 +6032,18 @@ type para_ProposalListOutput {
   items: [para_ProposalView!]!
 }
 
+input para_ProposalRetireInputInput {
+  allApplied: Boolean
+  dryRun: Boolean
+  ids: [String!]
+  note: String
+}
+
+type para_ProposalRetireOutput {
+  dryRun: Boolean
+  rows: [para_RetireRow!]!
+}
+
 type para_ProposalView {
   created: String!
   error: String
@@ -7308,6 +7321,22 @@ enum para_RequestViewStatus {
   failed
   proposed
   queued
+}
+
+type para_RetireItem {
+  applied: String
+  id: String!
+  kind: String!
+  op: String
+}
+
+type para_RetireRow {
+  id: String!
+  open: [para_RetireItem!]!
+  retired: Boolean!
+  skipped: String
+  status: String!
+  title: String!
 }
 
 enum para_RetryDecideInputAction {

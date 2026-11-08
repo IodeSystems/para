@@ -234,6 +234,7 @@ var Inputs = map[string]string{
 	"request_changes":           `{"id":"request-finished"}`,
 	"proposal_executed":         `{"id":"proposal-moved","item":"i1","result":"done","url":"https://acme.example/m/3","observed":true}`,
 	"proposal_show":             `{"id":"proposal-sample"}`,
+	"proposal_retire":           `{"ids":["proposal-sample"],"dry_run":true}`,
 	"proposal_open":             `{"id":"proposal-sample"}`,
 	"dossier_refile":            `{"proposal":"proposal-sample","item":"i1","dropped":"Not needed now."}`,
 }

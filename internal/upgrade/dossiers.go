@@ -453,3 +453,24 @@ func RefileItem(d model.Document, item, result, dropped string) (model.Document,
 	}
 	return renderDossier(d, dz)
 }
+
+// OpenItems is the items of an open dossier that still wait on someone (the
+// owner, an agent, or their turn), or nil when d is not an open dossier
+// that reads.
+func OpenItems(d model.Document) []model.ProposalItem {
+	_, dz := openDossier(d)
+	if dz == nil {
+		return nil
+	}
+	var out []model.ProposalItem
+	for _, it := range dz.Items {
+		if itemOpen(it) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+// IsStaged reports whether an item is a staged change: a write para no
+// longer runs, the judgement part of step dossiers.
+func IsStaged(it model.ProposalItem) bool { return moveOf(it) == MoveStaged }

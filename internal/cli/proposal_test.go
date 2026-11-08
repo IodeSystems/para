@@ -48,6 +48,7 @@ func proposalParityCases() (map[string]parityCase, map[string]string) {
 	return map[string]parityCase{
 		"proposal_list":     {`{}`, []string{"proposal", "list"}, false},
 		"proposal_show":     {`{"id":"proposal-pe"}`, []string{"proposal", "show", "proposal-pe"}, false},
+		"proposal_retire":   {`{"ids":["proposal-pe"],"dry_run":true}`, []string{"proposal", "retire", "proposal-pe", "--dry-run"}, false},
 		"proposal_open":     {`{"id":"proposal-pe"}`, []string{"proposal", "open", "proposal-pe"}, false},
 		"proposal_executed": {`{"id":"proposal-pe","item":"i1","result":"done","url":"https://acme.example/1"}`, []string{"proposal", "executed", "proposal-pe", "i2", "done", "--url", "https://acme.example/2"}, false},
 	}, map[string]string{}
