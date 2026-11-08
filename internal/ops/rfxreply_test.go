@@ -116,7 +116,7 @@ func TestRFXReplyRejects(t *testing.T) {
 		{"empty text", RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyAnswered}, "text"},
 		{"not a target", RFXReplyInput{ID: id, From: "person-cy-example", Outcome: ReplyAnswered, Text: "x"}, "no target"},
 		{"several mediums", RFXReplyInput{ID: id, From: "person-ada-example", Outcome: ReplyAnswered, Text: "x"}, "pass via"},
-		{"why on answered", RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyAnswered, Text: "x", Why: "r"}, "outcome no only"},
+		{"says on answered", RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyAnswered, Text: "x", Says: "r"}, "outcome no only"},
 		{"bad date", RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyAnswered, Text: "x", Date: "11/01"}, "date"},
 	}
 	for _, c := range cases {
@@ -126,6 +126,8 @@ func TestRFXReplyRejects(t *testing.T) {
 			}
 		})
 	}
+	// An agent's why (the write's reason) is taken on any outcome.
+	must(t, RFXReply, d, RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyAnswered, Text: "Yes, done.", Why: "logging the reply"})
 	// Via picks one of several mediums.
 	must(t, RFXReply, d, RFXReplyInput{ID: id, From: "person-ada-example", Via: "slack", Outcome: ReplyPartial, Text: "Half of it."})
 }

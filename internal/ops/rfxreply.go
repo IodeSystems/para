@@ -47,7 +47,7 @@ type RFXReplyInput struct {
 	Text      string       `json:"text"`                 // the reply, or your summary of it; first line is the title
 	URL       string       `json:"url,omitempty"`        // link to the original reply; required for no unless the target has a ref URL
 	Date      string       `json:"date,omitempty"`       // YYYY-MM-DD; default the local date
-	Why       string       `json:"why,omitempty"`        // outcome no: the reason given, one line
+	Why       string       `json:"why,omitempty"`        // outcome no: the reason given, one line; on another outcome it is only the write's reason (an agent's why)
 	Says      string       `json:"says,omitempty"`       // outcome no: the no itself, one line; default "No: <request title>"
 	AppliesIn []string     `json:"applies_in,omitempty"` // outcome no: scopes where it holds
 	NotIn     []string     `json:"not_in,omitempty"`     // outcome no: scopes where it does not
@@ -114,8 +114,10 @@ var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target repl
 	if tgt.State == model.TargetReplied {
 		return RFXReplyOutput{}, fmt.Errorf("%s already replied", from)
 	}
-	if in.Outcome != ReplyNo && (in.Why != "" || in.Says != "" || in.ReviewBy != "" || len(in.AppliesIn) > 0 || len(in.NotIn) > 0) {
-		return RFXReplyOutput{}, errors.New("why, says, applies_in, not_in, and review_by apply to outcome no only")
+	// why is not refused here: over MCP it is also the reason every agent write
+	// must carry, so an agent always sends it.
+	if in.Outcome != ReplyNo && (in.Says != "" || in.ReviewBy != "" || len(in.AppliesIn) > 0 || len(in.NotIn) > 0) {
+		return RFXReplyOutput{}, errors.New("says, applies_in, not_in, and review_by apply to outcome no only")
 	}
 	qsources, err := replySources(ctx, d, m, in)
 	if err != nil {

@@ -803,7 +803,7 @@ func unblockedBy(ctx context.Context, s store.Store, id string) ([]string, error
 
 // QuestionAnswer records the answer of an open question and marks it answered.
 // Tasks that depend on it can start at once.
-var QuestionAnswer = defineSafe("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent this only proposes an answer: cite at least one source (a URL or vault document id, with a quote); the owner accepts or rejects it, and the question stays open until then. A person may add sources too, and may use free text such as a meeting", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
+var QuestionAnswer = defineSafe("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent the answer is final, as any write: cite at least one source (a URL or vault document id, with a quote; the owner's words in the chat are the source owner in chat), and the owner can undo it from the receipt. When you are not sure, do not answer: add what you found to the question's notes, or ask the owner in the chat. A person may add sources too, and may use free text such as a meeting", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	return resolveQuestion(ctx, d, in)
 })
 
