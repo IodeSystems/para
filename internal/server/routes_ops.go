@@ -225,6 +225,7 @@ func registerProposals(r *registrar) {
 	// owner_said). Owner 2026-11-06: PU-PREP.
 	reg(r, ops.IOApprove, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentActivity, get, read)
+	reg(r, ops.AgentList, get, read)
 }
 
 // registerReceipts: a receipt is read with vault:read. Checking one and

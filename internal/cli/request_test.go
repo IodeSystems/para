@@ -15,6 +15,7 @@ import (
 var requestParityCases = map[string]parityCase{
 	"request_add":     {`{"ask":"Parity ask"}`, []string{"request", "add", "Parity ask"}, false},
 	"request_list":    {`{}`, []string{"request", "list"}, true},
+	"agent_list":      {`{}`, []string{"agent", "list"}, true},
 	"request_show":    {`{"id":"request-show"}`, []string{"request", "show", "request-show"}, true},
 	"request_cancel":  {`{"id":"request-c1"}`, []string{"request", "cancel", "request-c2"}, false},
 	"request_accept":  {`{"id":"request-p1"}`, []string{"request", "accept", "request-p2"}, false},

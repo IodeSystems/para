@@ -207,6 +207,7 @@ type ParaV1QueryNamespace {
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
   agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
   agentActivity(actor: String, limit: Int, since: String): para_AgentActivityOutput @derived(operationId: "agentActivity")
+  agentList: para_AgentListOutput @derived(operationId: "agentList")
   alignScope(
     """meetings from this date or time; default 7 days ago"""
     from: String
@@ -413,6 +414,30 @@ type para_AgendaOutput {
 
 type para_AgentActivityOutput {
   items: [para_ActivityRow!]!
+}
+
+type para_AgentClaim {
+  claimedAt: String
+  id: String!
+  kind: String
+  title: String!
+}
+
+type para_AgentListOutput {
+  agents: [para_AgentRow!]!
+  noListener: Boolean!
+  queuedCount: Int!
+}
+
+type para_AgentRow {
+  actor: String!
+  claims: [para_AgentClaim!]!
+  client: String
+  lastCallAt: String
+  pid: Int!
+  push: [String!]!
+  startedAt: String!
+  version: String
 }
 
 input para_AgentSendInputInput {

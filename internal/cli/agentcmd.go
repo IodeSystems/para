@@ -2,11 +2,13 @@ package cli
 
 import (
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // agentStatusOutput is the output of para agent status.
@@ -58,7 +60,7 @@ func newAgentCmd(l *loader) *cobra.Command {
 			"It is never in the vault. See para mcp --help-claude and para mcp --help-dun.",
 		Args: cobra.NoArgs,
 	}
-	cmd.AddCommand(newActivityCmd(l), agentSourcesCmd(l))
+	cmd.AddCommand(newActivityCmd(l), agentSourcesCmd(l), agentListCmd(l))
 	cmd.AddCommand(agentSendCmds(l)...)
 	status := &cobra.Command{
 		Use:   "status",
@@ -83,4 +85,31 @@ func newAgentCmd(l *loader) *cobra.Command {
 	addJSONFlag(status)
 	cmd.AddCommand(status)
 	return cmd
+}
+
+// agentListCmd prints the agents connected to the vault on this machine.
+func agentListCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.AgentList, binding[ops.AgentListInput, ops.AgentListOutput]{
+		Use:  "list",
+		Args: cobra.NoArgs,
+		Text: func(w io.Writer, out ops.AgentListOutput) error {
+			p := &printer{w: w}
+			for _, a := range out.Agents {
+				client := strings.TrimSpace(a.Client + " " + a.Version)
+				p.f("%s\t%s\tpid %d\tsince %s\tlast call %s\tpush %s\n", a.Actor, firstNonEmpty(client, "unknown client"), a.PID,
+					a.StartedAt, firstNonEmpty(a.LastCallAt, "none"), strings.Join(a.Push, ","))
+				for _, c := range a.Claims {
+					p.f("  holds\t%s\t%s\t%s\n", c.ID, c.ClaimedAt, c.Title)
+				}
+			}
+			if len(out.Agents) == 0 {
+				p.f("no agent is connected on this machine\n")
+			}
+			p.f("queued\t%d\n", out.QueuedCount)
+			if out.NoListener {
+				p.f("warning\t%d queued, and no agent is connected on this machine. Start one, or run /para loop.\n", out.QueuedCount)
+			}
+			return p.err
+		},
+	})
 }
