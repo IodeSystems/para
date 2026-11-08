@@ -81,10 +81,9 @@ func fileRetry[I any](ctx context.Context, d Deps, opName string, in I, err erro
 }
 
 var (
-	retryOpRe    = regexp.MustCompile(`(?m)^Op: (\S+)$`)
-	retryActorRe = regexp.MustCompile(`(?m)^Actor: (.+)$`)
-	retryHashRe  = regexp.MustCompile(`(?m)^Input hash: (\S+)$`)
-	backtickRun  = regexp.MustCompile("`+")
+	retryOpRe   = regexp.MustCompile(`(?m)^Op: (\S+)$`)
+	retryHashRe = regexp.MustCompile(`(?m)^Input hash: (\S+)$`)
+	backtickRun = regexp.MustCompile("`+")
 )
 
 // retryActive: a retry-write request that still waits for an agent or the owner.
@@ -98,6 +97,29 @@ func retryActive(r *model.Request) bool {
 	return false
 }
 
+// retryFailedHold is how long a failed retry-write request still holds its
+// input: the same refusal in that time files nothing.
+const retryFailedHold = 24 * time.Hour
+
+// retryHolds: a retry-write request that is active, or failed within
+// retryFailedHold of now.
+func retryHolds(r *model.Request, now time.Time) bool {
+	if retryActive(r) {
+		return true
+	}
+	if r.Status != model.RequestFailed {
+		return false
+	}
+	t, err := time.Parse(time.RFC3339Nano, firstOf(r.ActiveAt, r.Queued))
+	return err == nil && now.Sub(t) < retryFailedHold
+}
+
+// retryHash is the input hash a retry-write request records.
+func retryHash(raw []byte) string {
+	sum := sha256.Sum256(raw)
+	return hex.EncodeToString(sum[:8])
+}
+
 func fileRetryRequest(ctx context.Context, d Deps, opName string, input map[string]any, lint *model.LintError) (id string, filed bool, err error) {
 	actor := d.Store.Info().Actor
 	raw, err := marshalNoEscape(input)
@@ -105,7 +127,7 @@ func fileRetryRequest(ctx context.Context, d Deps, opName string, input map[stri
 		return "", false, err
 	}
 	sum := sha256.Sum256(raw)
-	hash := hex.EncodeToString(sum[:8])
+	hash := retryHash(raw)
 	docs, err := loadRequests(ctx, d.Store)
 	if err != nil {
 		return "", false, err
@@ -116,7 +138,10 @@ func fileRetryRequest(ctx context.Context, d Deps, opName string, input map[stri
 		if r.Kind != RetryWriteKind {
 			continue
 		}
-		if retryActive(r) && field(retryOpRe, doc.Body) == opName && field(retryActorRe, doc.Body) == actor && field(retryHashRe, doc.Body) == hash {
+		// One request per op and input, whoever sent it: the same input fails
+		// the same way, so a request still open, or one that failed in the
+		// last day, already holds it.
+		if retryHolds(r, now) && field(retryOpRe, doc.Body) == opName && field(retryHashRe, doc.Body) == hash {
 			return doc.ID, false, nil
 		}
 		if t, err := time.Parse(time.RFC3339Nano, r.Queued); err == nil && t.In(now.Location()).Format(dateLayout) == now.Format(dateLayout) {
@@ -258,6 +283,9 @@ var RetryPropose = defineSafe("retry_propose", "For a retry-write request you cl
 	raw, err := marshalNoEscape(in.Input)
 	if err != nil {
 		return RetryProposeOutput{}, err
+	}
+	if retryHash(raw) == field(retryHashRe, doc.Body) {
+		return RetryProposeOutput{}, errors.New("input is the same input lint refused: change what the findings name, or close the request")
 	}
 	links, err := requestLinks(ctx, d, "links", in.Links)
 	if err != nil {

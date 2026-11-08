@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 )
@@ -273,5 +274,65 @@ func TestRetryDecideRunsOnlyAgentWrites(t *testing.T) {
 	proposeFix(t, agent, id, "Plan")
 	if _, err := RetryDecide.Run(ctx, person, RetryDecideInput{Request: id, Action: RetryAccept}); err == nil || !strings.Contains(err.Error(), "only a write an agent may call") {
 		t.Fatalf("ran a person op: %v", err)
+	}
+}
+
+// Steps set with doc_edit go through the same pre-write check as task_add and
+// task_edit: refused before the write, so nothing lands.
+func TestDocEditFieldTextLintedBeforeTheWrite(t *testing.T) {
+	rv := newReqVault(t)
+	person := rv.as("user", "cli", "inst-a")
+	agent := rv.as("agent-1", "mcp", "inst-a")
+	area := must(t, AreaAdd, person, AreaAddInput{Title: "Ops"}).ID
+	task := must(t, TaskAdd, person, TaskAddInput{Area: area, Title: "Rotate the key", DoneWhen: "Rotated.", Steps: "1. Open the console"})
+	for _, f := range []map[string]any{
+		{"steps": "1. Run it on <date>\n2. Check"},
+		{"do_command": "rotate --on <date>"},
+		{"done_when": "Rotated on <date>."},
+	} {
+		_, err := DocEdit.Run(ctx, agent, DocEditInput{ID: task.ID, Fields: f})
+		var lint *model.LintError
+		if !errors.As(err, &lint) {
+			t.Fatalf("%v: want a lint refusal, got %v", f, err)
+		}
+	}
+	doc, tk, err := getTask(ctx, person.Store, task.ID)
+	if err != nil || tk.Steps != "1. Open the console" || tk.DoCommand != "" || tk.DoneWhen != "Rotated." || doc.Rev != task.Rev {
+		t.Fatalf("the refused write landed: %+v %v", tk, err)
+	}
+	// Code is not raw HTML: the same text in backticks is accepted.
+	must(t, DocEdit, agent, DocEditInput{ID: task.ID, Fields: map[string]any{"steps": "1. Run it on `<date>`"}})
+	mustLintClean(t, person)
+}
+
+// One request per op and input: another agent's identical refusal, or the
+// same refusal right after its request failed, files nothing.
+func TestRetryRequestNotFiledAgainForTheSameInput(t *testing.T) {
+	rv := newReqVault(t)
+	agent := rv.as("agent-1", "mcp", "inst-a")
+	other := rv.as("agent-2", "mcp", "inst-a")
+	refuse(t, agent, "Plan")
+	first := retryRequests(t, agent)[0].ID
+	if err := refuse(t, other, "Plan"); !strings.Contains(err.Error(), "already filed as agent work "+first) {
+		t.Fatalf("other actor: %v", err)
+	}
+	id := claimRetry(t, agent)
+	// A proposal that repeats the refused input is refused.
+	same := map[string]any{"title": "Plan", "body": "Plan:\n\n<heading>Big</heading>\n"}
+	if _, err := RetryPropose.Run(ctx, agent, RetryProposeInput{Request: id, Input: same, Why: "Same."}); err == nil || !strings.Contains(err.Error(), "same input") {
+		t.Fatalf("propose of the refused input: %v", err)
+	}
+	must(t, RequestFail, agent, RequestFailInput{ID: id, Reason: "Cannot fix it."})
+	if err := refuse(t, agent, "Plan"); !strings.Contains(err.Error(), "already filed as agent work "+first) {
+		t.Fatalf("after fail: %v", err)
+	}
+	if n := len(retryRequests(t, agent)); n != 1 {
+		t.Fatalf("%d requests, want 1", n)
+	}
+	// A day later the failure is old: the same input is filed again.
+	rv.advance(25 * time.Hour)
+	refuse(t, agent, "Plan")
+	if n := len(retryRequests(t, agent)); n != 2 {
+		t.Fatalf("a day after: %d requests, want 2", n)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"regexp"
 	"slices"
 	"strings"
@@ -373,7 +374,7 @@ var journalBlockRe = regexp.MustCompile(`(?s)%% para:begin .*? %%.*?%% para:end 
 var ErrStale = errors.New("the document changed since you opened it; open it again and redo the edit")
 
 // DocEdit changes the title, body, or declared fields of a document.
-var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript, tracked_doc); not id, type, status, or generated text. A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
+var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript, tracked_doc); not id, type, status, or generated text. Text in fields is linted like a body before the write (raw HTML such as <date> is refused; put it in backticks). A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
 	if in.Title == nil && in.Body == nil && len(in.Fields) == 0 {
 		return DocEditOutput{}, errors.New("doc_edit: nothing to edit: give title, body, or fields")
 	}
@@ -410,6 +411,14 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 				names[i] = f.Name
 			}
 			return DocEditOutput{}, fmt.Errorf("doc_edit: %q is not an editable field of a %s; editable: %s", k, typ, strings.Join(names, ", "))
+		}
+	}
+	// Field text gets the check task_add and task_edit give it: lint of the
+	// file reads only the body, so text in a field is checked here, before
+	// the write.
+	for _, k := range slices.Sorted(maps.Keys(in.Fields)) {
+		if err := lintValue(k, in.Fields[k]); err != nil {
+			return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
 		}
 	}
 	oldBody := doc.Body

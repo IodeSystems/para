@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -71,6 +72,34 @@ func lintText(field, text string) error {
 		Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}})
 	if err != nil {
 		return fmt.Errorf("%s: %w", field, err)
+	}
+	return nil
+}
+
+// lintValue is lintText of every string in a field value: a string, or the
+// strings in a list or a map, at any depth.
+func lintValue(field string, v any) error {
+	switch x := v.(type) {
+	case string:
+		return lintText(field, x)
+	case []any:
+		for i, e := range x {
+			if err := lintValue(fmt.Sprintf("%s[%d]", field, i), e); err != nil {
+				return err
+			}
+		}
+	case []string:
+		for i, e := range x {
+			if err := lintText(fmt.Sprintf("%s[%d]", field, i), e); err != nil {
+				return err
+			}
+		}
+	case map[string]any:
+		for _, k := range slices.Sorted(maps.Keys(x)) {
+			if err := lintValue(field+"."+k, x[k]); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
