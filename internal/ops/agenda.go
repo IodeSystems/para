@@ -83,6 +83,8 @@ type AgendaItem struct {
 	Project  string   `json:"project,omitempty"` // a task's project or area
 	// ProjectName is the title of Project, for people.
 	ProjectName string `json:"project_name,omitempty" nameof:"Project"`
+	// PartOf is what the item is part of, nearest first (theme.go).
+	PartOf []PartOfRef `json:"part_of,omitempty" partof:"ID"`
 	// Optional and Attend are a meeting's attendance: an optional meeting
 	// the owner has not said they go to shows quietly.
 	Optional bool         `json:"optional,omitempty"`

@@ -18,6 +18,10 @@ import (
 // a slice, with "" where nothing is known. The id fields stay as they are, so an
 // agent that works in ids is not affected. Names are a convenience for people:
 // a failed lookup leaves them empty and never fails the op.
+//
+// A field of type []PartOfRef tagged `partof:"Sibling"` is filled the same way
+// with what the document the sibling names is part of (theme.go): its parent,
+// obligations and questions, goal, and tags, nearest first.
 
 var namesNeeded sync.Map // reflect.Type -> bool
 
@@ -45,6 +49,9 @@ func scanNames(t reflect.Type, seen map[reflect.Type]bool) bool {
 			if _, ok := f.Tag.Lookup("nameof"); ok {
 				return true
 			}
+			if _, ok := f.Tag.Lookup("partof"); ok {
+				return true
+			}
 			if f.IsExported() && scanNames(f.Type, seen) {
 				return true
 			}
@@ -58,6 +65,18 @@ type namer struct {
 	ctx    context.Context
 	s      store.Store
 	titles map[string]string
+	parts  *partIndex
+}
+
+// partOf is what the document id names is part of.
+func (n *namer) partOf(id string) []PartOfRef {
+	if n.s == nil {
+		return []PartOfRef{}
+	}
+	if n.parts == nil {
+		n.parts = newPartIndex(n.ctx, n.s)
+	}
+	return n.parts.partOfID(id)
 }
 
 func (n *namer) load() {
@@ -110,6 +129,10 @@ func (n *namer) cutID(frag string, prefix bool) string {
 	return found
 }
 
+// FillNames fills every nameof and partof field below v, a pointer, for a
+// view that is not an op's output (the Today screen).
+func FillNames(ctx context.Context, s store.Store, v any) { fillNames(ctx, s, v) }
+
 // fillNames fills every nameof field below v, which is a pointer.
 func fillNames(ctx context.Context, s store.Store, v any) {
 	rv := reflect.ValueOf(v)
@@ -141,6 +164,12 @@ func fillValue(n *namer, v reflect.Value) {
 			}
 			if spec, ok := f.Tag.Lookup("nameof"); ok {
 				fillOne(n, v, v.Field(i), spec)
+				continue
+			}
+			if spec, ok := f.Tag.Lookup("partof"); ok {
+				if ids, ok := sourceIDs(v, spec); ok && len(ids) > 0 && v.Field(i).CanSet() {
+					v.Field(i).Set(reflect.ValueOf(n.partOf(ids[0])))
+				}
 				continue
 			}
 			if needsNames(f.Type) {

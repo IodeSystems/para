@@ -100,6 +100,8 @@ type TaskView struct {
 	ParentName     string   `json:"parent_name,omitempty" nameof:"Parent"`
 	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
 	WithNames      []string `json:"with_names,omitempty" nameof:"With"`
+	// PartOf is what the task is part of, nearest first (theme.go).
+	PartOf []PartOfRef `json:"part_of,omitempty" partof:"ID"`
 }
 
 func taskView(d model.Document) (TaskView, error) {

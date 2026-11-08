@@ -131,6 +131,7 @@ func registerUI(r *registrar) {
 			}
 			for _, v := range rep.Vaults {
 				if v.Vault == b.t.id {
+					ops.FillNames(ctx, b.t.store, &v)
 					return &uiTodayOutput{Body: UITodayBody{Date: rep.Date, Today: v}}, nil
 				}
 			}

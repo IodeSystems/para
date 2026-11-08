@@ -273,6 +273,8 @@ type ValueRow struct {
 	Proposal bool   `json:"proposal,omitempty"` // an answer waits to be checked
 	// Bucket is now (actionable now) or not_yet (not yet startable).
 	Bucket string `json:"bucket"`
+	// PartOf is what the item is part of, nearest first (theme.go).
+	PartOf []PartOfRef `json:"part_of,omitempty" partof:"ID"`
 	// Starts is the day a not_yet item can start. After is the item it waits
 	// on, when that and not the item itself sets the day.
 	Starts string `json:"starts,omitempty"`

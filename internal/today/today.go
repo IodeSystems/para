@@ -61,6 +61,9 @@ type Item struct {
 	Scope       string   `json:"scope,omitempty"`
 	ScopeName   string   `json:"scope_name,omitempty"`
 	With        []string `json:"with,omitempty"`
+	// PartOf is what the item is part of, nearest first; the server fills
+	// it (ops.FillNames).
+	PartOf []ops.PartOfRef `json:"part_of,omitempty" partof:"ID"`
 	// At is the start of a meeting (RFC 3339); Attend is the owner's answer
 	// (yes, no, maybe, or empty), on the Optional and Skipped groups.
 	At     string       `json:"at,omitempty"`

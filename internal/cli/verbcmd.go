@@ -24,7 +24,20 @@ func verbText(w io.Writer, out ops.VerbOutput) error {
 	if out.Receipt != "" {
 		p.f("receipt\t%s\n", out.Receipt)
 	}
+	hangingText(p, id, out.Hanging)
 	return p.err
+}
+
+// hangingText prints the open items that still hang on what a close closed,
+// and how to decide on them.
+func hangingText(p *printer, id string, items []ops.ThemeItem) {
+	if len(items) == 0 {
+		return
+	}
+	for _, it := range items {
+		p.f("hangs on it\t%s\t%s\t%s\n", it.ID, it.Title, it.WhyText)
+	}
+	p.f("decide on them: para theme close %s --drop <id,...> --keep <id,...>, or para bulk\n", firstNonEmpty(id, "<id>"))
 }
 
 // laterText prints what later put off and until when: a date, an item it

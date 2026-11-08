@@ -196,6 +196,7 @@ type ParaV1MutationNamespace {
   taskToAsks(body: para_TaskToAsksInputInput!): para_TaskToAsksOutput @derived(operationId: "taskToAsks")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
+  themeClose(body: para_ThemeCloseInputInput!): para_ThemeCloseOutput @derived(operationId: "themeClose")
   triageRun(body: para_TriageRunInputInput!): para_TriageRunOutput @derived(operationId: "triageRun")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
@@ -332,6 +333,7 @@ type ParaV1QueryNamespace {
   tagList: para_TagListOutput @derived(operationId: "tagList")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
+  themeItems(theme: String!): para_ThemeItemsOutput @derived(operationId: "themeItems")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
@@ -377,6 +379,7 @@ type para_AgendaItem {
   needsYou: Boolean!
   optional: Boolean
   overdue: Boolean!
+  partOf: [para_PartOfRef!]
   project: String
   projectName: String
   reason: String
@@ -3815,6 +3818,7 @@ type para_ItemContextOutput {
   later: String
   laterRef: String
   looking: String
+  partOf: [para_PartOfRef!]!
   reasons: [para_Reason!]!
   title: String!
   type: para_ItemContextOutputType!
@@ -5382,6 +5386,13 @@ type para_ParaOnly {
   status: String!
   title: String!
   with: [String!]!
+}
+
+type para_PartOfRef {
+  id: String!
+  kind: String!
+  title: String!
+  via: String!
 }
 
 type para_PartRef {
@@ -8845,6 +8856,7 @@ type para_TaskView {
   outcome: para_TaskViewOutcome
   parent: String
   parentName: String
+  partOf: [para_PartOfRef!]
   previous: String
   project: String!
   projectName: String
@@ -8932,6 +8944,90 @@ enum para_TaskViewStatus {
   todo
 }
 
+input para_ThemeCloseInputInput {
+  change: para_ObligationChangeInputInput
+  drop: [String!]
+  dropReason: String
+  fields: JSON
+  keep: [para_ThemeKeepInput!]
+  outcome: String
+  reason: String
+  theme: String!
+}
+
+type para_ThemeCloseOutput {
+  applied: Int!
+  batch: String
+  closed: String
+  items: [para_BulkItem!]!
+  left: [String!]!
+  receipt: String
+  refused: Int!
+  result: JSON
+  theme: String!
+}
+
+type para_ThemeItem {
+  id: String!
+  kind: String
+  life: para_ThemeItemLife!
+  partOf: [para_PartOfRef!]!
+  title: String!
+  type: para_ThemeItemType!
+  why: [String!]!
+  whyText: String!
+}
+
+enum para_ThemeItemLife {
+  closed
+  later
+  open
+}
+
+enum para_ThemeItemType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  tracked_doc
+  transcript
+}
+
+type para_ThemeItemsOutput {
+  items: [para_ThemeItem!]!
+  kind: String!
+  open: Boolean!
+  theme: String!
+  title: String!
+}
+
+input para_ThemeKeepInput {
+  area: String
+  id: String!
+}
+
 type para_TimelineDay {
   date: String!
   hours: Float!
@@ -8981,6 +9077,7 @@ type para_TodayItem {
   group: String
   id: String!
   kind: String
+  partOf: [para_PartOfRef!]
   prep: Boolean
   project: String
   projectName: String
@@ -9216,6 +9313,7 @@ type para_ValueRow {
   needsYou: Boolean!
   owed: Boolean
   parent: String
+  partOf: [para_PartOfRef!]
   prep: Boolean
   proposal: Boolean
   ready: Boolean
@@ -9280,6 +9378,8 @@ type para_VaultUpgradeOutput {
 }
 
 type para_VerbOutput {
+  hanging: [para_ThemeItem!]
+  hangingNote: String
   op: String!
   receipt: String
   result: JSON!

@@ -72,7 +72,11 @@ type VerbOutput struct {
 	Op      string         `json:"op"`
 	Receipt string         `json:"receipt,omitempty"`
 	Result  map[string]any `json:"result"`
-	raw     any
+	// Hanging are the open items that hang on what close closed (a goal, an
+	// obligation, a question), with HangingNote: the owner decides on them.
+	Hanging     []ThemeItem `json:"hanging,omitempty"`
+	HangingNote string      `json:"hanging_note,omitempty"`
+	raw         any
 }
 
 // newRoute builds a route to op with input as JSON.
@@ -167,10 +171,25 @@ const CloseDescription = "Close any item with an outcome. It runs the close op o
 	"reason goes where the op keeps one (note, notes, reason, or text); an op with none refuses it. " +
 	"fields are the op's other inputs (task_resolve link, follow_ups, declined_by, source, tried, to; meeting_hold replies, answers, actions; project_close force; rfx_close playbook; io_done url, locator, text, at). " +
 	"evidence, when given, must be one the owner can open: an http(s) URL, a vault id or path, an absolute path or ~/path to a file on this machine, or via {source, ref} with verify; free text alone is refused. " +
-	"Outputs op (the op that ran) and result (its output); on a person's surface also receipt, which receipt_revert undoes"
+	"Outputs op (the op that ran) and result (its output); on a person's surface also receipt, which receipt_revert undoes. " +
+	"Closing a goal, obligation, or question also outputs hanging: the open items that still hang on it (as theme_items lists them); ask the owner what becomes of each, never drop them yourself"
 
-// Close closes any item by its type's close op.
-var Close = defineVerb("close", CloseDescription, RiskReview, closeRoute)
+// Close closes any item by its type's close op. Closing a theme lists the
+// open items that hang on it (hanging), so an agent asks the owner about them.
+var Close = func() *Op[CloseInput, VerbOutput] {
+	op := defineVerb("close", CloseDescription, RiskReview, closeRoute)
+	inner := op.fn
+	op.fn = func(ctx context.Context, d Deps, in CloseInput) (VerbOutput, error) {
+		out, err := inner(ctx, d, in)
+		if err == nil {
+			if out.Hanging = hanging(ctx, d, in.ID); len(out.Hanging) > 0 {
+				out.HangingNote = HangingNote
+			}
+		}
+		return out, err
+	}
+	return op
+}()
 
 // put sets m[k] to v when v is not empty.
 func put(m map[string]any, k string, v any) {

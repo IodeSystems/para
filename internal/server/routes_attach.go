@@ -42,6 +42,10 @@ func registerAttachments(r *registrar) {
 	// bulk runs one of those verbs (or depends_set) per item, each under the
 	// same Authorize.
 	reg(r, ops.Bulk, post, netguard.ScopeReviewDecide)
+	// theme_close closes a theme and drops or moves what hangs on it, each
+	// part by its own op under the same Authorize; person only.
+	reg(r, ops.ThemeClose, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ThemeItems, get, read)
 	reg(r, ops.SendToAgent, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Show, get, read)
 	reg(r, ops.List, get, read)
