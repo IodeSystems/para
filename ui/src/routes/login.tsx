@@ -46,7 +46,7 @@ function Login() {
   const [busy, setBusy] = useState(false)
 
   const origin = window.location.origin
-  const command = `para key create <device> --url ${origin} --scope vault:read --scope review:decide`
+  const command = `para key create <device> --url ${origin} --scope web`
   const go = (s: Parameters<typeof homeFor>[0]) =>
     void navigate({ href: redirect ?? homeFor(s), replace: true })
 

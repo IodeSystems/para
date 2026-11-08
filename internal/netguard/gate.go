@@ -7,10 +7,12 @@ package netguard
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -40,6 +42,49 @@ const (
 
 // Scopes lists every scope a key can be given.
 var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSend, ScopeRequestQueue, ScopeRequestRun, ScopeReviewDecide}
+
+// ScopeSets are names for groups of scopes, for a person creating a key. A key
+// stores the scopes a set expands to, never the set's name, so a later change
+// to a set does not change a key made before it.
+//   - web: the web app, as the owner uses it (what para serve login grants).
+//   - agent: an agent that reads and writes the vault, drafts asks, and works
+//     the agent queue. It cannot mark an ask sent or decide for the owner.
+//   - admin: every scope a key can hold. It is not the admin token, whose
+//     powers no key gets.
+var ScopeSets = map[string][]string{
+	"web":   {ScopeVaultRead, ScopeReviewDecide},
+	"agent": {ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRequestQueue, ScopeRequestRun},
+	"admin": Scopes,
+}
+
+// ScopeSetNames are the names of ScopeSets, in the order help text lists them.
+var ScopeSetNames = []string{"web", "agent", "admin"}
+
+// ExpandScopes replaces each set name with its scopes and checks the rest,
+// keeping the first place of each scope.
+func ExpandScopes(in []string) ([]string, error) {
+	var out []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	for _, s := range in {
+		if set, ok := ScopeSets[s]; ok {
+			for _, v := range set {
+				add(v)
+			}
+			continue
+		}
+		if !slices.Contains(Scopes, s) {
+			return nil, fmt.Errorf("netguard: unknown scope %q: one of %s, or a set: %s", s, strings.Join(Scopes, ", "), strings.Join(ScopeSetNames, ", "))
+		}
+		add(s)
+	}
+	return out, nil
+}
 
 // Errors a Tenant returns from Authenticate.
 var (

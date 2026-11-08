@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
 	"github.com/iodesystems/para/internal/ops"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/server"
@@ -64,13 +65,23 @@ func TestKeyCommands(t *testing.T) {
 	if !strings.HasPrefix(url, "http://acme.localhost:7700/#token=para_web_") {
 		t.Errorf("url: %s", url)
 	}
+	for set, want := range map[string]string{
+		"web":   "vault:read,review:decide",
+		"agent": "vault:read,vault:write,rfx:draft,request:queue,request:run",
+		"admin": strings.Join(netguard.Scopes, ","),
+	} {
+		e.ok("key", "create", "set-"+set, "--scope", set, "--scope", "vault:read")
+		if !strings.Contains(e.ok("key", "list"), "set-"+set+"\t"+want+"\t") {
+			t.Errorf("--scope %s: want %s in %s", set, want, e.ok("key", "list"))
+		}
+	}
 	e.ok("key", "revoke", "agent")
 	if !strings.Contains(e.ok("key", "list"), "revoked") {
 		t.Error("not revoked")
 	}
 	for _, bad := range [][]string{
 		{"key", "create", "x"},
-		{"key", "create", "x", "--scope", "admin"},
+		{"key", "create", "x", "--scope", "everything"},
 		{"key", "create", "x", "--scope", "nope"},
 		{"key", "create", "admin", "--scope", "vault:read"},
 		{"key", "create", "x", "--scope", "vault:read", "--ttl", "soon"},

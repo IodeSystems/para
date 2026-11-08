@@ -85,10 +85,9 @@ func newKeyCreateCmd(l *loader) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			for _, s := range scopes {
-				if !validScope(s) {
-					return fmt.Errorf("key: unknown scope %q: one of %s", s, strings.Join(netguard.Scopes, ", "))
-				}
+			scopes, err := netguard.ExpandScopes(scopes)
+			if err != nil {
+				return fmt.Errorf("key: %w", err)
 			}
 			d, err := parseTTL(ttl)
 			if err != nil {
@@ -122,21 +121,12 @@ func newKeyCreateCmd(l *loader) *cobra.Command {
 	}
 	addJSONFlag(cmd)
 	f := cmd.Flags()
-	f.StringArrayVar(&scopes, "scope", nil, "scope to grant (repeatable): "+strings.Join(netguard.Scopes, ", "))
+	f.StringArrayVar(&scopes, "scope", nil, "scope to grant (repeatable): "+strings.Join(netguard.Scopes, ", ")+"; or a set: web (the web app), agent (an agent's reads and writes), admin (every scope a key can hold)")
 	f.StringArrayVar(&allowIP, "allow-ip", nil, "address or CIDR this key can come from (repeatable)")
 	f.StringVar(&ttl, "ttl", "", "life of the key: 720h or 30d (default: no expiry)")
 	f.BoolVar(&printURL, "print-url", false, "print a sign-in URL with the token in its fragment")
 	f.StringVar(&base, "url", "", "the vault's address, such as https://life.example.com: the key is for the vault its host names (and the base of --print-url)")
 	return cmd
-}
-
-func validScope(s string) bool {
-	for _, v := range netguard.Scopes {
-		if v == s {
-			return true
-		}
-	}
-	return false
 }
 
 func newKeyListCmd(l *loader) *cobra.Command {

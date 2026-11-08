@@ -62,7 +62,7 @@ func opener(goos string, getenv func(string) string, lookPath func(string) (stri
 }
 
 // loginScopes are the scopes of a browser login key.
-var loginScopes = []string{netguard.ScopeVaultRead, netguard.ScopeReviewDecide}
+var loginScopes = netguard.ScopeSets["web"]
 
 // viewer returns the deps hooks that find this machine's para serve for vault
 // id and open its pages. With signIn (the owner at the CLI), a page of this
