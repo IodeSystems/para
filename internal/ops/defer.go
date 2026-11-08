@@ -71,9 +71,9 @@ type DeferInput struct {
 	// (title and done_when the same text, compared without case, spacing, or
 	// end punctuation) and lists the items in its body, or makes one. Give
 	// After or When, not both. Place is the goal or area of a new task; it
-	// defaults to the item's own, and a root question needs it. New makes the
-	// task even when a similar open task exists; the items put off are never
-	// a similar match.
+	// defaults to the item's own, and a root question needs it. New always makes
+	// a new task, even when an open task has the same or a similar condition;
+	// the items put off are never a similar match.
 	After string `json:"after,omitempty"`
 	When  string `json:"when,omitempty"`
 	Place string `json:"place,omitempty"`
@@ -360,14 +360,15 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		self[normID(id)] = true
 	}
 	// The same condition has one task: an open one is reused, and lists the
-	// new waiters.
-	if doc, ok, err := openCondition(ctx, d, when, self); err != nil || ok {
+	// new waiters. Force (new) always makes one.
+	if !force {
+		doc, ok, err := openCondition(ctx, d, when, self)
 		if err != nil {
 			return "", false, nil, err
 		}
-		return doc.ID, false, nil, addWaiters(ctx, d, doc, ids)
-	}
-	if !force {
+		if ok {
+			return doc.ID, false, nil, addWaiters(ctx, d, doc, ids)
+		}
 		sim, err := FindSimilar(ctx, d.Store, model.TypeTask, when, "")
 		if err != nil {
 			return "", false, nil, err

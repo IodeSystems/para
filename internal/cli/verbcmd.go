@@ -134,7 +134,7 @@ func newVerbCmds(l *loader) []*cobra.Command {
 			fs.StringVar(&in.After, "after", "", "id of an item to wait for")
 			fs.StringVar(&in.When, "when", "", "a condition in words: makes a task that the items wait on")
 			fs.StringVar(&in.Place, "place", "", "goal or area of the task --when makes")
-			fs.BoolVar(&in.New, "new", false, "with --when: make the task even when a similar open task exists")
+			fs.BoolVar(&in.New, "new", false, "with --when: always make a new task, even when an open task has the same or a similar condition")
 			fs.StringVar(&in.Reason, "reason", "", "why it can wait")
 			fs.StringVar(&in.Scope, "scope", "", "a goal or area: every open question in it that blocks nothing")
 			fs.StringVar(&in.Tag, "tag", "", "a topic: every tagged open item")
