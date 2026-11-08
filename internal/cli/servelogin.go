@@ -157,8 +157,9 @@ func newLoginCmd(l *loader, use string) *cobra.Command {
 			"The server is found from $PARA_HOME/var/serve.json, then the installed\n" +
 			"service, then 127.0.0.1:7700. The token goes in the URL fragment, which a\n" +
 			"browser never sends. This works from this machine only; for another\n" +
-			"machine use para key create <name> --scope vault:read --scope review:decide\n" +
-			"--print-url. --admin signs in with the admin token instead. para serve\n" +
+			"device use para key create <device> --url <its address> --scope vault:read\n" +
+			"--scope review:decide, and save the key in a password manager (it does not\n" +
+			"renew, so it stays the same). --admin signs in with the admin token instead. para serve\n" +
 			"sessions lists the login keys; para serve logout revokes them.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -255,7 +256,7 @@ func (l *loader) loginOne(id string, at serverAt, base string, admin bool, ttl t
 		}
 	}
 	if !isLocalURL(base) {
-		return "", "", fmt.Errorf("serve: login: %s is not this machine, and the admin token works from this machine only. For another machine run: para key create <name> --scope vault:read --scope review:decide --print-url --url %s", base, base)
+		return "", "", fmt.Errorf("serve: login: %s is not this machine, and the admin token works from this machine only. For another device run: para key create <device> --url %s --scope vault:read --scope review:decide, and paste the key it prints into the sign-in page", base, base)
 	}
 	from, err := probeFrom(base)
 	switch {

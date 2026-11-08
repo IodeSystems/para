@@ -45,6 +45,8 @@ function Login() {
   const [error, setError] = useState(lastSignInError)
   const [busy, setBusy] = useState(false)
 
+  const origin = window.location.origin
+  const command = `para key create <device> --url ${origin} --scope vault:read --scope review:decide`
   const go = (s: Parameters<typeof homeFor>[0]) =>
     void navigate({ href: redirect ?? homeFor(s), replace: true })
 
@@ -84,20 +86,38 @@ function Login() {
               renews while you use it.
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Your sign-in is missing, or it ended or was revoked. For another device, run{' '}
+              Your sign-in is missing, or it ended or was revoked. For another device, run this on
+              the machine that runs para, and save the key it prints in your password manager (it
+              does not expire until you revoke it with{' '}
               <Box component="code" sx={CODE}>
-                para key create &lt;name&gt; --scope vault:read --scope review:decide --print-url
+                para key revoke &lt;device&gt;
               </Box>
-              . If you have an access key, paste it below. Here you review and decide what agents
-              propose; your agent makes other changes in the chat.
+              ):
+            </Typography>
+            <Box component="code" sx={{ ...CODE, display: 'block', p: 1 }} data-login-command>
+              {command}
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Then paste or fill the key below. Here you review and decide what agents propose;
+              your agent makes other changes in the chat.
             </Typography>
             {error && <Alert severity="error">{error}</Alert>}
+            {/* The site name is the username a password manager saves the key under. */}
+            <TextField
+              label="Site"
+              name="username"
+              value={window.location.host}
+              autoComplete="username"
+              size="small"
+              slotProps={{ htmlInput: { readOnly: true } }}
+            />
             <TextField
               label="Access key"
               type="password"
+              name="password"
               value={token}
               onChange={(e) => setToken(e.target.value)}
-              autoComplete="off"
+              autoComplete="current-password"
               autoFocus
               required
               slotProps={{ htmlInput: { autoCapitalize: 'none', spellCheck: false } }}

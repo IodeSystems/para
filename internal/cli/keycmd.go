@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -67,6 +68,19 @@ func newKeyCreateCmd(l *loader) *cobra.Command {
 		Short: "Create a key; the token is printed once",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if base != "" {
+				if err := l.load(); err != nil {
+					return err
+				}
+				id, err := vaultForURL(l, base)
+				if err != nil {
+					return err
+				}
+				if l.vaultFlag != "" && l.vaultFlag != id {
+					return fmt.Errorf("key: --url %s names vault %s, not --vault %s", base, id, l.vaultFlag)
+				}
+				l.vaultFlag = id
+			}
 			store, id, err := l.keyStore()
 			if err != nil {
 				return err
@@ -112,7 +126,7 @@ func newKeyCreateCmd(l *loader) *cobra.Command {
 	f.StringArrayVar(&allowIP, "allow-ip", nil, "address or CIDR this key can come from (repeatable)")
 	f.StringVar(&ttl, "ttl", "", "life of the key: 720h or 30d (default: no expiry)")
 	f.BoolVar(&printURL, "print-url", false, "print a sign-in URL with the token in its fragment")
-	f.StringVar(&base, "url", "", "base URL for --print-url")
+	f.StringVar(&base, "url", "", "the vault's address, such as https://life.example.com: the key is for the vault its host names (and the base of --print-url)")
 	return cmd
 }
 
@@ -184,4 +198,25 @@ func newKeyRevokeCmd(l *loader) *cobra.Command {
 			return err
 		},
 	}
+}
+
+// vaultForURL is the vault the server routes the host of base to, by
+// net.base_hosts and the bare vault, as para serve does.
+func vaultForURL(l *loader, base string) (string, error) {
+	u, err := url.Parse(base)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("key: --url %q: want a URL such as https://life.example.com", base)
+	}
+	cfg, err := loadServeConfig(l, serveFlags{})
+	if err != nil {
+		return "", err
+	}
+	id, ok := netguard.NewRouter(cfg.bases, cfg.bare, nil).Route(u.Host)
+	if !ok {
+		return "", fmt.Errorf("key: --url %s: its host names no vault of this install (net.base_hosts: %s); pass --vault <id>", base, strings.Join(cfg.bases, ", "))
+	}
+	if _, err := l.install.Select(id, ""); err != nil {
+		return "", fmt.Errorf("key: --url %s names vault %s: %w", base, id, err)
+	}
+	return id, nil
 }

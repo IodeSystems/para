@@ -89,6 +89,32 @@ func TestKeyCommands(t *testing.T) {
 	}
 }
 
+func TestKeyCreateURLNamesTheVault(t *testing.T) {
+	e := newEnv(t)
+	e.init("acme")
+	e.init("beta")
+	if err := os.WriteFile(filepath.Join(e.home, "server.properties"), []byte("net.base_hosts=example.test\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.ok("key", "create", "phone", "--scope", "vault:read", "--url", "https://beta.example.test")
+	if _, err := os.Stat(filepath.Join(server.ServerDir(registry.Install{Home: e.home}, "beta"), "keys", "phone.json")); err != nil {
+		t.Errorf("key not in vault beta: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(server.ServerDir(registry.Install{Home: e.home}, "acme"), "keys", "phone.json")); err == nil {
+		t.Error("key made in vault acme too")
+	}
+	for _, bad := range [][]string{
+		{"key", "create", "x", "--scope", "vault:read", "--url", "https://beta.example.test", "--vault", "acme"},
+		{"key", "create", "x", "--scope", "vault:read", "--url", "https://beta.other.test"},
+		{"key", "create", "x", "--scope", "vault:read", "--url", "https://gamma.example.test"},
+		{"key", "create", "x", "--scope", "vault:read", "--url", "not a url"},
+	} {
+		if _, _, err := e.run(bad...); err == nil {
+			t.Errorf("%v was accepted", bad)
+		}
+	}
+}
+
 func TestServeCheckProvesFlags(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
