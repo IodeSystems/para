@@ -103,7 +103,7 @@ type IOFileOutput struct {
 
 // IOFile files an incoming message. The new document is made first: if the io
 // item then cannot be marked filed, the error names the new document.
-var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document with existing; the item is marked filed and leaves the inbox", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
+var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document with existing; the item is marked filed and leaves the inbox; a reply it owes stays owed and links what it was filed into", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOFileOutput{}, err

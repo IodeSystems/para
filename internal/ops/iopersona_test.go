@@ -166,7 +166,7 @@ func TestReplyObligationTickBackfills(t *testing.T) {
 	}
 }
 
-func TestReplyObligationClosesOnReplyAndDropsOnFile(t *testing.T) {
+func TestReplyObligationClosesOnReplyAndKeepsOnFile(t *testing.T) {
 	p := newIOPersona(t)
 	a := p.in(t, p.pat, "Can we move the sync?", "t-1", model.ExpectsResponse, "2026-11-01T08:00:00Z")
 	// The owner's reply, threaded: approved, checked, sent: done.
@@ -181,12 +181,15 @@ func TestReplyObligationClosesOnReplyAndDropsOnFile(t *testing.T) {
 	if o := oblDoc(t, p.owner, a.Reply); o.Open() || o.Outcome != model.OutcomeDone || !strings.Contains(o.Reason, r.ID) {
 		t.Fatalf("after reply = %+v", o)
 	}
-	// Filed into a task with no reply: dropped. Undo of the file reopens it.
+	// Filed into a task with no reply: still owed, and it links the task.
 	b := p.in(t, p.pat, "Can you look at the outage notes?", "t-2", model.ExpectsResponse, "2026-11-01T08:10:00Z")
 	area := mustRun(t, AreaAdd, p.owner, AreaAddInput{Title: "Ops"}).ID
-	mustRun(t, IOFile, p.agent, IOFileInput{ID: b.ID, To: TriageTask, Area: area, DoneWhen: "The notes are read."})
-	if o := oblDoc(t, p.owner, b.Reply); o.Open() || o.Outcome != model.OutcomeDropped || !strings.Contains(o.Reason, "without a reply") {
+	bf := mustRun(t, IOFile, p.agent, IOFileInput{ID: b.ID, To: TriageTask, Area: area, DoneWhen: "The notes are read."})
+	if o := oblDoc(t, p.owner, b.Reply); !o.Open() {
 		t.Fatalf("after file = %+v", o)
+	}
+	if od, _ := p.owner.Store.Get(t.Context(), b.Reply); !strings.Contains(od.Body, "[["+bf.Became+"]]") {
+		t.Fatalf("obligation body does not link %s: %q", bf.Became, od.Body)
 	}
 	rs := mustRun(t, ReceiptList, p.owner, ReceiptListInput{Doc: b.ID, Op: "io_file"}).Items
 	if len(rs) != 1 {
@@ -348,4 +351,63 @@ func TestSweepReportAndIOStats(t *testing.T) {
 			t.Fatalf("source %s missing from stats", id)
 		}
 	}
+}
+
+// Filing a message that waits for the owner's reply, into any target, new or
+// existing, keeps the reply owed: it stays open, lists in the reply group,
+// and links what the message was filed into. A threaded reply sent later
+// closes it done.
+func TestReplyObligationKeptOnEveryFilingTarget(t *testing.T) {
+	p := newIOPersona(t)
+	area := mustRun(t, AreaAdd, p.owner, AreaAddInput{Title: "Ops"}).ID
+	task := mustRun(t, TaskAdd, p.owner, TaskAddInput{Area: area, Title: "Read the outage notes", DoneWhen: "The notes are read."}).ID
+	cases := []struct {
+		name string
+		in   IOFileInput
+	}{
+		{"existing task", IOFileInput{Existing: task}},
+		{"new task", IOFileInput{To: TriageTask, Area: area, DoneWhen: "Done."}},
+		{"note", IOFileInput{To: TriageNote, Area: area}},
+		{"question", IOFileInput{To: TriageQuestion, Root: true}},
+		{"interaction", IOFileInput{To: TriageInteraction}},
+	}
+	for i, c := range cases {
+		at := "2026-11-01T09:0" + strconv.Itoa(i) + ":00Z"
+		a := p.in(t, p.pat, "Can you check "+c.name+"?", "t-k"+strconv.Itoa(i), model.ExpectsResponse, at)
+		if a.Reply == "" {
+			t.Fatalf("%s: no reply obligation", c.name)
+		}
+		c.in.ID = a.ID
+		f := mustRun(t, IOFile, p.agent, c.in)
+		o := oblDoc(t, p.owner, a.Reply)
+		if !o.Open() {
+			t.Fatalf("%s: filed into %s, reply closed: %+v", c.name, f.Became, o)
+		}
+		if od, _ := p.owner.Store.Get(t.Context(), a.Reply); !strings.Contains(od.Body, "[["+f.Became+"]]") {
+			t.Fatalf("%s: obligation body does not link %s: %q", c.name, f.Became, od.Body)
+		}
+		// A tick leaves it open and makes no second one.
+		if tk, err := Tick(t.Context(), p.owner, TickInput{}); err != nil || len(tk.Replies) != 0 {
+			t.Fatalf("%s: tick = %+v %v", c.name, tk.Replies, err)
+		}
+		if o := oblDoc(t, p.owner, a.Reply); !o.Open() {
+			t.Fatalf("%s: tick closed it: %+v", c.name, o)
+		}
+		if i > 0 {
+			continue
+		}
+		// The owner replies on the thread after the message was filed: done.
+		r := mustRun(t, IOAdd, p.agent, IOAddInput{Direction: model.IOOut, Text: "Reading them now.", To: []string{p.pat}, Medium: model.MediumSlack,
+			Expects: model.ExpectsNone, Thread: a.Reply})
+		mustRun(t, IOApprove, p.owner, IOApproveInput{ID: r.ID})
+		mustRun(t, IOSendCheck, p.agent, IOSendCheckInput{ID: r.ID})
+		mustRun(t, IOSend, p.agent, IOSendInput{ID: r.ID, URL: "https://chat.example.test/m/rk"})
+		if o := oblDoc(t, p.owner, a.Reply); o.Open() || o.Outcome != model.OutcomeDone || !strings.Contains(o.Reason, r.ID) {
+			t.Fatalf("after reply to a filed message = %+v", o)
+		}
+		if _, m := personaIO(t, p.owner, a.ID); m.Became != model.LinkTo(task) {
+			t.Fatalf("the reply moved became: %s", m.Became)
+		}
+	}
+	mustLintClean(t, p.owner)
 }

@@ -27,8 +27,13 @@ import (
 //	open, expects response, no obligation  -> make it
 //	open, expects response, closed by para -> reopen it
 //	answered by a sent reply               -> close it done
-//	filed or dropped with no reply         -> close it dropped
+//	filed with no reply                    -> keep it open; it links what the message was filed into
+//	dropped with no reply                  -> close it dropped
 //	open, no reply expected any more       -> close it dropped
+//
+// Filing sorts the message; it does not answer the sender, so the reply
+// stays owed whatever the message was filed into, new or existing. A reply
+// sent on the thread of a filed message closes it done (io_send).
 //
 // Para closes it with a reason that starts with replyReasonPrefix; only such a
 // close is reopened, so a close by the owner stays.
@@ -94,6 +99,8 @@ func syncReply(ctx context.Context, d Deps, id string) (string, error) {
 		return "", nil
 	case open && replyWanted(m):
 		return "", nil
+	case !gone && m.State == model.IOFiled && replyWanted(m) && !repliedBy(ctx, d, m.Became.Target()):
+		return "", linkFiled(ctx, d, odoc, m.Became.Target())
 	}
 	outcome, why := model.OutcomeDropped, replyReasonPrefix+"no reply expected any more"
 	switch {
@@ -101,8 +108,6 @@ func syncReply(ctx context.Context, d Deps, id string) (string, error) {
 		why = replyReasonPrefix + "the message was undone"
 	case m.State == model.IOFiled && repliedBy(ctx, d, m.Became.Target()):
 		outcome, why = model.OutcomeDone, replyReasonPrefix+"replied in "+string(m.Became)
-	case m.State == model.IOFiled:
-		why = replyReasonPrefix + "filed into " + string(m.Became) + " without a reply"
 	case m.State == model.IODropped:
 		why = replyReasonPrefix + "message dropped: " + m.Reason
 	}
@@ -111,6 +116,44 @@ func syncReply(ctx context.Context, d Deps, id string) (string, error) {
 		return "", err
 	}
 	return "", recordClose(ctx, d, odoc.ID, string(outcome))
+}
+
+// linkFiled adds to an open reply obligation's body a link to what its
+// message was filed into, once.
+func linkFiled(ctx context.Context, d Deps, odoc model.Document, became string) error {
+	if became == "" || strings.Contains(odoc.Body, "[["+became+"]]") {
+		return nil
+	}
+	odoc.Body = joinBody(odoc.Body, "Filed into [["+became+"]].")
+	_, err := d.Store.Update(ctx, odoc)
+	return err
+}
+
+// closeReplyDone closes the open reply obligation of the incoming message id
+// done, answered by the sent reply. It is for a message filed before the
+// reply: its became stays what it was filed into.
+func closeReplyDone(ctx context.Context, d Deps, id, reply string) error {
+	if !obligationsOn(d) {
+		return nil
+	}
+	_, m, err := getIO(ctx, d, id)
+	if err != nil || m.Reply == "" {
+		return err
+	}
+	odoc, err := d.Store.Get(ctx, m.Reply.Target())
+	if err != nil {
+		return err
+	}
+	o, ok := odoc.Meta.(*model.Obligation)
+	if !ok || !o.Open() {
+		return nil
+	}
+	o.State, o.Outcome, o.Closed = model.StateClosed, model.OutcomeDone, model.Date(d.Store.Now().Format(dateLayout))
+	o.Reason = replyReasonPrefix + "replied in " + string(model.LinkTo(reply))
+	if _, err := d.Store.Update(ctx, odoc); err != nil {
+		return err
+	}
+	return recordClose(ctx, d, odoc.ID, string(model.OutcomeDone))
 }
 
 // repliedBy reports whether id is an outgoing io item that was sent: the

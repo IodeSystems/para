@@ -983,6 +983,12 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 			} else {
 				out.Warnings = append(out.Warnings, syncReplyWarn(ctx, d, th)...)
 			}
+		} else if err == nil && tm.Direction == model.IOIn && tm.State == model.IOFiled {
+			// Filed before the reply: it stays where it was filed, and the
+			// reply it owed is done.
+			if err := closeReplyDone(ctx, d, th, doc.ID); err != nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("%s was sent, but the reply owed on %s was not closed: %v", doc.ID, th, err))
+			}
 		}
 	}
 	return out, nil
