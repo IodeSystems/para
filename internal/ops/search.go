@@ -119,7 +119,7 @@ var Search = defineRead("search", "Search documents, transcripts and summaries b
 		out = sem.merge(ctx, d, q, limit, out)
 	}
 	n := &namer{ctx: ctx, s: d.Store}
-	readableHits(out.Hits, n.name)
+	readableHits(out.Hits, n.name, n.cutID)
 	return out, nil
 })
 

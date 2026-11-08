@@ -132,10 +132,20 @@ func writeLinks(p *printer, links []model.Pointer) {
 // newLinkCmd builds `link add|remove` for an area or a project.
 func newLinkCmd(l *loader, add *ops.Op[ops.LinkAddInput, ops.LinkOutput], remove *ops.Op[ops.LinkRemoveInput, ops.LinkOutput]) *cobra.Command {
 	cmd := &cobra.Command{Use: "link", Short: "Point at repos, plans, and docs that live elsewhere (never read or copied)", Args: cobra.NoArgs}
+	var removed string
+	// add appends the new link, so it is the last one.
+	addText := func(w io.Writer, out ops.LinkOutput) error {
+		p := &printer{w: w}
+		if n := len(out.Links); n > 0 {
+			k := out.Links[n-1]
+			p.f("added\t%s\t%s\t%s\t%s\n", out.ID, k.Label, k.Kind, k.Target)
+		}
+		p.f("%d links\n", len(out.Links))
+		return p.err
+	}
 	text := func(w io.Writer, out ops.LinkOutput) error {
 		p := &printer{w: w}
-		p.f("%s\n", out.ID)
-		writeLinks(p, out.Links)
+		p.f("removed\t%s\t%s\n%d links\n", out.ID, removed, len(out.Links))
 		return p.err
 	}
 	cmd.AddCommand(
@@ -150,13 +160,14 @@ func newLinkCmd(l *loader, add *ops.Op[ops.LinkAddInput, ops.LinkOutput], remove
 				in.ID, in.Label = args[0], strings.Join(args[1:], " ")
 				return nil
 			},
-			Text: text,
+			Text: addText,
 		}),
 		opCommand(l, remove, binding[ops.LinkRemoveInput, ops.LinkOutput]{
 			Use:  "remove <id> <label>",
 			Args: cobra.MinimumNArgs(2),
 			Bind: func(args []string, in *ops.LinkRemoveInput) error {
 				in.ID, in.Label = args[0], strings.Join(args[1:], " ")
+				removed = strings.Join(strings.Fields(in.Label), " ")
 				return nil
 			},
 			Text: text,

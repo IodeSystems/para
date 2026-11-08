@@ -27,6 +27,52 @@ func verbText(w io.Writer, out ops.VerbOutput) error {
 	return p.err
 }
 
+// laterText prints what later put off and until when: a date, an item it
+// waits on, or someday. Later runs defer; its result is defer's output.
+func laterText(w io.Writer, out ops.VerbOutput) error {
+	var d ops.DeferOutput
+	b, err := json.Marshal(out.Result)
+	if err == nil {
+		err = json.Unmarshal(b, &d)
+	}
+	if err != nil {
+		return fmt.Errorf("cli: later: %w", err)
+	}
+	p := &printer{w: w}
+	if d.Created != "" {
+		p.f("created\t%s\n", d.Created)
+	}
+	for _, x := range d.Similar {
+		p.f("similar\t%s\t%s\t(use --after %s, or --new)\n", x.ID, x.Title, x.ID)
+	}
+	when := model.SomedayWord
+	until := d.Until
+	if until == model.SomedayWord {
+		until = ""
+	}
+	switch {
+	case d.After != "" && until != "":
+		when = "after " + d.After + ", until " + until
+	case d.After != "":
+		when = "after " + d.After
+	case until != "":
+		when = "until " + until
+	}
+	for _, id := range d.Changed {
+		p.f("put off\t%s\t%s\n", id, when)
+	}
+	for _, s := range d.Skipped {
+		p.f("skipped\t%s\n", s)
+	}
+	if len(d.Changed) == 0 && len(d.Similar) == 0 {
+		p.f("nothing put off\n")
+	}
+	if out.Receipt != "" {
+		p.f("receipt\t%s\n", out.Receipt)
+	}
+	return p.err
+}
+
 // fieldFlags reads --field key=value; a value that is JSON (a number, a
 // list, true) is taken as JSON, any other as text.
 func fieldFlags(list []string) (map[string]any, error) {
@@ -100,7 +146,7 @@ func newVerbCmds(l *loader) []*cobra.Command {
 			in.Items, err = itemRefs(items)
 			return err
 		},
-		Text: verbText,
+		Text: laterText,
 	})
 	var reItems []string
 	reopenCmd := opCommand(l, ops.Reopen, binding[ops.ReopenInput, ops.VerbOutput]{

@@ -140,10 +140,64 @@ func proposalHit(h *index.Hit) {
 	h.Snippet, h.Marks = "A proposal from an agent. Open it to read its items.", nil
 }
 
+// edgeEllipsis is what the index puts where it cut a passage.
+const edgeEllipsis = "..."
+
+// completeEdgeLinks closes a link the passage's edge cut, so it reads as the
+// whole link and not as part of an id. cut gives the one id that starts
+// (prefix) or ends with a part, "" when it is not known. A part it cannot
+// place is left as it is.
+func completeEdgeLinks(p string, cut func(frag string, prefix bool) string) string {
+	hasMark := func(s string) bool {
+		return strings.Contains(s, index.MarkOpen) || strings.Contains(s, index.MarkClose)
+	}
+	// The end: "[[id-st ..."
+	if i := strings.LastIndex(p, "[["); i >= 0 && !strings.Contains(p[i:], "]]") {
+		rest, tail := p[i+2:], ""
+		if k := strings.LastIndex(rest, " "+edgeEllipsis); k >= 0 && strings.TrimSpace(rest[k:]) == edgeEllipsis {
+			rest, tail = rest[:k], rest[k:]
+		}
+		id := ""
+		if j := strings.IndexAny(rest, "|#"); j >= 0 {
+			id = rest[:j] // the id is whole; the label or anchor was cut
+		} else if !strings.ContainsAny(rest, " \t\n") {
+			id = cut(rest, true)
+		}
+		if id != "" && !hasMark(rest) && !strings.ContainsAny(id, " \t\n") {
+			p = p[:i] + "[[" + id + "]]" + tail
+		}
+	}
+	// The start: "... nd-id]]"
+	if j := strings.Index(p, "]]"); j >= 0 && !strings.Contains(p[:j], "[[") {
+		head, lead := p[:j], ""
+		if t := strings.TrimLeft(head, " "); strings.HasPrefix(t, edgeEllipsis+" ") {
+			n := len(head) - len(t) + len(edgeEllipsis) + 1
+			head, lead = head[n:], head[:n]
+		}
+		if hasMark(head) {
+			return p
+		}
+		if pipe := strings.LastIndex(head, "|"); pipe >= 0 {
+			if !strings.ContainsAny(head[:pipe], " \t\n") {
+				p = lead + head[pipe+1:] + p[j+2:] // the label is whole
+			}
+		} else if !strings.ContainsAny(head, " \t\n") {
+			if id := cut(head, false); id != "" {
+				p = lead + "[[" + id + "]]" + p[j+2:]
+			}
+		}
+	}
+	return p
+}
+
 // readableHits fills the snippets of hits, and puts journal hits after the
-// rest: a journal is a log of everything else.
-func readableHits(hits []index.Hit, name func(string) string) {
+// rest: a journal is a log of everything else. cut, when set, completes a
+// link the passage's edge cut (completeEdgeLinks).
+func readableHits(hits []index.Hit, name func(string) string, cut func(string, bool) string) {
 	for i := range hits {
+		if cut != nil {
+			hits[i].Passage = completeEdgeLinks(hits[i].Passage, cut)
+		}
 		if hits[i].Kind == string(model.TypeJournal) {
 			journalHit(&hits[i])
 			continue

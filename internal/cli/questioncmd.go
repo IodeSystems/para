@@ -1,9 +1,12 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,6 +15,75 @@ import (
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
 )
+
+// optionDetailFlags reads a decision's option weighing: whole options as JSON
+// (--option-detail), and percents and a basis per option name.
+type optionDetailFlags struct {
+	json, rec, conf, basis []string
+}
+
+// details merges the flags into one OptionDetail per option, in the order
+// the options were first named.
+func (f *optionDetailFlags) details() ([]model.OptionDetail, error) {
+	var out []model.OptionDetail
+	at := func(name string) *model.OptionDetail {
+		for i := range out {
+			if out[i].Name == name {
+				return &out[i]
+			}
+		}
+		out = append(out, model.OptionDetail{Name: name})
+		return &out[len(out)-1]
+	}
+	for _, s := range f.json {
+		var o model.OptionDetail
+		if err := json.Unmarshal([]byte(s), &o); err != nil {
+			return nil, fmt.Errorf("--option-detail: %w", err)
+		}
+		if strings.TrimSpace(o.Name) == "" {
+			return nil, fmt.Errorf("--option-detail: name is required")
+		}
+		if i := slices.IndexFunc(out, func(x model.OptionDetail) bool { return x.Name == o.Name }); i >= 0 {
+			return nil, fmt.Errorf("--option-detail: %q is given twice", o.Name)
+		}
+		out = append(out, o)
+	}
+	pair := func(flag, s string) (string, string, error) {
+		k, v, ok := strings.Cut(s, "=")
+		if !ok || strings.TrimSpace(k) == "" || strings.TrimSpace(v) == "" {
+			return "", "", fmt.Errorf("--%s %q: want <option>=<value>", flag, s)
+		}
+		return strings.TrimSpace(k), strings.TrimSpace(v), nil
+	}
+	percents := func(flag string, list []string, set func(*model.OptionDetail, int)) error {
+		for _, s := range list {
+			k, v, err := pair(flag, s)
+			if err != nil {
+				return err
+			}
+			n, err := strconv.Atoi(strings.TrimSuffix(v, "%"))
+			if err != nil {
+				return fmt.Errorf("--%s %q: want a percent from 0 to 100", flag, s)
+			}
+			set(at(k), n)
+		}
+		return nil
+	}
+	if err := percents("recommendation", f.rec, func(o *model.OptionDetail, n int) { o.Recommendation = n }); err != nil {
+		return nil, err
+	}
+	if err := percents("option-confidence", f.conf, func(o *model.OptionDetail, n int) { o.Confidence = n }); err != nil {
+		return nil, err
+	}
+	for _, s := range f.basis {
+		k, v, err := pair("option-basis", s)
+		if err != nil {
+			return nil, err
+		}
+		at(k).ConfidenceBasis = v
+	}
+	return out, nil
+}
 
 func writeQuestions(p *printer, indent string, list []ops.QuestionView) {
 	for _, v := range list {
@@ -122,6 +194,7 @@ func withoutOp(cmd *cobra.Command, use string) *cobra.Command {
 }
 
 func newQuestionCmd(l *loader) *cobra.Command {
+	var od optionDetailFlags
 	cmd := &cobra.Command{Use: "question", Short: "Open questions: unknowns, decisions, and inputs to answer (a task is work to do)", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.QuestionReview, binding[ops.QuestionReviewInput, ops.QuestionReviewOutput]{
@@ -157,10 +230,16 @@ func newQuestionCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Recommended, "recommended", "", "the option you suggest")
 				fs.StringVar(&in.Context, "context", "", "what is needed to decide")
 				fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
+				fs.StringArrayVar(&od.json, "option-detail", nil, "one option weighed, as JSON: {name, pros, cons, cost, benefit, confidence, confidence_basis, recommendation, examples}; repeatable")
+				fs.StringArrayVar(&od.rec, "recommendation", nil, "<option>=<percent>: how much you recommend the option; repeatable")
+				fs.StringArrayVar(&od.conf, "option-confidence", nil, "<option>=<percent>: how sure you are of the option's weighing; repeatable")
+				fs.StringArrayVar(&od.basis, "option-basis", nil, "<option>=<text>: what the confidence rests on; repeatable")
 			},
 			Bind: func(args []string, in *ops.QuestionAddInput) error {
 				in.Text = strings.Join(args, " ")
-				return nil
+				var err error
+				in.OptionDetails, err = od.details()
+				return err
 			},
 			Text: printID(func(o ops.QuestionAddOutput) string { return o.ID }),
 		}),

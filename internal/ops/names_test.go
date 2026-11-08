@@ -114,7 +114,7 @@ func TestSearchJournalHitsRankLastAndShowADate(t *testing.T) {
 		{ID: "note-a", Kind: "note", Passage: "a <<heron>> note"},
 		{ID: "proposal-x", Kind: "proposal", Passage: "project: project-1m6 <<heron>>"},
 	}
-	readableHits(hits, nil)
+	readableHits(hits, nil, nil)
 	if hits[0].ID != "note-a" || hits[1].ID != "proposal-x" || hits[2].ID != "2026-11-01" {
 		t.Fatalf("order %s, %s, %s", hits[0].ID, hits[1].ID, hits[2].ID)
 	}
@@ -134,7 +134,7 @@ func TestSearchRanksWorkFirst(t *testing.T) {
 		{ID: "task-a", Kind: "task", Title: "Heron task", Passage: "<<heron>>"},
 		{ID: "rfx-a", Kind: "rfx", Title: "Heron ask", Passage: "<<heron>>"},
 	}
-	readableHits(hits, nil)
+	readableHits(hits, nil, nil)
 	var got []string
 	for _, h := range hits {
 		got = append(got, h.ID)

@@ -91,6 +91,25 @@ func (n *namer) name(ref string) string {
 	return n.titles[id]
 }
 
+// cutID is the one id that starts (prefix) or ends with frag, the part of a
+// link a snippet's edge left; "" when none or several do.
+func (n *namer) cutID(frag string, prefix bool) string {
+	if frag == "" {
+		return ""
+	}
+	n.load()
+	found := ""
+	for id := range n.titles {
+		if (prefix && strings.HasPrefix(id, frag)) || (!prefix && strings.HasSuffix(id, frag)) {
+			if found != "" {
+				return ""
+			}
+			found = id
+		}
+	}
+	return found
+}
+
 // fillNames fills every nameof field below v, which is a pointer.
 func fillNames(ctx context.Context, s store.Store, v any) {
 	rv := reflect.ValueOf(v)
