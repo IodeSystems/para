@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"html"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -307,7 +308,46 @@ func (g *Gate) unauthenticated(w http.ResponseWriter, r *http.Request, c Client,
 func (g *Gate) deny(w http.ResponseWriter, r *http.Request, c Client, vault, stage string, status int, detail string) {
 	g.c.Log.Info("request denied", "stage", stage, "status", status, "vault", vault,
 		"client", c.Addr.String(), "peer", c.Peer.String(), "method", r.Method)
+	if stage == "ip_rule" && browserPage(r) {
+		writeNotAllowedPage(w, c)
+		return
+	}
 	WriteError(w, status, detail)
+}
+
+// browserPage reports whether r is a browser opening a page (not a fetch from
+// the app or an API client), which gets a page it can read instead of JSON.
+func browserPage(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	if m := r.Header.Get("Sec-Fetch-Mode"); m != "" {
+		return m == "navigate"
+	}
+	return strings.Contains(r.Header.Get("Accept"), "text/html")
+}
+
+// writeNotAllowedPage is the 403 of the IP rule for a browser: the address
+// net.rules does not allow, and what to do. It names no vault and holds no
+// vault text. It has no script and no style, so the CSP holds as is.
+func writeNotAllowedPage(w http.ResponseWriter, c Client) {
+	addr := "unknown"
+	if c.Addr.IsValid() {
+		addr = c.Addr.String()
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusForbidden)
+	_, _ = w.Write([]byte(`<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark"><title>Not allowed from this network</title></head>
+<body><main>
+<h1>Not allowed from this network</h1>
+<p>This para does not take requests from your address (` + html.EscapeString(addr) + `).</p>
+<p>If you reach it over a VPN, connect the VPN and reload. On the machine that runs para, open it at <code>http://&lt;vault&gt;.localhost:&lt;port&gt;</code>, or run <code>para serve login</code>.</p>
+<p>The owner allows addresses in <code>net.rules</code> of the vault, in <code>$PARA_HOME/vaults/&lt;id&gt;/server/</code>.</p>
+</main></body></html>
+`))
 }
 
 // WriteError writes huma's error shape, so a client parses one error form.

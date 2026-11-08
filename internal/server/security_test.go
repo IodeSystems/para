@@ -721,3 +721,28 @@ func TestSessionRenew(t *testing.T) {
 	}
 	wantStatus(t, f.do(call{method: post, target: "/auth/session", token: gone}), 401)
 }
+
+// A browser the IP rule refuses gets a page it can read; the app's fetches and
+// API clients keep the JSON error.
+func TestIPRuleRefusalPageForBrowsers(t *testing.T) {
+	f := newFixture(t)
+	far := "203.0.113.7:50000"
+	nav := f.do(call{target: "/", peer: far, header: map[string]string{"Accept": "text/html", "Sec-Fetch-Mode": "navigate"}})
+	if nav.Code != http.StatusForbidden || !strings.HasPrefix(nav.Header().Get("Content-Type"), "text/html") ||
+		!strings.Contains(nav.Body.String(), "Not allowed from this network") || !strings.Contains(nav.Body.String(), "203.0.113.7") {
+		t.Fatalf("navigate: %d %q %s", nav.Code, nav.Header().Get("Content-Type"), nav.Body.String())
+	}
+	if strings.Contains(nav.Body.String(), "acme") {
+		t.Error("the page names the vault")
+	}
+	for _, c := range []call{
+		{target: "/api/v1/task/list", peer: far},
+		{target: "/", peer: far, header: map[string]string{"Accept": "text/html", "Sec-Fetch-Mode": "cors"}},
+		{method: http.MethodPost, target: "/api/v1/task/list", peer: far, header: map[string]string{"Accept": "text/html"}},
+	} {
+		w := f.do(c)
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Header().Get("Content-Type"), "json") {
+			t.Errorf("%s %s %v: %d %q", c.method, c.target, c.header, w.Code, w.Header().Get("Content-Type"))
+		}
+	}
+}
