@@ -67,10 +67,13 @@ type DeferInput struct {
 	Scope string `json:"scope,omitempty"`
 	// After is the id of a task, question, ask, goal, or agent work to wait for:
 	// the item stays under Later until it is done, through a dependency. When
-	// is a condition in words: defer makes a task with that title and done_when
-	// and waits on it. Give After or When, not both. Place is the goal or area
-	// of that task; it defaults to the item's own, and a root question needs it.
-	// New makes the task even when a similar open task exists.
+	// is a condition in words: defer waits on the open task of that condition
+	// (title and done_when the same text, compared without case, spacing, or
+	// end punctuation) and lists the items in its body, or makes one. Give
+	// After or When, not both. Place is the goal or area of a new task; it
+	// defaults to the item's own, and a root question needs it. New makes the
+	// task even when a similar open task exists; the items put off are never
+	// a similar match.
 	After string `json:"after,omitempty"`
 	When  string `json:"when,omitempty"`
 	Place string `json:"place,omitempty"`
@@ -82,7 +85,8 @@ type DeferOutput struct {
 	Changed []string `json:"changed"` // ids, and proposal#item for dossier items, that changed
 	Skipped []string `json:"skipped"` // ids left as they were, with the reason after a colon
 	Until   string   `json:"until,omitempty"`
-	// After is the id the items wait on; Created is the task made for When.
+	// After is the id the items wait on; Created is the task made for When,
+	// empty when an open one was reused.
 	After   string `json:"after,omitempty"`
 	Created string `json:"created,omitempty"`
 	// Similar lists open tasks like the When text. Nothing was changed: repeat
@@ -260,10 +264,13 @@ var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, o
 			return DeferOutput{}, err
 		}
 		var err error
-		if after, out.Similar, err = whenTask(ctx, d, ids, when, normID(in.Place), in.New); err != nil || len(out.Similar) > 0 {
+		var made bool
+		if after, made, out.Similar, err = whenTask(ctx, d, ids, when, normID(in.Place), in.New); err != nil || len(out.Similar) > 0 {
 			return out, err
 		}
-		out.Created = after
+		if made {
+			out.Created = after
+		}
 	}
 	out.After = after
 	seen := map[string]bool{}
@@ -344,30 +351,45 @@ const readyDays = 7
 // whenTask makes the task a "when" condition waits on, in the goal or area of
 // the first id (or place). A similar open task is returned instead, with
 // nothing made, unless force is set.
-func whenTask(ctx context.Context, d Deps, ids []string, when, place string, force bool) (string, []Similar, error) {
+func whenTask(ctx context.Context, d Deps, ids []string, when, place string, force bool) (string, bool, []Similar, error) {
 	if len(ids) == 0 {
-		return "", nil, errors.New("nothing to put off: give ids")
+		return "", false, nil, errors.New("nothing to put off: give ids")
+	}
+	self := map[string]bool{}
+	for _, id := range ids {
+		self[normID(id)] = true
+	}
+	// The same condition has one task: an open one is reused, and lists the
+	// new waiters.
+	if doc, ok, err := openCondition(ctx, d, when, self); err != nil || ok {
+		if err != nil {
+			return "", false, nil, err
+		}
+		return doc.ID, false, nil, addWaiters(ctx, d, doc, ids)
 	}
 	if !force {
 		sim, err := FindSimilar(ctx, d.Store, model.TypeTask, when, "")
 		if err != nil {
-			return "", nil, err
+			return "", false, nil, err
 		}
 		open := sim[:0]
 		for _, x := range sim {
+			if self[x.ID] {
+				continue // the item put off is not a match for its own condition
+			}
 			if doc, err := d.Store.Get(ctx, x.ID); err == nil && !resolved(doc) {
 				open = append(open, x)
 			}
 		}
 		if len(open) > 0 {
-			return "", open, nil
+			return "", false, open, nil
 		}
 	}
-	in := TaskAddInput{Title: when, DoneWhen: when}
+	in := TaskAddInput{Title: when, DoneWhen: when, Body: conditionBody(when, ids)}
 	if place != "" {
 		pd, err := d.Store.Get(ctx, place)
 		if err != nil {
-			return "", nil, fmt.Errorf("place %s: %w", place, err)
+			return "", false, nil, fmt.Errorf("place %s: %w", place, err)
 		}
 		switch pd.Meta.(type) {
 		case *model.Project:
@@ -375,12 +397,12 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		case *model.Area:
 			in.Area = pd.ID
 		default:
-			return "", nil, fmt.Errorf("place %s is a %s: give a goal or an area", pd.ID, pd.Meta.Header().Type)
+			return "", false, nil, fmt.Errorf("place %s is a %s: give a goal or an area", pd.ID, pd.Meta.Header().Type)
 		}
 	} else {
 		first, err := d.Store.Get(ctx, normID(ids[0]))
 		if err != nil {
-			return "", nil, err
+			return "", false, nil, err
 		}
 		switch m := first.Meta.(type) {
 		case *model.Task:
@@ -389,7 +411,7 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 			if sc := scopeID(m); sc != ScopeRootWord {
 				sd, err := d.Store.Get(ctx, sc)
 				if err != nil {
-					return "", nil, err
+					return "", false, nil, err
 				}
 				switch sm := sd.Meta.(type) {
 				case *model.Project:
@@ -403,13 +425,84 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		}
 	}
 	if in.Project == "" && in.Area == "" {
-		return "", nil, fmt.Errorf("%s has no goal or area: give place, a goal or an area for the task", normID(ids[0]))
+		return "", false, nil, fmt.Errorf("%s has no goal or area: give place, a goal or an area for the task", normID(ids[0]))
 	}
 	out, err := TaskAdd.Run(ctx, d, in)
 	if err != nil {
-		return "", nil, fmt.Errorf("when: %w", err)
+		return "", false, nil, fmt.Errorf("when: %w", err)
 	}
-	return out.ID, nil, nil
+	return out.ID, true, nil, nil
+}
+
+// waitersHeading is the section of a condition task that lists what waits on it.
+const waitersHeading = "Waiting on it"
+
+// conditionKey is condition text as defer compares it: lower case, single
+// spaces, no end punctuation.
+func conditionKey(s string) string {
+	return strings.TrimRight(strings.Join(strings.Fields(strings.ToLower(s)), " "), ".!?;:,")
+}
+
+// openCondition finds the open task a "when" condition made for the same
+// text: its title and done_when are the condition. Ids in skip are not one.
+func openCondition(ctx context.Context, d Deps, when string, skip map[string]bool) (model.Document, bool, error) {
+	key := conditionKey(when)
+	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeTask})
+	if err != nil {
+		return model.Document{}, false, err
+	}
+	for _, r := range refs {
+		if skip[r.ID] {
+			continue
+		}
+		doc, err := d.Store.Get(ctx, r.ID)
+		if err != nil {
+			return model.Document{}, false, err
+		}
+		t, ok := doc.Meta.(*model.Task)
+		if !ok || resolved(doc) || conditionKey(doc.Title) != key || conditionKey(t.DoneWhen) != key {
+			continue
+		}
+		return doc, true, nil
+	}
+	return model.Document{}, false, nil
+}
+
+// conditionBody is the body of a condition task: the condition and the items
+// that wait on it.
+func conditionBody(when string, ids []string) string {
+	body := "Condition: " + when + "\n\nThe items below are put off until this task is done; then they come back."
+	for i, id := range ids {
+		line := "- [[" + normID(id) + "]]"
+		if i == 0 {
+			body = appendSection(body, waitersHeading, line)
+			continue
+		}
+		body += "\n" + line
+	}
+	return body
+}
+
+// addWaiters lists ids on a reused condition task, each once.
+func addWaiters(ctx context.Context, d Deps, doc model.Document, ids []string) error {
+	before := doc.Body
+	for _, id := range ids {
+		id = normID(id)
+		if id == "" || strings.Contains(doc.Body, "[["+id+"]]") {
+			continue
+		}
+		line := "- [[" + id + "]]"
+		if strings.Contains(doc.Body, "\n## "+waitersHeading+"\n") || strings.HasPrefix(doc.Body, "## "+waitersHeading+"\n") {
+			doc.Body += "\n" + line
+		} else {
+			doc.Body = appendSection(doc.Body, waitersHeading, line)
+		}
+	}
+	if doc.Body == before {
+		return nil
+	}
+	_, err := d.Store.Update(ctx, doc)
+	return err
 }
 
 // deferrable lists the vault types defer puts off by id.

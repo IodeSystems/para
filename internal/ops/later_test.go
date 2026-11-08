@@ -442,15 +442,36 @@ func TestDeferWhenMakesTask(t *testing.T) {
 	if err != nil || tk.DoneWhen != "AI policy notes updated" || tk.Project.Target() != proj || doc.Title != "AI policy notes updated" {
 		t.Fatalf("task = %+v %v", tk, err)
 	}
-	// A similar open task is offered, nothing changes.
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another AI question", Project: proj}).ID
-	o2 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "AI policy notes updated"})
-	if len(o2.Similar) == 0 || len(o2.Changed) != 0 {
-		t.Fatalf("similar = %+v", o2)
+	// The body says the condition and what waits on it.
+	if !strings.Contains(doc.Body, "AI policy notes updated") || !strings.Contains(doc.Body, "[["+q+"]]") {
+		t.Fatalf("body = %q", doc.Body)
 	}
-	o3 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "AI policy notes updated", New: true})
-	if len(o3.Changed) != 1 {
-		t.Fatalf("new = %+v", o3)
+	// The same condition, written another way, reuses the open task: nothing
+	// made, and the body lists the new waiter.
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another AI question", Project: proj}).ID
+	o2 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "  ai policy notes   updated. "})
+	if o2.Created != "" || o2.After != out.Created || len(o2.Similar) != 0 || len(o2.Changed) != 1 {
+		t.Fatalf("reuse = %+v", o2)
+	}
+	if doc, _, _ := getTask(ctx, d.Store, out.Created); !strings.Contains(doc.Body, "[["+q+"]]") || !strings.Contains(doc.Body, "[["+q2+"]]") {
+		t.Fatalf("body after reuse = %q", doc.Body)
+	}
+	// A similar open task that is not that condition is offered, nothing
+	// changes; new makes the task.
+	q3 := must(t, QuestionAdd, d, QuestionAddInput{Text: "A third AI question", Project: proj}).ID
+	o3 := must(t, Defer, d, DeferInput{IDs: []string{q3}, When: "AI policy notes updated and signed"})
+	if len(o3.Similar) == 0 || len(o3.Changed) != 0 {
+		t.Fatalf("similar = %+v", o3)
+	}
+	o4 := must(t, Defer, d, DeferInput{IDs: []string{q3}, When: "AI policy notes updated and signed", New: true})
+	if len(o4.Changed) != 1 || o4.Created == "" || o4.Created == out.Created {
+		t.Fatalf("new = %+v", o4)
+	}
+	// The item put off is never its own similar match.
+	self := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Vendor contract signed"}).ID
+	o5 := must(t, Defer, d, DeferInput{IDs: []string{self}, When: "Vendor contract signed"})
+	if len(o5.Similar) != 0 || len(o5.Changed) != 1 || o5.Created == "" || o5.Created == self {
+		t.Fatalf("self match = %+v", o5)
 	}
 	// A root question needs a place.
 	root := must(t, QuestionAdd, d, QuestionAddInput{Text: "Root one", Root: true}).ID
