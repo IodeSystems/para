@@ -6,6 +6,11 @@
 export const DWELL_MS = 6000
 export const FADE_MS = 250
 export const COLLAPSE_MS = 200
+// SWIPE_PX is how far a toast is dragged sideways before letting go dismisses it.
+export const SWIPE_PX = 80
+
+// swipeDismisses says whether a sideways drag of dx pixels, let go, dismisses the toast.
+export const swipeDismisses = (dx: number): boolean => Math.abs(dx) >= SWIPE_PX
 
 // prefersReducedMotion says the person asked for no motion: no slide, no fade, just show and remove.
 export const prefersReducedMotion = (): boolean =>

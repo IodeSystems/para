@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COLLAPSE_MS, DWELL_MS, FADE_MS, ToastStore } from '@/lib/toasts'
+import { COLLAPSE_MS, DWELL_MS, FADE_MS, swipeDismisses, SWIPE_PX, ToastStore } from '@/lib/toasts'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -98,5 +98,14 @@ describe('toast undo', () => {
     const s = new ToastStore()
     const id = s.push({ text: 'Sent: A', note: 'Cannot be undone.' })
     expect(await s.runUndo(id)).toBe(false)
+  })
+})
+
+describe('toast swipe', () => {
+  it('dismisses past SWIPE_PX either way, springs back short of it', () => {
+    expect(swipeDismisses(SWIPE_PX)).toBe(true)
+    expect(swipeDismisses(-SWIPE_PX - 1)).toBe(true)
+    expect(swipeDismisses(SWIPE_PX - 1)).toBe(false)
+    expect(swipeDismisses(0)).toBe(false)
   })
 })

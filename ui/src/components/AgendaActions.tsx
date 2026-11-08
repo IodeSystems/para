@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useRouteContext } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
@@ -75,6 +75,15 @@ function WordsDone({
   const [at, setAt] = useState<HTMLElement | null>(null)
   const [text, setText] = useState('')
   const meeting = done === 'meeting'
+  // While the popover is open the item's composer hides (ItemComposer): the popover sits on top
+  // of it, and its outline would show behind the popover's.
+  useEffect(() => {
+    if (!at) return
+    document.body.dataset.composerCovered = 'yes'
+    return () => {
+      delete document.body.dataset.composerCovered
+    }
+  }, [at])
   return (
     <>
       <DraftHint hint={hint}>

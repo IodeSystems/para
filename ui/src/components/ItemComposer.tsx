@@ -197,6 +197,8 @@ export function ItemComposer({
         bottom: { xs: 'calc(72px + env(safe-area-inset-bottom))', sm: 16 },
         zIndex: 2,
         mt: 3,
+        // Hidden while a Done-with-words popover covers it (AgendaActions).
+        'body[data-composer-covered] &': { visibility: 'hidden' },
       }}
     >
       <Composer

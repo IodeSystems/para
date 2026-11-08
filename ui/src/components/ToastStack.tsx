@@ -1,15 +1,32 @@
-import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent,
+  type ReactNode,
+} from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
 import { errorText } from '@/client/gqlClient'
-import { COLLAPSE_MS, FADE_MS, prefersReducedMotion, ToastStore, type Toast } from '@/lib/toasts'
+import {
+  COLLAPSE_MS,
+  FADE_MS,
+  prefersReducedMotion,
+  swipeDismisses,
+  SWIPE_PX,
+  ToastStore,
+  type Toast,
+} from '@/lib/toasts'
 
 // ToastStack shows what the owner just did, at the right edge (under the app bar on a phone), one line per
-// action with Undo. Any page gets the store from useToasts(); the stack is mounted once, behind
-// sign-in. See lib/toasts.ts for the lifecycle.
+// action with Undo. A toast swiped sideways (or dragged with the mouse) past SWIPE_PX goes away.
+// Any page gets the store from useToasts(); the stack is mounted once, behind sign-in. See
+// lib/toasts.ts for the lifecycle.
 
 const Ctx = createContext<ToastStore | null>(null)
 
@@ -70,6 +87,29 @@ function ToastStack({ store }: { store: ToastStore }) {
 
 function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
   const gone = t.phase !== 'show'
+  // A sideways drag moves the toast with the finger; let go past SWIPE_PX and it is dismissed,
+  // short of it and it springs back. A press on Undo is not a drag.
+  const [dx, setDx] = useState(0)
+  const start = useRef<number | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const down = (e: PointerEvent<HTMLElement>) => {
+    if (gone || (e.target as HTMLElement).closest('button')) return
+    start.current = e.clientX
+    setDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+    store.hold(t.id)
+  }
+  const move = (e: PointerEvent<HTMLElement>) => {
+    if (start.current !== null) setDx(e.clientX - start.current)
+  }
+  const up = () => {
+    if (start.current === null) return
+    start.current = null
+    setDragging(false)
+    if (swipeDismisses(dx)) store.dismiss(t.id)
+    else setDx(0)
+    store.release(t.id)
+  }
   return (
     <Box
       data-toast={t.tone}
@@ -91,7 +131,18 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
       <Box sx={{ overflow: 'hidden', minHeight: 0 }}>
         <Paper
           elevation={6}
+          data-swipe={dx !== 0 ? 'drag' : undefined}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={up}
           sx={{
+            transform: dx ? `translateX(${dx}px)` : undefined,
+            opacity: dx ? Math.max(0.3, 1 - Math.abs(dx) / (SWIPE_PX * 2)) : undefined,
+            transition: dragging ? 'none' : 'transform 150ms ease, opacity 150ms ease',
+            touchAction: 'pan-y',
+            userSelect: 'none',
+            cursor: 'grab',
             mb: 1,
             px: 2,
             py: 1,
