@@ -3,11 +3,15 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/iodesystems/para/internal/mcpserver"
 )
 
 // streamAXParityCases are the parity rows of stream AX: upgrades.
@@ -157,6 +161,21 @@ func TestUpgradeStopsWhenAlreadyCurrent(t *testing.T) {
 	}
 	if _, err := os.Stat(mkLog); err == nil {
 		t.Fatal("make ran for a current version")
+	}
+}
+
+func TestMCPSurfaceIsTheServersSurface(t *testing.T) {
+	e := newEnv(t)
+	var got mcpserver.Surface
+	if err := json.Unmarshal([]byte(e.ok("mcp", "--surface")), &got); err != nil {
+		t.Fatal(err)
+	}
+	want, err := mcpserver.CurrentSurface(got.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("para mcp --surface differs from the server's surface")
 	}
 }
 

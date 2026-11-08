@@ -30,7 +30,7 @@ const mcpSurface = "mcp"
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor string
-	var helpClaude, helpDun, channel, helpRaglit, readOnly bool
+	var helpClaude, helpDun, channel, helpRaglit, readOnly, surface bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
@@ -40,6 +40,15 @@ server entries for this install. They write nothing.
 --help-raglit prints how to add meaning search with a raglit daemon.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// A running para mcp asks the binary installed after it for this,
+			// to decide what it can keep serving. It reads no vault.
+			if surface {
+				sf, err := mcpserver.CurrentSurface(l.version)
+				if err != nil {
+					return err
+				}
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(sf)
+			}
 			if err := l.load(); err != nil {
 				return err
 			}
@@ -91,6 +100,7 @@ server entries for this install. They write nothing.
 				EventsDir:        filepath.Join(sel.Path, "events"),
 				Channel:          channel,
 				Executable:       mcpserver.ExecutablePath(),
+				InstalledSurface: installedSurface,
 				InstalledVersion: installedVersion,
 				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
 				ReadOnly:         readOnly,
@@ -108,6 +118,8 @@ server entries for this install. They write nothing.
 	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
 	cmd.Flags().BoolVar(&helpRaglit, "help-raglit", false, "print how to connect a raglit daemon for meaning search")
 	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
+	cmd.Flags().BoolVar(&surface, "surface", false, "print this binary's vault format, types, and tool schema hashes as JSON, for a running para mcp")
+	_ = cmd.Flags().MarkHidden("surface")
 	cmd.AddCommand(newMCPConfigCmd(l))
 	return cmd
 }
@@ -292,4 +304,20 @@ func installedVersion() string {
 		return ""
 	}
 	return string(out)
+}
+
+// installedSurface asks the binary now on disk for its surface. A binary
+// older than --surface fails, and the running server then refuses every tool.
+func installedSurface() (mcpserver.Surface, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, mcpserver.ExecutablePath(), "mcp", "--surface").Output()
+	if err != nil {
+		return mcpserver.Surface{}, fmt.Errorf("mcp: installed surface: %w", err)
+	}
+	var sf mcpserver.Surface
+	if err := json.Unmarshal(out, &sf); err != nil {
+		return mcpserver.Surface{}, fmt.Errorf("mcp: installed surface: %w", err)
+	}
+	return sf, nil
 }

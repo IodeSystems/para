@@ -9,8 +9,11 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
    $ para skill install
 
 3. Restart the session, then check with /mcp. After each para upgrade: run
-   para skill install again, and reconnect the servers in /mcp (an old server
-   refuses calls with a restart message).
+   para skill install again. A running server keeps serving; it refuses only
+   the tools that changed (or every call, when the vault format changed) with
+   a message to reconnect it in /mcp, and its first answer says once that
+   para was upgraded. Reconnect then, or when convenient to get new tools
+   and the fixes inside the tools.
 
 4. Asks are tracked. When you ask the agent in the chat for something that does
    not end in its reply (or that it hands to another agent), it records agent work

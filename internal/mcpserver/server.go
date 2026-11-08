@@ -60,12 +60,17 @@ type Options struct {
 	// It is a research preview of Claude Code, so it is off by default.
 	Channel bool
 	// Executable is the path of the running binary. When set, each tool call
-	// first checks that the file is unchanged since New, and if not, answers
-	// with StaleMessage. Empty turns the check off.
+	// first checks whether the file changed since New, and if so compares
+	// InstalledSurface with this binary's (see stale.go). Empty turns the
+	// check off.
 	Executable string
+	// InstalledSurface returns the Surface of the binary now on disk. It runs
+	// once per upgrade. Nil, or an error, refuses every tool after an
+	// upgrade: this package starts no program.
+	InstalledSurface func() (Surface, error)
 	// InstalledVersion returns the version of the binary now on disk, for the
-	// stale error. It runs only after an upgrade. Nil reports it as unknown:
-	// this package starts no program.
+	// stale error when InstalledSurface cannot say it. Nil reports it as
+	// unknown.
 	InstalledVersion func() string
 	// SeenPath is the file in this machine's state directory that records the
 	// binary the last session ran. When it differs, the instructions gain
@@ -96,7 +101,7 @@ type Server struct {
 	notes     *notifier
 	channel   bool
 	runCtx    atomic.Pointer[context.Context] // the context of Start, for the watcher's checks
-	binary    *binaryStamp
+	upgraded  *upgradeState
 	version   string
 	installed func() string
 	presence  *presenceFile
@@ -129,9 +134,15 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		channel:   o.Channel,
 		eventsDir: o.EventsDir,
 		poll:      o.Poll,
-		binary:    stampBinary(o.Executable),
 		version:   o.Version,
 		installed: o.InstalledVersion,
+	}
+	if b := stampBinary(o.Executable); b != nil {
+		running, err := CurrentSurface(o.Version)
+		if err != nil {
+			return nil, err
+		}
+		s.upgraded = &upgradeState{binary: b, running: running, ask: o.InstalledSurface}
 	}
 	s.presence = newPresence(o.PresenceDir, deps.Store.Info().Actor, o.Channel, s.warn)
 	hooks.AddAfterInitialize(func(_ context.Context, _ any, req *mcp.InitializeRequest, _ *mcp.InitializeResult) {
@@ -225,8 +236,16 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 			}
 		}()
 		s.presence.call(ctx)
-		if s.binary.changed() {
-			return mcp.NewToolResultError(e.Name() + ": " + staleMessage(s.version, s.installed)), nil
+		refuse, note, upgraded := s.upgraded.verdict(e.Name(), s.version, s.installed)
+		if refuse != "" {
+			return mcp.NewToolResultError(refuse), nil
+		}
+		// The vault guard after an upgrade: the new para may have raised the
+		// vault's format, which para mcp refuses at start.
+		if upgraded {
+			if err := upgrade.Check(s.deps.Store); err != nil {
+				return mcp.NewToolResultError(s.clean(fmt.Errorf("%s: %w", e.Name(), err))), nil
+			}
 		}
 		var input json.RawMessage
 		if args := req.GetRawArguments(); args != nil {
@@ -270,6 +289,9 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		}
 		if img != nil {
 			res.Content = append(res.Content, *img)
+		}
+		if note != "" {
+			res.Content = append(res.Content, mcp.NewTextContent(note))
 		}
 		// The Output is emitted first, then marked failed (ops.Failing).
 		if f, ok := out.(ops.Failing); ok && f.Failed() != nil {

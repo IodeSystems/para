@@ -9,7 +9,11 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
    $ para skill install
    Reinstall after upgrading para.
 
-3. Check with /mcp.
+3. Check with /mcp. After each para upgrade, a running server keeps serving;
+   it refuses only the tools that changed (or every call, when the vault
+   format changed) with a message to restart it, and its first answer says
+   once that para was upgraded. Restart it then, or when convenient to get
+   new tools and the fixes inside the tools.
 
 4. Start with a prompt, as a slash command:
    /para-<vault>:orient      what para is, and how to work a vault
