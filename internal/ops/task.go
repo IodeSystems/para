@@ -195,7 +195,7 @@ type TaskAddInput struct {
 	RequestedBy string   `json:"requested_by,omitempty"`
 	Incident    string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
 	DoneWhen    string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
-	DependsOn   []string `json:"depends_on,omitempty"` // task or rfx ids
+	DependsOn   []string `json:"depends_on,omitempty"` // task, obligation, rfx, question, goal, or agent work ids
 	// DoURL is the page where the owner does it, DoCommand the exact command
 	// to run (no secret in it), Steps a short markdown list. An agent that
 	// adds a task for the owner gives at least one when it can find out how.
@@ -753,16 +753,16 @@ var TaskDue = defineSafe("task_due", "Set or clear the due date of a task", func
 	return TaskDueOutput{ID: doc.ID, Due: t.Due, Recur: t.Recur, Rev: saved.Rev}, nil
 })
 
-// dependencyLink checks that id names a task, an rfx, or a question, in any
-// project or area.
+// dependencyLink checks that id names a task, obligation, rfx, question, goal,
+// or agent work, in any project or area.
 func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
 	id := normID(raw)
 	dep, err := s.Get(ctx, id)
 	if err != nil {
 		return "", linkErr("depends_on", id, err)
 	}
-	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeProject && typ != model.TypeRequest {
-		return "", fmt.Errorf("depends_on %s is a %s: want a task, rfx, question, goal, or agent work", id, typ)
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeObligation && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeProject && typ != model.TypeRequest {
+		return "", fmt.Errorf("depends_on %s is a %s: want a task, obligation, rfx, question, goal, or agent work", id, typ)
 	}
 	return model.LinkTo(id), nil
 }
@@ -803,7 +803,7 @@ func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]stri
 // TaskDependsInput is the input of task_depends_add and task_depends_remove.
 type TaskDependsInput struct {
 	ID        string   `json:"id"`
-	DependsOn []string `json:"depends_on"` // task or rfx ids, in any project or area
+	DependsOn []string `json:"depends_on"` // task, obligation, rfx, question, goal, or agent work ids, in any project or area
 }
 
 // TaskDependsOutput is the output of task_depends_add and task_depends_remove.

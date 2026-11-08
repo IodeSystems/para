@@ -102,9 +102,10 @@ func newUndeferCmd(l *loader) *cobra.Command {
 func newDependsCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "depends", Short: "Edit what an item waits on", Args: cobra.NoArgs}
 	cmd.AddCommand(opCommand(l, ops.DependsSet, binding[ops.DependsSetInput, ops.DependsSetOutput]{
-		Use:  "set <id> [<on>] [--optional] [--remove] [--reason <text>]",
+		Use:  "set <id> [<on> | --on <id>] [--optional] [--remove] [--reason <text>]",
 		Args: cobra.RangeArgs(1, 2),
 		Flags: func(fs *pflag.FlagSet, in *ops.DependsSetInput) {
+			fs.StringVar(&in.On, "on", "", "id the item waits on (same as <on>)")
 			fs.BoolVar(&in.Optional, "optional", false, "better before: shown, but it never holds the item")
 			fs.BoolVar(&in.Remove, "remove", false, "take the dependency or reason away")
 			fs.StringVar(&in.Reason, "reason", "", "a text reason the task waits (blocked_by), instead of <on>")
@@ -112,6 +113,9 @@ func newDependsCmd(l *loader) *cobra.Command {
 		Bind: func(args []string, in *ops.DependsSetInput) error {
 			in.ID = args[0]
 			if len(args) > 1 {
+				if in.On != "" && in.On != args[1] {
+					return fmt.Errorf("depends set: give <on> or --on, not both")
+				}
 				in.On = args[1]
 			}
 			return nil

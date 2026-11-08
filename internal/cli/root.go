@@ -41,6 +41,10 @@ type loader struct {
 	vaultFlag string
 	actorFlag string
 	whyFlag   string
+	// sourceFlags and requestFlag are the receipt's sources and the agent
+	// work the write serves, as MCP takes them in write meta.
+	sourceFlags []string
+	requestFlag string
 	// minorFlag, obviousFlag, and dossierFlag were an agent's ratings of a
 	// write for the gate. They are accepted and ignored for one release.
 	minorFlag   bool
@@ -193,6 +197,8 @@ func newRoot(l *loader) *cobra.Command {
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")
 	root.PersistentFlags().StringVar(&l.actorFlag, "actor", "", "act as this agent (or PARA_ACTOR; default the owner): writes then need --why and file a receipt, as over MCP")
 	root.PersistentFlags().StringVar(&l.whyFlag, "why", "", "why you make this write; required on a write when --actor names an agent")
+	root.PersistentFlags().StringArrayVar(&l.sourceFlags, "source", nil, "a source the receipt cites (a URL or a vault id); repeat for more; needs --actor")
+	root.PersistentFlags().StringVar(&l.requestFlag, "request", "", "the agent work (request id) this write serves; default the one the actor holds; needs --actor")
 	root.PersistentFlags().BoolVar(&l.minorFlag, "minor", false, "ignored since 0.3.0 (goes in a later release): an undoable write applies at once")
 	root.PersistentFlags().BoolVar(&l.obviousFlag, "obvious", false, "ignored since 0.3.0 (goes in a later release): an undoable write applies at once")
 	root.PersistentFlags().StringVar(&l.dossierFlag, "dossier", "", "ignored since 0.3.0 (goes in a later release): no write is held back")

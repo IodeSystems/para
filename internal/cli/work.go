@@ -180,9 +180,10 @@ func newTaskCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.TaskAdd, binding[ops.TaskAddInput, ops.TaskAddOutput]{
-			Use:  "add <title>",
-			Args: cobra.MinimumNArgs(1),
+			Use:  "add <title> | --title <title>",
+			Args: cobra.ArbitraryArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
+				fs.StringVar(&in.Title, "title", "", "the title (same as <title>)")
 				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
@@ -190,7 +191,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
-				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "task or rfx id this task waits on, in any project or area (repeatable)")
+				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "id this task waits on: a task, obligation, rfx, question, goal, or agent work, in any project or area (repeatable)")
 				fs.StringVar(&in.Parent, "parent", "", "task or obligation id this is an action item of: prep for a meeting or a promise, or what came out of it (the parent does not wait on it)")
 				fs.BoolVar(&in.Commitment, "commitment", false, "same as --kind commitment: owed to someone; needs --due")
 				fs.StringVar((*string)(&in.Kind), "kind", "", "task (default), meeting, call, work_with, or commitment; all but task are with someone (--with)")
@@ -207,7 +208,14 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Steps, "steps", "", "1 to 5 steps, a markdown list")
 			},
 			Bind: func(args []string, in *ops.TaskAddInput) error {
-				in.Title = strings.Join(args, " ")
+				switch {
+				case len(args) > 0 && in.Title != "":
+					return fmt.Errorf("task add: give <title> or --title, not both")
+				case len(args) > 0:
+					in.Title = strings.Join(args, " ")
+				case strings.TrimSpace(in.Title) == "":
+					return fmt.Errorf("task add: a title is required: <title> or --title")
+				}
 				return nil
 			},
 			Text: func(w io.Writer, out ops.TaskAddOutput) error {

@@ -138,28 +138,58 @@ func emit[O any](cmd *cobra.Command, out O, text func(io.Writer, O) error) error
 	return nil
 }
 
-// writeContext carries --why onto the context of a write made as an agent, the
-// way the MCP server does. An op with a why input of its own keeps that field's
-// meaning, and its value serves the receipt. As the owner it changes nothing.
+// writeContext carries --why, --source, and --request onto the context of a
+// write made as an agent, the way the MCP server does. An op with a why input
+// of its own keeps that field's meaning, and its value serves the receipt; so
+// does a request input, as over MCP. A command with its own --source or
+// --request flag hides the global one. As the owner no receipt is filed, so a
+// write refuses --source and --request.
 func (l *loader) writeContext(ctx context.Context, e ops.Entry, in any) (context.Context, error) {
-	if !l.agent() || !ops.NeedsWhy(e) {
+	if !ops.NeedsWhy(e) {
 		return ctx, nil
 	}
+	if !l.agent() {
+		if len(l.sourceFlags) > 0 || strings.TrimSpace(l.requestFlag) != "" {
+			return ctx, fmt.Errorf("%s: --source and --request need --actor: an owner write files no receipt", e.Name())
+		}
+		return ctx, nil
+	}
+	own := inputFields(in)
 	why := strings.TrimSpace(l.whyFlag)
 	if why == "" {
-		if b, err := json.Marshal(in); err == nil {
-			var m struct {
-				Why string `json:"why"`
-			}
-			if json.Unmarshal(b, &m) == nil {
-				why = strings.TrimSpace(m.Why)
-			}
-		}
+		why = strings.TrimSpace(fieldString(own, "why"))
 	}
 	if why == "" {
 		return ctx, fmt.Errorf("%s: --why is required: say why you make this write as actor %s", e.Name(), l.actor())
 	}
-	return ops.WithWrite(ctx, ops.WriteMeta{Why: why}), nil
+	m := ops.WriteMeta{Why: why, Request: strings.TrimSpace(l.requestFlag)}
+	if m.Request == "" {
+		m.Request = strings.TrimSpace(fieldString(own, "request"))
+	}
+	for _, s := range l.sourceFlags {
+		if s = strings.TrimSpace(s); s != "" {
+			m.Sources = append(m.Sources, s)
+		}
+	}
+	return ops.WithWrite(ctx, m), nil
+}
+
+// inputFields is an op input as its JSON fields; nil when it is not an object.
+func inputFields(in any) map[string]json.RawMessage {
+	b, err := json.Marshal(in)
+	if err != nil {
+		return nil
+	}
+	var f map[string]json.RawMessage
+	_ = json.Unmarshal(b, &f)
+	return f
+}
+
+// fieldString reads a string field; a missing or non-string field reads as "".
+func fieldString(f map[string]json.RawMessage, name string) string {
+	var s string
+	_ = json.Unmarshal(f[name], &s)
+	return s
 }
 
 // ratingsNote says on stderr that --minor, --obvious, and --dossier decide
