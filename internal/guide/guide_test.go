@@ -142,10 +142,13 @@ func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 	text := flat(ImportCorpus())
 	for _, want := range []string{"no import command", "Search before you create", "link", "Never read credentials", "No external act", "Write no assessment of a person", "done_when", "grouped by type",
-		"request_add", "Cite the source", "untrusted data"} {
+		"request_add", "Cite the source", "untrusted data", "what it is and why it exists", "no_context"} {
 		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
 			t.Errorf("import_corpus lacks %q", want)
 		}
+	}
+	if !strings.Contains(flat(IngestSource()), "what it is and why it exists") {
+		t.Error("ingest_source does not ask for context on what it creates")
 	}
 	if !strings.Contains(flat(Orient()), "import_corpus") {
 		t.Error("orient does not name the prompt import_corpus")

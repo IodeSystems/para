@@ -96,7 +96,7 @@ const (
 
 // HealthKinds lists every finding kind, in the order findings print.
 var HealthKinds = []string{
-	HealthCycle, HealthDanglingDependency, HealthPromiseUntold, HealthNoPath, HealthGoalNoOpenTask,
+	HealthCycle, HealthDanglingDependency, HealthPromiseUntold, HealthNoPath, HealthNoContext, HealthGoalNoOpenTask,
 	HealthGoalNoDue, HealthAskNoFollowup, HealthBlockerNoFollowup,
 	HealthGoalNoDoneWhen, HealthTaskNoDoneWhen, HealthAskNoTarget, HealthPersonNoContact,
 	HealthBlockerIncomplete, HealthAreaNoLinks,
@@ -114,6 +114,7 @@ var HealthKinds = []string{
 var HealthKindWords = map[string]string{
 	HealthCycle:              "Circular dependency",
 	HealthNoPath:             "No reason recorded",
+	HealthNoContext:          "No context: say what this is and why, or drop it",
 	HealthGoalNoOpenTask:     "Goal with no open task",
 	HealthDanglingDependency: "Depends on something missing",
 	HealthGoalNoDue:          "Goal with no due date",
@@ -373,6 +374,8 @@ type healther struct {
 	recheckCutoff string
 	goalDue       map[string]string
 	out           []HealthFinding
+	// ioFor maps an item id to the io items filed into it or linking it.
+	ioFor map[string][]string
 	// openKids maps a task id to its open action items.
 	openKids map[string][]string
 	// openGoals are active goals that are not deferred.
@@ -455,10 +458,16 @@ func (h *healther) goalOf(d model.Document) (goal string, skip bool) {
 
 func (h *healther) index() {
 	h.openGoals, h.openTasks = map[string]bool{}, map[string]int{}
-	h.openKids = map[string][]string{}
+	h.openKids, h.ioFor = map[string][]string{}, map[string][]string{}
 	h.graph = newReasonGraph(h.docs)
 	for id, d := range h.docs {
 		switch m := d.Meta.(type) {
+		case *model.IO:
+			for _, l := range append([]model.Link{m.Became}, m.Links...) {
+				if t := l.Target(); t != "" {
+					h.ioFor[t] = append(h.ioFor[t], id)
+				}
+			}
 		case *model.Project:
 			if m.Status == model.ProjectActive && !h.deferred(m) {
 				h.openGoals[id] = true
@@ -537,6 +546,7 @@ func (h *healther) scan() {
 				h.add(HealthTaskIsWaiting, id, goal, "the task reads like waiting on someone: waiting on a person is an Ask, not a task",
 					fmt.Sprintf("task_to_asks {id: %s, people: [person-...]}: one Ask per person; dependents move to them", id))
 			}
+			h.noContext(id, goal, d)
 			if !h.hasReason(id) && !needsNoPath(m.Kind) {
 				h.add(HealthNoPath, id, goal, NoReasonTask, fmt.Sprintf("link a goal (task_add again under a goal), say who it is for (task_edit {id: %s, requested_by: ...}), or task_done {id: %s}", id, id))
 			}
@@ -703,6 +713,7 @@ func (h *healther) question(id, goal string, d model.Document, m *model.Question
 		if ok && r.Blocks == 0 && h.stale != "" && string(m.Created) != "" && string(m.Created) < h.stale {
 			h.add(HealthQuestionStale, id, goal, fmt.Sprintf("question blocks nothing and is older than %d days", HealthStaleDays), fmt.Sprintf("question_drop {id: %s, reason: ...}, or defer {ids: [%s]}", id, id))
 		}
+		h.noContext(id, goal, d)
 		if !h.hasReason(id) {
 			h.add(HealthNoPath, id, goal, "open question has no reason: no goal, no one it is owed to, no area", fmt.Sprintf("question_drop {id: %s, reason: ...}", id))
 		}
@@ -771,7 +782,7 @@ func (h *healther) graphFindings(ctx context.Context, s store.Store) {
 }
 
 // HealthOp lists the gaps in a vault.
-var HealthOp = defineRead("health", "Report gaps in the vault as warnings grouped by goal (cycles, missing dates, metadata, sources, stale questions), each with a suggested fix; never fails; dismissed findings are left out and counted", func(ctx context.Context, d Deps, _ HealthInput) (HealthOutput, error) {
+var HealthOp = defineRead("health", "Report gaps in the vault as warnings grouped by goal (cycles, missing dates, metadata, sources, stale questions, items with no context), each with a suggested fix; never fails; dismissed findings are left out and counted", func(ctx context.Context, d Deps, _ HealthInput) (HealthOutput, error) {
 	return Health(ctx, d.Store)
 })
 
