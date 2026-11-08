@@ -96,7 +96,7 @@ export function QuestionRows({ list }: { list: Rows }) {
             {x.deferred && (
               <StatusChip
                 tone="quiet"
-                label={laterLabel(x.deferUntil, x.waitsOn, x.waitsOnNames)}
+                label={laterLabel(x.deferUntil, x.waitsOn, x.waitsOnNames, x.laterText)}
               />
             )}
             {!x.deferred && x.readyWhy && <StatusChip tone="good" label={x.readyWhy} />}

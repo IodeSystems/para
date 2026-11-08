@@ -85,6 +85,8 @@ type QuestionView struct {
 	WaitsOn      []string `json:"waits_on"`
 	ReadyWhy     string   `json:"ready_why,omitempty"`
 	WaitsOnNames []string `json:"waits_on_names,omitempty" nameof:"WaitsOn"`
+	// LaterText: see TaskView.
+	LaterText string `json:"later_text,omitempty"`
 	// AgentLooking is true while queued or claimed agent work looks for context
 	// for this question. The question stays open.
 	AgentLooking bool `json:"agent_looking"`
@@ -279,7 +281,7 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			return nil, err
 		}
 		v.Deferred = deferred[v.ID].any()
-		v.WaitsOn, v.ReadyWhy = deferred[v.ID].Waits, deferred[v.ID].Ready
+		v.WaitsOn, v.ReadyWhy, v.LaterText = deferred[v.ID].Waits, deferred[v.ID].Ready, deferred[v.ID].Follows
 		if v.WaitsOn == nil {
 			v.WaitsOn = []string{}
 		}

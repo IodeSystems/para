@@ -33,6 +33,7 @@ export type TaskRow = {
   outcome?: string | null
   deferred?: boolean
   deferUntil?: string | null
+  laterText?: string | null
   waitsOn?: string[]
   waitsOnNames?: string[] | null
   created?: string | null
@@ -116,6 +117,7 @@ export function TaskRows({ tasks, showProject }: { tasks: TaskRow[]; showProject
                         t.deferUntil || (t.waitsOn?.length ? null : 'someday'),
                         t.waitsOn,
                         t.waitsOnNames,
+                        t.laterText,
                       )}
                     />
                   )}

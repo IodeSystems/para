@@ -405,17 +405,21 @@ type LaterInput struct {
 	Place  string    `json:"place,omitempty"`
 	New    bool      `json:"new,omitempty"`
 	Reason string    `json:"reason,omitempty"`
+	// UntilStart and UntilEnd are an obligation: back when it starts, or the
+	// day after it ends, following it when it moves (defer's until_start).
+	UntilStart string `json:"until_start,omitempty"`
+	UntilEnd   string `json:"until_end,omitempty"`
 }
 
 // Later puts items off: defer, with defer's rules.
-var Later = defineVerb("later", "Put items off until a date (until), after an item is done (after), when a condition holds (when: reuses the open task of the same condition, or makes one; new always makes a new one), or someday: id or ids, a tag, or a scope (a goal or area). It runs defer, with defer's rules. Outputs op and result (defer's output); on a person's surface also receipt",
+var Later = defineVerb("later", "Put items off until a date (until), until an obligation starts or ends (until_start, until_end: an obligation id; the date follows the obligation when it moves, and the items come back with a note when it is cancelled), after an item is done (after), when a condition holds (when: reuses the open task of the same condition, or makes one; new always makes a new one), or someday: id or ids, a tag, or a scope (a goal or area). It runs defer, with defer's rules. Outputs op and result (defer's output); on a person's surface also receipt",
 	RiskReview, func(_ context.Context, _ Deps, in LaterInput) (verbRoute, error) {
 		ids := in.IDs
 		if id := strings.TrimSpace(in.ID); id != "" {
 			ids = append([]string{id}, ids...)
 		}
 		return newRoute(Defer, DeferInput{IDs: ids, Items: in.Items, Tag: in.Tag, Until: in.Until, Reason: in.Reason, Scope: in.Scope,
-			After: in.After, When: in.When, Place: in.Place, New: in.New}, true)
+			After: in.After, When: in.When, Place: in.Place, New: in.New, UntilStart: in.UntilStart, UntilEnd: in.UntilEnd}, true)
 	})
 
 // --- reopen ---

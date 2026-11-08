@@ -29,6 +29,8 @@ const ContextDoc = graphql(/* GraphQL */ `
           id
           type
           looking
+          later
+          laterRef
           waitsOn {
             ...DepRowFields
           }

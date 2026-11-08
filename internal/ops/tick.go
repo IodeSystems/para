@@ -92,6 +92,10 @@ type TickOutput struct {
 	// skipped (attend no): the owner made no attend choice. Each has a
 	// receipt that undoes it.
 	MeetingsSkipped []string `json:"meetings_skipped"`
+	// Followed lists the items put off until an obligation starts or ends
+	// whose date this pass moved, or that came back because the obligation
+	// closed: for a change made by hand (deferfollow.go).
+	Followed []string `json:"followed"`
 	// Changes counts the files reconcile found changed outside para.
 	Changes  int      `json:"changes"`
 	Warnings []string `json:"warnings"`
@@ -116,7 +120,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -181,6 +185,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickPromises(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: promises: %w", err)
+	}
+	if out.Followed, err = followAll(ctx, d); err != nil {
+		return out, fmt.Errorf("tick: follow obligations: %w", err)
 	}
 	return out, nil
 }

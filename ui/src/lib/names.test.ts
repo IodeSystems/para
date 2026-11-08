@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { joinNames, nameList, nameOr } from '@/lib/names'
+import { joinNames, laterLabel, nameList, nameOr } from '@/lib/names'
 
 describe('names', () => {
   it('prefers the name', () => {
@@ -13,6 +13,12 @@ describe('names', () => {
   it('pairs ids with parallel names', () => {
     expect(nameList(['task-a', 'task-b'], ['Alpha', ''])).toEqual(['Alpha', 'b'])
     expect(nameList(['task-a'], null)).toEqual(['a'])
+  })
+  it('says what a later item follows', () => {
+    expect(laterLabel('2026-12-01', [], null)).toBe('Later: back on 2026-12-01')
+    expect(laterLabel('2026-12-01', [], null, 'until Seattle trip starts (2026-12-01)')).toBe(
+      'Later: until Seattle trip starts (2026-12-01)',
+    )
   })
   it('joins in words', () => {
     expect(joinNames(['A'])).toBe('A')

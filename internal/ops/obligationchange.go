@@ -244,6 +244,9 @@ func obligationChange(ctx context.Context, d Deps, in ObligationChangeInput) (Ob
 			return out, err
 		}
 	}
+	if _, err := followObligation(ctx, d, doc.ID); err != nil {
+		return out, err
+	}
 	out.State, out.Due, out.Start, out.End, out.Promise = o.State, string(o.Due), o.Scheduled, o.End, o.Promise
 	out.OwedBy = append(out.OwedBy, targets(o.OwedBy)...)
 	return out, nil

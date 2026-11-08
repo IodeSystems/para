@@ -24,16 +24,19 @@ export function nameList(
   return (ids ?? []).map((id, i) => nameOr(names?.[i], id))
 }
 
-// laterLabel is the Later chip text: what the item waits on, then the date it is back.
+// laterLabel is the Later chip text: what the item waits on, then the date it is back. text, when
+// set, replaces the date: "until <obligation> starts (<date>)", which follows the obligation.
 export function laterLabel(
   until: string | null | undefined,
   waitsOn: readonly string[] | null | undefined,
   waitsOnNames: readonly string[] | null | undefined,
+  text?: string | null,
 ): string {
   const parts: string[] = []
   if (waitsOn && waitsOn.length > 0)
     parts.push(`waits on: ${nameList(waitsOn, waitsOnNames).join(', ')}`)
-  if (until) parts.push(`back ${until === 'someday' ? 'someday' : `on ${until}`}`)
+  if (text) parts.push(text)
+  else if (until) parts.push(`back ${until === 'someday' ? 'someday' : `on ${until}`}`)
   return `Later: ${parts.join(', ') || 'later'}`
 }
 

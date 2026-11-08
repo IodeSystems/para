@@ -88,6 +88,9 @@ type TaskView struct {
 	WaitsOn      []string `json:"waits_on"`
 	ReadyWhy     string   `json:"ready_why,omitempty"`
 	WaitsOnNames []string `json:"waits_on_names,omitempty" nameof:"WaitsOn"`
+	// LaterText is "until <title> starts (<date>)" or "until <title> ends
+	// (<date>)" while the task is put off until an obligation starts or ends.
+	LaterText string `json:"later_text,omitempty"`
 	// Names are for people: the title of what the id fields point at, "" when
 	// unknown. DependsOnNames has one entry per DependsOn.
 	ProjectName    string   `json:"project_name,omitempty" nameof:"Project"`
@@ -1041,7 +1044,7 @@ func markDeferred(ctx context.Context, s store.Store, tasks []TaskView, keep boo
 			if t.WaitsOn = set[t.ID].Waits; t.WaitsOn == nil {
 				t.WaitsOn = []string{}
 			}
-			t.ReadyWhy = set[t.ID].Ready
+			t.ReadyWhy, t.LaterText = set[t.ID].Ready, set[t.ID].Follows
 		}
 		if t.Deferred && !keep {
 			continue

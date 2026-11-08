@@ -145,6 +145,21 @@ type Deferral struct {
 	// so undefer removes only those and never a dependency a person made.
 	DeferredAfter []string `yaml:"deferred_after,omitempty" json:"deferred_after,omitempty"`
 	DeferredAdded []string `yaml:"deferred_added,omitempty" json:"deferred_added,omitempty"`
+	// DeferUntilStart and DeferUntilEnd name the obligation the deferral
+	// follows (at most one is set): DeferUntil is its start (or due), or the
+	// day after its end, and para moves it when the obligation moves. When
+	// the obligation closes, the item comes back.
+	DeferUntilStart string `yaml:"defer_until_start,omitempty" json:"defer_until_start,omitempty"`
+	DeferUntilEnd   string `yaml:"defer_until_end,omitempty" json:"defer_until_end,omitempty"`
+}
+
+// Follows returns the obligation the deferral follows and whether it waits
+// for its end; "" when it follows none.
+func (d Deferral) Follows() (id string, end bool) {
+	if d.DeferUntilEnd != "" {
+		return d.DeferUntilEnd, true
+	}
+	return d.DeferUntilStart, false
 }
 
 // IsDeferred reports whether the item is put off on the date today (YYYY-MM-DD,

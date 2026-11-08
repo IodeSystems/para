@@ -753,7 +753,7 @@ var PoolPick = withOneReceipt(definePerson("pool_pick", "Pick ideas from a firin
 		if slices.Contains(out.Picked, id) {
 			continue
 		}
-		if _, _, err := deferOnce(ctx, d, id, "", "", "", true); err != nil {
+		if _, _, err := deferOnce(ctx, d, id, "", "", "", follow{}, true); err != nil {
 			return out, err
 		}
 		out.Picked = append(out.Picked, id)

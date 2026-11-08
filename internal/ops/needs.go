@@ -599,6 +599,12 @@ func (sn *Snapshot) deferredSet() (map[string]deferHold, error) {
 		doc := sn.docs[r.ID]
 		if df := deferralOf(doc.Meta); df != nil {
 			h := deferHold{Date: df.IsDeferred(sn.Today)}
+			if h.Date {
+				h.Follows = followText(df, func(id string) (model.Document, bool) {
+					d, err := sn.Get(id)
+					return d, err == nil
+				})
+			}
 			if len(df.DeferredAfter) > 0 && lifeOf(doc.Meta) == LifeOpen {
 				var err error
 				if h.Waits, h.Ready, err = sn.waitState(*df); err != nil {

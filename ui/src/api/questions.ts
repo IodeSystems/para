@@ -65,6 +65,7 @@ export const QuestionFields = graphql(/* GraphQL */ `
     rejectedBy
     deferred
     deferUntil
+    laterText
     deferredReason
     waitsOn
     waitsOnNames

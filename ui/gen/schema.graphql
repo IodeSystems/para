@@ -1432,6 +1432,8 @@ input para_DeferInputInput {
   scope: String
   tag: String
   until: String
+  untilEnd: String
+  untilStart: String
   when: String
 }
 
@@ -1439,6 +1441,7 @@ type para_DeferOutput {
   after: String
   changed: [String!]!
   created: String
+  follows: String
   similar: [para_Similar!]
   skipped: [String!]!
   until: String
@@ -3809,6 +3812,8 @@ type para_ItemContextOutput {
   cameFrom: [para_CameFrom!]!
   for: [para_ForParty!]!
   id: String!
+  later: String
+  laterRef: String
   looking: String
   reasons: [para_Reason!]!
   title: String!
@@ -4097,6 +4102,8 @@ input para_LaterInputInput {
   scope: String
   tag: String
   until: String
+  untilEnd: String
+  untilStart: String
   when: String
 }
 
@@ -4476,6 +4483,8 @@ type para_Meta {
   declinedBy: para_MetaDeclined_by
   declinedPerson: String
   deferUntil: String
+  deferUntilEnd: String
+  deferUntilStart: String
   deferredAdded: [String!]
   deferredAfter: [String!]
   deferredReason: String
@@ -6371,6 +6380,7 @@ type para_QuestionView {
   hasProposal: Boolean!
   id: String!
   kind: para_QuestionViewKind!
+  laterText: String
   needsYou: Boolean!
   optionDetails: [para_OptionDetail!]
   options: [String!]!
@@ -8829,6 +8839,7 @@ type para_TaskView {
   items: Int!
   kind: para_TaskViewKind!
   lastAttempt: String
+  laterText: String
   needsYou: Boolean!
   optional: Boolean
   outcome: para_TaskViewOutcome

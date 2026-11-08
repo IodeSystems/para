@@ -185,6 +185,8 @@ type Meta struct {
 	DeferredReason  string                `json:"deferred_reason,omitempty"`
 	DeferredAfter   []string              `json:"deferred_after,omitempty"`
 	DeferredAdded   []string              `json:"deferred_added,omitempty"`
+	DeferUntilStart string                `json:"defer_until_start,omitempty"`
+	DeferUntilEnd   string                `json:"defer_until_end,omitempty"`
 	Alternatives    *jsonValue            `json:"alternatives,omitempty"`
 	Unknowns        *jsonValue            `json:"unknowns,omitempty"`
 	Signals         *jsonValue            `json:"signals,omitempty"`

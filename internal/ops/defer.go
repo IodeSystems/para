@@ -78,6 +78,13 @@ type DeferInput struct {
 	When  string `json:"when,omitempty"`
 	Place string `json:"place,omitempty"`
 	New   bool   `json:"new,omitempty"`
+	// UntilStart is an obligation: the items come back on its start's day
+	// (its due when it has no start) and follow it when it moves; when it is
+	// cancelled or closed they come back at once, with a note that says why.
+	// UntilEnd is the same for the day after it ends. Give one, with no
+	// until, after, or when.
+	UntilStart string `json:"until_start,omitempty"`
+	UntilEnd   string `json:"until_end,omitempty"`
 }
 
 // DeferOutput is the output of defer and undefer.
@@ -92,6 +99,9 @@ type DeferOutput struct {
 	// Similar lists open tasks like the When text. Nothing was changed: repeat
 	// with After set to one of them, or with New.
 	Similar []Similar `json:"similar,omitempty"`
+	// Follows says, for until_start or until_end, "until <title> starts
+	// (<date>)" or "until <title> ends (<date>)".
+	Follows string `json:"follows,omitempty"`
 }
 
 // dependsOf returns the depends_on list of a task or question, or nil.
@@ -114,7 +124,13 @@ func dropAdded(m model.Meta, df *model.Deferral) {
 	}
 }
 
-func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, clear bool) (changed bool, skip string, err error) {
+// follow is the obligation a deferral follows (until_start, until_end).
+type follow struct {
+	id  string
+	end bool
+}
+
+func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, fl follow, clear bool) (changed bool, skip string, err error) {
 	doc, err := d.Store.Get(ctx, normID(id))
 	if err != nil {
 		return false, "", err
@@ -183,6 +199,11 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 		if after != "" {
 			df.DeferredAfter = []string{after}
 		}
+		if fl.end {
+			df.DeferUntilEnd = fl.id
+		} else {
+			df.DeferUntilStart = fl.id
+		}
 	}
 	if _, err := d.Store.Update(ctx, doc); err != nil {
 		return false, "", err
@@ -191,17 +212,38 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, cle
 }
 
 // Defer puts questions, tasks, and goals off until a date or someday.
-var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, obligations, or io items off until a date, or someday with no date; they leave the agenda, next, and the order (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag still lists it (state later), and an agent that builds a list for a topic may include it and say so, but must not undefer it. tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
+var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, obligations, or io items off until a date, until an obligation starts or ends (until_start or until_end: its id; the date follows the obligation when it is pushed or rescheduled, and when it is cancelled or closed the items come back with a dated line in their notes that says why), or someday with no date; they leave the agenda, next, and the order (state later) but still block what depends on them, and return on their date. Later only sets when an item surfaces: a view scoped by tag still lists it (state later), and an agent that builds a list for a topic may include it and say so, but must not undefer it. tag puts off a topic: every tagged open item. With scope, put off every open question in a goal or area that blocks nothing. The output lists every id changed", func(ctx context.Context, d Deps, in DeferInput) (DeferOutput, error) {
 	until := strings.TrimSpace(in.Until)
 	today := d.Store.Now().Format(dateLayout)
 	after, when := normID(in.After), strings.Join(strings.Fields(in.When), " ")
 	if after != "" && when != "" {
 		return DeferOutput{}, errors.New("give after or when, not both")
 	}
+	fl := follow{id: normID(in.UntilStart)}
+	if e := normID(in.UntilEnd); e != "" {
+		if fl.id != "" {
+			return DeferOutput{}, errors.New("give until_start or until_end, not both")
+		}
+		fl = follow{id: e, end: true}
+	}
+	if fl.id != "" {
+		if until != "" || after != "" || when != "" {
+			return DeferOutput{}, errors.New("until_start and until_end take the date from the obligation: give no until, after, or when")
+		}
+		if len(in.Items) > 0 {
+			return DeferOutput{}, errors.New("until_start and until_end apply to vault items: a dossier item returns on a date")
+		}
+	}
 	if (after != "" || when != "") && (strings.TrimSpace(in.Scope) != "" || len(in.Items) > 0 || strings.TrimSpace(in.Tag) != "") {
 		return DeferOutput{}, errors.New("after and when apply to ids, not to a scope, items, or a tag")
 	}
+	var follows string
 	switch {
+	case fl.id != "":
+		var err error
+		if until, follows, err = followTarget(ctx, d, in.IDs, fl.id, fl.end, today); err != nil {
+			return DeferOutput{}, err
+		}
 	case until == "" && (after != "" || when != ""):
 		// Waits only: no date.
 	case until == "":
@@ -258,7 +300,7 @@ var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, o
 		}
 		return DeferOutput{}, errors.New("nothing to put off: give ids, items, a tag, or a scope with open questions that block nothing")
 	}
-	out := DeferOutput{Changed: []string{}, Skipped: skipped, Until: until}
+	out := DeferOutput{Changed: []string{}, Skipped: skipped, Until: until, Follows: follows}
 	if when != "" {
 		if err := lintText("when", when); err != nil {
 			return DeferOutput{}, err
@@ -279,7 +321,10 @@ var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, o
 			continue
 		}
 		seen[id] = true
-		ok, skip, err := deferOnce(ctx, d, id, until, reason, after, false)
+		if fl.id != "" && id == fl.id {
+			return out, fmt.Errorf("%s cannot be put off until itself starts or ends", id)
+		}
+		ok, skip, err := deferOnce(ctx, d, id, until, reason, after, fl, false)
 		if err != nil {
 			return out, err
 		}
@@ -316,7 +361,7 @@ var Undefer = withProposalReceipts(definePerson("undefer", "Bring questions, tas
 		if id = normID(id); id == "" {
 			continue
 		}
-		ok, skip, err := deferOnce(ctx, d, id, "", "", "", true)
+		ok, skip, err := deferOnce(ctx, d, id, "", "", "", follow{}, true)
 		if err != nil {
 			return out, err
 		}
@@ -338,6 +383,7 @@ type deferHold struct {
 	Waits     []string // open items in deferred_after
 	Inherited bool     // its goal or scope task is put off
 	Ready     string   // "ready: <title> done" for 7 days after the last wait resolved
+	Follows   string   // "until <title> starts (<date>)": it follows an obligation
 }
 
 func (h deferHold) any() bool { return h.Date || len(h.Waits) > 0 || h.Inherited }

@@ -22,6 +22,8 @@ func deferText(w io.Writer, out ops.DeferOutput) error {
 	}
 	for _, id := range out.Changed {
 		switch {
+		case out.Follows != "":
+			p.f("deferred\t%s\t%s\n", id, out.Follows)
 		case out.After != "":
 			p.f("deferred\t%s\tafter %s\t%s\n", id, out.After, out.Until)
 		case out.Until != "":
@@ -62,6 +64,8 @@ func newDeferCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Scope, "scope", "", "a goal or an area: put off every open question in it that blocks nothing")
 			fs.StringVar(&in.After, "after", "", "id of a task, question, ask, goal, or agent work: wait until it is done (adds a dependency)")
 			fs.StringVar(&in.When, "when", "", "a condition in words, such as \"AI policy notes updated\": waits on the open task of that condition, or makes one")
+			fs.StringVar(&in.UntilStart, "until-start", "", "id of an obligation: back on its start (or due), following it when it moves")
+			fs.StringVar(&in.UntilEnd, "until-end", "", "id of an obligation: back the day after it ends, following it when it moves")
 			fs.StringVar(&in.Place, "place", "", "goal or area for the task --when makes; default the item's own")
 			fs.BoolVar(&in.New, "new", false, "with --when: always make a new task, even when an open task has the same or a similar condition")
 			fs.StringArrayVar(&items, "item", nil, "a dossier item as <proposal>#<item>; repeatable")

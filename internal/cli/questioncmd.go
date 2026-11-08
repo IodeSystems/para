@@ -101,6 +101,8 @@ func stateText(v ops.QuestionView) string {
 	if v.Deferred {
 		if len(v.WaitsOn) > 0 {
 			s += " (later, waits on: " + strings.Join(namesOrIDs(v.WaitsOnNames, v.WaitsOn), ", ") + ")"
+		} else if v.LaterText != "" {
+			s += " (later " + v.LaterText + ")"
 		} else {
 			s += " (later: " + v.DeferUntil + ")"
 		}

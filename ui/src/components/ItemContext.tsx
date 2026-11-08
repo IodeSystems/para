@@ -73,6 +73,11 @@ function ContextBody({ c }: { c: ItemContextData }) {
             ))}
           </Line>
         ))}
+        {c.later && (
+          <Line label="Later" data="later">
+            {c.laterRef ? <DocLink id={c.laterRef}>{c.later}</DocLink> : c.later}
+          </Line>
+        )}
         <Line label="Why">
           {c.reasons.map((r, i) => (
             <span key={`${r.kind}-${r.ref ?? ''}-${r.title ?? ''}`} data-reason={r.kind}>

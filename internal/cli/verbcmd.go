@@ -51,6 +51,8 @@ func laterText(w io.Writer, out ops.VerbOutput) error {
 		until = ""
 	}
 	switch {
+	case d.Follows != "":
+		when = d.Follows
 	case d.After != "" && until != "":
 		when = "after " + d.After + ", until " + until
 	case d.After != "":
@@ -128,10 +130,12 @@ func newVerbCmds(l *loader) []*cobra.Command {
 	})
 	var items []string
 	laterCmd := opCommand(l, ops.Later, binding[ops.LaterInput, ops.VerbOutput]{
-		Use: "later [id]... [--until YYYY-MM-DD | --after <id> | --when <text>]", Args: cobra.ArbitraryArgs,
+		Use: "later [id]... [--until YYYY-MM-DD | --until-start <obligation> | --until-end <obligation> | --after <id> | --when <text>]", Args: cobra.ArbitraryArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.LaterInput) {
 			fs.StringVar(&in.Until, "until", "", "YYYY-MM-DD it comes back; leave out for someday")
 			fs.StringVar(&in.After, "after", "", "id of an item to wait for")
+			fs.StringVar(&in.UntilStart, "until-start", "", "id of an obligation: back on its start (or due), following it when it moves")
+			fs.StringVar(&in.UntilEnd, "until-end", "", "id of an obligation: back the day after it ends, following it when it moves")
 			fs.StringVar(&in.When, "when", "", "a condition in words: makes a task that the items wait on")
 			fs.StringVar(&in.Place, "place", "", "goal or area of the task --when makes")
 			fs.BoolVar(&in.New, "new", false, "with --when: always make a new task, even when an open task has the same or a similar condition")

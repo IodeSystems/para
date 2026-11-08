@@ -82,6 +82,11 @@ type ItemContextOutput struct {
 	// WaitsOn is what the item waits on, Blocks what waits on it (dependsRows).
 	WaitsOn []DepRow `json:"waits_on"`
 	Blocks  []DepRow `json:"blocks"`
+	// Later is "until <title> starts (<date>)" or "until <title> ends
+	// (<date>)" while the item is put off until an obligation starts or
+	// ends; LaterRef is that obligation's id.
+	Later    string `json:"later,omitempty"`
+	LaterRef string `json:"later_ref,omitempty"`
 }
 
 // Where a dependency row is recorded.
@@ -107,7 +112,7 @@ type DepRow struct {
 }
 
 // ItemContext shows what an item is for.
-var ItemContext = defineRead("context", "Show what an item is for and what it waits on: waits_on (each item it waits on with type, state, and optional: an optional one never holds it; a text reason has reason and no id), blocks (the open items that wait on it, optional too), came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
+var ItemContext = defineRead("context", "Show what an item is for and what it waits on: later (\"until <obligation> starts (<date>)\" while put off until an obligation starts or ends, with later_ref its id), waits_on (each item it waits on with type, state, and optional: an optional one never holds it; a text reason has reason and no id), blocks (the open items that wait on it, optional too), came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
 	id := normID(in.ID)
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
@@ -139,6 +144,11 @@ var ItemContext = defineRead("context", "Show what an item is for and what it wa
 		return out, fmt.Errorf("ops: context: %w", err)
 	}
 	out.Looking = looking[doc.ID]
+	if df := deferralOf(doc.Meta); df != nil && df.IsDeferred(d.Store.Now().Format(dateLayout)) {
+		if out.Later = followText(df, func(id string) (model.Document, bool) { x, ok := docs[id]; return x, ok }); out.Later != "" {
+			out.LaterRef, _ = df.Follows()
+		}
+	}
 	return out, nil
 })
 

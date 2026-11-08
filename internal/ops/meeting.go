@@ -710,6 +710,9 @@ func meetingSchedule(ctx context.Context, d Deps, in MeetingScheduleInput) (Meet
 	if err != nil {
 		return MeetingChangeOutput{}, err
 	}
+	if _, err := followObligation(ctx, d, doc.ID); err != nil {
+		return MeetingChangeOutput{}, err
+	}
 	changed, warns, err := syncTargets(ctx, d, m.RFX, m.With, true, askState(model.TargetScheduled))
 	out := MeetingChangeOutput{ID: doc.ID, Status: m.Status, Start: m.Start, End: m.End, RFX: nonNil(changed), Warnings: nonNil(warns), Rev: saved.Rev}
 	if err != nil {
@@ -747,6 +750,9 @@ var MeetingCancel = define("meeting_cancel", "Cancel a requested or scheduled me
 	doc.Body = appendToSection(doc.Body, notesHeading, line)
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
+		return MeetingChangeOutput{}, err
+	}
+	if _, err := followObligation(ctx, d, doc.ID); err != nil {
 		return MeetingChangeOutput{}, err
 	}
 	changed, warns, err := syncTargets(ctx, d, m.RFX, m.With, false, func(old model.TargetState) (model.TargetState, bool) {

@@ -45,6 +45,9 @@ func laterSuffix(t ops.TaskView) string {
 		if len(t.WaitsOn) > 0 {
 			return "\t(later, waits on: " + strings.Join(namesOrIDs(t.WaitsOnNames, t.WaitsOn), ", ") + ")"
 		}
+		if t.LaterText != "" {
+			return "\t(later " + t.LaterText + ")"
+		}
 		return "\t(later: " + t.DeferUntil + ")"
 	}
 	return ""

@@ -408,6 +408,9 @@ var ObligationSchedule = defineSafe("obligation_schedule", "Set when an obligati
 	if err != nil {
 		return ObligationScheduleOutput{}, err
 	}
+	if _, err := followObligation(ctx, d, doc.ID); err != nil {
+		return ObligationScheduleOutput{}, err
+	}
 	out := ObligationScheduleOutput{MeetingChangeOutput: MeetingChangeOutput{ID: doc.ID, Start: occ.Scheduled, End: occ.End, RFX: []string{}, Warnings: []string{}, Rev: saved.Rev}, Due: *due}
 	if o, ok := doc.Meta.(*model.Obligation); ok {
 		out.LastReviewed = o.LastReviewed
@@ -472,6 +475,9 @@ var obligationClose = &Op[obligationCloseInput, ObligationCloseOutput]{name: "cl
 			return out, err
 		}
 		out.Rev = saved.Rev
+		if _, err := followObligation(ctx, d, doc.ID); err != nil {
+			return out, err
+		}
 		return out, recordClose(ctx, d, doc.ID, string(outcome))
 	}}
 
