@@ -9,6 +9,7 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { requestSeen, useAsked, useRequestChanges } from '@/api/requests'
 import { agentUnsend } from '@/api/composer'
+import { Agents } from '@/components/Agents'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { Empty, PageTitle, Section, StatusChip } from '@/components/Bits'
@@ -26,6 +27,7 @@ import { byStatus, isFillGap, kindWords, resultToCheck, sentStatus, staleWords }
 // made has its own group, Filled in by agents, and is not in the open count. Each row shows the
 // item, the owner's words, where it stands, how it ended, and the receipts it made. Work no agent
 // has claimed can be taken back; results not yet seen can be marked seen.
+// Agents, above the groups, shows who is connected over MCP on this machine and what each holds.
 export const Route = createFileRoute('/_authed/requests')({ component: Asked })
 
 // Changes lists what finished agent work changed, from its receipts. It loads when opened.
@@ -85,6 +87,7 @@ function Asked() {
       <PageTitle subtitle="Everything asked of agents, one record each, by status: what you sent from the web, asked in the chat, delegated, or gave to investigate, and the work agents and sweeps made. Filled in by agents lists the gaps agents fill on their own (a missing done-when, how to do it, effort, an answer to research, a goal brief). Not the same as Asks, which are asks to people.">
         Asked of agents
       </PageTitle>
+      <Agents />
       <DataState q={q}>
         {(rows) => {
           const work: Work[] = rows.flatMap((r) =>

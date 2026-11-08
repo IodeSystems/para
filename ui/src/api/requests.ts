@@ -96,6 +96,45 @@ const RequestSeenDoc = graphql(/* GraphQL */ `
   }
 `)
 
+// AgentsDoc is the agents connected over MCP on this machine (agent_list), with what each holds.
+const AgentsDoc = graphql(/* GraphQL */ `
+  query ConnectedAgents {
+    para {
+      v1 {
+        agentList {
+          queuedCount
+          noListener
+          agents {
+            actor
+            client
+            version
+            pid
+            startedAt
+            lastCallAt
+            push
+            claims {
+              id
+              title
+              kind
+              claimedAt
+            }
+          }
+        }
+      }
+    }
+  }
+`)
+
+// useAgents lists the connected agents. A session that starts or ends writes no vault event, so
+// the list is read again every 30 seconds.
+export function useAgents() {
+  return useQuery({
+    queryKey: ['agents'],
+    queryFn: async () => need((await gqlClient.request(AgentsDoc)).para.v1.agentList, 'agents'),
+    refetchInterval: 30_000,
+  })
+}
+
 // useAsked lists every request for the Asked of agents view, from the generic list.
 export function useAsked() {
   return useQuery({
