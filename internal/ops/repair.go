@@ -360,6 +360,52 @@ type DocEditInput struct {
 	Body   *string        `json:"body,omitempty"`
 	Fields map[string]any `json:"fields,omitempty"`
 	Rev    string         `json:"rev,omitempty"`
+	// Append adds text at the end of the body, or at the end of Section
+	// (made when missing). Dated makes it a line "- YYYY-MM-DD: text".
+	Append string `json:"append,omitempty"`
+	Dated  bool   `json:"dated,omitempty"`
+	// Section names a "## " section of the body. With SectionBody its text is
+	// replaced (the section is added when missing); with Append the text goes
+	// at its end.
+	Section     string  `json:"section,omitempty"`
+	SectionBody *string `json:"section_body,omitempty"`
+}
+
+// bodyChange applies body, append, and section_body to body. ok is false
+// when the input changes no body text.
+func (in DocEditInput) bodyChange(body, today string) (_ string, ok bool, _ error) {
+	section := strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(in.Section), "#"))
+	app := strings.TrimSpace(in.Append)
+	switch {
+	case in.Body != nil && (app != "" || in.SectionBody != nil):
+		return "", false, errors.New("give body, or append or section_body, not both")
+	case app != "" && in.SectionBody != nil:
+		return "", false, errors.New("give append or section_body, not both")
+	case in.SectionBody != nil && section == "":
+		return "", false, errors.New("section_body needs section")
+	case in.Dated && app == "":
+		return "", false, errors.New("dated needs append")
+	case section != "" && app == "" && in.SectionBody == nil:
+		return "", false, errors.New("section needs append or section_body")
+	}
+	switch {
+	case in.Body != nil:
+		return strings.TrimSpace(*in.Body), true, nil
+	case app != "":
+		if in.Dated {
+			app = "- " + today + ": " + app
+		}
+		if section != "" {
+			return appendToSection(body, "## "+section, app), true, nil
+		}
+		if body = strings.TrimSpace(body); body != "" {
+			return body + "\n\n" + app, true, nil
+		}
+		return app, true, nil
+	case in.SectionBody != nil:
+		return setSection(body, "## "+section, strings.TrimSpace(*in.SectionBody)), true, nil
+	}
+	return body, false, nil
 }
 
 // DocEditOutput is the output of doc_edit.
@@ -374,9 +420,9 @@ var journalBlockRe = regexp.MustCompile(`(?s)%% para:begin .*? %%.*?%% para:end 
 var ErrStale = errors.New("the document changed since you opened it; open it again and redo the edit")
 
 // DocEdit changes the title, body, or declared fields of a document.
-var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript, tracked_doc); not id, type, status, or generated text. Text in fields is linted like a body before the write (raw HTML such as <date> is refused; put it in backticks). A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
-	if in.Title == nil && in.Body == nil && len(in.Fields) == 0 {
-		return DocEditOutput{}, errors.New("doc_edit: nothing to edit: give title, body, or fields")
+var DocEdit = define("doc_edit", "Change the title, body, or declared fields of a document (task, goal, area, rfx, meeting, journal, incident, request, person, group, team, role, domain, convention, constraint, policy, exception, interaction, inbox, transcript, tracked_doc); not id, type, status, or generated text. append adds text at the end of the body (dated: as \"- YYYY-MM-DD: text\"), or at the end of section; section with section_body replaces that one \"## \" section; neither needs the whole body. Text in fields is linted like a body before the write (raw HTML such as <date> is refused; put it in backticks). A note uses note_edit", func(ctx context.Context, d Deps, in DocEditInput) (DocEditOutput, error) {
+	if in.Title == nil && in.Body == nil && len(in.Fields) == 0 && strings.TrimSpace(in.Append) == "" && in.SectionBody == nil {
+		return DocEditOutput{}, errors.New("doc_edit: nothing to edit: give title, body, append, section_body, or fields")
 	}
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
@@ -429,8 +475,12 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 		}
 		doc.Title = title
 	}
-	if in.Body != nil {
-		doc.Body = strings.TrimSpace(*in.Body)
+	body, changed, err := in.bodyChange(doc.Body, d.Store.Now().Format(dateLayout))
+	if err != nil {
+		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
+	}
+	if changed {
+		doc.Body = body
 		if typ == model.TypeJournal && !slices.Equal(journalBlockRe.FindAllString(oldBody, -1), journalBlockRe.FindAllString(doc.Body, -1)) {
 			return DocEditOutput{}, errors.New("doc_edit: a journal's generated sections (between %% para:begin and %% para:end) are not edited; change the text outside them")
 		}

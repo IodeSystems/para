@@ -368,9 +368,10 @@ func newOrgCmd(l *loader) *cobra.Command {
 						fs.StringVar(&in.Owner, "owner", "", "id of the owning role, team, or person")
 					}
 					if name == "person" {
-						fs.StringVar(&in.Role, "role", "", "id of the role they hold")
+						fs.StringVar(&in.Role, "role", "", "id of the role they hold, or free text when no role document matches")
 						fs.StringVar(&in.Team, "team", "", "id of their team")
 						fs.StringArrayVar(&in.Aliases, "alias", nil, "another name for the person (repeatable)")
+						fs.StringVar(&in.Email, "email", "", "email address, kept as the preferred email contact")
 					}
 					fs.StringArrayVar(&in.Said, "said", nil, "what was said, as stated (repeatable); needs --source")
 					fs.StringVar(&in.Source, "source", "", "who said it, where, when, or a URL")
@@ -407,7 +408,7 @@ func newOrgCmd(l *loader) *cobra.Command {
 			}),
 		)
 		if name == "person" {
-			sub.AddCommand(newPersonAliasCmd(l), newPersonContactCmd(l), newPersonGroupCmd(l), newPersonNoteCmd(l))
+			sub.AddCommand(newPersonAliasCmd(l), newPersonContactCmd(l), newPersonGroupCmd(l), newPersonNoteCmd(l), newPersonEditCmd(l))
 		}
 		cmd.AddCommand(sub)
 	}

@@ -120,6 +120,7 @@ func registerOrg(r *registrar) {
 	reg(r, ops.OrgPersonList, get, read)
 	reg(r, ops.OrgPersonShow, get, read)
 	reg(r, ops.OrgPersonNote, post, write)
+	reg(r, ops.OrgPersonEdit, post, write)
 	reg(r, ops.OrgPersonAliasAdd, post, write)
 	reg(r, ops.OrgPersonAliasRemove, post, write)
 	reg(r, ops.OrgPersonContactAdd, post, write)

@@ -27,10 +27,17 @@ const (
 	TriageNote        TriageTarget = "note"        // a note document; with Person, a dated line in a person's notes
 	TriageQuestion    TriageTarget = "question"    // an open question; it needs a scope
 	TriageInteraction TriageTarget = "interaction" // a logged contact; with names the people
+	// TriageObligation and TriageArea only link: io_file makes neither, so
+	// they need existing.
+	TriageObligation TriageTarget = "obligation"
+	TriageArea       TriageTarget = "area"
 )
 
 // TriageTargets lists every TriageTarget.
-var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageInteraction}
+var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageInteraction, TriageObligation, TriageArea}
+
+// linkOnly are the targets io_file links with existing and never makes.
+var linkOnly = []TriageTarget{TriageObligation, TriageArea}
 
 // Enum implements the MCP enum hook.
 func (TriageTarget) Enum() []string {
@@ -45,6 +52,7 @@ func (TriageTarget) Enum() []string {
 var triageTypes = map[TriageTarget][]model.Type{
 	TriageTask: {model.TypeTask}, TriageRFX: {model.TypeRFX}, TriageProject: {model.TypeProject},
 	TriageNote: {model.TypeNote, model.TypePerson}, TriageQuestion: {model.TypeQuestion}, TriageInteraction: {model.TypeInteraction},
+	TriageObligation: {model.TypeObligation}, TriageArea: {model.TypeArea},
 }
 
 // IOFileInput is the input of io_file. Each target needs its own fields;
@@ -103,7 +111,7 @@ type IOFileOutput struct {
 
 // IOFile files an incoming message. The new document is made first: if the io
 // item then cannot be marked filed, the error names the new document.
-var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document with existing; the item is marked filed and leaves the inbox; a reply it owes stays owed and links what it was filed into", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
+var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document (also an obligation or an area) with existing; the item is marked filed and leaves the inbox; a reply it owes stays owed and links what it was filed into", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOFileOutput{}, err
@@ -166,7 +174,7 @@ func fileExisting(ctx context.Context, d Deps, in IOFileInput) (TriageTarget, st
 			return to, doc.ID, nil
 		}
 	}
-	return "", "", fmt.Errorf("existing %s is a %s: file into a task, Ask, question, note, person, interaction, or project", id, t)
+	return "", "", fmt.Errorf("existing %s is a %s: file into a task, Ask, question, note, person, interaction, project, obligation, or area", id, t)
 }
 
 // fileNew makes the document the item is filed into.
@@ -283,6 +291,9 @@ func splitCapture(text string) (title, body string, err error) {
 func checkTriageFields(in IOFileInput) error {
 	if !slices.Contains(TriageTargets, in.To) {
 		return fmt.Errorf("to %q: want one of %v, or give existing", in.To, TriageTargets)
+	}
+	if slices.Contains(linkOnly, in.To) {
+		return fmt.Errorf("to %s: io_file makes no %s; give existing <id> to link one", in.To, in.To)
 	}
 	have := map[string]bool{
 		"project":      in.Project != "",

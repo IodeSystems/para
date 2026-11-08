@@ -117,6 +117,7 @@ type ParaV1MutationNamespace {
   orgPersonAliasRemove(body: para_PersonAliasInputInput!): para_PersonAliasOutput @derived(operationId: "orgPersonAliasRemove")
   orgPersonContactAdd(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactAdd")
   orgPersonContactRemove(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactRemove")
+  orgPersonEdit(body: para_OrgPersonEditInputInput!): para_OrgPersonEditOutput @derived(operationId: "orgPersonEdit")
   orgPersonGroupAdd(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupAdd")
   orgPersonGroupRemove(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupRemove")
   orgPersonNote(body: para_PersonNoteInputInput!): para_PersonNoteOutput @derived(operationId: "orgPersonNote")
@@ -1714,10 +1715,14 @@ type para_DocDiffOutput {
 }
 
 input para_DocEditInputInput {
+  append: String
   body: String
+  dated: Boolean
   fields: JSON
   id: String!
   rev: String
+  section: String
+  sectionBody: String
   title: String
 }
 
@@ -3027,8 +3032,10 @@ enum para_IOFileInputKind {
 }
 
 enum para_IOFileInputTo {
+  area
   interaction
   note
+  obligation
   project
   question
   rfx
@@ -3061,8 +3068,10 @@ enum para_IOFileOutputState {
 }
 
 enum para_IOFileOutputTo {
+  area
   interaction
   note
+  obligation
   project
   question
   rfx
@@ -5273,6 +5282,7 @@ type para_OrderSummary {
 
 input para_OrgAddInputInput {
   aliases: [String!]
+  email: String
   id: String
   importedFrom: para_ImportedFromInput
   name: String!
@@ -5318,6 +5328,26 @@ enum para_OrgAddOutputFolder {
 
 type para_OrgListOutput {
   items: [para_Ref!]!
+}
+
+input para_OrgPersonEditInputInput {
+  clearOrg: Boolean
+  clearRole: Boolean
+  clearTeam: Boolean
+  id: String!
+  org: String
+  role: String
+  team: String
+}
+
+type para_OrgPersonEditOutput {
+  id: String!
+  notes: [String!]
+  org: String!
+  rev: String!
+  role: String!
+  roleText: String!
+  team: String!
 }
 
 type para_OrgShowOutput {

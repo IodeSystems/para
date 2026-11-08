@@ -103,6 +103,30 @@ func newPersonGroupCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
+func newPersonEditCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.OrgPersonEdit, binding[ops.OrgPersonEditInput, ops.OrgPersonEditOutput]{
+		Use:  "edit <person-id> [--role <id-or-text>] [--team <id>] [--org <org>]",
+		Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.OrgPersonEditInput) {
+			fs.StringVar(&in.Role, "role", "", "id of the role they hold, or free text when no role document matches")
+			fs.StringVar(&in.Team, "team", "", "id of their team")
+			fs.StringVar(&in.Org, "org", "", "organization they belong to")
+			fs.BoolVar(&in.ClearRole, "clear-role", false, "remove the role")
+			fs.BoolVar(&in.ClearTeam, "clear-team", false, "remove the team")
+			fs.BoolVar(&in.ClearOrg, "clear-org", false, "remove the org")
+		},
+		Bind: func(args []string, in *ops.OrgPersonEditInput) error { in.ID = args[0]; return nil },
+		Text: func(w io.Writer, out ops.OrgPersonEditOutput) error {
+			p := &printer{w: w}
+			p.f("%s\trole %s\tteam %s\torg %s\n", out.ID, dash(firstNonEmpty(out.Role, out.RoleText)), dash(out.Team), dash(out.Org))
+			for _, n := range out.Notes {
+				p.f("note: %s\n", n)
+			}
+			return p.err
+		},
+	})
+}
+
 func newPersonNoteCmd(l *loader) *cobra.Command {
 	return opCommand(l, ops.OrgPersonNote, binding[ops.PersonNoteInput, ops.PersonNoteOutput]{
 		Use:  "note <person-id> <text>",

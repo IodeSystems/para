@@ -302,10 +302,12 @@ func newIOFileCmd(l *loader) *cobra.Command {
 		Use:  "file <id> --to task|rfx|project|note|question|interaction | --existing <id>",
 		Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.IOFileInput) {
-			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or interaction (required unless --existing)")
-			fs.StringVar(&in.Existing, "existing", "", "id of a document that already holds it; para links it and makes nothing")
+			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or interaction (required unless --existing); with --existing also obligation or area")
+			fs.StringVar(&in.Existing, "existing", "", "id of a document that already holds it (also an obligation or an area); para links it and makes nothing")
 			fs.StringVar(&in.Project, "project", "", "task: project id (or --area); rfx, note: optional")
 			fs.StringVar(&in.RequestedBy, "requested-by", "", "task: who it is for (default the sender)")
+			fs.StringVar(&in.Title, "title", "", "task: its title (default the first line of the message)")
+			fs.StringVar(&in.Due, "due", "", "task: due date YYYY-MM-DD")
 			fs.StringVar(&in.Owner, "owner", "", "project: owner (default the vault owner, else self)")
 			fs.StringVar((*string)(&in.Direction), "direction", "", "rfx: in or out (default in)")
 			fs.StringVar(&in.Route, "route", "", "rfx: domain id (required)")

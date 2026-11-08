@@ -24,6 +24,8 @@ var directoryParityCases = map[string]parityCase{
 		[]string{"org", "person", "group", "add", "person-seed-b", "group-seed"}, false},
 	"org_person_group_remove": {`{"id":"person-seed","group":"group-seed"}`,
 		[]string{"org", "person", "group", "remove", "person-seed-b", "group-seed"}, false},
+	"org_person_edit": {`{"id":"person-seed-a","role":"Night lead","org":"acme.example"}`,
+		[]string{"org", "person", "edit", "person-seed-b", "--role", "Night lead", "--org", "acme.example"}, false},
 	"org_person_note": {`{"id":"person-seed-a","text":"Prefers email.","date":"2026-11-01"}`,
 		[]string{"org", "person", "note", "person-seed-b", "Prefers", "email.", "--date", "2026-11-01"}, false},
 	"rfx_target_add": {`{"id":"rfx-tgt-a","to":"person-seed","medium":"email"}`,

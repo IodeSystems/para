@@ -41,7 +41,7 @@ func parseFields(pairs []string) (map[string]any, error) {
 func newDocCmd(l *loader) *cobra.Command {
 	cmd := group("doc", "Documents: repair and edit any document through the store")
 	var fields []string
-	var title, body string
+	var title, body, sectionBody string
 	var retypeTo string
 	cmd.AddCommand(
 		opCommand(l, ops.DocRename, binding[ops.DocRenameInput, ops.DocRenameOutput]{
@@ -69,10 +69,14 @@ func newDocCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.DocEdit, binding[ops.DocEditInput, ops.DocEditOutput]{
-			Use: "edit <id> [--title <t>] [--body <text>] [--field key=value]... (or the new body on stdin)", Args: cobra.ExactArgs(1),
+			Use: "edit <id> [--title <t>] [--body <text> | --append <text> [--dated] | --section <heading> --section-body <text>] [--field key=value]... (or the new body on stdin)", Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.DocEditInput) {
 				fs.StringVar(&title, "title", "", "the new title")
-				fs.StringVar(&body, "body", "", "the new body")
+				fs.StringVar(&body, "body", "", "the new body: replaces the whole body")
+				fs.StringVar(&in.Append, "append", "", "add text at the end of the body, or of --section (made when missing)")
+				fs.BoolVar(&in.Dated, "dated", false, "with --append: add it as a line \"- YYYY-MM-DD: text\" dated today")
+				fs.StringVar(&in.Section, "section", "", "a \"## \" section of the body, by heading: for --append or --section-body")
+				fs.StringVar(&sectionBody, "section-body", "", "replace the text of --section (added when missing); the rest of the body stays")
 				fs.StringArrayVar(&fields, "field", nil, "a declared field: key=value (JSON for lists, null removes); repeatable")
 				fs.StringVar(&in.Rev, "rev", "", "refuse when the document is no longer at this revision")
 			},
@@ -84,18 +88,25 @@ func newDocCmd(l *loader) *cobra.Command {
 				if body != "" {
 					in.Body = &body
 				}
+				if sectionBody != "" {
+					in.SectionBody = &sectionBody
+				}
 				in.Fields, err = parseFields(fields)
 				return err
 			},
 			Stdin: func(r io.Reader, in *ops.DocEditInput) error {
-				if in.Title != nil || in.Body != nil || len(in.Fields) > 0 {
+				if in.Title != nil || in.Body != nil || len(in.Fields) > 0 || in.Append != "" || in.SectionBody != nil {
 					return nil
 				}
 				text, err := readStdin(r)
 				if err != nil {
 					return err
 				}
-				in.Body = &text
+				if in.Section != "" {
+					in.SectionBody = &text // the new text of the section
+				} else {
+					in.Body = &text
+				}
 				return nil
 			},
 			Text: printID(func(o ops.DocEditOutput) string { return o.ID }),

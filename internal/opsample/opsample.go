@@ -136,6 +136,7 @@ var Inputs = map[string]string{
 	"org_person_contact_remove": `{"id":"person-sample","method":"email","value":"sample@acme.example"}`,
 	"org_person_group_add":      `{"id":"person-sample","group":"group-sample"}`,
 	"org_person_group_remove":   `{"id":"person-sample","group":"group-sample"}`,
+	"org_person_edit":           `{"id":"person-sample","role":"Auditor","org":"acme"}`,
 	"org_person_note":           `{"id":"person-sample","text":"Prefers email for records.","date":"2026-11-01"}`,
 	"org_person_show":           `{"id":"person-sample"}`,
 	"org_role_add":              `{"name":"Auditor","org":"acme"}`,

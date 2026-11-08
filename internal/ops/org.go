@@ -27,6 +27,7 @@ type OrgAddInput struct {
 	Role    string   `json:"role,omitempty"`    // person: id of the role they hold, or free text when no role document matches
 	Team    string   `json:"team,omitempty"`    // person: id of their team
 	Aliases []string `json:"aliases,omitempty"` // person: other names
+	Email   string   `json:"email,omitempty"`   // person: email address, kept as the preferred email contact
 	Said    []string `json:"said,omitempty"`    // what was said, as stated
 	Source  string   `json:"source,omitempty"`  // where it was said: URL, or "who, where, date"
 	// ImportedFrom is the file the new document comes from (import_verify).
@@ -77,6 +78,99 @@ var (
 	OrgRoleShow   = defineRead("org_role_show", "Show a role", orgShow(model.TypeRole))
 	OrgDomainShow = defineRead("org_domain_show", "Show a domain", orgShow(model.TypeDomain))
 )
+
+// OrgPersonEditInput is the input of org_person_edit. An empty field is left
+// as it is; a clear flag removes it.
+type OrgPersonEditInput struct {
+	ID        string `json:"id"`
+	Role      string `json:"role,omitempty"` // id of the role they hold, or free text when no role document matches
+	Team      string `json:"team,omitempty"` // id of their team
+	Org       string `json:"org,omitempty"`  // organization they belong to
+	ClearRole bool   `json:"clear_role,omitempty"`
+	ClearTeam bool   `json:"clear_team,omitempty"`
+	ClearOrg  bool   `json:"clear_org,omitempty"`
+}
+
+// OrgPersonEditOutput is the output of org_person_edit.
+type OrgPersonEditOutput struct {
+	ID       string `json:"id"`
+	Role     string `json:"role"`
+	RoleText string `json:"role_text"`
+	Team     string `json:"team"`
+	Org      string `json:"org"`
+	Rev      string `json:"rev"`
+	// Notes say what the op did with an input that was not an id.
+	Notes []string `json:"notes,omitempty"`
+}
+
+// OrgPersonEdit sets the role, team, or org of a recorded person.
+var OrgPersonEdit = define("org_person_edit", "Set the role, team, or org of a recorded person (facts only); a role that matches no role document is kept as role_text. Contacts, aliases, and groups have their own ops", func(ctx context.Context, d Deps, in OrgPersonEditInput) (OrgPersonEditOutput, error) {
+	role, team, org := strings.TrimSpace(in.Role), strings.TrimSpace(in.Team), strings.Join(strings.Fields(in.Org), " ")
+	for _, c := range []struct {
+		name  string
+		set   bool
+		clear bool
+	}{{"role", role != "", in.ClearRole}, {"team", team != "", in.ClearTeam}, {"org", org != "", in.ClearOrg}} {
+		if c.set && c.clear {
+			return OrgPersonEditOutput{}, fmt.Errorf("give %s or clear_%s, not both", c.name, c.name)
+		}
+	}
+	if role == "" && team == "" && org == "" && !in.ClearRole && !in.ClearTeam && !in.ClearOrg {
+		return OrgPersonEditOutput{}, errors.New("nothing to edit: give role, team, or org (or a clear flag)")
+	}
+	var notes []string
+	doc, p, err := changePerson(ctx, d, in.ID, func(_ *model.Document, p *model.Person) error {
+		switch {
+		case in.ClearRole:
+			p.Role, p.RoleText = "", ""
+		case role != "":
+			l, text, n, err := personRole(ctx, d, role)
+			if err != nil {
+				return err
+			}
+			p.Role, p.RoleText, notes = l, text, n
+		}
+		switch {
+		case in.ClearTeam:
+			p.Team = ""
+		case team != "":
+			l, err := linkTo(ctx, d, "team", team, model.TypeTeam)
+			if err != nil {
+				return err
+			}
+			p.Team = l
+		}
+		switch {
+		case in.ClearOrg:
+			p.Org = ""
+		case org != "":
+			p.Org = org
+		}
+		return nil
+	})
+	if err != nil {
+		return OrgPersonEditOutput{}, err
+	}
+	return OrgPersonEditOutput{ID: doc.ID, Role: p.Role.Target(), RoleText: p.RoleText, Team: p.Team.Target(), Org: p.Org, Rev: doc.Rev, Notes: notes}, nil
+})
+
+// personRole resolves a person's role: the link to a role document, or free
+// text with a note when none matches. An empty raw gives no role.
+func personRole(ctx context.Context, d Deps, raw string) (model.Link, string, []string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", nil, nil
+	}
+	role, err := linkTo(ctx, d, "role", raw, model.TypeRole)
+	if errors.Is(err, model.ErrNotFound) {
+		text := strings.Join(strings.Fields(raw), " ")
+		return "", text, []string{fmt.Sprintf("role %q matches no role document: stored as role_text", text)}, nil
+	}
+	if err != nil {
+		return "", "", nil, err
+	}
+	return role, "", nil, nil
+}
 
 var nonSlug = regexp.MustCompile(`[^a-z0-9]+`)
 
@@ -133,6 +227,9 @@ func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (mode
 	if kind != model.TypePerson && len(in.Aliases) > 0 {
 		return nil, nil, fmt.Errorf("aliases apply to a person, not a %s", kind)
 	}
+	if kind != model.TypePerson && strings.TrimSpace(in.Email) != "" {
+		return nil, nil, fmt.Errorf("email applies to a person, not a %s", kind)
+	}
 	if kind != model.TypeDomain && in.Owner != "" {
 		return nil, nil, fmt.Errorf("owner applies to a domain, not a %s", kind)
 	}
@@ -154,24 +251,23 @@ func orgMeta(ctx context.Context, d Deps, kind model.Type, in OrgAddInput) (mode
 		}
 		return &model.Domain{Common: common, Owner: owner}, nil, nil
 	case model.TypePerson:
-		var notes []string
-		var role model.Link
-		var roleText string
-		if raw := strings.TrimSpace(in.Role); raw != "" {
-			var err error
-			role, err = linkTo(ctx, d, "role", raw, model.TypeRole)
-			if errors.Is(err, model.ErrNotFound) {
-				role, roleText = "", strings.Join(strings.Fields(raw), " ")
-				notes = append(notes, fmt.Sprintf("role %q matches no role document: stored as role_text", roleText))
-			} else if err != nil {
-				return nil, nil, err
-			}
+		role, roleText, notes, err := personRole(ctx, d, in.Role)
+		if err != nil {
+			return nil, nil, err
 		}
 		team, err := linkTo(ctx, d, "team", in.Team, model.TypeTeam)
 		if err != nil {
 			return nil, nil, err
 		}
-		return &model.Person{Common: common, Org: org, Role: role, RoleText: roleText, Team: team, Aliases: cleanList(in.Aliases)}, notes, nil
+		var contacts []model.Contact
+		if strings.TrimSpace(in.Email) != "" {
+			value, err := cleanValue(in.Email)
+			if err != nil {
+				return nil, nil, fmt.Errorf("email: %w", err)
+			}
+			contacts = []model.Contact{{Method: model.MediumEmail, Value: value, Preferred: true}}
+		}
+		return &model.Person{Common: common, Org: org, Role: role, RoleText: roleText, Team: team, Aliases: cleanList(in.Aliases), Contacts: contacts}, notes, nil
 	case model.TypeTeam:
 		return &model.Team{Common: common, Org: org}, nil, nil
 	case model.TypeRole:
