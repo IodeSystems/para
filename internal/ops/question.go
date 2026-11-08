@@ -715,7 +715,7 @@ type answerRecord struct {
 // sourceLine is one cited source as a body line.
 func sourceLine(s model.AnswerSource) string {
 	ref := s.Ref
-	if !strings.HasPrefix(ref, "http") && !strings.ContainsAny(ref, " \t") {
+	if !strings.HasPrefix(ref, "http") && !model.IsLocalPath(ref) && !strings.ContainsAny(ref, " \t") {
 		ref = "[[" + ref + "]]"
 	}
 	if s.Quote != "" {
@@ -803,7 +803,7 @@ func unblockedBy(ctx context.Context, s store.Store, id string) ([]string, error
 
 // QuestionAnswer records the answer of an open question and marks it answered.
 // Tasks that depend on it can start at once.
-var QuestionAnswer = defineSafe("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent the answer is final, as any write: cite at least one source (a URL or vault document id, with a quote; the owner's words in the chat are the source owner in chat), and the owner can undo it from the receipt. When you are not sure, do not answer: add what you found to the question's notes, or ask the owner in the chat. A person may add sources too, and may use free text such as a meeting", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
+var QuestionAnswer = defineSafe("question_answer", "Answer an open question with a choice or text; a decision needs its reason. From an agent the answer is final, as any write: cite at least one source (a URL, a vault document id, or an absolute path or ~/path to a file on this machine, with a quote; the owner's words in the chat are the source owner in chat), and the owner can undo it from the receipt. When you are not sure, do not answer: add what you found to the question's notes, or ask the owner in the chat. A person may add sources too, and may use free text such as a meeting", func(ctx context.Context, d Deps, in QuestionAnswerInput) (QuestionAnswerOutput, error) {
 	return resolveQuestion(ctx, d, in)
 })
 

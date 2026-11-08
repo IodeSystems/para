@@ -23,14 +23,15 @@ const (
 )
 
 // ErrNoSource is the refusal for an agent answer with no source.
-var ErrNoSource = errors.New("an answer from an agent needs a source: cite at least one URL or vault document id in sources, or the owner's words in the chat (ref \"owner in chat\" with the quote), or ask the owner (question_ask). If you cannot find the answer, say you could not find it")
+var ErrNoSource = errors.New("an answer from an agent needs a source: cite at least one URL, vault document id, or absolute path (or ~/path) to a file on this machine in sources, or the owner's words in the chat (ref \"owner in chat\" with the quote), or ask the owner (question_ask). If you cannot find the answer, say you could not find it")
 
 // maxFreeSource is the longest free-text source a person may give.
 const maxFreeSource = 200
 
 // answerSources checks sources. When need is set (an agent, or an item an
-// agent proposed) at least one is required. Each is an http(s) URL or the id of
-// a document that exists in the vault. A person may also give free text, such
+// agent proposed) at least one is required. Each is an http(s) URL, the id of
+// a document that exists in the vault, or an absolute (or ~/) path to a file
+// that exists on this machine (localFile). A person may also give free text, such
 // as the name of a meeting.
 func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bool) ([]model.AnswerSource, error) {
 	if len(in) == 0 && need {
@@ -42,7 +43,7 @@ func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bo
 		ref = strings.TrimSuffix(strings.TrimPrefix(ref, "[["), "]]")
 		ref = strings.TrimSpace(ref)
 		if ref == "" {
-			return nil, fmt.Errorf("sources[%d]: ref is empty: give a URL or a vault document id", i)
+			return nil, fmt.Errorf("sources[%d]: ref is empty: give a URL, a vault document id, or an absolute path (or ~/path) to a file on this machine", i)
 		}
 		if need && strings.EqualFold(ref, OwnerInChat) {
 			ref = OwnerInChat
@@ -55,6 +56,12 @@ func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bo
 				return nil, fmt.Errorf("sources[%d]: %w", i, err)
 			}
 			ref = u
+		} else if model.IsLocalPath(ref) {
+			p, err := localFile(ref)
+			if err != nil {
+				return nil, fmt.Errorf("sources[%d]: %w", i, err)
+			}
+			ref = p
 		} else {
 			id := normID(ref)
 			_, err := d.Store.Get(ctx, id)
@@ -71,7 +78,7 @@ func answerSources(ctx context.Context, d Deps, in []model.AnswerSource, need bo
 					return nil, err
 				}
 			default:
-				return nil, fmt.Errorf("sources[%d]: %s is not a URL and not a document in this vault: %w", i, ref, err)
+				return nil, fmt.Errorf("sources[%d]: %s is not a URL, not a document in this vault, and not an absolute path to a file on this machine: %w", i, ref, err)
 			}
 		}
 		quote := strings.Join(strings.Fields(s.Quote), " ")

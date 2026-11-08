@@ -14,11 +14,16 @@ import (
 // proposal_show); evidence is still checked where an op takes it.
 
 // checkEvidence refuses evidence the owner cannot check: the locator must be
-// an http(s) URL or a vault document, or via names a private connector item
+// an http(s) URL, a vault document, a file on this machine, or via names a private connector item
 // with verify.
 func checkEvidence(ctx context.Context, d Deps, e model.Evidence) error {
 	switch e.Check() {
 	case model.CheckURL, model.CheckVia:
+		return nil
+	case model.CheckFile:
+		if _, err := localFile(e.Locator); err != nil {
+			return fmt.Errorf("evidence locator: %w: %s", err, model.EvidenceForms)
+		}
 		return nil
 	case model.CheckVault:
 		ref := model.VaultRef(e.Locator)

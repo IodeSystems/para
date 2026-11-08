@@ -194,6 +194,7 @@ const (
 	CheckURL   = "url"
 	CheckVault = "vault"
 	CheckVia   = "via"
+	CheckFile  = "file"
 )
 
 var (
@@ -220,14 +221,23 @@ func VaultRef(s string) string {
 	return ""
 }
 
+// IsLocalPath reports whether s has the form of a file path on this machine:
+// absolute, or starting with ~/. It does not check that the file exists.
+func IsLocalPath(s string) bool {
+	s = strings.TrimSpace(s)
+	return (strings.HasPrefix(s, "/") || strings.HasPrefix(s, "~/")) && !strings.ContainsAny(s, "\n\t")
+}
+
 // Check says how the owner can check the evidence: CheckURL, CheckVault,
-// CheckVia, or "" when it gives no way.
+// CheckFile, CheckVia, or "" when it gives no way.
 func (e Evidence) Check() string {
 	switch {
 	case IsWebURL(e.Locator):
 		return CheckURL
 	case VaultRef(e.Locator) != "":
 		return CheckVault
+	case IsLocalPath(e.Locator):
+		return CheckFile
 	case e.Via != nil && strings.TrimSpace(e.Via.Source) != "" && strings.TrimSpace(e.Via.Ref) != "" && strings.TrimSpace(e.Verify) != "":
 		return CheckVia
 	}
@@ -236,7 +246,7 @@ func (e Evidence) Check() string {
 
 // EvidenceForms names the locators the owner can check, for messages.
 const EvidenceForms = "give an http(s) URL (a Slack, Gmail, GitHub, or Jira item has a permalink: use it), a vault id or path (io/io-x.md:12), " +
-	"or via {source, ref} for a private connector item with verify, a sentence that tells the owner how to find it themself"
+	"an absolute path (or ~/path) to a file on this machine, or via {source, ref} for a private connector item with verify, a sentence that tells the owner how to find it themself"
 
 // NoSource is what an agent states for a claim with no source. A claim with
 // this source forces a low confidence.

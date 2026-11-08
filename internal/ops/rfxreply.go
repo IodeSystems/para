@@ -53,7 +53,8 @@ type RFXReplyInput struct {
 	NotIn     []string     `json:"not_in,omitempty"`     // outcome no: scopes where it does not
 	ReviewBy  string       `json:"review_by,omitempty"`  // outcome no: YYYY-MM-DD; default 180 days out
 	// Sources is required from an agent when the request asks a question: the
-	// answer cites them. With none, a url is cited as the source.
+	// answer cites them: each a URL, a vault document id, or an absolute path
+	// (or ~/path) to a file on this machine. With none, a url is cited.
 	Sources []model.AnswerSource `json:"sources,omitempty"`
 }
 

@@ -166,7 +166,7 @@ const CloseDescription = "Close any item with an outcome. It runs the close op o
 	"agent work: (none) or cancelled = request_cancel; incident: (none) or resolved = incident_status resolved. " +
 	"reason goes where the op keeps one (note, notes, reason, or text); an op with none refuses it. " +
 	"fields are the op's other inputs (task_resolve link, follow_ups, declined_by, source, tried, to; meeting_hold replies, answers, actions; project_close force; rfx_close playbook; io_done url, locator, text, at). " +
-	"evidence, when given, must be one the owner can open: an http(s) URL, a vault id or path, or via {source, ref} with verify; free text alone is refused. " +
+	"evidence, when given, must be one the owner can open: an http(s) URL, a vault id or path, an absolute path or ~/path to a file on this machine, or via {source, ref} with verify; free text alone is refused. " +
 	"Outputs op (the op that ran) and result (its output); on a person's surface also receipt, which receipt_revert undoes"
 
 // Close closes any item by its type's close op.
