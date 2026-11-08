@@ -52,13 +52,16 @@ func (c *change) bump() {
 	}
 }
 
-// Start runs one events.Watch over the vault for the life of the session. It
-// is a no-op without Options.EventsDir. The returned func stops the watcher and
-// waits for its goroutine; it is safe to call more than once. Serve calls
+// Start runs one events.Watch over the vault for the life of the session,
+// and writes the session's presence file (Options.PresenceDir). Without
+// Options.EventsDir there is no watcher. The returned func stops the watcher,
+// waits for its goroutine, and removes the presence file; it is safe to call
+// more than once. Serve calls
 // Start, so only an in-process client calls it directly.
 func (s *Server) Start(ctx context.Context) (stop func()) {
+	s.presence.start()
 	if s.eventsDir == "" {
-		return func() {}
+		return s.presence.stop
 	}
 	s.runCtx.Store(&ctx)
 	stopWatch := events.Watch(ctx, s.eventsDir, s.poll, s.onBatch, s.warn)
@@ -86,6 +89,7 @@ func (s *Server) Start(ctx context.Context) (stop func()) {
 			cancel()
 			wg.Wait()
 			stopWatch()
+			s.presence.stop()
 		})
 	}
 }
@@ -118,6 +122,7 @@ func (s *Server) addRequestWait() error {
 }
 
 func (s *Server) requestWait(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	s.presence.call(ctx)
 	var in RequestWaitInput
 	if args := req.GetRawArguments(); args != nil {
 		b, err := json.Marshal(args)

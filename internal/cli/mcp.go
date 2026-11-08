@@ -94,6 +94,7 @@ server entries for this install. They write nothing.
 				InstalledVersion: installedVersion,
 				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
 				ReadOnly:         readOnly,
+				PresenceDir:      l.stateDir(sel.ID),
 			})
 			if err != nil {
 				return err

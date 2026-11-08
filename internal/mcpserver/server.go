@@ -74,6 +74,11 @@ type Options struct {
 	// ReadOnly lists only the ops that change no document (risk read): a
 	// worker that needs policy and search, and no writes.
 	ReadOnly bool
+	// PresenceDir is the vault's state directory on this machine. When set,
+	// Start writes this session's presence file there (internal/presence) and
+	// its stop func removes it, so para agent list can show who is connected.
+	// Empty turns it off.
+	PresenceDir string
 }
 
 // Server is an MCP server over one vault.
@@ -94,6 +99,7 @@ type Server struct {
 	binary    *binaryStamp
 	version   string
 	installed func() string
+	presence  *presenceFile
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -112,8 +118,9 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		instr = readOnlyLine
 	}
 	deps.ChangesSince = since
+	hooks := &server.Hooks{}
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, instr)...),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, instr, hooks)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
@@ -126,6 +133,10 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		version:   o.Version,
 		installed: o.InstalledVersion,
 	}
+	s.presence = newPresence(o.PresenceDir, deps.Store.Info().Actor, o.Channel, s.warn)
+	hooks.AddAfterInitialize(func(_ context.Context, _ any, req *mcp.InitializeRequest, _ *mcp.InitializeResult) {
+		s.presence.client(req.Params.ClientInfo)
+	})
 	s.deps.Changed = s.changed.wait
 	s.reqWatch = ops.NewActorRequestWatch(s.deps, s.deps.Store.Info().Actor)
 	s.addPrompts()
@@ -147,7 +158,8 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 
 // serverOptions are the MCP server options. logging is declared because the
 // session sends notifications/message; the channel capability only with --channel.
-func serverOptions(channel, changed bool, extra string) []server.ServerOption {
+// hooks is the server's one hook set; --channel adds to it.
+func serverOptions(channel, changed bool, extra string, hooks *server.Hooks) []server.ServerOption {
 	instr := Instructions + "\n\n" + notifyRule
 	if extra != "" {
 		instr += "\n\n" + extra
@@ -155,11 +167,10 @@ func serverOptions(channel, changed bool, extra string) []server.ServerOption {
 	if changed {
 		instr += "\n\n" + ChangedLine
 	}
-	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging()}
+	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging(), server.WithHooks(hooks)}
 	if channel {
-		hooks := &server.Hooks{}
 		hooks.AddOnRequestInitialization(legacyOnly)
-		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}), server.WithHooks(hooks))
+		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}))
 		instr += " Events also arrive as <channel source=...> tags with kind, id, status, or count attributes; they are one-way."
 	}
 	return append(opts, server.WithInstructions(instr))
@@ -213,6 +224,7 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 				res = mcp.NewToolResultError(e.Name() + ": internal error")
 			}
 		}()
+		s.presence.call(ctx)
 		if s.binary.changed() {
 			return mcp.NewToolResultError(e.Name() + ": " + staleMessage(s.version, s.installed)), nil
 		}
