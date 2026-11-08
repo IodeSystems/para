@@ -3,11 +3,12 @@ import type { PaletteOptions, Theme } from '@mui/material/styles'
 // Rules every proposed direction keeps: a visible focus ring for the keyboard, and 44 px touch
 // targets on a phone. A container focused by script (tabindex -1: a dialog, a drawer) gets no
 // ring; what the keyboard reaches inside it does. `body` in each selector puts it above a
-// component's own single class.
+// component's own single class. An MUI text input is skipped: its outlined/filled field already
+// marks focus, and a second ring around it reads as a double border.
 export function a11yGlobals(theme: Theme) {
   const v = theme.vars ?? theme
   return {
-    'body *:focus-visible:not([tabindex="-1"])': {
+    'body *:focus-visible:not([tabindex="-1"]):not(.MuiInputBase-input)': {
       outline: `2px solid ${v.palette.primary.main}`,
       outlineOffset: 2,
     },

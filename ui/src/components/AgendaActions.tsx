@@ -93,7 +93,14 @@ function WordsDone({
         </Button>
       </DraftHint>
       <Popover anchorEl={at} open={!!at} onClose={() => setAt(null)}>
-        <Box sx={{ p: 2, width: 320 }} onKeyDown={(e) => e.stopPropagation()}>
+        <Box
+          sx={{
+            p: { xs: 1.5, sm: 2 },
+            width: { xs: 'calc(100vw - 32px)', sm: 320 },
+            maxWidth: 320,
+          }}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
           <TextField
             multiline
             minRows={meeting ? 3 : 2}

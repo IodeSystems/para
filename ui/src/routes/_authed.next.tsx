@@ -226,7 +226,7 @@ function Card({
         data-next-card={x.id}
         data-next-kind={x.kind}
         data-next-ready={x.ready ? (x.readyKind ?? 'yes') : undefined}
-        sx={{ p: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
+        sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
       >
         <Typography variant="overline" color="text.secondary" component="p">
           {[group, x.why].filter(Boolean).join(' - ')}
@@ -310,7 +310,7 @@ function PoolNext({
       variant="outlined"
       data-next-card={x.id}
       data-next-kind={x.kind}
-      sx={{ p: 2, borderLeft: 4, borderLeftColor: 'primary.main' }}
+      sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
     >
       <Typography variant="overline" color="text.secondary" component="p">
         {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
