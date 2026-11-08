@@ -216,6 +216,7 @@ var Inputs = map[string]string{
 	"history":                   `{"id":"task-sample"}`,
 	"context":                   `{"id":"task-sample"}`,
 	"theme_items":               `{"theme":"project-sample"}`,
+	"theme_close":               `{"theme":"#sample-none"}`,
 	"receipt_check":             `{"id":"receipt-sample","verdict":"verified"}`,
 	"receipt_undo":              `{"id":"receipt-sample"}`,
 	"receipt_revert":            `{"id":"receipt-sample"}`,

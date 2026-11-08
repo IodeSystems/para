@@ -504,6 +504,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	seedStreamGVParity(t, deps)
 	maps.Copy(cases, streamGVParityCases())
 	maps.Copy(cases, streamSZParityCases())
+	maps.Copy(cases, streamTEParityCases())
 	seedStreamPUParity(t, deps)
 	maps.Copy(cases, streamPUParityCases())
 	seedStreamBRParity(t, deps)
