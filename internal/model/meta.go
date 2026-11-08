@@ -814,7 +814,8 @@ type IO struct {
 	Route   string    `yaml:"route,omitempty" json:"route,omitempty"`
 	// Became links what the item was filed into or turned into on send.
 	Became Link `yaml:"became,omitempty" json:"became,omitempty"`
-	// Thread links an earlier io item, interaction, or Ask this one answers.
+	// Thread links an earlier io item, interaction, Ask, or question this one
+	// answers or acts on.
 	Thread Link `yaml:"thread,omitempty" json:"thread,omitempty"`
 	// Reason says why the item was dropped.
 	Reason string `yaml:"reason,omitempty" json:"reason,omitempty"`

@@ -43,7 +43,7 @@ type IOAddInput struct {
 	// the sender waits for the owner's reply.
 	Expects model.IOExpects `json:"expects,omitempty"`
 	Route   string          `json:"route,omitempty"`  // out with expects response: the domain the Ask goes to
-	Thread  string          `json:"thread,omitempty"` // id of the io item, interaction, or Ask this one answers
+	Thread  string          `json:"thread,omitempty"` // id of the io item, interaction, Ask, or question this one answers or acts on
 	// Effort is about how long it takes the owner: xs, s, m, or l.
 	Effort model.Effort `json:"effort,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
@@ -117,7 +117,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 			return IOAddOutput{}, errors.New("via: give source and ref, or leave via out")
 		}
 	}
-	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX); err != nil {
+	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX, model.TypeQuestion); err != nil {
 		return IOAddOutput{}, err
 	}
 	if err := checkVerifiable(m); err != nil {

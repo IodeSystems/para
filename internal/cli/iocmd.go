@@ -183,7 +183,7 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 			fs.StringVar(&in.Verify, "verify", "", "with via and no ref: how the owner finds the message")
 			fs.StringVar((*string)(&in.Expects), "expects", "", "out: response (sending makes an Ask) or none (sending logs an interaction); in: response when the sender waits for your reply")
 			fs.StringVar(&in.Route, "route", "", "out with expects response: domain id")
-			fs.StringVar(&in.Thread, "thread", "", "id of the io item, interaction, or Ask this answers")
+			fs.StringVar(&in.Thread, "thread", "", "id of the io item, interaction, Ask, or question this answers or acts on")
 			fs.StringVar((*string)(&in.Effort), "effort", "", effortHelp)
 			fs.StringVar((*string)(&in.Voice), "voice", "", voiceHelp)
 			fs.StringVar(&in.Kind, "kind", "", kindHelp)
