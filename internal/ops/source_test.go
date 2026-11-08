@@ -178,6 +178,12 @@ func TestTickSweepQueuedOnceClaimNeedsDeclaration(t *testing.T) {
 	if ids, _ := watch.ClaimableIDs(ctx); len(ids) != 1 {
 		t.Fatalf("watch after declaring = %v", ids)
 	}
+	if ids, _ := NewActorRequestWatch(agentDeps(d, "codex"), "codex").ClaimableIDs(ctx); len(ids) != 0 {
+		t.Fatalf("codex's watch lists a sweep only claude can claim: %v", ids)
+	}
+	if ids, _ := NewActorRequestWatch(agentDeps(d, "claude"), "claude").ClaimableIDs(ctx); len(ids) != 1 {
+		t.Fatalf("claude's watch = %v", ids)
+	}
 	if next, _ := RequestNext.Run(ctx, agentDeps(d, "codex"), RequestNextInput{}); next.Request != nil {
 		t.Fatal("codex claimed a sweep it did not declare")
 	}

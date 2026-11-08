@@ -48,7 +48,11 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
    Channels are a research preview, interactive sessions only; Team and Enterprise
    organizations must enable them in their settings first. If the server still
    does not register, start claude with MCP_PROTOCOL_NEGOTIATION=legacy in its
-   environment. Without push, the tool `request_wait` blocks
+   environment.
+   With two agents on one vault (this chat and a background dun), let only
+   the background one be woken: dun with "wake": true, Claude without
+   --channel. One claim wins, so they never do the same request; para agent
+   list shows which agents are connected. Without push, the tool `request_wait` blocks
    up to 60 seconds, or a background job waits with no token cost:
    $ para request wait --timeout 1h
 

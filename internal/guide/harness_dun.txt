@@ -37,6 +37,15 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
    To let a notification start a turn on an idle session, add "wake": true to
    the server in dun's config. It is off by default, because each wake is a paid
    turn; dun allows one wake per 30 seconds and 20 an hour per server.
+   Under dund, an idle session stops after 30 minutes, and its para server
+   stops with it, so no message can wake it. In the session that should be
+   woken, run /persist on: it then keeps running when you leave it.
+   With two agents on one vault (Claude in your chat and dun in the
+   background), let only the background one be woken: dun with "wake": true,
+   Claude without --channel. Each session is told only of requests its actor
+   can claim, and one claim wins, so two agents never do the same request; a
+   second listener only spends a turn to find nothing. para agent list shows
+   which agents are connected, and the requests page says who claimed what.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
    It blocks with no token cost, then call `request_next`.

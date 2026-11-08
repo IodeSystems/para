@@ -127,7 +127,7 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		installed: o.InstalledVersion,
 	}
 	s.deps.Changed = s.changed.wait
-	s.reqWatch = ops.NewRequestWatch(s.deps)
+	s.reqWatch = ops.NewActorRequestWatch(s.deps, s.deps.Store.Info().Actor)
 	s.addPrompts()
 	for _, e := range ops.ForAgents() {
 		if o.ReadOnly && e.Risk() != ops.RiskRead {

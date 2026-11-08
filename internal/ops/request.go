@@ -980,6 +980,9 @@ var RequestChanges = defineRead("request_changes", "List the documents an agent 
 type RequestWatch struct {
 	d    Deps
 	seen map[string]watched
+	// actor, when set, is the one agent the watch answers for: a sweep counts
+	// only when that actor declared its source, as request_next checks.
+	actor string
 }
 
 type watched struct {
@@ -989,6 +992,15 @@ type watched struct {
 
 // NewRequestWatch returns a watch over d's vault.
 func NewRequestWatch(d Deps) *RequestWatch { return &RequestWatch{d: d, seen: map[string]watched{}} }
+
+// NewActorRequestWatch is a watch for one agent's session: it lists only what
+// request_next would claim for actor, so a session is not told of a sweep that
+// only another agent can take.
+func NewActorRequestWatch(d Deps, actor string) *RequestWatch {
+	w := NewRequestWatch(d)
+	w.actor = actor
+	return w
+}
 
 // Claimable reports whether request_next would find a request now.
 func (w *RequestWatch) Claimable(ctx context.Context) (bool, error) {
@@ -1031,11 +1043,12 @@ func (w *RequestWatch) ClaimableIDs(ctx context.Context) ([]string, error) {
 		if !claimable(&v.r, info.Install, now) {
 			continue
 		}
-		// A sweep waits for an agent that declared its source. The watch does
-		// not know which agent a command runs as: any declaration on this
-		// machine will do, and request_next checks the actor.
+		// A sweep waits for an agent that declared its source. Without an
+		// actor the watch does not know which agent a command runs as: any
+		// declaration on this machine will do, and request_next checks the
+		// actor.
 		if v.r.RequiresSource != "" {
-			ok, err := sourceReach(w.d, "", v.r.RequiresSource.Target())
+			ok, err := sourceReach(w.d, w.actor, v.r.RequiresSource.Target())
 			if err != nil {
 				return nil, err
 			}
