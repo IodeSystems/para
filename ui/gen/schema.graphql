@@ -39,6 +39,7 @@ type ParaV1MutationNamespace {
   authSessionCreate: para_SessionCreateBody @derived(operationId: "authSessionCreate")
   authSessionDelete: para_SessionDeleteBody @derived(operationId: "authSessionDelete")
   authSessionRenew: para_SessionCreateBody @derived(operationId: "authSessionRenew")
+  bulk(body: para_BulkInputInput!): para_BulkOutput @derived(operationId: "bulk")
   calendarCompare(body: para_CalendarCompareInputInput!): para_CalendarCompareOutput @derived(operationId: "calendarCompare")
   calendarExport(body: para_CalendarExportInputInput!): para_CalendarExportOutput @derived(operationId: "calendarExport")
   close(body: para_CloseInputInput!): para_VerbOutput @derived(operationId: "close")
@@ -288,7 +289,7 @@ type ParaV1QueryNamespace {
   publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
-  receiptList(actor: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
+  receiptList(actor: String, batch: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
   receiptShow(id: String!): para_ReceiptDetail @derived(operationId: "receiptShow")
   reportOutcomes(since: String, until: String): para_ReportOutcomesOutput @derived(operationId: "reportOutcomes")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
@@ -973,6 +974,41 @@ type para_BriefPrevious {
   start: String
   status: String!
   title: String!
+}
+
+input para_BulkInputInput {
+  after: String
+  batch: String
+  dryRun: Boolean
+  fields: JSON
+  ids: [String!]
+  on: String
+  outcome: String
+  place: String
+  reason: String
+  scope: String
+  tag: String
+  until: String
+  verb: String!
+  when: String
+}
+
+type para_BulkItem {
+  error: String
+  id: String!
+  op: String
+  receipt: String
+  state: String!
+  title: String
+}
+
+type para_BulkOutput {
+  applied: Int!
+  batch: String
+  dryRun: Boolean
+  items: [para_BulkItem!]!
+  refused: Int!
+  verb: String!
 }
 
 type para_CalendarAlias {
@@ -4403,6 +4439,7 @@ type para_Meta {
   attendees: [String!]
   awayUntil: String
   background: Boolean
+  batch: String
   became: String
   blockedBy: [String!]
   blocks: [String!]
@@ -6808,6 +6845,7 @@ type para_ReceiptView {
   align: para_AlignResult
   at: String
   background: Boolean
+  batch: String
   by: String
   check: para_ReceiptViewCheck!
   checkNote: String

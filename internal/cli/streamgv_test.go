@@ -19,7 +19,7 @@ func seedStreamGVParity(t *testing.T, deps ops.Deps) {
 		return model.Document{ID: id, Folder: model.FolderProjects, Title: "Task " + id,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: status, Project: model.LinkTo("project-gv-seed")}}
 	}
-	for _, id := range []string{"task-gv-close-a", "task-gv-close-b", "task-gv-later-a", "task-gv-later-b", "task-gv-send"} {
+	for _, id := range []string{"task-gv-close-a", "task-gv-close-b", "task-gv-later-a", "task-gv-later-b", "task-gv-send", "task-gv-bulk-a", "task-gv-bulk-b"} {
 		docs = append(docs, task(id, model.TaskTodo))
 	}
 	docs = append(docs, task("task-gv-done-a", model.TaskDone), task("task-gv-done-b", model.TaskDone))
@@ -45,5 +45,6 @@ func streamGVParityCases() map[string]parityCase {
 		"show":          {`{"id":"task-gv-send"}`, []string{"show", "task-gv-send"}, false},
 		"list":          {`{"type":"project"}`, []string{"list", "project"}, true},
 		"io_approve":    {`{"id":"io-gt-out-a"}`, []string{"io", "approve", "io-gt-out-b"}, false},
+		"bulk":          {`{"verb":"close","ids":["task-gv-bulk-a"],"reason":"Sent."}`, []string{"bulk", "close", "task-gv-bulk-b", "--reason", "Sent."}, false},
 	}
 }

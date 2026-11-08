@@ -172,6 +172,7 @@ type Meta struct {
 	SelfReported    *bool                 `json:"self_reported,omitempty"`
 	NotDuplicate    string                `json:"not_duplicate,omitempty"`
 	Round           string                `json:"round,omitempty"`
+	Batch           string                `json:"batch,omitempty"`
 	OwnerSaid       string                `json:"owner_said,omitempty"`
 	OnBehalfOf      string                `json:"on_behalf_of,omitempty"`
 	Surface         string                `json:"surface,omitempty"`

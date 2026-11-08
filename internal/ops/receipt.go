@@ -43,13 +43,14 @@ type ReceiptView struct {
 	At         string             `json:"at,omitempty"`
 	Background bool               `json:"background,omitempty"`
 	Align      *model.AlignResult `json:"align,omitempty"`
+	Batch      string             `json:"batch,omitempty"` // the bulk run that made it
 	Created    model.Date         `json:"created"`
 }
 
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
 	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
 		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote, Undone: r.Undone,
-		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, By: r.By, OnBehalfOf: r.OnBehalfOf, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Created: r.Created}
+		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, By: r.By, OnBehalfOf: r.OnBehalfOf, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Batch: r.Batch, Created: r.Created}
 }
 
 func getReceipt(ctx context.Context, s store.Store, id string) (model.Document, *model.Receipt, error) {
@@ -71,6 +72,7 @@ type ReceiptListInput struct {
 	Actor   string             `json:"actor,omitempty" query:"actor"`
 	Check   model.ReceiptCheck `json:"check,omitempty" query:"check"`
 	Op      string             `json:"op,omitempty" query:"op"`
+	Batch   string             `json:"batch,omitempty" query:"batch"` // a bulk run
 	Since   string             `json:"since,omitempty" query:"since"` // YYYY-MM-DD: made on or after
 	Until   string             `json:"until,omitempty" query:"until"` // YYYY-MM-DD: made on or before
 	Limit   int                `json:"limit,omitempty" query:"limit"` // 0 means all
@@ -111,7 +113,7 @@ func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
 }
 
 // ReceiptList lists receipts, newest first.
-var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, newest first, by document, request, actor, op, check, or date (since, until)", func(ctx context.Context, d Deps, in ReceiptListInput) (ReceiptListOutput, error) {
+var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, newest first, by document, request, actor, op, check, bulk batch, or date (since, until)", func(ctx context.Context, d Deps, in ReceiptListInput) (ReceiptListOutput, error) {
 	for name, v := range map[string]string{"since": in.Since, "until": in.Until} {
 		if _, err := parseDate(name, v); err != nil {
 			return ReceiptListOutput{}, err
@@ -124,7 +126,7 @@ var ReceiptList = defineRead("receipt_list", "List receipts of agent writes, new
 	out := ReceiptListOutput{Items: []ReceiptView{}}
 	for _, r := range all {
 		if (in.Doc != "" && r.Doc != normID(in.Doc)) || (in.Request != "" && r.Request != normID(in.Request)) ||
-			(in.Actor != "" && r.Actor != in.Actor) || (in.Check != "" && r.Check != in.Check) || (in.Op != "" && r.Op != in.Op) ||
+			(in.Actor != "" && r.Actor != in.Actor) || (in.Check != "" && r.Check != in.Check) || (in.Op != "" && r.Op != in.Op) || (in.Batch != "" && r.Batch != in.Batch) ||
 			(in.Since != "" && receiptDay(r) < in.Since) || (in.Until != "" && receiptDay(r) > in.Until) {
 			continue
 		}

@@ -34,6 +34,7 @@ var Inputs = map[string]string{
 	"close":                     `{"id":"task-free","reason":"Sent it."}`,
 	"later":                     `{"ids":["task-sample"],"until":"2027-01-15","reason":"After the audit."}`,
 	"reopen":                    `{"tag":"sample"}`,
+	"bulk":                      `{"verb":"later","ids":["task-sample"],"until":"2027-01-15","dry_run":true}`,
 	"send_to_agent":             `{"id":"task-sample","note":"Find who owns the review.","title":"Find the review owner"}`,
 	"show":                      `{"id":"task-sample"}`,
 	"list":                      `{"type":"task"}`,

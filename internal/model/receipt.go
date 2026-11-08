@@ -63,7 +63,10 @@ type Receipt struct {
 	Undone string `yaml:"undone,omitempty" json:"undone,omitempty"`
 	// Round is the idea-pool round a pool_pick recorded, "<pool>:<instance>";
 	// undoing the receipt removes it, so the pool asks again.
-	Round        string `yaml:"round,omitempty" json:"round,omitempty"`
+	Round string `yaml:"round,omitempty" json:"round,omitempty"`
+	// Batch is the bulk run that made this write (bulk): one undo of the
+	// batch undoes every receipt of it.
+	Batch        string `yaml:"batch,omitempty" json:"batch,omitempty"`
 	SelfReported bool   `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
 	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
 	// OwnerSaid is the owner's words from the chat, when the agent gives them

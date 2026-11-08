@@ -285,6 +285,7 @@ func newRoot(l *loader) *cobra.Command {
 		newChangesCmd(l),
 		newTickCmd(l),
 		newAgentCmd(l),
+		newBulkCmd(l),
 	)
 	root.AddCommand(newVerbCmds(l)...)
 	addGovernanceCmds(root, l)

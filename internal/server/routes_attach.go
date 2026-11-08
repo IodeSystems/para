@@ -39,6 +39,9 @@ func registerAttachments(r *registrar) {
 	reg(r, ops.Close, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Later, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Reopen, post, netguard.ScopeReviewDecide)
+	// bulk runs one of those verbs (or depends_set) per item, each under the
+	// same Authorize.
+	reg(r, ops.Bulk, post, netguard.ScopeReviewDecide)
 	reg(r, ops.SendToAgent, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Show, get, read)
 	reg(r, ops.List, get, read)
