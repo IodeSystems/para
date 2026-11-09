@@ -141,7 +141,7 @@ It applies to you, not to agents: para mcp still needs --vault.`,
 		},
 	}
 	setDefault.Flags().BoolVar(&clearDefault, "clear", false, "remove the default")
-	cmd.AddCommand(setDefault, newVaultUpgradeCmd(l), newVaultConfigCmd(l))
+	cmd.AddCommand(setDefault, newVaultUpgradeCmd(l), newVaultCheckCmd(l), newVaultConfigCmd(l))
 	list := &cobra.Command{
 		Use:   "list",
 		Short: "List registered vaults",

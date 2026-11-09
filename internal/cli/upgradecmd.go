@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -48,7 +49,7 @@ func newVaultUpgradeCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
 			fs.BoolVar(&in.Force, "force", false, "run while another install seen in 14 days runs an older para; that machine then refuses the vault until it is upgraded")
 		},
-		Text: writeVaultUpgrade,
+		Text: func(w io.Writer, o ops.VaultUpgradeOutput) error { return writeVaultUpgrade(w, l.vaultName(), o) },
 	})
 	cmd.Short = "Bring this vault to the current format: run pending automated steps as one undoable batch each"
 	cmd.Long = `Bring this vault to the format of this para. format_version in
@@ -58,11 +59,22 @@ An automated step rewrites documents through the vault: one batch, one event per
 document. Use --dry-run first. --undo <batch> restores the files on the machine
 that ran the batch. Upgrade para on every machine of the vault first: a run
 refuses while an install seen in 14 days runs an older para (--force runs it). A judgement step needs an agent: --file queues each pending
-one as agent work and changes no document. "upgrade status" lists what is pending.`
+one as agent work and changes no document. "upgrade status" lists what is pending.
+
+The last line is the verdict: the format before and after, the batch ids, lint
+errors and warnings, and the judgement steps still pending. A run that stops at
+a step, or lint errors after a run, exit non-zero. After a run, lint findings
+are filed as one agent work request (kind vault-check, as para lint --file);
+run /para loop to work it.`
 	cmd.AddCommand(opCommand(l, ops.VaultUpgradeStatus, binding[ops.VaultUpgradeStatusInput, upgrade.Status]{
 		Use:  "status",
 		Args: cobra.NoArgs,
-		Text: writeUpgradeStatus,
+		Text: func(w io.Writer, s upgrade.Status) error {
+			if err := writeUpgradeStatus(w, s); err != nil {
+				return err
+			}
+			return statusVerdict(w, l.vaultName(), s)
+		},
 	}))
 	return cmd
 }
@@ -110,7 +122,7 @@ func writeUpgradeStatus(w io.Writer, s upgrade.Status) error {
 	return nil
 }
 
-func writeVaultUpgrade(w io.Writer, o ops.VaultUpgradeOutput) error {
+func writeVaultUpgrade(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
 	switch {
 	case o.Undo != nil:
 		if _, err := fmt.Fprintf(w, "restored %d documents from %s\n", len(o.Undo.Docs), o.Undo.Batch); err != nil {
@@ -171,7 +183,134 @@ func writeVaultUpgrade(w io.Writer, o ops.VaultUpgradeOutput) error {
 			return err
 		}
 	}
-	return writeUpgradeStatus(w, o.Status)
+	if err := writeUpgradeStatus(w, o.Status); err != nil {
+		return err
+	}
+	return upgradeVerdict(w, vault, o)
+}
+
+// vaultName is the id of the selected vault, for a verdict line.
+func (l *loader) vaultName() string {
+	if sel, err := l.selectVault(); err == nil {
+		return sel.ID
+	}
+	return "vault"
+}
+
+// pendingParts says which steps are still pending and the command for each
+// kind. queue is false when the judgement steps were just filed.
+func pendingParts(s upgrade.Status, queue bool) []string {
+	var auto, judge []string
+	for _, p := range s.Pending {
+		list := &judge
+		if p.Auto {
+			list = &auto
+		}
+		if !slices.Contains(*list, p.ID) {
+			*list = append(*list, p.ID)
+		}
+	}
+	var parts []string
+	if len(auto) > 0 {
+		parts = append(parts, "automated steps pending: "+strings.Join(auto, ", ")+" (para vault upgrade --dry-run, then para vault upgrade)")
+	}
+	if len(judge) > 0 {
+		how := ""
+		if queue {
+			how = " (queue them: para vault upgrade --file)"
+		}
+		parts = append(parts, "judgement steps pending: "+strings.Join(judge, ", ")+how)
+	}
+	return parts
+}
+
+// statusVerdict is the last line of vault upgrade status.
+func statusVerdict(w io.Writer, vault string, s upgrade.Status) error {
+	head := fmt.Sprintf("%s is at format %d of %d", vault, s.FormatVersion, s.Latest)
+	parts := pendingParts(s, true)
+	switch {
+	case len(parts) == 0 && s.FormatVersion < s.Latest:
+		return verdict(w, toneWarn, "%s, no document to change — run para vault upgrade to raise the format", head)
+	case len(parts) == 0:
+		return verdict(w, toneOK, "%s, nothing pending", head)
+	}
+	return verdict(w, toneWarn, "%s — %s", head, strings.Join(parts, "; "))
+}
+
+// upgradeVerdict is the last line of vault upgrade: what happened, the format
+// before and after, the batches, lint after a run, and what is still pending.
+// It is ✗ exactly when the command exits non-zero (ops.VaultUpgradeOutput.Failed).
+func upgradeVerdict(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
+	st := o.Status
+	t := toneOK
+	format := fmt.Sprintf("format %d of %d", st.FormatVersion, st.Latest)
+	if o.From != st.FormatVersion {
+		format = fmt.Sprintf("format %d -> %d of %d", o.From, st.FormatVersion, st.Latest)
+	}
+	parts := []string{format}
+	var head string
+	switch {
+	case o.Stopped != nil && o.Stopped.Step != "":
+		t = toneErr
+		head = vault + " upgrade stopped at step " + o.Stopped.Step
+		if o.Stopped.Errors > 0 {
+			head += fmt.Sprintf(": %d errors", o.Stopped.Errors)
+		}
+	case o.Stopped != nil:
+		t = toneErr
+		head = vault + " upgrade refused: an install runs an older para (listed above); nothing changed"
+	case o.Undo != nil:
+		head = fmt.Sprintf("%s restored %d documents from %s", vault, len(o.Undo.Docs), o.Undo.Batch)
+		if len(o.Undo.Skipped) > 0 {
+			t = toneWarn
+			head += fmt.Sprintf(", skipped %d edited since", len(o.Undo.Skipped))
+		}
+	case o.Run != nil && o.Run.DryRun:
+		n := 0
+		for _, s := range o.Run.Steps {
+			n += s.Count
+		}
+		head = fmt.Sprintf("%s dry run: would rewrite %d documents in %d steps; nothing changed", vault, n, len(o.Run.Steps))
+		if len(o.Run.Stale) > 0 {
+			t = toneWarn
+			parts = append(parts, "a run refuses until the installs above run this para")
+		}
+	case o.Run != nil:
+		head = vault + " upgraded"
+	default:
+		head = vault + " filed no agent work: each pending judgement step already has open work, or none is pending"
+		if len(o.Filed) > 0 {
+			head = fmt.Sprintf("%s filed %d judgement steps as agent work (%s); run /para loop", vault, len(o.Filed), strings.Join(o.Filed, ", "))
+		}
+	}
+	if o.Run != nil && !o.Run.DryRun {
+		var batches []string
+		for _, s := range o.Run.Steps {
+			if s.Batch != "" {
+				batches = append(batches, s.Batch)
+			}
+		}
+		if len(batches) > 0 {
+			parts = append(parts, "batches "+strings.Join(batches, ", "))
+		} else if o.Stopped == nil {
+			parts = append(parts, "no automated step ran")
+		}
+	}
+	if o.Lint != nil {
+		parts = append(parts, fmt.Sprintf("lint: %d errors, %d warnings", o.Lint.Errors, o.Lint.Warnings))
+		t = max(t, countTone(o.Lint.Errors, o.Lint.Warnings))
+	}
+	if pend := pendingParts(st, o.Run != nil || o.Undo != nil); len(pend) > 0 {
+		parts = append(parts, pend...)
+		t = max(t, toneWarn)
+	}
+	if o.Stopped != nil && o.Stopped.Step != "" {
+		parts = append(parts, "run para vault upgrade status")
+	}
+	if o.Check != "" {
+		parts = append(parts, "findings filed as agent work "+o.Check+"; run /para loop")
+	}
+	return verdict(w, t, "%s — %s", head, strings.Join(parts, "; "))
 }
 
 // upgradeOptions are the pieces of `para upgrade` a test replaces: the

@@ -379,8 +379,8 @@ func newQuestionDependsCmd(l *loader) *cobra.Command {
 	return cmd
 }
 
-func isTerminal(r io.Reader) bool {
-	f, ok := r.(*os.File)
+func isTerminal(v any) bool {
+	f, ok := v.(*os.File)
 	if !ok {
 		return false
 	}

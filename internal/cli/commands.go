@@ -17,21 +17,33 @@ import (
 // meaning on a remote store or an agent surface.
 func newLintCmd(l *loader) *cobra.Command {
 	text := func(w io.Writer, out ops.LintOutput) error {
-		for _, f := range out.Findings {
-			if _, err := fmt.Fprintln(w, f); err != nil {
-				return err
-			}
-		}
-		_, err := fmt.Fprintf(w, "%d errors, %d warnings\n", out.Errors, out.Warnings)
-		return err
+		return writeLint(w, out.Findings, out.Errors, out.Warnings, "", false)
 	}
 	cmd := opCommand(l, ops.Lint, binding[ops.LintInput, ops.LintOutput]{
-		Use:  "lint [path]",
+		Use:  "lint [path] [--file]",
 		Args: cobra.MaximumNArgs(1),
 		Text: text,
 	})
+	cmd.Long = `Lint every document in the vault, or the files under a path. Each finding is
+path:line, severity (error red, warn yellow on a terminal; NO_COLOR turns
+colour off), the code, and the message. The last line is the verdict. It exits
+non-zero when there are errors.
+
+--file also files the findings as one agent work request (kind vault-check,
+titled "Vault check: N errors, M warnings"); an open one is updated, not added
+again. The agent fixes the data with ops, or finishes with a bug report for
+para's developer when para is wrong. Run /para loop to work it.`
+	var file bool
+	cmd.Flags().BoolVar(&file, "file", false, "file the findings as one agent work request (vault check); updates the open one")
+	check := newVaultCheckCmd(l)
 	runVault := cmd.RunE
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if file {
+			if len(args) > 0 {
+				return fmt.Errorf("lint: --file lints the vault and takes no path")
+			}
+			return check.RunE(cmd, args)
+		}
 		if len(args) == 0 {
 			return runVault(cmd, args)
 		}
@@ -42,6 +54,30 @@ func newLintCmd(l *loader) *cobra.Command {
 		return emit(cmd, ops.NewLintOutput(findings), text)
 	}
 	return cmd
+}
+
+// newVaultCheckCmd is `para vault check`, which `para lint --file` runs.
+func newVaultCheckCmd(l *loader) *cobra.Command {
+	cmd := opCommand(l, ops.VaultCheck, binding[ops.VaultCheckInput, ops.VaultCheckOutput]{
+		Use:  "check",
+		Args: cobra.NoArgs,
+		Text: func(w io.Writer, out ops.VaultCheckOutput) error {
+			return writeLint(w, out.Findings, out.Errors, out.Warnings, out.Request, out.Updated)
+		},
+	})
+	cmd.Short = "Lint the vault and file the findings as one agent work request (para lint --file)"
+	return cmd
+}
+
+// writeLint prints each finding, then the verdict: the counts, and the agent
+// work that holds them when one was filed.
+func writeLint(w io.Writer, findings []model.Finding, errors, warnings int, request string, updated bool) error {
+	for _, f := range findings {
+		if _, err := fmt.Fprintln(w, findingLine(w, f)); err != nil {
+			return err
+		}
+	}
+	return verdict(w, countTone(errors, warnings), "lint: %d errors, %d warnings%s", errors, warnings, filedNote(request, updated))
 }
 
 func newReconcileCmd(l *loader) *cobra.Command {

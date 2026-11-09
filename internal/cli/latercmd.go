@@ -205,11 +205,14 @@ func newHealthCmd(l *loader) *cobra.Command {
 			for _, g := range out.Groups {
 				p.f("%s\t%s\n", g.Goal, g.Title)
 				for _, f := range g.Findings {
-					p.f("  %s\t%s\t%s\t%s\n    fix: %s\n", f.Kind, f.ID, f.Title, f.Message, f.Fix)
+					p.f("  %s\t%s\t%s\t%s\n    fix: %s\n", paint(w, toneWarn, f.Kind), f.ID, f.Title, f.Message, f.Fix)
 				}
 			}
-			p.f("%d findings, %d dismissed\n", out.Count, out.Dismissed)
-			return p.err
+			if p.err != nil {
+				return p.err
+			}
+			// Health findings are warnings: it never fails.
+			return verdict(w, countTone(0, out.Count), "health: %d findings, %d dismissed", out.Count, out.Dismissed)
 		},
 	})
 	cmd.Short = "Report gaps in the vault as warnings grouped by goal (never fails)"

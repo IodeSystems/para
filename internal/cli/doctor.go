@@ -36,13 +36,26 @@ import (
 type report struct {
 	w     io.Writer
 	fails int
+	warns int
 }
 
-func (r *report) ok(what, detail string)   { _, _ = fmt.Fprintf(r.w, "ok    %s: %s\n", what, detail) }
-func (r *report) warn(what, detail string) { _, _ = fmt.Fprintf(r.w, "warn  %s: %s\n", what, detail) }
+func (r *report) ok(what, detail string) {
+	_, _ = fmt.Fprintf(r.w, "%s    %s: %s\n", paint(r.w, toneOK, "ok"), what, detail)
+}
+
+func (r *report) warn(what, detail string) {
+	r.warns++
+	_, _ = fmt.Fprintf(r.w, "%s  %s: %s\n", paint(r.w, toneWarn, "warn"), what, detail)
+}
+
 func (r *report) fail(what, detail string) {
 	r.fails++
-	_, _ = fmt.Fprintf(r.w, "fail  %s: %s\n", what, detail)
+	_, _ = fmt.Fprintf(r.w, "%s  %s: %s\n", paint(r.w, toneErr, "fail"), what, detail)
+}
+
+// verdict is the last line of doctor.
+func (r *report) verdict() {
+	_ = verdict(r.w, countTone(r.fails, r.warns), "doctor: %d failed, %d warnings", r.fails, r.warns)
 }
 
 func newDoctorCmd(l *loader) *cobra.Command {
@@ -60,6 +73,7 @@ func newDoctorCmd(l *loader) *cobra.Command {
 			if exposure != "" {
 				doctorExposure(exposure, r)
 			}
+			r.verdict()
 			if r.fails > 0 {
 				return fmt.Errorf("doctor: %d failed", r.fails)
 			}
