@@ -148,7 +148,7 @@ func TestDoctorVerdict(t *testing.T) {
 	r.ok("home", "/x")
 	r.warn("vaults", "none")
 	r.verdict()
-	if got := lastLine(buf.String()); got != "✓ doctor: 0 failed, 1 warnings" {
+	if got := lastLine(buf.String()); got != "! doctor: 0 failed, 1 warnings" {
 		t.Fatalf("verdict = %q", got)
 	}
 	r.fail("vault acme net.rules", "missing")

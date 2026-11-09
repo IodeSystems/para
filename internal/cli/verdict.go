@@ -59,11 +59,15 @@ func findingLine(w io.Writer, f model.Finding) string {
 	return fmt.Sprintf("%s: %s [%s] %s", loc, paint(w, severityTone(f.Severity), f.Severity), f.Code, f.Message)
 }
 
-// verdict prints the one last line of a check: ✓ when the command exits 0, ✗
-// when it fails (toneErr). The colour says the worst severity.
+// verdict prints the one last line of a check: ✓ when all is well, ! when
+// it passed with warnings or work still pending (toneWarn), ✗ when it fails
+// (toneErr). The colour says the same.
 func verdict(w io.Writer, t tone, format string, a ...any) error {
 	mark := "✓"
-	if t == toneErr {
+	switch t {
+	case toneWarn:
+		mark = "!"
+	case toneErr:
 		mark = "✗"
 	}
 	_, err := fmt.Fprintln(w, paint(w, t, mark+" "+fmt.Sprintf(format, a...)))
