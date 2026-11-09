@@ -223,6 +223,16 @@ type PlanLine struct {
 	Lines []string `json:"lines"`
 }
 
+// StepError is a run that stopped at one step. Steps before it keep their
+// batches; the step and the ones after it did not run.
+type StepError struct {
+	Step string
+	Err  error
+}
+
+func (e *StepError) Error() string { return "upgrade: " + e.Step + ": " + e.Err.Error() }
+func (e *StepError) Unwrap() error { return e.Err }
+
 var batchStamp = regexp.MustCompile(`-\d{14}$`)
 
 // BatchID names the batch of a step run at t. UndoStep reads the step back.
@@ -275,7 +285,7 @@ func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error)
 		rewrite := step.Rewrite
 		if step.Prepare != nil {
 			if rewrite, err = step.Prepare(ctx, s); err != nil {
-				return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
+				return res, &StepError{Step: step.ID, Err: err}
 			}
 		}
 		var plan []PlanLine
@@ -297,13 +307,13 @@ func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error)
 		}
 		if step.Batch != nil {
 			if fn, err = step.Batch(ctx, s); err != nil {
-				return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
+				return res, &StepError{Step: step.ID, Err: err}
 			}
 		}
 		batch := BatchID(step.ID, s.Now())
 		out, err := s.RewriteExpand(ctx, batch, dry, fn)
 		if err != nil {
-			return res, fmt.Errorf("upgrade: %s: %w", step.ID, err)
+			return res, &StepError{Step: step.ID, Err: err}
 		}
 		so := StepOutcome{ID: step.ID, Title: step.Title, Auto: true, Docs: out.Docs, Count: len(out.Docs), Plan: plan}
 		if !dry && len(out.Docs) > 0 {

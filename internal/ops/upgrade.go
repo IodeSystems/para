@@ -78,12 +78,53 @@ type VaultUpgradeOutput struct {
 	Undo   *model.BatchResult `json:"undo,omitempty"`
 	Filed  []string           `json:"filed"`
 	Status upgrade.Status     `json:"status"`
+	// From is format_version before the call; Status.FormatVersion is after.
+	From int `json:"from"`
+	// Stopped is set when a run stopped at a step or was refused. The steps
+	// before it keep their batches (Run.Steps).
+	Stopped *UpgradeStop `json:"stopped,omitempty"`
+	// Lint counts what lint finds after a run; Check is the vault-check agent
+	// work that holds the findings.
+	Lint  *LintCount `json:"lint,omitempty"`
+	Check string     `json:"check,omitempty"`
+}
+
+// UpgradeStop is why a run stopped. Step is the step it stopped at, empty
+// when the run was refused before any step. Errors counts the lint errors of
+// the documents that step would write.
+type UpgradeStop struct {
+	Step   string `json:"step,omitempty"`
+	Error  string `json:"error"`
+	Errors int    `json:"errors,omitempty"`
+}
+
+// LintCount is the error and warning count of a lint.
+type LintCount struct {
+	Errors   int `json:"errors"`
+	Warnings int `json:"warnings"`
+}
+
+// Failed implements Failing: a stopped run, or lint errors after a run.
+func (o VaultUpgradeOutput) Failed() error {
+	switch {
+	case o.Stopped != nil:
+		return errors.New(o.Stopped.Error)
+	case o.Lint != nil && o.Lint.Errors > 0:
+		return fmt.Errorf("vault_upgrade: lint: %d errors", o.Lint.Errors)
+	}
+	return nil
 }
 
 // VaultUpgrade runs the automated steps of a vault upgrade as one batch per
 // step, undoes a batch, or files the judgement steps as agent work.
 var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. It refuses while another install seen in 14 days runs an older para (upgrade para there first), unless force. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
 	out := VaultUpgradeOutput{Filed: []string{}}
+	from, err := upgrade.Current(d.Store)
+	if err != nil {
+		return out, err
+	}
+	out.From = from
+	var stepLint *model.LintError
 	switch {
 	case in.File && (in.Undo != "" || in.DryRun):
 		return out, errors.New("file takes no other input")
@@ -104,15 +145,25 @@ var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to
 			run = upgrade.RunForced
 		}
 		r, err := run(ctx, d.Store, in.DryRun)
-		if err != nil {
+		var se *upgrade.StepError
+		switch {
+		case err == nil:
+			if !in.DryRun {
+				if _, err := upgrade.Settle(ctx, d.Store); err != nil {
+					return out, err
+				}
+			}
+		case errors.As(err, &se):
+			out.Stopped = &UpgradeStop{Step: se.Step, Error: err.Error()}
+			if errors.As(err, &stepLint) {
+				out.Stopped.Errors = NewLintOutput(stepLint.Findings).Errors
+			}
+		case len(r.Stale) > 0:
+			out.Stopped = &UpgradeStop{Error: err.Error()}
+		default:
 			return out, err
 		}
 		out.Run = &r
-		if !in.DryRun {
-			if _, err := upgrade.Settle(ctx, d.Store); err != nil {
-				return out, err
-			}
-		}
 	}
 	st, err := upgrade.StatusOf(ctx, d.Store)
 	if err != nil {
@@ -124,8 +175,32 @@ var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to
 			return out, err
 		}
 	}
+	if out.Run != nil && !in.DryRun {
+		if out.Lint, out.Check, err = checkAfterUpgrade(ctx, d, out.Stopped, stepLint); err != nil {
+			return out, err
+		}
+	}
 	return out, nil
 }))
+
+// checkAfterUpgrade lints after a run and files what it finds as the
+// vault-check agent work. A step that stopped on lint files the findings of
+// its documents, with the step named.
+func checkAfterUpgrade(ctx context.Context, d Deps, stop *UpgradeStop, stepLint *model.LintError) (*LintCount, string, error) {
+	var lo LintOutput
+	step := ""
+	if stop != nil && stepLint != nil {
+		lo, step = NewLintOutput(stepLint.Findings), stop.Step
+	} else {
+		findings, err := d.Store.Lint(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		lo = NewLintOutput(findings)
+	}
+	id, _, err := fileVaultCheck(ctx, d, lo, step)
+	return &LintCount{Errors: lo.Errors, Warnings: lo.Warnings}, id, err
+}
 
 // fileUpgradeWork queues agent work for each pending judgement step that has
 // none open, and returns the request ids.

@@ -202,6 +202,7 @@ type ParaV1MutationNamespace {
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
   undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
+  vaultCheck: para_VaultCheckOutput @derived(operationId: "vaultCheck")
   vaultConfigSet(body: para_VaultConfigSetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigSet")
   vaultConfigUnset(body: para_VaultConfigUnsetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigUnset")
   vaultUpgrade(body: para_VaultUpgradeInputInput!): para_VaultUpgradeOutput @derived(operationId: "vaultUpgrade")
@@ -4137,6 +4138,11 @@ type para_LinkOutput {
 input para_LinkRemoveInputInput {
   id: String!
   label: String!
+}
+
+type para_LintCount {
+  errors: Int!
+  warnings: Int!
 }
 
 type para_LintOutput {
@@ -9294,6 +9300,12 @@ type para_Unknown {
   text: String!
 }
 
+type para_UpgradeStop {
+  error: String!
+  errors: Int
+  step: String
+}
+
 type para_ValueRow {
   after: String
   back: String
@@ -9343,6 +9355,14 @@ enum para_ValueRowReady_kind {
   plan
 }
 
+type para_VaultCheckOutput {
+  errors: Int!
+  findings: [para_Finding!]!
+  request: String!
+  updated: Boolean!
+  warnings: Int!
+}
+
 type para_VaultConfigListOutput {
   settings: [para_ConfigSetting!]!
 }
@@ -9371,9 +9391,13 @@ input para_VaultUpgradeInputInput {
 }
 
 type para_VaultUpgradeOutput {
+  check: String
   filed: [String!]!
+  from: Int!
+  lint: para_LintCount
   run: para_RunResult
   status: para_Status!
+  stopped: para_UpgradeStop
   undo: para_BatchResult
 }
 

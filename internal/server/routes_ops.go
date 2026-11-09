@@ -265,4 +265,5 @@ func registerVault(r *registrar) {
 	reg(r, ops.VaultConfigSet, post, write)
 	reg(r, ops.VaultConfigUnset, post, write)
 	reg(r, ops.VaultUpgrade, post, write)
+	reg(r, ops.VaultCheck, post, write)
 }
