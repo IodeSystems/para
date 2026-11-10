@@ -16,8 +16,11 @@ import (
 // is the stdin of each CLI run.
 func streamPParityCases() (map[string]parityCase, map[string]string) {
 	return map[string]parityCase{
-		"io_list": {`{}`, []string{"io", "list"}, true},
-		"io_show": {`{"id":"io-p-show"}`, []string{"io", "show", "io-p-show"}, true},
+		"io_list":      {`{}`, []string{"io", "list"}, true},
+		"io_show":      {`{"id":"io-p-show"}`, []string{"io", "show", "io-p-show"}, true},
+		"io_revisions": {`{"id":"io-p-out-dl"}`, []string{"io", "revisions", "io-p-out-dl"}, true},
+		"io_diff":      {`{"id":"io-p-out-dl"}`, []string{"io", "diff", "io-p-out-dl"}, true},
+		"io_made":      {`{"id":"io-p-show"}`, []string{"io", "made", "io-p-show"}, true},
 		"io_file": {`{"id":"io-p-a","to":"task","project":"project-a"}`,
 			[]string{"io", "file", "io-p-b", "--to", "task", "--project", "project-a"}, false},
 		"io_edit":        {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},

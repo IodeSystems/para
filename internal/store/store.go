@@ -119,6 +119,13 @@ type Store interface {
 	// AttachmentRead returns a stored file and its hash.
 	AttachmentRead(ctx context.Context, path string) (model.Attachment, []byte, error)
 
+	// RevisionWrite stores the text of an outgoing draft before an edit as
+	// <folder>/<id>.r<n>.md, tracked and logged by hash, and returns its
+	// sha256. The file is not a document. Move and Rename carry it along.
+	RevisionWrite(ctx context.Context, id string, n int, data []byte) (string, error)
+	// RevisionRead returns the text stored by RevisionWrite.
+	RevisionRead(ctx context.Context, id string, n int) ([]byte, error)
+
 	// Events returns the last n events, oldest first.
 	Events(ctx context.Context, n int) ([]model.Event, error)
 }

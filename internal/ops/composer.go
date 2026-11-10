@@ -171,7 +171,8 @@ var AgentSend = definePerson("agent_send", "Send what the owner wrote about an i
 	} else {
 		add.Context = []string{id}
 	}
-	r, err := RequestAdd.Run(ctx, d, add)
+	// The composer is an owner turn in the item's own thread (thread_post).
+	r, err := postTurn(ctx, d, add, ownerTurn{thread: model.ThreadKeyItem(id), kind: model.RequestTurnOther})
 	if err != nil {
 		return AgentSendOutput{}, err
 	}

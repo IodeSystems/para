@@ -379,4 +379,5 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, ops.HistoryFilters)
 	addEnum(reg, model.Levels)
 	addEnum(reg, model.AssumptionStatuses)
+	addEnum(reg, ops.ThreadTurnKinds)
 }

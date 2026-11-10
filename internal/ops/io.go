@@ -370,6 +370,9 @@ type IOItem struct {
 	Revisions   []model.IORevision   `json:"revisions,omitempty"`
 	Attempts    []model.IOAttempt    `json:"attempts,omitempty"`
 	Reviewed    string               `json:"reviewed,omitempty"`
+	// Made is the number of documents agent writes changed while ingesting
+	// this item (io_made lists them). Set by io_list.
+	Made int `json:"made,omitempty"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
@@ -461,8 +464,13 @@ var IOList = defineRead("io_list", "List io items, oldest first: the inbox (dire
 	if err != nil {
 		return IOListOutput{}, err
 	}
+	byInput, err := receiptsByInput(ctx, d.Store)
+	if err != nil {
+		return IOListOutput{}, err
+	}
 	out := IOListOutput{Items: []IOItem{}}
 	for _, it := range all {
+		it.Made = madeCount(byInput[it.ID])
 		need := sn.Need(it.ID)
 		it.NeedsYou, it.NeedsYouReason = need.Yes, need.Reason
 		it.Digest = it.Direction == model.IOIn && need.Life == LifeOpen && need.Turn == TurnNone
@@ -629,6 +637,12 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	if err != nil {
 		return IOEditOutput{}, err
 	}
+	var prior []byte // the draft as it is now: kept as a revision if the edit changes it
+	if m.Direction == model.IOOut {
+		if prior, err = model.Render(doc); err != nil {
+			return IOEditOutput{}, err
+		}
+	}
 	if in.State != "" && (!slices.Contains(model.IOStatesOf(m.Direction), in.State) || !in.State.Open()) {
 		return IOEditOutput{}, fmt.Errorf("state %q: an %s message takes %s here; file, send, or drop it with its own tool", in.State, m.Direction, openStates(m.Direction))
 	}
@@ -756,6 +770,11 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	case "":
 	default:
 		m.State = in.State
+	}
+	if changed && m.Direction == model.IOOut {
+		if err := saveRevision(ctx, d, doc.ID, m, prior); err != nil {
+			return IOEditOutput{}, err
+		}
 	}
 	doc, err = d.Store.Update(ctx, doc)
 	if err != nil {

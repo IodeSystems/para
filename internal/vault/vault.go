@@ -335,7 +335,11 @@ func (v *Vault) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 		if err := atomicfile.SyncDir(filepath.Dir(v.abs(f.rel))); err != nil {
 			return err
 		}
-		undo := func() error { return os.Rename(v.abs(rel), v.abs(f.rel)) }
+		undoRevs, err := v.moveRevisions(m, f.rel, string(to), id, id)
+		undo := func() error { return errors.Join(undoRevs(), os.Rename(v.abs(rel), v.abs(f.rel))) }
+		if err != nil {
+			return v.undoOnError(undo, err)
+		}
 		if err := v.logOrUndo(undo, events.OpMove, id, string(f.folder), string(to), hash); err != nil {
 			return err
 		}
@@ -395,7 +399,11 @@ func (v *Vault) Rename(ctx context.Context, id, newID string) (model.Document, e
 		if err := atomicfile.SyncDir(filepath.Dir(v.abs(rel))); err != nil {
 			return err
 		}
-		undo := func() error { return os.Rename(v.abs(rel), v.abs(f.rel)) }
+		undoRevs, err := v.moveRevisions(m, f.rel, path.Dir(f.rel), id, newID)
+		undo := func() error { return errors.Join(undoRevs(), os.Rename(v.abs(rel), v.abs(f.rel))) }
+		if err != nil {
+			return v.undoOnError(undo, err)
+		}
 		if err := v.logOrUndo(undo, events.OpRename, id, id, newID, hash); err != nil {
 			return err
 		}
@@ -728,7 +736,7 @@ func mdFiles(root, dir string) ([]string, error) {
 			return err
 		case d.IsDir() && strings.HasPrefix(d.Name(), "."):
 			return filepath.SkipDir
-		case d.IsDir() || !d.Type().IsRegular() || !strings.HasSuffix(d.Name(), ".md") || syncname.IsConflict(d.Name()):
+		case d.IsDir() || !d.Type().IsRegular() || !strings.HasSuffix(d.Name(), ".md") || syncname.IsConflict(d.Name()) || revisionRe.MatchString(d.Name()):
 			return nil
 		}
 		rel, err := filepath.Rel(root, p)

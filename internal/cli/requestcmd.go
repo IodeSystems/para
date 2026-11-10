@@ -128,6 +128,7 @@ func newRequestCmd(l *loader) *cobra.Command {
 				fs.StringSliceVar(&in.Links, "link", nil, "id of a document made or changed (repeatable)")
 				fs.StringSliceVar(&in.Followed, "followed", nil, "id of context you followed (repeatable)")
 				fs.StringVar((*string)(&in.Resolution), "resolution", string(model.ResolutionDone), "done, partial, stuck, blocked, or needs_clarification")
+				fs.StringVar(&in.Reply, "reply", "", "your answer to the owner, shown in the item's thread")
 			},
 			Bind: func(args []string, in *ops.RequestDoneInput) error {
 				in.ID, in.Result = args[0], strings.Join(args[1:], " ")
@@ -138,6 +139,9 @@ func newRequestCmd(l *loader) *cobra.Command {
 		opCommand(l, ops.RequestFail, binding[ops.RequestFailInput, ops.RequestChangeOutput]{
 			Use:  "fail <id> <reason>",
 			Args: cobra.MinimumNArgs(2),
+			Flags: func(fs *pflag.FlagSet, in *ops.RequestFailInput) {
+				fs.StringVar(&in.Reply, "reply", "", "your answer to the owner, shown in the item's thread")
+			},
 			Bind: func(args []string, in *ops.RequestFailInput) error {
 				in.ID, in.Reason = args[0], strings.Join(args[1:], " ")
 				return nil

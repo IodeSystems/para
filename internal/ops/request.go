@@ -76,6 +76,12 @@ type RequestView struct {
 	Stale     bool   `json:"stale"`
 	// Seen is when the owner opened the result of finished work.
 	Seen string `json:"seen,omitempty"`
+	// Thread is the thread key of an owner turn (thread_post); TurnKind
+	// says what it asks for (modify, ask, redirect, other) and Quote is the
+	// text it is about. Read the turns before it with thread.
+	Thread   string                `json:"thread,omitempty"`
+	TurnKind model.RequestTurnKind `json:"turn_kind,omitempty"`
+	Quote    string                `json:"quote,omitempty"`
 }
 
 // ContextDoc is one document a request links as context. Required says a rule
@@ -111,7 +117,7 @@ func requestView(d model.Document, r *model.Request) RequestView {
 	v := RequestView{
 		ID: d.ID, Title: d.Title, Status: r.Status, Runner: r.Runner, QueuedAt: r.Queued,
 		ClaimedBy: r.Claimed, LeaseUntil: r.Lease, Kind: requestKind(d.Title, r), Resolution: r.Resolution, Turn: r.Turn,
-		ClaimedAt: r.ClaimedAt, ActiveAt: r.ActiveAt, Seen: r.Seen,
+		ClaimedAt: r.ClaimedAt, ActiveAt: r.ActiveAt, Seen: r.Seen, Thread: r.Thread, TurnKind: r.TurnKind, Quote: r.Quote,
 	}
 	if len(r.Links) > 0 {
 		v.Links = targets(r.Links)
@@ -314,6 +320,15 @@ type RequestAddInput struct {
 	OwnerSaid string `json:"owner_said,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
+	// turn is set only by an owner turn (thread.go): no surface sets it.
+	turn ownerTurn
+}
+
+// ownerTurn is the thread key, kind, and quote of an owner turn (thread_post).
+type ownerTurn struct {
+	thread string
+	kind   model.RequestTurnKind
+	quote  string
 }
 
 // idWord finds a document id in text: a type word, a dash, and a slug.
@@ -455,6 +470,7 @@ func addRequest(ctx context.Context, d Deps, in RequestAddInput, src model.Link)
 		Common: model.Common{Type: model.TypeRequest},
 		Status: status, Runner: runner, Queued: now, ActiveAt: now, Links: links,
 		Kind: kind, Context: context, Required: required, RequiresSource: src,
+		Thread: in.turn.thread, TurnKind: in.turn.kind, Quote: in.turn.quote,
 	}
 	if claim {
 		meta.Claimed, meta.ClaimedAt = info.Actor, now
@@ -766,12 +782,15 @@ type RequestDoneInput struct {
 	Result     string                  `json:"result"`             // summary of what was done
 	Links      []string                `json:"links,omitempty"`    // ids of documents made or changed
 	Followed   []string                `json:"followed,omitempty"` // context you followed
+	// Reply is your answer to the owner, in words, for the thread of the
+	// item (thread): what you did and why, or the answer to their question.
+	Reply string `json:"reply,omitempty"`
 }
 
 // RequestDone ends a turn of a claimed request with a resolution and a summary.
 // What the agent changed comes from events. A rule's required context must be
 // cited. stuck, blocked, and needs_clarification wait for the owner's response.
-var RequestDone = defineSafe("request_done", "End a request you claimed: resolution done, partial, stuck, blocked, or needs_clarification, a summary, links to what you made, and the context you followed", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
+var RequestDone = defineSafe("request_done", "End a request you claimed: resolution done, partial, stuck, blocked, or needs_clarification, a summary, links to what you made, the context you followed, and reply: your answer to the owner, shown in the item's thread", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
 	if !slices.Contains([]model.RequestResolution{model.ResolutionDone, model.ResolutionPartial, model.ResolutionStuck, model.ResolutionBlocked, model.ResolutionNeedsClarification}, in.Resolution) {
 		return RequestChangeOutput{}, fmt.Errorf("resolution %q: want done, partial, stuck, blocked, or needs_clarification", in.Resolution)
 	}
@@ -800,6 +819,9 @@ var RequestDone = defineSafe("request_done", "End a request you claimed: resolut
 		heading += " (" + string(in.Resolution) + ")"
 	}
 	doc.Body = appendSection(doc.Body, heading, in.Result)
+	if err := setReply(&doc, r, in.Reply); err != nil {
+		return RequestChangeOutput{}, err
+	}
 	r.Status, r.Lease, r.Results, r.Resolution, r.Followed = model.RequestDone, "", links, in.Resolution, followed
 	r.ActiveAt = nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
@@ -810,10 +832,11 @@ var RequestDone = defineSafe("request_done", "End a request you claimed: resolut
 type RequestFailInput struct {
 	ID     string `json:"id"`
 	Reason string `json:"reason"`
+	Reply  string `json:"reply,omitempty"` // your answer to the owner, shown in the item's thread
 }
 
 // RequestFail ends a claimed request as failed. A person adds it again to retry.
-var RequestFail = defineSafe("request_fail", "Mark a request you claimed as failed, with the reason", func(ctx context.Context, d Deps, in RequestFailInput) (RequestChangeOutput, error) {
+var RequestFail = defineSafe("request_fail", "Mark a request you claimed as failed, with the reason, and reply: your answer to the owner, shown in the item's thread", func(ctx context.Context, d Deps, in RequestFailInput) (RequestChangeOutput, error) {
 	if strings.TrimSpace(in.Reason) == "" {
 		return RequestChangeOutput{}, errors.New("reason is empty")
 	}
@@ -822,10 +845,29 @@ var RequestFail = defineSafe("request_fail", "Mark a request you claimed as fail
 		return RequestChangeOutput{}, err
 	}
 	doc.Body = appendSection(doc.Body, "Failure", in.Reason)
+	if err := setReply(&doc, r, in.Reply); err != nil {
+		return RequestChangeOutput{}, err
+	}
 	r.Status, r.Lease, r.Resolution, r.ActiveAt = model.RequestFailed, "", model.ResolutionFailed, nowString(d.Store)
 	doc, err = d.Store.Update(ctx, doc)
 	return changeOutput(doc), err
 })
+
+// setReply stores the agent's answer to the owner on the request and keeps it
+// in the body under "## Reply", so an earlier turn's reply stays in the
+// history when the work reopens. Empty leaves both as they are.
+func setReply(doc *model.Document, r *model.Request, reply string) error {
+	reply = strings.TrimSpace(strings.ReplaceAll(reply, "\r\n", "\n"))
+	if reply == "" {
+		return nil
+	}
+	if err := lintText("reply", reply); err != nil {
+		return err
+	}
+	r.Reply = reply
+	doc.Body = appendSection(doc.Body, "Reply", flattenHeadings(reply))
+	return nil
+}
 
 // RequestSeenInput names finished work whose result the owner opened: id,
 // ids, or both.
@@ -913,11 +955,24 @@ var RequestRespond = definePerson("request_respond", "Respond to finished agent 
 	if strings.TrimSpace(in.Text) == "" {
 		return RequestChangeOutput{}, errors.New("text is empty")
 	}
-	doc, _, err := respondTo(ctx, d, in)
+	doc, _, err := respondTo(ctx, d, in, ownerTurn{kind: turnKindOf(in.Kind)})
 	return changeOutput(doc), err
 })
 
-func respondTo(ctx context.Context, d Deps, in RequestRespondInput) (model.Document, *model.Request, error) {
+// turnKindOf is the thread turn kind of a response kind.
+func turnKindOf(k RespondKind) model.RequestTurnKind {
+	switch k {
+	case RespondChange:
+		return model.RequestTurnModify
+	case RespondClarify:
+		return model.RequestTurnAsk
+	}
+	return model.RequestTurnOther
+}
+
+// respondTo reopens finished work as its next turn. turn is the turn's kind
+// and quote; its thread stays the request's own.
+func respondTo(ctx context.Context, d Deps, in RequestRespondInput, turn ownerTurn) (model.Document, *model.Request, error) {
 	doc, r, err := getRequest(ctx, d.Store, in.ID)
 	if err != nil {
 		return doc, nil, err
@@ -930,9 +985,13 @@ func respondTo(ctx context.Context, d Deps, in RequestRespondInput) (model.Docum
 	if in.Kind == RespondRevert {
 		text += "\n\nRevert with receipt_undo, newest receipt first: receipt_list names them."
 	}
+	if turn.quote != "" {
+		text = quoteBlock(turn.quote) + "\n\n" + text
+	}
 	doc.Body = appendSection(doc.Body, fmt.Sprintf("Response %d (%s)", r.Turn, in.Kind), text)
 	r.Status, r.Claimed, r.Lease, r.Resolution, r.Queued = model.RequestQueued, "", "", "", nowString(d.Store)
 	r.ClaimedAt, r.ActiveAt = "", r.Queued
+	r.TurnKind, r.Quote, r.Reply = turn.kind, turn.quote, ""
 	doc, err = d.Store.Update(ctx, doc)
 	return doc, r, err
 }

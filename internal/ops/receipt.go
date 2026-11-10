@@ -236,7 +236,7 @@ var ReceiptCheck = definePerson("receipt_check", "Mark a receipt verified or wro
 func respondToWrong(ctx context.Context, d Deps, id string, r *model.Receipt, note string) (string, error) {
 	text := fmt.Sprintf("Receipt %s is marked wrong: %s", id, note)
 	if r.Request != "" {
-		if doc, _, err := respondTo(ctx, d, RequestRespondInput{ID: r.Request, Kind: RespondChange, Text: text}); err == nil {
+		if doc, _, err := respondTo(ctx, d, RequestRespondInput{ID: r.Request, Kind: RespondChange, Text: text}, ownerTurn{kind: model.RequestTurnModify}); err == nil {
 			return doc.ID, nil
 		}
 	}

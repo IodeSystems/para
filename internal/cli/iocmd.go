@@ -30,6 +30,56 @@ func newIOCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.IORevisions, binding[ops.IORevisionsInput, ops.IORevisionsOutput]{
+			Use:  "revisions <id> [--n <n>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.IORevisionsInput) {
+				fs.IntVar(&in.N, "n", 0, "show the text of this revision")
+			},
+			Bind: func(args []string, in *ops.IORevisionsInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IORevisionsOutput) error {
+				p := &printer{w: w}
+				if out.N != 0 {
+					p.f("%s\n", out.Text)
+					return p.err
+				}
+				for _, r := range out.Revisions {
+					p.f("r%d\t%s\t%s\t%s\n", r.N, r.At, r.By, r.Hash)
+				}
+				p.f("current r%d\n", out.Current)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.IODiff, binding[ops.IODiffInput, ops.IODiffOutput]{
+			Use:  "diff <id> [--from <n>] [--to <n>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.IODiffInput) {
+				fs.IntVar(&in.From, "from", 0, "older revision; default the one before --to")
+				fs.IntVar(&in.To, "to", 0, "newer revision; default the current text")
+				fs.StringVar(&in.Unit, "unit", "", "line (default) or paragraph")
+				fs.IntVar(&in.Context, "context", 0, "unchanged units around a change; default 2")
+			},
+			Bind: func(args []string, in *ops.IODiffInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IODiffOutput) error {
+				p := &printer{w: w}
+				p.f("%s\tr%d to r%d\t+%d -%d\n", out.ID, out.From, out.To, out.Added, out.Removed)
+				p.f("%s", out.Text)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.IOMade, binding[ops.IOMadeInput, ops.IOMadeOutput]{
+			Use:  "made <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.IOMadeInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IOMadeOutput) error {
+				p := &printer{w: w}
+				for _, r := range out.Rows {
+					p.f("%s  %s  %s  %s\n", r.Doc, strings.Join(r.Actions, "+"), r.Type, r.Title)
+				}
+				p.f("%d documents\n", len(out.Rows))
+				return p.err
+			},
+		}),
 		opCommand(l, ops.IOEdit, binding[ops.IOEditInput, ops.IOEditOutput]{
 			Use:  "edit <id>",
 			Args: cobra.ExactArgs(1),

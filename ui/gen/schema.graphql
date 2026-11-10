@@ -197,6 +197,7 @@ type ParaV1MutationNamespace {
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
   themeClose(body: para_ThemeCloseInputInput!): para_ThemeCloseOutput @derived(operationId: "themeClose")
+  threadPost(body: para_ThreadPostInputInput!): para_ThreadPostOutput @derived(operationId: "threadPost")
   triageRun(body: para_TriageRunInputInput!): para_TriageRunOutput @derived(operationId: "triageRun")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
@@ -256,7 +257,10 @@ type ParaV1QueryNamespace {
   incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   interactionShow(id: String!): para_InteractionShowOutput @derived(operationId: "interactionShow")
+  ioDiff(context: Int, from: Int, id: String!, to: Int, unit: String): para_IODiffOutput @derived(operationId: "ioDiff")
   ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState, voice: para_ioListVoice): para_IOListOutput @derived(operationId: "ioList")
+  ioMade(id: String!): para_IOMadeOutput @derived(operationId: "ioMade")
+  ioRevisions(id: String!, n: Int): para_IORevisionsOutput @derived(operationId: "ioRevisions")
   ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
@@ -335,6 +339,7 @@ type ParaV1QueryNamespace {
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   themeItems(theme: String!): para_ThemeItemsOutput @derived(operationId: "themeItems")
+  thread(id: String, key: String): para_ThreadOutput @derived(operationId: "thread")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
@@ -2935,6 +2940,18 @@ type para_IOCounts {
   unread: Int!
 }
 
+type para_IODiffOutput {
+  added: Int!
+  from: Int!
+  id: String!
+  parts: [para_DiffPart!]!
+  removed: Int!
+  same: Boolean!
+  text: String!
+  to: Int!
+  unit: String!
+}
+
 input para_IODoneInputInput {
   at: String
   id: String!
@@ -3146,6 +3163,7 @@ type para_IOItem {
   kind: String
   legacy: Boolean
   links: [String!]!
+  made: Int
   medium: para_IOItemMedium!
   needsYou: Boolean!
   needsYouReason: String
@@ -3227,11 +3245,37 @@ type para_IOListOutput {
   items: [para_IOItem!]!
 }
 
+type para_IOMadeOutput {
+  counts: JSON!
+  id: String!
+  rows: [para_IOMadeRow!]!
+}
+
+type para_IOMadeRow {
+  actions: [String!]!
+  actor: String
+  at: String
+  doc: String!
+  receipt: String
+  receipts: [String!]!
+  title: String
+  type: String
+  why: String
+}
+
 type para_IORevision {
   at: String!
   by: String
   hash: String!
   n: Int!
+}
+
+type para_IORevisionsOutput {
+  current: Int!
+  id: String!
+  n: Int
+  revisions: [para_IORevision!]!
+  text: String
 }
 
 input para_IOSendCheckInputInput {
@@ -7353,6 +7397,7 @@ type para_RequestDetail {
   links: [String!]
   needsYou: Boolean!
   queuedAt: String!
+  quote: String
   reason: String
   reply: String
   requiresSource: String
@@ -7361,8 +7406,10 @@ type para_RequestDetail {
   seen: String
   stale: Boolean!
   status: para_RequestDetailStatus!
+  thread: String
   title: String!
   turn: Int
+  turnKind: para_RequestDetailTurn_kind
 }
 
 enum para_RequestDetailResolution {
@@ -7384,10 +7431,18 @@ enum para_RequestDetailStatus {
   queued
 }
 
+enum para_RequestDetailTurn_kind {
+  ask
+  modify
+  other
+  redirect
+}
+
 input para_RequestDoneInputInput {
   followed: [String!]
   id: String!
   links: [String!]
+  reply: String
   resolution: para_RequestDoneInputResolution!
   result: String!
 }
@@ -7405,6 +7460,7 @@ enum para_RequestDoneInputResolution {
 input para_RequestFailInputInput {
   id: String!
   reason: String!
+  reply: String
 }
 
 type para_RequestListOutput {
@@ -7465,6 +7521,7 @@ type para_RequestView {
   links: [String!]
   needsYou: Boolean!
   queuedAt: String!
+  quote: String
   reason: String
   reply: String
   requiresSource: String
@@ -7473,8 +7530,10 @@ type para_RequestView {
   seen: String
   stale: Boolean!
   status: para_RequestViewStatus!
+  thread: String
   title: String!
   turn: Int
+  turnKind: para_RequestViewTurn_kind
 }
 
 enum para_RequestViewResolution {
@@ -7494,6 +7553,13 @@ enum para_RequestViewStatus {
   failed
   proposed
   queued
+}
+
+enum para_RequestViewTurn_kind {
+  ask
+  modify
+  other
+  redirect
 }
 
 type para_RetireItem {
@@ -9111,6 +9177,171 @@ type para_ThemeItemsOutput {
 input para_ThemeKeepInput {
   area: String
   id: String!
+}
+
+type para_ThreadNote {
+  actor: String!
+  at: String!
+  text: String!
+}
+
+type para_ThreadOutput {
+  agents: Int!
+  claimed: Int!
+  item: String
+  itemName: String
+  key: String!
+  keys: [String!]!
+  kind: String!
+  memberNames: [String!]
+  members: [String!]!
+  queued: Int!
+  turns: [para_ThreadTurn!]!
+  waitingNoAgent: Boolean!
+}
+
+input para_ThreadPostInputInput {
+  attachments: [String!]
+  id: String
+  key: String
+  kind: para_ThreadPostInputKind
+  quote: String
+  text: String!
+}
+
+enum para_ThreadPostInputKind {
+  ask
+  modify
+  other
+  redirect
+}
+
+type para_ThreadPostOutput {
+  note: String
+  reopened: Boolean!
+  request: String!
+  rev: String!
+  status: para_ThreadPostOutputStatus!
+  thread: String!
+  title: String!
+}
+
+enum para_ThreadPostOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+type para_ThreadReceipt {
+  actor: String!
+  at: String
+  doc: String!
+  docName: String
+  id: String!
+  op: String!
+  undone: String
+  why: String
+}
+
+type para_ThreadStep {
+  heading: String!
+  text: String!
+}
+
+type para_ThreadTurn {
+  activeAt: String
+  at: String!
+  attachments: [String!]
+  attempts: [para_IOAttempt!]
+  body: String
+  claimedAt: String
+  claimedBy: String
+  direction: para_ThreadTurnDirection
+  error: String
+  from: String
+  io: String
+  kind: para_ThreadTurnKind!
+  medium: para_ThreadTurnMedium
+  notes: [para_ThreadNote!]
+  ownerWords: String
+  quote: String
+  receipts: [para_ThreadReceipt!]!
+  reply: String
+  request: String
+  requestKind: String
+  resolution: para_ThreadTurnResolution
+  result: String
+  state: para_ThreadTurnState
+  status: para_ThreadTurnStatus
+  steps: [para_ThreadStep!]
+  subject: String
+  title: String
+  to: [String!]
+  turn: Int
+  turnKind: para_ThreadTurnTurn_kind
+}
+
+enum para_ThreadTurnDirection {
+  in
+  out
+}
+
+enum para_ThreadTurnKind {
+  io
+  request
+}
+
+enum para_ThreadTurnMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
+enum para_ThreadTurnResolution {
+  blocked
+  cancelled
+  done
+  failed
+  needs_clarification
+  partial
+  stuck
+}
+
+enum para_ThreadTurnState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  unread
+}
+
+enum para_ThreadTurnStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+enum para_ThreadTurnTurn_kind {
+  ask
+  modify
+  other
+  redirect
 }
 
 type para_TimelineDay {

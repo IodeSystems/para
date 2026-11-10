@@ -158,6 +158,20 @@ func aliasTable() []aliasDef {
 			rename(m, m, "text", "note")
 			return m, nil
 		}},
+		// A response to finished work is a turn in its thread: thread_post on
+		// the request reopens it (thread.go). revert has no turn kind, so it
+		// runs as before.
+		{name: "request_respond", to: "thread_post", in: func(m map[string]any) (map[string]any, error) {
+			switch k, _ := m["kind"].(string); RespondKind(k) {
+			case RespondChange:
+				m["kind"] = string(model.RequestTurnModify)
+			case RespondClarify:
+				m["kind"] = string(model.RequestTurnAsk)
+			default:
+				return nil, fmt.Errorf("kind %q has no turn kind", k)
+			}
+			return m, nil
+		}},
 	}
 	for _, name := range showAliases {
 		defs = append(defs, aliasDef{name: name, to: "show", in: func(m map[string]any) (map[string]any, error) { return m, nil }})

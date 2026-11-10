@@ -165,6 +165,16 @@ func (s *Store) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 
 func (s *Store) Events(_ context.Context, n int) ([]model.Event, error) { return s.log.Tail(n) }
 
+// RevisionWrite implements store.Store.
+func (s *Store) RevisionWrite(ctx context.Context, id string, n int, data []byte) (string, error) {
+	return s.v.RevisionWrite(ctx, id, n, data)
+}
+
+// RevisionRead implements store.Store.
+func (s *Store) RevisionRead(ctx context.Context, id string, n int) ([]byte, error) {
+	return s.v.RevisionRead(ctx, id, n)
+}
+
 // AttachmentAdd implements store.Store.
 func (s *Store) AttachmentAdd(ctx context.Context, doc, file string, data []byte) (model.Attachment, error) {
 	return s.v.AttachmentAdd(ctx, doc, file, data)
