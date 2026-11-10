@@ -50,6 +50,7 @@ function HelpDialog() {
                 <Row key={t.key} k={t.key} v={t.label} />
               ))}
               <Row k="/" v="Search or go to (also Ctrl K)" />
+              <Row k="t" v="Tell agent: save what happened and send it to your agent" />
               <Row k="?" v="This help" />
               <Row k="Esc" v="Close a dialog" />
             </Stack>

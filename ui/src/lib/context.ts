@@ -45,6 +45,9 @@ export type Capture = {
   date: string // YYYY-MM-DD
   summary: string
   url: string
+  // tell: also send the owner's words to the agent to file (thread_post). The item is made by
+  // io_add, so it cannot be a logged contact, and "Make a task of it" is off.
+  tell?: boolean
   // task: also file it into a new task. title empty means the first line of the summary; area is
   // the area the task goes in (a task needs an area or a project).
   task?: { on: boolean; title: string; due: string; area: string }
@@ -86,7 +89,7 @@ function noonOf(date: string): string {
 export function captureCall(c: Capture): CaptureCall {
   const summary = c.summary.trim()
   const url = c.url.trim() || undefined
-  if (c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id) && !c.task?.on) {
+  if (c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id) && !c.task?.on && !c.tell) {
     return {
       op: 'interaction_add',
       body: {
@@ -132,7 +135,7 @@ export type FileTask = {
 
 // fileTaskCall is the task to make from a capture, or null when the owner did not ask for one.
 export function fileTaskCall(c: Capture): FileTask | null {
-  if (!c.task?.on) return null
+  if (!c.task?.on || c.tell) return null
   const title = c.task.title.trim()
   const only = c.kind === 'verbal' && c.with.length === 1 ? c.with[0] : undefined
   return {
@@ -150,6 +153,7 @@ export function captureReady(c: Capture): boolean {
   if (!c.summary.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(c.date)) return false
   if (
     c.task?.on &&
+    !c.tell &&
     (!c.task.area || (c.task.due !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(c.task.due)))
   ) {
     return false

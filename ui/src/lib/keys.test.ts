@@ -14,6 +14,11 @@ describe('shortcuts', () => {
     expect(press('0')).toEqual({ kind: 'tab', to: '/obligations' })
     expect(TABS.some((t) => t.to === '/meetings')).toBe(false)
   })
+  it('t opens Tell agent, but not while typing', () => {
+    expect(press('t')).toEqual({ kind: 'tell' })
+    expect(press('t', { target: { tagName: 'TEXTAREA' } })).toBeNull()
+    expect(press('t', { ctrlKey: true })).toBeNull()
+  })
   it('/ searches, ? shows help, c opens nothing', () => {
     expect(press('/')).toEqual({ kind: 'search' })
     expect(press('c')).toBeNull()

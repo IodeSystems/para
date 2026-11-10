@@ -27,6 +27,9 @@ export type Toast = {
   undo?: () => Promise<unknown>
   // note is a short line under the text, such as why an action cannot be undone.
   note?: string
+  // link goes to an io item's page; dwell is how long the toast stays, in ms (default DWELL_MS).
+  link?: { label: string; io: string }
+  dwell?: number
   undoing: boolean
 }
 
@@ -35,6 +38,8 @@ export type ToastInput = {
   tone?: 'info' | 'error'
   undo?: () => Promise<unknown>
   note?: string
+  link?: { label: string; io: string }
+  dwell?: number
 }
 
 type Timing = { timer?: ReturnType<typeof setTimeout>; left: number; since: number; holds: number }
@@ -88,10 +93,12 @@ export class ToastStore {
         phase: 'show',
         undo: t.undo,
         note: t.note,
+        link: t.link,
+        dwell: t.dwell,
         undoing: false,
       },
     ]
-    this.timing.set(id, { left: DWELL_MS, since: Date.now(), holds: 0 })
+    this.timing.set(id, { left: t.dwell ?? DWELL_MS, since: Date.now(), holds: 0 })
     this.emit()
     this.arm(id)
     return id
@@ -174,7 +181,7 @@ export class ToastStore {
           : String(e)
       this.push({ text: `Undo failed: ${why}`, tone: 'error' })
       if (tm && tm.holds === 0) {
-        tm.left = DWELL_MS
+        tm.left = t.dwell ?? DWELL_MS
         this.arm(id)
       }
       return false

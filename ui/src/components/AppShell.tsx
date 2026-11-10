@@ -18,6 +18,7 @@ import MenuIcon from '@mui/icons-material/Menu'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import TodayIcon from '@mui/icons-material/Today'
+import { TellAgent } from '@/components/CaptureButton'
 import { OmniBar } from '@/components/OmniBar'
 import { HttpBanner, ReadOnlyBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
@@ -70,6 +71,7 @@ export function AppShell({ session, children }: { session: SessionView; children
             </Box>
           </Typography>
           <OmniBar />
+          <TellAgent />
           <ModeSwitch />
           <Tooltip title="Keys and about (?)">
             <LinkIconButton

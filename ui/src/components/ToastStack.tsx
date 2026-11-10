@@ -12,6 +12,7 @@ import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
+import { TextLink } from '@/components/links'
 import { errorText } from '@/client/gqlClient'
 import {
   COLLAPSE_MS,
@@ -161,6 +162,11 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
               <Typography variant="caption" color="text.secondary" component="div">
                 {t.note}
               </Typography>
+            )}
+            {t.link && (
+              <TextLink to="/io/$id" params={{ id: t.link.io }} variant="caption" data-toast-link>
+                {t.link.label}
+              </TextLink>
             )}
           </Box>
           {t.undo && (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
@@ -13,7 +13,9 @@ import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined'
 import { useNavigate } from '@tanstack/react-router'
 import { useCapture } from '@/api/context'
 import { useAreas } from '@/api/areas'
@@ -28,6 +30,7 @@ import {
   type Capture,
   type CaptureKind,
 } from '@/lib/context'
+import { tellToast, TELL_OPEN } from '@/lib/tell'
 
 type Who = { id?: string; name: string }
 
@@ -54,7 +57,55 @@ const empty = (kind: CaptureKind): Capture => ({
 // task at once, so the task's Context shows where it came from.
 export function CaptureButton() {
   const [open, setOpen] = useState(false)
-  const [c, setC] = useState<Capture>(empty('verbal'))
+  return (
+    <>
+      <Button size="small" variant="outlined" onClick={() => setOpen(true)} data-capture>
+        Log a conversation or hand-carried item
+      </Button>
+      <CaptureDialog open={open} onClose={() => setOpen(false)} />
+    </>
+  )
+}
+
+// TellAgent is the app bar button, and the t key, that open the same dialog from any page. The
+// owner says what happened; it is saved, and the agent files it.
+export function TellAgent() {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const on = () => setOpen(true)
+    window.addEventListener(TELL_OPEN, on)
+    return () => window.removeEventListener(TELL_OPEN, on)
+  }, [])
+  return (
+    <>
+      <Tooltip title="Tell your agent what happened, and have it filed (t)">
+        <Button
+          color="inherit"
+          size="small"
+          startIcon={<CampaignOutlinedIcon />}
+          onClick={() => setOpen(true)}
+          data-tell-agent
+          sx={{ flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0 }}
+        >
+          Tell agent
+        </Button>
+      </Tooltip>
+      <CaptureDialog open={open} onClose={() => setOpen(false)} tell />
+    </>
+  )
+}
+
+// CaptureDialog: with tell, "Tell my agent to file it" starts on; it can be turned off.
+export function CaptureDialog({
+  open,
+  onClose,
+  tell: tellDefault = false,
+}: {
+  open: boolean
+  onClose: () => void
+  tell?: boolean
+}) {
+  const [c, setC] = useState<Capture>({ ...empty('verbal'), tell: tellDefault })
   const capture = useCapture()
   const people = usePeople()
   const areas = useAreas()
@@ -63,7 +114,7 @@ export function CaptureButton() {
   const options: Who[] = (people.data ?? []).map((p) => ({ id: p.id, name: p.title || p.id }))
   const set = <K extends keyof Capture>(k: K, v: Capture[K]) => setC((x) => ({ ...x, [k]: v }))
   const close = () => {
-    setOpen(false)
+    onClose()
     capture.reset()
   }
   const setTask = (patch: Partial<NonNullable<Capture['task']>>) =>
@@ -72,12 +123,22 @@ export function CaptureButton() {
     const call = captureCall(c)
     const task = fileTaskCall(c)
     capture.mutate(
-      { call, task },
+      { call, task, tell: c.tell ? c.summary : undefined },
       {
         onSuccess: (out) => {
-          setOpen(false)
-          setC(empty(c.kind))
-          if (out.became) {
+          onClose()
+          setC({ ...empty(c.kind), tell: tellDefault })
+          if (c.tell) {
+            // Saved first; the agent turn may have failed or have no agent to run it.
+            if (out.told) toasts.push(tellToast(out.id, out.told))
+            else
+              toasts.push({
+                text: `Saved, but your agent was not told: ${out.tellError ?? 'unknown error'}`,
+                tone: 'error',
+                link: { label: 'Open the item', io: out.id },
+                dwell: 15000,
+              })
+          } else if (out.became) {
             toasts.push({
               text: `Logged and made a task: ${c.task?.title.trim() || firstLine(c.summary)}`,
               note: 'It shows where it came from. This cannot be undone here.',
@@ -96,11 +157,8 @@ export function CaptureButton() {
   }
   return (
     <>
-      <Button size="small" variant="outlined" onClick={() => setOpen(true)} data-capture>
-        Log a conversation or hand-carried item
-      </Button>
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
-        <DialogTitle>Log it</DialogTitle>
+        <DialogTitle>{tellDefault ? 'Tell your agent' : 'Log it'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <ToggleButtonGroup
@@ -158,7 +216,8 @@ export function CaptureButton() {
               label="Summary"
               required
               multiline
-              minRows={3}
+              minRows={tellDefault ? 8 : 3}
+              maxRows={24}
               placeholder="what was said or what you carried over, in your words"
               value={c.summary}
               onChange={(e) => set('summary', e.target.value)}
@@ -174,14 +233,26 @@ export function CaptureButton() {
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={!!c.task?.on}
-                  onChange={(e) => setTask({ on: e.target.checked })}
-                  slotProps={{ input: { 'data-capture-task': '' } as object }}
+                  checked={!!c.tell}
+                  onChange={(e) => set('tell', e.target.checked)}
+                  slotProps={{ input: { 'data-capture-tell': '' } as object }}
                 />
               }
-              label="Make a task of it"
+              label="Tell my agent to file it"
             />
-            {c.task?.on && (
+            {!c.tell && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!c.task?.on}
+                    onChange={(e) => setTask({ on: e.target.checked })}
+                    slotProps={{ input: { 'data-capture-task': '' } as object }}
+                  />
+                }
+                label="Make a task of it"
+              />
+            )}
+            {!c.tell && c.task?.on && (
               <Stack spacing={2} data-capture-task-fields>
                 <TextField
                   label="Task title"
@@ -218,11 +289,13 @@ export function CaptureButton() {
               </Stack>
             )}
             <Typography variant="body2" color="text.secondary">
-              {c.task?.on
-                ? 'Logged, then filed into a new task. The task shows where it came from.'
-                : c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)
-                  ? 'Logged as a contact with these people.'
-                  : 'Goes to your inbox: file it into a task or drop it there.'}
+              {c.tell
+                ? 'Saved as an incoming item in your words first, then your agent files it. It may ask you in the thread.'
+                : c.task?.on
+                  ? 'Logged, then filed into a new task. The task shows where it came from.'
+                  : c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)
+                    ? 'Logged as a contact with these people.'
+                    : 'Goes to your inbox: file it into a task or drop it there.'}
             </Typography>
             {capture.isError && <Alert severity="error">{errorText(capture.error)}</Alert>}
           </Stack>

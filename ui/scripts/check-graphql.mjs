@@ -156,6 +156,10 @@ const REVIEW_MUTATIONS = new Set([
   // the close verb, already allowed.
   'RfxReply',
   'RfxPathAdd',
+  // owner 2026-11-10: Tell agent, from any page. The owner's words are saved as an io item first
+  // (IOAdd), then ThreadPost sends the agent one turn on that item to file it (thread_post, a
+  // person op; it queues one request per turn).
+  'ThreadPost',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

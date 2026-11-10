@@ -12,7 +12,8 @@ import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
-import { DocLink } from '@/components/DocLink'
+import { DocLink, RfxLink } from '@/components/DocLink'
+import { useThreadOf } from '@/api/thread'
 import { Markdown } from '@/components/Markdown'
 import { DraftEditor } from '@/components/DraftEditor'
 import { DoneForm } from '@/components/stack/parts'
@@ -30,10 +31,12 @@ function IoItemPage() {
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
   const q = useIoItem(id)
+  const thread = useThreadOf(id)
   return (
     <DataState q={q}>
       {({ doc, item }) => {
         const out = item.direction === 'out'
+        const asked = (thread.data?.turns ?? []).filter((t) => t.kind === 'request' && t.request)
         const from = item.from ? <Party p={item.from} /> : ''
         const to = item.to.length > 0 ? <Parties list={item.to} /> : ''
         const when = item.at ? <span title={exactTime(item.at)}>{humanTime(item.at)}</span> : ''
@@ -56,7 +59,7 @@ function IoItemPage() {
             : item.expects === 'none'
               ? 'no response: sending logs an interaction'
               : ''
-        const thread = item.thread ? <DocLink id={item.thread} /> : ''
+        const answers = item.thread ? <DocLink id={item.thread} /> : ''
         const became = item.became ? <DocLink id={item.became} /> : ''
         const rows: { k: string; v: ReactNode }[] = [
           { k: out ? 'To' : 'From', v: out ? to : from },
@@ -68,7 +71,24 @@ function IoItemPage() {
           { k: 'Subject', v: item.subject },
           { k: 'Link', v: link },
           { k: 'Expects', v: expects },
-          { k: 'Answers', v: thread },
+          { k: 'Answers', v: answers },
+          {
+            k: 'Agent turns',
+            v: asked.length > 0 && (
+              <>
+                {asked.map((t, i) => (
+                  <span key={t.request}>
+                    {i > 0 && ', '}
+                    <RfxLink id={t.request as string}>{t.request}</RfxLink>
+                    {t.status ? ` (${t.status})` : ''}
+                  </span>
+                ))}
+                {thread.data?.waitingNoAgent
+                  ? '. Queued: no agent is connected on this machine.'
+                  : ''}
+              </>
+            ),
+          },
           { k: item.state === 'sent' ? 'Became' : 'Filed as', v: became },
           { k: 'Dropped because', v: item.reason },
           {

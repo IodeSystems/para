@@ -1,6 +1,7 @@
 import { useEffect, useEffectEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { OMNI_FOCUS } from '@/components/OmniBar'
+import { TELL_OPEN } from '@/lib/tell'
 import { actionFor, nextKeyFor, type NextKey } from '@/lib/keys'
 
 // dialogOpen says a dialog or a menu is open: its own keys rule.
@@ -30,6 +31,9 @@ export function Keyboard() {
           break
         case 'search':
           window.dispatchEvent(new Event(OMNI_FOCUS))
+          break
+        case 'tell':
+          window.dispatchEvent(new Event(TELL_OPEN))
           break
         case 'help':
           void navigate({ to: '.', search: (prev) => ({ ...prev, help: true }) })

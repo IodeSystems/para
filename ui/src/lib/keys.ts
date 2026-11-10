@@ -1,6 +1,6 @@
 // Keyboard shortcuts: digits switch tabs, / searches, ? shows help. On Next, letters act on the one
 // card (nextKeyFor).
-// No global key opens a form.
+// t opens Tell agent (capture, then the agent files it).
 
 export type Tab = { key: string; to: string; label: string; hint?: string }
 
@@ -49,7 +49,7 @@ export const EXTRA_SCREENS: Tab[] = [
   },
 ]
 
-export type KeyAction = { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' }
+export type KeyAction = { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' } | { kind: 'tell' }
 
 type KeyLike = {
   key: string
@@ -77,6 +77,8 @@ export function actionFor(e: KeyLike): KeyAction | null {
       return { kind: 'search' }
     case '?':
       return { kind: 'help' }
+    case 't':
+      return { kind: 'tell' }
   }
   return null
 }
