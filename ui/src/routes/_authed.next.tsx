@@ -8,7 +8,6 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
 import { useDoc } from '@/api/doc'
-import { useIOApprove, useIoItem } from '@/api/io'
 import { useOrder } from '@/api/next'
 import { useQuestion, useQuestionReview } from '@/api/questions'
 import { canDecide } from '@/client/session'
@@ -18,13 +17,12 @@ import { SourceList } from '@/components/AnswerCheck'
 import { PageTitle, StatusChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DoItTask } from '@/components/DoIt'
-import { DraftEditor } from '@/components/DraftEditor'
+import { DraftReady, cardBox } from '@/components/output/ProposalCard'
 import { AgentLooking } from '@/components/FindContext'
 import { ThreadSummary } from '@/components/Thread'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemDraftProvider } from '@/components/ItemDraft'
-import { VoiceNote } from '@/components/Voice'
 import { useNextKeys } from '@/components/Keyboard'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
@@ -381,112 +379,6 @@ function Prepared({
   return <FilledReady id={target} />
 }
 
-const box = {
-  my: 1,
-  p: 1.5,
-  border: 1,
-  borderColor: 'divider',
-  borderRadius: 1,
-  bgcolor: 'action.hover',
-} as const
-
-// DraftReady is an outgoing draft: its text, Approve (its exact text becomes ready to send), and
-// Edit in place (Save, with "and approve" to approve the saved text in the same click).
-function DraftReady({
-  id,
-  decide,
-  onGone,
-}: {
-  id: string
-  decide: boolean
-  onGone: (gone: boolean) => void
-}) {
-  const q = useIoItem(id)
-  const approve = useIOApprove()
-  const toasts = useToasts()
-  const it = q.data?.item
-  const approved = it?.state === 'ready'
-  const [editing, setEditing] = useState(false)
-  const run = async () => {
-    try {
-      await approve.mutateAsync(id)
-      onGone(true)
-      toasts.push({
-        text: `Approved: ${it?.subject || it?.title || id}`,
-        note: 'An agent sends it. Edit the draft to take the approval back.',
-      })
-    } catch (e) {
-      toasts.push({ text: `Could not approve: ${errorText(e)}`, tone: 'error' })
-    }
-  }
-  return (
-    <Box sx={box} data-next-draft={id}>
-      <Typography variant="subtitle2" component="h3">
-        Draft reply{it?.to?.length ? ` to ${it.to.join(', ')}` : ''}
-      </Typography>
-      {it?.subject && <Typography variant="body2">Subject: {it.subject}</Typography>}
-      {editing && q.data ? (
-        <DraftEditor
-          key={q.data.doc.body}
-          id={id}
-          text={q.data.doc.body}
-          approved={approved}
-          onSaved={(approvedNow) => {
-            setEditing(false)
-            if (approvedNow) onGone(true)
-            toasts.push({
-              text: approvedNow
-                ? `Saved and approved: ${it?.subject || it?.title || id}`
-                : `Saved: ${it?.subject || it?.title || id}`,
-              note: approvedNow ? 'An agent sends it.' : undefined,
-            })
-          }}
-          onCancel={() => setEditing(false)}
-        />
-      ) : (
-        <Typography
-          component="div"
-          variant="body2"
-          sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', my: 1 }}
-        >
-          {q.data?.doc.body ?? ''}
-        </Typography>
-      )}
-      {it && <VoiceNote item={it} />}
-      <Stack direction="row" spacing={1}>
-        {decide && !approved && (
-          <Button
-            size="small"
-            variant="contained"
-            color="success"
-            data-act="approve"
-            disabled={approve.isPending || !q.data}
-            onClick={() => void run()}
-          >
-            {it?.voice === 'for_me' ? 'Approve as you' : 'Approve'}
-          </Button>
-        )}
-        {approved && (
-          <Typography variant="body2" color="text.secondary">
-            Approved. An agent sends it.
-          </Typography>
-        )}
-        {decide && !editing ? (
-          <Button size="small" data-act="edit" disabled={!q.data} onClick={() => setEditing(true)}>
-            Edit
-          </Button>
-        ) : (
-          !decide && (
-            <LinkButton size="small" data-act="edit" to="/io/$id" params={{ id }}>
-              Edit
-            </LinkButton>
-          )
-        )}
-      </Stack>
-    </Box>
-  )
-}
-
 // AnswerReady is an agent's proposed answer to a question: the answer, why, its sources, Accept
 // (the owner answers with it), and Edit on the question's page. An answer cannot be undone here.
 function AnswerReady({
@@ -521,7 +413,7 @@ function AnswerReady({
     }
   }
   return (
-    <Box sx={box} data-next-answer={id}>
+    <Box sx={cardBox} data-next-answer={id}>
       <Typography variant="subtitle2" component="h3">
         Proposed answer{qn?.proposedBy ? `, from ${qn.proposedBy}` : ''}
       </Typography>
@@ -559,7 +451,7 @@ function FilledReady({ id }: { id: string }) {
   const q = useDoc(id)
   if (q.isError) return <Alert severity="warning">{errorText(q.error)}</Alert>
   return (
-    <Box sx={{ ...box, maxHeight: 360, overflowY: 'auto' }} data-next-filled={id}>
+    <Box sx={{ ...cardBox, maxHeight: 360, overflowY: 'auto' }} data-next-filled={id}>
       {q.data?.body?.trim() ? (
         <Markdown source={q.data.body} />
       ) : (

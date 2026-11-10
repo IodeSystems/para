@@ -163,6 +163,11 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-10: Input and Output pages. Mark reviewed on incoming or sent rows (io_review,
   // an owner op; no state change; one receipt, so Undo takes it back).
   'IoReview',
+  // owner 2026-11-10: Output page, Proposals tab. Drop on a proposal with the owner's reason
+  // (io_drop, an owner op). Approve (IOApprove, already allowed above) now also approves a batch
+  // of {id, expectHash} the owner sees; Done by me runs through Close (already allowed), which runs
+  // io_done with the final text and URL.
+  'IODrop',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

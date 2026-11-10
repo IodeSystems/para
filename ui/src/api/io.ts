@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
@@ -85,6 +85,7 @@ const IoShowDoc = graphql(/* GraphQL */ `
             stamp
             kind
             allowedBy
+            draftHash
           }
         }
       }
@@ -144,12 +145,25 @@ export function useDelegationRun(id: string, enabled: boolean) {
   })
 }
 
+const fetchIoItem = async (id: string) =>
+  need((await gqlClient.request(IoShowDoc, { id })).para.v1.ioShow, 'io item')
+
 export function useIoItem(id: string) {
   return useQuery({
     queryKey: ['io', 'item', id],
     enabled: id !== '',
-    queryFn: async () =>
-      need((await gqlClient.request(IoShowDoc, { id })).para.v1.ioShow, 'io item'),
+    queryFn: () => fetchIoItem(id),
+  })
+}
+
+// useIoItems reads several io items at once, with the same cache keys as useIoItem.
+export function useIoItems(ids: string[]) {
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ['io', 'item', id],
+      enabled: id !== '',
+      queryFn: () => fetchIoItem(id),
+    })),
   })
 }
 
@@ -216,11 +230,24 @@ const IOApproveDoc = graphql(/* GraphQL */ `
           id
           state
           approvedHash
+          superseded
+          items {
+            id
+          }
         }
       }
     }
   }
 `)
+
+// approveIo is io_approve with a body: one draft, or items of {id, expectHash} (all or none).
+export async function approveIo(body: {
+  id?: string
+  expectHash?: string
+  items?: { id: string; expectHash: string }[]
+}) {
+  return need((await gqlClient.request(IOApproveDoc, { body })).para.v1.ioApprove, 'approve')
+}
 
 // useIOApprove is Approve on an outgoing draft: the owner approves its exact medium, to, subject,
 // and text (io_approve, the owner's path), and it is ready for an agent to send. People only.
