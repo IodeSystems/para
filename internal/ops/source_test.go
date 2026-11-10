@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -291,4 +292,29 @@ func TestSourceAddRefusesSecret(t *testing.T) {
 		}
 	}
 	mustLintClean(t, d)
+}
+
+func TestUnknownSourceHint(t *testing.T) {
+	now := time.Date(2026, 11, 4, 10, 0, 0, 0, time.Local)
+	d, _ := sourceClockDeps(t, &now)
+	claude := agentDeps(d, "claude")
+
+	_, err := SweepRecord.Run(ctx, claude, SweepRecordInput{Source: "nowhere"})
+	if err == nil || !errors.Is(err, model.ErrNotFound) || !strings.Contains(err.Error(), "this vault has no sources yet") || !strings.Contains(err.Error(), "source_add") {
+		t.Fatalf("sweep_record in an empty vault: %v", err)
+	}
+	decl, err := AgentSources.Run(ctx, claude, AgentSourcesInput{Sources: []string{"nowhere"}})
+	if err != nil || !strings.Contains(decl.Hint, "this vault has no sources yet") {
+		t.Fatalf("agent_sources in an empty vault: %+v %v", decl, err)
+	}
+
+	src := addGitHubSource(t, d)
+	_, err = SweepRecord.Run(ctx, claude, SweepRecordInput{Source: "nowhere"})
+	if err == nil || strings.Contains(err.Error(), "no sources yet") || !strings.Contains(err.Error(), "source_list") {
+		t.Fatalf("sweep_record with a source present: %v", err)
+	}
+	decl, err = AgentSources.Run(ctx, claude, AgentSourcesInput{Sources: []string{src}})
+	if err != nil || decl.Hint != "" {
+		t.Fatalf("agent_sources with no unknown id: %+v %v", decl, err)
+	}
 }

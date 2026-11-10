@@ -31,6 +31,9 @@ func getSource(ctx context.Context, s store.Store, id string) (model.Document, *
 		return model.Document{}, nil, errors.New("source id is empty")
 	}
 	doc, err := s.Get(ctx, id)
+	if errors.Is(err, model.ErrNotFound) {
+		return doc, nil, &noSourceError{msg: noSourceHint(ctx, s, id)}
+	}
 	if err != nil {
 		return doc, nil, err
 	}
@@ -39,6 +42,22 @@ func getSource(ctx context.Context, s store.Store, id string) (model.Document, *
 		return doc, nil, fmt.Errorf("%s is %s, not a source", id, doc.Meta.Header().Type)
 	}
 	return doc, m, nil
+}
+
+// noSourceError says a source id names no document, with a hint. It still
+// matches model.ErrNotFound.
+type noSourceError struct{ msg string }
+
+func (e *noSourceError) Error() string { return e.msg }
+func (e *noSourceError) Unwrap() error { return model.ErrNotFound }
+
+// noSourceHint is the hint for a source id that names no source document.
+func noSourceHint(ctx context.Context, s store.Store, id string) string {
+	const how = "add one with source_add (source_list shows what exists, /para io setup walks through it)"
+	if refs, err := s.List(ctx, store.Filter{Type: model.TypeSource}); err == nil && len(refs) == 0 {
+		return fmt.Sprintf("no source %q: this vault has no sources yet; %s", id, how)
+	}
+	return fmt.Sprintf("no source %q in this vault; %s", id, how)
 }
 
 // loadSources returns every source document, sorted by id.

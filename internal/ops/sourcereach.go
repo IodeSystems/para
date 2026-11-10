@@ -115,6 +115,8 @@ type AgentSourcesOutput struct {
 	Sources []string `json:"sources"`
 	// Unknown are ids that name no source document; they are not recorded.
 	Unknown []string `json:"unknown"`
+	// Hint is set when Unknown is not empty: how to add a source.
+	Hint string `json:"hint,omitempty"`
 	// Due are the declared sources a sweep is due for: run sweep_plan.
 	Due []string `json:"due"`
 	// Learned are the sources whose reached_by gained your actor, only when
@@ -172,6 +174,9 @@ var AgentSources = defineSafe("agent_sources", "At session start, declare the so
 				out.Due = append(out.Due, doc.ID)
 			}
 		}
+	}
+	if len(out.Unknown) > 0 {
+		out.Hint = noSourceHint(ctx, d.Store, out.Unknown[0])
 	}
 	if err := reach.Write(info.StateDir, Declaration{Actor: info.Actor, Install: info.Install, At: out.At, Sources: out.Sources}); err != nil {
 		return out, err
