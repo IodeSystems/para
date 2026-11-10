@@ -27,9 +27,15 @@ const (
 	kAssumptions  // list of assumption maps (assumptionFields)
 	kImported     // {path, hash}: the file a document was imported from
 	kCalendarUIDs // list of {uid, role} maps: calendar events of a meeting
+	kThreads      // list of thread keys: item id, #tag, channel:<source>/<thread>
+	kThreads1     // one thread key
 	kFollows      // {source, verified, reviewed_by}: the remote source an area follows
 	kOwers        // list of "[[name]]", or the word agent or agent:<name>
 	kProduce      // {kind, template, to, medium, guide, builtin}: what an agent produces
+	kPercent      // integer 0 to 100
+	kAssessments  // list of assessment maps (assessmentFields)
+	kRevisions    // list of revision maps (revisionFields)
+	kAttempts     // list of attempt maps (attemptFields)
 )
 
 type field struct {
@@ -63,6 +69,7 @@ var (
 	incidentStatus     = []string{"open", "mitigated", "resolved"}
 	requestStatus      = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 	proposalStatus     = []string{"open", "sent_back", "closed", "superseded"}
+	requestTurnKinds   = []string{"modify", "ask", "redirect", "other"}
 	requestResolutions = []string{"done", "partial", "stuck", "blocked", "needs_clarification", "failed", "cancelled"}
 	receiptChecks      = []string{"unchecked", "verified", "wrong"}
 	questionStatus     = []string{"open", "answered", "dropped"}
@@ -89,6 +96,7 @@ var (
 	priorities         = []string{"high", "normal", "low"}
 	ioTriages          = []string{"needs_you", "digest"}
 	ioVoices           = []string{"as_me", "for_me"}
+	attemptResults     = []string{"sent", "failed", "held", "other"}
 	sourceVias         = []string{"mcp", "cli", "none"}
 	sourceStatuses     = []string{"active", "paused"}
 	frictionReasons    = []string{"wrong_owner", "no_owner", "policy_conflict", "policy_unclear", "no_response", "capacity", "needs_approval", "tool_gap", "other"}
@@ -111,6 +119,7 @@ var commonFields = []field{
 	{Name: "duplicate_of", Kind: kLink}, // doc_merge: the primary this document was merged into
 	{Name: "prepared", Kind: kMap},      // {by, at, kind, ref, hash}: item_prepared
 	{Name: "publish", Kind: kList},      // publish set names; the owner's (publish_set)
+	{Name: "threads", Kind: kThreads},   // extra threads the document belongs to (thread.go)
 }
 
 // typeFields are the per-type fields, on top of commonFields.
@@ -363,6 +372,10 @@ var typeFields = map[string][]field{
 		{Name: "resolution", Kind: kEnum, Enum: requestResolutions},
 		{Name: "requires_source", Kind: kLink},
 		{Name: "seen", Kind: kTimestamp},
+		{Name: "thread", Kind: kThreads1}, // the one thread this owner turn belongs to
+		{Name: "reply", Kind: kString},    // the agent's answer to the owner
+		{Name: "turn_kind", Kind: kEnum, Enum: requestTurnKinds},
+		{Name: "quote", Kind: kString}, // owner-quoted text the turn is about
 	},
 	"proposal": {
 		{Name: "source", Kind: kLink},
@@ -438,6 +451,16 @@ var typeFields = map[string][]field{
 		{Name: "url", Kind: kString},
 		{Name: "observed", Kind: kBool},
 		{Name: "folded_from", Kind: kEnum, Enum: Types}, // the type the item was before upgrade step small-types
+		{Name: "reviewed", Kind: kTimestamp},
+		// A proposal: the preview of an outward action. variant_of is an io id (checked on write).
+		{Name: "why", Kind: kString},
+		{Name: "impact", Kind: kString},
+		{Name: "assessments", Kind: kAssessments},
+		{Name: "group", Kind: kString},
+		{Name: "variant_of", Kind: kString},
+		{Name: "revision", Kind: kCount},
+		{Name: "revisions", Kind: kRevisions},
+		{Name: "attempts", Kind: kAttempts},
 	},
 	"tracked_doc": {
 		{Name: "url", Kind: kString, Required: true},
@@ -489,6 +512,26 @@ var (
 		{Name: "label", Kind: kString, Required: true},
 		{Name: "kind", Kind: kEnum, Enum: pointerKinds, Required: true},
 		{Name: "target", Kind: kString, Required: true},
+	}
+	assessmentFields = []field{
+		{Name: "name", Kind: kString, Required: true}, // confidence, recommend, risk, or free text
+		{Name: "percent", Kind: kPercent, Required: true},
+		{Name: "basis", Kind: kString},
+	}
+	revisionFields = []field{
+		{Name: "n", Kind: kCount, Required: true},
+		{Name: "hash", Kind: kString, Required: true},
+		{Name: "by", Kind: kString},
+		{Name: "at", Kind: kTimestamp, Required: true},
+	}
+	attemptFields = []field{
+		{Name: "at", Kind: kTimestamp, Required: true},
+		{Name: "actor", Kind: kString},
+		{Name: "tool", Kind: kString},
+		{Name: "medium", Kind: kEnum, Enum: mediums},
+		{Name: "result", Kind: kEnum, Enum: attemptResults, Required: true},
+		{Name: "url", Kind: kString},
+		{Name: "error", Kind: kString},
 	}
 	riskFields = []field{
 		{Name: "text", Kind: kString, Required: true},
@@ -552,6 +595,8 @@ func ItemFieldEnum(typ, list, name string) []string {
 				items = riskFields
 			case kAssumptions:
 				items = assumptionFields
+			case kAttempts:
+				items = attemptFields
 			}
 		}
 	}
@@ -579,7 +624,7 @@ var kindNames = map[kind]string{
 	kRuleLink: "rule_link", kSourceMap: "source", kLinkList: "links", kContacts: "contacts",
 	kPointers: "pointers", kTargets: "targets", kTimestamp: "timestamp", kCount: "count",
 	kScope: "scope", kSources: "sources", kWhen: "date_or_time", kMap: "map", kMaps: "maps",
-	kRisks: "risks", kAssumptions: "assumptions", kImported: "imported", kCalendarUIDs: "calendar_uids", kFollows: "follows",
+	kRisks: "risks", kAssumptions: "assumptions", kPercent: "percent", kAssessments: "assessments", kRevisions: "revisions", kAttempts: "attempts", kImported: "imported", kCalendarUIDs: "calendar_uids", kFollows: "follows", kThreads: "thread_keys", kThreads1: "thread_key",
 }
 
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,

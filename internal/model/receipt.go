@@ -52,6 +52,7 @@ type Receipt struct {
 	Op         string       `yaml:"op" json:"op"`
 	Doc        string       `yaml:"doc" json:"doc"`
 	Request    string       `yaml:"request,omitempty" json:"request,omitempty"`
+	Input      string       `yaml:"input,omitempty" json:"input,omitempty"` // the io item being ingested when the write was made
 	Why        string       `yaml:"why,omitempty" json:"why,omitempty"`
 	Sources    []string     `yaml:"sources,omitempty" json:"sources,omitempty"`
 	Verify     string       `yaml:"verify,omitempty" json:"verify,omitempty"`

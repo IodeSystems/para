@@ -648,6 +648,33 @@ func (IOExpects) Enum() []string { return enumStrings(IOExpectsAll) }
 // IOExpectsAll lists every IOExpects.
 var IOExpectsAll = []IOExpects{ExpectsResponse, ExpectsNone}
 
+// Known assessment names of an io out proposal (IOAssessment.Name). Any other
+// name is allowed.
+const (
+	AssessConfidence = "confidence"
+	AssessRecommend  = "recommend"
+	AssessRisk       = "risk"
+)
+
+// AssessmentNames lists the known assessment names.
+var AssessmentNames = []string{AssessConfidence, AssessRecommend, AssessRisk}
+
+// AttemptResult is IOAttempt.Result: how one try to carry out a proposal ended.
+type AttemptResult string
+
+const (
+	AttemptSent   AttemptResult = "sent"
+	AttemptFailed AttemptResult = "failed"
+	AttemptHeld   AttemptResult = "held"
+	AttemptOther  AttemptResult = "other"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (AttemptResult) Enum() []string { return enumStrings(AttemptResults) }
+
+// AttemptResults lists every AttemptResult.
+var AttemptResults = []AttemptResult{AttemptSent, AttemptFailed, AttemptHeld, AttemptOther}
+
 // IOTriage is io.triage: what a triage rule decided for an incoming message.
 // needs_you: it needs the owner; digest: it goes to the day's inbox digest.
 // Empty: no rule decided, and the default rule applies (ops/needs.go).

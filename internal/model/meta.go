@@ -54,6 +54,10 @@ type Common struct {
 	// Publish names the publish sets the document belongs to (para publish).
 	// Only the owner sets it (publish_set): it decides what leaves the vault.
 	Publish []string `yaml:"publish,omitempty" json:"publish,omitempty"`
+	// Threads lists extra thread keys the document belongs to (thread.go): an
+	// item id, "#tag", or "channel:<source>/<thread>". A tag joins a thread
+	// only when named here as "#tag"; the tags field alone does not.
+	Threads []string `yaml:"threads,omitempty" json:"threads,omitempty"`
 }
 
 // ImportedFrom is the source file of an imported document: the path as the
@@ -760,6 +764,13 @@ type Request struct {
 	// Seen is when the owner opened the result of finished work (request_seen).
 	// Done or failed work with no Seen waits for the owner to check it.
 	Seen string `yaml:"seen,omitempty" json:"seen,omitempty"`
+	// Thread is the one thread key this owner turn belongs to. Reply is the
+	// agent's answer to the owner. TurnKind says what the owner turn asks for.
+	// Quote is the owner-quoted text the turn is about.
+	Thread   string          `yaml:"thread,omitempty" json:"thread,omitempty"`
+	Reply    string          `yaml:"reply,omitempty" json:"reply,omitempty"`
+	TurnKind RequestTurnKind `yaml:"turn_kind,omitempty" json:"turn_kind,omitempty"`
+	Quote    string          `yaml:"quote,omitempty" json:"quote,omitempty"`
 }
 
 // Team is type: team.
@@ -892,6 +903,51 @@ type IO struct {
 	// FoldedFrom is the type the item was before upgrade step small-types
 	// (interaction); the keys of that type stay in the file.
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+	// Reviewed is when the owner reviewed the item (RFC 3339), in or out.
+	Reviewed string `yaml:"reviewed,omitempty" json:"reviewed,omitempty"`
+	// An outgoing draft is a Proposal: a preview of any outward action
+	// (message, PR, ticket, deploy, comment). Why and Impact say the reason
+	// and the effect; Assessments are named percentages. Group is a batch
+	// key; VariantOf is the id of the first draft of a variation set.
+	// Revision is the current version n and Revisions index the version
+	// files io/<id>.r<n>.md. Attempts is one entry per try to carry it out.
+	Why         string         `yaml:"why,omitempty" json:"why,omitempty"`
+	Impact      string         `yaml:"impact,omitempty" json:"impact,omitempty"`
+	Assessments []IOAssessment `yaml:"assessments,omitempty" json:"assessments,omitempty"`
+	Group       string         `yaml:"group,omitempty" json:"group,omitempty"`
+	VariantOf   string         `yaml:"variant_of,omitempty" json:"variant_of,omitempty"`
+	Revision    int            `yaml:"revision,omitempty" json:"revision,omitempty"`
+	Revisions   []IORevision   `yaml:"revisions,omitempty" json:"revisions,omitempty"`
+	Attempts    []IOAttempt    `yaml:"attempts,omitempty" json:"attempts,omitempty"`
+}
+
+// IOAssessment is one named judgment of a proposal: Name is confidence,
+// recommend, risk (AssessmentNames) or free text; Percent is 0 to 100; Basis
+// says what it rests on. A proposal without one shows "not stated".
+type IOAssessment struct {
+	Name    string `yaml:"name" json:"name"`
+	Percent int    `yaml:"percent" json:"percent"`
+	Basis   string `yaml:"basis,omitempty" json:"basis,omitempty"`
+}
+
+// IORevision indexes one version file io/<id>.r<n>.md of a proposal.
+type IORevision struct {
+	N    int    `yaml:"n" json:"n"`
+	Hash string `yaml:"hash" json:"hash"`
+	By   string `yaml:"by,omitempty" json:"by,omitempty"`
+	At   string `yaml:"at" json:"at"`
+}
+
+// IOAttempt is one try to carry out a proposal (OutputAttempt). Error is
+// content, so it lives here and never in an event.
+type IOAttempt struct {
+	At     string        `yaml:"at" json:"at"`
+	Actor  string        `yaml:"actor,omitempty" json:"actor,omitempty"`
+	Tool   string        `yaml:"tool,omitempty" json:"tool,omitempty"`
+	Medium Medium        `yaml:"medium,omitempty" json:"medium,omitempty"`
+	Result AttemptResult `yaml:"result" json:"result"`
+	URL    string        `yaml:"url,omitempty" json:"url,omitempty"`
+	Error  string        `yaml:"error,omitempty" json:"error,omitempty"`
 }
 
 // ForMe reports whether the draft goes out for the owner, stamped, without

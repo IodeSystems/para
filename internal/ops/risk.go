@@ -36,6 +36,9 @@ type WriteMeta struct {
 	Verify     string // a link, or a check the owner can do
 	Confidence model.Confidence
 	Request    string // the request this write serves; default the one the actor holds
+	// Input is the io item this write was made while ingesting. When empty,
+	// runRecorded sets it by rule (writeInput).
+	Input string
 	// NotDuplicate is why this create is not one of the likely matches.
 	NotDuplicate string
 	// OwnerSaid is the owner's words from a chat that approved this write, as
@@ -118,6 +121,12 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 		}
 		return zero, ownerError(o.name, why)
 	}
+	if id := writeMeta(ctx).Input; id != "" {
+		if err := checkInput(ctx, d, id); err != nil {
+			var zero O
+			return zero, fmt.Errorf("%s: %w", o.name, err)
+		}
+	}
 	rec := newRecorder(d.Store)
 	inner := d
 	inner.Store = rec
@@ -134,6 +143,10 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	}
 	m := writeMeta(ctx)
 	m.round = round
+	if m.Request == "" {
+		m.Request = heldRequest(ctx, d.Store, d.Store.Info().Actor)
+	}
+	m.Input = writeInput(ctx, d, o.name, inputMap(in), m)
 	if len(notes) > 0 {
 		m.Why = strings.TrimSpace(m.Why + " " + strings.Join(notes, " "))
 	}
@@ -147,6 +160,80 @@ func runRecorded[I, O any](ctx context.Context, d Deps, o *Op[I, O], in I) (O, e
 	}
 	return out, err
 }
+
+// checkInput refuses an input that is not an io item of the vault.
+func checkInput(ctx context.Context, d Deps, id string) error {
+	if ioID(ctx, d, id) == "" {
+		return fmt.Errorf("input %s: not an io item in this vault", normID(id))
+	}
+	return nil
+}
+
+// ioID is the id of the io item s names, or "".
+func ioID(ctx context.Context, d Deps, s string) string {
+	id := normID(s)
+	if id == "" {
+		return ""
+	}
+	doc, err := d.Store.Get(ctx, id)
+	if err != nil || doc.Meta.Header().Type != model.TypeIO {
+		return ""
+	}
+	return doc.ID
+}
+
+// writeInput is the io item a write was made while ingesting. In order:
+// io_file names it itself; then the input the agent gave; then the one io item
+// the held request links; then the one io item the write's sources, thread,
+// or links name. More than one io item at a step names none.
+func writeInput(ctx context.Context, d Deps, op string, in map[string]any, m WriteMeta) string {
+	if op == ioFileOp {
+		if id, _ := in["id"].(string); ioID(ctx, d, id) != "" {
+			return ioID(ctx, d, id)
+		}
+	}
+	if m.Input != "" {
+		return normID(m.Input)
+	}
+	one := func(names []string) string {
+		found := ""
+		for _, s := range names {
+			id := ioID(ctx, d, s)
+			if id == "" || id == found {
+				continue
+			}
+			if found != "" {
+				return ""
+			}
+			found = id
+		}
+		return found
+	}
+	if m.Request != "" {
+		if doc, err := d.Store.Get(ctx, normID(m.Request)); err == nil {
+			if r, ok := doc.Meta.(*model.Request); ok {
+				if id := one(targets(r.Links)); id != "" {
+					return id
+				}
+			}
+		}
+	}
+	names := slices.Clone(m.Sources)
+	if s, ok := in["thread"].(string); ok {
+		names = append(names, s)
+	}
+	if list, ok := in["links"].([]any); ok {
+		for _, v := range list {
+			if s, ok := v.(string); ok {
+				names = append(names, s)
+			}
+		}
+	}
+	return one(names)
+}
+
+// ioFileOp is io_file's name: it sets the input of its receipts itself.
+const ioFileOp = "io_file"
 
 func inputMap(in any) map[string]any {
 	b, err := json.Marshal(in)
@@ -372,7 +459,7 @@ func createReceipt(ctx context.Context, d Deps, in receiptInput) (string, error)
 	saved, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderReceipts, Title: receiptTitle(in.op, in.title), Body: body,
 		Meta: &model.Receipt{
-			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request,
+			Common: model.Common{Type: model.TypeReceipt}, Actor: info.Actor, Op: in.op, Doc: in.doc, Request: in.meta.Request, Input: in.meta.Input,
 			Why: strings.TrimSpace(in.meta.Why), Sources: in.meta.Sources, Verify: strings.TrimSpace(in.meta.Verify), Confidence: conf,
 			Check: model.ReceiptUnchecked, SelfReported: in.selfReported, OwnerSaid: strings.TrimSpace(in.ownerSaid),
 			At: d.Store.Now().UTC().Format(time.RFC3339Nano), Surface: info.Surface, By: in.by, OnBehalfOf: in.onBehalfOf, Background: info.Surface == TickSurface || in.meta.Request != "", NotDuplicate: strings.TrimSpace(in.meta.NotDuplicate), Align: in.align, Round: in.meta.round, Batch: in.meta.batch,

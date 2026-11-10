@@ -162,6 +162,7 @@ type Meta struct {
 	Op              string                `json:"op,omitempty"`
 	Doc             string                `json:"doc,omitempty"`
 	Request         string                `json:"request,omitempty"`
+	Input           string                `json:"input,omitempty"`
 	Sources         []string              `json:"sources,omitempty"`
 	Verify          string                `json:"verify,omitempty"`
 	Confidence      *jsonValue            `json:"confidence,omitempty"`
@@ -264,6 +265,13 @@ type Meta struct {
 	Stamp           string                `json:"stamp,omitempty"`
 	DraftedSeen     string                `json:"drafted_seen,omitempty"`
 	AllowedBy       string                `json:"allowed_by,omitempty"` // io: the delegation rule that lets an agent send it
+	Reviewed        string                `json:"reviewed,omitempty"`   // io: when the owner reviewed it
+	Impact          string                `json:"impact,omitempty"`     // io out proposal: the effect
+	Assessments     []model.IOAssessment  `json:"assessments,omitempty"`
+	Group           string                `json:"group,omitempty"`      // io out proposal: batch key
+	VariantOf       string                `json:"variant_of,omitempty"` // io out proposal: first draft of its variation set
+	Revisions       []model.IORevision    `json:"revisions,omitempty"`
+	Attempts        []model.IOAttempt     `json:"attempts,omitempty"`
 	Reply           string                `json:"reply,omitempty"`      // incoming io: its reply obligation
 	ReplyTo         string                `json:"reply_to,omitempty"`   // obligation: the io item it replies to
 	Interested      []string              `json:"interested,omitempty"` // obligation: more people to tell of a change
@@ -276,7 +284,10 @@ type Meta struct {
 	ImportedFrom    *model.ImportedFrom     `json:"imported_from,omitempty"`
 	DuplicateOf     string                  `json:"duplicate_of,omitempty"`
 	Prepared        *model.Prepared         `json:"prepared,omitempty"`
-	Publish         []string                `json:"publish,omitempty"` // publish sets (owner only)
+	Publish         []string                `json:"publish,omitempty"`   // publish sets (owner only)
+	Threads         []string                `json:"threads,omitempty"`   // extra thread keys (model/thread.go)
+	TurnKind        string                  `json:"turn_kind,omitempty"` // request: modify, ask, redirect, other
+	Quote           string                  `json:"quote,omitempty"`     // request: owner-quoted text the turn is about
 }
 
 // registerAliases changes only the schema, never the JSON.
@@ -331,6 +342,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.ItemStates)
 	addEnum(reg, model.TurnKinds)
 	addEnum(reg, model.RequestResolutions)
+	addEnum(reg, model.RequestTurnKinds)
 	addEnum(reg, ops.RespondKinds)
 	addEnum(reg, ops.RetryActions)
 	addEnum(reg, model.ReceiptChecks)
@@ -360,6 +372,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Priorities)
 	addEnum(reg, model.IOTriages)
 	addEnum(reg, model.IOVoices)
+	addEnum(reg, model.AttemptResults)
 	addEnum(reg, ops.ReplyOutcomes)
 	addEnum(reg, ops.ReplyHeards)
 	addEnum(reg, ops.AgendaKinds)

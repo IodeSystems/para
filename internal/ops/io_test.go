@@ -164,3 +164,41 @@ func rfxIDs(w RFXWaitingOutput) []string {
 	}
 	return out
 }
+
+func TestIOProposalFields(t *testing.T) {
+	f := ioFix(t)
+	a := outDraft(t, f, model.ExpectsResponse, "domain-logging")
+	b := outDraft(t, f, model.ExpectsResponse, "domain-logging")
+	doc, m, err := getIO(t.Context(), f.owner, b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m.Why, m.Impact, m.Group, m.VariantOf, m.Revision = "Unblocks release", "Ships v2", "batch-1", a, 2
+	m.Reviewed = "2026-11-02T09:00:00Z"
+	m.Assessments = []model.IOAssessment{{Name: model.AssessConfidence, Percent: 80, Basis: "tests pass"}}
+	m.Revisions = []model.IORevision{{N: 1, Hash: "abc", By: "agent", At: "2026-11-01T09:00:00Z"}}
+	m.Attempts = []model.IOAttempt{{At: "2026-11-02T10:00:00Z", Actor: "me", Tool: "gh", Medium: model.MediumGithub, Result: model.AttemptFailed, Error: "boom"}}
+	if _, err := f.owner.Store.Update(t.Context(), doc); err != nil {
+		t.Fatal(err)
+	}
+	mustLintClean(t, f.owner)
+	it := mustRun(t, IOShow, f.owner, IOShowInput{ID: b}).Item
+	if it.Why != "Unblocks release" || it.Impact != "Ships v2" || it.Group != "batch-1" || it.VariantOf != a || it.Revision != 2 || it.Reviewed == "" ||
+		len(it.Assessments) != 1 || it.Assessments[0].Percent != 80 || len(it.Revisions) != 1 || len(it.Attempts) != 1 || it.Attempts[0].Error != "boom" {
+		t.Fatalf("item = %+v", it)
+	}
+	if strings.Join(it.NotStated, ",") != "recommend,risk" {
+		t.Errorf("not_stated = %v", it.NotStated)
+	}
+	if err := checkKindLinks(t.Context(), f.owner.Store, doc); err != nil {
+		t.Errorf("variant_of an io: %v", err)
+	}
+	m.VariantOf = f.proj
+	if err := checkKindLinks(t.Context(), f.owner.Store, doc); err == nil || !strings.Contains(err.Error(), "variant_of") {
+		t.Errorf("variant_of a goal: err = %v", err)
+	}
+	m.VariantOf = "io-nobody"
+	if err := checkKindLinks(t.Context(), f.owner.Store, doc); err == nil {
+		t.Error("variant_of a missing id: no error")
+	}
+}

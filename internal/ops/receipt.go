@@ -21,6 +21,7 @@ type ReceiptView struct {
 	Doc     string   `json:"doc"`
 	DocName string   `json:"doc_name,omitempty" nameof:"Doc"`
 	Request string   `json:"request,omitempty"`
+	Input   string   `json:"input,omitempty"` // the io item the write was made while ingesting
 	Why     string   `json:"why,omitempty"`
 	Sources []string `json:"sources,omitempty"`
 	// SourceLinks is Sources resolved for a reader: deduplicated, with an
@@ -48,7 +49,7 @@ type ReceiptView struct {
 }
 
 func receiptView(d model.Document, r *model.Receipt) ReceiptView {
-	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Why: r.Why, Sources: r.Sources,
+	return ReceiptView{ID: d.ID, Title: d.Title, Actor: r.Actor, Op: r.Op, Doc: r.Doc, Request: r.Request, Input: r.Input, Why: r.Why, Sources: r.Sources,
 		Verify: r.Verify, Confidence: r.Confidence, Check: r.Check, CheckedBy: r.CheckedBy, CheckNote: r.CheckNote, Undone: r.Undone,
 		SelfReported: r.SelfReported, NotDuplicate: r.NotDuplicate, OwnerSaid: r.OwnerSaid, By: r.By, OnBehalfOf: r.OnBehalfOf, Surface: r.Surface, At: r.At, Background: r.Background, Align: r.Align, Batch: r.Batch, Created: r.Created}
 }

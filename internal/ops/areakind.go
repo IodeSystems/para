@@ -83,6 +83,16 @@ func checkKindLinks(ctx context.Context, s store.Store, doc model.Document) erro
 			return err
 		}
 		return checkAreaUsers(ctx, s, doc.ID, m.Kind.Or())
+	case *model.IO:
+		if m.VariantOf != "" {
+			vd, err := s.Get(ctx, normID(m.VariantOf))
+			if err != nil {
+				return fmt.Errorf("variant_of: %w", err)
+			}
+			if _, ok := vd.Meta.(*model.IO); !ok {
+				return fmt.Errorf("variant_of: %s is a %s: want io", vd.ID, vd.Meta.Header().Type)
+			}
+		}
 	case *model.Convention:
 		return checkRefines(ctx, s, doc.ID, model.TypeConvention, m.Refines)
 	case *model.Constraint:

@@ -565,6 +565,10 @@ func (l *linter) checkValue(fd field, v any) {
 		if _, ok := v.(bool); !ok {
 			bad("must be true or false, got %v", v)
 		}
+	case kPercent:
+		if n, ok := v.(int); !ok || n < 0 || n > 100 {
+			bad("must be a whole number from 0 to 100, got %v", v)
+		}
 	case kCount:
 		if n, ok := v.(int); !ok || n < 1 {
 			bad("must be a whole number, 1 or more, got %v", v)
@@ -643,6 +647,23 @@ func (l *linter) checkValue(fd field, v any) {
 		}
 	case kSourceMap:
 		l.checkSource(fd.Name, v)
+	case kThreads, kThreads1:
+		keys := []any{v}
+		if fd.Kind == kThreads {
+			list, ok := v.([]any)
+			if !ok {
+				bad("must be a list of thread keys")
+				return
+			}
+			keys = list
+		}
+		for _, e := range keys {
+			s, _ := e.(string)
+			if _, _, err := ParseThreadKey(s); err != nil {
+				bad("%v is not a thread key: an item id, #tag, or channel:<source>/<thread>", e)
+				return
+			}
+		}
 	case kFollows:
 		m, ok := v.(map[string]any)
 		if !ok {
@@ -763,13 +784,19 @@ func (l *linter) checkValue(fd field, v any) {
 				return
 			}
 		}
-	case kContacts, kTargets, kPointers, kSources, kRisks, kAssumptions:
+	case kContacts, kTargets, kPointers, kSources, kRisks, kAssumptions, kAssessments, kRevisions, kAttempts:
 		items := contactFields
 		switch fd.Kind {
 		case kRisks:
 			items = riskFields
 		case kAssumptions:
 			items = assumptionFields
+		case kAssessments:
+			items = assessmentFields
+		case kRevisions:
+			items = revisionFields
+		case kAttempts:
+			items = attemptFields
 		case kTargets:
 			items = targetFields
 		case kPointers:

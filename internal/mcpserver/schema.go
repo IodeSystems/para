@@ -179,6 +179,7 @@ var metaProps = map[string]schema{
 	"verify":        {"type": "string", "description": "How the owner can check it: a link, or a check they can do"},
 	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. Say low when you doubt the write; it is stored in the receipt"},
 	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
+	"input":         {"type": "string", "description": "The io item id you are ingesting: pass it on every write you make while you take that item in. Stored in the receipt"},
 	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
 	"minor":         {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
 	"obvious":       {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
@@ -254,6 +255,9 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (_ c
 	}
 	m.Request, _ = take("request").(string)
 	m.NotDuplicate, _ = take("not_duplicate").(string)
+	if !own["input"] { // proposal ops have an input of their own
+		m.Input, _ = take("input").(string)
+	}
 	// An op with its own owner_said (io_approve) keeps it, and its receipt
 	// is self-reported. Elsewhere it and the ratings are ignored.
 	for _, name := range ops.IgnoredRatings {

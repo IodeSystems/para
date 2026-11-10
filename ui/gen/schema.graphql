@@ -2891,6 +2891,43 @@ enum para_IOApproveOutputState {
   unread
 }
 
+type para_IOAssessment {
+  basis: String
+  name: String!
+  percent: Int!
+}
+
+type para_IOAttempt {
+  actor: String
+  at: String!
+  error: String
+  medium: para_IOAttemptMedium
+  result: para_IOAttemptResult!
+  tool: String
+  url: String
+}
+
+enum para_IOAttemptMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
+enum para_IOAttemptResult {
+  failed
+  held
+  other
+  sent
+}
+
 type para_IOCounts {
   draft: Int!
   read: Int!
@@ -3092,7 +3129,9 @@ enum para_IOFileOutputTo {
 type para_IOItem {
   agent: String
   allowedBy: String
+  assessments: [para_IOAssessment!]
   at: String
+  attempts: [para_IOAttempt!]
   became: String
   created: String!
   deferUntil: String
@@ -3101,15 +3140,21 @@ type para_IOItem {
   effort: para_IOItemEffort
   expects: para_IOItemExpects
   from: String
+  group: String
   id: String!
+  impact: String
   kind: String
   legacy: Boolean
   links: [String!]!
   medium: para_IOItemMedium!
   needsYou: Boolean!
   needsYouReason: String
+  notStated: [String!]
   reason: String
   ref: String
+  reviewed: String
+  revision: Int
+  revisions: [para_IORevision!]
   route: String
   stamp: String
   state: para_IOItemState!
@@ -3120,8 +3165,10 @@ type para_IOItem {
   triage: para_IOItemTriage
   triageBy: String
   unverifiable: Boolean
+  variantOf: String
   verify: String
   voice: para_IOItemVoice
+  why: String
 }
 
 enum para_IOItemDirection {
@@ -3178,6 +3225,13 @@ enum para_IOItemVoice {
 type para_IOListOutput {
   counts: para_IOCounts!
   items: [para_IOItem!]!
+}
+
+type para_IORevision {
+  at: String!
+  by: String
+  hash: String!
+  n: Int!
 }
 
 input para_IOSendCheckInputInput {
@@ -4461,9 +4515,11 @@ type para_Meta {
   approvedHash: String
   approvedSeen: String
   area: String
+  assessments: [para_IOAssessment!]
   assignee: String
   assumptions: JSON
   at: String
+  attempts: [para_IOAttempt!]
   attend: String
   attendDefault: String
   attendees: [String!]
@@ -4524,12 +4580,15 @@ type para_Meta {
   followed: [String!]
   follows: para_Followed
   from: String
+  group: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
   held: String
   heldBy: [String!]
+  impact: String
   importedFrom: para_ImportedFrom
   incident: String
+  input: String
   interested: [String!]
   item: String
   kind: String
@@ -4583,6 +4642,7 @@ type para_Meta {
   question: String
   queuedAt: String
   quietDays: Int
+  quote: String
   rank: Int
   reachedBy: [String!]
   reason: String
@@ -4610,8 +4670,10 @@ type para_Meta {
   reviewRefs: [String!]
   reviewRequest: String
   reviewState: String
+  reviewed: String
   reviewedBy: String
   revision: Int
+  revisions: [para_IORevision!]
   rfx: JSON
   risks: JSON
   role: String
@@ -4650,17 +4712,20 @@ type para_Meta {
   targets: [para_Target!]
   team: String
   thread: String
+  threads: [String!]
   to: [String!]
   tools: [String!]
   triage: String
   triageBy: String
   turn: Int
+  turnKind: String
   type: para_MetaType!
   undone: String
   unknowns: JSON
   updated: String
   url: String
   validation: String
+  variantOf: String
   vendor: String
   verified: Boolean
   verify: String
@@ -6924,6 +6989,7 @@ type para_ReceiptView {
   doc: String!
   docName: String
   id: String!
+  input: String
   notDuplicate: String
   onBehalfOf: String
   op: String!

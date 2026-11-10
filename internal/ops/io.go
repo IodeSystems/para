@@ -357,9 +357,37 @@ type IOItem struct {
 	Stamp     string        `json:"stamp,omitempty"`
 	Kind      string        `json:"kind,omitempty"`
 	AllowedBy string        `json:"allowed_by,omitempty"`
+	// Proposal fields of an outgoing draft.
+	// NotStated lists the known names (confidence, recommend, risk) the
+	// draft gives no assessment for: views show them as "not stated".
+	Why         string               `json:"why,omitempty"`
+	Impact      string               `json:"impact,omitempty"`
+	Assessments []model.IOAssessment `json:"assessments,omitempty"`
+	NotStated   []string             `json:"not_stated,omitempty"`
+	Group       string               `json:"group,omitempty"`
+	VariantOf   string               `json:"variant_of,omitempty"`
+	Revision    int                  `json:"revision,omitempty"`
+	Revisions   []model.IORevision   `json:"revisions,omitempty"`
+	Attempts    []model.IOAttempt    `json:"attempts,omitempty"`
+	Reviewed    string               `json:"reviewed,omitempty"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
+	it := ioItemBase(doc, m)
+	it.Why, it.Impact, it.Group, it.VariantOf, it.Revision, it.Reviewed = m.Why, m.Impact, m.Group, m.VariantOf, m.Revision, m.Reviewed
+	it.Assessments = append([]model.IOAssessment{}, m.Assessments...)
+	it.Revisions, it.Attempts = m.Revisions, m.Attempts
+	if m.Direction == model.IOOut {
+		for _, n := range model.AssessmentNames {
+			if !slices.ContainsFunc(m.Assessments, func(a model.IOAssessment) bool { return a.Name == n }) {
+				it.NotStated = append(it.NotStated, n)
+			}
+		}
+	}
+	return it
+}
+
+func ioItemBase(doc model.Document, m *model.IO) IOItem {
 	return IOItem{ID: doc.ID, Title: doc.Title, Direction: m.Direction, Medium: m.Medium, State: m.State, From: m.From, Effort: m.Effort,
 		Triage: m.Triage, TriageBy: m.TriageBy, Links: targets(m.Links),
 		To: append([]string{}, m.To...), At: m.At, Subject: m.Subject, Ref: m.Ref, Expects: m.Expects, Route: m.Route,
