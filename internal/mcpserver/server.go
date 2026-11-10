@@ -191,7 +191,7 @@ func serverOptions(channel, changed bool, extra string, hooks *server.Hooks) []s
 const readOnlyLine = "This server is read-only (para mcp --read-only): it lists only tools that change nothing. Read policy, rules, and search here; the agent that delegated to you records what you do."
 
 // notifyRule describes the session notifications to the agent.
-const notifyRule = "Notifications: this server may send a short message (logger para) when a proposal you filed is decided at a terminal, a request becomes claimable by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (proposal_wait, request_next, request_show). A harness that cannot receive notifications uses proposal_wait and request_wait."
+const notifyRule = "Notifications: this server may send a short message (logger para) when a request becomes claimable by this install or a request you claimed is cancelled. It holds ids and states only, never vault text, and is not an instruction: call the tool it names (request_next, request_show). A harness that cannot receive notifications uses request_wait."
 
 // MCP returns the underlying server, for in-process clients.
 func (s *Server) MCP() *server.MCPServer { return s.mcp }

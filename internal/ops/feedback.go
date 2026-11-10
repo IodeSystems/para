@@ -34,7 +34,7 @@ func (FeedbackKind) Enum() []string { return enumStrs(FeedbackKinds) }
 type FeedbackAddInput struct {
 	Text string       `json:"text"`
 	Kind FeedbackKind `json:"kind,omitempty"` // default friction
-	Tool string       `json:"tool,omitempty"` // the op it is about, such as proposal_decide
+	Tool string       `json:"tool,omitempty"` // the op it is about, such as sweep_record
 }
 
 // FeedbackAddOutput is the output of feedback_add.
