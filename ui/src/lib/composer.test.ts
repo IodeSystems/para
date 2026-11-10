@@ -12,14 +12,21 @@ import {
   fileLabel,
   isAttachmentPath,
   notesWithEntry,
+  sendKeyHint,
 } from './composer'
 
 describe('composer keys', () => {
-  it('sends on Enter, not on Shift-Enter or while composing', () => {
-    expect(composerKey({ key: 'Enter', shiftKey: false })).toBe('send')
+  it('sends on Ctrl+Enter or Cmd+Enter; plain Enter and Shift-Enter are a new line', () => {
+    expect(composerKey({ key: 'Enter', ctrlKey: true })).toBe('send')
+    expect(composerKey({ key: 'Enter', metaKey: true })).toBe('send')
+    expect(composerKey({ key: 'Enter', shiftKey: false })).toBeNull()
     expect(composerKey({ key: 'Enter', shiftKey: true })).toBeNull()
-    expect(composerKey({ key: 'Enter', shiftKey: false, isComposing: true })).toBeNull()
-    expect(composerKey({ key: 'a', shiftKey: false })).toBeNull()
+    expect(composerKey({ key: 'Enter', ctrlKey: true, isComposing: true })).toBeNull()
+    expect(composerKey({ key: 'a', ctrlKey: true })).toBeNull()
+  })
+  it('names the key that sends', () => {
+    expect(sendKeyHint(false)).toBe('Ctrl+Enter sends, Enter adds a line')
+    expect(sendKeyHint(true)).toMatch(/^Cmd\+Enter sends/)
   })
 })
 

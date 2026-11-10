@@ -49,6 +49,7 @@ export function AttendButtons({
       const before: Attend = res.previous.attend ?? 'unset'
       toasts.push({
         text: attendSaid(attend, res.title || title),
+        target: { id },
         undo: async () => {
           await meetingRsvp(id, before)
           await qc.invalidateQueries()

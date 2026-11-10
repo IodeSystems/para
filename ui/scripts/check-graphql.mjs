@@ -160,6 +160,13 @@ const REVIEW_MUTATIONS = new Set([
   // (IOAdd), then ThreadPost sends the agent one turn on that item to file it (thread_post, a
   // person op; it queues one request per turn).
   'ThreadPost',
+  // owner 2026-11-10: change or take back a turn after sending it. ThreadEdit (thread_edit, a
+  // person op) changes the words, kind, or quote of an owner turn no agent has claimed; the old
+  // words stay in the request, and one receipt undoes it. ThreadWithdraw (thread_withdraw, a person
+  // op) cancels an owner turn that is queued or claimed; one receipt undoes it. Both are the
+  // owner's own turns: an agent cannot call either.
+  'ThreadEdit',
+  'ThreadWithdraw',
   // owner 2026-11-10: Input and Output pages. Mark reviewed on incoming or sent rows (io_review,
   // an owner op; no state change; one receipt, so Undo takes it back).
   'IoReview',

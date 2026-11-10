@@ -203,7 +203,10 @@ export function useCapture() {
           } catch {
             // the toast then goes by the post's status and note
           }
-          return { ...added, told: { status: p.status, note: p.note, waitingNoAgent } }
+          return {
+            ...added,
+            told: { request: p.request, status: p.status, note: p.note, waitingNoAgent },
+          }
         } catch (e) {
           return { ...added, tellError: errorText(e) }
         }

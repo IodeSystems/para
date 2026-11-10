@@ -71,6 +71,7 @@ export function SentTab({
       setPicked((p) => p.filter((id) => !ids.includes(id)))
       toasts.push({
         text: `Marked ${r.count} reviewed`,
+        target: ids.length === 1 ? { id: ids[0], kind: 'io' } : undefined,
         undo: r.undo
           ? async () => {
               await r.undo?.()

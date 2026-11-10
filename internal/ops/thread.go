@@ -379,6 +379,8 @@ type ThreadTurn struct {
 	Error       string                  `json:"error,omitempty"`
 	Notes       []ThreadNote            `json:"notes,omitempty"`
 	Steps       []ThreadStep            `json:"steps,omitempty"`
+	// Edited holds the words a turn had before each thread_edit, oldest first.
+	Edited []ThreadStep `json:"edited,omitempty"`
 
 	IO        string            `json:"io,omitempty"`
 	Direction model.IODirection `json:"direction,omitempty"`
@@ -451,6 +453,8 @@ func requestTurn(doc model.Document, r *model.Request) ThreadTurn {
 			for _, m := range attachPath.FindAllStringSubmatch(s.Text, -1) {
 				t.Attachments = append(t.Attachments, m[1])
 			}
+		case strings.HasPrefix(s.Heading, "Edited "):
+			t.Edited = append(t.Edited, ThreadStep{Heading: strings.TrimPrefix(s.Heading, "Edited "), Text: s.Text})
 		case s.Heading == "Notes":
 			for _, l := range strings.Split(s.Text, "\n") {
 				if m := threadNoteLine.FindStringSubmatch(strings.TrimSpace(l)); m != nil {

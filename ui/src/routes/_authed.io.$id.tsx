@@ -13,7 +13,7 @@ import { canDecide } from '@/client/session'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { Thread } from '@/components/Thread'
+import { ItemLog } from '@/components/ItemLog'
 import { Markdown } from '@/components/Markdown'
 import { DraftEditor } from '@/components/DraftEditor'
 import { DoneForm } from '@/components/stack/parts'
@@ -158,7 +158,7 @@ function IoItemPage() {
               )}
             </Section>
             <MergedFrom id={id} />
-            <Thread id={id} composer />
+            <ItemLog id={id} composer />
             <NotesEditor id={id} />
           </>
         )

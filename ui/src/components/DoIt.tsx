@@ -65,6 +65,7 @@ export function DoIt({
         const undo = r.undo
         toasts.push({
           text: `Marked done: ${title}`,
+          target: { id },
           undo: undo
             ? async () => {
                 await undo()
@@ -82,6 +83,7 @@ export function DoIt({
       const receipt = r.receipt
       toasts.push({
         text: `Marked done: ${title}`,
+        target: { id },
         undo: receipt
           ? async () => {
               await revertReceipt(receipt)

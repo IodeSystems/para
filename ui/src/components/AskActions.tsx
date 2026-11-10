@@ -176,6 +176,7 @@ export function AnswerButton({
     setUrl('')
     s.toasts.push({
       text: `Answered: ${title || id}`,
+      target: { id, kind: 'rfx' },
       note: 'A recorded reply has no Undo.',
     })
   }
@@ -263,7 +264,8 @@ export function AnswerButton({
         />
         {linkNeeded && (
           <Alert severity="info">
-            A no is kept as a constraint with its source. Give a link to where it was said, or say where you heard it.
+            A no is kept as a constraint with its source. Give a link to where it was said, or say
+            where you heard it.
           </Alert>
         )}
         {s.error && <Alert severity="error">{s.error}</Alert>}
@@ -302,6 +304,7 @@ export function DropButton({ id, title }: { id: string; title: string }) {
     setText('')
     s.toasts.push({
       text: `Dropped: ${title || id}`,
+      target: { id, kind: 'rfx' },
       undo: undo
         ? async () => {
             await undo?.()
@@ -387,6 +390,7 @@ export function RerouteButton({ id, title }: { id: string; title: string }) {
     setOverride(false)
     s.toasts.push({
       text: `Rerouted to ${to.title}: ${title || id}`,
+      target: { id, kind: 'rfx' },
       note: 'Para sent nothing. A move has no Undo.',
     })
   }
@@ -403,7 +407,9 @@ export function RerouteButton({ id, title }: { id: string; title: string }) {
           onChange={(_, v) => setTo(v)}
           getOptionLabel={(o) => o.title || o.id}
           isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(p) => <TextField {...p} size="small" label="Rerouted to (a person or a group)" autoFocus />}
+          renderInput={(p) => (
+            <TextField {...p} size="small" label="Rerouted to (a person or a group)" autoFocus />
+          )}
         />
         {suggestions.length > 0 && (
           <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.5 }}>

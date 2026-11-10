@@ -22,12 +22,11 @@ import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
 import { IncidentPanel } from '@/components/IncidentPanel'
 import { TrackedDoc } from '@/components/TrackedDoc'
 import { canDecide } from '@/client/session'
-import { Activity } from '@/components/Activity'
 import { ItemContext } from '@/components/ItemContext'
 import { ItemsUnder } from '@/components/ItemsUnder'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
-import { Thread } from '@/components/Thread'
+import { ItemLog } from '@/components/ItemLog'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDraftProvider } from '@/components/ItemDraft'
 import { ItemActions } from '@/components/AgendaActions'
@@ -154,8 +153,7 @@ function Doc() {
           {d.meta.type === 'tracked_doc' && <TrackedDoc id={d.id} decide={canDecide(session)} />}
           <MergedFrom id={id} />
           <NotesEditor id={id} />
-          <Activity id={d.id} />
-          <Thread id={d.id} />
+          <ItemLog id={d.id} />
           <ItemComposer id={d.id} title={d.title} meta={d.meta} />
         </ItemDraftProvider>
       )}

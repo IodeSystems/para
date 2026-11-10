@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useRouteContext } from '@tanstack/react-router'
+import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
@@ -26,6 +26,7 @@ import {
   openQuestion,
   type ItemMeta,
 } from '@/lib/composer'
+import { requestEditTurn, TURN_UNDO_MS } from '@/lib/threadEdit'
 
 // ItemComposer is the composer at the foot of every item's page. Send to agent posts a turn on the
 // item's thread (thread_post) with a kind, the owner's words and files; the agent formats them into the item's notes and
@@ -50,6 +51,7 @@ export function ItemComposer({
 }) {
   const { session } = useRouteContext({ from: '/_authed' })
   const toasts = useToasts()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const send = useThreadPost()
   const [postKind, setPostKind] = useState<PostKind>('other')
@@ -94,6 +96,13 @@ export function ItemComposer({
       toasts.push({
         text: `Sent to agent: ${name}`,
         note: res.note ?? undefined,
+        target: { id },
+        // Edit and Undo while the turn is queued: the toast stays about ten seconds.
+        dwell: TURN_UNDO_MS,
+        edit: () => {
+          void navigate({ to: '/docs/$id', params: { id } })
+          requestEditTurn(res.request)
+        },
         undo: async () => {
           await agentUnsend(res.request)
           onBack?.()
@@ -121,6 +130,7 @@ export function ItemComposer({
       await qc.invalidateQueries()
       toasts.push({
         text: `Saved as notes: ${name}`,
+        target: { id },
         undo: async () => {
           const now = await readNotes(id)
           if (now.hash !== saved.hash) throw new Error('the notes changed since; edit them by hand')
@@ -141,7 +151,11 @@ export function ItemComposer({
           ? { id, decision: 'answer', choices: [choice], note: text || undefined }
           : { id, decision: 'answer', ownWords: text },
       )
-      toasts.push({ text: `Answered: ${name}`, note: 'An answer cannot be undone here.' })
+      toasts.push({
+        text: `Answered: ${name}`,
+        note: 'An answer cannot be undone here.',
+        target: { id },
+      })
       setChoice('')
       await qc.invalidateQueries()
       onSent?.()
@@ -155,7 +169,7 @@ export function ItemComposer({
   const decline = async (text: string) => {
     try {
       await review.mutateAsync({ id, decision: 'decline', note: text })
-      toasts.push({ text: `Declined: ${name}` })
+      toasts.push({ text: `Declined: ${name}`, target: { id } })
       await qc.invalidateQueries()
       onSent?.()
       return true

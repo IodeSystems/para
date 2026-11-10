@@ -156,6 +156,7 @@ export function useItemActions(
           ? `Could not investigate ${name}: ${errorText(e)}`
           : failText(verb, [name], errorText(e)),
       tone: 'error',
+      target: { id: x.id, kind: openTarget(x.kind) },
     })
 
   // run says whether the call went through; a failure is a toast.
@@ -222,6 +223,7 @@ export function useItemActions(
         : undefined
       toasts.push({
         text: toastText('done', [name]),
+        target: { id: x.id, kind: openTarget(x.kind) },
         undo,
         note: !undo
           ? 'This close left no receipt to undo.'
@@ -241,6 +243,7 @@ export function useItemActions(
       })
       draft?.clear()
       toasts.push({
+        target: { id: x.id, kind: openTarget(x.kind) },
         text: r.appended
           ? `Added to the open investigation: ${name}`
           : `Agent investigating: ${name}`,
@@ -268,6 +271,7 @@ export function useItemActions(
       onGone(true)
       toasts.push({
         text: toastText('later', [name]),
+        target: { id: x.id, kind: openTarget(x.kind) },
         undo: async () => {
           await reopenAny({ id: x.id })
           onGone(false)
@@ -284,6 +288,7 @@ export function useItemActions(
       onGone(true)
       toasts.push({
         text: closed ? `Reopened: ${name}` : toastText('return', [name]),
+        target: { id: x.id, kind: openTarget(x.kind) },
         undo: undoReceipt(r.receipt),
       })
     })

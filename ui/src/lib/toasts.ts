@@ -16,6 +16,30 @@ export const swipeDismisses = (dx: number): boolean => Math.abs(dx) >= SWIPE_PX
 export const prefersReducedMotion = (): boolean =>
   typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
 
+// ToastTarget is the item a toast is about: the whole toast opens it. kind picks the page (as
+// openTarget in lib/agenda.ts does); default is the item's document page.
+export type ToastTarget = { id: string; kind?: 'doc' | 'io' | 'rfx' | 'incident' }
+
+export type ToastRoute = {
+  to: '/docs/$id' | '/io/$id' | '/rfx/$id' | '/incidents/$id'
+  params: { id: string }
+}
+
+// toastRoute is the route a toast with a target goes to.
+export function toastRoute(t: ToastTarget): ToastRoute {
+  const to = {
+    doc: '/docs/$id',
+    io: '/io/$id',
+    rfx: '/rfx/$id',
+    incident: '/incidents/$id',
+  } as const
+  return { to: to[t.kind ?? 'doc'], params: { id: t.id } }
+}
+
+// isToastControl says a click landed on a button or link inside the toast: those keep their own
+// action and do not open the target.
+export const isToastControl = (el: Element | null): boolean => !!el?.closest('button, a')
+
 export type ToastPhase = 'show' | 'fade' | 'collapse'
 
 export type Toast = {
@@ -29,6 +53,10 @@ export type Toast = {
   note?: string
   // link goes to an io item's page; dwell is how long the toast stays, in ms (default DWELL_MS).
   link?: { label: string; io: string }
+  // target is the item the toast is about; clicking the toast opens it.
+  target?: ToastTarget
+  // edit changes what the toast reports (an Edit button, beside Undo).
+  edit?: () => void
   dwell?: number
   undoing: boolean
 }
@@ -39,6 +67,8 @@ export type ToastInput = {
   undo?: () => Promise<unknown>
   note?: string
   link?: { label: string; io: string }
+  target?: ToastTarget
+  edit?: () => void
   dwell?: number
 }
 
@@ -94,6 +124,8 @@ export class ToastStore {
         undo: t.undo,
         note: t.note,
         link: t.link,
+        target: t.target,
+        edit: t.edit,
         dwell: t.dwell,
         undoing: false,
       },

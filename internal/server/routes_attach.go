@@ -33,6 +33,8 @@ func registerAttachments(r *registrar) {
 	reg(r, ops.AttachmentRead, get, read)
 	reg(r, ops.AgentSend, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ThreadPost, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ThreadEdit, post, netguard.ScopeReviewDecide)
+	reg(r, ops.ThreadWithdraw, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ItemClose, post, netguard.ScopeReviewDecide)
 	// The generic verbs. Each runs the op of the item's type; a caller on a
 	// bearer key must hold that op's own scope too (boundVault.deps

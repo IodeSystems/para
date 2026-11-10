@@ -18,13 +18,13 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import MicIcon from '@mui/icons-material/Mic'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import type { Draft } from '@/components/ItemDraft'
-import { ACCEPT, canSend, composerKey, fileLabel } from '@/lib/composer'
+import { ACCEPT, canSend, composerKey, fileLabel, isMac, sendKeyHint } from '@/lib/composer'
 
 // Composer is the one box for telling an agent something: a large rounded card, the text on top
 // that grows upward as the owner types (up to half the screen, then it scrolls), and a toolbar
 // under it: + to attach files (on a phone: a photo or a recording too), the chips, the menu of
-// other actions (Save as notes), and the round send button. Enter sends, Shift-Enter starts a new
-// line. A send needs words or a file. The parent does the work: onSend gets the text and the
+// other actions (Save as notes), and the round send button. Ctrl+Enter (Cmd+Enter on a Mac) sends;
+// Enter starts a new line, and a hint under the text says so. A send needs words or a file. The parent does the work: onSend gets the text and the
 // files and says whether to clear the box.
 
 export type ComposerAction = {
@@ -170,7 +170,8 @@ export function Composer({
           if (
             composerKey({
               key: e.key,
-              shiftKey: e.shiftKey,
+              ctrlKey: e.ctrlKey,
+              metaKey: e.metaKey,
               isComposing: e.nativeEvent.isComposing,
             })
           ) {
@@ -194,6 +195,16 @@ export function Composer({
           '& textarea::placeholder': { color: 'text.secondary', opacity: 0.85 },
         }}
       />
+      {text.trim() !== '' && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          data-composer-hint
+          sx={{ display: 'block', px: 2.25 }}
+        >
+          {sendKeyHint(isMac())}
+        </Typography>
+      )}
       <Stack
         direction="row"
         sx={{ alignItems: 'flex-end', gap: 0.5, px: 1, pb: 1, pt: 0.5, minWidth: 0 }}

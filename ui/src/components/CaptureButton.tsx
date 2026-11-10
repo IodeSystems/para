@@ -31,6 +31,8 @@ import {
   type CaptureKind,
 } from '@/lib/context'
 import { tellToast, TELL_OPEN } from '@/lib/tell'
+import { requestEditTurn } from '@/lib/threadEdit'
+import { withdrawTurn } from '@/api/thread'
 
 type Who = { id?: string; name: string }
 
@@ -130,18 +132,34 @@ export function CaptureDialog({
           setC({ ...empty(c.kind), tell: tellDefault })
           if (c.tell) {
             // Saved first; the agent turn may have failed or have no agent to run it.
-            if (out.told) toasts.push(tellToast(out.id, out.told))
-            else
+            if (out.told) {
+              const request = out.told.request
+              toasts.push(
+                tellToast(out.id, out.told, {
+                  // Undo withdraws the turn (the saved words stay as an io item); Edit opens the
+                  // turn's words in the thread of that item.
+                  undo: request ? async () => void (await withdrawTurn(request)) : undefined,
+                  edit: request
+                    ? () => {
+                        void navigate({ to: '/io/$id', params: { id: out.id } })
+                        requestEditTurn(request)
+                      }
+                    : undefined,
+                }),
+              )
+            } else
               toasts.push({
                 text: `Saved, but your agent was not told: ${out.tellError ?? 'unknown error'}`,
                 tone: 'error',
                 link: { label: 'Open the item', io: out.id },
+                target: { id: out.id, kind: 'io' },
                 dwell: 15000,
               })
           } else if (out.became) {
             toasts.push({
               text: `Logged and made a task: ${c.task?.title.trim() || firstLine(c.summary)}`,
               note: 'It shows where it came from. This cannot be undone here.',
+              target: { id: out.became },
             })
           }
           void navigate(

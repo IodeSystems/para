@@ -247,6 +247,7 @@ func registerReceipts(r *registrar) {
 	reg(r, ops.ReceiptList, get, read)
 	reg(r, ops.ReceiptShow, get, read)
 	reg(r, ops.History, get, read)
+	reg(r, ops.Activity, get, read)
 	reg(r, ops.ItemContext, get, read)
 	reg(r, ops.ReportOutcomes, get, read)
 	reg(r, ops.ReceiptCheck, post, netguard.ScopeReviewDecide)

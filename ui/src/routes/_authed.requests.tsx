@@ -67,7 +67,7 @@ function Asked() {
   const takeBack = async (request: string, name: string) => {
     try {
       await agentUnsend(request)
-      toasts.push({ text: `Taken back: ${name}` })
+      toasts.push({ text: `Taken back: ${name}`, target: { id: request } })
     } catch (e) {
       toasts.push({ text: `Could not take it back: ${errorText(e)}`, tone: 'error' })
     }

@@ -199,7 +199,9 @@ type ParaV1MutationNamespace {
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
   taskUpdate(body: para_TaskUpdateInputInput!): para_TaskUpdateOutput @derived(operationId: "taskUpdate")
   themeClose(body: para_ThemeCloseInputInput!): para_ThemeCloseOutput @derived(operationId: "themeClose")
+  threadEdit(body: para_ThreadEditInputInput!): para_ThreadEditOutput @derived(operationId: "threadEdit")
   threadPost(body: para_ThreadPostInputInput!): para_ThreadPostOutput @derived(operationId: "threadPost")
+  threadWithdraw(body: para_ThreadWithdrawInputInput!): para_RequestChangeOutput @derived(operationId: "threadWithdraw")
   triageRun(body: para_TriageRunInputInput!): para_TriageRunOutput @derived(operationId: "triageRun")
   uiLiveSubscribe: para_UILiveSubscribeBody @derived(operationId: "uiLiveSubscribe")
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
@@ -212,6 +214,7 @@ type ParaV1MutationNamespace {
 }
 
 type ParaV1QueryNamespace {
+  activity(actor: String, cursor: String, doc: String, limit: Int, since: String, types: [String!], until: String): para_ActivityOutput @derived(operationId: "activity")
   adminKeyList: para_KeyListBody @derived(operationId: "adminKeyList")
   agenda(days: Int, zone: String): para_AgendaOutput @derived(operationId: "agenda")
   agentActivity(actor: String, limit: Int, since: String): para_AgentActivityOutput @derived(operationId: "agentActivity")
@@ -358,6 +361,12 @@ type ParaV1QueryNamespace {
 
 type Query {
   para: ParaQueryNamespace!
+}
+
+type para_ActivityOutput {
+  items: [para_ChangeRow!]!
+  more: Boolean!
+  nextCursor: String
 }
 
 type para_ActivityRow {
@@ -1200,6 +1209,29 @@ enum para_ChangeOutcome {
   logged
   pending
   synced
+}
+
+type para_ChangeRow {
+  actor: String
+  at: String!
+  count: Int!
+  doc: String!
+  docName: String
+  docType: String
+  first: String!
+  from: String
+  install: String
+  kind: String!
+  lines: [String!]
+  receipt: String
+  receipts: [String!]
+  remote: Boolean
+  request: String
+  sources: [String!]
+  summary: String!
+  to: String
+  who: String!
+  why: String
 }
 
 type para_ChangesOutput {
@@ -9418,6 +9450,35 @@ input para_ThemeKeepInput {
   id: String!
 }
 
+input para_ThreadEditInputInput {
+  id: String!
+  kind: para_ThreadEditInputKind
+  quote: String
+  text: String
+}
+
+enum para_ThreadEditInputKind {
+  ask
+  modify
+  other
+  redirect
+}
+
+type para_ThreadEditOutput {
+  request: String!
+  rev: String!
+  status: para_ThreadEditOutputStatus!
+}
+
+enum para_ThreadEditOutputStatus {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
 type para_ThreadNote {
   actor: String!
   at: String!
@@ -9499,6 +9560,7 @@ type para_ThreadTurn {
   claimedAt: String
   claimedBy: String
   direction: para_ThreadTurnDirection
+  edited: [para_ThreadStep!]
   error: String
   from: String
   io: String
@@ -9582,6 +9644,10 @@ enum para_ThreadTurnTurn_kind {
   modify
   other
   redirect
+}
+
+input para_ThreadWithdrawInputInput {
+  id: String!
 }
 
 type para_TimelineDay {

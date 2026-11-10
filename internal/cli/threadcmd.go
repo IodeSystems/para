@@ -25,6 +25,8 @@ func threadTarget(arg string, key, id *string) {
 // or a channel.
 func newThreadCmd(l *loader) *cobra.Command {
 	var atts []string
+	var editQuote string
+	var editFlags *pflag.FlagSet
 	cmd := opCommand(l, ops.Thread, binding[ops.ThreadInput, ops.ThreadOutput]{
 		Use:  "thread <id|#tag|channel:<source>/<thread>>",
 		Args: cobra.ExactArgs(1),
@@ -91,6 +93,34 @@ func newThreadCmd(l *loader) *cobra.Command {
 				}
 				return p.err
 			},
+		}),
+		opCommand(l, ops.ThreadEdit, binding[ops.ThreadEditInput, ops.ThreadEditOutput]{
+			Use:  "edit <request> [text]",
+			Args: cobra.MinimumNArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.ThreadEditInput) {
+				fs.StringVar((*string)(&in.Kind), "kind", "", "modify, ask, redirect, or other (default: unchanged)")
+				editFlags = fs
+				fs.StringVar(&editQuote, "quote", "", "the text the turn is about; an empty value removes it (default: unchanged)")
+			},
+			Bind: func(args []string, in *ops.ThreadEditInput) error {
+				in.ID, in.Text = args[0], strings.Join(args[1:], " ")
+				if editFlags.Changed("quote") {
+					q := editQuote
+					in.Quote = &q
+				}
+				return nil
+			},
+			Text: func(w io.Writer, out ops.ThreadEditOutput) error {
+				p := &printer{w: w}
+				p.f("%s\t%s\n", out.Request, out.Status)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.ThreadWithdraw, binding[ops.ThreadWithdrawInput, ops.RequestChangeOutput]{
+			Use:  "withdraw <request>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.ThreadWithdrawInput) error { in.ID = args[0]; return nil },
+			Text: requestChangeText,
 		}),
 	)
 	return cmd

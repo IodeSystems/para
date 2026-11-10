@@ -31,7 +31,12 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
     words: ['areas', 'policy', 'exceptions', 'conventions', 'constraints'],
   },
   { label: 'Questions', to: '/agenda?show=questions', words: ['questions'] },
-  { label: 'Receipts', to: '/receipts', words: ['receipts', 'activity'] },
+  { label: 'Receipts', to: '/receipts', words: ['receipts'] },
+  {
+    label: 'Recent activity',
+    to: '/activity',
+    words: ['activity', 'recent', 'changes', 'change log', 'log'],
+  },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },
   { label: 'IO', to: '/io', words: ['io', 'messages'] },
   { label: 'Docs', to: '/docs', words: ['docs', 'tracked'] },

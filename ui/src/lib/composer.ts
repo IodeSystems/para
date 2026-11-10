@@ -6,16 +6,30 @@
 export const ACCEPT =
   'image/*,audio/*,video/*,application/pdf,text/plain,text/markdown,.md,.txt,.pdf,.heic,.m4a'
 
-// composerKey says what a key does in the text box: Enter sends, Shift-Enter is a new line, and
-// Enter while an input method composes a word does nothing to the form.
+// composerKey says what a key does in a multiline text box: Ctrl+Enter or Cmd+Enter sends; plain
+// Enter and Shift-Enter are a new line (the browser's own, so this returns null for them). Enter
+// while an input method composes a word does nothing to the form. Every multiline box that sends
+// uses this rule (owner 2026-11-10: a typed Enter sent text that still needed a change).
 export function composerKey(e: {
   key: string
-  shiftKey: boolean
+  shiftKey?: boolean
+  ctrlKey?: boolean
+  metaKey?: boolean
   isComposing?: boolean
 }): 'send' | null {
-  if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return null
-  return 'send'
+  if (e.key !== 'Enter' || e.isComposing) return null
+  return e.ctrlKey || e.metaKey ? 'send' : null
 }
+
+// sendKeyHint names the key that sends, for the hint under a box: Cmd on a Mac, else Ctrl.
+export function sendKeyHint(mac: boolean): string {
+  return `${mac ? 'Cmd' : 'Ctrl'}+Enter sends, Enter adds a line`
+}
+
+// isMac says the page runs on an Apple platform, so the hint says Cmd.
+export const isMac = (): boolean =>
+  typeof navigator !== 'undefined' &&
+  /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
 
 // canSend: a send needs words or a file, and nothing in flight.
 export function canSend(text: string, files: number, busy: boolean): boolean {

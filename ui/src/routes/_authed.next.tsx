@@ -314,7 +314,11 @@ function PoolNext({
       data-next-kind={x.kind}
       sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
     >
-      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+      >
         <Typography variant="overline" color="text.secondary" component="p">
           {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
         </Typography>

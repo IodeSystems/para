@@ -111,6 +111,7 @@ function ChangeDialog({
       await qc.invalidateQueries()
       const told = out.notices.length
       toasts.push({
+        target: { id: x.id },
         text: `${ACTION_WORDS[form.action]}: ${name}${told > 0 ? `; ${told} notice${told === 1 ? '' : 's'} to approve` : ''}`,
         undo: out.receipt
           ? async () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouteContext } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -6,14 +6,31 @@ import Chip from '@mui/material/Chip'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useThreadOf, useThreadPost, type ThreadTurnData } from '@/api/thread'
+import {
+  useThreadEdit,
+  useThreadOf,
+  useThreadPost,
+  useThreadWithdraw,
+  withdrawTurn,
+  type ThreadTurnData,
+} from '@/api/thread'
 import { errorText } from '@/client/gqlClient'
+import { useQueryClient } from '@tanstack/react-query'
 import { canDecide } from '@/client/session'
 import { Section, StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { useToasts } from '@/components/ToastStack'
 import { exactTime, humanTime } from '@/lib/when'
+import { composerKey, isMac, sendKeyHint } from '@/lib/composer'
+import {
+  EDIT_TURN,
+  requestEditTurn,
+  takePendingEdit,
+  TURN_UNDO_MS,
+  turnEditable,
+  turnWithdrawable,
+} from '@/lib/threadEdit'
 import {
   POST_KINDS,
   kindLabel,
@@ -67,6 +84,37 @@ function Turn({ t }: { t: ThreadTurnData }) {
 }
 
 function RequestTurn({ t }: { t: ThreadTurnData }) {
+  const { session } = useRouteContext({ from: '/_authed' })
+  const decide = canDecide(session)
+  const toasts = useToasts()
+  const withdraw = useThreadWithdraw()
+  // editing opens the words in place; the toast after a send asks for it with requestEditTurn.
+  const [editing, setEditing] = useState(() => takePendingEdit(t.request))
+  useEffect(() => {
+    const on = () => {
+      if (takePendingEdit(t.request)) setEditing(true)
+    }
+    window.addEventListener(EDIT_TURN, on)
+    return () => window.removeEventListener(EDIT_TURN, on)
+  }, [t.request])
+  const mine = decide && !!t.request && !!t.turnKind && t.kind === 'request'
+  const doWithdraw = async () => {
+    if (!t.request) return
+    try {
+      const r = await withdraw.mutateAsync(t.request)
+      toasts.push({
+        text: 'Withdrawn',
+        undo: r.undo
+          ? async () => {
+              await r.undo?.()
+            }
+          : undefined,
+        note: r.undo ? undefined : 'This withdraw left no receipt to undo.',
+      })
+    } catch (e) {
+      toasts.push({ text: `Could not withdraw: ${errorText(e)}`, tone: 'error' })
+    }
+  }
   const status = statusText(t, when)
   const failed = t.status === 'failed'
   const reply = t.reply || t.result
@@ -81,17 +129,70 @@ function RequestTurn({ t }: { t: ThreadTurnData }) {
       {t.quote && (
         <Box
           component="blockquote"
-          sx={{ m: 0, my: 0.5, pl: 1, borderLeft: 2, borderColor: 'divider', color: 'text.secondary' }}
+          sx={{
+            m: 0,
+            my: 0.5,
+            pl: 1,
+            borderLeft: 2,
+            borderColor: 'divider',
+            color: 'text.secondary',
+          }}
         >
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
             {t.quote}
           </Typography>
         </Box>
       )}
-      {t.ownerWords && (
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}>
-          {t.ownerWords}
-        </Typography>
+      {editing && t.request ? (
+        <TurnEditor t={t} onDone={() => setEditing(false)} />
+      ) : (
+        t.ownerWords && (
+          <Typography
+            variant="body2"
+            sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}
+          >
+            {t.ownerWords}
+          </Typography>
+        )
+      )}
+      {(t.edited?.length ?? 0) > 0 && (
+        <Box component="details" sx={{ mt: 0.5 }} data-thread-edited>
+          <Box
+            component="summary"
+            sx={{ cursor: 'pointer', color: 'text.secondary', fontSize: '0.75rem' }}
+          >
+            Edited ({t.edited?.length})
+          </Box>
+          {t.edited?.map((e, i) => (
+            <Typography
+              key={i}
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: 'block', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
+              title={exactTime(e.heading)}
+            >
+              Was: {e.text}
+            </Typography>
+          ))}
+        </Box>
+      )}
+      {mine && !editing && (turnEditable(t.status) || turnWithdrawable(t.status)) && (
+        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }} data-thread-turn-actions>
+          {turnEditable(t.status) && (
+            <Button size="small" data-act="edit-turn" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+          )}
+          <Button
+            size="small"
+            color="inherit"
+            data-act="withdraw-turn"
+            disabled={withdraw.isPending}
+            onClick={() => void doWithdraw()}
+          >
+            Withdraw
+          </Button>
+        </Stack>
       )}
       <Typography
         variant="caption"
@@ -151,6 +252,68 @@ function RequestTurn({ t }: { t: ThreadTurnData }) {
   )
 }
 
+// TurnEditor changes the words of a queued turn in place. Save calls thread_edit, which keeps the
+// old words in the request; a turn an agent claimed meanwhile is refused with a plain message.
+function TurnEditor({ t, onDone }: { t: ThreadTurnData; onDone: () => void }) {
+  const edit = useThreadEdit()
+  const toasts = useToasts()
+  const [text, setText] = useState(t.ownerWords ?? '')
+  const changed = text.trim() !== '' && text.trim() !== (t.ownerWords ?? '').trim()
+  const save = async () => {
+    if (!t.request || !changed) return
+    try {
+      await edit.mutateAsync({ id: t.request, text: text.trim() })
+      toasts.push({ text: 'Turn changed', note: 'The old words stay in the thread under Edited.' })
+      onDone()
+    } catch (e) {
+      toasts.push({ text: `Could not change the turn: ${errorText(e)}`, tone: 'error' })
+    }
+  }
+  return (
+    <Stack spacing={0.5} sx={{ mt: 0.5 }} data-thread-edit={t.request}>
+      <TextField
+        size="small"
+        autoFocus
+        multiline
+        minRows={2}
+        maxRows={10}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') return onDone()
+          if (
+            composerKey({
+              key: e.key,
+              ctrlKey: e.ctrlKey,
+              metaKey: e.metaKey,
+              isComposing: e.nativeEvent.isComposing,
+            })
+          ) {
+            e.preventDefault()
+            void save()
+          }
+        }}
+        helperText={sendKeyHint(isMac())}
+        slotProps={{ htmlInput: { 'aria-label': 'Edit the turn' } }}
+      />
+      <Stack direction="row" spacing={1}>
+        <Button
+          size="small"
+          variant="contained"
+          data-act="save-turn"
+          disabled={!changed || edit.isPending}
+          onClick={() => void save()}
+        >
+          Save
+        </Button>
+        <Button size="small" onClick={onDone}>
+          Cancel
+        </Button>
+      </Stack>
+    </Stack>
+  )
+}
+
 function IoTurn({ t }: { t: ThreadTurnData }) {
   const dir = t.direction === 'out' ? 'Sent' : 'Received'
   return (
@@ -163,7 +326,10 @@ function IoTurn({ t }: { t: ThreadTurnData }) {
         {t.io && <DocLink id={t.io}>{t.title || t.io}</DocLink>}
       </Stack>
       {t.body && (
-        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}>
+        <Typography
+          variant="body2"
+          sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', mt: 0.5 }}
+        >
           {t.body}
         </Typography>
       )}
@@ -189,6 +355,7 @@ function ThreadComposer({ id }: { id: string }) {
   const { session } = useRouteContext({ from: '/_authed' })
   const post = useThreadPost()
   const toasts = useToasts()
+  const qc = useQueryClient()
   const [kind, setKind] = useState<PostKind>('modify')
   const [text, setText] = useState('')
   const [quote, setQuote] = useState('')
@@ -196,7 +363,17 @@ function ThreadComposer({ id }: { id: string }) {
   const send = async () => {
     try {
       const r = await post.mutateAsync({ id, text: text.trim(), kind, quote: quote.trim() })
-      toasts.push({ text: 'Sent to the thread', note: r.note ?? undefined })
+      toasts.push({
+        text: 'Sent to the thread',
+        note: r.note ?? undefined,
+        target: { id },
+        dwell: TURN_UNDO_MS,
+        edit: () => requestEditTurn(r.request),
+        undo: async () => {
+          await withdrawTurn(r.request)
+          await qc.invalidateQueries()
+        },
+      })
       setText('')
       setQuote('')
     } catch (e) {
@@ -233,6 +410,19 @@ function ThreadComposer({ id }: { id: string }) {
         label="Tell the agent"
         value={text}
         onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          const k = composerKey({
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            isComposing: e.nativeEvent.isComposing,
+          })
+          if (k && text.trim() && !post.isPending) {
+            e.preventDefault()
+            void send()
+          }
+        }}
+        helperText={sendKeyHint(isMac())}
         multiline
         minRows={2}
         maxRows={10}
@@ -275,7 +465,10 @@ export function ThreadSummary({ id }: { id: string }) {
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {kindLabel(last.turnKind)}: {last.ownerWords}
           </Typography>
-          <Typography variant="caption" color={last.status === 'failed' ? 'error' : 'text.secondary'}>
+          <Typography
+            variant="caption"
+            color={last.status === 'failed' ? 'error' : 'text.secondary'}
+          >
             {statusText(last, when)}
           </Typography>
           {reply && <Markdown source={reply} />}

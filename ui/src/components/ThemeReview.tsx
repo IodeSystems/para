@@ -98,6 +98,7 @@ function ReviewDialog({ r, onClose }: { r: Review; onClose: () => void }) {
       const batch = out.batch
       toasts.push({
         text: reviewDoneText(r.title, !!out.closed, out),
+        target: { id: r.theme },
         undo: batch
           ? async () => {
               await bulk({ verb: 'undo', batch })

@@ -83,6 +83,7 @@ export function DraftReady({
       onGone(true)
       toasts.push({
         text: `Approved: ${it?.subject || it?.title || id}`,
+        target: { id, kind: 'io' },
         note: 'An agent sends it. Edit the draft to take the approval back.',
       })
     } catch (e) {
@@ -108,6 +109,7 @@ export function DraftReady({
               text: approvedNow
                 ? `Saved and approved: ${it?.subject || it?.title || id}`
                 : `Saved: ${it?.subject || it?.title || id}`,
+              target: { id, kind: 'io' },
               note: approvedNow ? 'An agent sends it.' : undefined,
             })
           }}
@@ -503,6 +505,7 @@ export function ProposalCard({
       await approve.mutateAsync([{ id: d.id, expectHash: hash }])
       toasts.push({
         text: `Approved: ${d.subject || d.title}`,
+        target: { id: d.id, kind: 'io' },
         note: set.drafts.length > 1 ? 'The other variations are closed.' : 'An agent sends it.',
       })
     } catch (e) {

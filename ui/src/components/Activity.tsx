@@ -27,28 +27,31 @@ import { exactTime, humanTime } from '@/lib/when'
 // what the agent answered), and every agent write with its receipt. Conversation keeps only what
 // was said. A receipt row opens its diff, and Undo puts the write back when the document has not
 // changed since. A composer action refreshes it: the composer invalidates every query.
-export function Activity({ id }: { id: string }) {
-  const [filter, setFilter] = useState<HistoryFilter>('all')
+export function Activity({ id, tabbed = false }: { id: string; tabbed?: boolean }) {
+  const [pick, setFilter] = useState<HistoryFilter>('all')
+  const filter = tabbed ? 'all' : pick
   const q = useHistory(id, filter)
   const rows = q.data?.pages.flatMap((p) => p.items)
   return (
     <Section
       title="Activity"
       action={
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={filter}
-          aria-label="Show"
-          onChange={(_, v: HistoryFilter | null) => v && setFilter(v)}
-        >
-          <ToggleButton value="conversation" data-history-filter="conversation">
-            Conversation
-          </ToggleButton>
-          <ToggleButton value="all" data-history-filter="all">
-            Everything
-          </ToggleButton>
-        </ToggleButtonGroup>
+        tabbed ? undefined : (
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={filter}
+            aria-label="Show"
+            onChange={(_, v: HistoryFilter | null) => v && setFilter(v)}
+          >
+            <ToggleButton value="conversation" data-history-filter="conversation">
+              Conversation
+            </ToggleButton>
+            <ToggleButton value="all" data-history-filter="all">
+              Everything
+            </ToggleButton>
+          </ToggleButtonGroup>
+        )
       }
     >
       <Box data-activity={id}>

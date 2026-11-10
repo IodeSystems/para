@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type MouseEvent,
   type PointerEvent,
   type ReactNode,
 } from 'react'
@@ -12,15 +13,18 @@ import Button from '@mui/material/Button'
 import Paper from '@mui/material/Paper'
 import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
+import { useNavigate } from '@tanstack/react-router'
 import { TextLink } from '@/components/links'
 import { errorText } from '@/client/gqlClient'
 import {
   COLLAPSE_MS,
   FADE_MS,
+  isToastControl,
   prefersReducedMotion,
   swipeDismisses,
   SWIPE_PX,
   ToastStore,
+  toastRoute,
   type Toast,
 } from '@/lib/toasts'
 
@@ -93,15 +97,20 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
   const [dx, setDx] = useState(0)
   const start = useRef<number | null>(null)
   const [dragging, setDragging] = useState(false)
+  const navigate = useNavigate()
+  const moved = useRef(false)
   const down = (e: PointerEvent<HTMLElement>) => {
     if (gone || (e.target as HTMLElement).closest('button')) return
     start.current = e.clientX
+    moved.current = false
     setDragging(true)
     e.currentTarget.setPointerCapture(e.pointerId)
     store.hold(t.id)
   }
   const move = (e: PointerEvent<HTMLElement>) => {
-    if (start.current !== null) setDx(e.clientX - start.current)
+    if (start.current === null) return
+    if (Math.abs(e.clientX - start.current) > 4) moved.current = true
+    setDx(e.clientX - start.current)
   }
   const up = () => {
     if (start.current === null) return
@@ -110,6 +119,12 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
     if (swipeDismisses(dx)) store.dismiss(t.id)
     else setDx(0)
     store.release(t.id)
+  }
+  // A click on the toast (not on a button, not the end of a drag) opens the item it is about.
+  const open = (e: MouseEvent<HTMLElement>) => {
+    if (!t.target || gone || moved.current || isToastControl(e.target as Element)) return
+    store.dismiss(t.id)
+    void navigate(toastRoute(t.target))
   }
   return (
     <Box
@@ -137,13 +152,15 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
           onPointerMove={move}
           onPointerUp={up}
           onPointerCancel={up}
+          onClick={open}
+          data-toast-target={t.target?.id}
           sx={{
             transform: dx ? `translateX(${dx}px)` : undefined,
             opacity: dx ? Math.max(0.3, 1 - Math.abs(dx) / (SWIPE_PX * 2)) : undefined,
             transition: dragging ? 'none' : 'transform 150ms ease, opacity 150ms ease',
             touchAction: 'pan-y',
             userSelect: 'none',
-            cursor: 'grab',
+            cursor: t.target ? 'pointer' : 'grab',
             mb: 1,
             px: 2,
             py: 1,
@@ -169,6 +186,11 @@ function ToastRow({ t, store }: { t: Toast; store: ToastStore }) {
               </TextLink>
             )}
           </Box>
+          {t.edit && (
+            <Button size="small" data-act="edit" disabled={t.undoing || gone} onClick={t.edit}>
+              Edit
+            </Button>
+          )}
           {t.undo && (
             <Button
               size="small"

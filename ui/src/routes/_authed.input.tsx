@@ -73,7 +73,8 @@ function InputPage() {
     () =>
       splitInput(
         (q.data?.items ?? []).filter(
-          (x) => x.state !== 'dropped' && (!!x.reviewed || x.state === 'unread' || x.state === 'read'),
+          (x) =>
+            x.state !== 'dropped' && (!!x.reviewed || x.state === 'unread' || x.state === 'read'),
         ),
       ),
     [q.data],
@@ -89,6 +90,7 @@ function InputPage() {
       setSelected((s) => s.filter((id) => !ids.includes(id)))
       toasts.push({
         text: ids.length === 1 ? 'Marked reviewed' : `Marked ${ids.length} reviewed`,
+        target: ids.length === 1 ? { id: ids[0], kind: 'io' } : undefined,
         undo: receipt
           ? async () => {
               await revertReceipt(receipt)

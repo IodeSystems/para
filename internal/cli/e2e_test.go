@@ -523,6 +523,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	seedStreamPBParity(t, deps)
 	maps.Copy(cases, streamPBParityCases())
 	seedStreamTHParity(t, deps)
+	seedStreamTHTurns(t, deps)
 	maps.Copy(cases, streamTHParityCases())
 	all := ops.All()
 	if len(all) != len(cases) {

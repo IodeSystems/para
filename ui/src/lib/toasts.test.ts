@@ -1,10 +1,51 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { COLLAPSE_MS, DWELL_MS, FADE_MS, swipeDismisses, SWIPE_PX, ToastStore } from '@/lib/toasts'
+import {
+  COLLAPSE_MS,
+  DWELL_MS,
+  FADE_MS,
+  isToastControl,
+  swipeDismisses,
+  SWIPE_PX,
+  ToastStore,
+  toastRoute,
+} from '@/lib/toasts'
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 const phases = (s: ToastStore) => s.getSnapshot().map((t) => `${t.text}:${t.phase}`)
+
+describe('toast link to the item', () => {
+  it('picks the page of the item', () => {
+    expect(toastRoute({ id: 'task-a' })).toEqual({ to: '/docs/$id', params: { id: 'task-a' } })
+    expect(toastRoute({ id: 'io-1', kind: 'io' })).toEqual({
+      to: '/io/$id',
+      params: { id: 'io-1' },
+    })
+    expect(toastRoute({ id: 'rfx-1', kind: 'rfx' }).to).toBe('/rfx/$id')
+    expect(toastRoute({ id: 'inc-1', kind: 'incident' }).to).toBe('/incidents/$id')
+  })
+  it('keeps the target on the toast; a button or link click is not the toast click', () => {
+    const s = new ToastStore()
+    s.push({ text: 'Marked done: A', target: { id: 'task-a' } })
+    expect(s.getSnapshot()[0].target).toEqual({ id: 'task-a' })
+    // The test runs without a DOM: a stand-in for the clicked element answers closest().
+    const inside = (tag: string) =>
+      ({
+        closest: (sel: string) =>
+          sel
+            .split(',')
+            .map((x) => x.trim())
+            .includes(tag)
+            ? {}
+            : null,
+      }) as unknown as Element
+    expect(isToastControl(inside('button'))).toBe(true)
+    expect(isToastControl(inside('a'))).toBe(true)
+    expect(isToastControl(inside('span'))).toBe(false)
+    expect(isToastControl(null)).toBe(false)
+  })
+})
 
 describe('toast lifecycle', () => {
   it('dwells, fades, collapses, then is removed', () => {

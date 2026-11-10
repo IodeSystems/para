@@ -37,6 +37,12 @@ export const EXTRA_SCREENS: Tab[] = [
   { key: '', to: '/docs', label: 'Docs', hint: 'remote documents you follow, and what changed' },
   {
     key: '',
+    to: '/activity',
+    label: 'Recent activity',
+    hint: 'what changed in the vault, and who changed it',
+  },
+  {
+    key: '',
     to: '/sources',
     label: 'Sources',
     hint: 'where work comes in and goes out, and who sweeps it',
@@ -49,7 +55,8 @@ export const EXTRA_SCREENS: Tab[] = [
   },
 ]
 
-export type KeyAction = { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' } | { kind: 'tell' }
+export type KeyAction =
+  { kind: 'tab'; to: string } | { kind: 'search' } | { kind: 'help' } | { kind: 'tell' }
 
 type KeyLike = {
   key: string
