@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/iodesystems/para/internal/model"
 )
 
 // publish decides what leaves the vault: the owner sets it, and no agent
@@ -79,5 +81,56 @@ func TestPublishFieldIsTheOwners(t *testing.T) {
 	// Clearing: no sets takes it out of every set.
 	if out := mustRun(t, PublishSet, f.owner, PublishSetInput{ID: f.proj}); len(out.Publish) != 0 {
 		t.Fatalf("cleared publish = %v", out.Publish)
+	}
+}
+
+// The batch paths write whole documents too. An agent store refuses a batch
+// rewrite that changes publish, in the rewritten or in a made document, and
+// an undo, which restores old bytes.
+func TestPublishFieldBatchPaths(t *testing.T) {
+	f := newAgentFix(t)
+	ctx := t.Context()
+	mustRun(t, PublishSet, f.owner, PublishSetInput{ID: f.proj, Sets: []string{"design"}})
+	rec := newRecorder(f.agent.Store)
+
+	set := func(sets []string) model.RewriteFunc {
+		return func(d model.Document) (model.Document, bool, error) {
+			if d.ID != f.proj {
+				return d, false, nil
+			}
+			d.Meta.Header().Publish = sets
+			return d, true, nil
+		}
+	}
+	if _, err := rec.Rewrite(ctx, "agent-leak", false, set([]string{"design", "leak"})); !errors.Is(err, ErrPublishOwnerOnly) {
+		t.Fatalf("agent Rewrite that adds a set = %v", err)
+	}
+	if _, err := rec.RewriteExpand(ctx, "agent-leak2", false, func(d model.Document) (model.Document, []model.Document, bool, error) {
+		if d.ID != f.proj {
+			return d, nil, false, nil
+		}
+		n := d
+		n.ID, n.Rev = "project-leak", ""
+		return d, []model.Document{n}, true, nil
+	}); !errors.Is(err, ErrPublishOwnerOnly) {
+		t.Fatalf("agent RewriteExpand that makes a published document = %v", err)
+	}
+	// A rewrite that keeps the field passes.
+	if _, err := rec.Rewrite(ctx, "agent-ok", false, func(d model.Document) (model.Document, bool, error) {
+		if d.ID != f.proj {
+			return d, false, nil
+		}
+		d.Body += "\nMore."
+		return d, true, nil
+	}); err != nil {
+		t.Fatalf("agent Rewrite that keeps publish = %v", err)
+	}
+	if _, err := rec.UndoBatch(ctx, "agent-ok"); !errors.Is(err, ErrPersonOnly) {
+		t.Fatalf("agent UndoBatch = %v", err)
+	}
+
+	// The owner's store is not wrapped: an upgrade step may change the field.
+	if _, err := f.owner.Store.Rewrite(ctx, "owner-ok", false, set([]string{"design", "runbooks"})); err != nil {
+		t.Fatalf("owner Rewrite = %v", err)
 	}
 }

@@ -28,8 +28,14 @@ func checkPublishField(before *model.Document, after model.Document) error {
 	if before != nil {
 		was = before.Meta.Header().Publish
 	}
+	return checkPublishSets(after.ID, was, after)
+}
+
+// checkPublishSets is checkPublishField with the sets before the write given
+// as a copy, for a caller whose write may change the document in place.
+func checkPublishSets(id string, was []string, after model.Document) error {
 	if !slices.Equal(was, after.Meta.Header().Publish) {
-		return fmt.Errorf("%s: %w: %w", after.ID, ErrPersonOnly, ErrPublishOwnerOnly)
+		return fmt.Errorf("%s: %w: %w", id, ErrPersonOnly, ErrPublishOwnerOnly)
 	}
 	return nil
 }

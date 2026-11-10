@@ -217,6 +217,40 @@ func (r *recorder) Update(ctx context.Context, d model.Document) (model.Document
 	return r.Store.Update(ctx, d)
 }
 
+// Rewrite and RewriteExpand write whole documents under one lock, so the check
+// runs on each document fn returns, before the vault writes any of them.
+
+func (r *recorder) Rewrite(ctx context.Context, batch string, dry bool, fn model.RewriteFunc) (model.BatchResult, error) {
+	return r.RewriteExpand(ctx, batch, dry, func(d model.Document) (model.Document, []model.Document, bool, error) {
+		nd, ok, err := fn(d)
+		return nd, nil, ok, err
+	})
+}
+
+func (r *recorder) RewriteExpand(ctx context.Context, batch string, dry bool, fn model.ExpandFunc) (model.BatchResult, error) {
+	return r.Store.RewriteExpand(ctx, batch, dry, func(d model.Document) (model.Document, []model.Document, bool, error) {
+		was := slices.Clone(d.Meta.Header().Publish)
+		nd, made, ok, err := fn(d)
+		if err != nil || !ok {
+			return nd, made, ok, err
+		}
+		if err := checkPublishSets(d.ID, was, nd); err != nil {
+			return nd, made, ok, err
+		}
+		for _, n := range made {
+			if err := checkPublishField(nil, n); err != nil {
+				return nd, made, ok, err
+			}
+		}
+		return nd, made, ok, nil
+	})
+}
+
+// UndoBatch restores old bytes, publish included, so it is the owner's.
+func (r *recorder) UndoBatch(ctx context.Context, batch string) (model.BatchResult, error) {
+	return model.BatchResult{}, fmt.Errorf("undo batch %s: %w", batch, ErrPersonOnly)
+}
+
 func (r *recorder) Rename(ctx context.Context, id, newID string) (model.Document, error) {
 	r.note(ctx, id)
 	out, err := r.Store.Rename(ctx, id, newID)
