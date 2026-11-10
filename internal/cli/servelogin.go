@@ -195,6 +195,10 @@ func runLogin(l *loader, cmd *cobra.Command, base string, printIt, admin bool, t
 		return err
 	}
 	at := l.findServer()
+	if base == "" && at.Rec == nil {
+		// No live server record: a key minted now would sign in to nothing.
+		return fmt.Errorf("serve: login: no server is running (no live record in %s). Start it: para service start, or para serve", server.RecordPath(l.install.Home))
+	}
 	ids, err := l.loginVaults(at)
 	if err != nil {
 		return err

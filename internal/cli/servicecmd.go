@@ -109,6 +109,9 @@ func newServiceCmd(l *loader) *cobra.Command {
 		Args: cobra.NoArgs,
 	}
 	run := runner(execRunner)
+	if l.hooks != nil && l.hooks.svcRun != nil {
+		run = l.hooks.svcRun
+	}
 	cmd.AddCommand(newServiceInstallCmd(l), newServiceUninstallCmd(&run))
 	for _, verb := range []string{"start", "stop", "restart", "status", "logs"} {
 		cmd.AddCommand(newServiceCtlCmd(verb, &run))

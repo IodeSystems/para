@@ -1,0 +1,600 @@
+package cli
+
+import (
+	"bufio"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/para/internal/keys"
+	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/props"
+	"github.com/iodesystems/para/internal/registry"
+	"github.com/iodesystems/para/internal/server"
+	"github.com/iodesystems/para/internal/service"
+	"github.com/iodesystems/para/internal/vault"
+)
+
+// setupHooks replace the parts of para setup that touch this machine. Tests set
+// them; nil fields mean the real thing.
+type setupHooks struct {
+	svcRun runner               // service manager commands
+	wait   *time.Duration       // how long to wait for the server after a service start
+	tty    func(io.Reader) bool // whether stdin takes prompts
+}
+
+func (l *loader) setupWait() time.Duration {
+	if l.hooks != nil && l.hooks.wait != nil {
+		return *l.hooks.wait
+	}
+	return 10 * time.Second
+}
+
+func (l *loader) stdinIsTTY(in io.Reader) bool {
+	if l.hooks != nil && l.hooks.tty != nil {
+		return l.hooks.tty(in)
+	}
+	return isTerminal(in)
+}
+
+type setupFlags struct {
+	kind, path, agent, agentName string
+	service, noService, print    bool
+}
+
+// prompter asks on a terminal.
+type prompter struct {
+	in  *bufio.Reader
+	out io.Writer
+}
+
+func (p *prompter) ask(q, def string) (string, error) {
+	if def != "" {
+		_, _ = fmt.Fprintf(p.out, "%s [%s]: ", q, def)
+	} else {
+		_, _ = fmt.Fprintf(p.out, "%s: ", q)
+	}
+	line, err := p.in.ReadString('\n')
+	if err != nil && (line == "" || !errors.Is(err, io.EOF)) {
+		return "", fmt.Errorf("setup: no answer to %q: %w", q, err)
+	}
+	if line = strings.TrimSpace(line); line != "" {
+		return line, nil
+	}
+	return def, nil
+}
+
+func (p *prompter) yesNo(q string, defYes bool) (bool, error) {
+	def := "y/N"
+	if defYes {
+		def = "Y/n"
+	}
+	for {
+		a, err := p.ask(q+" ["+def+"]", "")
+		if err != nil {
+			return false, err
+		}
+		switch strings.ToLower(a) {
+		case "":
+			return defYes, nil
+		case "y", "yes":
+			return true, nil
+		case "n", "no":
+			return false, nil
+		}
+	}
+}
+
+func newSetupCmd(l *loader) *cobra.Command {
+	var f setupFlags
+	cmd := &cobra.Command{
+		Use:   "setup",
+		Short: "Walk a new install through doctor, machine kind, first vault, service, sign-in, and agent hookup; a rerun skips what is done",
+		Long: "Set up this machine in order: doctor checks, machine kind (work or personal),\n" +
+			"first vault, the service (para service install + start) and sign-in, then an\n" +
+			"optional agent hookup. A step already done is skipped on a rerun.\n\n" +
+			"On a terminal it asks each question. Every question has a flag. With no\n" +
+			"terminal, a missing answer is listed with its flag and setup exits non-zero\n" +
+			"before it changes anything. An external command (claude mcp add) runs only on\n" +
+			"a yes: a prompt answer or --agent claude. --vault <id> names the first vault.\n" +
+			"--agent none|claude|dun|generic: claude runs claude mcp add and para skill\n" +
+			"install; dun prints para help dun; generic makes an agent key for any MCP\n" +
+			"client over HTTP (--agent-name) and prints its name, URL, and token once.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := l.load(); err != nil {
+				return err
+			}
+			return runSetup(l, cmd, f)
+		},
+	}
+	fl := cmd.Flags()
+	fl.StringVar(&f.kind, "kind", "", "machine kind: work or personal (work and personal never share a machine)")
+	fl.StringVar(&f.path, "path", "", "directory of the first vault (with --vault <id>)")
+	fl.BoolVar(&f.service, "service", false, "install and start the service")
+	fl.BoolVar(&f.noService, "no-service", false, "do not install the service")
+	fl.StringVar(&f.agent, "agent", "", "hook up an agent: none, claude, dun, or generic (default: ask; no terminal: none)")
+	fl.StringVar(&f.agentName, "agent-name", "", "with --agent generic: the key name and actor of the agent")
+	fl.BoolVar(&f.print, "print", false, "print the sign-in URLs (they hold tokens) instead of opening a browser")
+	return cmd
+}
+
+// setupMissing lists what a run with no terminal would have to ask.
+func setupMissing(firstID string, f setupFlags, vaults []registry.Vault, mk string) []string {
+	var m []string
+	if mk == "" && f.kind == "" {
+		m = append(m, "--kind work|personal      machine kind")
+	}
+	if len(vaults) == 0 && (firstID == "" || f.path == "") {
+		m = append(m, "--vault <id> --path <dir>  first vault")
+	}
+	if _, installed := installedArgs(service.DefaultName); !installed && !f.service && !f.noService {
+		m = append(m, "--service or --no-service  install the service")
+	}
+	if f.agent == "generic" && f.agentName == "" {
+		m = append(m, "--agent-name <name>        name of the generic agent")
+	}
+	return m
+}
+
+func runSetup(l *loader, cmd *cobra.Command, f setupFlags) error {
+	w := cmd.OutOrStdout()
+	// --vault names the first vault: it is not registered yet, so doctor and the
+	// kind step run without it.
+	firstID := l.vaultFlag
+	l.vaultFlag = ""
+	if f.kind != "" && !registry.ValidKind(f.kind) {
+		return fmt.Errorf("setup: --kind %q must be work or personal", f.kind)
+	}
+	if f.service && f.noService {
+		return errors.New("setup: --service and --no-service exclude each other")
+	}
+	switch f.agent {
+	case "", "none", "claude", "dun", "generic":
+	default:
+		return fmt.Errorf("setup: --agent %q must be none, claude, dun, or generic", f.agent)
+	}
+	in := cmd.InOrStdin()
+	tty := l.stdinIsTTY(in)
+	p := &prompter{in: bufio.NewReader(in), out: w}
+
+	vaults, err := l.install.List()
+	if err != nil {
+		return err
+	}
+	mk, err := l.install.Kind()
+	if err != nil {
+		return err
+	}
+	if !tty {
+		if m := setupMissing(firstID, f, vaults, mk); len(m) > 0 {
+			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "setup: no terminal to ask on; pass:")
+			for _, x := range m {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  "+x)
+			}
+			return errors.New("setup: missing answers")
+		}
+	}
+
+	if err := setupDoctor(l, cmd, p, tty); err != nil {
+		return err
+	}
+	if err := setupKind(l, cmd, p, tty, f, vaults); err != nil {
+		return err
+	}
+	if err := setupVault(l, cmd, p, tty, f, firstID); err != nil {
+		return err
+	}
+	l.vaultFlag = firstID
+	if err := setupService(l, cmd, p, tty, f); err != nil {
+		return err
+	}
+	if err := setupAgent(l, cmd, p, tty, f); err != nil {
+		return err
+	}
+	_, _ = fmt.Fprintln(w)
+	_ = verdict(w, toneOK, "setup: done")
+	_, err = fmt.Fprintln(w, "Last step: open your agent and run the `bootstrap` prompt (MCP prompt \"bootstrap\"; para bootstrap prints it) for the first interview.")
+	return err
+}
+
+func setupDoctor(l *loader, cmd *cobra.Command, p *prompter, tty bool) error {
+	w := cmd.OutOrStdout()
+	for {
+		var buf bytes.Buffer
+		r := &report{w: &buf}
+		doctorInstall(l, r)
+		for _, line := range strings.Split(buf.String(), "\n") {
+			if strings.HasPrefix(line, "fail") {
+				_, _ = fmt.Fprintln(w, paint(w, toneErr, "fail")+strings.TrimPrefix(line, "fail"))
+			}
+		}
+		if r.fails == 0 {
+			return verdict(w, toneOK, "doctor: 0 failed, %d warnings (warnings are expected before setup)", r.warns)
+		}
+		_ = verdict(w, toneErr, "doctor: %d failed", r.fails)
+		if !tty {
+			return fmt.Errorf("setup: doctor: %d failed: fix them, then run para setup again", r.fails)
+		}
+		again, err := p.yesNo("Fix the lines above, then check again?", true)
+		if err != nil {
+			return err
+		}
+		if !again {
+			return fmt.Errorf("setup: doctor: %d failed", r.fails)
+		}
+	}
+}
+
+func setupKind(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, vaults []registry.Vault) error {
+	w := cmd.OutOrStdout()
+	have, err := l.install.Kind()
+	if err != nil {
+		return err
+	}
+	if have != "" {
+		if f.kind != "" && f.kind != have {
+			return fmt.Errorf("setup: this machine is %s, not %s: work and personal never share a machine", have, f.kind)
+		}
+		if err := verdict(w, toneOK, "machine kind: %s (recorded)", have); err != nil {
+			return err
+		}
+		return stampVaultKinds(l, cmd, have, vaults)
+	}
+	kind := f.kind
+	for kind == "" && tty {
+		a, err := p.ask("Is this machine for work or personal? Work and personal never share a machine", "")
+		if err != nil {
+			return err
+		}
+		if registry.ValidKind(a) {
+			kind = a
+		}
+	}
+	for _, v := range vaults {
+		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
+		if err == nil && cfg[vault.KeyKind] != "" && cfg[vault.KeyKind] != kind {
+			return fmt.Errorf("setup: vault %s is %s: this machine cannot be %s", v.ID, cfg[vault.KeyKind], kind)
+		}
+	}
+	if err := l.install.SetKind(kind); err != nil {
+		return err
+	}
+	if err := verdict(w, toneOK, "machine kind: %s (recorded in %s)", kind, filepath.Join(l.install.Home, "install.properties")); err != nil {
+		return err
+	}
+	return stampVaultKinds(l, cmd, kind, vaults)
+}
+
+// stampVaultKinds writes vault.kind=kind into each registered vault that has
+// none, through vault.SetConfig (vault lock; only that key changes). A vault of
+// another kind is left alone and reported. A vault that has the kind is silent.
+func stampVaultKinds(l *loader, cmd *cobra.Command, kind string, vaults []registry.Vault) error {
+	w := cmd.OutOrStdout()
+	install, err := l.install.ID()
+	if err != nil {
+		return err
+	}
+	for _, v := range vaults {
+		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
+		if err != nil {
+			_ = verdict(w, toneWarn, "vault kind: %s not readable: %v", v.ID, err)
+			continue
+		}
+		switch vk := cfg[vault.KeyKind]; vk {
+		case kind:
+		case "":
+			vv, err := vault.Open(v.Path, vault.Options{ID: v.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(v.ID)})
+			if err != nil {
+				return fmt.Errorf("setup: vault kind: %w", err)
+			}
+			if err := vv.SetConfig(cmd.Context(), vault.KeyKind, kind); err != nil {
+				return fmt.Errorf("setup: vault kind: %s: %w", v.ID, err)
+			}
+			_ = verdict(w, toneOK, "vault kind: %s marked %s", v.ID, kind)
+		default:
+			_ = verdict(w, toneWarn, "vault kind: %s is %s, this machine is %s: left alone; remove the vault from this machine", v.ID, vk, kind)
+		}
+	}
+	return nil
+}
+
+func setupVault(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, firstID string) error {
+	w := cmd.OutOrStdout()
+	vaults, err := l.install.List()
+	if err != nil {
+		return err
+	}
+	if len(vaults) > 0 {
+		ids := make([]string, len(vaults))
+		for i, v := range vaults {
+			ids[i] = v.ID
+		}
+		return verdict(w, toneOK, "vault: %s (registered)", strings.Join(ids, ", "))
+	}
+	id, path := firstID, f.path
+	if id == "" {
+		if id, err = p.ask("Id of the first vault (one lowercase word, such as life)", ""); err != nil {
+			return err
+		}
+	}
+	if path == "" {
+		def := "~/para/" + id
+		if home, err := os.UserHomeDir(); err == nil {
+			def = filepath.Join(home, "para", id)
+		}
+		if path, err = p.ask("Directory of the vault", def); err != nil {
+			return err
+		}
+	}
+	v, err := createVault(l, id, path, "", false, true)
+	if err != nil {
+		return err
+	}
+	return verdict(w, toneOK, "vault: %s at %s (default)", v.ID, v.Path)
+}
+
+// waitServer waits up to d for a live server record.
+func waitServer(home string, d time.Duration) bool {
+	deadline := time.Now().Add(d)
+	for {
+		if _, ok := server.ReadRecord(home); ok {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// subCommand runs another para command in-process on a copy of l.
+func subCommand(l *loader, cmd *cobra.Command, args ...string) (string, error) {
+	inner := *l
+	root := newRoot(&inner)
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs(append([]string{"--home", l.install.Home}, args...))
+	err := root.ExecuteContext(cmd.Context())
+	return out.String(), err
+}
+
+func setupService(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags) error {
+	w := cmd.OutOrStdout()
+	_, installed := installedArgs(service.DefaultName)
+	started := false
+	switch {
+	case installed:
+		_ = verdict(w, toneOK, "service: installed (already)")
+	default:
+		want := f.service
+		if !f.service && !f.noService {
+			var err error
+			if want, err = p.yesNo("Install the service (starts the web UI at login, port 7700)?", true); err != nil {
+				return err
+			}
+		}
+		if !want {
+			_ = verdict(w, toneWarn, "service: skipped; start the web UI with para serve, or para service install")
+			break
+		}
+		exe, err := l.executable()
+		if err != nil {
+			return fmt.Errorf("setup: service: %w", err)
+		}
+		if out, err := subCommand(l, cmd, "service", "install", "--exec", exe); err != nil {
+			return fmt.Errorf("setup: service install: %w\n%s", err, out)
+		}
+		if out, err := subCommand(l, cmd, "service", "start"); err != nil {
+			return fmt.Errorf("setup: service start: %w\n%s", err, out)
+		}
+		started = true
+		_ = verdict(w, toneOK, "service: installed and started")
+	}
+	if started {
+		waitServer(l.install.Home, l.setupWait())
+	}
+	if _, ok := server.ReadRecord(l.install.Home); !ok {
+		return verdict(w, toneWarn, "sign-in: no server is running. Start it: para service start, or para serve; then para login")
+	}
+	if err := runLogin(l, cmd, "", f.print, false, keys.LoginTTL); err != nil {
+		return verdict(w, toneWarn, "sign-in: %v", err)
+	}
+	return verdict(w, toneOK, "sign-in: done")
+}
+
+// claudeHooked reports whether Claude Code already has server name at user
+// scope (~/.claude.json). It reads a file; it runs nothing.
+func claudeHooked(name string) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".claude.json"))
+	if err != nil {
+		return false
+	}
+	var doc struct {
+		MCPServers map[string]json.RawMessage `json:"mcpServers"`
+	}
+	if json.Unmarshal(b, &doc) != nil {
+		return false
+	}
+	_, ok := doc.MCPServers[name]
+	return ok
+}
+
+func skillInstalled() bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(filepath.Join(home, ".claude", "skills", "para", "SKILL.md"))
+	return err == nil
+}
+
+func setupAgent(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags) error {
+	w := cmd.OutOrStdout()
+	agent := f.agent
+	if agent == "" {
+		agent = "none"
+		if tty {
+			yes, err := p.yesNo("Hook up an agent now? (optional)", false)
+			if err != nil {
+				return err
+			}
+			if yes {
+				if agent, err = p.ask("Which: claude, dun, or generic (any MCP client over HTTP)", "claude"); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if agent == "none" {
+		_ = verdict(w, toneWarn, "agent: skipped; later: para setup --agent claude|dun|generic")
+		return writeWorkerNote(cmd, l)
+	}
+	sel, err := l.selectVault()
+	if err != nil {
+		return fmt.Errorf("setup: agent: %w", err)
+	}
+	switch agent {
+	case "dun":
+		if err := writeHarnessHelp(cmd, l, "dun"); err != nil {
+			return err
+		}
+		_ = verdict(w, toneWarn, "agent: dun has no add command; edit its config as printed above")
+	case "claude":
+		if err := setupClaude(l, cmd, p, tty, f, sel.ID); err != nil {
+			return err
+		}
+	case "generic":
+		if err := setupGeneric(l, cmd, p, f, sel.ID); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("setup: --agent %q must be none, claude, dun, or generic", agent)
+	}
+	return writeWorkerNote(cmd, l)
+}
+
+func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, id string) error {
+	w := cmd.OutOrStdout()
+	e, err := vaultMCPEntry(cmd, l, id)
+	if err != nil {
+		return err
+	}
+	line, err := claudeLine(e)
+	if err != nil {
+		return err
+	}
+	hooked, skill := claudeHooked(e.Name), skillInstalled()
+	if hooked && skill {
+		return verdict(w, toneOK, "agent: Claude Code already has %s and the para skill", e.Name)
+	}
+	if _, err := exec.LookPath("claude"); err != nil {
+		_ = verdict(w, toneWarn, "agent: claude is not on PATH; run these yourself, then restart the session:")
+		if !hooked {
+			_, _ = fmt.Fprintln(w, "  "+line)
+		}
+		if !skill {
+			_, _ = fmt.Fprintln(w, "  para skill install")
+		}
+		return nil
+	}
+	if !hooked {
+		_, _ = fmt.Fprintf(w, "  %s\n", line)
+		yes := f.agent == "claude"
+		if !yes {
+			if yes, err = p.yesNo("Run it?", false); err != nil {
+				return err
+			}
+		}
+		if !yes {
+			return verdict(w, toneWarn, "agent: not run")
+		}
+		parts := claudeAddArgs(withActor(e, "claude"))
+		c := exec.Command(parts[0], parts[1:]...)
+		c.Stdout, c.Stderr = w, cmd.ErrOrStderr()
+		if err := c.Run(); err != nil {
+			return fmt.Errorf("setup: agent: claude mcp add: %w", err)
+		}
+		_ = verdict(w, toneOK, "agent: Claude Code has %s; restart the session and check /mcp", e.Name)
+	}
+	if !skill {
+		if out, err := subCommand(l, cmd, "skill", "install"); err != nil {
+			return fmt.Errorf("setup: agent: skill install: %w\n%s", err, out)
+		}
+		_ = verdict(w, toneOK, "agent: para skill installed")
+	}
+	_, err = fmt.Fprintln(w, "  Other harnesses: para help dun.")
+	return err
+}
+
+func withActor(e mcpServerEntry, actor string) mcpServerEntry {
+	e.Args = append(append([]string{}, e.Args...), "--actor", actor)
+	return e
+}
+
+// setupGeneric makes an agent key for any MCP client over HTTP and prints its
+// name, URL, and token. The token is shown once and written nowhere.
+func setupGeneric(l *loader, cmd *cobra.Command, p *prompter, f setupFlags, id string) error {
+	w := cmd.OutOrStdout()
+	rec, ok := server.ReadRecord(l.install.Home)
+	if !ok {
+		return verdict(w, toneWarn, "agent: no server is running. Start it: para service start, or para serve; then para setup --agent generic --agent-name <name>")
+	}
+	name := f.agentName
+	if name == "" {
+		var err error
+		if name, err = p.ask("Name of the agent (also its actor)", ""); err != nil {
+			return err
+		}
+	}
+	base, err := clientBase(id, serverAt{Addr: rec.Addr, Source: "record", Rec: &rec})
+	if err != nil {
+		return fmt.Errorf("setup: agent: %w", err)
+	}
+	store := keys.New(server.ServerDir(l.install, id))
+	existing, err := store.List()
+	if err != nil {
+		return err
+	}
+	for _, k := range existing {
+		if k.Name == name {
+			return verdict(w, toneWarn, "agent: key %s exists and its token is not kept; para key revoke %s, then run this again", name, name)
+		}
+	}
+	scopes, err := netguard.ExpandScopes([]string{"agent"})
+	if err != nil {
+		return err
+	}
+	_, tok, err := store.Create(name, scopes, nil, 0)
+	if err != nil {
+		return fmt.Errorf("setup: agent: %w", err)
+	}
+	_ = verdict(w, toneOK, "agent: key %s created (scope agent)", name)
+	return writeGenericBlock(w, name, base, tok)
+}
+
+func writeGenericBlock(w io.Writer, name, base, tok string) error {
+	_, err := fmt.Fprintf(w, "  name:  %s\n  url:   %s/mcp\n  token: %s\n  The token is shown once and saved nowhere: put it in the client's secret store now.\n", name, strings.TrimRight(base, "/"), tok)
+	return err
+}
+
+// writeWorkerNote says how an agent in another project reaches para.
+func writeWorkerNote(cmd *cobra.Command, l *loader) error {
+	_, err := fmt.Fprint(cmd.OutOrStdout(), "Agents in other projects: para mcp --read-only --vault <id> --actor <project>.\n"+
+		"An agent with only a shell: para --actor <name> --why \"...\" <command>.\n")
+	return err
+}

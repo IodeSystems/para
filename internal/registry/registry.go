@@ -252,6 +252,51 @@ func (in Install) SetDefault(id string) error {
 	return nil
 }
 
+// keyMachineKind records whether this machine is for work or personal vaults.
+const keyMachineKind = "machine.kind"
+
+// Machine kinds. Work and personal vaults never share a machine.
+const (
+	KindWork     = "work"
+	KindPersonal = "personal"
+)
+
+// ValidKind reports whether k is a machine or vault kind.
+func ValidKind(k string) bool { return k == KindWork || k == KindPersonal }
+
+// Kind returns the kind of this machine, or "" when none is recorded. It is
+// per machine and never in a vault.
+func (in Install) Kind() (string, error) {
+	cfg, err := props.Load(filepath.Join(in.Home, "install.properties"))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("registry: machine kind: %w", err)
+	}
+	return cfg[keyMachineKind], nil
+}
+
+// SetKind records the kind of this machine.
+func (in Install) SetKind(kind string) error {
+	if !ValidKind(kind) {
+		return fmt.Errorf("registry: machine kind: %q is not work or personal", kind)
+	}
+	if err := in.ensure(); err != nil {
+		return err
+	}
+	file := filepath.Join(in.Home, "install.properties")
+	cfg, err := props.Load(file)
+	if err != nil {
+		return fmt.Errorf("registry: machine kind: %w", err)
+	}
+	cfg[keyMachineKind] = kind
+	if err := atomicfile.Write(file, props.Format(cfg), 0o600); err != nil {
+		return fmt.Errorf("registry: machine kind: %w", err)
+	}
+	return nil
+}
+
 func (in Install) ensure() error {
 	if err := os.MkdirAll(filepath.Join(in.Home, "vaults"), 0o700); err != nil {
 		return fmt.Errorf("registry: install: %w", err)

@@ -56,6 +56,9 @@ type loader struct {
 	// exe returns the path of this binary; nil means os.Executable. Tests set it.
 	exe func() (string, error)
 
+	// hooks replace the machine-touching parts of para setup; tests set it.
+	hooks *setupHooks
+
 	// raglitExe overrides the raglit binary; tests set it.
 	raglitExe string
 }
@@ -131,6 +134,9 @@ func (l *loader) surface() string {
 
 // depsFor opens the vault id at path as the CLI.
 func (l *loader) depsFor(id, path string) (ops.Deps, error) {
+	if err := l.checkVaultKind(id, path); err != nil {
+		return ops.Deps{}, err
+	}
 	install, err := l.install.ID()
 	if err != nil {
 		return ops.Deps{}, err
@@ -287,6 +293,8 @@ func newRoot(l *loader) *cobra.Command {
 		newSchemaCmd(l),
 		newServiceCmd(l),
 		newDoctorCmd(l),
+		newSetupCmd(l),
+		newLoginCmd(l, "login"),
 		newUpgradeCmd(l),
 		newChangesCmd(l),
 		newTickCmd(l),

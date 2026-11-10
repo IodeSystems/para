@@ -77,6 +77,9 @@ server entries for this install. They write nothing.
 			if sel.Via == registry.ViaDefault {
 				return fmt.Errorf("mcp: name the vault with --vault; the default vault does not apply to agents")
 			}
+			if err := l.checkVaultKind(sel.ID, sel.Path); err != nil {
+				return err
+			}
 			install, err := l.install.ID()
 			if err != nil {
 				return err
@@ -218,6 +221,12 @@ func writeHarnessHelp(cmd *cobra.Command, l *loader, client string) error {
 	return err
 }
 
+// claudeAddArgs is the claude mcp add command for e, with its actor already in
+// e.Args. User scope: the vault is the same in every project.
+func claudeAddArgs(e mcpServerEntry) []string {
+	return append([]string{"claude", "mcp", "add", "--scope", "user", e.Name, "--", e.Command}, e.Args...)
+}
+
 func writeMCPConfig(w io.Writer, client string, entries []mcpServerEntry) error {
 	// A named harness gets its own actor, so events show who wrote what.
 	if client == "claude" || client == "dun" {
@@ -232,7 +241,7 @@ func writeMCPConfig(w io.Writer, client string, entries []mcpServerEntry) error 
 	case "claude":
 		for _, e := range entries {
 			// User scope: the vault is the same in every project.
-			parts := append([]string{"claude", "mcp", "add", "--scope", "user", e.Name, "--", e.Command}, e.Args...)
+			parts := claudeAddArgs(e)
 			for i, p := range parts {
 				parts[i] = shellQuote(p)
 			}

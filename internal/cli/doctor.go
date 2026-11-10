@@ -92,8 +92,9 @@ func doctorInstall(l *loader, r *report) {
 		return
 	}
 	if len(vaults) == 0 {
-		r.warn("vaults", "none: run para init <id>")
+		r.warn("vaults", "none: run para setup")
 	}
+	doctorKinds(l, r, vaults)
 	for _, v := range vaults {
 		doctorVault(l, r, v.ID)
 		doctorTick(l, r, v.ID, v.Path)
@@ -109,6 +110,37 @@ func doctorInstall(l *loader, r *report) {
 	doctorStaleMCP(r, "/proc")
 	for _, v := range vaults {
 		doctorUpgrade(l, r, v)
+	}
+}
+
+// doctorKinds checks the machine kind and that each vault is of that kind. Work
+// and personal never share a machine.
+func doctorKinds(l *loader, r *report, vaults []registry.Vault) {
+	mk, err := l.install.Kind()
+	switch {
+	case err != nil:
+		r.fail("machine kind", err.Error())
+	case mk == "":
+		r.warn("machine kind", "not recorded: run para setup, or para init --kind work|personal")
+	default:
+		r.ok("machine kind", mk)
+	}
+	for _, v := range vaults {
+		what := "vault " + v.ID + " kind"
+		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
+		if err != nil {
+			continue // doctorVault and doctorUpgrade report an unreadable vault
+		}
+		switch vk := cfg[vault.KeyKind]; {
+		case vk == "":
+			r.warn(what, "not recorded in .para/vault.properties: run para setup (it marks the vault with the machine kind)")
+		case !registry.ValidKind(vk):
+			r.fail(what, fmt.Sprintf("%q is not work or personal", vk))
+		case mk != "" && vk != mk:
+			r.fail(what, fmt.Sprintf("%s on a %s machine: work and personal never share a machine; remove this vault from this machine", vk, mk))
+		default:
+			r.ok(what, vk)
+		}
 	}
 }
 

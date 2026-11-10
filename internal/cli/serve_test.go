@@ -27,6 +27,9 @@ import (
 
 func TestSchemaDumpNeedsNoVaultAndMatchesCommitted(t *testing.T) {
 	e := newEnv(t)
+	if err := os.RemoveAll(e.home); err != nil { // newEnv records a machine kind
+		t.Fatal(err)
+	}
 	out := filepath.Join(e.dir, "gen", "schema.graphql")
 	e.ok("schema", "dump", out)
 	if _, err := os.Stat(e.home); err == nil {

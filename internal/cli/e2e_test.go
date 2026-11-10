@@ -18,6 +18,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/upgrade"
 )
 
@@ -28,6 +29,8 @@ type env struct {
 	vars map[string]string
 	// stdin is read by the next run, then cleared.
 	stdin string
+	// hooks replace the machine-touching parts of para setup.
+	hooks *setupHooks
 }
 
 func newEnv(t *testing.T) *env {
@@ -35,14 +38,32 @@ func newEnv(t *testing.T) *env {
 	dir := t.TempDir()
 	// A test must not see or probe the service installed on this machine.
 	t.Setenv("HOME", dir)
-	return &env{t: t, home: filepath.Join(dir, "home"), dir: dir, vars: map[string]string{}}
+	e := &env{t: t, home: filepath.Join(dir, "home"), dir: dir, vars: map[string]string{}}
+	// Most tests init vaults: give the machine a kind. Tests of the kind rules
+	// use newEnvNoKind.
+	if err := (registry.Install{Home: e.home}).SetKind(registry.KindPersonal); err != nil {
+		t.Fatal(err)
+	}
+	return e
 }
+
+// newEnvNoKind is a fresh machine with no kind recorded.
+func newEnvNoKind(t *testing.T) *env {
+	t.Helper()
+	e := newEnv(t)
+	if err := os.Remove(filepath.Join(e.home, "install.properties")); err != nil {
+		t.Fatal(err)
+	}
+	return e
+}
+
+func (e *env) install() registry.Install { return registry.Install{Home: e.home} }
 
 // run executes one para command in-process with a fresh loader.
 func (e *env) run(args ...string) (stdout, stderr string, err error) {
 	e.t.Helper()
 	var out, errb bytes.Buffer
-	l := &loader{version: "test", env: func(k string) string {
+	l := &loader{version: "test", hooks: e.hooks, env: func(k string) string {
 		if k == "PARA_HOME" {
 			return e.home
 		}
@@ -550,6 +571,45 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 				t.Fatalf("invoke %s\ncli %s", viaInvoke, viaCLI)
 			}
 		})
+	}
+}
+
+func TestInitDefaultAndNextSteps(t *testing.T) {
+	e := newEnv(t)
+	out := e.ok("init", "work", filepath.Join(e.dir, "work"), "--default")
+	for _, want := range []string{
+		"default vault: work",
+		"Next steps",
+		"Hook up an agent (optional)",
+		"para setup --agent generic --agent-name <name>",
+		"dun: para help dun",
+		"claude mcp add --scope user para-work -- /",
+		" mcp --vault work --actor claude",
+		"para skill install",
+		"para serve",
+		"para service install",
+		"para serve login",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("init output lacks %q:\n%s", want, out)
+		}
+	}
+	if got := e.ok("vault", "list"); !strings.Contains(got, "default") {
+		t.Errorf("vault list = %q", got)
+	}
+	// Without --default no default is set; --json carries no next steps.
+	var v struct{ ID string }
+	e.json(&v, "init", "other", filepath.Join(e.dir, "other"))
+	if v.ID != "other" {
+		t.Errorf("json id = %q", v.ID)
+	}
+	for _, line := range strings.Split(e.ok("vault", "list"), "\n") {
+		if strings.HasPrefix(line, "other\t") && strings.Contains(line, "default") {
+			t.Errorf("other became default: %q", line)
+		}
+	}
+	if out := e.ok("init", "third", filepath.Join(e.dir, "third")); strings.Contains(out, "default vault:") {
+		t.Errorf("no --default, but: %q", out)
 	}
 }
 

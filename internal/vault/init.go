@@ -27,6 +27,10 @@ const (
 // git at Init: a person may run git init later.
 const gitignore = ".para/*\n!.para/vault.properties\n.*.tmp-*\n"
 
+// KeyKind is the vault.properties key of the vault's kind: work or personal. A
+// work vault is work on every machine; the file syncs with the vault.
+const KeyKind = "vault.kind"
+
 // InitOptions configures Init.
 type InitOptions struct {
 	// NoGit skips git init (and the need for git on PATH).
@@ -34,6 +38,8 @@ type InitOptions struct {
 	// FormatVersion is recorded as format_version in vault.properties: a new
 	// vault holds nothing an upgrade step would rewrite. Zero records none.
 	FormatVersion int
+	// Kind is recorded as vault.kind (work or personal). Empty records none.
+	Kind string
 }
 
 // idRe limits a vault id to one DNS label: para serve routes vaults by
@@ -78,6 +84,9 @@ func Init(root, id string, templates fs.FS, o InitOptions) error {
 		}
 	}
 	vals := map[string]string{"vault.id": id, "egress.default": "deny"}
+	if o.Kind != "" {
+		vals[KeyKind] = o.Kind
+	}
 	if o.FormatVersion > 0 {
 		vals["format_version"] = strconv.Itoa(o.FormatVersion)
 	}
