@@ -15,19 +15,13 @@ Needs git, make, Go (version in `go.mod`), node, and pnpm (version in `ui/packag
     git clone https://github.com/IodeSystems/para.git && cd para
     bin/doctor         # checks the tools above and that ~/.local/bin is on PATH
     make install       # builds the UI and para into ~/.local/bin
-    para doctor        # checks the installed para
+    para setup         # doctor, machine kind, first vault, service, sign-in, optional agent
 
 Fix every `FAIL` line from `bin/doctor` before `make install`. `BINDIR=<dir>` installs somewhere else.
 
-## First vault
+`para setup` asks each question on a terminal and takes a flag for each (`para setup --help`). A rerun skips what is done. Work and personal vaults never share a machine: setup records the machine kind, and `para init` refuses without one (`para init life ~/para/life --kind work --default` records it too).
 
-    para init life ~/para/life
-    para vault set-default life
-    para                # prints the agenda
-
-Work and personal vaults never share a machine.
-
-## With an agent
+## With an agent (optional)
 
     para help claude    # setup for Claude Code: MCP servers, skill, tracked asks, /para loop, status
     para help dun       # the same for dun (also: para mcp --help-claude, --help-dun)
@@ -43,7 +37,7 @@ Work and personal vaults never share a machine.
 ## Web UI
 
     para serve
-    para serve login      # sign this browser in to every vault for 30 days; it renews while used
+    para login            # same as para serve login (needs the server running); sign this browser in to every vault for 30 days; it renews while used
     para serve sessions   # list login keys; para serve logout revokes them
 
 ## Learn more
