@@ -479,6 +479,7 @@ type para_AgentSourcesOutput {
   actor: String!
   at: String!
   due: [String!]!
+  hint: String
   learnReach: Boolean!
   learned: [String!]!
   reachDays: Int!
