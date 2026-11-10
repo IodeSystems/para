@@ -1,290 +1,163 @@
-import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Link from '@mui/material/Link'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useDocComments, useDocSeen, useDocShow, type DocComment } from '@/api/docs'
-import { errorText } from '@/client/gqlClient'
-import { canDecide } from '@/client/session'
-import { Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
+import { useState } from 'react'
+import { useSeenOnOpen } from '@/api/requests'
+import { useCopyText, useDoc } from '@/api/doc'
+import { LinkButton } from '@/components/links'
+import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
+import { AgentLooking, AgentReplyNote } from '@/components/FindContext'
+import { ItemDates } from '@/components/ItemDates'
+import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
-import { DocDiff, PickRow, VersionPick } from '@/components/DocDiff'
-import { DocLink } from '@/components/DocLink'
-import { TextLink } from '@/components/links'
-import { block } from '@/components/stack/parts'
-import { commentState, markOf, runs } from '@/lib/docs'
-import { exactTime, humanTime } from '@/lib/when'
-import { NotesEditor } from '@/components/NotesEditor'
+import { hitKindLabel } from '@/lib/hitkind'
+import { Markdown } from '@/components/Markdown'
+import { withoutSection } from '@/lib/markdown'
+import { QuestionPanel, TaskPanel } from '@/components/QuestionPanel'
+import { IncidentPanel } from '@/components/IncidentPanel'
+import { TrackedDoc } from '@/components/TrackedDoc'
+import { canDecide } from '@/client/session'
+import { Activity } from '@/components/Activity'
+import { ItemContext } from '@/components/ItemContext'
+import { ItemsUnder } from '@/components/ItemsUnder'
+import type { Para_CopyInputAs } from '@/gql/graphql'
+import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDraftProvider } from '@/components/ItemDraft'
+import { ItemActions } from '@/components/AgendaActions'
+import { PrioritySelect } from '@/components/PrioritySelect'
+import { isClosed, rowKind } from '@/lib/agenda'
 
-export const Route = createFileRoute('/_authed/docs/$id')({ component: DocPage })
+export const Route = createFileRoute('/_authed/docs/$id')({ component: Doc })
 
-// DocPage is one tracked document: what changed since you last looked, the text of any version
-// with the comments' quotes marked, the comments, and every version. With a review:decide key
-// the owner marks the change seen.
-function DocPage() {
+// CONTEXT_TYPES are the work items whose page starts with what the item is for.
+const CONTEXT_TYPES = ['task', 'obligation', 'question', 'rfx', 'project', 'incident', 'meeting']
+
+// UNDER_TYPES are the items others hang on: a parent task, an obligation or meeting, a question.
+const UNDER_TYPES = ['task', 'obligation', 'meeting', 'question']
+
+// withSourceLink turns "Read the source." in a summary stub into a link to the source.
+function withSourceLink(body: string, url: string | null | undefined): string {
+  return url ? body.replace('Read the source.', `[Read the source](${url}).`) : body
+}
+
+const FORMATS: Para_CopyInputAs[] = ['plain', 'email', 'slack', 'jira']
+
+function Doc() {
   const { id } = Route.useParams()
+  // Opening the item, or the agent work itself, marks its finished agent work seen.
+  useSeenOnOpen(id)
   const { session } = Route.useRouteContext()
-  const [version, setVersion] = useState(0)
-  const q = useDocShow(id, version)
-  const comments = useDocComments(id)
-  const seen = useDocSeen()
-  const decide = canDecide(session)
+  const q = useDoc(id)
+  const copy = useCopyText()
+  const [as, setAs] = useState<Para_CopyInputAs>('plain')
   return (
     <DataState q={q}>
-      {(d) => {
-        const doc = d.doc
-        return (
-          <ItemDraftProvider id={doc.id}>
-            <PageTitle
-              action={
-                <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-                  <StatusChip tone="quiet" label={doc.system} />
-                  {doc.status !== 'watching' && <StateChip state={doc.status} />}
-                  {doc.unseen > 0 && (
-                    <StatusChip
-                      tone="attn"
-                      label={`${doc.unseen} new version${doc.unseen === 1 ? '' : 's'}`}
-                    />
+      {(d) => (
+        <ItemDraftProvider id={d.id}>
+          <PageTitle
+            action={
+              <Stack
+                direction="row"
+                useFlexGap
+                sx={{ alignItems: 'center', flexWrap: 'wrap', gap: 1, minWidth: 0 }}
+              >
+                {d.meta.type === 'source' && (
+                  <LinkButton
+                    size="small"
+                    variant="outlined"
+                    to="/sources/$id"
+                    params={{ id: d.id }}
+                  >
+                    Open the source
+                  </LinkButton>
+                )}
+                <ItemActions
+                  x={{ id: d.id, title: d.title, kind: rowKind(d.meta.type, d.meta.kind) }}
+                  closed={isClosed(
+                    d.meta.status ?? (typeof d.meta.state === 'string' ? d.meta.state : null),
                   )}
-                  {decide && doc.unseen > 0 && (
-                    <Button
-                      variant="contained"
-                      size="small"
-                      disabled={seen.isPending}
-                      onClick={() => seen.mutate({ id: doc.id, version: doc.latest })}
-                    >
-                      Mark seen
-                    </Button>
-                  )}
-                </Stack>
-              }
-              subtitle={d.note}
-            >
-              {doc.title || doc.id}
-            </PageTitle>
-            {seen.error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
-                {errorText(seen.error)}
-              </Alert>
-            )}
-            <Typography variant="body2" sx={{ mb: 2, overflowWrap: 'anywhere' }}>
-              <Link href={doc.url} target="_blank" rel="noreferrer noopener">
-                {doc.url}
-              </Link>
-              {doc.checked && (
-                <span title={exactTime(doc.checked)}> - read {humanTime(doc.checked)}</span>
-              )}
-              {doc.project && (
-                <>
-                  {' '}
-                  - <DocLink id={doc.project} />
-                </>
-              )}
-            </Typography>
-            <Changes id={doc.id} latest={doc.latest} lastSeen={doc.lastSeen} />
-            <Section title="Text">
-              <PickRow>
-                <VersionPick
-                  label="Version"
-                  value={d.version}
-                  latest={doc.latest}
-                  onChange={setVersion}
+                  deferred={!!d.meta.deferUntil || (d.meta.deferredAfter?.length ?? 0) > 0}
+                  open={false}
                 />
-              </PickRow>
-              <MarkedText
-                text={d.text}
-                version={d.version}
-                comments={comments.data?.comments ?? []}
-              />
-            </Section>
-            <Section title="Comments" count={comments.data?.open}>
-              <Comments list={comments.data?.comments ?? []} />
-            </Section>
-            <Section title="Versions" count={d.versions.length}>
-              <List dense disablePadding aria-label="Versions">
-                {[...d.versions].reverse().map((v) => (
-                  <ListItem key={v.version} disableGutters divider>
-                    <ListItemText
-                      primary={
-                        <>
-                          Version {v.version}
-                          {v.version === 1 && ' (the original)'}
-                          {v.proposal && (
-                            <>
-                              {' '}
-                              - after the edit{' '}
-                              <TextLink to="/doc/$id" params={{ id: v.proposal }} underline="hover">
-                                {v.item || v.proposal}
-                              </TextLink>
-                            </>
-                          )}
-                        </>
-                      }
-                      secondary={[
-                        humanTime(v.fetchedAt),
-                        v.fetchedBy && `read by ${v.fetchedBy}`,
-                        v.fidelity !== 'exact' && v.fidelity,
-                        v.hash.slice(0, 19),
-                      ]
-                        .filter(Boolean)
-                        .join(' - ')}
+                {
+                  <>
+                    <TextField
+                      select
+                      size="small"
+                      value={as}
+                      onChange={(e) => setAs(e.target.value as Para_CopyInputAs)}
+                      aria-label="Format to copy"
+                      sx={{ minWidth: 96 }}
+                    >
+                      {FORMATS.map((f) => (
+                        <MenuItem key={f} value={f}>
+                          {f}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    <CopyButton
+                      label="Copy"
+                      getText={async () => (await copy.mutateAsync({ id, as })).text}
                     />
-                    {v.seen ? (
-                      <StatusChip tone="good" label="seen" />
-                    ) : (
-                      <StatusChip tone="attn" label="not seen" />
-                    )}
-                  </ListItem>
-                ))}
-              </List>
-            </Section>
-            <NotesEditor id={doc.id} />
-            <ItemComposer id={doc.id} title={doc.title} meta={{ type: 'tracked_doc' }} />
-          </ItemDraftProvider>
-        )
-      }}
-    </DataState>
-  )
-}
-
-// Changes compares two versions; by default the last one you saw and the latest.
-function Changes({ id, latest, lastSeen }: { id: string; latest: number; lastSeen: number }) {
-  const [from, setFrom] = useState(-1)
-  const [to, setTo] = useState(0)
-  const [unit, setUnit] = useState('line')
-  const toV = to || latest
-  const fromV = from >= 0 ? from : lastSeen >= toV ? toV - 1 : lastSeen
-  return (
-    <Section title={lastSeen >= latest ? 'Last change' : 'What changed since you looked'}>
-      <PickRow>
-        <VersionPick label="From" value={fromV} latest={latest} zero="Nothing" onChange={setFrom} />
-        <VersionPick label="To" value={toV} latest={latest} onChange={setTo} />
-        <TextField
-          select
-          size="small"
-          label="By"
-          value={unit}
-          onChange={(e) => setUnit(e.target.value)}
-          sx={{ minWidth: 120 }}
-        >
-          <MenuItem value="line">Line</MenuItem>
-          <MenuItem value="paragraph">Paragraph</MenuItem>
-        </TextField>
-      </PickRow>
-      {fromV >= toV ? (
-        <Empty>Pick a From version before To.</Empty>
-      ) : (
-        <DocDiff id={id} from={fromV} to={toV} unit={unit} />
-      )}
-    </Section>
-  )
-}
-
-// MarkedText shows a version's text with each comment's quote marked.
-function MarkedText({
-  text,
-  version,
-  comments,
-}: {
-  text: string
-  version: number
-  comments: DocComment[]
-}) {
-  const marks = comments.flatMap((c) => {
-    const m = markOf(c, version)
-    return m ? [m] : []
-  })
-  return (
-    <Box component="pre" sx={{ ...block, maxHeight: 480, overflowY: 'auto' }} aria-label="Text">
-      {runs(text, marks).map((r, i) =>
-        r.ids.length > 0 ? (
-          <Box
-            component="mark"
-            key={i}
-            data-comment={r.ids.join(' ')}
-            title={`Comment ${r.ids.join(', ')}`}
-            sx={{ bgcolor: 'warning.light', color: 'inherit', borderRadius: 0.5 }}
+                  </>
+                }
+              </Stack>
+            }
           >
-            {r.text}
-          </Box>
-        ) : (
-          <span key={i}>{r.text}</span>
-        ),
-      )}
-    </Box>
-  )
-}
-
-function Comments({ list }: { list: DocComment[] }) {
-  if (list.length === 0) return <Empty>No comments.</Empty>
-  return (
-    <List disablePadding aria-label="Comments">
-      {list.map((c) => (
-        <ListItem
-          key={c.id}
-          disableGutters
-          divider
-          sx={{ display: 'block' }}
-          data-comment-id={c.id}
-        >
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-          >
-            <Typography variant="subtitle2" component="span">
-              {c.id} - {c.by.replace(/^\[\[|\]\]$/g, '')}
-            </Typography>
-            <StatusChip
-              tone={c.resolution ? 'good' : c.lost ? 'attn' : 'wait'}
-              label={commentState(c)}
-            />
-            <Typography variant="caption" color="text.secondary">
-              {humanTime(c.at)} - on version {c.version}
-            </Typography>
+            {d.title || d.id}
+          </PageTitle>
+          <Stack direction="row" sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            <StatusChip tone="quiet" label={hitKindLabel(d.meta.type)} />
+            {d.meta.status && <StateChip state={d.meta.status} />}
+            <AgentLooking id={d.id} />
+            <ItemDates created={d.meta.created} updated={d.meta.updated} />
+            {d.meta.verified === false && (
+              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                unverified: no person has checked this summary against its source
+              </Typography>
+            )}
           </Stack>
-          {c.quote && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ borderLeft: 3, borderColor: 'divider', pl: 1, my: 0.5, whiteSpace: 'pre-wrap' }}
-            >
-              {c.quote}
-            </Typography>
+          {d.meta.type === 'group' && <PrioritySelect id={d.id} value={d.meta.priority} />}
+          <AgentReplyNote id={d.id} />
+          {CONTEXT_TYPES.includes(d.meta.type) && <ItemContext id={d.id} />}
+          {UNDER_TYPES.includes(d.meta.type) && <ItemsUnder theme={d.id} />}
+          {d.meta.source?.url && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+                Source:{' '}
+                <Link href={d.meta.source.url} target="_blank" rel="noreferrer noopener">
+                  {d.meta.source.url}
+                </Link>
+              </Typography>
+              <Details>
+                Fidelity: {d.meta.source.fidelity}. Source state: {d.meta.source.status}.
+                {d.meta.source.checked ? ` Last checked ${d.meta.source.checked}.` : ''}
+              </Details>
+            </Box>
           )}
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-            {c.text}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="div">
-            {c.url && (
-              <Link href={c.url} target="_blank" rel="noreferrer noopener" sx={{ mr: 1 }}>
-                Open the comment
-              </Link>
-            )}
-            {c.became && (
-              <>
-                Became{' '}
-                <DocLink id={c.became.replace(/^\[\[|\]\]$/g, '')}>
-                  {c.becameTitle || undefined}
-                </DocLink>
-                {c.becameClosed ? ' (closed)' : ''}
-              </>
-            )}
-            {c.note && ` ${c.note}`}
-          </Typography>
-        </ListItem>
-      ))}
-    </List>
+          {d.meta.type === 'question' && <QuestionPanel id={d.id} />}
+          {(d.meta.type === 'incident' ||
+            (d.meta.type === 'task' && d.meta.kind === 'incident')) && <IncidentPanel id={d.id} />}
+          {d.meta.type === 'task' && d.meta.kind !== 'incident' && <TaskPanel id={d.id} />}
+          {copy.isError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              The server refused the copy.
+            </Alert>
+          )}
+          <Markdown source={withSourceLink(withoutSection(d.body, 'Notes'), d.meta.source?.url)} />
+          {d.meta.type === 'tracked_doc' && <TrackedDoc id={d.id} decide={canDecide(session)} />}
+          <MergedFrom id={id} />
+          <NotesEditor id={id} />
+          <Activity id={d.id} />
+          <ItemComposer id={d.id} title={d.title} meta={d.meta} />
+        </ItemDraftProvider>
+      )}
+    </DataState>
   )
 }

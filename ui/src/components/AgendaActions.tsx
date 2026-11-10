@@ -31,32 +31,13 @@ import { failText, toastText } from '@/lib/stackToast'
 type Row = { id: string; title: string; kind?: string | null }
 
 function OpenButton({ x }: { x: Row }) {
-  switch (openTarget(x.kind)) {
-    case 'incident':
-      return (
-        <LinkButton size="small" data-act="open" to="/doc/$id" params={{ id: x.id }}>
-          Open
-        </LinkButton>
-      )
-    case 'rfx':
-      return (
-        <LinkButton size="small" data-act="open" to="/rfx/$id" params={{ id: x.id }}>
-          Open
-        </LinkButton>
-      )
-    case 'io':
-      return (
-        <LinkButton size="small" data-act="open" to="/io/$id" params={{ id: x.id }}>
-          Open
-        </LinkButton>
-      )
-    default:
-      return (
-        <LinkButton size="small" data-act="open" to="/doc/$id" params={{ id: x.id }}>
-          Open
-        </LinkButton>
-      )
-  }
+  const t = openTarget(x.kind)
+  const to = t === 'rfx' ? '/rfx/$id' : t === 'io' ? '/io/$id' : '/docs/$id'
+  return (
+    <LinkButton size="small" data-act="open" to={to} params={{ id: x.id }}>
+      Open
+    </LinkButton>
+  )
 }
 
 // WordsDone asks for the owner's words before it closes: what came of a meeting (optional), or why

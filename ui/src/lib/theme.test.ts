@@ -36,7 +36,7 @@ describe('part of', () => {
     expect(partLink(parts[3])).toEqual({ to: '/tags/$tag', params: { tag: 'summer' } })
     expect(partLink(parts[2]).to).toBe('/projects/$id')
     expect(partLink(parts[1]).to).toBe('/obligations/$id')
-    expect(partLink(parts[0]).to).toBe('/doc/$id')
+    expect(partLink(parts[0]).to).toBe('/docs/$id')
     expect(partLabel(parts[3])).toBe('#summer')
   })
 })

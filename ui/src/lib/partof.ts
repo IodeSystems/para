@@ -24,7 +24,7 @@ export function partLink(
   | { to: '/tags/$tag'; params: { tag: string } }
   | { to: '/projects/$id'; params: { id: string } }
   | { to: '/obligations/$id'; params: { id: string } }
-  | { to: '/doc/$id'; params: { id: string } } {
+  | { to: '/docs/$id'; params: { id: string } } {
   switch (p.kind) {
     case 'tag':
       return { to: '/tags/$tag', params: { tag: p.id } }
@@ -33,7 +33,7 @@ export function partLink(
     case 'obligation':
       return { to: '/obligations/$id', params: { id: p.id } }
     default:
-      return { to: '/doc/$id', params: { id: p.id } }
+      return { to: '/docs/$id', params: { id: p.id } }
   }
 }
 

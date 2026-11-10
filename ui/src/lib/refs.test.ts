@@ -17,7 +17,7 @@ describe('refs', () => {
     expect(l).toEqual([{ text: 'https://a.test/x', url: 'https://a.test/x' }, { text: 'note-1' }])
   })
   it('says how a link opens', () => {
-    expect(refKind({ text: 'a', url: '/doc/a', internal: true })).toBe('app')
+    expect(refKind({ text: 'a', url: '/docs/a', internal: true })).toBe('app')
     expect(refKind({ text: 'a', url: 'https://a.test' })).toBe('web')
     expect(refKind({ text: 'a', url: 'ftp://a.test' })).toBe('none')
     expect(refKind({ text: 'a' })).toBe('none')

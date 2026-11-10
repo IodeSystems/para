@@ -155,8 +155,7 @@ function Deck({ d }: { d: Order }) {
   )
 }
 
-// focusComposer puts the cursor in the card's composer (the send key); its Send to agent button
-// sends.
+// focusComposer puts the cursor in the card's composer (the send key).
 function focusComposer(id: string) {
   const box = document.querySelector<HTMLElement>(
     `[data-next-card="${CSS.escape(id)}"] [data-item-composer] textarea:not([aria-hidden="true"])`,
@@ -544,7 +543,7 @@ function AnswerReady({
             Accept
           </Button>
         )}
-        <LinkButton size="small" data-act="edit" to="/doc/$id" params={{ id }}>
+        <LinkButton size="small" data-act="edit" to="/docs/$id" params={{ id }}>
           Edit
         </LinkButton>
       </Stack>
@@ -553,7 +552,7 @@ function AnswerReady({
 }
 
 // FilledReady is a plan or fields an agent filled in on the item (or the document it names): its
-// text, and Edit on its page. Check it, then Done or Send to agent.
+// text, and Edit on its page. Check it, then Done or send words to an agent.
 function FilledReady({ id }: { id: string }) {
   const q = useDoc(id)
   if (q.isError) return <Alert severity="warning">{errorText(q.error)}</Alert>
@@ -566,7 +565,7 @@ function FilledReady({ id }: { id: string }) {
           Filled in on the item: open it to check.
         </Typography>
       )}
-      <LinkButton size="small" data-act="edit" to="/doc/$id" params={{ id }}>
+      <LinkButton size="small" data-act="edit" to="/docs/$id" params={{ id }}>
         Edit
       </LinkButton>
     </Box>

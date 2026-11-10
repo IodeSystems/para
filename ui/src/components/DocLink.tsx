@@ -4,7 +4,7 @@ import { TextLink } from '@/components/links'
 // A link to a document in the app.
 export function DocLink({ id, children }: { id: string; children?: ReactNode }) {
   return (
-    <TextLink to="/doc/$id" params={{ id }} underline="hover">
+    <TextLink to="/docs/$id" params={{ id }} underline="hover">
       {children ?? id}
     </TextLink>
   )

@@ -102,7 +102,7 @@ func (r *refResolver) resolve(raw string) RefLink {
 	id, _, _ := strings.Cut(strings.TrimSuffix(strings.TrimPrefix(s, "[["), "]]"), "#")
 	id = strings.ToLower(strings.TrimSuffix(path.Base(id), ".md"))
 	if d := r.doc(id); d != nil {
-		return RefLink{Text: s, URL: "/doc/" + url.PathEscape(d.ID), Internal: true}
+		return RefLink{Text: s, URL: "/docs/" + url.PathEscape(d.ID), Internal: true}
 	}
 	return RefLink{Text: s}
 }

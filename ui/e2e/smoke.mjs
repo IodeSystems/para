@@ -3,7 +3,7 @@
 // synthetic vault, seeds it with the CLI, the MCP server, and one closed dossier file, runs
 // `para serve` on 127.0.0.1, signs in Chrome with a read-only key, and checks that every main page
 // loads, shows no write control, and logs no console error; that /stack lands on /next; and that a
-// closed dossier is read only on /doc/<id>. Then it signs in with a review:decide key and checks
+// closed dossier is read only on /docs/<id>. Then it signs in with a review:decide key and checks
 // receipts, Next, IO drafts, notes, the composer, and Asked of agents. Needs Google Chrome
 // (playwright channel 'chrome') and a built ui/dist (`pnpm build`) when it builds the binary.
 //
@@ -520,13 +520,13 @@ try {
     [`/docs/${tracked}`, 'Portal runbook'],
     ['/sources', 'Sources'],
     ['/sources/work-mailbox', 'Work mailbox'],
-    [`/doc/${closedDossier}`, 'Vendor pick'],
+    [`/docs/${closedDossier}`, 'Vendor pick'],
     [`/projects/${proj}`, 'Launch'],
-    [`/doc/${task}`, 'Write the plan'],
+    [`/docs/${task}`, 'Write the plan'],
     [`/incidents/${incident}`, 'Cache outage'],
-    [`/doc/${question}`, 'Which region first?'],
-    [`/doc/${note.id}`, 'Quota numbers'],
-    [`/doc/${policy}`, 'Logging policy'],
+    [`/docs/${question}`, 'Which region first?'],
+    [`/docs/${note.id}`, 'Quota numbers'],
+    [`/docs/${policy}`, 'Logging policy'],
     ['/search?q=quota', 'Search'],
   ]
   for (const [path, heading] of pages) {
@@ -569,7 +569,7 @@ try {
   // An incident is a task of kind incident: /incidents/<id> lands on its document page, which shows
   // the severity and the status.
   await page.goto(`${base}/incidents/${incident}`)
-  await page.waitForURL((u) => u.pathname === `/doc/${incident}`)
+  await page.waitForURL((u) => u.pathname === `/docs/${incident}`)
   await page.getByRole('heading', { name: 'Cache outage' }).first().waitFor()
   check(
     await page
@@ -682,13 +682,13 @@ try {
   await page.waitForURL((u) => u.pathname === '/next')
   check(true, '/stack with a filter lands on /next')
 
-  // A closed dossier is a read-only document: /proposals/<id> lands on /doc/<id>, shows the tldr,
+  // A closed dossier is a read-only document: /proposals/<id> lands on /docs/<id>, shows the tldr,
   // and has no write control.
   await page.goto(`${base}/proposals/${closedDossier}`)
-  await page.waitForURL((u) => u.pathname === `/doc/${closedDossier}`)
+  await page.waitForURL((u) => u.pathname === `/docs/${closedDossier}`)
   check(
-    new URL(page.url()).pathname === `/doc/${closedDossier}`,
-    `/proposals/<id> lands on /doc/<id> (${page.url()})`,
+    new URL(page.url()).pathname === `/docs/${closedDossier}`,
+    `/proposals/<id> lands on /docs/<id> (${page.url()})`,
   )
   await page.getByRole('heading', { name: 'Vendor pick' }).first().waitFor()
   await page.getByText(closedTldr, { exact: false }).first().waitFor()
@@ -806,7 +806,7 @@ try {
     (await rcRevert.getByText('Seeded to test undo.').count()) === 1 &&
       (await rcRevert.getByRole('link', { name: 'https://example.com/receipts-undo' }).count()) ===
         1 &&
-      (await rcRevert.locator('[data-sources] a[href*="/doc/"]').count()) >= 1,
+      (await rcRevert.locator('[data-sources] a[href*="/docs/"]').count()) >= 1,
     'a receipt row shows why, an address source as a link, and a vault source as a document link',
   )
   check((await rcOld.getAttribute('data-check')) === 'unchecked', 'a new receipt is unchecked')
@@ -998,7 +998,7 @@ try {
   // Notes on any item: a save on notes that changed since they were opened is refused, the page
   // shows the current notes, and the next save, based on them, goes through.
   const noted = idOf(para(...v, 'task', 'add', 'Book the venue', '-p', proj, '--json'))
-  await rpage.goto(`${base}/doc/${noted}`)
+  await rpage.goto(`${base}/docs/${noted}`)
   await rpage.getByRole('heading', { name: 'Book the venue' }).waitFor()
   await rpage.locator('[data-notes-act="edit"]').click()
   para(...v, 'notes', 'edit', noted, '--md', 'Agent: the venue holds 40.')
@@ -1180,7 +1180,7 @@ try {
     /"kind":\s*"meeting-notes"/.test(para(...v, 'request', 'show', notesReq, '--json')),
     'Send to agent to file queues meeting-notes agent work',
   )
-  await rpage.goto(`${base}/doc/${noted}`)
+  await rpage.goto(`${base}/docs/${noted}`)
   await rpage.getByRole('heading', { name: 'Book the venue' }).waitFor()
 
   // The composer at the foot of the page: a file and words go to an agent as composer work, with a
@@ -1270,7 +1270,7 @@ try {
       links: [noted],
     })
     await agent.call('request_done', { id: linked.id, resolution: 'done', result: 'Priced.' })
-    await rpage.goto(`${base}/doc/${noted}`)
+    await rpage.goto(`${base}/docs/${noted}`)
     let opened = false
     for (let i = 0; i < 50 && !opened; i++) {
       opened = !!(await agent.call('request_show', { id: linked.id })).doc?.meta?.seen
@@ -1341,7 +1341,7 @@ try {
 
     const undoTask = idOf(para(...v, 'task', 'add', 'Order the cables', '-p', proj, '--json'))
     await agent.call('task_start', { id: undoTask, why: 'Sam said the order is placed.' })
-    await rpage.goto(`${base}/doc/${undoTask}`)
+    await rpage.goto(`${base}/docs/${undoTask}`)
     const row = rpage.locator(`[data-activity="${undoTask}"] [data-history-row="receipt"]`).first()
     await row.waitFor()
     await row.locator('[data-history-undo]').click()
@@ -1368,9 +1368,9 @@ try {
     para(...v, 'note', 'show', linker, '--json').includes(`[[${keepTask}]]`),
     'a link to the merged duplicate points to the one that stays',
   )
-  await rpage.goto(`${base}/doc/${keepTask}`)
+  await rpage.goto(`${base}/docs/${keepTask}`)
   await rpage.locator(`[data-merged-from] >> text=Renew TLS cert`).waitFor()
-  await rpage.goto(`${base}/doc/${dupTask}`)
+  await rpage.goto(`${base}/docs/${dupTask}`)
   await rpage.locator(`[data-merged-into="${keepTask}"]`).waitFor()
   check(true, 'the kept page lists the duplicate as merged from; the duplicate says where it went')
 
@@ -1398,7 +1398,7 @@ try {
   )
   // Reopen on a closed task's page opens it again.
   para(...v, 'close', agendaTask)
-  await rpage.goto(`${base}/doc/${agendaTask}`)
+  await rpage.goto(`${base}/docs/${agendaTask}`)
   await rpage.locator(`[data-item-actions="${agendaTask}"] [data-act="reopen"]`).click()
   await rpage.locator('[data-toast]').filter({ hasText: 'Reopened' }).first().waitFor()
   check(
@@ -1461,7 +1461,7 @@ try {
 
     // On the task page: dates in the header, Investigate with words in the composer.
     const pageTask = idOf(para(...v, 'task', 'add', 'Order the badges', '-p', proj, '--json'))
-    await rpage.goto(`${base}/doc/${pageTask}`)
+    await rpage.goto(`${base}/docs/${pageTask}`)
     await rpage.getByRole('heading', { name: 'Order the badges' }).waitFor()
     check(
       /created today/.test((await rpage.locator('[data-item-dates]').first().textContent()) ?? ''),
@@ -1499,7 +1499,7 @@ try {
       )
     }
     // Done with words in the composer: a note, then the close; Undo opens it and takes the note out.
-    await rpage.goto(`${base}/doc/${pageTask}`)
+    await rpage.goto(`${base}/docs/${pageTask}`)
     await box.getByLabel(/Tell the agent about/).fill('Ordered 40 badges.')
     await actions.locator('[data-act="done"]').click()
     const doneNote = rpage
@@ -1519,7 +1519,7 @@ try {
       'Undo of Done with words opens the task and takes the note out',
     )
     // Done with an empty composer is a plain close.
-    await rpage.goto(`${base}/doc/${pageTask}`)
+    await rpage.goto(`${base}/docs/${pageTask}`)
     const before = notesOf(pageTask)
     await actions.locator('[data-act="done"]').click()
     const plain = rpage
@@ -1558,7 +1558,7 @@ try {
   await omni.fill(task)
   await rpage.getByRole('option').first().waitFor()
   await rpage.keyboard.press('Enter')
-  await rpage.waitForURL((u) => u.pathname === `/doc/${task}`)
+  await rpage.waitForURL((u) => u.pathname === `/docs/${task}`)
   check(true, '/ focuses the omni bar; a pasted id and Enter open the document')
   check(
     rerrors.length === 0,

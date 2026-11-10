@@ -62,7 +62,7 @@ function ItemLink({ kind, item }: { kind: Kind; item: Item }) {
   const title = item.title || nameOr('', item.id)
   if (kind === 'incident')
     return (
-      <TextLink to="/doc/$id" params={{ id: item.id }} underline="hover">
+      <TextLink to="/docs/$id" params={{ id: item.id }} underline="hover">
         {title}
       </TextLink>
     )
@@ -164,7 +164,7 @@ function AgendaLink({ x }: { x: AgendaItem }) {
   const title = x.title || nameOr('', x.id)
   if (x.kind === 'incident')
     return (
-      <TextLink to="/doc/$id" params={{ id: x.id }} underline="hover">
+      <TextLink to="/docs/$id" params={{ id: x.id }} underline="hover">
         {title}
       </TextLink>
     )

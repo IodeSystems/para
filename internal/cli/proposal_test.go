@@ -97,11 +97,11 @@ func TestOpenCommand(t *testing.T) {
 	}
 	var out ops.ProposalOpenOutput
 	e.json(&out, "open", filed.ID)
-	want := "http://acme.localhost:7799/doc/" + filed.ID
+	want := "http://acme.localhost:7799/docs/" + filed.ID
 	if out.URL != want || !out.Opened || out.Command != "test-open "+want {
 		t.Fatalf("open = %+v", out)
 	}
-	if got := e.ok("open", e.source); !strings.Contains(got, "http://acme.localhost:7799/doc/"+e.source) {
+	if got := e.ok("open", e.source); !strings.Contains(got, "http://acme.localhost:7799/docs/"+e.source) {
 		t.Fatalf("doc = %q", got)
 	}
 	e.fails("not a page", "open", "https://evil.example/x")

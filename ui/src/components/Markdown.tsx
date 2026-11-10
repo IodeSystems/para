@@ -32,7 +32,7 @@ function text(node: ReactNode): string {
 }
 
 function WikiLink({ href, children }: { href: string; children?: ReactNode }) {
-  const id = decodeURIComponent(href.replace(/^\/doc\//, ''))
+  const id = decodeURIComponent(href.replace(/^\/docs?\//, ''))
   const q = useDoc(id)
   const label = q.data?.title || nameOr('', id) || text(children)
   return <TextLink to={href}>{label}</TextLink>

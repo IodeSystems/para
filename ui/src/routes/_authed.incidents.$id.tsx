@@ -4,6 +4,6 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 // document page, which shows the severity, the timeline, and the follow-ups.
 export const Route = createFileRoute('/_authed/incidents/$id')({
   beforeLoad: ({ params }) => {
-    throw redirect({ to: '/doc/$id', params: { id: params.id }, replace: true })
+    throw redirect({ to: '/docs/$id', params: { id: params.id }, replace: true })
   },
 })

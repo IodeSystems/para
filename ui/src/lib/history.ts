@@ -53,10 +53,10 @@ export function rowTime(r: { at: string; dateOnly?: boolean | null }): string {
 export function refTarget(r: {
   kind: string
   ref?: string | null
-}): { to: '/io/$id' | '/doc/$id'; id: string } | null {
+}): { to: '/io/$id' | '/docs/$id'; id: string } | null {
   if (!r.ref) return null
   const io = r.kind === 'message_in' || r.kind === 'message_out'
-  return { to: io ? '/io/$id' : '/doc/$id', id: r.ref }
+  return { to: io ? '/io/$id' : '/docs/$id', id: r.ref }
 }
 
 // refLabel is the link text of a row's ref.

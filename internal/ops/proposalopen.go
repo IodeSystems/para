@@ -18,8 +18,8 @@ import (
 var ErrNoServer = errors.New("no para serve runs on this machine: start it with `para serve`, then open the page again")
 
 // proposalPath is the viewer path of a dossier: the document page, read-only.
-func proposalPath(id string) string { return "/doc/" + url.PathEscape(id) }
-func docPath(id string) string      { return "/doc/" + url.PathEscape(id) }
+func proposalPath(id string) string { return "/docs/" + url.PathEscape(id) }
+func docPath(id string) string      { return "/docs/" + url.PathEscape(id) }
 
 // viewerBase is the web app's base URL for this vault.
 func viewerBase(d Deps) (string, error) {

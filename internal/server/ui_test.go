@@ -234,7 +234,7 @@ func TestServiceWorkerDenylistCoversServerRoutes(t *testing.T) {
 		}
 	}
 	// And the screens of the app stay with the shell.
-	for _, p := range []string{"/", "/today", "/review", "/work", "/doc/policy-x", "/login", "/wsl", "/healthzz-not"} {
+	for _, p := range []string{"/", "/today", "/review", "/work", "/docs/policy-x", "/login", "/wsl", "/healthzz-not"} {
 		if p == "/wsl" || p == "/healthzz-not" {
 			continue // prefix-like names are not app routes; see the next check
 		}

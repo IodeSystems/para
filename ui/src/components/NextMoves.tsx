@@ -60,7 +60,7 @@ export function NextMoves({ id }: { id: string }) {
               primary={m.label}
               secondary={
                 m.hold
-                  ? `Held back: ${m.hold}`
+                  ? `On hold: ${m.hold}`
                   : [m.why, m.contacts ? `asked ${times(m.contacts)}, last ${m.last}` : '']
                       .filter(Boolean)
                       .join(' - ')

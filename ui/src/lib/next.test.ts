@@ -104,7 +104,6 @@ describe('Next keys', () => {
     expect(press('d')).toBe('done')
     expect(press('l')).toBe('later')
     expect(press('s')).toBe('send')
-    expect(press('g')).toBe('send')
     expect(press('a')).toBe('approve')
     expect(press('o')).toBe('open')
     expect(press('x')).toBeNull()

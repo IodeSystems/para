@@ -21,19 +21,19 @@ describe('wikilinks', () => {
 
   it('rewrites to in-app links', () => {
     expect(linkWikilinks('see [[rfx-1]] and [[task-2|the task]].')).toBe(
-      'see [rfx-1](/doc/rfx-1 "wiki") and [the task](/doc/task-2).',
+      'see [rfx-1](/docs/rfx-1 "wiki") and [the task](/docs/task-2).',
     )
   })
 
   it('leaves code fences and inline code alone', () => {
     const md = 'a `[[x]]` b\n```\n[[y]]\n```\n[[z]]'
-    expect(linkWikilinks(md)).toBe('a `[[x]]` b\n```\n[[y]]\n```\n[z](/doc/z "wiki")')
+    expect(linkWikilinks(md)).toBe('a `[[x]]` b\n```\n[[y]]\n```\n[z](/docs/z "wiki")')
   })
 
   it('leaves what is not a link as it is', () => {
     expect(linkWikilinks('[[a|b]c]]')).toBe('[[a|b]c]]')
     expect(linkWikilinks('[[|]]')).toBe('[[|]]')
-    expect(linkWikilinks('[[a|[b]]')).toBe('[b](/doc/a)') // brackets leave the label
+    expect(linkWikilinks('[[a|[b]]')).toBe('[b](/docs/a)') // brackets leave the label
   })
 
   it('shows a rule without its policy id or block id', () => {
@@ -46,11 +46,11 @@ describe('wikilinks', () => {
   })
 
   it('encodes ids in the path', () => {
-    expect(docPath('a b/c')).toBe('/doc/a%20b%2Fc')
+    expect(docPath('a b/c')).toBe('/docs/a%20b%2Fc')
   })
 
   it('tells internal links from external', () => {
-    expect(isInternalHref('/doc/x')).toBe(true)
+    expect(isInternalHref('/docs/x')).toBe(true)
     expect(isInternalHref('//evil.example')).toBe(false)
     expect(isInternalHref('https://x.example')).toBe(false)
     expect(isInternalHref(undefined)).toBe(false)

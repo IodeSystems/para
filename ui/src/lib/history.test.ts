@@ -41,7 +41,7 @@ describe('refTarget', () => {
   it('opens messages on the io page and the rest on the doc page', () => {
     expect(refTarget({ kind: 'message_in', ref: 'io-1' })).toEqual({ to: '/io/$id', id: 'io-1' })
     expect(refTarget({ kind: 'receipt', ref: 'receipt-1' })).toEqual({
-      to: '/doc/$id',
+      to: '/docs/$id',
       id: 'receipt-1',
     })
     expect(refTarget({ kind: 'note', ref: null })).toBeNull()

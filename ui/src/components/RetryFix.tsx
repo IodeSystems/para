@@ -15,7 +15,7 @@ import { lineDiff, parseInput, readRetryFix } from '@/lib/retry'
 
 // RetryFix is the owner card of an agent's refused write: the lint findings, the input that was
 // refused, the proposed fix as a diff, and what the owner does with it. Accept runs the op with
-// the proposal. Edit saves the owner's input as the new proposal and leaves it with the owner;
+// the proposal. Edit saves the owner's fix as the new proposal and leaves it with the owner;
 // "and approve" makes the same click run it. Drop closes it, nothing written. Reject sends it
 // back to the agent with the owner's notes. It renders nothing for a request that is not a
 // retry-write with a proposal.
@@ -77,7 +77,7 @@ function RetryCard({
             sx={{ mt: 1 }}
           />
           {edited && (
-            <DiffBlock lines={lineDiff(fix.proposed, text)} label="Your edit to the proposal" />
+            <DiffBlock lines={lineDiff(fix.proposed, text)} label="Your fix" />
           )}
           {rejecting && (
             <TextField

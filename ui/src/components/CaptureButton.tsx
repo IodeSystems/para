@@ -85,10 +85,10 @@ export function CaptureButton() {
           }
           void navigate(
             out.became
-              ? { to: '/doc/$id', params: { id: out.became } }
+              ? { to: '/docs/$id', params: { id: out.became } }
               : call.op === 'io_add'
                 ? { to: '/io/$id', params: { id: out.id } }
-                : { to: '/doc/$id', params: { id: out.id } },
+                : { to: '/docs/$id', params: { id: out.id } },
           )
         },
       },

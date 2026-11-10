@@ -60,7 +60,7 @@ function IoPage() {
   return (
     <>
       <PageTitle
-        subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you decide in dossiers."
+        subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you approve what goes out."
         action={<CaptureButton />}
       >
         IO

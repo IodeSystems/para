@@ -23,7 +23,7 @@ import { VoiceNote, voiceWords } from '@/components/Voice'
 
 export const Route = createFileRoute('/_authed/io/$id')({ component: IoItemPage })
 
-// One io item. Agents file, send, and drop it; the owner decides in dossiers. With a
+// One io item. Agents file, send, and drop it; the owner approves outgoing drafts. With a
 // review:decide key the owner may mark an outbox draft sent by themself (Done by me).
 function IoItemPage() {
   const { id } = Route.useParams()

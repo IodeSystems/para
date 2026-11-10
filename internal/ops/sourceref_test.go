@@ -32,8 +32,8 @@ func TestResolveRefs(t *testing.T) {
 		{Text: "https://example.com/x", URL: "https://example.com/x"},
 		{Text: "team-chat:C1/p123 (Team chat)"},
 		{Text: "nope:abc"},
-		{Text: f.source, URL: "/doc/" + f.source, Internal: true},
-		{Text: "sources/" + mail.ID + ".md", URL: "/doc/" + mail.ID, Internal: true},
+		{Text: f.source, URL: "/docs/" + f.source, Internal: true},
+		{Text: "sources/" + mail.ID + ".md", URL: "/docs/" + mail.ID, Internal: true},
 		{Text: "zzz-missing"},
 	}
 	if len(got) != len(want) {

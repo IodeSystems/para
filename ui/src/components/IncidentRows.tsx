@@ -23,7 +23,7 @@ export function IncidentRows({ list }: { list: Row[] }) {
         <ListItem key={i.id} disableGutters sx={CHIP_ROW}>
           <ListItemText
             primary={
-              <TextLink to="/doc/$id" params={{ id: i.id }} underline="hover">
+              <TextLink to="/docs/$id" params={{ id: i.id }} underline="hover">
                 {i.title || i.id}
               </TextLink>
             }

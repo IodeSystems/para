@@ -84,12 +84,12 @@ export function actionFor(e: KeyLike): KeyAction | null {
 export type NextKey =
   'next' | 'back' | 'done' | 'investigate' | 'later' | 'send' | 'approve' | 'open'
 
-// NEXT_KEYS are the keys of the Next page. s is Send to agent here; g does the same.
+// NEXT_KEYS are the keys of the Next page. s sends the card's composer to an agent.
 export const NEXT_KEYS: { key: string; action: NextKey; words: string }[] = [
   { key: 'j', action: 'next', words: 'Skip to the next card' },
   { key: 'n', action: 'next', words: 'Skip, as j' },
   { key: 'k', action: 'back', words: 'Back to the card you skipped last' },
-  { key: 'd', action: 'done', words: 'Done (Drop or Held, as the item allows)' },
+  { key: 'd', action: 'done', words: 'Mark done, or Drop where the item allows' },
   {
     key: 'i',
     action: 'investigate',
@@ -97,7 +97,6 @@ export const NEXT_KEYS: { key: string; action: NextKey; words: string }[] = [
   },
   { key: 'l', action: 'later', words: 'Later: put it off to a date' },
   { key: 's', action: 'send', words: 'Send to agent: write what it should do' },
-  { key: 'g', action: 'send', words: 'Send to agent, as s' },
   { key: 'a', action: 'approve', words: 'Approve the draft, or accept the proposed answer' },
   { key: 'o', action: 'open', words: "Open the item's page" },
 ]

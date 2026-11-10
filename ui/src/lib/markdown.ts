@@ -2,7 +2,7 @@
 
 // docPath is the in-app route of a document id.
 export function docPath(id: string): string {
-  return `/doc/${encodeURIComponent(id)}`
+  return `/docs/${encodeURIComponent(id)}`
 }
 
 // wikilinkTarget turns the inside of [[...]] into a document id and a label. `[[id|label]]` and
