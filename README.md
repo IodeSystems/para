@@ -4,17 +4,26 @@ para tracks what you owe and who you wait on. It keeps bounded goals, areas for 
 
 It is not a documentation system, a pager, a calendar, or a sync tool. You direct the work, agents act through MCP, and you approve what goes out of the vault.
 
-## Install
+## Install with an agent
+
+Open your agent (Claude Code or another) in this repo and ask it to install para. It follows the Installation section of `AGENTS.md`. It will ask you for a vault name, a path, and whether this machine is work or personal.
+
+## Install by hand
 
 Needs Go 1.26 or later, and pnpm for the web UI.
 
     make install       # builds the UI and para into ~/.local/bin
+    para doctor        # checks the install; `command -v para` must find it
+
+If `para` is not found, add `~/.local/bin` to PATH.
 
 ## First vault
 
     para init life ~/para/life
     para vault set-default life
     para                # prints the agenda
+
+Work and personal vaults never share a machine.
 
 ## With an agent
 
