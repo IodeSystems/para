@@ -3,6 +3,7 @@ import Typography from '@mui/material/Typography'
 import { useSeenOnOpen } from '@/api/requests'
 import { useProject } from '@/api/areas'
 import Stack from '@mui/material/Stack'
+import { Thread } from '@/components/Thread'
 import { AgentLooking } from '@/components/FindContext'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -42,6 +43,7 @@ function ProjectPage() {
           >
             {d.project.title || id}
           </PageTitle>
+          <Thread id={id} composer />
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {d.project.owner ? `owner ${nameOr('', d.project.owner)}` : 'no owner'}
             {d.project.area && (

@@ -20,6 +20,7 @@ import { DataState } from '@/components/DataState'
 import { DoItTask } from '@/components/DoIt'
 import { DraftEditor } from '@/components/DraftEditor'
 import { AgentLooking } from '@/components/FindContext'
+import { ThreadSummary } from '@/components/Thread'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemDraftProvider } from '@/components/ItemDraft'
@@ -279,6 +280,7 @@ function Card({
             )}
           </ItemActions>
         </Stack>
+        <ThreadSummary id={x.id} />
         <CardComposer
           id={x.id}
           title={title}

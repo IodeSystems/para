@@ -11,7 +11,7 @@ import { useSeenOnOpen } from '@/api/requests'
 import { useCopyText, useDoc } from '@/api/doc'
 import { LinkButton } from '@/components/links'
 import { Details, PageTitle, StateChip, StatusChip } from '@/components/Bits'
-import { AgentLooking, AgentReplyNote } from '@/components/FindContext'
+import { AgentLooking } from '@/components/FindContext'
 import { ItemDates } from '@/components/ItemDates'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
@@ -27,6 +27,7 @@ import { ItemContext } from '@/components/ItemContext'
 import { ItemsUnder } from '@/components/ItemsUnder'
 import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { Thread } from '@/components/Thread'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDraftProvider } from '@/components/ItemDraft'
 import { ItemActions } from '@/components/AgendaActions'
@@ -124,7 +125,6 @@ function Doc() {
             )}
           </Stack>
           {d.meta.type === 'group' && <PrioritySelect id={d.id} value={d.meta.priority} />}
-          <AgentReplyNote id={d.id} />
           {CONTEXT_TYPES.includes(d.meta.type) && <ItemContext id={d.id} />}
           {UNDER_TYPES.includes(d.meta.type) && <ItemsUnder theme={d.id} />}
           {d.meta.source?.url && (
@@ -155,6 +155,7 @@ function Doc() {
           <MergedFrom id={id} />
           <NotesEditor id={id} />
           <Activity id={d.id} />
+          <Thread id={d.id} />
           <ItemComposer id={d.id} title={d.title} meta={d.meta} />
         </ItemDraftProvider>
       )}

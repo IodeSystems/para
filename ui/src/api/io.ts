@@ -35,6 +35,8 @@ const IoListDoc = graphql(/* GraphQL */ `
             needsYou
             needsYouReason
             digest
+            made
+            reviewed
             triageBy
             voice
             allowedBy
@@ -149,6 +151,61 @@ export function useIoItem(id: string) {
     queryFn: async () =>
       need((await gqlClient.request(IoShowDoc, { id })).para.v1.ioShow, 'io item'),
   })
+}
+
+const IoMadeDoc = graphql(/* GraphQL */ `
+  query IoMade($id: String!) {
+    para {
+      v1 {
+        ioMade(id: $id) {
+          id
+          counts
+          rows {
+            doc
+            title
+            type
+            actions
+            at
+            actor
+            receipt
+            why
+          }
+        }
+      }
+    }
+  }
+`)
+
+const IoReviewDoc = graphql(/* GraphQL */ `
+  mutation IoReview($body: para_IOReviewInputInput!) {
+    para {
+      v1 {
+        ioReview(body: $body) {
+          reviewed
+          at
+        }
+      }
+    }
+  }
+`)
+
+// useIoMade is what an incoming item made in the vault: each document it created, edited, closed,
+// or linked, with who did it and why.
+export function useIoMade(id: string, enabled = true) {
+  return useQuery({
+    queryKey: ['io', 'made', id],
+    enabled,
+    queryFn: async () =>
+      need((await gqlClient.request(IoMadeDoc, { id })).para.v1.ioMade, 'io made'),
+  })
+}
+
+// ioReview marks io items reviewed by the owner (owner only). One receipt undoes it.
+export async function ioReview(ids: string[]) {
+  return need(
+    (await gqlClient.request(IoReviewDoc, { body: { ids } })).para.v1.ioReview,
+    'io review',
+  )
 }
 
 const IOApproveDoc = graphql(/* GraphQL */ `

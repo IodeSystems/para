@@ -130,7 +130,7 @@ const IOFileDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const ThreadPostDoc = graphql(/* GraphQL */ `
+export const ThreadPostDoc = graphql(/* GraphQL */ `
   mutation ThreadPost($body: para_ThreadPostInputInput!) {
     para {
       v1 {

@@ -14,7 +14,9 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedAgendaRouteImport } from './routes/_authed.agenda'
 import { Route as AuthedHealthRouteImport } from './routes/_authed.health'
+import { Route as AuthedInputRouteImport } from './routes/_authed.input'
 import { Route as AuthedNextRouteImport } from './routes/_authed.next'
+import { Route as AuthedOutputRouteImport } from './routes/_authed.output'
 import { Route as AuthedPolicyRouteImport } from './routes/_authed.policy'
 import { Route as AuthedPoolsRouteImport } from './routes/_authed.pools'
 import { Route as AuthedReceiptsRouteImport } from './routes/_authed.receipts'
@@ -69,9 +71,19 @@ const AuthedHealthRoute = AuthedHealthRouteImport.update({
   path: '/health',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedInputRoute = AuthedInputRouteImport.update({
+  id: '/input',
+  path: '/input',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedNextRoute = AuthedNextRouteImport.update({
   id: '/next',
   path: '/next',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedOutputRoute = AuthedOutputRouteImport.update({
+  id: '/output',
+  path: '/output',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedPolicyRoute = AuthedPolicyRouteImport.update({
@@ -225,7 +237,9 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/agenda': typeof AuthedAgendaRoute
   '/health': typeof AuthedHealthRoute
+  '/input': typeof AuthedInputRoute
   '/next': typeof AuthedNextRoute
+  '/output': typeof AuthedOutputRoute
   '/policy': typeof AuthedPolicyRoute
   '/pools': typeof AuthedPoolsRoute
   '/receipts': typeof AuthedReceiptsRoute
@@ -261,7 +275,9 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/agenda': typeof AuthedAgendaRoute
   '/health': typeof AuthedHealthRoute
+  '/input': typeof AuthedInputRoute
   '/next': typeof AuthedNextRoute
+  '/output': typeof AuthedOutputRoute
   '/policy': typeof AuthedPolicyRoute
   '/pools': typeof AuthedPoolsRoute
   '/receipts': typeof AuthedReceiptsRoute
@@ -299,7 +315,9 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_authed/agenda': typeof AuthedAgendaRoute
   '/_authed/health': typeof AuthedHealthRoute
+  '/_authed/input': typeof AuthedInputRoute
   '/_authed/next': typeof AuthedNextRoute
+  '/_authed/output': typeof AuthedOutputRoute
   '/_authed/policy': typeof AuthedPolicyRoute
   '/_authed/pools': typeof AuthedPoolsRoute
   '/_authed/receipts': typeof AuthedReceiptsRoute
@@ -337,7 +355,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/agenda'
     | '/health'
+    | '/input'
     | '/next'
+    | '/output'
     | '/policy'
     | '/pools'
     | '/receipts'
@@ -373,7 +393,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/agenda'
     | '/health'
+    | '/input'
     | '/next'
+    | '/output'
     | '/policy'
     | '/pools'
     | '/receipts'
@@ -410,7 +432,9 @@ export interface FileRouteTypes {
     | '/login'
     | '/_authed/agenda'
     | '/_authed/health'
+    | '/_authed/input'
     | '/_authed/next'
+    | '/_authed/output'
     | '/_authed/policy'
     | '/_authed/pools'
     | '/_authed/receipts'
@@ -485,11 +509,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedHealthRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/input': {
+      id: '/_authed/input'
+      path: '/input'
+      fullPath: '/input'
+      preLoaderRoute: typeof AuthedInputRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/next': {
       id: '/_authed/next'
       path: '/next'
       fullPath: '/next'
       preLoaderRoute: typeof AuthedNextRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/output': {
+      id: '/_authed/output'
+      path: '/output'
+      fullPath: '/output'
+      preLoaderRoute: typeof AuthedOutputRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/policy': {
@@ -701,7 +739,9 @@ declare module '@tanstack/react-router' {
 interface AuthedRouteChildren {
   AuthedAgendaRoute: typeof AuthedAgendaRoute
   AuthedHealthRoute: typeof AuthedHealthRoute
+  AuthedInputRoute: typeof AuthedInputRoute
   AuthedNextRoute: typeof AuthedNextRoute
+  AuthedOutputRoute: typeof AuthedOutputRoute
   AuthedPolicyRoute: typeof AuthedPolicyRoute
   AuthedPoolsRoute: typeof AuthedPoolsRoute
   AuthedReceiptsRoute: typeof AuthedReceiptsRoute
@@ -736,7 +776,9 @@ interface AuthedRouteChildren {
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAgendaRoute: AuthedAgendaRoute,
   AuthedHealthRoute: AuthedHealthRoute,
+  AuthedInputRoute: AuthedInputRoute,
   AuthedNextRoute: AuthedNextRoute,
+  AuthedOutputRoute: AuthedOutputRoute,
   AuthedPolicyRoute: AuthedPolicyRoute,
   AuthedPoolsRoute: AuthedPoolsRoute,
   AuthedReceiptsRoute: AuthedReceiptsRoute,

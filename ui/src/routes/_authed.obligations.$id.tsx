@@ -9,6 +9,7 @@ import { useSeenOnOpen } from '@/api/requests'
 import { useMeeting, useObligation } from '@/api/meetings'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
+import { Thread } from '@/components/Thread'
 import { ItemContext } from '@/components/ItemContext'
 import { ObligationHub } from '@/components/ObligationHub'
 import { ItemsUnder } from '@/components/ItemsUnder'
@@ -51,6 +52,7 @@ function ObligationPage() {
               </Typography>
             </Stack>
             <ItemContext id={id} />
+            <Thread id={id} composer />
             <ObligationHub id={id} />
             <ItemsUnder theme={id} />
             <Section title="Owed to" count={o.with.length}>

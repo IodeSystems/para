@@ -160,6 +160,9 @@ const REVIEW_MUTATIONS = new Set([
   // (IOAdd), then ThreadPost sends the agent one turn on that item to file it (thread_post, a
   // person op; it queues one request per turn).
   'ThreadPost',
+  // owner 2026-11-10: Input and Output pages. Mark reviewed on incoming or sent rows (io_review,
+  // an owner op; no state change; one receipt, so Undo takes it back).
+  'IoReview',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

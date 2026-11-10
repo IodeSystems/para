@@ -20,6 +20,7 @@ import { withoutSection } from '@/lib/markdown'
 import { nameList, nameOr } from '@/lib/names'
 import { dateWords } from '@/lib/when'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
+import { Thread } from '@/components/Thread'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDraftProvider } from '@/components/ItemDraft'
 
@@ -111,6 +112,7 @@ function RfxPage() {
           )}
           <MergedFrom id={id} />
           <NotesEditor id={id} />
+          <Thread id={r.doc.id} />
           <ItemComposer
             id={r.doc.id}
             title={r.doc.title}

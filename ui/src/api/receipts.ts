@@ -201,3 +201,10 @@ export function useReceiptRevert() {
     onSettled: () => qc.invalidateQueries(),
   })
 }
+
+// latestReceipt is the id of the newest receipt of one op, or null. For an op whose reply does not
+// carry its receipt (io_review): read it back right after the write, for Undo.
+export async function latestReceipt(op: string): Promise<string | null> {
+  const r = need((await gqlClient.request(ListDoc, { op, limit: 1 })).para.v1.receiptList, 'receipts')
+  return r.items[0]?.id ?? null
+}

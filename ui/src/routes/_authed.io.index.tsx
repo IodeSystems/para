@@ -1,9 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
 import FormControlLabel from '@mui/material/FormControlLabel'
-import Link from '@mui/material/Link'
-import List from '@mui/material/List'
-import ListItem from '@mui/material/ListItem'
-import ListItemText from '@mui/material/ListItemText'
 import Switch from '@mui/material/Switch'
 import Tab from '@mui/material/Tab'
 import Tabs from '@mui/material/Tabs'
@@ -12,14 +8,11 @@ import TextField from '@mui/material/TextField'
 import MenuItem from '@mui/material/MenuItem'
 import Stack from '@mui/material/Stack'
 import { useIoList } from '@/api/io'
-import { CHIP_ROW, Empty, PageTitle, Section, StateChip, StatusChip } from '@/components/Bits'
+import { Empty, PageTitle, Section } from '@/components/Bits'
+import { IoRows } from '@/components/IoRows'
 import { CaptureButton } from '@/components/CaptureButton'
 import { DataState } from '@/components/DataState'
-import { TextLink } from '@/components/links'
-import { ioParty } from '@/lib/io'
-import { voiceWords } from '@/components/Voice'
 import { digestRows, splitInbox } from '@/lib/priority'
-import { humanTime } from '@/lib/when'
 
 type View = 'inbox' | 'digest' | 'outbox'
 
@@ -200,46 +193,5 @@ function IoPage() {
         }}
       </DataState>
     </>
-  )
-}
-
-type Row = NonNullable<ReturnType<typeof useIoList>['data']>['items'][number]
-
-function IoRows({ items }: { items: Row[] }) {
-  return (
-    <List disablePadding>
-      {items.map((x) => {
-        const who = x.direction === 'in' ? ioParty(x.from) : x.to.map(ioParty).join(', ')
-        return (
-          <ListItem key={x.id} disableGutters divider sx={CHIP_ROW}>
-            <ListItemText
-              primary={
-                <TextLink to="/io/$id" params={{ id: x.id }} underline="hover">
-                  {x.title || 'Untitled message'}
-                </TextLink>
-              }
-              secondary={[
-                who && (x.direction === 'in' ? `from ${who}` : `to ${who}`),
-                x.medium,
-                humanTime(x.at || x.created),
-                x.direction === 'in' && x.needsYouReason,
-                x.voice === 'for_me' && voiceWords(x),
-                x.legacy && 'old inbox capture: run para vault upgrade',
-              ]
-                .filter(Boolean)
-                .join(' - ')}
-              slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
-            />
-            {x.ref && (
-              <Link href={x.ref} target="_blank" rel="noreferrer" variant="body2" sx={{ mr: 1 }}>
-                link
-              </Link>
-            )}
-            {x.unverifiable && <StatusChip tone="attn" label="no way to verify" />}
-            <StateChip state={x.state} />
-          </ListItem>
-        )
-      })}
-    </List>
   )
 }

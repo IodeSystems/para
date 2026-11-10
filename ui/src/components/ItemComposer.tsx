@@ -3,7 +3,8 @@ import { useRouteContext } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
-import { agentUnsend, useAgentSend } from '@/api/composer'
+import { agentUnsend } from '@/api/composer'
+import { useThreadPost } from '@/api/thread'
 import { readNotes, saveNotes } from '@/api/notes'
 import { localStamp } from '@/api/today'
 import { canDecide } from '@/client/session'
@@ -15,6 +16,7 @@ import { Composer, type ComposerAction } from '@/components/Composer'
 import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
 import { useThemeReview } from '@/components/ThemeReview'
+import { POST_KINDS, type PostKind } from '@/lib/thread'
 import { investigable, isClosed, rowKind } from '@/lib/agenda'
 import {
   answerState,
@@ -25,8 +27,8 @@ import {
   type ItemMeta,
 } from '@/lib/composer'
 
-// ItemComposer is the composer at the foot of every item's page. Send to agent queues agent work
-// with the owner's words and files (agent_send); the agent formats them into the item's notes and
+// ItemComposer is the composer at the foot of every item's page. Send to agent posts a turn on the
+// item's thread (thread_post) with a kind, the owner's words and files; the agent formats them into the item's notes and
 // updates what they touch. Save as notes writes them into the notes now, below what is there. Done,
 // the button near the box, closes the item and adds the box's words as a note. Investigate adds them to the notes and asks an agent to fill in
 // details, check whether it is already done, and recheck its assumptions. It needs review:decide:
@@ -49,7 +51,8 @@ export function ItemComposer({
   const { session } = useRouteContext({ from: '/_authed' })
   const toasts = useToasts()
   const qc = useQueryClient()
-  const send = useAgentSend()
+  const send = useThreadPost()
+  const [postKind, setPostKind] = useState<PostKind>('other')
   const draft = useItemDraft(id)
   const kind = rowKind(meta.type, meta.kind)
   const closed = isClosed(meta.status)
@@ -84,7 +87,8 @@ export function ItemComposer({
       const atts = await upload(files)
       const res = await send.mutateAsync({
         id,
-        text: text || undefined,
+        text,
+        kind: postKind,
         attachments: atts.length ? atts.map((a) => a.path) : undefined,
       })
       toasts.push({
@@ -215,6 +219,18 @@ export function ItemComposer({
         actionsReady={asking && choice !== ''}
         chips={
           <>
+            {POST_KINDS.map((k) => (
+              <Chip
+                key={k.kind}
+                size="small"
+                label={k.label}
+                color={postKind === k.kind ? 'primary' : 'default'}
+                variant={postKind === k.kind ? 'filled' : 'outlined'}
+                aria-pressed={postKind === k.kind}
+                onClick={() => setPostKind(k.kind)}
+                data-composer-kind={k.kind}
+              />
+            ))}
             {options.map((o) => (
               <Chip
                 key={o}
