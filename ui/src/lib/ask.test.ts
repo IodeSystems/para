@@ -4,7 +4,6 @@ import {
   httpUrl,
   needsLink,
   openTargets,
-  replyText,
   settlesAsk,
   targetKey,
 } from './ask'
@@ -20,13 +19,10 @@ describe('ask helpers', () => {
     expect(settlesAsk(ts, targetKey(ts[0]))).toBe(false)
     expect(settlesAsk([ts[0], ts[1]], targetKey(ts[0]))).toBe(true)
   })
-  it('puts where it was heard in front of the reply', () => {
-    expect(replyText('  Yes, Friday ', 'in person')).toBe('Heard in person: Yes, Friday')
-    expect(replyText('Yes', '')).toBe('Yes')
-  })
   it('wants a link for a no only', () => {
     expect(needsLink('no')).toBe(true)
     expect(needsLink('answered')).toBe(false)
+    expect(needsLink('no', 'in_person')).toBe(false)
   })
   it('checks links and notes', () => {
     expect(httpUrl('https://x.example/m/1')).toBe(true)

@@ -13,7 +13,7 @@ import TextField from '@mui/material/TextField'
 import { rfxPathAdd, rfxReply } from '@/api/askActions'
 import { doneWithNote } from '@/api/noted'
 import { useRfxPaths, REASONS } from '@/api/paths'
-import { usePeople } from '@/api/people'
+import { useGroups, usePeople } from '@/api/people'
 import { useRfx } from '@/api/rfx'
 import { localDate } from '@/api/today'
 import { closeAny } from '@/api/verbs'
@@ -26,7 +26,6 @@ import {
   httpUrl,
   needsLink,
   openTargets,
-  replyText,
   settlesAsk,
   targetKey,
 } from '@/lib/ask'
@@ -143,8 +142,8 @@ export function AnswerButton({
   const target = open.find((t) => targetKey(t) === key)
   const outbound = r?.doc.meta.direction !== 'in'
   const link = url.trim()
-  const linkOk = !link ? !needsLink(outcome) && !!target?.ref : httpUrl(link)
-  const linkNeeded = needsLink(outcome) && !link && !target?.ref
+  const linkOk = !link ? !needsLink(outcome, heard) || !!target?.ref : httpUrl(link)
+  const linkNeeded = needsLink(outcome, heard) && !link && !target?.ref
   if (r && (!outbound || open.length === 0) && fallback) {
     return (
       <Button size="small" data-act="done" onClick={fallback}>
@@ -161,7 +160,8 @@ export function AnswerButton({
         from: target.to,
         via: target.medium,
         outcome,
-        text: replyText(text, heard),
+        text: text.trim(),
+        heard: heard || undefined,
         url: link || undefined,
         date: date || undefined,
         why: 'The owner heard it outside para',
@@ -244,7 +244,11 @@ export function AnswerButton({
         </TextField>
         <TextField
           size="small"
-          label={needsLink(outcome) ? 'Link to the reply (required for a no)' : 'Link (optional)'}
+          label={
+            needsLink(outcome, heard)
+              ? 'Link to the reply (required for a no, or say where you heard it)'
+              : 'Link (optional)'
+          }
           value={url}
           error={!!link && !httpUrl(link)}
           onChange={(e) => setUrl(e.target.value)}
@@ -259,7 +263,7 @@ export function AnswerButton({
         />
         {linkNeeded && (
           <Alert severity="info">
-            A no is kept as a constraint with its source. It needs a link to where it was said.
+            A no is kept as a constraint with its source. Give a link to where it was said, or say where you heard it.
           </Alert>
         )}
         {s.error && <Alert severity="error">{s.error}</Alert>}
@@ -338,13 +342,18 @@ export function DropButton({ id, title }: { id: string; title: string }) {
   )
 }
 
-type Person = { id: string; title: string }
+type Person = { id: string; title: string; group?: boolean }
 
 // RerouteButton moves the Ask to another person: a new target with a reason code and a reason.
 // Para sends nothing. A person held back (away, quiet days) is refused unless the owner overrides.
 export function RerouteButton({ id, title }: { id: string; title: string }) {
   const s = useSettle(id)
   const people = usePeople()
+  const groups = useGroups()
+  const options: Person[] = [
+    ...(people.data ?? []),
+    ...(groups.data ?? []).map((g) => ({ ...g, group: true })),
+  ]
   const paths = useRfxPaths(id)
   const [at, setAt] = useState<HTMLElement | null>(null)
   const [to, setTo] = useState<Person | null>(null)
@@ -388,12 +397,13 @@ export function RerouteButton({ id, title }: { id: string; title: string }) {
       </Button>
       <Pop at={at} onClose={() => setAt(null)}>
         <Autocomplete<Person>
-          options={people.data ?? []}
+          options={options}
+          groupBy={(o) => (o.group ? 'Groups' : 'People')}
           value={to}
           onChange={(_, v) => setTo(v)}
           getOptionLabel={(o) => o.title || o.id}
           isOptionEqualToValue={(a, b) => a.id === b.id}
-          renderInput={(p) => <TextField {...p} size="small" label="Rerouted to" autoFocus />}
+          renderInput={(p) => <TextField {...p} size="small" label="Rerouted to (a person or a group)" autoFocus />}
         />
         {suggestions.length > 0 && (
           <Stack direction="row" useFlexGap sx={{ flexWrap: 'wrap', gap: 0.5 }}>

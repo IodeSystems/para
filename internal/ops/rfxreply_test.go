@@ -131,3 +131,34 @@ func TestRFXReplyRejects(t *testing.T) {
 	// Via picks one of several mediums.
 	must(t, RFXReply, d, RFXReplyInput{ID: id, From: "person-ada-example", Via: "slack", Outcome: ReplyPartial, Text: "Half of it."})
 }
+
+func TestRFXReplyNoHeardOwnerOnly(t *testing.T) {
+	d := targetDeps(t)
+	id := replyRFX(t, d)
+	no := RFXReplyInput{ID: id, From: "person-bo-example", Outcome: ReplyNo, Text: "Not this quarter.",
+		Why: "Audit freeze", Date: "2026-11-10", Heard: HeardInPerson}
+
+	// An agent with heard and no url is refused; nothing is written.
+	if _, err := RFXReply.Run(ctx, agentDeps(d, "scribe"), no); err == nil || !strings.Contains(err.Error(), "source") {
+		t.Fatalf("agent err = %v", err)
+	}
+	if _, m, _ := getRFX(ctx, d, id); m.Targets[0].State != model.TargetSent {
+		t.Fatalf("state = %s", m.Targets[0].State)
+	}
+	bad := no
+	bad.Heard = "dream"
+	if _, err := RFXReply.Run(ctx, d, bad); err == nil {
+		t.Fatal("bad heard accepted")
+	}
+
+	out := must(t, RFXReply, d, no)
+	c := must(t, ConstraintShow, d, ConstraintShowInput{ID: out.Constraint})
+	if c.SourceURL != "" || c.SourceVerify != "owner: heard in person, 2026-11-10" {
+		t.Fatalf("constraint = %+v", c)
+	}
+	doc, _, _ := getRFX(ctx, d, id)
+	if !strings.Contains(doc.Body, "no (heard in person)") {
+		t.Fatalf("body = %q", doc.Body)
+	}
+	mustLintClean(t, d)
+}

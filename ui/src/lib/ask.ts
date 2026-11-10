@@ -15,23 +15,18 @@ export function settlesAsk(targets: AskTarget[], key: string): boolean {
   return openTargets(targets).every((t) => targetKey(t) === key)
 }
 
+// HEARD are the places a reply was heard; code is the rfx_reply heard value.
 export const HEARD: { code: string; label: string }[] = [
   { code: '', label: 'Not said' },
-  { code: 'in person', label: 'In person' },
-  { code: 'on a call', label: 'On a call' },
-  { code: 'in a message', label: 'In a message' },
+  { code: 'in_person', label: 'In person' },
+  { code: 'call', label: 'On a call' },
+  { code: 'message', label: 'In a message' },
+  { code: 'other', label: 'Somewhere else' },
 ]
 
-// replyText is the reply the owner types, with where it was heard in front. The first line is the
-// reply's title in the vault, so the place goes there.
-export function replyText(answer: string, heard: string): string {
-  const a = answer.trim()
-  return heard ? `Heard ${heard}: ${a}` : a
-}
-
 // needsLink says whether a reply must carry a link: a no is recorded as a constraint, which keeps
-// its source URL.
-export const needsLink = (outcome: string) => outcome === 'no'
+// its source. The owner can give where it was heard instead of a link.
+export const needsLink = (outcome: string, heard = '') => outcome === 'no' && !heard
 
 // droppedNote is the note a drop leaves on the Ask.
 export const droppedNote = (reason: string) => `Dropped: ${reason.trim()}`

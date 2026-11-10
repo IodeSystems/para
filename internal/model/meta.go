@@ -80,7 +80,9 @@ type Meta interface {
 
 // Source is the source block of format.md § 4.
 type Source struct {
-	URL       string   `yaml:"url" json:"url"`
+	URL string `yaml:"url" json:"url"`
+	// Verify stands in for URL on a constraint the owner heard with no link: who and where.
+	Verify    string   `yaml:"verify,omitempty" json:"verify,omitempty"`
 	Retrieved string   `yaml:"retrieved" json:"retrieved"`
 	Hash      string   `yaml:"hash,omitempty" json:"hash,omitempty"`
 	Fidelity  Fidelity `yaml:"fidelity" json:"fidelity"`

@@ -148,7 +148,7 @@ func AnnotationOf(d model.Document, areas Areas) (Fold, bool) {
 		f.Callout.Kind = "constraint"
 		set("why", m.Why)
 		set("by", m.By)
-		set("source", m.Source.URL)
+		set("source", cmp.Or(m.Source.URL, m.Source.Verify))
 		set("applies_in", join(m.AppliesIn))
 		set("not_in", join(m.NotIn))
 		set("review_by", string(m.ReviewBy))

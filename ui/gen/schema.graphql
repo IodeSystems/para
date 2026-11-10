@@ -1277,6 +1277,7 @@ input para_ConstraintAddInputInput {
   says: String!
   source: String!
   text: String
+  verify: String
   why: String!
 }
 
@@ -1300,6 +1301,7 @@ type para_ConstraintShowOutput {
   reviewBy: String!
   says: String!
   sourceUrl: String!
+  sourceVerify: String
   why: String!
 }
 
@@ -1312,6 +1314,7 @@ type para_ConstraintView {
   reviewBy: String!
   says: String!
   sourceUrl: String!
+  sourceVerify: String
   why: String!
 }
 
@@ -6610,10 +6613,18 @@ type para_RFXPathsOutput {
   title: String!
 }
 
+enum para_RFXReplyInputHeard {
+  call
+  in_person
+  message
+  other
+}
+
 input para_RFXReplyInputInput {
   appliesIn: [String!]
   date: String
   from: String!
+  heard: para_RFXReplyInputHeard
   id: String!
   notIn: [String!]
   outcome: para_RFXReplyInputOutcome!
@@ -7869,6 +7880,7 @@ type para_Source {
   status: String
   untrusted: Boolean
   url: String!
+  verify: String
 }
 
 enum para_SourceAddInputExample {

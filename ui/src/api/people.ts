@@ -18,6 +18,21 @@ const PeopleDoc = graphql(/* GraphQL */ `
   }
 `)
 
+const GroupsDoc = graphql(/* GraphQL */ `
+  query Groups {
+    para {
+      v1 {
+        orgGroupList {
+          items {
+            id
+            title
+          }
+        }
+      }
+    }
+  }
+`)
+
 const WhoDoc = graphql(/* GraphQL */ `
   query Who($query: String!) {
     para {
@@ -77,6 +92,14 @@ export function usePeople() {
     queryKey: ['people'],
     queryFn: async () =>
       need((await gqlClient.request(PeopleDoc)).para.v1.orgPersonList, 'people').items,
+  })
+}
+
+export function useGroups() {
+  return useQuery({
+    queryKey: ['groups'],
+    queryFn: async () =>
+      need((await gqlClient.request(GroupsDoc)).para.v1.orgGroupList, 'groups').items,
   })
 }
 

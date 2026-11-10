@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -659,7 +660,7 @@ func annotationDoc(area model.Document, c paramd.Callout) (model.Document, bool)
 	case "constraint":
 		common.Type, folder = model.TypeConstraint, model.FolderConstraints
 		meta = &model.Constraint{Common: common, Why: c.Field("why"), By: c.Field("by"),
-			Source:    model.Source{URL: c.Field("source"), Fidelity: model.FidelityNone},
+			Source:    annotationSource(c.Field("source")),
 			AppliesIn: list("applies_in"), NotIn: list("not_in"), ReviewBy: model.Date(c.Field("review_by")), Refines: model.Link(c.Field("refines"))}
 	default:
 		return model.Document{}, false
@@ -688,4 +689,13 @@ func foldedInto(m model.Meta) string {
 		return x.FoldedInto.Target()
 	}
 	return ""
+}
+
+// annotationSource reads a constraint annotation's source: a URL, or the sentence
+// that tells where the owner heard a no with no link.
+func annotationSource(v string) model.Source {
+	if u, err := url.Parse(v); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != "" {
+		return model.Source{URL: v, Fidelity: model.FidelityNone}
+	}
+	return model.Source{Verify: v, Fidelity: model.FidelityNone}
 }

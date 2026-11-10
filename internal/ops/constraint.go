@@ -12,20 +12,22 @@ import (
 // ConstraintView is a constraint as list and show report it. Says is the
 // document title: the "no" itself.
 type ConstraintView struct {
-	ID        string     `json:"id"`
-	Says      string     `json:"says"`
-	Why       string     `json:"why"`
-	By        string     `json:"by"`
-	SourceURL string     `json:"source_url"`
-	AppliesIn []string   `json:"applies_in"`
-	NotIn     []string   `json:"not_in"`
-	ReviewBy  model.Date `json:"review_by"`
-	Refines   string     `json:"refines,omitempty"` // the constraint this one specializes
+	ID        string `json:"id"`
+	Says      string `json:"says"`
+	Why       string `json:"why"`
+	By        string `json:"by"`
+	SourceURL string `json:"source_url"`
+	// SourceVerify is the sentence that tells where a no with no link was heard.
+	SourceVerify string     `json:"source_verify,omitempty"`
+	AppliesIn    []string   `json:"applies_in"`
+	NotIn        []string   `json:"not_in"`
+	ReviewBy     model.Date `json:"review_by"`
+	Refines      string     `json:"refines,omitempty"` // the constraint this one specializes
 }
 
 func constraintView(doc model.Document, c *model.Constraint) ConstraintView {
 	return ConstraintView{
-		ID: doc.ID, Says: doc.Title, Why: c.Why, By: c.By, SourceURL: c.Source.URL,
+		ID: doc.ID, Says: doc.Title, Why: c.Why, By: c.By, SourceURL: c.Source.URL, SourceVerify: c.Source.Verify,
 		AppliesIn: nonNil(c.AppliesIn), NotIn: nonNil(c.NotIn), ReviewBy: c.ReviewBy, Refines: c.Refines.Target(),
 	}
 }
@@ -57,10 +59,12 @@ func getConstraint(ctx context.Context, d Deps, id string) (model.Document, *mod
 
 // ConstraintAddInput is the input of constraint_add.
 type ConstraintAddInput struct {
-	Says      string   `json:"says"`                 // the "no", one line
-	Why       string   `json:"why"`                  // the reason given
-	By        string   `json:"by"`                   // who said it
-	Source    string   `json:"source"`               // where: stable http(s) URL
+	Says   string `json:"says"`   // the "no", one line
+	Why    string `json:"why"`    // the reason given
+	By     string `json:"by"`     // who said it
+	Source string `json:"source"` // where: stable http(s) URL
+	// Verify replaces source for the owner's no heard with no link: one line, who and where.
+	Verify    string   `json:"verify,omitempty"`
 	AppliesIn []string `json:"applies_in,omitempty"` // scopes where it holds
 	NotIn     []string `json:"not_in,omitempty"`     // scopes where it does not
 	ReviewBy  string   `json:"review_by"`            // YYYY-MM-DD, when to ask again
@@ -86,9 +90,17 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 			return ConstraintAddOutput{}, err
 		}
 	}
-	u, err := checkURL(in.Source)
-	if err != nil {
-		return ConstraintAddOutput{}, fmt.Errorf("source: %w", err)
+	var u, verify string
+	if strings.TrimSpace(in.Source) == "" && strings.TrimSpace(in.Verify) != "" && !agentSurface(d) {
+		var err error
+		if verify, err = oneLine("verify", in.Verify); err != nil {
+			return ConstraintAddOutput{}, err
+		}
+	} else {
+		var err error
+		if u, err = checkURL(in.Source); err != nil {
+			return ConstraintAddOutput{}, fmt.Errorf("source: %w", err)
+		}
 	}
 	if err := checkDate("review_by", in.ReviewBy); err != nil {
 		return ConstraintAddOutput{}, err
@@ -104,7 +116,7 @@ var ConstraintAdd = define("constraint_add", "Record a justified no: says, why, 
 		Meta: &model.Constraint{
 			Common: model.Common{Type: model.TypeConstraint},
 			Why:    f[1], By: f[2],
-			Source:    model.Source{URL: u, Retrieved: timestamp(), Fidelity: model.FidelityNone, Backend: backendManual},
+			Source:    model.Source{URL: u, Verify: verify, Retrieved: timestamp(), Fidelity: model.FidelityNone, Backend: backendManual},
 			AppliesIn: splitList(in.AppliesIn), NotIn: splitList(in.NotIn),
 			ReviewBy: model.Date(in.ReviewBy), Refines: refines,
 		},

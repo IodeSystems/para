@@ -820,7 +820,9 @@ func (l *linter) checkSource(name string, v any) {
 		return
 	}
 	u := str(m["url"])
-	if pu, err := url.Parse(u); err != nil || (pu.Scheme != "http" && pu.Scheme != "https") || pu.Host == "" {
+	if pu, err := url.Parse(u); u == "" && str(m["verify"]) != "" {
+		// A no the owner heard with no link cites where and when instead.
+	} else if err != nil || (pu.Scheme != "http" && pu.Scheme != "https") || pu.Host == "" {
 		bad("url %q must be an absolute http(s) URL", u)
 	}
 	switch r := m["retrieved"].(type) {

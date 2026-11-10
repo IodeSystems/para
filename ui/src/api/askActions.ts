@@ -38,7 +38,8 @@ const PathAddDoc = graphql(/* GraphQL */ `
 type ReplyVars = typeof ReplyDoc extends { __apiType?: (v: infer V) => unknown } ? V : never
 type PathVars = typeof PathAddDoc extends { __apiType?: (v: infer V) => unknown } ? V : never
 
-export type ReplyBody = Omit<ReplyVars['body'], 'outcome' | 'via'> & {
+export type ReplyBody = Omit<ReplyVars['body'], 'outcome' | 'via' | 'heard'> & {
+  heard?: string
   outcome: string
   via: string
 }
