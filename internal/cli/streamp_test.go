@@ -21,11 +21,16 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 		"io_revisions": {`{"id":"io-p-out-dl"}`, []string{"io", "revisions", "io-p-out-dl"}, true},
 		"io_diff":      {`{"id":"io-p-out-dl"}`, []string{"io", "diff", "io-p-out-dl"}, true},
 		"io_made":      {`{"id":"io-p-show"}`, []string{"io", "made", "io-p-show"}, true},
+		"io_proposals": {`{}`, []string{"io", "proposals"}, true},
+		"io_sent":      {`{}`, []string{"io", "sent"}, true},
 		"io_file": {`{"id":"io-p-a","to":"task","project":"project-a"}`,
 			[]string{"io", "file", "io-p-b", "--to", "task", "--project", "project-a"}, false},
-		"io_edit":        {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},
-		"io_drop":        {`{"id":"io-p-e","reason":"Spam."}`, []string{"io", "drop", "io-p-f", "--reason", "Spam."}, false},
-		"io_send":        {`{"id":"io-p-out-a","url":"https://mail.acme.example/1"}`, []string{"io", "send", "io-p-out-b", "--url", "https://mail.acme.example/2"}, false},
+		"io_edit": {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},
+		"io_drop": {`{"id":"io-p-e","reason":"Spam."}`, []string{"io", "drop", "io-p-f", "--reason", "Spam."}, false},
+		"io_send": {`{"id":"io-p-out-a","url":"https://mail.acme.example/1"}`, []string{"io", "send", "io-p-out-b", "--url", "https://mail.acme.example/2"}, false},
+		"io_attempt": {`{"id":"io-p-out-c","result":"failed","error":"Refused."}`,
+			[]string{"io", "attempt", "io-p-out-d", "--result", "failed", "--error", "Refused."}, false},
+		"io_review":      {`{"ids":["io-p-rv"]}`, []string{"io", "review", "io-p-rv"}, false},
 		"delegation_run": {`{"id":"io-p-out-dl","agent":"worker-q"}`, []string{"delegation", "run", "io-p-out-dl", "--agent", "worker-q"}, true},
 		"rfx_reply": {`{"id":"rfx-p-a","from":"person-seed","outcome":"no","text":"Not this quarter.","why":"Audit freeze","url":"https://chat.acme.example/t/1"}`,
 			[]string{"rfx", "reply", "rfx-p-b", "--from", "person-seed", "--outcome", "no", "--why", "Audit freeze", "--url", "https://chat.acme.example/t/2"}, false},
@@ -41,7 +46,7 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 func seedStreamPParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
-	for _, id := range []string{"io-p-show", "io-p-a", "io-p-b", "io-p-c", "io-p-d", "io-p-e", "io-p-f"} {
+	for _, id := range []string{"io-p-show", "io-p-rv", "io-p-a", "io-p-b", "io-p-c", "io-p-d", "io-p-e", "io-p-f"} {
 		if _, err := deps.Store.Create(ctx, model.Document{
 			ID: id, Folder: model.FolderIO, Title: "Capture " + id, Body: "Capture " + id,
 			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOIn, Medium: model.MediumOther, State: model.IOUnread},
@@ -49,7 +54,7 @@ func seedStreamPParity(t *testing.T, deps ops.Deps) {
 			t.Fatalf("seed %s: %v", id, err)
 		}
 	}
-	for _, id := range []string{"io-p-out-a", "io-p-out-b", "io-p-out-dl"} {
+	for _, id := range []string{"io-p-out-a", "io-p-out-b", "io-p-out-c", "io-p-out-d", "io-p-out-dl"} {
 		if _, err := deps.Store.Create(ctx, model.Document{
 			ID: id, Folder: model.FolderIO, Title: "Draft " + id, Body: "Draft " + id,
 			Meta: &model.IO{Common: model.Common{Type: model.TypeIO}, Direction: model.IOOut, Medium: model.MediumEmail, State: model.IODraft,

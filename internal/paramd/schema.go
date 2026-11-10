@@ -86,7 +86,7 @@ var (
 	levels             = []string{"low", "medium", "high"}
 	assumptionStatus   = []string{"holds", "changed", "unknown"}
 	ioDirections       = []string{"in", "out"}
-	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped"}
+	ioStates           = []string{"unread", "read", "filed", "draft", "ready", "sent", "dropped", "superseded"}
 	ioExpects          = []string{"response", "none"}
 	efforts            = []string{"xs", "s", "m", "l"}
 	attends            = []string{"yes", "no", "maybe"}

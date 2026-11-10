@@ -50,11 +50,14 @@ func registerWork(r *registrar) {
 	reg(r, ops.IORevisions, get, read)
 	reg(r, ops.IODiff, get, read)
 	reg(r, ops.IOMade, get, read)
+	reg(r, ops.IOProposals, get, read)
+	reg(r, ops.IOSent, get, read)
 	reg(r, ops.IOEdit, post, write)
 	reg(r, ops.IOFile, post, write)
 	reg(r, ops.IODrop, post, write)
 	reg(r, ops.IOSend, post, write)
 	reg(r, ops.IOSendCheck, post, write)
+	reg(r, ops.IOAttempt, post, write)
 	reg(r, ops.TriageRun, post, write)
 	// Idea pools: an agent keeps ideas and lists pools (vault:write); the
 	// owner picks (review:decide, a person op).
@@ -230,6 +233,8 @@ func registerProposals(r *registrar) {
 	// io_approve (a browser session is a person; a bearer key still needs
 	// owner_said). Owner 2026-11-06: PU-PREP.
 	reg(r, ops.IOApprove, post, netguard.ScopeReviewDecide)
+	// The owner marks io reviewed (io_review, person only).
+	reg(r, ops.IOReview, post, netguard.ScopeReviewDecide)
 	reg(r, ops.AgentActivity, get, read)
 	reg(r, ops.AgentList, get, read)
 }

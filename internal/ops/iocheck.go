@@ -257,6 +257,8 @@ var IOSendCheck = defineSafe("io_send_check", "Check an outgoing draft right bef
 		m.HeldBy = append(m.HeldBy, model.LinkTo(f.ID))
 	}
 	m.Held = fmt.Sprintf("Situation changed: %s %s", plural(len(fresh), "new message"), sinceWhat)
+	m.Attempts = append(m.Attempts, model.IOAttempt{At: nowString(d.Store), Actor: d.Store.Info().Actor, Tool: "io_send_check",
+		Medium: m.Medium, Result: model.AttemptHeld, Error: m.Held})
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return out, err

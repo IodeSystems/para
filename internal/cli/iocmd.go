@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,6 +15,7 @@ import (
 
 func newIOCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "io", Short: "Messages not dealt with yet: the inbox (in) and the outbox (out)", Args: cobra.NoArgs}
+	var editPF proposalFlags
 	cmd.AddCommand(
 		newIOAddCmd(l, "add <text>", ""),
 		newIOListCmd(l, "list", "", nil),
@@ -67,6 +69,50 @@ func newIOCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		opCommand(l, ops.IOProposals, binding[ops.IOProposalsInput, ops.IOProposalsOutput]{
+			Use:  "proposals [--group <key>] [--state <state>] [--all]",
+			Args: cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.IOProposalsInput) {
+				fs.StringVar(&in.Group, "group", "", "only this group key")
+				fs.StringVar((*string)(&in.State), "state", "", "only drafts in this state")
+				fs.BoolVar(&in.All, "all", false, "include sent and dropped drafts")
+			},
+			Text: func(w io.Writer, out ops.IOProposalsOutput) error {
+				p := &printer{w: w}
+				for _, g := range out.Groups {
+					p.f("%s\n", g.Group)
+					for _, s := range g.Sets {
+						for _, d := range s.Drafts {
+							p.f("  %s\t%s\t%s\t%s\t%s\n", d.ID, d.State, d.Approval, d.Medium, firstNonEmpty(d.Subject, d.Title))
+						}
+					}
+				}
+				p.f("%d drafts, %d need you\n", out.Count, out.NeedsYou)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.IOSent, binding[ops.IOSentInput, ops.IOSentOutput]{
+			Use:  "sent [--since <day>] [--medium <m>] [--to <id>] [--limit <n>]",
+			Args: cobra.NoArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.IOSentInput) {
+				fs.StringVar(&in.Since, "since", "", "a day or RFC 3339")
+				fs.StringVar((*string)(&in.Medium), "medium", "", "only this medium")
+				fs.StringVar(&in.To, "to", "", "only items to this person, group, or address")
+				fs.IntVar(&in.Limit, "limit", 0, "most rows; default 50")
+			},
+			Text: func(w io.Writer, out ops.IOSentOutput) error {
+				p := &printer{w: w}
+				for _, r := range out.Rows {
+					reply := "-"
+					if r.Reply != nil {
+						reply = r.Reply.ID
+					}
+					p.f("%s\t%s\t%s\t%s\treply %s\t%s\n", r.ID, r.At, r.Medium, strings.Join(r.To, ","), reply, r.Title)
+				}
+				p.f("%d sent\n", len(out.Rows))
+				return p.err
+			},
+		}),
 		opCommand(l, ops.IOMade, binding[ops.IOMadeInput, ops.IOMadeOutput]{
 			Use:  "made <id>",
 			Args: cobra.ExactArgs(1),
@@ -97,8 +143,14 @@ func newIOCmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Voice), "voice", "", voiceHelp)
 				fs.StringVar(&in.Kind, "kind", "", kindHelp)
 				fs.StringVar(&in.Agent, "agent", "", "with --voice for_me: the agent that sends it for you")
+				editPF.bind(fs, &in.Why, &in.Impact, &in.Group, &in.VariantOf)
 			},
-			Bind: func(args []string, in *ops.IOEditInput) error { in.ID = args[0]; return nil },
+			Bind: func(args []string, in *ops.IOEditInput) error {
+				var err error
+				in.ID = args[0]
+				in.Assessments, err = editPF.assessments()
+				return err
+			},
 			Text: func(w io.Writer, out ops.IOEditOutput) error {
 				p := &printer{w: w}
 				for _, wn := range out.Warnings {
@@ -122,15 +174,35 @@ func newIOCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.IOApprove, binding[ops.IOApproveInput, ops.IOApproveOutput]{
-			Use:  "approve <id>",
-			Args: cobra.ExactArgs(1),
+			Use:  "approve <id> [--expect-hash <hash>] | <id>=<hash>...",
+			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.IOApproveInput) {
+				fs.StringVar(&in.ExpectHash, "expect-hash", "", "the draft_hash you saw (io show); refused if the draft changed since")
 				fs.StringVar(&in.OwnerSaid, "owner-said", "", "as an agent: the owner's words that approve this draft, verbatim")
 			},
-			Bind: func(args []string, in *ops.IOApproveInput) error { in.ID = args[0]; return nil },
+			Bind: func(args []string, in *ops.IOApproveInput) error {
+				if len(args) == 1 && !strings.Contains(args[0], "=") {
+					in.ID = args[0]
+					return nil
+				}
+				for _, a := range args {
+					id, hash, ok := strings.Cut(a, "=")
+					if !ok {
+						return fmt.Errorf("%s: with several drafts give each as <id>=<hash>", a)
+					}
+					in.Items = append(in.Items, ops.IOApproveItem{ID: id, ExpectHash: hash})
+				}
+				return nil
+			},
 			Text: func(w io.Writer, out ops.IOApproveOutput) error {
-				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, out.State, out.ApprovedHash)
-				return err
+				p := &printer{w: w}
+				for _, it := range out.Items {
+					p.f("%s\t%s\t%s\n", it.ID, it.State, it.ApprovedHash)
+				}
+				for _, id := range out.Superseded {
+					p.f("%s\tsuperseded\n", id)
+				}
+				return p.err
 			},
 		}),
 		opCommand(l, ops.IOSend, binding[ops.IOSendInput, ops.IOSendOutput]{
@@ -141,6 +213,7 @@ func newIOCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Locator, "locator", "", "where it is, when it has no URL")
 				fs.StringVar(&in.At, "at", "", "RFC 3339 time it was sent; default now")
 				fs.BoolVar(&in.Observed, "observed", false, "as an agent: the owner sent it themself and you only saw it")
+				fs.StringVar(&in.Tool, "tool", "", "what sent it (a connector or command), for the attempt record")
 			},
 			Bind: func(args []string, in *ops.IOSendInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.IOSendOutput) error {
@@ -167,6 +240,37 @@ func newIOCmd(l *loader) *cobra.Command {
 					p.f("%s\tok\tsend by %s\n", out.ID, out.SendBy)
 				}
 				p.f("next\t%s\n", out.Next)
+				return p.err
+			},
+		}),
+		opCommand(l, ops.IOAttempt, binding[ops.IOAttemptInput, ops.IOAttemptOutput]{
+			Use:  "attempt <id> --result failed|held|other [--tool <name>] [--url <url>] [--error <text>]",
+			Args: cobra.ExactArgs(1),
+			Flags: func(fs *pflag.FlagSet, in *ops.IOAttemptInput) {
+				fs.StringVar((*string)(&in.Result), "result", "", "failed, held, or other (required); a send is `io send`")
+				fs.StringVar(&in.Tool, "tool", "", "what you tried it with")
+				fs.StringVar(&in.URL, "url", "", "where the try shows")
+				fs.StringVar(&in.Error, "error", "", "what went wrong; required for failed")
+			},
+			Bind: func(args []string, in *ops.IOAttemptInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.IOAttemptOutput) error {
+				_, err := fmt.Fprintf(w, "%s\t%s\tattempts %d\n", out.ID, out.State, out.Attempts)
+				return err
+			},
+		}),
+		opCommand(l, ops.IOReview, binding[ops.IOReviewInput, ops.IOReviewOutput]{
+			Use:  "review [<id>...] [--group <key>] [--key <thread key>]",
+			Args: cobra.ArbitraryArgs,
+			Flags: func(fs *pflag.FlagSet, in *ops.IOReviewInput) {
+				fs.StringVar(&in.Group, "group", "", "every io item with this group")
+				fs.StringVar(&in.Key, "key", "", "every io item of this thread: an item id, #tag, or channel:<source>/<thread>")
+			},
+			Bind: func(args []string, in *ops.IOReviewInput) error { in.IDs = args; return nil },
+			Text: func(w io.Writer, out ops.IOReviewOutput) error {
+				p := &printer{w: w}
+				for _, id := range out.Reviewed {
+					p.f("%s\treviewed %s\n", id, out.At)
+				}
 				return p.err
 			},
 		}),
@@ -214,6 +318,7 @@ func newInboxCmd(l *loader) *cobra.Command {
 
 func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 	var via ioViaFlags
+	var pf proposalFlags
 	return opCommand(l, ops.IOAdd, binding[ops.IOAddInput, ops.IOAddOutput]{
 		Use:  use,
 		Args: cobra.MinimumNArgs(1),
@@ -238,8 +343,13 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 			fs.StringVar((*string)(&in.Voice), "voice", "", voiceHelp)
 			fs.StringVar(&in.Kind, "kind", "", kindHelp)
 			fs.StringVar(&in.Agent, "agent", "", "with --voice for_me: the agent that sends it for you")
+			pf.bind(fs, &in.Why, &in.Impact, &in.Group, &in.VariantOf)
 		},
 		Bind: func(args []string, in *ops.IOAddInput) error {
+			var err error
+			if in.Assessments, err = pf.assessments(); err != nil {
+				return err
+			}
 			in.Text = strings.Join(args, " ")
 			if dir != "" {
 				in.Direction = dir
@@ -261,6 +371,32 @@ func newIOAddCmd(l *loader, use string, dir model.IODirection) *cobra.Command {
 }
 
 type ioViaFlags struct{ source, ref, thread string }
+
+// proposalFlags are the proposal fields of `io add` and `io edit`.
+type proposalFlags struct{ assess []string }
+
+func (pf *proposalFlags) bind(fs *pflag.FlagSet, why, impact, group, variantOf *string) {
+	fs.StringVar(why, "why", "", "out: why this act, in a sentence")
+	fs.StringVar(impact, "impact", "", "out: what it changes, and for whom")
+	fs.StringVar(group, "group", "", "out: a batch key: drafts you review together")
+	fs.StringVar(variantOf, "variant-of", "", "out: id of a draft this is another variation of")
+	fs.StringArrayVar(&pf.assess, "assess", nil, "out: <name>=<percent>[:<basis>], name confidence, recommend, risk, or your own; repeatable; replaces the list")
+}
+
+// assessments parses --assess values; nil when none were given.
+func (pf *proposalFlags) assessments() ([]model.IOAssessment, error) {
+	var out []model.IOAssessment
+	for _, a := range pf.assess {
+		name, rest, ok := strings.Cut(a, "=")
+		pct, basis, _ := strings.Cut(rest, ":")
+		n, err := strconv.Atoi(strings.TrimSpace(pct))
+		if !ok || err != nil {
+			return nil, fmt.Errorf("--assess %q: want <name>=<percent>[:<basis>]", a)
+		}
+		out = append(out, model.IOAssessment{Name: name, Percent: n, Basis: basis})
+	}
+	return out, nil
+}
 
 const (
 	voiceHelp = "out: as_me (default: you approve it and it goes out as yours) or for_me (an agent sends it for you, stamped, when a rule of .para/delegation.yaml allows it)"

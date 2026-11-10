@@ -487,12 +487,12 @@ func (l *linter) io() {
 	fm := l.f.Frontmatter
 	dir, state := str(fm["direction"]), str(fm["state"])
 	in := map[string]bool{"unread": true, "read": true, "filed": true, "dropped": true}
-	out := map[string]bool{"draft": true, "ready": true, "sent": true, "dropped": true}
+	out := map[string]bool{"draft": true, "ready": true, "sent": true, "dropped": true, "superseded": true}
 	switch {
 	case dir == "in" && state != "" && !in[state]:
 		l.errf(1, CodeFieldValue, "field %q: %q is for an outgoing message; incoming takes unread, read, filed, dropped", "state", state)
 	case dir == "out" && state != "" && !out[state]:
-		l.errf(1, CodeFieldValue, "field %q: %q is for an incoming message; outgoing takes draft, ready, sent, dropped", "state", state)
+		l.errf(1, CodeFieldValue, "field %q: %q is for an incoming message; outgoing takes draft, ready, sent, dropped, superseded", "state", state)
 	}
 	// On an incoming message expects response means the sender waits for a
 	// reply; route is only for the Ask an outgoing one makes.

@@ -83,10 +83,12 @@ type ParaV1MutationNamespace {
   investigate(body: para_InvestigateInputInput!): para_InvestigateOutput @derived(operationId: "investigate")
   ioAdd(body: para_IOAddInputInput!): para_IOAddOutput @derived(operationId: "ioAdd")
   ioApprove(body: para_IOApproveInputInput!): para_IOApproveOutput @derived(operationId: "ioApprove")
+  ioAttempt(body: para_IOAttemptInputInput!): para_IOAttemptOutput @derived(operationId: "ioAttempt")
   ioDone(body: para_IODoneInputInput!): para_IOSendOutput @derived(operationId: "ioDone")
   ioDrop(body: para_IODropInputInput!): para_IODropOutput @derived(operationId: "ioDrop")
   ioEdit(body: para_IOEditInputInput!): para_IOEditOutput @derived(operationId: "ioEdit")
   ioFile(body: para_IOFileInputInput!): para_IOFileOutput @derived(operationId: "ioFile")
+  ioReview(body: para_IOReviewInputInput!): para_IOReviewOutput @derived(operationId: "ioReview")
   ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
   ioSendCheck(body: para_IOSendCheckInputInput!): para_IOSendCheckOutput @derived(operationId: "ioSendCheck")
   itemClose(body: para_ItemCloseInputInput!): para_ItemCloseOutput @derived(operationId: "itemClose")
@@ -260,7 +262,9 @@ type ParaV1QueryNamespace {
   ioDiff(context: Int, from: Int, id: String!, to: Int, unit: String): para_IODiffOutput @derived(operationId: "ioDiff")
   ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState, voice: para_ioListVoice): para_IOListOutput @derived(operationId: "ioList")
   ioMade(id: String!): para_IOMadeOutput @derived(operationId: "ioMade")
+  ioProposals(all: Boolean, group: String, state: para_ioProposalsState): para_IOProposalsOutput @derived(operationId: "ioProposals")
   ioRevisions(id: String!, n: Int): para_IORevisionsOutput @derived(operationId: "ioRevisions")
+  ioSent(limit: Int, medium: para_ioSentMedium, since: String, to: String): para_IOSentOutput @derived(operationId: "ioSent")
   ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
@@ -2789,11 +2793,14 @@ enum para_IOAddInputExpects {
 
 input para_IOAddInputInput {
   agent: String
+  assessments: [para_IOAssessmentInput!]
   at: String
   direction: para_IOAddInputDirection!
   effort: para_IOAddInputEffort
   expects: para_IOAddInputExpects
   from: String
+  group: String
+  impact: String
   importedFrom: para_ImportedFromInput
   kind: String
   medium: para_IOAddInputMedium
@@ -2804,9 +2811,11 @@ input para_IOAddInputInput {
   text: String!
   thread: String
   to: [String!]
+  variantOf: String
   verify: String
   via: para_IOViaInput
   voice: para_IOAddInputVoice
+  why: String
 }
 
 enum para_IOAddInputMedium {
@@ -2870,20 +2879,30 @@ enum para_IOAddOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
 input para_IOApproveInputInput {
-  id: String!
+  expectHash: String
+  id: String
+  items: [para_IOApproveItemInput!]
   ownerSaid: String
+}
+
+input para_IOApproveItemInput {
+  expectHash: String!
+  id: String!
 }
 
 type para_IOApproveOutput {
   approvedHash: String!
   id: String!
+  items: [para_IOApproved!]!
   rev: String!
   selfReported: Boolean!
   state: para_IOApproveOutputState!
+  superseded: [String!]!
 }
 
 enum para_IOApproveOutputState {
@@ -2893,10 +2912,35 @@ enum para_IOApproveOutputState {
   read
   ready
   sent
+  superseded
+  unread
+}
+
+type para_IOApproved {
+  approvedHash: String!
+  id: String!
+  rev: String!
+  state: para_IOApprovedState!
+}
+
+enum para_IOApprovedState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  superseded
   unread
 }
 
 type para_IOAssessment {
+  basis: String
+  name: String!
+  percent: Int!
+}
+
+input para_IOAssessmentInput {
   basis: String
   name: String!
   percent: Int!
@@ -2912,6 +2956,21 @@ type para_IOAttempt {
   url: String
 }
 
+input para_IOAttemptInputInput {
+  error: String
+  id: String!
+  result: para_IOAttemptInputResult!
+  tool: String
+  url: String
+}
+
+enum para_IOAttemptInputResult {
+  failed
+  held
+  other
+  sent
+}
+
 enum para_IOAttemptMedium {
   confluence
   email
@@ -2924,6 +2983,24 @@ enum para_IOAttemptMedium {
   swivel
   teams
   verbal
+}
+
+type para_IOAttemptOutput {
+  attempts: Int!
+  id: String!
+  rev: String!
+  state: para_IOAttemptOutputState!
+}
+
+enum para_IOAttemptOutputState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  superseded
+  unread
 }
 
 enum para_IOAttemptResult {
@@ -2979,6 +3056,7 @@ enum para_IODropOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -2996,9 +3074,12 @@ enum para_IOEditInputExpects {
 
 input para_IOEditInputInput {
   agent: String
+  assessments: [para_IOAssessmentInput!]
   effort: para_IOEditInputEffort
   expects: para_IOEditInputExpects
+  group: String
   id: String!
+  impact: String
   kind: String
   medium: para_IOEditInputMedium
   ref: String
@@ -3007,9 +3088,11 @@ input para_IOEditInputInput {
   subject: String
   text: String
   to: [String!]
+  variantOf: String
   verify: String
   via: para_IOViaInput
   voice: para_IOEditInputVoice
+  why: String
 }
 
 enum para_IOEditInputMedium {
@@ -3033,6 +3116,7 @@ enum para_IOEditInputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -3055,6 +3139,7 @@ enum para_IOEditOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -3129,6 +3214,7 @@ enum para_IOFileOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -3154,6 +3240,7 @@ type para_IOItem {
   deferUntil: String
   digest: Boolean
   direction: para_IOItemDirection!
+  draftHash: String
   effort: para_IOItemEffort
   expects: para_IOItemExpects
   from: String
@@ -3227,6 +3314,7 @@ enum para_IOItemState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -3261,6 +3349,82 @@ type para_IOMadeRow {
   title: String
   type: String
   why: String
+}
+
+type para_IOProposal {
+  answers: para_IoNamed
+  approval: String!
+  approvedHash: String
+  assessments: [para_IOAssessment!]!
+  created: String!
+  held: String
+  heldBy: [String!]!
+  id: String!
+  impact: String
+  kind: String
+  lastAttempt: para_IOAttempt
+  links: [para_IoNamed!]!
+  medium: para_IOProposalMedium!
+  needsYou: Boolean!
+  notStated: [String!]!
+  preview: String!
+  request: String
+  revision: Int!
+  revisions: Int!
+  state: para_IOProposalState!
+  subject: String
+  thread: para_IOThreadTurns!
+  title: String!
+  to: [String!]!
+  why: String
+}
+
+type para_IOProposalGroup {
+  group: String!
+  needsYou: Boolean!
+  sets: [para_IOVariationSet!]!
+}
+
+enum para_IOProposalMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
+}
+
+enum para_IOProposalState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  superseded
+  unread
+}
+
+type para_IOProposalsOutput {
+  count: Int!
+  groups: [para_IOProposalGroup!]!
+  needsYou: Int!
+}
+
+input para_IOReviewInputInput {
+  group: String
+  ids: [String!]
+  key: String
+}
+
+type para_IOReviewOutput {
+  at: String!
+  reviewed: [String!]!
 }
 
 type para_IORevision {
@@ -3309,6 +3473,7 @@ enum para_IOSendCheckOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -3317,6 +3482,7 @@ input para_IOSendInputInput {
   id: String!
   locator: String
   observed: Boolean
+  tool: String
   url: String
 }
 
@@ -3326,6 +3492,7 @@ type para_IOSendOutput {
   id: String!
   rev: String!
   state: para_IOSendOutputState!
+  superseded: [String!]
   warnings: [String!]!
 }
 
@@ -3367,7 +3534,57 @@ enum para_IOSendOutputState {
   read
   ready
   sent
+  superseded
   unread
+}
+
+type para_IOSentAsk {
+  id: String!
+  status: String
+  type: String
+}
+
+type para_IOSentOutput {
+  rows: [para_IOSentRow!]!
+}
+
+type para_IOSentReply {
+  at: String
+  from: String
+  id: String!
+  subject: String
+}
+
+type para_IOSentRow {
+  ask: para_IOSentAsk
+  at: String!
+  group: String
+  id: String!
+  lastAttempt: para_IOAttempt
+  medium: para_IOSentRowMedium!
+  of: Int
+  reply: para_IOSentReply
+  reviewed: String
+  textChanged: Boolean!
+  title: String!
+  to: [String!]!
+  url: String
+  variant: Int
+  variantOf: String
+}
+
+enum para_IOSentRowMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
 }
 
 type para_IOShowOutput {
@@ -3423,6 +3640,19 @@ enum para_IOSourceStatsVia {
 type para_IOStatsOutput {
   sources: [para_IOSourceStats!]!
   text: String!
+}
+
+type para_IOThreadTurns {
+  claimed: Int!
+  done: Int!
+  key: String!
+  queued: Int!
+}
+
+type para_IOVariationSet {
+  drafts: [para_IOProposal!]!
+  needsYou: Boolean!
+  root: String!
 }
 
 type para_IOVia {
@@ -3875,6 +4105,12 @@ enum para_InvestigateOutputStatus {
   failed
   proposed
   queued
+}
+
+type para_IoNamed {
+  id: String!
+  title: String
+  type: String
 }
 
 type para_Item {
@@ -4996,6 +5232,7 @@ enum para_NoticeRefState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -6190,6 +6427,7 @@ type para_ProposalExecutedOutput {
   id: String!
   rev: String!
   state: para_ProposalExecutedOutputState!
+  superseded: [String!]
   warnings: [String!]!
 }
 
@@ -6231,6 +6469,7 @@ enum para_ProposalExecutedOutputState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -9325,6 +9564,7 @@ enum para_ThreadTurnState {
   read
   ready
   sent
+  superseded
   unread
 }
 
@@ -9979,12 +10219,38 @@ enum para_ioListState {
   read
   ready
   sent
+  superseded
   unread
 }
 
 enum para_ioListVoice {
   as_me
   for_me
+}
+
+enum para_ioProposalsState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  superseded
+  unread
+}
+
+enum para_ioSentMedium {
+  confluence
+  email
+  github
+  jira
+  meeting
+  other
+  phone
+  slack
+  swivel
+  teams
+  verbal
 }
 
 enum para_listType {

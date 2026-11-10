@@ -3,7 +3,7 @@ package model
 import "encoding/json"
 
 // ItemHash is the hash of one version of an item: its frontmatter without
-// prepared and updated, and its body. Map keys marshal sorted, so the same
+// prepared, updated, and reviewed, and its body. Map keys marshal sorted, so the same
 // item gives the same hash. Agent work made for an item (fill-gap, prepare)
 // records it, so the same version is not asked for twice.
 func ItemHash(m Meta, body string) string {
@@ -17,6 +17,7 @@ func ItemHash(m Meta, body string) string {
 	}
 	delete(fields, "prepared")
 	delete(fields, "updated")
+	delete(fields, "reviewed") // a review mark is not content (io_review)
 	out, err := json.Marshal(map[string]any{"meta": fields, "body": body})
 	if err != nil {
 		return ""

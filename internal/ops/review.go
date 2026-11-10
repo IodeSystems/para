@@ -242,23 +242,32 @@ type ProposalDoneInput struct {
 	At   string `json:"at,omitempty"` // RFC 3339; default now
 }
 
-// IODoneInput is the input of io_done: the owner sent an outbox draft.
+// IODoneInput is the input of io_done: the owner sent or applied an outbox
+// draft, or a variation of it, themself. ID is the variation that went out.
 type IODoneInput struct {
 	ID      string `json:"id"`
 	URL     string `json:"url,omitempty"`
 	Locator string `json:"locator,omitempty"`
-	Text    string `json:"text,omitempty"` // what was sent; default the draft
+	Text    string `json:"text,omitempty"` // what was sent, when it differs: kept as the next revision
 	At      string `json:"at,omitempty"`   // RFC 3339; default now
 }
 
 // IODone marks an outbox draft sent by the owner, as io_send does, from the
-// web app.
-var IODone = definePerson("io_done", "The owner sent an outbox draft themself: it is marked sent and filed as io_send does (expects none: an interaction; expects response: an Ask). Optional url or locator, text (what was sent), at. People only", func(ctx context.Context, d Deps, in IODoneInput) (IOSendOutput, error) {
+// web app. A final text that differs is saved as a revision first, and the
+// other variations of its set close as superseded (sendIO). One receipt.
+var IODone = withOneReceipt(definePerson("io_done", "The owner sent or applied an outbox draft, or a variation of it, themself: id is the variation that went out. It is marked sent and filed as io_send does (expects none: an interaction; expects response: an Ask), and the other variations of its set (variant_of) close as superseded. Optional url or locator, text (what was sent, when it differs from the draft: kept as its next revision), at. One receipt undoes it. People only", func(ctx context.Context, d Deps, in IODoneInput) (IOSendOutput, error) {
 	doc, m, err := getIO(ctx, d, in.ID)
 	if err != nil {
 		return IOSendOutput{}, err
 	}
 	if text := cleanText(in.Text); text != "" && text != doc.Body && m.Direction == model.IOOut && m.State.Open() {
+		prior, err := model.Render(doc)
+		if err != nil {
+			return IOSendOutput{}, err
+		}
+		if err := saveRevision(ctx, d, doc.ID, m, prior); err != nil {
+			return IOSendOutput{}, err
+		}
 		doc.Body = text
 		doc.Title = ioTitle(m.Subject, doc.Body)
 		if _, err := d.Store.Update(ctx, doc); err != nil {
@@ -266,4 +275,4 @@ var IODone = definePerson("io_done", "The owner sent an outbox draft themself: i
 		}
 	}
 	return sendIO(ctx, d, IOSendInput{ID: doc.ID, URL: in.URL, Locator: firstOf(ioLine(in.Locator), "sent by the owner"), At: in.At})
-})
+}))

@@ -547,7 +547,8 @@ func (IODirection) Enum() []string { return enumStrings(IODirections) }
 var IODirections = []IODirection{IOIn, IOOut}
 
 // IOState is io.state. In: unread, read, filed, dropped. Out: draft, ready,
-// sent, dropped. Filed, sent, and dropped items are dealt with.
+// sent, dropped, superseded (another variation of the same set was approved
+// or sent). Filed, sent, dropped, and superseded items are dealt with.
 type IOState string
 
 const (
@@ -558,18 +559,20 @@ const (
 	IOReady   IOState = "ready"
 	IOSent    IOState = "sent"
 	IODropped IOState = "dropped"
+	// IOSuperseded: an outgoing draft another variation of its set replaced.
+	IOSuperseded IOState = "superseded"
 )
 
 // Enum lists the allowed values, for schema generation.
 func (IOState) Enum() []string { return enumStrings(IOStates) }
 
 // IOStates lists every IOState.
-var IOStates = []IOState{IOUnread, IORead, IOFiled, IODraft, IOReady, IOSent, IODropped}
+var IOStates = []IOState{IOUnread, IORead, IOFiled, IODraft, IOReady, IOSent, IODropped, IOSuperseded}
 
 // IOStatesOf lists the states of one direction.
 func IOStatesOf(dir IODirection) []IOState {
 	if dir == IOOut {
-		return []IOState{IODraft, IOReady, IOSent, IODropped}
+		return []IOState{IODraft, IOReady, IOSent, IODropped, IOSuperseded}
 	}
 	return []IOState{IOUnread, IORead, IOFiled, IODropped}
 }
