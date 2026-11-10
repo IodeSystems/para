@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/para/docs"
-	"github.com/iodesystems/para/internal/props"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/upgrade"
 	"github.com/iodesystems/para/internal/vault"
@@ -20,7 +19,7 @@ import (
 
 func newInitCmd(l *loader) *cobra.Command {
 	var noGit, makeDefault bool
-	var kind string
+	var domain string
 	cmd := &cobra.Command{
 		Use:   "init <id> [path]",
 		Short: "Create a vault and register it (default path: ./<id>)",
@@ -34,13 +33,18 @@ func newInitCmd(l *loader) *cobra.Command {
 			if len(args) == 2 {
 				path = args[1]
 			}
-			out, err := createVault(l, id, path, kind, noGit, makeDefault)
+			out, err := createVault(l, id, path, domain, noGit, makeDefault)
 			if err != nil {
 				return err
 			}
-			return emit(cmd, out, func(w io.Writer, v registry.Vault) error {
+			return emit(cmd, out.Vault, func(w io.Writer, v registry.Vault) error {
 				if _, err := fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Path); err != nil {
 					return err
+				}
+				if len(out.Added) > 0 {
+					if _, err := fmt.Fprintf(w, "domain: %s; added to machine.domains in %s\n", out.Domain, filepath.Join(l.install.Home, "install.properties")); err != nil {
+						return err
+					}
 				}
 				if makeDefault {
 					if _, err := fmt.Fprintf(w, "default vault: %s\n", v.ID); err != nil {
@@ -52,93 +56,70 @@ func newInitCmd(l *loader) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&makeDefault, "default", false, "make this the default vault on this machine (as para vault set-default does; init does not do it on its own)")
-	cmd.Flags().StringVar(&kind, "kind", "", "work or personal: records the machine kind when none is set; a vault of the other kind is refused (para setup asks for it)")
+	cmd.Flags().StringVar(&domain, "domain", "", "domain of the vault: one lowercase word (default: the vault id); added to machine.domains on this machine")
 	cmd.Flags().BoolVar(&noGit, "no-git", false, "do not run git init (the vault may live in a file-sync folder)")
 	addJSONFlag(cmd)
 	return cmd
 }
 
-// machineKind is the kind of this machine. flag is --kind: it records the kind
-// when none is set and must match it when one is. With neither, it refuses.
-func machineKind(l *loader, flag string) (string, error) {
-	if flag != "" && !registry.ValidKind(flag) {
-		return "", fmt.Errorf("init: --kind %q must be work or personal", flag)
-	}
-	have, err := l.install.Kind()
-	if err != nil {
-		return "", err
-	}
-	switch {
-	case have == "" && flag == "":
-		return "", errors.New("init: no machine kind is recorded: run para setup, or pass --kind work|personal (work and personal never share a machine)")
-	case have == "":
-		if err := l.install.SetKind(flag); err != nil {
-			return "", err
-		}
-		return flag, nil
-	case flag != "" && flag != have:
-		return "", fmt.Errorf("init: this machine is %s, not %s: work and personal never share a machine", have, flag)
-	}
-	return have, nil
+// createdVault is the result of createVault: the vault, its domain, and the
+// domains the machine list gained.
+type createdVault struct {
+	registry.Vault
+	Domain string
+	Added  []string
 }
 
-// checkVaultKind refuses a vault of the other kind than this machine. A
-// machine or vault with no kind recorded passes; para doctor warns about it.
-func (l *loader) checkVaultKind(id, path string) error {
-	mk, err := l.install.Kind()
-	if err != nil || mk == "" {
-		return err
+// createVault is para init: it makes the vault with its domain (default: the
+// id), registers it, and adds the domain to machine.domains. It is also the
+// first-vault step of para setup.
+func createVault(l *loader, id, path, domain string, noGit, makeDefault bool) (createdVault, error) {
+	if !vault.ValidID(id) {
+		return createdVault{}, fmt.Errorf("init: id %q must be one lowercase DNS label", id)
 	}
-	cfg, err := props.Load(filepath.Join(path, ".para", "vault.properties"))
-	if err != nil {
-		return nil // not readable here: Open reports it
+	if domain == "" {
+		domain = id
 	}
-	if vk := cfg[vault.KeyKind]; vk != "" && vk != mk {
-		return fmt.Errorf("vault %s is %s and this machine is %s: work and personal never share a machine", id, vk, mk)
-	}
-	return nil
-}
-
-// createVault is para init: it makes the vault, registers it, and records the
-// machine kind. It is also the first-vault step of para setup.
-func createVault(l *loader, id, path, kindFlag string, noGit, makeDefault bool) (registry.Vault, error) {
-	kind, err := machineKind(l, kindFlag)
-	if err != nil {
-		return registry.Vault{}, err
+	if !registry.ValidDomain(domain) {
+		return createdVault{}, fmt.Errorf("init: --domain %q must be one lowercase word", domain)
 	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
-		return registry.Vault{}, fmt.Errorf("init: %w", err)
+		return createdVault{}, fmt.Errorf("init: %w", err)
 	}
 	existing, err := l.install.List()
 	if err != nil {
-		return registry.Vault{}, err
+		return createdVault{}, err
 	}
 	for _, v := range existing {
 		if v.ID == id {
-			return registry.Vault{}, fmt.Errorf("init: vault %q is already registered at %s", id, v.Path)
+			return createdVault{}, fmt.Errorf("init: vault %q is already registered at %s", id, v.Path)
 		}
 	}
 	templates, err := fs.Sub(docs.Templates, "templates")
 	if err != nil {
-		return registry.Vault{}, fmt.Errorf("init: %w", err)
+		return createdVault{}, fmt.Errorf("init: %w", err)
 	}
-	if err := vault.Init(abs, id, templates, vault.InitOptions{NoGit: noGit, FormatVersion: upgrade.Latest(), Kind: kind}); err != nil {
-		return registry.Vault{}, err
+	if err := vault.Init(abs, id, templates, vault.InitOptions{NoGit: noGit, FormatVersion: upgrade.Latest(), Domain: domain}); err != nil {
+		return createdVault{}, err
 	}
 	if err := l.install.Add(id, abs); err != nil {
-		return registry.Vault{}, err
+		return createdVault{}, err
+	}
+	added, err := l.install.AddDomains(domain)
+	if err != nil {
+		return createdVault{}, err
 	}
 	if err := l.baseline(id, abs); err != nil {
-		return registry.Vault{}, err
+		return createdVault{}, err
 	}
 	if makeDefault {
 		// The same call as para vault set-default.
 		if err := l.install.SetDefault(id); err != nil {
-			return registry.Vault{}, err
+			return createdVault{}, err
 		}
 	}
-	return registry.Vault{ID: id, Path: abs}, nil
+	return createdVault{Vault: registry.Vault{ID: id, Path: abs}, Domain: domain, Added: added}, nil
 }
 
 // vaultMCPEntry is the MCP server entry of vault id.
@@ -331,6 +312,9 @@ It applies to you, not to agents: para mcp still needs --vault.`,
 			}
 			sel, err := l.selectVault()
 			if err != nil {
+				return err
+			}
+			if err := l.install.CheckVault(sel.ID, sel.Path); err != nil {
 				return err
 			}
 			if _, err := vault.Open(sel.Path, vault.Options{ID: sel.ID, ReadOnly: true}); err != nil {

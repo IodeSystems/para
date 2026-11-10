@@ -134,7 +134,7 @@ func (l *loader) surface() string {
 
 // depsFor opens the vault id at path as the CLI.
 func (l *loader) depsFor(id, path string) (ops.Deps, error) {
-	if err := l.checkVaultKind(id, path); err != nil {
+	if err := l.install.CheckVault(id, path); err != nil {
 		return ops.Deps{}, err
 	}
 	install, err := l.install.ID()
@@ -211,7 +211,7 @@ func newRoot(l *loader) *cobra.Command {
 	root.AddCommand(
 		newVersionCmd(l),
 		newGuideCmd(),
-		newSkillCmd(),
+		newSkillCmd(l),
 		newInitCmd(l),
 		newVaultCmd(l),
 		newLintCmd(l),

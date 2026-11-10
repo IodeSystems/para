@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -47,8 +48,13 @@ func (l *loader) stdinIsTTY(in io.Reader) bool {
 }
 
 type setupFlags struct {
-	kind, path, agent, agentName string
-	service, noService, print    bool
+	path, agent, agentName string
+	service, noService     bool
+	print, login, dryRun   bool
+	domains                []string // --domain <vault>=<domain>
+	allowDomains           []string // --allow-domain <domain>
+	domainsDefault         bool
+	domainOf               map[string]string
 }
 
 // prompter asks on a terminal.
@@ -98,17 +104,26 @@ func newSetupCmd(l *loader) *cobra.Command {
 	var f setupFlags
 	cmd := &cobra.Command{
 		Use:   "setup",
-		Short: "Walk a new install through doctor, machine kind, first vault, service, sign-in, and agent hookup; a rerun skips what is done",
-		Long: "Set up this machine in order: doctor checks, machine kind (work or personal),\n" +
-			"first vault, the service (para service install + start) and sign-in, then an\n" +
-			"optional agent hookup. A step already done is skipped on a rerun.\n\n" +
+		Short: "Walk a new install through doctor, domains, first vault, service, sign-in, and agent hookup; a rerun skips what is done",
+		Long: "Set up this machine in order: doctor checks, domains, first vault, the service\n" +
+			"(para service install + start) and sign-in, then an optional agent hookup. A\n" +
+			"step already done is skipped on a rerun.\n\n" +
+			"Domains: a vault has a domain (vault.domain, one lowercase word such as life,\n" +
+			"iode, or corp) and a machine holds a list of domains (machine.domains in\n" +
+			"$PARA_HOME/install.properties, never in a vault). A vault opens only on a\n" +
+			"machine that lists its domain; a corp vault stays on the corp machine. Setup\n" +
+			"asks the domain of each registered vault that has none (default: its id),\n" +
+			"then records the union as machine.domains.\n\n" +
 			"On a terminal it asks each question. Every question has a flag. With no\n" +
 			"terminal, a missing answer is listed with its flag and setup exits non-zero\n" +
 			"before it changes anything. An external command (claude mcp add) runs only on\n" +
 			"a yes: a prompt answer or --agent claude. --vault <id> names the first vault.\n" +
 			"--agent none|claude|dun|generic: claude runs claude mcp add and para skill\n" +
 			"install; dun prints para help dun; generic makes an agent key for any MCP\n" +
-			"client over HTTP (--agent-name) and prints its name, URL, and token once.",
+			"client over HTTP (--agent-name) and prints its name, URL, and token once.\n" +
+			"A skill installed by another para version is reinstalled. Sign-in is skipped\n" +
+			"while every served vault has a login key that has not expired (--login signs\n" +
+			"in again). --dry-run prints every step and every write and changes nothing.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
@@ -118,21 +133,39 @@ func newSetupCmd(l *loader) *cobra.Command {
 		},
 	}
 	fl := cmd.Flags()
-	fl.StringVar(&f.kind, "kind", "", "machine kind: work or personal (work and personal never share a machine)")
+	fl.StringArrayVar(&f.domains, "domain", nil, "domain of a registered vault that has none: <vault>=<domain> (repeatable)")
+	fl.BoolVar(&f.domainsDefault, "domains-default", false, "give each vault with no domain its id as domain")
+	fl.StringArrayVar(&f.allowDomains, "allow-domain", nil, "add a domain to machine.domains (repeatable)")
 	fl.StringVar(&f.path, "path", "", "directory of the first vault (with --vault <id>)")
 	fl.BoolVar(&f.service, "service", false, "install and start the service")
 	fl.BoolVar(&f.noService, "no-service", false, "do not install the service")
 	fl.StringVar(&f.agent, "agent", "", "hook up an agent: none, claude, dun, or generic (default: ask; no terminal: none)")
 	fl.StringVar(&f.agentName, "agent-name", "", "with --agent generic: the key name and actor of the agent")
 	fl.BoolVar(&f.print, "print", false, "print the sign-in URLs (they hold tokens) instead of opening a browser")
+	fl.BoolVar(&f.login, "login", false, "sign in even when every served vault has a login key that has not expired")
+	fl.BoolVar(&f.dryRun, "dry-run", false, "print what each step would do and each write, and change nothing")
 	return cmd
 }
 
+// vaultsWithoutDomain lists the registered vaults with no vault.domain.
+func vaultsWithoutDomain(vaults []registry.Vault) []string {
+	var ids []string
+	for _, v := range vaults {
+		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
+		if err == nil && cfg[vault.KeyDomain] == "" {
+			ids = append(ids, v.ID)
+		}
+	}
+	return ids
+}
+
 // setupMissing lists what a run with no terminal would have to ask.
-func setupMissing(firstID string, f setupFlags, vaults []registry.Vault, mk string) []string {
+func setupMissing(firstID string, f setupFlags, vaults []registry.Vault, noDomain []string) []string {
 	var m []string
-	if mk == "" && f.kind == "" {
-		m = append(m, "--kind work|personal      machine kind")
+	for _, id := range noDomain {
+		if f.domainOf[id] == "" && !f.domainsDefault {
+			m = append(m, fmt.Sprintf("--domain %s=<domain>  domain of vault %s (or --domains-default for every vault: its id)", id, id))
+		}
 	}
 	if len(vaults) == 0 && (firstID == "" || f.path == "") {
 		m = append(m, "--vault <id> --path <dir>  first vault")
@@ -146,14 +179,29 @@ func setupMissing(firstID string, f setupFlags, vaults []registry.Vault, mk stri
 	return m
 }
 
+// would prints one planned action of a dry run.
+func would(w io.Writer, format string, a ...any) {
+	_, _ = fmt.Fprintf(w, "    would %s\n", fmt.Sprintf(format, a...))
+}
+
 func runSetup(l *loader, cmd *cobra.Command, f setupFlags) error {
 	w := cmd.OutOrStdout()
 	// --vault names the first vault: it is not registered yet, so doctor and the
 	// kind step run without it.
 	firstID := l.vaultFlag
 	l.vaultFlag = ""
-	if f.kind != "" && !registry.ValidKind(f.kind) {
-		return fmt.Errorf("setup: --kind %q must be work or personal", f.kind)
+	f.domainOf = map[string]string{}
+	for _, kv := range f.domains {
+		id, d, ok := strings.Cut(kv, "=")
+		if !ok || id == "" || !registry.ValidDomain(d) {
+			return fmt.Errorf("setup: --domain %q must be <vault>=<domain>, the domain one lowercase word", kv)
+		}
+		f.domainOf[id] = d
+	}
+	for _, d := range f.allowDomains {
+		if !registry.ValidDomain(d) {
+			return fmt.Errorf("setup: --allow-domain %q must be one lowercase word", d)
+		}
 	}
 	if f.service && f.noService {
 		return errors.New("setup: --service and --no-service exclude each other")
@@ -171,24 +219,34 @@ func runSetup(l *loader, cmd *cobra.Command, f setupFlags) error {
 	if err != nil {
 		return err
 	}
-	mk, err := l.install.Kind()
-	if err != nil {
-		return err
+	for id := range f.domainOf {
+		if id != firstID && !slices.ContainsFunc(vaults, func(v registry.Vault) bool { return v.ID == id }) {
+			return fmt.Errorf("setup: --domain %s=...: no vault %s is registered", id, id)
+		}
+	}
+	if f.dryRun {
+		_, _ = fmt.Fprintln(w, "dry run: nothing is written, installed, started, or run")
 	}
 	if !tty {
-		if m := setupMissing(firstID, f, vaults, mk); len(m) > 0 {
-			_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "setup: no terminal to ask on; pass:")
-			for _, x := range m {
-				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  "+x)
+		if m := setupMissing(firstID, f, vaults, vaultsWithoutDomain(vaults)); len(m) > 0 {
+			if !f.dryRun {
+				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "setup: no terminal to ask on; pass:")
+				for _, x := range m {
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  "+x)
+				}
+				return errors.New("setup: missing answers")
 			}
-			return errors.New("setup: missing answers")
+			_, _ = fmt.Fprintln(w, "no terminal to ask on; a real run needs:")
+			for _, x := range m {
+				_, _ = fmt.Fprintln(w, "  "+x)
+			}
 		}
 	}
 
 	if err := setupDoctor(l, cmd, p, tty); err != nil {
 		return err
 	}
-	if err := setupKind(l, cmd, p, tty, f, vaults); err != nil {
+	if err := setupDomains(l, cmd, p, tty, f, vaults); err != nil {
 		return err
 	}
 	if err := setupVault(l, cmd, p, tty, f, firstID); err != nil {
@@ -198,10 +256,14 @@ func runSetup(l *loader, cmd *cobra.Command, f setupFlags) error {
 	if err := setupService(l, cmd, p, tty, f); err != nil {
 		return err
 	}
-	if err := setupAgent(l, cmd, p, tty, f); err != nil {
+	if err := setupAgent(l, cmd, p, tty, f, firstID); err != nil {
 		return err
 	}
 	_, _ = fmt.Fprintln(w)
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "setup: dry run, nothing changed")
+		return nil
+	}
 	_ = verdict(w, toneOK, "setup: done")
 	_, err = fmt.Fprintln(w, "Last step: open your agent and run the `bootstrap` prompt (MCP prompt \"bootstrap\"; para bootstrap prints it) for the first interview.")
 	return err
@@ -235,77 +297,124 @@ func setupDoctor(l *loader, cmd *cobra.Command, p *prompter, tty bool) error {
 	}
 }
 
-func setupKind(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, vaults []registry.Vault) error {
+// setupDomains gives each registered vault with no domain one (through
+// vault.SetConfig), then records the union of the domains as machine.domains.
+// Only the owner changes the machine list, and only here and in para init.
+func setupDomains(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, vaults []registry.Vault) error {
 	w := cmd.OutOrStdout()
-	have, err := l.install.Kind()
+	have, err := l.install.Domains()
 	if err != nil {
 		return err
 	}
-	if have != "" {
-		if f.kind != "" && f.kind != have {
-			return fmt.Errorf("setup: this machine is %s, not %s: work and personal never share a machine", have, f.kind)
-		}
-		if err := verdict(w, toneOK, "machine kind: %s (recorded)", have); err != nil {
+	install := ""
+	if !f.dryRun {
+		if install, err = l.install.ID(); err != nil {
 			return err
 		}
-		return stampVaultKinds(l, cmd, have, vaults)
 	}
-	kind := f.kind
-	for kind == "" && tty {
-		a, err := p.ask("Is this machine for work or personal? Work and personal never share a machine", "")
-		if err != nil {
-			return err
-		}
-		if registry.ValidKind(a) {
-			kind = a
-		}
-	}
-	for _, v := range vaults {
-		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
-		if err == nil && cfg[vault.KeyKind] != "" && cfg[vault.KeyKind] != kind {
-			return fmt.Errorf("setup: vault %s is %s: this machine cannot be %s", v.ID, cfg[vault.KeyKind], kind)
-		}
-	}
-	if err := l.install.SetKind(kind); err != nil {
-		return err
-	}
-	if err := verdict(w, toneOK, "machine kind: %s (recorded in %s)", kind, filepath.Join(l.install.Home, "install.properties")); err != nil {
-		return err
-	}
-	return stampVaultKinds(l, cmd, kind, vaults)
-}
-
-// stampVaultKinds writes vault.kind=kind into each registered vault that has
-// none, through vault.SetConfig (vault lock; only that key changes). A vault of
-// another kind is left alone and reported. A vault that has the kind is silent.
-func stampVaultKinds(l *loader, cmd *cobra.Command, kind string, vaults []registry.Vault) error {
-	w := cmd.OutOrStdout()
-	install, err := l.install.ID()
-	if err != nil {
-		return err
-	}
+	var chosen, existing []string // chosen: stamped or named now; existing: read from vaults
 	for _, v := range vaults {
 		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
 		if err != nil {
-			_ = verdict(w, toneWarn, "vault kind: %s not readable: %v", v.ID, err)
+			_ = verdict(w, toneWarn, "vault domain: %s not readable: %v", v.ID, err)
 			continue
 		}
-		switch vk := cfg[vault.KeyKind]; vk {
-		case kind:
-		case "":
+		file := filepath.Join(v.Path, ".para", "vault.properties")
+		if d := cfg[vault.KeyDomain]; d != "" {
+			if fd := f.domainOf[v.ID]; fd != "" && fd != d {
+				return fmt.Errorf("setup: vault %s is domain %s; --domain %s=%s would change it: edit %s yourself if you mean it", v.ID, d, v.ID, fd, file)
+			}
+			existing = append(existing, d)
+			continue
+		}
+		d := f.domainOf[v.ID]
+		switch {
+		case d != "":
+		case f.domainsDefault || (f.dryRun && !tty):
+			d = v.ID
+		default:
+			for d == "" {
+				a, err := p.ask("Domain of vault "+v.ID+" (one lowercase word: who controls its data, such as life, iode, corp)", v.ID)
+				if err != nil {
+					return err
+				}
+				if registry.ValidDomain(a) {
+					d = a
+				}
+			}
+		}
+		if !registry.ValidDomain(d) {
+			return fmt.Errorf("setup: vault %s: domain %q must be one lowercase word", v.ID, d)
+		}
+		if f.dryRun {
+			_ = verdict(w, toneWarn, "domain: %s would be marked %s", v.ID, d)
+			would(w, "write %s: %s=%s", file, vault.KeyDomain, d)
+		} else {
 			vv, err := vault.Open(v.Path, vault.Options{ID: v.ID, Actor: cliActor, Surface: cliSurface, Install: install, StateDir: l.stateDir(v.ID)})
 			if err != nil {
-				return fmt.Errorf("setup: vault kind: %w", err)
+				return fmt.Errorf("setup: vault domain: %w", err)
 			}
-			if err := vv.SetConfig(cmd.Context(), vault.KeyKind, kind); err != nil {
-				return fmt.Errorf("setup: vault kind: %s: %w", v.ID, err)
+			if err := vv.SetConfig(cmd.Context(), vault.KeyDomain, d); err != nil {
+				return fmt.Errorf("setup: vault domain: %s: %w", v.ID, err)
 			}
-			_ = verdict(w, toneOK, "vault kind: %s marked %s", v.ID, kind)
+			_ = verdict(w, toneOK, "domain: %s marked %s", v.ID, d)
+		}
+		chosen = append(chosen, d)
+	}
+	for _, d := range f.allowDomains {
+		chosen = append(chosen, d)
+	}
+	// A vault already marked with a domain the machine list lacks: the first
+	// record takes it; a list that exists needs a yes.
+	for _, d := range existing {
+		switch {
+		case slices.Contains(have, d) || slices.Contains(chosen, d):
+		case len(have) == 0:
+			chosen = append(chosen, d)
+		case tty && !f.dryRun:
+			yes, err := p.yesNo("A vault here is domain "+d+", which machine.domains lacks. Add it?", false)
+			if err != nil {
+				return err
+			}
+			if yes {
+				chosen = append(chosen, d)
+			}
 		default:
-			_ = verdict(w, toneWarn, "vault kind: %s is %s, this machine is %s: left alone; remove the vault from this machine", v.ID, vk, kind)
+			_ = verdict(w, toneWarn, "domain: a vault here is %s, not in machine.domains; para setup --allow-domain %s adds it", d, d)
 		}
 	}
-	return nil
+	union := slices.Clone(have)
+	for _, d := range chosen {
+		if !slices.Contains(union, d) {
+			union = append(union, d)
+		}
+	}
+	file := filepath.Join(l.install.Home, "install.properties")
+	if len(union) == 0 {
+		return verdict(w, toneWarn, "domains: none yet; the first para init or para setup vault records one")
+	}
+	_, _ = fmt.Fprintf(w, "This machine holds domains: %s\n", strings.Join(union, ", "))
+	if len(union) == len(have) {
+		return verdict(w, toneOK, "domains: %s (recorded)", strings.Join(have, ", "))
+	}
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "domains: would be recorded")
+		would(w, "write %s: machine.domains=%s", file, strings.Join(union, ","))
+		return nil
+	}
+	if tty {
+		yes, err := p.yesNo("Record these as machine.domains?", true)
+		if err != nil {
+			return err
+		}
+		if !yes {
+			return verdict(w, toneWarn, "domains: not recorded; vaults open only while machine.domains is empty or lists their domain")
+		}
+	}
+	if err := l.install.SetDomains(union); err != nil {
+		return err
+	}
+	return verdict(w, toneOK, "domains: %s (recorded in %s)", strings.Join(union, ", "), file)
 }
 
 func setupVault(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, firstID string) error {
@@ -322,6 +431,9 @@ func setupVault(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFla
 		return verdict(w, toneOK, "vault: %s (registered)", strings.Join(ids, ", "))
 	}
 	id, path := firstID, f.path
+	if f.dryRun && !tty && (id == "" || path == "") {
+		return verdict(w, toneWarn, "vault: none registered; a real run needs --vault <id> --path <dir>")
+	}
 	if id == "" {
 		if id, err = p.ask("Id of the first vault (one lowercase word, such as life)", ""); err != nil {
 			return err
@@ -336,11 +448,25 @@ func setupVault(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFla
 			return err
 		}
 	}
-	v, err := createVault(l, id, path, "", false, true)
+	domain := f.domainOf[id]
+	if domain == "" {
+		domain = id
+	}
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "vault: %s at %s would be created (default)", id, path)
+		would(w, "create the vault folders and %s with vault.id=%s, %s=%s", filepath.Join(path, ".para", "vault.properties"), id, vault.KeyDomain, domain)
+		would(w, "register it in %s and make it the default vault", l.install.Home)
+		would(w, "write %s: machine.domains gains %s", filepath.Join(l.install.Home, "install.properties"), domain)
+		return nil
+	}
+	v, err := createVault(l, id, path, domain, false, true)
 	if err != nil {
 		return err
 	}
-	return verdict(w, toneOK, "vault: %s at %s (default)", v.ID, v.Path)
+	if len(v.Added) > 0 {
+		_ = verdict(w, toneOK, "domains: %s added to machine.domains", v.Domain)
+	}
+	return verdict(w, toneOK, "vault: %s at %s (default, domain %s)", v.ID, v.Path, v.Domain)
 }
 
 // waitServer waits up to d for a live server record.
@@ -379,6 +505,10 @@ func setupService(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupF
 	default:
 		want := f.service
 		if !f.service && !f.noService {
+			if f.dryRun && !tty {
+				_ = verdict(w, toneWarn, "service: not chosen; a real run needs --service or --no-service")
+				return setupSignIn(l, cmd, f, false)
+			}
 			var err error
 			if want, err = p.yesNo("Install the service (starts the web UI at login, port 7700)?", true); err != nil {
 				return err
@@ -392,6 +522,12 @@ func setupService(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupF
 		if err != nil {
 			return fmt.Errorf("setup: service: %w", err)
 		}
+		if f.dryRun {
+			_ = verdict(w, toneWarn, "service: would be installed and started")
+			would(w, "run: para service install --exec %s", exe)
+			would(w, "run: para service start")
+			return setupSignIn(l, cmd, f, true)
+		}
 		if out, err := subCommand(l, cmd, "service", "install", "--exec", exe); err != nil {
 			return fmt.Errorf("setup: service install: %w\n%s", err, out)
 		}
@@ -404,8 +540,67 @@ func setupService(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupF
 	if started {
 		waitServer(l.install.Home, l.setupWait())
 	}
-	if _, ok := server.ReadRecord(l.install.Home); !ok {
+	return setupSignIn(l, cmd, f, false)
+}
+
+// loginFresh reports whether every vault the server serves has a login key
+// that is not revoked or expired.
+func loginFresh(l *loader, at serverAt) (bool, error) {
+	var ids []string
+	if at.Rec != nil {
+		ids = at.Rec.Vaults
+	}
+	if len(ids) == 0 {
+		vs, err := l.install.List()
+		if err != nil {
+			return false, err
+		}
+		for _, v := range vs {
+			ids = append(ids, v.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return false, nil
+	}
+	for _, id := range ids {
+		act, err := keys.New(server.ServerDir(l.install, id)).ActiveLogins()
+		if err != nil {
+			return false, err
+		}
+		if len(act) == 0 {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// setupSignIn signs the browser in, unless every served vault already has a
+// login key that has not expired and --login is not given. serverComing is a
+// dry run's service start.
+func setupSignIn(l *loader, cmd *cobra.Command, f setupFlags, serverComing bool) error {
+	w := cmd.OutOrStdout()
+	rec, up := server.ReadRecord(l.install.Home)
+	if f.dryRun && serverComing && !up {
+		_ = verdict(w, toneWarn, "sign-in: would run para login once the server is up")
+		would(w, "mint a login key per vault (vault:read, review:decide, 30 days) and open the browser")
+		return nil
+	}
+	if !up {
 		return verdict(w, toneWarn, "sign-in: no server is running. Start it: para service start, or para serve; then para login")
+	}
+	if !f.login {
+		fresh, err := loginFresh(l, serverAt{Addr: rec.Addr, Source: "record", Rec: &rec})
+		if err != nil {
+			return err
+		}
+		if fresh {
+			return verdict(w, toneOK, "sign-in: already (para login to sign in again)")
+		}
+	}
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "sign-in: would run para login")
+		would(w, "mint a login key per served vault (vault:read, review:decide, 30 days) and open the browser")
+		return nil
 	}
 	if err := runLogin(l, cmd, "", f.print, false, keys.LoginTTL); err != nil {
 		return verdict(w, toneWarn, "sign-in: %v", err)
@@ -434,16 +629,41 @@ func claudeHooked(name string) bool {
 	return ok
 }
 
-func skillInstalled() bool {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return false
+// setupSkill brings the installed para skill to this binary's version. A skill
+// that is installed and of another version is updated whatever agent is chosen;
+// a missing one is installed only when install is true.
+func setupSkill(l *loader, cmd *cobra.Command, f setupFlags, install bool) error {
+	w := cmd.OutOrStdout()
+	have, ok := installedSkill("")
+	switch {
+	case ok && have == l.version:
+		return nil
+	case !ok && !install:
+		return nil
 	}
-	_, err = os.Stat(filepath.Join(home, ".claude", "skills", "para", "SKILL.md"))
-	return err == nil
+	dir, err := defaultSkillsDir()
+	if err != nil {
+		return err
+	}
+	if f.dryRun {
+		if ok {
+			_ = verdict(w, toneWarn, "agent: would update para skill (%s → %s)", skillVersionLabel(have), l.version)
+		} else {
+			_ = verdict(w, toneWarn, "agent: would install para skill (%s)", l.version)
+		}
+		would(w, "write %s and its reference files, %s=%s", filepath.Join(dir, "para", "SKILL.md"), skillVersionFile, l.version)
+		return nil
+	}
+	if _, err := installSkill("", l.version); err != nil {
+		return fmt.Errorf("setup: agent: skill install: %w", err)
+	}
+	if ok {
+		return verdict(w, toneOK, "agent: para skill updated (%s → %s)", skillVersionLabel(have), l.version)
+	}
+	return verdict(w, toneOK, "agent: para skill installed")
 }
 
-func setupAgent(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags) error {
+func setupAgent(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, firstID string) error {
 	w := cmd.OutOrStdout()
 	agent := f.agent
 	if agent == "" {
@@ -460,12 +680,21 @@ func setupAgent(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFla
 			}
 		}
 	}
+	if agent != "claude" {
+		if err := setupSkill(l, cmd, f, false); err != nil {
+			return err
+		}
+	}
 	if agent == "none" {
 		_ = verdict(w, toneWarn, "agent: skipped; later: para setup --agent claude|dun|generic")
 		return writeWorkerNote(cmd, l)
 	}
 	sel, err := l.selectVault()
 	if err != nil {
+		if f.dryRun && firstID != "" {
+			_ = verdict(w, toneWarn, "agent: %s would be hooked up once vault %s exists", agent, firstID)
+			return writeWorkerNote(cmd, l)
+		}
 		return fmt.Errorf("setup: agent: %w", err)
 	}
 	switch agent {
@@ -498,8 +727,10 @@ func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFl
 	if err != nil {
 		return err
 	}
-	hooked, skill := claudeHooked(e.Name), skillInstalled()
-	if hooked && skill {
+	hooked := claudeHooked(e.Name)
+	have, skillThere := installedSkill("")
+	skillCurrent := skillThere && have == l.version
+	if hooked && skillCurrent {
 		return verdict(w, toneOK, "agent: Claude Code already has %s and the para skill", e.Name)
 	}
 	if _, err := exec.LookPath("claude"); err != nil {
@@ -507,7 +738,7 @@ func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFl
 		if !hooked {
 			_, _ = fmt.Fprintln(w, "  "+line)
 		}
-		if !skill {
+		if !skillCurrent {
 			_, _ = fmt.Fprintln(w, "  para skill install")
 		}
 		return nil
@@ -515,27 +746,29 @@ func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFl
 	if !hooked {
 		_, _ = fmt.Fprintf(w, "  %s\n", line)
 		yes := f.agent == "claude"
-		if !yes {
+		if !yes && !(f.dryRun && !tty) {
 			if yes, err = p.yesNo("Run it?", false); err != nil {
 				return err
 			}
 		}
-		if !yes {
-			return verdict(w, toneWarn, "agent: not run")
+		if f.dryRun {
+			_ = verdict(w, toneWarn, "agent: would run claude mcp add for %s", e.Name)
+			would(w, "run: %s", strings.Join(claudeAddArgs(withActor(e, "claude")), " "))
+		} else {
+			if !yes {
+				return verdict(w, toneWarn, "agent: not run")
+			}
+			parts := claudeAddArgs(withActor(e, "claude"))
+			c := exec.Command(parts[0], parts[1:]...)
+			c.Stdout, c.Stderr = w, cmd.ErrOrStderr()
+			if err := c.Run(); err != nil {
+				return fmt.Errorf("setup: agent: claude mcp add: %w", err)
+			}
+			_ = verdict(w, toneOK, "agent: Claude Code has %s; restart the session and check /mcp", e.Name)
 		}
-		parts := claudeAddArgs(withActor(e, "claude"))
-		c := exec.Command(parts[0], parts[1:]...)
-		c.Stdout, c.Stderr = w, cmd.ErrOrStderr()
-		if err := c.Run(); err != nil {
-			return fmt.Errorf("setup: agent: claude mcp add: %w", err)
-		}
-		_ = verdict(w, toneOK, "agent: Claude Code has %s; restart the session and check /mcp", e.Name)
 	}
-	if !skill {
-		if out, err := subCommand(l, cmd, "skill", "install"); err != nil {
-			return fmt.Errorf("setup: agent: skill install: %w\n%s", err, out)
-		}
-		_ = verdict(w, toneOK, "agent: para skill installed")
+	if err := setupSkill(l, cmd, f, true); err != nil {
+		return err
 	}
 	_, err = fmt.Fprintln(w, "  Other harnesses: para help dun.")
 	return err
@@ -555,6 +788,9 @@ func setupGeneric(l *loader, cmd *cobra.Command, p *prompter, f setupFlags, id s
 		return verdict(w, toneWarn, "agent: no server is running. Start it: para service start, or para serve; then para setup --agent generic --agent-name <name>")
 	}
 	name := f.agentName
+	if name == "" && f.dryRun {
+		return verdict(w, toneWarn, "agent: a real run needs --agent-name <name> for the generic agent")
+	}
 	if name == "" {
 		var err error
 		if name, err = p.ask("Name of the agent (also its actor)", ""); err != nil {
@@ -578,6 +814,11 @@ func setupGeneric(l *loader, cmd *cobra.Command, p *prompter, f setupFlags, id s
 	scopes, err := netguard.ExpandScopes([]string{"agent"})
 	if err != nil {
 		return err
+	}
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "agent: would create key %s (scope agent)", name)
+		would(w, "write the key store of vault %s under %s and print its name, URL, and token once", id, server.ServerDir(l.install, id))
+		return nil
 	}
 	_, tok, err := store.Create(name, scopes, nil, 0)
 	if err != nil {

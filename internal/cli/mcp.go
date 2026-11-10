@@ -77,7 +77,7 @@ server entries for this install. They write nothing.
 			if sel.Via == registry.ViaDefault {
 				return fmt.Errorf("mcp: name the vault with --vault; the default vault does not apply to agents")
 			}
-			if err := l.checkVaultKind(sel.ID, sel.Path); err != nil {
+			if err := l.install.CheckVault(sel.ID, sel.Path); err != nil {
 				return err
 			}
 			install, err := l.install.ID()

@@ -6,7 +6,7 @@ It is not a documentation system, a pager, a calendar, or a sync tool. You direc
 
 ## Install with an agent
 
-Open your agent (Claude Code or another) in this repo and ask it to install para. It follows the Installation section of `AGENTS.md`. It will ask you for a vault name, a path, and whether this machine is work or personal.
+Open your agent (Claude Code or another) in this repo and ask it to install para. It follows the Installation section of `AGENTS.md`. It will ask you for a vault name, a path, and the domain of each vault (who controls its data, such as `life`, `iode`, or `corp`).
 
 ## Install by hand
 
@@ -15,11 +15,11 @@ Needs git, make, Go (version in `go.mod`), node, and pnpm (version in `ui/packag
     git clone https://github.com/IodeSystems/para.git && cd para
     bin/doctor         # checks the tools above and that ~/.local/bin is on PATH
     make install       # builds the UI and para into ~/.local/bin
-    para setup         # doctor, machine kind, first vault, service, sign-in, optional agent
+    para setup         # doctor, domains, first vault, service, sign-in, optional agent
 
 Fix every `FAIL` line from `bin/doctor` before `make install`. `BINDIR=<dir>` installs somewhere else.
 
-`para setup` asks each question on a terminal and takes a flag for each (`para setup --help`). A rerun skips what is done. Work and personal vaults never share a machine: setup records the machine kind, and `para init` refuses without one (`para init life ~/para/life --kind work --default` records it too).
+`para setup` asks each question on a terminal and takes a flag for each (`para setup --help`). A rerun skips what is done. `para setup --dry-run` prints every step and every write and changes nothing. A vault has a domain (`vault.domain` in `.para/vault.properties`, one lowercase word) and a machine lists the domains it holds (`machine.domains` in `$PARA_HOME/install.properties`, never in a vault). A vault opens only on a machine that lists its domain, so a corp vault stays on the corp machine while one machine may hold several (`iode`, `life`). `para init life ~/para/life --domain life` records both; the default domain is the vault id. Only the owner changes `machine.domains`, by CLI (`para setup --allow-domain <d>`), never through MCP.
 
 ## With an agent (optional)
 

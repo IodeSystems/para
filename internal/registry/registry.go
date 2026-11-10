@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +19,7 @@ import (
 
 	"github.com/iodesystems/para/internal/atomicfile"
 	"github.com/iodesystems/para/internal/props"
+	"github.com/iodesystems/para/internal/vault"
 )
 
 // DefaultHome returns $PARA_HOME, or ~/.para.
@@ -252,35 +255,58 @@ func (in Install) SetDefault(id string) error {
 	return nil
 }
 
-// keyMachineKind records whether this machine is for work or personal vaults.
-const keyMachineKind = "machine.kind"
+// keyMachineDomains lists the domains this machine holds: a comma list. It is
+// per machine and never in a vault. Only the owner changes it, by CLI.
+const keyMachineDomains = "machine.domains"
 
-// Machine kinds. Work and personal vaults never share a machine.
-const (
-	KindWork     = "work"
-	KindPersonal = "personal"
-)
+// keyLegacyKind is the retired machine.kind key. Nothing reads it but doctor.
+const keyLegacyKind = "machine.kind"
 
-// ValidKind reports whether k is a machine or vault kind.
-func ValidKind(k string) bool { return k == KindWork || k == KindPersonal }
+var domainRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
-// Kind returns the kind of this machine, or "" when none is recorded. It is
-// per machine and never in a vault.
-func (in Install) Kind() (string, error) {
+// ValidDomain reports whether d is a domain: one lowercase word, such as life.
+func ValidDomain(d string) bool { return domainRe.MatchString(d) }
+
+func (in Install) loadProps() (map[string]string, error) {
 	cfg, err := props.Load(filepath.Join(in.Home, "install.properties"))
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", nil
+		return map[string]string{}, nil
 	}
-	if err != nil {
-		return "", fmt.Errorf("registry: machine kind: %w", err)
-	}
-	return cfg[keyMachineKind], nil
+	return cfg, err
 }
 
-// SetKind records the kind of this machine.
-func (in Install) SetKind(kind string) error {
-	if !ValidKind(kind) {
-		return fmt.Errorf("registry: machine kind: %q is not work or personal", kind)
+// Domains returns the domains this machine holds, or none when none is
+// recorded.
+func (in Install) Domains() ([]string, error) {
+	cfg, err := in.loadProps()
+	if err != nil {
+		return nil, fmt.Errorf("registry: machine domains: %w", err)
+	}
+	var out []string
+	for _, d := range strings.Split(cfg[keyMachineDomains], ",") {
+		if d = strings.TrimSpace(d); d != "" && !slices.Contains(out, d) {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+// LegacyKind returns the retired machine.kind value, or "".
+func (in Install) LegacyKind() string {
+	cfg, _ := in.loadProps()
+	return cfg[keyLegacyKind]
+}
+
+// SetDomains records the domains this machine holds.
+func (in Install) SetDomains(domains []string) error {
+	var clean []string
+	for _, d := range domains {
+		if !ValidDomain(d) {
+			return fmt.Errorf("registry: machine domains: %q is not one lowercase word", d)
+		}
+		if !slices.Contains(clean, d) {
+			clean = append(clean, d)
+		}
 	}
 	if err := in.ensure(); err != nil {
 		return err
@@ -288,13 +314,47 @@ func (in Install) SetKind(kind string) error {
 	file := filepath.Join(in.Home, "install.properties")
 	cfg, err := props.Load(file)
 	if err != nil {
-		return fmt.Errorf("registry: machine kind: %w", err)
+		return fmt.Errorf("registry: machine domains: %w", err)
 	}
-	cfg[keyMachineKind] = kind
+	if len(clean) == 0 {
+		delete(cfg, keyMachineDomains)
+	} else {
+		cfg[keyMachineDomains] = strings.Join(clean, ",")
+	}
 	if err := atomicfile.Write(file, props.Format(cfg), 0o600); err != nil {
-		return fmt.Errorf("registry: machine kind: %w", err)
+		return fmt.Errorf("registry: machine domains: %w", err)
 	}
 	return nil
+}
+
+// AddDomains adds domains to the machine list and returns the ones that were
+// not there.
+func (in Install) AddDomains(domains ...string) ([]string, error) {
+	have, err := in.Domains()
+	if err != nil {
+		return nil, err
+	}
+	var added []string
+	for _, d := range domains {
+		if !slices.Contains(have, d) && !slices.Contains(added, d) {
+			added = append(added, d)
+		}
+	}
+	if len(added) == 0 {
+		return nil, nil
+	}
+	return added, in.SetDomains(append(have, added...))
+}
+
+// CheckVault refuses to open a vault whose domain this machine does not hold.
+// A machine with no domains recorded, or a vault with no domain, passes; para
+// doctor warns about both.
+func (in Install) CheckVault(id, path string) error {
+	have, err := in.Domains()
+	if err != nil {
+		return err
+	}
+	return vault.CheckDomain(id, path, have)
 }
 
 func (in Install) ensure() error {

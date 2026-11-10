@@ -142,6 +142,9 @@ func (h *Hub) Prepare() ([]string, error) {
 }
 
 func (h *Hub) openVault(v registry.Vault) (*Tenant, error) {
+	if err := h.install.CheckVault(v.ID, v.Path); err != nil {
+		return nil, err
+	}
 	install, err := h.install.ID()
 	if err != nil {
 		return nil, err

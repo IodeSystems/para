@@ -8,7 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/iodesystems/para/internal/atomicfile"
 	"github.com/iodesystems/para/internal/model"
@@ -27,9 +29,11 @@ const (
 // git at Init: a person may run git init later.
 const gitignore = ".para/*\n!.para/vault.properties\n.*.tmp-*\n"
 
-// KeyKind is the vault.properties key of the vault's kind: work or personal. A
-// work vault is work on every machine; the file syncs with the vault.
-const KeyKind = "vault.kind"
+// KeyDomain is the vault.properties key of the vault's domain: one lowercase
+// word, such as life, iode, or corp. The file syncs with the vault, so the
+// domain follows it to every machine. A machine opens the vault only when its
+// machine.domains lists the domain.
+const KeyDomain = "vault.domain"
 
 // InitOptions configures Init.
 type InitOptions struct {
@@ -38,8 +42,8 @@ type InitOptions struct {
 	// FormatVersion is recorded as format_version in vault.properties: a new
 	// vault holds nothing an upgrade step would rewrite. Zero records none.
 	FormatVersion int
-	// Kind is recorded as vault.kind (work or personal). Empty records none.
-	Kind string
+	// Domain is recorded as vault.domain. Empty records none.
+	Domain string
 }
 
 // idRe limits a vault id to one DNS label: para serve routes vaults by
@@ -84,8 +88,8 @@ func Init(root, id string, templates fs.FS, o InitOptions) error {
 		}
 	}
 	vals := map[string]string{"vault.id": id, "egress.default": "deny"}
-	if o.Kind != "" {
-		vals[KeyKind] = o.Kind
+	if o.Domain != "" {
+		vals[KeyDomain] = o.Domain
 	}
 	if o.FormatVersion > 0 {
 		vals["format_version"] = strconv.Itoa(o.FormatVersion)
@@ -133,4 +137,21 @@ func trackedDirs() []string {
 		out = append(out, string(f))
 	}
 	return out
+}
+
+// CheckDomain refuses a vault whose domain is not in machine, the domains the
+// machine holds. An empty machine list or a vault with no domain passes.
+func CheckDomain(id, path string, machine []string) error {
+	if len(machine) == 0 {
+		return nil
+	}
+	cfg, err := props.Load(filepath.Join(path, dirState, "vault.properties"))
+	if err != nil {
+		return nil // not readable here: Open reports it
+	}
+	d := cfg[KeyDomain]
+	if d == "" || slices.Contains(machine, d) {
+		return nil
+	}
+	return fmt.Errorf("vault %s is domain %s, which this machine does not hold (machine.domains: %s); para setup --allow-domain %s if it belongs here", id, d, strings.Join(machine, ", "), d)
 }

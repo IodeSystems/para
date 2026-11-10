@@ -38,23 +38,7 @@ func newEnv(t *testing.T) *env {
 	dir := t.TempDir()
 	// A test must not see or probe the service installed on this machine.
 	t.Setenv("HOME", dir)
-	e := &env{t: t, home: filepath.Join(dir, "home"), dir: dir, vars: map[string]string{}}
-	// Most tests init vaults: give the machine a kind. Tests of the kind rules
-	// use newEnvNoKind.
-	if err := (registry.Install{Home: e.home}).SetKind(registry.KindPersonal); err != nil {
-		t.Fatal(err)
-	}
-	return e
-}
-
-// newEnvNoKind is a fresh machine with no kind recorded.
-func newEnvNoKind(t *testing.T) *env {
-	t.Helper()
-	e := newEnv(t)
-	if err := os.Remove(filepath.Join(e.home, "install.properties")); err != nil {
-		t.Fatal(err)
-	}
-	return e
+	return &env{t: t, home: filepath.Join(dir, "home"), dir: dir, vars: map[string]string{}}
 }
 
 func (e *env) install() registry.Install { return registry.Install{Home: e.home} }

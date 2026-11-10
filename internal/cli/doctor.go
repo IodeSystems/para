@@ -94,7 +94,7 @@ func doctorInstall(l *loader, r *report) {
 	if len(vaults) == 0 {
 		r.warn("vaults", "none: run para setup")
 	}
-	doctorKinds(l, r, vaults)
+	doctorDomains(l, r, vaults)
 	for _, v := range vaults {
 		doctorVault(l, r, v.ID)
 		doctorTick(l, r, v.ID, v.Path)
@@ -108,40 +108,63 @@ func doctorInstall(l *loader, r *report) {
 	doctorService(r)
 	doctorDaemon(l, r, vaults)
 	doctorStaleMCP(r, "/proc")
+	doctorSkill(l, r)
 	for _, v := range vaults {
 		doctorUpgrade(l, r, v)
 	}
 }
 
-// doctorKinds checks the machine kind and that each vault is of that kind. Work
-// and personal never share a machine.
-func doctorKinds(l *loader, r *report, vaults []registry.Vault) {
-	mk, err := l.install.Kind()
+// doctorDomains checks the machine domain list and that each vault's domain is
+// on it. A vault opens only on a machine that lists its domain.
+func doctorDomains(l *loader, r *report, vaults []registry.Vault) {
+	have, err := l.install.Domains()
 	switch {
 	case err != nil:
-		r.fail("machine kind", err.Error())
-	case mk == "":
-		r.warn("machine kind", "not recorded: run para setup, or para init --kind work|personal")
+		r.fail("machine domains", err.Error())
+	case len(have) == 0:
+		r.warn("machine domains", "not recorded: every vault opens; run para setup, or para init (it records the vault's domain)")
 	default:
-		r.ok("machine kind", mk)
+		r.ok("machine domains", strings.Join(have, ", "))
+	}
+	if k := l.install.LegacyKind(); k != "" {
+		r.warn("machine.kind", "is no longer used; para setup records domains")
 	}
 	for _, v := range vaults {
-		what := "vault " + v.ID + " kind"
+		what := "vault " + v.ID + " domain"
 		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
 		if err != nil {
 			continue // doctorVault and doctorUpgrade report an unreadable vault
 		}
-		switch vk := cfg[vault.KeyKind]; {
-		case vk == "":
-			r.warn(what, "not recorded in .para/vault.properties: run para setup (it marks the vault with the machine kind)")
-		case !registry.ValidKind(vk):
-			r.fail(what, fmt.Sprintf("%q is not work or personal", vk))
-		case mk != "" && vk != mk:
-			r.fail(what, fmt.Sprintf("%s on a %s machine: work and personal never share a machine; remove this vault from this machine", vk, mk))
+		if cfg["vault.kind"] != "" {
+			r.warn("vault "+v.ID+" vault.kind", "is no longer used; para setup records domains")
+		}
+		switch vd := cfg[vault.KeyDomain]; {
+		case vd == "":
+			r.warn(what, "not recorded in .para/vault.properties: run para setup")
+		case !registry.ValidDomain(vd):
+			r.fail(what, fmt.Sprintf("%q is not one lowercase word", vd))
+		case len(have) > 0 && !slices.Contains(have, vd):
+			r.warn(what, fmt.Sprintf("%s is not in machine.domains (%s); it will not open; remove this vault from this machine, or para setup --allow-domain %s if it belongs here", vd, strings.Join(have, ", "), vd))
 		default:
-			r.ok(what, vk)
+			r.ok(what, vd)
 		}
 	}
+}
+
+// doctorSkill warns when the installed para skill was written by another
+// version of para than this one.
+func doctorSkill(l *loader, r *report) {
+	have, ok := installedSkill("")
+	if ok && have != l.version {
+		r.warn("para skill", fmt.Sprintf("is version %s, this para is %s: run para skill install (para setup updates it)", skillVersionLabel(have), l.version))
+	}
+}
+
+func skillVersionLabel(v string) string {
+	if v == "" {
+		return "unknown"
+	}
+	return v
 }
 
 func doctorVault(l *loader, r *report, id string) {

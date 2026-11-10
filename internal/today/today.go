@@ -198,7 +198,9 @@ func Read(ctx context.Context, in registry.Install, actor, surface, date string)
 			rep.Vaults = append(rep.Vaults, vt)
 			continue
 		}
-		if err := readVault(ctx, rv.Vault, actor, surface, date, &vt); err != nil {
+		if err := in.CheckVault(rv.ID, rv.Path); err != nil {
+			vt.Error = err.Error()
+		} else if err := readVault(ctx, rv.Vault, actor, surface, date, &vt); err != nil {
 			vt.Error = err.Error()
 		}
 		rep.Vaults = append(rep.Vaults, vt)
