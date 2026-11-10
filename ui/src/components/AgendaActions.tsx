@@ -122,6 +122,9 @@ function WordsDone({
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
+          <Button size="small" sx={{ mt: 1, mr: 1 }} onClick={() => setAt(null)}>
+            Back
+          </Button>
           <Button
             size="small"
             variant="contained"
@@ -135,7 +138,7 @@ function WordsDone({
               onDone(t)
             }}
           >
-            {meeting ? 'Held' : 'Drop'}
+            {meeting ? 'Mark done' : 'Drop'}
           </Button>
         </Box>
       </Popover>
@@ -197,8 +200,8 @@ export function useItemActions(
         }
       : undefined
 
-  // done closes the item. words are the note: a meeting's notes or a drop's reason from the Held
-  // or Drop box, or the composer's words; with none, the composer's draft. Files go with the note.
+  // done closes the item. words are the note: a meeting's notes or a drop's reason from the Mark
+  // done or Drop box, or the composer's words; with none, the composer's draft. Files go with the note.
   const done = (words?: string, files?: File[]) =>
     run('done', async () => {
       const text = words ?? draft?.text.trim() ?? ''

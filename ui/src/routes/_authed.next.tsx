@@ -28,6 +28,7 @@ import { useNextKeys } from '@/components/Keyboard'
 import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody } from '@/components/MeetingBrief'
+import { CopyId } from '@/components/CopyId'
 import { PoolCard } from '@/components/Pools'
 import { DueChip } from '@/components/TaskRows'
 import { PartOfLine } from '@/components/PartOf'
@@ -154,7 +155,8 @@ function Deck({ d }: { d: Order }) {
   )
 }
 
-// focusComposer puts the cursor in the card's composer, for Send to agent.
+// focusComposer puts the cursor in the card's composer (the send key); its Send to agent button
+// sends.
 function focusComposer(id: string) {
   const box = document.querySelector<HTMLElement>(
     `[data-next-card="${CSS.escape(id)}"] [data-item-composer] textarea:not([aria-hidden="true"])`,
@@ -276,11 +278,6 @@ function Card({
                 Back
               </Button>
             )}
-            {decide && (
-              <Button size="small" data-act="send" onClick={() => focusComposer(x.id)}>
-                Send to agent
-              </Button>
-            )}
           </ItemActions>
         </Stack>
         <CardComposer
@@ -318,9 +315,12 @@ function PoolNext({
       data-next-kind={x.kind}
       sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
     >
-      <Typography variant="overline" color="text.secondary" component="p">
-        {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
-      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="overline" color="text.secondary" component="p">
+          {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
+        </Typography>
+        <CopyId id={x.id} />
+      </Stack>
       <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
         {x.title}
       </Typography>
