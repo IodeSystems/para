@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useRouteContext } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -9,6 +9,8 @@ import { useRfx } from '@/api/rfx'
 import { useCopyText } from '@/api/doc'
 import { Empty, PageTitle, Section, StateChip } from '@/components/Bits'
 import { NextMoves } from '@/components/NextMoves'
+import { AskActions } from '@/components/AskActions'
+import { canDecide } from '@/client/session'
 import { CopyButton } from '@/components/CopyButton'
 import { DataState } from '@/components/DataState'
 import { ItemContext } from '@/components/ItemContext'
@@ -29,6 +31,7 @@ function RfxPage() {
   useSeenOnOpen(id)
   const q = useRfx(id)
   const copy = useCopyText()
+  const { session } = useRouteContext({ from: '/_authed' })
   return (
     <DataState q={q}>
       {(r) => (
@@ -39,6 +42,9 @@ function RfxPage() {
             {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}
             {r.doc.meta.nextNudge ? ` - follow up ${dateWords(r.doc.meta.nextNudge)}` : ''}
           </Typography>
+          {canDecide(session) && r.doc.meta.direction !== 'in' && r.doc.meta.status === 'open' && (
+            <AskActions id={r.doc.id} title={r.doc.title} />
+          )}
           <ItemContext id={id} />
           <Section title="Asked of" count={r.targets.length}>
             {r.targets.length === 0 ? (

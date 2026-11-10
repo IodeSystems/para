@@ -149,6 +149,13 @@ const REVIEW_MUTATIONS = new Set([
   // Drop the rest / Keep the rest, and nothing changes until Confirm. Confirm closes the theme and
   // applies the drops and moves as one batch (theme_close, a person op): one Undo.
   'ThemeClose',
+  // owner 2026-11-10: Answered, Dropped, and Rerouted on an Ask's page. The owner settles an Ask
+  // whose answer came outside para's sweep (heard in person, on a call, in a message a sweep
+  // missed). Answered records the reply (rfx_reply: no receipt, no Undo); Rerouted adds a next
+  // move to another person (rfx_path_add: no receipt, no Undo; para sends nothing). Dropped uses
+  // the close verb, already allowed.
+  'RfxReply',
+  'RfxPathAdd',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

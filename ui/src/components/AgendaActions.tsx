@@ -13,6 +13,7 @@ import { useLooking } from '@/api/requests'
 import { laterAny, reopenAny } from '@/api/verbs'
 import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
+import { AnswerButton } from '@/components/AskActions'
 import { DoItTask } from '@/components/DoIt'
 import { DraftHint, NoteIcon } from '@/components/DraftHint'
 import { useItemDraft } from '@/components/ItemDraft'
@@ -341,7 +342,10 @@ export function ItemActions({
       {decide && (acts.done === 'meeting' || acts.done === 'drop') && (
         <WordsDone busy={busy} done={acts.done} draft={draft?.text} onDone={(t) => void done(t)} />
       )}
-      {decide && (acts.done === 'task' || acts.done === 'ask' || acts.done === 'resolve') && (
+      {decide && acts.done === 'ask' && (
+        <AnswerButton id={x.id} title={x.title} label="Done" fallback={() => void done()} />
+      )}
+      {decide && (acts.done === 'task' || acts.done === 'resolve') && (
         <DraftHint hint={hints.note}>
           <Button
             size="small"
