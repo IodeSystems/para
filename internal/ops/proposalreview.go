@@ -10,9 +10,7 @@ import (
 )
 
 // Decisions. proposal_approve and proposal_deny are definePerson: a person at a
-// terminal. proposal_decide is how an agent records what the owner said in the
-// chat: the owner's words are stored on each item, marked self-reported. The
-// web app only reads proposals.
+// terminal. An agent does not record the owner's decision.
 
 // changeProposal loads a revision, applies fn, and saves. It reads again when another
 // writer got in first, so a review never overwrites a change. fn runs once per

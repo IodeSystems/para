@@ -39,7 +39,7 @@ var ProposalStatuses = []ProposalStatus{ProposalOpen, ProposalSentBack, Proposal
 // tools. Each kind has a free-text subtype; no medium is in the code.
 //
 // op and external are the old words. Files that hold them read as para and
-// action, and proposal_add takes them with the old, smaller set of fields.
+// action.
 type ItemKind string
 
 const (

@@ -70,14 +70,14 @@ type Receipt struct {
 	SelfReported bool   `yaml:"self_reported,omitempty" json:"self_reported,omitempty"`
 	NotDuplicate string `yaml:"not_duplicate,omitempty" json:"not_duplicate,omitempty"`
 	// OwnerSaid is the owner's words from the chat, when the agent gives them
-	// (action_record). Para cannot see the chat: it is self-reported.
+	// (a receipt of an old action_record still reads). Para cannot see the chat: it is self-reported.
 	OwnerSaid string `yaml:"owner_said,omitempty" json:"owner_said,omitempty"`
 	// Surface is where the write came from (mcp, api, tick). Background is true
 	// for a write made by background agent work: tick, or an agent that holds a
 	// request.
 	Surface string `yaml:"surface,omitempty" json:"surface,omitempty"`
 	// By and OnBehalfOf are set on the record of an outward act
-	// (action_record, proposal_executed): By is the actor that did it when
+	// (proposal_executed, and the old action_record): By is the actor that did it when
 	// another actor records it (a worker the recording agent delegated to over
 	// chat); OnBehalfOf is "owner" when it was done as the owner.
 	By         string `yaml:"by,omitempty" json:"by,omitempty"`

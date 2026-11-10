@@ -164,7 +164,7 @@ type boundVault struct {
 }
 
 // deps binds the caller. Authorize holds an approval to the caller's scopes:
-// proposal_decide cannot cause a write the caller could not make. A person
+// an approval cannot cause a write the caller could not make. A person
 // with review:decide may run any item they approve: anything approved by the
 // owner is the owner's.
 func (b *boundVault) deps() ops.Deps {

@@ -27,8 +27,7 @@ const (
 	ScopeRFXSend      = "rfx:send"
 	ScopeRequestQueue = "request:queue"
 	ScopeRequestRun   = "request:run"
-	// ScopeReviewDecide decides review items a person answered: draft,
-	// submit, and stack_decide, and marks a tracked document seen (doc_seen),
+	// ScopeReviewDecide decides review items a person answered: retry_decide, question_review, io_approve, and io_done, and marks a tracked document seen (doc_seen),
 	// on a browser session. It authors nothing, and
 	// an approved item runs under it whatever its own op's scope.
 	ScopeReviewDecide = "review:decide"

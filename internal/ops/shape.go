@@ -15,7 +15,7 @@ import (
 // An unknown input field is refused with the input's shape on one line, so an
 // agent that guessed a field name sees the right ones in the same answer:
 //
-//	proposal_decide: input: unknown field "decision" (did you mean items[].decision?); fields: id*, items[]{item*, decision*, text}, owner_said*
+//	retry_decide: input: unknown field "decision" (did you mean action?); fields: request*, action*, input, notes, approve
 //
 // A field marked * is required. An enum lists its values with |. A hint names
 // the nearest field; para never accepts the guessed name in its place.

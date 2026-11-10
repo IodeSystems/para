@@ -13,8 +13,7 @@ import (
 
 // A proposal is how an agent asks the owner before an outward action, or a
 // large or risky vault change. The agent files items with evidence, opens the
-// proposal for the owner to read (proposal_open), asks in the chat, and records
-// the owner's words with proposal_decide. A person at a terminal decides with
+// proposal for the owner to read (proposal_open), and asks in the chat. A person at a terminal decides with
 // para proposal approve and deny. State lives in the vault, so no agent has to
 // stay alive, and any agent can resume from the proposal and its revisions.
 //
@@ -234,7 +233,7 @@ func reviewURL(d Deps, id string) (string, error) {
 	return strings.TrimRight(base, "/") + proposalPath(id), nil
 }
 
-// ProposalAddInput is the input of proposal_add. Markdown is a dossier: the
+// ProposalAddInput is the input that files a proposal. Markdown is a dossier: the
 // whole body, narrative and blocks (docs/format.md, Dossier blocks). The other
 // form gives tldr, context, and items as fields; para writes them as a dossier.
 type ProposalAddInput struct {
@@ -252,7 +251,7 @@ type ProposalAddInput struct {
 	Tags []string `json:"tags,omitempty"`
 }
 
-// ProposalFiled is the output of proposal_add and proposal_revise. The agent
+// ProposalFiled is the output of filing a proposal. The agent
 // shows review_command and review_url to the owner.
 type ProposalFiled struct {
 	ID            string               `json:"id"`
@@ -571,13 +570,12 @@ type Decision struct {
 	OwnerSaid string `json:"owner_said,omitempty"`
 	// Undo says how stack_undo reverses the decision: UndoReset puts the item
 	// back to pending, UndoReceipts undoes the vault writes of Receipts first.
-	// Empty means it cannot be undone. Only stack_decide and proposal_submit
-	// fill it.
+	// Empty means it cannot be undone.
 	Undo     string   `json:"undo,omitempty"`
 	Receipts []string `json:"receipts,omitempty"`
 }
 
-// ProposalWaitInput is the input of proposal_wait.
+// ProposalWaitInput is the input of the wait on a proposal.
 type ProposalWaitInput struct {
 	ID             string `json:"id" query:"id" required:"true"`
 	TimeoutSeconds int    `json:"timeout_seconds,omitempty" query:"timeout_seconds"` // default 15, at most 60
