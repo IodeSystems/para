@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# bin/doctor — check a fresh checkout can build and install para. Read-only.
+#
+#   bin/doctor        check required and optional tools, and PATH
+#
+# Exit 0 when every required check passes; warnings do not fail.
+# Then: make install, and para doctor for the installed binary.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+fails=0
+warns=0
+ok()   { printf '  ok    %s\n' "$*"; }
+warn() { printf '  warn  %s\n' "$*"; warns=$((warns + 1)); }
+fail() { printf '  FAIL  %s\n' "$*"; fails=$((fails + 1)); }
+
+# ver_ge A B: true when version A >= version B.
+ver_ge() { [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
+
+need_go="$(awk '$1 == "go" {print $2; exit}' go.mod)"
+need_pnpm="$(sed -n 's/.*"packageManager": *"pnpm@\([^"]*\)".*/\1/p' ui/package.json)"
+bindir="${BINDIR:-$HOME/.local/bin}"
+
+echo "required"
+for t in git make; do
+  if command -v "$t" >/dev/null 2>&1; then ok "$t"; else fail "$t not found"; fi
+done
+
+if command -v go >/dev/null 2>&1; then
+  have="$(go env GOVERSION 2>/dev/null | sed 's/^go//')"
+  if ver_ge "$have" "$need_go"; then ok "go $have (need $need_go)"
+  else fail "go $have is older than $need_go (go.mod)"; fi
+else
+  fail "go not found; need $need_go or later (https://go.dev/dl/)"
+fi
+
+if command -v node >/dev/null 2>&1; then ok "node $(node --version)"
+else fail "node not found; the web UI build needs it"; fi
+
+if command -v pnpm >/dev/null 2>&1; then
+  have="$(pnpm --version 2>/dev/null)"
+  if [ -n "$need_pnpm" ] && ! ver_ge "$have" "${need_pnpm%%.*}"; then
+    fail "pnpm $have; ui/package.json wants $need_pnpm (corepack enable)"
+  else ok "pnpm $have (ui/package.json: $need_pnpm)"; fi
+else
+  fail "pnpm not found; run corepack enable, or install pnpm $need_pnpm"
+fi
+
+echo "PATH"
+case ":$PATH:" in
+  *":$bindir:"*) ok "$bindir is on PATH" ;;
+  *) fail "$bindir is not on PATH; make install puts para there (set BINDIR to change it)" ;;
+esac
+if existing="$(command -v para 2>/dev/null)" && [ "$existing" != "$bindir/para" ]; then
+  warn "para on PATH is $existing, not $bindir/para; it will shadow the install"
+fi
+
+echo "optional (development)"
+for t in golangci-lint:"make lint" air:"bin/dev rebuilds"; do
+  name="${t%%:*}" use="${t#*:}"
+  if command -v "$name" >/dev/null 2>&1; then ok "$name"; else warn "$name not found ($use)"; fi
+done
+
+echo
+if [ "$fails" -gt 0 ]; then
+  echo "! $fails failed, $warns warnings: fix the FAIL lines, then make install"
+  exit 1
+fi
+echo "✓ 0 failed, $warns warnings: next, make install, then para doctor"

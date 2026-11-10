@@ -26,9 +26,9 @@ Task and blocker tracker for a single contributor. Vaults of markdown (Obsidian 
 
 ## Installation
 Follow in order. Stop and tell the owner at any failure; do not work around it.
-1. Prerequisites: `go version` must meet the `go` line in `go.mod`; `pnpm --version` must work. If one is missing, tell the owner. Do not install system packages without asking.
+1. `bin/doctor` (read-only): git, make, Go, node, pnpm versions, and `~/.local/bin` on PATH. For each `FAIL` line, tell the owner. Do not install system packages or edit shell profiles without asking.
 2. `make install` from the repo root. Builds the UI, installs `~/.local/bin/para` (`BINDIR` in `Makefile`), restarts the service if one runs.
-3. `command -v para`. If empty, `~/.local/bin` is not on PATH: tell the owner to add it. Do not edit shell profiles unasked.
+3. `command -v para` must print `~/.local/bin/para`. If another para shadows it, tell the owner.
 4. `para doctor` is read-only. Fix `fail` lines with the owner; report `warn` lines to the owner.
 5. First vault, only after asking the owner three things: its id, its path, and whether this machine is work or personal. Work and personal never share a machine: run `para vault list` first; if it lists vaults, ask the owner which kind they are, and stop if they are the other kind. Then `para init <id> <path>` and `para vault set-default <id>`. There is no trust setting; the rule is per machine.
 6. Agent wiring. Run the line `para help claude` prints for the new vault, then `para skill install`. The line is `claude mcp add --scope user para-<id> -- para mcp --vault <id> --actor claude`, with the full binary path. Other harnesses: `para help dun`.

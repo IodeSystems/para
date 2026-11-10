@@ -10,12 +10,14 @@ Open your agent (Claude Code or another) in this repo and ask it to install para
 
 ## Install by hand
 
-Needs Go 1.26 or later, and pnpm for the web UI.
+Needs git, make, Go (version in `go.mod`), node, and pnpm (version in `ui/package.json`).
 
+    git clone https://github.com/IodeSystems/para.git && cd para
+    bin/doctor         # checks the tools above and that ~/.local/bin is on PATH
     make install       # builds the UI and para into ~/.local/bin
-    para doctor        # checks the install; `command -v para` must find it
+    para doctor        # checks the installed para
 
-If `para` is not found, add `~/.local/bin` to PATH.
+Fix every `FAIL` line from `bin/doctor` before `make install`. `BINDIR=<dir>` installs somewhere else.
 
 ## First vault
 
