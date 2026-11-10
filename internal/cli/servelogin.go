@@ -138,7 +138,8 @@ func isLocalURL(base string) bool {
 // web app reads and decides review items, so each key is a new login key with
 // vault:read and review:decide that ends in 30 days (--days) and that the web
 // app renews near its end. --admin signs in with the admin token instead.
-// `para serve login` and `para service login-admin` are this one command.
+// `para login` is this command; `para serve login` (hidden) and `para service login-admin`
+// are the same command.
 func newLoginCmd(l *loader, use string) *cobra.Command {
 	var (
 		base    string

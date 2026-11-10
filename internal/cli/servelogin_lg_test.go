@@ -93,7 +93,7 @@ func TestOpenSignsIn(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := "http://acme.localhost:7799/doc/" + filed.ID
+	want := "http://acme.localhost:7799/docs/" + filed.ID
 	if len(targets) != 1 || !strings.HasPrefix(targets[0], want+"#token=para_viewer-") {
 		t.Fatalf("browser got %v", targets)
 	}

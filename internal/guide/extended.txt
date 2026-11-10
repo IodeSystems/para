@@ -114,7 +114,7 @@ Resolve and delegate: task resolve closes a task with an outcome: done (the defa
 13. Browser and phone: the server, keys, and the service
   $ para setup
   $ para login
-  $ para serve login
+  $ para login
   $ para serve sessions
   $ para serve logout
   $ para serve status
@@ -126,9 +126,9 @@ Resolve and delegate: task resolve closes a task with an outcome: done (the defa
   $ para service start
   $ para service status
   $ para key revoke phone
-para setup walks a new machine through doctor, domains (each vault has one; the machine records the list it holds in machine.domains, and a vault opens only on a machine that lists its domain), the first vault, the service, sign-in, and an optional agent hookup; a rerun skips what is done, and each prompt has a flag; --dry-run prints every step and write and changes nothing. Sign-in is skipped while every served vault has an unexpired login key (--login forces it). para login is para serve login; with no server running it says so.
+para setup walks a new machine through doctor, domains (each vault has one; the machine records the list it holds in machine.domains, and a vault opens only on a machine that lists its domain), the first vault, the service, sign-in, and an optional agent hookup; a rerun skips what is done, and each prompt has a flag; --dry-run prints every step and write and changes nothing. Sign-in is skipped while every served vault has an unexpired login key (--login forces it). para login signs the browser in; with no server running it says so.
 The server listens on 127.0.0.1:7700 by default and every request needs a token.
-"para serve login" signs this browser in to every vault the server serves, one tab per vault
+"para login" signs this browser in to every vault the server serves, one tab per vault
 (--vault for one). Each tab gets a new login key, vault:read and review:decide, that lasts 30
 days (--days, at most 90); the web app renews it when it is within 7 days of its end. It finds
 the running server itself (var/serve.json in the para home), so it needs no URL. "para open"

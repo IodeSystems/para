@@ -76,7 +76,10 @@ func newServeCmd(l *loader) *cobra.Command {
 			return runServe(cmd.Context(), l, f, cmd.ErrOrStderr())
 		},
 	}
-	cmd.AddCommand(newLoginCmd(l, "login"), newServeStatusCmd(l), newServeSessionsCmd(l), newServeLogoutCmd(l))
+	// `para login` is the one taught; this spelling keeps working.
+	serveLogin := newLoginCmd(l, "login")
+	serveLogin.Hidden = true
+	cmd.AddCommand(serveLogin, newServeStatusCmd(l), newServeSessionsCmd(l), newServeLogoutCmd(l))
 	fs := cmd.Flags()
 	fs.StringArrayVar(&f.addrs, "addr", []string{defaultAddr}, "listen address ip:port (repeatable: one listener each, such as loopback and a VPN address)")
 	fs.StringArrayVar(&f.proxies, "trusted-proxy", nil, "exact IP of a proxy whose X-Forwarded-For is read (repeatable)")
