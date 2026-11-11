@@ -29,8 +29,10 @@ func TestMarkerStepRaisesFormatAndNewerRefuses(t *testing.T) {
 		}
 		return false
 	}
-	if !pending() {
-		t.Fatal("the marker step is not pending for a vault with io")
+	// A judgement step before the marker holds format_version back: a run
+	// cannot raise the marker, so status must not list it as work.
+	if pending() {
+		t.Fatal("the marker step is listed while an earlier judgement step is pending")
 	}
 	// Clear the judgement step first: the marker comes after it.
 	for _, id := range []string{"project-open", "task-open"} {
@@ -47,6 +49,10 @@ func TestMarkerStepRaisesFormatAndNewerRefuses(t *testing.T) {
 		if _, err := s.Update(ctx, d); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if !pending() {
+		st, _ := StatusOf(ctx, s)
+		t.Fatalf("the marker step is not pending for a vault with io: %+v", st.Pending)
 	}
 	res, err := Run(ctx, s, false)
 	if err != nil {

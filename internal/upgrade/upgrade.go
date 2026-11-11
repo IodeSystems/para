@@ -137,8 +137,16 @@ func StatusOf(ctx context.Context, r Reader) (Status, error) {
 		return Status{}, err
 	}
 	st := Status{FormatVersion: cur, Latest: Latest(), Pending: []Pending{}}
+	// blocked is set once a judgement step that holds format_version back has work
+	// (a run does the automated steps first):
+	// settle stops there, so a later marker step cannot be raised by a run
+	// and is not listed as work the owner can do.
+	blocked := false
 	for _, s := range steps() {
 		if s.Version <= cur {
+			continue
+		}
+		if s.Marker && blocked {
 			continue
 		}
 		docs, n, err := matching(ctx, r, s, s.Select)
@@ -147,6 +155,7 @@ func StatusOf(ctx context.Context, r Reader) (Status, error) {
 		}
 		if n > 0 {
 			st.Pending = append(st.Pending, Pending{ID: s.ID, Title: s.Title, Auto: s.Auto, Docs: docs, Count: n})
+			blocked = blocked || !s.Auto && !s.Optional
 		}
 		if s.Judge == nil {
 			continue
@@ -155,6 +164,7 @@ func StatusOf(ctx context.Context, r Reader) (Status, error) {
 			return st, err
 		}
 		if n > 0 {
+			blocked = blocked || !s.Optional
 			st.Pending = append(st.Pending, Pending{ID: s.ID, Title: s.Title, Auto: false, Docs: docs, Count: n})
 		}
 	}
