@@ -559,7 +559,7 @@ function Agenda() {
                   {inboxOf(inboxRows)}
                 </Section>
                 {(t.inbox > 0 || t.outbox > 0) && (
-                  <LinkButton size="small" color="inherit" to="/io">
+                  <LinkButton size="small" color="inherit" to="/input">
                     {t.inbox} unread in the inbox, {t.outbox} ready to send
                   </LinkButton>
                 )}

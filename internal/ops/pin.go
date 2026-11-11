@@ -288,7 +288,8 @@ var Pinned = defineRead("pinned", "List the pinned items, the ones the owner wat
 	if err != nil {
 		return PinnedOutput{}, err
 	}
-	rows, err := activityFeed(ctx, d, ActivityInput{}, time.Time{}, time.Time{})
+	// The pin is not activity of the item: a card shows the last change after it.
+	rows, err := activityFeedSkip(ctx, d, ActivityInput{}, time.Time{}, time.Time{}, []string{"pin", "unpin"})
 	if err != nil {
 		return PinnedOutput{}, err
 	}

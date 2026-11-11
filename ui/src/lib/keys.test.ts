@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { actionFor, TABS } from '@/lib/keys'
+import { actionFor, EXTRA_SCREENS, TABS } from '@/lib/keys'
 
 const press = (key: string, extra: Partial<Parameters<typeof actionFor>[0]> = {}) =>
   actionFor({ key, ctrlKey: false, metaKey: false, altKey: false, target: null, ...extra })
@@ -13,6 +13,12 @@ describe('shortcuts', () => {
   it('0 opens Obligations, and Meetings is a filter of it, not a screen', () => {
     expect(press('0')).toEqual({ kind: 'tab', to: '/obligations' })
     expect(TABS.some((t) => t.to === '/meetings')).toBe(false)
+  })
+  it('Input and Output are screens; /io is not', () => {
+    const to = EXTRA_SCREENS.map((t) => t.to)
+    expect(to).toContain('/input')
+    expect(to).toContain('/output')
+    expect(to).not.toContain('/io')
   })
   it('t opens Capture, but not while typing', () => {
     expect(press('t')).toEqual({ kind: 'tell' })

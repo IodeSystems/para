@@ -1,195 +1,28 @@
-import { createFileRoute } from '@tanstack/react-router'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import Switch from '@mui/material/Switch'
-import Tab from '@mui/material/Tab'
-import Tabs from '@mui/material/Tabs'
-import Typography from '@mui/material/Typography'
-import TextField from '@mui/material/TextField'
-import MenuItem from '@mui/material/MenuItem'
-import Stack from '@mui/material/Stack'
-import { useIoList } from '@/api/io'
-import { Empty, PageTitle, Section } from '@/components/Bits'
-import { IoRows } from '@/components/IoRows'
-import { DataState } from '@/components/DataState'
-import { digestRows, splitInbox } from '@/lib/priority'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-type View = 'inbox' | 'digest' | 'outbox'
-
-const MEDIUMS = [
-  'email',
-  'slack',
-  'jira',
-  'confluence',
-  'github',
-  'teams',
-  'phone',
-  'meeting',
-  'verbal',
-  'swivel',
-  'other',
-]
-
+// /io was the one page for messages in and out. Input and Output replaced it; /io/$id stays the
+// item page. Old links land on the screen that took over.
 export const Route = createFileRoute('/_authed/io/')({
   validateSearch: (
     s: Record<string, unknown>,
-  ): { view?: View; medium?: string; all?: boolean; forMe?: boolean } => ({
+  ): { view?: 'digest' | 'outbox'; medium?: string; forMe?: boolean } => ({
     view: s.view === 'outbox' || s.view === 'digest' ? s.view : undefined,
-    medium: typeof s.medium === 'string' && MEDIUMS.includes(s.medium) ? s.medium : undefined,
-    all: s.all === true || s.all === 'true' ? true : undefined,
+    medium: typeof s.medium === 'string' && s.medium ? s.medium : undefined,
     forMe: s.forMe === true || s.forMe === 'true' ? true : undefined,
   }),
-  component: IoPage,
+  beforeLoad: ({ search }) => {
+    if (search.view === 'outbox') {
+      // Sent for you is the Sent tab; the medium filter still means something there.
+      throw redirect(
+        search.forMe
+          ? { to: '/output', search: { tab: 'sent', medium: search.medium }, replace: true }
+          : { to: '/output', search: { tab: undefined }, replace: true },
+      )
+    }
+    throw redirect({
+      to: '/input',
+      search: { tab: search.view === 'digest' ? 'rest' : undefined },
+      replace: true,
+    })
+  },
 })
-
-function IoPage() {
-  const { view, medium, all, forMe: forMeSearch } = Route.useSearch()
-  const navigate = Route.useNavigate()
-  const dir = view === 'outbox' ? 'out' : 'in'
-  // Sent for you: what agents sent in your stead, stamped, without your review.
-  const forMe = dir === 'out' && (forMeSearch ?? false)
-  const q = useIoList(dir, forMe || (all ?? false), forMe ? 'for_me' : undefined)
-  const c = q.data?.counts
-  return (
-    <>
-      <PageTitle
-        subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you approve what goes out."
-      >
-        IO
-      </PageTitle>
-      <Tabs
-        value={view ?? 'inbox'}
-        onChange={(_e, v: View) =>
-          void navigate({
-            search: (p) => ({ ...p, view: v === 'inbox' ? undefined : v }),
-            replace: true,
-          })
-        }
-        sx={{ mb: 2 }}
-      >
-        <Tab value="inbox" label={c ? `Inbox (${c.unread + c.read})` : 'Inbox'} />
-        <Tab value="digest" label="Digest" />
-        <Tab value="outbox" label={c ? `Outbox (${c.draft + c.ready})` : 'Outbox'} />
-      </Tabs>
-      <Stack direction="row" spacing={2} sx={{ mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-        <TextField
-          select
-          size="small"
-          label="Medium"
-          value={medium ?? ''}
-          onChange={(e) =>
-            void navigate({
-              search: (p) => ({ ...p, medium: e.target.value || undefined }),
-              replace: true,
-            })
-          }
-          sx={{ minWidth: 140 }}
-        >
-          <MenuItem value="">Any</MenuItem>
-          {MEDIUMS.map((m) => (
-            <MenuItem key={m} value={m}>
-              {m}
-            </MenuItem>
-          ))}
-        </TextField>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={all ?? false}
-              onChange={(e) =>
-                void navigate({
-                  search: (p) => ({ ...p, all: e.target.checked || undefined }),
-                  replace: true,
-                })
-              }
-            />
-          }
-          label={dir === 'in' ? 'Show filed and dropped' : 'Show sent and dropped'}
-        />
-        {dir === 'out' && (
-          <FormControlLabel
-            control={
-              <Switch
-                checked={forMe}
-                data-filter="sent-for-you"
-                onChange={(e) =>
-                  void navigate({
-                    search: (p) => ({ ...p, forMe: e.target.checked || undefined }),
-                    replace: true,
-                  })
-                }
-              />
-            }
-            label="Sent for you"
-          />
-        )}
-      </Stack>
-      <DataState q={q}>
-        {(d) => {
-          const items = d.items.filter(
-            (x) => (!medium || x.medium === medium) && (!forMe || x.state === 'sent'),
-          )
-          if (forMe) {
-            return items.length === 0 ? (
-              <Empty>No agent sent anything for you without your review.</Empty>
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Messages agents sent for you, stamped, without your review, under a rule of your
-                  .para/delegation.yaml. Each names the rule that allowed it.
-                </Typography>
-                <IoRows items={items} />
-              </>
-            )
-          }
-          if (view === 'digest') {
-            const list = digestRows(items)
-            return list.length === 0 ? (
-              <Empty>Nothing in the digest.</Empty>
-            ) : (
-              <>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Messages that do not need you: no reply expected, and the sender and the source
-                  are not high priority, or a triage rule sent them here. The day&apos;s journal
-                  lists them under Inbox digest.
-                </Typography>
-                <IoRows items={list} />
-              </>
-            )
-          }
-          if (dir === 'in') {
-            if (items.length === 0) return <Empty>Nothing in the inbox.</Empty>
-            const { needsYou, rest } = splitInbox(items)
-            return (
-              <>
-                <Section title="Needs you" count={needsYou.length} hideEmpty>
-                  <IoRows items={needsYou} />
-                </Section>
-                <Section title="The rest" count={rest.length} hideEmpty>
-                  <IoRows items={rest} />
-                </Section>
-              </>
-            )
-          }
-          const groups = [
-            { key: 'response', title: 'Expects a response (becomes an Ask when sent)' },
-            { key: 'none', title: 'Expects no response (logged when sent)' },
-          ]
-          return items.length === 0 ? (
-            <Empty>Nothing to send.</Empty>
-          ) : (
-            <>
-              {groups.map((g) => {
-                const list = items.filter((x) => x.expects === g.key)
-                return (
-                  <Section key={g.key} title={g.title} count={list.length} hideEmpty>
-                    <IoRows items={list} />
-                  </Section>
-                )
-              })}
-            </>
-          )
-        }}
-      </DataState>
-    </>
-  )
-}

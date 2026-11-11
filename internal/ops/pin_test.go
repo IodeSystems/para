@@ -3,6 +3,7 @@ package ops
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 )
@@ -188,5 +189,42 @@ func TestPinnedWaitingAndStale(t *testing.T) {
 	c := must(t, Pinned, f.owner, PinnedInput{}).Items[0]
 	if len(c.WaitingOn) != 1 || c.WaitingOn[0] != dep.ID || c.Stale != "" {
 		t.Fatalf("card = %+v", c)
+	}
+}
+
+func TestPinnedLastSkipsThePin(t *testing.T) {
+	rv := newReqVault(t)
+	owner := rv.as("user", "cli", "install-a")
+	proj := must(t, ProjectAdd, owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	task := must(t, TaskAdd, owner, TaskAddInput{Project: proj, Title: "Watch me", Due: "2026-12-01"})
+	rv.advance(time.Hour)
+	must(t, Pin, owner, PinInput{ID: task.ID})
+	// Only the pin happened after the task was made: the last change is the task being made.
+	got := must(t, Pinned, owner, PinnedInput{}).Items
+	if len(got) != 1 || got[0].Last == nil || got[0].Last.Kind != ActCreated {
+		t.Fatalf("card shows the pin: %+v", got[0].Last)
+	}
+	// A real change after the pin shows; an unpin and a pin after it do not replace it.
+	rv.advance(time.Hour)
+	must(t, TaskEdit, owner, TaskEditInput{ID: task.ID, DoneWhen: "shipped"})
+	rv.advance(time.Hour)
+	must(t, Unpin, owner, PinInput{ID: task.ID})
+	rv.advance(time.Hour)
+	must(t, Pin, owner, PinInput{ID: task.ID})
+	got = must(t, Pinned, owner, PinnedInput{}).Items
+	if got[0].Last == nil || got[0].Last.Kind != ActEdited || strings.Contains(strings.ToLower(got[0].Last.Summary), "pin") {
+		t.Fatalf("last = %+v, want the edit", got[0].Last)
+	}
+	// The item's own activity keeps the pin.
+	var pins int
+	for _, r := range must(t, Activity, owner, ActivityInput{Doc: task.ID}).Items {
+		for _, id := range r.Receipts {
+			if _, rc, err := getReceipt(t.Context(), owner.Store, id); err == nil && (rc.Op == "pin" || rc.Op == "unpin") {
+				pins++
+			}
+		}
+	}
+	if pins == 0 {
+		t.Fatal("activity lost the pin")
 	}
 }

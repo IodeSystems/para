@@ -180,6 +180,12 @@ func activityTime(s string, endOfDay bool) (time.Time, error) {
 
 // activityFeed builds every row that passes the filters, newest first.
 func activityFeed(ctx context.Context, d Deps, in ActivityInput, since, until time.Time) ([]ChangeRow, error) {
+	return activityFeedSkip(ctx, d, in, since, until, nil)
+}
+
+// activityFeedSkip is activityFeed without the receipts of the ops in skipOps. The Pinned read
+// hides the pin itself this way.
+func activityFeedSkip(ctx context.Context, d Deps, in ActivityInput, since, until time.Time, skipOps []string) ([]ChangeRow, error) {
 	evs, err := d.Store.Events(ctx, activityFeedWindow)
 	if err != nil {
 		return nil, err
@@ -224,6 +230,9 @@ func activityFeed(ctx context.Context, d Deps, in ActivityInput, since, until ti
 					r = nil
 				}
 				receipts[e.To] = r
+			}
+			if r != nil && slices.Contains(skipOps, r.Op) {
+				continue
 			}
 			if r != nil {
 				row.Kind, row.Summary = receiptKind(r.Op)

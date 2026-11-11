@@ -179,7 +179,7 @@ function Empty({ skipped, onAgain }: { skipped: number; onAgain: () => void }) {
         <LinkButton size="small" to="/agenda">
           Agenda
         </LinkButton>
-        <LinkButton size="small" to="/io" search={{ view: 'digest' }}>
+        <LinkButton size="small" to="/input" search={{ tab: 'rest' }}>
           Inbox digest
         </LinkButton>
         <LinkButton size="small" to="/requests">

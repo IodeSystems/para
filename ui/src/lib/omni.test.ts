@@ -16,6 +16,9 @@ describe('omni', () => {
     expect(pagesFor('activity').map((p) => p.to)).toEqual(['/activity'])
     expect(pagesFor('Today')[0]?.to).toBe('/agenda')
     expect(pagesFor('')).toEqual([])
+    expect(pagesFor('inbox').map((p) => p.to)).toEqual(['/input'])
+    expect(pagesFor('proposals').map((p) => p.to)).toEqual(['/output'])
+    expect(pagesFor('io').some((p) => p.to === '/io')).toBe(false)
   })
   it('groups hits in order and caps each group', () => {
     const hits = [

@@ -34,7 +34,8 @@ export const TABS: Tab[] = [
 
 // Screens with no digit key and no tab: the menu and the Agenda page link to them.
 export const EXTRA_SCREENS: Tab[] = [
-  { key: '', to: '/io', label: 'IO', hint: 'messages in and out not dealt with yet' },
+  { key: '', to: '/input', label: 'Input', hint: 'messages that came in, and what they made' },
+  { key: '', to: '/output', label: 'Output', hint: 'what waits for your approval to go out, and what was sent' },
   { key: '', to: '/docs', label: 'Docs', hint: 'remote documents you follow, and what changed' },
   {
     key: '',

@@ -512,8 +512,10 @@ try {
     ['/meetings', 'Obligations'],
     [`/meetings/${meeting}`, 'Quota sync'],
     ['/health', 'Health'],
-    ['/io', 'IO'],
-    ['/io?view=outbox', 'IO'],
+    ['/input', 'Input'],
+    ['/output', 'Output'],
+    ['/io', 'Input'],
+    ['/io?view=outbox', 'Output'],
     [`/io/${incoming}`, 'Seed: ask platform about the quota'],
     [`/io/${outgoing}`, 'Thanks for the quota'],
     ['/docs', 'Docs'],
@@ -544,17 +546,13 @@ try {
     )
   }
 
-  // IO: the inbox lists what came, the outbox what is ready or drafted, the agenda counts them.
+  // /io redirects to the screens that replaced it: Input, and Output for the outbox view.
   await page.goto(`${base}/io`)
-  await page.getByRole('heading', { name: 'IO' }).waitFor()
-  await page.getByRole('link', { name: 'Seed: ask platform about the quota' }).waitFor()
-  check(true, 'the IO inbox lists the incoming message')
-  await page.getByRole('tab', { name: /Outbox/ }).click()
-  await page.getByRole('link', { name: 'Thanks for the quota' }).waitFor()
-  check(
-    (await page.getByText('Expects no response', { exact: false }).count()) === 1,
-    'the outbox groups drafts by what they expect',
-  )
+  await page.getByRole('heading', { name: 'Input' }).first().waitFor()
+  check(new URL(page.url()).pathname === '/input', '/io lands on /input')
+  await page.goto(`${base}/io?view=outbox`)
+  await page.getByRole('heading', { name: 'Output' }).first().waitFor()
+  check(new URL(page.url()).pathname === '/output', '/io?view=outbox lands on /output')
   await page.goto(`${base}/agenda`)
   await page.getByRole('heading', { name: 'Agenda' }).waitFor()
   check(

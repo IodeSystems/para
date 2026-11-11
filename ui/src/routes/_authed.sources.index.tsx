@@ -60,7 +60,9 @@ function SourcesPage() {
                       />
                     )}
                     {(st?.held ?? 0) > 0 && (
-                      <StatusChip tone="attn" label="Draft held: situation changed" />
+                      <TextLink to="/output" underline="none">
+                        <StatusChip tone="attn" label="Draft held: situation changed" />
+                      </TextLink>
                     )}
                     {s.declared.every((x) => !x.fresh) && s.status === 'active' && (
                       <StatusChip tone="wait" label="No agent reaches it" />
