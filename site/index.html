@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>para — what you owe, and who you wait on</title>
-<meta name="description" content="para is a task and blocker tracker for one person. Plain markdown vaults, an MCP interface so your agent does the filing, and your approval on everything that goes out.">
+<meta name="description" content="para keeps track of what you owe and who you wait on. Your agent reads your mail and chat and files every promise, reply, and blocker into plain markdown. You work one card at a time and approve anything that goes out.">
 <meta name="author" content="IodeSystems">
 <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
@@ -14,7 +14,7 @@
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="para">
 <meta property="og:title" content="para — what you owe, and who you wait on">
-<meta property="og:description" content="A task and blocker tracker for one person. Markdown vaults, agent-filed over MCP, approved by you.">
+<meta property="og:description" content="Your agent files every promise, reply, and blocker. You work one card at a time and approve what goes out.">
 <meta property="og:url" content="https://para.iodesystems.com/">
 <script type="application/ld+json">
 {
@@ -23,7 +23,7 @@
   "name": "para",
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Linux, macOS",
-  "description": "A task and blocker tracker for one person, kept in markdown vaults and driven by your agent over MCP.",
+  "description": "para keeps track of what you owe and who you wait on, in markdown vaults your agent keeps current over MCP.",
   "url": "https://para.iodesystems.com/",
   "downloadUrl": "https://github.com/IodeSystems/para/releases/latest",
   "codeRepository": "https://github.com/IodeSystems/para",
@@ -32,25 +32,33 @@
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s6:24px; --s8:32px; --s12:48px;
-    --r:6px; --max:1040px; --measure:72ch;
+    --s1:4px; --s2:8px; --s3:12px; --s4:16px; --s5:20px; --s6:24px; --s8:32px; --s12:48px; --s16:64px; --s24:96px;
+    --r:8px; --r2:12px; --max:1120px; --measure:64ch;
     --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
     --sans:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 
-    --bg:#0d1117; --surface:#161b22; --surface2:#10141b; --term:#16181c;
-    --border:#2a313b; --border2:#3a4250;
-    --text:#e6edf3; --text2:#a3adb9; --text3:#7d8792;
-    --accent:#5eb8ff; --accent-ink:#0a1620; --accent-soft:rgba(94,184,255,.12);
+    --bg:#0d1117; --surface:#161b22; --surface2:#10141b; --term:#14171c;
+    --border:#262d37; --border2:#36404d;
+    --text:#e8eef5; --text2:#a7b1bd; --text3:#7b8591;
+    --accent:#5eb8ff; --accent-ink:#06121c; --accent-soft:rgba(94,184,255,.12);
+    --owe:#f0a85a; --owe-soft:rgba(240,168,90,.13);
+    --wait:#b59cff; --wait-soft:rgba(181,156,255,.13);
+    --ok:#4cc38a; --ok-soft:rgba(76,195,138,.13);
+    --shadow:0 24px 60px -24px rgba(0,0,0,.6);
   }
   @media (prefers-color-scheme: light) {
     :root {
       --bg:#ffffff; --surface:#f6f7f9; --surface2:#eef0f3; --term:#f6f7f9;
-      --border:#dde1e6; --border2:#c9ced6;
-      --text:#1a1d23; --text2:#4b5361; --text3:#6b7380;
-      --accent:#0b6bb8; --accent-ink:#ffffff; --accent-soft:rgba(11,107,184,.09);
+      --border:#e1e4e9; --border2:#cbd1d9;
+      --text:#161a20; --text2:#4a5260; --text3:#6b7380;
+      --accent:#0b6bb8; --accent-ink:#ffffff; --accent-soft:rgba(11,107,184,.08);
+      --owe:#b25f0c; --owe-soft:rgba(178,95,12,.09);
+      --wait:#6a48d6; --wait-soft:rgba(106,72,214,.08);
+      --ok:#1a8a55; --ok-soft:rgba(26,138,85,.09);
+      --shadow:0 24px 60px -28px rgba(20,30,50,.25);
     }
   }
   * { box-sizing:border-box; }
@@ -60,44 +68,98 @@
   a:hover { text-decoration:underline; }
   a:focus-visible, button:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:var(--r); }
   code, pre { font-family:var(--mono); }
-  code { font-size:.88em; background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:0 var(--s1); overflow-wrap:anywhere; }
+  code { font-size:.86em; background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:0 var(--s1); overflow-wrap:anywhere; }
   .wrap { max-width:var(--max); margin:0 auto; padding:0 var(--s6); }
   p { max-width:var(--measure); }
 
   .top { border-bottom:1px solid var(--border); font:13px/1 var(--mono); }
-  .top .wrap { display:flex; justify-content:space-between; align-items:center; height:48px; gap:var(--s4); }
-  .top .brand { background:var(--accent); color:var(--accent-ink); font-weight:600; padding:var(--s1) var(--s2); border-radius:var(--r); }
-  .top nav { display:flex; gap:var(--s4); flex-wrap:wrap; }
+  .top .wrap { display:flex; justify-content:space-between; align-items:center; height:52px; gap:var(--s4); }
+  .top .brand { background:var(--accent); color:var(--accent-ink); font-weight:600; padding:var(--s1) var(--s2); border-radius:6px; }
+  .top nav { display:flex; gap:var(--s5); flex-wrap:wrap; }
   .top nav a { color:var(--text2); }
-  .top nav a:hover { color:var(--text); }
+  .top nav a:hover { color:var(--text); text-decoration:none; }
 
-  header { padding:var(--s12) 0; background:radial-gradient(800px 360px at 30% -80px, var(--accent-soft), transparent 70%); }
-  .eyebrow { font:500 13px/1.4 var(--mono); color:var(--text2); margin:0 0 var(--s4); }
-  h1 { font-size:32px; line-height:1.2; margin:0; font-weight:600; letter-spacing:-.02em; max-width:24ch; }
-  h1 em { font-style:normal; color:var(--accent); }
-  .lede { font-size:20px; line-height:1.5; margin:var(--s4) 0 0; }
-  .lede + .lede { font-size:16px; color:var(--text2); margin-top:var(--s3); }
-  .hero-install { margin:var(--s8) 0 0; max-width:640px; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); padding:var(--s3) var(--s4); }
-  .actions { margin:var(--s6) 0 0; display:flex; flex-wrap:wrap; gap:var(--s3); }
+  /* hero */
+  header { padding:var(--s16) 0 var(--s16); background:radial-gradient(900px 420px at 15% -120px, var(--accent-soft), transparent 70%); }
+  .hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.05fr); gap:var(--s12); align-items:center; }
+  .eyebrow { font:500 13px/1.4 var(--mono); color:var(--text3); margin:0 0 var(--s4); letter-spacing:.02em; }
+  h1 { font-size:46px; line-height:1.08; margin:0; font-weight:700; letter-spacing:-.03em; }
+  h1 .owe { color:var(--owe); } h1 .wait { color:var(--wait); }
+  .lede { font-size:19px; line-height:1.55; margin:var(--s6) 0 0; color:var(--text2); }
+  .lede b { color:var(--text); font-weight:600; }
+  .hero-install { margin:var(--s8) 0 0; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); padding:var(--s3) var(--s4); }
+  .actions { margin:var(--s5) 0 0; display:flex; flex-wrap:wrap; gap:var(--s3); }
   .btn { display:inline-block; font:500 14px/1 var(--sans); padding:var(--s3) var(--s4); border-radius:var(--r); border:1px solid var(--border2); color:var(--text); }
   .btn:hover { text-decoration:none; border-color:var(--text3); }
   .btn.primary { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
 
-  section { padding:var(--s12) 0; border-top:1px solid var(--border); }
-  h2 { font-size:24px; line-height:1.25; margin:0 0 var(--s3); letter-spacing:-.01em; font-weight:600; }
-  h3 { font-size:16px; line-height:1.35; margin:0 0 var(--s2); font-weight:600; }
-  .intro { color:var(--text2); margin:0 0 var(--s8); }
+  /* product mock */
+  .app { margin:0; background:var(--surface); border:1px solid var(--border2); border-radius:var(--r2); box-shadow:var(--shadow); overflow:hidden; font-size:14px; }
+  .app-bar { display:flex; align-items:center; gap:var(--s2); padding:var(--s3) var(--s4); border-bottom:1px solid var(--border); background:var(--surface2); font:12px/1 var(--mono); color:var(--text3); }
+  .app-bar .dots { display:flex; gap:6px; margin-right:var(--s2); }
+  .app-bar .dots i { width:10px; height:10px; border-radius:50%; background:var(--border2); display:block; }
+  .app-bar .tab { padding:var(--s1) var(--s2); border-radius:5px; }
+  .app-bar .tab.on { background:var(--accent-soft); color:var(--accent); }
+  .app-body { padding:var(--s4); display:grid; gap:var(--s3); }
+  .label { font:500 11px/1 var(--mono); text-transform:uppercase; letter-spacing:.08em; color:var(--text3); margin:var(--s1) 0 0; }
+  .next { background:var(--bg); border:1px solid var(--border2); border-left:3px solid var(--owe); border-radius:var(--r); padding:var(--s4); }
+  .next .why { font:12px/1.4 var(--mono); color:var(--owe); margin:0 0 var(--s2); }
+  .next .t { font-weight:600; font-size:16px; margin:0; }
+  .next .ctx { color:var(--text2); margin:var(--s1) 0 var(--s3); font-size:13px; }
+  .row-btns { display:flex; gap:var(--s2); flex-wrap:wrap; }
+  .chip { display:inline-block; font:500 12px/1 var(--sans); padding:6px 10px; border-radius:6px; border:1px solid var(--border2); color:var(--text2); white-space:nowrap; }
+  .chip.go { background:var(--accent); border-color:var(--accent); color:var(--accent-ink); }
+  .line { display:flex; gap:var(--s3); align-items:flex-start; background:var(--bg); border:1px solid var(--border); border-radius:var(--r); padding:var(--s3); }
+  .line .k { font:600 11px/1.6 var(--mono); padding:0 6px; border-radius:4px; white-space:nowrap; }
+  .k.in { background:var(--accent-soft); color:var(--accent); }
+  .k.wait { background:var(--wait-soft); color:var(--wait); }
+  .k.out { background:var(--ok-soft); color:var(--ok); }
+  .line p { margin:0; font-size:13px; color:var(--text2); }
+  .line p b { color:var(--text); font-weight:600; }
+  .made { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .made span { font:12px/1.5 var(--sans); color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:0 6px; }
+  .app figcaption { font:11px/1 var(--mono); color:var(--text3); padding:0 var(--s4) var(--s3); }
 
-  .cards { display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:var(--s6); min-width:0; }
+  section { padding:var(--s24) 0; border-top:1px solid var(--border); }
+  h2 { font-size:32px; line-height:1.15; margin:0 0 var(--s4); letter-spacing:-.02em; font-weight:700; }
+  h3 { font-size:17px; line-height:1.35; margin:0 0 var(--s2); font-weight:600; }
+  .kicker { font:500 12px/1 var(--mono); text-transform:uppercase; letter-spacing:.1em; color:var(--accent); margin:0 0 var(--s3); }
+  .intro { color:var(--text2); font-size:18px; margin:0 0 var(--s12); }
+
+  /* why */
+  .why-grid { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:var(--s12); align-items:start; }
+  .why-grid p { color:var(--text2); font-size:17px; margin:0 0 var(--s4); }
+  .why-grid p b { color:var(--text); }
+  .goal { border:1px solid var(--border2); border-radius:var(--r2); padding:var(--s8); background:linear-gradient(180deg,var(--surface),var(--bg)); }
+  .goal .q { font-size:24px; line-height:1.3; font-weight:600; letter-spacing:-.01em; margin:0 0 var(--s4); max-width:none; }
+  .goal ul { margin:0; padding:0; list-style:none; display:grid; gap:var(--s3); }
+  .goal li { color:var(--text2); padding-left:var(--s6); position:relative; }
+  .goal li::before { content:""; position:absolute; left:0; top:.55em; width:10px; height:10px; border-radius:3px; background:var(--accent); }
+
+  /* day */
+  .steps { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:var(--s4); counter-reset:s; }
+  .step { background:var(--surface); border:1px solid var(--border); border-radius:var(--r2); padding:var(--s6); position:relative; }
+  .step::before { counter-increment:s; content:counter(s); display:grid; place-items:center; width:28px; height:28px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font:600 13px/1 var(--mono); margin-bottom:var(--s4); }
+  .step p { margin:0; color:var(--text2); font-size:14px; }
+
+  /* keeps */
+  .cards { display:grid; gap:var(--s4); grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r2); padding:var(--s6); min-width:0; }
   .card p { margin:0; color:var(--text2); font-size:14px; }
-  .card p + p { margin-top:var(--s2); }
+  .card .tag { font:500 11px/1 var(--mono); color:var(--text3); text-transform:uppercase; letter-spacing:.08em; margin:0 0 var(--s3); }
+  .note { color:var(--text3); font-size:14px; margin:var(--s6) 0 0; }
 
-  .trust { margin:0; padding:0; list-style:none; display:grid; gap:var(--s3); max-width:var(--measure); }
-  .trust li { padding-left:var(--s4); border-left:3px solid var(--accent); color:var(--text2); }
-  .trust b { color:var(--text); font-weight:600; }
+  /* agent */
+  .stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:var(--s4); margin:0 0 var(--s8); }
+  .stat { border:1px solid var(--border); border-radius:var(--r2); padding:var(--s6); background:var(--surface); }
+  .stat .n { font:600 34px/1 var(--sans); letter-spacing:-.02em; color:var(--text); }
+  .stat .d { color:var(--text2); font-size:14px; margin:var(--s2) 0 0; }
 
-  .install { max-width:640px; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); overflow:hidden; }
+  .trust { margin:0; padding:0; list-style:none; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:var(--s4); }
+  .trust li { padding:var(--s5) var(--s6); border:1px solid var(--border); border-radius:var(--r2); color:var(--text2); font-size:14px; background:var(--surface); }
+  .trust b { display:block; color:var(--text); font-weight:600; font-size:16px; margin-bottom:var(--s1); }
+
+  .install { max-width:680px; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); overflow:hidden; }
   .tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
   .tabs button { font:13px/1 var(--mono); color:var(--text2); background:none; border:0; border-bottom:2px solid transparent; padding:var(--s3) var(--s4); cursor:pointer; }
   .tabs button[aria-selected="true"] { color:var(--text); border-bottom-color:var(--accent); }
@@ -108,20 +170,31 @@
   pre .p { color:var(--accent); user-select:none; -webkit-user-select:none; }
   pre .c { color:var(--text3); }
   .panel p { margin:var(--s2) 0 0; color:var(--text2); font-size:14px; }
-  .after { max-width:640px; margin:var(--s3) 0 0; color:var(--text2); font-size:14px; }
-  .block { margin:var(--s6) 0 0; max-width:640px; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); padding:var(--s3) var(--s4); }
-  /* TODO: screenshots (Next, Input, Output) go here, as on dun's page: a picture element with a phone and a desktop source. */
+  .after { max-width:680px; margin:var(--s4) 0 0; color:var(--text2); font-size:14px; }
+  .block { margin:0; max-width:680px; background:var(--term); border:1px solid var(--border2); border-radius:var(--r); padding:var(--s3) var(--s4); }
+  .two { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:var(--s12); }
+  .two h3 { margin-top:0; }
+  .two p { color:var(--text2); font-size:14px; }
 
   footer { border-top:1px solid var(--border); padding:var(--s8) 0 var(--s12); color:var(--text2); font-size:14px; }
   footer .wrap { display:flex; flex-wrap:wrap; gap:var(--s3); justify-content:space-between; }
   footer .mono { font-family:var(--mono); color:var(--text3); }
 
+  @media (max-width:900px) {
+    .hero, .why-grid, .two { grid-template-columns:minmax(0,1fr); gap:var(--s8); }
+    .steps { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    h1 { font-size:38px; }
+  }
   @media (max-width:600px) {
     .wrap { padding:0 var(--s4); }
-    header { padding:var(--s8) 0; }
-    h1 { font-size:24px; }
-    .lede { font-size:16px; }
-    .card { padding:var(--s4); }
+    header { padding:var(--s8) 0 var(--s12); }
+    section { padding:var(--s12) 0; }
+    h1 { font-size:32px; }
+    h2 { font-size:26px; }
+    .lede, .intro { font-size:16px; }
+    .steps, .stats { grid-template-columns:minmax(0,1fr); }
+    .card, .step, .stat, .goal { padding:var(--s4); }
+    .top nav a.opt { display:none; }
     pre { font-size:12px; }
   }
 </style>
@@ -131,82 +204,144 @@
 <div class="top">
   <div class="wrap">
     <a class="brand" href="#">para</a>
-    <nav><a href="#does">what it does</a><a href="#agent">agent</a><a href="#trust">trust</a><a href="#install">install</a><a href="https://github.com/IodeSystems/para">github</a></nav>
+    <nav><a class="opt" href="#why">why</a><a href="#how">how it works</a><a class="opt" href="#agent">agents</a><a href="#trust">trust</a><a href="#install">install</a><a href="https://github.com/IodeSystems/para">github</a></nav>
   </div>
 </div>
 
 <header>
-  <div class="wrap">
-    <p class="eyebrow">para · task and blocker tracker for one person · markdown vaults · MCP</p>
-    <h1>Do the work that <em>matters most</em>, next.</h1>
-    <p class="lede">para is an agent-run PARA system: your goals move at full speed, your areas are understood, your resources are known, and every message in and out is accounted for. Your agent does the filing. You decide what happens next, and you approve anything that goes out.</p>
-    <p class="lede">Plans and documents stay where they live. para links to them.</p>
-    <div class="hero-install"><pre><span class="p">$ </span>curl -fsSL https://para.iodesystems.com/install.sh | sh</pre></div>
-    <div class="actions">
-      <a class="btn primary" href="#install">Install para</a>
-      <a class="btn" href="#trust">What it will not do</a>
+  <div class="wrap hero">
+    <div>
+      <p class="eyebrow">for one person with too many fronts</p>
+      <h1>Know what you <span class="owe">owe</span>, and who you <span class="wait">wait on</span>.</h1>
+      <p class="lede">Promises hide in mail, chat, and hallway talk. para is the ledger your agent keeps of them: <b>every reply you owe, every task with its done-when, every blocker with who said it and why</b>. You work the next card. Nothing goes out until you approve it.</p>
+      <div class="hero-install"><pre><span class="p">$ </span>curl -fsSL https://para.iodesystems.com/install.sh | sh</pre></div>
+      <div class="actions">
+        <a class="btn primary" href="#install">Install para</a>
+        <a class="btn" href="#how">See how a day goes</a>
+      </div>
     </div>
+
+    <figure class="app" role="img" aria-label="para's web app with sample data: the next card is a reply owed to Sam Rivera; below it, an incoming message and what the agent made of it, a blocker with its reason, and a proposed reply awaiting approval.">
+      <div class="app-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="tab on">Next</span><span class="tab">Input</span><span class="tab">Output</span><span class="tab">Pinned</span></div>
+      <div class="app-body" aria-hidden="true">
+        <div class="next">
+          <p class="why">you owe a reply · asked Tue · goal: Launch the pilot</p>
+          <p class="t">Confirm the staging quota with Sam Rivera</p>
+          <p class="ctx">Sam approved 4 nodes in eu-west. A draft reply is ready.</p>
+          <div class="row-btns"><span class="chip go">Review reply</span><span class="chip">Done</span><span class="chip">Later</span><span class="chip">Thread</span></div>
+        </div>
+        <p class="label">came in</p>
+        <div class="line"><span class="k in">IN</span><div><p><b>Sam Rivera, chat:</b> “Quota approved for 4 nodes; region is eu-west.”</p>
+          <div class="made"><span>✓ answered: Which region hosts the pilot?</span><span>✓ closed the Ask to Sam</span><span>↗ unblocked: Book eu-west capacity</span></div></div></div>
+        <p class="label">waiting on</p>
+        <div class="line"><span class="k wait">WAIT</span><div><p><b>Dana Okafor: security sign-off.</b> Asked Mon. Why: required before any customer data lands in eu-west, per the data policy.</p></div></div>
+        <p class="label">to send</p>
+        <div class="line"><span class="k out">OUT</span><div><p><b>Reply to Sam:</b> “Thanks, booking eu-west capacity today.” Why: closes the Ask · Risk low · Confidence 90%</p>
+          <div class="made"><span>Approve</span><span>Discuss</span></div></div></div>
+      </div>
+      <figcaption>sample data</figcaption>
+    </figure>
   </div>
 </header>
 
 <main>
 
-<section id="does" aria-labelledby="does-h">
+<section id="why" aria-labelledby="why-h">
+  <div class="wrap why-grid">
+    <div>
+      <p class="kicker">why we built it</p>
+      <h2 id="why-h">Work stalls on people, not on effort.</h2>
+      <p>We run a company, hold a day job, and have a life, each with its own mail, chat, and tracker. What stops progress is rarely the work itself. It is the reply nobody sent, the answer that arrived in a thread no one reread, the approval someone gave in passing that nobody wrote down.</p>
+      <p>Agents can now read all of those sources. But an agent that acts as you, unchecked, with your account keys, is a new risk, not relief. So we built the part in between: <b>a plain-file ledger the agent keeps current, with you deciding what happens and what leaves.</b></p>
+    </div>
+    <div class="goal">
+      <p class="q">Progress without pain.</p>
+      <ul>
+        <li>Drive each goal to done without chasing people or becoming the one everything waits on.</li>
+        <li>Every blocker is written down: why, who said it, and where it applies.</li>
+        <li>Every reply you owe is on the list before anyone has to ask twice.</li>
+        <li>Your agent files; you decide. One card at a time.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="how" aria-labelledby="how-h">
   <div class="wrap">
-    <h2 id="does-h">PARA, with an agent, and with IO</h2>
-    <p class="intro">para is the PARA method — Projects, Areas, Resources, Archives — run with an agent that keeps it current, plus the part PARA leaves out: what comes in and what goes out. The point is one thing: act on the most impactful work you can, now.</p>
+    <p class="kicker">how a day goes</p>
+    <h2 id="how-h">Your agent files. You direct.</h2>
+    <p class="intro">Four moves, and the agent does the clerical part of each.</p>
+    <div class="steps">
+      <div class="step"><h3>Sweep</h3><p>Your agent reads your mail, chat, tracker, and calendar with its own tools. Each message becomes a reply you owe, a task, an answered question, or a line in a digest. Input shows what each one created, edited, or closed.</p></div>
+      <div class="step"><h3>Next</h3><p>One rule decides what needs you, and Next ranks it: what is due, what you owe someone, quick replies, then the best payoff for the effort, weighted by your goals' dates. Pin the plates you are juggling.</p></div>
+      <div class="step"><h3>Talk</h3><p>Every item has a thread: change it, question it, redirect it. Press <code>t</code> on any page to capture a call or a hallway promise; the agent files it with the detail as you said it.</p></div>
+      <div class="step"><h3>Approve</h3><p>A reply, a PR, a ticket: each is a proposal first, with why, impact, risk, and confidence. Compare variations, ask for a revision, approve the exact text. para records what was sent.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="keeps" aria-labelledby="keeps-h">
+  <div class="wrap">
+    <p class="kicker">what it keeps</p>
+    <h2 id="keeps-h">Everything you are on the hook for, in one place.</h2>
+    <p class="intro">Organized the PARA way (projects, areas, resources, archive), plus what PARA leaves out: what came in, and what goes out.</p>
     <div class="cards">
-      <div class="card"><h3>Projects: short goals, full speed</h3>
-        <p>A goal is a bounded outcome with a done-when. Its tasks form a graph with dependencies and blockers that carry reasons. The agent breaks it down, fills the gaps, and keeps it moving; you see what is stuck and why.</p></div>
-      <div class="card"><h3>Areas: full understanding</h3>
-        <p>Ongoing responsibilities — health, money, a client, a system you run — each with its policies, constraints, and exceptions inline, and a review date. Agents quote the source and cite the link, so you know what holds and why.</p></div>
-      <div class="card"><h3>Resources: known, not copied</h3>
-        <p>People and groups, how to reach them and who decides what. Your sources — mail, chat, tracker, wiki, calendar — and the documents you track. para links to where things live and keeps their versions; it does not make a second copy of your docs.</p></div>
-      <div class="card"><h3>Archives: nothing lost</h3>
-        <p>Closed work keeps its outcome and its history. Every agent write has a receipt with why, sources, and a diff, and most can be undone. Recent activity shows who changed what, across every machine.</p></div>
-      <div class="card"><h3>Input: what came in, and what it changed</h3>
-        <p>Your agent sweeps your sources. Each message becomes a task, a reply you owe, an answered question, or a digest line — and Input shows exactly what each one created, edited, or closed, for you to review.</p></div>
-      <div class="card"><h3>Output: proposals before anything leaves</h3>
-        <p>Every outward act — a reply, a PR, a ticket — is a proposal first, with why, impact, risk, and confidence. Batches, variations, revisions as you talk it through. You approve the exact text; para records what was sent.</p></div>
-      <div class="card"><h3>Act on the most impactful thing</h3>
-        <p>One rule decides what needs you. Next ranks it: what is due, what you owe someone, the quick replies, then the best impact for the effort, weighted by your goals' dates. One card at a time. Pinned keeps the plates you are juggling in view.</p></div>
-      <div class="card"><h3>Talk to it like a teammate</h3>
-        <p>Every item has a thread: change it, question it, redirect it. Capture with <code>t</code> from any page — a call, a promise made in a hallway — and the agent files it with the specification as you said it.</p></div>
+      <div class="card"><p class="tag">goals</p><h3>Bounded, with a done-when</h3><p>Tasks form a graph with dependencies and blockers that carry reasons. The agent breaks a goal down and keeps it moving; you see what is stuck and why.</p></div>
+      <div class="card"><p class="tag">areas</p><h3>Ongoing responsibilities</h3><p>Health, money, a client, a system you run: each with its policies, exceptions, and a review date. Agents quote the source and link it, so you know what holds.</p></div>
+      <div class="card"><p class="tag">people &amp; asks</p><h3>Who decides, and what you asked</h3><p>People and groups, how to reach them, and every Ask with its answer, or a "no" with its reason, where it applies, and when to ask again.</p></div>
+      <div class="card"><p class="tag">documents</p><h3>Linked, not copied</h3><p>Plans and docs stay where they live. para links to them and tracks their versions and comments, so it never holds a stale second copy.</p></div>
+      <div class="card"><p class="tag">history</p><h3>Every write has a receipt</h3><p>Each agent change carries why, sources, and a diff, and most can be undone. Closed work keeps its outcome. Activity shows who changed what, on every machine.</p></div>
+      <div class="card"><p class="tag">vaults</p><h3>One per front</h3><p>Keep your company, your job, and your life in separate vaults. A work vault opens only on the work machine; the rest can share one desktop.</p></div>
     </div>
   </div>
 </section>
 
 <section id="agent" aria-labelledby="agent-h">
   <div class="wrap">
-    <h2 id="agent-h">Your agent files. You direct.</h2>
-    <p class="intro">para is MCP first. Agents write through MCP and get rendered text back. Claude Code, dun, or any MCP client works.</p>
-    <div class="block"><pre><span class="p">$ </span>para setup --agent claude    <span class="c"># runs claude mcp add, installs the skill</span>
-<span class="p">$ </span>para setup --agent dun
-<span class="p">$ </span>para setup --agent generic --agent-name scribe   <span class="c"># prints a name, URL, token once</span></pre></div>
-    <p class="after">Then open your agent, check <code>/mcp</code>, and run the <code>bootstrap</code> prompt for the first interview. An agent with only a shell can use <code>para --actor NAME --why "reason" &lt;command&gt;</code>. Setup for each harness: <code>para help claude</code>, <code>para help dun</code>.</p>
+    <p class="kicker">built for agents</p>
+    <h2 id="agent-h">Light on context. Works with the model you have.</h2>
+    <p class="intro">para speaks MCP. An agent sees a short tool list and reaches every other operation through one lookup, so a session spends its context on your work, not on para.</p>
+    <div class="stats">
+      <div class="stat"><div class="n">15</div><p class="d">tools in the agent's list. Every other operation is one <code>ops_describe</code> away.</p></div>
+      <div class="stat"><div class="n">~2.7k</div><p class="d">tokens of tool schema per session, down from about 80k in earlier releases.</p></div>
+      <div class="stat"><div class="n">3</div><p class="d">model families pass the same test: Claude, a local 27B Qwen, and DeepSeek.</p></div>
+    </div>
+    <div class="two">
+      <div>
+        <div class="block"><pre><span class="p">$ </span>para setup --agent claude   <span class="c"># Claude Code</span>
+<span class="p">$ </span>para setup --agent dun      <span class="c"># dun</span>
+<span class="p">$ </span>para setup --agent generic --agent-name scribe</pre></div>
+      </div>
+      <div>
+        <h3>Any MCP client</h3>
+        <p>Setup registers the server and installs the skill. Then open your agent and run the <code>bootstrap</code> prompt: a short interview that fills your first vault. An agent with only a shell can use <code>para --actor NAME --why "reason" &lt;command&gt;</code>.</p>
+      </div>
+    </div>
   </div>
 </section>
 
 <section id="trust" aria-labelledby="trust-h">
   <div class="wrap">
-    <h2 id="trust-h">Trust and privacy</h2>
-    <p class="intro">These are invariants in the code, not preferences.</p>
+    <p class="kicker">trust</p>
+    <h2 id="trust-h">Safe to point an agent at.</h2>
+    <p class="intro">para holds what you owe, so these are enforced in the code, not left to a setting.</p>
     <ul class="trust">
-      <li><b>Plain files.</b> A vault is a folder of markdown in Obsidian format. Git is optional. SQLite is a cache you can rebuild, never the source of truth.</li>
-      <li><b>One writer.</b> All vault writes go through one package. A hand edit is detected and logged as an external edit. The event log is append-only and holds ids, metadata, and hashes, never content.</li>
-      <li><b>Nothing leaves without a log.</b> Every path out is logged as an event. Anything outward waits for your approval.</li>
-      <li><b>Deny by default.</b> The server checks, in order: client IP, Host, IP rule, token, scope, Origin. There is no <code>--insecure</code>. <code>X-Forwarded-For</code> is honored only from exact trusted proxies.</li>
-      <li><b>No OAuth,</b> inbound or outbound.</li>
-      <li><b>Domains.</b> A vault has a domain (such as life, iode, or corp). It opens only on a machine that lists that domain, so corp data stays on the corp machine. Only the owner changes a machine's domains, by CLI. No agent tool can.</li>
-      <li><b>No sync feature.</b> Use any file-sync tool you like. A vault stays correct under it, because per-machine state lives outside the vault.</li>
-      <li><b>para fetches nothing.</b> Your agent reads your mail, chat, and trackers with its own tools, and passes para a URL and text.</li>
+      <li><b>No logins to your accounts.</b>para never asks for access to your mail, chat, or code hosting, and stores no tokens for them, so it has nothing of yours to leak. Your agent reads your sources with the tools it already has and hands para the text and a link.</li>
+      <li><b>Nothing goes out without you.</b>A reply, a PR, or a ticket stays a proposal until you approve its exact text. Every connection para makes is logged.</li>
+      <li><b>Your files, readable without para.</b>A vault is a folder of markdown (Obsidian format). Open it in any editor; git is optional. The database is a cache para rebuilds from the files.</li>
+      <li><b>Every change is accounted for.</b>An agent's write carries why, sources, and a diff. A hand edit is noticed and recorded. The log holds ids and hashes, never your text.</li>
+      <li><b>Closed by default.</b>The web server answers only the machines and keys you allow, and no switch turns the checks off.</li>
+      <li><b>Work data stays on the work machine.</b>Each vault has a domain. It opens only on a machine you allowed that domain, and only you change that list, from the terminal. No agent can.</li>
+      <li><b>Sync with what you already use.</b>Syncthing, Dropbox, iCloud, or git: a vault stays correct under any of them, because each machine keeps its own state outside the vault.</li>
+      <li><b>Updates are signed.</b>para checks for a new release once a day, sending nothing from your vaults, verifies its signature, and installs it at a quiet moment. A vault setting turns it off.</li>
     </ul>
   </div>
 </section>
 
 <section id="install" aria-labelledby="install-h">
   <div class="wrap">
-    <h2 id="install-h">Install</h2>
+    <p class="kicker">install</p>
+    <h2 id="install-h">One command, then one setup.</h2>
     <p class="intro">Linux and macOS, amd64 and arm64.</p>
     <div class="install">
       <div class="tabs" role="tablist" aria-label="Install">
@@ -227,14 +362,14 @@
         <p>Fix every <code>FAIL</code> line from <code>bin/doctor</code> first.</p>
       </div>
     </div>
-    <p class="after"><code>para setup</code> asks about domains, the first vault, the service, sign-in, and an optional agent. A rerun skips what is done. <code>para setup --dry-run</code> prints every step and changes nothing. Then <code>para serve</code> for the web UI, on port 7700.</p>
+    <p class="after"><code>para setup</code> asks about domains, the first vault, the service, sign-in, and an optional agent. A rerun skips what is done; <code>--dry-run</code> prints every step and changes nothing. The web app is on port 7700.</p>
   </div>
 </section>
 
 <section id="signed" aria-labelledby="signed-h">
   <div class="wrap">
-    <h2 id="signed-h">Releases are signed</h2>
-    <p class="intro">Each release has a manifest with every tarball's sha256, signed with minisign. The key is shared with <a href="https://dun.iodesystems.com/">dun</a>: key ID <code>2CC27A171DE03D42</code>. Get the key from this site (<a href="minisign.pub">minisign.pub</a>) and compare the ID, then verify:</p>
+    <h2 id="signed-h">Verify a release yourself</h2>
+    <p class="intro">Each release has a manifest with every tarball's sha256, signed with minisign, key ID <code>2CC27A171DE03D42</code>. Get the key from this site (<a href="minisign.pub">minisign.pub</a>), compare the ID, then verify:</p>
     <div class="block"><pre><span class="p">$ </span>curl -fsSLO https://github.com/IodeSystems/para/releases/latest/download/para-manifest.json
 <span class="p">$ </span>curl -fsSLO https://github.com/IodeSystems/para/releases/latest/download/para-manifest.json.minisig
 <span class="p">$ </span>minisign -V -p minisign.pub -m para-manifest.json</pre></div>
