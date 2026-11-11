@@ -385,7 +385,14 @@ func isTerminal(v any) bool {
 		return false
 	}
 	st, err := f.Stat()
-	return err == nil && st.Mode()&os.ModeCharDevice != 0
+	if err != nil || st.Mode()&os.ModeCharDevice == 0 {
+		return false
+	}
+	// /dev/null is a character device and takes no answers.
+	if null, err := os.Stat(os.DevNull); err == nil && os.SameFile(st, null) {
+		return false
+	}
+	return true
 }
 
 // investigateText prints the request an investigate queued or added to.

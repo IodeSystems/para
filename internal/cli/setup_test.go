@@ -586,3 +586,55 @@ func TestSetupDryRunFreshHomeCreatesNothing(t *testing.T) {
 		t.Errorf("dry run on a fresh home wrote files: %d -> %d entries", len(before), len(after))
 	}
 }
+
+func TestIsTerminalRejectsDevNull(t *testing.T) {
+	f, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Skip(err)
+	}
+	defer f.Close()
+	if isTerminal(f) {
+		t.Error("/dev/null counted as a terminal")
+	}
+}
+
+func TestSetupNoTTYDomainsDefaultRecordsWithoutPrompt(t *testing.T) {
+	e := newEnv(t)
+	p := filepath.Join(e.dir, "iode")
+	newEnv(t).ok("init", "iode", p)
+	rewriteProps(t, p, "vault.domain=iode\n", "")
+	if err := e.install().Add("iode", p); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", e.dir)
+	e.hooks = &setupHooks{tty: func(io.Reader) bool { return false }}
+	out := e.ok("setup", "--domains-default", "--no-service", "--agent", "none")
+	if strings.Contains(out, "[Y/n]") || !strings.Contains(out, "recorded in") {
+		t.Errorf("prompted or not recorded:\n%s", out)
+	}
+	if d, _ := e.install().Domains(); strings.Join(d, ",") != "iode" {
+		t.Errorf("machine domains = %v", d)
+	}
+}
+
+func TestSetupNoTTYMissingDomainChangesNothing(t *testing.T) {
+	e := newEnv(t)
+	p := filepath.Join(e.dir, "iode")
+	newEnv(t).ok("init", "iode", p)
+	rewriteProps(t, p, "vault.domain=iode\n", "")
+	if err := e.install().Add("iode", p); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", e.dir)
+	e.hooks = &setupHooks{tty: func(io.Reader) bool { return false }}
+	_, errOut, err := e.run("setup", "--no-service", "--agent", "none")
+	if err == nil || !strings.Contains(errOut, "--domain iode=<domain>") {
+		t.Errorf("want missing flag listed: %v\n%s", err, errOut)
+	}
+	if strings.Contains(vaultProps(t, p), "vault.domain") {
+		t.Error("vault marked before refusal")
+	}
+	if d, _ := e.install().Domains(); len(d) != 0 {
+		t.Errorf("machine domains changed: %v", d)
+	}
+}
