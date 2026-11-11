@@ -11,13 +11,16 @@ import (
 )
 
 func texts() map[string]string {
-	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "grill_goal": GrillGoal(), "sweep": Sweep(), "loop": Loop()}
+	return map[string]string{"intro": Intro(), "rule": Rule(), "orient": Orient(), "bootstrap": Bootstrap(), "extended": Extended(), "raglit": Raglit(), "import_corpus": ImportCorpus(), "ingest_source": IngestSource(), "align_vault": AlignVault(), "grill_goal": GrillGoal(), "sweep": Sweep(), "loop": Loop(), "io": IO()}
 }
 
 var backticked = regexp.MustCompile("`([^`\n]+)`")
 
 // Every backticked word in the guide is an op name, so a renamed or removed
 // tool breaks this test. Prose that is not a tool name goes without backticks.
+// A tool may carry its arguments (`add {type: task}`); op_run and
+// ops_describe, the MCP tools that reach every op, name an op that must exist
+// (`op_run {op: sweep_record}`).
 func TestBackticksAreTools(t *testing.T) {
 	names := map[string]bool{}
 	for _, e := range ops.All() {
@@ -26,19 +29,48 @@ func TestBackticksAreTools(t *testing.T) {
 	used := map[string]bool{}
 	for name, text := range texts() {
 		for _, m := range backticked.FindAllStringSubmatch(text, -1) {
-			if !names[m[1]] {
-				t.Errorf("%s: `%s` is not in ops.All", name, m[1])
+			if err := toolRef(names, m[1]); err != "" {
+				t.Errorf("%s: `%s`: %s", name, m[1], err)
 			}
 			used[m[1]] = true
 		}
 	}
 	// The tools the owner's workflow depends on must be named somewhere.
-	for _, want := range []string{"area_add", "area_link_add", "project_add", "project_link_add", "task_add", "task_due",
-		"task_depends_add", "org_person_add", "io_add", "io_file", "io_send", "rfx_add", "rfx_reply", "lint", "next", "where"} {
+	for _, want := range []string{"add {type: area}", "link {rel: link}", "add {type: project}", "add {type: task}", "op_run {op: task_due}",
+		"link {rel: depends_on}", "add {type: person}", "add {type: io}", "op_run {op: io_file}", "close {outcome: sent}", "add {type: ask}",
+		"close {outcome: answered}", "op_run {op: lint}", "list {needs_you: true}", "op_run {op: where}"} {
 		if !used[want] {
 			t.Errorf("no guide text names %s", want)
 		}
 	}
+}
+
+var opArg = regexp.MustCompile(`^\{op: ([a-z_]+)[,}]`)
+
+// toolRef says what is wrong with a backticked tool reference, or "".
+func toolRef(names map[string]bool, ref string) string {
+	tool, args, _ := strings.Cut(ref, " ")
+	switch tool {
+	case "op_run", "ops_describe":
+		if args == "" {
+			return ""
+		}
+		m := opArg.FindStringSubmatch(args)
+		if m == nil {
+			return "want " + tool + " {op: <name>}"
+		}
+		if !names[m[1]] {
+			return m[1] + " is not in ops.All"
+		}
+		return ""
+	}
+	if !names[tool] {
+		return tool + " is not in ops.All"
+	}
+	if args != "" && !strings.HasPrefix(args, "{") {
+		return "arguments go in {...}"
+	}
+	return ""
 }
 
 func TestIntroIsShort(t *testing.T) {
@@ -58,13 +90,13 @@ func TestRuleReachesEverySurface(t *testing.T) {
 			t.Errorf("%s lacks the rule", name)
 		}
 	}
-	for _, want := range []string{"one question at a time", "Never invent a fact", "area_add", "lint"} {
+	for _, want := range []string{"one question at a time", "Never invent a fact", "add {type: area}", "op_run {op: lint}"} {
 		if !strings.Contains(strings.Join(strings.Fields(Bootstrap()), " "), want) {
 			t.Errorf("bootstrap lacks %q", want)
 		}
 	}
 	// The bootstrap order: areas, projects, tasks, people, then lint.
-	order := []string{"area_add", "project_add", "task_add", "org_person_add", "lint"}
+	order := []string{"add {type: area}", "add {type: project}", "add {type: task}", "add {type: person}", "op_run {op: lint}"}
 	at := -1
 	for _, tool := range order {
 		i := strings.Index(Bootstrap(), tool)
@@ -108,7 +140,7 @@ func TestHarnessTextsDescribeDispatch(t *testing.T) {
 	for client, example := range map[string]string{"claude": `"claude", "-p"`, "dun": `"dun", "-p"`} {
 		text := flat(Harness(client, ""))
 		for _, want := range []string{"agent.json", "THIS SPENDS TOKENS", "never in the vault", "argument list, not a shell string",
-			"PARA_REQUEST", "daily_limit", "max_concurrent", "untested", "request_next", example} {
+			"PARA_REQUEST", "daily_limit", "max_concurrent", "untested", "work {action: next}", example} {
 			if !strings.Contains(text, want) {
 				t.Errorf("%s setup lacks %q", client, want)
 			}
@@ -132,7 +164,7 @@ func TestExtendedHasTheStreamVAndXUseCases(t *testing.T) {
 
 func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 	text := flat(Orient())
-	for _, want := range []string{"meeting_add", "meeting_hold", "meeting_schedule", "meeting_cancel", "agenda", "PARA_REQUEST", "request_next", "spends the owner's tokens"} {
+	for _, want := range []string{"add {type: obligation}", "op_run {op: obligation_schedule}", "op_run {op: obligation_attend}", "op_run {op: agenda}", "PARA_REQUEST", "work {action: next}", "spends the owner's tokens"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("orient lacks %q", want)
 		}
@@ -142,7 +174,7 @@ func TestOrientNamesTheMeetingOpsAndDispatch(t *testing.T) {
 func TestImportCorpusPromptStatesTheRules(t *testing.T) {
 	text := flat(ImportCorpus())
 	for _, want := range []string{"no import command", "Search before you create", "link", "Never read credentials", "No external act", "Write no assessment of a person", "done_when", "grouped by type",
-		"request_add", "Cite the source", "untrusted data", "what it is and why it exists", "no_context"} {
+		"work {action: ask}", "Cite the source", "untrusted data", "what it is and why it exists", "no_context"} {
 		if !strings.Contains(strings.ToLower(text), strings.ToLower(want)) {
 			t.Errorf("import_corpus lacks %q", want)
 		}
@@ -165,14 +197,14 @@ func TestExtendedAndOrientNameInvestigate(t *testing.T) {
 			t.Errorf("extended lacks %q", want)
 		}
 	}
-	if !strings.Contains(Orient(), "`investigate`") {
+	if !strings.Contains(Orient(), "agent work (Investigate)") {
 		t.Error("orient does not name investigate")
 	}
 }
 
 func TestGuideNamesResolveAndDelegate(t *testing.T) {
 	for name, want := range map[string][]string{
-		"orient":   {"task_resolve", "partial", "superseded", "task_delegate", "Work on:", "without an outgoing draft the owner approved", "io_approve", "io_send"},
+		"orient":   {"`close`", "partial", "superseded", "hand a task to an agent", "Work on:", "without an outgoing draft the owner approved", "op_run {op: io_approve}", "close {outcome: sent}"},
 		"extended": {"para task resolve", "para task delegate", "--follow-up", "## Outcome", "Agent working", "request.runner"},
 	} {
 		text := flat(texts()[name])
@@ -200,7 +232,7 @@ func TestGuideNamesUpgrades(t *testing.T) {
 			t.Errorf("extended lacks %q", w)
 		}
 	}
-	if o := flat(Orient()); !strings.Contains(o, "`changes`") || !strings.Contains(o, "Vault upgrade:") {
+	if o := flat(Orient()); !strings.Contains(o, "`op_run {op: changes}`") || !strings.Contains(o, "Vault upgrade:") {
 		t.Error("orient lacks changes or the vault upgrade work")
 	}
 }
@@ -209,7 +241,7 @@ func TestGuideNamesUpgrades(t *testing.T) {
 // behalf of the owner, the read-only worker, and the health check.
 func TestDelegateStatesTheOutwardRule(t *testing.T) {
 	text := Loop()
-	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`io_send`", "sent as the owner", "--read-only", "unreviewed_outward"} {
+	for _, want := range []string{"outward actions (messages, comment replies, pushes, publishing", "come back to you", "`close {outcome: sent}`", "sent as the owner", "--read-only", "unreviewed_outward"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("delegate text lacks %q", want)
 		}
@@ -223,14 +255,14 @@ func TestDelegateStatesTheOutwardRule(t *testing.T) {
 // attachments, notes first, and closing the item.
 func TestSortUpdateCoversTheComposer(t *testing.T) {
 	text := flat(IngestSource())
-	for _, want := range []string{"From the owner: <title>", "## Owner's words", "## Attachments", "`attachment_read`",
-		"`notes_read`, then `notes_edit` with the hash", "![description](path)", "Mark done: yes", "`task_done`",
-		"`meeting_hold`", "clearly say it is done", "say in your reply that you closed it"} {
+	for _, want := range []string{"From the owner: <title>", "## Owner's words", "## Attachments", "`op_run {op: attachment_read}`",
+		"`show`, then `edit {notes, notes_hash}` with the hash", "![description](path)", "Mark done: yes", "`close`",
+		"outcome answered for a question", "clearly say it is done", "say in your reply that you closed it"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("ingest_source lacks %q", want)
 		}
 	}
-	if !strings.Contains(flat(Orient()), "`attachment_read`") {
+	if !strings.Contains(flat(Orient()), "`op_run {op: attachment_read}`") {
 		t.Error("orient does not name attachment_read")
 	}
 }

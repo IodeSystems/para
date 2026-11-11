@@ -48,7 +48,7 @@ func TestReadOnlyListsNoWrites(t *testing.T) {
 			t.Errorf("%s (risk %s): listed %v", e.Name(), e.Risk(), got[e.Name()])
 		}
 	}
-	for _, want := range []string{"search", "rules_in_effect", "policy_show"} {
+	for _, want := range []string{"search", "rules_in_effect", "show", opRunTool, opsDescribeTool} {
 		if !got[want] {
 			t.Errorf("%s is not listed", want)
 		}

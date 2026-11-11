@@ -399,6 +399,12 @@ func TestGraphQLEveryOp(t *testing.T) {
 			if r.Method != get {
 				return
 			}
+			// ops_stats counts its own call: the REST call after this one sees
+			// one more, so its numbers cannot match. The GraphQL call above
+			// still proves the field resolves.
+			if r.Op == "ops_stats" {
+				return
+			}
 			data := res["data"].(map[string]any)["para"].(map[string]any)["v1"].(map[string]any)[r.ID]
 			c = restTarget(t, r, sample(r.Op))
 			c.token = key

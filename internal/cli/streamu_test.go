@@ -439,7 +439,7 @@ func TestGuideStreamUExamples(t *testing.T) {
 		t.Errorf("guide shows %d recur values and %d incident add lines: want recurrence and incident examples", recurs, incidents)
 	}
 	text := strings.Join(strings.Fields(guide.Orient()), " ")
-	for _, want := range []string{"alerts stay in monitoring", "task_assign", "incident_add", "incident_note", "incident_status"} {
+	for _, want := range []string{"alerts stay in monitoring", "task_assign", "the owner opens an incident", "incident_note", "`close` resolves it"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("orient lacks %q", want)
 		}

@@ -53,6 +53,9 @@ type Options struct {
 	// Update reads the machine's update status for the web banner. Nil
 	// answers an empty status.
 	Update func() UpdateStatus
+	// MCPTools is the tool listing of /mcp (mcpserver.ToolsAll or ToolsCore;
+	// empty is all). para serve passes mcp.tools, default core.
+	MCPTools string
 }
 
 // Server holds the built API. Build it with New.
@@ -157,31 +160,11 @@ func (s *Server) access(next http.Handler) http.Handler {
 			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
 				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate")}))
 		}
-		// Rating headers are accepted and ignored for one release, with a note.
-		var ignored []string
-		for _, name := range ops.IgnoredRatings {
-			if r.Header.Get(ratingHeader(name)) != "" {
-				ignored = append(ignored, name)
-			}
-		}
-		if len(ignored) > 0 {
-			w.Header().Set("X-Para-Note", ops.RatingsNote(ignored))
-		}
 		next.ServeHTTP(sw, r)
 		req, _ := netguard.From(r.Context())
 		s.log.Info("request", "method", r.Method, "path", req.Path, "status", sw.status,
 			"latency_ms", time.Since(start).Milliseconds(), "vault", req.Vault, "actor", req.Principal.Name)
 	})
-}
-
-// ratingHeader is the header an agent sent a rating in before 0.3.0:
-// owner_said is X-Para-Owner-Said.
-func ratingHeader(name string) string {
-	parts := strings.Split(name, "_")
-	for i, p := range parts {
-		parts[i] = strings.ToUpper(p[:1]) + p[1:]
-	}
-	return "X-Para-" + strings.Join(parts, "-")
 }
 
 func isAPIPath(p string) bool {

@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/para/internal/netguard"
+	"github.com/iodesystems/para/internal/opstats"
 	"github.com/iodesystems/para/internal/props"
 	"github.com/iodesystems/para/internal/server"
 	"github.com/iodesystems/para/internal/webui"
@@ -73,6 +74,7 @@ func newServeCmd(l *loader) *cobra.Command {
 			if err := l.load(); err != nil {
 				return err
 			}
+			defer func() { _ = opstats.FlushAll() }()
 			return runServe(cmd.Context(), l, f, cmd.ErrOrStderr())
 		},
 	}
@@ -221,8 +223,12 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	}
 	defer release()
 
+	tools, err := l.mcpTools("")
+	if err != nil {
+		return err
+	}
 	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live,
-		UpdateNotice: l.updateNotice, Update: l.updateStatus})
+		UpdateNotice: l.updateNotice, Update: l.updateStatus, MCPTools: tools})
 	if err != nil {
 		return err
 	}

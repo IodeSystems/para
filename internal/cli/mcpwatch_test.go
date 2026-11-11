@@ -64,7 +64,7 @@ type notes struct {
 func startMCPNotes(t *testing.T, e *env, args ...string) (*client.Client, *notes, *mcp.InitializeResult) {
 	t.Helper()
 	cmdEnv := append(os.Environ(), "PARA_TEST_BINARY=1", "PARA_HOME="+e.home, "PARA_VAULT=")
-	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, append([]string{"mcp"}, args...)...)
+	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, mcpArgs(args)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestMCPNotifiesAboutThisSessionOnly(t *testing.T) {
 	}
 	t.Logf("claimable notification %s after the CLI returned", time.Since(wrote))
 	data := dataOf(t, x)
-	if !strings.Contains(data, "request_next") {
+	if !strings.Contains(data, "work {action: next}") {
 		t.Errorf("data = %q", data)
 	}
 	assertNoVaultText(t, data)
@@ -161,7 +161,7 @@ func TestMCPNotifiesAboutThisSessionOnly(t *testing.T) {
 		t.Fatal("no notification for a cancelled claim")
 	}
 	data = dataOf(t, x)
-	if !strings.Contains(data, next.Request.ID) || !strings.Contains(data, "cancelled") || !strings.Contains(data, "request_show") {
+	if !strings.Contains(data, next.Request.ID) || !strings.Contains(data, "cancelled") || !strings.Contains(data, "call show") {
 		t.Errorf("data = %q", data)
 	}
 	assertNoVaultText(t, data)
@@ -208,7 +208,7 @@ func TestMCPChannelIsOffUnlessAsked(t *testing.T) {
 		t.Errorf("meta = %+v", meta)
 	}
 	content, _ := f["content"].(string)
-	if !strings.Contains(content, "request_next") {
+	if !strings.Contains(content, "work {action: next}") {
 		t.Errorf("content = %q", content)
 	}
 	assertNoVaultText(t, content)

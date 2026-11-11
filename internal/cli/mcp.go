@@ -17,6 +17,7 @@ import (
 	"github.com/iodesystems/para/internal/guide"
 	"github.com/iodesystems/para/internal/mcpserver"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/opstats"
 	"github.com/iodesystems/para/internal/registry"
 	"github.com/iodesystems/para/internal/store/local"
 	"github.com/iodesystems/para/internal/upgrade"
@@ -29,7 +30,7 @@ const mcpSurface = "mcp"
 // an op. The vault is chosen once at start by the normal rule and cannot
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
-	var actor string
+	var actor, toolsFlag string
 	var helpClaude, helpDun, channel, helpRaglit, readOnly, surface bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
@@ -40,6 +41,7 @@ server entries for this install. They write nothing.
 --help-raglit prints how to add meaning search with a raglit daemon.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			defer func() { _ = opstats.FlushAll() }()
 			// A running para mcp asks the binary installed after it for this,
 			// to decide what it can keep serving. It reads no vault.
 			if surface {
@@ -94,6 +96,10 @@ server entries for this install. They write nothing.
 			if err != nil {
 				return fmt.Errorf("vault %s: %w", sel.ID, err)
 			}
+			tools, err := l.mcpTools(toolsFlag)
+			if err != nil {
+				return err
+			}
 			// An agent never signs the browser in: it opens the plain URL.
 			base, open, signedIn := l.viewer(sel.ID, false)
 			srv, err := mcpserver.New(ops.Deps{Store: s, ViewerBase: base, OpenURL: open, SignedIn: signedIn}, mcpserver.Options{
@@ -107,6 +113,7 @@ server entries for this install. They write nothing.
 				InstalledVersion: installedVersion,
 				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
 				ReadOnly:         readOnly,
+				Tools:            tools,
 				PresenceDir:      l.stateDir(sel.ID),
 				Notice:           l.updateNotice,
 			})
@@ -119,6 +126,7 @@ server entries for this install. They write nothing.
 	cmd.Flags().StringVar(&actor, "actor", "agent", "actor name recorded in events")
 	cmd.Flags().BoolVar(&channel, "channel", false, "also send notifications as Claude Code channel events (research preview; Claude Code needs --dangerously-load-development-channels); speaks only the initialize handshake, protocol 2025-11-25 and older")
 	cmd.Flags().BoolVar(&readOnly, "read-only", false, "list only the tools that change nothing (policy, rules, search): for a worker agent that should not write")
+	cmd.Flags().StringVar(&toolsFlag, "tools", "", "tool listing: all (a tool per op) or core (the core tools; ops_describe and op_run reach the rest); default install.properties mcp.tools, else core")
 	cmd.Flags().BoolVar(&helpClaude, "help-claude", false, "print setup steps for Claude Code")
 	cmd.Flags().BoolVar(&helpRaglit, "help-raglit", false, "print how to connect a raglit daemon for meaning search")
 	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
@@ -126,6 +134,30 @@ server entries for this install. They write nothing.
 	_ = cmd.Flags().MarkHidden("surface")
 	cmd.AddCommand(newMCPConfigCmd(l))
 	return cmd
+}
+
+// keyMCPTools in install.properties is the default tool listing of para mcp
+// and para serve's /mcp.
+const keyMCPTools = "mcp.tools"
+
+// mcpTools is the tool listing: flag when set, else mcp.tools, else core.
+// mcp.tools=all is the escape hatch for a client that needs a tool per op.
+func (l *loader) mcpTools(flag string) (string, error) {
+	v := strings.TrimSpace(flag)
+	if v == "" {
+		p, err := l.install.Props()
+		if err != nil {
+			return "", err
+		}
+		v = strings.TrimSpace(p[keyMCPTools])
+	}
+	switch v {
+	case "":
+		return mcpserver.ToolsCore, nil
+	case mcpserver.ToolsAll, mcpserver.ToolsCore:
+		return v, nil
+	}
+	return "", fmt.Errorf("mcp: tools %q: want %s or %s (--tools or %s in install.properties)", v, mcpserver.ToolsAll, mcpserver.ToolsCore, keyMCPTools)
 }
 
 // mcpServerEntry is one `para mcp` launch line for a vault.

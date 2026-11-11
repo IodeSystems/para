@@ -49,6 +49,15 @@ func TestMCPOverHTTPChecksEachToolsScope(t *testing.T) {
 	if strings.Contains(body, "lacks scope") || !strings.Contains(body, `"result"`) {
 		t.Fatalf("a read was refused: %s", body)
 	}
+	// op_run checks the scope of the op it runs, not its own.
+	_, body, _ = f.mcp(reader, sid, `{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"op_run","arguments":{"op":"task_add","input":{"title":"x","why":"t"}}}}`)
+	if !strings.Contains(body, "task_add: key lacks scope vault:write") {
+		t.Fatalf("a read key wrote through op_run: %s", body)
+	}
+	_, body, _ = f.mcp(reader, sid, `{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"op_run","arguments":{"op":"lint"}}}`)
+	if strings.Contains(body, "lacks scope") || strings.Contains(body, `"isError":true`) {
+		t.Fatalf("a read through op_run was refused: %s", body)
+	}
 	// Another key does not share the session.
 	other := f.key(f.keyA, "other", netguard.ScopeVaultRead)
 	if code, _, _ := f.mcp(other, sid, `{"jsonrpc":"2.0","id":4,"method":"tools/list"}`); code != 404 {

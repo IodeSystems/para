@@ -64,7 +64,7 @@ func EnumOf(t reflect.Type) []string {
 }
 
 // writeShape lists the fields an agent's write takes beside the op's input.
-const writeShape = "write: why*, sources[], verify, confidence low|medium|high, minor, obvious, owner_said, dossier, request, not_duplicate"
+const writeShape = "write: why*, sources[], verify, confidence low|medium|high, request, input, not_duplicate"
 
 // Shape limits: nesting shown, and the length of the whole line.
 const (

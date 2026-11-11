@@ -50,6 +50,15 @@ func registerAttachments(r *registrar) {
 	reg(r, ops.ThemeClose, post, netguard.ScopeReviewDecide)
 	reg(r, ops.ThemeItems, get, read)
 	reg(r, ops.SendToAgent, post, netguard.ScopeReviewDecide)
+	// add, edit, link, and tag run the op of the type under the same
+	// Authorize: the caller needs that op's scope too.
+	reg(r, ops.Add, post, write)
+	reg(r, ops.Edit, post, write)
+	reg(r, ops.Link, post, write)
+	reg(r, ops.Tag, post, write)
+	reg(r, ops.Undo, post, write)
+	// work runs the request ops; ask (request_add) needs request:queue too.
+	reg(r, ops.Work, post, netguard.ScopeRequestRun)
 	reg(r, ops.Show, get, read)
 	reg(r, ops.List, get, read)
 }

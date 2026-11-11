@@ -28,12 +28,12 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
    "--read-only": the server then lists only tools that change nothing.
 
 6. Agents change the vault with ops and tell the owner in the chat. Before an
-   outward act they draft it (io_add direction out) for the owner to approve. Nothing has
+   outward act they draft it (`add {type: io}`, direction out) for the owner to approve. Nothing has
    to wait. The rest of this step is only for unattended work.
    `para mcp` watches the vault for the session, with no polling. It sends a
    short message (notifications/message, logger "para") when a request can be
    claimed by this install, or a request you claimed is cancelled. It holds ids and states only, never vault text, and
-   names the tool to call next. The tool `request_wait`
+   names the tool to call next. `op_run {op: request_wait}`
    blocks up to 60 seconds and return as soon as the state changes.
    dun adds the message to the conversation at the next tool result or turn. It
    does not start a turn on an idle session: this is read from dun's code, not
@@ -52,7 +52,7 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
    which agents are connected, and the requests page says who claimed what.
    Only a harness that cannot receive notifications needs a background job:
    $ para request wait --timeout 1h
-   It blocks with no token cost, then call `request_next`.
+   It blocks with no token cost, then call `work {action: next}`.
 
 7. Optional: let para start the agent when a request can be claimed on this machine.
    THIS SPENDS TOKENS: every run starts a dun session, billed to whatever model
@@ -61,7 +61,7 @@ Use para from dun. (para help dun and para mcp --help-dun print this.)
 
    $PARA_HOME/vaults/<vault>/agent.json
    {
-     "command": ["dun", "-p", "Use the para tools: call request_next to claim a request, work only on that request, report with request_note, and finish with request_done or request_fail."],
+     "command": ["dun", "-p", "Use the para tools: call work {action: next} to claim a request, work only on that request, report with work {action: note}, and finish with work {action: done} or work {action: fail}."],
      "max_concurrent": 1,
      "daily_limit": 10,
      "cwd": "/home/you/work"

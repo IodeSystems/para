@@ -172,19 +172,17 @@ func addFields(t reflect.Type, depth int, props map[string]any, required *[]stri
 	return nil
 }
 
-// metaProps are the fields a write tool takes beside the op's own input.
+// metaProps are the fields a write tool takes beside the op's own input. Each
+// description stays short: the initialize instructions (writeFields) explain
+// them once, for every tool.
 var metaProps = map[string]schema{
-	"why":           {"type": "string", "description": "Why you make this write. Required. Stored in the receipt"},
-	"sources":       {"type": "array", "items": schema{"type": "string"}, "description": "URLs or document ids this write rests on"},
-	"verify":        {"type": "string", "description": "How the owner can check it: a link, or a check they can do"},
-	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "low, medium (default), or high. Say low when you doubt the write; it is stored in the receipt"},
-	"request":       {"type": "string", "description": "The agent work this write serves, if you hold more than one"},
-	"input":         {"type": "string", "description": "The io item id you are ingesting: pass it on every write you make while you take that item in. Stored in the receipt"},
-	"not_duplicate": {"type": "string", "description": "On a create refused for a likely match: why this one is different. Stored in the receipt"},
-	"minor":         {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
-	"obvious":       {"type": "boolean", "description": "Ignored since 0.3.0 (goes in a later release): an undoable write applies at once"},
-	"dossier":       {"type": "string", "description": "Ignored since 0.3.0 (goes in a later release): no write is held back"},
-	"owner_said":    {"type": "string", "description": "Ignored since 0.3.0 (goes in a later release) on every tool but io_approve: it lets no write through"},
+	"why":           {"type": "string", "description": "Required: why you make this write"},
+	"sources":       {"type": "array", "items": schema{"type": "string"}, "description": "URLs or ids this write rests on"},
+	"verify":        {"type": "string", "description": "How the owner can check it"},
+	"confidence":    {"type": "string", "enum": strs(model.Confidences), "description": "Your doubt; default medium"},
+	"request":       {"type": "string", "description": "The request id this write serves"},
+	"input":         {"type": "string", "description": "The io id you are ingesting"},
+	"not_duplicate": {"type": "string", "description": "Why it differs from a likely match"},
 }
 
 // toolSchema is the input schema of a tool: the op's Input and, on a write, the
@@ -218,13 +216,13 @@ func toolSchema(e ops.Entry) (json.RawMessage, error) {
 }
 
 // takeWriteMeta moves the receipt fields out of a tool call and onto the
-// context. It refuses a write with no why. ignored lists the rating fields
-// the call carried that decide nothing (ops.IgnoredRatings).
-func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (_ context.Context, _ json.RawMessage, ignored []string, _ error) {
+// context. It refuses a write with no why. An op with its own owner_said
+// (io_approve) keeps it, and its receipt is self-reported.
+func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (context.Context, json.RawMessage, error) {
 	args := map[string]any{}
 	if len(input) > 0 {
 		if err := json.Unmarshal(input, &args); err != nil {
-			return ctx, input, nil, errors.New("input: not an object")
+			return ctx, input, errors.New("input: not an object")
 		}
 	}
 	own := fieldNames(e.InputType())
@@ -238,7 +236,7 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (_ c
 	var m ops.WriteMeta
 	m.Why, _ = take("why").(string)
 	if strings.TrimSpace(m.Why) == "" {
-		return ctx, input, nil, errors.New("why is required: say why you make this write")
+		return ctx, input, errors.New("why is required: say why you make this write")
 	}
 	if list, ok := take("sources").([]any); ok {
 		for _, v := range list {
@@ -251,30 +249,21 @@ func takeWriteMeta(ctx context.Context, e ops.Entry, input json.RawMessage) (_ c
 	c, _ := take("confidence").(string)
 	m.Confidence = model.Confidence(c)
 	if c != "" && !slices.Contains(model.Confidences, m.Confidence) {
-		return ctx, input, nil, fmt.Errorf("confidence %q: want low, medium, or high", c)
+		return ctx, input, fmt.Errorf("confidence %q: want low, medium, or high", c)
 	}
 	m.Request, _ = take("request").(string)
 	m.NotDuplicate, _ = take("not_duplicate").(string)
 	if !own["input"] { // proposal ops have an input of their own
 		m.Input, _ = take("input").(string)
 	}
-	// An op with its own owner_said (io_approve) keeps it, and its receipt
-	// is self-reported. Elsewhere it and the ratings are ignored.
-	for _, name := range ops.IgnoredRatings {
-		_, sent := args[name]
-		v := take(name)
-		switch {
-		case own[name] && name == "owner_said":
-			m.OwnerSaid, _ = v.(string)
-		case sent && !own[name]:
-			ignored = append(ignored, name)
-		}
+	if own["owner_said"] {
+		m.OwnerSaid, _ = args["owner_said"].(string)
 	}
 	b, err := json.Marshal(args)
 	if err != nil {
-		return ctx, input, nil, errors.New("input: not JSON")
+		return ctx, input, errors.New("input: not JSON")
 	}
-	return ops.WithWrite(ctx, m), b, ignored, nil
+	return ops.WithWrite(ctx, m), b, nil
 }
 
 // fieldNames lists the JSON names of a struct's fields.
@@ -300,4 +289,44 @@ func fieldNames(t reflect.Type) map[string]bool {
 		}
 	}
 	return out
+}
+
+// compactSchema is the schema of a tool in a core listing, where every byte is
+// read at each session start. A field that is an object, or a list of objects,
+// keeps its type but not the fields inside: ops_describe {op} lists them
+// (describeFields). A receipt field (metaProps) keeps its type and enum but
+// not its description: the initialize instructions explain them once. The
+// server decodes an input by the op's own type, so nothing it accepts
+// changes.
+func compactSchema(raw json.RawMessage) (json.RawMessage, error) {
+	var s schema
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil, err
+	}
+	props, _ := s["properties"].(map[string]any)
+	for name, p := range props {
+		if f, ok := p.(map[string]any); ok {
+			props[name] = compactField(f)
+			if m, ok := metaProps[name]; ok && f["description"] == m["description"] {
+				delete(f, "description")
+			}
+		}
+	}
+	return json.Marshal(s)
+}
+
+func compactField(f map[string]any) map[string]any {
+	switch f["type"] {
+	case "object":
+		if _, ok := f["properties"]; ok {
+			delete(f, "properties")
+			delete(f, "required")
+			delete(f, "additionalProperties")
+		}
+	case "array":
+		if items, ok := f["items"].(map[string]any); ok {
+			f["items"] = compactField(items)
+		}
+	}
+	return f
 }

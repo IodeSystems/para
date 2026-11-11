@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // The gate decides whether an agent's write applies. An in-vault write that
@@ -21,22 +20,11 @@ import (
 // owner's delegation.yaml (delegation.go).
 //
 // The tick, and a write an approved dossier item runs, skip the gate: the
-// owner decided those. Ratings (minor, obvious) and owner_said on other ops are
-// accepted and ignored for one release (IgnoredRatings).
+// owner decided those. owner_said is a field of io_approve only.
 
 // GateConfig is the vault setting that chose the rating gate. It is no longer
 // read; health names it while it is set.
 const GateConfig = "gate.require"
-
-// IgnoredRatings are the write fields an agent may still send that decide
-// nothing since 0.3.0. A surface accepts them and says so in a note.
-var IgnoredRatings = []string{"minor", "obvious", "dossier", "owner_said"}
-
-// RatingsNote is the note a surface gives when a write carried ignored
-// ratings. names are the ones it carried.
-func RatingsNote(names []string) string {
-	return fmt.Sprintf("%s ignored: an undoable write applies at once, with a receipt the owner can undo; a write that cannot be undone needs the owner; owner_said counts only on io_approve (these fields go in a later release)", strings.Join(names, ", "))
-}
 
 // withOwnerWhen sets a rule that makes one write of the op need the owner: it
 // returns why the write cannot be undone, or "".

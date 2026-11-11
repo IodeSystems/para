@@ -77,7 +77,7 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
    With two agents on one vault (this chat and a background dun), let only
    the background one be woken: dun with "wake": true, Claude without
    --channel. One claim wins, so they never do the same request; para agent
-   list shows which agents are connected. Without push, the tool `request_wait` blocks
+   list shows which agents are connected. Without push, `op_run {op: request_wait}` blocks
    up to 60 seconds, or a background job waits with no token cost:
    $ para request wait --timeout 1h
 
@@ -88,7 +88,7 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
 
    $PARA_HOME/vaults/<vault>/agent.json
    {
-     "command": ["claude", "-p", "Use the para tools: call request_next to claim a request, work only on that request, report with request_note, and finish with request_done or request_fail."],
+     "command": ["claude", "-p", "Use the para tools: call work {action: next} to claim a request, work only on that request, report with work {action: note}, and finish with work {action: done} or work {action: fail}."],
      "max_concurrent": 1,
      "daily_limit": 10,
      "cwd": "/home/you/work"

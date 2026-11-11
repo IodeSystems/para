@@ -25,18 +25,31 @@ import (
 	"github.com/iodesystems/para/release"
 )
 
+// newChangesCmd is `para changes`. It reads the notes embedded in this
+// binary and no vault, so it runs before the first para init and right after
+// para upgrade on a machine with no vault.
 func newChangesCmd(l *loader) *cobra.Command {
-	return opCommand(l, ops.Changes, binding[ops.ChangesInput, ops.ChangesOutput]{
+	var in ops.ChangesInput
+	text := func(w io.Writer, out ops.ChangesOutput) error {
+		_, err := io.WriteString(w, out.Text)
+		return err
+	}
+	cmd := opCommand(l, ops.Changes, binding[ops.ChangesInput, ops.ChangesOutput]{
 		Use:  "changes [--since <version>]",
 		Args: cobra.NoArgs,
-		Flags: func(fs *pflag.FlagSet, in *ops.ChangesInput) {
+		Flags: func(fs *pflag.FlagSet, _ *ops.ChangesInput) {
 			fs.StringVar(&in.Since, "since", "", "show the notes of every version after this one; default the newest only")
 		},
-		Text: func(w io.Writer, out ops.ChangesOutput) error {
-			_, err := io.WriteString(w, out.Text)
-			return err
-		},
+		Text: text,
 	})
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		out, err := ops.Changes.Run(cmd.Context(), ops.Deps{}, in)
+		if err != nil {
+			return err
+		}
+		return emit(cmd, out, text)
+	}
+	return cmd
 }
 
 // newVaultUpgradeCmd is `para vault upgrade`: the person-only op, with

@@ -19,6 +19,7 @@ import (
 // An op added by another stream is called with {}; if that fails, a parity
 // test fails and names the op: add its entry here.
 var Inputs = map[string]string{
+	"ops_stats":                 `{}`, // counts its own call, so Invoke would differ
 	"search":                    `{"query":"sample"}`,
 	"feedback_add":              `{"text":"The error did not name the field.","kind":"bug","tool":"search"}`,
 	"publish_preview":           `{"set":"design"}`,
@@ -39,6 +40,12 @@ var Inputs = map[string]string{
 	"later":                     `{"ids":["task-sample"],"until":"2027-01-15","reason":"After the audit."}`,
 	"reopen":                    `{"tag":"sample"}`,
 	"bulk":                      `{"verb":"later","ids":["task-sample"],"until":"2027-01-15","dry_run":true}`,
+	"add":                       `{"type":"note","title":"Verb note","parent":"area-sample","tags":["sample"]}`,
+	"edit":                      `{"id":"task-other","fields":{"effort":"s"}}`,
+	"link":                      `{"from":"project-sample","to":"https://wiki.acme.example/verb","label":"Verb wiki","kind":"docs"}`,
+	"tag":                       `{"ids":["task-other"],"add":["socials"]}`,
+	"work":                      `{"action":"ask","title":"Check the sample","text":"Check the sample backups."}`,
+	"undo":                      `{"receipt":"receipt-sample"}`,
 	"send_to_agent":             `{"id":"task-sample","note":"Find who owns the review.","title":"Find the review owner"}`,
 	"show":                      `{"id":"task-sample"}`,
 	"list":                      `{"type":"task"}`,

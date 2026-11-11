@@ -381,7 +381,10 @@ func TestVerbScopeMatrix(t *testing.T) {
 			agent := surface == "mcp"
 			switch {
 			case agent && !c.agentOK:
-				if !errors.Is(err, ErrPersonOnly) {
+				// An agent's close sent runs io_send_check first, which
+				// refuses a draft the owner has not approved.
+				sendRefused := err != nil && strings.Contains(err.Error(), "io_send_check: ") && strings.Contains(err.Error(), "the owner approves it first")
+				if !errors.Is(err, ErrPersonOnly) && !sendRefused {
 					t.Errorf("%s %s on %s: err %v, want person only", c.name, c.input, surface, err)
 				}
 			case err != nil:
@@ -535,6 +538,29 @@ func TestListAndShow(t *testing.T) {
 	}
 	if got := ids(ListInput{NeedsYou: true}); !strings.Contains(strings.Join(got, " "), open) {
 		t.Fatalf("needs you = %v", got)
+	}
+	// needs_you is ranked as order ranks it, and every ranked row comes first.
+	ny, err := List.Run(t.Context(), v.cli, ListInput{NeedsYou: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ord, err := OrderOp.Run(t.Context(), v.cli, OrderInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	last := 0
+	for _, r := range ny.Rows {
+		switch {
+		case r.Rank == 0:
+			last = len(ord.Rows) + 1
+		case r.Rank <= last, ord.Rows[r.Rank-1].ID != r.ID:
+			t.Fatalf("needs you not in order rank: %+v (order %+v)", ny.Rows, ord.Rows)
+		default:
+			last = r.Rank
+		}
+		if r.ID == open && r.Rank == 0 {
+			t.Fatalf("open task has no rank: %+v", ny.Rows)
+		}
 	}
 	s, err := Show.Run(t.Context(), v.cli, ShowInput{ID: open})
 	if err != nil {

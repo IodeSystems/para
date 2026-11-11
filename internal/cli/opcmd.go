@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/opstats"
 )
 
 // opAnnotation names the op a command wraps. The parity test reads it.
@@ -60,7 +61,6 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		if err != nil {
 			return err
 		}
-		l.ratingsNote(cmd)
 		deps, err := l.deps()
 		if err != nil {
 			return err
@@ -71,6 +71,12 @@ func opCommand[I, O any](l *loader, op *ops.Op[I, O], b binding[I, O]) *cobra.Co
 		if a := ops.Alias(op.Name()); a != nil {
 			return runAlias(cmd, a, ctx, deps, in, b.Text)
 		}
+		actor := opstats.Owner
+		if l.agent() {
+			actor = l.actor()
+		}
+		opstats.Record(deps.Store.Info().StateDir, op.Name(), opstats.CLI, actor)
+		defer func() { _ = opstats.Flush(deps.Store.Info().StateDir) }()
 		out, err := op.Run(ctx, deps, in)
 		if err != nil {
 			return err
@@ -190,21 +196,4 @@ func fieldString(f map[string]json.RawMessage, name string) string {
 	var s string
 	_ = json.Unmarshal(f[name], &s)
 	return s
-}
-
-// ratingsNote says on stderr that --minor, --obvious, and --dossier decide
-// nothing since 0.3.0. They are accepted for one release.
-func (l *loader) ratingsNote(cmd *cobra.Command) {
-	var names []string
-	for _, f := range []struct {
-		name string
-		set  bool
-	}{{"minor", l.minorFlag}, {"obvious", l.obviousFlag}, {"dossier", strings.TrimSpace(l.dossierFlag) != ""}} {
-		if f.set {
-			names = append(names, f.name)
-		}
-	}
-	if len(names) > 0 {
-		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", ops.RatingsNote(names))
-	}
 }

@@ -86,7 +86,7 @@ func (s *Server) check(ctx context.Context) {
 		delete(n.claims, id)
 		if r.Status == model.RequestCancelled {
 			out = append(out, note{
-				text: fmt.Sprintf("para: request %s you claimed was cancelled. Stop work on it; call request_show for its state.", id),
+				text: fmt.Sprintf("para: request %s you claimed was cancelled. Stop work on it; call show for its state.", id),
 				meta: map[string]string{"kind": kindRequestCancelled, "id": id, "status": string(r.Status)},
 			})
 		}
@@ -106,7 +106,7 @@ func (s *Server) check(ctx context.Context) {
 		n.seen = now
 		if n.primed && fresh > 0 {
 			out = append(out, note{
-				text: fmt.Sprintf("para: %d request(s) can be claimed by this install. Call request_next.", fresh),
+				text: fmt.Sprintf("para: %d request(s) can be claimed by this install. Call work {action: next}.", fresh),
 				meta: map[string]string{"kind": kindRequestClaimable, "count": fmt.Sprint(fresh)},
 			})
 		}

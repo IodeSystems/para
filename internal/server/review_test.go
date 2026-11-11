@@ -1,7 +1,6 @@
 package server
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/iodesystems/para/internal/netguard"
@@ -33,10 +32,11 @@ func TestGateOverREST(t *testing.T) {
 	if w.Header().Get("X-Para-Note") != "" {
 		t.Fatalf("note on an unrated write: %q", w.Header().Get("X-Para-Note"))
 	}
+	// Rating headers are gone (D4): ignored, with no note.
 	rated := map[string]string{"X-Para-Why": "The owner asked.", "X-Para-Minor": "true", "X-Para-Obvious": "true"}
 	w = f.do(call{method: post, target: "/api/v1/io/add", token: agent, header: rated, body: `{"direction":"in","text":"rated capture"}`})
 	wantStatus(t, w, 200)
-	if note := w.Header().Get("X-Para-Note"); !strings.HasPrefix(note, "minor, obvious ignored") {
+	if note := w.Header().Get("X-Para-Note"); note != "" {
 		t.Fatalf("X-Para-Note = %q", note)
 	}
 }

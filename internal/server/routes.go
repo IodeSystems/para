@@ -17,6 +17,7 @@ import (
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/netguard"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/opstats"
 )
 
 const (
@@ -99,7 +100,13 @@ func reg[I, O any](r *registrar, op *ops.Op[I, O], method, scope string) {
 		if err != nil {
 			return nil, err
 		}
-		out, err := op.Run(ctx, b.deps(), in)
+		d := b.deps()
+		actor := opstats.Owner
+		if b.surface != surfacePWA {
+			actor = d.Store.Info().Actor
+		}
+		opstats.Record(d.Store.Info().StateDir, name, opstats.Web, actor)
+		out, err := op.Run(ctx, d, in)
 		if err != nil {
 			return nil, b.t.apiError(err)
 		}

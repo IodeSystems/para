@@ -382,4 +382,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Levels)
 	addEnum(reg, model.AssumptionStatuses)
 	addEnum(reg, ops.ThreadTurnKinds)
+	addEnum(reg, ops.AddTypes)
+	addEnum(reg, ops.LinkRels)
+	addEnum(reg, ops.WorkActions)
 }

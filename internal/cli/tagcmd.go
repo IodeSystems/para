@@ -10,7 +10,7 @@ import (
 )
 
 func newTagCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "tag", Short: "Topics: tag vault documents and dossier items where they are", Args: cobra.NoArgs}
+	cmd := newTagVerbCmd(l)
 	cmd.AddCommand(
 		tagWriteCmd(l, ops.TagAdd, "add"),
 		tagWriteCmd(l, ops.TagRemove, "remove"),

@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -182,12 +184,18 @@ func TestToolsMatchOps(t *testing.T) {
 	if _, ok := got[requestWaitTool]; !ok {
 		t.Errorf("no %s tool", requestWaitTool)
 	}
-	if len(got) != len(all)+1 {
-		t.Errorf("tools = %d, ops = %d plus %s", len(got), len(all), requestWaitTool)
+	if len(got) != len(all)+3 {
+		t.Errorf("tools = %d, ops = %d plus %s, %s, %s", len(got), len(all), requestWaitTool, opRunTool, opsDescribeTool)
 	}
 	for _, e := range ops.All() {
 		if _, ok := got[e.Name()]; ok && e.PersonOnly() {
 			t.Errorf("person-only op %s is a tool", e.Name())
+		}
+	}
+	// An old name stays an op for the CLI and the server, not an MCP tool.
+	for _, name := range ops.AliasNames() {
+		if _, ok := got[name]; ok {
+			t.Errorf("alias %s is a tool", name)
 		}
 	}
 	for _, e := range all {
@@ -621,7 +629,7 @@ func TestServeStdio(t *testing.T) {
 	in := strings.Join([]string{
 		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`,
 		`{"jsonrpc":"2.0","method":"notifications/initialized"}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"io_add","arguments":{"direction":"in","text":"hello","why":"test","minor":true,"obvious":true}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"io_add","arguments":{"direction":"in","text":"hello","why":"test"}}}`,
 	}, "\n") + "\n"
 	var out bytes.Buffer
 	if err := srv.Serve(context.Background(), strings.NewReader(in), &out); err != nil {
@@ -667,17 +675,37 @@ func TestInstructions(t *testing.T) {
 			t.Errorf("instructions lack %q", want)
 		}
 	}
-	// Every tool the text names exists.
-	names := map[string]bool{}
-	for _, e := range ops.All() {
-		names[e.Name()] = true
+	// The text names every core tool, and only core tools: an op off the
+	// core list is named as op_run's op (op_run {op: name}, {op: name}).
+	agent := map[string]bool{opRunTool: true, opsDescribeTool: true, requestWaitTool: true}
+	for _, e := range ops.ForAgents() {
+		agent[e.Name()] = true
 	}
-	for _, tool := range []string{"route", "search", "policy_show", "area_show", "annotation_list", "annotate", "rules_in_effect", "rfx_list", "rfx_add", "rfx_draft", "rfx_reply", "io_add", "io_file", "io_send", "io_list", "io_drop"} {
-		if !names[tool] {
-			t.Errorf("instructions name tool %s, which does not exist", tool)
+	for _, tool := range Core {
+		if !agent[tool] {
+			t.Errorf("core tool %s does not exist", tool)
 		}
-		if !strings.Contains(Instructions, tool) {
+		if !regexp.MustCompile(`\b` + tool + `\b`).MatchString(res.Instructions) {
 			t.Errorf("instructions do not mention %s", tool)
+		}
+	}
+	known := map[string]bool{requestWaitTool: true}
+	for _, e := range ops.All() {
+		known[e.Name()] = true
+	}
+	viaRun := regexp.MustCompile(`\{op: ([a-z_]+)\b`)
+	for _, m := range viaRun.FindAllStringSubmatch(res.Instructions, -1) {
+		if !agent[m[1]] {
+			t.Errorf("instructions run op %s, which is not an agent's op", m[1])
+		}
+	}
+	rest := viaRun.ReplaceAllString(res.Instructions, "")
+	for _, w := range regexp.MustCompile(`[a-z]+(?:_[a-z]+)+`).FindAllString(rest, -1) {
+		switch {
+		case ops.AliasOf(w) != "":
+			t.Errorf("instructions name old op %s: call %s", w, ops.AliasOf(w))
+		case known[w] && !slices.Contains(Core, w):
+			t.Errorf("instructions name %s as a tool; it is not core: write op_run {op: %s}", w, w)
 		}
 	}
 }

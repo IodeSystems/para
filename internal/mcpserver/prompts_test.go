@@ -1,6 +1,8 @@
 package mcpserver
 
 import (
+	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
@@ -53,5 +55,43 @@ func TestPrompts(t *testing.T) {
 	}
 	if _, err := c.GetPrompt(t.Context(), mcp.GetPromptRequest{Params: mcp.GetPromptParams{Name: "nope"}}); err == nil {
 		t.Error("unknown prompt must fail")
+	}
+}
+
+// The prompts and the skill name a tool an agent sees in a core listing, or
+// reach the op with op_run: a backticked op off Core is `op_run {op: name}`,
+// and that op is one an agent may run.
+func TestGuidesNameCoreTools(t *testing.T) {
+	agent := map[string]bool{requestWaitTool: true}
+	for _, e := range ops.ForAgents() {
+		agent[e.Name()] = true
+	}
+	known := map[string]bool{}
+	for _, e := range ops.All() {
+		known[e.Name()] = true
+	}
+	tick := regexp.MustCompile("`([^`\n]+)`")
+	opArg := regexp.MustCompile(`^\{op: ([a-z_]+)[,}]`)
+	texts := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "import_corpus": guide.ImportCorpus(), "ingest_source": guide.IngestSource(),
+		"align_vault": guide.AlignVault(), "grill_goal": guide.GrillGoal(), "sweep": guide.Sweep(), "loop": guide.Loop(), "io": guide.IO()}
+	// The skill past its frontmatter and argument routing (/para health is an
+	// argument, not a tool).
+	_, body, ok := strings.Cut(guide.Skill(), "With no arguments, work as below.")
+	if !ok {
+		t.Fatal("the skill lost its routing end")
+	}
+	texts["skill"] = body
+	for name, text := range texts {
+		for _, m := range tick.FindAllStringSubmatch(text, -1) {
+			tool, args, _ := strings.Cut(m[1], " ")
+			switch {
+			case tool == opRunTool || tool == opsDescribeTool:
+				if a := opArg.FindStringSubmatch(args); a != nil && !agent[a[1]] {
+					t.Errorf("%s: `%s`: %s is not an op an agent may run", name, m[1], a[1])
+				}
+			case known[tool] && !slices.Contains(Core, tool):
+				t.Errorf("%s: `%s` is not a core tool: write `op_run {op: %s}`", name, m[1], tool)
+			}
+		}
 	}
 }

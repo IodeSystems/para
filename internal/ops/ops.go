@@ -54,8 +54,11 @@ type Func[I, O any] func(ctx context.Context, d Deps, in I) (O, error)
 
 // Op is a typed, named op. Surfaces with a compile-time reference use Run.
 type Op[I, O any] struct {
-	name   string
-	desc   string
+	name string
+	desc string
+	// long is the description the op was defined with, when shortDesc names a
+	// shorter one for desc.
+	long   string
 	fn     Func[I, O]
 	person bool
 	risk   Risk
@@ -225,6 +228,9 @@ func define[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 		panic("ops: duplicate op " + name)
 	}
 	op := &Op[I, O]{name: name, desc: desc, fn: fn, risk: RiskReview}
+	if short, ok := shortDesc[name]; ok {
+		op.desc, op.long = short, desc
+	}
 	registry[name] = op
 	return op
 }
@@ -264,9 +270,11 @@ func definePerson[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 	return op
 }
 
-// ForAgents returns the ops an agent surface lists, sorted by name.
+// ForAgents returns the ops an agent surface lists, sorted by name: no
+// person-only op and no old name with an alias (opalias.go). An alias stays
+// callable where the CLI and the server bind it, and receipts keep its name.
 func ForAgents() []Entry {
-	return slices.DeleteFunc(All(), Entry.PersonOnly)
+	return slices.DeleteFunc(All(), func(e Entry) bool { return e.PersonOnly() || AliasOf(e.Name()) != "" })
 }
 
 // All returns every op, sorted by name. An old name with an alias

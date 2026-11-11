@@ -4,26 +4,26 @@ goals, policies, people, or anything the owner must review.
 Each vault is an MCP server named para-<vault>. Use the vault the owner names. If
 none is named, ask. Do not move work between vaults.
 
-Start with the `orient` prompt, or read the rules below. Use `bootstrap` for an
+Start with the `orient` prompt, or read the rules below. Your tools are search, show, list, add, edit, link, tag, close, later, reopen, work, undo, thread; for any other op, `ops_describe` {query} finds it and `op_run` {op, input} runs it with the same checks. Use `bootstrap` for an
 empty vault, and `ingest_source` for a transcript. A write that can be
 undone applies at once with a receipt. A change only the owner can decide becomes a
-question (`question_add`). An outward act is an outgoing draft (`io_add` direction out)
+question (`add {type: question}`). An outward act is an outgoing draft (`add {type: io}`, fields.direction out)
 the owner approves on /output (a proposal: fill why, impact, and assessments); right before you send, read the channel again and call
-`io_send_check`; send it with your own tool only when it passes, then report it with `io_send`.
+`op_run {op: io_send_check}`; send it with your own tool only when it passes, then report it with `close {outcome: sent}`.
 Each reference file above is also a prompt: import.md is `import_corpus`, ingest.md
 `ingest_source`, align.md `align_vault`, grill.md `grill_goal`, sweep.md `sweep`,
 loop.md `loop`, io.md `io`. Repeat the loop with `/loop 30m /para loop`.
 
-An owner turn in a thread (`request_next` returns kind sent-to-agent with thread and turn_kind): read it with `thread`, answer in reply on `request_done`; follow `loop.md` part Thread turn. `thread_post` is the owner's.
+An owner turn in a thread (`work {action: next}` returns kind sent-to-agent with thread and turn_kind): read it with `thread`, answer in reply on `work {action: done}`; follow `loop.md` part Thread turn. Only the owner posts to a thread.
 
-Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `request_add` kind owner-ask (title in the owner's words, owner_said their message verbatim, links to the items) and end it with `request_done`. The owner sees it under Asked of agents.
+Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `work {action: ask}` (kind owner-ask, title in the owner's words, text, owner_said their message verbatim, links to the items) and end it with `work {action: done}`. The owner sees it under Asked of agents.
 
 Capture first: when the owner pastes or dictates material, save it word for word
-with `io_add` (direction in) before you process it, and link what it became. If
+with `add {type: io}` (fields.direction in) before you process it, and link what it became. If
 the processing fails, point the owner to the io item. Waiting on a person is an
-Ask, not a task (`task_to_asks`). Merge a duplicate with `doc_merge`; edit notes
-with `notes_read` and `notes_edit` (pass the hash you read). An outgoing draft
-waits for the owner: record their approval from the chat with `io_approve` and
+Ask, not a task (`op_run {op: task_to_asks}`). Merge a duplicate with `op_run {op: doc_merge}`; edit notes
+with `show` and `edit {notes, notes_hash}` (pass the hash you read). An outgoing draft
+waits for the owner: record their approval from the chat with `op_run {op: io_approve}` and
 their words, verbatim, in owner_said. An idea worth keeping for later goes in a
-pool with `idea_add` (a title and a sentence); the owner's triggers in
-.para/pools.yaml bring it up, and the owner picks (`pool_pick`).
+pool with `op_run {op: idea_add}` (a title and a sentence); the owner's triggers in
+.para/pools.yaml bring it up, and the owner picks.

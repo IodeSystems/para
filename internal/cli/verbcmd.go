@@ -118,6 +118,8 @@ func newVerbCmds(l *loader) []*cobra.Command {
 		Flags: func(fs *pflag.FlagSet, in *ops.CloseInput) {
 			fs.StringVar(&in.Outcome, "outcome", "", "how it ended, by type: done, partial, dropped, duplicate, superseded, declined, failed, rerouted, skipped, cancelled, sent, resolved; empty is the type's plain close")
 			fs.StringVar(&in.Reason, "reason", "", "why, kept where the type's close op keeps one (note, notes, reason, text)")
+			fs.StringVar(&in.Answer, "answer", "", "outcome answered: a question's answer, or the text of an ask's reply")
+			fs.StringVar(&in.Choice, "choice", "", "outcome answered: a question's option, or its number")
 			fs.StringArrayVar(&fields, "field", nil, "an input of the type's close op, such as link=task-x or force=true; repeatable")
 			fs.StringVar(&evURL, "evidence", "", "evidence the owner can open: an http(s) URL, a vault id or path, or an absolute path (or ~/path) to a file on this machine")
 			fs.StringVar(&evSource, "evidence-source", "", "evidence in a private connector: its source (with --evidence-ref and --evidence-verify)")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -30,12 +31,21 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// mcpArgs is the para mcp command line of a test. A test calls the tool of
+// each op, so it lists them all (--tools all) unless it chose a listing.
+func mcpArgs(args []string) []string {
+	if slices.Contains(args, "--tools") {
+		return append([]string{"mcp"}, args...)
+	}
+	return append([]string{"mcp", "--tools", "all"}, args...)
+}
+
 // startMCP launches `para mcp` as a subprocess and returns an initialized
 // client.
 func startMCP(t *testing.T, e *env, args ...string) *client.Client {
 	t.Helper()
 	cmdEnv := append(os.Environ(), "PARA_TEST_BINARY=1", "PARA_HOME="+e.home, "PARA_VAULT=")
-	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, append([]string{"mcp"}, args...)...)
+	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, mcpArgs(args)...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,8 +117,8 @@ func TestMCPSubprocess(t *testing.T) {
 				}
 			}
 			// request_wait is a tool of this surface only; it blocks on the session watcher.
-			if !have["request_wait"] || len(have) != len(ops.ForAgents())+1 {
-				t.Errorf("tools = %d, ops = %d plus request_wait", len(have), len(ops.ForAgents()))
+			if !have["request_wait"] || len(have) != len(ops.ForAgents())+3 {
+				t.Errorf("tools = %d, ops = %d plus request_wait, op_run, ops_describe", len(have), len(ops.ForAgents()))
 			}
 
 			if out, isErr := callText(t, c, "io_add", map[string]any{"direction": "in", "text": "synthetic capture"}); isErr {

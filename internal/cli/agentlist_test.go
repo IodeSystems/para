@@ -20,7 +20,7 @@ import (
 func startMCPAs(t *testing.T, e *env, name, version string, legacy bool, args ...string) *client.Client {
 	t.Helper()
 	cmdEnv := append(os.Environ(), "PARA_TEST_BINARY=1", "PARA_HOME="+e.home, "PARA_VAULT=")
-	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, append([]string{"mcp"}, args...)...)
+	c, err := client.NewStdioMCPClient(os.Args[0], cmdEnv, mcpArgs(args)...)
 	if err != nil {
 		t.Fatal(err)
 	}

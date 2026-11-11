@@ -45,11 +45,6 @@ type loader struct {
 	// work the write serves, as MCP takes them in write meta.
 	sourceFlags []string
 	requestFlag string
-	// minorFlag, obviousFlag, and dossierFlag were an agent's ratings of a
-	// write for the gate. They are accepted and ignored for one release.
-	minorFlag   bool
-	obviousFlag bool
-	dossierFlag string
 
 	install registry.Install
 
@@ -205,9 +200,6 @@ func newRoot(l *loader) *cobra.Command {
 	root.PersistentFlags().StringVar(&l.whyFlag, "why", "", "why you make this write; required on a write when --actor names an agent")
 	root.PersistentFlags().StringArrayVar(&l.sourceFlags, "source", nil, "a source the receipt cites (a URL or a vault id); repeat for more; needs --actor")
 	root.PersistentFlags().StringVar(&l.requestFlag, "request", "", "the agent work (request id) this write serves; default the one the actor holds; needs --actor")
-	root.PersistentFlags().BoolVar(&l.minorFlag, "minor", false, "ignored since 0.3.0 (goes in a later release): an undoable write applies at once")
-	root.PersistentFlags().BoolVar(&l.obviousFlag, "obvious", false, "ignored since 0.3.0 (goes in a later release): an undoable write applies at once")
-	root.PersistentFlags().StringVar(&l.dossierFlag, "dossier", "", "ignored since 0.3.0 (goes in a later release): no write is held back")
 	root.AddCommand(
 		newVersionCmd(l),
 		newGuideCmd(),
@@ -217,6 +209,7 @@ func newRoot(l *loader) *cobra.Command {
 		newLintCmd(l),
 		newReconcileCmd(l),
 		newEventsCmd(l),
+		newOpsCmd(l),
 		newInboxCmd(l),
 		newIOCmd(l),
 		newMCPCmd(l),
@@ -308,6 +301,7 @@ func newRoot(l *loader) *cobra.Command {
 		newThemeCmd(l),
 	)
 	root.AddCommand(newVerbCmds(l)...)
+	root.AddCommand(newWriteVerbCmds(l)...)
 	addGovernanceCmds(root, l)
 	root.SetHelpCommand(newHelpCmd(l, root))
 	return root

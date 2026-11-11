@@ -6,8 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
-
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
 	"github.com/iodesystems/para/internal/store"
@@ -143,32 +141,43 @@ func mapsEqual(a, b map[string]string) bool {
 	return true
 }
 
-// minor, obvious, dossier, and owner_said (on a tool that has no owner_said
-// of its own) are accepted for one release and decide nothing: the write
-// applies, its output is unchanged, and a second text part says so.
-func TestRatingsAreIgnoredWithANote(t *testing.T) {
+// minor, obvious, and dossier are gone (D4), and owner_said is a field of
+// io_approve only: elsewhere each is an unknown field, refused before it
+// writes, and the schema of a write lists none of them.
+func TestRatingsAreRefused(t *testing.T) {
 	s, _ := newVault(t)
 	seedSamples(t, s)
 	c := connect(t, ops.Deps{Store: s})
-	res := call(t, c, "io_add", `{"direction":"in","text":"Rated capture","minor":true,"obvious":true,"owner_said":"save it"}`)
-	if res.IsError || len(res.Content) != 2 {
-		t.Fatalf("rated io_add: error %v, parts %d", res.IsError, len(res.Content))
+	for _, f := range []string{`"minor":true`, `"obvious":true`, `"dossier":"d"`, `"owner_said":"save it"`} {
+		res := call(t, c, "io_add", `{"direction":"in","text":"Rated capture",`+f+`}`)
+		if !res.IsError || !strings.Contains(textOf(t, res), "unknown field") {
+			t.Fatalf("io_add with %s: %s", f, textOf(t, res))
+		}
 	}
-	var out ops.IOAddOutput
-	if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil || !strings.HasPrefix(out.ID, "io-") {
-		t.Fatalf("output = %v %+v", err, out)
+	for _, e := range ops.ForAgents() {
+		if !ops.NeedsWhy(e) {
+			continue
+		}
+		raw, err := toolSchema(e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var sc struct {
+			Properties map[string]any `json:"properties"`
+		}
+		if err := json.Unmarshal(raw, &sc); err != nil {
+			t.Fatal(err)
+		}
+		for _, gone := range []string{"minor", "obvious", "dossier", "owner_said"} {
+			if _, has := sc.Properties[gone]; has && (gone != "owner_said" || e.Name() != "io_approve") {
+				t.Errorf("%s lists %s", e.Name(), gone)
+			}
+		}
 	}
-	note := res.Content[1].(mcp.TextContent).Text
-	if !strings.HasPrefix(note, "note: minor, obvious, owner_said ignored") {
-		t.Fatalf("note = %q", note)
-	}
-	rs, err := ops.ReceiptList.Run(t.Context(), ops.Deps{Store: s}, ops.ReceiptListInput{Doc: out.ID})
-	if err != nil || len(rs.Items) != 1 || rs.Items[0].SelfReported || rs.Items[0].OwnerSaid != "" {
-		t.Fatalf("receipt = %v %+v: owner_said is not stored on another op", err, rs.Items)
-	}
-	// Unrated: no note.
-	if res := call(t, c, "io_add", `{"direction":"in","text":"Plain capture"}`); res.IsError || len(res.Content) != 1 {
-		t.Fatalf("plain io_add: error %v, parts %d", res.IsError, len(res.Content))
+	for name, p := range metaProps {
+		if d, _ := p["description"].(string); len(d) > 40 {
+			t.Errorf("metaProps %s: description is %d bytes, want at most 40", name, len(d))
+		}
 	}
 }
 

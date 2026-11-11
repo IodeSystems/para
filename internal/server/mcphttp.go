@@ -182,6 +182,7 @@ func (m *mcpHTTP) entry(t *Tenant, p netguard.Principal) (*mcpEntry, error) {
 		PresenceDir: t.state,
 		HTTP:        true,
 		Notice:      m.s.opt.UpdateNotice,
+		Tools:       m.s.opt.MCPTools,
 		Allow:       allow,
 		Write:       func(string) func() { return m.s.live.act.write() },
 	})

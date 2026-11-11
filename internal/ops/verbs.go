@@ -30,6 +30,9 @@ type verbRoute struct {
 	receipt bool
 	// evidence is close's evidence: the receipt keeps it as a source.
 	evidence *model.Evidence
+	// pre, when set, runs before op and refuses the route with its error
+	// (close sent on an agent's surface: io_send_check).
+	pre func(ctx context.Context, d Deps) error
 }
 
 // verbRoutes holds each verb's router, by verb name. An alias checks the
@@ -104,6 +107,11 @@ func runRoute(ctx context.Context, d Deps, rt verbRoute) (VerbOutput, error) {
 	}
 	ctx = withEvidence(ctx, rt.evidence)
 	out := VerbOutput{Op: rt.op.Name()}
+	if rt.pre != nil {
+		if err := rt.pre(ctx, d); err != nil {
+			return out, err
+		}
+	}
 	if !rt.receipt || rt.op.Risk() == RiskRead || agentSurface(d) || ctx.Value(recordingKey{}) != nil {
 		res, err := rt.op.Invoke(ctx, d, rt.input)
 		out.raw, out.Result = res, asMap(res)
@@ -159,14 +167,19 @@ type CloseInput struct {
 	Reason   string          `json:"reason,omitempty"`
 	Evidence *model.Evidence `json:"evidence,omitempty"`
 	Fields   map[string]any  `json:"fields,omitempty"`
+	// Answer, Choice, and Sources are an answer: a question's
+	// (question_answer) or an ask's reply (rfx_reply, answer is its text).
+	Answer  string               `json:"answer,omitempty"`
+	Choice  string               `json:"choice,omitempty"`
+	Sources []model.AnswerSource `json:"sources,omitempty"`
 }
 
 // CloseDescription is close's description.
 const CloseDescription = "Close any item with an outcome. It runs the close op of the item's type, with that op's own gate, rules, and receipt: " +
 	"task: (none) done = task_done, skipped = task_done skip (a recurring task), any task_resolve outcome (partial, dropped, duplicate, superseded, declined, failed, rerouted) = task_resolve; " +
 	"meeting: (none) or done = meeting_hold (reason = notes), dropped = meeting_cancel, skipped = meeting_attend no, duplicate = task_resolve; " +
-	"question: dropped = question_drop (answer with question_answer); goal: (none) or done, dropped = project_close; " +
-	"ask: (none) or done = rfx_close, declined or answered = rfx_status; io: (none) or dropped = io_drop, sent = io_done (people only); " +
+	"question: dropped = question_drop, answered = question_answer (answer or choice; reason is why; sources); goal: (none) or done, dropped = project_close; " +
+	"ask: (none) or done = rfx_close, declined or answered = rfx_status, no, partial, or answered with answer or fields.from = rfx_reply (fields heard, url, via, date); io: (none) or dropped = io_drop, sent = io_done (people) or, from an agent, io_send after a passing io_send_check (fields url, locator, tool); " +
 	"agent work: (none) or cancelled = request_cancel; incident: (none) or resolved = incident_status resolved. " +
 	"reason goes where the op keeps one (note, notes, reason, or text); an op with none refuses it. " +
 	"fields are the op's other inputs (task_resolve link, follow_ups, declined_by, source, tried, to; meeting_hold replies, answers, actions; project_close force; rfx_close playbook; io_done url, locator, text, at). " +
@@ -220,6 +233,9 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 	var op Entry
 	// reasonAs is the input field that keeps reason; "" refuses it.
 	reasonAs := ""
+	// answered: the op takes answer, choice, and sources (a question or an ask).
+	answered := false
+	var pre func(ctx context.Context, d Deps) error
 	bad := func(want string) error {
 		return fmt.Errorf("%s is a %s: outcome %q does not close it; want %s", doc.ID, typeWord(doc), outcome, want)
 	}
@@ -287,9 +303,11 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		case string(model.QuestionDropped):
 			op, reasonAs = QuestionDrop, "reason"
 		case string(model.QuestionAnswered):
-			return verbRoute{}, fmt.Errorf("%s: answer it with question_answer (an answer needs its text and sources), not close", doc.ID)
+			op, reasonAs, answered = QuestionAnswer, "why", true
+			put(base, "text", in.Answer)
+			put(base, "choice", in.Choice)
 		default:
-			return verbRoute{}, bad("dropped (answer with question_answer)")
+			return verbRoute{}, bad("dropped, or answered (answer or choice, and sources)")
 		}
 	case *model.Project:
 		switch outcome {
@@ -302,14 +320,20 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 			return verbRoute{}, bad("none or done, or dropped")
 		}
 	case *model.RFX:
-		switch outcome {
-		case "", "done", string(model.RFXClosed):
+		_, from := in.Fields["from"]
+		switch {
+		case outcome == "", outcome == "done", outcome == string(model.RFXClosed):
 			op = RFXClose
-		case string(model.RFXDeclined), string(model.RFXAnswered):
+		case outcome == string(ReplyNo), outcome == string(ReplyPartial), outcome == string(ReplyAnswered) && (in.Answer != "" || from):
+			// A reply with its text and who gave it: rfx_reply.
+			op, reasonAs, answered = RFXReply, "why", true
+			base["outcome"] = outcome
+			put(base, "text", in.Answer)
+		case outcome == string(model.RFXDeclined), outcome == string(model.RFXAnswered):
 			op = RFXStatus
 			base["status"] = outcome
 		default:
-			return verbRoute{}, bad("none or done (closed), declined, or answered")
+			return verbRoute{}, bad("none or done (closed), declined, answered (with answer or fields.from: rfx_reply), no, or partial")
 		}
 	case *model.IO:
 		switch outcome {
@@ -317,6 +341,11 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 			op, reasonAs = IODrop, "reason"
 		case string(model.IOSent):
 			op = IODone
+			if agentSurface(d) {
+				// An agent records its own send: io_send, after a passing
+				// io_send_check.
+				op, pre = IOSend, sendCheck(doc.ID)
+			}
 			if in.Evidence != nil {
 				if model.IsWebURL(in.Evidence.Locator) {
 					base["url"] = in.Evidence.Locator
@@ -349,6 +378,15 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 	default:
 		return verbRoute{}, fmt.Errorf("%s is a %s: it has no close (archive it with doc_archive)", doc.ID, typeWord(doc))
 	}
+	if !answered && (in.Answer != "" || in.Choice != "" || len(in.Sources) > 0) {
+		return verbRoute{}, fmt.Errorf("answer, choice, and sources answer a question or an ask (outcome answered), not a %s %s", typeWord(doc), cmp.Or(outcome, "close"))
+	}
+	if in.Choice != "" && op != QuestionAnswer {
+		return verbRoute{}, errors.New("choice is a question's: an ask's reply takes answer")
+	}
+	if len(in.Sources) > 0 {
+		base["sources"] = in.Sources
+	}
 	if r := strings.TrimSpace(in.Reason); r != "" {
 		if reasonAs == "" {
 			return verbRoute{}, fmt.Errorf("%s keeps no reason for a %s: leave reason out, or say it in why", op.Name(), typeWord(doc))
@@ -367,8 +405,30 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		}
 	}
 	rt, err := newRoute(op, base, true)
-	rt.evidence = in.Evidence
+	rt.evidence, rt.pre = in.Evidence, pre
 	return rt, err
+}
+
+// sendCheck is io_send_check of id, as a route's pre: a held or failed check
+// refuses the send with its reason.
+func sendCheck(id string) func(ctx context.Context, d Deps) error {
+	return func(ctx context.Context, d Deps) error {
+		if d.Authorize != nil {
+			if err := d.Authorize(IOSendCheck.Name()); err != nil {
+				return err
+			}
+		}
+		out, err := IOSendCheck.Run(ctx, d, IOSendCheckInput{ID: id})
+		switch {
+		case err != nil:
+			return err
+		case out.Held:
+			return fmt.Errorf("%s: io_send_check held the draft: %s; do not send it, tell the owner", id, out.Reason)
+		case !out.OK:
+			return fmt.Errorf("%s: io_send_check did not pass: %s", id, cmp.Or(out.Reason, out.Next))
+		}
+		return nil
+	}
 }
 
 // typeWord is the word for a document's type the owner sees.
@@ -697,7 +757,11 @@ type ShowOutput struct {
 	Reason   string         `json:"reason"`
 	Op       string         `json:"op,omitempty"`
 	Detail   map[string]any `json:"detail,omitempty"`
-	raw      any
+	// Notes are the item's ## Notes, and NotesHash their hash: edit {id,
+	// notes, notes_hash} replaces them (notes_edit).
+	Notes     string `json:"notes,omitempty"`
+	NotesHash string `json:"notes_hash,omitempty"`
+	raw       any
 }
 
 // showOps is the show op of each type that has one. A meeting task shows as
@@ -730,6 +794,10 @@ var Show = defineRead("show", "Show any item by id: type, title, status, life (o
 	}
 	n := sn.Need(doc.ID)
 	out := ShowOutput{ID: doc.ID, Type: doc.Meta.Header().Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
+	if !slices.Contains(noRewrite, out.Type) {
+		out.Notes = headingText(doc.Body, notesHeading)
+		out.NotesHash = notesHash(out.Notes)
+	}
 	if rt.op == nil {
 		return out, nil
 	}
@@ -829,6 +897,10 @@ type ListRow struct {
 	Turn     Turn       `json:"turn"`
 	NeedsYou bool       `json:"needs_you"`
 	Reason   string     `json:"reason"`
+	// Rank and Group are the row's place in the order op's ranking (rank 1
+	// first), on a needs_you list; a row the ranking leaves out has none.
+	Rank  int    `json:"rank,omitempty"`
+	Group string `json:"group,omitempty"`
 	// Request is the detail of a request row (type request): its kind, the
 	// item it is about, the owner's words, who has it, how it ended, stale,
 	// seen, and the receipts made under it.
@@ -864,7 +936,7 @@ type ListOutput struct {
 var listStates = []string{"", string(LifeOpen), string(LifeLater), string(LifeClosed), "all"}
 
 // List lists items of any type with their lifecycle and needs_you.
-var List = defineRead("list", "List items of a type (task, question, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (with no type: every type). tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
+var List = defineRead("list", "List items of a type (task, question, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
 	func(ctx context.Context, d Deps, in ListInput) (ListOutput, error) {
 		state := strings.TrimSpace(in.State)
 		if !slices.Contains(listStates, state) {
@@ -912,7 +984,7 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 				continue
 			}
 			out.Count++
-			if in.Limit > 0 && len(out.Rows) >= in.Limit {
+			if in.Limit > 0 && len(out.Rows) >= in.Limit && !in.NeedsYou {
 				continue
 			}
 			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
@@ -926,8 +998,49 @@ var List = defineRead("list", "List items of a type (task, question, project, rf
 			}
 			out.Rows = append(out.Rows, row)
 		}
+		if in.NeedsYou {
+			if err := rankRows(ctx, d, out.Rows); err != nil {
+				return ListOutput{}, err
+			}
+			if in.Limit > 0 && len(out.Rows) > in.Limit {
+				out.Rows = out.Rows[:in.Limit]
+			}
+		}
 		return out, nil
 	})
+
+// rankRows orders needs_you rows as the order op ranks them (next follows
+// the same ranking): ranked rows first, by rank; the rest keep their order.
+func rankRows(ctx context.Context, d Deps, rows []ListRow) error {
+	o, err := Order(ctx, d.Store)
+	if err != nil {
+		return err
+	}
+	pos := map[string]ValueRow{}
+	rank := map[string]int{}
+	for i, r := range o.Rows {
+		if _, ok := rank[r.ID]; !ok {
+			pos[r.ID], rank[r.ID] = r, i+1
+		}
+	}
+	for i := range rows {
+		if n, ok := rank[rows[i].ID]; ok {
+			rows[i].Rank, rows[i].Group = n, pos[rows[i].ID].Group
+		}
+	}
+	slices.SortStableFunc(rows, func(a, b ListRow) int {
+		switch {
+		case a.Rank == 0 && b.Rank == 0:
+			return 0
+		case a.Rank == 0:
+			return 1
+		case b.Rank == 0:
+			return -1
+		}
+		return cmp.Compare(a.Rank, b.Rank)
+	})
+	return nil
+}
 
 // obligationRow is the list detail of an obligation.
 func obligationRow(sn *Snapshot, o *model.Obligation) *ObligationRow {

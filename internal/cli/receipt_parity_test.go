@@ -9,11 +9,11 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 )
 
-// seedReceiptParity creates six receipted notes: each case runs twice.
+// seedReceiptParity creates eight receipted notes: each case runs twice.
 func seedReceiptParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
-	for _, id := range []string{"a", "b", "c", "d", "e", "f"} {
+	for _, id := range []string{"a", "b", "c", "d", "e", "f", "g", "h"} {
 		note, err := deps.Store.Create(ctx, model.Document{ID: "note-rc-" + id, Folder: model.FolderResources, Title: "Receipted " + id, Body: "Text.",
 			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}}})
 		if err != nil {

@@ -23,6 +23,7 @@ type ParaQueryNamespace {
 }
 
 type ParaV1MutationNamespace {
+  add(body: para_AddInputInput!): para_AddOutput @derived(operationId: "add")
   adminKeyCreate(body: para_KeyCreateInputInput!): para_KeyCreateBody @derived(operationId: "adminKeyCreate")
   adminKeyRevoke(body: para_KeyRevokeInputInput!): para_KeyView @derived(operationId: "adminKeyRevoke")
   agentSend(body: para_AgentSendInputInput!): para_AgentSendOutput @derived(operationId: "agentSend")
@@ -62,6 +63,7 @@ type ParaV1MutationNamespace {
   docTrackedStatus(body: para_DocTrackedStatusInputInput!): para_DocTrackedStatusOutput @derived(operationId: "docTrackedStatus")
   docVersionAdd(body: para_DocVersionAddInputInput!): para_DocVersionAddOutput @derived(operationId: "docVersionAdd")
   dossierRefile(body: para_DossierRefileInputInput!): para_DossierRefileOutput @derived(operationId: "dossierRefile")
+  edit(body: para_EditInputInput!): para_VerbOutput @derived(operationId: "edit")
   exceptionAdd(body: para_ExceptionAddInputInput!): para_ExceptionAddOutput @derived(operationId: "exceptionAdd")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   feedbackAdd(body: para_FeedbackAddInputInput!): para_FeedbackAddOutput @derived(operationId: "feedbackAdd")
@@ -98,6 +100,7 @@ type ParaV1MutationNamespace {
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
   journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
   later(body: para_LaterInputInput!): para_VerbOutput @derived(operationId: "later")
+  link(body: para_LinkInputInput!): para_VerbOutput @derived(operationId: "link")
   meetingAdd(body: para_MeetingAddInputInput!): para_MeetingAddOutput @derived(operationId: "meetingAdd")
   meetingAttend(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "meetingAttend")
   meetingCancel(body: para_MeetingCancelInputInput!): para_MeetingChangeOutput @derived(operationId: "meetingCancel")
@@ -181,6 +184,7 @@ type ParaV1MutationNamespace {
   stackLater(body: para_StackLaterInputInput!): para_DeferOutput @derived(operationId: "stackLater")
   stackReturn(body: para_StackReturnInputInput!): para_DeferOutput @derived(operationId: "stackReturn")
   sweepRecord(body: para_SweepRecordInputInput!): para_SweepRecordOutput @derived(operationId: "sweepRecord")
+  tag(body: para_TagVerbInputInput!): para_TagVerbOutput @derived(operationId: "tag")
   tagAdd(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagAdd")
   tagRemove(body: para_TagInputInput!): para_TagOutput @derived(operationId: "tagRemove")
   taskAdd(body: para_TaskAddInputInput!): para_TaskAddOutput @derived(operationId: "taskAdd")
@@ -208,11 +212,13 @@ type ParaV1MutationNamespace {
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
   undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
+  undo(body: para_UndoInputInput!): para_VerbOutput @derived(operationId: "undo")
   unpin(body: para_PinInputInput!): para_PinOutput @derived(operationId: "unpin")
   vaultCheck: para_VaultCheckOutput @derived(operationId: "vaultCheck")
   vaultConfigSet(body: para_VaultConfigSetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigSet")
   vaultConfigUnset(body: para_VaultConfigUnsetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigUnset")
   vaultUpgrade(body: para_VaultUpgradeInputInput!): para_VaultUpgradeOutput @derived(operationId: "vaultUpgrade")
+  work(body: para_WorkInputInput!): para_VerbOutput @derived(operationId: "work")
 }
 
 type ParaV1QueryNamespace {
@@ -284,6 +290,7 @@ type ParaV1QueryNamespace {
   notesRead(id: String!): para_NotesReadOutput @derived(operationId: "notesRead")
   obligationParts(id: String!): para_ObligationPartsOutput @derived(operationId: "obligationParts")
   obligationTimeline(days: Int): para_ObligationTimelineOutput @derived(operationId: "obligationTimeline")
+  opsStats(since: String, surface: String): para_OpsStatsOutput @derived(operationId: "opsStats")
   order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgDomainShow(id: String!): para_OrgShowOutput @derived(operationId: "orgDomainShow")
@@ -389,6 +396,70 @@ type para_ActorOutcomes {
   actor: String!
   outcomes: [para_OutcomeCount!]!
   total: Int!
+}
+
+input para_AddInputInput {
+  body: String
+  fields: JSON
+  parent: String
+  tags: [String!]
+  title: String!
+  type: para_AddInputType!
+}
+
+enum para_AddInputType {
+  area
+  ask
+  goal
+  group
+  io
+  note
+  obligation
+  person
+  project
+  question
+  rfx
+  task
+}
+
+type para_AddOutput {
+  id: String!
+  op: String!
+  result: JSON!
+  tagged: para_VerbOutput
+  type: para_AddOutputType!
+}
+
+enum para_AddOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  thread
+  tracked_doc
+  transcript
 }
 
 type para_AgendaItem {
@@ -1259,11 +1330,14 @@ input para_ClaimInput {
 }
 
 input para_CloseInputInput {
+  answer: String
+  choice: String
   evidence: para_EvidenceInput
   fields: JSON
   id: String!
   outcome: String
   reason: String
+  sources: [para_AnswerSourceInput!]
 }
 
 type para_CommentAnswer {
@@ -2153,6 +2227,15 @@ type para_Ecosystem {
   keyHolder: Boolean
   replaces: [String!]
   reusable: [String!]
+}
+
+input para_EditInputInput {
+  body: String
+  fields: JSON
+  id: String!
+  notes: String
+  notesHash: String
+  title: String
 }
 
 type para_Event {
@@ -4522,6 +4605,32 @@ enum para_LinkAddInputKind {
   tracker
 }
 
+input para_LinkInputInput {
+  from: String!
+  kind: para_LinkInputKind
+  label: String
+  rel: para_LinkInputRel
+  remove: Boolean
+  to: String
+}
+
+enum para_LinkInputKind {
+  dashboard
+  docs
+  other
+  plan
+  repo
+  runbook
+  tracker
+}
+
+enum para_LinkInputRel {
+  became
+  depends_on
+  link
+  part_of
+}
+
 type para_LinkOutput {
   id: String!
   links: [para_Pointer!]!
@@ -4550,10 +4659,12 @@ type para_ListOutput {
 }
 
 type para_ListRow {
+  group: String
   id: String!
   life: para_ListRowLife!
   needsYou: Boolean!
   obligation: para_ObligationRow
+  rank: Int
   reason: String!
   request: para_SentItem
   status: String
@@ -5676,6 +5787,18 @@ type para_ObligationTimelineOutput {
   overdue: [para_TimelinePoint!]!
   score: para_ObligationScore!
   to: String!
+}
+
+type para_OpStat {
+  actors: JSON
+  calls: Int!
+  last: String
+  op: String!
+  surfaces: JSON
+}
+
+type para_OpsStatsOutput {
+  ops: [para_OpStat!]!
 }
 
 type para_OptionDetail {
@@ -8319,6 +8442,8 @@ type para_ShowOutput {
   id: String!
   life: para_ShowOutputLife!
   needsYou: Boolean!
+  notes: String
+  notesHash: String
   op: String
   reason: String!
   status: String
@@ -8911,6 +9036,16 @@ type para_TagOutput {
   changed: [String!]!
   skipped: [String!]!
   tags: [String!]!
+}
+
+input para_TagVerbInputInput {
+  add: [String!]
+  ids: [String!]
+  remove: [String!]
+}
+
+type para_TagVerbOutput {
+  ran: [para_VerbOutput!]!
 }
 
 type para_Target {
@@ -10076,6 +10211,11 @@ input para_UndeferInputInput {
   tag: String
 }
 
+input para_UndoInputInput {
+  receipt: String
+  receipts: [String!]
+}
+
 type para_UndoRow {
   at: String!
   by: String!
@@ -10387,6 +10527,41 @@ type para_WhoRFX {
 enum para_WhoRFXDirection {
   in
   out
+}
+
+enum para_WorkInputAction {
+  ask
+  done
+  fail
+  next
+  note
+}
+
+input para_WorkInputInput {
+  action: para_WorkInputAction!
+  context: [String!]
+  followed: [String!]
+  id: String
+  kind: String
+  leaseSeconds: Int
+  links: [String!]
+  ownerSaid: String
+  reason: String
+  reply: String
+  resolution: para_WorkInputResolution
+  summary: String
+  text: String
+  title: String
+}
+
+enum para_WorkInputResolution {
+  blocked
+  cancelled
+  done
+  failed
+  needs_clarification
+  partial
+  stuck
 }
 
 enum para_docTrackedStatus {

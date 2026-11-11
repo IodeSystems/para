@@ -19,7 +19,8 @@ func seedStreamGVParity(t *testing.T, deps ops.Deps) {
 		return model.Document{ID: id, Folder: model.FolderProjects, Title: "Task " + id,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: status, Project: model.LinkTo("project-gv-seed")}}
 	}
-	for _, id := range []string{"task-gv-close-a", "task-gv-close-b", "task-gv-later-a", "task-gv-later-b", "task-gv-send", "task-gv-bulk-a", "task-gv-bulk-b"} {
+	for _, id := range []string{"task-gv-close-a", "task-gv-close-b", "task-gv-later-a", "task-gv-later-b", "task-gv-send", "task-gv-bulk-a", "task-gv-bulk-b",
+		"task-gv-edit-a", "task-gv-edit-b", "task-gv-link-a", "task-gv-link-b", "task-gv-tag-a", "task-gv-tag-b"} {
 		docs = append(docs, task(id, model.TaskTodo))
 	}
 	docs = append(docs, task("task-gv-done-a", model.TaskDone), task("task-gv-done-b", model.TaskDone))
