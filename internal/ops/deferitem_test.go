@@ -14,14 +14,3 @@ func clockFix(t *testing.T) (*agentFix, *reqVault) {
 	f.source = must(t, NoteAdd, f.owner, NoteAddInput{Title: "Sync notes", Body: "Ship it."}).ID
 	return f, rv
 }
-
-func pendingOf(t *testing.T, d Deps, id string) int {
-	t.Helper()
-	for _, v := range must(t, ProposalList, d, ProposalListInput{}).Items {
-		if v.ID == id {
-			return v.Pending
-		}
-	}
-	t.Fatalf("no proposal %s", id)
-	return 0
-}

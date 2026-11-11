@@ -741,9 +741,9 @@ var Show = defineRead("show", "Show any item by id: type, title, status, life (o
 	return out, nil
 })
 
-// showRouted registers show's router before any init runs (opalias.go reads
+// This registers show's router before any init runs (opalias.go reads
 // verbRoutes in its init).
-var showRouted = func() bool {
+var _ = func() bool {
 	verbRoutes[Show.Name()] = func(ctx context.Context, d Deps, raw json.RawMessage) (verbRoute, error) {
 		var in ShowInput
 		if err := decodeStrict(raw, &in); err != nil {

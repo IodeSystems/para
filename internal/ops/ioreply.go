@@ -270,7 +270,7 @@ func tickReplies(ctx context.Context, d Deps, out *TickOutput) error {
 			return err
 		}
 		m, ok := doc.Meta.(*model.IO)
-		if !ok || m.Direction != model.IOIn || (m.Reply == "" && !(m.State.Open() && replyWanted(m))) {
+		if !ok || m.Direction != model.IOIn || (m.Reply == "" && (!m.State.Open() || !replyWanted(m))) {
 			continue
 		}
 		if m.Reply == "" && made >= replyBackfillMax {

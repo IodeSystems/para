@@ -117,7 +117,7 @@ func (o VaultUpgradeOutput) Failed() error {
 
 // VaultUpgrade runs the automated steps of a vault upgrade as one batch per
 // step, undoes a batch, or files the judgement steps as agent work.
-var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue each pending judgement step as agent work. It refuses while another install seen in 14 days runs an older para (upgrade para there first), unless force. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
+var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to the format of this para: run each pending automated step as one undoable batch (dry_run lists the documents and changes nothing), undo a batch, or (file) only queue agent work: each pending judgement step, and one item asking the owner to run the pending automated steps. It refuses while another install seen in 14 days runs an older para (upgrade para there first), unless force. Never runs from an agent", func(ctx context.Context, d Deps, in VaultUpgradeInput) (VaultUpgradeOutput, error) {
 	out := VaultUpgradeOutput{Filed: []string{}}
 	from, err := upgrade.Current(d.Store)
 	if err != nil {
@@ -217,6 +217,15 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 			have[doc.Title] = true
 		}
 	}
+	if title := upgradePrefix + AutoStepsTitle; !have[title] {
+		if ask, links := autoStepsAsk(d, st); ask != "" {
+			r, err := RequestAdd.Run(ctx, d, RequestAddInput{Title: title, Ask: ask, Links: links, Kind: upgradeKind})
+			if err != nil {
+				return filed, fmt.Errorf("vault_upgrade: file automated steps: %w", err)
+			}
+			filed = append(filed, r.ID)
+		}
+	}
 	for _, p := range st.Pending {
 		step := stepByID(p.ID)
 		if p.Auto || step.Instructions == "" || have[upgradePrefix+p.Title] {
@@ -231,6 +240,38 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 		filed = append(filed, r.ID)
 	}
 	return filed, nil
+}
+
+// AutoStepsTitle (after "Vault upgrade: ") is the agent work filed for the
+// pending automated steps, one item for all of them. vault_upgrade is the
+// owner's, so the agent asks the owner to run it; nothing runs unattended.
+const AutoStepsTitle = "run the automated steps (dry run first)"
+
+// autoStepsAsk is the ask of that item, or "" when no automated step is
+// pending.
+func autoStepsAsk(d Deps, st upgrade.Status) (string, []string) {
+	var b strings.Builder
+	var links []string
+	for _, p := range st.Pending {
+		if !p.Auto {
+			continue
+		}
+		fmt.Fprintf(&b, "- %s (%d documents)\n", p.Title, p.Count)
+		links = append(links, p.Docs...)
+	}
+	if b.Len() == 0 {
+		return "", nil
+	}
+	if len(links) > 50 {
+		links = links[:50]
+	}
+	vault, err := d.Store.Config("vault.id")
+	if err != nil || vault == "" {
+		vault = "<vault>"
+	}
+	cmd := "para --vault " + vault + " vault upgrade"
+	return "para was upgraded, and this vault has automated upgrade steps pending. vault_upgrade is the owner's: an agent cannot run it.\n\n## Steps\n\n" + b.String() +
+		"\n## What to do\n\nAsk the owner to run `" + cmd + " --dry-run`, read the plan with them, then `" + cmd + "`. Each step is one batch that `" + cmd + " --undo <batch>` reverses.\n\n## Done when\n\nvault_upgrade_status lists no automated step; then end this with request_done.", links
 }
 
 func upgradeDocs(p upgrade.Pending) string {

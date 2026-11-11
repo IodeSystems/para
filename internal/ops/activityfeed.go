@@ -105,8 +105,8 @@ type ChangeRow struct {
 // cursor of the next page when More.
 type ActivityOutput struct {
 	Items      []ChangeRow `json:"items"`
-	More       bool          `json:"more"`
-	NextCursor string        `json:"next_cursor,omitempty"`
+	More       bool        `json:"more"`
+	NextCursor string      `json:"next_cursor,omitempty"`
 }
 
 // Activity lists what changed in the vault.

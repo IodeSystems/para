@@ -35,7 +35,7 @@ Follow in order. Stop and tell the owner at any failure; do not work around it.
 Do not: use OAuth, put secrets in a vault, push to any remote, run `para service install` or start `para serve` without asking, or edit vault files by hand.
 
 ## Build gates before done
-`go build ./...` · `go vet ./...` · `bin/t` · `cd ui && pnpm lint && pnpm typecheck && pnpm build`.
+`go build ./...` · `go vet ./...` · `golangci-lint run ./...` (`make lint`) · `bin/t` · `cd ui && pnpm lint && pnpm typecheck && pnpm build`.
 
 ## Style
 Match surrounding code. Errors wrapped `pkg: method: %w`.

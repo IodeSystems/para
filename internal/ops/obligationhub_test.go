@@ -155,7 +155,7 @@ func TestOrderOwedTier(t *testing.T) {
 	for i, r := range o.Rows {
 		pos[r.ID] = i
 	}
-	if !(pos[mprep.ID] < pos[prep.ID] && pos[prep.ID] < pos[near.ID] && pos[near.ID] < pos[plain.ID]) {
+	if pos[mprep.ID] >= pos[prep.ID] || pos[prep.ID] >= pos[near.ID] || pos[near.ID] >= pos[plain.ID] {
 		t.Errorf("order = %v", rowIDs(o.Rows))
 	}
 	// The window is a vault setting; 0 is off.

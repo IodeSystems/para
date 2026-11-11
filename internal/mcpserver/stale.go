@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/ops"
@@ -159,16 +160,31 @@ func (u *upgradeState) decide(cur os.FileInfo, statErr error) {
 	u.note = b.String()
 }
 
+// noticeMax caps a notice line, which goes into instructions and answers.
+const noticeMax = 240
+
+// clean makes a notice one line of at most noticeMax bytes (cut at a rune
+// boundary), or "" for text with a line break.
 func clean(v string) string {
 	v = strings.TrimSpace(v)
 	if strings.ContainsAny(v, "\r\n") {
 		return ""
 	}
+	if len(v) > noticeMax {
+		cut := noticeMax
+		for cut > 0 && !utf8.RuneStart(v[cut]) {
+			cut--
+		}
+		v = v[:cut]
+	}
 	return v
 }
 
 // StaleMessage is the tool error returned after an upgrade, without versions.
-const StaleMessage = "para was upgraded after this MCP server started. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server."
+const StaleMessage = "para was upgraded after this MCP server started. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server. " + httpHint
+
+// httpHint names the transport that needs no reconnect after an upgrade.
+const httpHint = "Ask the owner to reconnect, or to switch this agent to the HTTP transport (para setup --agent claude registers it while the para service runs), which picks up an upgrade by itself."
 
 // staleMessage names the version this server runs and the version now on disk,
 // and what to do. all says the whole server is refused, not only this tool.
@@ -184,7 +200,7 @@ func staleMessage(running, now string, all bool) string {
 	if !all {
 		what = "this tool changed"
 	}
-	return fmt.Sprintf("para was upgraded after this MCP server started: it runs %s, the installed binary is %s, and %s. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server. Then call changes to see what is new.", running, now, what)
+	return fmt.Sprintf("para was upgraded after this MCP server started: it runs %s, the installed binary is %s, and %s. In Claude Code: run /mcp, then reconnect para. Elsewhere: restart this MCP server. Then call changes to see what is new. %s", running, now, what, httpHint)
 }
 
 // ExecutablePath is the path of the running binary. Linux appends " (deleted)"

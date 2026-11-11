@@ -47,6 +47,12 @@ type Options struct {
 	Web     http.Handler // the UI; nil answers 404
 	Log     *slog.Logger // nil discards
 	Live    *Live        // nil makes a private one
+	// UpdateNotice is the machine's update notice for MCP sessions ("" when
+	// no newer release is known). Nil says nothing.
+	UpdateNotice func() string
+	// Update reads the machine's update status for the web banner. Nil
+	// answers an empty status.
+	Update func() UpdateStatus
 }
 
 // Server holds the built API. Build it with New.
@@ -58,6 +64,7 @@ type Server struct {
 	api    huma.API
 	mux    chi.Router
 	live   *Live
+	mcp    *mcpHTTP
 }
 
 // New registers every route. It touches no vault: `para schema dump` runs it
@@ -67,6 +74,7 @@ func New(o Options) (*Server, error) {
 		o.Log = slog.New(slog.DiscardHandler)
 	}
 	s := &Server{opt: o, log: o.Log, routes: newRouteTable(), mux: chi.NewRouter(), live: o.Live}
+	s.mcp = newMCPHTTP(s)
 	if s.live == nil {
 		l, err := NewLive()
 		if err != nil {
@@ -132,6 +140,9 @@ func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 
 func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
+// Flush lets a streamed answer (MCP over SSE) reach the client as it is written.
+func (w *statusWriter) Flush() { _ = http.NewResponseController(w.ResponseWriter).Flush() }
+
 // access writes one log line per request that passed the gate, and marks API
 // answers as never cached. The query string is not logged: it can hold content.
 func (s *Server) access(next http.Handler) http.Handler {
@@ -141,6 +152,7 @@ func (s *Server) access(next http.Handler) http.Handler {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		defer s.live.act.begin(r)()
 		if why := r.Header.Get("X-Para-Why"); why != "" || r.Header.Get("X-Para-Not-Duplicate") != "" {
 			r = r.WithContext(ops.WithWrite(r.Context(), ops.WriteMeta{Why: why, Verify: r.Header.Get("X-Para-Verify"),
 				Confidence: model.Confidence(r.Header.Get("X-Para-Confidence")), NotDuplicate: r.Header.Get("X-Para-Not-Duplicate")}))
@@ -241,6 +253,7 @@ func (s *Server) build() error {
 	registerUI(r)
 	registerSession(r)
 	registerAdmin(r)
+	registerUpdate(r)
 
 	s.rawRoutes()
 	s.attachmentRoutes()
@@ -274,6 +287,12 @@ func (s *Server) rawRoutes() {
 	// needs a key, and the gate checks Origin on the upgrade.
 	s.routes.add(get, "/ws", netguard.ScopeAnyKey)
 	s.mux.Get("/ws", s.live.Handler().ServeHTTP)
+	// MCP over HTTP (mcphttp.go): POST calls, GET the SSE stream, DELETE ends
+	// a session. Each tool checks its own scope.
+	for _, m := range []string{http.MethodPost, http.MethodGet, http.MethodDelete} {
+		s.routes.add(m, "/mcp", netguard.ScopeVaultRead)
+	}
+	s.mux.Handle("/mcp", s.mcp)
 	s.mux.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}` + "\n"))

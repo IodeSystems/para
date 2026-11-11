@@ -6,14 +6,6 @@ import (
 	"github.com/iodesystems/para/internal/model"
 )
 
-// socialMD is a dossier of two questions for the owner.
-func socialMD(title string) string {
-	ev := "evidence: {quote: \"Post it.\", locator: \"https://acme.example/notes#L1\"}\n"
-	return "```yaml para-dossier\ntldr: " + title + "\n```\n\n## Posts\n\n" +
-		"```yaml para-question id=q1\ntitle: Post on Monday?\noptions: [yes, no]\n" + ev + "```\n\n" +
-		"```yaml para-question id=q2\ntitle: Post on Friday?\noptions: [yes, no]\n" + ev + "```\n"
-}
-
 func TestTagListLeavesOutSystemTags(t *testing.T) {
 	f := newAgentFix(t)
 	if _, err := TagAdd.Run(t.Context(), f.owner, TagInput{IDs: []string{f.proj}, Tags: []string{model.CommitmentTag}}); err == nil {

@@ -14,11 +14,11 @@ import (
 // and one it waits on; a tagged task; and a task that only mentions the trip
 // and the goal in its body.
 type themeFixture struct {
-	v                                       *verbVault
-	trip, child, waits, optional, putOff    string
-	serves, tagged, mention, closed, area   string
-	underGoal                               string
-	question, onQuestion, questionMentioned string
+	v                                     *verbVault
+	trip, child, waits, optional, putOff  string
+	serves, tagged, mention, closed, area string
+	underGoal                             string
+	question, onQuestion                  string
 }
 
 func newThemeFixture(t *testing.T) themeFixture {

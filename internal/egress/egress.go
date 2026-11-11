@@ -20,6 +20,7 @@ const (
 	KeyDefault = "egress.default" // "allow" or "deny"; anything else means deny
 	KeyMarking = "classification" // text printed on copied documents
 	KeyExport  = "egress.export"  // optional allowlist of export transports, comma separated; unset allows all
+	KeyUpdate  = "egress.update"  // "deny" blocks this machine's update check and install while the vault is served; anything else allows
 	KeyPublish = "egress.publish" // "allow" lets publish runs out under egress.default=deny; anything else follows egress.default
 )
 
@@ -54,6 +55,15 @@ const DestAgent = "agent:"
 // One record covers a run.
 const DestPublish = "publish:"
 
+// DestUpdate is the update check of this machine (update:manifest) and the
+// download of a release (update:release): the signed manifest and archive of
+// para itself, nothing from a vault. egress.default does not govern it: it
+// is allowed unless the vault sets egress.update=deny. Each vault the
+// machine serves logs it; one vault with egress.update=deny stops it
+// (update.Auto). The machine's own switches are upgrade.check and
+// upgrade.auto in install.properties.
+const DestUpdate = "update:"
+
 // Decision is the outcome of Check.
 type Decision struct {
 	Default string `json:"default"` // egress.default as applied: "allow" or "deny"
@@ -73,6 +83,9 @@ func Check(cfg map[string]string, dest string) Decision {
 	}
 	d.Allowed = d.Default == "allow" || strings.HasPrefix(dest, DestCopy) || strings.HasPrefix(dest, DestRaglit) || strings.HasPrefix(dest, DestAgent) ||
 		(strings.HasPrefix(dest, DestPublish) && strings.EqualFold(strings.TrimSpace(cfg[KeyPublish]), "allow"))
+	if strings.HasPrefix(dest, DestUpdate) {
+		d.Allowed = !strings.EqualFold(strings.TrimSpace(cfg[KeyUpdate]), "deny")
+	}
 	if kind, ok := strings.CutPrefix(dest, DestExport); ok {
 		d.Allowed = exportAllowed(cfg[KeyExport], kind)
 	}

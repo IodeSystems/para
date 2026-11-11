@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -153,15 +154,24 @@ type Version struct {
 	pre string
 }
 
+// versionMax caps a version string: it flows into notices and instructions.
+const versionMax = 64
+
+// suffixRe is a pre-release or build suffix: semver's characters only.
+var suffixRe = regexp.MustCompile(`^[0-9A-Za-z.-]+$`)
+
 // ParseVersion reads a release version; anything else ("dev", a git
-// describe with a commit count) is an error.
+// describe with a commit count, a suffix with other characters) is an error.
 func ParseVersion(s string) (Version, error) {
 	rest, ok := strings.CutPrefix(s, "v")
-	if !ok {
+	if !ok || len(s) > versionMax {
 		return Version{}, fmt.Errorf("not a release version: %q", s)
 	}
-	rest, _, _ = strings.Cut(rest, "+")
-	core, pre, _ := strings.Cut(rest, "-")
+	rest, build, hasBuild := strings.Cut(rest, "+")
+	core, pre, hasPre := strings.Cut(rest, "-")
+	if (hasBuild && !suffixRe.MatchString(build)) || (hasPre && !suffixRe.MatchString(pre)) {
+		return Version{}, fmt.Errorf("not a release version: %q", s)
+	}
 	parts := strings.Split(core, ".")
 	if len(parts) != 3 {
 		return Version{}, fmt.Errorf("not a release version: %q", s)

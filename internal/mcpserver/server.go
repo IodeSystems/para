@@ -84,6 +84,23 @@ type Options struct {
 	// its stop func removes it, so para agent list can show who is connected.
 	// Empty turns it off.
 	PresenceDir string
+	// HTTP marks a server para serve runs at /mcp: it declares tools
+	// listChanged, and a session on a binary other than the one this
+	// SeenPath's last session ran gets the upgrade notifications
+	// (upgradenote.go).
+	HTTP bool
+	// Notice returns the update notice of this machine ("" when no newer
+	// release is known), for the instructions and a once-per-session note.
+	Notice func() string
+	// Allow, when set, runs before each tool: an error refuses the tool. para
+	// serve checks the key's scope for the op here; read is true for an op
+	// that changes nothing.
+	Allow func(op string, read bool) error
+	// Write, when set, runs around each tool call that may write: an op whose
+	// risk is not read and that is not a wait (request_wait and any *_wait
+	// op). It returns the func that ends the call. para serve counts these
+	// for the auto-install's quiet moment.
+	Write func(op string) func()
 }
 
 // Server is an MCP server over one vault.
@@ -105,6 +122,13 @@ type Server struct {
 	version   string
 	installed func() string
 	presence  *presenceFile
+
+	notice       func() string
+	sess         *sessionNotes
+	upgradedFrom string // HTTP: the version the last session of this SeenPath ran
+	started      time.Time
+	allow        func(op string, read bool) error
+	write        func(op string) func()
 }
 
 // New registers a tool for each op in ops.ForAgents. A person-only op has no
@@ -117,15 +141,23 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	if name == "" {
 		name = "para"
 	}
-	changed, since := checkSeen(o.SeenPath, o.Version)
+	changed, since, oldVersion := checkSeenVersion(o.SeenPath, o.Version)
 	instr := ""
 	if o.ReadOnly {
 		instr = readOnlyLine
 	}
+	if o.HTTP && oldVersion != "" {
+		instr = joinLines(instr, UpgradedLine(oldVersion, o.Version)+".")
+	}
+	if o.Notice != nil {
+		if n := clean(o.Notice()); n != "" {
+			instr = joinLines(instr, "Update: "+n+". "+UpgradeHowTo)
+		}
+	}
 	deps.ChangesSince = since
 	hooks := &server.Hooks{}
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, instr, hooks)...),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, o.HTTP, instr, hooks)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
@@ -136,6 +168,15 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		poll:      o.Poll,
 		version:   o.Version,
 		installed: o.InstalledVersion,
+
+		notice:  o.Notice,
+		sess:    newSessionNotes(),
+		started: time.Now(),
+		allow:   o.Allow,
+		write:   o.Write,
+	}
+	if o.HTTP {
+		s.upgradedFrom = oldVersion
 	}
 	if b := stampBinary(o.Executable); b != nil {
 		running, err := CurrentSurface(o.Version)
@@ -167,10 +208,14 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 	return s, nil
 }
 
+// IsWait reports whether a tool blocks until something happens
+// (request_wait, or any op named *_wait): it changes nothing while it waits.
+func IsWait(op string) bool { return op == requestWaitTool || strings.HasSuffix(op, "_wait") }
+
 // serverOptions are the MCP server options. logging is declared because the
 // session sends notifications/message; the channel capability only with --channel.
 // hooks is the server's one hook set; --channel adds to it.
-func serverOptions(channel, changed bool, extra string, hooks *server.Hooks) []server.ServerOption {
+func serverOptions(channel, changed, listChanged bool, extra string, hooks *server.Hooks) []server.ServerOption {
 	instr := Instructions + "\n\n" + notifyRule
 	if extra != "" {
 		instr += "\n\n" + extra
@@ -178,13 +223,20 @@ func serverOptions(channel, changed bool, extra string, hooks *server.Hooks) []s
 	if changed {
 		instr += "\n\n" + ChangedLine
 	}
-	opts := []server.ServerOption{server.WithToolCapabilities(false), server.WithPromptCapabilities(false), server.WithLogging(), server.WithHooks(hooks)}
+	opts := []server.ServerOption{server.WithToolCapabilities(listChanged), server.WithPromptCapabilities(false), server.WithLogging(), server.WithHooks(hooks)}
 	if channel {
 		hooks.AddOnRequestInitialization(legacyOnly)
 		opts = append(opts, server.WithExperimental(map[string]any{"claude/channel": map[string]any{}}))
 		instr += " Events also arrive as <channel source=...> tags with kind, id, status, or count attributes; they are one-way."
 	}
 	return append(opts, server.WithInstructions(instr))
+}
+
+func joinLines(a, b string) string {
+	if a == "" {
+		return b
+	}
+	return a + "\n\n" + b
 }
 
 // readOnlyLine is added to the instructions of a read-only server.
@@ -240,6 +292,14 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		if refuse != "" {
 			return mcp.NewToolResultError(refuse), nil
 		}
+		if s.allow != nil {
+			if err := s.allow(e.Name(), e.Risk() == ops.RiskRead); err != nil {
+				return mcp.NewToolResultError(e.Name() + ": " + err.Error()), nil
+			}
+		}
+		if s.write != nil && e.Risk() != ops.RiskRead && !IsWait(e.Name()) {
+			defer s.write(e.Name())()
+		}
 		// The vault guard after an upgrade: the new para may have raised the
 		// vault's format, which para mcp refuses at start.
 		if upgraded {
@@ -292,6 +352,9 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 		}
 		if note != "" {
 			res.Content = append(res.Content, mcp.NewTextContent(note))
+		}
+		for _, n := range s.upgradeNotes(ctx) {
+			res.Content = append(res.Content, mcp.NewTextContent(n))
 		}
 		// The Output is emitted first, then marked failed (ops.Failing).
 		if f, ok := out.(ops.Failing); ok && f.Failed() != nil {

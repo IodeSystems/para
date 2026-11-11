@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/para/internal/dispatch"
+	"github.com/iodesystems/para/internal/egress"
 	"github.com/iodesystems/para/internal/export"
 	"github.com/iodesystems/para/internal/keys"
 	"github.com/iodesystems/para/internal/model"
@@ -109,6 +110,7 @@ func doctorInstall(l *loader, r *report) {
 	doctorDaemon(l, r, vaults)
 	doctorStaleMCP(r, "/proc")
 	doctorSkill(l, r)
+	doctorUpdate(l, r, vaults)
 	for _, v := range vaults {
 		doctorUpgrade(l, r, v)
 	}
@@ -149,6 +151,48 @@ func doctorDomains(l *loader, r *report, vaults []registry.Vault) {
 			r.ok(what, vd)
 		}
 	}
+}
+
+// doctorUpdate says where this machine stands on releases: the switches,
+// the last check, and a newer release.
+func doctorUpdate(l *loader, r *report, vaults []registry.Vault) {
+	st := l.updateStatus()
+	deny := denyingVault(vaults)
+	switch {
+	case deny != "":
+		r.warn("update check", "off: vault "+deny+" has egress.update=deny (para vault config set egress.update allow lifts it; para upgrade still works by hand)")
+	case !st.Check:
+		r.warn("update check", "off (upgrade.check=false in "+filepath.Join(l.install.Home, "install.properties")+"): para upgrade still works by hand")
+	case st.Checked == "":
+		r.ok("update check", "on, daily while para serve runs; not checked yet")
+	case st.CheckError != "":
+		r.warn("update check", "last check "+st.Checked+" failed: "+st.CheckError+"; the next is a day later")
+	default:
+		r.ok("update check", "on, daily; last check "+st.Checked)
+	}
+	switch {
+	case !st.Release:
+		r.ok("update auto-install", "off for this build: it is from a checkout, so para only notifies (para upgrade pulls and installs)")
+	case !st.Auto:
+		r.warn("update auto-install", "off (upgrade.auto=false): a newer release is only announced; run para upgrade")
+	default:
+		r.ok("update auto-install", "on: a newer release installs at a quiet moment while the para service runs (upgrade.auto=false turns it off)")
+	}
+	if st.Notice != "" {
+		r.warn("update available", st.Notice)
+	}
+}
+
+// denyingVault names a vault with egress.update=deny ("" for none); an
+// unreadable vault counts. update.Auto applies the same rule.
+func denyingVault(vaults []registry.Vault) string {
+	for _, v := range vaults {
+		cfg, err := props.Load(filepath.Join(v.Path, ".para", "vault.properties"))
+		if err != nil || !egress.Check(cfg, egress.DestUpdate+"manifest").Allowed {
+			return v.ID
+		}
+	}
+	return ""
 }
 
 // doctorSkill warns when the installed para skill was written by another

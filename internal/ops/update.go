@@ -27,7 +27,7 @@ func openSort(ctx context.Context, s store.Store) (map[string]string, error) {
 	out := map[string]string{}
 	for _, doc := range docs {
 		r := doc.Meta.(*model.Request)
-		if (r.Status != model.RequestQueued && r.Status != model.RequestClaimed) || !(r.Kind == TaskUpdateKind || strings.HasPrefix(doc.Title, sortPrefix)) {
+		if (r.Status != model.RequestQueued && r.Status != model.RequestClaimed) || (r.Kind != TaskUpdateKind && !strings.HasPrefix(doc.Title, sortPrefix)) {
 			continue
 		}
 		for _, l := range r.Links {

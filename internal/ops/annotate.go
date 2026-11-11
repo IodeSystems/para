@@ -33,7 +33,7 @@ func policyDocsOn(d Deps) bool {
 }
 
 // annotate routes to itself as an alias target (opalias.go).
-var annotateRouted = func() bool {
+var _ = func() bool {
 	verbRoutes["annotate"] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
 		return verbRoute{op: Annotate, input: raw}, nil
 	}

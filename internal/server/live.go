@@ -78,6 +78,7 @@ func (b *liveBus) publish(channel string, payload []byte) {
 
 // Live pushes vault events to browsers over /ws. One relay serves every vault.
 type Live struct {
+	act    activity // writes and events seen, for the quiet moment
 	bus    *liveBus
 	relay  *relay.Relay
 	secret []byte
@@ -106,6 +107,9 @@ const maxPushes = 20
 // carries ids and ops only, repeats of one (op, doc) pair collapse, and a large
 // batch collapses to one "bulk" message.
 func (l *Live) Publish(vaultID string, batch []model.Event) {
+	if len(batch) > 0 {
+		l.act.event()
+	}
 	seen := map[LiveEvent]bool{}
 	var evs []LiveEvent
 	for _, e := range batch {

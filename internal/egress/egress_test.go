@@ -30,6 +30,8 @@ func TestCheck(t *testing.T) {
 		{"publish under deny", map[string]string{KeyDefault: "deny", KeyExport: "stdout"}, "publish:design", "deny", false, UnmarkedMarking},
 		{"publish under deny, opted in", map[string]string{KeyDefault: "deny", KeyPublish: "allow"}, "publish:design", "deny", true, UnmarkedMarking},
 		{"publish under allow", map[string]string{KeyDefault: "allow"}, "publish:design", "allow", true, UnmarkedMarking},
+		{"update check under deny", map[string]string{KeyDefault: "deny"}, "update:manifest", "deny", true, UnmarkedMarking},
+		{"update check with update deny", map[string]string{KeyDefault: "allow", KeyUpdate: "deny"}, "update:release", "allow", false, UnmarkedMarking},
 		{"marking", map[string]string{KeyMarking: " ACME CONFIDENTIAL "}, "copy:slack", "deny", true, "ACME CONFIDENTIAL"},
 	}
 	for _, c := range cases {

@@ -84,8 +84,8 @@ func TestPreparedReadyAndStale(t *testing.T) {
 func TestPreparedReadyFirstWithinGroup(t *testing.T) {
 	d := gapVault(t)
 	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	older := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Older", DoneWhen: "Done.", Effort: model.EffortS}).ID
-	newer := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Newer", DoneWhen: "Done.", Effort: model.EffortS}).ID
+	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Older", DoneWhen: "Done.", Effort: model.EffortS})
+	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Newer", DoneWhen: "Done.", Effort: model.EffortS})
 	soon := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Due", DoneWhen: "Done.", Effort: model.EffortS, Due: "2026-11-03"}).ID
 	// older and newer tie on everything but id (same created time on the test
 	// clock), so the raw order between them is the id order: prepare the one
@@ -94,7 +94,7 @@ func TestPreparedReadyFirstWithinGroup(t *testing.T) {
 	if len(before) != 3 || before[0] != soon {
 		t.Fatalf("before: %v", before)
 	}
-	older, newer = before[1], before[2]
+	older, newer := before[1], before[2]
 	must(t, ItemPrepared, d, ItemPreparedInput{ID: newer, Kind: model.PreparedPlan})
 	// Ready first in its group; the group order is the same: due soon stays first.
 	if got := orderList(t, d); !slices.Equal(got, []string{soon, newer, older}) {

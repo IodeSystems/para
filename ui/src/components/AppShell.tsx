@@ -21,7 +21,7 @@ import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import TodayIcon from '@mui/icons-material/Today'
 import { TellAgent } from '@/components/CaptureButton'
 import { OmniBar } from '@/components/OmniBar'
-import { HttpBanner, ReadOnlyBanner } from '@/components/Banners'
+import { HttpBanner, ReadOnlyBanner, UpdateBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
@@ -118,6 +118,7 @@ export function AppShell({ session, children }: { session: SessionView; children
       </AppBar>
       <HttpBanner />
       <ReadOnlyBanner session={session} />
+      <UpdateBanner />
       <Box component="main" sx={{ px: { xs: 1.5, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
         {children}
       </Box>

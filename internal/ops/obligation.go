@@ -23,7 +23,7 @@ import (
 // another machine still reads the vault.
 
 // The obligation ops are alias targets (opalias.go): each routes to itself.
-var obligationRouted = func() bool {
+var _ = func() bool {
 	for _, op := range []Entry{ObligationAdd, ObligationSchedule, ObligationAttend} {
 		verbRoutes[op.Name()] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
 			return verbRoute{op: op, input: raw}, nil
@@ -77,16 +77,16 @@ type ObligationAddInput struct {
 	Interested []string `json:"interested,omitempty"`
 	// Parent is the open task or obligation this one came out of: a
 	// follow-up of a meeting, or a promise made in it.
-	Parent string `json:"parent,omitempty"`
-	Project  string         `json:"project,omitempty"`
-	Area     string         `json:"area,omitempty"`
-	Due      string         `json:"due,omitempty"`   // YYYY-MM-DD
-	Start    string         `json:"start,omitempty"` // RFC 3339 with a zone; a commitment may give a date
-	End      string         `json:"end,omitempty"`
-	Recur    string         `json:"recur,omitempty"`   // series: daily, weekly, monthly, quarterly, yearly, every <n> days
-	Cadence  string         `json:"cadence,omitempty"` // ongoing: how often to review it, in the recur grammar
-	DoneWhen string         `json:"done_when,omitempty"`
-	Body     string         `json:"body,omitempty"`
+	Parent   string `json:"parent,omitempty"`
+	Project  string `json:"project,omitempty"`
+	Area     string `json:"area,omitempty"`
+	Due      string `json:"due,omitempty"`   // YYYY-MM-DD
+	Start    string `json:"start,omitempty"` // RFC 3339 with a zone; a commitment may give a date
+	End      string `json:"end,omitempty"`
+	Recur    string `json:"recur,omitempty"`   // series: daily, weekly, monthly, quarterly, yearly, every <n> days
+	Cadence  string `json:"cadence,omitempty"` // ongoing: how often to review it, in the recur grammar
+	DoneWhen string `json:"done_when,omitempty"`
+	Body     string `json:"body,omitempty"`
 	// With, Attendees, RFX, Scope, CalendarUID(s), and Optional are a
 	// meeting's, as meeting_add takes them.
 	With         []string              `json:"with,omitempty"`
@@ -172,7 +172,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	case in.Produce != nil && kind != model.KindCommitment:
 		return ObligationAddOutput{}, errors.New("produce: a meeting is attended, not produced; give kind commitment")
 	case in.Produce != nil && len(owedBy) == 0:
-		owedBy, agentOwed = []model.Link{model.OwedByAgent}, true
+		owedBy = []model.Link{model.OwedByAgent}
 	case in.Produce != nil && !agentOwed:
 		return ObligationAddOutput{}, errors.New("produce is for an obligation an agent owes: give owed_by agent or agent:<name>")
 	case in.Produce == nil && agentOwed:

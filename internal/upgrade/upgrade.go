@@ -338,7 +338,7 @@ func explain(ctx context.Context, r Reader, s Step) ([]PlanLine, error) {
 		}
 		for _, ref := range refs {
 			d, err := r.Get(ctx, ref.ID)
-			if err != nil || !(s.Select(d) || s.Judge != nil && s.Judge(d)) {
+			if err != nil || (!s.Select(d) && (s.Judge == nil || !s.Judge(d))) {
 				continue
 			}
 			if lines := s.Explain(d); len(lines) > 0 {

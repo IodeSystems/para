@@ -1,6 +1,7 @@
 import Alert from '@mui/material/Alert'
 import { plainHttp } from '@/lib/secure'
 import { canDecide, type SessionView } from '@/client/session'
+import { useUpdateStatus } from '@/api/update'
 
 // Plain HTTP on a LAN address is a degraded mode: no service worker, no install, and no
 // navigator.clipboard. Say so once, plainly.
@@ -25,4 +26,38 @@ export function ReadOnlyBanner({ session }: { session: SessionView }) {
       machine running para.
     </Alert>
   )
+}
+
+// UpdateBanner: a newer para release is available, or this para was just updated. It reads only;
+// installing is the service's (at a quiet moment) or the owner's (para upgrade).
+export function UpdateBanner() {
+  const { data } = useUpdateStatus()
+  if (!data) return null
+  if (data.available) {
+    const how =
+      data.release && data.auto
+        ? 'installs automatically at a quiet moment'
+        : 'run para upgrade on the machine running para'
+    return (
+      <Alert severity="info" sx={{ borderRadius: 0 }} data-banner="update-available">
+        para {data.available} available — {how}.
+      </Alert>
+    )
+  }
+  if (data.installedTo && data.installedTo === data.running && recent(data.installedAt, 7)) {
+    return (
+      <Alert severity="success" sx={{ borderRadius: 0 }} data-banner="updated">
+        Updated to {data.installedTo}
+        {data.installedFrom ? ` from ${data.installedFrom}` : ''} — see what changed: para changes.
+      </Alert>
+    )
+  }
+  return null
+}
+
+// recent reports whether an RFC 3339 time is within the last days.
+function recent(at: string | null | undefined, days: number): boolean {
+  if (!at) return false
+  const t = Date.parse(at)
+  return !Number.isNaN(t) && Date.now() - t < days * 24 * 60 * 60 * 1000
 }

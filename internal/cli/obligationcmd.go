@@ -96,8 +96,8 @@ func newObligationCmd(l *loader) *cobra.Command {
 		}),
 		newMeetingAttendCmd(l, ops.ObligationAttend, "attend"),
 		opCommand(l, ops.ObligationChange, binding[ops.ObligationChangeInput, ops.ObligationChangeOutput]{
-			Use:   "change <id> <push|redirect|cancel>",
-			Args:  cobra.ExactArgs(2),
+			Use:  "change <id> <push|redirect|cancel>",
+			Args: cobra.ExactArgs(2),
 			Flags: func(fs *pflag.FlagSet, in *ops.ObligationChangeInput) {
 				fs.StringVar(&in.Due, "due", "", "push: the new date, YYYY-MM-DD")
 				fs.StringVar(&in.Start, "start", "", "push: the new start, RFC 3339 with a zone (a meeting)")
@@ -110,7 +110,10 @@ func newObligationCmd(l *loader) *cobra.Command {
 				*in.Notify = true
 				fs.BoolVar(in.Notify, "notify", true, "draft a notice to the people it concerns; --notify=false writes none")
 			},
-			Bind: func(args []string, in *ops.ObligationChangeInput) error { in.ID, in.Action = args[0], args[1]; return nil },
+			Bind: func(args []string, in *ops.ObligationChangeInput) error {
+				in.ID, in.Action = args[0], args[1]
+				return nil
+			},
 			Text: func(w io.Writer, out ops.ObligationChangeOutput) error {
 				p := &printer{w: w}
 				p.f("%s\t%s\t%s\n", out.ID, out.Action, out.State)
@@ -136,9 +139,9 @@ func newObligationCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.ObligationParts, binding[ops.ObligationPartsInput, ops.ObligationPartsOutput]{
-			Use:   "parts <id>",
-			Args:  cobra.ExactArgs(1),
-			Bind:  func(args []string, in *ops.ObligationPartsInput) error { in.ID = args[0]; return nil },
+			Use:  "parts <id>",
+			Args: cobra.ExactArgs(1),
+			Bind: func(args []string, in *ops.ObligationPartsInput) error { in.ID = args[0]; return nil },
 			Text: func(w io.Writer, out ops.ObligationPartsOutput) error {
 				p := &printer{w: w}
 				p.f("%s\t%s\t%s\t%s\n", out.ID, out.Kind, out.State, out.Date)
@@ -167,8 +170,8 @@ func newObligationCmd(l *loader) *cobra.Command {
 			},
 		}),
 		opCommand(l, ops.ObligationTimeline, binding[ops.ObligationTimelineInput, ops.ObligationTimelineOutput]{
-			Use:   "timeline",
-			Args:  cobra.NoArgs,
+			Use:  "timeline",
+			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.ObligationTimelineInput) {
 				fs.IntVar(&in.Days, "days", 0, "days from today (default 14)")
 			},

@@ -7,10 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/netip"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,7 +143,7 @@ func newSetupCmd(l *loader) *cobra.Command {
 	fl.BoolVar(&f.service, "service", false, "install and start the service")
 	fl.BoolVar(&f.noService, "no-service", false, "do not install the service")
 	fl.StringVar(&f.agent, "agent", "", "hook up an agent: none, claude, dun, or generic (default: ask; no terminal: none)")
-	fl.StringVar(&f.agentName, "agent-name", "", "with --agent generic: the key name and actor of the agent")
+	fl.StringVar(&f.agentName, "agent-name", "", "with --agent generic or claude: the key name and actor of the agent")
 	fl.BoolVar(&f.print, "print", false, "print the sign-in URLs (they hold tokens) instead of opening a browser")
 	fl.BoolVar(&f.login, "login", false, "sign in even when every served vault has a login key that has not expired")
 	fl.BoolVar(&f.dryRun, "dry-run", false, "print what each step would do and each write, and change nothing")
@@ -361,9 +364,7 @@ func setupDomains(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupF
 		}
 		chosen = append(chosen, d)
 	}
-	for _, d := range f.allowDomains {
-		chosen = append(chosen, d)
-	}
+	chosen = append(chosen, f.allowDomains...)
 	// A vault already marked with a domain the machine list lacks: the first
 	// record takes it; a list that exists needs a yes.
 	for _, d := range existing {
@@ -719,6 +720,17 @@ func setupAgent(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFla
 
 func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, id string) error {
 	w := cmd.OutOrStdout()
+	if rec, ok := server.ReadRecord(l.install.Home); ok && serviceInstalled() {
+		base, err := clientBase(id, serverAt{Addr: rec.Addr, Source: "record", Rec: &rec})
+		switch {
+		case err != nil:
+			_ = verdict(w, toneWarn, "agent: HTTP: %v; using stdio", err)
+		case !loopbackBase(base):
+			_ = verdict(w, toneWarn, "agent: the para service is at %s, not a loopback address: the token would cross the network; using stdio", base)
+		default:
+			return setupClaudeHTTP(l, cmd, p, tty, f, id, base)
+		}
+	}
 	e, err := vaultMCPEntry(cmd, l, id)
 	if err != nil {
 		return err
@@ -746,7 +758,7 @@ func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFl
 	if !hooked {
 		_, _ = fmt.Fprintf(w, "  %s\n", line)
 		yes := f.agent == "claude"
-		if !yes && !(f.dryRun && !tty) {
+		if !yes && (!f.dryRun || tty) {
 			if yes, err = p.yesNo("Run it?", false); err != nil {
 				return err
 			}
@@ -767,6 +779,146 @@ func setupClaude(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFl
 			_ = verdict(w, toneOK, "agent: Claude Code has %s; restart the session and check /mcp", e.Name)
 		}
 	}
+	if err := setupSkill(l, cmd, f, true); err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(w, "  Other harnesses: para help dun.")
+	return err
+}
+
+// serviceInstalled reports whether the para service's unit file exists.
+func serviceInstalled() bool {
+	p, err := unitPath(service.DefaultName)
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(p)
+	return err == nil
+}
+
+// claudeKeyName is the key, and so the actor, of Claude Code over HTTP. A
+// key name is never reused, so a later key is claude-2, claude-3, and so on.
+const claudeKeyName = "claude"
+
+// loopbackKey is the allow list of the Claude Code key: it works from this
+// machine only.
+var loopbackKey = []string{"127.0.0.0/8", "::1"}
+
+// loopbackBase reports whether base is a URL on this machine only:
+// <vault>.localhost or a loopback address.
+func loopbackBase(base string) bool {
+	u, err := url.Parse(base)
+	if err != nil {
+		return false
+	}
+	h := u.Hostname()
+	if h == "localhost" || strings.HasSuffix(h, ".localhost") {
+		return true
+	}
+	a, err := netip.ParseAddr(h)
+	return err == nil && a.Unmap().IsLoopback()
+}
+
+// claudeHTTPArgs is the claude mcp add command of the HTTP transport. The
+// token goes in the header; Claude Code keeps it in its config, para keeps
+// only its hash. claude mcp add reads the header from its arguments only, so
+// the token is in this process's command line (/proc/<pid>/cmdline) while it
+// runs: visible to local users of this machine for that moment. The key works
+// from loopback only.
+func claudeHTTPArgs(name, base, token string) []string {
+	return []string{"claude", "mcp", "add", "--transport", "http", "--scope", "user", name,
+		strings.TrimRight(base, "/") + "/mcp", "--header", "Authorization: Bearer " + token}
+}
+
+// claudeKeyFor picks the key name of a new Claude Code key: want when given,
+// else the first of claude, claude-2, ... that no key has (a revoked key
+// keeps its name). live is a key of that family that still works, if any.
+func claudeKeyFor(existing []keys.Key, want string, now time.Time) (name, live string) {
+	taken := map[string]bool{}
+	for _, k := range existing {
+		taken[k.Name] = true
+		family := k.Name == claudeKeyName || strings.HasPrefix(k.Name, claudeKeyName+"-")
+		if want == "" && family && live == "" && k.Revoked == nil && (k.Expires == nil || k.Expires.After(now)) {
+			live = k.Name
+		}
+	}
+	if want != "" {
+		return want, ""
+	}
+	name = claudeKeyName
+	for n := 2; taken[name]; n++ {
+		name = claudeKeyName + "-" + strconv.Itoa(n)
+	}
+	return name, live
+}
+
+// setupClaudeHTTP hooks Claude Code to the running para service over HTTP
+// with a new agent key: a service restart on an upgrade needs no reconnect.
+// base is a loopback URL (setupClaude checked it).
+func setupClaudeHTTP(l *loader, cmd *cobra.Command, p *prompter, tty bool, f setupFlags, id, base string) error {
+	w := cmd.OutOrStdout()
+	name := "para-" + id
+	have, skillThere := installedSkill("")
+	skillCurrent := skillThere && have == l.version
+	if claudeHooked(name) {
+		if skillCurrent {
+			return verdict(w, toneOK, "agent: Claude Code already has %s and the para skill", name)
+		}
+		return setupSkill(l, cmd, f, true)
+	}
+	shown := strings.Join(claudeHTTPArgs(name, base, "<token>"), " ")
+	ks := keys.New(server.ServerDir(l.install, id))
+	existing, err := ks.List()
+	if err != nil {
+		return err
+	}
+	keyName, live := claudeKeyFor(existing, f.agentName, time.Now())
+	if _, err := exec.LookPath("claude"); err != nil {
+		_ = verdict(w, toneWarn, "agent: claude is not on PATH; make a key and run the line yourself, then restart the session:")
+		_, _ = fmt.Fprintf(w, "  para --vault %s key create %s --scope agent --allow-ip 127.0.0.0/8 --allow-ip ::1\n  %s\n", id, keyName, shown)
+		if !skillCurrent {
+			_, _ = fmt.Fprintln(w, "  para skill install")
+		}
+		return nil
+	}
+	if live != "" {
+		return verdict(w, toneWarn, "agent: key %s works and its token is not kept; para --vault %s key revoke %s, then run this again (or pass --agent-name <name>)", live, id, live)
+	}
+	_, _ = fmt.Fprintf(w, "  %s (HTTP: the para service runs; a new agent key %s, loopback only)\n", shown, keyName)
+	yes := f.agent == "claude"
+	if !yes && (!f.dryRun || tty) {
+		if yes, err = p.yesNo("Run it?", false); err != nil {
+			return err
+		}
+	}
+	if f.dryRun {
+		_ = verdict(w, toneWarn, "agent: would create key %s (scope agent, loopback only) and run claude mcp add --transport http for %s", keyName, name)
+		would(w, "run: %s", shown)
+		return nil
+	}
+	if !yes {
+		return verdict(w, toneWarn, "agent: not run")
+	}
+	scopes, err := netguard.ExpandScopes([]string{"agent"})
+	if err != nil {
+		return err
+	}
+	_, tok, err := ks.Create(keyName, scopes, loopbackKey, 0)
+	if err != nil {
+		return fmt.Errorf("setup: agent: %w", err)
+	}
+	parts := claudeHTTPArgs(name, base, tok)
+	c := exec.Command(parts[0], parts[1:]...)
+	c.Stdout, c.Stderr = w, cmd.ErrOrStderr()
+	if err := c.Run(); err != nil {
+		// The token is lost with the failed run: revoke the key. A run again
+		// makes the next free name.
+		if _, rerr := ks.Revoke(keyName); rerr != nil {
+			_, _ = fmt.Fprintf(w, "could not revoke key %s: %v\n", keyName, rerr)
+		}
+		return fmt.Errorf("setup: agent: claude mcp add: %w (key %s is revoked; run setup again)", err, keyName)
+	}
+	_ = verdict(w, toneOK, "agent: Claude Code has %s over HTTP (%s/mcp, key %s); restart the session and check /mcp", name, strings.TrimRight(base, "/"), keyName)
 	if err := setupSkill(l, cmd, f, true); err != nil {
 		return err
 	}

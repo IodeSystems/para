@@ -286,7 +286,7 @@ var ThreadPost = definePerson("thread_post", "Post the owner's turn in a thread:
 
 // thread_post routes to request_respond on finished work, so request_respond
 // is its alias (opalias.go); any other turn runs thread_post itself.
-var threadPostRouted = func() bool {
+var _ = func() bool {
 	verbRoutes[ThreadPost.Name()] = func(ctx context.Context, d Deps, raw json.RawMessage) (verbRoute, error) {
 		var in ThreadPostInput
 		if err := decodeStrict(raw, &in); err != nil {
@@ -583,7 +583,7 @@ var Thread = defineRead("thread", "Read a thread: key (an item id, #tag, or chan
 			if m.Via != nil {
 				via = m.Via.ThreadKey()
 			}
-			if doc.ID == out.Item || !(inKeys(m.ThreadKey(), via) || inKeys(h.Threads...)) {
+			if doc.ID == out.Item || (!inKeys(m.ThreadKey(), via) && !inKeys(h.Threads...)) {
 				continue
 			}
 			byIO[doc.ID] = len(out.Turns)

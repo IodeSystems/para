@@ -123,6 +123,7 @@ var configKeys = []configKey{
 	{name: WorkHoursKey, help: "obligation timeline: working hours in a weekday, to say when open prep will not fit before a promise; unset means 6", agent: true, check: checkInt(0)},
 	{name: "egress.default", help: "allow or deny a path out of the vault; deny when unset", check: checkEnum("allow", "deny")},
 	{name: "egress.export", help: "comma separated export transports that stay allowed; unset allows all", check: checkList(exportRe)},
+	{name: "egress.update", help: "deny stops this machine's update check and install while it serves the vault; unset or allow permits them; egress.default does not apply", check: checkEnum("allow", "deny")},
 	{name: "egress.publish", help: "allow lets para publish run under egress.default=deny; unset follows egress.default", check: checkEnum("allow", "deny")},
 	{name: "classification", help: "marking printed on copied documents", check: checkText},
 	{name: "reconcile.grace", help: "how long a hand edit with no event waits before it is logged; a Go duration", check: checkDuration},

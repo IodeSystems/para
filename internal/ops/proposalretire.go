@@ -214,4 +214,3 @@ func (w writeReceipts) find(ctx context.Context, d Deps, it model.ProposalItem, 
 	}
 	return ""
 }
-

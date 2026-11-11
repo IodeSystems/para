@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/iodesystems/para/internal/ops"
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
+
+	"github.com/iodesystems/para/internal/ops"
 )
 
 func TestMCPRequestWaitWakesOnEvent(t *testing.T) {

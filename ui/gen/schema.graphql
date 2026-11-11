@@ -354,6 +354,7 @@ type ParaV1QueryNamespace {
   uiDocFields(id: String!): para_UIDocFieldsBody @derived(operationId: "uiDocFields")
   uiReview: para_UIReviewBody @derived(operationId: "uiReview")
   uiToday: para_UITodayBody @derived(operationId: "uiToday")
+  updateStatus: para_UpdateStatus @derived(operationId: "updateStatus")
   vaultConfigGet(key: String!): para_ConfigSetting @derived(operationId: "vaultConfigGet")
   vaultConfigList: para_VaultConfigListOutput @derived(operationId: "vaultConfigList")
   vaultUpgradeStatus: para_Status @derived(operationId: "vaultUpgradeStatus")
@@ -10085,6 +10086,21 @@ type para_UndoRow {
 type para_Unknown {
   link: String
   text: String!
+}
+
+type para_UpdateStatus {
+  auto: Boolean!
+  available: String
+  check: Boolean!
+  checkError: String
+  checked: String
+  installedAt: String
+  installedFrom: String
+  installedTo: String
+  notice: String
+  release: Boolean!
+  running: String!
+  summary: String
 }
 
 type para_UpgradeStop {

@@ -107,10 +107,3 @@ func cleanInput(op string, input map[string]any) map[string]any {
 	}
 	return clean
 }
-
-// linkInputFields are the input fields that name existing documents, in the
-// ops an agent proposes. id names one in an op that does not create.
-var linkInputFields = map[string]bool{
-	"project": true, "area": true, "parent": true, "incident": true, "depends_on": true,
-	"blocks": true, "question": true, "task": true, "concepts": true, "ids": true, "team": true,
-}

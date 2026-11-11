@@ -257,11 +257,11 @@ func policyRefresh(ctx context.Context, d Deps, in PolicyRefreshInput) (PolicyRe
 			return out, err
 		}
 		pt := *prev.Meta.(*model.Transcript)
-		pt.Version, pt.Common.Updated = n, ""
+		pt.Version, pt.Updated = n, ""
 		pt.Source.Status, pt.Source.Checked = "", ""
 		v := model.Document{ID: fmt.Sprintf("%s-v%d.source", doc.ID, n), Folder: tdoc.Folder,
 			Title: fmt.Sprintf("%s (version %d)", doc.Title, n), Body: prev.Body, Meta: &pt}
-		pt.Common.Created = ""
+		pt.Created = ""
 		if _, err := d.Store.Create(ctx, v); err != nil {
 			return out, fmt.Errorf("version %d of %s not kept: %w", n, doc.ID, err)
 		}

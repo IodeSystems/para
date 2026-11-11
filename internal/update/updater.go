@@ -20,6 +20,18 @@ import (
 type State struct {
 	Version   string `json:"version,omitempty"`
 	Published string `json:"published,omitempty"`
+	Summary   string `json:"summary,omitempty"`
+	// Checked is the last check (RFC3339), failed or not; CheckError is why
+	// it failed. They rate-limit the check to one a day (Auto).
+	Checked    string `json:"checked,omitempty"`
+	CheckError string `json:"check_error,omitempty"`
+	// CheckKind is the short category of CheckError (ErrorKind), the only
+	// part a key without the admin scope sees.
+	CheckKind string `json:"check_kind,omitempty"`
+	// The last auto-install: from and to versions, and when.
+	InstalledFrom string `json:"installed_from,omitempty"`
+	InstalledTo   string `json:"installed_to,omitempty"`
+	InstalledAt   string `json:"installed_at,omitempty"`
 }
 
 // StateFile is the state's path in an install home.
@@ -125,7 +137,8 @@ func (u *Upgrader) Latest(ctx context.Context) (*Manifest, error) {
 	if p, err := time.Parse(time.RFC3339, st.Published); err == nil && m.PublishedAt().Before(p) {
 		return nil, &VerifyError{fmt.Sprintf("the manifest was published %s, before one seen %s (a replay?)", m.Published, st.Published)}
 	}
-	if err := saveState(u.StatePath, State{Version: m.Version, Published: m.Published}); err != nil {
+	st.Version, st.Published, st.Summary = m.Version, m.Published, oneLine(m.Summary, 300)
+	if err := saveState(u.StatePath, st); err != nil {
 		return nil, err
 	}
 	return m, nil

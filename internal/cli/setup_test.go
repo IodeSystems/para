@@ -2,10 +2,12 @@ package cli
 
 import (
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -636,5 +638,168 @@ func TestSetupNoTTYMissingDomainChangesNothing(t *testing.T) {
 	}
 	if d, _ := e.install().Domains(); len(d) != 0 {
 		t.Errorf("machine domains changed: %v", d)
+	}
+}
+
+// With the para service installed and running, setup hooks Claude Code up
+// over HTTP with a new agent key, and that key opens an MCP session at /mcp
+// through the gate (loopback, <vault>.localhost Host, bearer, no Origin).
+func TestSetupClaudePrefersHTTPWhenTheServiceRuns(t *testing.T) {
+	e, claudeLog, _ := setupEnv(t, true)
+	e.ok("init", "acme", filepath.Join(e.dir, "acme"))
+	e.ok("setup", "--service", "--agent", "none")
+	if !serviceInstalled() {
+		t.Fatal("setup --service wrote no unit file")
+	}
+	port, _ := runningServer(t, e)
+	out := e.ok("setup", "--service", "--agent", "claude")
+	got, _ := os.ReadFile(claudeLog)
+	line := strings.TrimSpace(string(got))
+	url := "http://acme.localhost:" + port + "/mcp"
+	if !strings.HasPrefix(line, "mcp add --transport http --scope user para-acme "+url+" --header Authorization: Bearer ") {
+		t.Fatalf("claude was run with %q\n%s", line, out)
+	}
+	if strings.Contains(out, line[strings.LastIndex(line, " ")+1:]) {
+		t.Error("setup printed the token")
+	}
+	tok := line[strings.LastIndex(line, " ")+1:]
+	var ks []struct {
+		Name   string   `json:"name"`
+		Scopes []string `json:"scopes"`
+	}
+	e.json(&ks, "key", "list")
+	found := false
+	for _, k := range ks {
+		found = found || (k.Name == claudeKeyName && slices.Contains(k.Scopes, "vault:write"))
+	}
+	if !found {
+		t.Fatalf("no agent key %s: %+v", claudeKeyName, ks)
+	}
+
+	post := func(token, session, body string) *http.Response {
+		t.Helper()
+		req, _ := http.NewRequest(http.MethodPost, "http://127.0.0.1:"+port+"/mcp", strings.NewReader(body))
+		req.Host = "acme.localhost:" + port
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+		if session != "" {
+			req.Header.Set("Mcp-Session-Id", session)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { res.Body.Close() })
+		return res
+	}
+	init := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}`
+	if res := post("", "", init); res.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("no token: %d", res.StatusCode)
+	}
+	res := post(tok, "", init)
+	body, _ := io.ReadAll(res.Body)
+	if res.StatusCode != http.StatusOK || !strings.Contains(string(body), `"listChanged":true`) || res.Header.Get("Mcp-Session-Id") == "" {
+		t.Fatalf("initialize: %d %s", res.StatusCode, body)
+	}
+	// A session id from before a restart is unknown: the client initializes again.
+	if res := post(tok, "mcp-session-00000000-0000-0000-0000-000000000000", `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`); res.StatusCode != http.StatusNotFound {
+		t.Fatalf("old session: %d", res.StatusCode)
+	}
+	// Rerun: hooked already, so nothing runs.
+	if err := os.WriteFile(filepath.Join(e.dir, ".claude.json"), []byte(`{"mcpServers":{"para-acme":{}}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	e.ok("setup", "--service", "--agent", "claude")
+	if again, _ := os.ReadFile(claudeLog); string(again) != string(got) {
+		t.Errorf("rerun ran claude: %q", again)
+	}
+}
+
+// fakeService makes the para service look installed and running for setup:
+// a unit file and a server record of this process at addr.
+func fakeService(t *testing.T, e *env, addr string) {
+	t.Helper()
+	e.ok("setup", "--service", "--agent", "none")
+	if !serviceInstalled() {
+		t.Fatal("setup --service wrote no unit file")
+	}
+	if err := server.EnsureVarDir(e.home); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.WriteRecord(e.home, server.Record{PID: os.Getpid(), Addr: addr, Vault: "acme", Started: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { server.RemoveRecord(e.home) })
+}
+
+// A failed claude mcp add revokes its key; a run again makes the next free
+// name instead of looping on the revoked one. The key works from loopback only.
+func TestSetupClaudeHTTPRecoversAfterAFailedAdd(t *testing.T) {
+	e, claudeLog, _ := setupEnv(t, true)
+	marker := filepath.Join(e.dir, "claude.failed")
+	script := "#!/bin/sh\nif [ ! -e " + marker + " ]; then : > " + marker + "; exit 1; fi\necho \"$@\" >> " + claudeLog + "\n"
+	if err := os.WriteFile(filepath.Join(e.dir, "bin", "claude"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	e.ok("init", "acme", filepath.Join(e.dir, "acme"))
+	fakeService(t, e, "127.0.0.1:7799")
+	if _, _, err := e.run("setup", "--service", "--agent", "claude"); err == nil {
+		t.Fatal("a failed claude mcp add passed")
+	}
+	out := e.ok("setup", "--service", "--agent", "claude")
+	if !strings.Contains(out, "key claude-2") {
+		t.Fatalf("rerun did not make claude-2:\n%s", out)
+	}
+	got, _ := os.ReadFile(claudeLog)
+	if !strings.Contains(string(got), "--transport http") || !strings.Contains(string(got), "Bearer para_claude-2_") {
+		t.Fatalf("claude was run with %q", got)
+	}
+	var ks []struct {
+		Name    string   `json:"name"`
+		AllowIP []string `json:"allow_ip"`
+		Revoked *string  `json:"revoked"`
+	}
+	e.json(&ks, "key", "list")
+	for _, k := range ks {
+		switch k.Name {
+		case "claude":
+			if k.Revoked == nil {
+				t.Error("the key of the failed run works")
+			}
+		case "claude-2":
+			if k.Revoked != nil || !slices.Equal(k.AllowIP, loopbackKey) {
+				t.Errorf("claude-2: %+v", k)
+			}
+		}
+	}
+}
+
+// A service on a LAN address is not used for Claude Code: the token would
+// cross the network. Setup uses stdio instead.
+func TestSetupClaudeHTTPRefusesANonLoopbackService(t *testing.T) {
+	e, claudeLog, _ := setupEnv(t, true)
+	e.ok("init", "acme", filepath.Join(e.dir, "acme"))
+	fakeService(t, e, "192.168.77.5:7799")
+	out := e.ok("setup", "--service", "--agent", "claude")
+	if !strings.Contains(out, "not a loopback address") {
+		t.Fatalf("no refusal:\n%s", out)
+	}
+	got, _ := os.ReadFile(claudeLog)
+	if strings.Contains(string(got), "--transport http") || !strings.Contains(string(got), "mcp add --scope user para-acme -- ") {
+		t.Fatalf("claude was run with %q", got)
+	}
+}
+
+func TestLoopbackBase(t *testing.T) {
+	for base, want := range map[string]bool{
+		"http://acme.localhost:7700": true, "http://127.0.0.1:7700": true, "http://[::1]:7700": true,
+		"http://192.168.1.76:7700": false, "http://para.example:7700": false,
+	} {
+		if got := loopbackBase(base); got != want {
+			t.Errorf("%s: %v", base, got)
+		}
 	}
 }

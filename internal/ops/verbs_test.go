@@ -241,7 +241,6 @@ func TestAliasParity(t *testing.T) {
 				want = o.raw
 			}
 			if c.old == "item_close" {
-				want = asMap(oldOut.(AliasOutput).Value())
 				if got := asMap(oldOut.(AliasOutput).Value()); got["by"] != newOut.(VerbOutput).Op {
 					t.Fatalf("item_close by %v, verb ran %s", got["by"], newOut.(VerbOutput).Op)
 				}

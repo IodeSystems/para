@@ -47,7 +47,7 @@ func newVaultUpgradeCmd(l *loader) *cobra.Command {
 		Args: cobra.NoArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.VaultUpgradeInput) {
 			fs.BoolVar(&in.DryRun, "dry-run", false, "list the documents each automated step would rewrite and change nothing")
-			fs.BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work; runs no automated step")
+			fs.BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work, and one item asking the owner to run the automated steps; runs no automated step")
 			fs.StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
 			fs.BoolVar(&in.Force, "force", false, "run while another install seen in 14 days runs an older para; that machine then refuses the vault until it is upgraded")
 		},
@@ -61,7 +61,8 @@ An automated step rewrites documents through the vault: one batch, one event per
 document. Use --dry-run first. --undo <batch> restores the files on the machine
 that ran the batch. Upgrade para on every machine of the vault first: a run
 refuses while an install seen in 14 days runs an older para (--force runs it). A judgement step needs an agent: --file queues each pending
-one as agent work and changes no document. "upgrade status" lists what is pending.
+one as agent work, and one item that asks the owner to run the pending
+automated steps; it changes no document. "upgrade status" lists what is pending.
 
 The last line is the verdict: the format before and after, the batch ids, lint
 errors and warnings, and the judgement steps still pending. A run that stops at
@@ -330,6 +331,9 @@ type upgradeOptions struct {
 	Release bool // install the newest release even with a checkout
 	Force   bool // install a release that is not newer than this one
 	Updater update.Upgrader
+	// Egress logs the fetch in each vault before it goes out; nil logs
+	// nothing (the auto-install logged it already).
+	Egress func(ctx context.Context, dest string) error
 
 	NoVaultSteps bool                // run no automated vault step
 	Yes          bool                // apply automated vault steps without asking
@@ -422,37 +426,65 @@ func upgradeFromCheckout(ctx context.Context, w io.Writer, o upgradeOptions) (ve
 // build that is not a release version (a checkout's git describe) counts as
 // the release of its newest notes. An empty version means para is current.
 func upgradeFromRelease(ctx context.Context, w io.Writer, o upgradeOptions) (version, bin string, err error) {
+	res, err := installRelease(ctx, w, o)
+	if err != nil || !res.Installed {
+		return "", "", err
+	}
+	restartService(ctx, w, o.Updater.Exe, o.Home)
+	return res.To, o.Updater.Exe, nil
+}
+
+// releaseCurrent is the release a build counts as: its version when that is
+// a release version, else v<newest release notes>.
+func releaseCurrent(version, oldRelease string) string {
+	if _, err := update.ParseVersion(version); err == nil {
+		return version
+	}
+	return "v" + or(oldRelease, "0.0.0")
+}
+
+// installRelease is the verify-and-swap half of upgradeFromRelease; the auto
+// install runs it too.
+func installRelease(ctx context.Context, w io.Writer, o upgradeOptions) (update.Result, error) {
 	u := o.Updater
 	u.Product, u.Force = "para", o.Force
-	u.Current = o.Version
-	if _, err := update.ParseVersion(u.Current); err != nil {
-		u.Current = "v" + or(o.OldRelease, "0.0.0")
-	}
+	u.Current = releaseCurrent(o.Version, o.OldRelease)
 	if _, err := fmt.Fprintf(w, "checking %s\n", u.ManifestURL); err != nil {
-		return "", "", err
+		return update.Result{}, err
+	}
+	if o.Egress != nil {
+		if err := o.Egress(ctx, update.DestRelease); err != nil {
+			return update.Result{}, fmt.Errorf("upgrade: %w", err)
+		}
 	}
 	res, err := u.Run(ctx)
 	if err != nil {
-		return "", "", fmt.Errorf("upgrade: release: %w", err)
+		return res, fmt.Errorf("upgrade: release: %w", err)
 	}
 	if !res.Installed {
 		_, err := fmt.Fprintf(w, "para is current: %s (newest release %s)\n", o.Version, res.To)
-		return "", "", err
+		return res, err
 	}
 	if _, err := fmt.Fprintf(w, "installed para %s at %s (signature and sha256 checked)\n", res.To, u.Exe); err != nil {
-		return "", "", err
+		return res, err
 	}
 	if res.Summary != "" {
 		_, _ = fmt.Fprintf(w, "%s\n", res.Summary)
 	}
-	if _, err := runIn(ctx, "", u.Exe, "--home", o.Home, "service", "status"); err == nil {
-		if err := stream(ctx, w, "", u.Exe, "--home", o.Home, "service", "restart"); err != nil {
-			_, _ = fmt.Fprintf(w, "could not restart the para service: %v\n", err)
-		} else {
-			_, _ = fmt.Fprintln(w, "restarted the para service")
-		}
+	return res, nil
+}
+
+// restartService restarts the para service with exe when one runs.
+func restartService(ctx context.Context, w io.Writer, exe, home string) {
+	if _, err := runIn(ctx, "", exe, "--home", home, "service", "status"); err != nil {
+		_, _ = fmt.Fprintln(w, "no para service runs: restart para serve to run the new binary")
+		return
 	}
-	return res.To, u.Exe, nil
+	if err := stream(ctx, w, "", exe, "--home", home, "service", "restart"); err != nil {
+		_, _ = fmt.Fprintf(w, "could not restart the para service: %v\n", err)
+	} else {
+		_, _ = fmt.Fprintln(w, "restarted the para service")
+	}
 }
 
 // vaultSteps brings one vault to the new format: the automated steps (a dry
@@ -539,6 +571,58 @@ var (
 	upgradeFetcher     = &update.Fetcher{}
 )
 
+// machineVaults lists the vaults this machine holds (machine.domains), and
+// the others with why they are skipped.
+func machineVaults(l *loader) (ids, skipped []string) {
+	vs, err := l.install.List()
+	if err != nil {
+		return nil, nil
+	}
+	for _, v := range vs {
+		if err := l.install.CheckVault(v.ID, v.Path); err != nil {
+			skipped = append(skipped, v.ID+": "+err.Error())
+			continue
+		}
+		ids = append(ids, v.ID)
+	}
+	return ids, skipped
+}
+
+// cliEgress logs one egress record for dest in each vault this machine holds.
+// A vault that does not open here (one newer than this para, which is what an
+// upgrade fixes) is skipped with a note, so it cannot block the upgrade.
+func cliEgress(ctx context.Context, w io.Writer, l *loader, dest string) error {
+	vs, err := l.install.List()
+	if err != nil {
+		return err
+	}
+	for _, v := range vs {
+		d, err := l.depsFor(v.ID, v.Path)
+		if err != nil {
+			_, _ = fmt.Fprintf(w, "egress not logged in vault %s: %v\n", v.ID, err)
+			continue
+		}
+		if _, err := d.Store.Egress(ctx, "", dest); err != nil {
+			return fmt.Errorf("vault %s: %w", v.ID, err)
+		}
+	}
+	return nil
+}
+
+// releaseUpdater is the Upgrader of this install: the release source, the
+// key built in, this binary, and the state in the install home.
+func releaseUpdater(l *loader) (update.Upgrader, error) {
+	keys, err := upgradeKeys()
+	if err != nil {
+		return update.Upgrader{}, fmt.Errorf("upgrade: the release key: %w", err)
+	}
+	return update.Upgrader{
+		Product: "para", ManifestURL: upgradeManifestURL, Keys: keys, Exe: upgradeTarget(),
+		StatePath: update.StateFile(l.install.Home), Platform: update.Platform(runtime.GOOS, runtime.GOARCH),
+		Fetch: upgradeFetcher,
+	}, nil
+}
+
 // upgradeTarget is the binary a release replaces: this one, or
 // ~/.local/bin/para when this one cannot be found.
 func upgradeTarget() string {
@@ -586,24 +670,13 @@ agent work.`,
 				src = l.srcDir
 			}
 			o.Src, o.Version, o.OldRelease, o.Home = src, l.version, changes.Latest(), l.install.Home
-			if vs, err := l.install.List(); err == nil {
-				for _, v := range vs {
-					if err := l.install.CheckVault(v.ID, v.Path); err != nil {
-						o.Skipped = append(o.Skipped, v.ID+": "+err.Error())
-						continue
-					}
-					o.VaultIDs = append(o.VaultIDs, v.ID)
-				}
-			}
-			keys, err := upgradeKeys()
+			o.VaultIDs, o.Skipped = machineVaults(l)
+			u, err := releaseUpdater(l)
 			if err != nil {
-				return fmt.Errorf("upgrade: the release key: %w", err)
+				return err
 			}
-			o.Updater = update.Upgrader{
-				ManifestURL: upgradeManifestURL, Keys: keys, Exe: upgradeTarget(),
-				StatePath: update.StateFile(l.install.Home), Platform: update.Platform(runtime.GOOS, runtime.GOARCH),
-				Fetch: upgradeFetcher,
-			}
+			o.Updater = u
+			o.Egress = func(ctx context.Context, dest string) error { return cliEgress(ctx, cmd.ErrOrStderr(), l, dest) }
 			if in := cmd.InOrStdin(); l.stdinIsTTY(in) {
 				o.Ask = askYesNo(cmd.OutOrStdout(), bufio.NewReader(in))
 			}

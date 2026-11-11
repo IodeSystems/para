@@ -143,7 +143,7 @@ func TestMeetingAliasesParity(t *testing.T) {
 	var metas []string
 	for _, name := range []string{"meeting_add", "obligation_add"} {
 		d, _, _ := obFixture(t)
-		var e Entry = Alias(name)
+		e := Alias(name)
 		if e == nil {
 			e = registry[name]
 		}

@@ -275,6 +275,16 @@ func (in Install) loadProps() (map[string]string, error) {
 	return cfg, err
 }
 
+// Props returns install.properties, or none when the file is missing. The
+// owner edits it; para writes only machine.domains.
+func (in Install) Props() (map[string]string, error) {
+	cfg, err := in.loadProps()
+	if err != nil {
+		return nil, fmt.Errorf("registry: install.properties: %w", err)
+	}
+	return cfg, nil
+}
+
 // Domains returns the domains this machine holds, or none when none is
 // recorded.
 func (in Install) Domains() ([]string, error) {

@@ -221,10 +221,12 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	}
 	defer release()
 
-	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live})
+	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live,
+		UpdateNotice: l.updateNotice, Update: l.updateStatus})
 	if err != nil {
 		return err
 	}
+	defer srv.Close()
 	bare := []string{"127.0.0.1", "::1"}
 	for _, b := range binds {
 		if !b.Addr().IsUnspecified() {
@@ -297,6 +299,16 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		defer close(dispatchDone)
 		hub.RunDispatch(ctx, l.install.Home)
 	}()
+	updateDone := make(chan struct{})
+	if auto, err := newAutoUpdate(l, log, srv, hub); err != nil {
+		close(updateDone)
+		log.Warn("update check off", "error", err)
+	} else {
+		go func() {
+			defer close(updateDone)
+			runAutoUpdate(ctx, auto, l, srv)
+		}()
+	}
 	log.Info("para serving", "addr", strings.Join(bound, ","), "vaults", strings.Join(ids, ","), "version", l.version)
 	log.Info("to sign in as admin, run: para serve login" + loginVaultHint(cfg.bare, ids) + " (the token is never logged)")
 	select {
@@ -313,6 +325,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 	<-relayDone
 	<-tickDone
 	<-dispatchDone
+	<-updateDone
 	for range lns {
 		if err := <-done; !errors.Is(err, http.ErrServerClosed) {
 			return fmt.Errorf("serve: %w", err)

@@ -34,7 +34,7 @@ func isFindTitle(title string) bool {
 // last Result section, cut to a short length. Empty when the work is not a done
 // find or has no result.
 func replyNote(title, body string, r *model.Request) string {
-	if r.Status != model.RequestDone || !(r.Kind == InvestigateKind || isFindTitle(title)) {
+	if r.Status != model.RequestDone || (r.Kind != InvestigateKind && !isFindTitle(title)) {
 		return ""
 	}
 	var note string

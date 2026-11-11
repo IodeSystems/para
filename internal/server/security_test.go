@@ -417,7 +417,7 @@ func TestPublicSurfaceHoldsNoData(t *testing.T) {
 	}
 	wantStatus(t, f.do(call{target: "/api/_gat/subscribe", token: tok}), 404)
 	// Unmatched API paths are JSON 404s, never the shell.
-	for _, p := range []string{"/api/nope", "/api/v1/nope", "/auth/nope", "/mcp"} {
+	for _, p := range []string{"/api/nope", "/api/v1/nope", "/auth/nope", "/mcp/nope"} {
 		w := f.do(call{target: p, token: tok})
 		wantStatus(t, w, 404)
 		if !strings.Contains(w.Header().Get("Content-Type"), "json") {

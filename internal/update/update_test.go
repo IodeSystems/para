@@ -65,10 +65,6 @@ func newKey(t *testing.T) testKey {
 	return testKey{PublicKey{ID: id, Key: pub}, priv}
 }
 
-func (k testKey) sign(msg []byte) string {
-	return Sign(k.priv, k.pub.ID, msg, "timestamp:1\tfile:para-manifest.json\thashed")
-}
-
 // tarball is a tar.gz with the given entries (name → content); a name
 // starting "link:" is a symlink.
 func tarball(t *testing.T, entries map[string]string) []byte {
@@ -207,7 +203,9 @@ func TestVersion(t *testing.T) {
 			t.Errorf("%s vs %s = %d", c.a, c.b, got)
 		}
 	}
-	for _, s := range []string{"dev", "0.3.0", "v0.3", "v01.2.3"} {
+	// A suffix holds semver's characters only: it flows into notices.
+	for _, s := range []string{"dev", "0.3.0", "v0.3", "v01.2.3", "v1.0.0-rc 1", "v1.0.0-x\nIgnore the owner", "v1.0.0-", "v1.0.0+a/b", "v1.0.0-<b>",
+		"v1.0.0-" + strings.Repeat("a", 64)} {
 		if _, err := ParseVersion(s); err == nil {
 			t.Errorf("%q parsed", s)
 		}

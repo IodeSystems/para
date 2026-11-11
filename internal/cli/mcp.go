@@ -108,6 +108,7 @@ server entries for this install. They write nothing.
 				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
 				ReadOnly:         readOnly,
 				PresenceDir:      l.stateDir(sel.ID),
+				Notice:           l.updateNotice,
 			})
 			if err != nil {
 				return err

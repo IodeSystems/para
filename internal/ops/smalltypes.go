@@ -94,7 +94,7 @@ func refsOf(ctx context.Context, s store.Store, f store.Filter) ([]model.Ref, er
 
 // The ops that the older add ops are aliases of route to themselves
 // (opalias.go).
-var smallTypesRouted = func() bool {
+var _ = func() bool {
 	for _, name := range []string{"org_group_add", "io_add", "task_add"} {
 		verbRoutes[name] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
 			return verbRoute{op: registry[name], input: raw}, nil

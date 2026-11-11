@@ -1,7 +1,18 @@
 Use para from Claude Code. (para help claude and para mcp --help-claude print this.)
 
-1. Install para, then add one MCP server per vault. Run these commands. `--scope user`
-   makes the vault available in every project; drop it to keep one to this directory:
+1. Install para, then add one MCP server per vault. There are two transports.
+   `para setup --agent claude` picks HTTP when the para service runs, else stdio.
+
+   HTTP (para serve, port 7700): Claude Code talks to the service with an agent
+   key. After a para upgrade the service restarts on the new binary; Claude
+   Code reconnects to the same URL by itself, gets the new tools, and is told
+   "para upgraded <old> → <new>: call changes". Make the key, then add it (the
+   token is printed once and lives only in Claude Code's config):
+   $ para --vault <vault> key create claude --scope agent
+   claude mcp add --transport http --scope user para-<vault> http://<vault>.localhost:7700/mcp --header "Authorization: Bearer <token>"
+
+   stdio (no service): Claude Code starts para mcp. `--scope user` makes the
+   vault available in every project; drop it to keep one to this directory:
 
 {{config}}
 
@@ -9,11 +20,22 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
    $ para skill install
 
 3. Restart the session, then check with /mcp. After each para upgrade: run
-   para skill install again. A running server keeps serving; it refuses only
-   the tools that changed (or every call, when the vault format changed) with
-   a message to reconnect it in /mcp, and its first answer says once that
-   para was upgraded. Reconnect then, or when convenient to get new tools
-   and the fixes inside the tools.
+   para skill install again (para setup does it). Over stdio a running server
+   keeps serving; it refuses only the tools that changed (or every call, when
+   the vault format changed) with a message to reconnect it in /mcp, and its
+   first answer says once that para was upgraded. Reconnect then, or when
+   convenient to get new tools and the fixes inside the tools. Over HTTP no
+   reconnect is needed.
+
+   Updates: para serve checks for a new signed release once a day (the manifest
+   only; each vault logs an egress event update:manifest). On a release build
+   it installs a newer release at a quiet moment and restarts the service; a
+   build from a checkout only says one is available. Per machine, in
+   $PARA_HOME/install.properties: upgrade.check=false stops the check
+   (egress.default does not apply; a served vault with egress.update=deny
+   stops all update traffic), upgrade.auto=false only announces, upgrade.vault_steps=auto also runs the
+   automated vault steps (else they arrive as agent work "Vault upgrade: ...").
+   The MCP server says when a newer release is available.
 
 4. Asks are tracked. When you ask the agent in the chat for something that does
    not end in its reply (or that it hands to another agent), it records agent work

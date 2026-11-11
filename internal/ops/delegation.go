@@ -416,7 +416,7 @@ func draftAgent(d Deps, named string) (string, error) {
 		return "", errors.New("voice for_me needs agent: the name of the agent that sends it for you")
 	}
 	if !agentNameRe.MatchString(named) {
-		return "", fmt.Errorf("agent %q: want a name of letters, digits, and - _ .", named)
+		return "", fmt.Errorf("agent %q: want a name of letters, digits, hyphen, underscore, or period", named)
 	}
 	return named, nil
 }

@@ -100,3 +100,36 @@ func TestUpgradeInstructionsFileCleanly(t *testing.T) {
 		}
 	}
 }
+
+// A pending automated step is filed as one agent work item that asks the
+// owner to run it: nothing runs unattended, and the item is filed once.
+func TestVaultUpgradeFilesTheAutomatedStepsAsOneItem(t *testing.T) {
+	tv := newTickVault(t, "2026-11-03T12:00:00Z")
+	d := tv.open("one", "cli")
+	ctx := t.Context()
+	if _, err := d.Store.Create(ctx, model.Document{ID: "meeting-a", Folder: model.FolderMeetings, Title: "Sync", Body: "## Notes\n\nx\n",
+		Meta: &model.Meeting{Common: model.Common{Type: model.TypeMeeting}, Status: model.MeetingScheduled,
+			Start: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-x")}}}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := VaultUpgrade.Run(ctx, d, VaultUpgradeInput{File: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var auto string
+	for _, id := range out.Filed {
+		if doc, _ := d.Store.Get(ctx, id); doc.Title == upgradePrefix+AutoStepsTitle {
+			auto = doc.Body
+		}
+	}
+	if !strings.Contains(auto, "vault upgrade --dry-run") || !strings.Contains(auto, "cannot run it") {
+		t.Fatalf("no automated-steps item: filed %v, body %q", out.Filed, auto)
+	}
+	if got, _ := d.Store.Get(ctx, "meeting-a"); got.Meta.Header().Type != model.TypeMeeting {
+		t.Fatal("filing ran the automated step")
+	}
+	again, err := VaultUpgrade.Run(ctx, d, VaultUpgradeInput{File: true})
+	if err != nil || len(again.Filed) != 0 {
+		t.Fatalf("second filing = %v, %v", again.Filed, err)
+	}
+}

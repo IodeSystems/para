@@ -40,6 +40,7 @@ func TestNamingRule(t *testing.T) {
 		"uiDoc":             "/api/v1/ui/doc",
 		"uiDocFields":       "/api/v1/ui/doc/fields",
 		"uiLiveSubscribe":   "/api/v1/ui/live/subscribe",
+		"updateStatus":      "/api/v1/update/status",
 	}
 	camel := regexp.MustCompile(`^[a-z]+(?:[A-Z][a-z]+)*$`)
 	s := schemaOnly(t)

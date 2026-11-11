@@ -137,6 +137,10 @@ func newFixture(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The cleanup drops its reference: testing keeps a test's cleanup funcs
+	// until the parent test ends, and each Server holds ~20 MB of schemas.
+	held := srv
+	t.Cleanup(func() { held.Close(); held = nil })
 	proxies, err := netguard.ParseProxies([]string{proxyIP})
 	if err != nil {
 		t.Fatal(err)

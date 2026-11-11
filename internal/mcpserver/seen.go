@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/iodesystems/para/changes"
 )
@@ -21,19 +22,20 @@ type seenRecord struct {
 	From    string `json:"from"`    // the release before the change, for the changes tool
 }
 
-// checkSeen compares the running binary with the record at path and writes the
-// new record. It reports whether the binary changed since the last session, and
-// the release the notes should start after. An empty path, a first session, or
-// an unwritable file reports no change.
-func checkSeen(path, version string) (changed bool, from string) {
+// checkSeenVersion is checkSeen that also returns the binary version the last
+// session ran, when it differs from version ("" otherwise).
+func checkSeenVersion(path, version string) (changed bool, from, oldVersion string) {
 	if path == "" {
-		return false, ""
+		return false, "", ""
 	}
 	rec := seenRecord{Key: version + "@" + changes.Latest(), Release: changes.Latest()}
 	var old seenRecord
 	if b, err := os.ReadFile(path); err == nil && json.Unmarshal(b, &old) == nil && old.Key != "" {
 		if old.Key == rec.Key {
-			return false, old.From
+			return false, old.From, ""
+		}
+		if v, _, ok := strings.Cut(old.Key, "@"); ok && v != version {
+			oldVersion = v
 		}
 		// The notice shows only when changes would list something: the same
 		// check changes makes, releases after the last one this session saw.
@@ -47,5 +49,5 @@ func checkSeen(path, version string) (changed bool, from string) {
 		_ = os.MkdirAll(filepath.Dir(path), 0o700)
 		_ = os.WriteFile(path, b, 0o600)
 	}
-	return changed, from
+	return changed, from, oldVersion
 }

@@ -9,9 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mark3labs/mcp-go/mcp"
+
 	"github.com/iodesystems/para/internal/ops"
 	"github.com/iodesystems/para/internal/server"
-	"github.com/mark3labs/mcp-go/mcp"
 )
 
 func TestLoginDays(t *testing.T) {

@@ -44,7 +44,7 @@ func (f *Fetcher) client() *http.Client {
 // get opens u for reading, after checking its scheme.
 func (f *Fetcher) get(ctx context.Context, u string) (io.ReadCloser, error) {
 	p, err := url.Parse(u)
-	if err != nil || (p.Scheme != "https" && !(f.AllowHTTP && p.Scheme == "http")) {
+	if err != nil || (p.Scheme != "https" && (!f.AllowHTTP || p.Scheme != "http")) {
 		return nil, &VerifyError{fmt.Sprintf("refusing a download that is not https: %q", u)}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
@@ -56,8 +56,8 @@ func (f *Fetcher) get(ctx context.Context, u string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		resp.Body.Close()
-		return nil, fmt.Errorf("%s: %s", u, resp.Status)
+		_ = resp.Body.Close()
+		return nil, fmt.Errorf("%s: %s: %w", u, resp.Status, errStatus)
 	}
 	return resp.Body, nil
 }
@@ -68,7 +68,7 @@ func (f *Fetcher) Small(ctx context.Context, u string, max int64) ([]byte, error
 	if err != nil {
 		return nil, err
 	}
-	defer body.Close()
+	defer func() { _ = body.Close() }()
 	b, err := io.ReadAll(io.LimitReader(body, max+1))
 	if err != nil {
 		return nil, err
@@ -91,8 +91,8 @@ func (f *Fetcher) Install(ctx context.Context, file File, entry, dst string) (st
 		return "", fmt.Errorf("cannot write beside %s: %w", dst, err)
 	}
 	defer func() {
-		archive.Close()
-		os.Remove(archive.Name())
+		_ = archive.Close()
+		_ = os.Remove(archive.Name())
 	}()
 	body, err := f.get(ctx, file.URL)
 	if err != nil {
@@ -100,7 +100,7 @@ func (f *Fetcher) Install(ctx context.Context, file File, entry, dst string) (st
 	}
 	h := sha256.New()
 	n, err := io.Copy(io.MultiWriter(archive, h), io.LimitReader(body, file.Size+1))
-	body.Close()
+	_ = body.Close()
 	if err != nil {
 		return "", fmt.Errorf("download %s: %w", file.URL, err)
 	}
@@ -130,8 +130,8 @@ func extract(r io.Reader, entry, dst string) error {
 	var out *os.File
 	defer func() {
 		if out != nil {
-			out.Close()
-			os.Remove(out.Name())
+			_ = out.Close()
+			_ = os.Remove(out.Name())
 		}
 	}()
 	for {
@@ -185,7 +185,7 @@ func extract(r io.Reader, entry, dst string) error {
 	out = nil
 	if d, err := os.Open(filepath.Dir(dst)); err == nil { // the rename survives a crash
 		_ = d.Sync()
-		d.Close()
+		_ = d.Close()
 	}
 	return nil
 }
