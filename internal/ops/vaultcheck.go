@@ -143,7 +143,7 @@ func vaultCheckSource(step string) string {
 // VaultCheckInstructions is what the agent does with a vault-check request.
 const VaultCheckInstructions = "Para lint found the problems below in this vault. Each line is a path, a line, the severity, the lint code, and para's message. " +
 	"For each finding, decide which is wrong, the data or para.\n\n" +
-	"- The data is wrong (a field, a link target, a heading, a value the rule rightly refuses): fix it with para's own write ops (doc_edit, task_edit, and the rest), with this request as request. Never edit the files by hand or with a script.\n" +
+	"- The data is wrong (a field, a link target, a heading, a value the rule rightly refuses): fix it with para's own write ops (doc_edit, edit, and the rest), with this request as request. Never edit the files by hand or with a script.\n" +
 	"- Para is wrong (the lint rule refuses what para's own guide allows, or an upgrade step wrote what lint refuses): change nothing for that finding.\n" +
 	"- Para cannot read the file at all (codes such as frontmatter or title on a file no op can open): no op fixes it. Change nothing, and say in the result which path the owner must fix or remove.\n\n" +
 	"End with request_done. Resolution done when you fixed every finding. Otherwise resolution blocked, and the result is a bug report the owner can paste to para's developer: the para version (the release below, and `para version` when you can run it), the lint code, the upgrade step if any, the path, what para expected, and why you think para is wrong. Paths, codes, and para's messages only: never copy document content into it. " +

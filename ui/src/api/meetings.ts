@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 import { recurringBody, type RecurringInput } from '@/lib/recurring'
 
 export const MeetingFields = graphql(/* GraphQL */ `
@@ -119,45 +119,50 @@ const ObligationShowDoc = graphql(/* GraphQL */ `
   query ObligationShow($id: String!) {
     para {
       v1 {
-        taskShow(id: $id) {
-          body
-          task {
-            id
-            title
-            kind
-            status
-            outcome
-            due
-            scheduled
-            end
-            with
-            withNames
-            assignee
-            assigneeName
-            doneWhen
-            project
-            projectName
-            needsYou
-            reason
-          }
-          produce {
-            agent
-            kind
-            template
-            templateName
-            to
-            medium
-            builtin
-            ready
-            request
-            requestStatus
-            artifact {
-              id
-              type
-              title
-              state
-              occurrence
-              at
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_TaskShowOutput {
+              body
+              task {
+                id
+                title
+                kind
+                status
+                outcome
+                due
+                scheduled
+                end
+                with
+                withNames
+                assignee
+                assigneeName
+                doneWhen
+                project
+                projectName
+                needsYou
+                reason
+              }
+              produce {
+                agent
+                kind
+                template
+                templateName
+                to
+                medium
+                builtin
+                ready
+                request
+                requestStatus
+                artifact {
+                  id
+                  type
+                  title
+                  state
+                  occurrence
+                  at
+                }
+              }
             }
           }
         }
@@ -170,7 +175,11 @@ export function useObligation(id: string) {
   return useQuery({
     queryKey: ['obligations', 'show', id],
     queryFn: async () =>
-      need((await gqlClient.request(ObligationShowDoc, { id })).para.v1.taskShow, 'obligation'),
+      needDetail(
+        (await gqlClient.request(ObligationShowDoc, { id })).para.v1.show,
+        'para_TaskShowOutput',
+        'obligation',
+      ),
   })
 }
 

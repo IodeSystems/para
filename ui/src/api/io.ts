@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 import { closeAny } from '@/api/verbs'
 import type { DraftEditBody } from '@/lib/draft'
 
@@ -51,41 +51,46 @@ const IoShowDoc = graphql(/* GraphQL */ `
   query IoShow($id: String!) {
     para {
       v1 {
-        ioShow(id: $id) {
-          doc {
-            id
-            title
-            body
-          }
-          item {
-            id
-            title
-            direction
-            medium
-            state
-            from
-            to
-            at
-            subject
-            ref
-            verify
-            unverifiable
-            expects
-            route
-            became
-            thread
-            reason
-            legacy
-            created
-            triage
-            triageBy
-            links
-            voice
-            agent
-            stamp
-            kind
-            allowedBy
-            draftHash
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_IOShowOutput {
+              doc {
+                id
+                title
+                body
+              }
+              item {
+                id
+                title
+                direction
+                medium
+                state
+                from
+                to
+                at
+                subject
+                ref
+                verify
+                unverifiable
+                expects
+                route
+                became
+                thread
+                reason
+                legacy
+                created
+                triage
+                triageBy
+                links
+                voice
+                agent
+                stamp
+                kind
+                allowedBy
+                draftHash
+              }
+            }
           }
         }
       }
@@ -146,7 +151,11 @@ export function useDelegationRun(id: string, enabled: boolean) {
 }
 
 const fetchIoItem = async (id: string) =>
-  need((await gqlClient.request(IoShowDoc, { id })).para.v1.ioShow, 'io item')
+  needDetail(
+    (await gqlClient.request(IoShowDoc, { id })).para.v1.show,
+    'para_IOShowOutput',
+    'io item',
+  )
 
 export function useIoItem(id: string) {
   return useQuery({

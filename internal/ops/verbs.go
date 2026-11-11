@@ -176,13 +176,13 @@ type CloseInput struct {
 
 // CloseDescription is close's description.
 const CloseDescription = "Close any item with an outcome. It runs the close op of the item's type, with that op's own gate, rules, and receipt: " +
-	"task: (none) done = task_done, skipped = task_done skip (a recurring task), any task_resolve outcome (partial, dropped, duplicate, superseded, declined, failed, rerouted) = task_resolve; " +
-	"meeting: (none) or done = meeting_hold (reason = notes), dropped = meeting_cancel, skipped = meeting_attend no, duplicate = task_resolve; " +
-	"question: dropped = question_drop, answered = question_answer (answer or choice; reason is why; sources); goal: (none) or done, dropped = project_close; " +
-	"ask: (none) or done = rfx_close, declined or answered = rfx_status, no, partial, or answered with answer or fields.from = rfx_reply (fields heard, url, via, date); io: (none) or dropped = io_drop, sent = io_done (people) or, from an agent, io_send after a passing io_send_check (fields url, locator, tool); " +
-	"agent work: (none) or cancelled = request_cancel; incident: (none) or resolved = incident_status resolved. " +
+	"task: (none) or done = done (a recurring task makes the next one), skipped = skip it once (a recurring task), any other outcome (partial, dropped, duplicate, superseded, declined, failed, rerouted) = resolve with that outcome; " +
+	"meeting: (none) or done = held (reason = notes), dropped = cancelled, skipped = obligation_attend no, duplicate = resolve as duplicate; " +
+	"question: dropped, answered = question_answer (answer or choice; reason is why; sources); goal: (none) or done, dropped; " +
+	"ask: (none) or done = closed, declined or answered = set that status, no, partial, or answered with answer or fields.from = rfx_reply (fields heard, url, via, date); io: (none) or dropped = dropped, sent = marked sent (people) or, from an agent, io_send after a passing io_send_check (fields url, locator, tool); " +
+	"agent work: (none) or cancelled; incident: (none) or resolved = incident_status resolved. " +
 	"reason goes where the op keeps one (note, notes, reason, or text); an op with none refuses it. " +
-	"fields are the op's other inputs (task_resolve link, follow_ups, declined_by, source, tried, to; meeting_hold replies, answers, actions; project_close force; rfx_close playbook; io_done url, locator, text, at). " +
+	"fields are the op's other inputs (task resolve: link, follow_ups, declined_by, source, tried, to; meeting held: replies, answers, actions; goal: force; ask closed: playbook; io sent: url, locator, text, at). " +
 	"evidence, when given, must be one the owner can open: an http(s) URL, a vault id or path, an absolute path or ~/path to a file on this machine, or via {source, ref} with verify; free text alone is refused. " +
 	"Outputs op (the op that ran) and result (its output); on a person's surface also receipt, which receipt_revert undoes. " +
 	"Closing a goal, obligation, or question also outputs hanging: the open items that still hang on it (as theme_items lists them); ask the owner what becomes of each, never drop them yourself"
@@ -491,7 +491,7 @@ type LaterInput struct {
 }
 
 // Later puts items off: defer, with defer's rules.
-var Later = defineVerb("later", "Put items off until a date (until), until an obligation starts or ends (until_start, until_end: an obligation id; the date follows the obligation when it moves, and the items come back with a note when it is cancelled), after an item is done (after), when a condition holds (when: reuses the open task of the same condition, or makes one; new always makes a new one), or someday: id or ids, a tag, or a scope (a goal or area). It runs defer, with defer's rules. Outputs op and result (defer's output); on a person's surface also receipt",
+var Later = defineVerb("later", "Put items off until a date (until), until an obligation starts or ends (until_start, until_end: an obligation id; the date follows the obligation when it moves, and the items come back with a note when it is cancelled), after an item is done (after), when a condition holds (when: reuses the open task of the same condition, or makes one; new always makes a new one), or someday: id or ids, a tag, or a scope (a goal or area). Outputs op and result; on a person's surface also receipt",
 	RiskReview, func(_ context.Context, _ Deps, in LaterInput) (verbRoute, error) {
 		ids := in.IDs
 		if id := strings.TrimSpace(in.ID); id != "" {
@@ -516,7 +516,7 @@ type ReopenInput struct {
 // Reopen opens closed items again, or brings back items put off (undefer,
 // people only).
 var Reopen = defineVerb("reopen", "Open a closed item again (task, meeting, question, goal, ask, io item not sent, incident, exception), with a receipt: its status goes back to open and reason is kept under ## Outcome. "+
-	"An item put off (later) comes back now instead: that is undefer, people only. Give closed items and put-off items in separate calls. Agent work is not reopened: send new work with send_to_agent. Outputs op and result; on a person's surface also receipt",
+	"An item put off (later) comes back now with reopen instead (people only). Give closed items and put-off items in separate calls. Agent work is not reopened: send new work with send_to_agent. Outputs op and result; on a person's surface also receipt",
 	RiskReview, reopenRoute)
 
 func reopenRoute(ctx context.Context, d Deps, in ReopenInput) (verbRoute, error) {
@@ -715,7 +715,7 @@ type SendToAgentInput struct {
 
 // SendToAgent queues agent work about an item: agent_send on a person's
 // surface, request_add linked to the item on an agent's.
-var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it runs agent_send (note is the owner's words; attachments and done as agent_send takes them); on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). file_notes (people only), on a meeting, asks the agent to file its notes and close it as held (prompt ingest_source). Outputs op and result",
+var SendToAgent = defineVerb("send_to_agent", "Send an item to an agent with a note: queues agent work linked to the item. On a person's surface it takes the owner's words as the note, with attachments and done; on an agent's it runs request_add with title, the note as the ask, and the item in links (an agent's request is proposed until the owner accepts it). file_notes (people only), on a meeting, asks the agent to file its notes and close it as held (prompt ingest_source). Outputs op and result",
 	RiskSafe, func(ctx context.Context, d Deps, in SendToAgentInput) (verbRoute, error) {
 		if !agentSurface(d) {
 			return newRoute(AgentSend, AgentSendInput{ID: in.ID, Text: in.Note, Attachments: in.Attachments, Done: in.Done, FileNotes: in.FileNotes}, false)
@@ -747,16 +747,16 @@ type ShowInput struct {
 // ShowOutput is one item: its lifecycle, whether it needs the owner, and the
 // output of its type's show op (detail), when the type has one.
 type ShowOutput struct {
-	ID       string         `json:"id"`
-	Type     model.Type     `json:"type"`
-	Title    string         `json:"title"`
-	Status   string         `json:"status,omitempty"`
-	Life     Lifecycle      `json:"life"`
-	Turn     Turn           `json:"turn"`
-	NeedsYou bool           `json:"needs_you"`
-	Reason   string         `json:"reason"`
-	Op       string         `json:"op,omitempty"`
-	Detail   map[string]any `json:"detail,omitempty"`
+	ID       string     `json:"id"`
+	Type     model.Type `json:"type"`
+	Title    string     `json:"title"`
+	Status   string     `json:"status,omitempty"`
+	Life     Lifecycle  `json:"life"`
+	Turn     Turn       `json:"turn"`
+	NeedsYou bool       `json:"needs_you"`
+	Reason   string     `json:"reason"`
+	Op       string     `json:"op,omitempty"`
+	Detail   ShowDetail `json:"detail,omitempty"`
 	// Notes are the item's ## Notes, and NotesHash their hash: edit {id,
 	// notes, notes_hash} replaces them (notes_edit).
 	Notes     string `json:"notes,omitempty"`
@@ -774,6 +774,7 @@ func showOps() map[model.Type]Entry {
 		model.TypePolicyException: ExceptionShow, model.TypeConvention: ConventionShow, model.TypeConstraint: ConstraintShow,
 		model.TypeInteraction: InteractionShow, model.TypeNote: NoteShow, model.TypePolicy: PolicyShow,
 		model.TypePerson: OrgPersonShow, model.TypeTeam: OrgTeamShow, model.TypeRole: OrgRoleShow, model.TypeDomain: OrgDomainShow,
+		model.TypeGroup: OrgGroupShow,
 	}
 }
 
@@ -805,7 +806,7 @@ var Show = defineRead("show", "Show any item by id: type, title, status, life (o
 	if err != nil {
 		return out, err
 	}
-	out.Op, out.Detail, out.raw = rt.op.Name(), asMap(res), res
+	out.Op, out.Detail, out.raw = rt.op.Name(), showDetail(rt.op.Name(), res), res
 	return out, nil
 })
 

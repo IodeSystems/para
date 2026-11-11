@@ -336,7 +336,7 @@ type ObligationScheduleOutput struct {
 }
 
 // ObligationSchedule sets when an obligation falls due.
-var ObligationSchedule = defineSafe("obligation_schedule", "Set when an obligation falls due: start and end book or move a meeting (linked requests move to scheduled, as meeting_schedule); due or start set a commitment's date; reviewed marks an ongoing one reviewed today", func(ctx context.Context, d Deps, in ObligationScheduleInput) (ObligationScheduleOutput, error) {
+var ObligationSchedule = defineSafe("obligation_schedule", "Set when an obligation falls due: start and end book or move a meeting (linked requests move to scheduled); due or start set a commitment's date; reviewed marks an ongoing one reviewed today", func(ctx context.Context, d Deps, in ObligationScheduleInput) (ObligationScheduleOutput, error) {
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
 		return ObligationScheduleOutput{}, linkErr("id", normID(in.ID), err)

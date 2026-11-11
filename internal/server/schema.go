@@ -2,6 +2,8 @@ package server
 
 import (
 	"reflect"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -43,6 +45,25 @@ func addEnum[T ~string](reg huma.Registry, vals []T) {
 type jsonValue struct{}
 
 func (jsonValue) Schema(huma.Registry) *huma.Schema { return &huma.Schema{} }
+
+// showDetail is the schema of show's detail: ShowDetail, a union of the show
+// Outputs. Its "op" names the show op, so it picks the member.
+type showDetail struct{}
+
+func (showDetail) Schema(reg huma.Registry) *huma.Schema {
+	u := &huma.Schema{Discriminator: &huma.Discriminator{PropertyName: "op", Mapping: map[string]string{}}}
+	prefix := ""
+	for _, e := range ops.ShowOps() {
+		ref := reg.Schema(e.OutputType(), true, "")
+		prefix = ref.Ref[:strings.LastIndex(ref.Ref, "/")+1]
+		if !slices.ContainsFunc(u.OneOf, func(x *huma.Schema) bool { return x.Ref == ref.Ref }) {
+			u.OneOf = append(u.OneOf, ref)
+		}
+		u.Discriminator.Mapping[e.Name()] = ref.Ref
+	}
+	reg.Map()["ShowDetail"] = u
+	return &huma.Schema{Ref: prefix + "ShowDetail"}
+}
 
 // Meta is the frontmatter of every document type, flattened into one object:
 // gat has no sealed union. `type` says which fields apply. A field that holds
@@ -298,11 +319,13 @@ type Meta struct {
 //   - model.Meta is the flat Meta object.
 //   - [][]string (graph cycles) would flatten in gat, so it is the JSON scalar.
 //   - map[string]any (a proposed op's input) has no fixed shape: the JSON scalar.
+//   - ops.ShowDetail is a union of the show Outputs (showDetail).
 func registerAliases(reg huma.Registry) {
 	reg.RegisterTypeAlias(reflect.TypeFor[int](), reflect.TypeFor[int32]())
 	reg.RegisterTypeAlias(reflect.TypeFor[model.Meta](), reflect.TypeFor[Meta]())
 	reg.RegisterTypeAlias(reflect.TypeFor[[][]string](), reflect.TypeFor[jsonValue]())
 	reg.RegisterTypeAlias(reflect.TypeFor[map[string]any](), reflect.TypeFor[jsonValue]())
+	reg.RegisterTypeAlias(reflect.TypeFor[ops.ShowDetail](), reflect.TypeFor[showDetail]())
 
 	addEnum(reg, model.Types)
 	addEnum(reg, model.Folders)
@@ -324,6 +347,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.ExceptionStatuses)
 	addEnum(reg, model.ConventionStatuses)
 	addEnum(reg, model.JournalScopes)
+	addEnum(reg, ops.JournalPeriods)
 	addEnum(reg, ops.FeedbackKinds)
 	addEnum(reg, ops.Lifecycles)
 	addEnum(reg, ops.Turns)

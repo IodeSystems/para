@@ -16,7 +16,8 @@ import (
 	"github.com/iodesystems/para/internal/upgrade"
 )
 
-// JournalInput is the input of journal_daily, journal_weekly, journal_monthly.
+// JournalInput is the input of journal_daily, journal_weekly, journal_monthly
+// (internal: journal {period} is the agent's op).
 type JournalInput struct {
 	Date string `json:"date,omitempty"` // YYYY-MM-DD inside the period; empty means today (local time)
 }
@@ -35,6 +36,36 @@ const (
 	JournalUpdated   = "updated"
 	JournalUnchanged = "unchanged"
 )
+
+// JournalPeriod is the span journal writes: a day, an ISO week, or a month.
+type JournalPeriod string
+
+// JournalPeriods lists every JournalPeriod.
+var JournalPeriods = []JournalPeriod{"daily", "weekly", "monthly"}
+
+func (JournalPeriod) Enum() []string { return enumStrs(JournalPeriods) }
+
+// journalScopes is the scope of each period.
+var journalScopes = map[JournalPeriod]model.JournalScope{
+	"daily": model.JournalDay, "weekly": model.JournalWeek, "monthly": model.JournalMonth,
+}
+
+// JournalPeriodInput is the input of journal.
+type JournalPeriodInput struct {
+	Period JournalPeriod `json:"period"`
+	Date   string        `json:"date,omitempty"` // YYYY-MM-DD inside the period; empty means today (local time)
+}
+
+// Journal writes the journal of one period. It runs what journal_daily,
+// journal_weekly, and journal_monthly run (internal, kept for their CLI
+// commands and web routes).
+var Journal = defineSafe("journal", "Generate the journal of a period from events: period daily, weekly (ISO week; rolls up the dailies), or monthly (rolls up the weeklies that touch it)", func(ctx context.Context, d Deps, in JournalPeriodInput) (JournalOutput, error) {
+	scope, ok := journalScopes[JournalPeriod(strings.TrimSpace(string(in.Period)))]
+	if !ok {
+		return JournalOutput{}, fmt.Errorf("period %q: want one of %v", in.Period, JournalPeriods)
+	}
+	return journal(ctx, d, JournalInput{Date: in.Date}, scope)
+})
 
 // JournalDaily writes the journal of one day.
 var JournalDaily = defineSafe("journal_daily", "Generate the daily journal from events", func(ctx context.Context, d Deps, in JournalInput) (JournalOutput, error) {

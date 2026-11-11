@@ -165,7 +165,7 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 	// Route is free text that should name a domain (id, slug, or title). It is
 	// kept as given, so an unknown one is a warning, not a refusal.
 	if picked, _ := pickDomain(meta.Route, domains); picked == nil {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text; add the domain (org_domain_add) or use an existing id (`para route`)", meta.Route))
+		out.Warnings = append(out.Warnings, fmt.Sprintf("route %q matches no domain: kept as text; add the domain (add {type: group}) or use an existing id (`para route`)", meta.Route))
 	}
 	if warn {
 		out.Warnings = append(out.Warnings, WarnNoSelfServe)

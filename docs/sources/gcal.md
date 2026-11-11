@@ -16,7 +16,7 @@ scan_in:
   args: '{"time_min": "{since}"}'
   how: Pass the events of the next 14 days to calendar_compare; a new invitation the owner has not answered is an io item, direction in, medium meeting.
 scan_out:
-  how: Responses the owner sent to invitations since the last scan; a held meeting is meeting_hold.
+  how: Responses the owner sent to invitations since the last scan; a held meeting is close.
 state:
   tool: get_event
   args: '{"event_id": "{ref}"}'

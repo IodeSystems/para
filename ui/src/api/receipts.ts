@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 
 // Receipts are what each agent write changed, why, and from what. A key with review:decide marks
 // a receipt verified or wrong and undoes the write; any other key only reads them.
@@ -67,9 +67,14 @@ const ShowDoc = graphql(/* GraphQL */ `
   query ReceiptShow($id: String!) {
     para {
       v1 {
-        receiptShow(id: $id) {
-          lines
-          revertible
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_ReceiptDetail {
+              lines
+              revertible
+            }
+          }
         }
       }
     }
@@ -161,7 +166,11 @@ export function useReceipt(id: string, enabled: boolean) {
     queryKey: ['receipt', id],
     enabled,
     queryFn: async () =>
-      need((await gqlClient.request(ShowDoc, { id })).para.v1.receiptShow, 'receipt'),
+      needDetail(
+        (await gqlClient.request(ShowDoc, { id })).para.v1.show,
+        'para_ReceiptDetail',
+        'receipt',
+      ),
   })
 }
 
@@ -205,6 +214,9 @@ export function useReceiptRevert() {
 // latestReceipt is the id of the newest receipt of one op, or null. For an op whose reply does not
 // carry its receipt (io_review): read it back right after the write, for Undo.
 export async function latestReceipt(op: string): Promise<string | null> {
-  const r = need((await gqlClient.request(ListDoc, { op, limit: 1 })).para.v1.receiptList, 'receipts')
+  const r = need(
+    (await gqlClient.request(ListDoc, { op, limit: 1 })).para.v1.receiptList,
+    'receipts',
+  )
   return r.items[0]?.id ?? null
 }

@@ -46,7 +46,7 @@ type ProposalExecutedOutput struct {
 var ProposalExecuted = defineSafe("proposal_executed", "Alias of io_send (this name goes in a later release; call io_send). Reports that you sent what a dossier item held: since vault format 8 that is an outgoing io draft (the item's io, or the draft vault upgrade moved it to), and this records its send with io_send (url or locator)", func(ctx context.Context, d Deps, in ProposalExecutedInput) (ProposalExecutedOutput, error) {
 	out := ProposalExecutedOutput{AliasOf: "io_send"}
 	if r := strings.TrimSpace(in.Result); r != "" && r != ExecDone {
-		return out, errors.New("result " + r + ": only done is recorded; a draft that was not sent stays a draft (io_edit, or close it with a reason)")
+		return out, errors.New("result " + r + ": only done is recorded; a draft that was not sent stays a draft (edit it, or close it with a reason)")
 	}
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {

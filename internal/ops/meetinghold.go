@@ -147,7 +147,7 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 	switch {
 	case in.Start != "" || in.End != "":
 		if m.Status == model.MeetingScheduled {
-			return MeetingHoldOutput{}, errors.New("start and end: the meeting is already scheduled; use meeting_schedule to change the time")
+			return MeetingHoldOutput{}, errors.New("start and end: the meeting is already scheduled; use obligation_schedule to change the time")
 		}
 		if m.Start, m.End, err = checkSlot(in.Start, in.End); err != nil {
 			return MeetingHoldOutput{}, err

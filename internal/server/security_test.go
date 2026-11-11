@@ -581,12 +581,12 @@ func TestRequestSurface(t *testing.T) {
 func TestErrorsHidePathsAndMapStatus(t *testing.T) {
 	f := newFixture(t)
 	tok := f.key(f.keyA, "k", allScopes...)
-	w := f.do(call{target: "/api/v1/task/show?id=task-missing", token: tok})
+	w := f.do(call{target: "/api/v1/show?id=task-missing", token: tok})
 	wantStatus(t, w, 404)
 	if strings.Contains(w.Body.String(), f.home) || strings.Contains(w.Body.String(), "/tmp") {
 		t.Errorf("path in error: %s", w.Body)
 	}
-	wantStatus(t, f.do(call{target: "/api/v1/task/show", token: tok}), 422)
+	wantStatus(t, f.do(call{target: "/api/v1/show", token: tok}), 422)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/add", token: tok, body: `{"direction":"in","text":"x","nope":1}`}), 422)
 }
 

@@ -436,6 +436,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		"task_block":      {`{"id":"task-b1","reason":"waiting"}`, []string{"task", "block", "task-b2", "--reason", "waiting"}, false},
 		"graph":           {`{"project":"project-a"}`, []string{"graph", "project-a"}, false},
 		"next":            {`{"project":"project-a"}`, []string{"next", "project-a"}, false},
+		"journal":         {`{"period":"weekly","date":"2026-11-01"}`, []string{"journal", "--period", "weekly", "2026-11-01"}, false},
 		"journal_daily":   {`{"date":"2026-11-01"}`, []string{"journal", "daily", "2026-11-01"}, false},
 		"journal_weekly":  {`{"date":"2026-11-01"}`, []string{"journal", "weekly", "2026-11-01"}, false},
 		"journal_monthly": {`{"date":"2026-11-01"}`, []string{"journal", "monthly", "2026-11-01"}, false},

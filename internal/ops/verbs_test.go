@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
@@ -178,6 +179,7 @@ func TestOldOpParity(t *testing.T) {
 		return id
 	}
 	task := func(t *testing.T, v *verbVault) string { return v.task(t, "Send the plan") }
+	person, member, group := personSeeds()
 	cases := []parityCase{
 		{"task_done", "close", "mcp", task, `{"id":"%s"}`, `{"id":"%s"}`},
 		{"task_done", "close", "mcp", task, `{"id":"%s","note":"Sent."}`, `{"id":"%s","reason":"Sent."}`},
@@ -214,6 +216,10 @@ func TestOldOpParity(t *testing.T) {
 		{"stack_return", "reopen", "pwa", deferred, `{"questions":["%s"]}`, `{"id":"%s"}`},
 		{"agent_send", "send_to_agent", "pwa", task, `{"id":"%s","text":"Met Sam; ship it."}`, `{"id":"%s","note":"Met Sam; ship it."}`},
 		{"task_show", "show", "mcp", task, `{"id":"%s"}`, `{"id":"%s"}`},
+		{"org_person_group_add", "link", "mcp", person, `{"id":"%s","group":"group-atlas"}`, `{"from":"%s","to":"group-atlas","rel":"member_of"}`},
+		{"org_person_group_add", "link", "mcp", person, `{"id":"%s","group":"group-atlas"}`, `{"from":"%s","to":"group-atlas"}`},
+		{"org_person_group_remove", "link", "mcp", member, `{"id":"%s","group":"group-atlas"}`, `{"from":"%s","to":"group-atlas","rel":"member_of","remove":true}`},
+		{"org_group_show", "show", "mcp", group, `{"id":"%s"}`, `{"id":"%s"}`},
 	}
 	for _, c := range cases {
 		t.Run(c.old+"_"+c.surface, func(t *testing.T) {
@@ -538,5 +544,103 @@ func TestListAndShow(t *testing.T) {
 	}
 	if task, _ := s.Detail["task"].(map[string]any); s.Op != "task_show" || s.Life != LifeOpen || !s.NeedsYou || task["id"] != open {
 		t.Fatalf("show = %+v", s)
+	}
+}
+
+// personSeeds seed a person (person-riley-N, named the same each time), a
+// person in group-atlas, and a group (group-crew-N).
+func personSeeds() (person, member, group func(t *testing.T, v *verbVault) string) {
+	n := 0
+	atlas := func(t *testing.T, v *verbVault) {
+		if _, err := v.cli.Store.Get(t.Context(), "group-atlas"); err == nil {
+			return
+		}
+		if _, err := OrgGroupAdd.Run(t.Context(), v.cli, GroupAddInput{Name: "Atlas", Org: "acme", Kind: model.GroupTeam}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	person = func(t *testing.T, v *verbVault) string {
+		atlas(t, v)
+		n++
+		out, err := OrgPersonAdd.Run(t.Context(), v.cli, OrgAddInput{Name: "Riley Example", ID: fmt.Sprintf("person-riley-%d", n), Aliases: []string{"Ri"}, Email: "riley@acme.example"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out.ID
+	}
+	member = func(t *testing.T, v *verbVault) string {
+		id := person(t, v)
+		if _, err := OrgPersonGroupAdd.Run(t.Context(), v.cli, PersonGroupInput{ID: id, Group: "group-atlas"}); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	group = func(t *testing.T, v *verbVault) string {
+		n++
+		out, err := OrgGroupAdd.Run(t.Context(), v.cli, GroupAddInput{Name: "Crew", Org: "acme", Kind: model.GroupTeam, ID: fmt.Sprintf("group-crew-%d", n)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return out.ID
+	}
+	return person, member, group
+}
+
+// The alias and contact ops an agent no longer calls: edit with the whole
+// list leaves the person as the old op does, and refuses what it refuses.
+func TestPersonListsByEdit(t *testing.T) {
+	person, _, _ := personSeeds()
+	cases := []struct{ old, oldIn, editIn string }{
+		{"org_person_alias_add", `{"id":"%s","alias":"Riles"}`, `{"id":"%s","fields":{"aliases":["Ri","Riles"]}}`},
+		{"org_person_alias_remove", `{"id":"%s","alias":"ri"}`, `{"id":"%s","fields":{"aliases":[]}}`},
+		{"org_person_contact_remove", `{"id":"%s","method":"email","value":"riley@acme.example"}`, `{"id":"%s","fields":{"contacts":[]}}`},
+	}
+	for _, c := range cases {
+		t.Run(c.old, func(t *testing.T) {
+			v := newVerbVault(t)
+			ia, ib := person(t, v), person(t, v)
+			if !IsInternal(c.old) {
+				t.Fatalf("%s is listed", c.old)
+			}
+			if _, err := registry[c.old].Invoke(writeCtx(t), v.cli, json.RawMessage(fill(c.oldIn, ia))); err != nil {
+				t.Fatalf("old op: %v", err)
+			}
+			out, err := Edit.Invoke(writeCtx(t), v.agent, json.RawMessage(fill(c.editIn, ib)))
+			if err != nil {
+				t.Fatalf("edit: %v", err)
+			}
+			if op := out.(VerbOutput).Op; op != "org_person_edit" {
+				t.Fatalf("edit ran %s", op)
+			}
+			da, _ := v.cli.Store.Get(t.Context(), ia)
+			db, _ := v.cli.Store.Get(t.Context(), ib)
+			if ta, tb := strings.ReplaceAll(renderText(da), ia, "SEED"), strings.ReplaceAll(renderText(db), ib, "SEED"); ta != tb {
+				t.Fatalf("doc state\nold  %s\nedit %s", ta, tb)
+			}
+		})
+	}
+	v := newVerbVault(t)
+	id := person(t, v)
+	for _, c := range []struct{ in, want string }{
+		{`{"id":"%s","fields":{"aliases":["Ri","ri"]}}`, `alias "ri" given twice`},
+		{`{"id":"%s","fields":{"aliases":["  "]}}`, "alias is empty"},
+		{`{"id":"%s","fields":{"contacts":[{"method":"email","value":"a@acme.example"},{"method":"email","value":"A@acme.example"}]}}`, "given twice"},
+		{`{"id":"%s","fields":{"contacts":[{"method":"pigeon","value":"x"}]}}`, "medium"},
+		{`{"id":"%s","fields":{"contacts":[{"method":"email","value":"a@acme.example","preferred":true},{"method":"email","value":"b@acme.example","preferred":true}]}}`, "two preferred email"},
+	} {
+		if _, err := Edit.Invoke(writeCtx(t), v.agent, json.RawMessage(fill(c.in, id))); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: err %v, want %q", c.in, err, c.want)
+		}
+	}
+	// The old op refuses an alias the person has; edit is given the whole list.
+	if _, err := OrgPersonAliasAdd.Run(writeCtx(t), v.cli, PersonAliasInput{ID: id, Alias: "ri"}); err == nil || !strings.Contains(err.Error(), "already recorded") {
+		t.Errorf("alias_add of a recorded alias: %v", err)
+	}
+	// link to an item that is not a group, or from one that is not a person.
+	if _, err := Link.Invoke(writeCtx(t), v.agent, json.RawMessage(fill(`{"from":"%s","to":"`+v.proj+`"}`, id))); err == nil {
+		t.Error("member_of a goal: want error")
+	}
+	if _, err := Link.Invoke(writeCtx(t), v.agent, json.RawMessage(`{"from":"`+v.proj+`","to":"group-atlas","rel":"member_of"}`)); err == nil || !strings.Contains(err.Error(), "links from a person") {
+		t.Errorf("member_of from a goal: %v", err)
 	}
 }

@@ -92,7 +92,7 @@ var ProjectAdd = defineSafe("project_add", "Create a project", func(ctx context.
 	}
 	doneWhen, err := checkDoneWhen(in.DoneWhen, true)
 	if err != nil {
-		return ProjectAddOutput{}, fmt.Errorf("%w: a goal needs a done condition; if it never finishes, it is an area (area_add)", err)
+		return ProjectAddOutput{}, fmt.Errorf("%w: a goal needs a done condition; if it never finishes, it is an area (add {type: area})", err)
 	}
 	owner := strings.TrimSpace(in.Owner)
 	if owner == "" {

@@ -313,17 +313,18 @@ type LinkRel string
 
 // The LinkRels: depends_on (from waits on to), link (an area, goal, or
 // incident points at a URL or path), part_of (a task is an action item of a
-// task or obligation), and became (an incoming io item is filed as the
-// existing item to: io_file existing).
+// task or obligation), became (an incoming io item is filed as the existing
+// item to: io_file existing), and member_of (a person is in the group to).
 const (
 	RelDependsOn LinkRel = "depends_on"
 	RelLink      LinkRel = "link"
 	RelPartOf    LinkRel = "part_of"
 	RelBecame    LinkRel = "became"
+	RelMemberOf  LinkRel = "member_of"
 )
 
 // LinkRels lists every LinkRel.
-var LinkRels = []LinkRel{RelDependsOn, RelLink, RelPartOf, RelBecame}
+var LinkRels = []LinkRel{RelDependsOn, RelLink, RelPartOf, RelBecame, RelMemberOf}
 
 func (LinkRel) Enum() []string { return enumStrs(LinkRels) }
 
@@ -338,7 +339,7 @@ type LinkInput struct {
 }
 
 // Link links two items, or an item and a URL, by the op of from's type.
-var Link = defineVerb("link", "Link. rel depends_on: from waits on to; link: area/goal/incident to URL; part_of: task under to; became: io filed as to",
+var Link = defineVerb("link", "Link. depends_on: waits on to; link: area/goal/incident URL; part_of: task under to; became: io filed; member_of: group",
 	RiskSafe, linkRoute)
 
 func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
@@ -359,6 +360,8 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 			rel = RelLink
 		case model.TypeIO:
 			rel = RelBecame
+		case model.TypePerson:
+			rel = RelMemberOf
 		}
 	}
 	if rel != RelLink && (in.Label != "" || in.Kind != "") {
@@ -425,6 +428,11 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 			return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, ClearParent: true}, false)
 		}
 		return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, Parent: to}, false)
+	case RelMemberOf:
+		if typ != model.TypePerson {
+			return verbRoute{}, bad("a person")
+		}
+		return newRoute(pick(in.Remove, OrgPersonGroupRemove, OrgPersonGroupAdd), PersonGroupInput{ID: doc.ID, Group: to}, false)
 	}
 	return verbRoute{}, fmt.Errorf("rel %q: want one of %v", rel, LinkRels)
 }

@@ -355,7 +355,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		args []string
 	}{
 		{"/api/v1/project/list", []string{"project", "list"}},
-		{"/api/v1/project/show?id=" + project.ID, []string{"project", "show", project.ID}},
+		{"/api/v1/show?id=" + project.ID, []string{"show", project.ID}},
 		{"/api/v1/task/list", []string{"task", "list"}},
 		{"/api/v1/io/list", []string{"io", "list"}},
 		{"/api/v1/next", []string{"next"}},
@@ -368,8 +368,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		if code != 200 {
 			t.Fatalf("%s: %d %s", c.path, code, body)
 		}
-		// project show is an alias of show: the CLI adds alias_of, the route
-		// serves the old op.
+		// An alias command adds alias_of in the CLI; the route serves the op.
 		if want := aliasOfLine.ReplaceAllString(e.ok(append(c.args, "--json")...), ""); want != body {
 			t.Errorf("%s differs from para %v --json:\n got: %s\nwant: %s", c.path, c.args, body, want)
 		}

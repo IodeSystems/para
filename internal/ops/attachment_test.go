@@ -181,7 +181,7 @@ func TestAgentSendBody(t *testing.T) {
 		t.Fatalf("links = %v", r.Links)
 	}
 	for _, want := range []string{"[[" + id + "]]", "prompt ingest_source, part An update on an item", "Met Sam.", "**Decided**", "Ship in January.",
-		"Mark done: yes", "task_done", att.Embed, "attachment_read"} {
+		"Mark done: yes", "close for a task", att.Embed, "attachment_read"} {
 		if !strings.Contains(doc.Body, want) {
 			t.Errorf("body lacks %q:\n%s", want, doc.Body)
 		}

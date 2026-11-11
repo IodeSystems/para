@@ -433,7 +433,7 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 	}
 	typ := doc.Meta.Header().Type
 	if typ == model.TypeNote {
-		return DocEditOutput{}, errors.New("doc_edit: a note is edited with note_edit")
+		return DocEditOutput{}, errors.New("doc_edit: a note is edited with edit")
 	}
 	allowed := paramd.EditableFields(string(typ))
 	if allowed == nil {

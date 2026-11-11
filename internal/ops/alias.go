@@ -65,6 +65,23 @@ func cleanAlias(s string) (string, error) {
 	return v, nil
 }
 
+// cleanAliases checks a whole alias list as org_person_alias_add checks one
+// alias: each is cleaned, and one given twice is refused. Empty is nil.
+func cleanAliases(in []string) ([]string, error) {
+	var out []string
+	for _, a := range in {
+		alias, err := cleanAlias(a)
+		if err != nil {
+			return nil, err
+		}
+		if indexAlias(out, alias) >= 0 {
+			return nil, fmt.Errorf("alias %q given twice", alias)
+		}
+		out = append(out, alias)
+	}
+	return out, nil
+}
+
 func indexAlias(as []string, alias string) int {
 	return slices.IndexFunc(as, func(a string) bool { return strings.EqualFold(a, alias) })
 }

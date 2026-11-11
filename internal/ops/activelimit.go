@@ -97,6 +97,6 @@ func (h *healther) tooManyActive(s store.Store, rank map[string]int) error {
 	}
 	h.add(HealthTooManyActive, lowest, "",
 		fmt.Sprintf("%d active goals, over the limit of %d (goals.active_limit); lowest in value order, candidates to defer: %s", len(ids), limit, strings.Join(cands, "; ")),
-		"the owner defers a goal (defer {ids: [<goal>]}) or closes one; an agent asks")
+		"the owner defers a goal (later {ids: [<goal>]}) or closes one; an agent asks")
 	return nil
 }

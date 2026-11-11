@@ -89,22 +89,27 @@ type OrgPersonEditInput struct {
 	ClearRole bool   `json:"clear_role,omitempty"`
 	ClearTeam bool   `json:"clear_team,omitempty"`
 	ClearOrg  bool   `json:"clear_org,omitempty"`
+	// Aliases and Contacts replace the whole list when given; [] empties it.
+	Aliases  *[]string        `json:"aliases,omitempty"`
+	Contacts *[]model.Contact `json:"contacts,omitempty"`
 }
 
 // OrgPersonEditOutput is the output of org_person_edit.
 type OrgPersonEditOutput struct {
-	ID       string `json:"id"`
-	Role     string `json:"role"`
-	RoleText string `json:"role_text"`
-	Team     string `json:"team"`
-	Org      string `json:"org"`
-	Rev      string `json:"rev"`
+	ID       string          `json:"id"`
+	Role     string          `json:"role"`
+	RoleText string          `json:"role_text"`
+	Team     string          `json:"team"`
+	Org      string          `json:"org"`
+	Aliases  []string        `json:"aliases"`
+	Contacts []model.Contact `json:"contacts"`
+	Rev      string          `json:"rev"`
 	// Notes say what the op did with an input that was not an id.
 	Notes []string `json:"notes,omitempty"`
 }
 
 // OrgPersonEdit sets the role, team, or org of a recorded person.
-var OrgPersonEdit = define("org_person_edit", "Set the role, team, or org of a recorded person (facts only); a role that matches no role document is kept as role_text. Contacts, aliases, and groups have their own ops", func(ctx context.Context, d Deps, in OrgPersonEditInput) (OrgPersonEditOutput, error) {
+var OrgPersonEdit = define("org_person_edit", "Set the role, team, org, aliases, or contacts of a recorded person (facts only); a role that matches no role document is kept as role_text. aliases and contacts replace the whole list. Groups: link rel member_of", func(ctx context.Context, d Deps, in OrgPersonEditInput) (OrgPersonEditOutput, error) {
 	role, team, org := strings.TrimSpace(in.Role), strings.TrimSpace(in.Team), strings.Join(strings.Fields(in.Org), " ")
 	for _, c := range []struct {
 		name  string
@@ -115,8 +120,22 @@ var OrgPersonEdit = define("org_person_edit", "Set the role, team, or org of a r
 			return OrgPersonEditOutput{}, fmt.Errorf("give %s or clear_%s, not both", c.name, c.name)
 		}
 	}
-	if role == "" && team == "" && org == "" && !in.ClearRole && !in.ClearTeam && !in.ClearOrg {
-		return OrgPersonEditOutput{}, errors.New("nothing to edit: give role, team, or org (or a clear flag)")
+	if role == "" && team == "" && org == "" && !in.ClearRole && !in.ClearTeam && !in.ClearOrg && in.Aliases == nil && in.Contacts == nil {
+		return OrgPersonEditOutput{}, errors.New("nothing to edit: give role, team, org, aliases, or contacts (or a clear flag)")
+	}
+	var aliases []string
+	if in.Aliases != nil {
+		var err error
+		if aliases, err = cleanAliases(*in.Aliases); err != nil {
+			return OrgPersonEditOutput{}, err
+		}
+	}
+	var contacts []model.Contact
+	if in.Contacts != nil {
+		var err error
+		if contacts, err = cleanContacts(*in.Contacts); err != nil {
+			return OrgPersonEditOutput{}, err
+		}
 	}
 	var notes []string
 	doc, p, err := changePerson(ctx, d, in.ID, func(_ *model.Document, p *model.Person) error {
@@ -146,12 +165,25 @@ var OrgPersonEdit = define("org_person_edit", "Set the role, team, or org of a r
 		case org != "":
 			p.Org = org
 		}
+		if in.Aliases != nil {
+			p.Aliases = aliases
+		}
+		if in.Contacts != nil {
+			p.Contacts = contacts
+		}
 		return nil
 	})
 	if err != nil {
 		return OrgPersonEditOutput{}, err
 	}
-	return OrgPersonEditOutput{ID: doc.ID, Role: p.Role.Target(), RoleText: p.RoleText, Team: p.Team.Target(), Org: p.Org, Rev: doc.Rev, Notes: notes}, nil
+	as, cs := p.Aliases, p.Contacts
+	if as == nil {
+		as = []string{}
+	}
+	if cs == nil {
+		cs = []model.Contact{}
+	}
+	return OrgPersonEditOutput{ID: doc.ID, Role: p.Role.Target(), RoleText: p.RoleText, Team: p.Team.Target(), Org: p.Org, Aliases: as, Contacts: cs, Rev: doc.Rev, Notes: notes}, nil
 })
 
 // personRole resolves a person's role: the link to a role document, or free

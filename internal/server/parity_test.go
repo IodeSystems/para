@@ -168,9 +168,10 @@ type gqlField struct {
 }
 
 type gqlType struct {
-	Kind   string     `json:"kind"`
-	Name   string     `json:"name"`
-	Fields []gqlField `json:"fields"`
+	Kind          string     `json:"kind"`
+	Name          string     `json:"name"`
+	Fields        []gqlField `json:"fields"`
+	PossibleTypes []typeRef  `json:"possibleTypes"`
 }
 
 func (r typeRef) leaf() typeRef {
@@ -213,6 +214,27 @@ func (f *fixture) gqlTypes(token string) map[string]gqlType {
 
 func selection(types map[string]gqlType, r typeRef, depth int) string {
 	leaf := r.leaf()
+	if leaf.Kind == "UNION" { // a fragment on each member (show's detail)
+		// GraphQL refuses one name with two types across the fragments: a
+		// member leaves out a field an earlier member selected with another
+		// type. Each says __typename, so none is empty.
+		picked := map[string]string{}
+		var b strings.Builder
+		b.WriteString("{ ")
+		for _, m := range types[leaf.Name].PossibleTypes {
+			b.WriteString("... on " + m.Name + " { __typename ")
+			for _, fd := range types[m.Name].Fields {
+				if was, ok := picked[fd.Name]; ok && was != fd.Type.String() {
+					continue
+				}
+				picked[fd.Name] = fd.Type.String()
+				b.WriteString(fd.Name + " " + selection(types, fd.Type, depth+2) + " ")
+			}
+			b.WriteString("} ")
+		}
+		b.WriteString("}")
+		return b.String()
+	}
 	if leaf.Kind != "OBJECT" {
 		return ""
 	}
@@ -294,6 +316,9 @@ func same(g, r any) bool {
 			return false
 		}
 		for k, v := range gv {
+			if k == "__typename" { // GraphQL only
+				continue
+			}
 			if !same(v, camelKeys(rv)[k]) {
 				return false
 			}
@@ -446,7 +471,7 @@ func TestSDLUsesNoLong(t *testing.T) {
 	if strings.Contains(f.srv.SDL(), "Long") {
 		t.Error("SDL has Long: counts are int32, and para has no integer ids")
 	}
-	if !strings.Contains(f.srv.SDL(), "taskShow(id: String!)") {
-		t.Error("SDL lost the flat field taskShow(id: String!)")
+	if !strings.Contains(f.srv.SDL(), "show(id: String!)") {
+		t.Error("SDL lost the flat field show(id: String!)")
 	}
 }

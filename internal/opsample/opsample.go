@@ -101,6 +101,7 @@ var Inputs = map[string]string{
 	"incident_status":           `{"id":"incident-sample","status":"mitigated"}`,
 	"incident_link_add":         `{"id":"incident-sample","label":"Dashboard","kind":"dashboard","target":"https://grafana.acme.example/d/sample"}`,
 	"incident_link_remove":      `{"id":"incident-sample","label":"Runbook"}`,
+	"journal":                   `{"period":"daily","date":"2026-11-01"}`,
 	"journal_show":              `{"id":"2026-11-01"}`,
 	"journal_summary":           `{"id":"2026-11-01","text":"Moved the sample project."}`,
 	"io_add":                    `{"direction":"in","text":"buy milk\nand eggs"}`,

@@ -84,10 +84,8 @@ type ParaV1MutationNamespace {
   ioSend(body: para_IOSendInputInput!): para_IOSendOutput @derived(operationId: "ioSend")
   ioSendCheck(body: para_IOSendCheckInputInput!): para_IOSendCheckOutput @derived(operationId: "ioSendCheck")
   itemPrepared(body: para_ItemPreparedInputInput!): para_ItemPreparedOutput @derived(operationId: "itemPrepared")
-  journalDaily(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalDaily")
-  journalMonthly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalMonthly")
+  journal(body: para_JournalPeriodInputInput!): para_JournalOutput @derived(operationId: "journal")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
-  journalWeekly(body: para_JournalInputInput!): para_JournalOutput @derived(operationId: "journalWeekly")
   later(body: para_LaterInputInput!): para_VerbOutput @derived(operationId: "later")
   link(body: para_LinkInputInput!): para_VerbOutput @derived(operationId: "link")
   meetingRsvp(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "meetingRsvp")
@@ -100,12 +98,7 @@ type ParaV1MutationNamespace {
   obligationSchedule(body: para_ObligationScheduleInputInput!): para_ObligationScheduleOutput @derived(operationId: "obligationSchedule")
   orgGroupAdd(body: para_GroupAddInputInput!): para_OrgAddOutput @derived(operationId: "orgGroupAdd")
   orgPersonAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgPersonAdd")
-  orgPersonAliasAdd(body: para_PersonAliasInputInput!): para_PersonAliasOutput @derived(operationId: "orgPersonAliasAdd")
-  orgPersonAliasRemove(body: para_PersonAliasInputInput!): para_PersonAliasOutput @derived(operationId: "orgPersonAliasRemove")
   orgPersonContactAdd(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactAdd")
-  orgPersonContactRemove(body: para_PersonContactInputInput!): para_PersonContactOutput @derived(operationId: "orgPersonContactRemove")
-  orgPersonGroupAdd(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupAdd")
-  orgPersonGroupRemove(body: para_PersonGroupInputInput!): para_PersonGroupOutput @derived(operationId: "orgPersonGroupRemove")
   orgPersonNote(body: para_PersonNoteInputInput!): para_PersonNoteOutput @derived(operationId: "orgPersonNote")
   pin(body: para_PinInputInput!): para_PinOutput @derived(operationId: "pin")
   policyRefresh(body: para_PolicyRefreshInputInput!): para_PolicyRefreshOutput @derived(operationId: "policyRefresh")
@@ -201,7 +194,6 @@ type ParaV1QueryNamespace {
   ): para_AlignScopeOutput @derived(operationId: "alignScope")
   annotationList(area: String, expiring: Int, kind: String): para_AnnotationListOutput @derived(operationId: "annotationList")
   areaList: para_AreaListOutput @derived(operationId: "areaList")
-  areaShow(id: String!): para_AreaShowOutput @derived(operationId: "areaShow")
   attachmentRead(file: String!): para_AttachmentReadOutput @derived(operationId: "attachmentRead")
   authSessionGet: para_SessionView @derived(operationId: "authSessionGet")
   brief(id: String!): para_BriefOutput @derived(operationId: "brief")
@@ -229,7 +221,6 @@ type ParaV1QueryNamespace {
     root: String
   ): para_ImportListOutput @derived(operationId: "importList")
   incidentList(all: Boolean, area: String, status: para_incidentListStatus): para_IncidentListOutput @derived(operationId: "incidentList")
-  incidentShow(id: String!): para_IncidentShowOutput @derived(operationId: "incidentShow")
   interactionList(direction: para_interactionListDirection, limit: Int, medium: para_interactionListMedium, since: String, with: String): para_InteractionListOutput @derived(operationId: "interactionList")
   ioDiff(context: Int, from: Int, id: String!, to: Int, unit: String): para_IODiffOutput @derived(operationId: "ioDiff")
   ioList(all: Boolean, digest: Boolean, direction: para_ioListDirection, expects: para_ioListExpects, medium: para_ioListMedium, state: para_ioListState, voice: para_ioListVoice): para_IOListOutput @derived(operationId: "ioList")
@@ -237,7 +228,6 @@ type ParaV1QueryNamespace {
   ioProposals(all: Boolean, group: String, state: para_ioProposalsState): para_IOProposalsOutput @derived(operationId: "ioProposals")
   ioRevisions(id: String!, n: Int): para_IORevisionsOutput @derived(operationId: "ioRevisions")
   ioSent(limit: Int, medium: para_ioSentMedium, since: String, to: String): para_IOSentOutput @derived(operationId: "ioSent")
-  ioShow(id: String!): para_IOShowOutput @derived(operationId: "ioShow")
   ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
@@ -254,7 +244,6 @@ type ParaV1QueryNamespace {
   order(kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
-  orgGroupShow(id: String!): para_GroupShowOutput @derived(operationId: "orgGroupShow")
   orgPersonList: para_OrgListOutput @derived(operationId: "orgPersonList")
   orgRoleList: para_OrgListOutput @derived(operationId: "orgRoleList")
   orgTeamList: para_OrgListOutput @derived(operationId: "orgTeamList")
@@ -262,20 +251,16 @@ type ParaV1QueryNamespace {
   policyList: para_PolicyListOutput @derived(operationId: "policyList")
   poolList(name: String): para_PoolListOutput @derived(operationId: "poolList")
   projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
-  projectShow(id: String!): para_ProjectShowOutput @derived(operationId: "projectShow")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
   questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
-  questionShow(id: String!): para_QuestionShowOutput @derived(operationId: "questionShow")
   receiptList(actor: String, batch: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
-  receiptShow(id: String!): para_ReceiptDetail @derived(operationId: "receiptShow")
   reportOutcomes(since: String, until: String): para_ReportOutcomesOutput @derived(operationId: "reportOutcomes")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
   requestList(limit: Int, status: para_requestListStatus): para_RequestListOutput @derived(operationId: "requestList")
   rfxList(direction: para_rfxListDirection, route: String, status: para_rfxListStatus): para_RFXListOutput @derived(operationId: "rfxList")
   rfxPaths(id: String!): para_RFXPathsOutput @derived(operationId: "rfxPaths")
-  rfxShow(id: String!): para_RFXShowOutput @derived(operationId: "rfxShow")
   rfxWaiting(direction: para_rfxWaitingDirection, today: String): para_RFXWaitingOutput @derived(operationId: "rfxWaiting")
   route(query: String!): para_RouteOutput @derived(operationId: "route")
   ruleList(policy: String): para_RuleListOutput @derived(operationId: "ruleList")
@@ -303,12 +288,10 @@ type ParaV1QueryNamespace {
   similar(title: String!, type: para_similarType!): para_SimilarOutput @derived(operationId: "similar")
   sourceExample(system: para_sourceExampleSystem!): para_SourceExampleOutput @derived(operationId: "sourceExample")
   sourceList(status: para_sourceListStatus): para_SourceListOutput @derived(operationId: "sourceList")
-  sourceShow(id: String!): para_SourceShowOutput @derived(operationId: "sourceShow")
   sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
   sweepReport(since: String): para_SweepReportOutput @derived(operationId: "sweepReport")
   tagList: para_TagListOutput @derived(operationId: "tagList")
   taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
-  taskShow(id: String!): para_TaskShowOutput @derived(operationId: "taskShow")
   themeItems(theme: String!): para_ThemeItemsOutput @derived(operationId: "themeItems")
   thread(id: String, key: String): para_ThreadOutput @derived(operationId: "thread")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
@@ -1262,6 +1245,21 @@ type para_ConstraintListOutput {
   constraints: [para_ConstraintView!]!
 }
 
+type para_ConstraintShowOutput {
+  appliesIn: [String!]!
+  body: String!
+  by: String!
+  id: String!
+  notIn: [String!]!
+  refines: String
+  rev: String!
+  reviewBy: String!
+  says: String!
+  sourceUrl: String!
+  sourceVerify: String
+  why: String!
+}
+
 type para_ConstraintView {
   appliesIn: [String!]!
   by: String!
@@ -1305,6 +1303,22 @@ type para_ContextDoc {
 
 type para_ConventionListOutput {
   conventions: [para_ConventionView!]!
+}
+
+type para_ConventionShowOutput {
+  appliesIn: [String!]!
+  body: String!
+  id: String!
+  refines: String
+  rev: String!
+  status: para_ConventionShowOutputStatus!
+  title: String!
+}
+
+enum para_ConventionShowOutputStatus {
+  adopted
+  draft
+  retired
 }
 
 type para_ConventionView {
@@ -2083,6 +2097,38 @@ enum para_ExceptionRefKind {
 }
 
 enum para_ExceptionRefStatus {
+  accepted
+  open
+  resolved
+}
+
+type para_ExceptionShowOutput {
+  body: String!
+  by: String!
+  id: String!
+  kind: para_ExceptionShowOutputKind!
+  policy: String!
+  policyText: String
+  rev: String!
+  reviewBy: String!
+  rule: String!
+  status: para_ExceptionShowOutputStatus!
+  title: String!
+  with: String!
+}
+
+enum para_ExceptionShowOutputKind {
+  bug
+  conflict_with
+  established_example
+  interpreted_as
+  overly_broad
+  underspecified
+  unenforced
+  wide_enough_for
+}
+
+enum para_ExceptionShowOutputStatus {
   accepted
   open
   resolved
@@ -3737,6 +3783,10 @@ type para_InteractionListOutput {
   items: [para_InteractionSummary!]!
 }
 
+type para_InteractionShowOutput {
+  doc: para_Document!
+}
+
 type para_InteractionSummary {
   date: String!
   direction: para_InteractionSummaryDirection!
@@ -4030,10 +4080,6 @@ enum para_ItemViewState {
   withdrawn
 }
 
-input para_JournalInputInput {
-  date: String
-}
-
 type para_JournalListOutput {
   items: [para_JournalView!]!
 }
@@ -4043,6 +4089,17 @@ type para_JournalOutput {
   events: Int!
   id: String!
   path: String!
+}
+
+input para_JournalPeriodInputInput {
+  date: String
+  period: para_JournalPeriodInputPeriod!
+}
+
+enum para_JournalPeriodInputPeriod {
+  daily
+  monthly
+  weekly
 }
 
 type para_JournalShowOutput {
@@ -4170,6 +4227,7 @@ enum para_LinkInputRel {
   became
   depends_on
   link
+  member_of
   part_of
 }
 
@@ -4722,6 +4780,11 @@ enum para_NoteAddOutputFolder {
 
 type para_NoteListOutput {
   notes: [para_NoteView!]!
+}
+
+type para_NoteShowOutput {
+  body: String!
+  note: para_NoteView!
 }
 
 type para_NoteView {
@@ -5290,6 +5353,10 @@ type para_OrgListOutput {
   items: [para_Ref!]!
 }
 
+type para_OrgShowOutput {
+  doc: para_Document!
+}
+
 type para_OutcomeCount {
   count: Int!
   key: String!
@@ -5413,17 +5480,6 @@ type para_Pending {
   title: String!
 }
 
-input para_PersonAliasInputInput {
-  alias: String!
-  id: String!
-}
-
-type para_PersonAliasOutput {
-  aliases: [String!]!
-  id: String!
-  rev: String!
-}
-
 input para_PersonContactInputInput {
   id: String!
   label: String
@@ -5448,17 +5504,6 @@ enum para_PersonContactInputMethod {
 
 type para_PersonContactOutput {
   contacts: [para_Contact!]!
-  id: String!
-  rev: String!
-}
-
-input para_PersonGroupInputInput {
-  group: String!
-  id: String!
-}
-
-type para_PersonGroupOutput {
-  groups: [String!]!
   id: String!
   rev: String!
 }
@@ -5648,6 +5693,30 @@ type para_PolicyReviewOutput {
   rev: String!
   reviewedBy: String!
   verified: Boolean!
+}
+
+type para_PolicyShowOutput {
+  body: String!
+  exceptions: [para_ExceptionRef!]!
+  fidelity: para_PolicyShowOutputFidelity!
+  id: String!
+  rev: String!
+  reviewedBy: String!
+  ruleList: [para_Rule!]!
+  rules: Int!
+  sourceChecked: String!
+  sourceStatus: String!
+  title: String!
+  transcriptId: String!
+  url: String!
+  verified: Boolean!
+}
+
+enum para_PolicyShowOutputFidelity {
+  exact
+  none
+  ocr
+  partial
 }
 
 type para_PolicyView {
@@ -7269,6 +7338,10 @@ type para_RequestSeenOutput {
   skipped: [String!]!
 }
 
+type para_RequestShowOutput {
+  doc: para_Document!
+}
+
 type para_RequestView {
   activeAt: String
   claimedAt: String
@@ -7639,8 +7712,10 @@ type para_SessionView {
   vault: String!
 }
 
+union para_ShowDetail = para_AreaShowOutput | para_ConstraintShowOutput | para_ConventionShowOutput | para_DocTrackedShowOutput | para_ExceptionShowOutput | para_IncidentShowOutput | para_InteractionShowOutput | para_IOShowOutput | para_MeetingShowOutput | para_NoteShowOutput | para_OrgShowOutput | para_GroupShowOutput | para_PolicyShowOutput | para_ProjectShowOutput | para_QuestionShowOutput | para_ReceiptDetail | para_RequestShowOutput | para_RFXShowOutput | para_SourceShowOutput | para_TaskShowOutput
+
 type para_ShowOutput {
-  detail: JSON
+  detail: para_ShowDetail
   id: String!
   life: para_ShowOutputLife!
   needsYou: Boolean!

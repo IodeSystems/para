@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 
 export const TaskRowFields = graphql(/* GraphQL */ `
   fragment TaskRowFields on para_TaskView {
@@ -63,68 +63,73 @@ const AreaShowDoc = graphql(/* GraphQL */ `
   query AreaShow($id: String!) {
     para {
       v1 {
-        areaShow(id: $id) {
-          body
-          lastAligned
-          area {
-            id
-            title
-            status
-            kind
-            cadence
-            lastReviewed
-            nextReview
-            concepts
-            links {
-              kind
-              label
-              target
-            }
-          }
-          projects {
-            id
-            title
-            status
-            owner
-          }
-          tasks {
-            ...TaskRowFields
-          }
-          recurring {
-            ...TaskRowFields
-          }
-          questions {
-            ...QuestionFields
-          }
-          incidents {
-            ...IncidentRowFields
-          }
-          notes {
-            id
-            title
-          }
-          drawnOnBy {
-            id
-            type
-            title
-          }
-          sections {
-            heading
-            level
-            parts {
-              text
-              annotation {
-                ...AnnotationFields
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_AreaShowOutput {
+              body
+              lastAligned
+              area {
+                id
+                title
+                status
+                kind
+                cadence
+                lastReviewed
+                nextReview
+                concepts
+                links {
+                  kind
+                  label
+                  target
+                }
+              }
+              projects {
+                id
+                title
+                status
+                owner
+              }
+              tasks {
+                ...TaskRowFields
+              }
+              recurring {
+                ...TaskRowFields
+              }
+              questions {
+                ...QuestionFields
+              }
+              incidents {
+                ...IncidentRowFields
+              }
+              notes {
+                id
+                title
+              }
+              drawnOnBy {
+                id
+                type
+                title
+              }
+              sections {
+                heading
+                level
+                parts {
+                  text
+                  annotation {
+                    ...AnnotationFields
+                  }
+                }
+              }
+              follows {
+                url
+                fidelity
+                verified
+                reviewedBy
+                sourceStatus
+                rules
               }
             }
-          }
-          follows {
-            url
-            fidelity
-            verified
-            reviewedBy
-            sourceStatus
-            rules
           }
         }
       }
@@ -214,90 +219,95 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
   query ProjectShow($id: String!) {
     para {
       v1 {
-        projectShow(id: $id) {
-          body
-          lastAligned
-          project {
-            id
-            title
-            status
-            owner
-            doneWhen
-            area
-            areaName
-            concepts
-            links {
-              kind
-              label
-              target
-            }
-            brief {
-              rank
-              validation
-              extensions
-              why {
-                text
-              }
-              confidence {
-                percent
-                basis
-              }
-              alternatives {
-                name
-              }
-              unknowns {
-                text
-                link
-              }
-              risks {
-                text
-                likelihood
-                impact
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_ProjectShowOutput {
+              body
+              lastAligned
+              project {
+                id
+                title
+                status
                 owner
-                mitigation
-                source
-              }
-              signals {
-                what
-                expected
-                everyDays
-                readings {
-                  date
-                  value
-                  source
+                doneWhen
+                area
+                areaName
+                concepts
+                links {
+                  kind
+                  label
+                  target
+                }
+                brief {
+                  rank
+                  validation
+                  extensions
+                  why {
+                    text
+                  }
+                  confidence {
+                    percent
+                    basis
+                  }
+                  alternatives {
+                    name
+                  }
+                  unknowns {
+                    text
+                    link
+                  }
+                  risks {
+                    text
+                    likelihood
+                    impact
+                    owner
+                    mitigation
+                    source
+                  }
+                  signals {
+                    what
+                    expected
+                    everyDays
+                    readings {
+                      date
+                      value
+                      source
+                    }
+                  }
+                  pivot {
+                    condition
+                    date
+                    action
+                  }
+                  ecosystem {
+                    keyHolder
+                    replaces
+                  }
                 }
               }
-              pivot {
-                condition
-                date
-                action
+              tasks {
+                ...TaskRowFields
               }
-              ecosystem {
-                keyHolder
-                replaces
+              questions {
+                ...QuestionFields
+              }
+              rules {
+                id
+                title
+                via
+              }
+              assumptions {
+                text
+                source
+                checked
+                by
+                status
+                fact
+                fromBody
+                stale
               }
             }
-          }
-          tasks {
-            ...TaskRowFields
-          }
-          questions {
-            ...QuestionFields
-          }
-          rules {
-            id
-            title
-            via
-          }
-          assumptions {
-            text
-            source
-            checked
-            by
-            status
-            fact
-            fromBody
-            stale
           }
         }
       }
@@ -323,18 +333,23 @@ const IncidentShowDoc = graphql(/* GraphQL */ `
   query IncidentShow($id: String!) {
     para {
       v1 {
-        incidentShow(id: $id) {
-          body
-          incident {
-            ...IncidentRowFields
-            links {
-              kind
-              label
-              target
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_IncidentShowOutput {
+              body
+              incident {
+                ...IncidentRowFields
+                links {
+                  kind
+                  label
+                  target
+                }
+              }
+              followUps {
+                ...TaskRowFields
+              }
             }
-          }
-          followUps {
-            ...TaskRowFields
           }
         }
       }
@@ -387,7 +402,11 @@ export function useArea(id: string) {
   return useQuery({
     queryKey: ['area', id],
     queryFn: async () =>
-      need((await gqlClient.request(AreaShowDoc, { id })).para.v1.areaShow, 'area'),
+      needDetail(
+        (await gqlClient.request(AreaShowDoc, { id })).para.v1.show,
+        'para_AreaShowOutput',
+        'area',
+      ),
   })
 }
 
@@ -395,7 +414,11 @@ export function useProject(id: string) {
   return useQuery({
     queryKey: ['project', id],
     queryFn: async () =>
-      need((await gqlClient.request(ProjectShowDoc, { id })).para.v1.projectShow, 'project'),
+      needDetail(
+        (await gqlClient.request(ProjectShowDoc, { id })).para.v1.show,
+        'para_ProjectShowOutput',
+        'project',
+      ),
   })
 }
 
@@ -411,7 +434,11 @@ export function useIncident(id: string) {
   return useQuery({
     queryKey: ['incident', id],
     queryFn: async () =>
-      need((await gqlClient.request(IncidentShowDoc, { id })).para.v1.incidentShow, 'incident'),
+      needDetail(
+        (await gqlClient.request(IncidentShowDoc, { id })).para.v1.show,
+        'para_IncidentShowOutput',
+        'incident',
+      ),
   })
 }
 

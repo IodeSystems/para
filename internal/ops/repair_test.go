@@ -157,7 +157,7 @@ func TestDocEditFieldLimitsAndConflict(t *testing.T) {
 	if _, err := DocEdit.Run(ctx, d, DocEditInput{ID: tk.ID, Fields: map[string]any{"due": "not a date"}}); err == nil {
 		t.Error("an invalid date was saved")
 	}
-	if _, err := DocEdit.Run(ctx, d, DocEditInput{ID: f.source, Title: &title}); err == nil || !strings.Contains(err.Error(), "note_edit") {
+	if _, err := DocEdit.Run(ctx, d, DocEditInput{ID: f.source, Title: &title}); err == nil || !strings.Contains(err.Error(), "edited with edit") {
 		t.Errorf("note: %v", err)
 	}
 	// Conflict: an edit from an old revision is refused.

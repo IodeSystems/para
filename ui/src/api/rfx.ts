@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 
 const RfxListDoc = graphql(/* GraphQL */ `
   query RfxList {
@@ -36,43 +36,48 @@ const RfxShowDoc = graphql(/* GraphQL */ `
   query RfxShow($id: String!) {
     para {
       v1 {
-        rfxShow(id: $id) {
-          draft
-          dependedOnBy
-          dependedOnByNames
-          route
-          routeName
-          targetNames
-          targets {
-            to
-            state
-            medium
-            sent
-            value
-          }
-          chain {
-            id
-            title
-            type
-            status
-            depth
-          }
-          doc {
-            id
-            title
-            body
-            meta {
-              direction
-              status
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_RFXShowOutput {
+              draft
+              dependedOnBy
+              dependedOnByNames
               route
-              nextNudge
+              routeName
+              targetNames
               targets {
                 to
                 state
                 medium
                 sent
-                ref
                 value
+              }
+              chain {
+                id
+                title
+                type
+                status
+                depth
+              }
+              doc {
+                id
+                title
+                body
+                meta {
+                  direction
+                  status
+                  route
+                  nextNudge
+                  targets {
+                    to
+                    state
+                    medium
+                    sent
+                    ref
+                    value
+                  }
+                }
               }
             }
           }
@@ -97,6 +102,10 @@ export function useRfx(id: string) {
   return useQuery({
     queryKey: ['rfx', id],
     queryFn: async () =>
-      need((await gqlClient.request(RfxShowDoc, { id })).para.v1.rfxShow, 'request'),
+      needDetail(
+        (await gqlClient.request(RfxShowDoc, { id })).para.v1.show,
+        'para_RFXShowOutput',
+        'request',
+      ),
   })
 }

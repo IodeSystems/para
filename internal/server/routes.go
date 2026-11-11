@@ -79,12 +79,10 @@ type output[O any] struct {
 }
 
 // appOps are the internal ops (ops.IsInternal) that stay web routes: the
-// app reads or calls them. The typed show ops go when the app reads show.
-var appOps = map[string]bool{
-	"task_show": true, "question_show": true, "project_show": true, "rfx_show": true, "io_show": true, "area_show": true,
-	"incident_show": true, "receipt_show": true, "source_show": true, "meeting_show": true,
-	"io_edit": true, "meeting_rsvp": true,
-}
+// app calls them. The app reads items by show, except meeting_show: it
+// reads a task or obligation of kind meeting as a meeting, and show reads
+// it as a task.
+var appOps = map[string]bool{"meeting_show": true, "io_edit": true, "meeting_rsvp": true}
 
 // scopeOnly records the scope of an internal op that has no route: a verb
 // that routes to it here is authorized with it (deps, mcphttp).

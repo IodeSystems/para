@@ -76,7 +76,7 @@ func orgGroupAdd(ctx context.Context, d Deps, in GroupAddInput) (OrgAddOutput, e
 		return OrgAddOutput{}, fmt.Errorf("kind %q: want one of %v", in.Kind, model.GroupKinds)
 	}
 	if in.Kind == model.GroupDomain {
-		return OrgAddOutput{}, errors.New("kind domain names its owner: use org_domain_add {name, owner}")
+		return OrgAddOutput{}, errors.New("kind domain names its owner: use add {type: group, fields: {kind: domain, owner}}")
 	}
 	id := normID(in.ID)
 	if id == "" {
@@ -189,6 +189,34 @@ var (
 		return contactOut(doc, p, err)
 	})
 )
+
+// cleanContacts checks a whole contact list as org_person_contact_add checks
+// one contact: a known method, a value, no contact twice, and at most one
+// preferred contact per method. Empty is nil.
+func cleanContacts(in []model.Contact) ([]model.Contact, error) {
+	var out []model.Contact
+	preferred := map[model.Medium]bool{}
+	for _, c := range in {
+		value, err := cleanValue(c.Value)
+		if err != nil {
+			return nil, err
+		}
+		if err := checkMedium(c.Method); err != nil {
+			return nil, err
+		}
+		if indexContact(out, c.Method, value) >= 0 {
+			return nil, fmt.Errorf("contact %s %s given twice", c.Method, value)
+		}
+		if c.Preferred {
+			if preferred[c.Method] {
+				return nil, fmt.Errorf("two preferred %s contacts: give one", c.Method)
+			}
+			preferred[c.Method] = true
+		}
+		out = append(out, model.Contact{Method: c.Method, Value: value, Label: strings.Join(strings.Fields(c.Label), " "), Preferred: c.Preferred})
+	}
+	return out, nil
+}
 
 func contactOut(doc model.Document, p *model.Person, err error) (PersonContactOutput, error) {
 	if err != nil {

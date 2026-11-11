@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 
 export const QuestionFields = graphql(/* GraphQL */ `
   fragment QuestionFields on para_QuestionView {
@@ -104,10 +104,15 @@ const QuestionShowDoc = graphql(/* GraphQL */ `
   query QuestionShow($id: String!) {
     para {
       v1 {
-        questionShow(id: $id) {
-          body
-          question {
-            ...QuestionFields
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_QuestionShowOutput {
+              body
+              question {
+                ...QuestionFields
+              }
+            }
           }
         }
       }
@@ -139,7 +144,11 @@ export function useQuestion(id: string, enabled = true) {
     enabled,
     queryKey: ['question', id],
     queryFn: async () =>
-      need((await gqlClient.request(QuestionShowDoc, { id })).para.v1.questionShow, 'question'),
+      needDetail(
+        (await gqlClient.request(QuestionShowDoc, { id })).para.v1.show,
+        'para_QuestionShowOutput',
+        'question',
+      ),
   })
 }
 

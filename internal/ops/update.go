@@ -77,7 +77,7 @@ func updatesBody(body, date, text string) string {
 const sortInstruction = "Sort the newest update on %s.\n\nRead the task and its ## Updates. Run similar on each candidate. " +
 	"Make these changes with ops, grouped by kind: action items (task_add with parent), " +
 	"open questions (question_add scoped to the task), questions answered (question_answer with the update as a source), " +
-	"commitments (task_add with commitment, a due date, the owner as assignee), resolved policy (constraint_add or exception_add, " +
+	"commitments (task_add with commitment, a due date, the owner as assignee), resolved policy (annotate, " +
 	"with a link to the task in text), follow-up tasks (task_add, depends_on when it waits). " +
 	"Cite the owner's words as the source of each change. Say in your result what you left unsorted. Never rewrite the owner's text. " +
 	"Take no external action: an outward action needs an outgoing draft the owner approved (io_add direction out, then io_approve)."

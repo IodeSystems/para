@@ -168,7 +168,7 @@ type IncidentAddOutput struct {
 }
 
 // IncidentAdd opens an incident.
-var IncidentAdd = defineSafe("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring). At vault format 10 it is a task of kind incident: task_add {kind: incident, title, severity, area, body} does the same", addIncident)
+var IncidentAdd = defineSafe("incident_add", "Open an incident record for a system you run (para is not a pager: alerts stay in monitoring). At vault format 10 it is a task of kind incident: add {type: task, fields: {kind: incident}, title, severity, area, body} does the same", addIncident)
 
 // addIncident is incident_add, and task_add of kind incident.
 func addIncident(ctx context.Context, d Deps, in IncidentAddInput) (IncidentAddOutput, error) {

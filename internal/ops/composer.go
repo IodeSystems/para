@@ -75,8 +75,8 @@ func composerAsk(id string, typ model.Type, title, text string, attachments []st
 	var b strings.Builder
 	fmt.Fprintf(&b, "The owner wrote this about [[%s]] (%s: %s) in the composer of its page.\n\n", id, typ, firstOf(title, id))
 	b.WriteString("Process it with the prompt ingest_source, part An update on an item, as an update on this item: read the item; format the owner's words into its notes " +
-		"(notes_read, then notes_edit with the hash: keep the notes there, add to them, and embed each attachment as written below, ![description](path)); " +
-		"update the items it touches (tasks done, asks answered, new tasks and questions, meeting_hold for a meeting with the notes); " +
+		"(show, then edit with notes and notes_hash: keep the notes there, add to them, and embed each attachment as written below, ![description](path)); " +
+		"update the items it touches (tasks done, asks answered, new tasks and questions, close for a meeting with the notes); " +
 		"cite the owner's words as the source of each write; and name the receipts in your result. " +
 		"Read an attachment with attachment_read.\n\n")
 	if m := manageNote(typ); m != "" {
@@ -84,7 +84,7 @@ func composerAsk(id string, typ model.Type, title, text string, attachments []st
 	}
 	if done {
 		b.WriteString("Mark done: yes. The owner asked you to close this item after you process the words, with the op that fits its type " +
-			"(task_done for a task, meeting_hold for a meeting, question_answer for a question, rfx_close for an ask).\n\n")
+			"(close for a task, a meeting, or an ask; close {outcome: answered} for a question).\n\n")
 	} else {
 		b.WriteString("Mark done: no. If the words clearly say the item is done (for example \"met with Sam, decided to ship\"), close it anyway and say so in your result.\n\n")
 	}

@@ -41,6 +41,16 @@ var internalTable = map[string]string{
 	"exception_add": "annotate", "convention_add": "annotate", "constraint_add": "annotate",
 	"org_team_add": "add {type: group}", "org_role_add": "add {type: group}", "org_domain_add": "add {type: group}",
 	"interaction_add": "add {type: io}", "incident_add": "add {type: task, fields: {kind: incident}}",
+	"journal_daily": "journal {period: daily}", "journal_weekly": "journal {period: weekly}", "journal_monthly": "journal {period: monthly}",
+	// Person lists: link routes to the group ops; edit replaces aliases and
+	// contacts by org_person_edit. The alias and contact ops stay for their
+	// CLI commands.
+	"org_person_group_add":      "link {from: person, to: group, rel: member_of}",
+	"org_person_group_remove":   "link {from: person, to: group, rel: member_of, remove: true}",
+	"org_person_alias_add":      "edit {id, fields: {aliases: [...]}} (the whole list)",
+	"org_person_alias_remove":   "edit {id, fields: {aliases: [...]}} (the whole list)",
+	"org_person_contact_remove": "edit {id, fields: {contacts: [...]}} (the whole list)",
+	"org_group_show":            "show",
 }
 
 // removedTable maps an op name removed with no op left to what to use

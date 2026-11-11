@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
-import { need } from '@/client/need'
+import { need, needDetail } from '@/client/need'
 
 // Sources: the places work comes in and goes out (mailboxes, calendars, chats, trackers,
 // folders). Agents reach them with their own tools and declare which ones they reach; the web
@@ -65,63 +65,68 @@ const SourceShowDoc = graphql(/* GraphQL */ `
   query SourceShow($id: String!) {
     para {
       v1 {
-        sourceShow(id: $id) {
-          source {
-            id
-            title
-            system
-            vendor
-            priority
-            status
-            via
-            server
-            cadence
-            lastScan
-            reachedBy
-            declared {
-              actor
-              at
-              fresh
+        show(id: $id) {
+          detail {
+            __typename
+            ... on para_SourceShowOutput {
+              source {
+                id
+                title
+                system
+                vendor
+                priority
+                status
+                via
+                server
+                cadence
+                lastScan
+                reachedBy
+                declared {
+                  actor
+                  at
+                  fresh
+                }
+                due
+                overdue
+                request
+              }
+              tools
+              fetch {
+                tool
+                args
+                command
+                query
+                how
+              }
+              scanIn {
+                tool
+                args
+                command
+                query
+                how
+              }
+              scanOut {
+                tool
+                args
+                command
+                query
+                how
+              }
+              state {
+                tool
+                args
+                command
+                query
+                how
+              }
+              body
+              cites {
+                id
+                title
+                type
+                ref
+              }
             }
-            due
-            overdue
-            request
-          }
-          tools
-          fetch {
-            tool
-            args
-            command
-            query
-            how
-          }
-          scanIn {
-            tool
-            args
-            command
-            query
-            how
-          }
-          scanOut {
-            tool
-            args
-            command
-            query
-            how
-          }
-          state {
-            tool
-            args
-            command
-            query
-            how
-          }
-          body
-          cites {
-            id
-            title
-            type
-            ref
           }
         }
       }
@@ -147,7 +152,11 @@ export function useSourceShow(id: string) {
     queryKey: ['sources', 'show', id],
     enabled: id !== '',
     queryFn: async () =>
-      need((await gqlClient.request(SourceShowDoc, { id })).para.v1.sourceShow, 'source'),
+      needDetail(
+        (await gqlClient.request(SourceShowDoc, { id })).para.v1.show,
+        'para_SourceShowOutput',
+        'source',
+      ),
   })
 }
 

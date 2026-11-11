@@ -221,7 +221,7 @@ var IOSendCheck = defineSafe("io_send_check", "Check an outgoing draft right bef
 			return out, fmt.Errorf("%s is for_me, but no delegation rule allows it: it waits for the owner's approval (io_approve); delegation_run says why", doc.ID)
 		}
 		if !stamped(doc.Body, v.stamp) || m.Stamp != v.stamp {
-			return out, fmt.Errorf("%s does not end with its stamp %q: io_edit with voice for_me to stamp it again", doc.ID, v.stamp)
+			return out, fmt.Errorf("%s does not end with its stamp %q: edit with fields {voice: for_me} to stamp it again", doc.ID, v.stamp)
 		}
 		m.AllowedBy = v.rule
 		since, sinceWhat = m.DraftedSeen, "since the agent drafted it"
@@ -264,7 +264,7 @@ var IOSendCheck = defineSafe("io_send_check", "Check an outgoing draft right bef
 		return out, err
 	}
 	out.Held, out.Reason, out.State, out.Rev = true, m.Held, m.State, saved.Rev
-	out.Next = "do not send: the draft is back with the owner. Tell the owner what came in (new), offer a revised draft with io_edit, and wait for their approval again"
+	out.Next = "do not send: the draft is back with the owner. Tell the owner what came in (new), offer a revised draft with edit, and wait for their approval again"
 	return out, nil
 })
 

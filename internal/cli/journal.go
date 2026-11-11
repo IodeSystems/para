@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -41,9 +42,34 @@ func newJournalCmd(l *loader) *cobra.Command {
 			return p.err
 		},
 	})
-	// Bare `para journal` lists the journals and their levels.
-	cmd.RunE = list.RunE
+	// `para journal --period <p> [date]` is the journal op; bare `para
+	// journal` lists the journals and their levels.
+	gen := opCommand(l, ops.Journal, binding[ops.JournalPeriodInput, ops.JournalOutput]{
+		Flags: func(fs *pflag.FlagSet, in *ops.JournalPeriodInput) {
+			fs.StringVar((*string)(&in.Period), "period", "", "generate the journal of a period: daily, weekly, or monthly")
+		},
+		Bind: func(args []string, in *ops.JournalPeriodInput) error {
+			if len(args) > 0 {
+				in.Date = args[0]
+			}
+			return nil
+		},
+		Text: text,
+	})
+	cmd.Annotations = gen.Annotations
+	cmd.Use = "journal [--period daily|weekly|monthly [date]]"
+	cmd.Args = cobra.MaximumNArgs(1)
+	cmd.Flags().AddFlagSet(gen.Flags())
 	cmd.Flags().AddFlagSet(list.Flags())
+	cmd.RunE = func(c *cobra.Command, args []string) error {
+		if c.Flags().Changed("period") {
+			return gen.RunE(c, args)
+		}
+		if len(args) > 0 {
+			return errors.New("a date goes with --period")
+		}
+		return list.RunE(c, args)
+	}
 	cmd.AddCommand(
 		list,
 		opCommand(l, ops.JournalShow, binding[ops.JournalShowInput, ops.JournalShowOutput]{

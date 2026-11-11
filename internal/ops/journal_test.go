@@ -317,3 +317,67 @@ type zoneStore struct {
 }
 
 func (z *zoneStore) Now() time.Time { return time.Date(2026, 11, 1, 23, 45, 0, 0, z.loc) }
+
+// journal {period} writes what journal_daily, journal_weekly, and
+// journal_monthly write: the same output and body, on the first run and on a
+// rerun after hand text outside the markers and a new event.
+func TestJournalPeriodParity(t *testing.T) {
+	seed := func() *memStore {
+		m := newMemStore()
+		m.addNote("inbox-a")
+		m.emit("2026-11-02T09:00:00Z", "create", "inbox-a")
+		m.emit("2026-11-04T10:00:00Z", "update", "inbox-a")
+		return m
+	}
+	ctx := context.Background()
+	for _, c := range []struct {
+		period JournalPeriod
+		old    *Op[JournalInput, JournalOutput]
+		id     string
+	}{{"daily", JournalDaily, "2026-11-04"}, {"weekly", JournalWeekly, "2026-w45"}, {"monthly", JournalMonthly, "2026-11"}} {
+		t.Run(string(c.period), func(t *testing.T) {
+			a, b := seed(), seed()
+			// The roll-ups read the journals one level down.
+			for _, m := range []*memStore{a, b} {
+				daily(t, m, "2026-11-02")
+				if _, err := JournalWeekly.Run(ctx, Deps{Store: m}, JournalInput{Date: "2026-11-02"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			run := func() {
+				t.Helper()
+				oa, err := c.old.Run(ctx, Deps{Store: a}, JournalInput{Date: "2026-11-04"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ob, err := Journal.Run(ctx, Deps{Store: b}, JournalPeriodInput{Period: c.period, Date: "2026-11-04"})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if oa != ob {
+					t.Fatalf("output: old %+v, journal %+v", oa, ob)
+				}
+				if ba, bb := a.docs[c.id].Body, b.docs[c.id].Body; ba != bb {
+					t.Fatalf("body\nold:\n%s\njournal:\n%s", ba, bb)
+				}
+			}
+			run()
+			for _, m := range []*memStore{a, b} {
+				d := m.docs[c.id]
+				d.Body = "Morning thoughts.\n\n" + d.Body + "\n\nEvening thoughts."
+				m.docs[c.id] = d
+				m.emit("2026-11-04T18:30:00Z", "update", "inbox-a")
+			}
+			run()
+			if body := b.docs[c.id].Body; !strings.HasPrefix(body, "Morning thoughts.\n\n%% para:begin") || !strings.HasSuffix(body, "\n\nEvening thoughts.") {
+				t.Errorf("outside text changed:\n%s", body)
+			}
+		})
+	}
+	if _, err := Journal.Run(ctx, Deps{Store: newMemStore()}, JournalPeriodInput{Period: "yearly"}); err == nil || !strings.Contains(err.Error(), "want one of") {
+		t.Errorf("period yearly: %v", err)
+	}
+	if v, use, ok := RemovedIn("journal_weekly"); !ok || v != "0.5.0" || use != "journal {period: weekly}" {
+		t.Errorf("RemovedIn(journal_weekly) = %q %q %v", v, use, ok)
+	}
+}

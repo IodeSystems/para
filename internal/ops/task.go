@@ -392,7 +392,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		out.Warnings = append(out.Warnings, w)
 	}
 	if doneWhenNeeded(d) && (kind == "" || kind == model.KindTask) && assignee == "" && how.empty() {
-		out.Warnings = append(out.Warnings, "say how to do it: add do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines) with task_edit "+doc.ID+", and prepare what you can first")
+		out.Warnings = append(out.Warnings, "say how to do it: add do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines) with edit "+doc.ID+", and prepare what you can first")
 	}
 	if (kind == "" || kind == model.KindTask) && readsLikeWaiting(doc.Title) {
 		out.Warnings = append(out.Warnings, waitingWarning(doc.ID))
@@ -675,7 +675,7 @@ var TaskBlock = defineSafe("task_block", "Block a task with a reason; until (YYY
 	return transition(ctx, d, in.ID, func(_ model.Document, t *model.Task) error {
 		if until != "" {
 			if t.DeferUntil != "" && !blockDeferral(t) {
-				return fmt.Errorf("%s is put off until %s by defer: undefer it first, or block it without until", in.ID, t.DeferUntil)
+				return fmt.Errorf("%s is put off until %s by later: reopen it first, or block it without until", in.ID, t.DeferUntil)
 			}
 			t.DeferUntil, t.DeferredReason = string(until), blockMarker+reason
 		}
