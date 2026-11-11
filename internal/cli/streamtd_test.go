@@ -12,25 +12,24 @@ import (
 // streamTDParityCases are the parity rows of tracked documents. Mutating ops
 // use doc-td-a for Invoke and doc-td-b for the CLI.
 func streamTDParityCases() (map[string]parityCase, map[string]string) {
-	return map[string]parityCase{
-		"doc_track": {`{"url":"https://wiki.acme.example/td/new","text":"New page."}`,
-			[]string{"doc", "track", "--url", "https://wiki.acme.example/td/new2"}, false},
-		"doc_version_add":    {`{"id":"doc-td-a","text":"One.\nTwo, changed."}`, []string{"doc", "version", "add", "doc-td-b"}, false},
-		"doc_tracked":        {`{}`, []string{"doc", "tracked"}, false},
-		"doc_tracked_show":   {`{"id":"doc-td-c"}`, []string{"doc", "tracked", "show", "doc-td-c"}, true},
-		"doc_tracked_status": {`{"id":"doc-td-a","status":"paused"}`, []string{"doc", "tracked", "status", "doc-td-b", "paused"}, false},
-		"doc_diff":           {`{"id":"doc-td-c"}`, []string{"doc", "diff", "doc-td-c"}, true},
-		"doc_seen":           {`{"id":"doc-td-a"}`, []string{"doc", "seen", "doc-td-b"}, false},
-		"doc_comment_add": {`{"id":"doc-td-a","by":"Ada","text":"Why?","quote":"One."}`,
-			[]string{"doc", "comment", "add", "doc-td-b", "--by", "Ada", "--text", "Why?", "--quote", "One."}, false},
+	cases := map[string]parityCase{
+		"doc_track":           {`{"url":"https://wiki.acme.example/td/new","text":"New page."}`, []string{"doc", "track", "--url", "https://wiki.acme.example/td/new2"}, false},
+		"doc_version_add":     {`{"id":"doc-td-a","text":"One.\nTwo, changed."}`, []string{"doc", "version", "add", "doc-td-b"}, false},
+		"doc_tracked":         {`{}`, []string{"doc", "tracked"}, false},
+		"doc_tracked_show":    {`{"id":"doc-td-c"}`, []string{"doc", "tracked", "show", "doc-td-c"}, true},
+		"doc_tracked_status":  {`{"id":"doc-td-a","status":"paused"}`, []string{"doc", "tracked", "status", "doc-td-b", "paused"}, false},
+		"doc_diff":            {`{"id":"doc-td-c"}`, []string{"doc", "diff", "doc-td-c"}, true},
+		"doc_seen":            {`{"id":"doc-td-a"}`, []string{"doc", "seen", "doc-td-b"}, false},
+		"doc_comment_add":     {`{"id":"doc-td-a","by":"Ada","text":"Why?","quote":"One."}`, []string{"doc", "comment", "add", "doc-td-b", "--by", "Ada", "--text", "Why?", "--quote", "One."}, false},
 		"doc_comments":        {`{"id":"doc-td-c"}`, []string{"doc", "comments", "doc-td-c"}, true},
 		"doc_comment_resolve": {`{"id":"doc-td-a","comment":"c1","resolution":"resolved"}`, []string{"doc", "comment", "resolve", "doc-td-b", "c1", "resolved"}, false},
-		"doc_comment_file": {`{"id":"doc-td-a","comment":"c2","to":"question"}`,
-			[]string{"doc", "comment", "file", "doc-td-b", "c2", "question"}, false},
-	}, map[string]string{
+		"doc_comment_file":    {`{"id":"doc-td-a","comment":"c2","to":"question"}`, []string{"doc", "comment", "file", "doc-td-b", "c2", "question"}, false},
+	}
+	cli := map[string]string{
 		"doc_track":       "New page, from the CLI.",
 		"doc_version_add": "One.\nTwo, from the CLI.",
 	}
+	return cases, cli
 }
 
 // seedStreamTDParity tracks three documents, each with two versions and two
