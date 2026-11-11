@@ -656,6 +656,9 @@ func answerParts(q *model.Question, in QuestionAnswerInput) (choice, text, why s
 	choice = strings.Join(strings.Fields(in.Choice), " ")
 	text = strings.TrimSpace(in.Text)
 	why = strings.Join(strings.Fields(in.Why), " ")
+	if choice != "" && len(q.Options) == 0 && text == "" {
+		choice, text = "", choice // no options: the choice is the answer text
+	}
 	switch {
 	case choice != "":
 		if len(q.Options) == 0 {

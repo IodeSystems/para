@@ -115,3 +115,39 @@ func TestVaultUpgradeRefusedRunReturnsTheOutput(t *testing.T) {
 		t.Fatalf("out = %+v", out)
 	}
 }
+
+// A finding only the owner can clear is left out of the vault-check request:
+// alone it files nothing, and an open request holding only such findings is
+// cancelled.
+func TestVaultCheckLeavesOwnerFindingsOut(t *testing.T) {
+	tv := newTickVault(t, "2026-11-03T12:00:00Z")
+	d := tv.open("one", "cli")
+	ctx := t.Context()
+	owner := model.Finding{Path: "proposals/p.md", Line: 9, Code: model.CodeDossierEvidence, Severity: "warning", Message: "evidence"}
+	agent := model.Finding{Path: "tasks/t.md", Line: 1, Code: "field", Severity: model.SeverityError, Message: "bad field"}
+	id, _, err := fileVaultCheck(ctx, d, NewLintOutput([]model.Finding{owner}), "")
+	if err != nil || id != "" {
+		t.Fatalf("owner only: id %q, %v", id, err)
+	}
+	id, _, err = fileVaultCheck(ctx, d, NewLintOutput([]model.Finding{owner, agent}), "")
+	if err != nil || id == "" {
+		t.Fatalf("mixed: id %q, %v", id, err)
+	}
+	req, err := d.Store.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Title != "Vault check: 1 errors, 0 warnings" || !strings.Contains(req.Body, "tasks/t.md") || strings.Contains(req.Body, "proposals/p.md") || !strings.Contains(req.Body, "1 more findings only the owner") {
+		t.Fatalf("request %q:\n%s", req.Title, req.Body)
+	}
+	if again, _, err := fileVaultCheck(ctx, d, NewLintOutput([]model.Finding{owner}), ""); err != nil || again != "" {
+		t.Fatalf("owner only again: id %q, %v", again, err)
+	}
+	req, err = d.Store.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st := req.Meta.(*model.Request).Status; st != model.RequestCancelled {
+		t.Fatalf("status = %s, want cancelled", st)
+	}
+}

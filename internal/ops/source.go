@@ -12,6 +12,7 @@ import (
 
 	"github.com/iodesystems/para/docs"
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/paramd"
 	"github.com/iodesystems/para/internal/recur"
 	"github.com/iodesystems/para/internal/store"
 )
@@ -60,6 +61,28 @@ func noSourceHint(ctx context.Context, s store.Store, id string) string {
 	return fmt.Sprintf("no source %q in this vault; %s", id, how)
 }
 
+// checkViaSource refuses a via.source that resolves to no source document,
+// in a vault that has sources; the error names the sources there are. A vault
+// with no source document takes any via.source: sources are recommended,
+// never required (lint warns the same way, paramd.CodeSourceUnresolved).
+func checkViaSource(ctx context.Context, s store.Store, via *model.IOVia) error {
+	if via == nil || via.Source == "" {
+		return nil
+	}
+	sources, err := loadSources(ctx, s)
+	if err != nil {
+		return err
+	}
+	if len(sources) == 0 || newSourceResolver(sources).resolve(via.Source) != "" {
+		return nil
+	}
+	ids := make([]string, len(sources))
+	for i, d := range sources {
+		ids[i] = d.ID
+	}
+	return fmt.Errorf("via.source %q names no source in this vault; give a source id (%s), its id without %q, or its vendor; or add one with source_add", via.Source, strings.Join(ids, ", "), paramd.SourceIDPrefix)
+}
+
 // loadSources returns every source document, sorted by id.
 func loadSources(ctx context.Context, s store.Store) ([]model.Document, error) {
 	refs, err := s.List(ctx, store.Filter{Type: model.TypeSource})
@@ -81,8 +104,9 @@ func loadSources(ctx context.Context, s store.Store) ([]model.Document, error) {
 }
 
 // sourceResolver resolves via.source text to a source document: its id or a
-// link to it, else the one source of that vendor or of that class (an older
-// system value names both).
+// link to it, else the one source whose id without the source- prefix, vendor,
+// or class it is (an older system value names both class and vendor). Lint
+// (paramd.checkViaSources) resolves the same way.
 type sourceResolver struct {
 	byID     map[string]model.Document
 	bySystem map[string][]string
@@ -93,7 +117,8 @@ func newSourceResolver(sources []model.Document) sourceResolver {
 	for _, d := range sources {
 		r.byID[strings.ToLower(d.ID)] = d
 		k := sourceKindOf(d.Meta.(*model.SourceDoc))
-		for _, key := range []string{k.vendor, string(k.class)} {
+		short := strings.TrimPrefix(strings.ToLower(d.ID), paramd.SourceIDPrefix)
+		for _, key := range []string{k.vendor, string(k.class), short} {
 			if key != "" && !slices.Contains(r.bySystem[key], d.ID) {
 				r.bySystem[key] = append(r.bySystem[key], d.ID)
 			}

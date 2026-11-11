@@ -163,6 +163,9 @@ var DocTrack = defineSafe("doc_track", "Start tracking a remote document (a wiki
 	if err != nil {
 		return DocTrackOutput{}, err
 	}
+	if err := checkViaSource(ctx, d.Store, in.Via); err != nil {
+		return DocTrackOutput{}, err
+	}
 	m := &model.TrackedDoc{Common: model.Common{Type: model.TypeTrackedDoc}, URL: u, System: in.System, Status: model.DocWatching,
 		Route: ioLine(in.Route), Latest: 1, Checked: at, Via: in.Via}
 	if m.System == "" {

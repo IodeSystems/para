@@ -190,9 +190,13 @@ func newRoot(l *loader) *cobra.Command {
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Extended())
 				return err
 			}
+			if v, _ := cmd.Flags().GetBool("version"); v {
+				return printVersion(l, cmd)
+			}
 			return runAgendaHome(l, cmd)
 		},
 	}
+	root.Flags().Bool("version", false, "print the para version (as para version)")
 	root.Flags().Bool("help-extended", false, "print use cases with real commands, and where each kind of thing goes")
 	root.PersistentFlags().StringVar(&l.homeFlag, "home", "", "para home directory (or PARA_HOME; default ~/.para)")
 	root.PersistentFlags().StringVar(&l.vaultFlag, "vault", "", "vault id (or PARA_VAULT)")

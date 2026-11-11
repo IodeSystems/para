@@ -94,7 +94,7 @@ func addRoutes() map[AddType]addRoute {
 
 // Add makes an item of any type by that type's add op.
 var Add = func() *Op[AddInput, AddOutput] {
-	op := define("add", "Add an item: task, question, project (goal), area, person, group, obligation, note, rfx (ask), or io", runAdd)
+	op := define("add", "Add an item of type. parent sets its project, area, or parent; do not repeat it in fields. A task needs fields.done_when", runAdd)
 	// The type's add op gates and files the receipt; add does neither.
 	op.verb = true
 	return op

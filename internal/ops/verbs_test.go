@@ -539,6 +539,13 @@ func TestListAndShow(t *testing.T) {
 	if got := ids(ListInput{NeedsYou: true}); !strings.Contains(strings.Join(got, " "), open) {
 		t.Fatalf("needs you = %v", got)
 	}
+	// list {} is needs_you; goal is project.
+	if got := ids(ListInput{}); !reflect.DeepEqual(got, ids(ListInput{NeedsYou: true})) {
+		t.Fatalf("list {} = %v", got)
+	}
+	if got, want := ids(ListInput{Type: "goal"}), ids(ListInput{Type: model.TypeProject}); len(want) == 0 || !reflect.DeepEqual(got, want) {
+		t.Fatalf("list goal = %v, project = %v", got, want)
+	}
 	// needs_you is ranked as order ranks it, and every ranked row comes first.
 	ny, err := List.Run(t.Context(), v.cli, ListInput{NeedsYou: true})
 	if err != nil {

@@ -93,3 +93,19 @@ func TestCheckViaSources(t *testing.T) {
 		t.Fatalf("findings = %v", f)
 	}
 }
+
+// A via.source resolves by the vendor of one source, or by a source id
+// without its source- prefix.
+func TestCheckViaSourcesVendorAndPrefix(t *testing.T) {
+	mk := func(path, src string) *File { return Parse(path, []byte(src)) }
+	io := func(name, via string) *File {
+		return mk("io/"+name+".md", doc("type: io\ncreated: 2026-11-01\ndirection: in\nmedium: email\nstate: unread\nvia: {source: "+via+", ref: x}\n", "# A\n"))
+	}
+	a := mk("sources/source-acme-mail.md", doc("type: source\ncreated: 2026-11-01\nsystem: mail\nvendor: acmemail\nstatus: active\nvia: none\n", "# A\n"))
+	b := mk("sources/source-acme-chat.md", doc("type: source\ncreated: 2026-11-01\nsystem: chat\nvendor: acmechat\nstatus: active\nvia: none\n", "# B\n"))
+	c := mk("sources/source-acme-chat2.md", doc("type: source\ncreated: 2026-11-01\nsystem: chat\nvendor: acmechat\nstatus: active\nvia: none\n", "# C\n"))
+	f := CheckVault([]*File{a, b, c, io("io-a", "acmemail"), io("io-b", "acme-mail"), io("io-c", "acme-chat"), io("io-d", "acmechat"), io("io-e", "mail")})
+	if len(f) != 1 || f[0].Code != CodeSourceUnresolved || !strings.Contains(f[0].Path, "io-d") {
+		t.Fatalf("findings = %v", f)
+	}
+}

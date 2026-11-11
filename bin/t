@@ -31,6 +31,9 @@ if [[ -z "${GOTMPDIR:-}" ]]; then
   [[ -d "$GOTMPDIR" ]] || made_gotmp="$GOTMPDIR"
   mkdir -p "$GOTMPDIR"
 fi
+# Since Go 1.27, t.TempDir is under GOTMPDIR, not TMPDIR: the test binary runs
+# without it, so test vaults stay on TMPDIR (tmpfs).
+tmpexec=(-exec "env -u GOTMPDIR")
 
 # Be a good neighbour on a shared machine: at most PARA_TEST_P packages at once
 # (default 8), and, when systemd is there, the run lives in its own scope capped
@@ -46,6 +49,6 @@ fi
 case "${1:-}" in
   -h|--help) sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
   -l|--list) go test ./... -list '.*' | grep -E '^(Test|Benchmark|Example|Fuzz)[A-Za-z0-9_]*$' ;;
-  "")        ${run[@]+"${run[@]}"} go test -p "$p" ./... ;;
-  *)         ${run[@]+"${run[@]}"} go test -p "$p" ./... -run "$1" -v ;;
+  "")        ${run[@]+"${run[@]}"} go test -p "$p" "${tmpexec[@]}" ./... ;;
+  *)         ${run[@]+"${run[@]}"} go test -p "$p" "${tmpexec[@]}" ./... -run "$1" -v ;;
 esac

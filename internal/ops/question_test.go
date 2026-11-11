@@ -159,12 +159,18 @@ func TestQuestionOptionsAndDecisions(t *testing.T) {
 		!strings.Contains(sh.Body, "- Why: Matches the container image.") || !strings.Contains(sh.Body, "- Choice: /opt/atlas") {
 		t.Fatalf("show = %+v", sh)
 	}
-	// Free text for a question without options; a choice is refused.
+	// Free text for a question without options; a choice with text is refused,
+	// a choice alone is the text.
 	free := must(t, QuestionAdd, d, QuestionAddInput{Text: "Give the missing prod keys", Project: proj, Kind: model.KindInput}).ID
-	if _, err := QuestionAnswer.Run(ctx, d, QuestionAnswerInput{ID: free, Choice: "x"}); err == nil {
-		t.Fatal("choice on a question with no options")
+	if _, err := QuestionAnswer.Run(ctx, d, QuestionAnswerInput{ID: free, Choice: "x", Text: "y"}); err == nil || !strings.Contains(err.Error(), "no options") {
+		t.Fatalf("choice and text on a question with no options: %v", err)
 	}
 	must(t, QuestionAnswer, d, QuestionAnswerInput{ID: free, Text: "Held in the team vault, item atlas-prod."})
+	free2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region?", Project: proj, Kind: model.KindInput}).ID
+	must(t, QuestionAnswer, d, QuestionAnswerInput{ID: free2, Choice: "eu-west"})
+	if sh := must(t, QuestionShow, d, QuestionShowInput{ID: free2}); sh.Question.Status != model.QuestionAnswered || !strings.Contains(sh.Body, "eu-west") {
+		t.Fatalf("choice as text: %+v", sh)
+	}
 	mustLintClean(t, d)
 }
 

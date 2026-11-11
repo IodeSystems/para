@@ -876,7 +876,7 @@ func statusOf(m model.Meta) string {
 
 // --- list ---
 
-// ListInput is the input of list. Give type, needs_you, or both.
+// ListInput is the input of list. With no type, needs_you is on. goal is project; ask is rfx.
 type ListInput struct {
 	Type model.Type `json:"type,omitempty" query:"type"`
 	// State is open, later, closed, or all; empty is open and later (not
@@ -936,14 +936,21 @@ type ListOutput struct {
 var listStates = []string{"", string(LifeOpen), string(LifeLater), string(LifeClosed), "all"}
 
 // List lists items of any type with their lifecycle and needs_you.
-var List = defineRead("list", "List items of a type (task, question, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
+var List = defineRead("list", "List items of a type (task, question, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (default with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
 	func(ctx context.Context, d Deps, in ListInput) (ListOutput, error) {
 		state := strings.TrimSpace(in.State)
 		if !slices.Contains(listStates, state) {
 			return ListOutput{}, fmt.Errorf("state %q: want open, later, closed, or all", state)
 		}
-		if in.Type == "" && !in.NeedsYou {
-			return ListOutput{}, errors.New("give type, needs_you, or both")
+		in.Type = model.Type(strings.TrimSpace(string(in.Type)))
+		switch in.Type { // the UI says goal and ask
+		case "goal":
+			in.Type = model.TypeProject
+		case "ask":
+			in.Type = model.TypeRFX
+		}
+		if in.Type == "" {
+			in.NeedsYou = true
 		}
 		if in.Type != "" && !slices.Contains(model.Types, in.Type) {
 			return ListOutput{}, fmt.Errorf("type %q: want one of %v", in.Type, model.Types)

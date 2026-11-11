@@ -55,11 +55,52 @@ var VaultCheck = definePerson("vault_check", "Lint every document in the vault a
 	return out, nil
 })
 
+// ownerLintCodes are the lint codes only the owner can clear: no agent op
+// fixes them, so a vault-check request that held them could never close
+// done. They stay in lint's output and are left out of the request.
+var ownerLintCodes = map[string]bool{
+	// Evidence of an open proposal: no agent op edits a proposal, and
+	// proposal_retire is person only.
+	model.CodeDossierEvidence: true,
+}
+
+// agentFindings splits findings into those an agent can fix and the number
+// left to the owner.
+func agentFindings(lo LintOutput) (LintOutput, int) {
+	var keep []model.Finding
+	for _, f := range lo.Findings {
+		if !ownerLintCodes[f.Code] {
+			keep = append(keep, f)
+		}
+	}
+	return NewLintOutput(keep), len(lo.Findings) - len(keep)
+}
+
 // fileVaultCheck files lint findings as the one vault-check request, or
 // updates the open one. step is the upgrade step that stopped on them, or
-// empty. Nothing is filed for no findings.
-func fileVaultCheck(ctx context.Context, d Deps, lo LintOutput, step string) (id string, updated bool, err error) {
+// empty. Only findings an agent can fix are filed (ownerLintCodes); with none,
+// nothing is filed and an open vault-check request is cancelled.
+func fileVaultCheck(ctx context.Context, d Deps, all LintOutput, step string) (id string, updated bool, err error) {
+	lo, owner := agentFindings(all)
+	docs, err := loadRequests(ctx, d.Store)
+	if err != nil {
+		return "", false, fmt.Errorf("vault_check: %w", err)
+	}
+	var open *model.Document
+	for i, doc := range docs {
+		r := doc.Meta.(*model.Request)
+		if r.Kind == VaultCheckKind && (r.Status == model.RequestProposed || r.Status == model.RequestQueued || r.Status == model.RequestClaimed) {
+			open = &docs[i]
+			break
+		}
+	}
 	if len(lo.Findings) == 0 {
+		if open == nil {
+			return "", false, nil
+		}
+		if _, err := RequestCancel.Run(ctx, d, RequestCancelInput{ID: open.ID}); err != nil {
+			return "", false, fmt.Errorf("vault_check: cancel %s: %w", open.ID, err)
+		}
 		return "", false, nil
 	}
 	title := fmt.Sprintf("%s%d errors, %d warnings", vaultCheckPrefix, lo.Errors, lo.Warnings)
@@ -68,15 +109,11 @@ func fileVaultCheck(ctx context.Context, d Deps, lo LintOutput, step string) (id
 		lines.WriteString(f.String() + "\n")
 	}
 	findings := fence("text", lines.String())
-	docs, err := loadRequests(ctx, d.Store)
-	if err != nil {
-		return "", false, fmt.Errorf("vault_check: %w", err)
+	if owner > 0 {
+		findings += fmt.Sprintf("\n\n%d more findings only the owner can clear are not listed here: leave them.", owner)
 	}
-	for _, doc := range docs {
-		r := doc.Meta.(*model.Request)
-		if r.Kind != VaultCheckKind || (r.Status != model.RequestProposed && r.Status != model.RequestQueued && r.Status != model.RequestClaimed) {
-			continue
-		}
+	if open != nil {
+		doc := *open
 		doc.Title = title
 		doc.Body = setSection(doc.Body, "## Source", vaultCheckSource(step))
 		doc.Body = setSection(doc.Body, vaultCheckFindings, findings)

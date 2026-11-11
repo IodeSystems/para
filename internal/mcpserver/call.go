@@ -336,6 +336,7 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 			score += 100
 		}
 		for _, w := range words {
+			w = stem(w)
 			if strings.Contains(n, w) {
 				score += 10
 			}
@@ -348,7 +349,8 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		}
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
-	if len(hits) == 0 {
+	people := personOps(words)
+	if len(hits) == 0 && people == "" {
 		msg := "no op matches " + strconv.Quote(in.Query)
 		if c := s.closest(q, 3); len(c) > 0 {
 			msg += "; closest: " + strings.Join(c, ", ")
@@ -363,7 +365,59 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		}
 		b.WriteString(describe(s.ops[h.name], false))
 	}
+	b.WriteString(people)
 	return mcp.NewToolResultText(b.String()), nil
+}
+
+// personOps is a line naming the people-only ops whose name holds every
+// query word, by its stem: an agent cannot run them, so it asks the owner.
+func personOps(words []string) string {
+	var names []string
+	for _, e := range ops.All() {
+		if !e.PersonOnly() || ops.AliasOf(e.Name()) != "" {
+			continue
+		}
+		all := len(words) > 0
+		for _, w := range words {
+			all = all && strings.Contains(e.Name(), stem(w))
+		}
+		if all {
+			names = append(names, e.Name())
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return "people only, ask the owner: " + strings.Join(names, ", ") + "\n"
+}
+
+// stem cuts a common English ending off a query word so that it matches op
+// names and text as a substring: reviewed and reviewing find io_review,
+// replies finds rfx_reply, dropped finds drop. A stem keeps 3 letters at least.
+func stem(w string) string {
+	cut := func(suffix, with string) (string, bool) {
+		if r, ok := strings.CutSuffix(w, suffix); ok && len(r)+len(with) >= 3 {
+			return r + with, true
+		}
+		return w, false
+	}
+	if r, ok := cut("ies", "y"); ok {
+		return r
+	}
+	for _, suffix := range []string{"ing", "ed"} {
+		if r, ok := cut(suffix, ""); ok {
+			if n := len(r); n > 3 && r[n-1] == r[n-2] && !strings.ContainsRune("aeiousl", rune(r[n-1])) {
+				r = r[:n-1] // dropped, planned; not added, called
+			}
+			return r
+		}
+	}
+	if !strings.HasSuffix(w, "ss") {
+		if r, ok := cut("s", ""); ok {
+			return r
+		}
+	}
+	return w
 }
 
 // describe is one op in the compact form. full keeps the whole description;
@@ -377,13 +431,42 @@ func describe(e ops.Entry, full bool) string {
 		d = firstSentence(d)
 	}
 	fmt.Fprintf(&b, "%s (%s): %s\n", e.Name(), e.Risk(), d)
+	write := ops.NeedsWhy(e)
 	for _, f := range describeFields(e.InputType(), false) {
+		if write && strings.HasPrefix(f, "why: ") && !strings.HasSuffix(f, " (required)") {
+			f += " (required)" // the tool schema requires why on every write
+		}
 		b.WriteString("  " + f + "\n")
 	}
-	if ops.NeedsWhy(e) {
-		b.WriteString("  + write fields: why (required), sources, verify, confidence, request, input, not_duplicate\n")
+	if write {
+		if m := writeFieldWords(e); m != "" {
+			b.WriteString("  + write fields: " + m + "\n")
+		}
 	}
 	return b.String()
+}
+
+// writeMetaOrder is the order the receipt fields (metaProps) are listed in.
+var writeMetaOrder = []string{"why", "sources", "verify", "confidence", "request", "input", "not_duplicate"}
+
+// writeFieldWords lists the receipt fields a write op takes beside its own
+// input, each with its type. A field the op has itself is listed with the
+// op's fields, with the op's type, and not again here: an agent reading
+// "sources" here would take the receipt's type for the op's.
+func writeFieldWords(e ops.Entry) string {
+	own := fieldNames(e.InputType())
+	var out []string
+	for _, name := range writeMetaOrder {
+		if own[name] {
+			continue
+		}
+		w := name + ": " + schemaWord(metaProps[name], nil)
+		if name == "why" {
+			w += " (required)"
+		}
+		out = append(out, w)
+	}
+	return strings.Join(out, ", ")
 }
 
 func firstSentence(d string) string {

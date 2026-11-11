@@ -203,16 +203,33 @@ func listStrings(v any) []string {
 	return out
 }
 
+// SourceIDPrefix is the prefix a source id often carries (source-gmail): a
+// via.source may leave it out.
+const SourceIDPrefix = "source-"
+
 // checkViaSources warns, in a vault with source documents, about each io or
 // tracked_doc whose via.source names none. Sources are recommended, never
-// required: a vault with no source document gets no warning.
+// required: a vault with no source document gets no warning. A via.source
+// names a source by its id (or a link to it), its id without the source-
+// prefix, or the system or vendor of exactly one source.
 func checkViaSources(files []*File, byName map[string]*File) []Finding {
-	bySystem := map[string]int{}
+	byKey := map[string]map[string]bool{}
 	has := false
 	for _, f := range files {
-		if f.Type() == "source" {
-			has = true
-			bySystem[strings.ToLower(str(f.Frontmatter["system"]))]++
+		if f.Type() != "source" {
+			continue
+		}
+		has = true
+		id := strings.ToLower(f.Name)
+		for _, k := range []string{str(f.Frontmatter["system"]), str(f.Frontmatter["vendor"]), strings.TrimPrefix(id, SourceIDPrefix)} {
+			k = strings.ToLower(strings.TrimSpace(k))
+			if k == "" {
+				continue
+			}
+			if byKey[k] == nil {
+				byKey[k] = map[string]bool{}
+			}
+			byKey[k][id] = true
 		}
 	}
 	if !has {
@@ -232,7 +249,7 @@ func checkViaSources(files []*File, byName map[string]*File) []Finding {
 		if dst, ok := byName[key]; ok && dst.Type() == "source" {
 			continue
 		}
-		if bySystem[key] == 1 {
+		if len(byKey[key]) == 1 {
 			continue
 		}
 		out = append(out, Finding{Path: f.Path, Line: 1, Code: CodeSourceUnresolved, Severity: Warn,

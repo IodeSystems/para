@@ -148,11 +148,12 @@ func TestCoreListing(t *testing.T) {
 		return res.Content[0].(mcp.TextContent).Text
 	}
 	one := describe(map[string]any{"op": "task_add"})
-	if !strings.HasPrefix(one, "task_add (") || !strings.Contains(one, "title: string (required)") || !strings.Contains(one, "why (required)") {
+	if !strings.HasPrefix(one, "task_add (") || !strings.Contains(one, "title: string (required)") || !strings.Contains(one, "why: string (required)") {
 		t.Fatalf("ops_describe task_add:\n%s", one)
 	}
 	found := describe(map[string]any{"query": "task"})
-	if heads := strings.Count(found, "\n") - strings.Count(found, "\n  "); heads > describeMax+1 || !strings.Contains(found, "task_add (") {
+	// Heads: up to describeMax ops, a "(more)" line, and a people-only line.
+	if heads := strings.Count(found, "\n") - strings.Count(found, "\n  "); heads > describeMax+2 || !strings.Contains(found, "task_add (") {
 		t.Fatalf("ops_describe query task:\n%s", found)
 	}
 	if all := describe(nil); !strings.Contains(all, "task_add") || strings.Contains(all, "task_done") {
@@ -226,5 +227,65 @@ func TestDescribeKeepsLongDescription(t *testing.T) {
 	}
 	if txt := res.Content[0].(mcp.TextContent).Text; !strings.Contains(txt, "for_me is one you send") {
 		t.Errorf("ops_describe io_add lost the long text:\n%s", txt)
+	}
+}
+
+// A query word finds an op by its stem: reviewed finds io_review, which is
+// people only, so the agent is told to ask the owner.
+func TestDescribeQueryStems(t *testing.T) {
+	for in, want := range map[string]string{
+		"reviewed": "review", "reviewing": "review", "replies": "reply", "dropped": "drop",
+		"added": "add", "called": "call", "sends": "send", "access": "access", "io": "io", "is": "is",
+	} {
+		if got := stem(in); got != want {
+			t.Errorf("stem(%q) = %q, want %q", in, got, want)
+		}
+	}
+	s, _ := newVault(t)
+	c := connectWith(t, ops.Deps{Store: s}, Options{Tools: ToolsCore})
+	res, err := c.CallTool(t.Context(), mcp.CallToolRequest{Params: mcp.CallToolParams{Name: opsDescribeTool, Arguments: map[string]any{"query": "io reviewed"}}})
+	if err != nil || res.IsError {
+		t.Fatalf("ops_describe: %v %+v", err, res)
+	}
+	if txt := res.Content[0].(mcp.TextContent).Text; !strings.Contains(txt, "people only, ask the owner: io_review") {
+		t.Errorf("query io reviewed missed io_review:\n%s", txt)
+	}
+}
+
+// A receipt field the op has itself is listed once, with the op's type: the
+// write fields line does not repeat it with the receipt's type.
+func TestDescribeWriteFieldsOnce(t *testing.T) {
+	for _, e := range ops.All() {
+		if !ops.NeedsWhy(e) {
+			continue
+		}
+		own := fieldNames(e.InputType())
+		lines := strings.Split(describe(e, false), "\n")
+		var meta string
+		for _, l := range lines {
+			if m, ok := strings.CutPrefix(l, "  + write fields: "); ok {
+				meta = m
+			}
+		}
+		for _, name := range writeMetaOrder {
+			listed := strings.Contains(", "+meta, ", "+name+": ")
+			if own[name] == listed {
+				t.Errorf("%s: %s own=%v, in write fields=%v: %q", e.Name(), name, own[name], listed, meta)
+			}
+		}
+	}
+	if len(writeMetaOrder) != len(metaProps) {
+		t.Errorf("writeMetaOrder has %d names, metaProps %d", len(writeMetaOrder), len(metaProps))
+	}
+	var qa ops.Entry
+	for _, e := range ops.All() {
+		if e.Name() == "question_answer" {
+			qa = e
+		}
+	}
+	d := describe(qa, false)
+	if !strings.Contains(d, "  sources: array of object{ref*, quote}\n") || !strings.Contains(d, "  why: string (required)\n") ||
+		strings.Contains(d, "write fields: why") || strings.Contains(d, "sources: array of string") {
+		t.Errorf("question_answer:\n%s", d)
 	}
 }

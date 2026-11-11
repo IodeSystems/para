@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -125,6 +126,9 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 		v.Source, v.Ref = ioLine(v.Source), strings.TrimSpace(v.Ref)
 		if v.Source == "" || v.Ref == "" {
 			return IOAddOutput{}, errors.New("via: give source and ref, or leave via out")
+		}
+		if err := checkViaSource(ctx, d.Store, v); err != nil {
+			return IOAddOutput{}, err
 		}
 	}
 	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX, model.TypeQuestion); err != nil {
@@ -655,6 +659,9 @@ type IOEditOutput struct {
 
 // IOEdit changes an outgoing draft, or marks an incoming message read or unread.
 var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to, medium, expects, route, state draft), or mark an incoming message read or unread or expects response (the sender waits for a reply). Either direction takes ref (the message permalink), or via {source, ref} with verify (how the owner finds it), so the owner can check it. Effort (xs, s, m, l) is set in either direction. State ready is the owner's approval: io_approve. An edit of the text, subject, to, or medium of a ready message makes it a draft again. Voice as_me or for_me changes whose words a draft goes out as (io_add); the text of a for_me draft must keep its stamp at the end, and para stamps it again when the matching rule changes. Why, impact, assessments, group, and variant_of (io_add) change no approval", func(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, error) {
+	if out, done, err := ioFixClosedSource(ctx, d, in); done {
+		return out, err
+	}
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOEditOutput{}, err
@@ -740,6 +747,9 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 		if v.Source == "" || v.Ref == "" {
 			return IOEditOutput{}, errors.New("via: give source and ref")
 		}
+		if err := checkViaSource(ctx, d.Store, v); err != nil {
+			return IOEditOutput{}, err
+		}
 		m.Via = v
 	}
 	if v := ioLine(in.Verify); v != "" {
@@ -814,6 +824,35 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	}
 	return out, nil
 })
+
+// ioFixClosedSource corrects via.source of a closed io item (filed, sent,
+// dropped): the one edit a closed item takes, when in gives only via and its
+// ref and thread are the item's own. done is false for any other edit, which
+// io_edit then handles as usual.
+func ioFixClosedSource(ctx context.Context, d Deps, in IOEditInput) (IOEditOutput, bool, error) {
+	rest := in
+	rest.ID, rest.Via = "", nil
+	if in.Via == nil || !reflect.ValueOf(rest).IsZero() {
+		return IOEditOutput{}, false, nil
+	}
+	doc, m, err := getIO(ctx, d, in.ID)
+	if err != nil || m.State.Open() {
+		return IOEditOutput{}, false, nil
+	}
+	src := ioLine(in.Via.Source)
+	if m.Via == nil || src == "" || strings.TrimSpace(in.Via.Ref) != m.Via.Ref || (in.Via.Thread != "" && in.Via.Thread != m.Via.Thread) {
+		return IOEditOutput{}, true, fmt.Errorf("%s is already %s: only via.source changes on it; give via with its ref (and thread) as they are", doc.ID, m.State)
+	}
+	if err := checkViaSource(ctx, d.Store, &model.IOVia{Source: src}); err != nil {
+		return IOEditOutput{}, true, err
+	}
+	m.Via.Source = src
+	doc, err = d.Store.Update(ctx, doc)
+	if err != nil {
+		return IOEditOutput{}, true, err
+	}
+	return IOEditOutput{ID: doc.ID, State: m.State, Rev: doc.Rev}, true, nil
+}
 
 // ErrStaleHash is in the refusal message of io_approve when expect_hash does not match the draft
 // now. It is stable: callers match it, not the words after it.
