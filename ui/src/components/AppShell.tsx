@@ -119,7 +119,7 @@ export function AppShell({ session, children }: { session: SessionView; children
       <HttpBanner />
       <ReadOnlyBanner session={session} />
       <UpdateBanner />
-      <Box component="main" sx={{ px: { xs: 1.5, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
+      <Box component="main" sx={{ px: { xs: 1, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
         {children}
       </Box>
       {/* On a phone the screens you open most are one tap away. */}

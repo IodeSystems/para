@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useRouteContext } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import Box from '@mui/material/Box'
-import Chip from '@mui/material/Chip'
 import { agentUnsend } from '@/api/composer'
 import { useThreadPost } from '@/api/thread'
 import { readNotes, saveNotes } from '@/api/notes'
@@ -231,34 +230,24 @@ export function ItemComposer({
         actions={actions}
         draft={draft}
         actionsReady={asking && choice !== ''}
-        chips={
-          <>
-            {POST_KINDS.map((k) => (
-              <Chip
-                key={k.kind}
-                size="small"
-                label={k.label}
-                color={postKind === k.kind ? 'primary' : 'default'}
-                variant={postKind === k.kind ? 'filled' : 'outlined'}
-                aria-pressed={postKind === k.kind}
-                onClick={() => setPostKind(k.kind)}
-                data-composer-kind={k.kind}
-              />
-            ))}
-            {options.map((o) => (
-              <Chip
-                key={o}
-                size="small"
-                label={o}
-                color={choice === o ? 'primary' : 'default'}
-                variant={choice === o ? 'filled' : 'outlined'}
-                aria-pressed={choice === o}
-                onClick={() => setChoice((c) => (c === o ? '' : o))}
-                data-composer-choice
-              />
-            ))}
-          </>
-        }
+        choicesTitle="Tell the agent"
+        choices={[
+          {
+            key: 'kind',
+            title: 'What is this',
+            options: POST_KINDS.map((k) => ({ value: k.kind, label: k.label })),
+            value: postKind,
+            onChange: (v) => setPostKind(POST_KINDS.find((k) => k.kind === v)?.kind ?? 'other'),
+          },
+          {
+            key: 'answer',
+            title: 'Answer',
+            options: options.map((o) => ({ value: o, label: o })),
+            value: choice,
+            onChange: setChoice,
+            empty: 'Pick an answer, or write it in the box',
+          },
+        ]}
       />
     </Box>
   )

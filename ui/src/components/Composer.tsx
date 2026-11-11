@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
 import IconButton from '@mui/material/IconButton'
@@ -17,12 +17,13 @@ import AttachFileIcon from '@mui/icons-material/AttachFile'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import MicIcon from '@mui/icons-material/Mic'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
+import { ChoiceBar, type ChoiceGroup } from '@/components/ChoiceBar'
 import type { Draft } from '@/components/ItemDraft'
 import { ACCEPT, canSend, composerKey, fileLabel, isMac, sendKeyHint } from '@/lib/composer'
 
 // Composer is the one box for telling an agent something: a large rounded card, the text on top
 // that grows upward as the owner types (up to half the screen, then it scrolls), and a toolbar
-// under it: + to attach files (on a phone: a photo or a recording too), the chips, the menu of
+// under it: + to attach files (on a phone: a photo or a recording too), the choice bar, the menu of
 // other actions (Save as notes), and the round send button. Ctrl+Enter (Cmd+Enter on a Mac) sends;
 // Enter starts a new line, and a hint under the text says so. A send needs words or a file. The parent does the work: onSend gets the text and the
 // files and says whether to clear the box.
@@ -42,7 +43,8 @@ export function Composer({
   sendLabel = 'Send to agent',
   onSend,
   actions = [],
-  chips,
+  choices = [],
+  choicesTitle = 'Choices',
   actionsReady = false,
   files: allowFiles = true,
   autoFocus,
@@ -56,8 +58,10 @@ export function Composer({
   sendLabel?: string
   onSend: (text: string, files: File[]) => Promise<boolean>
   actions?: ComposerAction[]
-  // chips sit in the toolbar under the text: a question's choices, or the documents to read.
-  chips?: ReactNode
+  // choices are the single picks of the toolbar (a turn's kind, a question's answer): one bar that
+  // opens a sheet (ChoiceBar). choicesTitle names the sheet.
+  choices?: ChoiceGroup[]
+  choicesTitle?: string
   // actionsReady lets the menu actions run with an empty box (a picked choice stands for the words).
   actionsReady?: boolean
   files?: boolean
@@ -78,6 +82,7 @@ export function Composer({
   const [addAt, setAddAt] = useState<HTMLElement | null>(null)
   const [moreAt, setMoreAt] = useState<HTMLElement | null>(null)
   const picker = useRef<HTMLInputElement>(null)
+  const input = useRef<HTMLTextAreaElement>(null)
   const ok = canSend(text, files.length, busy)
 
   const pick = (accept: string, capture?: string) => {
@@ -134,13 +139,13 @@ export function Composer({
           variant="body2"
           color="text.secondary"
           data-composer-prompt
-          sx={{ px: 2.25, pt: 1.5, overflowWrap: 'anywhere' }}
+          sx={{ px: { xs: 1, sm: 2.25 }, pt: 1.5, overflowWrap: 'anywhere' }}
         >
           {prompt}
         </Typography>
       )}
       {files.length > 0 && (
-        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, px: 1.75, pt: 1.25 }}>
+        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, px: { xs: 1, sm: 1.75 }, pt: 1.25 }}>
           {files.map((f, i) => (
             <Chip
               key={`${f.name}-${f.size}-${f.lastModified}-${i}`}
@@ -163,6 +168,7 @@ export function Composer({
         autoFocus={autoFocus}
         value={text}
         placeholder={placeholder}
+        inputRef={input}
         inputProps={{ 'aria-label': label }}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -181,7 +187,8 @@ export function Composer({
         }}
         sx={{
           display: 'block',
-          px: 2.25,
+          // On a phone the words keep the page's 8 px inset, no more.
+          px: { xs: 1, sm: 2.25 },
           pt: 1.75,
           pb: 0.5,
           fontSize: '1rem',
@@ -200,14 +207,14 @@ export function Composer({
           variant="caption"
           color="text.secondary"
           data-composer-hint
-          sx={{ display: 'block', px: 2.25 }}
+          sx={{ display: 'block', px: { xs: 1, sm: 2.25 } }}
         >
           {sendKeyHint(isMac())}
         </Typography>
       )}
       <Stack
         direction="row"
-        sx={{ alignItems: 'flex-end', gap: 0.5, px: 1, pb: 1, pt: 0.5, minWidth: 0 }}
+        sx={{ alignItems: 'flex-end', gap: 0.5, px: { xs: 0.5, sm: 1 }, pb: 1, pt: 0.5, minWidth: 0 }}
       >
         {allowFiles && (
           <>
@@ -259,21 +266,17 @@ export function Composer({
             />
           </>
         )}
-        {/* The chips sit in the toolbar: a question's choices, or the documents to read. */}
-        <Box
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            alignSelf: 'center',
-            gap: 0.75,
-            px: 0.5,
-          }}
-        >
-          {chips}
-        </Box>
+        {/* The choice bar fills the toolbar between + and send; without choices, a spacer. */}
+        {choices.some((g) => g.options.length > 0) ? (
+          <ChoiceBar
+            title={choicesTitle}
+            groups={choices}
+            disabled={busy}
+            onClosed={() => input.current?.focus()}
+          />
+        ) : (
+          <Box sx={{ flex: 1 }} />
+        )}
         {actions.length > 0 && (
           <>
             <Tooltip title="More ways to save it">

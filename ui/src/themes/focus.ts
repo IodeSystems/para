@@ -114,7 +114,11 @@ export const focus = createTheme({
       defaultProps: { disableElevation: true },
       styleOverrides: {
         root: { borderRadius: 999, minWidth: 0 },
-        sizeSmall: { fontSize: '0.85rem' },
+        // On a phone a small button reads at body size.
+        sizeSmall: ({ theme }) => ({
+          fontSize: '0.85rem',
+          [theme.breakpoints.down('sm')]: { fontSize: '1rem' },
+        }),
         contained: { paddingLeft: 16, paddingRight: 16 },
         outlined: { paddingLeft: 16, paddingRight: 16 },
       },
@@ -167,8 +171,30 @@ export const focus = createTheme({
                 borderLeftColor: v.palette.divider,
                 borderTop: `6px solid ${v.palette.primary.main}`,
                 borderRadius: 24,
-                padding: theme.spacing(2),
-                [theme.breakpoints.up('sm')]: { padding: theme.spacing(4) },
+                padding: theme.spacing(4),
+                // A phone keeps the width for the words: the card runs edge to edge, its words
+                // on the page's 8 px gutter, and its composer is a full-width bar with no inset
+                // of its own beyond that gutter.
+                [theme.breakpoints.down('sm')]: {
+                  marginLeft: theme.spacing(-1),
+                  marginRight: theme.spacing(-1),
+                  padding: theme.spacing(1.5, 1),
+                  borderLeftWidth: 0,
+                  borderRightWidth: 0,
+                  borderBottomWidth: 0,
+                  borderRadius: 0,
+                  boxShadow: 'none',
+                  ...theme.applyStyles('dark', { boxShadow: 'none' }),
+                  '& [data-item-composer]': {
+                    marginLeft: theme.spacing(-1),
+                    marginRight: theme.spacing(-1),
+                  },
+                  '& [data-composer]': {
+                    borderLeftWidth: 0,
+                    borderRightWidth: 0,
+                    borderRadius: '16px 16px 0 0',
+                  },
+                },
                 '& > .MuiTypography-overline': { color: v.palette.primary.main },
                 '& > h2.MuiTypography-h5': {
                   fontSize: '1.75rem',

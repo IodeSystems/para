@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouteContext } from '@tanstack/react-router'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -18,6 +18,7 @@ import { errorText } from '@/client/gqlClient'
 import { useQueryClient } from '@tanstack/react-query'
 import { canDecide } from '@/client/session'
 import { Section, StatusChip } from '@/components/Bits'
+import { ChoiceBar } from '@/components/ChoiceBar'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { useToasts } from '@/components/ToastStack'
@@ -359,6 +360,7 @@ function ThreadComposer({ id }: { id: string }) {
   const [kind, setKind] = useState<PostKind>('modify')
   const [text, setText] = useState('')
   const [quote, setQuote] = useState('')
+  const input = useRef<HTMLTextAreaElement>(null)
   if (!canDecide(session)) return null
   const send = async () => {
     try {
@@ -382,19 +384,21 @@ function ThreadComposer({ id }: { id: string }) {
   }
   return (
     <Stack spacing={1} sx={{ mt: 2 }} data-thread-composer>
-      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
-        {POST_KINDS.map((k) => (
-          <Chip
-            key={k.kind}
-            size="small"
-            label={k.label}
-            color={kind === k.kind ? 'primary' : 'default'}
-            variant={kind === k.kind ? 'filled' : 'outlined'}
-            aria-pressed={kind === k.kind}
-            onClick={() => setKind(k.kind)}
-          />
-        ))}
-      </Stack>
+      <Box sx={{ display: 'flex' }}>
+        <ChoiceBar
+          title="Tell the agent"
+          groups={[
+            {
+              key: 'kind',
+              title: 'What is this',
+              options: POST_KINDS.map((k) => ({ value: k.kind, label: k.label })),
+              value: kind,
+              onChange: (v) => setKind(POST_KINDS.find((k) => k.kind === v)?.kind ?? 'other'),
+            },
+          ]}
+          onClosed={() => input.current?.focus()}
+        />
+      </Box>
       {quote && (
         <TextField
           size="small"
@@ -408,6 +412,7 @@ function ThreadComposer({ id }: { id: string }) {
       <TextField
         size="small"
         label="Tell the agent"
+        inputRef={input}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
