@@ -98,6 +98,7 @@ function IoItemPage() {
         return (
           <>
             <PageTitle
+              pin={{ id }}
               action={<StateChip state={item.state} />}
               subtitle={
                 out

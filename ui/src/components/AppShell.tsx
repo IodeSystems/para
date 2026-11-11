@@ -16,6 +16,7 @@ import HelpOutlinedIcon from '@mui/icons-material/HelpOutlined'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MenuIcon from '@mui/icons-material/Menu'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
+import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import TodayIcon from '@mui/icons-material/Today'
 import { TellAgent } from '@/components/CaptureButton'
@@ -139,11 +140,20 @@ export function AppShell({ session, children }: { session: SessionView; children
         <BottomNavigation
           showLabels
           value={
-            current?.to === '/next' || current?.to === '/agenda' || current?.to === '/obligations'
+            current?.to === '/pinned' ||
+            current?.to === '/next' ||
+            current?.to === '/agenda' ||
+            current?.to === '/obligations'
               ? current.to
               : false
           }
         >
+          <LinkBottomNavAction
+            value="/pinned"
+            label="Pinned"
+            icon={<PushPinOutlinedIcon />}
+            to="/pinned"
+          />
           <LinkBottomNavAction value="/next" label="Next" icon={<PlayArrowIcon />} to="/next" />
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
           {/* Obligations took the place of Receipts (owner 2026-11-06: a main item); Receipts is

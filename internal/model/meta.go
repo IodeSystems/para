@@ -58,6 +58,9 @@ type Common struct {
 	// item id, "#tag", or "channel:<source>/<thread>". A tag joins a thread
 	// only when named here as "#tag"; the tags field alone does not.
 	Threads []string `yaml:"threads,omitempty" json:"threads,omitempty"`
+	// Pinned is the RFC 3339 time the owner pinned the item to watch it
+	// (pin). Only the owner sets it. Empty is not pinned.
+	Pinned string `yaml:"pinned,omitempty" json:"pinned,omitempty"`
 }
 
 // ImportedFrom is the source file of an imported document: the path as the
@@ -202,6 +205,14 @@ type Note struct {
 	Common  `yaml:",inline"`
 	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
 	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+}
+
+// ThreadDoc is type: thread, the pin holder of a thread key that is not an
+// item id (a "#tag" or a "channel:<source>/<thread>"). It holds the key and
+// the pinned time, nothing else; the thread's turns stay where they are.
+type ThreadDoc struct {
+	Common `yaml:",inline"`
+	Key    string `yaml:"key" json:"key"`
 }
 
 // Task is type: task.
@@ -1241,6 +1252,8 @@ func NewMeta(t Type) (Meta, bool) {
 		return &Receipt{Common: c}, true
 	case TypeObligation:
 		return &Obligation{Common: c}, true
+	case TypeThread:
+		return &ThreadDoc{Common: c}, true
 	}
 	return nil, false
 }

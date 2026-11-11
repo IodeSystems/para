@@ -36,6 +36,7 @@ const (
 	TypeQuestion        Type = "question"
 	TypeMeeting         Type = "meeting"
 	TypeObligation      Type = "obligation"
+	TypeThread          Type = "thread" // a thread key pinned by the owner (pin); items pin on their own frontmatter
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -43,7 +44,7 @@ var Types = []Type{
 	TypeProject, TypeTask, TypeRFX, TypeConstraint, TypePolicy, TypeTranscript,
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeSource, TypeGroup, TypeInteraction, TypeRequest,
-	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt, TypeObligation,
+	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt, TypeObligation, TypeThread,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -72,6 +73,7 @@ const (
 	FolderMeetings     Folder = "meetings"
 	FolderReceipts     Folder = "receipts"
 	FolderObligations  Folder = "obligations"
+	FolderThreads      Folder = "threads"
 )
 
 // Folders lists every document folder.
@@ -79,7 +81,7 @@ var Folders = []Folder{
 	FolderInbox, FolderIO, FolderTracked, FolderSources, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
-	FolderReceipts, FolderObligations,
+	FolderReceipts, FolderObligations, FolderThreads,
 }
 
 // Valid reports whether f is a document folder.

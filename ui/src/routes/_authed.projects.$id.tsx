@@ -34,6 +34,7 @@ function ProjectPage() {
       {(d) => (
         <>
           <PageTitle
+            pin={{ id }}
             action={
               <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                 <AgentLooking id={id} />

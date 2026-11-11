@@ -15,6 +15,7 @@ import { PartOfLine } from '@/components/PartOf'
 import type { PartRef } from '@/lib/partof'
 import { isClosed, splitDone } from '@/lib/agenda'
 import { AgentLooking, AgentWorking } from '@/components/FindContext'
+import { PinButton } from '@/components/PinButton'
 import { dueLabel, dueState } from '@/lib/due'
 import { laterLabel, nameList, nameOr } from '@/lib/names'
 
@@ -118,6 +119,7 @@ export function TaskRows({
                     }
                     slotProps={{ secondary: { sx: { overflowWrap: 'anywhere' } } }}
                   />
+                  <PinButton id={t.id} />
                   <ItemActions
                     x={{ id: t.id, title: t.title, kind: 'task' }}
                     closed={!open}

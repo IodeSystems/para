@@ -18,6 +18,7 @@ import { Route as AuthedHealthRouteImport } from './routes/_authed.health'
 import { Route as AuthedInputRouteImport } from './routes/_authed.input'
 import { Route as AuthedNextRouteImport } from './routes/_authed.next'
 import { Route as AuthedOutputRouteImport } from './routes/_authed.output'
+import { Route as AuthedPinnedRouteImport } from './routes/_authed.pinned'
 import { Route as AuthedPolicyRouteImport } from './routes/_authed.policy'
 import { Route as AuthedPoolsRouteImport } from './routes/_authed.pools'
 import { Route as AuthedReceiptsRouteImport } from './routes/_authed.receipts'
@@ -90,6 +91,11 @@ const AuthedNextRoute = AuthedNextRouteImport.update({
 const AuthedOutputRoute = AuthedOutputRouteImport.update({
   id: '/output',
   path: '/output',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedPinnedRoute = AuthedPinnedRouteImport.update({
+  id: '/pinned',
+  path: '/pinned',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedPolicyRoute = AuthedPolicyRouteImport.update({
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/input': typeof AuthedInputRoute
   '/next': typeof AuthedNextRoute
   '/output': typeof AuthedOutputRoute
+  '/pinned': typeof AuthedPinnedRoute
   '/policy': typeof AuthedPolicyRoute
   '/pools': typeof AuthedPoolsRoute
   '/receipts': typeof AuthedReceiptsRoute
@@ -286,6 +293,7 @@ export interface FileRoutesByTo {
   '/input': typeof AuthedInputRoute
   '/next': typeof AuthedNextRoute
   '/output': typeof AuthedOutputRoute
+  '/pinned': typeof AuthedPinnedRoute
   '/policy': typeof AuthedPolicyRoute
   '/pools': typeof AuthedPoolsRoute
   '/receipts': typeof AuthedReceiptsRoute
@@ -327,6 +335,7 @@ export interface FileRoutesById {
   '/_authed/input': typeof AuthedInputRoute
   '/_authed/next': typeof AuthedNextRoute
   '/_authed/output': typeof AuthedOutputRoute
+  '/_authed/pinned': typeof AuthedPinnedRoute
   '/_authed/policy': typeof AuthedPolicyRoute
   '/_authed/pools': typeof AuthedPoolsRoute
   '/_authed/receipts': typeof AuthedReceiptsRoute
@@ -368,6 +377,7 @@ export interface FileRouteTypes {
     | '/input'
     | '/next'
     | '/output'
+    | '/pinned'
     | '/policy'
     | '/pools'
     | '/receipts'
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/input'
     | '/next'
     | '/output'
+    | '/pinned'
     | '/policy'
     | '/pools'
     | '/receipts'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/_authed/input'
     | '/_authed/next'
     | '/_authed/output'
+    | '/_authed/pinned'
     | '/_authed/policy'
     | '/_authed/pools'
     | '/_authed/receipts'
@@ -547,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/output'
       fullPath: '/output'
       preLoaderRoute: typeof AuthedOutputRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/pinned': {
+      id: '/_authed/pinned'
+      path: '/pinned'
+      fullPath: '/pinned'
+      preLoaderRoute: typeof AuthedPinnedRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/policy': {
@@ -762,6 +781,7 @@ interface AuthedRouteChildren {
   AuthedInputRoute: typeof AuthedInputRoute
   AuthedNextRoute: typeof AuthedNextRoute
   AuthedOutputRoute: typeof AuthedOutputRoute
+  AuthedPinnedRoute: typeof AuthedPinnedRoute
   AuthedPolicyRoute: typeof AuthedPolicyRoute
   AuthedPoolsRoute: typeof AuthedPoolsRoute
   AuthedReceiptsRoute: typeof AuthedReceiptsRoute
@@ -800,6 +820,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedInputRoute: AuthedInputRoute,
   AuthedNextRoute: AuthedNextRoute,
   AuthedOutputRoute: AuthedOutputRoute,
+  AuthedPinnedRoute: AuthedPinnedRoute,
   AuthedPolicyRoute: AuthedPolicyRoute,
   AuthedPoolsRoute: AuthedPoolsRoute,
   AuthedReceiptsRoute: AuthedReceiptsRoute,

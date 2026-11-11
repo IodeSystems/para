@@ -37,7 +37,7 @@ function RfxPage() {
     <DataState q={q}>
       {(r) => (
         <ItemDraftProvider id={r.doc.id}>
-          <PageTitle>{r.doc.title || id}</PageTitle>
+          <PageTitle pin={{ id: r.doc.id }}>{r.doc.title || id}</PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {r.doc.meta.direction === 'in' ? 'Asked of you' : 'You ask'} - {r.doc.meta.status}
             {r.route ? ` - via ${nameOr(r.routeName, r.route)}` : ''}

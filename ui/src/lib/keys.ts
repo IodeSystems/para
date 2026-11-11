@@ -5,6 +5,7 @@
 export type Tab = { key: string; to: string; label: string; hint?: string }
 
 export const TABS: Tab[] = [
+  { key: '9', to: '/pinned', label: 'Pinned', hint: 'what you watch, as cards: the home screen' },
   { key: '7', to: '/next', label: 'Next', hint: 'the one thing to do now, as a card' },
   { key: '1', to: '/agenda', label: 'Agenda', hint: 'what needs you, in value order' },
   {

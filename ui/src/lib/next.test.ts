@@ -85,10 +85,10 @@ describe('words', () => {
     expect(effortWords('xs')).toBe('xs, under 15 min')
     expect(effortWords(undefined)).toBe('')
   })
-  it('the owner lands on Next, a read-only key on the agenda', () => {
+  it('the owner lands on Pinned, a read-only key on the agenda', () => {
     const base = { vault: 'acme', key: 'k', surface: 'pwa' }
-    expect(homeFor({ ...base, scopes: ['review:decide'] })).toBe('/next')
-    expect(homeFor({ ...base, admin: true })).toBe('/next')
+    expect(homeFor({ ...base, scopes: ['review:decide'] })).toBe('/pinned')
+    expect(homeFor({ ...base, admin: true })).toBe('/pinned')
     expect(homeFor({ ...base, scopes: ['vault:read'] })).toBe('/agenda')
     expect(homeFor(null)).toBe('/agenda')
   })

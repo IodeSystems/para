@@ -175,6 +175,11 @@ const REVIEW_MUTATIONS = new Set([
   // of {id, expectHash} the owner sees; Done by me runs through Close (already allowed), which runs
   // io_done with the final text and URL.
   'IODrop',
+  // owner 2026-11-10: Pinned items. Pin and Unpin toggle the pin of an item or a thread key on
+  // every item page, Next card, and list row (pin, unpin: person ops; each leaves one receipt that
+  // ReceiptRevert undoes). Only the owner pins; an agent suggests a pin in its reply.
+  'Pin',
+  'Unpin',
 ])
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {

@@ -27,6 +27,8 @@ import { draftHints } from '@/lib/composer'
 import { agendaActions, doneLabel, investigable, openTarget, type DoneKind } from '@/lib/agenda'
 import { briefOpensItself } from '@/lib/brief'
 import { prefersReducedMotion } from '@/lib/toasts'
+import { PinButton } from '@/components/PinButton'
+import { isPoolRow } from '@/lib/pools'
 import { failText, toastText } from '@/lib/stackToast'
 
 type Row = { id: string; title: string; kind?: string | null }
@@ -424,23 +426,26 @@ export function AgendaRow({
   const [brief, setBrief] = useState(() => briefOpensItself(x.kind, needsYou))
   const acts = agendaActions(x.kind)
   const actions = (
-    <ItemActions x={x} onGone={setGone}>
-      {acts.done === 'task' && x.kind === 'task' && (
-        <Button size="small" data-act="how" aria-expanded={how} onClick={() => setHow((v) => !v)}>
-          How
-        </Button>
-      )}
-      {x.kind === 'meeting' && (
-        <Button
-          size="small"
-          data-act="brief"
-          aria-expanded={brief}
-          onClick={() => setBrief((v) => !v)}
-        >
-          Brief
-        </Button>
-      )}
-    </ItemActions>
+    <>
+      {!isPoolRow(x) && <PinButton id={x.id} />}
+      <ItemActions x={x} onGone={setGone}>
+        {acts.done === 'task' && x.kind === 'task' && (
+          <Button size="small" data-act="how" aria-expanded={how} onClick={() => setHow((v) => !v)}>
+            How
+          </Button>
+        )}
+        {x.kind === 'meeting' && (
+          <Button
+            size="small"
+            data-act="brief"
+            aria-expanded={brief}
+            onClick={() => setBrief((v) => !v)}
+          >
+            Brief
+          </Button>
+        )}
+      </ItemActions>
+    </>
   )
   return (
     <Collapse

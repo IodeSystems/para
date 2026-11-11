@@ -6,6 +6,7 @@ import ListItemText from '@mui/material/ListItemText'
 import type { useIoList } from '@/api/io'
 import { CHIP_ROW, StateChip, StatusChip } from '@/components/Bits'
 import { TextLink } from '@/components/links'
+import { PinButton } from '@/components/PinButton'
 import { voiceWords } from '@/components/Voice'
 import { ioParty } from '@/lib/io'
 import { humanTime } from '@/lib/when'
@@ -55,6 +56,7 @@ export function IoRows({
             )}
             {x.unverifiable && <StatusChip tone="attn" label="no way to verify" />}
             <StateChip state={x.state} />
+            <PinButton id={x.id} />
           </ListItem>
         )
       })}

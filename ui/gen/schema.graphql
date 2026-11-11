@@ -125,6 +125,7 @@ type ParaV1MutationNamespace {
   orgPersonNote(body: para_PersonNoteInputInput!): para_PersonNoteOutput @derived(operationId: "orgPersonNote")
   orgRoleAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgRoleAdd")
   orgTeamAdd(body: para_OrgAddInputInput!): para_OrgAddOutput @derived(operationId: "orgTeamAdd")
+  pin(body: para_PinInputInput!): para_PinOutput @derived(operationId: "pin")
   policyRefresh(body: para_PolicyRefreshInputInput!): para_PolicyRefreshOutput @derived(operationId: "policyRefresh")
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
   poolPick(body: para_PoolPickInputInput!): para_PoolPickOutput @derived(operationId: "poolPick")
@@ -207,6 +208,7 @@ type ParaV1MutationNamespace {
   uiReviewAccept(body: para_UIReviewAcceptInputInput!): para_UIReviewBody @derived(operationId: "uiReviewAccept")
   uiReviewReopen: para_UIReviewBody @derived(operationId: "uiReviewReopen")
   undefer(body: para_UndeferInputInput!): para_DeferOutput @derived(operationId: "undefer")
+  unpin(body: para_PinInputInput!): para_PinOutput @derived(operationId: "unpin")
   vaultCheck: para_VaultCheckOutput @derived(operationId: "vaultCheck")
   vaultConfigSet(body: para_VaultConfigSetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigSet")
   vaultConfigUnset(body: para_VaultConfigUnsetInputInput!): para_VaultConfigSetOutput @derived(operationId: "vaultConfigUnset")
@@ -293,6 +295,7 @@ type ParaV1QueryNamespace {
   orgRoleShow(id: String!): para_OrgShowOutput @derived(operationId: "orgRoleShow")
   orgTeamList: para_OrgListOutput @derived(operationId: "orgTeamList")
   orgTeamShow(id: String!): para_OrgShowOutput @derived(operationId: "orgTeamShow")
+  pinned: para_PinnedOutput @derived(operationId: "pinned")
   policyList: para_PolicyListOutput @derived(operationId: "policyList")
   policyShow(id: String!): para_PolicyShowOutput @derived(operationId: "policyShow")
   poolList(name: String): para_PoolListOutput @derived(operationId: "poolList")
@@ -698,6 +701,7 @@ enum para_AreaAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -777,6 +781,7 @@ enum para_AreaUserType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -817,6 +822,7 @@ enum para_AreaViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -1558,6 +1564,7 @@ enum para_DepRowType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -1710,6 +1717,7 @@ enum para_DocCommentFileOutputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -1851,6 +1859,7 @@ enum para_DocRetypeInputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -1885,6 +1894,7 @@ enum para_DocRetypeOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -1915,6 +1925,7 @@ enum para_DocRetypeOutputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -2072,6 +2083,7 @@ enum para_DocumentFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -2649,6 +2661,7 @@ enum para_GraphNodeType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -2901,6 +2914,7 @@ enum para_IOAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -3556,6 +3570,7 @@ enum para_IOSendOutputBecame_type {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -3797,6 +3812,7 @@ enum para_ImportedDocFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -3827,6 +3843,7 @@ enum para_ImportedDocType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -3884,6 +3901,7 @@ enum para_IncidentAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -3965,6 +3983,7 @@ enum para_IncidentViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -4070,6 +4089,7 @@ enum para_InteractionAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -4224,6 +4244,7 @@ enum para_ItemContextOutputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -4580,6 +4601,7 @@ enum para_ListRowType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -4630,6 +4652,7 @@ enum para_MeetingAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -4803,6 +4826,7 @@ enum para_MeetingViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -4904,6 +4928,7 @@ type para_Meta {
   input: String
   interested: [String!]
   item: String
+  key: String
   kind: String
   lastError: String
   lastFailure: String
@@ -4934,6 +4959,7 @@ type para_Meta {
   owner: String
   ownerSaid: String
   parent: String
+  pinned: String
   pivot: JSON
   playbook: String
   policy: String
@@ -5108,6 +5134,7 @@ enum para_MetaType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -5159,6 +5186,7 @@ enum para_NoteAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -5215,6 +5243,7 @@ enum para_NoteViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -5346,6 +5375,7 @@ enum para_ObligationAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -5392,6 +5422,7 @@ enum para_ObligationAddOutputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -5487,6 +5518,7 @@ enum para_ObligationPartType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -5725,6 +5757,7 @@ enum para_OrgAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -5939,6 +5972,126 @@ type para_PersonNoteOutput {
   id: String!
   line: String!
   rev: String!
+}
+
+input para_PinInputInput {
+  id: String
+  key: String
+}
+
+type para_PinOutput {
+  changed: Boolean!
+  id: String!
+  key: String
+  pinned: String
+  rev: String!
+  title: String!
+  type: para_PinOutputType!
+}
+
+enum para_PinOutputType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  thread
+  tracked_doc
+  transcript
+}
+
+type para_PinnedCard {
+  claimed: Int!
+  id: String!
+  key: String
+  last: para_PinnedLast
+  lastReply: String
+  life: para_PinnedCardLife!
+  matters: String
+  mattersName: String
+  needsYou: Boolean!
+  nextDate: String
+  nextKind: String
+  pinned: String!
+  queued: Int!
+  reason: String!
+  stale: String
+  state: String
+  title: String!
+  turns: Int!
+  type: para_PinnedCardType!
+  waitingNames: [String!]
+  waitingOn: [String!]!
+}
+
+enum para_PinnedCardLife {
+  closed
+  later
+  open
+}
+
+enum para_PinnedCardType {
+  area
+  constraint
+  convention
+  domain
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  thread
+  tracked_doc
+  transcript
+}
+
+type para_PinnedLast {
+  at: String!
+  kind: String!
+  summary: String!
+  who: String!
+}
+
+type para_PinnedOutput {
+  items: [para_PinnedCard!]!
 }
 
 type para_PlanLine {
@@ -6295,6 +6448,7 @@ enum para_ProjectAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -6333,6 +6487,7 @@ enum para_ProjectCloseOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -6410,6 +6565,7 @@ enum para_ProjectViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -6491,6 +6647,7 @@ enum para_ProposalExecutedOutputBecame_type {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -6627,6 +6784,7 @@ enum para_QuestionAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -6831,6 +6989,7 @@ enum para_QuestionViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -6903,6 +7062,7 @@ enum para_RFXAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -7434,6 +7594,7 @@ enum para_RefFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -7470,6 +7631,7 @@ enum para_RefType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -7611,6 +7773,7 @@ enum para_RequestAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -8024,6 +8187,7 @@ enum para_RuleInEffectType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -8202,6 +8366,7 @@ enum para_ShowOutputType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -8270,6 +8435,7 @@ enum para_SimilarType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -8392,6 +8558,7 @@ enum para_SourceCiteType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -8893,6 +9060,7 @@ enum para_TaskAddOutputFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -9336,6 +9504,7 @@ enum para_TaskViewFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -9434,6 +9603,7 @@ enum para_ThemeItemType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -10115,6 +10285,7 @@ enum para_WhereMatchFolder {
   resources
   rfx
   sources
+  threads
   tracked
 }
 
@@ -10145,6 +10316,7 @@ enum para_WhereMatchType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -10347,6 +10519,7 @@ enum para_listType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }
@@ -10430,6 +10603,7 @@ enum para_similarType {
   source
   task
   team
+  thread
   tracked_doc
   transcript
 }

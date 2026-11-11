@@ -76,6 +76,7 @@ function SourcePage() {
         return (
           <>
             <PageTitle
+              pin={{ id: s.id }}
               action={
                 <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
                   <StatusChip tone="quiet" label={kindWords(s)} />

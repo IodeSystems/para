@@ -106,7 +106,7 @@ var (
 var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc", "source",
-	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt", "obligation",
+	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt", "obligation", "thread",
 }
 
 // commonFields apply to every type.
@@ -120,6 +120,7 @@ var commonFields = []field{
 	{Name: "prepared", Kind: kMap},      // {by, at, kind, ref, hash}: item_prepared
 	{Name: "publish", Kind: kList},      // publish set names; the owner's (publish_set)
 	{Name: "threads", Kind: kThreads},   // extra threads the document belongs to (thread.go)
+	{Name: "pinned", Kind: kTimestamp},  // the owner watches this item (pin)
 }
 
 // typeFields are the per-type fields, on top of commonFields.
@@ -162,6 +163,9 @@ var typeFields = map[string][]field{
 		{Name: "ended", Kind: kTimestamp},
 		{Name: "area", Kind: kLink},
 		{Name: "links", Kind: kPointers},
+	},
+	"thread": {
+		{Name: "key", Kind: kString, Required: true}, // "#tag" or "channel:<source>/<thread>"
 	},
 	"note": {
 		{Name: "area", Kind: kLink},

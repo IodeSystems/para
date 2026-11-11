@@ -28,6 +28,7 @@ import { LinkButton } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { BriefBody } from '@/components/MeetingBrief'
 import { CopyId } from '@/components/CopyId'
+import { PinButton } from '@/components/PinButton'
 import { PoolCard } from '@/components/Pools'
 import { DueChip } from '@/components/TaskRows'
 import { PartOfLine } from '@/components/PartOf'
@@ -229,9 +230,19 @@ function Card({
         data-next-ready={x.ready ? (x.readyKind ?? 'yes') : undefined}
         sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
       >
-        <Typography variant="overline" color="text.secondary" component="p">
-          {[group, x.why].filter(Boolean).join(' - ')}
-        </Typography>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+        >
+          <Typography variant="overline" color="text.secondary" component="p">
+            {[group, x.why].filter(Boolean).join(' - ')}
+          </Typography>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+            <CopyId id={x.id} />
+            <PinButton id={x.id} />
+          </Stack>
+        </Stack>
         <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
           {title}
         </Typography>

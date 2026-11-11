@@ -61,6 +61,7 @@ function Doc() {
       {(d) => (
         <ItemDraftProvider id={d.id}>
           <PageTitle
+            pin={{ id: d.id }}
             action={
               <Stack
                 direction="row"

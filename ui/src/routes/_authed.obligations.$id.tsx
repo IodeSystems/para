@@ -39,7 +39,7 @@ function ObligationPage() {
           <MeetingDetail id={id} />
         ) : (
           <>
-            <PageTitle>{o.title || id}</PageTitle>
+            <PageTitle pin={{ id }}>{o.title || id}</PageTitle>
             <Stack
               direction="row"
               spacing={1}
@@ -97,7 +97,7 @@ function MeetingDetail({ id }: { id: string }) {
       {({ meeting: m, body }) => {
         return (
           <>
-            <PageTitle>{m.title || id}</PageTitle>
+            <PageTitle pin={{ id }}>{m.title || id}</PageTitle>
             <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
               <MeetingChip status={m.status} />
               <Typography variant="body2" color="text.secondary">

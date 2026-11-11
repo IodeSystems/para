@@ -147,6 +147,10 @@ func registerOrg(r *registrar) {
 	reg(r, ops.OrgGroupShow, get, read)
 	// The owner sets who and what matters from the web app (a person op).
 	reg(r, ops.PrioritySet, post, netguard.ScopeReviewDecide)
+	// owner 2026-11-10: the owner pins and unpins what they watch (person ops); pinned reads the cards.
+	reg(r, ops.Pin, post, netguard.ScopeReviewDecide)
+	reg(r, ops.Unpin, post, netguard.ScopeReviewDecide)
+	reg(r, ops.Pinned, get, read)
 	reg(r, ops.Route, get, read)
 	reg(r, ops.Who, get, read)
 }

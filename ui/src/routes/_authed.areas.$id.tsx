@@ -31,7 +31,9 @@ function AreaPage() {
     <DataState q={q}>
       {(d) => (
         <ItemDraftProvider id={d.area.id}>
-          <PageTitle action={<StateChip state={d.area.status} />}>{d.area.title || id}</PageTitle>
+          <PageTitle pin={{ id: d.area.id }} action={<StateChip state={d.area.status} />}>
+            {d.area.title || id}
+          </PageTitle>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             {d.area.kind === 'concept' ? 'Concept' : 'Project'}
             {d.area.cadence &&

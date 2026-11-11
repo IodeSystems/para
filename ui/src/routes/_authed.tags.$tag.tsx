@@ -10,7 +10,7 @@ function TagPage() {
   const { tag } = Route.useParams()
   return (
     <>
-      <PageTitle>#{tag}</PageTitle>
+      <PageTitle pin={{ key: `#${tag}` }}>#{tag}</PageTitle>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Open items tagged {tag}.
       </Typography>

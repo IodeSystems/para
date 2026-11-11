@@ -87,6 +87,8 @@ type listed struct {
 	typ   model.Type
 	title string
 	dup   string
+	// pinned is the frontmatter pinned value as text.
+	pinned string
 }
 
 // Open opens the vault at root and restores any missing folder.
@@ -456,7 +458,7 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		if typ != "" && l.typ != typ {
 			continue
 		}
-		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: l.typ, Title: l.title, Rev: l.hash,
+		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: l.typ, Title: l.title, Rev: l.hash, Pinned: l.pinned,
 			Hidden: f.folder == model.FolderArchive || strings.TrimSpace(l.dup) != ""})
 	}
 	return out, nil
@@ -694,7 +696,14 @@ func (v *Vault) listedOf(rel string, data []byte) listed {
 	}
 	pf := paramd.Parse(rel, data)
 	dup, _ := pf.Frontmatter["duplicate_of"].(string)
-	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup}
+	pinned := ""
+	switch p := pf.Frontmatter["pinned"].(type) {
+	case string:
+		pinned = p
+	case time.Time:
+		pinned = p.UTC().Format(time.RFC3339)
+	}
+	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup, pinned: pinned}
 	v.paths.mu.Lock()
 	if v.paths.refs == nil {
 		v.paths.refs = map[string]listed{}

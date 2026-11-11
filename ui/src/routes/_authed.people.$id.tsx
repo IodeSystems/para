@@ -34,7 +34,7 @@ function Person() {
         }
         return (
           <ItemDraftProvider id={p.id}>
-            <PageTitle>{p.name}</PageTitle>
+            <PageTitle pin={{ id: p.id }}>{p.name}</PageTitle>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               {[p.org, p.role?.title, p.team?.title].filter(Boolean).join(' - ')}
             </Typography>

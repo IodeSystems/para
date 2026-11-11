@@ -4,6 +4,7 @@ import Chip from '@mui/material/Chip'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { PinButton } from '@/components/PinButton'
 import { plainState, toneOf, type Tone } from '@/lib/status'
 
 // Small shared pieces of layout.
@@ -78,11 +79,14 @@ export function PageTitle({
   children,
   action,
   subtitle,
+  pin,
 }: {
   children: ReactNode
   action?: ReactNode
   // subtitle says in a line what the screen is for.
   subtitle?: string
+  // pin mounts the Pin toggle in the title: the item's id, or a thread key that is no item.
+  pin?: { id?: string; key?: string }
 }) {
   return (
     <Box sx={{ mb: 2 }}>
@@ -94,6 +98,7 @@ export function PageTitle({
         <Typography variant="h5" component="h1" sx={{ flexGrow: 1, overflowWrap: 'break-word' }}>
           {children}
         </Typography>
+        {pin && <PinButton id={pin.id} pinKey={pin.key} size="medium" />}
         {action}
       </Stack>
       {subtitle && (

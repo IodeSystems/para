@@ -124,6 +124,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			OccurrenceOf: LinkTo("obligation-first"), Occasion: Occasion{Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []Link{LinkTo("jordan-example")}, Optional: true}}, "## Notes"},
 		{"obligation-owed", &Obligation{Common: c(TypeObligation), Kind: KindCommitment, State: StateClosed, Outcome: OutcomeSkipped, Schedule: ScheduleOnce,
 			OwedTo: []Link{LinkTo("jordan-example")}, Due: "2026-11-08", FoldedFrom: TypeTask}, ""},
+		{"thread-launch", &ThreadDoc{Common: Common{Type: TypeThread, Created: "2026-11-01", Pinned: "2026-11-01T09:00:00Z"}, Key: "#launch"}, ""},
 		{"meeting-ask", &Meeting{Common: c(TypeMeeting), Status: MeetingRequested, With: []Link{LinkTo("jordan-example")}}, ""},
 		{"no-prod-logs", &Constraint{c(TypeConstraint), "PII", "Jordan", source(), []string{"prod"}, []string{"dev"}, "2027-01-01", "", ""}, ""},
 		{"policy-logging", &Policy{c(TypePolicy), Followed{source(), false, ""}}, "R1 policy-logging: Log failures. ^R1"},

@@ -286,6 +286,8 @@ type Meta struct {
 	Prepared        *model.Prepared         `json:"prepared,omitempty"`
 	Publish         []string                `json:"publish,omitempty"`   // publish sets (owner only)
 	Threads         []string                `json:"threads,omitempty"`   // extra thread keys (model/thread.go)
+	Pinned          string                  `json:"pinned,omitempty"`    // RFC 3339 time the owner pinned the item (pin)
+	Key             string                  `json:"key,omitempty"`       // thread: the pinned thread key
 	TurnKind        string                  `json:"turn_kind,omitempty"` // request: modify, ask, redirect, other
 	Quote           string                  `json:"quote,omitempty"`     // request: owner-quoted text the turn is about
 }

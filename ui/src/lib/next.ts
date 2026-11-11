@@ -78,8 +78,8 @@ export function effortWords(e?: string | null): string {
   return (e && EFFORT[e]) || ''
 }
 
-// homeFor is where a signed-in session lands: the owner (review:decide) on Next, a read-only key
-// on the agenda.
-export function homeFor(s: SessionView | null | undefined): '/next' | '/agenda' {
-  return canDecide(s) ? '/next' : '/agenda'
+// homeFor is where a signed-in session lands: the owner (review:decide) on Pinned (owner
+// 2026-11-10; Next is one click away), a read-only key on the agenda.
+export function homeFor(s: SessionView | null | undefined): '/pinned' | '/agenda' {
+  return canDecide(s) ? '/pinned' : '/agenda'
 }
