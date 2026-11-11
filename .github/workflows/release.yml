@@ -1,0 +1,78 @@
+# A release of para. It runs only when started by hand (workflow_dispatch),
+# never on a push or a tag: tag a commit vX.Y.Z (notes in changes/X.Y.Z.md),
+# push the tag, then
+#   gh workflow run release.yml -f version=vX.Y.Z
+# It signs with the repository secret MINISIGN_SECRET_KEY: dun's release key
+# (ID 2CC27A171DE03D42, shared by decision 2026-11-10), whose public half is
+# release/minisign.pub, and verifies the manifest with the committed key
+# before publishing.
+name: release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "the tag to release, vX.Y.Z (it must exist)"
+        required: true
+      summary:
+        description: "one line on what changed; default the first sentence of the notes' People section"
+        required: false
+        default: ""
+
+permissions:
+  contents: write # gh release create
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      VERSION: ${{ inputs.version }} # used as "$VERSION": never pasted into a script
+      RELEASE_SUMMARY: ${{ inputs.summary }}
+    steps:
+      - name: the version
+        run: |
+          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || { echo "not vX.Y.Z: $VERSION"; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version }}
+      - name: the notes
+        run: test -f "changes/${VERSION#v}.md" || { echo "no changes/${VERSION#v}.md"; exit 1; }
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: pnpm/action-setup@v4 # the version is ui/package.json's packageManager
+        with:
+          package_json_file: ui/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+      - name: the signing key
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+        run: |
+          if [ -z "$MINISIGN_SECRET_KEY" ]; then echo "no MINISIGN_SECRET_KEY secret in this repository"; exit 1; fi
+          sudo apt-get update && sudo apt-get install -y minisign
+          umask 077 && printf '%s\n' "$MINISIGN_SECRET_KEY" > "$RUNNER_TEMP/minisign.key"
+      # CI has no user systemd: bin/t runs go test without its memory scope.
+      - name: test
+        run: PARA_TEST_NOSCOPE=1 bin/t
+      - name: ui lint and typecheck
+        working-directory: ui
+        run: pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck
+      - name: build and sign
+        run: make release VERSION="$VERSION" MINISIGN_KEY="$RUNNER_TEMP/minisign.key" RELEASE_SUMMARY="$RELEASE_SUMMARY"
+      - name: verify the signature with the committed key
+        run: make release-verify VERSION="$VERSION"
+      - name: remove the signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/minisign.key"
+      # notes.md is the release's notes, not an asset.
+      - name: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$VERSION" --verify-tag --title "para $VERSION" --notes-file "dist/$VERSION/notes.md" \
+            dist/"$VERSION"/para_*.tar.gz "dist/$VERSION/para-manifest.json" "dist/$VERSION/para-manifest.json.minisig"

@@ -19,6 +19,13 @@ Needs git, make, Go (version in `go.mod`), node, and pnpm (version in `ui/packag
 
 Fix every `FAIL` line from `bin/doctor` before `make install`. `BINDIR=<dir>` installs somewhere else.
 
+Or install a release (linux and macOS, amd64 and arm64) from https://github.com/IodeSystems/para/releases: download `para_<os>_<arch>.tar.gz`, `para-manifest.json`, and `para-manifest.json.minisig`, check the signature with `minisign -V -p release/minisign.pub -m para-manifest.json` (key ID 2CC27A171DE03D42), compare the archive's sha256 with the manifest, and put `para` from the archive in `~/.local/bin`. Then `para setup`. Later upgrades:
+
+    para upgrade              # from the checkout this para was built from, else the newest signed release
+    para upgrade --release    # the newest signed release, even with a checkout
+
+`para upgrade` checks the release's signature and sha256 before it replaces the binary, refuses an older release (`--force` installs it), and restarts the service. Then, for each vault, it prints the dry run of the pending automated steps and asks before it runs them (`--yes` runs them, `--no-vault-steps` skips them).
+
 `para setup` asks each question on a terminal and takes a flag for each (`para setup --help`). A rerun skips what is done. `para setup --dry-run` prints every step and every write and changes nothing. A vault has a domain (`vault.domain` in `.para/vault.properties`, one lowercase word) and a machine lists the domains it holds (`machine.domains` in `$PARA_HOME/install.properties`, never in a vault). A vault opens only on a machine that lists its domain, so a corp vault stays on the corp machine while one machine may hold several (`iode`, `life`). `para init life ~/para/life --domain life` records both; the default domain is the vault id. Only the owner changes `machine.domains`, by CLI (`para setup --allow-domain <d>`), never through MCP.
 
 ## With an agent (optional)

@@ -1,9 +1,18 @@
 package cli
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/iodesystems/para/internal/mcpserver"
+	"github.com/iodesystems/para/internal/update"
 )
 
 // streamAXParityCases are the parity rows of stream AX: upgrades.
@@ -130,20 +140,152 @@ func TestUpgradePullsInstallsAndShowsTheChanges(t *testing.T) {
 	}
 }
 
-func TestUpgradeWithoutACheckoutPrintsTheGoInstallLine(t *testing.T) {
-	for _, src := range []string{"", t.TempDir()} {
-		tools := t.TempDir()
-		mk, mkLog := fakeProgram(t, tools, "make", "x")
-		var out bytes.Buffer
-		if err := runUpgrade(context.Background(), &out, upgradeOptions{Src: src, Make: mk}); err != nil {
-			t.Fatal(err)
+// releaseServer serves a release of para at version: a tarball whose para is
+// newBin (a shell script), and a manifest signed by a test key with para's
+// trusted comment. It returns an Upgrader for it with dir as the install.
+func releaseServer(t *testing.T, product, version, trusted, newBin, dir string) update.Upgrader {
+	t.Helper()
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := update.PublicKey{ID: [8]byte{1, 2, 3, 4, 5, 6, 7, 8}, Key: pub}
+	var tb bytes.Buffer
+	gz := gzip.NewWriter(&tb)
+	tw := tar.NewWriter(gz)
+	_ = tw.WriteHeader(&tar.Header{Name: "para", Mode: 0o755, Size: int64(len(newBin)), Typeflag: tar.TypeReg})
+	_, _ = tw.Write([]byte(newBin))
+	tw.Close()
+	gz.Close()
+	files := map[string][]byte{"/dl/para_linux_amd64.tar.gz": tb.Bytes()}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, ok := files[r.URL.Path]
+		if !ok {
+			http.NotFound(w, r)
+			return
 		}
-		if !strings.Contains(out.String(), goInstallLine) {
-			t.Errorf("src %q: output = %q", src, out.String())
-		}
-		if _, err := os.Stat(mkLog); err == nil {
-			t.Error("make ran without a checkout")
-		}
+		_, _ = w.Write(b)
+	}))
+	t.Cleanup(srv.Close)
+	sum := sha256.Sum256(tb.Bytes())
+	body, _ := json.Marshal(update.Manifest{Product: product, Version: version, Published: "2026-11-10T00:00:00Z", Summary: "a summary",
+		Platforms: map[string]update.File{"linux_amd64": {URL: srv.URL + "/dl/para_linux_amd64.tar.gz", SHA256: hex.EncodeToString(sum[:]), Size: int64(tb.Len())}}})
+	files["/latest/para-manifest.json"] = body
+	files["/latest/para-manifest.json.minisig"] = []byte(update.Sign(priv, key.ID, body, trusted))
+	return update.Upgrader{
+		ManifestURL: srv.URL + "/latest/para-manifest.json", Keys: []update.PublicKey{key},
+		Exe: filepath.Join(dir, "bin", "para"), StatePath: update.StateFile(dir), Platform: "linux_amd64",
+		Fetch: &update.Fetcher{AllowHTTP: true},
+	}
+}
+
+// fakeReleaseBin is the new para of a release: it logs its arguments, says
+// an automated step is pending, and has a running service.
+func fakeReleaseBin(log string) string {
+	return "#!/bin/sh\necho \"$*\" >> '" + log + "'\n" +
+		"case \"$*\" in *\"upgrade status --json\"*) echo '{\"format_version\":6,\"latest\":7,\"pending\":[{\"id\":\"obligations\",\"auto\":true}]}';; esac\n"
+}
+
+// Without a checkout (or with --release) para upgrade installs the signed
+// release over the binary, restarts the service, shows the changes, dry-runs
+// each vault's automated steps and runs them only when allowed.
+func TestUpgradeFromARelease(t *testing.T) {
+	for name, c := range map[string]struct {
+		src      func(t *testing.T) string
+		release  bool
+		yes      bool
+		ask      func(string) bool
+		applied  bool
+		noSteps  bool
+		wantText string
+	}{
+		"no checkout, no terminal":           {src: func(*testing.T) string { return "" }, wantText: "no terminal to ask on"},
+		"not a checkout, --yes":              {src: func(t *testing.T) string { return t.TempDir() }, yes: true, applied: true},
+		"checkout with --release, asked yes": {src: upgradeRepos, release: true, ask: func(string) bool { return true }, applied: true},
+		"asked no":                           {src: func(*testing.T) string { return "" }, ask: func(string) bool { return false }, wantText: "not run; later"},
+		"--no-vault-steps":                   {src: func(*testing.T) string { return "" }, yes: true, noSteps: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			src := c.src(t)
+			dir := t.TempDir()
+			log := filepath.Join(dir, "new.log")
+			tools := t.TempDir()
+			mk, mkLog := fakeProgram(t, tools, "make", "x")
+			var out bytes.Buffer
+			err := runUpgrade(context.Background(), &out, upgradeOptions{
+				Src: src, Make: mk, Version: "v0.3.0", OldRelease: "0.3.0", Home: dir, VaultIDs: []string{"acme"},
+				Skipped: []string{"corp: not held here"}, Release: c.release, Yes: c.yes, Ask: c.ask, NoVaultSteps: c.noSteps,
+				Updater: releaseServer(t, "para", "v0.4.0", "para v0.4.0 manifest", fakeReleaseBin(log), dir),
+			})
+			if err != nil {
+				t.Fatalf("%v\n%s", err, out.String())
+			}
+			if _, err := os.Stat(mkLog); err == nil {
+				t.Fatal("make ran for a release upgrade")
+			}
+			b, _ := os.ReadFile(log)
+			calls := string(b)
+			for _, want := range []string{"service status", "service restart", "changes --since 0.3.0", "--vault acme vault upgrade --file"} {
+				if !strings.Contains(calls, want) {
+					t.Errorf("new binary calls lack %q:\n%s", want, calls)
+				}
+			}
+			if got := strings.Contains(calls, "vault upgrade --dry-run"); got == c.noSteps {
+				t.Errorf("dry run ran = %v, want %v:\n%s", got, !c.noSteps, calls)
+			}
+			if got := strings.Contains(calls, "--vault acme vault upgrade\n"); got != c.applied {
+				t.Errorf("steps applied = %v, want %v:\n%s", got, c.applied, calls)
+			}
+			if strings.Contains(calls, "corp") {
+				t.Error("a vault this machine does not hold was touched")
+			}
+			for _, want := range []string{"installed para v0.4.0", "upgraded para: v0.3.0 -> v0.4.0", "skipped corp", c.wantText} {
+				if !strings.Contains(out.String(), want) {
+					t.Errorf("output lacks %q:\n%s", want, out.String())
+				}
+			}
+		})
+	}
+}
+
+// A release that is not newer is not installed; a dun manifest signed with
+// the same key is refused and leaves no binary.
+func TestUpgradeReleaseRefusals(t *testing.T) {
+	dir := t.TempDir()
+	log := filepath.Join(dir, "new.log")
+	var out bytes.Buffer
+	u := releaseServer(t, "para", "v0.3.0", "para v0.3.0 manifest", fakeReleaseBin(log), dir)
+	if err := runUpgrade(context.Background(), &out, upgradeOptions{Version: "v0.4.0", Home: dir, Updater: u}); err == nil || !strings.Contains(err.Error(), "downgrade") {
+		t.Fatalf("downgrade: %v", err)
+	}
+	if err := runUpgrade(context.Background(), &out, upgradeOptions{Version: "v0.3.0", Home: dir, Updater: u}); err != nil || !strings.Contains(out.String(), "para is current") {
+		t.Fatalf("current: %v\n%s", err, out.String())
+	}
+	// A checkout build (git describe) counts as its newest notes' release.
+	if err := runUpgrade(context.Background(), &out, upgradeOptions{Version: "14ecdf7", OldRelease: "0.3.0", Home: dir, Updater: u}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(u.Exe); err == nil {
+		t.Fatal("a release not newer was installed")
+	}
+	dir2 := t.TempDir()
+	d := releaseServer(t, "dun", "v0.9.0", "dun v0.9.0 manifest", fakeReleaseBin(log), dir2)
+	if err := runUpgrade(context.Background(), &out, upgradeOptions{Version: "v0.3.0", Home: dir2, Updater: d}); err == nil || !update.IsVerify(errors.Unwrap(err)) {
+		t.Fatalf("dun manifest: %v", err)
+	}
+	if _, err := os.Stat(d.Exe); err == nil {
+		t.Fatal("a dun manifest installed a binary")
+	}
+	if _, err := os.Stat(d.StatePath); err == nil {
+		t.Fatal("a dun manifest left state")
+	}
+}
+
+// The embedded key is the one para upgrade uses by default.
+func TestUpgradeEmbeddedKey(t *testing.T) {
+	keys, err := upgradeKeys()
+	if err != nil || len(keys) != 1 || keys[0].IDString() != "2CC27A171DE03D42" {
+		t.Fatalf("%v %v", keys, err)
 	}
 }
 

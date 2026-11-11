@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -17,11 +20,10 @@ import (
 	"github.com/iodesystems/para/changes"
 	"github.com/iodesystems/para/internal/mcpserver"
 	"github.com/iodesystems/para/internal/ops"
+	"github.com/iodesystems/para/internal/update"
 	"github.com/iodesystems/para/internal/upgrade"
+	"github.com/iodesystems/para/release"
 )
-
-// goInstallLine is what to run when para was not built from a checkout.
-const goInstallLine = "go install github.com/iodesystems/para/cmd/para@latest"
 
 func newChangesCmd(l *loader) *cobra.Command {
 	return opCommand(l, ops.Changes, binding[ops.ChangesInput, ops.ChangesOutput]{
@@ -314,7 +316,7 @@ func upgradeVerdict(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
 }
 
 // upgradeOptions are the pieces of `para upgrade` a test replaces: the
-// checkout, the programs, and the new binary.
+// checkout, the programs, the release source, and the new binary.
 type upgradeOptions struct {
 	Src        string // the checkout; empty means not built from one
 	Git, Make  string // program names or paths
@@ -323,48 +325,40 @@ type upgradeOptions struct {
 	OldRelease string // the newest release notes in the running binary
 	Home       string // install home passed to the new binary
 	VaultIDs   []string
+	Skipped    []string // vaults this machine does not hold, with why
+
+	Release bool // install the newest release even with a checkout
+	Force   bool // install a release that is not newer than this one
+	Updater update.Upgrader
+
+	NoVaultSteps bool                // run no automated vault step
+	Yes          bool                // apply automated vault steps without asking
+	Ask          func(q string) bool // nil: no terminal to ask on
 }
 
-// runUpgrade pulls a checkout fast-forward only, installs it, and reports what
-// changed. It never commits and never pushes, and it refuses a dirty tree.
+// runUpgrade upgrades para — from the checkout (git pull --ff-only, make
+// install) or from the newest signed release — and then reports what changed
+// and brings each vault along. It never commits and never pushes, and it
+// refuses a dirty checkout.
 func runUpgrade(ctx context.Context, w io.Writer, o upgradeOptions) error {
-	if o.Src == "" {
-		return printGoInstall(w)
+	var (
+		newVersion, bin string
+		err             error
+	)
+	if o.Release || o.Src == "" || !isCheckout(o.Src) {
+		o.Src = "" // the new binary runs in the current directory
+		newVersion, bin, err = upgradeFromRelease(ctx, w, o)
+	} else {
+		newVersion, bin, err = upgradeFromCheckout(ctx, w, o)
 	}
-	if _, err := os.Stat(filepath.Join(o.Src, ".git")); err != nil {
-		return printGoInstall(w)
-	}
-	git := or(o.Git, "git")
-	out, err := runIn(ctx, o.Src, git, "status", "--porcelain", "--untracked-files=no")
-	if err != nil {
-		return fmt.Errorf("upgrade: git status: %w", err)
-	}
-	if strings.TrimSpace(out) != "" {
-		return fmt.Errorf("upgrade: %s has uncommitted changes to tracked files: commit or stash them, then run para upgrade again", o.Src)
-	}
-	if err := stream(ctx, w, o.Src, git, "pull", "--ff-only"); err != nil {
-		return fmt.Errorf("upgrade: git pull --ff-only: %w", err)
-	}
-	desc, err := runIn(ctx, o.Src, git, "describe", "--always", "--dirty", "--tags")
-	if err != nil {
-		return fmt.Errorf("upgrade: git describe: %w", err)
-	}
-	newVersion := strings.TrimSpace(desc)
-	if newVersion == o.Version {
-		_, err := fmt.Fprintf(w, "para is current: %s\n", o.Version)
+	if err != nil || newVersion == "" {
 		return err
-	}
-	if err := stream(ctx, w, o.Src, or(o.Make, "make"), "install"); err != nil {
-		return fmt.Errorf("upgrade: make install: %w", err)
 	}
 	if _, err := fmt.Fprintf(w, "\nupgraded para: %s -> %s\n", o.Version, newVersion); err != nil {
 		return err
 	}
-	bin := o.NewBin
 	if bin == "" {
-		if bin = mcpserver.ExecutablePath(); bin == "" {
-			return nil
-		}
+		return nil
 	}
 	notes, err := runIn(ctx, o.Src, bin, "changes", "--since", o.OldRelease)
 	if err != nil {
@@ -372,21 +366,144 @@ func runUpgrade(ctx context.Context, w io.Writer, o upgradeOptions) error {
 	} else if _, err := fmt.Fprintf(w, "\nchanges since %s:\n%s", o.OldRelease, notes); err != nil {
 		return err
 	}
-	for _, id := range o.VaultIDs {
-		args := []string{"--home", o.Home, "--vault", id, "vault", "upgrade"}
-		if _, err := fmt.Fprintf(w, "\nvault %s:\n", id); err != nil {
+	for _, s := range o.Skipped {
+		if _, err := fmt.Fprintf(w, "\nskipped %s\n", s); err != nil {
 			return err
 		}
-		if err := stream(ctx, w, o.Src, bin, append(args, "--file")...); err != nil {
-			_, _ = fmt.Fprintf(w, "could not file the judgement steps: %v\n", err)
+	}
+	for _, id := range o.VaultIDs {
+		if err := vaultSteps(ctx, w, o, bin, id); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func printGoInstall(w io.Writer) error {
-	_, err := fmt.Fprintf(w, "This para was not built from a git checkout. Run:\n  %s\nThat build has no version stamp. This repo is private: go install needs GOPRIVATE set and git access to it; otherwise use a checkout.\nThen restart the service (para service restart) and any MCP server.\n", goInstallLine)
-	return err
+func isCheckout(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	return err == nil
+}
+
+// upgradeFromCheckout pulls and installs the checkout. An empty version means
+// para is current.
+func upgradeFromCheckout(ctx context.Context, w io.Writer, o upgradeOptions) (version, bin string, err error) {
+	git := or(o.Git, "git")
+	out, err := runIn(ctx, o.Src, git, "status", "--porcelain", "--untracked-files=no")
+	if err != nil {
+		return "", "", fmt.Errorf("upgrade: git status: %w", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		return "", "", fmt.Errorf("upgrade: %s has uncommitted changes to tracked files: commit or stash them, then run para upgrade again", o.Src)
+	}
+	if err := stream(ctx, w, o.Src, git, "pull", "--ff-only"); err != nil {
+		return "", "", fmt.Errorf("upgrade: git pull --ff-only: %w", err)
+	}
+	desc, err := runIn(ctx, o.Src, git, "describe", "--always", "--dirty", "--tags")
+	if err != nil {
+		return "", "", fmt.Errorf("upgrade: git describe: %w", err)
+	}
+	version = strings.TrimSpace(desc)
+	if version == o.Version {
+		_, err := fmt.Fprintf(w, "para is current: %s\n", o.Version)
+		return "", "", err
+	}
+	if err := stream(ctx, w, o.Src, or(o.Make, "make"), "install"); err != nil {
+		return "", "", fmt.Errorf("upgrade: make install: %w", err)
+	}
+	bin = o.NewBin
+	if bin == "" {
+		bin = mcpserver.ExecutablePath()
+	}
+	return version, bin, nil
+}
+
+// upgradeFromRelease installs the newest release over o.Updater.Exe after
+// verifying its signed manifest, then restarts the service when one runs. A
+// build that is not a release version (a checkout's git describe) counts as
+// the release of its newest notes. An empty version means para is current.
+func upgradeFromRelease(ctx context.Context, w io.Writer, o upgradeOptions) (version, bin string, err error) {
+	u := o.Updater
+	u.Product, u.Force = "para", o.Force
+	u.Current = o.Version
+	if _, err := update.ParseVersion(u.Current); err != nil {
+		u.Current = "v" + or(o.OldRelease, "0.0.0")
+	}
+	if _, err := fmt.Fprintf(w, "checking %s\n", u.ManifestURL); err != nil {
+		return "", "", err
+	}
+	res, err := u.Run(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("upgrade: release: %w", err)
+	}
+	if !res.Installed {
+		_, err := fmt.Fprintf(w, "para is current: %s (newest release %s)\n", o.Version, res.To)
+		return "", "", err
+	}
+	if _, err := fmt.Fprintf(w, "installed para %s at %s (signature and sha256 checked)\n", res.To, u.Exe); err != nil {
+		return "", "", err
+	}
+	if res.Summary != "" {
+		_, _ = fmt.Fprintf(w, "%s\n", res.Summary)
+	}
+	if _, err := runIn(ctx, "", u.Exe, "--home", o.Home, "service", "status"); err == nil {
+		if err := stream(ctx, w, "", u.Exe, "--home", o.Home, "service", "restart"); err != nil {
+			_, _ = fmt.Fprintf(w, "could not restart the para service: %v\n", err)
+		} else {
+			_, _ = fmt.Fprintln(w, "restarted the para service")
+		}
+	}
+	return res.To, u.Exe, nil
+}
+
+// vaultSteps brings one vault to the new format: the automated steps (a dry
+// run first, then a run when asked, or with --yes), then the judgement steps
+// queued as agent work.
+func vaultSteps(ctx context.Context, w io.Writer, o upgradeOptions, bin, id string) error {
+	base := []string{"--home", o.Home, "--vault", id, "vault", "upgrade"}
+	if _, err := fmt.Fprintf(w, "\nvault %s:\n", id); err != nil {
+		return err
+	}
+	if !o.NoVaultSteps && autoPending(ctx, w, o.Src, bin, base) {
+		if err := stream(ctx, w, o.Src, bin, append(base, "--dry-run")...); err != nil {
+			_, _ = fmt.Fprintf(w, "the dry run failed, so no step runs: %v\n", err)
+		} else {
+			cmd := "para --vault " + id + " vault upgrade"
+			switch {
+			case o.Yes || (o.Ask != nil && o.Ask("run the automated steps above on vault "+id+"?")):
+				if err := stream(ctx, w, o.Src, bin, base...); err != nil {
+					_, _ = fmt.Fprintf(w, "the automated steps failed: %v\n", err)
+				}
+			case o.Ask != nil:
+				_, _ = fmt.Fprintf(w, "not run; later: %s\n", cmd)
+			default:
+				_, _ = fmt.Fprintf(w, "no terminal to ask on, so no step ran: run %s (or para upgrade --yes)\n", cmd)
+			}
+		}
+	}
+	if err := stream(ctx, w, o.Src, bin, append(base, "--file")...); err != nil {
+		_, _ = fmt.Fprintf(w, "could not file the judgement steps: %v\n", err)
+	}
+	return nil
+}
+
+// autoPending reports whether the vault has an automated step pending, by
+// the new binary's vault upgrade status.
+func autoPending(ctx context.Context, w io.Writer, dir, bin string, base []string) bool {
+	out, err := runIn(ctx, dir, bin, append(base, "status", "--json")...)
+	var st upgrade.Status
+	if err == nil {
+		err = json.Unmarshal([]byte(out), &st)
+	}
+	if err != nil {
+		_, _ = fmt.Fprintf(w, "could not read the vault's upgrade status: %v\n", err)
+		return false
+	}
+	for _, p := range st.Pending {
+		if p.Auto {
+			return true
+		}
+	}
+	return false
 }
 
 func or(a, b string) string {
@@ -415,19 +532,51 @@ func stream(ctx context.Context, w io.Writer, dir, name string, args ...string) 
 	return c.Run()
 }
 
+// The release source; tests replace them with a test server and a test key.
+var (
+	upgradeManifestURL = release.ManifestURL
+	upgradeKeys        = func() ([]update.PublicKey, error) { return update.ParseKeys(release.PublicKey) }
+	upgradeFetcher     = &update.Fetcher{}
+)
+
+// upgradeTarget is the binary a release replaces: this one, or
+// ~/.local/bin/para when this one cannot be found.
+func upgradeTarget() string {
+	if p := mcpserver.ExecutablePath(); p != "" {
+		if r, err := filepath.EvalSymlinks(p); err == nil {
+			return r
+		}
+		return p
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "bin", "para")
+}
+
 func newUpgradeCmd(l *loader) *cobra.Command {
-	var src string
+	var (
+		src string
+		o   upgradeOptions
+	)
 	cmd := &cobra.Command{
-		Use:   "upgrade [--src <checkout>]",
-		Short: "Pull and install the newest para from a git checkout, and show what changed",
+		Use:   "upgrade [--src <checkout>] [--release] [--force] [--yes] [--no-vault-steps]",
+		Short: "Install the newest para (from a git checkout or a signed release), show what changed, and upgrade each vault",
 		Long: `From a git checkout (the one this binary was built from, or --src): git pull
 --ff-only, then make install, which also restarts the para service. It refuses
 when tracked files have uncommitted changes, and it never commits or pushes.
-Without a checkout it prints the go install line to run.
 
-After the install it prints the changes between the old and new version, and
-queues each vault's pending judgement steps as agent work. Run para vault
-upgrade --dry-run yourself for the automated steps.`,
+Without a checkout, or with --release: the newest release from
+github.com/IodeSystems/para. Its manifest's minisign signature is checked with
+the key built into para, and the download's size and sha256 with the manifest;
+then the binary replaces this one (a temp file beside it, renamed over it), and
+the para service is restarted when it runs. An older release than this para is
+refused (--force installs it), and so is a manifest older than one seen before.
+
+After the install it prints the changes between the old and new version. Then,
+for each vault this machine holds (machine.domains): when an automated vault
+step is pending, it prints the dry run and asks to run it (--yes runs it
+without asking; with no terminal and no --yes it prints the command instead;
+--no-vault-steps skips this), and it queues the pending judgement steps as
+agent work.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := l.load(); err != nil {
@@ -436,15 +585,48 @@ upgrade --dry-run yourself for the automated steps.`,
 			if src == "" {
 				src = l.srcDir
 			}
-			o := upgradeOptions{Src: src, Version: l.version, OldRelease: changes.Latest(), Home: l.install.Home}
+			o.Src, o.Version, o.OldRelease, o.Home = src, l.version, changes.Latest(), l.install.Home
 			if vs, err := l.install.List(); err == nil {
 				for _, v := range vs {
+					if err := l.install.CheckVault(v.ID, v.Path); err != nil {
+						o.Skipped = append(o.Skipped, v.ID+": "+err.Error())
+						continue
+					}
 					o.VaultIDs = append(o.VaultIDs, v.ID)
 				}
+			}
+			keys, err := upgradeKeys()
+			if err != nil {
+				return fmt.Errorf("upgrade: the release key: %w", err)
+			}
+			o.Updater = update.Upgrader{
+				ManifestURL: upgradeManifestURL, Keys: keys, Exe: upgradeTarget(),
+				StatePath: update.StateFile(l.install.Home), Platform: update.Platform(runtime.GOOS, runtime.GOARCH),
+				Fetch: upgradeFetcher,
+			}
+			if in := cmd.InOrStdin(); l.stdinIsTTY(in) {
+				o.Ask = askYesNo(cmd.OutOrStdout(), bufio.NewReader(in))
 			}
 			return runUpgrade(cmd.Context(), cmd.OutOrStdout(), o)
 		},
 	}
-	cmd.Flags().StringVar(&src, "src", "", "the git checkout to upgrade from; default the one this binary was built from")
+	fs := cmd.Flags()
+	fs.StringVar(&src, "src", "", "the git checkout to upgrade from; default the one this binary was built from")
+	fs.BoolVar(&o.Release, "release", false, "install the newest signed release, even when this para was built from a checkout")
+	fs.BoolVar(&o.Force, "force", false, "install the newest release even when it is not newer than this para")
+	fs.BoolVar(&o.Yes, "yes", false, "run each vault's pending automated steps without asking (the dry run still prints first)")
+	fs.BoolVar(&o.NoVaultSteps, "no-vault-steps", false, "run no automated vault step; judgement steps are still queued")
 	return cmd
+}
+
+// askYesNo asks q on w and reads y or yes from r.
+func askYesNo(w io.Writer, r *bufio.Reader) func(string) bool {
+	return func(q string) bool {
+		if _, err := fmt.Fprintf(w, "%s [y/N] ", q); err != nil {
+			return false
+		}
+		line, _ := r.ReadString('\n')
+		a := strings.ToLower(strings.TrimSpace(line))
+		return a == "y" || a == "yes"
+	}
 }
