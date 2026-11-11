@@ -160,6 +160,24 @@ func TestEditRoutes(t *testing.T) {
 	}
 }
 
+// An agent marks an incoming message read with edit: the route the edit
+// tool and ops_describe name now that io_edit is internal.
+func TestEditMarksMessageRead(t *testing.T) {
+	v := newVerbVault(t)
+	io := v.io(t, model.IOIn, "Quota approved.")
+	got, err := Edit.Invoke(writeCtx(t), v.agent, json.RawMessage(`{"id":"`+io+`","fields":{"state":"read"}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op := got.(VerbOutput).Op; op != "io_edit" {
+		t.Fatalf("ran %s, want io_edit", op)
+	}
+	doc, _ := v.agent.Store.Get(t.Context(), io)
+	if st := doc.Meta.(*model.IO).State; st != model.IORead {
+		t.Fatalf("state %q, want read", st)
+	}
+}
+
 // TestEditParity: edit and task_edit leave the same document and receipts.
 func TestEditParity(t *testing.T) {
 	va, vb := newVerbVault(t), newVerbVault(t)
@@ -228,6 +246,8 @@ func TestLinkRels(t *testing.T) {
 	steps := []struct{ in, op string }{
 		{`{"from":"` + b + `","to":"` + a + `"}`, "task_depends_add"},
 		{`{"from":"` + b + `","to":"` + a + `","remove":true}`, "task_depends_remove"},
+		{`{"from":"` + b + `","to":"` + a + `","rel":"depends_on"}`, "task_depends_add"},
+		{`{"from":"` + b + `","to":"` + a + `","rel":"depends_on","remove":true}`, "task_depends_remove"},
 		{`{"from":"` + q + `","to":"` + a + `","rel":"depends_on"}`, "question_depends_add"},
 		{`{"from":"` + q + `","to":"` + a + `","remove":true}`, "question_depends_remove"},
 		{`{"from":"` + ask + `","to":"` + a + `"}`, "depends_set"},

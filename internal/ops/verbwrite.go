@@ -225,7 +225,7 @@ func editOps() map[model.Type]Entry {
 }
 
 // Edit changes any item by its type's edit op, or doc_edit.
-var Edit = defineVerb("edit", "Edit any item: title, body, fields (the type's edit op, else doc_edit), or notes with notes_hash (notes_edit)",
+var Edit = defineVerb("edit", "Edit any item: title, body, fields (type's edit op, else doc_edit; message read: state read), or notes with notes_hash",
 	RiskReview, editRoute)
 
 func editRoute(ctx context.Context, d Deps, in EditInput) (verbRoute, error) {

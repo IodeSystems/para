@@ -24,9 +24,11 @@ var internalTable = map[string]string{
 	"note_show": "show", "policy_show": "show", "org_person_show": "show", "org_team_show": "show",
 	"org_role_show": "show", "org_domain_show": "show", "meeting_show": "show",
 	// edit routes to the edit op of the item's type. io_edit stays a web
-	// route: the app's Edit of an io item.
-	"task_edit": "edit", "project_edit": "edit", "question_edit": "edit", "note_edit": "edit",
-	"org_person_edit": "edit", "io_edit": "edit",
+	// route: the app's Edit of an io item. Its text names the words an agent
+	// searches with (ops_describe matches replacement texts too).
+	"task_edit": "edit {id, fields}", "project_edit": "edit {id, fields}", "question_edit": "edit {id, fields}",
+	"note_edit": "edit {id, fields}", "org_person_edit": "edit {id, fields}",
+	"io_edit":  "edit {id, fields: {state: read}} marks an incoming message read (seen, reviewed), state unread undoes it; a draft takes fields text, subject, to",
 	"area_add": "add {type: area}",
 	// close routes to the op of the item's type and outcome.
 	"task_done": "close", "task_resolve": "close {id, outcome}", "meeting_hold": "close", "meeting_cancel": "close {id, outcome: dropped}",

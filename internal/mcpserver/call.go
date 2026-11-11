@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -247,15 +248,121 @@ func (s *Server) resolve(name string) (ops.Entry, error) {
 			continue
 		}
 		if e.PersonOnly() {
+			for _, h := range s.internalHits(name, queryWords(name), 1) {
+				if h.all {
+					return nil, fmt.Errorf("%s: %w; an agent can: %s", name, ops.ErrPersonOnly, h.line)
+				}
+			}
 			return nil, fmt.Errorf("%s: %w", name, ops.ErrPersonOnly)
 		}
 		return nil, fmt.Errorf("%s changes documents, and this server is read-only", name)
 	}
 	msg := "unknown op " + name
-	if c := s.closest(name, 3); len(c) > 0 {
+	c := s.closest(name, 3)
+	for _, h := range s.internalHits(name, queryWords(name), 2) {
+		if h.all {
+			c = append(c, h.line)
+		}
+	}
+	if len(c) > 0 {
 		msg += "; closest: " + strings.Join(c, ", ")
 	}
 	return nil, errors.New(msg + " (ops_describe finds ops)")
+}
+
+// queryWords splits a query or an op name into its words.
+func queryWords(q string) []string {
+	return strings.FieldsFunc(strings.ToLower(q), func(r rune) bool { return r == ' ' || r == '_' || r == ',' })
+}
+
+// matchScore scores an op for a search: the exact name, then each word (by
+// its stem) that starts a part of the name, or is inside it (io in
+// question_add counts less than in io_add), or is in the text, and every
+// word found.
+func matchScore(name, text, q string, words []string) (score int, all bool) {
+	if name == q {
+		score += 100
+	}
+	all = len(words) > 0
+	for _, w := range words {
+		w = stem(w)
+		in := false
+		switch {
+		case strings.HasPrefix(name, w) || strings.Contains(name, "_"+w):
+			score += 10
+			in = true
+		case strings.Contains(name, w):
+			score += 3
+			in = true
+		}
+		if startsWord(text, w) {
+			score++
+			in = true
+		}
+		all = all && in
+	}
+	if all && len(words) > 1 {
+		score += 5
+	}
+	return score, all
+}
+
+// startsWord reports whether w starts a word of text: read finds "read" and
+// "reads", not "thread" or "already".
+func startsWord(text, w string) bool {
+	for i := 0; ; {
+		j := strings.Index(text[i:], w)
+		if j < 0 {
+			return false
+		}
+		if i+j == 0 || !unicode.IsLetter(rune(text[i+j-1])) {
+			return true
+		}
+		i += j + 1
+	}
+}
+
+// internalHit is an internal op that matches a search, as the line that
+// says what to call instead.
+type internalHit struct {
+	line  string
+	score int
+	all   bool
+}
+
+// internalHits are the internal ops that match q, best first, at most n:
+// an agent finds what replaced the op it looks for. The search reads the
+// op's name, its text, and its replacement; one line per replacement, and
+// only a replacement this server runs.
+func (s *Server) internalHits(q string, words []string, n int) []internalHit {
+	var hits []internalHit
+	seen := map[string]int{}
+	for _, e := range ops.Internal() {
+		_, use, _ := ops.RemovedIn(e.Name())
+		head, _, _ := strings.Cut(use, " ")
+		if _, ok := s.ops[head]; !ok {
+			continue
+		}
+		text := strings.ToLower(ops.LongDescription(e) + " " + use)
+		score, all := matchScore(e.Name(), text, q, words)
+		if score == 0 {
+			continue
+		}
+		h := internalHit{line: e.Name() + " → " + use, score: score, all: all}
+		if i, ok := seen[use]; ok {
+			if score > hits[i].score {
+				hits[i] = h
+			}
+			continue
+		}
+		seen[use] = len(hits)
+		hits = append(hits, h)
+	}
+	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
+	if len(hits) > n {
+		hits = hits[:n]
+	}
+	return hits
 }
 
 // closest lists up to n op names nearest to name: names that contain it or
@@ -331,31 +438,20 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if q == "" {
 		return mcp.NewToolResultText("ops (ops_describe {op} for one, {query} to search): " + strings.Join(names, ", ")), nil
 	}
-	words := strings.FieldsFunc(q, func(r rune) bool { return r == ' ' || r == '_' || r == ',' })
+	words := queryWords(q)
 	type hit struct {
-		name  string
+		name  string // a listed op, or empty for an internal one
+		line  string // the internal op's line
 		score int
 	}
 	var hits []hit
 	for _, n := range names {
-		e := s.ops[n]
-		desc := strings.ToLower(ops.LongDescription(e))
-		score := 0
-		if n == q {
-			score += 100
+		if score, _ := matchScore(n, strings.ToLower(ops.LongDescription(s.ops[n])), q, words); score > 0 {
+			hits = append(hits, hit{name: n, score: score})
 		}
-		for _, w := range words {
-			w = stem(w)
-			if strings.Contains(n, w) {
-				score += 10
-			}
-			if strings.Contains(desc, w) {
-				score++
-			}
-		}
-		if score > 0 {
-			hits = append(hits, hit{n, score})
-		}
+	}
+	for _, h := range s.internalHits(q, words, describeMax) {
+		hits = append(hits, hit{line: h.line + "\n", score: h.score})
 	}
 	sort.SliceStable(hits, func(i, j int) bool { return hits[i].score > hits[j].score })
 	people := personOps(words)
@@ -371,6 +467,10 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		if i == describeMax {
 			fmt.Fprintf(&b, "(%d more: narrow the query)\n", len(hits)-describeMax)
 			break
+		}
+		if h.name == "" {
+			b.WriteString(h.line)
+			continue
 		}
 		b.WriteString(describe(s.ops[h.name], false))
 	}

@@ -292,6 +292,35 @@ func TestDescribeWriteFieldsOnce(t *testing.T) {
 	}
 }
 
+// An internal op is found by search and by a near name, with what to call
+// instead: io_edit is how an agent marks a message read.
+func TestDescribeFindsInternal(t *testing.T) {
+	s, _ := newVault(t)
+	c := connectWith(t, ops.Deps{Store: s}, Options{Tools: ToolsCore})
+	want := "io_edit → edit {id, fields: {state: read}}"
+	for _, q := range []string{"mark message read", "io read", "io_edit", "io mark reviewed read", "io state mark read"} {
+		res, err := c.CallTool(t.Context(), mcp.CallToolRequest{Params: mcp.CallToolParams{Name: opsDescribeTool, Arguments: map[string]any{"query": q}}})
+		if err != nil || res.IsError {
+			t.Fatalf("ops_describe %q: %v %+v", q, err, res)
+		}
+		if txt := res.Content[0].(mcp.TextContent).Text; !strings.Contains(txt, want) {
+			t.Errorf("query %q missed io_edit:\n%s", q, txt)
+		}
+	}
+	for _, name := range []string{"io_read", "io_mark", "io_seen", "io_state", "io_mark_read"} {
+		if out, isErr := opRun(t, c, name, `{}`); !isErr || !strings.Contains(out, want) {
+			t.Errorf("op_run %s: %v %q", name, isErr, out)
+		}
+	}
+	if out, isErr := opRun(t, c, "io_review", `{}`); !isErr || !strings.Contains(out, "; an agent can: "+want) {
+		t.Errorf("op_run io_review: %v %q", isErr, out)
+	}
+	ro := connectWith(t, ops.Deps{Store: s}, Options{Tools: ToolsCore, ReadOnly: true})
+	if out, _ := opRun(t, ro, "io_read", `{}`); strings.Contains(out, "io_edit") {
+		t.Errorf("read-only server names a write: %q", out)
+	}
+}
+
 func TestOpRemoved(t *testing.T) {
 	defer ops.SetRemovedForTest("gone_op", "close")()
 	s, _ := newVault(t)
