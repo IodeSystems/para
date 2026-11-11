@@ -16,6 +16,8 @@ func FolderOf(t Type) Folder {
 	switch t {
 	case TypeProject, TypeTask:
 		return FolderProjects
+	case TypeGoal:
+		return FolderGoals
 	case TypeArea:
 		return FolderAreas
 	case TypeNote:

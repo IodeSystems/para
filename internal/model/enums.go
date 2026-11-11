@@ -37,6 +37,9 @@ const (
 	TypeMeeting         Type = "meeting"
 	TypeObligation      Type = "obligation"
 	TypeThread          Type = "thread" // a thread key pinned by the owner (pin); items pin on their own frontmatter
+	// TypeGoal is a finite outcome with a done condition. Until upgrade step
+	// goals (format 11), a goal is a file of type project (TypeProject).
+	TypeGoal Type = "goal"
 )
 
 // Types lists every Type, in the order of paramd.Types.
@@ -45,6 +48,7 @@ var Types = []Type{
 	TypePolicyException, TypePerson, TypeTeam, TypeRole, TypeDomain, TypeConvention,
 	TypeJournal, TypeInbox, TypeIO, TypeTrackedDoc, TypeSource, TypeGroup, TypeInteraction, TypeRequest,
 	TypeArea, TypeNote, TypeIncident, TypeProposal, TypeQuestion, TypeMeeting, TypeReceipt, TypeObligation, TypeThread,
+	TypeGoal,
 }
 
 // Folder is a top-level vault folder that holds documents.
@@ -74,6 +78,7 @@ const (
 	FolderReceipts     Folder = "receipts"
 	FolderObligations  Folder = "obligations"
 	FolderThreads      Folder = "threads"
+	FolderGoals        Folder = "goals" // goals and their tasks, from upgrade step goals (format 11)
 )
 
 // Folders lists every document folder.
@@ -81,7 +86,7 @@ var Folders = []Folder{
 	FolderInbox, FolderIO, FolderTracked, FolderSources, FolderProjects, FolderAreas, FolderResources, FolderArchive, FolderRFX,
 	FolderConstraints, FolderPolicies, FolderConventions, FolderOrg, FolderJournal,
 	FolderInteractions, FolderRequests, FolderIncidents, FolderProposals, FolderQuestions, FolderMeetings,
-	FolderReceipts, FolderObligations, FolderThreads,
+	FolderReceipts, FolderObligations, FolderThreads, FolderGoals,
 }
 
 // Valid reports whether f is a document folder.
@@ -106,6 +111,40 @@ const (
 
 // ProjectStatuses lists every ProjectStatus.
 var ProjectStatuses = []ProjectStatus{ProjectActive, ProjectPaused, ProjectDone, ProjectDropped}
+
+// GoalStatus is goal.status. A parked goal is in its project's icebox: it
+// waits on the condition in resume_when.
+type GoalStatus string
+
+const (
+	GoalActive  GoalStatus = "active"
+	GoalPaused  GoalStatus = "paused"
+	GoalParked  GoalStatus = "parked"
+	GoalDone    GoalStatus = "done"
+	GoalDropped GoalStatus = "dropped"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (GoalStatus) Enum() []string { return enumStrings(GoalStatuses) }
+
+// GoalStatuses lists every GoalStatus.
+var GoalStatuses = []GoalStatus{GoalActive, GoalPaused, GoalParked, GoalDone, GoalDropped}
+
+// OngoingStatus is the status of an OngoingProject. Active projects are the
+// Projects view; a retired one is kept for its history.
+type OngoingStatus string
+
+const (
+	OngoingActive  OngoingStatus = "active"
+	OngoingPaused  OngoingStatus = "paused"
+	OngoingRetired OngoingStatus = "retired"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (OngoingStatus) Enum() []string { return enumStrings(OngoingStatuses) }
+
+// OngoingStatuses lists every OngoingStatus.
+var OngoingStatuses = []OngoingStatus{OngoingActive, OngoingPaused, OngoingRetired}
 
 // PointerKind is pointers[].kind: what a pointer to outside material is.
 type PointerKind string

@@ -47,6 +47,7 @@ type field struct {
 
 var (
 	projectStatus      = []string{"active", "paused", "done", "dropped"}
+	goalStatus         = []string{"active", "paused", "parked", "done", "dropped"}
 	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
 	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded", "declined", "failed", "rerouted"}
 	declinedBy         = []string{"owner", "other"}
@@ -107,6 +108,7 @@ var Types = []string{
 	"project", "task", "rfx", "constraint", "policy", "transcript",
 	"policy_exception", "person", "team", "role", "domain", "convention", "journal", "inbox", "io", "tracked_doc", "source",
 	"group", "interaction", "request", "area", "note", "incident", "proposal", "question", "meeting", "receipt", "obligation", "thread",
+	"goal",
 }
 
 // commonFields apply to every type.
@@ -121,6 +123,7 @@ var commonFields = []field{
 	{Name: "publish", Kind: kList},      // publish set names; the owner's (publish_set)
 	{Name: "threads", Kind: kThreads},   // extra threads the document belongs to (thread.go)
 	{Name: "pinned", Kind: kTimestamp},  // the owner watches this item (pin)
+	{Name: "former_ids", Kind: kList},   // ids the document had before an id change; they resolve here
 }
 
 // typeFields are the per-type fields, on top of commonFields.
@@ -146,6 +149,30 @@ var typeFields = map[string][]field{
 		{Name: "rank", Kind: kCount},
 		{Name: "validation", Kind: kEnum, Enum: validationStates},
 	},
+	// goal is what project was below format 11 (upgrade step goals).
+	"goal": {
+		{Name: "status", Kind: kEnum, Enum: goalStatus, Required: true},
+		{Name: "owner", Kind: kString, Required: true},
+		{Name: "project", Kind: kLink},      // the ongoing project the goal belongs to
+		{Name: "area", Kind: kLink},         // a facet
+		{Name: "concepts", Kind: kLinkList}, // areas of kind concept (vault check)
+		{Name: "done_when", Kind: kString},
+		{Name: "resume_when", Kind: kString}, // what a parked goal waits on
+		{Name: "links", Kind: kPointers},
+		{Name: "why", Kind: kMap},
+		{Name: "confidence", Kind: kMap},
+		{Name: "alternatives", Kind: kMaps},
+		{Name: "unknowns", Kind: kMaps},
+		{Name: "signals", Kind: kMaps},
+		{Name: "risks", Kind: kRisks},
+		{Name: "assumptions", Kind: kAssumptions},
+		{Name: "pivot", Kind: kMap},
+		{Name: "extensions", Kind: kList},
+		{Name: "ecosystem", Kind: kMap},
+		{Name: "rank", Kind: kCount},
+		{Name: "validation", Kind: kEnum, Enum: validationStates},
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // project: the type before upgrade step goals
+	},
 	"area": {
 		{Name: "status", Kind: kEnum, Enum: areaStatus, Required: true},
 		{Name: "kind", Kind: kEnum, Enum: areaKinds}, // missing reads as project
@@ -170,10 +197,12 @@ var typeFields = map[string][]field{
 	"note": {
 		{Name: "area", Kind: kLink},
 		{Name: "project", Kind: kLink},
+		{Name: "goal", Kind: kLink},
 	},
 	"task": {
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},
-		{Name: "project", Kind: kLink}, // project or area: at least one (lint)
+		{Name: "project", Kind: kLink}, // project or area: at least one (lint); below format 11 a goal
+		{Name: "goal", Kind: kLink},
 		{Name: "area", Kind: kLink},
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, quarterly, yearly, every <n> days; another value is a warning
@@ -220,6 +249,7 @@ var typeFields = map[string][]field{
 		{Name: "route", Kind: kString, Required: true},
 		{Name: "self_serve_check", Kind: kString, Required: true},
 		{Name: "project", Kind: kLink},
+		{Name: "goal", Kind: kLink},
 		{Name: "targets", Kind: kTargets},
 		{Name: "question", Kind: kLink},
 		{Name: "effort", Kind: kEnum, Enum: efforts},
@@ -265,6 +295,7 @@ var typeFields = map[string][]field{
 		{Name: "owed_by", Kind: kOwers},   // empty: the owner owes it; agent or agent:<name>: an agent
 		{Name: "produce", Kind: kProduce}, // owed by an agent: what it produces each time
 		{Name: "project", Kind: kLink},
+		{Name: "goal", Kind: kLink},
 		{Name: "area", Kind: kLink},
 		{Name: "parent", Kind: kLink}, // the task or obligation it came from (vault check)
 		{Name: "due", Kind: kDate},
@@ -475,6 +506,7 @@ var typeFields = map[string][]field{
 		{Name: "watchers", Kind: kLinkList},
 		{Name: "area", Kind: kLink},
 		{Name: "project", Kind: kLink},
+		{Name: "goal", Kind: kLink},
 		{Name: "route", Kind: kString},
 		{Name: "latest", Kind: kCount, Required: true},
 		{Name: "last_seen", Kind: kCount},

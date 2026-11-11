@@ -61,6 +61,20 @@ type Common struct {
 	// Pinned is the RFC 3339 time the owner pinned the item to watch it
 	// (pin). Only the owner sets it. Empty is not pinned.
 	Pinned string `yaml:"pinned,omitempty" json:"pinned,omitempty"`
+	// FormerIDs are the ids the document had before an id change (a rename
+	// or upgrade step goals): a link, event, or receipt that names one
+	// resolves to this document, and no other document may take one.
+	FormerIDs []string `yaml:"former_ids,omitempty" json:"former_ids,omitempty"`
+}
+
+// WasID reports whether id is one of the document's former ids.
+func (c *Common) WasID(id string) bool {
+	for _, f := range c.FormerIDs {
+		if f == id {
+			return true
+		}
+	}
+	return false
 }
 
 // ImportedFrom is the source file of an imported document: the path as the
@@ -111,7 +125,9 @@ type Pointer struct {
 	Target string      `yaml:"target" json:"target"`
 }
 
-// Project is type: project.
+// Project is type: project below format 11: the legacy goal. Upgrade step
+// goals retypes each one to Goal; at the flip (plan/paralog.md, N4) type
+// project decodes as OngoingProject, which then takes this name.
 type Project struct {
 	Common `yaml:",inline"`
 	Status ProjectStatus `yaml:"status" json:"status"`
@@ -138,6 +154,60 @@ type Project struct {
 	// last checked (grill.go).
 	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
 }
+
+// Goal is type: goal, a finite outcome with a done condition: what a file of
+// type project was before upgrade step goals (format 11). Project links the
+// ongoing project the goal belongs to; Area is a facet, not its home.
+type Goal struct {
+	Common  `yaml:",inline"`
+	Status  GoalStatus `yaml:"status" json:"status"`
+	Owner   string     `yaml:"owner" json:"owner"`
+	Project Link       `yaml:"project,omitempty" json:"project,omitempty"`
+	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
+	// Concepts link the concept areas the goal draws on; optional.
+	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
+	// DoneWhen says how we know the goal is reached.
+	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
+	// Due is the date the goal is due, optional; work that leads to the goal
+	// inherits it.
+	Due Date `yaml:"due,omitempty" json:"due,omitempty"`
+	// ResumeWhen is what a parked goal waits on: a condition or a date. A
+	// parked goal needs one (health).
+	ResumeWhen string `yaml:"resume_when,omitempty" json:"resume_when,omitempty"`
+	Deferral   `yaml:",inline"`
+	Links      []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	GoalBrief  `yaml:",inline"`
+	// Assumptions are what the goal takes as true, each with when it was
+	// last checked (grill.go).
+	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
+	// FoldedFrom is the type the goal was before upgrade step goals.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+}
+
+// OngoingProject is the ongoing project of format 11: a tracked body of work
+// with a state line, the goals in flight, and an icebox of parked goals. It
+// has no done condition. Until the flip (plan/paralog.md, N4) a file of type
+// project decodes as the legacy goal (Project), so this type is not decoded
+// yet; at the flip it takes the name Project.
+type OngoingProject struct {
+	Common `yaml:",inline"`
+	Status OngoingStatus `yaml:"status" json:"status"`
+	Owner  string        `yaml:"owner,omitempty" json:"owner,omitempty"`
+	// Area is a facet: information about working in an area. Optional.
+	Area     Link   `yaml:"area,omitempty" json:"area,omitempty"`
+	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
+	// StateLine is one line on where the project stands; StateDate is the
+	// day it last changed, set by para when the line changes.
+	StateLine string    `yaml:"state_line,omitempty" json:"state_line,omitempty"`
+	StateDate Date      `yaml:"state_date,omitempty" json:"state_date,omitempty"`
+	Links     []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	// FoldedFrom is the type the project was before upgrade step
+	// projects-sort: area or goal.
+	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
+}
+
+// Active reports whether the project shows in the Projects view.
+func (p *OngoingProject) Active() bool { return p.Status == OngoingActive }
 
 // SomedayWord is the defer_until value for deferred with no date.
 const SomedayWord = "someday"
@@ -199,12 +269,14 @@ type Area struct {
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
 
-// Note is type: note, reference material kept in resources/. Area and Project
-// say what it is for; both are optional.
+// Note is type: note, reference material kept in resources/. Area, Goal, and
+// Project say what it is for; all are optional. Below format 11, project
+// links a goal (a file of type project).
 type Note struct {
 	Common  `yaml:",inline"`
 	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
 	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
 }
 
 // ThreadDoc is type: thread, the pin holder of a thread key that is not an
@@ -217,10 +289,14 @@ type ThreadDoc struct {
 
 // Task is type: task.
 type Task struct {
-	Common  `yaml:",inline"`
-	Status  TaskStatus `yaml:"status" json:"status"`
-	Project Link       `yaml:"project,omitempty" json:"project,omitempty"` // project or area, at least one
-	Area    Link       `yaml:"area,omitempty" json:"area,omitempty"`
+	Common `yaml:",inline"`
+	Status TaskStatus `yaml:"status" json:"status"`
+	// Project links the goal below format 11 (read until upgrade step goals
+	// moves it to Goal); a task reaches an ongoing project only through its
+	// goal. Goal or area, at least one.
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
+	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
 	// Due is the date the task is due. Recur is daily, weekly, monthly, quarterly, yearly, or
 	// every <n> days: marking the task done creates the next one (internal/recur).
 	// Previous links the task this one recurred from.
@@ -386,8 +462,10 @@ type Obligation struct {
 	Schedule Schedule    `yaml:"schedule" json:"schedule"`
 	OwedTo   []Link      `yaml:"owed_to,omitempty" json:"owed_to,omitempty"`
 	OwedBy   []Link      `yaml:"owed_by,omitempty" json:"owed_by,omitempty"`
-	Project  Link        `yaml:"project,omitempty" json:"project,omitempty"`
-	Area     Link        `yaml:"area,omitempty" json:"area,omitempty"`
+	// Project links an ongoing project from format 11, a goal below it.
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
+	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
 	// Parent links the task or obligation this one came from, as a task's
 	// parent does: a follow-up obligation of a meeting.
 	Parent Link   `yaml:"parent,omitempty" json:"parent,omitempty"`
@@ -467,7 +545,7 @@ func (o *Obligation) Open() bool { return o.State != StateClosed }
 // format. Open is todo; closed done (held) is done, any other outcome dropped.
 // The first of OwedBy is the assignee; a commitment's OwedTo is its with.
 func (o *Obligation) AsTask() *Task {
-	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Area: o.Area, Parent: o.Parent, Due: o.Due, Recur: o.Recur,
+	t := &Task{Common: o.Common, Kind: o.Kind, Project: o.Project, Goal: o.Goal, Area: o.Area, Parent: o.Parent, Due: o.Due, Recur: o.Recur,
 		Previous: o.Previous, Occasion: o.Occasion, DoneWhen: o.DoneWhen, DependsOn: o.DependsOn, OptionalAfter: o.OptionalAfter, Effort: o.Effort,
 		Deferral: o.Deferral, Status: TaskTodo}
 	t.Type = TypeTask
@@ -497,7 +575,9 @@ type RFX struct {
 	Status         RFXStatus    `yaml:"status" json:"status"`
 	Route          string       `yaml:"route" json:"route"`
 	SelfServeCheck string       `yaml:"self_serve_check" json:"self_serve_check"`
-	Project        Link         `yaml:"project,omitempty" json:"project,omitempty"`
+	// Project links an ongoing project from format 11, a goal below it.
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
 	// Targets are who is asked (direction out) or who asked (direction in),
 	// each by one medium.
 	Targets   []Target `yaml:"targets,omitempty" json:"targets,omitempty"`
@@ -601,7 +681,9 @@ type TrackedDoc struct {
 	Owner    Link      `yaml:"owner,omitempty" json:"owner,omitempty"`
 	Watchers []Link    `yaml:"watchers,omitempty" json:"watchers,omitempty"`
 	Area     Link      `yaml:"area,omitempty" json:"area,omitempty"`
-	Project  Link      `yaml:"project,omitempty" json:"project,omitempty"`
+	// Project links an ongoing project from format 11, a goal below it.
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
+	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
 	// Route is the domain an Ask made from a comment goes to; empty uses the
 	// system name.
 	Route    string `yaml:"route,omitempty" json:"route,omitempty"`
@@ -1196,8 +1278,10 @@ func (q *Question) AsKind() QuestionKind {
 func NewMeta(t Type) (Meta, bool) {
 	c := Common{Type: t}
 	switch t {
-	case TypeProject:
+	case TypeProject: // the legacy goal until the flip (OngoingProject)
 		return &Project{Common: c}, true
+	case TypeGoal:
+		return &Goal{Common: c}, true
 	case TypeTask:
 		return &Task{Common: c}, true
 	case TypeRFX:
