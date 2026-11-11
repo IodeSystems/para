@@ -582,7 +582,7 @@ func setupSignIn(l *loader, cmd *cobra.Command, f setupFlags, serverComing bool)
 	rec, up := server.ReadRecord(l.install.Home)
 	if f.dryRun && serverComing && !up {
 		_ = verdict(w, toneWarn, "sign-in: would run para login once the server is up")
-		would(w, "mint a login key per vault (vault:read, review:decide, 30 days) and open the browser")
+		would(w, "mint a login key per vault (vault:read, vault:write, rfx:draft, review:decide, 30 days) and open the browser")
 		return nil
 	}
 	if !up {
@@ -599,7 +599,7 @@ func setupSignIn(l *loader, cmd *cobra.Command, f setupFlags, serverComing bool)
 	}
 	if f.dryRun {
 		_ = verdict(w, toneWarn, "sign-in: would run para login")
-		would(w, "mint a login key per served vault (vault:read, review:decide, 30 days) and open the browser")
+		would(w, "mint a login key per served vault (vault:read, vault:write, rfx:draft, review:decide, 30 days) and open the browser")
 		return nil
 	}
 	if err := runLogin(l, cmd, "", f.print, false, keys.LoginTTL); err != nil {

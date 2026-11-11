@@ -237,3 +237,12 @@ func wantStatus(t *testing.T, w *httptest.ResponseRecorder, want int) {
 func chmod(p string, m fs.FileMode) error { return os.Chmod(p, m) }
 
 func removeFile(p string) error { return os.Remove(p) }
+
+// TestMain removes the template home that seededHome builds once per run.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if template != "" {
+		_ = os.RemoveAll(template)
+	}
+	os.Exit(code)
+}

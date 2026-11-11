@@ -69,7 +69,7 @@ func TestKeyCommands(t *testing.T) {
 		t.Errorf("url: %s", url)
 	}
 	for set, want := range map[string]string{
-		"web":   "vault:read,review:decide",
+		"web":   "vault:read,vault:write,rfx:draft,review:decide",
 		"agent": "vault:read,vault:write,rfx:draft,request:queue,request:run",
 		"admin": strings.Join(netguard.Scopes, ","),
 	} {

@@ -6,7 +6,9 @@ const press = (key: string, extra: Partial<Parameters<typeof actionFor>[0]> = {}
 
 describe('shortcuts', () => {
   it('digits switch tabs', () => {
-    for (const t of TABS) expect(press(t.key)).toEqual({ kind: 'tab', to: t.to })
+    for (const t of TABS.filter((x) => x.key !== ''))
+      expect(press(t.key)).toEqual({ kind: 'tab', to: t.to })
+    expect(press('')).toBeNull()
     expect(press('-')).toBeNull()
     expect(press('10')).toBeNull()
   })
@@ -14,11 +16,14 @@ describe('shortcuts', () => {
     expect(press('0')).toEqual({ kind: 'tab', to: '/obligations' })
     expect(TABS.some((t) => t.to === '/meetings')).toBe(false)
   })
-  it('Input and Output are screens; /io is not', () => {
-    const to = EXTRA_SCREENS.map((t) => t.to)
-    expect(to).toContain('/input')
-    expect(to).toContain('/output')
-    expect(to).not.toContain('/io')
+  it('Input and Output are top tabs with no digit; Pinned and Next stay; /io is not a screen', () => {
+    const tabs = TABS.map((t) => t.to)
+    for (const to of ['/pinned', '/next', '/input', '/output']) expect(tabs).toContain(to)
+    expect(TABS.find((t) => t.to === '/input')?.key).toBe('')
+    expect(TABS.find((t) => t.to === '/output')?.key).toBe('')
+    const all = [...tabs, ...EXTRA_SCREENS.map((t) => t.to)]
+    expect(all).not.toContain('/io')
+    expect(new Set(all).size).toBe(all.length)
   })
   it('t opens Capture, but not while typing', () => {
     expect(press('t')).toEqual({ kind: 'tell' })

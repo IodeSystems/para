@@ -81,6 +81,11 @@ export async function createSession(token: string): Promise<SessionView> {
     method: 'POST',
     headers: { Authorization: `Bearer ${token.trim()}`, Accept: 'application/json' },
   })
+  if (res.status === 403)
+    throw new SessionError(
+      403,
+      'This key cannot be used from this address. The admin token works from the machine that runs para only; from another device use a login key (para login, or para key create --scope web).',
+    )
   if (!res.ok) throw new SessionError(res.status, await detail(res))
   return (await res.json()) as SessionView
 }

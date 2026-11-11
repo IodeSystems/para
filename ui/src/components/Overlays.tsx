@@ -46,7 +46,7 @@ function HelpDialog() {
         {!touch && (
           <>
             <Stack component="dl" spacing={0.5} sx={{ m: 0 }}>
-              {TABS.map((t) => (
+              {TABS.filter((t) => t.key !== '').map((t) => (
                 <Row key={t.key} k={t.key} v={t.label} />
               ))}
               <Row k="/" v="Search or go to (also Ctrl K)" />

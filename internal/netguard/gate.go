@@ -52,7 +52,7 @@ var Scopes = []string{ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRFXSe
 //   - admin: every scope a key can hold. It is not the admin token, whose
 //     powers no key gets.
 var ScopeSets = map[string][]string{
-	"web":   {ScopeVaultRead, ScopeReviewDecide},
+	"web":   {ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeReviewDecide},
 	"agent": {ScopeVaultRead, ScopeVaultWrite, ScopeRFXDraft, ScopeRequestQueue, ScopeRequestRun},
 	"admin": Scopes,
 }

@@ -13,6 +13,7 @@ import {
   isAttachmentPath,
   notesWithEntry,
   sendKeyHint,
+  isMacPlatform,
 } from './composer'
 
 describe('composer keys', () => {
@@ -136,5 +137,17 @@ describe('draftHints', () => {
     expect(draftHints('x', 1).note).toBe(
       'Uses what you typed and the file: added to the notes as a dated entry',
     )
+  })
+})
+
+describe('isMacPlatform', () => {
+  it('Cmd on Apple platforms, Ctrl on Linux and Windows', () => {
+    expect(isMacPlatform('MacIntel')).toBe(true)
+    expect(isMacPlatform('iPhone')).toBe(true)
+    expect(isMacPlatform('Linux x86_64')).toBe(false)
+    expect(isMacPlatform('Win32')).toBe(false)
+    expect(isMacPlatform('', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')).toBe(false)
+    expect(isMacPlatform('', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe(true)
+    expect(sendKeyHint(isMacPlatform('Linux x86_64'))).toMatch(/^Ctrl\+Enter/)
   })
 })

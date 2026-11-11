@@ -135,8 +135,8 @@ func isLocalURL(base string) bool {
 }
 
 // newLoginCmd opens the UI of every vault the server serves, signed in. The
-// web app reads and decides review items, so each key is a new login key with
-// vault:read and review:decide that ends in 30 days (--days) and that the web
+// web app reads, writes, and decides review items, so each key is a new login key with
+// vault:read, vault:write, rfx:draft and review:decide that ends in 30 days (--days) and that the web
 // app renews near its end. --admin signs in with the admin token instead.
 // `para login` is this command; `para serve login` (hidden) and `para service login-admin`
 // are the same command.
@@ -151,7 +151,7 @@ func newLoginCmd(l *loader, use string) *cobra.Command {
 		Use:   use,
 		Short: "Sign the browser in to every vault the server serves (--vault: one), with a 30-day login key that renews",
 		Long: "Open the UI of each vault the server serves, signed in with a new login key:\n" +
-			"vault:read and review:decide, ending in 30 days (--days, at most 90). The web\n" +
+			"vault:read, vault:write, rfx:draft and review:decide, ending in 30 days (--days, at most 90). The web\n" +
 			"app renews the key when it is within 7 days of its end, so a browser that\n" +
 			"opens para at least once a month stays signed in. Each vault is its own\n" +
 			"origin, so each opens in its own tab. --vault signs in to one vault only.\n" +

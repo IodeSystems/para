@@ -30,8 +30,7 @@ export const gqlClient = new GraphQLClient(endpoint(), {
 })
 
 // forbidden says a call was refused for its key: a 403, or the gateway's 200 whose error says the
-// key lacks a scope. The viewer only reads, so this means the key may not read this part of the
-// vault: it is said calmly, with no retry.
+// key lacks a scope. It is said calmly, with no retry; errorText names the scope.
 export function forbidden(err: unknown): boolean {
   if (httpStatus(err) === 403) return true
   return (
@@ -40,12 +39,42 @@ export function forbidden(err: unknown): boolean {
   )
 }
 
-export const FORBIDDEN_TEXT =
-  'This key may not see this. Sign in with a key that has vault:read: para serve login.'
+// missingScope is the scope a refusal names ("key lacks scope vault:write"), or ''.
+export function missingScope(err: unknown): string {
+  const texts: string[] = []
+  if (err instanceof ClientError) {
+    for (const e of err.response.errors ?? []) texts.push(e.message)
+    const detail = (err.response as { detail?: unknown }).detail
+    if (typeof detail === 'string') texts.push(detail)
+  }
+  if (err instanceof Error) texts.push(err.message)
+  for (const t of texts) {
+    const m = /lacks scope ([a-z]+:[a-z]+|admin)/i.exec(t)
+    if (m) return m[1]
+  }
+  return ''
+}
+
+// forbiddenText says what a refusal for the key's scope means, with the scope the server named.
+export function forbiddenText(scope: string): string {
+  const again = 'Run para login again.'
+  switch (scope) {
+    case 'vault:write':
+      return `This sign-in cannot write (needs vault:write). ${again}`
+    case 'vault:read':
+      return `This sign-in cannot read this (needs vault:read). ${again}`
+    case '':
+      return `This sign-in may not do this. ${again}`
+    default:
+      return `This sign-in lacks ${scope}. ${again}`
+  }
+}
+
+export const FORBIDDEN_TEXT = forbiddenText('')
 
 // errorText is a line a person can read for a failed call.
 export function errorText(err: unknown): string {
-  if (forbidden(err)) return FORBIDDEN_TEXT
+  if (forbidden(err)) return forbiddenText(missingScope(err))
   if (err instanceof ClientError) {
     const first = err.response.errors?.[0]?.message
     if (first) return first

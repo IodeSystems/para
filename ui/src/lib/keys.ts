@@ -2,12 +2,15 @@
 // card (nextKeyFor).
 // t opens Capture (saved, then the agent decides what it is).
 
+// key is '' for a tab with no digit.
 export type Tab = { key: string; to: string; label: string; hint?: string }
 
 export const TABS: Tab[] = [
   { key: '9', to: '/pinned', label: 'Pinned', hint: 'what you watch, as cards: the home screen' },
   { key: '7', to: '/next', label: 'Next', hint: 'the one thing to do now, as a card' },
   { key: '1', to: '/agenda', label: 'Agenda', hint: 'what needs you, in value order' },
+  { key: '', to: '/input', label: 'Input', hint: 'messages that came in, and what they made' },
+  { key: '', to: '/output', label: 'Output', hint: 'what waits for your approval to go out, and what was sent' },
   {
     key: '2',
     to: '/receipts',
@@ -32,10 +35,8 @@ export const TABS: Tab[] = [
   },
 ]
 
-// Screens with no digit key and no tab: the menu and the Agenda page link to them.
+// Screens with no digit key and no tab (Input and Output are tabs with no digit): the menu and the Agenda page link to them.
 export const EXTRA_SCREENS: Tab[] = [
-  { key: '', to: '/input', label: 'Input', hint: 'messages that came in, and what they made' },
-  { key: '', to: '/output', label: 'Output', hint: 'what waits for your approval to go out, and what was sent' },
   { key: '', to: '/docs', label: 'Docs', hint: 'remote documents you follow, and what changed' },
   {
     key: '',
@@ -79,7 +80,7 @@ function typing(t: KeyLike['target']): boolean {
 // field, is never a shortcut.
 export function actionFor(e: KeyLike): KeyAction | null {
   if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return null
-  const tab = TABS.find((t) => t.key === e.key)
+  const tab = TABS.find((t) => t.key !== '' && t.key === e.key)
   if (tab) return { kind: 'tab', to: tab.to }
   switch (e.key) {
     case '/':

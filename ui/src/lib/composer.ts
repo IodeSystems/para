@@ -26,10 +26,13 @@ export function sendKeyHint(mac: boolean): string {
   return `${mac ? 'Cmd' : 'Ctrl'}+Enter sends, Enter adds a line`
 }
 
-// isMac says the page runs on an Apple platform, so the hint says Cmd.
+// isMacPlatform says a platform string (navigator.platform, else the user agent) is Apple's.
+export const isMacPlatform = (platform: string | undefined, userAgent = ''): boolean =>
+  /mac|iphone|ipad/i.test(platform || userAgent)
+
+// isMac says the page runs on an Apple platform, so the hint says Cmd; elsewhere it says Ctrl.
 export const isMac = (): boolean =>
-  typeof navigator !== 'undefined' &&
-  /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent)
+  typeof navigator !== 'undefined' && isMacPlatform(navigator.platform, navigator.userAgent)
 
 // canSend: a send needs words or a file, and nothing in flight.
 export function canSend(text: string, files: number, busy: boolean): boolean {
