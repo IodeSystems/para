@@ -11,15 +11,41 @@ cd "$(dirname "$0")/.."
 
 # Vault writes fsync, and that is most of the test time on a real disk: tests
 # run about 30x faster on tmpfs. PARA_TEST_DISK=1 keeps them on disk.
+made_tmp="" made_gotmp=""
+cleanup() {
+  [[ -n "$made_tmp" ]] && rm -rf "$made_tmp"
+  [[ -n "$made_gotmp" ]] && rm -rf "$made_gotmp"
+  return 0
+}
+trap cleanup EXIT
 if [[ -d /dev/shm && -w /dev/shm && -z "${PARA_TEST_DISK:-}" ]]; then
-  TMPDIR="$(mktemp -d /dev/shm/para-t.XXXXXX)"
-  export TMPDIR
-  trap 'rm -rf "$TMPDIR"' EXIT
+  made_tmp="$(mktemp -d /dev/shm/para-t.XXXXXX)"
+  export TMPDIR="$made_tmp"
+fi
+
+# Compiled test binaries go to disk, not RAM: GOTMPDIR is the go tool's own
+# work directory. It must sit outside the module, or ./... finds its files.
+# Removed only when this run made it.
+if [[ -z "${GOTMPDIR:-}" ]]; then
+  export GOTMPDIR="${XDG_CACHE_HOME:-$HOME/.cache}/para-go-tmp"
+  [[ -d "$GOTMPDIR" ]] || made_gotmp="$GOTMPDIR"
+  mkdir -p "$GOTMPDIR"
+fi
+
+# Be a good neighbour on a shared machine: at most PARA_TEST_P packages at once
+# (default 8), and, when systemd is there, the run lives in its own scope capped
+# at PARA_TEST_MEM (default 8G), so a runaway test is killed inside it instead
+# of raising memory pressure on the terminal that started it.
+p="${PARA_TEST_P:-8}"
+run=()
+if [[ -z "${PARA_TEST_NOSCOPE:-}" ]] && command -v systemd-run >/dev/null 2>&1 \
+  && systemctl --user show-environment >/dev/null 2>&1; then
+  run=(systemd-run --user --scope --quiet -p "MemoryMax=${PARA_TEST_MEM:-8G}" --)
 fi
 
 case "${1:-}" in
   -h|--help) sed -n '2,8p' "$0" | sed 's/^# \?//'; exit 0 ;;
   -l|--list) go test ./... -list '.*' | grep -E '^(Test|Benchmark|Example|Fuzz)[A-Za-z0-9_]*$' ;;
-  "")        go test ./... ;;
-  *)         go test ./... -run "$1" -v ;;
+  "")        ${run[@]+"${run[@]}"} go test -p "$p" ./... ;;
+  *)         ${run[@]+"${run[@]}"} go test -p "$p" ./... -run "$1" -v ;;
 esac
