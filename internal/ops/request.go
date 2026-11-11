@@ -631,6 +631,11 @@ type RequestNextOutput struct {
 // RequestNext claims queued work for the caller: sweeps first, then what the
 // owner asked, then other work, each oldest first.
 var RequestNext = defineSafe("request_next", "Claim the next queued request for this actor, with a lease: sweeps of sources you declared first, then what the owner asked (owner-ask, sent-to-agent), then gaps to fill (fill-gap), then other agent work, each oldest first; null when none", func(ctx context.Context, d Deps, in RequestNextInput) (RequestNextOutput, error) {
+	if d.ClaimHold != nil {
+		if err := d.ClaimHold(); err != nil {
+			return RequestNextOutput{}, err
+		}
+	}
 	info, err := identity(d)
 	if err != nil {
 		return RequestNextOutput{}, err

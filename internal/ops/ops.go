@@ -47,6 +47,10 @@ type Deps struct {
 	// ChangesSince is the release this MCP session's agent last saw; the
 	// changes op uses it when it gets no since. Empty means the newest only.
 	ChangesSince string
+	// ClaimHold, when set, refuses claims of new agent work (request_next,
+	// work {action: next}) while an install of para is pending on this
+	// machine (update.Hold). Nil holds nothing.
+	ClaimHold func() error
 }
 
 // Func is the shape of every op.

@@ -69,6 +69,15 @@ func (s *Server) handler(e ops.Entry) server.ToolHandlerFunc {
 // check, the receipt fields, and the write accounting are the same for both.
 // The person check and the gate sit in the op itself. A receipt names e.
 func (s *Server) call(ctx context.Context, e ops.Entry, input json.RawMessage) (res *mcp.CallToolResult) {
+	// While an install of para is pending, every answer says so.
+	defer func() {
+		if res == nil || s.hold == nil {
+			return
+		}
+		if n, _ := s.hold(); clean(n) != "" {
+			res.Content = append(res.Content, mcp.NewTextContent("note: "+clean(n)+"."))
+		}
+	}()
 	defer func() {
 		if r := recover(); r != nil {
 			s.logPanic(e.Name(), r)

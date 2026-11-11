@@ -32,6 +32,13 @@ type State struct {
 	InstalledFrom string `json:"installed_from,omitempty"`
 	InstalledTo   string `json:"installed_to,omitempty"`
 	InstalledAt   string `json:"installed_at,omitempty"`
+	// A pending auto-install (pending.go): the release and when it was
+	// decided. While it is pending, claims of new agent work are refused.
+	PendingVersion string `json:"pending_version,omitempty"`
+	PendingSince   string `json:"pending_since,omitempty"`
+	// The last auto-install that failed: it holds no claim for a day.
+	FailedVersion string `json:"failed_version,omitempty"`
+	FailedAt      string `json:"failed_at,omitempty"`
 }
 
 // StateFile is the state's path in an install home.

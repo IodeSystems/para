@@ -84,8 +84,11 @@ func (s *Server) upgradeNotes(ctx context.Context) []string {
 		s.sess.mu.Unlock()
 		if first {
 			line := UpgradedLine(s.upgradedFrom, s.version)
-			_ = s.mcp.SendNotificationToClient(ctx, string(mcp.MethodNotificationToolsListChanged), nil)
-			_ = s.mcp.SendNotificationToClient(ctx, "notifications/message", map[string]any{"level": "info", "logger": notifyLogger, "data": line})
+			// A resumed stdio session got both when it resumed.
+			if !s.resumed {
+				_ = s.mcp.SendNotificationToClient(ctx, string(mcp.MethodNotificationToolsListChanged), nil)
+				_ = s.mcp.SendNotificationToClient(ctx, "notifications/message", map[string]any{"level": "info", "logger": notifyLogger, "data": line})
+			}
 			out = append(out, "note: "+line+". The tool list may have changed: list the tools again.")
 		}
 	}

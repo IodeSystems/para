@@ -106,6 +106,17 @@ type Options struct {
 	// op). It returns the func that ends the call. para serve counts these
 	// for the auto-install's quiet moment.
 	Write func(op string) func()
+	// Hold returns the pending install of para on this machine: a notice
+	// every tool answer carries, and the refusal of a claim of new agent
+	// work (update.Hold). Nil: nothing is ever pending.
+	Hold func() (notice string, claim error)
+	// Reexec, when set, lets a stdio server exec the binary that replaced it
+	// (reexec.go). Nil keeps today's behaviour: refuse with the reconnect
+	// message.
+	Reexec *Reexec
+	// Resume is the session a replaced stdio server handed over: Serve
+	// resumes it and expects no initialize. Nil starts a new session.
+	Resume *Handoff
 }
 
 // Server is an MCP server over one vault.
@@ -135,6 +146,13 @@ type Server struct {
 	started      time.Time
 	allow        func(op string, read bool) error
 	write        func(op string) func()
+	hold         func() (string, error)
+	reexec       *Reexec
+	resume       *Handoff
+	// resumed: this process took over a session from a replaced binary and
+	// sent the upgrade notifications itself.
+	resumed   bool
+	toolsMode string
 	// ops are the ops this server runs, listed or not: ForAgents, and only
 	// reads on a read-only server.
 	ops map[string]ops.Entry
@@ -164,9 +182,12 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		}
 	}
 	deps.ChangesSince = since
+	if o.Hold != nil {
+		deps.ClaimHold = func() error { _, err := o.Hold(); return err }
+	}
 	hooks := &server.Hooks{}
 	s := &Server{
-		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, o.HTTP, instr, hooks)...),
+		mcp:  server.NewMCPServer(name, o.Version, serverOptions(o.Channel, changed, o.HTTP || o.Reexec != nil || o.Resume != nil, instr, hooks)...),
 		deps: deps,
 		hide: o.Hide,
 		log:  o.Log,
@@ -178,16 +199,23 @@ func New(deps ops.Deps, o Options) (*Server, error) {
 		version:   o.Version,
 		installed: o.InstalledVersion,
 
-		notice:  o.Notice,
-		sess:    newSessionNotes(),
-		started: time.Now(),
-		allow:   o.Allow,
-		write:   o.Write,
+		notice:    o.Notice,
+		sess:      newSessionNotes(),
+		started:   time.Now(),
+		allow:     o.Allow,
+		write:     o.Write,
+		hold:      o.Hold,
+		toolsMode: o.Tools,
+		reexec:    o.Reexec,
+		resume:    o.Resume,
 	}
 	s.surface = opstats.MCPStdio
 	if o.HTTP {
 		s.upgradedFrom = oldVersion
 		s.surface = opstats.MCPHTTP
+	}
+	if o.Resume != nil && o.Resume.From != "" && o.Resume.From != o.Version {
+		s.upgradedFrom, s.resumed = o.Resume.From, true
 	}
 	if b := stampBinary(o.Executable); b != nil {
 		running, err := CurrentSurface(o.Version)
@@ -280,9 +308,13 @@ const notifyRule = "Notifications: this server may send a short message (logger 
 func (s *Server) MCP() *server.MCPServer { return s.mcp }
 
 // Serve reads JSON-RPC from in and writes to out until in closes or ctx ends.
+// With Options.Reexec or Options.Resume it owns the reader (reexec.go).
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	defer s.Start(ctx)()
-	return server.NewStdioServer(s.mcp).Listen(ctx, in, out)
+	if s.reexec == nil && s.resume == nil {
+		return server.NewStdioServer(s.mcp).Listen(ctx, in, out)
+	}
+	return s.serveStdio(ctx, stdinSource(in), out)
 }
 
 // legacyOnly refuses server/discover and every request of protocol

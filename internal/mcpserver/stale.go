@@ -16,9 +16,10 @@ import (
 )
 
 // A long-lived `para mcp` keeps running the binary it started with, and the
-// client keeps the tool list it got at initialize. It does not re-exec: the
-// client owns the stdio pipes and the session state (initialize, tool list),
-// and a restart is the client's to do.
+// client keeps the tool list it got at initialize. On Linux and macOS a stdio
+// server with Options.Reexec execs the new binary at a quiet moment and hands
+// it the session (reexec.go). Until then, and when the new binary does not
+// take the session, the rules below apply.
 //
 // After an upgrade the old server keeps serving when that is safe. para mcp
 // refuses a vault newer than this binary at start (upgrade.Check); once the

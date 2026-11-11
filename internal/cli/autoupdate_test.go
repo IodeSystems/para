@@ -63,3 +63,39 @@ func TestAutoInstallFilesVaultStepsUnlessAuto(t *testing.T) {
 		})
 	}
 }
+
+// TestAutoInstallRefreshesTheSkill: an install reinstalls a skill that para
+// skill install wrote, with the new binary, before the service restarts; a
+// skill without the version marker is left alone.
+func TestAutoInstallRefreshesTheSkill(t *testing.T) {
+	for name, marker := range map[string]bool{"with marker": true, "without marker": false} {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t)
+			e.ok("init", "acme", filepath.Join(e.dir, "acme"))
+			if _, err := installSkill("", "v0.3.0"); err != nil {
+				t.Fatal(err)
+			}
+			if !marker {
+				dir, _ := defaultSkillsDir()
+				if err := os.Remove(filepath.Join(dir, "para", skillVersionFile)); err != nil {
+					t.Fatal(err)
+				}
+			}
+			log := filepath.Join(e.dir, "new.log")
+			u := releaseServer(t, "para", "v0.4.0", "para v0.4.0 manifest", fakeReleaseBin(log), e.dir)
+			l := &loader{version: "v0.3.0", install: registry.Install{Home: e.home}, env: func(string) string { return "" }}
+			if err := autoInstall(context.Background(), l, slog.New(slog.DiscardHandler), u); err != nil {
+				t.Fatal(err)
+			}
+			b, _ := os.ReadFile(log)
+			calls := string(b)
+			i, j := strings.Index(calls, "skill install"), strings.Index(calls, "service restart")
+			if marker && (i < 0 || j < i) {
+				t.Errorf("want skill install before the restart:\n%s", calls)
+			}
+			if !marker && i >= 0 {
+				t.Errorf("a skill without the marker was reinstalled:\n%s", calls)
+			}
+		})
+	}
+}

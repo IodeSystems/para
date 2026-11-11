@@ -50,6 +50,9 @@ type Options struct {
 	// UpdateNotice is the machine's update notice for MCP sessions ("" when
 	// no newer release is known). Nil says nothing.
 	UpdateNotice func() string
+	// UpdateHold is the pending install's notice for every MCP answer and
+	// its refusal of new agent work claims (update.Hold). Nil holds nothing.
+	UpdateHold func() (string, error)
 	// Update reads the machine's update status for the web banner. Nil
 	// answers an empty status.
 	Update func() UpdateStatus

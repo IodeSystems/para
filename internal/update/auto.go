@@ -131,6 +131,7 @@ func ErrorKind(err error) string {
 func MarkInstalled(path, from, to string, now time.Time) error {
 	st := LoadState(path)
 	st.InstalledFrom, st.InstalledTo, st.InstalledAt = from, to, now.UTC().Format(time.RFC3339)
+	st.PendingVersion, st.PendingSince = "", ""
 	return saveState(path, st)
 }
 
@@ -176,8 +177,13 @@ type Auto struct {
 	// egress.update=deny, or "". Such a vault stops all update traffic. An
 	// error counts as a deny. Nil means no vault denies.
 	UpdateDenied func(ctx context.Context) (string, error)
-	// Quiet reports whether the machine is quiet now, and why not.
+	// Quiet reports whether the machine saw no write for QuietFor, and why
+	// not.
 	Quiet func(now time.Time) (bool, string)
+	// Agents reports why agent work runs now (a dispatched agent, a claimed
+	// request), or "". A pending install waits for it at most Grace. Nil
+	// means none runs.
+	Agents func(ctx context.Context, now time.Time) string
 	// Install installs the newest release, brings the vaults along, and
 	// restarts the service. It is called at most once per pass.
 	Install func(ctx context.Context) error
@@ -234,17 +240,40 @@ func (a *Auto) Pass(ctx context.Context) Outcome {
 		log.Info("update check", "newest", st.Version, "running", a.Current)
 	}
 	if !st.Newer(a.Current) {
+		a.clearPending(log)
 		return OutcomeCurrent
 	}
 	switch {
 	case !a.Release:
+		a.clearPending(log)
 		return OutcomeNotifyDev
 	case !set.Auto:
+		a.clearPending(log)
 		return OutcomeNotifyOff
+	}
+	// Announce, then hold: from now on agents claim no new work.
+	var since time.Time
+	if !st.failedRecently(st.Version, now) {
+		if err := MarkPending(a.StatePath, st.Version, now); err != nil {
+			log.Warn("update: record the pending install", "error", err)
+		}
+		if _, t, ok := LoadState(a.StatePath).Pending(a.Current); ok {
+			since = t
+		}
 	}
 	if ok, why := a.Quiet(now); !ok {
 		log.Debug("update waits for a quiet moment", "version", st.Version, "busy", why)
 		return OutcomeWaiting
+	}
+	if a.Agents != nil {
+		if why := a.Agents(ctx, now); why != "" {
+			if since.IsZero() || now.Sub(since) < Grace {
+				log.Debug("update waits for agent work", "version", st.Version, "busy", why)
+				return OutcomeWaiting
+			}
+			// para cannot interrupt an agent: its claim outlives the install.
+			log.Warn("update: grace over, installing while agent work runs", "version", st.Version, "busy", why, "grace", Grace)
+		}
 	}
 	if err := a.Egress(ctx, DestRelease); err != nil {
 		log.Warn("update install: egress refused", "error", err)
@@ -253,9 +282,19 @@ func (a *Auto) Pass(ctx context.Context) Outcome {
 	log.Info("update: installing at a quiet moment", "from", a.Current, "to", st.Version)
 	if err := a.Install(ctx); err != nil {
 		log.Warn("update install failed", "to", st.Version, "error", err)
+		if merr := markFailed(a.StatePath, st.Version, now); merr != nil {
+			log.Warn("update: record the failed install", "error", merr)
+		}
 		return OutcomeInstallErr
 	}
 	return OutcomeInstalled
+}
+
+// clearPending ends a hold this machine no longer has a reason for.
+func (a *Auto) clearPending(log *slog.Logger) {
+	if err := ClearPending(a.StatePath); err != nil {
+		log.Warn("update: clear the pending install", "error", err)
+	}
 }
 
 // Notice is the one line that says where this machine stands, for doctor,
@@ -269,6 +308,9 @@ func Notice(st State, current string, release bool, set Settings) string {
 		return fmt.Sprintf("para %s is available (this build %s is from a checkout: para upgrade pulls and installs it)", st.Version, current)
 	case !set.Auto:
 		return fmt.Sprintf("para %s is available (this is %s; upgrade.auto=false: the owner runs para upgrade)", st.Version, current)
+	}
+	if v, _, ok := st.Pending(current); ok && v == st.Version {
+		return fmt.Sprintf("para %s installs when idle (this is %s): new agent work waits until then", st.Version, current)
 	}
 	return fmt.Sprintf("para %s is available (this is %s): it installs automatically at a quiet moment", st.Version, current)
 }

@@ -69,6 +69,13 @@ func (l *loader) updateStatus() server.UpdateStatus {
 
 func (l *loader) updateNotice() string { return l.updateStatus().Notice }
 
+// updateHold is the pending auto-install's notice for every MCP answer and
+// its refusal of new agent work claims (update.Hold), read from this
+// machine's update state.
+func (l *loader) updateHold() (string, error) {
+	return update.Hold(update.LoadState(update.StateFile(l.install.Home)), l.updateCurrent(), time.Now())
+}
+
 // newAutoUpdate builds the pass para serve runs. quiet and egress come from
 // the running server.
 func newAutoUpdate(l *loader, log *slog.Logger, srv *server.Server, hub *server.Hub) (*update.Auto, error) {
@@ -89,11 +96,9 @@ func newAutoUpdate(l *loader, log *slog.Logger, srv *server.Server, hub *server.
 			if why := srv.Busy(now, update.QuietFor); why != "" {
 				return false, why
 			}
-			if why := hub.AgentsBusy(context.Background(), now); why != "" {
-				return false, why
-			}
 			return true, ""
 		},
+		Agents:  hub.AgentsBusy,
 		Install: func(ctx context.Context) error { return autoInstall(ctx, l, log, u) },
 		Log:     log,
 	}, nil
@@ -120,6 +125,7 @@ func autoInstall(ctx context.Context, l *loader, log *slog.Logger, u update.Upgr
 	for _, id := range o.VaultIDs {
 		_ = vaultSteps(ctx, w, o, u.Exe, id)
 	}
+	refreshSkill(ctx, w, "", u.Exe)
 	w.flush()
 	restartService(ctx, w, u.Exe, l.install.Home)
 	return nil

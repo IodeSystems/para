@@ -393,7 +393,24 @@ func runUpgrade(ctx context.Context, w io.Writer, o upgradeOptions) error {
 			return err
 		}
 	}
+	refreshSkill(ctx, w, o.Src, bin)
 	return nil
+}
+
+// refreshSkill reinstalls the agent skill with the new binary, so the skill
+// never names an op the new para removed. Only a skill that para skill
+// install wrote (it has a version marker) is touched; a hand-written or
+// absent skill is left alone.
+func refreshSkill(ctx context.Context, w io.Writer, dir, bin string) {
+	have, ok := installedSkill("")
+	if !ok || have == "" {
+		return
+	}
+	if _, err := runIn(ctx, dir, bin, "skill", "install"); err != nil {
+		_, _ = fmt.Fprintf(w, "could not update the para skill (%s): %v; run para skill install\n", have, err)
+		return
+	}
+	_, _ = fmt.Fprintf(w, "updated the para skill (was %s)\n", have)
 }
 
 func isCheckout(dir string) bool {
@@ -477,6 +494,10 @@ func installRelease(ctx context.Context, w io.Writer, o upgradeOptions) (update.
 	if !res.Installed {
 		_, err := fmt.Fprintf(w, "para is current: %s (newest release %s)\n", o.Version, res.To)
 		return res, err
+	}
+	// The hold of a pending auto-install ends with any install.
+	if u.StatePath != "" {
+		_ = update.ClearPending(u.StatePath)
 	}
 	if _, err := fmt.Fprintf(w, "installed para %s at %s (signature and sha256 checked)\n", res.To, u.Exe); err != nil {
 		return res, err

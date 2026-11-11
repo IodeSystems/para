@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -31,7 +32,7 @@ const mcpSurface = "mcp"
 // change; selection errors stop the server.
 func newMCPCmd(l *loader) *cobra.Command {
 	var actor, toolsFlag string
-	var helpClaude, helpDun, channel, helpRaglit, readOnly, surface bool
+	var helpClaude, helpDun, channel, helpRaglit, readOnly, surface, probe bool
 	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Serve ops as MCP tools over stdio (one vault)",
@@ -53,6 +54,12 @@ server entries for this install. They write nothing.
 			}
 			if err := l.load(); err != nil {
 				return err
+			}
+			// A para mcp that this binary replaced handed over its session.
+			runDir := filepath.Join(l.install.Home, "run")
+			resume, herr := mcpserver.TakeHandoff(runDir, os.Args)
+			if herr != nil {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "para mcp: %v; starting a new session\n", herr)
 			}
 			if helpRaglit {
 				_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Raglit())
@@ -90,7 +97,7 @@ server entries for this install. They write nothing.
 			if err == nil {
 				err = upgrade.Check(s)
 			}
-			if err == nil && !readOnly {
+			if err == nil && !readOnly && !probe {
 				err = upgrade.RecordSession(cmd.Context(), s, l.stateDir(sel.ID), l.version)
 			}
 			if err != nil {
@@ -102,6 +109,10 @@ server entries for this install. They write nothing.
 			}
 			// An agent never signs the browser in: it opens the plain URL.
 			base, open, signedIn := l.viewer(sel.ID, false)
+			seenPath := filepath.Join(l.stateDir(sel.ID), "mcp_seen.json")
+			if probe {
+				seenPath = "" // a probe is no session
+			}
 			srv, err := mcpserver.New(ops.Deps{Store: s, ViewerBase: base, OpenURL: open, SignedIn: signedIn}, mcpserver.Options{
 				Version:          l.version,
 				Hide:             []string{filepath.Clean(sel.Path), l.install.Home},
@@ -111,14 +122,22 @@ server entries for this install. They write nothing.
 				Executable:       mcpserver.ExecutablePath(),
 				InstalledSurface: installedSurface,
 				InstalledVersion: installedVersion,
-				SeenPath:         filepath.Join(l.stateDir(sel.ID), "mcp_seen.json"),
+				SeenPath:         seenPath,
 				ReadOnly:         readOnly,
 				Tools:            tools,
 				PresenceDir:      l.stateDir(sel.ID),
 				Notice:           l.updateNotice,
+				Hold:             l.updateHold,
+				Reexec:           &mcpserver.Reexec{Dir: runDir, Probe: handoffProbe, Log: cmd.ErrOrStderr()},
+				Resume:           resume,
 			})
 			if err != nil {
 				return err
+			}
+			// The para mcp this binary replaces asks whether it takes the
+			// session: this vault opens and the server builds, here.
+			if probe {
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{"handoff": mcpserver.HandoffVersion, "version": l.version})
 			}
 			return srv.Serve(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout())
 		},
@@ -132,6 +151,8 @@ server entries for this install. They write nothing.
 	cmd.Flags().BoolVar(&helpDun, "help-dun", false, "print setup steps for dun")
 	cmd.Flags().BoolVar(&surface, "surface", false, "print this binary's vault format, types, and tool schema hashes as JSON, for a running para mcp")
 	_ = cmd.Flags().MarkHidden("surface")
+	cmd.Flags().BoolVar(&probe, "handoff-probe", false, "check that this binary takes over the session of a replaced para mcp with these flags, and print the handoff version as JSON")
+	_ = cmd.Flags().MarkHidden("handoff-probe")
 	cmd.AddCommand(newMCPConfigCmd(l))
 	return cmd
 }
@@ -346,6 +367,29 @@ func installedVersion() string {
 		return ""
 	}
 	return string(out)
+}
+
+// handoffProbe asks the binary now on disk, with this process's arguments,
+// whether it takes over this session (para mcp --handoff-probe). A binary
+// older than the handoff fails, and the running server keeps serving.
+func handoffProbe() error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	args := append(slices.Clone(os.Args[1:]), "--handoff-probe")
+	out, err := exec.CommandContext(ctx, mcpserver.ExecutablePath(), args...).Output()
+	if err != nil {
+		return fmt.Errorf("mcp: handoff probe: %w", err)
+	}
+	var p struct {
+		Handoff int `json:"handoff"`
+	}
+	if err := json.Unmarshal(out, &p); err != nil {
+		return fmt.Errorf("mcp: handoff probe: %w", err)
+	}
+	if p.Handoff != mcpserver.HandoffVersion {
+		return fmt.Errorf("mcp: handoff probe: version %d, want %d", p.Handoff, mcpserver.HandoffVersion)
+	}
+	return nil
 }
 
 // installedSurface asks the binary now on disk for its surface. A binary

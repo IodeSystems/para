@@ -228,7 +228,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return err
 	}
 	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live,
-		UpdateNotice: l.updateNotice, Update: l.updateStatus, MCPTools: tools})
+		UpdateNotice: l.updateNotice, UpdateHold: l.updateHold, Update: l.updateStatus, MCPTools: tools})
 	if err != nil {
 		return err
 	}
