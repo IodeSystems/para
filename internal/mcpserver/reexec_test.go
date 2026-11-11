@@ -448,3 +448,78 @@ func connectServer(t *testing.T, srv *Server) *client.Client {
 	}
 	return c
 }
+
+// TestReexecWithAnOpenListen: a client of protocol 2026-07-28 (Claude Code)
+// keeps a subscriptions/listen open for the whole session and never sends
+// initialize. The listen is not a request in flight: the first call after a
+// swap is held and answered by the new server, which opens the listen again
+// with the client's id and tells it on that stream.
+func TestReexecWithAnOpenListen(t *testing.T) {
+	s, _ := newVault(t)
+	bin, install := fakeBinary(t)
+	handed := make(chan []byte, 1)
+	old, err := New(ops.Deps{Store: s}, Options{Version: "v1", Executable: bin, Reexec: &Reexec{
+		Probe: func() error { return nil },
+		Exec: func(h Handoff) error {
+			b, err := EncodeHandoff(h)
+			if err != nil {
+				return err
+			}
+			handed <- b
+			return ErrReplaced
+		},
+		Every:   time.Hour,
+		HoldMax: 8 * time.Second,
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	src, out := newMemSource(), newLines()
+	ctx := t.Context()
+	go func() { _ = old.serveStdio(ctx, src, out) }()
+	meta := `"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"modern","version":"1"},"io.modelcontextprotocol/clientCapabilities":{}}`
+	src.write(`{"jsonrpc":"2.0","id":"L1","method":"subscriptions/listen","params":{"notifications":{"toolsListChanged":true},` + meta + `}}` + "\n")
+	out.waitFor(t, "notifications/subscriptions/acknowledged")
+	call := func(id int) string {
+		return `{"jsonrpc":"2.0","id":` + itoa(id) + `,"method":"tools/call","params":{"name":"lint","arguments":{},` + meta + `}}` + "\n"
+	}
+	src.write(call(3))
+	out.waitFor(t, `"id":3`)
+
+	install()
+	start := time.Now()
+	src.write(call(4))
+	var raw []byte
+	select {
+	case raw = <-handed:
+	case <-time.After(6 * time.Second):
+		t.Fatalf("no exec while the listen is open; out:\n%s", out.text())
+	}
+	if d := time.Since(start); d > 3*time.Second {
+		t.Errorf("the exec waited %s", d)
+	}
+	h, err := DecodeHandoff(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(h.Listens) != 1 || !strings.Contains(string(h.Leftover), `"id":4`) {
+		t.Fatalf("handoff listens %s leftover %q", h.Listens, h.Leftover)
+	}
+	resumed, err := New(ops.Deps{Store: s}, Options{Version: "v2", Resume: &h})
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = resumed.serveStdio(ctx, src, out) }()
+	_, l4 := out.waitFor(t, `"id":4`)
+	if strings.Contains(l4, "reconnect") || !strings.Contains(l4, "para upgraded v1 → v2") {
+		t.Errorf("answer 4 = %s: want the new server's answer with the upgrade note", l4)
+	}
+	_, lc := out.waitFor(t, "notifications/tools/list_changed")
+	if !strings.Contains(lc, `"io.modelcontextprotocol/subscriptionId":"L1"`) {
+		t.Errorf("list_changed = %s: want it on the listen stream L1", lc)
+	}
+	if n := strings.Count(out.text(), "notifications/subscriptions/acknowledged"); n != 1 {
+		t.Errorf("acknowledgements = %d, want 1:\n%s", n, out.text())
+	}
+	src.close()
+}

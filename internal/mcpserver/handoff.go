@@ -37,6 +37,10 @@ type Handoff struct {
 	// Args is the old process's argv: actor, vault, tools, and the rest of
 	// its flags. The exec passes the same argv; the new process checks it.
 	Args []string `json:"args"`
+	// Listens are the client's open subscriptions/listen requests (protocol
+	// 2026-07-28 and later), as it sent them; the new process opens each
+	// again with its id.
+	Listens []json.RawMessage `json:"listens,omitempty"`
 	// Leftover is what the old process read from stdin and did not give its
 	// server: the new process handles it before anything it reads itself.
 	Leftover []byte `json:"leftover,omitempty"`

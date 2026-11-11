@@ -117,6 +117,7 @@ type gate struct {
 	holdSpent      bool // a hold ran out: later lines go in at once
 	holdMax        time.Duration
 	candidate      func() bool // a replacement not yet tried is on disk
+	logf           func(format string, a ...any)
 	kick           chan struct{}
 
 	// The session, for the handoff.
@@ -125,10 +126,15 @@ type gate struct {
 	protocol    string
 	initialized bool
 	logLevel    string
+	// listens are the open subscriptions/listen requests (protocol
+	// 2026-07-28 and later), by id: the client's request lines. A listen
+	// stays open for the life of the session, so it is not in flight: the
+	// new process opens it again with the same id.
+	listens map[string][]byte
 }
 
 func newGate(src source, holdMax time.Duration) *gate {
-	g := &gate{src: src, open: map[string]int{}, drop: map[string]bool{}, holdMax: holdMax, kick: make(chan struct{}, 1)}
+	g := &gate{src: src, open: map[string]int{}, drop: map[string]bool{}, listens: map[string][]byte{}, holdMax: holdMax, kick: make(chan struct{}, 1)}
 	g.cond = sync.NewCond(&g.mu)
 	return g
 }
@@ -252,6 +258,9 @@ func (g *gate) hold() bool {
 	}
 	// The exec waits for a quiet moment still; lines no longer wait for it.
 	g.holdSpent = true
+	if g.logf != nil {
+		g.logf("held a call %s for the exec, not quiet (%d requests in flight); this server takes it", g.holdMax, len(g.open))
+	}
 	return false
 }
 
@@ -287,6 +296,8 @@ func (g *gate) given(line []byte) {
 	}
 	id := idKey(m.ID)
 	switch {
+	case m.Method == string(mcp.MethodSubscriptionsListen) && id != "":
+		g.listens[id] = append(bytes.TrimRight(append([]byte(nil), line...), "\r\n"), '\n')
 	case m.Method != "" && id != "":
 		g.open[id]++
 		switch m.Method {
@@ -315,6 +326,7 @@ func (g *gate) answered(id string, msg []byte) {
 	} else {
 		delete(g.open, id)
 	}
+	delete(g.listens, id) // a listen ends with its answer
 	if id == g.initID {
 		var r struct {
 			Result struct {
@@ -348,6 +360,29 @@ type outWriter struct {
 	// dropped runs, under mu, after the answer to a resume request was
 	// dropped; it may write to w.
 	dropped func(id string, msg []byte)
+	// acks are the subscription ids of replayed listens whose
+	// notifications/subscriptions/acknowledged is not written again; acked
+	// runs, under mu, after one was dropped, and may write to w.
+	acks  map[string]bool
+	acked func(id string)
+}
+
+// subscriptionAck returns the subscription id of a
+// notifications/subscriptions/acknowledged, or "".
+func subscriptionAck(p []byte) string {
+	if !bytes.Contains(p, []byte(mcp.MethodNotificationSubscriptionsAcknowledged)) {
+		return ""
+	}
+	var m struct {
+		Method string `json:"method"`
+		Params struct {
+			Meta map[string]json.RawMessage `json:"_meta"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(p, &m) != nil || m.Method != mcp.MethodNotificationSubscriptionsAcknowledged {
+		return ""
+	}
+	return idKey(m.Params.Meta[mcp.MetaKeySubscriptionID])
 }
 
 func (o *outWriter) Write(p []byte) (int, error) {
@@ -367,6 +402,15 @@ func (o *outWriter) Write(p []byte) (int, error) {
 	o.g.mu.Lock()
 	drop := answer && o.g.drop[id]
 	o.g.mu.Unlock()
+	if len(o.acks) > 0 {
+		if sid := subscriptionAck(p); sid != "" && o.acks[sid] {
+			delete(o.acks, sid)
+			if o.acked != nil {
+				o.acked(sid)
+			}
+			return len(p), nil
+		}
+	}
 	var err error
 	if !drop {
 		_, err = o.w.Write(p)
@@ -400,7 +444,7 @@ func (s *Server) serveStdio(ctx context.Context, src source, out io.Writer) erro
 	var up *upgrader
 	if r != nil && src.safe() && s.upgraded != nil && s.upgraded.binary != nil {
 		up = &upgrader{s: s, r: r, g: g, o: o, stamp: s.upgraded.binary}
-		g.candidate = up.candidate
+		g.candidate, g.logf = up.candidate, up.logf
 	}
 	go g.pump()
 	ctx, cancel := context.WithCancel(ctx)
@@ -433,6 +477,20 @@ func (s *Server) resumeInto(g *gate, o *outWriter, h *Handoff) {
 			line(map[string]any{"jsonrpc": mcp.JSONRPC_VERSION, "id": resumeID + "log", "method": mcp.MethodSetLogLevel, "params": map[string]string{"level": h.LogLevel}})
 		}
 	}
+	// An open subscriptions/listen goes again, with the client's id: the
+	// client keeps its stream. Its second acknowledgement is not written.
+	o.acks = map[string]bool{}
+	for _, l := range h.Listens {
+		var m struct {
+			ID json.RawMessage `json:"id"`
+		}
+		if json.Unmarshal(l, &m) != nil || idKey(m.ID) == "" {
+			continue
+		}
+		pre.Write(bytes.TrimSpace(l))
+		pre.WriteByte('\n')
+		o.acks[idKey(m.ID)] = true
+	}
 	g.pending = append(pre.Bytes(), h.Leftover...)
 	key := func(id string) string { b, _ := json.Marshal(id); return string(b) }
 	if initID != "" {
@@ -452,17 +510,33 @@ func (s *Server) resumeInto(g *gate, o *outWriter, h *Handoff) {
 		if json.Unmarshal(msg, &r) == nil && h.Protocol != "" && r.Result.ProtocolVersion != h.Protocol {
 			s.warn(fmt.Sprintf("resumed session: protocol %s, the old server had %s", r.Result.ProtocolVersion, h.Protocol))
 		}
-		if h.Initialized {
-			for _, n := range []map[string]any{
-				{"jsonrpc": mcp.JSONRPC_VERSION, "method": mcp.MethodNotificationToolsListChanged},
-				{"jsonrpc": mcp.JSONRPC_VERSION, "method": "notifications/message", "params": map[string]any{"level": "info", "logger": notifyLogger, "data": UpgradedLine(h.From, s.version)}},
-			} {
-				b, _ := json.Marshal(n)
-				_, _ = o.w.Write(append(b, '\n'))
-			}
+		// A session that also listens is told on its stream instead.
+		if h.Initialized && len(o.acks) == 0 {
+			s.writeUpgraded(o.w, h.From, nil)
 		}
 	}
+	// Protocol 2026-07-28 and later: the notifications go on the listen
+	// stream, tagged with its id, once it is open again.
+	o.acked = func(id string) { s.writeUpgraded(o.w, h.From, json.RawMessage(id)) }
 	s.warn("resumed the session of para " + h.From)
+}
+
+// writeUpgraded writes notifications/tools/list_changed and the upgrade line
+// to w, tagged with the subscription id of a listen stream when there is one.
+func (s *Server) writeUpgraded(w io.Writer, from string, sub json.RawMessage) {
+	msgParams := map[string]any{"level": "info", "logger": notifyLogger, "data": UpgradedLine(from, s.version)}
+	listParams := map[string]any{}
+	if sub != nil {
+		meta := map[string]any{mcp.MetaKeySubscriptionID: sub}
+		listParams["_meta"], msgParams["_meta"] = meta, meta
+	}
+	for _, n := range []map[string]any{
+		{"jsonrpc": mcp.JSONRPC_VERSION, "method": mcp.MethodNotificationToolsListChanged, "params": listParams},
+		{"jsonrpc": mcp.JSONRPC_VERSION, "method": "notifications/message", "params": msgParams},
+	} {
+		b, _ := json.Marshal(n)
+		_, _ = w.Write(append(b, '\n'))
+	}
 }
 
 // upgrader watches the binary and execs into its replacement.
@@ -576,6 +650,9 @@ func (u *upgrader) tryExec() (done bool, err error) {
 		V: HandoffVersion, From: u.s.version, Init: g.init, Protocol: g.protocol,
 		Initialized: g.initialized, LogLevel: g.logLevel, Tools: u.s.toolsMode, Args: os.Args,
 		Leftover: append([]byte(nil), g.pending...),
+	}
+	for _, l := range g.listens {
+		h.Listens = append(h.Listens, json.RawMessage(bytes.TrimSpace(l)))
 	}
 	ex := u.r.Exec
 	if ex == nil {
