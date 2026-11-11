@@ -27,7 +27,7 @@ func TestLoginKeySessionWrites(t *testing.T) {
 	}
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/pin", header: hdr, body: `{"id":"` + out.ID + `"}`}), 200)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/unpin", header: hdr, body: `{"id":"` + out.ID + `"}`}), 200)
-	wantStatus(t, f.do(call{method: post, target: "/api/v1/io/drop", header: hdr, body: `{"id":"` + out.ID + `","reason":"test"}`}), 200)
+	wantStatus(t, f.do(call{method: post, target: "/api/v1/close", header: hdr, body: `{"id":"` + out.ID + `","outcome":"dropped","reason":"test"}`}), 200)
 
 	// The same over GraphQL, the path the web app uses.
 	gw, res := f.graphqlAs(call{header: hdr}, `mutation { para { v1 { ioAdd(body: {direction: in, text: "via graphql"}) { id } } } }`, nil)

@@ -35,8 +35,8 @@ type verbRoute struct {
 	pre func(ctx context.Context, d Deps) error
 }
 
-// verbRoutes holds each verb's router, by verb name. An alias checks the
-// route before it runs it (opalias.go).
+// verbRoutes holds each verb's router, by verb name. bulk routes each item
+// with it.
 var verbRoutes = map[string]func(ctx context.Context, d Deps, raw json.RawMessage) (verbRoute, error){}
 
 // defineVerb registers a generic verb of risk risk. It files no receipt and
@@ -808,19 +808,6 @@ var Show = defineRead("show", "Show any item by id: type, title, status, life (o
 	out.Op, out.Detail, out.raw = rt.op.Name(), asMap(res), res
 	return out, nil
 })
-
-// This registers show's router before any init runs (opalias.go reads
-// verbRoutes in its init).
-var _ = func() bool {
-	verbRoutes[Show.Name()] = func(ctx context.Context, d Deps, raw json.RawMessage) (verbRoute, error) {
-		var in ShowInput
-		if err := decodeStrict(raw, &in); err != nil {
-			return verbRoute{}, err
-		}
-		return showRoute(ctx, d, in)
-	}
-	return true
-}()
 
 // showRoute is the show op of the item's type; op is nil for a type with
 // none.

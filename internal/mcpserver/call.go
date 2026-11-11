@@ -230,7 +230,7 @@ func (s *Server) opRun(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallT
 }
 
 // resolve finds the op an agent may run here by name. A refusal says why: a
-// person's op, an old name, a write on a read-only server, or the closest
+// person's op, a removed name, a write on a read-only server, or the closest
 // names.
 func (s *Server) resolve(name string) (ops.Entry, error) {
 	if e, ok := s.ops[name]; ok {
@@ -239,8 +239,8 @@ func (s *Server) resolve(name string) (ops.Entry, error) {
 	if name == "" {
 		return nil, errors.New("op is required (ops_describe lists ops)")
 	}
-	if to := ops.AliasOf(name); to != "" {
-		return nil, fmt.Errorf("%s is an old name: call %s", name, to)
+	if v, use, ok := ops.RemovedIn(name); ok {
+		return nil, fmt.Errorf("%s removed in %s: use %s", name, v, use)
 	}
 	for _, e := range ops.All() {
 		if e.Name() != name {
@@ -383,7 +383,7 @@ func (s *Server) opsDescribe(ctx context.Context, req mcp.CallToolRequest) (*mcp
 func personOps(words []string) string {
 	var names []string
 	for _, e := range ops.All() {
-		if !e.PersonOnly() || ops.AliasOf(e.Name()) != "" {
+		if !e.PersonOnly() {
 			continue
 		}
 		all := len(words) > 0

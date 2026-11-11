@@ -3,7 +3,6 @@ package ops
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -31,14 +30,6 @@ func policyDocsOn(d Deps) bool {
 	v, err := upgrade.Current(d.Store)
 	return err == nil && v >= upgrade.PolicyDocsFormat
 }
-
-// annotate routes to itself as an alias target (opalias.go).
-var _ = func() bool {
-	verbRoutes["annotate"] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
-		return verbRoute{op: Annotate, input: raw}, nil
-	}
-	return true
-}()
 
 // annotationKeys are the fields each kind takes; required lists those it must have.
 var (

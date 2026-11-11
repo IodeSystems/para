@@ -3,7 +3,6 @@ package ops
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -21,16 +20,6 @@ import (
 // one makes the next (nextObligation). In a vault below the obligation format
 // the same ops write the older types, so a para that has not been upgraded on
 // another machine still reads the vault.
-
-// The obligation ops are alias targets (opalias.go): each routes to itself.
-var _ = func() bool {
-	for _, op := range []Entry{ObligationAdd, ObligationSchedule, ObligationAttend} {
-		verbRoutes[op.Name()] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
-			return verbRoute{op: op, input: raw}, nil
-		}
-	}
-	return true
-}()
 
 // obligationsOn reports whether the vault is at the obligation format.
 func obligationsOn(d Deps) bool {

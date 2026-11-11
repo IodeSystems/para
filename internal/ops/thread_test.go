@@ -1,7 +1,6 @@
 package ops
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -186,23 +185,11 @@ func TestRequestRespondAliasOfThreadPost(t *testing.T) {
 		t.Fatalf("failed turn = %+v", got.Turns)
 	}
 
-	a := Alias("request_respond").(*aliasEntry)
-	in := json.RawMessage(`{"id":"` + turn.Request + `","kind":"clarify","text":"Which blog?"}`)
-	if !a.Routed(t.Context(), f.owner, in) {
-		t.Fatal("request_respond does not route through thread_post")
+	// request_respond is internal: the CLI's respond runs it.
+	if !IsInternal("request_respond") {
+		t.Fatal("request_respond is listed")
 	}
-	if a.Routed(t.Context(), f.owner, json.RawMessage(`{"id":"`+turn.Request+`","kind":"revert","text":"Undo it."}`)) {
-		t.Fatal("revert routed")
-	}
-	out, err := a.Invoke(t.Context(), f.owner, in)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ao := out.(AliasOutput)
-	if ao.Of() != "thread_post" {
-		t.Fatalf("alias_of = %s", ao.Of())
-	}
-	if ch := ao.Value().(RequestChangeOutput); ch.ID != turn.Request || ch.Status != model.RequestQueued {
+	if ch := must(t, RequestRespond, f.owner, RequestRespondInput{ID: turn.Request, Kind: RespondClarify, Text: "Which blog?"}); ch.ID != turn.Request || ch.Status != model.RequestQueued {
 		t.Fatalf("respond = %+v", ch)
 	}
 	_, r, err := getRequest(t.Context(), f.owner.Store, turn.Request)

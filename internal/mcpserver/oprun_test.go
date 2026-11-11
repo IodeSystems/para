@@ -3,6 +3,7 @@ package mcpserver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -73,7 +74,8 @@ func TestOpRunGates(t *testing.T) {
 	}{
 		{"no why", "io_add", `{"direction":"in","text":"x"}`, "io_add: why is required"},
 		{"person only", "publish_set", `{}`, "publish_set: " + ops.ErrPersonOnly.Error()},
-		{"old name", "task_done", `{"id":"task-x"}`, "task_done is an old name: call close"},
+		{"removed name", "task_done", `{"id":"task-x"}`, "task_done removed in 0.5.0: use close"},
+		{"internal op", "task_edit", `{"id":"task-x"}`, "task_edit removed in 0.5.0: use edit"},
 		{"unknown", "io_ad", `{}`, "unknown op io_ad; closest: io_add"},
 		{"no op", "", ``, "op is required"},
 		{"unknown field", "io_add", `{"direction":"in","text":"x","why":"t","minor":true}`, `unknown field "minor"`},
@@ -287,5 +289,23 @@ func TestDescribeWriteFieldsOnce(t *testing.T) {
 	if !strings.Contains(d, "  sources: array of object{ref*, quote}\n") || !strings.Contains(d, "  why: string (required)\n") ||
 		strings.Contains(d, "write fields: why") || strings.Contains(d, "sources: array of string") {
 		t.Errorf("question_answer:\n%s", d)
+	}
+}
+
+func TestOpRemoved(t *testing.T) {
+	defer ops.SetRemovedForTest("gone_op", "close")()
+	s, _ := newVault(t)
+	seedSamples(t, s)
+	c := connectWith(t, ops.Deps{Store: s}, Options{})
+	want := "gone_op removed in 0.5.0: use close"
+	if out, isErr := opRun(t, c, "gone_op", `{}`); !isErr || !strings.Contains(out, want) {
+		t.Errorf("op_run: %v %q", isErr, out)
+	}
+	res, err := c.CallTool(t.Context(), mcp.CallToolRequest{Params: mcp.CallToolParams{Name: opsDescribeTool, Arguments: map[string]any{"op": "gone_op"}}})
+	if err != nil || !res.IsError || !strings.Contains(fmt.Sprint(res.Content), want) {
+		t.Errorf("ops_describe: %v %+v", err, res)
+	}
+	if out, isErr := opRun(t, c, "io_ad", `{}`); !isErr || !strings.Contains(out, "closest: io_add") {
+		t.Errorf("unknown: %v %q", isErr, out)
 	}
 }

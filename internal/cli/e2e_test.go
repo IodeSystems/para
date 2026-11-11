@@ -356,7 +356,8 @@ func walk(c *cobra.Command, fn func(*cobra.Command)) {
 	}
 }
 
-// Parity rule 1: each op has one command, at the path its name spells.
+// Parity rule 1: each op has one command, at the path its name spells. An
+// internal op (ops.IsInternal) keeps its command: the CLI runs it.
 func TestEveryOpHasACommand(t *testing.T) {
 	got := map[string]string{}
 	root := newRoot(&loader{})
@@ -366,7 +367,7 @@ func TestEveryOpHasACommand(t *testing.T) {
 			got[name] = strings.NewReplacer(" ", "_", "-", "_").Replace(path) // task to-question is op task_to_question
 		}
 	})
-	for _, e := range ops.All() {
+	for _, e := range append(ops.All(), ops.Internal()...) {
 		if got[e.Name()] != e.Name() {
 			t.Errorf("op %s: command path %q", e.Name(), got[e.Name()])
 		}
@@ -526,7 +527,7 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	seedStreamTHParity(t, deps)
 	seedStreamTHTurns(t, deps)
 	maps.Copy(cases, streamTHParityCases())
-	all := ops.All()
+	all := append(ops.All(), ops.Internal()...)
 	if len(all) != len(cases) {
 		t.Fatalf("%d ops, %d cases: add a case for each new op", len(all), len(cases))
 	}

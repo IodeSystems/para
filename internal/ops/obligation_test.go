@@ -137,24 +137,17 @@ func TestOlderAddsStoreObligations(t *testing.T) {
 }
 
 // meeting_add and obligation_add of a meeting write the same file; the
-// meeting aliases say alias_of; meeting_rsvp keeps its person check.
-func TestMeetingAliasesParity(t *testing.T) {
+// meeting ops are internal; meeting_rsvp keeps its person check.
+func TestMeetingOpsParity(t *testing.T) {
 	in := `{"title":"Sync","with":["person-ada-example"],"start":"2026-11-06T10:00:00Z","end":"2026-11-06T10:30:00Z","optional":true}`
 	var metas []string
 	for _, name := range []string{"meeting_add", "obligation_add"} {
 		d, _, _ := obFixture(t)
-		e := Alias(name)
-		if e == nil {
-			e = registry[name]
-		}
-		res, err := e.Invoke(ctx, d, json.RawMessage(in))
+		res, err := registry[name].Invoke(ctx, d, json.RawMessage(in))
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
 		b, _ := json.Marshal(res)
-		if name == "meeting_add" && !strings.Contains(string(b), `"alias_of":"obligation_add"`) {
-			t.Fatalf("meeting_add output = %s", b)
-		}
 		var out struct{ ID string }
 		_ = json.Unmarshal(b, &out)
 		doc, o := getOb(t, d, out.ID)
@@ -168,29 +161,21 @@ func TestMeetingAliasesParity(t *testing.T) {
 
 	d, _, person := obFixture(t)
 	id := addMeeting(t, d, "Standup", person, "2026-11-06T10:00:00Z", "2026-11-06T10:15:00Z", true)
-	a := Alias("meeting_attend").(*aliasEntry)
 	raw := json.RawMessage(`{"id":"` + id + `","attend":"yes"}`)
-	if !a.Routed(ctx, d, raw) {
-		t.Fatal("meeting_attend does not route to obligation_attend")
-	}
-	res, err := a.Invoke(ctx, d, raw)
-	if err != nil {
+	if _, err := MeetingAttend.Invoke(ctx, d, raw); err != nil {
 		t.Fatal(err)
-	}
-	if b, _ := json.Marshal(res); !strings.Contains(string(b), `"alias_of":"obligation_attend"`) {
-		t.Fatalf("meeting_attend output = %s", b)
 	}
 	if _, o := getOb(t, d, id); o.Attend != model.AttendYes {
 		t.Fatalf("attend = %q", o.Attend)
 	}
 	agent := d
 	agent.Store = d.Store.ActAs("claude", "mcp")
-	if _, err := Alias("meeting_rsvp").Invoke(ctx, agent, raw); err == nil || !strings.Contains(err.Error(), ErrPersonOnly.Error()) {
+	if _, err := MeetingRSVP.Invoke(ctx, agent, raw); err == nil || !strings.Contains(err.Error(), ErrPersonOnly.Error()) {
 		t.Fatalf("meeting_rsvp from an agent = %v", err)
 	}
 	for _, name := range []string{"meeting_add", "meeting_schedule", "meeting_attend", "meeting_rsvp", "meeting_show", "meeting_hold", "meeting_cancel"} {
-		if AliasOf(name) == "" {
-			t.Errorf("%s is not an alias", name)
+		if !IsInternal(name) {
+			t.Errorf("%s is not internal", name)
 		}
 	}
 }

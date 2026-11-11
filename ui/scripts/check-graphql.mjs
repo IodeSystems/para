@@ -170,11 +170,10 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-10: Input and Output pages. Mark reviewed on incoming or sent rows (io_review,
   // an owner op; no state change; one receipt, so Undo takes it back).
   'IoReview',
-  // owner 2026-11-10: Output page, Proposals tab. Drop on a proposal with the owner's reason
-  // (io_drop, an owner op). Approve (IOApprove, already allowed above) now also approves a batch
-  // of {id, expectHash} the owner sees; Done by me runs through Close (already allowed), which runs
+  // owner 2026-11-10: Output page, Proposals tab. Drop runs through Close (already allowed) with
+  // outcome dropped and the owner's reason. Approve (IOApprove, already allowed above) now also
+  // approves a batch of {id, expectHash} the owner sees; Done by me runs through Close, which runs
   // io_done with the final text and URL.
-  'IODrop',
   // owner 2026-11-10: Pinned items. Pin and Unpin toggle the pin of an item or a thread key on
   // every item page, Next card, and list row (pin, unpin: person ops; each leaves one receipt that
   // ReceiptRevert undoes). Only the owner pins; an agent suggests a pin in its reply.

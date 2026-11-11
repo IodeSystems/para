@@ -174,7 +174,7 @@ func TestPointerOutputsAreNullable(t *testing.T) {
 			walk(f.Type, at+"."+f.Name)
 		}
 	}
-	for _, e := range ops.All() {
+	for _, e := range append(ops.All(), ops.Internal()...) {
 		walk(e.OutputType(), e.Name())
 	}
 }
@@ -183,7 +183,7 @@ func TestPointerOutputsAreNullable(t *testing.T) {
 // never bound, and required must match the CLI's required json fields.
 func TestGetInputsAreQueryParams(t *testing.T) {
 	byName := map[string]ops.Entry{}
-	for _, e := range ops.All() {
+	for _, e := range append(ops.All(), ops.Internal()...) {
 		byName[e.Name()] = e
 	}
 	for _, r := range schemaOnly(t).Routes() {
@@ -236,7 +236,7 @@ func TestEnumsHaveValues(t *testing.T) {
 			}
 		}
 	}
-	for _, e := range ops.All() {
+	for _, e := range append(ops.All(), ops.Internal()...) {
 		walk(e.InputType())
 		walk(e.OutputType())
 	}

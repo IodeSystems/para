@@ -192,10 +192,10 @@ func TestToolsMatchOps(t *testing.T) {
 			t.Errorf("person-only op %s is a tool", e.Name())
 		}
 	}
-	// An old name stays an op for the CLI and the server, not an MCP tool.
-	for _, name := range ops.AliasNames() {
-		if _, ok := got[name]; ok {
-			t.Errorf("alias %s is a tool", name)
+	// An internal op stays an op for the CLI and the server, not an MCP tool.
+	for _, e := range ops.Internal() {
+		if _, ok := got[e.Name()]; ok {
+			t.Errorf("internal op %s is a tool", e.Name())
 		}
 	}
 	for _, e := range all {
@@ -456,11 +456,7 @@ func volatile(a, b string) bool {
 
 func TestSampleInputsKnown(t *testing.T) {
 	for name := range sampleInputs {
-		found := false
-		for _, e := range ops.All() {
-			found = found || e.Name() == name
-		}
-		if !found {
+		if _, found := ops.Lookup(name); !found {
 			t.Errorf("sampleInputs names unknown op %s", name)
 		}
 	}
@@ -702,12 +698,18 @@ func TestInstructions(t *testing.T) {
 	rest := viaRun.ReplaceAllString(res.Instructions, "")
 	for _, w := range regexp.MustCompile(`[a-z]+(?:_[a-z]+)+`).FindAllString(rest, -1) {
 		switch {
-		case ops.AliasOf(w) != "":
-			t.Errorf("instructions name old op %s: call %s", w, ops.AliasOf(w))
+		case removedUse(w) != "":
+			t.Errorf("instructions name removed op %s: call %s", w, removedUse(w))
 		case known[w] && !slices.Contains(Core, w):
 			t.Errorf("instructions name %s as a tool; it is not core: write op_run {op: %s}", w, w)
 		}
 	}
+}
+
+// removedUse is what replaces a removed or internal op name, or "".
+func removedUse(name string) string {
+	_, use, _ := ops.RemovedIn(name)
+	return use
 }
 
 func TestLintRefusalNamesFindings(t *testing.T) {

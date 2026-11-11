@@ -78,10 +78,27 @@ type output[O any] struct {
 	Body   O
 }
 
+// appOps are the internal ops (ops.IsInternal) that stay web routes: the
+// app reads or calls them. The typed show ops go when the app reads show.
+var appOps = map[string]bool{
+	"task_show": true, "question_show": true, "project_show": true, "rfx_show": true, "io_show": true, "area_show": true,
+	"incident_show": true, "receipt_show": true, "source_show": true, "meeting_show": true,
+	"io_edit": true, "meeting_rsvp": true,
+}
+
+// scopeOnly records the scope of an internal op that has no route: a verb
+// that routes to it here is authorized with it (deps, mcphttp).
+func scopeOnly[I, O any](r *registrar, op *ops.Op[I, O], scope string) {
+	r.s.routes.byOp[op.Name()] = scope
+}
+
 // reg registers one op. Every op states its method and scope here. GET reads
 // the Input from query parameters and POST from the JSON body.
 func reg[I, O any](r *registrar, op *ops.Op[I, O], method, scope string) {
 	name := op.Name()
+	if ops.IsInternal(name) && !appOps[name] {
+		panic("server: " + name + " is internal: scopeOnly it, or list it in appOps")
+	}
 	route := Route{Op: name, ID: operationID(name), Method: method, Path: "/api/v1/" + strings.ReplaceAll(name, "_", "/"), Scope: scope}
 	hop := huma.Operation{
 		OperationID:  route.ID,

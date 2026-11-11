@@ -275,21 +275,18 @@ func definePerson[I, O any](name, desc string, fn Func[I, O]) *Op[I, O] {
 }
 
 // ForAgents returns the ops an agent surface lists, sorted by name: no
-// person-only op and no old name with an alias (opalias.go). An alias stays
-// callable where the CLI and the server bind it, and receipts keep its name.
+// person-only op and no internal op (opalias.go).
 func ForAgents() []Entry {
-	return slices.DeleteFunc(All(), func(e Entry) bool { return e.PersonOnly() || AliasOf(e.Name()) != "" })
+	return slices.DeleteFunc(All(), func(e Entry) bool { return e.PersonOnly() })
 }
 
-// All returns every op, sorted by name. An old name with an alias
-// (opalias.go) is its alias entry.
+// All returns every listed op, sorted by name: no internal op (opalias.go).
 func All() []Entry {
 	out := make([]Entry, 0, len(registry))
 	for name, e := range registry {
-		if a, ok := aliases[name]; ok {
-			e = a
+		if _, in := internalTable[name]; !in {
+			out = append(out, e)
 		}
-		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name() < out[j].Name() })
 	return out

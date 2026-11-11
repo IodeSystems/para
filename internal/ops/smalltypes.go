@@ -3,7 +3,6 @@ package ops
 import (
 	"cmp"
 	"context"
-	"encoding/json"
 	"slices"
 
 	"github.com/iodesystems/para/internal/model"
@@ -91,14 +90,3 @@ func refsOf(ctx context.Context, s store.Store, f store.Filter) ([]model.Ref, er
 	slices.SortStableFunc(refs, func(a, b model.Ref) int { return cmp.Compare(a.ID, b.ID) })
 	return refs, nil
 }
-
-// The ops that the older add ops are aliases of route to themselves
-// (opalias.go).
-var _ = func() bool {
-	for _, name := range []string{"org_group_add", "io_add", "task_add"} {
-		verbRoutes[name] = func(_ context.Context, _ Deps, raw json.RawMessage) (verbRoute, error) {
-			return verbRoute{op: registry[name], input: raw}, nil
-		}
-	}
-	return true
-}()

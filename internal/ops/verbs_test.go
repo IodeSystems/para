@@ -155,7 +155,14 @@ var (
 	madeID = regexp.MustCompile(`\b[a-z]+-[0-9a-z]{20,}\b`)
 )
 
-func TestAliasParity(t *testing.T) {
+// wrapsOp are the internal ops that run another op's code under their own
+// name (TestOldOpParity).
+var wrapsOp = map[string]bool{"item_close": true, "stack_later": true, "stack_return": true}
+
+// An internal op the CLI still runs by its old name, with its old input, does
+// what the verb an agent calls instead does: the same output, document, and
+// receipts.
+func TestOldOpParity(t *testing.T) {
 	recur := func(t *testing.T, v *verbVault) string {
 		id := v.task(t, "Water plants")
 		if _, err := DocEdit.Run(t.Context(), v.cli, DocEditInput{ID: id, Fields: map[string]any{"recur": "weekly", "due": "2026-11-01"}}); err != nil {
@@ -212,23 +219,16 @@ func TestAliasParity(t *testing.T) {
 		t.Run(c.old+"_"+c.surface, func(t *testing.T) {
 			v := newVerbVault(t)
 			ia, ib := c.seed(t, v), c.seed(t, v)
-			a := Alias(c.old).(*aliasEntry)
 			da, db := v.on(c.surface), v.on(c.surface)
 			wctx := writeCtx(t)
-			if !a.Routed(wctx, da, json.RawMessage(fill(c.oldIn, ia))) {
-				t.Fatalf("%s %s does not route through %s", c.old, c.oldIn, c.verb)
+			if !IsInternal(c.old) {
+				t.Fatalf("%s is listed", c.old)
 			}
-			oldOut, err := a.Invoke(wctx, da, json.RawMessage(fill(c.oldIn, ia)))
+			old, err := runRoute(wctx, da, verbRoute{op: registry[c.old], input: json.RawMessage(fill(c.oldIn, ia)), receipt: registry[c.verb].Risk() != RiskRead})
 			if err != nil {
-				t.Fatalf("alias: %v", err)
+				t.Fatalf("old op: %v", err)
 			}
-			if ao := oldOut.(AliasOutput); ao.Of() != c.verb {
-				t.Fatalf("alias_of = %s", ao.Of())
-			}
-			b, _ := json.Marshal(oldOut)
-			if !strings.Contains(string(b), `"alias_of":"`+c.verb+`"`) {
-				t.Fatalf("output %s has no alias_of", b)
-			}
+			oldOut := old.raw
 			newOut, err := registry[c.verb].Invoke(wctx, db, json.RawMessage(fill(c.verbIn, ib)))
 			if err != nil {
 				t.Fatalf("verb: %v", err)
@@ -241,10 +241,10 @@ func TestAliasParity(t *testing.T) {
 				want = o.raw
 			}
 			if c.old == "item_close" {
-				if got := asMap(oldOut.(AliasOutput).Value()); got["by"] != newOut.(VerbOutput).Op {
+				if got := asMap(oldOut); got["by"] != newOut.(VerbOutput).Op {
 					t.Fatalf("item_close by %v, verb ran %s", got["by"], newOut.(VerbOutput).Op)
 				}
-			} else if a, b := sameIDs(asMap(oldOut.(AliasOutput).Value()), ia, ib), sameIDs(asMap(want), ia, ib); a != b {
+			} else if a, b := sameIDs(asMap(oldOut), ia, ib), sameIDs(asMap(want), ia, ib); a != b {
 				t.Fatalf("output\nold  %s\nverb %s", a, b)
 			}
 			docA, err := da.Store.Get(t.Context(), ia)
@@ -258,52 +258,24 @@ func TestAliasParity(t *testing.T) {
 			if ta, tb := madeID.ReplaceAllString(strings.ReplaceAll(renderText(docA), ia, "SEED"), "ID"), madeID.ReplaceAllString(strings.ReplaceAll(renderText(docB), ib, "SEED"), "ID"); ta != tb {
 				t.Fatalf("doc state\nold  %s\nverb %s", ta, tb)
 			}
-			if ra, rb := receiptOps(t, da, ia), receiptOps(t, db, ib); !reflect.DeepEqual(ra, rb) {
+			ra, rb := receiptOps(t, da, ia), receiptOps(t, db, ib)
+			if wrapsOp[c.old] && len(ra) == len(rb) {
+				// item_close and the stack ops call the routed op's code
+				// themselves: their receipt keeps their own name.
+				for i := range ra {
+					ra[i] = strings.Replace(ra[i], c.old, strings.Fields(rb[i])[0], 1)
+				}
+			}
+			if !reflect.DeepEqual(ra, rb) {
 				t.Fatalf("receipts\nold  %v\nverb %v", ra, rb)
 			}
 		})
 	}
 }
 
-// An alias whose verb would run another op runs the old op: same result,
-// same error.
-func TestAliasFallsBackToOldOp(t *testing.T) {
-	v := newVerbVault(t)
-	q := v.question(t, "Which vendor?")
-	a := Alias("item_close").(*aliasEntry)
-	if a.Routed(t.Context(), v.pwa, json.RawMessage(`{"id":"`+q+`"}`)) {
-		t.Fatal("item_close of a question routed through close")
-	}
-	_, err := a.Invoke(t.Context(), v.pwa, json.RawMessage(`{"id":"`+q+`"}`))
-	_, want := ItemClose.Invoke(t.Context(), v.pwa, json.RawMessage(`{"id":"`+q+`"}`))
-	if err == nil || want == nil || err.Error() != want.Error() {
-		t.Fatalf("alias error %v, old op error %v", err, want)
-	}
-	// question_drop on a task: close would close the task; the alias runs
-	// question_drop, which refuses it.
-	task := v.task(t, "Send the plan")
-	qd := Alias("question_drop").(*aliasEntry)
-	if qd.Routed(t.Context(), v.cli, json.RawMessage(`{"id":"`+task+`"}`)) {
-		t.Fatal("question_drop of a task routed through close")
-	}
-	if _, err := qd.Invoke(t.Context(), v.cli, json.RawMessage(`{"id":"`+task+`"}`)); err == nil {
-		t.Fatal("question_drop closed a task")
-	}
-	if doc, _ := v.cli.Store.Get(t.Context(), task); lifeOf(doc.Meta) != LifeOpen {
-		t.Fatal("task closed")
-	}
-}
-
-// Every alias lands in its old op's gate class: the same risk, person flag,
-// and undo, and an agent's call applies the same way through the old op, the
-// alias, and the verb.
-func TestAliasGateClass(t *testing.T) {
-	for _, name := range AliasNames() {
-		a := aliases[name]
-		if a.Risk() != a.old.Risk() || a.PersonOnly() != a.old.PersonOnly() || a.Undoable() != a.old.Undoable() {
-			t.Errorf("%s: class differs from the old op", name)
-		}
-	}
+// An internal op keeps its gate class: an agent's call applies the same way
+// through the old op and the verb.
+func TestInternalGateClass(t *testing.T) {
 	cases := []struct{ old, oldIn, verb, verbIn string }{
 		{"task_done", `{"id":"%s"}`, "close", `{"id":"%s"}`},
 		{"task_resolve", `{"id":"%s","outcome":"failed","tried":"Twice.","stopped_because":"No access."}`, "close",
@@ -320,10 +292,6 @@ func TestAliasGateClass(t *testing.T) {
 		}
 		run(t, func(ctx context.Context, d Deps, id string) error {
 			_, err := registry[c.old].Invoke(ctx, d, json.RawMessage(fill(c.oldIn, id)))
-			return err
-		})
-		run(t, func(ctx context.Context, d Deps, id string) error {
-			_, err := Alias(c.old).Invoke(ctx, d, json.RawMessage(fill(c.oldIn, id)))
 			return err
 		})
 		run(t, func(ctx context.Context, d Deps, id string) error {
@@ -367,12 +335,7 @@ func TestVerbScopeMatrix(t *testing.T) {
 		{"item_close", `{"id":"%s"}`, func(t *testing.T, v *verbVault) string { return v.task(t, "T") }, false},
 		{"agent_send", `{"id":"%s","text":"Hi."}`, func(t *testing.T, v *verbVault) string { return v.task(t, "T") }, false},
 	}
-	entry := func(name string) Entry {
-		if a := Alias(name); a != nil {
-			return a
-		}
-		return registry[name]
-	}
+	entry := func(name string) Entry { return registry[name] }
 	for _, c := range calls {
 		for _, surface := range []string{"mcp", "cli", "pwa"} {
 			v := newVerbVault(t)

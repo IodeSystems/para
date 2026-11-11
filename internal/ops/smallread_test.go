@@ -195,19 +195,22 @@ func TestSmallTypesAddOpsWriteByFormat(t *testing.T) {
 			if on && (in.Folder != model.FolderIO || inc.Folder != model.FolderProjects) {
 				t.Fatalf("folders %s %s", in.Folder, inc.Folder)
 			}
-			// The aliases say what they are aliases of and run the old op.
-			for name, of := range map[string]string{"org_team_add": "org_group_add", "org_domain_add": "org_group_add", "interaction_add": "io_add",
-				"incident_add": "task_add", "incident_status": "close"} {
-				if AliasOf(name) != of {
-					t.Fatalf("%s alias of %q", name, AliasOf(name))
+			// The old add ops are internal; incident_status stays listed (it
+			// sets mitigated, which no close outcome is).
+			for _, name := range []string{"org_team_add", "org_domain_add", "interaction_add", "incident_add"} {
+				if !IsInternal(name) {
+					t.Fatalf("%s is listed", name)
 				}
 			}
-			res, err := Alias("incident_status").Invoke(ctx, d, json.RawMessage(`{"id":"`+inc.ID+`","status":"resolved","text":"fixed"}`))
+			if IsInternal("incident_status") {
+				t.Fatal("incident_status is internal")
+			}
+			res, err := IncidentStatus.Invoke(ctx, d, json.RawMessage(`{"id":"`+inc.ID+`","status":"resolved","text":"fixed"}`))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if b, _ := json.Marshal(res); !strings.Contains(string(b), `"status":"resolved"`) || !strings.Contains(string(b), `"alias_of":"close"`) {
-				t.Fatalf("incident_status alias = %s", b)
+			if b, _ := json.Marshal(res); !strings.Contains(string(b), `"status":"resolved"`) {
+				t.Fatalf("incident_status = %s", b)
 			}
 			if i, ok := mustIncident(t, d, inc.ID); !ok || i.Status != model.IncidentResolved {
 				t.Fatalf("incident after the alias = %+v", i)

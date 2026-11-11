@@ -240,13 +240,14 @@ func TestAnnotationHealthAndNeedsYou(t *testing.T) {
 	}
 }
 
-// The old add ops are aliases of annotate at the policy docs format: they
-// write the annotation the upgrade step makes of the same file.
+// The old add ops are internal (annotate replaces them for agents) and, at
+// the policy docs format, write the annotation the upgrade step makes of the
+// same file.
 func TestOldAddOpsAnnotate(t *testing.T) {
 	d, pol := policyDocsVault(t)
 	for _, name := range []string{"exception_add", "convention_add", "constraint_add"} {
-		if AliasOf(name) != "annotate" || !strings.HasPrefix(Alias(name).Description(), "Alias of annotate") {
-			t.Fatalf("%s alias of %q", name, AliasOf(name))
+		if _, use, ok := RemovedIn(name); !ok || use != "annotate" || !IsInternal(name) {
+			t.Fatalf("%s: use %q", name, use)
 		}
 	}
 	in := ExceptionAddInput{Policy: pol, Rule: "R1", Kind: model.ExceptionBug, By: "me", ReviewBy: "2027-01-31", Title: "Thirty days", Text: "From when?"}
@@ -258,15 +259,15 @@ func TestOldAddOpsAnnotate(t *testing.T) {
 	if !slices.Equal(c.Fields, f.Callout.Fields) || c.Text != f.Callout.Text || c.Heading != "Rules" {
 		t.Fatalf("exception_add = %+v\nfold = %+v", c, f.Callout)
 	}
-	// Through the alias entry too, with alias_of.
-	raw, err := Alias("convention_add").Invoke(ctx, d, []byte(`{"title":"Tag lines","applies_in":["area-ops"],"status":"adopted"}`))
+	// Through the internal entry by name too (the CLI's path).
+	conv, _ := Lookup("convention_add")
+	raw, err := conv.Invoke(ctx, d, []byte(`{"title":"Tag lines","applies_in":["area-ops"],"status":"adopted"}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ao := raw.(AliasOutput)
-	cid := ao.Value().(ConventionAddOutput).ID
-	if ao.Of() != "annotate" || calloutOf(t, d, "area-ops", cid).Field("status") != "adopted" {
-		t.Fatalf("convention_add alias = %+v", ao)
+	cid := raw.(ConventionAddOutput).ID
+	if calloutOf(t, d, "area-ops", cid).Field("status") != "adopted" {
+		t.Fatalf("convention_add = %+v", raw)
 	}
 	if out := must(t, ConstraintAdd, d, ConstraintAddInput{Says: "No shared accounts", Why: "audit", By: "me", Source: "https://acme.example/a",
 		AppliesIn: []string{"area-ops"}, ReviewBy: "2027-02-01"}); calloutOf(t, d, "area-ops", out.ID).Field("source") != "https://acme.example/a" {

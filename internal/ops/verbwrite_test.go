@@ -181,6 +181,45 @@ func TestEditParity(t *testing.T) {
 	}
 }
 
+// TestOldTaskEditReceiptUndoes: task_edit is internal since 0.5.0, but a
+// receipt it filed (on an agent's edit, or from before the split) keeps its op
+// name, and undo, the verb an agent calls, still reverses it: receipt undo
+// compares the document text, not the op.
+func TestOldTaskEditReceiptUndoes(t *testing.T) {
+	v := newVerbVault(t)
+	id := v.task(t, "Send the plan")
+	if _, err := TaskEdit.Invoke(writeCtx(t), v.agent, json.RawMessage(`{"id":"`+id+`","effort":"s","done_when":"Sent."}`)); err != nil {
+		t.Fatal(err)
+	}
+	if !IsInternal("task_edit") {
+		t.Fatal("task_edit is listed")
+	}
+	list, err := listReceipts(t.Context(), v.agent.Store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var rec string
+	for _, r := range list {
+		if r.Doc == id && r.Op == "task_edit" {
+			rec = r.ID
+		}
+	}
+	if rec == "" {
+		t.Fatalf("no task_edit receipt: %+v", list)
+	}
+	out, err := Undo.Invoke(writeCtx(t), v.agent, json.RawMessage(`{"receipt":"`+rec+`"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if op := out.(VerbOutput).Op; op != "receipt_undo" {
+		t.Fatalf("undo ran %s", op)
+	}
+	after, _ := v.agent.Store.Get(t.Context(), id)
+	if m := after.Meta.(*model.Task); m.Effort != "" || m.DoneWhen != "It is done." {
+		t.Fatalf("not undone: %s", renderText(after))
+	}
+}
+
 func TestLinkRels(t *testing.T) {
 	v := newVerbVault(t)
 	a, b := v.task(t, "Draft"), v.task(t, "Review")

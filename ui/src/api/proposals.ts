@@ -3,6 +3,7 @@ import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 import { approveIo } from '@/api/io'
+import { closeAny } from '@/api/verbs'
 
 // The Output page's Proposals tab: io_proposals (groups of variation sets of drafts), a draft's
 // revisions and diff, and the owner's writes: approve (one or a batch, bound to the text seen) and
@@ -170,25 +171,12 @@ export function useApproveProposals() {
   })
 }
 
-const IODropDoc = graphql(/* GraphQL */ `
-  mutation IODrop($body: para_IODropInputInput!) {
-    para {
-      v1 {
-        ioDrop(body: $body) {
-          id
-          state
-        }
-      }
-    }
-  }
-`)
-
 // useDropProposal drops a draft with the owner's reason (io_drop).
 export function useDropProposal() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (b: { id: string; reason: string }) =>
-      need((await gqlClient.request(IODropDoc, { body: b })).para.v1.ioDrop, 'drop'),
+      closeAny({ id: b.id, outcome: 'dropped', reason: b.reason }),
     onSettled: () => qc.invalidateQueries(),
   })
 }

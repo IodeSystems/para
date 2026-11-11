@@ -55,12 +55,13 @@ const MeetingAttendDescription = "Record whether the owner goes to a meeting (at
 // ObligationAttend records the owner's attendance of a meeting.
 var ObligationAttend = defineSafe("obligation_attend", MeetingAttendDescription, meetingAttend)
 
-// MeetingAttend is obligation_attend by its older name (an alias, opalias.go).
+// MeetingAttend is obligation_attend by its older name: internal
+// (opalias.go); close of a meeting with outcome skipped routes to it.
 var MeetingAttend = defineSafe("meeting_attend", MeetingAttendDescription, meetingAttend)
 
 // MeetingRSVP is meeting_attend for the owner in the web app: Attend and Skip
-// on the agenda. It is an alias of obligation_attend that keeps its person
-// check (opalias.go).
+// on the agenda: obligation_attend with a person check, internal
+// (opalias.go), still a web route.
 var MeetingRSVP = definePerson("meeting_rsvp", "Record from the web app whether the owner goes to a meeting (attend yes, no, maybe, or unset), and whether it is optional. People only", meetingAttend)
 
 func meetingAttend(ctx context.Context, d Deps, in MeetingAttendInput) (MeetingAttendOutput, error) {

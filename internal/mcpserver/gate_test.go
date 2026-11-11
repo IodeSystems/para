@@ -188,8 +188,8 @@ func TestIOApproveFromMCP(t *testing.T) {
 	s, _ := newVault(t)
 	seedSamples(t, s)
 	c := connect(t, ops.Deps{Store: s})
-	if res := call(t, c, "io_edit", `{"id":"io-draft-sample","state":"ready","owner_said":"send it"}`); !res.IsError {
-		t.Fatalf("io_edit ready from MCP applied: %s", textOf(t, res))
+	if res := call(t, c, "edit", `{"id":"io-draft-sample","fields":{"state":"ready"}}`); !res.IsError {
+		t.Fatalf("edit (io_edit) ready from MCP applied: %s", textOf(t, res))
 	}
 	if res := call(t, c, "io_approve", `{"id":"io-draft-sample"}`); !res.IsError || !strings.Contains(textOf(t, res), "owner_said is empty") {
 		t.Fatalf("io_approve without owner_said: %s", textOf(t, res))

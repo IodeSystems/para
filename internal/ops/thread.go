@@ -2,7 +2,6 @@ package ops
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -283,24 +282,6 @@ var ThreadPost = definePerson("thread_post", "Post the owner's turn in a thread:
 	}
 	return out, nil
 })
-
-// thread_post routes to request_respond on finished work, so request_respond
-// is its alias (opalias.go); any other turn runs thread_post itself.
-var _ = func() bool {
-	verbRoutes[ThreadPost.Name()] = func(ctx context.Context, d Deps, raw json.RawMessage) (verbRoute, error) {
-		var in ThreadPostInput
-		if err := decodeStrict(raw, &in); err != nil {
-			return verbRoute{}, err
-		}
-		if in.Quote == "" && len(in.Attachments) == 0 {
-			if p, err := planTurn(ctx, d, in); err == nil && p.respond {
-				return newRoute(RequestRespond, RequestRespondInput{ID: in.ID, Kind: respondKindOf(in.Kind), Text: in.Text}, false)
-			}
-		}
-		return verbRoute{op: ThreadPost, input: raw}, nil
-	}
-	return true
-}()
 
 // --- thread ---
 
