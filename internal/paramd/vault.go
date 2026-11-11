@@ -20,12 +20,24 @@ func CheckVault(files []*File) []Finding {
 		}
 		byName[key] = f
 	}
+	former := FormerIDs(files)
+	for id, f := range former {
+		if g, ok := byName[id]; ok {
+			out = append(out, Finding{Path: g.Path, Code: CodeFormerTaken, Severity: Error,
+				Msg: fmt.Sprintf("%s is a former id of %s: the file is an old copy (a sync that came in late?), or a new document took a reserved id", id, f.Path)})
+		}
+	}
 	for _, f := range files {
 		for _, lk := range f.Links {
 			if lk.Target == "" {
 				continue
 			}
 			dst, ok := byName[strings.ToLower(lk.Target)]
+			if g, was := former[strings.ToLower(lk.Target)]; !ok && was {
+				out = append(out, Finding{Path: f.Path, Line: lk.Line, Code: CodeLinkFormer, Severity: Warn,
+					Msg: fmt.Sprintf("%s names a former id of %s: it resolves; relink to fix", lk.Raw, g.Name)})
+				continue
+			}
 			if !ok {
 				out = append(out, Finding{Path: f.Path, Line: lk.Line, Code: CodeLinkBroken, Severity: Error,
 					Msg: fmt.Sprintf("%s: no file named %q", lk.Raw, lk.Target)})
@@ -205,4 +217,20 @@ func checkRefines(f *File, byName map[string]*File) []Finding {
 		seen[cur] = true
 	}
 	return nil
+}
+
+// FormerIDs maps each former id (lower case) that a file lists in former_ids
+// to that file. The first file wins when two list the same id.
+func FormerIDs(files []*File) map[string]*File {
+	out := map[string]*File{}
+	for _, f := range files {
+		list, _ := f.Frontmatter["former_ids"].([]any)
+		for _, v := range list {
+			id := strings.ToLower(strings.TrimSpace(fmt.Sprint(v)))
+			if _, dup := out[id]; id != "" && !dup {
+				out[id] = f
+			}
+		}
+	}
+	return out
 }

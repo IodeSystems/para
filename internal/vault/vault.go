@@ -89,6 +89,8 @@ type listed struct {
 	dup   string
 	// pinned is the frontmatter pinned value as text.
 	pinned string
+	// former are the frontmatter former_ids (ids.go).
+	former []string
 }
 
 // Open opens the vault at root and restores any missing folder.
@@ -205,11 +207,17 @@ func (v *Vault) Create(ctx context.Context, d model.Document) (model.Document, e
 	if d.Meta == nil {
 		return d, errors.New("vault: create: document has no meta")
 	}
-	if d.ID == "" {
+	given := d.ID != ""
+	if !given {
 		d.ID = NewID(d.Meta.Header().Type)
 	}
 	if !paramd.ValidStem(d.ID) {
 		return d, fmt.Errorf("vault: create: invalid id %q", d.ID)
+	}
+	if given {
+		if err := v.notReserved(d.ID); err != nil {
+			return d, fmt.Errorf("vault: create: %w", err)
+		}
 	}
 	if d.Meta.Header().Created == "" {
 		d.Meta.Header().Created = v.today()
@@ -363,6 +371,11 @@ func (v *Vault) Rename(ctx context.Context, id, newID string) (model.Document, e
 	if !paramd.ValidStem(newID) {
 		return model.Document{}, fmt.Errorf("vault: rename: invalid id %q", newID)
 	}
+	if g, ok, err := v.formerOf(newID); err != nil {
+		return model.Document{}, fmt.Errorf("vault: rename: %w", err)
+	} else if ok && g.id != id {
+		return model.Document{}, fmt.Errorf("vault: rename: %w: %s is a former id of %s", model.ErrExists, newID, g.id)
+	}
 	err := v.withLock(ctx, func(m *events.Manifest) error {
 		files, err := v.docFiles()
 		if err != nil {
@@ -420,8 +433,17 @@ func (v *Vault) Rename(ctx context.Context, id, newID string) (model.Document, e
 }
 
 // Get reads a document.
+// An id no file has resolves to the document that lists it in former_ids
+// (ids.go); the Document then has its current id.
 func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 	f, err := v.find(id)
+	if errors.Is(err, model.ErrNotFound) {
+		if g, ok, ferr := v.formerOf(id); ferr != nil {
+			err = ferr
+		} else if ok {
+			f, err = g, nil
+		}
+	}
 	if err != nil {
 		return model.Document{}, fmt.Errorf("vault: get: %w", err)
 	}
@@ -703,7 +725,15 @@ func (v *Vault) listedOf(rel string, data []byte) listed {
 	case time.Time:
 		pinned = p.UTC().Format(time.RFC3339)
 	}
-	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup, pinned: pinned}
+	var former []string
+	if list, ok := pf.Frontmatter["former_ids"].([]any); ok {
+		for _, x := range list {
+			if id := strings.TrimSpace(fmt.Sprint(x)); id != "" {
+				former = append(former, id)
+			}
+		}
+	}
+	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup, pinned: pinned, former: former}
 	v.paths.mu.Lock()
 	if v.paths.refs == nil {
 		v.paths.refs = map[string]listed{}

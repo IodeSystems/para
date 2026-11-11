@@ -44,6 +44,8 @@ const (
 	CodeJournalMark  = "journal-marker"
 	CodeDupFilename  = "filename-duplicate"
 	CodeLinkBroken   = "link-unresolved"
+	CodeLinkFormer   = "link-former"     // a link names a former id; it resolves, relink fixes it
+	CodeFormerTaken  = "former-id-taken" // a file is named by an id another document lists in former_ids
 	CodeBlockBroken  = "block-unresolved"
 	CodeNoTranscript = "transcript-missing"
 	CodeSummaryLong  = "summary-long"
@@ -333,14 +335,15 @@ func (l *linter) trackedDoc() {
 	}
 }
 
-// task checks what the field kinds cannot: a task has a project or an area,
+// task checks what the field kinds cannot: a task has a goal (project below
+// format 11) or an area,
 // except a meeting or a call; scheduled is a date or an RFC 3339 time; end
 // needs a timed scheduled and follows it.
 func (l *linter) task() {
 	fm := l.f.Frontmatter
 	kind := str(fm["kind"])
-	if fm["project"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" && kind != "incident" {
-		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area")
+	if fm["project"] == nil && fm["goal"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" && kind != "incident" {
+		l.errf(1, CodeField, "type task: needs field %q or %q", "project", "area") // goal from format 11 (N4 changes the words)
 	}
 	if kind == "incident" {
 		for _, k := range []string{"severity", "started"} {
