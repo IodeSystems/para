@@ -348,7 +348,7 @@ func (s *Server) internalHits(q string, words []string, n int) []internalHit {
 		if score == 0 {
 			continue
 		}
-		h := internalHit{line: e.Name() + " → " + use, score: score, all: all}
+		h := internalHit{line: use, score: score, all: all}
 		if i, ok := seen[use]; ok {
 			if score > hits[i].score {
 				hits[i] = h

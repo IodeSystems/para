@@ -297,7 +297,7 @@ func TestDescribeWriteFieldsOnce(t *testing.T) {
 func TestDescribeFindsInternal(t *testing.T) {
 	s, _ := newVault(t)
 	c := connectWith(t, ops.Deps{Store: s}, Options{Tools: ToolsCore})
-	want := "io_edit → edit {id, fields: {state: read}}"
+	want := "edit {id, fields: {state: read}}"
 	for _, q := range []string{"mark message read", "io read", "io_edit", "io mark reviewed read", "io state mark read"} {
 		res, err := c.CallTool(t.Context(), mcp.CallToolRequest{Params: mcp.CallToolParams{Name: opsDescribeTool, Arguments: map[string]any{"query": q}}})
 		if err != nil || res.IsError {
