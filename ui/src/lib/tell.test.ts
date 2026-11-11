@@ -6,7 +6,9 @@ import { captureCall, captureReady, type Capture } from '@/lib/context'
 describe('tellText', () => {
   it('puts the instruction first and keeps the owner words', () => {
     const t = tellText('  I promised X a spec by Friday.\nSecond line.  ')
-    expect(t.startsWith('File this:')).toBe(true)
+    expect(t.startsWith('Decide what this is.')).toBe(true)
+    expect(t).toContain('log it')
+    expect(t).toContain('Ask me in this thread')
     expect(t.endsWith('I promised X a spec by Friday.\nSecond line.')).toBe(true)
   })
 })
@@ -44,7 +46,7 @@ describe('tellToast', () => {
   })
 })
 
-describe('capture with tell', () => {
+describe('capture', () => {
   const c: Capture = {
     kind: 'verbal',
     with: [{ id: 'p1', name: 'P' }],
@@ -52,11 +54,9 @@ describe('capture with tell', () => {
     date: '2026-11-10',
     summary: 'x',
     url: '',
-    tell: true,
   }
-  it('is an io item, not a logged contact', () => {
+  it('is an io item', () => {
     expect(captureCall(c).op).toBe('io_add')
-    expect(captureCall({ ...c, tell: false }).op).toBe('interaction_add')
     expect(captureReady(c)).toBe(true)
   })
 })

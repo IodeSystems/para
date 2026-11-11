@@ -2,9 +2,6 @@ import { useEffect, useState } from 'react'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Button from '@mui/material/Button'
-import Checkbox from '@mui/material/Checkbox'
-import FormControlLabel from '@mui/material/FormControlLabel'
-import MenuItem from '@mui/material/MenuItem'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
@@ -18,15 +15,12 @@ import Typography from '@mui/material/Typography'
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined'
 import { useNavigate } from '@tanstack/react-router'
 import { useCapture } from '@/api/context'
-import { useAreas } from '@/api/areas'
 import { usePeople } from '@/api/people'
 import { errorText } from '@/client/gqlClient'
 import { useToasts } from '@/components/ToastStack'
 import {
   captureCall,
   captureReady,
-  fileTaskCall,
-  firstLine,
   type Capture,
   type CaptureKind,
 } from '@/lib/context'
@@ -49,28 +43,10 @@ const empty = (kind: CaptureKind): Capture => ({
   date: today(),
   summary: '',
   url: '',
-  task: { on: false, title: '', due: '', area: '' },
 })
 
-// CaptureButton logs what reached the owner outside a connected source: a conversation they had in
-// person or by voice (verbal), or something they carried over by hand from another system (swivel).
-// A conversation with people in the directory is a logged contact; anything else is an incoming
-// item in the inbox, to file into a task like any other. "Make a task of it" files it into a new
-// task at once, so the task's Context shows where it came from.
-export function CaptureButton() {
-  const [open, setOpen] = useState(false)
-  return (
-    <>
-      <Button size="small" variant="outlined" onClick={() => setOpen(true)} data-capture>
-        Log a conversation or hand-carried item
-      </Button>
-      <CaptureDialog open={open} onClose={() => setOpen(false)} />
-    </>
-  )
-}
-
-// TellAgent is the app bar button, and the t key, that open the same dialog from any page. The
-// owner says what happened; it is saved, and the agent files it.
+// TellAgent is the app bar button, and the t key, that open the capture dialog from any page. The
+// owner says what happened; it is saved as an io item first, then the agent decides what it is.
 export function TellAgent() {
   const [open, setOpen] = useState(false)
   useEffect(() => {
@@ -80,7 +56,7 @@ export function TellAgent() {
   }, [])
   return (
     <>
-      <Tooltip title="Tell your agent what happened, and have it filed (t)">
+      <Tooltip title="Capture what happened; your agent decides what it is (t)">
         <Button
           color="inherit"
           size="small"
@@ -89,28 +65,19 @@ export function TellAgent() {
           data-tell-agent
           sx={{ flexShrink: 0, whiteSpace: 'nowrap', minWidth: 0 }}
         >
-          Tell agent
+          Capture
         </Button>
       </Tooltip>
-      <CaptureDialog open={open} onClose={() => setOpen(false)} tell />
+      <CaptureDialog open={open} onClose={() => setOpen(false)} />
     </>
   )
 }
 
-// CaptureDialog: with tell, "Tell my agent to file it" starts on; it can be turned off.
-export function CaptureDialog({
-  open,
-  onClose,
-  tell: tellDefault = false,
-}: {
-  open: boolean
-  onClose: () => void
-  tell?: boolean
-}) {
-  const [c, setC] = useState<Capture>({ ...empty('verbal'), tell: tellDefault })
+// CaptureDialog: Send saves the words as an io item, then posts a thread turn for the agent.
+export function CaptureDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [c, setC] = useState<Capture>(empty('verbal'))
   const capture = useCapture()
   const people = usePeople()
-  const areas = useAreas()
   const toasts = useToasts()
   const navigate = useNavigate()
   const options: Who[] = (people.data ?? []).map((p) => ({ id: p.id, name: p.title || p.id }))
@@ -119,56 +86,38 @@ export function CaptureDialog({
     onClose()
     capture.reset()
   }
-  const setTask = (patch: Partial<NonNullable<Capture['task']>>) =>
-    setC((x) => ({ ...x, task: { on: false, title: '', due: '', area: '', ...x.task, ...patch } }))
   const submit = () => {
     const call = captureCall(c)
-    const task = fileTaskCall(c)
     capture.mutate(
-      { call, task, tell: c.tell ? c.summary : undefined },
+      { call, tell: c.summary },
       {
         onSuccess: (out) => {
           onClose()
-          setC({ ...empty(c.kind), tell: tellDefault })
-          if (c.tell) {
-            // Saved first; the agent turn may have failed or have no agent to run it.
-            if (out.told) {
-              const request = out.told.request
-              toasts.push(
-                tellToast(out.id, out.told, {
-                  // Undo withdraws the turn (the saved words stay as an io item); Edit opens the
-                  // turn's words in the thread of that item.
-                  undo: request ? async () => void (await withdrawTurn(request)) : undefined,
-                  edit: request
-                    ? () => {
-                        void navigate({ to: '/io/$id', params: { id: out.id } })
-                        requestEditTurn(request)
-                      }
-                    : undefined,
-                }),
-              )
-            } else
-              toasts.push({
-                text: `Saved, but your agent was not told: ${out.tellError ?? 'unknown error'}`,
-                tone: 'error',
-                link: { label: 'Open the item', io: out.id },
-                target: { id: out.id, kind: 'io' },
-                dwell: 15000,
-              })
-          } else if (out.became) {
+          setC(empty(c.kind))
+          if (out.told) {
+            const request = out.told.request
+            toasts.push(
+              tellToast(out.id, out.told, {
+                // Undo withdraws the turn (the saved words stay as an io item); Edit opens the
+                // turn's words in the thread of that item.
+                undo: request ? async () => void (await withdrawTurn(request)) : undefined,
+                edit: request
+                  ? () => {
+                      void navigate({ to: '/io/$id', params: { id: out.id } })
+                      requestEditTurn(request)
+                    }
+                  : undefined,
+              }),
+            )
+          } else
             toasts.push({
-              text: `Logged and made a task: ${c.task?.title.trim() || firstLine(c.summary)}`,
-              note: 'It shows where it came from. This cannot be undone here.',
-              target: { id: out.became },
+              text: `Saved, but your agent was not told: ${out.tellError ?? 'unknown error'}`,
+              tone: 'error',
+              link: { label: 'Open the item', io: out.id },
+              target: { id: out.id, kind: 'io' },
+              dwell: 15000,
             })
-          }
-          void navigate(
-            out.became
-              ? { to: '/docs/$id', params: { id: out.became } }
-              : call.op === 'io_add'
-                ? { to: '/io/$id', params: { id: out.id } }
-                : { to: '/docs/$id', params: { id: out.id } },
-          )
+          void navigate({ to: '/io/$id', params: { id: out.id } })
         },
       },
     )
@@ -176,7 +125,7 @@ export function CaptureDialog({
   return (
     <>
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
-        <DialogTitle>{tellDefault ? 'Tell your agent' : 'Log it'}</DialogTitle>
+        <DialogTitle>Capture</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <ToggleButtonGroup
@@ -234,7 +183,7 @@ export function CaptureDialog({
               label="Summary"
               required
               multiline
-              minRows={tellDefault ? 8 : 3}
+              minRows={8}
               maxRows={24}
               placeholder="what was said or what you carried over, in your words"
               value={c.summary}
@@ -248,72 +197,9 @@ export function CaptureDialog({
               onChange={(e) => set('url', e.target.value)}
               slotProps={{ htmlInput: { 'data-field': 'url' } }}
             />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={!!c.tell}
-                  onChange={(e) => set('tell', e.target.checked)}
-                  slotProps={{ input: { 'data-capture-tell': '' } as object }}
-                />
-              }
-              label="Tell my agent to file it"
-            />
-            {!c.tell && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={!!c.task?.on}
-                    onChange={(e) => setTask({ on: e.target.checked })}
-                    slotProps={{ input: { 'data-capture-task': '' } as object }}
-                  />
-                }
-                label="Make a task of it"
-              />
-            )}
-            {!c.tell && c.task?.on && (
-              <Stack spacing={2} data-capture-task-fields>
-                <TextField
-                  label="Task title"
-                  placeholder={firstLine(c.summary) || 'the first line of the summary'}
-                  value={c.task.title}
-                  onChange={(e) => setTask({ title: e.target.value })}
-                  slotProps={{ htmlInput: { 'data-field': 'task-title' } }}
-                />
-                <TextField
-                  select
-                  required
-                  label="Area"
-                  value={c.task.area}
-                  onChange={(e) => setTask({ area: e.target.value })}
-                  helperText={areas.isError ? errorText(areas.error) : undefined}
-                  slotProps={{ htmlInput: { 'data-field': 'task-area' } }}
-                >
-                  {(areas.data ?? []).map((a) => (
-                    <MenuItem key={a.id} value={a.id}>
-                      {a.title || a.id}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <TextField
-                  label="Due (optional)"
-                  type="date"
-                  value={c.task.due}
-                  onChange={(e) => setTask({ due: e.target.value })}
-                  slotProps={{
-                    inputLabel: { shrink: true },
-                    htmlInput: { 'data-field': 'task-due' },
-                  }}
-                />
-              </Stack>
-            )}
             <Typography variant="body2" color="text.secondary">
-              {c.tell
-                ? 'Saved as an incoming item in your words first, then your agent files it. It may ask you in the thread.'
-                : c.task?.on
-                  ? 'Logged, then filed into a new task. The task shows where it came from.'
-                  : c.kind === 'verbal' && c.with.length > 0 && c.with.every((w) => w.id)
-                    ? 'Logged as a contact with these people.'
-                    : 'Goes to your inbox: file it into a task or drop it there.'}
+              Saved as an incoming item in your words first, then your agent decides what it is. It
+              may ask you in the thread.
             </Typography>
             {capture.isError && <Alert severity="error">{errorText(capture.error)}</Alert>}
           </Stack>
@@ -326,7 +212,7 @@ export function CaptureDialog({
             onClick={submit}
             data-capture-save
           >
-            Save
+            Send
           </Button>
         </DialogActions>
       </Dialog>

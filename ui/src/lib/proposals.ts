@@ -90,7 +90,7 @@ export function batchPairs<D extends DraftLike>(
 export const CHANGED_WORDS = 'changed since you looked — reload'
 
 export function isChangedRefusal(msg: string): boolean {
-  return /changed after|changed since|expect_hash|stale|does not match/i.test(msg)
+  return msg.includes('stale_hash:')
 }
 
 // refusalText is what a refused approval shows: the changed-since words for a mismatch, else the

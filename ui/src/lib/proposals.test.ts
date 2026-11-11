@@ -69,13 +69,13 @@ describe('batchPairs', () => {
 
 describe('refusals', () => {
   it('a hash mismatch reads changed since you looked', () => {
-    expect(refusalText('x changed after the owner saw it, so it is not approved')).toBe(
+    expect(refusalText('stale_hash: x changed after the owner saw it, so it is not approved')).toBe(
       CHANGED_WORDS,
     )
     expect(refusalText('no such draft')).toBe('no such draft')
   })
   it('a batch refusal goes to the items it names', () => {
-    const r = refusalsFor(['io-aa', 'io-bb'], 'items[1]: io-bb changed after the owner saw it')
+    const r = refusalsFor(['io-aa', 'io-bb'], 'items[1]: stale_hash: io-bb changed after the owner saw it')
     expect(r.byId).toEqual({ 'io-bb': CHANGED_WORDS })
     expect(r.all).toBeUndefined()
     expect(refusalsFor(['io-aa'], 'nope').all).toBe('nope')

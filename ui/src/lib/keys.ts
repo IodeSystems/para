@@ -1,6 +1,6 @@
 // Keyboard shortcuts: digits switch tabs, / searches, ? shows help. On Next, letters act on the one
 // card (nextKeyFor).
-// t opens Tell agent (capture, then the agent files it).
+// t opens Capture (saved, then the agent decides what it is).
 
 export type Tab = { key: string; to: string; label: string; hint?: string }
 

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { errorText, gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
-import type { CaptureCall, FileTask } from '@/lib/context'
+import type { CaptureCall } from '@/lib/context'
 import { tellText, type TellResult } from '@/lib/tell'
 
 // Context is what an item is for: where it came from, who it is for, and why the owner does it.
@@ -90,39 +90,12 @@ export function useItemContext(id: string) {
   })
 }
 
-const InteractionAddDoc = graphql(/* GraphQL */ `
-  mutation InteractionAdd($body: para_InteractionAddInputInput!) {
-    para {
-      v1 {
-        interactionAdd(body: $body) {
-          id
-          warnings
-        }
-      }
-    }
-  }
-`)
-
 const IOAddDoc = graphql(/* GraphQL */ `
   mutation IOAdd($body: para_IOAddInputInput!) {
     para {
       v1 {
         ioAdd(body: $body) {
           id
-          warnings
-        }
-      }
-    }
-  }
-`)
-
-const IOFileDoc = graphql(/* GraphQL */ `
-  mutation IOFile($body: para_IOFileInputInput!) {
-    para {
-      v1 {
-        ioFile(body: $body) {
-          id
-          became
           warnings
         }
       }
@@ -158,70 +131,47 @@ const ThreadWaitingDoc = graphql(/* GraphQL */ `
 `)
 
 // CaptureRun: tell is the owner's words to send to the agent after the item is saved.
-export type CaptureRun = { call: CaptureCall; task?: FileTask | null; tell?: string }
+export type CaptureRun = { call: CaptureCall; tell: string }
 export type CaptureDone = {
   id: string
   warnings: string[]
-  became?: string
   // told is the agent turn; tellError says why it was not sent (the words are saved anyway).
   told?: TellResult
   tellError?: string
 }
 
-// useCapture logs a conversation the owner had (interaction_add, or io_add for a name not in the
-// vault) or something they carried over by hand (io_add medium swivel). With task, the item it just
-// added is filed into a new task (io_file), so the task's Context shows Came from. If the filing
-// fails the item stays in the inbox and the error says so.
+// useCapture saves the owner's words as an io item (io_add), then posts a thread turn on it for
+// the agent to decide what it is. A failed turn does not undo the save.
 export function useCapture() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ call: c, task, tell }: CaptureRun): Promise<CaptureDone> => {
-      if (c.op === 'interaction_add') {
-        const r = await gqlClient.request(InteractionAddDoc, { body: c.body })
-        return need(r.para.v1.interactionAdd, 'conversation')
-      }
+    mutationFn: async ({ call: c, tell }: CaptureRun): Promise<CaptureDone> => {
       const r = await gqlClient.request(IOAddDoc, { body: c.body })
       const added = need(r.para.v1.ioAdd, 'message')
-      if (tell) {
-        // Capture first: the words are an io item before the agent hears of them. A failed turn
-        // does not undo that.
-        try {
-          const p = need(
-            (
-              await gqlClient.request(ThreadPostDoc, {
-                body: { key: added.id, kind: 'other', text: tellText(tell) },
-              })
-            ).para.v1.threadPost,
-            'thread',
-          )
-          let waitingNoAgent: boolean | null = null
-          try {
-            waitingNoAgent = need(
-              (await gqlClient.request(ThreadWaitingDoc, { id: added.id })).para.v1.thread,
-              'thread',
-            ).waitingNoAgent
-          } catch {
-            // the toast then goes by the post's status and note
-          }
-          return {
-            ...added,
-            told: { request: p.request, status: p.status, note: p.note, waitingNoAgent },
-          }
-        } catch (e) {
-          return { ...added, tellError: errorText(e) }
-        }
-      }
-      if (!task) return added
       try {
-        const f = await gqlClient.request(IOFileDoc, { body: { id: added.id, ...task } })
-        const filed = need(f.para.v1.ioFile, 'task')
+        const p = need(
+          (
+            await gqlClient.request(ThreadPostDoc, {
+              body: { key: added.id, kind: 'other', text: tellText(tell) },
+            })
+          ).para.v1.threadPost,
+          'thread',
+        )
+        let waitingNoAgent: boolean | null = null
+        try {
+          waitingNoAgent = need(
+            (await gqlClient.request(ThreadWaitingDoc, { id: added.id })).para.v1.thread,
+            'thread',
+          ).waitingNoAgent
+        } catch {
+          // the toast then goes by the post's status and note
+        }
         return {
-          id: added.id,
-          warnings: [...added.warnings, ...(filed.warnings ?? [])],
-          became: filed.became,
+          ...added,
+          told: { request: p.request, status: p.status, note: p.note, waitingNoAgent },
         }
       } catch (e) {
-        throw new Error(`Logged, but could not make a task (it is in your inbox): ${errorText(e)}`)
+        return { ...added, tellError: errorText(e) }
       }
     },
     onSettled: () => qc.invalidateQueries(),

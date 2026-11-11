@@ -3389,6 +3389,7 @@ type para_IOProposal {
   approvedHash: String
   assessments: [para_IOAssessment!]!
   created: String!
+  draftHash: String!
   held: String
   heldBy: [String!]!
   id: String!

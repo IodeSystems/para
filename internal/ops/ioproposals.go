@@ -79,6 +79,7 @@ type IOProposal struct {
 	Revisions    int                  `json:"revisions"`
 	Approval     string               `json:"approval"`
 	ApprovedHash string               `json:"approved_hash,omitempty"`
+	DraftHash    string               `json:"draft_hash"`
 	Held         string               `json:"held,omitempty"`
 	HeldBy       []string             `json:"held_by"`
 	Links        []ioNamed            `json:"links"`
@@ -195,7 +196,7 @@ var IOProposals = defineRead("io_proposals", "List open outgoing drafts (proposa
 		p := IOProposal{ID: doc.ID, Title: doc.Title, To: it.To, Medium: m.Medium, Kind: m.Kind, Subject: m.Subject, Preview: preview(doc.Body, 200),
 			State: m.State, Created: m.Created, NeedsYou: sn.Need(doc.ID).Yes, Why: m.Why, Impact: m.Impact, Assessments: it.Assessments,
 			NotStated: append([]string{}, it.NotStated...), Revision: currentRevision(m), Revisions: len(m.Revisions),
-			ApprovedHash: m.ApprovedHash, Held: m.Held, HeldBy: targets(m.HeldBy), Request: req, LastAttempt: ioAttemptLast(m)}
+			ApprovedHash: m.ApprovedHash, DraftHash: it.DraftHash, Held: m.Held, HeldBy: targets(m.HeldBy), Request: req, LastAttempt: ioAttemptLast(m)}
 		switch {
 		case m.Approved(doc.Body):
 			p.Approval = "approved"

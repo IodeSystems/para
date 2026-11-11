@@ -7,12 +7,12 @@ import { TURN_UNDO_MS } from '@/lib/threadEdit'
 // TELL_OPEN is the event the t key and the app bar button send to open the dialog.
 export const TELL_OPEN = 'para:tell-open'
 
-const FILE_IT =
-  'File this: obligations, tasks, dates, people, and the specification as written; ask me in the thread if anything is unclear.'
+const DECIDE =
+  'Decide what this is. If it only records a conversation or an event, log it (an interaction or contact). If it holds work — an obligation, a task, dates, people, a specification — file that, with the specification as written. Ask me in this thread if anything is unclear.'
 
 // tellText is the turn sent to the agent: a short instruction, then the owner's words as written.
 export function tellText(summary: string): string {
-  return `${FILE_IT}\n\n${summary.trim()}`
+  return `${DECIDE}\n\n${summary.trim()}`
 }
 
 export type TellResult = {
@@ -26,7 +26,7 @@ export type TellResult = {
 
 export const TELL_QUEUED_MS = 15000
 
-// tellToast picks the toast after a save with "Tell my agent". With no agent connected (the thread
+// tellToast picks the toast after a save with a capture. With no agent connected (the thread
 // says waiting_no_agent, or the post says the work is only proposed) the owner is told it is
 // queued, and the toast stays longer.
 export function tellToast(

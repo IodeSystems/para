@@ -815,6 +815,10 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	return out, nil
 })
 
+// ErrStaleHash is in the refusal message of io_approve when expect_hash does not match the draft
+// now. It is stable: callers match it, not the words after it.
+const ErrStaleHash = "stale_hash:"
+
 // IOApproveInput is the input of io_approve: id (with expect_hash, the hash
 // the owner saw), or items, each id with its expect_hash. Only those drafts
 // are approved: never one added to their group after the owner looked.
@@ -858,7 +862,7 @@ type IOApproved struct {
 // draft's hash and makes it ready to send. An agent may record it only with
 // the owner's words from the chat (D3); no other op takes chat approval. A
 // batch approves only the pairs it names, all or none.
-var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. Give expect_hash, the draft_hash the owner saw (io_show, io_list): a draft that changed since is refused. Several at once: items [{id, expect_hash}]; only those are approved, never another draft of their group, and all or none. Approving one variation (variant_of) closes the others of its set as superseded. One receipt; receipt_undo reverses all of it. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. A for_me draft becomes as_me: its stamp comes off, and the owner approves the text without it. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
+var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. Give expect_hash, the draft_hash the owner saw (io_show, io_list): a draft that changed since is refused with a message that contains stale_hash:. Several at once: items [{id, expect_hash}]; only those are approved, never another draft of their group, and all or none. Approving one variation (variant_of) closes the others of its set as superseded. One receipt; receipt_undo reverses all of it. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. A for_me draft becomes as_me: its stamp comes off, and the owner approves the text without it. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
 	out := IOApproveOutput{Items: []IOApproved{}, Superseded: []string{}}
 	said := strings.TrimSpace(in.OwnerSaid)
 	agent := agentSurface(d)
@@ -899,7 +903,7 @@ var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing dra
 			return out, fmt.Errorf("%s: %w", doc.ID, err)
 		}
 		if want, now := strings.TrimSpace(p.ExpectHash), m.DraftHash(doc.Body); want != "" && want != now {
-			return out, fmt.Errorf("%s changed after the owner saw it, so it is not approved: show the owner the draft as it is now and approve that (draft_hash %s)", doc.ID, now)
+			return out, fmt.Errorf(ErrStaleHash+" %s changed after the owner saw it, so it is not approved: show the owner the draft as it is now and approve that (draft_hash %s)", doc.ID, now)
 		}
 		set := variantSet(doc.ID, m)
 		switch other, dup := sets[set]; {

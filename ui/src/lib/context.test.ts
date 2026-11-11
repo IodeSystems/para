@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest'
 import {
   captureCall,
   captureReady,
-  fileTaskCall,
-  firstLine,
   forGroups,
   roleLabel,
   type Capture,
@@ -41,28 +39,17 @@ describe('forGroups', () => {
 })
 
 describe('captureCall', () => {
-  it('logs a conversation with vault people as a logged contact', () => {
+  it('is always an io item, even with vault people', () => {
     const c = captureCall({ ...base, with: [{ id: 'person-dana', name: 'Dana' }] })
-    expect(c).toEqual({
-      op: 'interaction_add',
-      body: {
-        summary: 'Dana wants the slides by Friday',
-        with: ['person-dana'],
-        medium: 'verbal',
-        direction: 'in',
-        date: '2026-11-06',
-        url: undefined,
-      },
-    })
+    expect(c.op).toBe('io_add')
+    expect(c.body.from).toBe('person-dana')
   })
   it('takes a name not in the vault as an incoming item to sort', () => {
     const c = captureCall({ ...base, with: [{ name: ' Dana ' }] })
     expect(c.op).toBe('io_add')
-    if (c.op === 'io_add') {
-      expect(c.body.medium).toBe('verbal')
-      expect(c.body.from).toBe('Dana')
-      expect(c.body.at.startsWith('2026-11-0')).toBe(true)
-    }
+    expect(c.body.medium).toBe('verbal')
+    expect(c.body.from).toBe('Dana')
+    expect(c.body.at.startsWith('2026-11-0')).toBe(true)
   })
   it('carries over by hand with the system as from', () => {
     const c = captureCall({
@@ -91,49 +78,5 @@ describe('captureReady', () => {
     expect(captureReady({ ...base, with: [{ name: 'Dana' }], date: '' })).toBe(false)
     expect(captureReady({ ...base, kind: 'swivel', from: 'tracker' })).toBe(true)
     expect(captureReady({ ...base, kind: 'swivel' })).toBe(false)
-  })
-})
-
-describe('make a task of it', () => {
-  const task = { on: true, title: '', due: '', area: 'area-home' }
-  const dana = { id: 'person-dana', name: 'Dana' }
-
-  it('takes the first non-empty line of the summary as the title', () => {
-    expect(firstLine('\n  Send slides \nby Friday')).toBe('Send slides')
-  })
-
-  it('keeps a conversation with vault people as an io item, so the task can say Came from', () => {
-    expect(captureCall({ ...base, with: [dana], task }).op).toBe('io_add')
-  })
-
-  it('files into a task in the area, for the one person it was with', () => {
-    expect(fileTaskCall({ ...base, with: [dana], task: { ...task, due: '2026-11-13' } })).toEqual({
-      to: 'task',
-      area: 'area-home',
-      title: undefined,
-      due: '2026-11-13',
-      requestedBy: 'person-dana',
-    })
-  })
-
-  it('sends a title only when it differs from the first line; a swivel item leaves requested_by to the op', () => {
-    const c: Capture = {
-      ...base,
-      kind: 'swivel',
-      from: 'tracker',
-      task: { ...task, title: 'Slides for Dana' },
-    }
-    expect(fileTaskCall(c)).toMatchObject({ title: 'Slides for Dana', requestedBy: undefined })
-    const same = { ...c, task: { ...task, title: 'Dana wants the slides by Friday' } }
-    expect(fileTaskCall(same)?.title).toBeUndefined()
-  })
-
-  it('is no task unless asked, and needs an area', () => {
-    expect(fileTaskCall(base)).toBeNull()
-    expect(fileTaskCall({ ...base, task: { ...task, on: false } })).toBeNull()
-    const c: Capture = { ...base, with: [dana], task: { ...task, area: '' } }
-    expect(captureReady(c)).toBe(false)
-    expect(captureReady({ ...c, task })).toBe(true)
-    expect(captureReady({ ...c, task: { ...task, due: 'soon' } })).toBe(false)
   })
 })

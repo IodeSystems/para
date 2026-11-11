@@ -99,7 +99,7 @@ func TestIOApproveExpectHashMismatch(t *testing.T) {
 	b := propDraft(t, f, "Quote B.", "", "")
 	ha, hb := draftHash(t, f, a), draftHash(t, f, b)
 	mustRun(t, IOEdit, f.agent, IOEditInput{ID: b, Text: "Quote B, changed."})
-	if _, err := IOApprove.Run(t.Context(), f.owner, IOApproveInput{ID: b, ExpectHash: hb}); err == nil || !strings.Contains(err.Error(), "changed after the owner saw it") {
+	if _, err := IOApprove.Run(t.Context(), f.owner, IOApproveInput{ID: b, ExpectHash: hb}); err == nil || !strings.Contains(err.Error(), ErrStaleHash) {
 		t.Fatalf("single: %v", err)
 	}
 	// One stale pair refuses the batch: nothing is approved.
@@ -282,4 +282,25 @@ func TestIOReviewKeepsNeedsYou(t *testing.T) {
 		t.Fatalf("key review = %+v", got)
 	}
 	mustLintClean(t, f.owner)
+}
+
+func TestIOProposalsRowsCarryDraftHash(t *testing.T) {
+	f := ioFix(t)
+	a := propDraft(t, f, "Quote A.", "", "")
+	b := propDraft(t, f, "Quote B.", "", "")
+	mustRun(t, IOEdit, f.agent, IOEditInput{ID: b, Text: "Quote B, changed."})
+	n := 0
+	for _, g := range mustRun(t, IOProposals, f.owner, IOProposalsInput{}).Groups {
+		for _, s := range g.Sets {
+			for _, d := range s.Drafts {
+				n++
+				if d.DraftHash != draftHash(t, f, d.ID) {
+					t.Fatalf("%s: row draft_hash %q != io_show %q", d.ID, d.DraftHash, draftHash(t, f, d.ID))
+				}
+			}
+		}
+	}
+	if n != 2 {
+		t.Fatalf("rows = %d, want 2 (%s, %s)", n, a, b)
+	}
 }

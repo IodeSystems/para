@@ -10,7 +10,6 @@ import Stack from '@mui/material/Stack'
 import { useIoList } from '@/api/io'
 import { Empty, PageTitle, Section } from '@/components/Bits'
 import { IoRows } from '@/components/IoRows'
-import { CaptureButton } from '@/components/CaptureButton'
 import { DataState } from '@/components/DataState'
 import { digestRows, splitInbox } from '@/lib/priority'
 
@@ -54,7 +53,6 @@ function IoPage() {
     <>
       <PageTitle
         subtitle="Messages not dealt with yet. Agents file what came in and send what is ready; you approve what goes out."
-        action={<CaptureButton />}
       >
         IO
       </PageTitle>

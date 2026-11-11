@@ -12,7 +12,6 @@ import { latestReceipt, revertReceipt } from '@/api/receipts'
 import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
 import { Empty, PageTitle } from '@/components/Bits'
-import { CaptureButton } from '@/components/CaptureButton'
 import { DataState } from '@/components/DataState'
 import { IoMade } from '@/components/IoMade'
 import { IoRows, type IoRow } from '@/components/IoRows'
@@ -110,7 +109,6 @@ function InputPage() {
     <>
       <PageTitle
         subtitle="Input you have not reviewed, and what it created. Reviewing records that you looked; it changes nothing else."
-        action={<CaptureButton />}
       >
         Input
       </PageTitle>
