@@ -227,6 +227,7 @@ func newVerbCmds(l *loader) []*cobra.Command {
 		Use: "list [type]", Args: cobra.MaximumNArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.ListInput) {
 			fs.StringVar(&in.State, "state", "", "open, later, closed, or all; default open and later")
+			fs.StringVar(&in.Status, "status", "", "the type's own status, such as goal parked (the icebox); with no --state it lists every life")
 			fs.StringVar(&in.Tag, "tag", "", "a topic")
 			fs.BoolVar(&in.NeedsYou, "needs-you", false, "only what needs the owner now")
 			fs.IntVar(&in.Limit, "limit", 0, "at most this many rows")

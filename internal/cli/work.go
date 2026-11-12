@@ -93,14 +93,16 @@ func goalCommands(l *loader) []*cobra.Command {
 			Text: printID(func(o ops.GoalAddOutput) string { return o.ID }),
 		}),
 		opCommand(l, ops.GoalEdit, binding[ops.GoalEditInput, ops.GoalEditOutput]{
-			Use:  "edit <id> [--done-when <text>] [--due <date>] [--area <id>] [--concepts <ids>]",
+			Use:  "edit <id> [--done-when <text>] [--due <date>] [--area <id>] [--concepts <ids>] [--status active|paused|parked --resume-when <text>]",
 			Args: cobra.ExactArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.GoalEditInput) {
-				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you change only the date, area, or concepts)")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you change only the date, area, concepts, or status)")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 				fs.BoolVar(&in.ClearDue, "clear-due", false, "remove the due date")
 				fs.StringVar(&in.Area, "area", "", "id of the goal's home, an area of kind project")
 				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on; replaces the list")
+				fs.StringVar((*string)(&in.Status), "status", "", "active, paused, or parked (the icebox; needs --resume-when); close ends a goal")
+				fs.StringVar(&in.ResumeWhen, "resume-when", "", "parked: what the goal waits on before it resumes")
 			},
 			Bind: func(args []string, in *ops.GoalEditInput) error { in.ID = args[0]; return nil },
 			Text: printID(func(o ops.GoalEditOutput) string { return o.ID }),

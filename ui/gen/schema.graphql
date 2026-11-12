@@ -4363,6 +4363,7 @@ type para_KPI {
   cadence: String
   direction: para_KPIDirection!
   name: String!
+  owner: String
   readings: [para_KPIReading!]
   target: Float!
   tolerance: Float
@@ -4380,6 +4381,7 @@ input para_KPIAddInputInput {
   direction: para_KPIAddInputDirection!
   id: String!
   name: String!
+  owner: String
   target: Float
   tolerance: Float
   unit: String

@@ -441,6 +441,7 @@ var typeFields = map[string][]field{
 	"journal": {
 		{Name: "date", Kind: kDate, Required: true},
 		{Name: "scope", Kind: kEnum, Enum: journalScopes, Required: true},
+		{Name: "project", Kind: kLink}, // an ongoing project: the journal joins its history
 	},
 	"inbox": {},
 	"io": {

@@ -151,3 +151,126 @@ func TestProjectKPICaps(t *testing.T) {
 	}
 	t.Logf("kpis (%d B):\n%s", len(b), strings.Join(sh.KPIs, "\n"))
 }
+
+// A KPI owner: self makes one Next row per KPI while it is off target or
+// stale, gone when a reading brings it on target; agent:<name> makes agent
+// work at tick, one open request per KPI and one per alert; a person is shown
+// on the project and in health only.
+func TestKPIOwners(t *testing.T) {
+	tv, d := cronVault(t, "2026-11-01T09:00:00Z")
+	if _, err := d.Store.Create(ctx, model.Document{ID: "person-ada", Folder: model.FolderOrg, Title: "Ada Example",
+		Meta: &model.Person{Common: model.Common{Type: model.TypePerson}}}); err != nil {
+		t.Fatal(err)
+	}
+	p := must(t, ProjectAdd, d, ProjectAddInput{Title: "Shop", StateLine: "Open."})
+	for _, c := range []struct{ owner, want string }{{"sometimes later", "want self"}, {"agent:Bad Name", "agent:<name>"}, {"person-nobody", "person-nobody"}, {p.ID, "is a project"}} {
+		if _, err := KPIAdd.Run(ctx, d, KPIAddInput{ID: p.ID, Name: "Bad", Target: f64(1), Owner: c.owner}); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("owner %q: %v", c.owner, err)
+		}
+	}
+	must(t, KPIAdd, d, KPIAddInput{ID: p.ID, Name: "Signups", Target: f64(50), Owner: "Self"})
+	must(t, KPIAdd, d, KPIAddInput{ID: p.ID, Name: "Refunds", Target: f64(2), Direction: model.KPIDown, Owner: "agent:Stats-Bot"})
+	must(t, KPIAdd, d, KPIAddInput{ID: p.ID, Name: "Stock", Target: f64(100), Owner: "person-ada"})
+	must(t, KPIAdd, d, KPIAddInput{ID: p.ID, Name: "Visits", Target: f64(10)})
+	if _, err := Edit.Invoke(writeCtx(t), d, json.RawMessage(`{"id":"`+p.ID+`","fields":{"kpis":[{"name":"X","target":1,"direction":"up","owner":"person-nobody"}]}}`)); err == nil {
+		t.Fatal("edit kpis with an owner that is no person")
+	}
+	kpiRows := func() []ValueRow {
+		t.Helper()
+		o, err := Order(ctx, d.Store)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []ValueRow
+		for _, r := range o.Rows {
+			if r.Kind == KindKPI {
+				out = append(out, r)
+			}
+		}
+		return out
+	}
+	if rows := kpiRows(); len(rows) != 0 {
+		t.Fatalf("rows with no reading = %+v", rows)
+	}
+
+	// Two off readings of Signups: one row; every KPI off.
+	read := func(name string, v float64) {
+		t.Helper()
+		must(t, KPIReadingAdd, d, KPIReadingAddInput{ID: p.ID, Name: name, Value: f64(v), Source: "owner in chat, 2026-11-01"})
+	}
+	read("Signups", 40)
+	read("Signups", 45)
+	read("Refunds", 5)
+	read("Stock", 10)
+	read("Visits", 1)
+	rows := kpiRows()
+	if len(rows) != 1 || rows[0].ID != "kpi:"+p.ID+"/signups" || !strings.Contains(rows[0].Title, "Signups off") || rows[0].Bucket != "now" {
+		t.Fatalf("rows = %+v", rows)
+	}
+
+	// Person owner: in health and the bundle line, not in Next or agent work.
+	h := must(t, HealthOp, d, HealthInput{})
+	var msgs []string
+	for _, gr := range h.Groups {
+		for _, f := range gr.Findings {
+			if f.Kind == HealthKPIOffTarget {
+				msgs = append(msgs, f.Message)
+			}
+		}
+	}
+	if !slices.ContainsFunc(msgs, func(m string) bool {
+		return strings.HasPrefix(m, "Stock") && strings.HasSuffix(m, "; owner person-ada")
+	}) {
+		t.Fatalf("health = %v", msgs)
+	}
+	sh := must(t, ProjectShow, d, ProjectShowInput{ID: p.ID})
+	if !slices.ContainsFunc(sh.KPIs, func(l string) bool {
+		return strings.HasPrefix(l, "Stock:") && strings.HasSuffix(l, "; owner person-ada")
+	}) {
+		t.Fatalf("bundle kpis = %v", sh.KPIs)
+	}
+
+	// Agent owner: tick files one request, names the agent, and passes lint.
+	out := tick(t, d)
+	if len(out.KPIAlerts) != 1 {
+		t.Fatalf("tick kpi alerts = %v warnings %v", out.KPIAlerts, out.Warnings)
+	}
+	req, err := d.Store.Get(ctx, out.KPIAlerts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := req.Meta.(*model.Request); r.Kind != KPIAlertKind || len(r.Links) != 1 || r.Links[0].Target() != p.ID || !strings.Contains(req.Body, "agent:stats-bot") {
+		t.Fatalf("request = %+v %q", r, req.Body)
+	}
+	if finds, _ := d.Store.Lint(ctx); len(finds) != 0 {
+		t.Fatalf("lint = %+v", finds)
+	}
+	// Open: a second tick and a new off reading file none.
+	read("Refunds", 6)
+	if out := tick(t, d); len(out.KPIAlerts) != 0 {
+		t.Fatalf("second tick = %v", out.KPIAlerts)
+	}
+	// Ended with the KPI still off at the same reading: none; a new off reading: one.
+	must(t, RequestCancel, d, RequestCancelInput{ID: req.ID})
+	if out := tick(t, d); len(out.KPIAlerts) != 1 {
+		t.Fatalf("after cancel, new reading since filing: %v", out.KPIAlerts)
+	}
+	again := tick(t, d)
+	if len(again.KPIAlerts) != 0 {
+		t.Fatalf("third tick = %v", again.KPIAlerts)
+	}
+
+	// A reading on target takes the owner's row away.
+	read("Signups", 60)
+	if rows := kpiRows(); len(rows) != 0 {
+		t.Fatalf("rows on target = %+v", rows)
+	}
+	// Stale with no reading in its cadence: the row comes back, once.
+	if _, err := Edit.Invoke(writeCtx(t), d, json.RawMessage(`{"id":"`+p.ID+`","fields":{"kpis":[{"name":"Signups","target":50,"direction":"up","cadence":"daily","owner":"self","readings":[{"date":"2026-11-01","value":60,"source":"owner in chat, 2026-11-01"}]}]}}`)); err != nil {
+		t.Fatal(err)
+	}
+	tv.at("2026-11-04T09:00:00Z")
+	if rows := kpiRows(); len(rows) != 1 || !strings.Contains(rows[0].Title, "stale") {
+		t.Fatalf("stale rows = %+v", rows)
+	}
+}

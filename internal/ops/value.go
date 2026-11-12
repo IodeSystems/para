@@ -1057,6 +1057,8 @@ func orderOf(sn *Snapshot, all bool) (ValueOrder, error) {
 	if !all {
 		// A firing idea pool is one row; its ideas stay put off (pool.go).
 		nodes = append(nodes, poolNodes(sn)...)
+		// A KPI the owner owns that is off target or stale is one row (kpi.go).
+		nodes = append(nodes, kpiNodes(sn)...)
 	}
 	opt, err := rankOptions(sn)
 	if err != nil {

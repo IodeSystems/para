@@ -886,6 +886,9 @@ type Journal struct {
 	Common `yaml:",inline"`
 	Date   Date         `yaml:"date" json:"date"`
 	Scope  JournalScope `yaml:"scope" json:"scope"`
+	// Project links the journal to an ongoing project: it shows in that
+	// project's history.
+	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
 }
 
 // Inbox is type: inbox, an unsorted capture. It is read, never written: upgrade

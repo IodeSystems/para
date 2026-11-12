@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
+import type { ReadingInput } from '@/lib/kpi'
 
 // Projects: ongoing tracked things. The list is one request (list, type project, with a summary per
 // row); a project page is its bundle (show). A goal or a former goal id on the project route shows as
@@ -136,6 +137,42 @@ const ProjectStateLineSaveDoc = graphql(/* GraphQL */ `
   }
 `)
 
+// The KPIs of a project with their full names, for the reading form (kpi_list).
+const ProjectKPIListDoc = graphql(/* GraphQL */ `
+  query ProjectKPIList($id: String!) {
+    para {
+      v1 {
+        kpiList(id: $id) {
+          kpis {
+            kpi {
+              name
+              unit
+              owner
+            }
+          }
+        }
+      }
+    }
+  }
+`)
+
+// The owner's inline KPI reading: kpi_reading_add with {id, name, value, source, date?} only, nothing
+// else (owner 2026-11-12; scoped in scripts/check-graphql.mjs). A reading always names its source.
+const ProjectKPIReadingSaveDoc = graphql(/* GraphQL */ `
+  mutation ProjectKPIReadingSave($body: para_KPIReadingAddInputInput!) {
+    para {
+      v1 {
+        kpiReadingAdd(body: $body) {
+          id
+          name
+          date
+          line
+        }
+      }
+    }
+  }
+`)
+
 async function fetchProject(id: string) {
   const show = need((await gqlClient.request(ProjectShowDoc, { id })).para.v1.show, 'project')
   return need(show.detail, 'project')
@@ -179,6 +216,35 @@ export function useSaveStateLine(id: string) {
           })
         ).para.v1.edit,
         'state line',
+      ),
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
+// useProjectKPIs lists a project's KPIs (names, units, owners) when enabled: the reading form.
+export function useProjectKPIs(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ['project-kpis', id],
+    enabled,
+    queryFn: async () =>
+      need((await gqlClient.request(ProjectKPIListDoc, { id })).para.v1.kpiList, 'kpis').kpis.map(
+        (v) => v.kpi,
+      ),
+  })
+}
+
+// useSaveKPIReading adds the owner's reading of a project's KPI (kpi_reading_add).
+export function useSaveKPIReading(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ name, value, source, date }: ReadingInput) =>
+      need(
+        (
+          await gqlClient.request(ProjectKPIReadingSaveDoc, {
+            body: { id, name, value, source, date },
+          })
+        ).para.v1.kpiReadingAdd,
+        'KPI reading',
       ),
     onSettled: () => qc.invalidateQueries(),
   })

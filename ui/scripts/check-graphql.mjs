@@ -192,6 +192,14 @@ const SCOPED_MUTATIONS = {
     doc: 'ProjectStateLineSaveDoc',
     request: /^\{\s*body:\s*\{\s*id,\s*fields:\s*\{\s*state_line:\s*\w+,?\s*\},?\s*\},?\s*\}$/,
   },
+  // owner 2026-11-12: the owner's inline KPI reading on /projects/$id. kpi_reading_add with
+  // {id, name, value, source, date?} only; the op requires the source.
+  ProjectKPIReadingSave: {
+    file: 'src/api/projects.ts',
+    field: 'kpiReadingAdd',
+    doc: 'ProjectKPIReadingSaveDoc',
+    request: /^\{\s*body:\s*\{\s*id,\s*name,\s*value,\s*source(,\s*date)?,?\s*\},?\s*\}$/,
+  },
 }
 const v1Fields = (d) => {
   const para = d.selectionSet.selections.find((s) => s.kind === 'Field' && s.name.value === 'para')

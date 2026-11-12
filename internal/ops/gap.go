@@ -146,6 +146,9 @@ func gapCandidates(sn *Snapshot) ([]string, error) {
 	}
 	var ids []string
 	for _, r := range o.Rows {
+		if r.Kind == KindKPI {
+			continue // not a document: its reading is the owner's
+		}
 		if r.Kind != KindPool {
 			ids = append(ids, r.ID)
 			continue

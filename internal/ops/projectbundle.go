@@ -180,12 +180,26 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 	}
 	out.Crons = append(out.Crons, crons...)
 
-	// History: closed goals and the project's own timeline, newest first.
+	// History: closed goals, journals that link the project, and the
+	// project's own timeline, newest first.
 	rows, _, err := historyRows(ctx, d, doc.ID)
 	if err != nil {
 		return out, err
 	}
 	hist := closed
+	jrefs, err := d.Store.List(ctx, store.Filter{Folder: model.FolderJournal, Type: model.TypeJournal})
+	if err != nil {
+		return out, err
+	}
+	for _, r := range jrefs {
+		jd, err := d.Store.Get(ctx, r.ID)
+		if err != nil {
+			continue
+		}
+		if j, ok := jd.Meta.(*model.Journal); ok && mine(j.Project.Target()) {
+			hist = append(hist, BundleEvent{At: string(j.Date), ID: jd.ID, Kind: "journal", Summary: clip(jd.Title, 160)})
+		}
+	}
 	for _, r := range rows {
 		hist = append(hist, BundleEvent{At: r.t.In(d.Store.Now().Location()).Format(dateLayout), ID: doc.ID, Kind: r.Kind, Summary: clip(r.Summary, 160)})
 	}

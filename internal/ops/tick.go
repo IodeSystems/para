@@ -72,6 +72,9 @@ type TickOutput struct {
 	// KPIArchived lists the projects whose KPI readings past the last 12
 	// this pass moved to their archive, as "<project>: <n> readings to <archive>".
 	KPIArchived []string `json:"kpi_archived"`
+	// KPIAlerts lists the agent work this pass filed for KPIs owned by an
+	// agent that are off target or stale (kpi.go); they are in Requests too.
+	KPIAlerts []string `json:"kpi_alerts"`
 	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
 	// are in Requests too.
 	Gaps []string `json:"gaps"`
@@ -129,7 +132,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Crons: []string{}, CronsPaused: []string{}, KPIArchived: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Crons: []string{}, CronsPaused: []string{}, KPIArchived: []string{}, KPIAlerts: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -164,6 +167,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	}
 	if err := tickKPIs(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: kpis: %w", err)
+	}
+	if err := tickKPIAlerts(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: kpi alerts: %w", err)
 	}
 	if err := tickRequests(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: requests: %w", err)

@@ -196,7 +196,7 @@ func checkAreaKinds(f *File, byName map[string]*File) []Finding {
 
 // typedLinkTypes are the types whose goal: and project: keys link a document
 // of that type.
-var typedLinkTypes = map[string]bool{"task": true, "note": true, "obligation": true, "rfx": true, "tracked_doc": true, "goal": true}
+var typedLinkTypes = map[string]bool{"task": true, "note": true, "obligation": true, "rfx": true, "tracked_doc": true, "goal": true, "journal": true}
 
 // checkTypedLinks: goal: names a goal and project: names a project (format
 // 11; below it the vault reads the old project: key as goal: before lint).

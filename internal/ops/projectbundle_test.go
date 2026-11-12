@@ -259,3 +259,34 @@ func TestProjectLint(t *testing.T) {
 		t.Fatalf("note project names a goal: %v", paramd.CheckVault([]*paramd.File{goal, note}))
 	}
 }
+
+// A journal that links a project (project:) is in that project's history, in
+// date order with closed goals; a journal that links a goal is refused by lint.
+func TestJournalJoinsProjectHistory(t *testing.T) {
+	rv := newReqVault(t)
+	cli := rv.as("user", "cli", "install-a")
+	ctx := writeCtx(t)
+	format11(t, cli)
+
+	p := must(t, ProjectAdd, cli, ProjectAddInput{Title: "Garden", StateLine: "Beds dug."})
+	g := must(t, GoalAdd, cli, GoalAddInput{Title: "Fence", DoneWhen: "Fence up.", Project: p.ID})
+	must(t, GoalClose, cli, GoalCloseInput{ID: g.ID})
+	j := must(t, JournalDaily, cli, JournalInput{Date: "2026-10-20"})
+	other := must(t, JournalDaily, cli, JournalInput{Date: "2026-10-21"})
+	invoke(t, Edit, cli, `{"id":"`+j.ID+`","fields":{"project":"`+p.ID+`"}}`)
+
+	sh := must(t, ProjectShow, cli, ProjectShowInput{ID: p.ID})
+	ji := slices.IndexFunc(sh.History, func(e BundleEvent) bool { return e.ID == j.ID && e.Kind == "journal" && e.At == "2026-10-20" })
+	gi := slices.IndexFunc(sh.History, func(e BundleEvent) bool { return e.ID == g.ID })
+	if ji < 0 || gi < 0 || gi > ji || slices.ContainsFunc(sh.History, func(e BundleEvent) bool { return e.ID == other.ID }) {
+		t.Fatalf("history = %+v", sh.History)
+	}
+	if finds, _ := cli.Store.Lint(ctx); len(finds) != 0 {
+		t.Fatalf("lint = %+v", finds)
+	}
+	if _, err := Edit.Invoke(ctx, cli, json.RawMessage(`{"id":"`+other.ID+`","fields":{"project":"[[`+g.ID+`]]"}}`)); err == nil {
+		if finds, _ := cli.Store.Lint(ctx); !slices.ContainsFunc(finds, func(f model.Finding) bool { return strings.Contains(f.Message, "want a project") }) {
+			t.Fatalf("journal project names a goal: lint = %+v", finds)
+		}
+	}
+}

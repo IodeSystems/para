@@ -30,6 +30,7 @@ import { BriefBody } from '@/components/MeetingBrief'
 import { CopyId } from '@/components/CopyId'
 import { PinButton } from '@/components/PinButton'
 import { PoolCard } from '@/components/Pools'
+import { KPIReadingEditor } from '@/components/ProjectBits'
 import { DueChip } from '@/components/TaskRows'
 import { PartOfLine } from '@/components/PartOf'
 import { useToasts } from '@/components/ToastStack'
@@ -47,6 +48,7 @@ import {
 } from '@/lib/next'
 import { RetryFix } from '@/components/RetryFix'
 import { nameOr } from '@/lib/names'
+import { isKPIRow, kpiRowParts } from '@/lib/kpi'
 import { isPoolRow } from '@/lib/pools'
 import { readyTarget, readyWords } from '@/lib/ready'
 import { prefersReducedMotion } from '@/lib/toasts'
@@ -210,6 +212,8 @@ function Card({
   const group = groupWords(x.group)
   const effort = effortWords(x.effort)
   const title = x.title || nameOr('', x.id)
+  if (isKPIRow(x))
+    return <KPINext x={x} canBack={canBack} onGone={onGone} onSkip={onSkip} onBack={onBack} />
   if (isPoolRow(x))
     return (
       <PoolNext
@@ -478,5 +482,64 @@ function FilledReady({ id }: { id: string }) {
         Edit
       </LinkButton>
     </Box>
+  )
+}
+
+// KPINext is the card of a KPI the owner owns that is off target or stale: one card per KPI, made
+// from the project, so a reading on target takes it away. It is not a document: no composer and no
+// item actions. The owner adds a reading here or opens the project.
+function KPINext({
+  x,
+  canBack,
+  onGone,
+  onSkip,
+  onBack,
+}: {
+  x: Row
+  canBack: boolean
+  onGone: (gone: boolean) => void
+  onSkip: () => void
+  onBack: () => void
+}) {
+  const parts = kpiRowParts(x.id)
+  return (
+    <Paper
+      variant="outlined"
+      data-next-card={x.id}
+      data-next-kind={x.kind}
+      sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'warning.main' }}
+    >
+      <Typography variant="overline" color="text.secondary" component="p">
+        {[groupWords(x.group), x.why].filter(Boolean).join(' - ')}
+      </Typography>
+      <Typography variant="h5" component="h2" sx={{ overflowWrap: 'anywhere' }}>
+        {x.title}
+      </Typography>
+      {x.reason && (
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: 'anywhere' }}>
+          {x.reason}
+        </Typography>
+      )}
+      {parts && (
+        <Stack spacing={1} sx={{ my: 1 }}>
+          <KPIReadingEditor id={parts.project} slug={parts.slug} onSaved={() => onGone(true)} />
+        </Stack>
+      )}
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 1 }}>
+        {parts && (
+          <LinkButton size="small" to="/projects/$id" params={{ id: parts.project }}>
+            Open project
+          </LinkButton>
+        )}
+        <Button size="small" data-act="skip" onClick={onSkip}>
+          Skip
+        </Button>
+        {canBack && (
+          <Button size="small" data-act="back" onClick={onBack}>
+            Back
+          </Button>
+        )}
+      </Stack>
+    </Paper>
   )
 }

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -43,8 +44,22 @@ type KPIReading struct {
 	Source string  `yaml:"source" json:"source"`
 }
 
+// KPIOwnerSelf is the KPI owner word for the vault's owner.
+const KPIOwnerSelf = "self"
+
+// KPIAgentPrefix starts a KPI owner that is an agent: agent:<name>.
+const KPIAgentPrefix = "agent:"
+
+var (
+	kpiAgentNameRe = regexp.MustCompile(`^[a-z0-9]+(?:[-_.][a-z0-9]+)*$`)
+	kpiOwnerIDRe   = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
+)
+
 // KPI is one named metric of a project. Cadence is how often it is read, in
 // the recur grammar; with none it is never stale. Tolerance applies to hold.
+// Owner says who acts when it is off target or stale: self (the owner: a
+// Next card), agent:<name> (agent work), or a person id (shown only); empty
+// is no one.
 type KPI struct {
 	Name      string       `yaml:"name" json:"name"`
 	Unit      string       `yaml:"unit,omitempty" json:"unit,omitempty"`
@@ -52,7 +67,24 @@ type KPI struct {
 	Direction KPIDirection `yaml:"direction" json:"direction"`
 	Tolerance float64      `yaml:"tolerance,omitempty" json:"tolerance,omitempty"`
 	Cadence   string       `yaml:"cadence,omitempty" json:"cadence,omitempty"`
+	Owner     string       `yaml:"owner,omitempty" json:"owner,omitempty"`
 	Readings  []KPIReading `yaml:"readings,omitempty" json:"readings,omitempty"`
+}
+
+// CheckKPIOwner checks the form of a KPI owner: empty, self, agent:<name>,
+// or a document id (a person; ops checks that it is one).
+func CheckKPIOwner(owner string) error {
+	switch {
+	case owner == "" || owner == KPIOwnerSelf:
+		return nil
+	case strings.HasPrefix(owner, KPIAgentPrefix):
+		if kpiAgentNameRe.MatchString(strings.TrimPrefix(owner, KPIAgentPrefix)) {
+			return nil
+		}
+	case kpiOwnerIDRe.MatchString(owner):
+		return nil
+	}
+	return fmt.Errorf("owner %q: want self, a person id, or agent:<name> using lowercase letters, digits, and - _ . separators", owner)
 }
 
 // Latest returns the newest reading and the one before it (nil when absent).
@@ -99,6 +131,9 @@ func CheckKPIs(ks []KPI) error {
 		}
 		if k.Tolerance < 0 {
 			return fmt.Errorf("kpis: %q: tolerance is negative", name)
+		}
+		if err := CheckKPIOwner(k.Owner); err != nil {
+			return fmt.Errorf("kpis: %q: %w", name, err)
 		}
 		if k.Cadence != "" {
 			if _, err := recur.Parse(k.Cadence); err != nil {

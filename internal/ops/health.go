@@ -441,12 +441,16 @@ func (h *healther) project(id string, p *model.Project) {
 	}
 	for _, s := range projectKPIs(p, h.today) {
 		read := fmt.Sprintf("read it with your own tools, then op_run {op: kpi_reading_add, input: {id: %s, name: %q, value, source}}", id, s.k.Name)
+		owner := ""
+		if s.k.Owner != "" {
+			owner = "; owner " + s.k.Owner
+		}
 		if s.off {
-			h.add(HealthKPIOffTarget, id, "", fmt.Sprintf("%s is %s vs %s (%s)", s.k.Name, strings.TrimSpace(num(s.last.Value)+" "+s.k.Unit), targetText(s.k), s.last.Date),
+			h.add(HealthKPIOffTarget, id, "", fmt.Sprintf("%s is %s vs %s (%s)%s", s.k.Name, strings.TrimSpace(num(s.last.Value)+" "+s.k.Unit), targetText(s.k), s.last.Date, owner),
 				"tell the owner; a goal on the project can move it back on target")
 		}
 		if s.stale {
-			h.add(HealthKPIStale, id, "", fmt.Sprintf("%s: no reading since %s (cadence %s)", s.k.Name, cmp.Or(lastDate(s.last), "the project began"), s.k.Cadence), read)
+			h.add(HealthKPIStale, id, "", fmt.Sprintf("%s: no reading since %s (cadence %s)%s", s.k.Name, cmp.Or(lastDate(s.last), "the project began"), s.k.Cadence, owner), read)
 		}
 	}
 	fix := fmt.Sprintf("ask the owner where it stands, then edit {id: %s, fields: {state_line: ...}}", id)

@@ -127,6 +127,7 @@ func newKPICmd(l *loader) *cobra.Command {
 				fs.StringVar((*string)(&in.Direction), "direction", "up", "up (at or above target is on), down (at or below), or hold (within --tolerance)")
 				fs.Float64Var(&in.Tolerance, "tolerance", 0, "with hold: how far from target is still on")
 				fs.StringVar(&in.Cadence, "cadence", "", "how often it is read: "+recur.Forms)
+				fs.StringVar(&in.Owner, "owner", "", "who acts when it is off target or stale: self (a Next card), agent:<name> (agent work), or a person id (shown only)")
 			},
 			Bind: func(args []string, in *ops.KPIAddInput) (err error) {
 				in.ID, in.Name = args[0], args[1]

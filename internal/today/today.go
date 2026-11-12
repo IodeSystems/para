@@ -461,8 +461,10 @@ func fillAgenda(ctx context.Context, st *local.Store, sn *ops.Snapshot, date str
 		switch r.Kind {
 		case ops.KindIncident, ops.KindQuestion, ops.KindIO, ops.KindTask, ops.KindAsk, ops.KindMeeting:
 			rows = append(rows, r)
-		case ops.KindPool:
-			// A firing idea pool needs the owner's pick: counted like Next shows it.
+		case ops.KindPool, ops.KindKPI:
+			// A firing idea pool needs the owner's pick, and a KPI the owner
+			// owns that is off target or stale a reading: counted like Next
+			// shows them.
 			rows = append(rows, r)
 			vt.NeedsYou++
 		}

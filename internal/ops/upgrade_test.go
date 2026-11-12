@@ -93,19 +93,42 @@ func TestRequestLinksAreasAndNotes(t *testing.T) {
 	}
 }
 
-// Every judgement step's instructions become a request body when filed, so
-// they must pass the vault's lint (no raw HTML such as <heading>).
-func TestUpgradeInstructionsFileCleanly(t *testing.T) {
+// Every step's filed agent work (each judgement step's ask with its
+// documents, and the one automated-steps item) must pass the vault's lint:
+// no raw HTML such as <heading>, no literal wikilink such as [[id]].
+func TestUpgradeWorkFilesCleanly(t *testing.T) {
 	tv := newTickVault(t, "2026-11-03T12:00:00Z")
 	d := tv.open("one", "cli")
+	ctx := t.Context()
+	doc := must(t, GoalAdd, d, GoalAddInput{Title: "Ship it", DoneWhen: "It ships."}).ID
+	var judged, auto upgrade.Status
 	for _, s := range upgrade.Steps() {
-		if s.Instructions == "" {
-			continue
+		p := upgrade.Pending{ID: s.ID, Title: s.Title, Auto: s.Auto, Docs: []string{doc}, Count: 1}
+		if s.Auto {
+			auto.Pending = append(auto.Pending, p)
 		}
-		ask := s.Instructions + "\n\n## Done when\n\n" + s.Done
-		if _, err := RequestAdd.Run(t.Context(), d, RequestAddInput{Title: "Step " + s.ID, Ask: ask, Kind: upgradeKind}); err != nil {
-			t.Errorf("step %s: %v", s.ID, err)
+		if s.Instructions != "" {
+			p.Auto = false
+			judged.Pending = append(judged.Pending, p)
 		}
+	}
+	filed := 0
+	for _, st := range []upgrade.Status{judged, auto} {
+		ids, err := fileUpgradeWork(ctx, d, st)
+		if err != nil {
+			t.Fatal(err)
+		}
+		filed += len(ids)
+	}
+	if filed < len(judged.Pending)+1 {
+		t.Fatalf("filed %d items for %d judgement steps and the automated item", filed, len(judged.Pending))
+	}
+	finds, err := d.Store.Lint(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range finds {
+		t.Errorf("lint: %+v", f)
 	}
 }
 

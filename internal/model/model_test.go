@@ -150,7 +150,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"platform-engineer", &Role{c(TypeRole), "acme.example"}, ""},
 		{"logging-domain", &Domain{c(TypeDomain), LinkTo("jordan-example")}, ""},
 		{"branch-names", &Convention{c(TypeConvention), ConventionDraft, []string{"repo"}, "", ""}, ""},
-		{"2026-11-01", &Journal{c(TypeJournal), "2026-11-01", JournalDay}, ""},
+		{"2026-11-01", &Journal{c(TypeJournal), "2026-11-01", JournalDay, ""}, ""},
 		{"inbox-one", &Inbox{c(TypeInbox)}, "Text."},
 		{"io-one", &IO{Common: c(TypeIO), Direction: IOOut, Medium: MediumEmail, State: IOSent, To: []string{"[[acme-portal]]", "ops@acme.example"},
 			At: "2026-11-01T09:00:00Z", Subject: "Quote", Ref: "https://mail.acme.example/m/1", Via: &IOVia{Source: "gmail", Ref: "x1"},

@@ -63,6 +63,8 @@ func checkKindLinks(ctx context.Context, s store.Store, doc model.Document) erro
 		return nil
 	}
 	switch m := doc.Meta.(type) {
+	case *model.Project:
+		return checkKPIOwners(ctx, s, m.KPIs)
 	case *model.Goal:
 		if m.Area != "" {
 			if err := area("area", m.Area, model.AreaKindProject); err != nil {

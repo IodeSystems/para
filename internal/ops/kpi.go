@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -128,7 +129,11 @@ func (s kpiState) line(today string) string {
 	if s.last != nil {
 		l += "; " + string(s.last.Date) + " (" + strconv.Itoa(daysBetween(string(s.last.Date), today)) + "d)"
 	}
-	return l + "; " + s.word()
+	l += "; " + s.word()
+	if s.k.Owner != "" {
+		l += "; owner " + s.k.Owner
+	}
+	return l
 }
 
 // projectKPIs reads the KPIs of p: alerts first, then by name.
@@ -206,6 +211,10 @@ type KPIAddInput struct {
 	Direction model.KPIDirection `json:"direction"`           // up: at or above target is on; down: at or below; hold: within tolerance
 	Tolerance float64            `json:"tolerance,omitempty"` // hold only
 	Cadence   string             `json:"cadence,omitempty"`   // how often it is read: daily, weekly, monthly, quarterly, yearly, every <n> days
+	// Owner acts when it is off target or stale: self (a Next card for the
+	// owner), agent:<name> (agent work for that agent), or a person id
+	// (shown on the project and in health only). Empty: no one.
+	Owner string `json:"owner,omitempty"`
 }
 
 // KPIAddOutput is the output of kpi_add.
@@ -217,7 +226,7 @@ type KPIAddOutput struct {
 }
 
 // KPIAdd defines a KPI on a project.
-var KPIAdd = defineSafe("kpi_add", "Define a KPI on an ongoing project: name, unit, target, direction (up, down, hold with tolerance), and cadence (how often it is read). Change or remove one with edit {fields: {kpis}}", func(ctx context.Context, d Deps, in KPIAddInput) (KPIAddOutput, error) {
+var KPIAdd = defineSafe("kpi_add", "Define a KPI on an ongoing project: name, unit, target, direction (up, down, hold with tolerance), cadence (how often it is read), and owner (self, a person id, or agent:<name>: who acts when it is off target or stale). Change or remove one with edit {fields: {kpis}}", func(ctx context.Context, d Deps, in KPIAddInput) (KPIAddOutput, error) {
 	doc, p, err := getOngoing(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return KPIAddOutput{}, err
@@ -234,8 +243,12 @@ var KPIAdd = defineSafe("kpi_add", "Define a KPI on an ongoing project: name, un
 	if _, err := kpiIndex(doc.ID, p, name); err == nil {
 		return KPIAddOutput{}, fmt.Errorf("kpi_add: %s already has KPI %q: change it with edit {id: %s, fields: {kpis}}", doc.ID, name, doc.ID)
 	}
+	owner, err := kpiOwner(ctx, d.Store, in.Owner)
+	if err != nil {
+		return KPIAddOutput{}, fmt.Errorf("kpi_add: %w", err)
+	}
 	p.KPIs = append(p.KPIs, model.KPI{Name: name, Unit: strings.TrimSpace(in.Unit), Target: *in.Target, Direction: cmp.Or(in.Direction, model.KPIUp),
-		Tolerance: in.Tolerance, Cadence: strings.TrimSpace(in.Cadence)})
+		Tolerance: in.Tolerance, Cadence: strings.TrimSpace(in.Cadence), Owner: owner})
 	if err := checkDoc(doc); err != nil {
 		return KPIAddOutput{}, fmt.Errorf("kpi_add: %w", err)
 	}
@@ -428,4 +441,185 @@ func kpiArchive(ctx context.Context, s store.Store, project model.Document, year
 	a.Body = body + "\n" + strings.Join(add, "\n")
 	_, err = s.Update(ctx, a)
 	return id, err
+}
+
+// kpiOwner checks a KPI owner input and returns the stored form: "" (no
+// one), self, agent:<name>, or the id of an existing person.
+func kpiOwner(ctx context.Context, s store.Store, raw string) (string, error) {
+	o := strings.TrimSpace(raw)
+	switch {
+	case o == "":
+		return "", nil
+	case strings.EqualFold(o, model.KPIOwnerSelf):
+		return model.KPIOwnerSelf, nil
+	case strings.HasPrefix(strings.ToLower(o), model.KPIAgentPrefix):
+		o = model.KPIAgentPrefix + strings.ToLower(strings.TrimSpace(o[len(model.KPIAgentPrefix):]))
+		return o, model.CheckKPIOwner(o)
+	}
+	id := normID(o)
+	if err := model.CheckKPIOwner(id); err != nil {
+		return "", err
+	}
+	doc, err := s.Get(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("owner %s: want self, a person id, or agent:<name>: %w", id, err)
+	}
+	if _, ok := doc.Meta.(*model.Person); !ok {
+		return "", fmt.Errorf("owner %s is a %s: want self, a person id, or agent:<name>", id, doc.Meta.Header().Type)
+	}
+	return id, nil
+}
+
+// checkKPIOwners checks that each KPI owner that names a person names one
+// (edit {fields: {kpis}}).
+func checkKPIOwners(ctx context.Context, s store.Store, ks []model.KPI) error {
+	for _, k := range ks {
+		if k.Owner == "" || k.Owner == model.KPIOwnerSelf || strings.HasPrefix(k.Owner, model.KPIAgentPrefix) {
+			continue
+		}
+		if _, err := kpiOwner(ctx, s, k.Owner); err != nil {
+			return fmt.Errorf("kpis: %q: %w", k.Name, err)
+		}
+	}
+	return nil
+}
+
+// KPI alerts by owner (plan/paralog.md § 10): a KPI off target or stale
+// with owner self is a row of the order (a Next card), one per KPI, made
+// from the project each time, so a reading that brings it on target takes it
+// away. With owner agent:<name>, tick files agent work for it, one open
+// request per KPI and one per alert. A person owner is shown on the project
+// and in health only.
+
+// kpiRowPrefix starts the id of a KPI's row in the order:
+// kpi:<project>/<name slug>. It is not a document.
+const kpiRowPrefix = "kpi:"
+
+// KindKPI is a KPI the owner owns that is off target or stale: one row of
+// the order per KPI, id kpi:<project>/<name slug>, not a document.
+const KindKPI = "kpi"
+
+// kpiRowID is the order row id of the KPI named name on project.
+func kpiRowID(project, name string) string { return kpiRowPrefix + project + "/" + slug(name) }
+
+// kpiNodes are the order rows of the KPIs owned by self that are off target
+// or stale on active projects. Projects are not snapshot types: they are
+// listed here.
+func kpiNodes(sn *Snapshot) []ValueNode {
+	var out []ValueNode
+	refs, err := sn.s.List(sn.ctx, store.Filter{Type: model.TypeProject})
+	if err != nil {
+		return nil
+	}
+	for _, r := range refs {
+		doc, err := sn.Get(r.ID)
+		if err != nil {
+			continue
+		}
+		p, ok := doc.Meta.(*model.Project)
+		if !ok || p.Status != model.ProjectActive {
+			continue
+		}
+		for _, s := range projectKPIs(p, sn.Today) {
+			if s.k.Owner != model.KPIOwnerSelf || !s.alert() {
+				continue
+			}
+			out = append(out, ValueNode{ID: kpiRowID(doc.ID, s.k.Name), Kind: KindKPI, Title: clip(doc.Title, 60) + ": KPI " + clip(s.k.Name, 40) + " " + s.word(),
+				Due: sn.Today, Created: cmp.Or(lastDate(s.last), string(p.Created)), Parent: doc.ID,
+				NeedsYou: true, Reason: s.line(sn.Today), Effort: model.EffortS, ReasonRank: 2})
+		}
+	}
+	return out
+}
+
+// KPIAlertKind is the kind of the agent work tick files for a KPI owned by
+// agent:<name> that is off target or stale.
+const KPIAlertKind = "kpi_alert"
+
+// kpiAlertKeyRe finds the alert key line of a KPI alert request's body.
+var kpiAlertKeyRe = regexp.MustCompile(`(?m)^KPI alert key: (.+)$`)
+
+// kpiAlertKey names one alert of a KPI: the KPI (project and name) and the
+// reading (date and value) or the due date that started it. The KPI part alone is kpiAlertKPI.
+func kpiAlertKPI(project, name string) string { return project + "; " + strings.ToLower(name) }
+
+func kpiAlertKey(project string, s kpiState) string {
+	if s.off {
+		return kpiAlertKPI(project, s.k.Name) + "; off " + lastDate(s.last) + " " + num(s.last.Value)
+	}
+	return kpiAlertKPI(project, s.k.Name) + "; stale " + s.due
+}
+
+// tickKPIAlerts files agent work for each KPI owned by an agent that is off
+// target or stale: none while one for that KPI is open, and none twice for
+// one alert (a request ended with the KPI still off waits for the next
+// reading).
+func tickKPIAlerts(ctx context.Context, d Deps, out *TickOutput) error {
+	reqs, err := loadRequests(ctx, d.Store)
+	if err != nil {
+		return err
+	}
+	open, filed := map[string]bool{}, map[string]bool{}
+	for _, doc := range reqs {
+		r := doc.Meta.(*model.Request)
+		m := kpiAlertKeyRe.FindStringSubmatch(doc.Body)
+		if r.Kind != KPIAlertKind || m == nil {
+			continue
+		}
+		key := strings.TrimSpace(m[1])
+		filed[key] = true
+		if requestOpen(r) {
+			if i := strings.LastIndex(key, "; "); i > 0 {
+				open[key[:i]] = true
+			}
+		}
+	}
+	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
+	if err != nil {
+		return err
+	}
+	today := d.Store.Now().Local().Format(dateLayout)
+	for _, ref := range refs {
+		doc, err := d.Store.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		p, ok := doc.Meta.(*model.Project)
+		if !ok || p.Status != model.ProjectActive {
+			continue
+		}
+		for _, s := range projectKPIs(p, today) {
+			if !strings.HasPrefix(s.k.Owner, model.KPIAgentPrefix) || !s.alert() {
+				continue
+			}
+			key := kpiAlertKey(doc.ID, s)
+			if open[kpiAlertKPI(doc.ID, s.k.Name)] || filed[key] {
+				continue
+			}
+			req, err := addRequest(ctx, d, RequestAddInput{Title: "KPI " + clip(s.k.Name, 40) + " " + s.word(), Ask: kpiAlertAsk(doc, s, today, key),
+				Kind: KPIAlertKind, Links: []string{doc.ID}}, "")
+			if err != nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("kpi alert %s %q: %v", doc.ID, s.k.Name, err))
+				continue
+			}
+			open[kpiAlertKPI(doc.ID, s.k.Name)], filed[key] = true, true
+			out.KPIAlerts = append(out.KPIAlerts, req.ID)
+			out.noteRequest(ctx, d, req.ID)
+		}
+	}
+	return nil
+}
+
+// kpiAlertAsk is the body of a KPI alert request. It names no document as a
+// wikilink: the project is in the request's links.
+func kpiAlertAsk(doc model.Document, s kpiState, today, key string) string {
+	return fmt.Sprintf("The KPI %q of the project %s (%s) is %s: %s.\n\n"+
+		"This KPI is owned by %s: only that agent takes this work.\n\n"+
+		"## What to do\n\n"+
+		"Read the KPI with your own tools, and add the reading with op_run {op: kpi_reading_add, input: {id: %s, name: %q, value, source}}; para fetches nothing. "+
+		"If it is off target, find out why and tell the owner what would bring it back, filed with the usual ops.\n\n"+
+		"## Done when\n\n"+
+		"A reading is added, and it is on target or the owner knows why it is not; then end this with request_done.\n\n"+
+		"KPI alert key: %s",
+		s.k.Name, doc.Title, doc.ID, s.word(), s.line(today), s.k.Owner, doc.ID, s.k.Name, key)
 }

@@ -18,7 +18,7 @@ import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { PointerLinks } from '@/components/PointerLinks'
-import { StateLineEditor } from '@/components/ProjectBits'
+import { KPIReadingEditor, StateLineEditor } from '@/components/ProjectBits'
 import { DueChip } from '@/components/TaskRows'
 import { nameOr } from '@/lib/names'
 
@@ -90,11 +90,11 @@ function CronLine({ line }: { line: string }) {
   return <>{parts}</>
 }
 
-// A KPI line ends in its state: on, off, stale, "off, stale", or no reading (kpi.go). Off and
-// stale lines show in the warning color. The page is read-only: readings come through the CLI or
-// an agent (kpi_reading_add).
+// A KPI line has its state: on, off, stale, "off, stale", or no reading (kpi.go), then its owner
+// when it has one. Off and stale lines show in the warning color. The owner adds a reading below
+// the list (KPIReadingEditor); agents add theirs through kpi_reading_add.
 function KPILine({ line }: { line: string }) {
-  const alert = /; (off|stale|off, stale)$/.test(line)
+  const alert = /; (off|stale|off, stale)(; owner [^;]*)?$/.test(line)
   return (
     <Typography
       component="span"
@@ -162,6 +162,7 @@ function ProjectPage() {
                   </ListItem>
                 ))}
               </List>
+              <KPIReadingEditor id={p.id} />
             </Section>
             <Section title="Goals in flight" count={d.goals.length}>
               {d.goals.length === 0 ? (
