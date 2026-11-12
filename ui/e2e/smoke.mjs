@@ -767,8 +767,8 @@ try {
       rerrors.push(`console ${rpage.url()}: ${m.text()}`)
   })
   await rpage.goto(reviewUrl)
-  // The owner (review:decide) lands on Next.
-  await rpage.waitForURL(/\/next/)
+  // The owner (review:decide) lands on Pinned.
+  await rpage.waitForURL(/\/pinned/)
   // Mark seen: the owner read the change; the new-versions chip goes.
   await rpage.goto(`${base}/docs/${tracked}`)
   await rpage.getByRole('heading', { name: 'Portal runbook' }).waitFor()
@@ -924,7 +924,7 @@ try {
   await rpage.getByRole('button', { name: 'Confirm done' }).click()
   await rpage.getByText('Marked sent by you.').waitFor()
   check(
-    (await agent.call('io_show', { id: ioPage })).item.state === 'sent',
+    (await agent.call('show', { id: ioPage })).detail.item.state === 'sent',
     'Mark Done on an outbox draft marks it sent',
   )
 
@@ -943,7 +943,7 @@ try {
   await rpage.locator('[data-act="approve"]').click()
   await rpage.locator('[data-approved]').waitFor()
   {
-    const ok = (await agent.call('io_show', { id: ioApprove })).item
+    const ok = (await agent.call('show', { id: ioApprove })).detail.item
     check(ok.state === 'ready', `Approve on an outgoing draft makes it ready (${ok.state})`)
   }
 
@@ -952,7 +952,7 @@ try {
   // card back. Approve on a ready draft approves it and the card leaves.
   {
     const ioNext = outDraft('Badge photo', 'Hi Sam, here is the badge photo.')
-    const deck = (await agent.call('order', {})).rows.filter(
+    let deck = (await agent.call('order', {})).rows.filter(
       (r) => r.needs_you && r.bucket !== 'not_yet',
     )
     const cardOf = (id) => rpage.locator(`[data-next-card="${id}"]`)
@@ -1007,6 +1007,8 @@ try {
       'Undo of Done reopens the task and its card comes back',
     )
     // Approve on a ready draft.
+    // Done then Undo moves the task in the order: read it again before walking the deck.
+    deck = (await agent.call('order', {})).rows.filter((r) => r.needs_you && r.bucket !== 'not_yet')
     const di = deck.findIndex((r) => r.id === ioNext)
     check(di >= 0 && deck[di].ready_kind === 'draft', `the new draft is in the deck, ready (${di})`)
     await rpage.goto(`${base}/next`)
@@ -1015,13 +1017,15 @@ try {
       await rpage.keyboard.press('j')
       await cardOf(deck[i + 1].id).waitFor()
     }
+    // The draft text loads after the card shows; wait for it before reading or approving.
+    await cardOf(ioNext).locator('[data-next-draft]').getByText('Hi Sam, here is the badge photo.').waitFor()
     check(
       /badge photo/.test((await cardOf(ioNext).locator('[data-next-draft]').textContent()) ?? ''),
       'a ready draft shows its text on the card',
     )
     await rpage.keyboard.press('a')
     await cardOf(ioNext).waitFor({ state: 'detached' })
-    const ok = (await agent.call('io_show', { id: ioNext })).item
+    const ok = (await agent.call('show', { id: ioNext })).detail.item
     check(ok.state === 'ready', `a on a ready draft approves it and the card leaves (${ok.state})`)
   }
 
@@ -1232,7 +1236,7 @@ try {
     const work = (await agent.call('request_list', {})).items.find(
       (r) => r.title === 'From the owner: Book the venue',
     )
-    const shown = work ? await agent.call('request_show', { id: work.id }) : null
+    const shown = work ? await agent.call('show', { id: work.id }).then((r) => r.detail) : null
     const body = shown?.doc?.body ?? ''
     check(
       !!work &&
@@ -1248,7 +1252,7 @@ try {
     )
     await sent.getByRole('button', { name: 'Undo' }).click()
     await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
-    const after = await agent.call('request_show', { id: work?.id ?? '' })
+    const after = await agent.call('show', { id: work?.id ?? '' }).then((r) => r.detail)
     check(after.doc?.meta?.status === 'cancelled', 'Undo takes the composer work back')
   }
   // An owner-ask the agent records from the chat shows under Asked of agents, claimed by it. The
@@ -1289,7 +1293,7 @@ try {
     )
     await rpage.locator('[data-mark-seen]').click()
     await rpage.locator(`[data-sent="${ask.id}"][data-seen="yes"]`).waitFor()
-    const seen = await agent.call('request_show', { id: ask.id })
+    const seen = await agent.call('show', { id: ask.id }).then((r) => r.detail)
     check(!!seen.doc?.meta?.seen, 'Mark seen sets seen on the request')
     // Opening the page of the item finished agent work is about marks its result seen.
     const linked = await agent.call('request_add', {
@@ -1303,7 +1307,7 @@ try {
     await rpage.goto(`${base}/docs/${noted}`)
     let opened = false
     for (let i = 0; i < 50 && !opened; i++) {
-      opened = !!(await agent.call('request_show', { id: linked.id })).doc?.meta?.seen
+      opened = !!(await agent.call('show', { id: linked.id }).then((r) => r.detail)).doc?.meta?.seen
       if (!opened) await new Promise((r) => setTimeout(r, 100))
     }
     check(opened, 'opening the item page marks the finished agent work about it seen')
@@ -1341,9 +1345,10 @@ try {
     check(md.includes(`](attachments/${noted}/`), 'an image saved with the notes shows inline')
   }
 
-  // Activity on the item page: it refreshes after a composer action, Conversation keeps only what
-  // was said, and Undo on the row of an agent write puts the write back.
+  // Activity on the item page: it refreshes after a composer action, and Undo on the row of an agent write puts the write back.
   {
+    // Activity is a tab beside Conversation (the thread) on the item page.
+    await rpage.locator('[data-item-log-tab="activity"]').click()
     const act = rpage.locator(`[data-activity="${noted}"]`)
     await act
       .locator('[data-history-row="note"]')
@@ -1355,23 +1360,10 @@ try {
       (await act.locator('[data-history-row="created"]').count()) >= 1,
       'Everything shows when the item was made',
     )
-    await rpage.locator('[data-history-filter="conversation"]').click()
-    await act.locator('[data-history-row="created"]').first().waitFor({ state: 'detached' })
-    // The conversation page loads after the toggle: wait for its first row.
-    await act.locator('[data-history-row="note"]').first().waitFor()
-    const kinds = await act
-      .locator('[data-history-row]')
-      .evaluateAll((els) => els.map((e) => e.getAttribute('data-history-row')))
-    const said = ['note', 'message_in', 'message_out', 'agent_result', 'asked_agent']
-    check(
-      kinds.length > 0 && kinds.every((k) => said.includes(k)),
-      `Conversation keeps only what was said (${kinds.join(', ')})`,
-    )
-    await rpage.locator('[data-history-filter="all"]').click()
-
     const undoTask = idOf(para(...v, 'task', 'add', 'Order the cables', '-p', proj, '--json'))
     await agent.call('task_start', { id: undoTask, why: 'Sam said the order is placed.' })
     await rpage.goto(`${base}/docs/${undoTask}`)
+    await rpage.locator('[data-item-log-tab="activity"]').click()
     const row = rpage.locator(`[data-activity="${undoTask}"] [data-history-row="receipt"]`).first()
     await row.waitFor()
     await row.locator('[data-history-undo]').click()
@@ -1471,7 +1463,7 @@ try {
       queued.length === 1 && queued[0].status === 'queued' && queued[0].investigates,
       `Investigate on an agenda row queues one investigate request (${queued.length})`,
     )
-    const body = (await agent.call('request_show', { id: queued[0]?.id ?? '' })).doc?.body ?? ''
+    const body = (await agent.call('show', { id: queued[0]?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
     check(
       body.includes('Fill in missing details') &&
         body.includes('Check whether it is already done') &&
@@ -1486,7 +1478,7 @@ try {
     )
     await lookToast.getByRole('button', { name: 'Undo' }).click()
     await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
-    const back = await agent.call('request_show', { id: queued[0]?.id ?? '' })
+    const back = await agent.call('show', { id: queued[0]?.id ?? '' }).then((r) => r.detail)
     check(back.doc?.meta?.status === 'cancelled', 'Undo of Investigate cancels the request')
 
     // On the task page: dates in the header, Investigate with words in the composer.
@@ -1507,7 +1499,7 @@ try {
     await noteToast.waitFor()
     {
       const [req] = await looksFor(pageTask)
-      const b = (await agent.call('request_show', { id: req?.id ?? '' })).doc?.body ?? ''
+      const b = (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
       check(
         b.includes('Fill in missing details') && b.includes('## Ask\n\nSam may have ordered them.'),
         'Investigate with words in the composer asks the three parts and the Ask on top',
@@ -1523,7 +1515,7 @@ try {
       await noteToast.getByRole('button', { name: 'Undo' }).click()
       await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
       check(
-        (await agent.call('request_show', { id: req?.id ?? '' })).doc?.meta?.status ===
+        (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.meta?.status ===
           'cancelled' && !notesOf(pageTask).includes('Sam may have ordered them.'),
         'Undo of Investigate with words cancels the request and takes the note out',
       )
@@ -1605,7 +1597,7 @@ try {
   watched = lpage
   const renewed = lpage.waitForResponse((r) => r.url().endsWith('/auth/session/renew'))
   await lpage.goto(loginUrl)
-  await lpage.waitForURL(/\/next/)
+  await lpage.waitForURL(/\/pinned/)
   check((await renewed).status() === 200, 'the web app renews a login key near its end')
   const me = await lpage.evaluate(async () => (await fetch('/auth/session')).json())
   check(
@@ -1618,7 +1610,7 @@ try {
     'serve sessions lists the new key only; the old one is revoked',
   )
   await lpage.reload()
-  await lpage.getByRole('heading', { name: 'Next', exact: true }).waitFor()
+  await lpage.getByRole('heading', { name: 'Pinned', exact: true }).waitFor()
   check(
     (await lpage.locator('[data-banner="read-only"]').count()) === 0,
     'after renew the page is still signed in and can decide',
@@ -1644,7 +1636,8 @@ try {
 } finally {
   if (agent) agent.child.kill('SIGTERM')
   if (server) server.kill('SIGTERM')
-  rmSync(work, { recursive: true, force: true })
+  // The server may still write as it stops: retry the removal.
+  rmSync(work, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 })
 }
 if (failures.length) {
   console.error(`\n${failures.length} failure(s):`)
