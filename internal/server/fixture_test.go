@@ -105,7 +105,9 @@ func buildHome(base string) error {
 
 // newFixture copies the template home, rewrites its vault paths, and builds the
 // server with one trusted proxy.
-func newFixture(t *testing.T) *fixture {
+func newFixture(t *testing.T) *fixture { return newFixtureWith(t, nil) }
+
+func newFixtureWith(t *testing.T, opt func(*Options)) *fixture {
 	t.Helper()
 	src := seededHome(t)
 	dst := t.TempDir()
@@ -132,8 +134,12 @@ func newFixture(t *testing.T) *fixture {
 	if _, err := hub.Prepare(); err != nil {
 		t.Fatal(err)
 	}
-	srv, err := New(Options{Version: "test", Log: log, Live: live,
-		Web: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "<html>shell</html>") })})
+	o := Options{Version: "test", Log: log, Live: live,
+		Web: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = io.WriteString(w, "<html>shell</html>") })}
+	if opt != nil {
+		opt(&o)
+	}
+	srv, err := New(o)
 	if err != nil {
 		t.Fatal(err)
 	}

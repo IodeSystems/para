@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -36,6 +37,7 @@ const (
 	keyProxies   = "net.trusted_proxies"
 	keyBases     = "net.base_hosts"
 	keyTick      = "tick.interval" // a duration such as 1m, or off
+	keyPprof     = "debug.pprof"   // true mounts /api/debug/pprof/ for the admin token on loopback
 )
 
 type serveFlags struct {
@@ -53,6 +55,7 @@ type serveConfig struct {
 	bare    string
 	web     http.Handler
 	tick    time.Duration // 0 means no tick timer
+	pprof   bool
 }
 
 func newServeCmd(l *loader) *cobra.Command {
@@ -68,6 +71,10 @@ func newServeCmd(l *loader) *cobra.Command {
 			"$PARA_HOME/server.properties can set net.trusted_proxies and net.base_hosts\n" +
 			"(comma separated). Each vault's net.rules is in\n" +
 			"$PARA_HOME/vaults/<id>/server/ and starts with loopback only.\n\n" +
+			"Profiling is off. Set debug.pprof=true in server.properties and restart; then\n" +
+			"from this machine: curl -H \"Authorization: Bearer $(cat $PARA_HOME/vaults/<id>/server/admin.token)\"\n" +
+			"-o p.pb.gz 'http://127.0.0.1:7700/api/debug/pprof/profile?seconds=30' and\n" +
+			"go tool pprof -top p.pb.gz. Only the admin token on a loopback client.\n\n" +
 			"To stop it, send SIGTERM or press Ctrl-C.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -122,7 +129,13 @@ func loadServeConfig(l *loader, f serveFlags) (serveConfig, error) {
 	if err != nil {
 		return serveConfig{}, fmt.Errorf("serve: %w", err)
 	}
-	out := serveConfig{proxies: proxies, bases: append(splitList(cfg[keyBases]), f.bases...), bare: l.vaultFlag, tick: tick}
+	var pprofOn bool
+	if v := strings.TrimSpace(cfg[keyPprof]); v != "" {
+		if pprofOn, err = strconv.ParseBool(v); err != nil {
+			return serveConfig{}, fmt.Errorf("serve: %s %q: want true or false: %w", keyPprof, v, err)
+		}
+	}
+	out := serveConfig{pprof: pprofOn, proxies: proxies, bases: append(splitList(cfg[keyBases]), f.bases...), bare: l.vaultFlag, tick: tick}
 	if out.bare != "" {
 		if _, err := l.install.Select(out.bare, ""); err != nil {
 			return serveConfig{}, fmt.Errorf("serve: --vault: %w", err)
@@ -228,7 +241,7 @@ func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
 		return err
 	}
 	srv, err := server.New(server.Options{Version: l.version, Web: cfg.web, Log: log, Live: live,
-		UpdateNotice: l.updateNotice, UpdateHold: l.updateHold, Update: l.updateStatus, MCPTools: tools})
+		UpdateNotice: l.updateNotice, UpdateHold: l.updateHold, Update: l.updateStatus, MCPTools: tools, Pprof: cfg.pprof})
 	if err != nil {
 		return err
 	}

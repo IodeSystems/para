@@ -59,6 +59,9 @@ type Options struct {
 	// MCPTools is the tool listing of /mcp (mcpserver.ToolsAll or ToolsCore;
 	// empty is all). para serve passes mcp.tools, default core.
 	MCPTools string
+	// Pprof mounts the profiler at /api/debug/pprof/ (admin token, loopback
+	// client). para serve sets it from server.properties debug.pprof only.
+	Pprof bool
 }
 
 // Server holds the built API. Build it with New.
@@ -279,6 +282,9 @@ func (s *Server) rawRoutes() {
 		s.routes.add(m, "/mcp", netguard.ScopeVaultRead)
 	}
 	s.mux.Handle("/mcp", s.mcp)
+	if s.opt.Pprof {
+		s.mux.Handle(pprofPrefix+"*", pprofHandler())
+	}
 	s.mux.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"status":"ok"}` + "\n"))
@@ -308,6 +314,9 @@ func (s *Server) Policy(method, path string) netguard.Route {
 	}
 	if safe && !isAPIPath(path) {
 		return netguard.Route{Public: true}
+	}
+	if isPprofPath(path) {
+		return netguard.Route{Scope: netguard.ScopeAdmin}
 	}
 	if scope, ok := s.routes.scope(method, path); ok {
 		return netguard.Route{Scope: scope}
