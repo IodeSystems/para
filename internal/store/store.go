@@ -91,6 +91,15 @@ type Store interface {
 	// It returns model.ErrExists for an id another document holds. Links to the
 	// old id are the caller's to rewrite.
 	Rename(ctx context.Context, id, newID string) (model.Document, error)
+	// ChangeIDs changes the id of each document in ids (old to new), keeps
+	// the old id in former_ids so it still resolves, and rewrites every link
+	// to it in documents that are not records (vault/ids.go).
+	ChangeIDs(ctx context.Context, ids map[string]string) (model.IDChangeResult, error)
+	// RelinkFormer rewrites every link to a former id to the current id.
+	RelinkFormer(ctx context.Context) (model.IDChangeResult, error)
+	// Snapshot writes the whole vault to a tarball in this machine's state
+	// directory, never in the vault, and returns its path.
+	Snapshot(ctx context.Context, name string) (string, error)
 
 	// Lint checks every document in the vault.
 	Lint(ctx context.Context) ([]model.Finding, error)

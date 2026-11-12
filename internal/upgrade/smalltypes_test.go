@@ -107,6 +107,7 @@ func TestSmallTypesStep(t *testing.T) {
 	}
 	// The optional notes step is listed, and does not hold the format back.
 	st, err := StatusOf(ctx, s)
+	st = older(st, GoalsFormat)
 	if err == nil && len(st.Pending) == 2 {
 		slices.Sort(st.Pending[0].Docs)
 	}
@@ -136,7 +137,7 @@ func TestSmallTypesStep(t *testing.T) {
 		t.Fatal(err)
 	}
 	so = stepOut(res, "small-types")
-	if res.FormatVersion != SmallTypesFormat || so.Count != len(smallFolded) || so.Batch == "" {
+	if res.FormatVersion != Latest() || so.Count != len(smallFolded) || so.Batch == "" {
 		t.Fatalf("run = %+v", res)
 	}
 	get := func(id string) model.Document {
@@ -214,7 +215,7 @@ func TestSmallTypesStep(t *testing.T) {
 	}
 	// The optional notes step lists the note that links an item (not the one
 	// that links nothing), and does not hold the format back.
-	if st, _ := StatusOf(ctx, s); st.FormatVersion != SmallTypesFormat || len(st.Pending) != 0 {
+	if st, _ := StatusOf(ctx, s); st.FormatVersion != Latest() || len(older(st, GoalsFormat).Pending) != 0 {
 		t.Fatalf("status after = %+v", st)
 	}
 	if ids := notesOf(t, ctx, s); strings.Join(ids, ",") != "note-ops" {
@@ -226,7 +227,7 @@ func TestSmallTypesStep(t *testing.T) {
 		t.Fatalf("re-run = %+v, %v", again, err)
 	}
 	two := f.open("two")
-	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != SmallTypesFormat || len(st.Pending) != 0 {
+	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(older(st, GoalsFormat).Pending) != 0 {
 		t.Fatalf("second machine = %+v, %v", st, err)
 	}
 	if r, err := Run(ctx, two, false); err != nil || len(r.Steps) != 0 {
@@ -235,7 +236,7 @@ func TestSmallTypesStep(t *testing.T) {
 	if err := two.SetConfig(ctx, ConfigKey, "9"); err != nil {
 		t.Fatal(err)
 	}
-	if r, err := Run(ctx, two, false); err != nil || changed(r) || r.FormatVersion != SmallTypesFormat {
+	if r, err := Run(ctx, two, false); err != nil || changed(r) || r.FormatVersion != Latest() {
 		t.Fatalf("second machine at 9 = %+v, %v", r, err)
 	}
 

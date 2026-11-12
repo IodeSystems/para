@@ -70,6 +70,9 @@ type VaultUpgradeInput struct {
 	Force  bool   `json:"force,omitempty"`
 	File   bool   `json:"file,omitempty"`
 	Undo   string `json:"undo,omitempty"`
+	// Unattended is a run nobody asked for now (upgrade.vault_steps=auto after
+	// an auto-install): it leaves the steps only the owner runs pending.
+	Unattended bool `json:"unattended,omitempty"`
 }
 
 // VaultUpgradeOutput is the output of vault_upgrade.
@@ -140,11 +143,7 @@ var VaultUpgrade = withNoUndo(definePerson("vault_upgrade", "Bring this vault to
 		}
 		out.Undo = &r
 	default:
-		run := upgrade.Run
-		if in.Force {
-			run = upgrade.RunForced
-		}
-		r, err := run(ctx, d.Store, in.DryRun)
+		r, err := upgrade.RunWith(ctx, d.Store, upgrade.RunOptions{Dry: in.DryRun, Force: in.Force, Unattended: in.Unattended})
 		var se *upgrade.StepError
 		switch {
 		case err == nil:

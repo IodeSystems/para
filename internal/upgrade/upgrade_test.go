@@ -90,6 +90,7 @@ func TestMeetingStepDryRunRunAndUndo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	st = older(st, GoalsFormat)
 	if st.FormatVersion != 0 || len(st.Pending) != 3 || st.Pending[0].ID != "meeting-as-task" || st.Pending[0].Count != 2 || st.Pending[2].ID != "obligations" {
 		t.Fatalf("status = %+v", st)
 	}
@@ -212,6 +213,7 @@ func TestSecondRunAndSecondInstallDoNothing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	st = older(st, GoalsFormat)
 	if st.FormatVersion != 1 || len(st.Pending) != 1 || st.Pending[0].ID != "done-when" {
 		t.Fatalf("second install status = %+v", st)
 	}
@@ -256,20 +258,24 @@ func TestJudgementStepClearsWhenDoneTestFindsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	st, _ := StatusOf(ctx, s)
+	st = older(st, GoalsFormat)
 	if len(st.Pending) != 1 || st.Pending[0].Auto || st.Pending[0].Count != 2 {
 		t.Fatalf("status = %+v", st)
 	}
 	// The selector skips a goal that has one, a closed task, and a meeting.
+	// Step goals ran too: project-open is goal-open.
 	got := map[string]bool{}
 	for _, id := range st.Pending[0].Docs {
 		got[id] = true
 	}
-	if !got["project-open"] || !got["task-open"] || got["project-set"] || got["meeting-a"] {
+	if !got["goal-open"] || !got["task-open"] || got["goal-set"] || got["meeting-a"] {
 		t.Fatalf("selected %v", st.Pending[0].Docs)
 	}
 	for _, id := range []string{"project-open", "task-open"} {
-		d, _ := s.Get(ctx, id)
+		d, _ := s.Get(ctx, id) // project-open resolves to goal-open
 		switch m := d.Meta.(type) {
+		case *model.Goal:
+			m.DoneWhen = "Agreed by the owner."
 		case *model.Project:
 			m.DoneWhen = "Agreed by the owner."
 		case *model.Task:
@@ -312,6 +318,28 @@ func TestEditedDocumentIsSkippedByUndo(t *testing.T) {
 }
 
 // autoSteps counts the automated steps a run from format from goes through.
+// older drops the pending steps at or above format below: a test of an older
+// step does not count the steps that came after it.
+func older(st Status, below int) Status {
+	keep := st.Pending[:0:0]
+	for _, p := range st.Pending {
+		if s, ok := stepByID(p.ID); ok && s.Version < below {
+			keep = append(keep, p)
+		}
+	}
+	st.Pending = keep
+	return st
+}
+
+func stepByID(id string) (Step, bool) {
+	for _, s := range Steps() {
+		if s.ID == id {
+			return s, true
+		}
+	}
+	return Step{}, false
+}
+
 func autoSteps(from int) int {
 	n := 0
 	for _, s := range Steps() {
@@ -389,6 +417,7 @@ func TestStatusListsEveryDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	st = older(st, GoalsFormat)
 	if len(st.Pending) != 1 || st.Pending[0].Count < 31 || len(st.Pending[0].Docs) != st.Pending[0].Count {
 		t.Fatalf("count %d, listed %d", st.Pending[0].Count, len(st.Pending[0].Docs))
 	}

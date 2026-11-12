@@ -32,7 +32,7 @@ func steps() []Step {
 			ID:      "done-when",
 			Version: 2,
 			Title:   "Give each open goal and task a done_when",
-			Types:   []model.Type{model.TypeProject, model.TypeTask},
+			Types:   []model.Type{model.TypeProject, model.TypeGoal, model.TypeTask},
 			Select:  lacksDoneWhen,
 			Instructions: "Each document the selector lists is an open goal or task with no done_when. " +
 				"Read the document, its links, and its history. Where the vault or your own tools show what done means, " +
@@ -198,6 +198,37 @@ func steps() []Step {
 				"Where it is not clear where the text belongs, leave the note and say so; do not guess. A note that links nothing stays a note. " +
 				"The owner may keep a note as it is with health_dismiss {id: the note id, kind: " + NotePlacement + "}.",
 			Done: "No note that links an item is left outside archive/, or the owner dismissed it.",
+		},
+		{
+			// A para before this step does not know type goal and fails on
+			// it: upgrade para on every machine first (Run checks). Only the
+			// owner runs it (Confirm): it changes ids, so it writes a vault
+			// snapshot first, in this machine's state directory.
+			ID:      "goals",
+			Version: GoalsFormat,
+			Title:   "Make each finite project a goal: type goal in goals/, id goal- in place of project- (the old id keeps resolving), every link to it rewritten, project: links to it moved to goal:, someday goals parked (upgrade para on every machine of this vault first; the owner runs it)",
+			Auto:    true,
+			Confirm: true,
+			Types:   []model.Type{model.TypeProject},
+			Select:  legacyGoal,
+			Rewrite: asGoal,
+			Custom:  runGoals,
+		},
+		{
+			ID:         "projects-sort",
+			Version:    GoalsFormat,
+			Title:      "Sort project areas and ongoing goals: each one becomes an ongoing project, a concept area, or stays a goal",
+			Optional:   true,
+			KeepListed: true,
+			Types:      []model.Type{model.TypeArea, model.TypeGoal},
+			Select:     sortPending,
+			Instructions: "Each document the selector lists is an area of kind project (or with no kind), or an active goal with no done_when and no due. " +
+				"A project is now an ongoing tracked thing with a state line, goals in flight, and an icebox; an area is a facet, information about working in an area. " +
+				"For each one, read it (show) and what links it, then ask the owner which it is, in one question with your recommendation and the reason: " +
+				"an ongoing project (doc_retype {id, type: project, fields: {status: active, folded_from: area or goal}}; then the goals that name it as their area get project: [[id]] with edit), " +
+				"a concept area (edit {id, fields: {kind: concept}}), or, for a goal, a goal that needs a done_when (edit {id, fields: {done_when}}). " +
+				"Do not decide for the owner. The owner may keep it as it is with health_dismiss {id, kind: " + ProjectSort + "}.",
+			Done: "No area of kind project or with no kind, and no active goal with no done_when and no due, is left, or the owner dismissed it.",
 		},
 	}
 }
@@ -391,6 +422,8 @@ func lacksDoneWhen(d model.Document) bool {
 	switch m := d.Meta.(type) {
 	case *model.Project:
 		return (m.Status == model.ProjectActive || m.Status == model.ProjectPaused) && m.DoneWhen == ""
+	case *model.Goal: // a project after step goals
+		return (m.Status == model.GoalActive || m.Status == model.GoalPaused) && m.DoneWhen == ""
 	case *model.Task:
 		open := m.Status != model.TaskDone && m.Status != model.TaskDropped
 		return open && m.EffectiveKind() == model.KindTask && m.DoneWhen == ""

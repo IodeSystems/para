@@ -102,6 +102,7 @@ func TestPolicyDocsStep(t *testing.T) {
 		before[id] = raw(t, f, rel)
 	}
 	st, err := StatusOf(ctx, s)
+	st = older(st, GoalsFormat)
 	if err == nil && len(st.Pending) == 1 {
 		slices.Sort(st.Pending[0].Docs)
 	}
@@ -193,7 +194,7 @@ func TestPolicyDocsStep(t *testing.T) {
 	// The optional placement step lists the areas with folded annotations at
 	// the top, and does not hold the format back.
 	st, _ = StatusOf(ctx, s)
-	if st.FormatVersion != Latest() || len(st.Pending) != 0 {
+	if st.FormatVersion != Latest() || len(older(st, GoalsFormat).Pending) != 0 {
 		t.Fatalf("status after = %+v", st)
 	}
 	if ids := placementOf(t, ctx, s); strings.Join(ids, ",") != "area-ops,conventions,exceptions" {
@@ -205,7 +206,7 @@ func TestPolicyDocsStep(t *testing.T) {
 		t.Fatalf("re-run = %+v, %v", again, err)
 	}
 	two := f.open("two")
-	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(st.Pending) != 0 {
+	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(older(st, GoalsFormat).Pending) != 0 {
 		t.Fatalf("second machine = %+v, %v", st, err)
 	}
 	if r, err := Run(ctx, two, false); err != nil || len(r.Steps) != 0 {

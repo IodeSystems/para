@@ -63,6 +63,7 @@ func newVaultUpgradeCmd(l *loader) *cobra.Command {
 			fs.BoolVar(&in.File, "file", false, "queue each pending judgement step as agent work, and one item asking the owner to run the automated steps; runs no automated step")
 			fs.StringVar(&in.Undo, "undo", "", "restore the documents of a batch id printed by an earlier run")
 			fs.BoolVar(&in.Force, "force", false, "run while another install seen in 14 days runs an older para; that machine then refuses the vault until it is upgraded")
+			fs.BoolVar(&in.Unattended, "unattended", false, "a run nobody asked for now (after an auto-install): leave the steps only the owner runs pending")
 		},
 		Text: func(w io.Writer, o ops.VaultUpgradeOutput) error { return writeVaultUpgrade(w, l.vaultName(), o) },
 	})
@@ -138,6 +139,27 @@ func writeUpgradeStatus(w io.Writer, s upgrade.Status) error {
 	return nil
 }
 
+// writeCounts prints a step's counts, known names first in their order.
+func writeCounts(w io.Writer, counts map[string]int) error {
+	if len(counts) == 0 {
+		return nil
+	}
+	names := slices.Clone(upgrade.CountOrder)
+	for k := range counts {
+		if !slices.Contains(names, k) {
+			names = append(names, k)
+		}
+	}
+	for _, k := range names {
+		if n, ok := counts[k]; ok {
+			if _, err := fmt.Fprintf(w, "  %s: %d\n", k, n); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func writeVaultUpgrade(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
 	switch {
 	case o.Undo != nil:
@@ -164,8 +186,22 @@ func writeVaultUpgrade(w io.Writer, vault string, o ops.VaultUpgradeOutput) erro
 			verb = "would rewrite"
 		}
 		for _, s := range o.Run.Steps {
+			if s.Skipped != "" {
+				if _, err := fmt.Fprintf(w, "%s: not run: %s\n", s.ID, s.Skipped); err != nil {
+					return err
+				}
+				continue
+			}
 			if _, err := fmt.Fprintf(w, "%s: %s %d documents\n", s.ID, verb, s.Count); err != nil {
 				return err
+			}
+			if err := writeCounts(w, s.Counts); err != nil {
+				return err
+			}
+			if s.Snapshot != "" {
+				if _, err := fmt.Fprintf(w, "  snapshot: %s (restore by hand: stop para on every machine, untar over the vault)\n", s.Snapshot); err != nil {
+					return err
+				}
 			}
 			for _, id := range s.Docs {
 				if _, err := fmt.Fprintf(w, "  %s\n", id); err != nil {
@@ -340,6 +376,8 @@ type upgradeOptions struct {
 	Home       string // install home passed to the new binary
 	VaultIDs   []string
 	Skipped    []string // vaults this machine does not hold, with why
+
+	Unattended bool // vault steps run with --unattended: an auto-install, nobody asked now
 
 	Release bool // install the newest release even with a checkout
 	Force   bool // install a release that is not newer than this one
@@ -526,6 +564,10 @@ func restartService(ctx context.Context, w io.Writer, exe, home string) {
 // queued as agent work.
 func vaultSteps(ctx context.Context, w io.Writer, o upgradeOptions, bin, id string) error {
 	base := []string{"--home", o.Home, "--vault", id, "vault", "upgrade"}
+	run := base
+	if o.Unattended {
+		run = append(slices.Clone(base), "--unattended")
+	}
 	if _, err := fmt.Fprintf(w, "\nvault %s:\n", id); err != nil {
 		return err
 	}
@@ -536,7 +578,7 @@ func vaultSteps(ctx context.Context, w io.Writer, o upgradeOptions, bin, id stri
 			cmd := "para --vault " + id + " vault upgrade"
 			switch {
 			case o.Yes || (o.Ask != nil && o.Ask("run the automated steps above on vault "+id+"?")):
-				if err := stream(ctx, w, o.Src, bin, base...); err != nil {
+				if err := stream(ctx, w, o.Src, bin, run...); err != nil {
 					_, _ = fmt.Fprintf(w, "the automated steps failed: %v\n", err)
 				}
 			case o.Ask != nil:

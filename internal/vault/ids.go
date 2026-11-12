@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"slices"
 	"sort"
 	"strings"
@@ -20,14 +21,6 @@ import (
 // new id. Records (model.RecordTypes) keep the text they were written with.
 // former_ids lives in the file, so it moves with sync and every index rebuild
 // reads it from files; no other document may take a former id.
-
-// IDChangeResult is what ChangeIDs or RelinkFormer did.
-type IDChangeResult struct {
-	// Renamed maps each old id to the new one.
-	Renamed map[string]string `json:"renamed"`
-	// Rewritten lists the documents whose references changed, sorted.
-	Rewritten []string `json:"rewritten"`
-}
 
 // formerOf returns the document that lists id in former_ids.
 func (v *Vault) formerOf(id string) (docFile, bool, error) {
@@ -83,8 +76,8 @@ func (v *Vault) Resolve(_ context.Context, id string) (string, error) {
 // document. A link key whose target's type asks for another key moves there
 // (model.LinkKeyFor). A run that stopped part way can run again: an old id
 // that is already a former id of its new id is not renamed twice.
-func (v *Vault) ChangeIDs(ctx context.Context, ids map[string]string) (IDChangeResult, error) {
-	res := IDChangeResult{Renamed: map[string]string{}, Rewritten: []string{}}
+func (v *Vault) ChangeIDs(ctx context.Context, ids map[string]string) (model.IDChangeResult, error) {
+	res := model.IDChangeResult{Renamed: map[string]string{}, Rewritten: []string{}}
 	olds := make([]string, 0, len(ids))
 	for old, nw := range ids {
 		if old == nw || !paramd.ValidStem(nw) {
@@ -117,7 +110,7 @@ func (v *Vault) ChangeIDs(ctx context.Context, ids map[string]string) (IDChangeR
 		}
 		res.Renamed[old] = nw
 	}
-	rewritten, err := v.relink(ctx, ids)
+	rewritten, err := v.relink(ctx, ids, nil)
 	res.Rewritten = rewritten
 	return res, err
 }
@@ -125,16 +118,26 @@ func (v *Vault) ChangeIDs(ctx context.Context, ids map[string]string) (IDChangeR
 // RelinkFormer rewrites every reference to a former id to the current id, and
 // moves link keys to the key their target's type asks for: for a file that
 // came in by sync after an id change.
-func (v *Vault) RelinkFormer(ctx context.Context) (IDChangeResult, error) {
+func (v *Vault) RelinkFormer(ctx context.Context) (model.IDChangeResult, error) {
+	ids, err := v.formerIDs()
+	if err != nil {
+		return model.IDChangeResult{}, err
+	}
+	rewritten, err := v.relink(ctx, ids, nil)
+	return model.IDChangeResult{Renamed: map[string]string{}, Rewritten: rewritten}, err
+}
+
+// formerIDs maps every former id in the vault to the document that lists it.
+func (v *Vault) formerIDs() (map[string]string, error) {
 	ids := map[string]string{}
 	files, err := v.docFiles()
 	if err != nil {
-		return IDChangeResult{}, fmt.Errorf("vault: relink: %w", err)
+		return nil, fmt.Errorf("vault: relink: %w", err)
 	}
 	for _, f := range files {
 		data, err := os.ReadFile(v.abs(f.rel))
 		if err != nil {
-			return IDChangeResult{}, fmt.Errorf("vault: relink: %w", err)
+			return nil, fmt.Errorf("vault: relink: %w", err)
 		}
 		for _, old := range v.listedOf(f.rel, data).former {
 			if _, taken := ids[old]; !taken {
@@ -142,12 +145,31 @@ func (v *Vault) RelinkFormer(ctx context.Context) (IDChangeResult, error) {
 			}
 		}
 	}
-	rewritten, err := v.relink(ctx, ids)
-	return IDChangeResult{Renamed: map[string]string{}, Rewritten: rewritten}, err
+	return ids, nil
 }
 
-// relink rewrites the references in every document that is not a record.
-func (v *Vault) relink(ctx context.Context, ids map[string]string) ([]string, error) {
+// relinkChanged relinks the documents reconcile found added or changed, when
+// the vault has a former id: a file that synced in after an id change.
+func (v *Vault) relinkChanged(ctx context.Context, changes []model.Change) ([]string, error) {
+	only := map[string]bool{}
+	for _, c := range changes {
+		if c.Kind != model.ChangeRemoved && strings.HasSuffix(c.Path, ".md") {
+			only[strings.TrimSuffix(path.Base(c.Path), ".md")] = true
+		}
+	}
+	if len(only) == 0 {
+		return nil, nil
+	}
+	ids, err := v.formerIDs()
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	return v.relink(ctx, ids, only)
+}
+
+// relink rewrites the references in every document that is not a record, or
+// only in the documents in only when it is not nil.
+func (v *Vault) relink(ctx context.Context, ids map[string]string, only map[string]bool) ([]string, error) {
 	refs, err := v.List(ctx, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("vault: relink: %w", err)
@@ -164,7 +186,7 @@ func (v *Vault) relink(ctx context.Context, ids map[string]string) ([]string, er
 	}
 	out := []string{}
 	for _, r := range refs {
-		if model.IsRecord(r.Type) {
+		if model.IsRecord(r.Type) || (only != nil && !only[r.ID]) {
 			continue
 		}
 		d, err := v.Get(ctx, r.ID)

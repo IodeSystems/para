@@ -76,6 +76,18 @@ type Step struct {
 	// The owner runs it with para vault upgrade after every machine of the
 	// vault has this para.
 	Marker bool
+	// Confirm is a step only the owner's explicit run makes: an unattended
+	// run (upgrade.vault_steps=auto after an auto-install) lists it and
+	// leaves it pending.
+	Confirm bool
+	// Custom, when set, is the whole run of an automated step that a batch
+	// rewrite cannot do alone (an id change): it gets the store, whether to
+	// only plan, and the batch id, and fills the outcome.
+	Custom func(ctx context.Context, s store.Store, dry bool, batch string) (StepOutcome, error)
+	// KeepListed is an Optional judgement step that status lists while it
+	// selects a document, also after format_version passed it, so filing
+	// makes it agent work after the run that reached its format.
+	KeepListed bool
 }
 
 // Steps returns every step in order.
@@ -143,7 +155,7 @@ func StatusOf(ctx context.Context, r Reader) (Status, error) {
 	// and is not listed as work the owner can do.
 	blocked := false
 	for _, s := range steps() {
-		if s.Version <= cur {
+		if s.Version <= cur && !s.KeepListed {
 			continue
 		}
 		if s.Marker && blocked {
@@ -225,6 +237,12 @@ type StepOutcome struct {
 	// Plan says what the step does to each document it selects, in lines
 	// (Explain), on a dry run and a run alike.
 	Plan []PlanLine `json:"plan,omitempty"`
+	// Counts are the totals a Custom step reports, by name, on a dry run and
+	// a run alike. Snapshot is the tarball it wrote first. Skipped says why
+	// the step did not run.
+	Counts   map[string]int `json:"counts,omitempty"`
+	Snapshot string         `json:"snapshot,omitempty"`
+	Skipped  string         `json:"skipped,omitempty"`
 }
 
 // PlanLine is what a step does to one document.
@@ -266,15 +284,26 @@ func stepOfBatch(batch string) (Step, bool) {
 // It refuses while an install seen in StaleDays runs an older para (RunForced
 // skips that check).
 func Run(ctx context.Context, s store.Store, dry bool) (RunResult, error) {
-	return run(ctx, s, dry, false)
+	return RunWith(ctx, s, RunOptions{Dry: dry})
 }
 
 // RunForced is Run that does not refuse for an older para on another install.
 func RunForced(ctx context.Context, s store.Store, dry bool) (RunResult, error) {
-	return run(ctx, s, dry, true)
+	return RunWith(ctx, s, RunOptions{Dry: dry, Force: true})
 }
 
-func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error) {
+// RunOptions shape a run. Unattended is a run nobody asked for at that moment
+// (upgrade.vault_steps=auto): it leaves every Confirm step pending.
+type RunOptions struct {
+	Dry, Force, Unattended bool
+}
+
+// RunWith is Run with options.
+func RunWith(ctx context.Context, s store.Store, o RunOptions) (RunResult, error) {
+	return run(ctx, s, o.Dry, o.Force, o.Unattended)
+}
+
+func run(ctx context.Context, s store.Store, dry, force, unattended bool) (RunResult, error) {
 	cur, err := Current(s)
 	if err != nil {
 		return RunResult{}, err
@@ -290,6 +319,24 @@ func run(ctx context.Context, s store.Store, dry, force bool) (RunResult, error)
 	}
 	for _, step := range steps() {
 		if step.Version <= cur || !step.Auto || step.Marker {
+			continue
+		}
+		if step.Custom != nil {
+			batch := BatchID(step.ID, s.Now())
+			if step.Confirm && unattended && !dry {
+				res.Steps = append(res.Steps, StepOutcome{ID: step.ID, Title: step.Title, Auto: true, Docs: []string{},
+					Skipped: "the owner runs this step: para vault upgrade"})
+				break // later steps wait for it
+			}
+			so, err := step.Custom(ctx, s, dry, batch)
+			so.ID, so.Title, so.Auto = step.ID, step.Title, true
+			if so.Docs == nil {
+				so.Docs = []string{}
+			}
+			res.Steps = append(res.Steps, so)
+			if err != nil {
+				return res, &StepError{Step: step.ID, Err: err}
+			}
 			continue
 		}
 		rewrite := step.Rewrite

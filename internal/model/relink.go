@@ -6,6 +6,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// IDChangeResult is what an id change (store ChangeIDs) or a relink of
+// former ids did.
+type IDChangeResult struct {
+	// Renamed maps each old id to the new one.
+	Renamed map[string]string `json:"renamed"`
+	// Rewritten lists the documents whose references changed, sorted.
+	Rewritten []string `json:"rewritten"`
+}
+
 // RecordTypes are the types whose text is a record of what happened: an id
 // change leaves their references as written, and a former id resolves them.
 var RecordTypes = []Type{TypeReceipt, TypeProposal, TypeTranscript}

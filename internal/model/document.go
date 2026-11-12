@@ -143,6 +143,9 @@ type Change struct {
 type ReconcileResult struct {
 	Baseline bool     `json:"baseline"`
 	Changes  []Change `json:"changes"`
+	// Relinked lists the changed documents whose links to a former id were
+	// rewritten to the current id (a file that synced in after an id change).
+	Relinked []string `json:"relinked,omitempty"`
 }
 
 // Render produces para-md: frontmatter, blank line, title, body.

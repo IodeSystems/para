@@ -102,11 +102,13 @@ func TestObligationsStep(t *testing.T) {
 		}
 	}
 
-	res, err := Run(ctx, s, false)
+	// Unattended: step goals (the owner's) stays pending, so the undo below
+	// sees only this step's writes.
+	res, err := RunWith(ctx, s, RunOptions{Unattended: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.FormatVersion != Latest() || res.Steps[0].Count != len(folded) {
+	if res.FormatVersion != GoalsFormat-1 || res.Steps[0].Count != len(folded) {
 		t.Fatalf("run = %+v", res)
 	}
 	get := func(id string) (model.Document, *model.Obligation) {
@@ -167,15 +169,15 @@ func TestObligationsStep(t *testing.T) {
 	}
 
 	// A re-run, and a second machine at the latest format, do nothing.
-	again, err := Run(ctx, s, false)
-	if err != nil || len(again.Steps) != 0 {
+	again, err := RunWith(ctx, s, RunOptions{Unattended: true})
+	if err != nil || changed(again) {
 		t.Fatalf("re-run = %+v, %v", again, err)
 	}
 	two := f.open("two")
-	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != Latest() || len(st.Pending) != 0 {
+	if st, err := StatusOf(ctx, two); err != nil || st.FormatVersion != GoalsFormat-1 || len(older(st, GoalsFormat).Pending) != 0 {
 		t.Fatalf("second machine = %+v, %v", st, err)
 	}
-	if r, err := Run(ctx, two, false); err != nil || len(r.Steps) != 0 {
+	if r, err := RunWith(ctx, two, RunOptions{Unattended: true}); err != nil || changed(r) {
 		t.Fatalf("second machine run = %+v, %v", r, err)
 	}
 

@@ -141,6 +141,18 @@ func (s *Store) Rename(ctx context.Context, id, newID string) (model.Document, e
 	return s.v.Rename(ctx, id, newID)
 }
 
+func (s *Store) ChangeIDs(ctx context.Context, ids map[string]string) (model.IDChangeResult, error) {
+	return s.v.ChangeIDs(ctx, ids)
+}
+
+func (s *Store) RelinkFormer(ctx context.Context) (model.IDChangeResult, error) {
+	return s.v.RelinkFormer(ctx)
+}
+
+func (s *Store) Snapshot(ctx context.Context, name string) (string, error) {
+	return s.v.Snapshot(ctx, name)
+}
+
 func (s *Store) SetConfig(ctx context.Context, key, value string) error {
 	return s.v.SetConfig(ctx, key, value)
 }

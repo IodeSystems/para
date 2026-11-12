@@ -572,6 +572,9 @@ func (v *Vault) Reconcile(ctx context.Context) (model.ReconcileResult, error) {
 	if err != nil {
 		return res, fmt.Errorf("vault: reconcile: %w", err)
 	}
+	if res.Relinked, err = v.relinkChanged(ctx, res.Changes); err != nil {
+		return res, fmt.Errorf("vault: reconcile: %w", err)
+	}
 	return res, nil
 }
 

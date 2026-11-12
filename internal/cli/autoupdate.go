@@ -113,7 +113,7 @@ func autoInstall(ctx context.Context, l *loader, log *slog.Logger, u update.Upgr
 	defer w.flush()
 	set := l.updateSettings()
 	o := upgradeOptions{Version: l.version, OldRelease: changes.Latest(), Home: l.install.Home, Updater: u,
-		NoVaultSteps: set.VaultSteps != "auto", Yes: set.VaultSteps == "auto"}
+		NoVaultSteps: set.VaultSteps != "auto", Yes: set.VaultSteps == "auto", Unattended: true}
 	o.VaultIDs, o.Skipped = machineVaults(l)
 	res, err := installRelease(ctx, w, o)
 	if err != nil || !res.Installed {

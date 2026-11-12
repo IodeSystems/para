@@ -67,7 +67,7 @@ func TestChangeIDs(t *testing.T) {
 	if res, err := v.ChangeIDs(ctx, map[string]string{"project-x": "goal-x"}); err != nil || len(res.Rewritten) != 0 {
 		t.Fatalf("again: %+v %v", res, err)
 	}
-	// A file that syncs in late with the old link is fixed by RelinkFormer.
+	// A file that syncs in late with the old link is fixed on reconcile.
 	late := filepath.Join(root, "projects", "task-late.md")
 	if err := os.WriteFile(late, []byte("---\ntype: task\ncreated: 2026-11-11\nstatus: todo\nproject: \"[[project-x]]\"\n---\n\n# Late\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -78,10 +78,12 @@ func TestChangeIDs(t *testing.T) {
 	}
 	noGrace(t, root)
 	v = open(t, root)
-	if _, err := v.Reconcile(ctx); err != nil {
-		t.Fatal(err)
+	// Reconcile relinks the file it finds changed; RelinkFormer then finds
+	// nothing left.
+	if rec, err := v.Reconcile(ctx); err != nil || !slices.Equal(rec.Relinked, []string{"task-late"}) {
+		t.Fatalf("reconcile: %+v %v", rec, err)
 	}
-	if res, err := v.RelinkFormer(ctx); err != nil || !slices.Equal(res.Rewritten, []string{"task-late"}) {
+	if res, err := v.RelinkFormer(ctx); err != nil || len(res.Rewritten) != 0 {
 		t.Fatalf("relink former: %+v %v", res, err)
 	}
 	data, err := os.ReadFile(late)

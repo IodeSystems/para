@@ -117,7 +117,7 @@ func NotePending(d model.Document) bool { return notePending(d) }
 // it. A note that links nothing stays a note.
 func notePending(d model.Document) bool {
 	n, ok := d.Meta.(*model.Note)
-	if !ok || d.Folder == model.FolderArchive || (n.Area == "" && n.Project == "") {
+	if !ok || d.Folder == model.FolderArchive || (n.Area == "" && n.Project == "" && n.Goal == "") {
 		return false
 	}
 	for _, x := range n.HealthDismissed {
