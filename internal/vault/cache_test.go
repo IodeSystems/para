@@ -276,3 +276,33 @@ func TestCacheConcurrent(t *testing.T) {
 		t.Error(err)
 	}
 }
+
+// ListTypes lists several types in one pass and agrees with one List per type.
+func TestListTypes(t *testing.T) {
+	v, root := newVault(t)
+	if err := os.WriteFile(filepath.Join(root, "inbox", "hand.md"), []byte(handDoc("One")), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	all, err := v.List(ctx, "", "")
+	if err != nil || len(all) == 0 {
+		t.Fatalf("list %v %v", all, err)
+	}
+	got, err := v.ListTypes(ctx, "", model.TypeGoal, model.TypeInbox)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var want []model.Ref
+	for _, r := range all {
+		if r.Type == model.TypeGoal || r.Type == model.TypeInbox {
+			want = append(want, r)
+		}
+	}
+	if len(got) != len(want) || len(got) == 0 {
+		t.Fatalf("ListTypes %+v, want %+v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Fatalf("ListTypes[%d] %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}

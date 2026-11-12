@@ -145,7 +145,7 @@ func (o *overlay) List(ctx context.Context, f store.Filter) ([]model.Ref, error)
 	})
 	for _, id := range *o.order {
 		d := o.docs[id]
-		if (f.Folder != "" && d.Folder != f.Folder) || (f.Type != "" && d.Meta.Header().Type != f.Type) || hidden(d) {
+		if (f.Folder != "" && d.Folder != f.Folder) || (f.Type != "" && d.Meta.Header().Type != f.Type) || (len(f.Types) > 0 && !slices.Contains(f.Types, d.Meta.Header().Type)) || hidden(d) {
 			continue
 		}
 		if !slices.ContainsFunc(refs, func(r model.Ref) bool { return r.ID == id }) {

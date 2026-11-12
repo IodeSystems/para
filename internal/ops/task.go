@@ -146,18 +146,11 @@ func getTask(ctx context.Context, s store.Store, id string) (model.Document, *mo
 // listTasks returns tasks sorted by id, filtered by project id and status
 // when not empty.
 func listTasks(ctx context.Context, s store.Store, project string, status model.TaskStatus) ([]TaskView, error) {
-	refs, err := s.List(ctx, store.Filter{Type: model.TypeTask})
-	if err != nil {
-		return nil, err
-	}
 	// Older `type: meeting` documents are tasks of kind meeting, and an
 	// obligation a task of its kind.
-	for _, typ := range []model.Type{model.TypeMeeting, model.TypeObligation} {
-		old, err := s.List(ctx, store.Filter{Type: typ})
-		if err != nil {
-			return nil, err
-		}
-		refs = append(refs, old...)
+	refs, err := s.List(ctx, store.Filter{Types: []model.Type{model.TypeTask, model.TypeMeeting, model.TypeObligation}})
+	if err != nil {
+		return nil, err
 	}
 	all := make([]TaskView, 0, len(refs))
 	items := map[string]int{} // parent id -> open action items

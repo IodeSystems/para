@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -472,9 +473,19 @@ func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 // not empty. A file that does not parse is listed with an empty title or type.
 // A type other than receipt skips the receipts folder: it holds only receipts,
 // and most of a vault's files.
-func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]model.Ref, error) {
+func (v *Vault) List(ctx context.Context, folder model.Folder, typ model.Type) ([]model.Ref, error) {
+	return v.ListTypes(ctx, folder, typ)
+}
+
+// ListTypes is List for one pass over several types: typ and more, or every
+// type when both are empty. It reads the vault once.
+func (v *Vault) ListTypes(_ context.Context, folder model.Folder, typ model.Type, more ...model.Type) ([]model.Ref, error) {
+	want := more
+	if typ != "" {
+		want = append([]model.Type{typ}, more...)
+	}
 	var skip model.Folder
-	if typ != "" && typ != model.TypeReceipt {
+	if len(want) > 0 && !slices.Contains(want, model.TypeReceipt) {
 		skip = model.FolderOf(model.TypeReceipt)
 	}
 	files, err := v.scanFiles(skip)
@@ -493,7 +504,7 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		}
 		l := e.l
 		lt := typeOf(l.typ, leg)
-		if typ != "" && lt != typ {
+		if len(want) > 0 && !slices.Contains(want, lt) {
 			continue
 		}
 		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: lt, Title: l.title, Rev: l.hash, Pinned: l.pinned,

@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -191,6 +192,11 @@ func splitList(s string) []string {
 }
 
 func runServe(ctx context.Context, l *loader, f serveFlags, w io.Writer) error {
+	// A long-lived server with a small heap spends much CPU in GC at the
+	// default 100; the owner's GOGC wins.
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(200)
+	}
 	log := l.logger(w)
 	cfg, err := loadServeConfig(l, f)
 	if err != nil {

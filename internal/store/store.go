@@ -17,6 +17,9 @@ import (
 type Filter struct {
 	Folder model.Folder
 	Type   model.Type
+	// Types, when not empty, lists documents of any of these types in one
+	// pass. It is used with, and instead of, Type.
+	Types []model.Type
 	// All lists hidden documents too: archived, or merged into another
 	// (duplicate_of). By default List leaves them out; Get still finds them.
 	All bool

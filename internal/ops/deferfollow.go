@@ -162,28 +162,26 @@ func followers(ctx context.Context, s store.Store, id string) ([]model.Document,
 func followAll(ctx context.Context, d Deps) ([]string, error) {
 	seen := map[string]bool{}
 	var changed []string
-	for _, t := range deferrable {
-		refs, err := d.Store.List(ctx, store.Filter{Type: t})
+	refs, err := d.Store.List(ctx, store.Filter{Types: deferrable})
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range refs {
+		doc, err := d.Store.Get(ctx, r.ID)
 		if err != nil {
 			return nil, err
 		}
-		for _, r := range refs {
-			doc, err := d.Store.Get(ctx, r.ID)
+		df := deferralOf(doc.Meta)
+		if df == nil || !openDoc(doc) {
+			continue
+		}
+		if f, _ := df.Follows(); f != "" && !seen[f] {
+			seen[f] = true
+			ids, err := followObligation(ctx, d, f)
 			if err != nil {
-				return nil, err
+				return changed, err
 			}
-			df := deferralOf(doc.Meta)
-			if df == nil || !openDoc(doc) {
-				continue
-			}
-			if f, _ := df.Follows(); f != "" && !seen[f] {
-				seen[f] = true
-				ids, err := followObligation(ctx, d, f)
-				if err != nil {
-					return changed, err
-				}
-				changed = append(changed, ids...)
-			}
+			changed = append(changed, ids...)
 		}
 	}
 	slices.Sort(changed)

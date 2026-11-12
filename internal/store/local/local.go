@@ -129,7 +129,7 @@ func (s *Store) Get(ctx context.Context, id string) (model.Document, error) {
 }
 
 func (s *Store) List(ctx context.Context, f store.Filter) ([]model.Ref, error) {
-	refs, err := s.v.List(ctx, f.Folder, f.Type)
+	refs, err := s.v.ListTypes(ctx, f.Folder, f.Type, f.Types...)
 	if err != nil || f.All || f.Folder == model.FolderArchive {
 		return refs, err
 	}

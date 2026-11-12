@@ -20,13 +20,9 @@ const tickSkipWhy = "Tick: an optional meeting ended and the owner made no atten
 // an undo stands. A meeting that is not optional, or one the owner answered
 // yes or no, is never touched. The rule is fixed: no model decides it.
 func tickOptionalMeetings(ctx context.Context, d Deps, out *TickOutput) error {
-	var refs []model.Ref
-	for _, typ := range []model.Type{model.TypeTask, model.TypeObligation} {
-		r, err := d.Store.List(ctx, store.Filter{Type: typ})
-		if err != nil {
-			return err
-		}
-		refs = append(refs, r...)
+	refs, err := d.Store.List(ctx, store.Filter{Types: []model.Type{model.TypeTask, model.TypeObligation}})
+	if err != nil {
+		return err
 	}
 	receipts, err := listReceipts(ctx, d.Store)
 	if err != nil {
