@@ -13,6 +13,7 @@ export const QuestionFields = graphql(/* GraphQL */ `
     scope
     scopeName
     scopeType
+    about
     options
     recommended
     context
@@ -80,6 +81,7 @@ const QuestionListDoc = graphql(/* GraphQL */ `
     $area: String
     $task: String
     $root: Boolean
+    $about: String
     $deferred: Boolean
   ) {
     para {
@@ -89,6 +91,7 @@ const QuestionListDoc = graphql(/* GraphQL */ `
           area: $area
           task: $task
           root: $root
+          about: $about
           deferred: $deferred
         ) {
           questions {
@@ -125,6 +128,8 @@ export type QuestionScope = {
   area?: string
   task?: string
   root?: boolean
+  // about: questions about this item: scoped to it, or filed about it with options.
+  about?: string
   // deferred includes the questions put off with Later; each is marked.
   deferred?: boolean
 }

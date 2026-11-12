@@ -9,13 +9,24 @@ import { canDecide } from '@/client/session'
 import { errorText } from '@/client/gqlClient'
 import { Empty, Section } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
+import { ItemOptions } from '@/components/ItemOptions'
 import { Markdown } from '@/components/Markdown'
 import { badNotesLine, notesDirty, staleRefusal } from '@/lib/notes'
 
-// NotesEditor shows the ## Notes of any item. With review:decide the owner edits them: a save
+// NotesEditor shows the ## Notes of any item, and above them the options an agent filed as a
+// question about the item (ItemOptions), so every page with notes shows them. With review:decide the owner edits them: a save
 // names the notes it was based on, and when they changed since, the server refuses it, the page
 // shows the current notes, and the next save is based on them. The draft is kept.
 export function NotesEditor({ id }: { id: string }) {
+  return (
+    <>
+      <ItemOptions id={id} />
+      <NotesSection id={id} />
+    </>
+  )
+}
+
+function NotesSection({ id }: { id: string }) {
   const { session } = useRouteContext({ from: '/_authed' })
   const decide = canDecide(session)
   const q = useNotes(id)

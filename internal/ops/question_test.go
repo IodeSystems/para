@@ -416,3 +416,41 @@ func TestAgentDecisionNeedsWeighing(t *testing.T) {
 		t.Fatalf("a person may file a bare decision: %v", err)
 	}
 }
+
+// A question about an item lists under that item (the item page shows its options as buttons),
+// and answering it by a choice works. The item may be any type, an io item here.
+func TestQuestionAboutItemListsAndAnswers(t *testing.T) {
+	d, proj, _ := questionVault(t)
+	io := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Can we move the review to Friday?"}).ID
+	other := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Unrelated note"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{
+		Text: "How do we answer the review request?", Root: true, About: io,
+		Options: []string{"Accept Friday", "Offer Monday"}, Recommended: "Offer Monday",
+	}).ID
+	must(t, QuestionAdd, d, QuestionAddInput{Text: "Unlinked", Goal: proj})
+
+	got := must(t, QuestionList, d, QuestionListInput{About: io})
+	if len(got.Questions) != 1 || got.Questions[0].ID != q || got.Questions[0].About != io ||
+		len(got.Questions[0].Options) != 2 || got.Questions[0].Recommended != "Offer Monday" {
+		t.Fatalf("about %s = %+v", io, got.Questions)
+	}
+	if got := must(t, QuestionList, d, QuestionListInput{About: other}); len(got.Questions) != 0 {
+		t.Fatalf("about %s = %+v", other, got.Questions)
+	}
+	// A question scoped to an item lists under it too.
+	if got := must(t, QuestionList, d, QuestionListInput{About: proj}); len(got.Questions) != 1 {
+		t.Fatalf("about goal = %+v", got.Questions)
+	}
+	if _, err := QuestionAdd.Run(ctx, d, QuestionAddInput{Text: "Bad", Root: true, About: "io-nope"}); err == nil {
+		t.Fatal("about an unknown item accepted")
+	}
+
+	r := must(t, QuestionReview, d, QuestionReviewInput{ID: q, Decision: ReviewAnswer, Choices: []string{"Offer Monday"}})
+	if r.Status != model.QuestionAnswered {
+		t.Fatalf("review = %+v", r)
+	}
+	if got := must(t, QuestionList, d, QuestionListInput{About: io}); len(got.Questions) != 0 {
+		t.Fatalf("answered question still listed: %+v", got.Questions)
+	}
+	mustLintClean(t, d)
+}

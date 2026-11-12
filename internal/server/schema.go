@@ -179,6 +179,7 @@ type Meta struct {
 	Context         *jsonValue            `json:"context,omitempty"`
 	OptionDetails   *jsonValue            `json:"option_details,omitempty"`
 	RFX             *jsonValue            `json:"rfx,omitempty"`
+	About           string                `json:"about,omitempty"`
 	Question        string                `json:"question,omitempty"`
 	Choice          string                `json:"choice,omitempty"`
 	AnsweredBy      string                `json:"answered_by,omitempty"`

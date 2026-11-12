@@ -51,12 +51,14 @@ type QuestionView struct {
 	// OptionDetails weighs each option, for a comparison.
 	OptionDetails []model.OptionDetail `json:"option_details,omitempty"`
 	RFX           string               `json:"rfx,omitempty"`
-	Choice        string               `json:"choice,omitempty"`
-	AnsweredBy    string               `json:"answered_by,omitempty"`
-	Answered      model.Date           `json:"answered,omitempty"`
-	Created       model.Date           `json:"created"`
-	Blocks        []string             `json:"blocks"`
-	Blocking      int                  `json:"blocking"`
+	// About is the item the question offers options for, when it names one.
+	About      string     `json:"about,omitempty"`
+	Choice     string     `json:"choice,omitempty"`
+	AnsweredBy string     `json:"answered_by,omitempty"`
+	Answered   model.Date `json:"answered,omitempty"`
+	Created    model.Date `json:"created"`
+	Blocks     []string   `json:"blocks"`
+	Blocking   int        `json:"blocking"`
 	// DependsOn are the tasks, requests, and questions this one waits on.
 	// WaitingOn is the part of DependsOn not yet resolved.
 	DependsOn []string `json:"depends_on"`
@@ -109,7 +111,7 @@ func questionView(d model.Document) (QuestionView, error) {
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Kind: q.AsKind(), Status: q.Status,
 		Scope: scopeID(q), Options: append([]string{}, q.Options...), Recommended: q.Recommended,
 		Context: q.Context, OptionDetails: q.OptionDetails,
-		RFX: q.RFX.Target(), Choice: q.Choice, AnsweredBy: q.AnsweredBy, Answered: q.Answered,
+		RFX: q.RFX.Target(), About: q.About.Target(), Choice: q.Choice, AnsweredBy: q.AnsweredBy, Answered: q.Answered,
 		Created: q.Created, Blocks: []string{}, DependsOn: targets(q.DependsOn), WaitingOn: []string{}, Rev: d.Rev,
 		HasProposal: q.HasProposal(), ProposedAnswer: q.ProposedAnswer, ProposedChoice: q.ProposedChoice,
 		ProposedBy: q.ProposedBy, ProposedSources: q.ProposedSources, ProposedWhy: q.ProposedWhy, Proposed: q.Proposed,
@@ -423,11 +425,13 @@ func checkOptions(kind model.QuestionKind, options []string, recommended string)
 // QuestionAddInput is the input of question_add. Exactly one of Project, Task,
 // Area, and Root is required.
 type QuestionAddInput struct {
-	Text        string             `json:"text"`                  // the question; the first line is the title
-	Goal        string             `json:"goal,omitempty"`        // scope: a goal id
-	Task        string             `json:"task,omitempty"`        // scope: a task id
-	Area        string             `json:"area,omitempty"`        // scope: an area id
-	Root        bool               `json:"root,omitempty"`        // scope: the whole vault
+	Text string `json:"text"`           // the question; the first line is the title
+	Goal string `json:"goal,omitempty"` // scope: a goal id
+	Task string `json:"task,omitempty"` // scope: a task id
+	Area string `json:"area,omitempty"` // scope: an area id
+	Root bool   `json:"root,omitempty"` // scope: the whole vault
+	// About is the item the options are for (any item id). Its page shows the options as buttons. Scope is still required: root when the item has no goal, task, or area.
+	About       string             `json:"about,omitempty"`
 	Kind        model.QuestionKind `json:"kind,omitempty"`        // question (default), decision, or input
 	Options     []string           `json:"options,omitempty"`     // the choices, when there is a fixed set
 	Recommended string             `json:"recommended,omitempty"` // one of the options
@@ -450,7 +454,7 @@ type QuestionAddOutput struct {
 }
 
 // QuestionAdd records an open question.
-var QuestionAdd = defineSafe("question_add", "Record an open question, decision, or input the owner owes, with one scope (goal, task, area, or root); a task is work to do, a question is something to answer", func(ctx context.Context, d Deps, in QuestionAddInput) (QuestionAddOutput, error) {
+var QuestionAdd = defineSafe("question_add", "Record an open question, decision, or input the owner owes, with one scope (goal, task, area, or root); a task is work to do, a question is something to answer. To offer the owner options for an item, give about (the item id), options, and recommended: the item page shows them as buttons and a click answers the question; never write an options list in the item notes", func(ctx context.Context, d Deps, in QuestionAddInput) (QuestionAddOutput, error) {
 	title, body, err := splitCapture(in.Text)
 	if err != nil {
 		return QuestionAddOutput{}, fmt.Errorf("text: %w", err)
@@ -477,6 +481,14 @@ var QuestionAdd = defineSafe("question_add", "Record an open question, decision,
 	if err := checkDecision(d, in.Kind, opts, rec, in.OptionDetails); err != nil {
 		return QuestionAddOutput{}, err
 	}
+	var about model.Link
+	if a := normID(in.About); a != "" {
+		ad, err := d.Store.Get(ctx, a)
+		if err != nil {
+			return QuestionAddOutput{}, linkErr("about", a, err)
+		}
+		about = model.LinkTo(ad.ID)
+	}
 	kind := in.Kind
 	if kind == model.KindQuestion {
 		kind = "" // the default is not written
@@ -485,7 +497,7 @@ var QuestionAdd = defineSafe("question_add", "Record an open question, decision,
 		Folder: model.FolderQuestions, Title: title, Body: body,
 		Meta: &model.Question{
 			Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Kind: kind,
-			Scope: scope, Options: opts, Recommended: rec,
+			Scope: scope, About: about, Options: opts, Recommended: rec,
 			Context: strings.TrimSpace(in.Context), OptionDetails: in.OptionDetails, Effort: in.Effort,
 		},
 	})
@@ -542,11 +554,12 @@ func checkDecision(d Deps, kind model.QuestionKind, options []string, recommende
 // QuestionListInput is the input of question_list. Empty fields match all.
 type QuestionListInput struct {
 	Status model.QuestionStatus `json:"status,omitempty" query:"status"`
-	Goal   string               `json:"goal,omitempty" query:"goal"` // scoped to the goal or to one of its tasks
-	Task   string               `json:"task,omitempty" query:"task"` // scoped to this task
-	Area   string               `json:"area,omitempty" query:"area"` // scoped to the area, to one of its projects, or to one of their tasks
-	Root   bool                 `json:"root,omitempty" query:"root"` // only vault-level questions
-	All    bool                 `json:"all,omitempty" query:"all"`   // include answered and dropped questions
+	Goal   string               `json:"goal,omitempty" query:"goal"`   // scoped to the goal or to one of its tasks
+	Task   string               `json:"task,omitempty" query:"task"`   // scoped to this task
+	Area   string               `json:"area,omitempty" query:"area"`   // scoped to the area, to one of its projects, or to one of their tasks
+	Root   bool                 `json:"root,omitempty" query:"root"`   // only vault-level questions
+	About  string               `json:"about,omitempty" query:"about"` // about this item: its scope or its about link
+	All    bool                 `json:"all,omitempty" query:"all"`     // include answered and dropped questions
 	// Deferred includes the questions a person put off (Later). They are left
 	// out by default, as the agent lists leave them out; each is marked.
 	Deferred bool `json:"deferred,omitempty" query:"deferred"`
@@ -566,7 +579,7 @@ var QuestionList = defineRead("question_list", "List open questions, ordered by 
 	if err != nil {
 		return QuestionListOutput{}, err
 	}
-	project, task, area := normID(in.Goal), normID(in.Task), normID(in.Area)
+	project, task, area, about := normID(in.Goal), normID(in.Task), normID(in.Area), normID(in.About)
 	out := QuestionListOutput{Questions: []QuestionView{}}
 	for _, x := range all {
 		switch {
@@ -576,6 +589,7 @@ var QuestionList = defineRead("question_list", "List open questions, ordered by 
 			task != "" && x.v.Scope != task,
 			area != "" && x.area != area,
 			in.Root && x.v.ScopeType != ScopeRoot,
+			about != "" && x.v.About != about && x.v.Scope != about,
 			!in.Deferred && x.v.Deferred && questionOpen(x.v):
 			continue
 		}

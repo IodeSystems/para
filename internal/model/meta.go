@@ -1199,6 +1199,9 @@ type Question struct {
 	OptionDetails []OptionDetail `yaml:"option_details,omitempty" json:"option_details,omitempty"`
 	// RFX links the request that asks this question of a person.
 	RFX Link `yaml:"rfx,omitempty" json:"rfx,omitempty"`
+	// About links the item the question offers options for (any item: an io
+	// item, a request, a person). The item's page shows the options as buttons.
+	About Link `yaml:"about,omitempty" json:"about,omitempty"`
 	// Choice, AnsweredBy, and Answered record the answer: the option picked, who
 	// answered, and when. The text and the reason are in the body.
 	Choice     string `yaml:"choice,omitempty" json:"choice,omitempty"`
