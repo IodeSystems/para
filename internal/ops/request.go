@@ -795,7 +795,7 @@ type RequestDoneInput struct {
 // RequestDone ends a turn of a claimed request with a resolution and a summary.
 // What the agent changed comes from events. A rule's required context must be
 // cited. stuck, blocked, and needs_clarification wait for the owner's response.
-var RequestDone = defineSafe("request_done", "End a request you claimed: resolution done, partial, stuck, blocked, or needs_clarification, a summary, links to what you made, the context you followed, and reply: your answer to the owner, shown in the item's thread", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
+var RequestDone = defineSafe("request_done", "End a request you claimed: resolution done, partial, stuck, blocked, or needs_clarification, a summary, links to what you made, the context you followed, and reply: your answer to the owner, shown in the item's thread. A thread turn that asks for a change makes it on the item first (each write with request), and reply says what changed. Refused: a reply that says the task is partly done when no write under the request changed it, and a reply that names vault ids the item does not link", func(ctx context.Context, d Deps, in RequestDoneInput) (RequestChangeOutput, error) {
 	if !slices.Contains([]model.RequestResolution{model.ResolutionDone, model.ResolutionPartial, model.ResolutionStuck, model.ResolutionBlocked, model.ResolutionNeedsClarification}, in.Resolution) {
 		return RequestChangeOutput{}, fmt.Errorf("resolution %q: want done, partial, stuck, blocked, or needs_clarification", in.Resolution)
 	}
@@ -818,6 +818,9 @@ var RequestDone = defineSafe("request_done", "End a request you claimed: resolut
 		if !slices.Contains(followed, l) && in.Resolution == model.ResolutionDone {
 			return RequestChangeOutput{}, fmt.Errorf("a rule requires %s for this work: follow it and cite it in followed", l.Target())
 		}
+	}
+	if err := checkReply(ctx, d, doc, r, in.Resolution, in.Reply); err != nil {
+		return RequestChangeOutput{}, err
 	}
 	heading := "Result"
 	if in.Resolution != model.ResolutionDone {

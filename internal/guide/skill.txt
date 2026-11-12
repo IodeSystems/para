@@ -14,7 +14,7 @@ Each reference file above is also a prompt: import.md is `import_corpus`, ingest
 `ingest_source`, align.md `align_vault`, grill.md `grill_goal`, sweep.md `sweep`,
 loop.md `loop`, io.md `io`. Repeat the loop with `/loop 30m /para loop`.
 
-An owner turn in a thread (`work {action: next}` returns kind sent-to-agent with thread and turn_kind): read it with `thread`, answer in reply on `work {action: done}`; follow `loop.md` part Thread turn. Only the owner posts to a thread.
+An owner turn in a thread (`work {action: next}` returns kind sent-to-agent with thread and turn_kind): read it with `thread`. When the words ask to change, add to, correct, check, or close the item, make the change on the item (`edit`, `link`, `close`, `op_run {op: task_split}`), with request on each write; reply on `work {action: done}` says what changed in one or two lines. A pure question gets its answer in reply. Follow `loop.md` part Thread turn. Only the owner posts to a thread.
 
 Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `work {action: ask}` (kind owner-ask, title in the owner's words, text, owner_said their message verbatim, links to the items) and end it with `work {action: done}`. The owner sees it under Asked of agents.
 

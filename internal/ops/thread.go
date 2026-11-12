@@ -146,8 +146,15 @@ func turnKindNote(k model.RequestTurnKind) string {
 	case model.RequestTurnRedirect:
 		return "redirect: the owner changes the direction of the work; follow the new direction and say what changes."
 	}
-	return "other: read the words and act on them."
+	return "other: read the words and act on them. A change they ask for goes on the item."
 }
+
+// threadRule says where the work of a turn goes: on the item, not only in
+// the reply.
+const threadRule = "When the words ask to change, add to, correct, check, or close the item, make the change on the item: edit its body, notes, or fields, link it, close it, or split it (task_split). " +
+	"Pass request (the id of this request) on every write. A pure question gets its answer in reply; what you learn that belongs to the item also goes on the item. " +
+	"An id you name in reply is linked to the item: link {from: the item, to: the id, rel: depends_on} when it blocks the item, else a wikilink in its body or notes. " +
+	"End the work with request_done; reply (shown in the thread) says in one or two lines what changed on the item, or answers the question."
 
 // quoteBlock is text as a Markdown quote.
 func quoteBlock(text string) string {
@@ -168,7 +175,7 @@ func threadAsk(key string, item *model.Document, kind model.RequestTurnKind, quo
 	}
 	b.WriteString(". Read the thread (thread) for the turns before this one.\n\n")
 	b.WriteString("Kind: " + turnKindNote(kind) + "\n\n")
-	b.WriteString("End the work with request_done and reply: your answer to the owner, shown in the thread.")
+	b.WriteString(threadRule)
 	if quote != "" {
 		b.WriteString("\n\n## Quote\n\n" + quoteBlock(quote))
 	}
