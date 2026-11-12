@@ -306,7 +306,14 @@ var KPIReadingAdd = defineSafe("kpi_reading_add", "Add a dated reading of a proj
 	if err != nil {
 		return KPIReadingAddOutput{}, err
 	}
-	return KPIReadingAddOutput{ID: saved.ID, Name: k.Name, Date: date, Line: kpiStateOf(*k, p.Created, today).line(today), Readings: len(k.Readings), Rev: saved.Rev}, nil
+	st := kpiStateOf(*k, p.Created, today)
+	line := st.line(today)
+	if !st.alert() {
+		if err := closeKPIAlerts(ctx, d, saved.ID, k.Name, line); err != nil {
+			return KPIReadingAddOutput{}, fmt.Errorf("kpi_reading_add: close the alert: %w", err)
+		}
+	}
+	return KPIReadingAddOutput{ID: saved.ID, Name: k.Name, Date: date, Line: line, Readings: len(k.Readings), Rev: saved.Rev}, nil
 })
 
 // KPIListInput is the input of kpi_list.
@@ -550,6 +557,39 @@ func kpiAlertKey(project string, s kpiState) string {
 	return kpiAlertKPI(project, s.k.Name) + "; stale " + s.due
 }
 
+// closeKPIAlerts ends the open kpi_alert requests of one KPI as done, with the
+// reason "back on target: <line>". The owner has no result to check.
+func closeKPIAlerts(ctx context.Context, d Deps, project, name, line string) error {
+	reqs, err := loadRequests(ctx, d.Store)
+	if err != nil {
+		return err
+	}
+	kpi := kpiAlertKPI(project, name)
+	for _, doc := range reqs {
+		r := doc.Meta.(*model.Request)
+		m := kpiAlertKeyRe.FindStringSubmatch(doc.Body)
+		if r.Kind != KPIAlertKind || m == nil {
+			continue
+		}
+		key := strings.TrimSpace(m[1])
+		i := strings.LastIndex(key, "; ")
+		if i <= 0 || key[:i] != kpi {
+			continue
+		}
+		if r.Status != model.RequestProposed && r.Status != model.RequestQueued && r.Status != model.RequestClaimed {
+			continue
+		}
+		doc.Body = appendSection(doc.Body, "Result", "back on target: "+line)
+		r.Status, r.Lease, r.Resolution = model.RequestDone, "", model.ResolutionDone
+		r.ActiveAt = nowString(d.Store)
+		r.Seen = r.ActiveAt
+		if _, err := d.Store.Update(ctx, doc); err != nil {
+			return fmt.Errorf("%s: %w", doc.ID, err)
+		}
+	}
+	return nil
+}
+
 // tickKPIAlerts files agent work for each KPI owned by an agent that is off
 // target or stale: none while one for that KPI is open, and none twice for
 // one alert (a request ended with the KPI still off waits for the next
@@ -589,7 +629,16 @@ func tickKPIAlerts(ctx context.Context, d Deps, out *TickOutput) error {
 			continue
 		}
 		for _, s := range projectKPIs(p, today) {
-			if !strings.HasPrefix(s.k.Owner, model.KPIAgentPrefix) || !s.alert() {
+			if !strings.HasPrefix(s.k.Owner, model.KPIAgentPrefix) {
+				continue
+			}
+			if !s.alert() {
+				// On target without a reading through kpi_reading_add (an edit of the list): end the alert too.
+				if open[kpiAlertKPI(doc.ID, s.k.Name)] {
+					if err := closeKPIAlerts(ctx, d, doc.ID, s.k.Name, s.line(today)); err != nil {
+						out.Warnings = append(out.Warnings, fmt.Sprintf("kpi alert %s %q: %v", doc.ID, s.k.Name, err))
+					}
+				}
 				continue
 			}
 			key := kpiAlertKey(doc.ID, s)

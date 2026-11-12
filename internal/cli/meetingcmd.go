@@ -79,7 +79,7 @@ func newMeetingHoldCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Notes, "notes", "", "what was said, in your words (never a transcript)")
 			fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone; only for a meeting that was never scheduled")
 			fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone; as --start")
-			fs.StringVar(&in.Goal, "project", "", "goal of the action items")
+			fs.StringVar(&in.Goal, "goal", "", "goal of the action items")
 			fs.StringVar(&in.Area, "area", "", "area of the action items")
 			fs.StringArrayVar(&hf.actions, "action", nil, `action item "title | assignee | YYYY-MM-DD" (repeatable); assignee is self, a person id, or agent:<name>`)
 			fs.StringArrayVar(&hf.answers, "answer", nil, `answer "<question-id>=<text>" (repeatable)`)

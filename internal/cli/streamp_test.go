@@ -24,7 +24,7 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 		"io_proposals": {`{}`, []string{"io", "proposals"}, true},
 		"io_sent":      {`{}`, []string{"io", "sent"}, true},
 		"io_file": {`{"id":"io-p-a","to":"task","goal":"project-a"}`,
-			[]string{"io", "file", "io-p-b", "--to", "task", "--project", "project-a"}, false},
+			[]string{"io", "file", "io-p-b", "--to", "task", "--goal", "project-a"}, false},
 		"io_edit": {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},
 		"io_drop": {`{"id":"io-p-e","reason":"Spam."}`, []string{"io", "drop", "io-p-f", "--reason", "Spam."}, false},
 		"io_send": {`{"id":"io-p-out-a","url":"https://mail.acme.example/1"}`, []string{"io", "send", "io-p-out-b", "--url", "https://mail.acme.example/2"}, false},
@@ -97,7 +97,7 @@ func TestIOFileCommand(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 	var out ops.IOFileOutput
-	e.json(&out, "io", "file", add.ID, "--to", "task", "--project", proj.ID, "--done-when", "Parsed.")
+	e.json(&out, "io", "file", add.ID, "--to", "task", "--goal", proj.ID, "--done-when", "Parsed.")
 	if out.State != model.IOFiled || !strings.HasPrefix(out.Became, "task-") {
 		t.Fatalf("out = %+v", out)
 	}

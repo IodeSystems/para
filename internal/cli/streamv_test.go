@@ -23,7 +23,7 @@ func streamVParityCases() map[string]parityCase {
 		"meeting_list":     {`{"all":true}`, []string{"meeting", "list", "--all"}, false},
 		"meeting_show":     {`{"id":"meeting-v-show"}`, []string{"meeting", "show", "meeting-v-show"}, true},
 		"meeting_schedule": {`{"id":"meeting-v-a","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`, []string{"meeting", "schedule", "meeting-v-b", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
-		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","goal":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--project", "project-v-seed"}, false},
+		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","goal":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--goal", "project-v-seed"}, false},
 		"agenda":           {`{"days":14}`, []string{"agenda", "--days", "14"}, false},
 		"calendar_export":  {`{"days":30}`, []string{"calendar", "export", "--days", "30"}, false},
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
@@ -104,7 +104,7 @@ func TestMeetingHoldCLI(t *testing.T) {
 	var project ops.GoalAddOutput
 	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var q ops.QuestionAddOutput
-	e.json(&q, "question", "add", "Which window?", "--project", project.ID)
+	e.json(&q, "question", "add", "Which window?", "--goal", project.ID)
 	var m ops.MeetingAddOutput
 	e.json(&m, "meeting", "add", "Sync", "--with", person.ID, "--scope", project.ID,
 		"--start", "2026-11-04T10:00:00-05:00", "--end", "2026-11-04T10:30:00-05:00")
@@ -113,7 +113,7 @@ func TestMeetingHoldCLI(t *testing.T) {
 	}
 	var h ops.MeetingHoldOutput
 	e.json(&h, "meeting", "hold", m.ID, "--notes", "Window is December.",
-		"--answer", q.ID+"=December", "--action", "Send the plan | "+person.ID+" | 2026-11-10", "--project", project.ID)
+		"--answer", q.ID+"=December", "--action", "Send the plan | "+person.ID+" | 2026-11-10", "--goal", project.ID)
 	if h.Status != model.MeetingHeld || len(h.Answered) != 1 || len(h.Tasks) != 1 {
 		t.Fatalf("hold = %+v", h)
 	}

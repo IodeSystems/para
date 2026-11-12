@@ -14,7 +14,7 @@ func streamBGParityCases() map[string]parityCase {
 		"doc_retype": {`{"id":"note-bg-t-a","type":"policy_exception","fields":{"kind":"wide_enough_for","status":"open","by":"unknown","policy_text":"Logging standard"}}`,
 			[]string{"doc", "retype", "note-bg-t-b", "--to", "policy_exception", "--field", "kind=wide_enough_for", "--field", "status=open", "--field", "by=unknown", "--field", "policy_text=Logging standard"}, false},
 		"doc_edit":    {`{"id":"task-bg-e-a","fields":{"assignee":"self"}}`, []string{"doc", "edit", "task-bg-e-b", "--field", "assignee=self"}, false},
-		"task_move":   {`{"id":"task-bg-m-a","goal":"project-bg2"}`, []string{"task", "move", "task-bg-m-b", "--project", "project-bg2"}, false},
+		"task_move":   {`{"id":"task-bg-m-a","goal":"project-bg2"}`, []string{"task", "move", "task-bg-m-b", "--goal", "project-bg2"}, false},
 		"rfx_nudge":   {`{"id":"rfx-bg-a","date":"2026-12-01"}`, []string{"rfx", "nudge", "rfx-bg-b", "2026-12-01"}, false},
 		"attempt_add": {`{"target":"task-bg-m-a","what":"Asked","result":"No reply"}`, []string{"attempt", "add", "task-bg-m-b", "--what", "Asked", "--result", "No reply"}, false},
 	}

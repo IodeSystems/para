@@ -490,7 +490,7 @@ func newIOFileCmd(l *loader) *cobra.Command {
 		Flags: func(fs *pflag.FlagSet, in *ops.IOFileInput) {
 			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or interaction (required unless --existing); with --existing also obligation or area")
 			fs.StringVar(&in.Existing, "existing", "", "id of a document that already holds it (also an obligation or an area); para links it and makes nothing")
-			fs.StringVar(&in.Goal, "project", "", "task: goal id (or --area); rfx, note: optional")
+			fs.StringVar(&in.Goal, "goal", "", "task: goal id (or --area); rfx, note: optional goal")
 			fs.StringVar(&in.RequestedBy, "requested-by", "", "task: who it is for (default the sender)")
 			fs.StringVar(&in.Title, "title", "", "task: its title (default the first line of the message)")
 			fs.StringVar(&in.Due, "due", "", "task: due date YYYY-MM-DD")
@@ -505,7 +505,7 @@ func newIOFileCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Person, "person", "", "note: person id; makes a dated line in their notes, not a note document")
 			fs.StringVar(&in.Date, "date", "", "note: YYYY-MM-DD; default today")
 			fs.StringVar(&in.DoneWhen, "done-when", "", "task, project: how we know it is done")
-			fs.StringVar(&in.Task, "task", "", "question: scope to this task (or --project, --area, --root: exactly one)")
+			fs.StringVar(&in.Task, "task", "", "question: scope to this task (or --goal, --area, --root: exactly one)")
 			fs.BoolVar(&in.Root, "root", false, "question: scope to the whole vault")
 			fs.StringVar((*string)(&in.Kind), "kind", "", "question: question, decision, or input")
 			fs.StringArrayVar(&in.Options, "option", nil, "question: a choice; repeatable")

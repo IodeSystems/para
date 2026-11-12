@@ -14,8 +14,8 @@ import (
 // seedQuestionParity.
 func questionParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"question_add":    {`{"text":"Which port?","goal":"project-q-seed","kind":"decision","options":["80","8080"],"recommended":"80"}`, []string{"question", "add", "Which", "port?", "--project", "project-q-seed", "--kind", "decision", "--option", "80", "--option", "8080", "--recommended", "80"}, false},
-		"question_list":   {`{"goal":"project-q-seed"}`, []string{"question", "list", "--project", "project-q-seed"}, true},
+		"question_add":    {`{"text":"Which port?","goal":"project-q-seed","kind":"decision","options":["80","8080"],"recommended":"80"}`, []string{"question", "add", "Which", "port?", "--goal", "project-q-seed", "--kind", "decision", "--option", "80", "--option", "8080", "--recommended", "80"}, false},
+		"question_list":   {`{"goal":"project-q-seed"}`, []string{"question", "list", "--goal", "project-q-seed"}, true},
 		"question_show":   {`{"id":"question-q-show"}`, []string{"question", "show", "question-q-show"}, true},
 		"question_answer": {`{"id":"question-q-ans-a","text":"Saturday.","why":"Agreed."}`, []string{"question", "answer", "question-q-ans-b", "--text", "Saturday.", "--why", "Agreed."}, false},
 		"question_drop":   {`{"id":"question-q-drop-a","reason":"Not needed."}`, []string{"question", "drop", "question-q-drop-b", "--reason", "Not needed."}, false},
@@ -79,7 +79,7 @@ func TestQuestionFlowThroughTheCLI(t *testing.T) {
 		t.Fatalf("an unscoped question was accepted: %s", out)
 	}
 	var q ops.QuestionAddOutput
-	e.json(&q, "question", "add", "Pick the window date", "--project", proj.ID, "--kind", "decision", "--option", "Nov 14", "--option", "Nov 21", "--recommended", "Nov 21")
+	e.json(&q, "question", "add", "Pick the window date", "--goal", proj.ID, "--kind", "decision", "--option", "Nov 14", "--option", "Nov 21", "--recommended", "Nov 21")
 	var root ops.QuestionAddOutput
 	e.json(&root, "question", "add", "Who signs off?", "--root")
 	var task ops.TaskAddOutput
@@ -95,9 +95,9 @@ func TestQuestionFlowThroughTheCLI(t *testing.T) {
 	if len(list.Questions) != 2 || list.Questions[0].ID != q.ID || list.Questions[0].Blocking != 1 {
 		t.Fatalf("questions = %+v", list.Questions)
 	}
-	e.json(&list, "questions", "--project", proj.ID)
+	e.json(&list, "questions", "--goal", proj.ID)
 	if len(list.Questions) != 1 {
-		t.Fatalf("questions --project = %+v", list.Questions)
+		t.Fatalf("questions --goal = %+v", list.Questions)
 	}
 	if out := e.ok("task", "show", task.ID); !strings.Contains(out, q.ID) {
 		t.Fatalf("task show: %s", out)

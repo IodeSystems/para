@@ -274,3 +274,60 @@ func TestKPIOwners(t *testing.T) {
 		t.Fatalf("stale rows = %+v", rows)
 	}
 }
+
+func TestKPIReadingOnTargetClosesAlert(t *testing.T) {
+	ctx := t.Context()
+	_, d := cronVault(t, "2026-11-01T09:00:00Z")
+	p := must(t, ProjectAdd, d, ProjectAddInput{Title: "Shop", StateLine: "Open."})
+	must(t, KPIAdd, d, KPIAddInput{ID: p.ID, Name: "Refunds", Target: f64(2), Direction: model.KPIDown, Owner: "agent:stats-bot"})
+	read := func(v float64) KPIReadingAddOutput {
+		t.Helper()
+		return must(t, KPIReadingAdd, d, KPIReadingAddInput{ID: p.ID, Name: "Refunds", Value: f64(v), Source: "owner in chat, 2026-11-01"})
+	}
+	read(5)
+	out := tick(t, d)
+	if len(out.KPIAlerts) != 1 {
+		t.Fatalf("alerts = %v", out.KPIAlerts)
+	}
+	// Still off: the request stays open.
+	read(4)
+	req, err := d.Store.Get(ctx, out.KPIAlerts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := req.Meta.(*model.Request); r.Status != model.RequestQueued {
+		t.Fatalf("status after an off reading = %s", r.Status)
+	}
+	// Back on target: closed in the same call as the reading.
+	line := read(1).Line
+	req, err = d.Store.Get(ctx, out.KPIAlerts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := req.Meta.(*model.Request)
+	if r.Status != model.RequestDone || r.Resolution != model.ResolutionDone || r.Seen == "" || requestOpen(r) {
+		t.Fatalf("request = %+v", r)
+	}
+	if !strings.Contains(req.Body, "back on target: "+line) {
+		t.Fatalf("body = %q, want reason with %q", req.Body, line)
+	}
+	if again := tick(t, d); len(again.KPIAlerts) != 0 {
+		t.Fatalf("tick after close = %v", again.KPIAlerts)
+	}
+	// Off again: a new alert.
+	read(9)
+	if again := tick(t, d); len(again.KPIAlerts) != 1 {
+		t.Fatalf("tick after a new off reading = %v", again.KPIAlerts)
+	}
+}
+
+func TestProjectFlagRefusesGoal(t *testing.T) {
+	ctx := t.Context()
+	_, d := cronVault(t, "2026-11-01T09:00:00Z")
+	// An id that does not look like a goal: the type decides, not the prefix.
+	g := must(t, GoalAdd, d, GoalAddInput{ID: "project-launch", Title: "Ship it", DoneWhen: "shipped"})
+	_, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: "n", Project: g.ID})
+	if err == nil || !strings.Contains(err.Error(), g.ID+" is a goal: use --goal") {
+		t.Fatalf("err = %v", err)
+	}
+}

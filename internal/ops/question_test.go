@@ -348,7 +348,7 @@ func TestQuestionsInScope(t *testing.T) {
 		t.Errorf("area show = %v", ids(got))
 	}
 	if got := must(t, QuestionList, d, QuestionListInput{Goal: proj}).Questions; !has(got, qp, qt) {
-		t.Errorf("list --project = %v", ids(got))
+		t.Errorf("list goal = %v", ids(got))
 	}
 	if got := must(t, QuestionList, d, QuestionListInput{Task: task}).Questions; !has(got, qt) {
 		t.Errorf("list --task = %v", ids(got))

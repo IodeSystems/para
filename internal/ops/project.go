@@ -62,6 +62,9 @@ func projectLink(ctx context.Context, s store.Store, raw string) (model.Link, er
 	}
 	doc, _, err := getOngoing(ctx, s, id)
 	if err != nil {
+		if _, isGoal := doc.Meta.(*model.Goal); isGoal {
+			return "", fmt.Errorf("%s is a goal: use --goal", id)
+		}
 		return "", linkErr("project", id, err)
 	}
 	return model.LinkTo(doc.ID), nil

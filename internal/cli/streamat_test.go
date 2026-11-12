@@ -58,7 +58,7 @@ func TestAttachmentCLI(t *testing.T) {
 		ID string `json:"id"`
 	}
 	e.json(&project, "goal", "add", "--done-when", "Done.", "Board", "--owner", "Jordan Example")
-	e.json(&task, "task", "add", "Photograph the board", "--project", project.ID)
+	e.json(&task, "task", "add", "Photograph the board", "--goal", project.ID)
 	id := task.ID
 	out := e.ok("attachment", "add", id, file)
 	path := strings.Fields(out)[0]

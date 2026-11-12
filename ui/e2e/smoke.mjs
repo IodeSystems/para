@@ -324,7 +324,7 @@ try {
       'https://wiki.acme.example/runbooks/portal',
       '--system',
       'confluence',
-      '--project',
+      '--goal',
       proj,
       '--json',
     ),

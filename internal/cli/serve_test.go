@@ -345,7 +345,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		ID string `json:"id"`
 	}
 	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
-	e.ok("task", "add", "Write parser", "--project", project.ID)
+	e.ok("task", "add", "Write parser", "--goal", project.ID)
 	e.ok("inbox", "add", "sample capture")
 	tok := strings.TrimSpace(e.ok("key", "create", "agent", "--scope", "vault:read", "--scope", "vault:write"))
 	port, stop := runningServer(t, e)

@@ -107,7 +107,7 @@ func newIdeaCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Text, "text", "", "a sentence or two")
 			fs.StringVar(&in.Kind, "kind", "", "task (default) or goal")
 			fs.StringVar(&in.Area, "area", "", "area id; default the pool's")
-			fs.StringVar(&in.Goal, "project", "", "goal id; default the pool's")
+			fs.StringVar(&in.Goal, "goal", "", "goal id; default the pool's")
 			fs.StringVar(&effort, "effort", "", "xs, s, m, or l")
 		},
 		Bind: func(args []string, in *ops.IdeaAddInput) error {

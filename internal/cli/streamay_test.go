@@ -45,7 +45,7 @@ func TestAlignCommands(t *testing.T) {
 	var task struct {
 		ID string `json:"id"`
 	}
-	e.json(&task, "task", "add", "Cut the release", "--project", proj.ID, "--done-when", "Tagged.")
+	e.json(&task, "task", "add", "Cut the release", "--goal", proj.ID, "--done-when", "Tagged.")
 	var scope ops.AlignScopeOutput
 	e.json(&scope, "align", "scope", proj.ID)
 	if scope.Kind != "goal" || len(scope.Items) != 2 {

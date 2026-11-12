@@ -54,7 +54,8 @@ func newNoteCmd(l *loader) *cobra.Command {
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.NoteAddInput) {
 				fs.StringVar(&in.Area, "area", "", "area id")
-				fs.StringVarP(&in.Goal, "project", "p", "", "goal id")
+				fs.StringVarP(&in.Goal, "goal", "p", "", "goal id")
+				fs.StringVar(&in.Project, "project", "", "ongoing project id")
 				fs.StringSliceVar(&in.Tags, "tag", nil, "tag (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
@@ -69,7 +70,7 @@ func newNoteCmd(l *loader) *cobra.Command {
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.NoteListInput) {
 				fs.StringVar(&in.Area, "area", "", "only this area")
-				fs.StringVarP(&in.Goal, "project", "p", "", "only this goal")
+				fs.StringVarP(&in.Goal, "goal", "p", "", "only this goal")
 				fs.StringVar(&in.Tag, "tag", "", "only this tag")
 			},
 			Text: func(w io.Writer, out ops.NoteListOutput) error { return writeNotes(w, out.Notes) },

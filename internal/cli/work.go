@@ -174,9 +174,9 @@ func newTaskCmd(l *loader) *cobra.Command {
 	cmd := &cobra.Command{Use: "task", Short: "Tasks", Args: cobra.NoArgs}
 	cmd.AddCommand(
 		opCommand(l, ops.TaskMove, binding[ops.TaskMoveInput, ops.TaskMoveOutput]{
-			Use: "move <id>... (--project <id> | --area <id>)", Args: cobra.MinimumNArgs(1),
+			Use: "move <id>... (--goal <id> | --area <id>)", Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskMoveInput) {
-				fs.StringVarP(&in.Goal, "project", "p", "", "move to this goal id")
+				fs.StringVarP(&in.Goal, "goal", "p", "", "move to this goal id")
 				fs.StringVar(&in.Area, "area", "", "move to this area id")
 			},
 			Bind: func(args []string, in *ops.TaskMoveInput) error { in.IDs = args; return nil },
@@ -190,7 +190,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.ArbitraryArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
 				fs.StringVar(&in.Title, "title", "", "the title (same as <title>)")
-				fs.StringVarP(&in.Goal, "project", "p", "", "goal id (a task needs a goal or an area)")
+				fs.StringVarP(&in.Goal, "goal", "p", "", "goal id (a task needs a goal or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
@@ -240,7 +240,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "list",
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskListInput) {
-				fs.StringVarP(&in.Goal, "project", "p", "", "only this goal")
+				fs.StringVarP(&in.Goal, "goal", "p", "", "only this goal")
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 				fs.BoolVar(&in.Open, "open", false, "only open tasks: todo, doing, blocked")
