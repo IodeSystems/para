@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path"
-	"slices"
 	"sort"
 	"strings"
 
@@ -21,21 +21,22 @@ import (
 // former_ids lives in the file, so it moves with sync and every index rebuild
 // reads it from files; no other document may take a former id.
 
-// formerOf returns the document that lists id in former_ids.
+// formerOf returns the document that lists id in former_ids. The answer
+// comes from the id index (index.go), a miss included.
 func (v *Vault) formerOf(id string) (docFile, bool, error) {
-	leg := v.legacy()
-	files, err := v.docFiles()
-	if err != nil {
-		return docFile{}, false, err
-	}
-	for _, f := range files {
-		e, err := v.entryOf(f.rel, leg)
+	for range 2 {
+		ix, err := v.index()
 		if err != nil {
 			return docFile{}, false, err
 		}
-		if slices.ContainsFunc(e.l.former, func(x string) bool { return strings.EqualFold(x, id) }) {
+		f, ok := ix.former[strings.ToLower(id)]
+		if !ok {
+			return docFile{}, false, nil
+		}
+		if st, err := os.Stat(v.abs(f.rel)); err == nil && st.Mode().IsRegular() {
 			return f, true, nil
 		}
+		v.dropIndex() // moved or removed outside this process
 	}
 	return docFile{}, false, nil
 }

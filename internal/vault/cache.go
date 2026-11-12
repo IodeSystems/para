@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -90,9 +91,13 @@ func (v *Vault) entryOf(rel string, leg bool) (*entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	old := e
 	e = parseEntry(rel, data, leg)
 	e.st, e.readAt = s, readAt
 	v.paths.mu.Lock()
+	if !ok || !slices.Equal(old.l.former, e.l.former) {
+		v.dropIndexLocked() // a new file, or other former ids
+	}
 	if v.paths.refs == nil {
 		v.paths.refs = map[string]*entry{}
 	}
@@ -107,6 +112,7 @@ func (v *Vault) forget(rels ...string) {
 	for _, rel := range rels {
 		delete(v.paths.refs, rel)
 	}
+	v.dropIndexLocked()
 	v.paths.mu.Unlock()
 }
 

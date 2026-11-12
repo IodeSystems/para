@@ -84,6 +84,10 @@ type pathCache struct {
 	mu   sync.Mutex
 	m    map[string]docFile
 	refs map[string]*entry
+	// idx is the id index (index.go), nil when stale; gen counts the
+	// invalidations, so a build that raced one is not stored.
+	idx *idIndex
+	gen uint64
 }
 
 type listed struct {
@@ -642,7 +646,9 @@ func (v *Vault) lock(ctx context.Context, fn func() error) error {
 // withLock runs fn under the lock with the manifest loaded. A missing
 // manifest (fresh clone) is rebuilt from the files.
 func (v *Vault) withLock(ctx context.Context, fn func(*events.Manifest) error) error {
+	defer v.dropIndex()
 	return v.lock(ctx, func() error {
+		defer v.dropIndex()
 		m, found, err := events.LoadManifest(v.manifestPath())
 		if err != nil {
 			return err
@@ -714,12 +720,18 @@ func (v *Vault) docFiles() ([]docFile, error) { return v.scanFiles("") }
 // scanFiles is docFiles without the folder skip, when set. A partial scan leaves the
 // path cache as it is.
 func (v *Vault) scanFiles(skip model.Folder) ([]docFile, error) {
+	return v.scanFilesDirs(skip, nil)
+}
+
+// scanFilesDirs is scanFiles that also records, in dirs when not nil, the
+// stamp of each directory it opens, taken before the directory is read.
+func (v *Vault) scanFilesDirs(skip model.Folder, dirs map[string]stamp) ([]docFile, error) {
 	var out []docFile
 	for _, folder := range model.Folders {
 		if folder == skip {
 			continue
 		}
-		rels, err := mdFiles(v.root, string(folder))
+		rels, err := mdFilesDirs(v.root, string(folder), dirs)
 		if err != nil {
 			return nil, err
 		}
@@ -738,6 +750,9 @@ func (v *Vault) scanFiles(skip model.Folder) ([]docFile, error) {
 		}
 	}
 	v.paths.mu.Lock()
+	if !sameFiles(v.paths.m, m) {
+		v.dropIndexLocked()
+	}
 	v.paths.m = m
 	for rel := range v.paths.refs {
 		if f, ok := m[strings.TrimSuffix(path.Base(rel), ".md")]; !ok || f.rel != rel {
@@ -757,22 +772,41 @@ func (v *Vault) find(id string) (docFile, error) {
 			return f, nil
 		}
 	}
-	files, err := v.docFiles()
-	if err != nil {
-		return docFile{}, err
-	}
-	for _, f := range files {
-		if f.id == id {
+	// The file is not where the path cache says, or the cache has no entry:
+	// the index may hold the same stale path, so a stat decides.
+	for range 2 {
+		ix, err := v.index()
+		if err != nil {
+			return docFile{}, err
+		}
+		f, ok := ix.byID[id]
+		if !ok {
+			break
+		}
+		if st, err := os.Stat(v.abs(f.rel)); err == nil && st.Mode().IsRegular() {
 			return f, nil
 		}
+		v.dropIndex() // moved or removed outside this process
 	}
 	return docFile{}, fmt.Errorf("%w: %s", model.ErrNotFound, id)
 }
 
 // mdFiles returns the regular .md files under dir, relative to root.
-func mdFiles(root, dir string) ([]string, error) {
+func mdFiles(root, dir string) ([]string, error) { return mdFilesDirs(root, dir, nil) }
+
+// mdFilesDirs is mdFiles that records in dirs, when not nil, the stamp of
+// each directory before it is read (zero when dir is missing).
+func mdFilesDirs(root, dir string, dirs map[string]stamp) ([]string, error) {
 	var out []string
 	err := filepath.WalkDir(filepath.Join(root, dir), func(p string, d fs.DirEntry, err error) error {
+		if dirs != nil && (err == nil && d.IsDir() && !strings.HasPrefix(d.Name(), ".") || p == filepath.Join(root, dir)) {
+			dirs[p] = stamp{}
+			if err == nil {
+				if st, serr := d.Info(); serr == nil {
+					dirs[p] = stampOf(st)
+				}
+			}
+		}
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
 			return nil
