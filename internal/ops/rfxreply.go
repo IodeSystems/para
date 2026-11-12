@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -126,24 +127,25 @@ var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target repl
 	if err != nil {
 		return RFXReplyOutput{}, err
 	}
-	from := normID(in.From)
-	var hit []int
-	for i, t := range m.Targets {
-		if t.To.Target() == from && (in.Via == "" || t.Medium == in.Via) {
-			hit = append(hit, i)
-		}
+	if strings.TrimSpace(in.URL) == "" {
+		in.URL = sourceLink(ctx, d, in.Sources)
 	}
-	switch {
-	case from == "":
-		return RFXReplyOutput{}, errors.New("from is empty")
-	case len(hit) == 0:
-		return RFXReplyOutput{}, fmt.Errorf("no target %s %s: add it with rfx target add", from, in.Via)
-	case len(hit) > 1:
-		return RFXReplyOutput{}, fmt.Errorf("%s has %d targets: pass via", from, len(hit))
+	from, hit, err := replyTarget(ctx, d, doc.ID, m, in)
+	if err != nil {
+		return RFXReplyOutput{}, err
 	}
-	tgt := &m.Targets[hit[0]]
+	tgt := &m.Targets[hit]
 	if tgt.State == model.TargetReplied {
-		return RFXReplyOutput{}, fmt.Errorf("%s already replied", from)
+		// The same reply recorded again (same text, link, or io) is done.
+		if prev, ok := sameReply(ctx, d, doc.Body, from, title, in); ok {
+			return RFXReplyOutput{ID: doc.ID, From: from, Outcome: in.Outcome, State: model.TargetReplied, Interaction: prev,
+				Warnings: []string{"this reply is already recorded: nothing was written"}, Rev: doc.Rev}, nil
+		}
+		return RFXReplyOutput{}, fmt.Errorf("%s already replied to %s (see its ## Replies): nothing more to record; to end the Ask: close {id: %s, outcome: closed}", from, doc.ID, doc.ID)
+	}
+	medium := tgt.Medium
+	if in.Via != "" {
+		medium = in.Via
 	}
 	// why is not refused here: over MCP it is also the reason every agent write
 	// must carry, so an agent always sends it.
@@ -200,7 +202,7 @@ var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target repl
 		}
 	}
 	ia, err := InteractionAdd.Run(ctx, d, InteractionAddInput{
-		Summary: in.Text, With: []string{from}, Medium: tgt.Medium,
+		Summary: in.Text, With: []string{from}, Medium: medium,
 		Direction: model.InteractionIn, URL: in.URL, Date: date,
 	})
 	if err != nil {
@@ -239,3 +241,103 @@ var RFXReply = defineSafe("rfx_reply", "Record a reply to a request: target repl
 	}
 	return out, nil
 })
+
+// replyTarget finds the target of the Ask that replied: from is its id, or
+// the name of a target (as rfx_show lists target_names); with no from, the
+// Ask's only target. A reply is taken only from a target of the Ask. Via picks
+// one of a target's mediums; a target with one medium may reply over another.
+func replyTarget(ctx context.Context, d Deps, id string, m *model.RFX, in RFXReplyInput) (string, int, error) {
+	var tos []string
+	for _, t := range m.Targets {
+		if to := t.To.Target(); !slices.Contains(tos, to) {
+			tos = append(tos, to)
+		}
+	}
+	from := normID(in.From)
+	switch {
+	case from == "" && len(tos) == 1:
+		from = tos[0]
+	case from == "":
+		return "", 0, fmt.Errorf("from is empty: %s went to %s: pass from, one of those ids", id, strings.Join(tos, ", "))
+	case !slices.Contains(tos, from):
+		name := strings.Join(strings.Fields(in.From), " ")
+		for _, to := range tos {
+			if doc, err := d.Store.Get(ctx, to); err == nil && strings.EqualFold(doc.Title, name) {
+				from = to
+				break
+			}
+		}
+	}
+	var hit, all []int
+	for i, t := range m.Targets {
+		if t.To.Target() != from {
+			continue
+		}
+		all = append(all, i)
+		if in.Via == "" || t.Medium == in.Via {
+			hit = append(hit, i)
+		}
+	}
+	if len(hit) == 0 && len(all) == 1 {
+		hit = all
+	}
+	switch {
+	case len(hit) == 0 && len(all) > 1:
+		return "", 0, fmt.Errorf("%s is not a target of %s by %s: pass via, one of its mediums on this Ask", from, id, in.Via)
+	case len(hit) == 0:
+		return "", 0, fmt.Errorf("no target %s on %s: its targets are %s: pass from, one of those ids. A reply from anyone else: rfx_target_add {id: %s, to, medium} first", from, id, strings.Join(tos, ", "), id)
+	case len(hit) > 1:
+		return "", 0, fmt.Errorf("%s has %d targets: pass via", from, len(hit))
+	}
+	return from, hit[0], nil
+}
+
+// sameReply reports whether from's reply on the Ask body is this one: the
+// same first line, or the same link (url, a source URL, or an io a source
+// names). It returns the id of the interaction that keeps it.
+func sameReply(ctx context.Context, d Deps, body, from, title string, in RFXReplyInput) (string, bool) {
+	var links, ids []string
+	for _, s := range in.Sources {
+		links = append(links, sourceLink(ctx, d, []model.AnswerSource{s}))
+		ids = append(ids, normID(s.Ref))
+	}
+	if u := strings.TrimSpace(in.URL); u != "" {
+		links = append(links, u)
+	}
+	for line := range strings.SplitSeq(body, "\n") {
+		if !strings.Contains(line, "[["+from+"]] ") {
+			continue
+		}
+		i := strings.LastIndex(line, "([[")
+		if i < 0 {
+			continue
+		}
+		prev, _, _ := strings.Cut(line[i+3:], "]]")
+		if strings.HasSuffix(line[:i], ": "+title+" ") || slices.Contains(ids, prev) {
+			return prev, true
+		}
+		if doc, err := d.Store.Get(ctx, prev); err == nil {
+			if ia, ok := model.InteractionOf(doc); ok && ia.URL != "" && slices.Contains(links, ia.URL) {
+				return prev, true
+			}
+		}
+	}
+	return "", false
+}
+
+// sourceLink is the first link a reply's sources give: a source URL, or the
+// link of an io item a source names.
+func sourceLink(ctx context.Context, d Deps, sources []model.AnswerSource) string {
+	for _, s := range sources {
+		ref := strings.TrimSpace(s.Ref)
+		if model.IsWebURL(ref) {
+			return ref
+		}
+		if doc, err := d.Store.Get(ctx, normID(ref)); err == nil {
+			if io, ok := doc.Meta.(*model.IO); ok && model.IsWebURL(cmp.Or(io.Ref, io.URL)) {
+				return cmp.Or(io.Ref, io.URL)
+			}
+		}
+	}
+	return ""
+}

@@ -15,6 +15,11 @@ func TestUnknownFieldNamesTheShape(t *testing.T) {
 		{IOApprove, `{"id":"p","owner_says":"yes"}`, "(did you mean owner_said?)", "owner_said"},
 		{Search, `{"q":"x"}`, "(did you mean query?)", "query"},
 		{Defer, `{"ids":["t"],"date":"2026-12-01"}`, "(did you mean until?)", "until"},
+		// Agents' calls: id inside sources[], ref inside evidence. The hint
+		// names the field in the object that had it, not the top-level id.
+		{Close, `{"id":"q","outcome":"answered","answer":"eu-west","sources":[{"id":"io-x","kind":"io"}]}`, `"id" in sources[] (did you mean sources[].ref?)`, "sources[]{ref*"},
+		{Close, `{"id":"t","outcome":"done","evidence":{"quote":"q","ref":"https://chat.example.test/t/1"}}`, `"ref" in evidence (did you mean evidence.locator?)`, "locator*"},
+		{Close, `{"id":"t","ref":"https://chat.example.test/t/1"}`, "(did you mean sources[].ref?)", "sources[]"},
 	}
 	for _, c := range cases {
 		_, err := c.op.Invoke(ctx, Deps{}, json.RawMessage(c.input))

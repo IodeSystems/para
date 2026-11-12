@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -329,11 +330,16 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		switch {
 		case outcome == "", outcome == "done", outcome == string(model.RFXClosed):
 			op = RFXClose
-		case outcome == string(ReplyNo), outcome == string(ReplyPartial), outcome == string(ReplyAnswered) && (in.Answer != "" || from):
-			// A reply with its text and who gave it: rfx_reply.
+		case outcome == string(ReplyNo), outcome == string(ReplyPartial), outcome == string(ReplyAnswered) && (in.Answer != "" || from || len(in.Sources) > 0):
+			// A reply with its text or its source: rfx_reply. With no
+			// answer, the one quote of the sources is the reply's text.
 			op, reasonAs, answered = RFXReply, "why", true
 			base["outcome"] = outcome
-			put(base, "text", in.Answer)
+			text := in.Answer
+			if text == "" && len(in.Sources) == 1 {
+				text = in.Sources[0].Quote
+			}
+			put(base, "text", text)
 		case outcome == string(model.RFXDeclined), outcome == string(model.RFXAnswered):
 			op = RFXStatus
 			base["status"] = outcome
@@ -350,13 +356,6 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 				// An agent records its own send: io_send, after a passing
 				// io_send_check.
 				op, pre = IOSend, sendCheck(doc.ID)
-			}
-			if in.Evidence != nil {
-				if model.IsWebURL(in.Evidence.Locator) {
-					base["url"] = in.Evidence.Locator
-				} else {
-					put(base, "locator", in.Evidence.Locator)
-				}
 			}
 		default:
 			return verbRoute{}, bad("none or dropped, or sent")
@@ -382,6 +381,30 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		}
 	default:
 		return verbRoute{}, fmt.Errorf("%s is a %s: it has no close (archive it with doc_archive)", doc.ID, typeWord(doc))
+	}
+	if answered && len(in.Sources) == 0 && in.Evidence != nil && strings.TrimSpace(in.Evidence.Locator) != "" {
+		// The evidence of an answer is its source.
+		in.Sources = []model.AnswerSource{{Ref: in.Evidence.Locator, Quote: in.Evidence.Quote}}
+	}
+	if op == QuestionAnswer && len(in.Sources) == 0 && agentSurface(d) {
+		return verbRoute{}, fmt.Errorf("%w. The call that works: close {id: %s, outcome: answered, %s, sources: [{ref: %s, quote: \"<the words that give the answer>\"}]}",
+			ErrNoSource, doc.ID, answerArg(in), sourceHint(ctx, d, closeWords(ctx, in)...))
+	}
+	if !answered && in.Answer == "" && in.Choice == "" && len(in.Sources) > 0 {
+		// Sources on another close are its evidence.
+		if len(in.Sources) > 1 || in.Evidence != nil {
+			return verbRoute{}, fmt.Errorf("a %s %s keeps one evidence, not sources: close {id: %s, outcome: %s, evidence: {quote: %q, locator: %q}}",
+				typeWord(doc), cmp.Or(outcome, "close"), doc.ID, cmp.Or(outcome, "done"), in.Sources[0].Quote, in.Sources[0].Ref)
+		}
+		in.Evidence = &model.Evidence{Quote: in.Sources[0].Quote, Locator: in.Sources[0].Ref}
+		in.Sources = nil
+	}
+	if (op == IODone || op == IOSend) && in.Evidence != nil {
+		if model.IsWebURL(in.Evidence.Locator) {
+			base["url"] = in.Evidence.Locator
+		} else {
+			put(base, "locator", in.Evidence.Locator)
+		}
 	}
 	if !answered && (in.Answer != "" || in.Choice != "" || len(in.Sources) > 0) {
 		return verbRoute{}, fmt.Errorf("answer, choice, and sources answer a question or an ask (outcome answered), not a %s %s", typeWord(doc), cmp.Or(outcome, "close"))
@@ -1105,4 +1128,44 @@ func obligationRow(sn *Snapshot, o *model.Obligation) *ObligationRow {
 		r.Parties = append(r.Parties, name)
 	}
 	return r
+}
+
+// closeWords are the caller's own words on a close: where a refusal looks
+// for the source the caller had in hand.
+func closeWords(ctx context.Context, in CloseInput) []string {
+	m := writeMeta(ctx)
+	words := append([]string{m.Input, in.Reason, m.Why, in.Answer, fmt.Sprint(in.Fields)}, m.Sources...)
+	if in.Evidence != nil {
+		words = append(words, in.Evidence.Locator)
+	}
+	return words
+}
+
+// answerArg is a question answer's own field in a call close shows back.
+func answerArg(in CloseInput) string {
+	if in.Choice != "" {
+		return fmt.Sprintf("choice: %q", in.Choice)
+	}
+	return fmt.Sprintf("answer: %q", cmp.Or(in.Answer, "<the answer>"))
+}
+
+var (
+	hintURLRe = regexp.MustCompile(`https?://[^\s"'<>)\]]+`)
+	hintIDRe  = regexp.MustCompile(`\b[a-z]+-[a-z0-9][a-z0-9-]*\b`)
+)
+
+// sourceHint is a source ref for a refusal to show back: the first URL in
+// the caller's own words, else the first vault id there that exists, else a
+// placeholder. It is a hint only: an answer cites its sources in sources.
+func sourceHint(ctx context.Context, d Deps, texts ...string) string {
+	all := strings.Join(texts, " ")
+	if u := hintURLRe.FindString(all); u != "" {
+		return fmt.Sprintf("%q", strings.TrimRight(u, ".,;:"))
+	}
+	for _, id := range hintIDRe.FindAllString(all, -1) {
+		if _, err := d.Store.Get(ctx, id); err == nil {
+			return fmt.Sprintf("%q", id)
+		}
+	}
+	return `"<a URL, vault document id, or absolute path you read it in>"`
 }

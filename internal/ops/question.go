@@ -697,6 +697,16 @@ func resolveQuestion(ctx context.Context, d Deps, in QuestionAnswerInput) (Quest
 	}
 	info := d.Store.Info()
 	agent := agentSurface(d)
+	if agent && len(in.Sources) == 0 {
+		m := writeMeta(ctx)
+		words := append([]string{m.Input, in.Source, in.Why, m.Why, in.Text}, m.Sources...)
+		arg := fmt.Sprintf("text: %q", text)
+		if choice != "" {
+			arg = fmt.Sprintf("choice: %q", choice)
+		}
+		return QuestionAnswerOutput{}, fmt.Errorf("%w. The call that works: question_answer {id: %s, %s, sources: [{ref: %s, quote: \"<the words that give the answer>\"}]}",
+			ErrNoSource, doc.ID, arg, sourceHint(ctx, d, words...))
+	}
 	sources, err := answerSources(ctx, d, in.Sources, agent)
 	if err != nil {
 		return QuestionAnswerOutput{}, err

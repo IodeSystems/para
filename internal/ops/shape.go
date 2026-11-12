@@ -219,6 +219,9 @@ var fieldSynonyms = map[string][]string{
 	"title":    {"name"},
 	"item":     {"items"},
 	"proposal": {"id"},
+	"id":       {"ref"},
+	"ref":      {"locator"},
+	"url":      {"locator", "ref"},
 }
 
 // fieldHint names the field an agent likely meant by name, or "".
@@ -272,13 +275,23 @@ var unknownFieldRe = regexp.MustCompile(`^json: unknown field "([^"]*)"$`)
 
 // inputError is the error of an input that does not decode. An unknown field
 // gets the hint and the shape, on one line.
-func inputError(e Entry, err error) error {
+func inputError(e Entry, input json.RawMessage, err error) error {
 	m := unknownFieldRe.FindStringSubmatch(err.Error())
 	if m == nil {
 		return err
 	}
 	msg := "unknown field \"" + m[1] + "\""
-	if h := fieldHint(e.InputType(), m[1]); h != "" {
+	// The decoder does not say where the field was: find the object that has
+	// it, so a field the input has elsewhere (id in sources[]) is not hinted
+	// back to the caller as itself.
+	if at, st, ok := unknownAt(e.InputType(), input, m[1], ""); ok && at != "" {
+		msg += " in " + strings.TrimSuffix(at, ".")
+		if h := fieldHint(st, m[1]); h != "" {
+			msg += " (did you mean " + at + h + "?)"
+		} else if h := fieldHint(e.InputType(), m[1]); h != "" && h != m[1] {
+			msg += " (did you mean " + h + "?)"
+		}
+	} else if h := fieldHint(e.InputType(), m[1]); h != "" {
 		msg += " (did you mean " + h + "?)"
 	}
 	shape := InputShape(e)
@@ -286,6 +299,45 @@ func inputError(e Entry, err error) error {
 		shape = shape[:shapeMax] + "..."
 	}
 	return &shapeError{msg: msg + "; fields: " + shape, err: err}
+}
+
+// unknownAt finds the object in raw, of struct type t, that has the field
+// name t lacks: its path (sources[]. or "" at the top) and its type.
+func unknownAt(t reflect.Type, raw json.RawMessage, name, prefix string) (string, reflect.Type, bool) {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	var obj map[string]json.RawMessage
+	if t.Kind() != reflect.Struct || json.Unmarshal(raw, &obj) != nil {
+		return "", nil, false
+	}
+	fields := shapeFields(t)
+	if _, has := obj[name]; has && !slices.ContainsFunc(fields, func(f shapeField) bool { return f.name == name }) {
+		return prefix, t, true
+	}
+	for _, f := range fields {
+		v, ok := obj[f.name]
+		st, list := structOf(f.t)
+		if !ok || st == nil {
+			continue
+		}
+		if !list {
+			if at, ft, ok := unknownAt(st, v, name, prefix+f.name+"."); ok {
+				return at, ft, true
+			}
+			continue
+		}
+		var items []json.RawMessage
+		if json.Unmarshal(v, &items) != nil {
+			continue
+		}
+		for _, it := range items {
+			if at, ft, ok := unknownAt(st, it, name, prefix+f.name+"[]."); ok {
+				return at, ft, true
+			}
+		}
+	}
+	return "", nil, false
 }
 
 // shapeError keeps the decode error for errors.Is and As.
