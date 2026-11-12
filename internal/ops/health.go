@@ -335,8 +335,11 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 	}
 	var groups []HealthGroup
 	for g, fs := range byGoal {
-		slices.SortFunc(fs, func(a, b HealthFinding) int {
-			return cmp.Or(cmp.Compare(kindRank[a.Kind], kindRank[b.Kind]), cmp.Compare(a.ID, b.ID))
+		// Full tie-break: findings of one kind and id (upgrade_pending has no id)
+		// would otherwise come out in an unstable order.
+		slices.SortStableFunc(fs, func(a, b HealthFinding) int {
+			return cmp.Or(cmp.Compare(kindRank[a.Kind], kindRank[b.Kind]), cmp.Compare(a.ID, b.ID),
+				cmp.Compare(a.Message, b.Message), cmp.Compare(a.Fix, b.Fix))
 		})
 		gr := HealthGroup{Goal: g, Title: "Other", Findings: fs}
 		if g != HealthOtherGroup {
