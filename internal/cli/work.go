@@ -83,7 +83,7 @@ func goalCommands(l *loader) []*cobra.Command {
 				fs.StringVar(&in.Project, "project", "", "id of the ongoing project the goal belongs to (vault format 11)")
 				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on (repeat or comma-separate)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
-				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a goal that never finishes is an area")
+				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a thing that never finishes is a project or an area")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 			},
 			Bind: func(args []string, in *ops.GoalAddInput) error {
@@ -174,7 +174,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 		opCommand(l, ops.TaskMove, binding[ops.TaskMoveInput, ops.TaskMoveOutput]{
 			Use: "move <id>... (--project <id> | --area <id>)", Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskMoveInput) {
-				fs.StringVarP(&in.Goal, "project", "p", "", "move to this goal (project id)")
+				fs.StringVarP(&in.Goal, "project", "p", "", "move to this goal id")
 				fs.StringVar(&in.Area, "area", "", "move to this area id")
 			},
 			Bind: func(args []string, in *ops.TaskMoveInput) error { in.IDs = args; return nil },
@@ -188,7 +188,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.ArbitraryArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
 				fs.StringVar(&in.Title, "title", "", "the title (same as <title>)")
-				fs.StringVarP(&in.Goal, "project", "p", "", "project id (a task needs a project or an area)")
+				fs.StringVarP(&in.Goal, "project", "p", "", "goal id (a task needs a goal or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
@@ -238,7 +238,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "list",
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskListInput) {
-				fs.StringVarP(&in.Goal, "project", "p", "", "only this project")
+				fs.StringVarP(&in.Goal, "project", "p", "", "only this goal")
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 				fs.BoolVar(&in.Open, "open", false, "only open tasks: todo, doing, blocked")

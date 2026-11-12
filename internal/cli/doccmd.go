@@ -28,7 +28,7 @@ func trackedDocCmds(l *loader) []*cobra.Command {
 			fs.StringVar(&in.Owner, "owner", "", "person, group, or team id that owns the document")
 			fs.StringArrayVar(&in.Watchers, "watcher", nil, "person, group, or team id; repeatable")
 			fs.StringVar(&in.Area, "area", "", "area id")
-			fs.StringVar(&in.Goal, "project", "", "goal (project) id")
+			fs.StringVar(&in.Goal, "project", "", "goal id")
 			fs.StringVar(&in.Route, "route", "", "domain an Ask from a comment goes to")
 			fs.StringVar(&in.Note, "note", "", "what the document is to you")
 			fs.StringVar((*string)(&in.Fidelity), "fidelity", "", "exact (default), partial, or ocr")
@@ -210,7 +210,7 @@ func trackedDocCmds(l *loader) []*cobra.Command {
 			Use:  "file <id> <comment> ask|question|commitment",
 			Args: cobra.ExactArgs(3),
 			Flags: func(fs *pflag.FlagSet, in *ops.DocCommentFileInput) {
-				fs.StringVar(&in.Goal, "project", "", "goal (project) id; default the document's")
+				fs.StringVar(&in.Goal, "project", "", "goal id; default the document's")
 				fs.StringVar(&in.Area, "area", "", "area id; default the document's")
 				fs.StringVar(&in.Task, "task", "", "question: scope a task")
 				fs.BoolVar(&in.Root, "root", false, "question: scope the whole vault")

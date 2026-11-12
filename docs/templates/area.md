@@ -11,7 +11,7 @@ tags: []
 
 # Area title
 
-The standard this area keeps up, with no end date. Projects and tasks link here with `area`. Plans, repos, and docs stay where they live; list them under `links`.
+The standard this area keeps up, with no end date. Goals, projects, and tasks link here with `area`. Plans, repos, and docs stay where they live; list them under `links`.
 
 ## Standard
 

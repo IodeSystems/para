@@ -19,11 +19,11 @@ items:
     kind: para
     op: task_add
     input:
-      project: project-example
+      goal: goal-example
       title: Write the parser
       done_when: The parser passes its tests.
-    how: Adds a task to the project.
-    impact: The project gets one more open task.
+    how: Adds a task to the goal.
+    impact: The goal gets one more open task.
     reversible: "yes"
     evidence:
       quote: Ada will write the parser

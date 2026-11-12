@@ -95,8 +95,8 @@ func TestRuleReachesEverySurface(t *testing.T) {
 			t.Errorf("bootstrap lacks %q", want)
 		}
 	}
-	// The bootstrap order: areas, projects, tasks, people, then lint.
-	order := []string{"add {type: area}", "add {type: project}", "add {type: task}", "add {type: person}", "op_run {op: lint}"}
+	// The bootstrap order: areas, projects, goals, tasks, people, then lint.
+	order := []string{"add {type: area}", "add {type: project}", "add {type: goal}", "add {type: task}", "add {type: person}", "op_run {op: lint}"}
 	at := -1
 	for _, tool := range order {
 		i := strings.Index(Bootstrap(), tool)

@@ -137,7 +137,7 @@ func TestCoreListing(t *testing.T) {
 	if len(list.Tools) > len(Core) {
 		t.Errorf("core lists %d tools, Core has %d", len(list.Tools), len(Core))
 	}
-	out, isErr := opRun(t, c, "task_add", `{"goal":"project-sample","title":"Not listed, still callable","done_when":"It runs.","why":"test"}`)
+	out, isErr := opRun(t, c, "task_add", `{"goal":"goal-sample","title":"Not listed, still callable","done_when":"It runs.","why":"test"}`)
 	if isErr || !strings.Contains(out, `"id": "task-`) {
 		t.Fatalf("op_run task_add in core: %v %q", isErr, out)
 	}

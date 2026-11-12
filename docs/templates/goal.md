@@ -14,7 +14,7 @@ tags: []
 
 # Goal title
 
-One sentence on the outcome that closes this goal.
+One sentence on the outcome that closes this goal. `project` is optional: the ongoing project the goal serves. A goal that waits is `parked` and needs `resume_when`.
 
 ## Done when
 

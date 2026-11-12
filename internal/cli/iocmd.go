@@ -490,7 +490,7 @@ func newIOFileCmd(l *loader) *cobra.Command {
 		Flags: func(fs *pflag.FlagSet, in *ops.IOFileInput) {
 			fs.StringVar((*string)(&in.To), "to", "", "task, rfx, project, note, question, or interaction (required unless --existing); with --existing also obligation or area")
 			fs.StringVar(&in.Existing, "existing", "", "id of a document that already holds it (also an obligation or an area); para links it and makes nothing")
-			fs.StringVar(&in.Goal, "project", "", "task: project id (or --area); rfx, note: optional")
+			fs.StringVar(&in.Goal, "project", "", "task: goal id (or --area); rfx, note: optional")
 			fs.StringVar(&in.RequestedBy, "requested-by", "", "task: who it is for (default the sender)")
 			fs.StringVar(&in.Title, "title", "", "task: its title (default the first line of the message)")
 			fs.StringVar(&in.Due, "due", "", "task: due date YYYY-MM-DD")

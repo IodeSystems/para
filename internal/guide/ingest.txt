@@ -5,7 +5,7 @@ Ingest one thing the owner points at: a document, a thread, a ticket, pasted tex
 3. Make the changes, with the thing as the source on each write (`add` takes type, title, parent, body, tags, and the type's other inputs in fields). Only where the source says so:
    - a fact: `op_run {op: org_person_note}` for a person, `add {type: note}` for reference material on a goal or area.
    - an act that completes an open task (an approval, a merge, a reply, a filed form): close the task with `close` and the act as the source; do not stage it for the owner.
-   - a task someone now owes (an action item): `add {type: task}`, with fields.done_when, a project or area as parent, and fields.assignee. When the owner does it, add do_url (the page), do_command (the exact command), or steps (1 to 5 lines), and prepare what you can first; no secret goes in them.
+   - a task someone now owes (an action item): `add {type: task}`, with fields.done_when, a goal or area as parent, and fields.assignee. When the owner does it, add do_url (the page), do_command (the exact command), or steps (1 to 5 lines), and prepare what you can first; no secret goes in them.
    - a commitment (something a person owes by a date): `add {type: task}` with fields kind commitment, due, and who owes it as assignee (it is stored as an obligation). A commitment without a due date is not written: say so.
    - a question the source answers: `close {outcome: answered}` with the choice or text, the reason, and sources. No source, no answer: leave it open.
    - an Ask the source resolves: `close` with outcome answered, no, or partial, the answer, who said it (fields.from), and sources. A no records the constraint, with its reason.

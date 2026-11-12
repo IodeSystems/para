@@ -5,7 +5,7 @@ status: queued
 runner: install-id-example
 queued_at: 2026-11-01T09:00:00Z
 links:
-  - "[[project-example]]"
+  - "[[goal-example]]"
 ---
 
 # One-line ask

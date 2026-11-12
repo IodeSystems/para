@@ -19,15 +19,15 @@ id that the creating command prints.
 
 3. A goal with a task DAG
   $ para goal add "Move the server" --area area-home --done-when "The server runs in the new rack and the old one is off"
-  $ para task add "Order the disk" -p project-move --done-when "The disk is on order with a delivery date"
-  $ para task add "Mount the disk" -p project-move --depends-on task-order
+  $ para task add "Order the disk" -p goal-move --done-when "The disk is on order with a delivery date"
+  $ para task add "Mount the disk" -p goal-move --depends-on task-order
   $ para task depends add task-mount task-order
   $ para task due task-mount 2026-12-01
-  $ para goal edit project-move --done-when "The server runs in the new rack and the old one is off"
+  $ para goal edit goal-move --done-when "The server runs in the new rack and the old one is off"
   $ para task edit task-order --done-when "The disk is on order with a delivery date"
-  $ para graph project-move
+  $ para graph goal-move
   $ para next
-  $ para task block task-mount --reason "Asha said wait for the delivery, this project only"
+  $ para task block task-mount --reason "Asha said wait for the delivery, this goal only"
   $ para depends set task-mount task-label --optional
   $ para depends set task-mount task-label --remove
   $ para context task-mount
@@ -96,7 +96,7 @@ Para is not a pager: alerts stay in monitoring (your pager, Alertmanager, a stat
   $ para --actor claude --why "Owner asked for it" doc edit note-example --title "Better title"
   $ para vault config list
 An agent with only a shell passes --actor and --why: its writes then follow the MCP rules. Vault settings: para vault config list, get, set, unset; an agent may change only align.days and goals.active_limit.
-  $ para request add "Summarize the portal project" --title "Summarize the portal goal" --link project-portal
+  $ para request add "Summarize the portal goal" --title "Summarize the portal goal" --link goal-portal
   $ para request accept request-example
   $ para request list
   $ para investigate task-example --hint "check the wiki"
@@ -156,9 +156,9 @@ Older vaults hold dossiers (proposals) that were closed when the vault moved to 
 Before an agent sends an outward act (an email, a post, a ticket, a PR, a deploy, a remote document edit), it drafts it as an outgoing io item (io_add direction out). You read the exact text with para io list, and approve it in the web app or with para io approve <id>. An agent may approve only when it passes your verbatim words in the chat (owner_said). Right before it sends, the agent reads the channel again and runs the pre-send check (para io send-check <id>, or the tool io_send_check): a new message in the conversation since you approved holds the draft and brings it back to you. The agent sends the text with its own tool and reports it (para io send, or the tool io_send); until then the draft is not sent. When you send by hand, run para io send-check <id> first. A message that waits for your reply is a reply obligation (Reply to <sender>), due io.reply_days after it came; your threaded reply closes it. para io stats gives the numbers per source. A change only you can decide arrives as a question (para questions).
 
 14. Questions: unknowns, decisions, and inputs are not tasks
-  $ para question add "Which config path does prod use?" --project project-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
+  $ para question add "Which config path does prod use?" --project goal-move --kind decision --option /etc/atlas --option /opt/atlas --recommended /etc/atlas
   $ para question add "Who signs off on the window?" --root
-  $ para task add "Deploy to prod" -p project-move --depends-on question-example
+  $ para task add "Deploy to prod" -p goal-move --depends-on question-example
   $ para questions
   $ para answer question-example --choice 1 --why "Matches the container image"
   $ para question ask question-example --to person-ada-example --via slack --route domain-billing
@@ -172,11 +172,11 @@ A question can wait on a task, an ask, or another question (question depends add
 
 15. Meetings: ask, book, hold
   $ para rfx add "Can the portal launch before the audit?" --route domain-billing --self-serve "read policy-logging" --to person-ada-example --via email
-  $ para meeting add "Launch window sync" --with person-ada-example --rfx rfx-example --scope project-portal
+  $ para meeting add "Launch window sync" --with person-ada-example --rfx rfx-example --scope goal-portal
   $ para meeting schedule meeting-example --start 2026-11-04T10:00:00-05:00 --end 2026-11-04T10:30:00-05:00
   $ para meeting list
   $ para meeting show meeting-example
-  $ para meeting hold meeting-example --notes "Agreed to ship in January." --answer question-example="December" --action "Send the plan | person-ada-example | 2026-11-10" --project project-portal
+  $ para meeting hold meeting-example --notes "Agreed to ship in January." --answer question-example="December" --action "Send the plan | person-ada-example | 2026-11-10" --project goal-portal
   $ para meeting cancel meeting-example --reason "Ada is out"
 Asking for a meeting is progress: the linked ask gets a meeting target, requested and then scheduled, and stays on para waiting until the meeting is booked. The body lists the questions to settle: the linked asks and the open questions in scope. Times are RFC 3339 with the zone they were booked in, and show in your zone. hold records your notes, sends replies through para rfx reply (a no still becomes a constraint), answers through question answer, and makes each action item a task with its assignee and a link to the meeting. An ask made in the meeting and not answered in it stays a wait. A meeting is an obligation of kind meeting (a commitment, something you owe someone, is the other kind), with scheduled and end instead of due, in obligations/; para meeting commands are aliases of para obligation add, schedule, and attend, and para close holds (no outcome), cancels (dropped), or skips it. Moving a booked meeting keeps the old time in its notes. Tasks have other kinds, a call and work with someone: para task add "Call Ada" --kind call --with person-ada-example --scheduled 2026-11-05. para task attempt call-example --result no_answer --retry 2026-11-06 logs an attempt in the Attempts section and moves the call; after three attempts it shows as stuck. Work with someone closes with para task resolve and an outcome; a commitment with para close. Para does not record or transcribe a meeting. For a transcript, an agent uses the prompt ingest_source and updates the vault with ops, each with a receipt.
 
@@ -197,7 +197,7 @@ One idempotent pass per vault: it makes the next occurrence of a recurring task 
 18. Dispatch: start an agent when agent work is ready (off by default, spends tokens)
   $ para agent status
   $ para doctor
-  $ para request add "Summarize the portal project" --link project-portal
+  $ para request add "Summarize the portal goal" --link goal-portal
 Dispatch is off unless this machine has $PARA_HOME/vaults/<vault>/agent.json. It is never in the vault. With it, para serve starts the command when agent work can be claimed on this install, with the id in the environment variable PARA_REQUEST. The command claims the work itself, so a prompt that tells the agent to call request_next is enough. Every run starts an agent, so dispatch spends tokens; max_concurrent (default 1) and daily_limit (default 10) bound it, and the count survives a restart. The command is an argument list, never a shell string; the only vault-derived value it receives is the request id, which must be a plain id. A run's output goes to a log file in the state directory, mode 0600. para mcp --help-claude and para mcp --help-dun show the file.
 
 19. Journals by level: day, week, month
@@ -211,17 +211,17 @@ For prose, set journal.agent=<name> in .para/vault.properties. On a vault at for
 There is no import command. Ask your agent to use the prompt import_corpus. It reads the source with its own tools, confirms what it is with you, links docs instead of copying them, searches for what already exists, and writes one source at a time with ops, each with a receipt.
 
 21. Ingest one source, and align with reality (an agent does it, you review)
-  $ para align scope project-portal
-  $ para align record project-portal --checked 6 --matched 6
-  $ para task add "Align the portal goal" --project project-portal --assignee agent:claude --recur weekly --due 2026-11-09 --done-when "align_record shows this week"
+  $ para align scope goal-portal
+  $ para align record goal-portal --checked 6 --matched 6
+  $ para task add "Align the portal goal" --project goal-portal --assignee agent:claude --recur weekly --due 2026-11-09 --done-when "align_record shows this week"
 Para fetches nothing. Ask your agent for /para ingest followed by a URL, a file, or pasted text: it reads that one thing with its own tools, finds what it touches in the vault, and updates the vault with ops. Each item carries its source: a fact, a task, a question answered as a proposed answer, an ask resolved, a date moved. Ask for /para align followed by a goal, an area, or vault: it compares the vault with gh, jira, slack, or a calendar, and fixes the differences with ops, each citing a source. The prompts are ingest_source and align_vault. align scope lists what the agent walks; align record keeps a receipt with the counts checked, matched, differ, and unreachable, and names the sources it could not reach. A run with no change is recorded too. The goal page shows the date it was last aligned.
 To align on a schedule, make it a recurring task for the agent, as above. When it is done, the next one is made; para tick makes the agent work item when one is due (use cases 7 and 17). Title it with the command so the agent knows what to run. Nothing else recurs and no new scheduler exists. To have health name goals that were not aligned lately, set align.days=14 in .para/vault.properties. Unset, health says nothing about it.
 
 22. Repair a vault (an agent proposes it, you review the before and after)
   $ para doc rename note-old note-new
   $ para doc retype note-example --to policy_exception --field kind=established_example --field status=open --field by=unknown --field policy_text="Logging standard"
-  $ para task move task-a task-b --project project-portal
-  $ para doc edit project-portal --field done_when="Every check passes."
+  $ para task move task-a task-b --project goal-portal
+  $ para doc edit goal-portal --field done_when="Every check passes."
   $ para rfx nudge rfx-example 2026-12-01
   $ para attempt add task-a --what "Asked in chat" --result "No reply"
 doc rename rewrites every link to the file and refuses an id that is taken. doc retype moves the document to its type's folder and keeps keys that do not apply as extra frontmatter. Agents run these as ops, each with a receipt; a script would go around the receipts.
@@ -256,13 +256,13 @@ A vault records format_version in .para/vault.properties. Each upgrade step is o
 vault upgrade, vault upgrade status, lint, health, and doctor end with one verdict line: ✓ when all is well, ! when it passed with warnings or work is still pending, ✗ when it fails. On a terminal error is red, warn yellow, and ok green; NO_COLOR or --json turns colour off. The upgrade verdict names the format before and after, the batch ids, lint errors and warnings, and the judgement steps still pending with the command to queue them. A run that stops at a step, or leaves lint errors, exits non-zero. After a run, and with para lint --file, the lint findings go to one agent work request titled "Vault check: N errors, M warnings" (kind vault-check); an open one is updated, not filed again. The agent fixes the data with ops, or, when para is wrong, changes nothing and ends with a bug report to forward to para's developer. Run /para loop to work it.
 
 A large goal can carry a brief: why, confidence, alternatives (including do nothing), unknowns, signals, a pivot, extensions, ecosystem, a rank, and a validation state (idea, validated, active, pivoted, stopped). Every part is optional. An agent drafts or challenges it with the prompt grill_goal, part Brief, and writes it with doc_edit; you choose among alternatives by answering a decision question. A signal reading is added with a source, the rank is yours, and goals compare side by side with no score. A pivot date that has come, or a reading that is due, shows on the agenda with the reason. `health` warns on a goal with signals and no reading, and on a pivot date that has come.
-  $ para goal signal add project-pilot "Pilot runs" --value 3 --source note-pilot-log
-  $ para goal rank project-pilot 1
+  $ para goal signal add goal-pilot "Pilot runs" --value 3 --source note-pilot-log
+  $ para goal rank goal-pilot 1
   $ para goal compare
 
 25. Tracked documents: what changed, and who commented
 An agent reads the document with its own tools and passes the text; para keeps the original and every version.
-  $ para doc track --url https://wiki.acme.example/runbooks/portal --system confluence --project project-portal < page.md
+  $ para doc track --url https://wiki.acme.example/runbooks/portal --system confluence --project goal-portal < page.md
   $ para doc version add doc-portal-runbook < page.md
   $ para doc tracked --unseen
   $ para doc diff doc-portal-runbook
@@ -320,16 +320,28 @@ Some documents (design notes, rules, runbooks) are for people or agents that do 
   $ para io list --direction out --voice for_me --all
 A message an agent drafts for you goes out as you only after you approve it (as_me, the default; no stamp). Some messages you never need to see: an acknowledgement, a scheduling reply. Those are for_me: the agent sends them for you without your review, and the text ends with a stamp that says an agent sent it and you did not review it. You decide which in .para/delegation.yaml, your file (an agent offers a rule in words; it does not write it): rules, each matching by medium, class and vendor (of the source in via), to (person or group ids, a group matches its members, or address patterns such as *@example.test; every recipient must match), kind (a label the agent puts on the draft), max_chars (of the text without the stamp), and agent (which agents may use it). The stamp is, first found: the rule's stamp, the agent's (agents: {<name>: {stamp}}), the file's stamp, the setting io.stamp, then "— sent by {agent} for {owner}; not reviewed by {owner}". Placeholders: {agent}, {owner} (the setting owner; a person id is read as their name), {date} (the day the draft was made), {rule}. Para appends the stamp when the draft is made and refuses an edit that removes it. An agent sends a for_me draft without your approval only when a rule matches when it sends, the stamp is at the end, and the pre-send check passed in the last 30 minutes; a message that came in after the draft holds it for you. The item and its receipt name the rule (allowed_by). With no rule that matches, the draft waits for you like any other; Approve as you takes the stamp off, and it goes out as yours. In the web app, the draft shows As you or For you, stamped: <rule>, with the stamp; the Outbox has Sent for you, the messages agents sent in your stead.
 
+32. Projects: where an ongoing thing stands, what is parked, what repeats
+  $ para project add "Home" --state "Roof done; the permit is next."
+  $ para edit project-example --field state_line="Permit filed; roof done."
+  $ para goal add "Replace the roof" --project project-example --done-when "The new roof passes inspection"
+  $ para edit goal-example --field status=parked --field resume_when="The permit is approved"
+  $ para list project
+  $ para project show project-example
+  $ para project retire project-example
+A project is an ongoing thing with no end: a house, a product, a company. It has a state line, one line on where it stands; para stores the date it last changed and health warns when the line is missing or stale. A goal that belongs to it names it as project. A task reaches a project only through its goal, except a task a cron made. A note, an Ask, an obligation, or a tracked document may link the project itself. A goal that must wait is parked with resume_when, a condition or a date; parked goals are the project's icebox, and their open tasks leave Next until the goal is active again. A cron is an obligation series on the project (obligation_add with project, recur, and makes): each run makes an obligation, or a task under a named goal of the project; a task cron needs a named agent in owed_by. While a cron's goal is parked its runs are skipped. project show returns the whole picture in one call, under 8000 bytes: state, goals in flight, what it waits on, icebox, crons, direct links, and history. list {type: project} shows active projects, the stalest state first; list {type: goal, status: parked} is the icebox of all projects. An area stays a facet: the rules and facts for working in one field.
+
 Where does this go?
   You have                                   It goes in
   a deadline you owe                         a task with --due
-  an ongoing responsibility that never       an area of kind project (the default)
-  finishes
+  an ongoing body of work you follow by      a project, with a state line (para project add)
+  where it stands
+  an ongoing responsibility with rules,      an area (kind project, the default, if goals call it home)
+  no state to follow
   a discipline that spans your work          an area of kind concept; goals list it in concepts
   a rule for one area that narrows a         a convention with applies_in and refines; para rules-in-effect
   general one
   one thing to do                            a task, ideally with how we know it is done
-  a bounded outcome that finishes           a goal, with its done condition (in an area)
+  a bounded outcome that finishes           a goal, with its done condition (in an area or a project)
   something you wait on a person for         an ask, with a reason if refused
   something unknown, or a decision only you  a question, in one scope; para answer (not a task: a task is work)
   can make, or an input only you can give

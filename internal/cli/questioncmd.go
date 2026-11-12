@@ -133,7 +133,7 @@ func answerText(w io.Writer, out ops.QuestionAnswerOutput) error {
 }
 
 func listFlags(fs *pflag.FlagSet, in *ops.QuestionListInput) {
-	fs.StringVarP(&in.Goal, "project", "p", "", "only questions in this project (its own, or its tasks')")
+	fs.StringVarP(&in.Goal, "project", "p", "", "only questions in this goal (its own, or its tasks')")
 	fs.StringVar(&in.Task, "task", "", "only questions scoped to this task")
 	fs.StringVar(&in.Area, "area", "", "only questions in this area (its own, its projects', or their tasks')")
 	fs.BoolVar(&in.Root, "root", false, "only vault-level questions")
@@ -223,7 +223,7 @@ func newQuestionCmd(l *loader) *cobra.Command {
 			Use:  "add <text>",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.QuestionAddInput) {
-				fs.StringVarP(&in.Goal, "project", "p", "", "scope: a project id")
+				fs.StringVarP(&in.Goal, "project", "p", "", "scope: a goal id")
 				fs.StringVar(&in.Task, "task", "", "scope: a task id")
 				fs.StringVar(&in.Area, "area", "", "scope: an area id")
 				fs.BoolVar(&in.Root, "root", false, "scope: the whole vault")

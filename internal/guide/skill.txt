@@ -1,5 +1,5 @@
 Use this when work touches para: tasks, blockers, asks to people, areas,
-goals, policies, people, or anything the owner must review.
+goals, projects, policies, people, or anything the owner must review.
 
 Each vault is an MCP server named para-<vault>. Use the vault the owner names. If
 none is named, ask. Do not move work between vaults.

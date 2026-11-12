@@ -13,7 +13,7 @@ tags: []
 
 # Which config path does production use?
 
-What is unknown, and what waits on the answer. A question is not work: a task is work to do. `scope` is one project, task, or area link, or the word `root` for the whole vault. `kind` is `question`, `decision` (answering needs a reason), or `input`. Leave out `options` and `recommended` when the answer is free text.
+What is unknown, and what waits on the answer. A question is not work: a task is work to do. `scope` is one goal, project, task, or area link, or the word `root` for the whole vault. `kind` is `question`, `decision` (answering needs a reason), or `input`. Leave out `options` and `recommended` when the answer is free text.
 
 Ask it with `para question add`. Make a task wait on it with `para task depends add <task> <question>`. Answer with `para answer <id>`; the answer is recorded under `## Answer` and the status becomes `answered`.
 
