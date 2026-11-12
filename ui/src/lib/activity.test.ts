@@ -40,6 +40,7 @@ describe('activityTarget', () => {
       id: 'rfx-a',
     })
     expect(activityTarget({ doc: 'io-a', docType: 'io' })).toEqual({ to: '/io/$id', id: 'io-a' })
+    expect(activityTarget({ doc: 'goal-a', docType: 'goal' }).to).toBe('/goals/$id')
     expect(activityTarget({ doc: 'project-a', docType: 'project' }).to).toBe('/projects/$id')
     expect(activityTarget({ doc: 'obligation-a', docType: 'obligation' }).to).toBe(
       '/obligations/$id',

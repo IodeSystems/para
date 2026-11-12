@@ -76,7 +76,7 @@ export const QuestionFields = graphql(/* GraphQL */ `
 
 const QuestionListDoc = graphql(/* GraphQL */ `
   query QuestionList(
-    $project: String
+    $goal: String
     $area: String
     $task: String
     $root: Boolean
@@ -85,7 +85,7 @@ const QuestionListDoc = graphql(/* GraphQL */ `
     para {
       v1 {
         questionList(
-          project: $project
+          goal: $goal
           area: $area
           task: $task
           root: $root
@@ -121,7 +121,7 @@ const QuestionShowDoc = graphql(/* GraphQL */ `
 `)
 
 export type QuestionScope = {
-  project?: string
+  goal?: string
   area?: string
   task?: string
   root?: boolean

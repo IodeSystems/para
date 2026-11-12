@@ -50,8 +50,8 @@ type Item = {
   due?: string | null
   detail?: string | null
   blocks?: number | null
-  project?: string | null
-  projectName?: string | null
+  goal?: string | null
+  goalName?: string | null
   scope?: string | null
   scopeName?: string | null
   with?: string[] | null
@@ -75,7 +75,7 @@ function aboutItem(kind: Kind, i: Item): string {
   const parts: string[] = []
   if (kind === 'nudge' && i.with?.length) parts.push(`ask ${joinNames(i.with)} again`)
   else if (i.with?.length) parts.push(`with ${joinNames(i.with)}`)
-  if (i.project) parts.push(nameOr(i.projectName, i.project))
+  if (i.goal) parts.push(nameOr(i.goalName, i.goal))
   if (kind === 'incident' && i.detail) parts.push(i.detail.split(' ').slice(1).join(' '))
   return parts.join(' - ')
 }

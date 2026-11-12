@@ -27,12 +27,14 @@ describe('omni', () => {
       h('task-a', 'task'),
       h('task-a', 'task'),
       h('meeting-a', 'task'),
+      h('goal-a', 'goal'),
       h('project-a', 'project'),
       ...[1, 2, 3, 4, 5].map((i) => h(`task-${i}`, 'task')),
     ]
     const e = entriesFor('x', hits)
     expect(e.map((x) => x.group).filter((g, i, a) => a.indexOf(g) === i)).toEqual([
       'Tasks',
+      'Projects',
       'Goals',
       'Meetings',
       'People',

@@ -36,7 +36,16 @@ import { isClosed, rowKind } from '@/lib/agenda'
 export const Route = createFileRoute('/_authed/docs/$id')({ component: Doc })
 
 // CONTEXT_TYPES are the work items whose page starts with what the item is for.
-const CONTEXT_TYPES = ['task', 'obligation', 'question', 'rfx', 'project', 'incident', 'meeting']
+const CONTEXT_TYPES = [
+  'task',
+  'obligation',
+  'question',
+  'rfx',
+  'project',
+  'goal',
+  'incident',
+  'meeting',
+]
 
 // UNDER_TYPES are the items others hang on: a parent task, an obligation or meeting, a question.
 const UNDER_TYPES = ['task', 'obligation', 'meeting', 'question']

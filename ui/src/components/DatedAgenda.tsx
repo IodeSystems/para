@@ -158,7 +158,7 @@ export function DatedAgenda() {
                                     i.why,
                                     i.who.length > 0 &&
                                       `with ${joinNames(nameList(i.who, i.whoNames))}`,
-                                    i.projectName && `goal ${i.projectName}`,
+                                    i.goalName && `goal ${i.goalName}`,
                                   ]
                                     .filter(Boolean)
                                     .join(' - ')}

@@ -40,14 +40,12 @@ export function investigable(kind: string | null | undefined): boolean {
   return INVESTIGABLE.has(kind ?? '')
 }
 
-// rowKind is the row kind of a vault document: its type, a task of kind meeting as a meeting, a
-// project as a goal, an rfx as an ask.
+// rowKind is the row kind of a vault document: its type, a task of kind meeting as a meeting, an
+// rfx as an ask.
 export function rowKind(type: string | null | undefined, taskKind?: string | null): string {
   switch (type) {
     case 'task':
       return taskKind === 'meeting' ? 'meeting' : 'task'
-    case 'project':
-      return 'goal'
     case 'rfx':
       return 'ask'
     default:
@@ -67,6 +65,7 @@ const CLOSED = new Set([
   'cancelled',
   'sent',
   'filed',
+  'retired',
 ])
 
 // isClosed says whether a status value is a closed one.

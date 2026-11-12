@@ -59,7 +59,7 @@ function AreaPage() {
                   <ListItem key={p.id} disableGutters>
                     <ListItemText
                       primary={
-                        <TextLink to="/projects/$id" params={{ id: p.id }} underline="hover">
+                        <TextLink to="/goals/$id" params={{ id: p.id }} underline="hover">
                           {p.title || p.id}
                         </TextLink>
                       }
@@ -82,7 +82,7 @@ function AreaPage() {
                           {u.title || u.id}
                         </TextLink>
                       ) : (
-                        <TextLink to="/projects/$id" params={{ id: u.id }} underline="hover">
+                        <TextLink to="/goals/$id" params={{ id: u.id }} underline="hover">
                           {u.title || u.id}
                         </TextLink>
                       )
@@ -94,7 +94,7 @@ function AreaPage() {
             </List>
           </Section>
           <Section title="Tasks" count={d.tasks.length} hideEmpty>
-            <TaskRows tasks={d.tasks} showProject />
+            <TaskRows tasks={d.tasks} showGoal />
           </Section>
           <Section title="Recurring" count={d.recurring.length} hideEmpty>
             <TaskRows tasks={d.recurring} />

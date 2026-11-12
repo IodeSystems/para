@@ -12,8 +12,8 @@ export const TodayGroupFields = graphql(/* GraphQL */ `
       due
       detail
       blocks
-      project
-      projectName
+      goal
+      goalName
       scope
       scopeName
       with
@@ -105,8 +105,8 @@ const TodayDoc = graphql(/* GraphQL */ `
             id
             title
             status
-            project
-            projectName
+            goal
+            goalName
             due
           }
         }

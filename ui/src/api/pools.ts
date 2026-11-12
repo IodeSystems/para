@@ -25,7 +25,7 @@ const PoolsDoc = graphql(/* GraphQL */ `
             row
             size
             area
-            project
+            goal
             problem
             ideas {
               id

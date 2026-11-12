@@ -14,7 +14,7 @@ import {
 const parts: PartRef[] = [
   { kind: 'parent', via: 'parent', id: 'task-p', title: 'Plan the trip' },
   { kind: 'obligation', via: 'depends_on', id: 'obligation-t', title: 'Trip' },
-  { kind: 'goal', via: 'goal', id: 'project-g', title: 'Portal' },
+  { kind: 'goal', via: 'goal', id: 'goal-g', title: 'Portal' },
   { kind: 'tag', via: 'tag', id: 'summer', title: 'summer' },
 ]
 
@@ -26,15 +26,15 @@ describe('part of', () => {
     expect(partShown(parts, false)).toEqual({ shown: parts, more: 0 })
   })
   it('leaves out the page the list is on', () => {
-    expect(partShown([parts[2]], true, 'project-g')).toEqual({ shown: [], more: 0 })
-    expect(partShown(parts.slice(2), true, 'project-g')).toEqual({ shown: [parts[3]], more: 0 })
+    expect(partShown([parts[2]], true, 'goal-g')).toEqual({ shown: [], more: 0 })
+    expect(partShown(parts.slice(2), true, 'goal-g')).toEqual({ shown: [parts[3]], more: 0 })
   })
   it('takes no parts', () => {
     expect(partShown(null, true)).toEqual({ shown: [], more: 0 })
   })
   it('links each kind to its page', () => {
     expect(partLink(parts[3])).toEqual({ to: '/tags/$tag', params: { tag: 'summer' } })
-    expect(partLink(parts[2]).to).toBe('/projects/$id')
+    expect(partLink(parts[2]).to).toBe('/goals/$id')
     expect(partLink(parts[1]).to).toBe('/obligations/$id')
     expect(partLink(parts[0]).to).toBe('/docs/$id')
     expect(partLabel(parts[3])).toBe('#summer')
@@ -60,9 +60,9 @@ describe('theme review', () => {
     m = mark(m, 'a', { mark: 'keep' })
     m = mark(m, 'b', { mark: 'keep', area: 'area-home' })
     expect(
-      themeCloseBody('project-g', { kind: 'close', outcome: 'dropped', reason: ' Off. ' }, m, ids),
+      themeCloseBody('goal-g', { kind: 'close', outcome: 'dropped', reason: ' Off. ' }, m, ids),
     ).toEqual({
-      theme: 'project-g',
+      theme: 'goal-g',
       outcome: 'dropped',
       reason: 'Off.',
       drop: ['c'],

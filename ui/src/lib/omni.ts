@@ -25,6 +25,7 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
     words: ['asked', 'sent', 'loop', 'requests', 'agent', 'agent work'],
   },
   { label: 'Work', to: '/work', words: ['work', 'goals'] },
+  { label: 'Projects', to: '/projects', words: ['projects', 'ongoing'] },
   { label: 'Asks', to: '/rfx', words: ['asks', 'rfx'] },
   { label: 'People', to: '/people', words: ['people'] },
   {
@@ -66,7 +67,16 @@ export function pagesFor(text: string): OmniEntry[] {
   ).map((p) => ({ key: `page-${p.to}`, group: 'Go to', label: p.label, to: p.to }))
 }
 
-export const GROUP_ORDER = ['Tasks', 'Goals', 'Meetings', 'Questions', 'Asks', 'People', 'Docs']
+export const GROUP_ORDER = [
+  'Tasks',
+  'Projects',
+  'Goals',
+  'Meetings',
+  'Questions',
+  'Asks',
+  'People',
+  'Docs',
+]
 
 // groupOf names the group of a hit.
 export function groupOf(h: OmniHit): string {
@@ -75,6 +85,8 @@ export function groupOf(h: OmniHit): string {
     case 'task':
       return 'Tasks'
     case 'project':
+      return 'Projects'
+    case 'goal':
       return 'Goals'
     case 'question':
       return 'Questions'

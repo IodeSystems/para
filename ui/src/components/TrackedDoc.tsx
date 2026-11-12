@@ -76,10 +76,10 @@ export function TrackedDoc({ id, decide }: { id: string; decide: boolean }) {
               {doc.checked && (
                 <span title={exactTime(doc.checked)}> - read {humanTime(doc.checked)}</span>
               )}
-              {doc.project && (
+              {doc.goal && (
                 <>
                   {' '}
-                  - <DocLink id={doc.project} />
+                  - <DocLink id={doc.goal} />
                 </>
               )}
             </Typography>

@@ -26,15 +26,15 @@ import { plainState } from '@/lib/status'
 type View = 'tasks' | 'graph'
 
 export const Route = createFileRoute('/_authed/work')({
-  validateSearch: (s: Record<string, unknown>): { view?: View; project?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { view?: View; goal?: string } => ({
     view: s.view === 'graph' ? 'graph' : undefined,
-    project: typeof s.project === 'string' && s.project !== '' ? s.project : undefined,
+    goal: typeof s.goal === 'string' && s.goal !== '' ? s.goal : undefined,
   }),
   component: Work,
 })
 
 function Work() {
-  const { view, project } = Route.useSearch()
+  const { view, goal } = Route.useSearch()
   const navigate = Route.useNavigate()
   const q = useWork()
   return (
@@ -54,7 +54,7 @@ function Work() {
         <Tab value="graph" label="Graph" />
       </Tabs>
       {view === 'graph' ? (
-        <GraphView project={project} />
+        <GraphView goal={goal} />
       ) : (
         <DataState q={q}>{(w) => <Tasks w={w} />}</DataState>
       )}
@@ -66,33 +66,33 @@ type WorkData = NonNullable<ReturnType<typeof useWork>['data']>
 
 function Tasks({ w }: { w: WorkData }) {
   const tasks = w.tasks
-  const byProject = new Map<string, typeof tasks>()
-  for (const t of tasks) byProject.set(t.project, [...(byProject.get(t.project) ?? []), t])
-  const loose = byProject.get('') ?? []
-  const bare = w.projects.filter((p) => (byProject.get(p.id)?.length ?? 0) === 0)
+  const byGoal = new Map<string, typeof tasks>()
+  for (const t of tasks) byGoal.set(t.goal, [...(byGoal.get(t.goal) ?? []), t])
+  const loose = byGoal.get('') ?? []
+  const bare = w.goals.filter((p) => (byGoal.get(p.id)?.length ?? 0) === 0)
   return (
     <>
       <QuestionsSection hideEmpty />
       <AreasSection />
-      {w.projects.length === 0 && <Empty>No goals yet.</Empty>}
-      {w.projects
-        .filter((p) => (byProject.get(p.id)?.length ?? 0) > 0)
+      {w.goals.length === 0 && <Empty>No goals yet.</Empty>}
+      {w.goals
+        .filter((p) => (byGoal.get(p.id)?.length ?? 0) > 0)
         .map((p) => (
           <Section
             key={p.id}
             title={p.title || p.id}
-            count={byProject.get(p.id)?.length ?? 0}
+            count={byGoal.get(p.id)?.length ?? 0}
             action={
               <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
                 <StateChip state={p.status} />
                 <AgentLooking id={p.id} />
-                <LinkButton size="small" to="/projects/$id" params={{ id: p.id }}>
+                <LinkButton size="small" to="/goals/$id" params={{ id: p.id }}>
                   Open
                 </LinkButton>
               </Stack>
             }
           >
-            <TaskRows tasks={byProject.get(p.id) ?? []} omit={p.id} />
+            <TaskRows tasks={byGoal.get(p.id) ?? []} omit={p.id} />
           </Section>
         ))}
       {bare.length > 0 && (
@@ -101,7 +101,7 @@ function Tasks({ w }: { w: WorkData }) {
           {bare.map((p, i) => (
             <span key={p.id}>
               {i > 0 && ', '}
-              <TextLink to="/projects/$id" params={{ id: p.id }} underline="hover">
+              <TextLink to="/goals/$id" params={{ id: p.id }} underline="hover">
                 {p.title || nameOr('', p.id)}
               </TextLink>
             </span>
@@ -195,7 +195,7 @@ function GraphList({ g }: { g: GraphData }) {
               primary={<DocLink id={n.id}>{n.title || nameOr('', n.id)}</DocLink>}
               secondary={[
                 NODE_KIND[n.type] ?? n.type,
-                n.projectName,
+                n.goalName,
                 after.get(n.id)?.length && `after ${after.get(n.id)?.join(', ')}`,
               ]
                 .filter(Boolean)
@@ -213,8 +213,8 @@ function GraphList({ g }: { g: GraphData }) {
   )
 }
 
-function GraphView({ project }: { project: string | undefined }) {
-  const q = useGraph(project)
+function GraphView({ goal }: { goal: string | undefined }) {
+  const q = useGraph(goal)
   const narrow = useMediaQuery('(max-width: 719px)')
   return (
     <DataState q={q}>

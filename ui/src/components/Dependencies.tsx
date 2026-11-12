@@ -168,7 +168,7 @@ function AddDep({
   const [reason, setReason] = useState('')
   const hits = useSearch(q)
   const picks = (hits.data?.hits ?? [])
-    .filter((h) => h.id !== item && [...WAIT_TYPES, 'project', 'request'].includes(h.kind))
+    .filter((h) => h.id !== item && [...WAIT_TYPES, 'goal', 'project', 'request'].includes(h.kind))
     .slice(0, 8)
   return (
     <Stack spacing={1} sx={{ mt: 1 }} data-depends-picker>

@@ -43,7 +43,7 @@ describe('rowKind and isClosed', () => {
   it('names a document by the kind its row acts on', () => {
     expect(rowKind('task')).toBe('task')
     expect(rowKind('task', 'meeting')).toBe('meeting')
-    expect(rowKind('project')).toBe('goal')
+    expect(rowKind('goal')).toBe('goal')
     expect(rowKind('rfx')).toBe('ask')
     expect(rowKind('question')).toBe('question')
   })

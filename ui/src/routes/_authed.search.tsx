@@ -41,6 +41,7 @@ const str = (v: unknown): string | undefined => (typeof v === 'string' && v !== 
 // The document types a search can be limited to.
 const TYPES = [
   'task',
+  'goal',
   'project',
   'area',
   'question',
@@ -68,6 +69,7 @@ const SINCE = [
 
 const ICON: Record<string, ReactElement> = {
   task: <AssignmentOutlinedIcon fontSize="inherit" />,
+  goal: <FolderOutlinedIcon fontSize="inherit" />,
   project: <FolderOutlinedIcon fontSize="inherit" />,
   area: <FolderOutlinedIcon fontSize="inherit" />,
   question: <HelpOutlinedIcon fontSize="inherit" />,
@@ -165,7 +167,7 @@ function Search() {
           sx={{ flex: '1 1 130px' }}
         >
           <MenuItem value="">Any</MenuItem>
-          {(work.data?.projects ?? []).map((p) => (
+          {(work.data?.goals ?? []).map((p) => (
             <MenuItem key={p.id} value={p.id}>
               {p.title || nameOr('', p.id)}
             </MenuItem>

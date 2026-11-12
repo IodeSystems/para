@@ -22,14 +22,14 @@ export function partLink(
   p: PartRef,
 ):
   | { to: '/tags/$tag'; params: { tag: string } }
-  | { to: '/projects/$id'; params: { id: string } }
+  | { to: '/goals/$id'; params: { id: string } }
   | { to: '/obligations/$id'; params: { id: string } }
   | { to: '/docs/$id'; params: { id: string } } {
   switch (p.kind) {
     case 'tag':
       return { to: '/tags/$tag', params: { tag: p.id } }
     case 'goal':
-      return { to: '/projects/$id', params: { id: p.id } }
+      return { to: '/goals/$id', params: { id: p.id } }
     case 'obligation':
       return { to: '/obligations/$id', params: { id: p.id } }
     default:

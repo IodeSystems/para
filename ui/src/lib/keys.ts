@@ -10,7 +10,12 @@ export const TABS: Tab[] = [
   { key: '7', to: '/next', label: 'Next', hint: 'the one thing to do now, as a card' },
   { key: '1', to: '/agenda', label: 'Agenda', hint: 'what needs you, in value order' },
   { key: '', to: '/input', label: 'Input', hint: 'messages that came in, and what they made' },
-  { key: '', to: '/output', label: 'Output', hint: 'what waits for your approval to go out, and what was sent' },
+  {
+    key: '',
+    to: '/output',
+    label: 'Output',
+    hint: 'what waits for your approval to go out, and what was sent',
+  },
   {
     key: '2',
     to: '/receipts',
@@ -18,6 +23,12 @@ export const TABS: Tab[] = [
     hint: 'check, verify, or undo what agents wrote',
   },
   { key: '3', to: '/work', label: 'Work' },
+  {
+    key: '',
+    to: '/projects',
+    label: 'Projects',
+    hint: 'ongoing projects: where each stands, and what it waits on',
+  },
   { key: '4', to: '/rfx', label: 'Asks', hint: 'asks between you and people' },
   { key: '5', to: '/people', label: 'People' },
   {

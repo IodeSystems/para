@@ -7,8 +7,8 @@ const WorkDoc = graphql(/* GraphQL */ `
   query Work {
     para {
       v1 {
-        projectList(all: true) {
-          projects {
+        goalList(all: true) {
+          goals {
             id
             title
             status
@@ -26,8 +26,8 @@ const WorkDoc = graphql(/* GraphQL */ `
             readyWhy
             title
             status
-            project
-            projectName
+            goal
+            goalName
             partOf {
               kind
               via
@@ -55,10 +55,10 @@ const WorkDoc = graphql(/* GraphQL */ `
 `)
 
 const GraphDoc = graphql(/* GraphQL */ `
-  query WorkGraph($project: String) {
+  query WorkGraph($goal: String) {
     para {
       v1 {
-        graph(project: $project) {
+        graph(goal: $goal) {
           order
           cycles
           edges {
@@ -72,8 +72,8 @@ const GraphDoc = graphql(/* GraphQL */ `
             status
             state
             kind
-            project
-            projectName
+            goal
+            goalName
             scope
             scopeName
             blockedBy
@@ -91,17 +91,17 @@ export function useWork() {
     queryFn: async () => {
       const v = (await gqlClient.request(WorkDoc)).para.v1
       return {
-        projects: need(v.projectList, 'projects').projects,
+        goals: need(v.goalList, 'goals').goals,
         tasks: need(v.taskList, 'tasks').tasks,
       }
     },
   })
 }
 
-export function useGraph(project: string | undefined) {
+export function useGraph(goal: string | undefined) {
   return useQuery({
-    queryKey: ['graph', project ?? ''],
+    queryKey: ['graph', goal ?? ''],
     queryFn: async () =>
-      need((await gqlClient.request(GraphDoc, { project })).para.v1.graph, 'graph'),
+      need((await gqlClient.request(GraphDoc, { goal })).para.v1.graph, 'graph'),
   })
 }

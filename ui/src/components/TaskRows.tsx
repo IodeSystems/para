@@ -27,8 +27,8 @@ export type TaskRow = {
   recur?: string | null
   assignee?: string | null
   assigneeName?: string | null
-  project?: string | null
-  projectName?: string | null
+  goal?: string | null
+  goalName?: string | null
   dependsOn: string[]
   dependsOnNames?: string[] | null
   blockedBy: string[]
@@ -68,17 +68,17 @@ function waitingOn(t: TaskRow, open: Map<string, string[]>): string | undefined 
 }
 
 // Each row says what the task is part of (its parent, obligation, goal, tags), as links; omit leaves
-// out the page the list is on, such as a goal page's own goal. showProject is the older plain
+// out the page the list is on, such as a goal page's own goal. showGoal is the older plain
 // project name, for a row with no Part of. Done and
 // dropped tasks are hidden until Show done; each row has Done, Later, or Reopen, and Select picks
 // rows for one decision on all of them (BulkList).
 export function TaskRows({
   tasks,
-  showProject,
+  showGoal,
   omit,
 }: {
   tasks: TaskRow[]
-  showProject?: boolean
+  showGoal?: boolean
   omit?: string
 }) {
   const questions = useQuestions({ deferred: true })
@@ -107,8 +107,8 @@ export function TaskRows({
                       <>
                         <PartOfLine parts={t.partOf} omit={omit} />
                         {[
-                          showProject && t.project && !t.partOf?.length
-                            ? nameOr(t.projectName, t.project)
+                          showGoal && t.goal && !t.partOf?.length
+                            ? nameOr(t.goalName, t.goal)
                             : undefined,
                           waitingOn(t, waits),
                           open && t.doneWhen ? `Done when: ${t.doneWhen}` : undefined,

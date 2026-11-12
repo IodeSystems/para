@@ -21,8 +21,8 @@ const TaskShowDoc = graphql(/* GraphQL */ `
                 steps
                 outcome
                 assignee
-                project
-                projectName
+                goal
+                goalName
                 parent
                 parentName
                 items

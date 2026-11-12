@@ -2,7 +2,7 @@
 // document is gone, or it is the vault itself), words made from the id are better than the id.
 
 const PREFIX =
-  /^(task|project|area|person|policy|question|rfx|proposal|request|incident|note|org|domain|group|team|role|inbox|io|constraint|exception|transcript)-/
+  /^(task|goal|project|area|person|policy|question|rfx|proposal|request|incident|note|org|domain|group|team|role|inbox|io|constraint|exception|transcript)-/
 
 // nameOr is the name, or the id in words.
 export function nameOr(name: string | null | undefined, id: string | null | undefined): string {

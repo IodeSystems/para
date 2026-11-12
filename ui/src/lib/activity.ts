@@ -62,7 +62,7 @@ export function activityWhat(r: Row): string {
 
 // activityTarget is the page of a row's item.
 export function activityTarget(r: Pick<Row, 'doc' | 'docType'>): {
-  to: '/rfx/$id' | '/io/$id' | '/projects/$id' | '/obligations/$id' | '/docs/$id'
+  to: '/rfx/$id' | '/io/$id' | '/goals/$id' | '/projects/$id' | '/obligations/$id' | '/docs/$id'
   id: string
 } {
   switch (r.docType) {
@@ -70,6 +70,8 @@ export function activityTarget(r: Pick<Row, 'doc' | 'docType'>): {
       return { to: '/rfx/$id', id: r.doc }
     case 'io':
       return { to: '/io/$id', id: r.doc }
+    case 'goal':
+      return { to: '/goals/$id', id: r.doc }
     case 'project':
       return { to: '/projects/$id', id: r.doc }
     case 'obligation':

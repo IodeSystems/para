@@ -8,8 +8,8 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     id
     title
     status
-    project
-    projectName
+    goal
+    goalName
     area
     areaName
     due
@@ -215,21 +215,24 @@ export function useAreasPage() {
   })
 }
 
-const ProjectShowDoc = graphql(/* GraphQL */ `
-  query ProjectShow($id: String!) {
+const GoalShowDoc = graphql(/* GraphQL */ `
+  query GoalShow($id: String!) {
     para {
       v1 {
         show(id: $id) {
           detail {
             __typename
-            ... on para_ProjectShowOutput {
+            ... on para_GoalShowOutput {
               body
               lastAligned
-              project {
+              goal {
                 id
                 title
                 status
                 owner
+                project
+                projectName
+                resumeWhen
                 doneWhen
                 area
                 areaName
@@ -410,14 +413,14 @@ export function useArea(id: string) {
   })
 }
 
-export function useProject(id: string) {
+export function useGoal(id: string) {
   return useQuery({
-    queryKey: ['project', id],
+    queryKey: ['goal', id],
     queryFn: async () =>
       needDetail(
-        (await gqlClient.request(ProjectShowDoc, { id })).para.v1.show,
-        'para_ProjectShowOutput',
-        'project',
+        (await gqlClient.request(GoalShowDoc, { id })).para.v1.show,
+        'para_GoalShowOutput',
+        'goal',
       ),
   })
 }

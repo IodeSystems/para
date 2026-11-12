@@ -31,6 +31,7 @@ import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
 import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
 import { Route as AuthedDocsIndexRouteImport } from './routes/_authed.docs.index'
 import { Route as AuthedDocsIdRouteImport } from './routes/_authed.docs.$id'
+import { Route as AuthedGoalsIdRouteImport } from './routes/_authed.goals.$id'
 import { Route as AuthedIncidentsIdRouteImport } from './routes/_authed.incidents.$id'
 import { Route as AuthedIoIndexRouteImport } from './routes/_authed.io.index'
 import { Route as AuthedIoIdRouteImport } from './routes/_authed.io.$id'
@@ -40,6 +41,7 @@ import { Route as AuthedObligationsIndexRouteImport } from './routes/_authed.obl
 import { Route as AuthedObligationsIdRouteImport } from './routes/_authed.obligations.$id'
 import { Route as AuthedPeopleIndexRouteImport } from './routes/_authed.people.index'
 import { Route as AuthedPeopleIdRouteImport } from './routes/_authed.people.$id'
+import { Route as AuthedProjectsIndexRouteImport } from './routes/_authed.projects.index'
 import { Route as AuthedProjectsIdRouteImport } from './routes/_authed.projects.$id'
 import { Route as AuthedProposalsIdRouteImport } from './routes/_authed.proposals.$id'
 import { Route as AuthedQuestionsIndexRouteImport } from './routes/_authed.questions.index'
@@ -158,6 +160,11 @@ const AuthedDocsIdRoute = AuthedDocsIdRouteImport.update({
   path: '/docs/$id',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedGoalsIdRoute = AuthedGoalsIdRouteImport.update({
+  id: '/goals/$id',
+  path: '/goals/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedIncidentsIdRoute = AuthedIncidentsIdRouteImport.update({
   id: '/incidents/$id',
   path: '/incidents/$id',
@@ -201,6 +208,11 @@ const AuthedPeopleIndexRoute = AuthedPeopleIndexRouteImport.update({
 const AuthedPeopleIdRoute = AuthedPeopleIdRouteImport.update({
   id: '/people/$id',
   path: '/people/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedProjectsIndexRoute = AuthedProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedProjectsIdRoute = AuthedProjectsIdRouteImport.update({
@@ -264,6 +276,7 @@ export interface FileRoutesByFullPath {
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
   '/docs/$id': typeof AuthedDocsIdRoute
+  '/goals/$id': typeof AuthedGoalsIdRoute
   '/incidents/$id': typeof AuthedIncidentsIdRoute
   '/io/$id': typeof AuthedIoIdRoute
   '/meetings/$id': typeof AuthedMeetingsIdRoute
@@ -280,6 +293,7 @@ export interface FileRoutesByFullPath {
   '/meetings/': typeof AuthedMeetingsIndexRoute
   '/obligations/': typeof AuthedObligationsIndexRoute
   '/people/': typeof AuthedPeopleIndexRoute
+  '/projects/': typeof AuthedProjectsIndexRoute
   '/questions/': typeof AuthedQuestionsIndexRoute
   '/rfx/': typeof AuthedRfxIndexRoute
   '/sources/': typeof AuthedSourcesIndexRoute
@@ -304,6 +318,7 @@ export interface FileRoutesByTo {
   '/areas/$id': typeof AuthedAreasIdRoute
   '/doc/$id': typeof AuthedDocIdRoute
   '/docs/$id': typeof AuthedDocsIdRoute
+  '/goals/$id': typeof AuthedGoalsIdRoute
   '/incidents/$id': typeof AuthedIncidentsIdRoute
   '/io/$id': typeof AuthedIoIdRoute
   '/meetings/$id': typeof AuthedMeetingsIdRoute
@@ -320,6 +335,7 @@ export interface FileRoutesByTo {
   '/meetings': typeof AuthedMeetingsIndexRoute
   '/obligations': typeof AuthedObligationsIndexRoute
   '/people': typeof AuthedPeopleIndexRoute
+  '/projects': typeof AuthedProjectsIndexRoute
   '/questions': typeof AuthedQuestionsIndexRoute
   '/rfx': typeof AuthedRfxIndexRoute
   '/sources': typeof AuthedSourcesIndexRoute
@@ -346,6 +362,7 @@ export interface FileRoutesById {
   '/_authed/areas/$id': typeof AuthedAreasIdRoute
   '/_authed/doc/$id': typeof AuthedDocIdRoute
   '/_authed/docs/$id': typeof AuthedDocsIdRoute
+  '/_authed/goals/$id': typeof AuthedGoalsIdRoute
   '/_authed/incidents/$id': typeof AuthedIncidentsIdRoute
   '/_authed/io/$id': typeof AuthedIoIdRoute
   '/_authed/meetings/$id': typeof AuthedMeetingsIdRoute
@@ -362,6 +379,7 @@ export interface FileRoutesById {
   '/_authed/meetings/': typeof AuthedMeetingsIndexRoute
   '/_authed/obligations/': typeof AuthedObligationsIndexRoute
   '/_authed/people/': typeof AuthedPeopleIndexRoute
+  '/_authed/projects/': typeof AuthedProjectsIndexRoute
   '/_authed/questions/': typeof AuthedQuestionsIndexRoute
   '/_authed/rfx/': typeof AuthedRfxIndexRoute
   '/_authed/sources/': typeof AuthedSourcesIndexRoute
@@ -388,6 +406,7 @@ export interface FileRouteTypes {
     | '/areas/$id'
     | '/doc/$id'
     | '/docs/$id'
+    | '/goals/$id'
     | '/incidents/$id'
     | '/io/$id'
     | '/meetings/$id'
@@ -404,6 +423,7 @@ export interface FileRouteTypes {
     | '/meetings/'
     | '/obligations/'
     | '/people/'
+    | '/projects/'
     | '/questions/'
     | '/rfx/'
     | '/sources/'
@@ -428,6 +448,7 @@ export interface FileRouteTypes {
     | '/areas/$id'
     | '/doc/$id'
     | '/docs/$id'
+    | '/goals/$id'
     | '/incidents/$id'
     | '/io/$id'
     | '/meetings/$id'
@@ -444,6 +465,7 @@ export interface FileRouteTypes {
     | '/meetings'
     | '/obligations'
     | '/people'
+    | '/projects'
     | '/questions'
     | '/rfx'
     | '/sources'
@@ -469,6 +491,7 @@ export interface FileRouteTypes {
     | '/_authed/areas/$id'
     | '/_authed/doc/$id'
     | '/_authed/docs/$id'
+    | '/_authed/goals/$id'
     | '/_authed/incidents/$id'
     | '/_authed/io/$id'
     | '/_authed/meetings/$id'
@@ -485,6 +508,7 @@ export interface FileRouteTypes {
     | '/_authed/meetings/'
     | '/_authed/obligations/'
     | '/_authed/people/'
+    | '/_authed/projects/'
     | '/_authed/questions/'
     | '/_authed/rfx/'
     | '/_authed/sources/'
@@ -652,6 +676,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedDocsIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/goals/$id': {
+      id: '/_authed/goals/$id'
+      path: '/goals/$id'
+      fullPath: '/goals/$id'
+      preLoaderRoute: typeof AuthedGoalsIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/incidents/$id': {
       id: '/_authed/incidents/$id'
       path: '/incidents/$id'
@@ -713,6 +744,13 @@ declare module '@tanstack/react-router' {
       path: '/people/$id'
       fullPath: '/people/$id'
       preLoaderRoute: typeof AuthedPeopleIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/projects/': {
+      id: '/_authed/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof AuthedProjectsIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/projects/$id': {
@@ -792,6 +830,7 @@ interface AuthedRouteChildren {
   AuthedAreasIdRoute: typeof AuthedAreasIdRoute
   AuthedDocIdRoute: typeof AuthedDocIdRoute
   AuthedDocsIdRoute: typeof AuthedDocsIdRoute
+  AuthedGoalsIdRoute: typeof AuthedGoalsIdRoute
   AuthedIncidentsIdRoute: typeof AuthedIncidentsIdRoute
   AuthedIoIdRoute: typeof AuthedIoIdRoute
   AuthedMeetingsIdRoute: typeof AuthedMeetingsIdRoute
@@ -808,6 +847,7 @@ interface AuthedRouteChildren {
   AuthedMeetingsIndexRoute: typeof AuthedMeetingsIndexRoute
   AuthedObligationsIndexRoute: typeof AuthedObligationsIndexRoute
   AuthedPeopleIndexRoute: typeof AuthedPeopleIndexRoute
+  AuthedProjectsIndexRoute: typeof AuthedProjectsIndexRoute
   AuthedQuestionsIndexRoute: typeof AuthedQuestionsIndexRoute
   AuthedRfxIndexRoute: typeof AuthedRfxIndexRoute
   AuthedSourcesIndexRoute: typeof AuthedSourcesIndexRoute
@@ -831,6 +871,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAreasIdRoute: AuthedAreasIdRoute,
   AuthedDocIdRoute: AuthedDocIdRoute,
   AuthedDocsIdRoute: AuthedDocsIdRoute,
+  AuthedGoalsIdRoute: AuthedGoalsIdRoute,
   AuthedIncidentsIdRoute: AuthedIncidentsIdRoute,
   AuthedIoIdRoute: AuthedIoIdRoute,
   AuthedMeetingsIdRoute: AuthedMeetingsIdRoute,
@@ -847,6 +888,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedMeetingsIndexRoute: AuthedMeetingsIndexRoute,
   AuthedObligationsIndexRoute: AuthedObligationsIndexRoute,
   AuthedPeopleIndexRoute: AuthedPeopleIndexRoute,
+  AuthedProjectsIndexRoute: AuthedProjectsIndexRoute,
   AuthedQuestionsIndexRoute: AuthedQuestionsIndexRoute,
   AuthedRfxIndexRoute: AuthedRfxIndexRoute,
   AuthedSourcesIndexRoute: AuthedSourcesIndexRoute,

@@ -87,8 +87,8 @@ export const AgendaItemFields = graphql(/* GraphQL */ `
     overdue
     detail
     why
-    project
-    projectName
+    goal
+    goalName
     who
     whoNames
     optional
@@ -138,8 +138,8 @@ const ObligationShowDoc = graphql(/* GraphQL */ `
                 assignee
                 assigneeName
                 doneWhen
-                project
-                projectName
+                goal
+                goalName
                 needsYou
                 reason
               }

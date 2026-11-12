@@ -21,7 +21,7 @@ const DocTrackedDoc = graphql(/* GraphQL */ `
             system
             status
             owner
-            project
+            goal
             area
             latest
             lastSeen
@@ -49,7 +49,7 @@ const DocShowDoc = graphql(/* GraphQL */ `
             system
             status
             owner
-            project
+            goal
             area
             latest
             lastSeen
