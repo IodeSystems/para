@@ -226,7 +226,7 @@ func steps() []Step {
 			Instructions: "Each document the selector lists is an area of kind project (or with no kind), or an active goal with no done_when and no due. " +
 				"A project is now an ongoing tracked thing with a state line, goals in flight, and an icebox; an area is a facet, information about working in an area. " +
 				"For each one, read it (show) and what links it, then ask the owner which it is, in one question with your recommendation and the reason: " +
-				"an ongoing project (doc_retype {id, type: project, fields: {status: active, folded_from: area or goal}}; then the goals that name it as their area get project: [[id]] with edit), " +
+				"an ongoing project (doc_retype {id, type: project, fields: {status: active, folded_from: area or goal}}; then the goals that name it as their area get project: the new project's id, with edit), " +
 				"a concept area (edit {id, fields: {kind: concept}}), or, for a goal, a goal that needs a done_when (edit {id, fields: {done_when}}). " +
 				"Do not decide for the owner. The owner may keep it as it is with health_dismiss {id, kind: " + ProjectSort + "}.",
 			Done: "No area of kind project or with no kind, and no active goal with no done_when and no due, is left, or the owner dismissed it.",
