@@ -118,6 +118,10 @@
   .line p b { color:var(--text); font-weight:600; }
   .made { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
   .made span { font:12px/1.5 var(--sans); color:var(--text2); background:var(--surface2); border:1px solid var(--border); border-radius:5px; padding:0 6px; }
+  .proj-app { margin:0 0 var(--s8); max-width:680px; }
+  .proj-app .age { font:12px/1 var(--mono); color:var(--text3); margin-left:var(--s2); }
+  .proj-app .age.stale, .proj-app .made .off { color:var(--owe); }
+  .proj-app .made .w { color:var(--wait); }
   .app figcaption { font:11px/1 var(--mono); color:var(--text3); padding:0 var(--s4) var(--s3); }
 
   section { padding:var(--s24) 0; border-top:1px solid var(--border); }
@@ -284,13 +288,27 @@
   <div class="wrap">
     <p class="kicker">what it keeps</p>
     <h2 id="keeps-h">Everything you are on the hook for, in one place.</h2>
-    <p class="intro">Organized the PARA way (projects, areas, resources, archive), plus what PARA leaves out: what came in, and what goes out.</p>
+    <p class="intro">Seven kinds, PARALOG: Projects, Areas, Resources, Asks, Logs, Obligations, Goals. Each answers one question about what you carry.</p>
+    <figure class="app proj-app" role="img" aria-label="para's Projects view with sample data: two ongoing projects, each with a state line and its age, goals in flight, what it waits on, and a KPI that is off target.">
+      <div class="app-bar" aria-hidden="true"><span class="dots"><i></i><i></i><i></i></span><span class="tab">Next</span><span class="tab on">Projects</span><span class="tab">Goals</span><span class="tab">Asks</span></div>
+      <div class="app-body" aria-hidden="true">
+        <div class="line"><div><p><b>Pilot platform</b> <span class="age">state set 3 days ago</span></p>
+          <p>“Staging is up in eu-west; waiting on security before customer data moves.”</p>
+          <div class="made"><span>2 goals in flight</span><span class="w">waits on Dana Okafor: sign-off</span><span class="off">KPI off: weekly signups 18 vs 40</span><span>next cron: Mon</span></div></div></div>
+        <div class="line"><div><p><b>Support desk</b> <span class="age stale">state set 19 days ago</span></p>
+          <p>“Queue is steady; hiring a second agent is parked.”</p>
+          <div class="made"><span>1 goal in flight</span><span>1 parked: resume when budget is set</span><span>KPIs on target</span></div></div></div>
+      </div>
+      <figcaption>sample data</figcaption>
+    </figure>
     <div class="cards">
-      <div class="card"><p class="tag">goals</p><h3>Bounded, with a done-when</h3><p>Tasks form a graph with dependencies and blockers that carry reasons. The agent breaks a goal down and keeps it moving; you see what is stuck and why.</p></div>
-      <div class="card"><p class="tag">areas</p><h3>Ongoing responsibilities</h3><p>Health, money, a client, a system you run: each with its policies, exceptions, and a review date. Agents quote the source and link it, so you know what holds.</p></div>
-      <div class="card"><p class="tag">people &amp; asks</p><h3>Who decides, and what you asked</h3><p>People and groups, how to reach them, and every Ask with its answer, or a "no" with its reason, where it applies, and when to ask again.</p></div>
-      <div class="card"><p class="tag">documents</p><h3>Linked, not copied</h3><p>Plans and docs stay where they live. para links to them and tracks their versions and comments, so it never holds a stale second copy.</p></div>
-      <div class="card"><p class="tag">history</p><h3>Every write has a receipt</h3><p>Each agent change carries why, sources, and a diff, and most can be undone. Closed work keeps its outcome. Activity shows who changed what, on every machine.</p></div>
+      <div class="card"><p class="tag">projects</p><h3>Ongoing, with a state line</h3><p>One dated line on where it stands. Goals in flight, what it waits on, an icebox of parked goals with the condition that brings each back, crons, KPIs with targets, and history.</p></div>
+      <div class="card"><p class="tag">goals</p><h3>Finite, with a done-when</h3><p>Tasks form a graph with dependencies and blockers that carry reasons. The agent breaks a goal down and keeps it moving; you see what is stuck and why.</p></div>
+      <div class="card"><p class="tag">obligations</p><h3>What you owe</h3><p>Replies, promises, and repeating duties, each with a due date and who is owed. They land in Next before anyone asks twice.</p></div>
+      <div class="card"><p class="tag">asks</p><h3>Who you wait on</h3><p>Every Ask with its answer, or a "no" with its reason, where it applies, and when to ask again. People and groups, and how to reach them.</p></div>
+      <div class="card"><p class="tag">areas</p><h3>How you work in a field</h3><p>Health, money, a client, a system you run: its policies, exceptions, and a review date. Agents quote the source, so you know what holds.</p></div>
+      <div class="card"><p class="tag">resources</p><h3>Documentation and proof</h3><p>Plans and docs stay where they live. para links to them and tracks versions and comments, so it never holds a stale second copy.</p></div>
+      <div class="card"><p class="tag">logs</p><h3>Journal and history</h3><p>Every agent write has a receipt: why, sources, and a diff, and most can be undone. Closed work keeps its outcome. A journal can link a project.</p></div>
       <div class="card"><p class="tag">vaults</p><h3>One per front</h3><p>Keep your company, your job, and your life in separate vaults. A work vault opens only on the work machine; the rest can share one desktop.</p></div>
     </div>
   </div>
