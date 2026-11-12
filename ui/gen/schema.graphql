@@ -258,7 +258,7 @@ type ParaV1QueryNamespace {
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
-  questionList(all: Boolean, area: String, deferred: Boolean, goal: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
+  questionList(about: String, all: Boolean, area: String, deferred: Boolean, goal: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   receiptList(actor: String, batch: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
   reportOutcomes(since: String, until: String): para_ReportOutcomesOutput @derived(operationId: "reportOutcomes")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
@@ -2979,6 +2979,12 @@ input para_IOApproveInputInput {
   id: String
   items: [para_IOApproveItemInput!]
   ownerSaid: String
+  voice: para_IOApproveInputVoice
+}
+
+enum para_IOApproveInputVoice {
+  as_me
+  for_me
 }
 
 input para_IOApproveItemInput {
@@ -3307,6 +3313,7 @@ type para_IOItem {
   group: String
   id: String!
   impact: String
+  importedFrom: String
   kind: String
   legacy: Boolean
   links: [String!]!
@@ -3315,6 +3322,8 @@ type para_IOItem {
   needsYou: Boolean!
   needsYouReason: String
   notStated: [String!]
+  preparedAt: String
+  preparedBy: String
   reason: String
   ref: String
   reviewed: String
@@ -3330,8 +3339,11 @@ type para_IOItem {
   triage: para_IOItemTriage
   triageBy: String
   unverifiable: Boolean
+  url: String
   variantOf: String
   verify: String
+  viaRef: String
+  viaSource: String
   voice: para_IOItemVoice
   why: String
 }
@@ -4724,6 +4736,7 @@ enum para_MeetingViewStatus {
 }
 
 type para_Meta {
+  about: String
   activeAt: String
   actor: String
   agent: String
@@ -6559,6 +6572,7 @@ enum para_QuestionAddInputEffort {
 }
 
 input para_QuestionAddInputInput {
+  about: String
   area: String
   context: String
   effort: para_QuestionAddInputEffort
@@ -6717,6 +6731,7 @@ type para_QuestionShowOutput {
 }
 
 type para_QuestionView {
+  about: String
   agentLooking: Boolean!
   answered: String
   answeredBy: String

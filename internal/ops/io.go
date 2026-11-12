@@ -390,6 +390,15 @@ type IOItem struct {
 	// Made is the number of documents agent writes changed while ingesting
 	// this item (io_made lists them). Set by io_list.
 	Made int `json:"made,omitempty"`
+	// Provenance, set by io_show: the file the item was imported from, who
+	// prepared it and when, the private source reference (Via), and the link to
+	// the original (URL).
+	ImportedFrom string `json:"imported_from,omitempty"`
+	PreparedBy   string `json:"prepared_by,omitempty"`
+	PreparedAt   string `json:"prepared_at,omitempty"`
+	ViaSource    string `json:"via_source,omitempty"`
+	ViaRef       string `json:"via_ref,omitempty"`
+	URL          string `json:"url,omitempty"`
 }
 
 func ioItem(doc model.Document, m *model.IO) IOItem {
@@ -397,6 +406,16 @@ func ioItem(doc model.Document, m *model.IO) IOItem {
 	it.Why, it.Impact, it.Group, it.VariantOf, it.Revision, it.Reviewed = m.Why, m.Impact, m.Group, m.VariantOf, m.Revision, m.Reviewed
 	it.Assessments = append([]model.IOAssessment{}, m.Assessments...)
 	it.Revisions, it.Attempts = m.Revisions, m.Attempts
+	it.URL = m.URL
+	if m.ImportedFrom != nil {
+		it.ImportedFrom = m.ImportedFrom.Path
+	}
+	if m.Prepared != nil {
+		it.PreparedBy, it.PreparedAt = m.Prepared.By, m.Prepared.At
+	}
+	if m.Via != nil {
+		it.ViaSource, it.ViaRef = m.Via.Source, m.Via.Ref
+	}
 	if m.Direction == model.IOOut {
 		it.DraftHash = m.DraftHash(doc.Body)
 		for _, n := range model.AssessmentNames {
@@ -797,7 +816,7 @@ var IOEdit = defineSafe("io_edit", "Change an outgoing draft (text, subject, to,
 	switch in.State {
 	case model.IOReady:
 		// The owner marks it ready: that is their approval of this text.
-		if err := markApproved(ctx, d, &doc, m); err != nil {
+		if err := markApproved(ctx, d, &doc, m, false); err != nil {
 			return IOEditOutput{}, err
 		}
 	case model.IODraft:
@@ -868,6 +887,10 @@ type IOApproveInput struct {
 	// OwnerSaid is the owner's words from the chat that approve this draft,
 	// verbatim. Required on an agent surface; the receipt is self-reported.
 	OwnerSaid string `json:"owner_said,omitempty"`
+	// Voice: as_me (default) approves the text as the owner's own: a for_me
+	// draft loses its stamp. for_me keeps the stamp, voice, and agent: the
+	// owner approves the stamped text and an agent may send it for them.
+	Voice model.IOVoice `json:"voice,omitempty"`
 }
 
 // IOApproveItem is one draft of a batch approval and the hash the owner saw.
@@ -901,7 +924,7 @@ type IOApproved struct {
 // draft's hash and makes it ready to send. An agent may record it only with
 // the owner's words from the chat (D3); no other op takes chat approval. A
 // batch approves only the pairs it names, all or none.
-var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. Give expect_hash, the draft_hash the owner saw (io_show, io_list): a draft that changed since is refused with a message that contains stale_hash:. Several at once: items [{id, expect_hash}]; only those are approved, never another draft of their group, and all or none. Approving one variation (variant_of) closes the others of its set as superseded. One receipt; receipt_undo reverses all of it. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. A for_me draft becomes as_me: its stamp comes off, and the owner approves the text without it. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
+var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing draft for sending: its exact medium, to, subject, and text are approved, and it becomes ready. Give expect_hash, the draft_hash the owner saw (io_show, io_list): a draft that changed since is refused with a message that contains stale_hash:. Several at once: items [{id, expect_hash}]; only those are approved, never another draft of their group, and all or none. Approving one variation (variant_of) closes the others of its set as superseded. One receipt; receipt_undo reverses all of it. From an agent, only with owner_said: the owner's words in this chat that approve this draft, verbatim; the receipt is marked self-reported. Never approve without them. An edit of the draft after approval makes it a draft again. voice as_me (default): a for_me draft becomes as_me: its stamp comes off, and the owner approves the text without it, so it goes out as the owner. voice for_me: the owner approves the stamped text; stamp, voice, and agent stay, an agent may send it for the owner without a delegation rule (never remove the stamp), and it is refused on a draft that is not for_me. The approval records the newest incoming message of the draft's conversation: right before you send, read the channel again, io_add what is new, and call io_send_check; send with your own tool only when it passes, then io_send", func(ctx context.Context, d Deps, in IOApproveInput) (IOApproveOutput, error) {
 	out := IOApproveOutput{Items: []IOApproved{}, Superseded: []string{}}
 	said := strings.TrimSpace(in.OwnerSaid)
 	agent := agentSurface(d)
@@ -913,6 +936,10 @@ var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing dra
 			return out, err
 		}
 	}
+	if err := checkVoice(in.Voice); err != nil {
+		return out, err
+	}
+	keep := in.Voice == model.VoiceForMe
 	pairs := []IOApproveItem{{ID: in.ID, ExpectHash: in.ExpectHash}}
 	if len(in.Items) > 0 {
 		if in.ID != "" || in.ExpectHash != "" {
@@ -941,6 +968,9 @@ var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing dra
 		if err := checkOut(m); err != nil {
 			return out, fmt.Errorf("%s: %w", doc.ID, err)
 		}
+		if keep && !m.ForMe() {
+			return out, fmt.Errorf("%s is not a for_me draft: it has no stamp to keep; approve it with voice as_me (or leave voice out)", doc.ID)
+		}
 		if want, now := strings.TrimSpace(p.ExpectHash), m.DraftHash(doc.Body); want != "" && want != now {
 			return out, fmt.Errorf(ErrStaleHash+" %s changed after the owner saw it, so it is not approved: show the owner the draft as it is now and approve that (draft_hash %s)", doc.ID, now)
 		}
@@ -955,7 +985,7 @@ var IOApprove = withOneReceipt(defineSafe("io_approve", "Approve an outgoing dra
 		todo = append(todo, approval{doc, m})
 	}
 	for _, a := range todo {
-		if err := markApproved(ctx, d, &a.doc, a.m); err != nil {
+		if err := markApproved(ctx, d, &a.doc, a.m, keep); err != nil {
 			return out, err
 		}
 		saved, err := d.Store.Update(ctx, a.doc)

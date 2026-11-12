@@ -43,10 +43,10 @@ export function VoiceNote({ item }: { item: VoiceItem }) {
       {forMe && open && d && (
         <Typography variant="body2" color="text.secondary" data-delegation>
           {d.rule
-            ? `The agent may send it without your review: ${d.rule}. Approve to send it as you instead (the stamp comes off).`
+            ? `The agent may send it without your review: ${d.rule}. Approve as Me sends it as you instead (the stamp comes off).`
             : !d.file
-              ? 'You have no delegation rules (.para/delegation.yaml): it waits for your approval. Approve sends it as you, without the stamp.'
-              : `No delegation rule allows it${d.misses[0] ? ` (rule ${d.misses[0].rule}: ${d.misses[0].why})` : ''}: it waits for your approval. Approve sends it as you, without the stamp.`}
+              ? 'You have no delegation rules (.para/delegation.yaml): it waits for your approval. Approve lets the agent send it for you, with the stamp; Approve as Me sends it as you, without the stamp.'
+              : `No delegation rule allows it${d.misses[0] ? ` (rule ${d.misses[0].rule}: ${d.misses[0].why})` : ''}: it waits for your approval. Approve lets the agent send it for you, with the stamp; Approve as Me sends it as you, without the stamp.`}
         </Typography>
       )}
     </Box>

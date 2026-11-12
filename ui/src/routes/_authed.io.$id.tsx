@@ -25,7 +25,7 @@ import { VoiceNote, voiceWords } from '@/components/Voice'
 export const Route = createFileRoute('/_authed/io/$id')({ component: IoItemPage })
 
 // One io item. Agents file, send, and drop it; the owner approves outgoing drafts. With a
-// review:decide key the owner may mark an outbox draft sent by themself (Done by me).
+// review:decide key the owner may mark an outbox draft sent by themself (Mark Done).
 function IoItemPage() {
   const { id } = Route.useParams()
   const { session } = Route.useRouteContext()
@@ -59,6 +59,17 @@ function IoItemPage() {
               : ''
         const answers = item.thread ? <DocLink id={item.thread} /> : ''
         const became = item.became ? <DocLink id={item.became} /> : ''
+        const url = item.url ? (
+          <Link href={item.url} target="_blank" rel="noreferrer" sx={{ overflowWrap: 'anywhere' }}>
+            {item.url}
+          </Link>
+        ) : (
+          ''
+        )
+        const prepared = item.preparedBy
+          ? `${item.preparedBy}${item.preparedAt ? ` on ${item.preparedAt.slice(0, 10)}` : ''}`
+          : ''
+        const via = [item.viaSource, item.viaRef].filter(Boolean).join(' ')
         const rows: { k: string; v: ReactNode }[] = [
           { k: out ? 'To' : 'From', v: out ? to : from },
           { k: out ? 'From' : 'To', v: out ? from : to },
@@ -68,6 +79,11 @@ function IoItemPage() {
           { k: 'When', v: when },
           { k: 'Subject', v: item.subject },
           { k: 'Link', v: link },
+          { k: 'URL', v: url },
+          { k: 'Via', v: via },
+          { k: 'Imported from', v: item.importedFrom },
+          { k: 'Prepared by', v: prepared },
+          { k: 'Created', v: item.created },
           { k: 'Expects', v: expects },
           { k: 'Answers', v: answers },
           { k: item.state === 'sent' ? 'Became' : 'Filed as', v: became },
@@ -216,7 +232,8 @@ function Parties({ list }: { list: readonly string[] }) {
 
 // Approve is the owner's approval of an outgoing draft: its exact text, as it is now, becomes ready
 // to send. An edit after it makes it a draft again. approved says the draft is approved already.
-// A for_me draft becomes as you: its stamp comes off, and you approve the text without it.
+// For a for_me draft: Approve as Me (the stamp comes off, it goes out as you) and Approve (the stamp
+// stays, an agent may send it for you).
 function Approve({ id, approved, forMe }: { id: string; approved: boolean; forMe: boolean }) {
   const approve = useIOApprove()
   if (approve.isSuccess || approved) {
@@ -228,16 +245,30 @@ function Approve({ id, approved, forMe }: { id: string; approved: boolean; forMe
   }
   return (
     <Box sx={{ mb: 1 }}>
-      <Button
-        size="small"
-        variant="contained"
-        color="success"
-        data-act="approve"
-        disabled={approve.isPending}
-        onClick={() => approve.mutate(id)}
-      >
-        {forMe ? 'Approve as you' : 'Approve'}
-      </Button>
+      <Stack direction="row" spacing={1}>
+        {forMe && (
+          <Button
+            size="small"
+            variant="outlined"
+            color="success"
+            data-act="approve-as-me"
+            disabled={approve.isPending}
+            onClick={() => approve.mutate({ id, voice: 'as_me' })}
+          >
+            Approve as Me
+          </Button>
+        )}
+        <Button
+          size="small"
+          variant="contained"
+          color="success"
+          data-act="approve"
+          disabled={approve.isPending}
+          onClick={() => approve.mutate(forMe ? { id, voice: 'for_me' } : { id })}
+        >
+          Approve
+        </Button>
+      </Stack>
       {approve.isError && (
         <Typography variant="body2" color="error" sx={{ mt: 0.5 }}>
           {errorText(approve.error)}
@@ -247,7 +278,7 @@ function Approve({ id, approved, forMe }: { id: string; approved: boolean; forMe
   )
 }
 
-// SentByMe is Done by me on an outbox draft: the owner sent it themself. Para marks it sent and
+// SentByMe is Mark Done on an outbox draft: the owner sent it themself. Para marks it sent and
 // files it as an agent's send would. open says the draft is not sent yet.
 function SentByMe({ id, text, open: unsent }: { id: string; text: string; open: boolean }) {
   const [open, setOpen] = useState(false)
@@ -268,7 +299,7 @@ function SentByMe({ id, text, open: unsent }: { id: string; text: string; open: 
         data-act="done"
         onClick={() => setOpen((x) => !x)}
       >
-        Done by me
+        Mark Done
       </Button>
       {open && (
         <DoneForm

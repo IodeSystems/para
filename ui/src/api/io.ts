@@ -89,6 +89,12 @@ const IoShowDoc = graphql(/* GraphQL */ `
                 kind
                 allowedBy
                 draftHash
+                importedFrom
+                preparedBy
+                preparedAt
+                viaSource
+                viaRef
+                url
               }
             }
           }
@@ -260,11 +266,14 @@ export async function approveIo(body: {
 
 // useIOApprove is Approve on an outgoing draft: the owner approves its exact medium, to, subject,
 // and text (io_approve, the owner's path), and it is ready for an agent to send. People only.
+// voice for_me keeps the stamp of a for_me draft; left out (as_me) the stamp comes off.
 export function useIOApprove() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (id: string) =>
-      need((await gqlClient.request(IOApproveDoc, { body: { id } })).para.v1.ioApprove, 'approve'),
+    mutationFn: async (arg: string | { id: string; voice?: 'as_me' | 'for_me' }) => {
+      const body = typeof arg === 'string' ? { id: arg } : arg
+      return need((await gqlClient.request(IOApproveDoc, { body })).para.v1.ioApprove, 'approve')
+    },
     onSettled: () => qc.invalidateQueries(),
   })
 }

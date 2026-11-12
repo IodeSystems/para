@@ -179,6 +179,7 @@ func newIOCmd(l *loader) *cobra.Command {
 			Flags: func(fs *pflag.FlagSet, in *ops.IOApproveInput) {
 				fs.StringVar(&in.ExpectHash, "expect-hash", "", "the draft_hash you saw (io show); refused if the draft changed since")
 				fs.StringVar(&in.OwnerSaid, "owner-said", "", "as an agent: the owner's words that approve this draft, verbatim")
+				fs.StringVar((*string)(&in.Voice), "voice", "", "as_me (default): strip a for_me stamp, goes out as you; for_me: keep the stamp, an agent sends it for you")
 			},
 			Bind: func(args []string, in *ops.IOApproveInput) error {
 				if len(args) == 1 && !strings.Contains(args[0], "=") {

@@ -7,7 +7,7 @@ import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { diffKind, splitDiff } from '@/lib/diff'
 
-// Pieces shared by the diff view and the Done by me form.
+// Pieces shared by the diff view and the Mark Done form.
 
 export const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
 export const block = {
@@ -47,7 +47,7 @@ export function DiffBlock({ lines, label }: { lines: string[]; label?: string })
 
 export type DoneFields = { url: string; locator: string; text: string; note: string }
 
-// DoneForm is the inline form of Done by me: where the result is, the final text, and a note. It
+// DoneForm is the inline form of Mark Done: where the result is, the final text, and a note. It
 // is part of the page, not a browser dialog. Confirm takes effect at once.
 export function DoneForm({
   start,
@@ -73,7 +73,7 @@ export function DoneForm({
     <Box
       data-done-form
       role="group"
-      aria-label="Done by me"
+      aria-label="Mark Done"
       sx={{ my: 1, p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1 }}
     >
       <Typography variant="body2" sx={{ mb: 1 }}>

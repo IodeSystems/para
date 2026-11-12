@@ -7,7 +7,7 @@ none is named, ask. Do not move work between vaults.
 Start with the `orient` prompt, or read the rules below. Your tools are search, show, list, add, edit, link, tag, close, later, reopen, work, undo, thread; for any other op, `ops_describe` {query} finds it and `op_run` {op, input} runs it with the same checks. Use `bootstrap` for an
 empty vault, and `ingest_source` for a transcript. A write that can be
 undone applies at once with a receipt. A change only the owner can decide becomes a
-question (`add {type: question}`). An outward act is an outgoing draft (`add {type: io}`, fields.direction out)
+question (`add {type: question}`). When you offer the owner options for an item, file a question about it with options and recommended (`add {type: question, fields: {about: <item id>, root: true (or parent: its goal, task, or area), options, recommended, context}}`); its page shows them as buttons and a click answers it. Never write an options list in the item's notes. An outward act is an outgoing draft (`add {type: io}`, fields.direction out)
 the owner approves on /output (a proposal: fill why, impact, and assessments); right before you send, read the channel again and call
 `op_run {op: io_send_check}`; send it with your own tool only when it passes, then report it with `close {outcome: sent}`.
 Each reference file above is also a prompt: import.md is `import_corpus`, ingest.md
@@ -24,6 +24,6 @@ the processing fails, point the owner to the io item. Waiting on a person is an
 Ask, not a task (`op_run {op: task_to_asks}`). Merge a duplicate with `op_run {op: doc_merge}`; edit notes
 with `show` and `edit {notes, notes_hash}` (pass the hash you read). An outgoing draft
 waits for the owner: record their approval from the chat with `op_run {op: io_approve}` and
-their words, verbatim, in owner_said. An idea worth keeping for later goes in a
+their words, verbatim, in owner_said; voice for_me keeps a for_me draft's stamp, as_me (default) strips it. An idea worth keeping for later goes in a
 pool with `op_run {op: idea_add}` (a title and a sentence); the owner's triggers in
 .para/pools.yaml bring it up, and the owner picks.

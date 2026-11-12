@@ -884,7 +884,7 @@ try {
     )
   const ioPage = outDraft('Minutes', 'Hi Sam, the minutes.')
   const ioApprove = outDraft('Slides', 'Hi Sam, the slides are attached.')
-  // Done by me on an outbox draft page.
+  // Mark Done on an outbox draft page.
   await rpage.goto(`${base}/io/${ioPage}`)
   await rpage.getByRole('heading', { name: 'Minutes' }).waitFor()
   await rpage.locator('[data-act="done"]').click()
@@ -893,7 +893,7 @@ try {
   await rpage.getByText('Marked sent by you.').waitFor()
   check(
     (await agent.call('io_show', { id: ioPage })).item.state === 'sent',
-    'Done by me on an outbox draft marks it sent',
+    'Mark Done on an outbox draft marks it sent',
   )
 
   // PU-PREP: an outgoing draft with text is ready; the agenda marks it, and the chip opens the

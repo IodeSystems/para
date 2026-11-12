@@ -49,7 +49,7 @@ import { humanTime } from '@/lib/when'
 
 // The draft card of an outgoing message. /next shows DraftReady (the text, Approve, Edit in place).
 // The Output page shows ProposalCard: a variation set with the proposal's why, impact, assessments,
-// history, and the owner's moves (Approve, Done by me, Drop, Discuss).
+// history, and the owner's moves (Approve, Mark Done, Drop, Discuss).
 
 export const cardBox = {
   my: 1,
@@ -77,9 +77,9 @@ export function DraftReady({
   const it = q.data?.item
   const approved = it?.state === 'ready'
   const [editing, setEditing] = useState(false)
-  const run = async () => {
+  const run = async (voice?: 'as_me' | 'for_me') => {
     try {
-      await approve.mutateAsync(id)
+      await approve.mutateAsync(voice ? { id, voice } : { id })
       onGone(true)
       toasts.push({
         text: `Approved: ${it?.subject || it?.title || id}`,
@@ -126,6 +126,18 @@ export function DraftReady({
       )}
       {it && <VoiceNote item={it} />}
       <Stack direction="row" spacing={1}>
+        {decide && !approved && it?.voice === 'for_me' && (
+          <Button
+            size="small"
+            variant="outlined"
+            color="success"
+            data-act="approve-as-me"
+            disabled={approve.isPending || !q.data}
+            onClick={() => void run('as_me')}
+          >
+            Approve as Me
+          </Button>
+        )}
         {decide && !approved && (
           <Button
             size="small"
@@ -133,9 +145,9 @@ export function DraftReady({
             color="success"
             data-act="approve"
             disabled={approve.isPending || !q.data}
-            onClick={() => void run()}
+            onClick={() => void run(it?.voice === 'for_me' ? 'for_me' : undefined)}
           >
-            {it?.voice === 'for_me' ? 'Approve as you' : 'Approve'}
+            Approve
           </Button>
         )}
         {approved && (
@@ -559,7 +571,7 @@ export function ProposalCard({
             </Button>
           )}
           <Button size="small" data-act="done" onClick={() => setDialog('done')}>
-            Done by me
+            Mark Done
           </Button>
           <Button size="small" data-act="drop" onClick={() => setDialog('drop')}>
             Drop

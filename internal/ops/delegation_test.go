@@ -290,3 +290,42 @@ func TestOwnerApprovesForMeAsMe(t *testing.T) {
 	}
 	mustLintClean(t, f.owner)
 }
+
+func TestOwnerApprovesForMeKeepingTheStamp(t *testing.T) {
+	f := newDelegationFixture(t)
+	// No delegation file: the draft waits for the owner.
+	a := f.draft(t, "Got it.", "acknowledgement")
+	stamp := func() (string, *model.IO) {
+		doc, m := personaIO(t, f.owner, a.ID)
+		return doc.Body, m
+	}
+	before, m0 := stamp()
+	mustRun(t, IOApprove, f.owner, IOApproveInput{ID: a.ID, Voice: model.VoiceForMe})
+	body, m := stamp()
+	if body != before || m.Voice != model.VoiceForMe || m.Agent != "worker-q" || m.Stamp != m0.Stamp || m.AllowedBy != "" || !m.Approved(body) {
+		t.Fatalf("approved = %+v %q", m, body)
+	}
+	if n := needOf(t, f.owner, a.ID); n.Yes && strings.Contains(n.Reason, "approve") {
+		t.Fatalf("need = %+v", n)
+	}
+	mustRun(t, IOSendCheck, f.worker, IOSendCheckInput{ID: a.ID})
+	if s := mustRun(t, IOSend, f.worker, IOSendInput{ID: a.ID, URL: "https://chat.example.test/m/kept"}); s.State != model.IOSent {
+		t.Fatalf("send = %+v", s)
+	}
+	body, m = stamp()
+	if !strings.HasSuffix(body, m.Stamp) || m.Voice != model.VoiceForMe || m.AllowedBy != "" {
+		t.Fatalf("sent = %+v %q", m, body)
+	}
+}
+
+func TestApproveForMeRefusedOnAsMeDraft(t *testing.T) {
+	f := newDelegationFixture(t)
+	b := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOOut, Text: "See you then.", To: []string{f.pat}, Medium: model.MediumSlack, Expects: model.ExpectsNone})
+	_, err := IOApprove.Run(t.Context(), f.owner, IOApproveInput{ID: b.ID, Voice: model.VoiceForMe})
+	if err == nil || !strings.Contains(err.Error(), "approve it with voice as_me") {
+		t.Fatalf("err = %v", err)
+	}
+	if _, m := personaIO(t, f.owner, b.ID); m.State == model.IOReady {
+		t.Fatal("refused draft was approved")
+	}
+}

@@ -142,9 +142,15 @@ func newestAt(docs []model.Document) string {
 // text, when, and the newest incoming message of its conversation then. A
 // hold or an earlier check is cleared: the owner has seen the situation. A
 // for_me draft becomes as_me first: the stamp comes off, and the owner
-// approves the text without it (delegation.go).
-func markApproved(ctx context.Context, d Deps, doc *model.Document, m *model.IO) error {
-	asMe(doc, m)
+// approves the text without it (delegation.go). With keepStamp the draft stays
+// for_me with its stamp and agent: the owner approved it, no rule did, so
+// AllowedBy is cleared.
+func markApproved(ctx context.Context, d Deps, doc *model.Document, m *model.IO, keepStamp bool) error {
+	if keepStamp {
+		m.AllowedBy = ""
+	} else {
+		asMe(doc, m)
+	}
 	conv, err := conversation(ctx, d, *doc, m)
 	if err != nil {
 		return err
@@ -244,7 +250,9 @@ var IOSendCheck = defineSafe("io_send_check", "Check an outgoing draft right bef
 		t, _ := time.Parse(time.RFC3339Nano, m.CheckedAt)
 		out.OK, out.CheckedAt, out.SendBy, out.Rev = true, m.CheckedAt, t.Add(sendCheckWindow).UTC().Format(time.RFC3339), saved.Rev
 		out.Next = "nothing new since the owner approved: send the exact approved text now with your own tool, then io_send by send_by"
-		if m.ForMe() {
+		if m.ForMe() && m.AllowedBy == "" {
+			out.Next = "nothing new since the owner approved it: send the exact approved text, with its stamp, now with your own tool, then io_send by send_by. Never present it as the owner's own words"
+		} else if m.ForMe() {
 			out.Next = "nothing new since you drafted it: " + m.AllowedBy + " allows it. Send the exact text, with its stamp, now with your own tool, then io_send by send_by"
 		}
 		return out, nil
@@ -276,6 +284,8 @@ func sendGate(d Deps, doc model.Document, m *model.IO) error {
 		return fmt.Errorf("%s is held: %s; the owner approves it again first", doc.ID, m.Held)
 	case m.State != model.IOReady || !m.Approved(doc.Body):
 		return fmt.Errorf("%s is not approved as it is: the owner approves it (io_approve), then io_send_check, then send; if the owner sent it themself and you only saw it, give observed", doc.ID)
+	case m.ForMe() && !stamped(doc.Body, m.Stamp):
+		return fmt.Errorf("%s is for_me and does not end with its stamp %q: never send it as the owner's own words; io_edit with voice for_me to stamp it again", doc.ID, m.Stamp)
 	case m.ApprovedAt == "":
 		return fmt.Errorf("%s has no pre-send check: read the channel again, io_add what is new, then io_send_check before you send", doc.ID)
 	}
