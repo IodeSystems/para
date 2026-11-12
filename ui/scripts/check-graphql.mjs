@@ -180,9 +180,61 @@ const REVIEW_MUTATIONS = new Set([
   'Pin',
   'Unpin',
 ])
+// Scoped mutations: a generic write op the web app may send for one use only. Each entry names the
+// one file that may define the operation, the one field it may select under para.v1, and a pattern
+// that every request of its document in that file must match (what it may write).
+const SCOPED_MUTATIONS = {
+  // owner 2026-11-11: inline edit of a project's state line on /projects/$id. The generic edit op
+  // with fields {state_line} only (the server sets state_date); nothing else may go through Edit.
+  ProjectStateLineSave: {
+    file: 'src/api/projects.ts',
+    field: 'edit',
+    doc: 'ProjectStateLineSaveDoc',
+    request: /^\{\s*body:\s*\{\s*id,\s*fields:\s*\{\s*state_line:\s*\w+,?\s*\},?\s*\},?\s*\}$/,
+  },
+}
+const v1Fields = (d) => {
+  const para = d.selectionSet.selections.find((s) => s.kind === 'Field' && s.name.value === 'para')
+  const v1 = para?.selectionSet?.selections.find((s) => s.kind === 'Field' && s.name.value === 'v1')
+  if (
+    !para ||
+    !v1 ||
+    d.selectionSet.selections.length !== 1 ||
+    para.selectionSet.selections.length !== 1
+  )
+    return null
+  return v1.selectionSet.selections.map((s) => (s.kind === 'Field' ? s.name.value : '(spread)'))
+}
+const scopedOk = (name, d) => {
+  const rule = SCOPED_MUTATIONS[name]
+  const file = d.loc?.source.name ?? '?'
+  if (file !== rule.file) return `mutation ${name} is allowed in ${rule.file} only`
+  const fields = v1Fields(d)
+  if (!fields || fields.length !== 1 || fields[0] !== rule.field)
+    return `mutation ${name} may select para.v1.${rule.field} only`
+  const code = readFileSync(join(root, rule.file), 'utf8')
+  const calls = [
+    ...code.matchAll(
+      new RegExp(`request\\(\\s*${rule.doc}\\s*,\\s*(\\{[^)]*?\\})\\s*,?\\s*\\)`, 'g'),
+    ),
+  ]
+  const total = code.split(rule.doc).length - 2 // the definition is one use
+  if (calls.length === 0 || calls.length !== total)
+    return `${rule.doc} may be used only in a request call`
+  for (const c of calls) {
+    if (!rule.request.test(c[1].trim()))
+      return `${rule.doc} sends ${c[1].replace(/\s+/g, ' ')}: not allowed`
+  }
+  return ''
+}
 for (const d of definitions) {
   if (d.kind === 'OperationDefinition' && d.operation === 'mutation') {
     const name = d.name?.value ?? '(anonymous)'
+    if (Object.hasOwn(SCOPED_MUTATIONS, name)) {
+      const why = scopedOk(name, d)
+      if (why) fail(`${d.loc?.source.name ?? '?'}`, why)
+      continue
+    }
     if (!READ_MUTATIONS.has(name) && !REVIEW_MUTATIONS.has(name)) {
       fail(
         `${d.loc?.source.name ?? '?'}`,

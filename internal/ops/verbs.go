@@ -906,6 +906,8 @@ type ListRow struct {
 	// Obligation is the detail of an obligation row: its kind, schedule,
 	// date, start, who it is owed to or with, and how the promise stands.
 	Obligation *ObligationRow `json:"obligation,omitempty"`
+	// Project is the summary of a project row (projectsummary.go).
+	Project *ProjectRow `json:"project,omitempty"`
 }
 
 // ObligationRow is the detail of an obligation in a list.
@@ -934,7 +936,7 @@ type ListOutput struct {
 var listStates = []string{"", string(LifeOpen), string(LifeLater), string(LifeClosed), "all"}
 
 // List lists items of any type with their lifecycle and needs_you.
-var List = defineRead("list", "List items of a type (task, question, goal, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (default with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
+var List = defineRead("list", "List items of a type (task, question, goal, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (default with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all. project: summary per row, stalest first",
 	func(ctx context.Context, d Deps, in ListInput) (ListOutput, error) {
 		state := strings.TrimSpace(in.State)
 		if !slices.Contains(listStates, state) {
@@ -999,7 +1001,7 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 				continue
 			}
 			out.Count++
-			if in.Limit > 0 && len(out.Rows) >= in.Limit && !in.NeedsYou {
+			if in.Limit > 0 && len(out.Rows) >= in.Limit && !in.NeedsYou && in.Type != model.TypeProject {
 				continue
 			}
 			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
@@ -1012,6 +1014,19 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 				row.Obligation = obligationRow(sn, o)
 			}
 			out.Rows = append(out.Rows, row)
+		}
+		if in.Type == model.TypeProject {
+			sums, err := projectRows(ctx, d, sn, out.Rows)
+			if err != nil {
+				return ListOutput{}, err
+			}
+			for i := range out.Rows {
+				out.Rows[i].Project = sums[out.Rows[i].ID]
+			}
+			sortProjectRows(out.Rows)
+			if in.Limit > 0 && len(out.Rows) > in.Limit {
+				out.Rows = out.Rows[:in.Limit]
+			}
 		}
 		if in.NeedsYou {
 			if err := rankRows(ctx, d, out.Rows); err != nil {

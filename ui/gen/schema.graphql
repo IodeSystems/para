@@ -4467,6 +4467,7 @@ type para_ListRow {
   life: para_ListRowLife!
   needsYou: Boolean!
   obligation: para_ObligationRow
+  project: para_ProjectRow
   rank: Int
   reason: String!
   request: para_SentItem
@@ -6224,6 +6225,17 @@ enum para_ProjectAddOutputFolder {
   sources
   threads
   tracked
+}
+
+type para_ProjectRow {
+  firstWait: String
+  lastActivity: String
+  nextCron: String
+  openGoals: Int!
+  stateAgeDays: Int!
+  stateDate: String
+  stateLine: String
+  waitsOn: Int!
 }
 
 type para_ProjectShowOutput {

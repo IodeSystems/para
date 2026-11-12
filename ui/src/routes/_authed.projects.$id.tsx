@@ -17,7 +17,7 @@ import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { PointerLinks } from '@/components/PointerLinks'
-import { StateLine } from '@/components/ProjectBits'
+import { StateLineEditor } from '@/components/ProjectBits'
 import { DueChip } from '@/components/TaskRows'
 import { nameOr } from '@/lib/names'
 
@@ -96,7 +96,7 @@ function ProjectPage() {
             >
               {p.title || p.id}
             </PageTitle>
-            <StateLine line={p.stateLine} ageDays={d.stateAgeDays} />
+            <StateLineEditor id={p.id} line={p.stateLine} ageDays={d.stateAgeDays} />
             <Typography color="text.secondary" sx={{ ...TEXT, mt: 1, mb: 2 }}>
               {p.owner ? `owner ${nameOr('', p.owner)}` : 'no owner'}
               {p.area && (

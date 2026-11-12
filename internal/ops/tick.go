@@ -66,6 +66,9 @@ type TickOutput struct {
 	// Crons lists the cron runs this pass made a task for, as
 	// "<occurrence>: <task>" (cron.go).
 	Crons []string `json:"crons"`
+	// CronsPaused lists the due cron runs this pass skipped because the
+	// cron's goal is parked, as "<occurrence>: goal parked; next <date>".
+	CronsPaused []string `json:"crons_paused"`
 	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
 	// are in Requests too.
 	Gaps []string `json:"gaps"`
@@ -123,7 +126,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Crons: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Crons: []string{}, CronsPaused: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)

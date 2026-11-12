@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/recur"
@@ -25,7 +26,10 @@ import (
 //     occurrence]], under goal: when the cron names a goal of the project,
 //     else with project: (the one task that links a project directly), and
 //     closes the occurrence, which makes the next. The owner's task lands in
-//     Next; an agent's is assigned to it with agent work.
+//     Next; an agent's is assigned to it with agent work. While the named
+//     goal is parked, tick skips its runs (cronPause): it makes nothing and
+//     moves the occurrence to its next date, so on unpark the runs resume
+//     with no backlog; the bundle line says "paused: goal parked".
 //
 // The schedule is the cron file in the vault. What fired is the task that
 // links the occurrence and the closed occurrence, both vault content, so a
@@ -106,6 +110,13 @@ func tickCrons(ctx context.Context, d Deps, out *TickOutput) error {
 		if due, _ := produceDue(o, now); !due {
 			continue
 		}
+		if paused, err := cronPause(ctx, d, doc, o, now); err != nil {
+			out.Warnings = append(out.Warnings, doc.ID+": paused, goal parked, but the next date was not set: "+err.Error())
+			continue
+		} else if paused != "" {
+			out.CronsPaused = append(out.CronsPaused, doc.ID+": goal parked; next "+paused)
+			continue
+		}
 		if made == nil {
 			if made, err = cronTasks(ctx, d.Store); err != nil {
 				return err
@@ -137,6 +148,43 @@ func tickCrons(ctx context.Context, d Deps, out *TickOutput) error {
 		out.Crons = append(out.Crons, doc.ID+": "+task)
 	}
 	return nil
+}
+
+// goalParked reports whether the cron names a goal and that goal is parked.
+func goalParked(ctx context.Context, s store.Store, o *model.Obligation) bool {
+	g := o.Goal.Target()
+	if g == "" {
+		return false
+	}
+	_, gm, err := getGoal(ctx, s, g)
+	return err == nil && gm.Status == model.GoalParked
+}
+
+// cronPause skips a due run of a cron whose goal is parked: tick makes
+// nothing and moves the open occurrence to its first date after today, so
+// on unpark the runs resume from the next date with no backlog. It returns
+// that date, or "" when the cron is not paused.
+func cronPause(ctx context.Context, d Deps, doc model.Document, o *model.Obligation, now time.Time) (string, error) {
+	if !goalParked(ctx, d.Store, o) {
+		return "", nil
+	}
+	rule, err := recur.Parse(o.Recur)
+	if err != nil {
+		return "", err
+	}
+	from := now
+	if o.Due != "" {
+		if from, err = parseDay(string(o.Due)); err != nil {
+			return "", err
+		}
+	}
+	next := rule.Next(from, now).Format(recur.Layout)
+	o.Due = model.Date(next)
+	wctx := WithWrite(ctx, WriteMeta{Why: "Tick: cron paused, goal " + o.Goal.Target() + " parked", Confidence: model.ConfidenceHigh})
+	if _, err := d.Store.Update(wctx, doc); err != nil {
+		return "", err
+	}
+	return next, nil
 }
 
 // cronTasks maps each cron occurrence to the task that links it (cron:),
@@ -222,12 +270,17 @@ const (
 type cronState struct {
 	id, recur, makes, owed string
 	next, last, outcome    string
+	paused                 bool // its goal is parked: tick skips its runs
 }
 
 // line is the bundle line: "<id> <recur>: makes <what>; <who>; next <date>; last <date> <outcome>".
 func (c cronState) line() string {
 	l := c.id + " " + c.recur + ": makes " + c.makes + "; " + cmp.Or(c.owed, "owner")
-	l += "; next " + cmp.Or(c.next, "none")
+	if c.paused {
+		l += "; paused: goal parked"
+	} else {
+		l += "; next " + cmp.Or(c.next, "none")
+	}
 	if c.last != "" {
 		l += "; last " + c.last + " " + c.outcome
 	}
@@ -268,6 +321,7 @@ func projectCrons(ctx context.Context, s store.Store, mine func(string) bool) ([
 				}
 			}
 			c.owed = strings.Join(targets(o.OwedBy), ",")
+			c.paused = o.Makes == model.MakesTask && goalParked(ctx, s, o)
 			continue
 		}
 		if at := string(cmp.Or(o.Closed, o.Due)); at > c.last {

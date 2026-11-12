@@ -271,3 +271,51 @@ func TestCronLint(t *testing.T) {
 		t.Fatalf("cron task: %v", e)
 	}
 }
+
+// A cron whose goal is parked skips its runs: tick makes nothing, the
+// bundle line says paused, and the open occurrence moves to its next date.
+// On unpark the runs resume from the next due date, with no backlog.
+func TestCronPausedWhileGoalParked(t *testing.T) {
+	tv, d := cronVault(t, "2026-11-06T09:00:00Z")
+	p := must(t, ProjectAdd, d, ProjectAddInput{Title: "Garden"})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Beds", DoneWhen: "Beds planted.", Project: p.ID})
+	cron := addOut(t, d, `{"type":"obligation","title":"Water the beds","fields":{"project":"`+p.ID+`","recur":"weekly","due":"2026-11-06","makes":"task","goal":"`+g.ID+`"}}`)
+	invoke(t, Edit, d, `{"id":"`+g.ID+`","fields":{"status":"parked","resume_when":"after the frost"}}`)
+
+	sh := must(t, ProjectShow, d, ProjectShowInput{ID: p.ID})
+	if len(sh.Crons) != 1 || !strings.Contains(sh.Crons[0], "paused: goal parked") || strings.Contains(sh.Crons[0], "; next ") {
+		t.Fatalf("bundle crons = %v", sh.Crons)
+	}
+	// Three weeks parked: each due run is skipped, no task, no backlog.
+	for _, at := range []string{"2026-11-06", "2026-11-13", "2026-11-20", "2026-11-27"} {
+		tv.at(at + "T09:00:00Z")
+		out := tick(t, d)
+		if len(out.Crons) != 0 || len(out.CronsPaused) != 1 || !strings.HasPrefix(out.CronsPaused[0], cron+": goal parked") {
+			t.Fatalf("%s: crons %v paused %v warnings %v", at, out.Crons, out.CronsPaused, out.Warnings)
+		}
+		if _, tk := cronTaskOf(t, d, cron); tk != nil {
+			t.Fatalf("%s: task made while parked: %+v", at, tk)
+		}
+	}
+	_, o := getOb(t, d, cron)
+	if !o.Open() || o.Due != "2026-12-04" {
+		t.Fatalf("occurrence = open %v due %s", o.Open(), o.Due)
+	}
+	// Unparked mid-week: nothing fires until the next due date, then one run.
+	tv.at("2026-11-30T09:00:00Z")
+	invoke(t, Edit, d, `{"id":"`+g.ID+`","fields":{"status":"active"}}`)
+	if out := tick(t, d); len(out.Crons) != 0 || len(out.CronsPaused) != 0 {
+		t.Fatalf("after unpark: crons %v paused %v", out.Crons, out.CronsPaused)
+	}
+	sh = must(t, ProjectShow, d, ProjectShowInput{ID: p.ID})
+	if len(sh.Crons) != 1 || !strings.Contains(sh.Crons[0], "next 2026-12-04") {
+		t.Fatalf("bundle crons after unpark = %v", sh.Crons)
+	}
+	tv.at("2026-12-04T09:00:00Z")
+	if out := tick(t, d); len(out.Crons) != 1 {
+		t.Fatalf("resumed run = %v %v", out.Crons, out.Warnings)
+	}
+	if _, tk := cronTaskOf(t, d, cron); tk == nil || tk.Goal.Target() != g.ID || tk.Due != "2026-12-04" {
+		t.Fatalf("resumed task = %+v", tk)
+	}
+}

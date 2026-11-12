@@ -1,11 +1,11 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { graphql } from '@/gql'
 import { gqlClient } from '@/client/gqlClient'
 import { need } from '@/client/need'
 
-// Projects: ongoing tracked things. A list is the ids of the active projects (list, type project),
-// then one bundle each (show). The bundle is the page's data and the row's: one query, one cache
-// entry per project. A goal or a former goal id on the project route shows as a goal.
+// Projects: ongoing tracked things. The list is one request (list, type project, with a summary per
+// row); a project page is its bundle (show). A goal or a former goal id on the project route shows as
+// a goal.
 
 const ProjectShowDoc = graphql(/* GraphQL */ `
   query ProjectShow($id: String!) {
@@ -88,14 +88,43 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
   }
 `)
 
-const ProjectIdsDoc = graphql(/* GraphQL */ `
-  query ProjectIds {
+// One request for the Projects view: list {type: project} gives each row its summary, stalest state
+// line first. status '' is every status (state all); the server's default is active.
+const ProjectListDoc = graphql(/* GraphQL */ `
+  query ProjectList($status: String, $state: String) {
     para {
       v1 {
-        list(type: project, status: "active") {
+        list(type: project, status: $status, state: $state) {
           rows {
             id
+            title
+            status
+            project {
+              stateLine
+              stateDate
+              stateAgeDays
+              openGoals
+              waitsOn
+              firstWait
+              nextCron
+              lastActivity
+            }
           }
+        }
+      }
+    }
+  }
+`)
+
+// The owner's inline edit of a project's state line: edit with fields {state_line} only, nothing
+// else (owner 2026-11-11; scoped in scripts/check-graphql.mjs). The server sets state_date.
+const ProjectStateLineSaveDoc = graphql(/* GraphQL */ `
+  mutation ProjectStateLineSave($body: para_EditInputInput!) {
+    para {
+      v1 {
+        edit(body: $body) {
+          op
+          receipt
         }
       }
     }
@@ -112,32 +141,40 @@ export function useProject(id: string) {
   return useQuery({ queryKey: ['project', id], queryFn: () => fetchProject(id) })
 }
 
-// useProjects lists the active projects with their bundles; ids that are not projects are left out.
-export function useProjects() {
-  const ids = useQuery({
-    queryKey: ['project-ids'],
+export type ProjectStatus = 'active' | 'paused' | 'retired' | 'all'
+
+// useProjects lists the projects of a status with their summaries, in one request.
+export function useProjects(status: ProjectStatus) {
+  return useQuery({
+    queryKey: ['projects', status],
+    // The status toggle stays on screen while the next status loads.
+    placeholderData: keepPreviousData,
     queryFn: async () =>
-      need((await gqlClient.request(ProjectIdsDoc)).para.v1.list, 'projects').rows.map((r) => r.id),
+      need(
+        (
+          await gqlClient.request(ProjectListDoc, {
+            status: status === 'all' ? undefined : status,
+            state: status === 'all' ? 'all' : undefined,
+          })
+        ).para.v1.list,
+        'projects',
+      ).rows,
   })
-  const bundles = useQueries({
-    queries: (ids.data ?? []).map((id) => ({
-      queryKey: ['project', id],
-      queryFn: () => fetchProject(id),
-    })),
+}
+
+// useSaveStateLine sets a project's state line (the owner's edit).
+export function useSaveStateLine(id: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (line: string) =>
+      need(
+        (
+          await gqlClient.request(ProjectStateLineSaveDoc, {
+            body: { id, fields: { state_line: line } },
+          })
+        ).para.v1.edit,
+        'state line',
+      ),
+    onSettled: () => qc.invalidateQueries(),
   })
-  const error = ids.error ?? bundles.find((b) => b.error)?.error ?? null
-  const items = bundles.flatMap((b) =>
-    b.data?.__typename === 'para_ProjectShowOutput' ? [b.data] : [],
-  )
-  const isPending = ids.isPending || bundles.some((b) => b.isPending)
-  return {
-    // data is set once every bundle is in; DataState shows the wait and the error.
-    data: isPending || error ? undefined : items,
-    error,
-    isPending,
-    refetch: () => {
-      void ids.refetch()
-      bundles.forEach((b) => void b.refetch())
-    },
-  }
 }
