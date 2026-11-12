@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kindLabel, lastRequestTurn, orderTurns, statusText, threadChips } from './thread'
+import { ioTurnLabel, kindLabel, lastRequestTurn, orderTurns, statusText, threadChips } from './thread'
 
 describe('thread helpers', () => {
   it('labels kinds in the owner words', () => {
@@ -46,5 +46,14 @@ describe('thread helpers', () => {
     ]
     expect(lastRequestTurn(t)?.n).toBe(3)
     expect(lastRequestTurn([])).toBeUndefined()
+  })
+})
+
+describe('ioTurnLabel', () => {
+  it('shows an outgoing draft by its state, not as Sent', () => {
+    expect(ioTurnLabel('out', 'draft')).toBe('Draft')
+    expect(ioTurnLabel('out', 'ready')).toBe('Approved')
+    expect(ioTurnLabel('out', 'sent')).toBe('Sent')
+    expect(ioTurnLabel('in', 'unread')).toBe('Received')
   })
 })

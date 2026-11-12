@@ -9,6 +9,24 @@ export const POST_KINDS: { kind: PostKind; label: string }[] = [
   { kind: 'other', label: 'Other' },
 ]
 
+// ioTurnLabel is the chip word of an io turn: an incoming message is Received; an outgoing one
+// shows its real state (Draft, Approved, Sent), never Sent before it went out.
+export function ioTurnLabel(direction: string | null | undefined, state: string | null | undefined): string {
+  if (direction !== 'out') return 'Received'
+  switch (state) {
+    case 'draft':
+      return 'Draft'
+    case 'ready':
+      return 'Approved'
+    case 'dropped':
+      return 'Dropped'
+    case 'superseded':
+      return 'Replaced'
+    default:
+      return 'Sent'
+  }
+}
+
 // kindLabel is the owner's word for a turn kind; an unknown kind reads as Other.
 export function kindLabel(kind: string | null | undefined): string {
   return POST_KINDS.find((k) => k.kind === kind)?.label ?? 'Other'

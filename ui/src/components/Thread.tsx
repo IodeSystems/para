@@ -18,7 +18,6 @@ import { errorText } from '@/client/gqlClient'
 import { useQueryClient } from '@tanstack/react-query'
 import { canDecide } from '@/client/session'
 import { Section, StatusChip } from '@/components/Bits'
-import { ChoiceBar } from '@/components/ChoiceBar'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { useToasts } from '@/components/ToastStack'
@@ -33,13 +32,12 @@ import {
   turnWithdrawable,
 } from '@/lib/threadEdit'
 import {
-  POST_KINDS,
+  ioTurnLabel,
   kindLabel,
   lastRequestTurn,
   orderTurns,
   statusText,
   threadChips,
-  type PostKind,
 } from '@/lib/thread'
 
 // Thread is the panel of an item's thread: the owner's turns and the agent's answers, oldest first,
@@ -122,7 +120,7 @@ function RequestTurn({ t }: { t: ThreadTurnData }) {
   return (
     <Box sx={{ pl: 1.5, borderLeft: 2, borderColor: 'divider' }} data-thread-turn={t.request}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
-        <Chip size="small" label={kindLabel(t.turnKind)} />
+        {t.turnKind && t.turnKind !== 'other' && <Chip size="small" label={kindLabel(t.turnKind)} />}
         <Typography variant="caption" color="text.secondary" title={exactTime(t.at)}>
           {when(t.at)}
         </Typography>
@@ -316,7 +314,7 @@ function TurnEditor({ t, onDone }: { t: ThreadTurnData; onDone: () => void }) {
 }
 
 function IoTurn({ t }: { t: ThreadTurnData }) {
-  const dir = t.direction === 'out' ? 'Sent' : 'Received'
+  const dir = ioTurnLabel(t.direction, t.state)
   return (
     <Box sx={{ pl: 1.5, borderLeft: 2, borderColor: 'divider' }} data-thread-io={t.io}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
@@ -350,21 +348,20 @@ function IoTurn({ t }: { t: ThreadTurnData }) {
   )
 }
 
-// ThreadComposer posts one turn: a kind, the words, and an optional quote (the selected text of
+// ThreadComposer posts one turn: the words and an optional quote (the selected text of
 // the page, taken with "Quote selection").
 function ThreadComposer({ id }: { id: string }) {
   const { session } = useRouteContext({ from: '/_authed' })
   const post = useThreadPost()
   const toasts = useToasts()
   const qc = useQueryClient()
-  const [kind, setKind] = useState<PostKind>('modify')
   const [text, setText] = useState('')
   const [quote, setQuote] = useState('')
   const input = useRef<HTMLTextAreaElement>(null)
   if (!canDecide(session)) return null
   const send = async () => {
     try {
-      const r = await post.mutateAsync({ id, text: text.trim(), kind, quote: quote.trim() })
+      const r = await post.mutateAsync({ id, text: text.trim(), quote: quote.trim() })
       toasts.push({
         text: 'Sent to the thread',
         note: r.note ?? undefined,
@@ -384,21 +381,6 @@ function ThreadComposer({ id }: { id: string }) {
   }
   return (
     <Stack spacing={1} sx={{ mt: 2 }} data-thread-composer>
-      <Box sx={{ display: 'flex' }}>
-        <ChoiceBar
-          title="Tell the agent"
-          groups={[
-            {
-              key: 'kind',
-              title: 'What is this',
-              options: POST_KINDS.map((k) => ({ value: k.kind, label: k.label })),
-              value: kind,
-              onChange: (v) => setKind(POST_KINDS.find((k) => k.kind === v)?.kind ?? 'other'),
-            },
-          ]}
-          onClosed={() => input.current?.focus()}
-        />
-      </Box>
       {quote && (
         <TextField
           size="small"
@@ -468,7 +450,9 @@ export function ThreadSummary({ id }: { id: string }) {
       {last && (
         <Box sx={{ mt: 0.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            {kindLabel(last.turnKind)}: {last.ownerWords}
+            {last.turnKind && last.turnKind !== 'other'
+              ? `${kindLabel(last.turnKind)}: ${last.ownerWords}`
+              : last.ownerWords}
           </Typography>
           <Typography
             variant="caption"

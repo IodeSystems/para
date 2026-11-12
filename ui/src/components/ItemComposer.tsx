@@ -15,7 +15,6 @@ import { Composer, type ComposerAction } from '@/components/Composer'
 import { useItemDraft } from '@/components/ItemDraft'
 import { useToasts } from '@/components/ToastStack'
 import { useThemeReview } from '@/components/ThemeReview'
-import { POST_KINDS, type PostKind } from '@/lib/thread'
 import { investigable, isClosed, rowKind } from '@/lib/agenda'
 import {
   answerState,
@@ -53,7 +52,6 @@ export function ItemComposer({
   const navigate = useNavigate()
   const qc = useQueryClient()
   const send = useThreadPost()
-  const [postKind, setPostKind] = useState<PostKind>('other')
   const draft = useItemDraft(id)
   const kind = rowKind(meta.type, meta.kind)
   const closed = isClosed(meta.status)
@@ -89,7 +87,6 @@ export function ItemComposer({
       const res = await send.mutateAsync({
         id,
         text,
-        kind: postKind,
         attachments: atts.length ? atts.map((a) => a.path) : undefined,
       })
       toasts.push({
@@ -232,13 +229,6 @@ export function ItemComposer({
         actionsReady={asking && choice !== ''}
         choicesTitle="Tell the agent"
         choices={[
-          {
-            key: 'kind',
-            title: 'What is this',
-            options: POST_KINDS.map((k) => ({ value: k.kind, label: k.label })),
-            value: postKind,
-            onChange: (v) => setPostKind(POST_KINDS.find((k) => k.kind === v)?.kind ?? 'other'),
-          },
           {
             key: 'answer',
             title: 'Answer',

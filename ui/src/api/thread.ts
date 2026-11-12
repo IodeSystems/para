@@ -94,7 +94,7 @@ export type ThreadTurnData = ThreadData['turns'][number]
 export type ThreadPostBody = {
   id: string
   text: string
-  kind: PostKind
+  kind?: PostKind
   quote?: string
   attachments?: string[]
 }
