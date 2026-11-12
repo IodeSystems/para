@@ -90,12 +90,14 @@ export function actorLabel(actor: string): string {
   return name ? `agent ${name}` : 'agent'
 }
 
-export type OpGroup = 'add' | 'edit' | 'close' | 'send' | 'link' | 'undo' | 'system'
+export type OpGroup = 'add' | 'edit' | 'close' | 'approve' | 'send' | 'link' | 'undo' | 'system'
 
-// opGroup groups an op name (note_add, io_send, receipt_undo) by what it did.
+// opGroup groups an op name (note_add, io_send, receipt_undo) by what it did. An approval is not a
+// send: the draft goes out in a later step.
 export function opGroup(op: string): OpGroup {
   if (/undo|revert/.test(op)) return 'undo'
-  if (/^(io_send|io_approve|rfx_nudge|rfx_reply)/.test(op)) return 'send'
+  if (op.startsWith('io_approve')) return 'approve'
+  if (/^(io_send|rfx_nudge|rfx_reply)/.test(op)) return 'send'
   if (/(close|done|drop|cancel|resolve|retire|fail|archive)/.test(op)) return 'close'
   if (/(link|depends|^tag|_tag)/.test(op)) return 'link'
   if (

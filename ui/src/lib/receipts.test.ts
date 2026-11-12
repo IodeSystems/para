@@ -99,6 +99,7 @@ describe('actor and op chips', () => {
     expect(g('task_edit')).toBe('edit')
     expect(g('task_done')).toBe('close')
     expect(g('io_send')).toBe('send')
+    expect(g('io_approve')).toBe('approve')
     expect(g('goal_link_add')).toBe('link')
     expect(g('tag_add')).toBe('link')
     expect(g('receipt_undo')).toBe('undo')

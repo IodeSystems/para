@@ -118,9 +118,13 @@ function startAgent() {
       `${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' })}\n`,
     )
   })
+  // An op that is not one of the MCP tools runs through op_run, as an agent calls it.
   const call = async (name, args) => {
     await ready
-    const m = await rpc('tools/call', { name, arguments: args })
+    const tool = MCP_TOOLS.has(name)
+      ? { name, arguments: args }
+      : { name: 'op_run', arguments: { op: name, input: args } }
+    const m = await rpc('tools/call', tool)
     if (m.error) throw new Error(`mcp ${name}: ${JSON.stringify(m.error)}`)
     const text = m.result?.content?.[0]?.text ?? ''
     if (m.result?.isError) throw new Error(`mcp ${name}: ${text}`)
@@ -128,6 +132,25 @@ function startAgent() {
   }
   return { child, call }
 }
+
+// MCP_TOOLS are the tools para mcp lists; any other op runs through op_run.
+const MCP_TOOLS = new Set([
+  'search',
+  'show',
+  'list',
+  'add',
+  'edit',
+  'link',
+  'tag',
+  'close',
+  'later',
+  'reopen',
+  'work',
+  'undo',
+  'thread',
+  'ops_describe',
+  'op_run',
+])
 
 // WRITE_WORDS name controls that would change the vault. The viewer has none of them.
 const WRITE_WORDS =
@@ -181,7 +204,7 @@ try {
   // Seed a synthetic vault with the CLI.
   para('init', 'acme', join(work, 'vault'), '--no-git')
   const proj = idOf(
-    para(...v, 'project', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
+    para(...v, 'goal', 'add', 'Launch', '--owner', 'me', '--done-when', 'Launched.', '--json'),
   )
   const task = idOf(para(...v, 'task', 'add', 'Write the plan', '-p', proj, '--json'))
   // A new vault is at format 10: an incident is a task of kind incident.
@@ -361,7 +384,7 @@ try {
   const note = await agent.call('note_add', {
     title: 'Quota numbers',
     body: 'Staging uses 80 percent of its quota.',
-    project: proj,
+    goal: proj,
     why: 'Sam asked for the numbers in one place.',
     sources: ['https://example.com/quota-dashboard'],
     verify: 'Open the note.',
@@ -523,7 +546,7 @@ try {
     ['/sources', 'Sources'],
     ['/sources/work-mailbox', 'Work mailbox'],
     [`/docs/${closedDossier}`, 'Vendor pick'],
-    [`/projects/${proj}`, 'Launch'],
+    [`/goals/${proj}`, 'Launch'],
     [`/docs/${task}`, 'Write the plan'],
     [`/incidents/${incident}`, 'Cache outage'],
     [`/docs/${question}`, 'Which region first?'],
@@ -766,7 +789,7 @@ try {
   const revertMe = await agent.call('note_add', {
     title: 'E2E revert me',
     body: 'A note the owner undoes.',
-    project: proj,
+    goal: proj,
     why: 'Seeded to test undo.',
     sources: [note.id, 'https://example.com/receipts-undo'],
     verify: 'Open the note.',
@@ -774,7 +797,7 @@ try {
   const verifyMe = await agent.call('note_add', {
     title: 'E2E verify me',
     body: 'A note the owner verifies.',
-    project: proj,
+    goal: proj,
     why: 'Seeded to test the check.',
     verify: 'Open the note.',
   })
@@ -1546,7 +1569,7 @@ try {
       'Undo of a plain Done opens the task again',
     )
     // Task rows on the goal page say when each task was created.
-    await rpage.goto(`${base}/projects/${proj}`)
+    await rpage.goto(`${base}/goals/${proj}`)
     const dated = rpage.locator('[data-item-dates]').first()
     await dated.waitFor()
     check(

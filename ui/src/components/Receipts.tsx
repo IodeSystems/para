@@ -41,6 +41,7 @@ const OP_COLOR = {
   add: 'success',
   edit: 'info',
   close: 'warning',
+  approve: 'secondary',
   send: 'primary',
   link: 'default',
   undo: 'error',
