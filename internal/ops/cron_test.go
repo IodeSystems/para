@@ -161,7 +161,7 @@ func TestCronMakesTaskUnderGoal(t *testing.T) {
 	}
 
 	sh := must(t, ProjectShow, d, ProjectShowInput{ID: p.ID})
-	if len(sh.Crons) != 1 || !strings.Contains(sh.Crons[0], "makes task under "+g.ID) || !strings.Contains(sh.Crons[0], "next 2026-11-20") || !strings.Contains(sh.Crons[0], "last 2026-11-13 done") {
+	if len(sh.Crons) != 1 || !strings.Contains(sh.Crons[0], "makes task under \"") || !strings.Contains(sh.Crons[0], "("+g.ID+")") || !strings.Contains(sh.Crons[0], "next 2026-11-20") || !strings.Contains(sh.Crons[0], "last 2026-11-13 done") {
 		t.Fatalf("bundle crons = %v", sh.Crons)
 	}
 	if slices.ContainsFunc(sh.Direct, func(it BundleItem) bool { return it.Type == model.TypeObligation }) {
@@ -317,5 +317,25 @@ func TestCronPausedWhileGoalParked(t *testing.T) {
 	}
 	if _, tk := cronTaskOf(t, d, cron); tk == nil || tk.Goal.Target() != g.ID || tk.Due != "2026-12-04" {
 		t.Fatalf("resumed task = %+v", tk)
+	}
+}
+
+// A bundle names the goal and task beside their ids, and list {type: goal}
+// carries the project, open task count, and next task.
+func TestBundleTitlesAndGoalList(t *testing.T) {
+	_, d := cronVault(t, "2026-11-06T09:00:00Z")
+	p := must(t, ProjectAdd, d, ProjectAddInput{Title: "Garden"})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Beds", DoneWhen: "Beds planted.", Project: p.ID})
+	tk := must(t, TaskAdd, d, TaskAddInput{Goal: g.ID, Title: "Rake", DoneWhen: "Raked."})
+	sh := must(t, ProjectShow, d, ProjectShowInput{ID: p.ID})
+	if len(sh.Goals) != 1 || sh.Goals[0].Next != tk.ID || sh.Goals[0].NextTitle != "Rake" || sh.Goals[0].Tasks[0].ViaTitle != "Beds" {
+		t.Fatalf("bundle goals = %+v", sh.Goals)
+	}
+	ls := must(t, List, d, ListInput{Type: model.TypeGoal, Status: "active"})
+	if len(ls.Rows) != 1 || ls.Rows[0].Goal == nil {
+		t.Fatalf("goal rows = %+v", ls.Rows)
+	}
+	if r := ls.Rows[0].Goal; r.Project != p.ID || r.ProjectTitle != "Garden" || r.OpenTasks != 1 || r.Next != tk.ID || r.NextTitle != "Rake" {
+		t.Fatalf("goal row = %+v", r)
 	}
 }

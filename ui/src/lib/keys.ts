@@ -29,6 +29,7 @@ export const TABS: Tab[] = [
     label: 'Projects',
     hint: 'ongoing projects: where each stands, and what it waits on',
   },
+  { key: '', to: '/goals', label: 'Goals', hint: 'goals: due dates, open tasks, and the next one' },
   { key: '4', to: '/rfx', label: 'Asks', hint: 'asks between you and people' },
   { key: '5', to: '/people', label: 'People' },
   {

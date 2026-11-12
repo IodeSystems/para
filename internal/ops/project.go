@@ -208,7 +208,9 @@ type BundleGoal struct {
 	DoneWhen string           `json:"done_when,omitempty"`
 	Due      model.Date       `json:"due,omitempty"`
 	Next     string           `json:"next,omitempty"`
-	Tasks    []BundleItem     `json:"tasks"`
+	// NextTitle is the title of the task in Next.
+	NextTitle string       `json:"next_title,omitempty"`
+	Tasks     []BundleItem `json:"tasks"`
 	// MoreTasks counts the open tasks the cap left out.
 	MoreTasks int `json:"more_tasks,omitempty"`
 }
@@ -223,7 +225,9 @@ type BundleItem struct {
 	Status string     `json:"status,omitempty"`
 	Due    model.Date `json:"due,omitempty"`
 	Via    string     `json:"via,omitempty"`
-	Note   string     `json:"note,omitempty"`
+	// ViaTitle is the title of the goal in Via.
+	ViaTitle string `json:"via_title,omitempty"`
+	Note     string `json:"note,omitempty"`
 	// HiddenTasks counts, on a parked goal, its open tasks that Next and
 	// needs_you hide while it is parked.
 	HiddenTasks int `json:"hidden_tasks,omitempty"`

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { createFileRoute, Navigate } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import List from '@mui/material/List'
@@ -32,6 +33,7 @@ type ItemRow = {
   status?: string | null
   due?: string | null
   via?: string | null
+  viaTitle?: string | null
   note?: string | null
   hiddenTasks?: number | null
 }
@@ -49,7 +51,7 @@ function Items({ list, empty }: { list: readonly ItemRow[]; empty: string }) {
             secondary={
               [
                 i.type,
-                i.via && `through ${nameOr('', i.via)}`,
+                i.via && `through ${nameOr(i.viaTitle, i.via)}`,
                 i.note,
                 i.hiddenTasks ? `${i.hiddenTasks} open tasks hidden while parked` : '',
               ]
@@ -67,6 +69,25 @@ function Items({ list, empty }: { list: readonly ItemRow[]; empty: string }) {
       ))}
     </List>
   )
+}
+
+// A cron line names an item as `"<title>" (<id>)`; each becomes a link titled by the title.
+const CRON_ITEM = /"([^"]*)" \(([a-z][a-z-]*-[0-9a-z]+)\)/g
+
+function CronLine({ line }: { line: string }) {
+  const parts: ReactNode[] = []
+  let at = 0
+  for (const m of line.matchAll(CRON_ITEM)) {
+    parts.push(line.slice(at, m.index))
+    parts.push(
+      <DocLink key={m.index} id={m[2]}>
+        {m[1]}
+      </DocLink>,
+    )
+    at = m.index + m[0].length
+  }
+  parts.push(line.slice(at))
+  return <>{parts}</>
 }
 
 function ProjectPage() {
@@ -146,7 +167,7 @@ function ProjectPage() {
                       )}
                       {g.next && (
                         <Typography sx={{ ...TEXT, overflowWrap: 'anywhere' }}>
-                          Next: {g.next}
+                          Next: <DocLink id={g.next}>{nameOr(g.nextTitle, g.next)}</DocLink>
                         </Typography>
                       )}
                       <Items list={g.tasks} empty="No open tasks." />
@@ -174,7 +195,7 @@ function ProjectPage() {
                 {d.crons.map((c) => (
                   <ListItem key={c} disableGutters>
                     <ListItemText
-                      primary={c}
+                      primary={<CronLine line={c} />}
                       slotProps={{ primary: { sx: { ...TEXT, overflowWrap: 'anywhere' } } }}
                     />
                   </ListItem>

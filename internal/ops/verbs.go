@@ -908,6 +908,8 @@ type ListRow struct {
 	Obligation *ObligationRow `json:"obligation,omitempty"`
 	// Project is the summary of a project row (projectsummary.go).
 	Project *ProjectRow `json:"project,omitempty"`
+	// Goal is the summary of a goal row (goalsummary.go).
+	Goal *GoalRow `json:"goal,omitempty"`
 }
 
 // ObligationRow is the detail of an obligation in a list.
@@ -1001,7 +1003,7 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 				continue
 			}
 			out.Count++
-			if in.Limit > 0 && len(out.Rows) >= in.Limit && !in.NeedsYou && in.Type != model.TypeProject {
+			if in.Limit > 0 && len(out.Rows) >= in.Limit && !in.NeedsYou && in.Type != model.TypeProject && in.Type != model.TypeGoal {
 				continue
 			}
 			row := ListRow{ID: doc.ID, Type: r.Type, Title: doc.Title, Status: statusOf(incidentShape(doc).Meta), Life: n.Life, Turn: n.Turn, NeedsYou: n.Yes, Reason: n.Reason}
@@ -1024,6 +1026,19 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 				out.Rows[i].Project = sums[out.Rows[i].ID]
 			}
 			sortProjectRows(out.Rows)
+			if in.Limit > 0 && len(out.Rows) > in.Limit {
+				out.Rows = out.Rows[:in.Limit]
+			}
+		}
+		if in.Type == model.TypeGoal {
+			sums, err := goalRows(ctx, d, sn, out.Rows)
+			if err != nil {
+				return ListOutput{}, err
+			}
+			for i := range out.Rows {
+				out.Rows[i].Goal = sums[out.Rows[i].ID]
+			}
+			sortGoalRows(out.Rows)
 			if in.Limit > 0 && len(out.Rows) > in.Limit {
 				out.Rows = out.Rows[:in.Limit]
 			}

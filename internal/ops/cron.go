@@ -268,14 +268,24 @@ const (
 
 // cronState is one cron of a project as the bundle reads it.
 type cronState struct {
-	id, recur, makes, owed string
-	next, last, outcome    string
-	paused                 bool // its goal is parked: tick skips its runs
+	id, title, recur    string
+	makes, owed         string
+	next, last, outcome string
+	paused              bool // its goal is parked: tick skips its runs
 }
 
-// line is the bundle line: "<id> <recur>: makes <what>; <who>; next <date>; last <date> <outcome>".
+// titled is `"<title>" (<id>)`: the title beside the id, for agents and the
+// UI link. A title has no double quote.
+func titled(id, title string) string {
+	if title == "" {
+		return id
+	}
+	return `"` + strings.ReplaceAll(clip(title, 40), `"`, "'") + `" (` + id + ")"
+}
+
+// line is the bundle line: `"<title>" (<id>) <recur>: makes <what>; <who>; next <date>; last <date> <outcome>`.
 func (c cronState) line() string {
-	l := c.id + " " + c.recur + ": makes " + c.makes + "; " + cmp.Or(c.owed, "owner")
+	l := titled(c.id, c.title) + " " + c.recur + ": makes " + c.makes + "; " + cmp.Or(c.owed, "owner")
 	if c.paused {
 		l += "; paused: goal parked"
 	} else {
@@ -312,12 +322,17 @@ func projectCrons(ctx context.Context, s store.Store, mine func(string) bool) ([
 		}
 		if o.Open() {
 			// The open occurrence holds the schedule as it is now.
+			c.title = doc.Title
 			c.recur, c.next = o.Recur, string(cmp.Or(o.Due, model.Date(o.Scheduled)))
 			c.makes = string(cmp.Or(o.Makes, model.MakesObligation))
 			if o.Makes == model.MakesTask {
 				c.makes = "task"
 				if g := o.Goal.Target(); g != "" {
-					c.makes += " under " + g
+					gt := ""
+					if gd, err := s.Get(ctx, g); err == nil {
+						g, gt = gd.ID, gd.Title
+					}
+					c.makes += " under " + titled(g, gt)
 				}
 			}
 			c.owed = strings.Join(targets(o.OwedBy), ",")

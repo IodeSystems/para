@@ -26,6 +26,7 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
   },
   { label: 'Work', to: '/work', words: ['work', 'goals'] },
   { label: 'Projects', to: '/projects', words: ['projects', 'ongoing'] },
+  { label: 'Goals', to: '/goals', words: ['goals', 'outcomes'] },
   { label: 'Asks', to: '/rfx', words: ['asks', 'rfx'] },
   { label: 'People', to: '/people', words: ['people'] },
   {

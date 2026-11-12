@@ -982,6 +982,7 @@ type para_BundleGoal {
   id: String!
   moreTasks: Int
   next: String
+  nextTitle: String
   status: para_BundleGoalStatus!
   tasks: [para_BundleItem!]!
   title: String!
@@ -1004,6 +1005,7 @@ type para_BundleItem {
   title: String!
   type: para_BundleItemType!
   via: String
+  viaTitle: String
 }
 
 enum para_BundleItemType {
@@ -2552,6 +2554,15 @@ type para_GoalRiskSetOutput {
   id: String!
   rev: String!
   risks: [para_GoalRisk!]!
+}
+
+type para_GoalRow {
+  due: String
+  next: String
+  nextTitle: String
+  openTasks: Int!
+  project: String
+  projectTitle: String
 }
 
 type para_GoalShowOutput {
@@ -4462,6 +4473,7 @@ type para_ListOutput {
 }
 
 type para_ListRow {
+  goal: para_GoalRow
   group: String
   id: String!
   life: para_ListRowLife!

@@ -31,6 +31,7 @@ import { Route as AuthedAreasIdRouteImport } from './routes/_authed.areas.$id'
 import { Route as AuthedDocIdRouteImport } from './routes/_authed.doc.$id'
 import { Route as AuthedDocsIndexRouteImport } from './routes/_authed.docs.index'
 import { Route as AuthedDocsIdRouteImport } from './routes/_authed.docs.$id'
+import { Route as AuthedGoalsIndexRouteImport } from './routes/_authed.goals.index'
 import { Route as AuthedGoalsIdRouteImport } from './routes/_authed.goals.$id'
 import { Route as AuthedIncidentsIdRouteImport } from './routes/_authed.incidents.$id'
 import { Route as AuthedIoIndexRouteImport } from './routes/_authed.io.index'
@@ -158,6 +159,11 @@ const AuthedDocsIndexRoute = AuthedDocsIndexRouteImport.update({
 const AuthedDocsIdRoute = AuthedDocsIdRouteImport.update({
   id: '/docs/$id',
   path: '/docs/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedGoalsIndexRoute = AuthedGoalsIndexRouteImport.update({
+  id: '/goals/',
+  path: '/goals/',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedGoalsIdRoute = AuthedGoalsIdRouteImport.update({
@@ -289,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/tags/$tag': typeof AuthedTagsTagRoute
   '/areas/': typeof AuthedAreasIndexRoute
   '/docs/': typeof AuthedDocsIndexRoute
+  '/goals/': typeof AuthedGoalsIndexRoute
   '/io/': typeof AuthedIoIndexRoute
   '/meetings/': typeof AuthedMeetingsIndexRoute
   '/obligations/': typeof AuthedObligationsIndexRoute
@@ -331,6 +338,7 @@ export interface FileRoutesByTo {
   '/tags/$tag': typeof AuthedTagsTagRoute
   '/areas': typeof AuthedAreasIndexRoute
   '/docs': typeof AuthedDocsIndexRoute
+  '/goals': typeof AuthedGoalsIndexRoute
   '/io': typeof AuthedIoIndexRoute
   '/meetings': typeof AuthedMeetingsIndexRoute
   '/obligations': typeof AuthedObligationsIndexRoute
@@ -375,6 +383,7 @@ export interface FileRoutesById {
   '/_authed/tags/$tag': typeof AuthedTagsTagRoute
   '/_authed/areas/': typeof AuthedAreasIndexRoute
   '/_authed/docs/': typeof AuthedDocsIndexRoute
+  '/_authed/goals/': typeof AuthedGoalsIndexRoute
   '/_authed/io/': typeof AuthedIoIndexRoute
   '/_authed/meetings/': typeof AuthedMeetingsIndexRoute
   '/_authed/obligations/': typeof AuthedObligationsIndexRoute
@@ -419,6 +428,7 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/areas/'
     | '/docs/'
+    | '/goals/'
     | '/io/'
     | '/meetings/'
     | '/obligations/'
@@ -461,6 +471,7 @@ export interface FileRouteTypes {
     | '/tags/$tag'
     | '/areas'
     | '/docs'
+    | '/goals'
     | '/io'
     | '/meetings'
     | '/obligations'
@@ -504,6 +515,7 @@ export interface FileRouteTypes {
     | '/_authed/tags/$tag'
     | '/_authed/areas/'
     | '/_authed/docs/'
+    | '/_authed/goals/'
     | '/_authed/io/'
     | '/_authed/meetings/'
     | '/_authed/obligations/'
@@ -676,6 +688,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedDocsIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/goals/': {
+      id: '/_authed/goals/'
+      path: '/goals'
+      fullPath: '/goals/'
+      preLoaderRoute: typeof AuthedGoalsIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/goals/$id': {
       id: '/_authed/goals/$id'
       path: '/goals/$id'
@@ -843,6 +862,7 @@ interface AuthedRouteChildren {
   AuthedTagsTagRoute: typeof AuthedTagsTagRoute
   AuthedAreasIndexRoute: typeof AuthedAreasIndexRoute
   AuthedDocsIndexRoute: typeof AuthedDocsIndexRoute
+  AuthedGoalsIndexRoute: typeof AuthedGoalsIndexRoute
   AuthedIoIndexRoute: typeof AuthedIoIndexRoute
   AuthedMeetingsIndexRoute: typeof AuthedMeetingsIndexRoute
   AuthedObligationsIndexRoute: typeof AuthedObligationsIndexRoute
@@ -884,6 +904,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedTagsTagRoute: AuthedTagsTagRoute,
   AuthedAreasIndexRoute: AuthedAreasIndexRoute,
   AuthedDocsIndexRoute: AuthedDocsIndexRoute,
+  AuthedGoalsIndexRoute: AuthedGoalsIndexRoute,
   AuthedIoIndexRoute: AuthedIoIndexRoute,
   AuthedMeetingsIndexRoute: AuthedMeetingsIndexRoute,
   AuthedObligationsIndexRoute: AuthedObligationsIndexRoute,

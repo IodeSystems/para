@@ -49,6 +49,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
                 doneWhen
                 due
                 next
+                nextTitle
                 moreTasks
                 tasks {
                   ...BundleItemFields
@@ -83,6 +84,7 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
     status
     due
     via
+    viaTitle
     note
     hiddenTasks
   }

@@ -127,7 +127,7 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 			seen(x.Meta.Header())
 			it := BundleItem{ID: x.ID, Type: x.Meta.Header().Type, Title: x.Title, Status: statusOf(x.Meta)}
 			if g != nil {
-				it.Via = g.ID
+				it.Via, it.ViaTitle = g.ID, g.Title
 			}
 			switch m := x.Meta.(type) {
 			case *model.Task:
@@ -165,7 +165,7 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 		g := &out.Goals[i]
 		slices.SortFunc(g.Tasks, byDue)
 		if j := slices.IndexFunc(g.Tasks, func(t BundleItem) bool { return t.Status != string(model.TaskBlocked) }); j >= 0 {
-			g.Next = g.Tasks[j].ID
+			g.Next, g.NextTitle = g.Tasks[j].ID, g.Tasks[j].Title
 		}
 	}
 	slices.SortFunc(out.WaitsOn, byDue)
