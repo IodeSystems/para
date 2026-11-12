@@ -40,12 +40,16 @@ export function ItemComposer({
   meta,
   onSent,
   onBack,
+  stickyOnPhone = true,
 }: {
   id: string
   title: string
   meta: ItemMeta
   onSent?: () => void
   onBack?: () => void
+  // stickyOnPhone false leaves the composer in the page flow on a phone, so a thread above it is not
+  // covered by it (the Next card).
+  stickyOnPhone?: boolean
 }) {
   const { session } = useRouteContext({ from: '/_authed' })
   const toasts = useToasts()
@@ -210,7 +214,7 @@ export function ItemComposer({
     <Box
       data-item-composer={id}
       sx={{
-        position: 'sticky',
+        position: { xs: stickyOnPhone ? 'sticky' : 'static', sm: 'sticky' },
         // On a phone it sits just above the bottom bar, clear of the home indicator.
         bottom: { xs: 'calc(72px + env(safe-area-inset-bottom))', sm: 16 },
         zIndex: 2,

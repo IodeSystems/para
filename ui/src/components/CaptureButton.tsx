@@ -47,13 +47,15 @@ const empty = (kind: CaptureKind): Capture => ({
 
 // TellAgent is the app bar button, and the t key, that open the capture dialog from any page. The
 // owner says what happened; it is saved as an io item first, then the agent decides what it is.
-export function TellAgent() {
+// A read-only key writes nothing: it gets no button and the t key does nothing.
+export function TellAgent({ decide }: { decide: boolean }) {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     const on = () => setOpen(true)
     window.addEventListener(TELL_OPEN, on)
     return () => window.removeEventListener(TELL_OPEN, on)
   }, [])
+  if (!decide) return null
   return (
     <>
       <Tooltip title="Capture what happened; your agent decides what it is (t)">

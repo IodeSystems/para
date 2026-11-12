@@ -26,7 +26,7 @@ import { HttpBanner, ReadOnlyBanner, UpdateBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
 import { signOut } from '@/client/auth'
 import { TABS } from '@/lib/keys'
-import type { SessionView } from '@/client/session'
+import { canDecide, type SessionView } from '@/client/session'
 
 // The signed-in frame: app bar, tabs, and the plain-HTTP banner. The viewer writes nothing: the
 // agent does the work in the chat.
@@ -73,7 +73,7 @@ export function AppShell({ session, children }: { session: SessionView; children
             </Box>
           </Typography>
           <OmniBar />
-          <TellAgent />
+          <TellAgent decide={canDecide(session)} />
           <ModeSwitch />
           <Tooltip title="Keys and about (?)">
             <LinkIconButton
@@ -125,6 +125,8 @@ export function AppShell({ session, children }: { session: SessionView; children
         sx={{
           px: { xs: 1, sm: 3 },
           py: 2,
+          // On a phone the fixed bottom bar covers the page end; keep room to scroll past it.
+          pb: { xs: 'calc(72px + env(safe-area-inset-bottom) + 16px)', sm: 2 },
           maxWidth: ITEM_PATH.test(path) ? 1440 : 960,
           mx: 'auto',
         }}

@@ -234,15 +234,20 @@ function Card({
         data-next-ready={x.ready ? (x.readyKind ?? 'yes') : undefined}
         sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'primary.main' }}
       >
+        {/* On a phone the reason line takes the full width and the id sits under it, so the
+            header is two short lines, not a tall column beside the id. */}
         <Stack
-          direction="row"
+          direction={{ xs: 'column', sm: 'row' }}
           spacing={0.5}
-          sx={{ alignItems: 'center', justifyContent: 'space-between' }}
+          sx={{
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+          }}
         >
           <Typography variant="overline" color="text.secondary" component="p">
             {[group, x.why].filter(Boolean).join(' - ')}
           </Typography>
-          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
+          <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', maxWidth: '100%' }}>
             <CopyId id={x.id} />
             <PinButton id={x.id} />
           </Stack>
@@ -378,7 +383,16 @@ function CardComposer({
 }) {
   const doc = useDoc(id)
   if (!doc.data) return null
-  return <ItemComposer id={id} title={title} meta={doc.data.meta} onSent={onSent} onBack={onBack} />
+  return (
+    <ItemComposer
+      id={id}
+      title={title}
+      meta={doc.data.meta}
+      onSent={onSent}
+      onBack={onBack}
+      stickyOnPhone={false}
+    />
+  )
 }
 
 // Prepared shows what an agent prepared, inline: a draft reply with Approve and Edit, a proposed
