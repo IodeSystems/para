@@ -11,9 +11,9 @@ import (
 // Ops that return ids also return the names, so no surface shows an id.
 func TestNamesBesideIds(t *testing.T) {
 	d := targetDeps(t) // person-ada-example (Ada Example), contact ada@acme.example
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal rebuild"})
-	t1 := must(t, TaskAdd, d, TaskAddInput{Project: proj.ID, Title: "Draft the plan", Assignee: "person-ada-example"})
-	t2 := must(t, TaskAdd, d, TaskAddInput{Project: proj.ID, Title: "Review the plan", DependsOn: []string{t1.ID}})
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal rebuild"})
+	t1 := must(t, TaskAdd, d, TaskAddInput{Goal: proj.ID, Title: "Draft the plan", Assignee: "person-ada-example"})
+	t2 := must(t, TaskAdd, d, TaskAddInput{Goal: proj.ID, Title: "Review the plan", DependsOn: []string{t1.ID}})
 
 	list := must(t, TaskList, d, TaskListInput{})
 	var got TaskView
@@ -22,8 +22,8 @@ func TestNamesBesideIds(t *testing.T) {
 			got = v
 		}
 	}
-	if got.Project != proj.ID || got.ProjectName != "Portal rebuild" {
-		t.Errorf("project %q name %q", got.Project, got.ProjectName)
+	if got.Goal != proj.ID || got.GoalName != "Portal rebuild" {
+		t.Errorf("project %q name %q", got.Goal, got.GoalName)
 	}
 	if len(got.DependsOnNames) != 1 || got.DependsOnNames[0] != "Draft the plan" {
 		t.Errorf("depends_on_names = %v", got.DependsOnNames)

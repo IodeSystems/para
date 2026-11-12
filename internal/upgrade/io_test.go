@@ -26,7 +26,7 @@ func TestIOFolderStep(t *testing.T) {
 		{ID: "inbox-old", Folder: model.FolderArchive, Title: "Old", Body: "Triaged: drop.",
 			Meta: &model.Inbox{Common: model.Common{Type: model.TypeInbox}}},
 		{ID: "task-links", Folder: model.FolderProjects, Title: "Linked", Body: "See [[inbox-a]].",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-open")}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-open")}},
 	} {
 		if _, err := s.Create(ctx, d); err != nil {
 			t.Fatalf("create %s: %v", d.ID, err)

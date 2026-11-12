@@ -10,7 +10,7 @@ import (
 
 func TestPinItemAndUnpin(t *testing.T) {
 	f := newAgentFix(t)
-	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Watch me", Due: "2026-12-01"})
+	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Watch me", Due: "2026-12-01"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +77,7 @@ func TestPinRefusals(t *testing.T) {
 			t.Errorf("%s: pinned", name)
 		}
 	}
-	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Receipted", DoneWhen: "It exists."})
+	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Goal: f.proj, Title: "Receipted", DoneWhen: "It exists."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestPinRefusals(t *testing.T) {
 
 func TestPinReceiptUndo(t *testing.T) {
 	f := newAgentFix(t)
-	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Undo me"})
+	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Undo me"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +122,7 @@ func TestPinReceiptUndo(t *testing.T) {
 func TestPinnedCardsAndOrder(t *testing.T) {
 	f := newAgentFix(t)
 	mk := func(title, due, assignee string) string {
-		out, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: title, Due: due, Assignee: assignee})
+		out, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: title, Due: due, Assignee: assignee})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -160,7 +160,7 @@ func TestPinnedCardsAndOrder(t *testing.T) {
 
 func TestPinnedThreadTurns(t *testing.T) {
 	f := newAgentFix(t)
-	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Ask about it"})
+	task, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Ask about it"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,11 +176,11 @@ func TestPinnedThreadTurns(t *testing.T) {
 
 func TestPinnedWaitingAndStale(t *testing.T) {
 	f := newAgentFix(t)
-	dep, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "First"})
+	dep, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "First"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	next, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Second"})
+	next, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Second"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -195,8 +195,8 @@ func TestPinnedWaitingAndStale(t *testing.T) {
 func TestPinnedLastSkipsThePin(t *testing.T) {
 	rv := newReqVault(t)
 	owner := rv.as("user", "cli", "install-a")
-	proj := must(t, ProjectAdd, owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
-	task := must(t, TaskAdd, owner, TaskAddInput{Project: proj, Title: "Watch me", Due: "2026-12-01"})
+	proj := must(t, GoalAdd, owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	task := must(t, TaskAdd, owner, TaskAddInput{Goal: proj, Title: "Watch me", Due: "2026-12-01"})
 	rv.advance(time.Hour)
 	must(t, Pin, owner, PinInput{ID: task.ID})
 	// Only the pin happened after the task was made: the last change is the task being made.

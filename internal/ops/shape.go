@@ -25,7 +25,6 @@ import (
 var Enums = map[reflect.Type][]string{
 	reflect.TypeFor[model.Type]():             enumStrs(model.Types),
 	reflect.TypeFor[model.Folder]():           enumStrs(model.Folders),
-	reflect.TypeFor[model.ProjectStatus]():    enumStrs(model.ProjectStatuses),
 	reflect.TypeFor[model.TaskStatus]():       enumStrs(model.TaskStatuses),
 	reflect.TypeFor[model.RFXDirection]():     enumStrs(model.RFXDirections),
 	reflect.TypeFor[model.RFXStatus]():        enumStrs(model.RFXStatuses),

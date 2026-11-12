@@ -22,7 +22,7 @@ const (
 
 // investigable are the types a person can send an agent to find context for.
 var investigable = []model.Type{
-	model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeProject, model.TypeRequest,
+	model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeGoal, model.TypeRequest,
 }
 
 // isFindTitle reports whether a request title was made by investigate.

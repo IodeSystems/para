@@ -27,7 +27,7 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 		return TaskView{}, false
 	}
 	// The due date is when the work must be done: it never hides a blocked task.
-	due := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Pay the vendor", Due: "2026-11-20"}).ID
+	due := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Pay the vendor", Due: "2026-11-20"}).ID
 	must(t, TaskBlock, d, TaskBlockInput{ID: due, Reason: "Finance said the invoice is not in yet."})
 	if v, ok := listed(due); !ok || v.Returns != "" || v.Deferred {
 		t.Fatalf("blocked task with only a due date = %+v, listed %v", v, ok)
@@ -36,7 +36,7 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 		t.Fatal("a bad until was accepted")
 	}
 
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert", Due: "2026-11-30"}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew the cert", Due: "2026-11-30"}).ID
 	must(t, TaskBlock, d, TaskBlockInput{ID: id, Reason: "Ops said the CA is down until Thursday.", Until: "2026-11-05"})
 	if slices.Contains(nextIDs(), id) {
 		t.Fatal("next lists a blocked task before its follow-up date")
@@ -57,7 +57,7 @@ func TestBlockedTaskReturnsOnItsFollowUpDate(t *testing.T) {
 
 func TestUnblockClearsOnlyTheBlockFollowUp(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew the cert"}).ID
 	must(t, TaskBlock, d, TaskBlockInput{ID: id, Reason: "Ops said the CA is down.", Until: "2026-11-10"})
 	if v, _ := taskOf(t, d, id); v.DeferUntil != "2026-11-10" || !strings.HasPrefix(v.DeferredReason, blockMarker) {
 		t.Fatalf("blocked = %+v", v)
@@ -69,7 +69,7 @@ func TestUnblockClearsOnlyTheBlockFollowUp(t *testing.T) {
 
 	// An owner's deferral is not the block's: unblocking leaves it, and a block
 	// with until does not overwrite it.
-	other := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Tidy the wiki"}).ID
+	other := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Tidy the wiki"}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{other}, Until: "2026-12-01", Reason: "After the audit."})
 	if _, err := TaskBlock.Run(ctx, d, TaskBlockInput{ID: other, Reason: "Wiki is read-only.", Until: "2026-11-10"}); err == nil {
 		t.Fatal("a block until overwrote the owner's deferral")

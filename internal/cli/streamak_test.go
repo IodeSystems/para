@@ -48,12 +48,12 @@ func TestAreaKindsCLI(t *testing.T) {
 	if out := fail("area", "add", "Bad", "--concepts", home.ID); !strings.Contains(out, "want kind concept") {
 		t.Fatalf("project area as concept: %s", out)
 	}
-	var goal ops.ProjectAddOutput
-	e.json(&goal, "project", "add", "File the annual report", "--done-when", "Filed.", "--area", home.ID)
-	if out := fail("project", "edit", goal.ID, "--area", concept.ID); !strings.Contains(out, "want kind project") {
+	var goal ops.GoalAddOutput
+	e.json(&goal, "goal", "add", "File the annual report", "--done-when", "Filed.", "--area", home.ID)
+	if out := fail("goal", "edit", goal.ID, "--area", concept.ID); !strings.Contains(out, "want kind project") {
 		t.Fatalf("concept as home: %s", out)
 	}
-	e.ok("project", "edit", goal.ID, "--concepts", concept.ID)
+	e.ok("goal", "edit", goal.ID, "--concepts", concept.ID)
 	var general, specific ops.ConventionAddOutput
 	e.json(&general, "convention", "add", "Plain words", "--status", "adopted", "--applies-in", "[["+concept.ID+"]]")
 	e.json(&specific, "convention", "add", "Plain words, state filings", "--status", "adopted", "--applies-in", home.ID, "--refines", general.ID)
@@ -62,9 +62,9 @@ func TestAreaKindsCLI(t *testing.T) {
 	if len(r.Rules) != 1 || r.Rules[0].ID != specific.ID || r.Rules[0].Via != home.ID || r.Rules[0].Refines != general.ID {
 		t.Fatalf("rules = %+v", r)
 	}
-	var ps ops.ProjectShowOutput
-	e.json(&ps, "project", "show", goal.ID)
-	if len(ps.Rules) != 1 || ps.Rules[0].ID != specific.ID || len(ps.Project.Concepts) != 1 {
+	var ps ops.GoalShowOutput
+	e.json(&ps, "goal", "show", goal.ID)
+	if len(ps.Rules) != 1 || ps.Rules[0].ID != specific.ID || len(ps.Goal.Concepts) != 1 {
 		t.Fatalf("project show = %+v", ps)
 	}
 	var as ops.AreaShowOutput

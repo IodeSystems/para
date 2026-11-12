@@ -10,7 +10,7 @@ import (
 
 func TestTaskUpdateAndParts(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Ship the parser", DoneWhen: "Released."}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Ship the parser", DoneWhen: "Released."}).ID
 	if _, err := TaskUpdate.Run(ctx, agentOf(d), TaskUpdateInput{ID: id, Text: "x"}); !errors.Is(err, ErrPersonOnly) {
 		t.Errorf("agent: %v", err)
 	}
@@ -42,10 +42,10 @@ func TestTaskUpdateAndParts(t *testing.T) {
 	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "No date", Parent: id, Commitment: true}); err == nil {
 		t.Error("a commitment with no due date was accepted")
 	}
-	follow := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Announce", DependsOn: []string{id}, DoneWhen: "Posted."}).ID
+	follow := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Announce", DependsOn: []string{id}, DoneWhen: "Posted."}).ID
 	must(t, QuestionAdd, d, QuestionAddInput{Task: id, Text: "Keep the old parser?"})
 	cv := must(t, TaskShow, d, TaskShowInput{ID: child}).Task
-	if cv.Parent != id || cv.Project != proj {
+	if cv.Parent != id || cv.Goal != proj {
 		t.Errorf("child = %+v", cv)
 	}
 	show = must(t, TaskShow, d, TaskShowInput{ID: id})

@@ -34,11 +34,11 @@ func getOb(t *testing.T, d Deps, id string) (model.Document, *model.Obligation) 
 // is the start's day, else one cadence from today.
 func TestCommitmentSeriesWithNoDue(t *testing.T) {
 	d, proj, person := obFixture(t)
-	weekly := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the invoice", OwedTo: []string{person}, Recur: "weekly", Project: proj})
+	weekly := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the invoice", OwedTo: []string{person}, Recur: "weekly", Goal: proj})
 	if _, o := getOb(t, d, weekly.ID); o.Due != "2026-11-12" {
 		t.Errorf("weekly from today: due %q, want 2026-11-12", o.Due)
 	}
-	started := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Send the report", OwedTo: []string{person}, Recur: "monthly", Start: "2026-11-20T09:00:00Z", Project: proj})
+	started := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Send the report", OwedTo: []string{person}, Recur: "monthly", Start: "2026-11-20T09:00:00Z", Goal: proj})
 	if _, o := getOb(t, d, started.ID); o.Due != "2026-11-20" {
 		t.Errorf("from start: due %q, want 2026-11-20", o.Due)
 	}
@@ -53,7 +53,7 @@ func TestObligationAddKindsAndSchedules(t *testing.T) {
 	if m.Type != model.TypeObligation || m.Folder != model.FolderObligations || m.Kind != model.KindMeeting || m.Schedule != model.ScheduleAt {
 		t.Fatalf("meeting = %+v", m)
 	}
-	c := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-09", Project: proj})
+	c := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-09", Goal: proj})
 	if _, o := getOb(t, d, c.ID); o.Kind != model.KindCommitment || o.Schedule != model.ScheduleOnce || len(o.OwedTo) != 1 || len(o.With) != 0 || o.Due != "2026-11-09" {
 		t.Fatalf("commitment = %+v", o)
 	}
@@ -96,7 +96,7 @@ func TestObligationAddKindsAndSchedules(t *testing.T) {
 // yet upgraded reads the vault.
 func TestObligationAddBelowTheFormatWritesATask(t *testing.T) {
 	d, proj, person := attendFixture(t)
-	out := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send it", OwedTo: []string{person}, Due: "2026-11-09", Project: proj})
+	out := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send it", OwedTo: []string{person}, Due: "2026-11-09", Goal: proj})
 	doc, err := d.Store.Get(ctx, out.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -116,8 +116,8 @@ func TestObligationAddBelowTheFormatWritesATask(t *testing.T) {
 // (parent and assignee kept as parent and owed_by), and rfx_add direction in.
 func TestOlderAddsStoreObligations(t *testing.T) {
 	d, proj, person := obFixture(t)
-	parent := must(t, TaskAdd, d, TaskAddInput{Title: "Parent", Project: proj})
-	c := must(t, TaskAdd, d, TaskAddInput{Title: "Ada sends the doc", Kind: model.KindCommitment, Due: "2026-11-09", Project: proj, Parent: parent.ID, Assignee: person})
+	parent := must(t, TaskAdd, d, TaskAddInput{Title: "Parent", Goal: proj})
+	c := must(t, TaskAdd, d, TaskAddInput{Title: "Ada sends the doc", Kind: model.KindCommitment, Due: "2026-11-09", Goal: proj, Parent: parent.ID, Assignee: person})
 	_, o := getOb(t, d, c.ID)
 	if o.Parent != model.LinkTo(parent.ID) || len(o.OwedBy) != 1 || o.OwedBy[0] != model.LinkTo(person) || !strings.Contains(strings.Join(c.Warnings, " "), "alias of obligation_add") {
 		t.Fatalf("task_add commitment = %+v %+v", o, c.Warnings)
@@ -274,7 +274,7 @@ func TestObligationAttendMatrix(t *testing.T) {
 // needs_you rows of obligations by kind and state.
 func TestObligationNeedsYou(t *testing.T) {
 	d, proj, person := obFixture(t)
-	owed := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-20", Project: proj}).ID
+	owed := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-20", Goal: proj}).ID
 	theirs := must(t, ObligationAdd, d, ObligationAddInput{Title: "Ada sends the doc", OwedBy: []string{person}, Due: "2026-11-20"}).ID
 	ongoing := must(t, ObligationAdd, d, ObligationAddInput{Title: "Keep the runbook", Cadence: "monthly"}).ID
 	reviewed := must(t, ObligationAdd, d, ObligationAddInput{Title: "Review access", Cadence: "monthly"}).ID

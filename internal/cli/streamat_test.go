@@ -18,7 +18,7 @@ func seedStreamATParity(t *testing.T, deps ops.Deps) {
 	ctx := context.Background()
 	for _, id := range []string{"task-at-a", "task-at-b", "task-at-c", "task-at-d"} {
 		if _, err := deps.Store.Create(ctx, model.Document{ID: id, Folder: model.FolderProjects, Title: "AT " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-a")}}); err != nil {
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-a")}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -57,7 +57,7 @@ func TestAttachmentCLI(t *testing.T) {
 	var project, task struct {
 		ID string `json:"id"`
 	}
-	e.json(&project, "project", "add", "--done-when", "Done.", "Board", "--owner", "Jordan Example")
+	e.json(&project, "goal", "add", "--done-when", "Done.", "Board", "--owner", "Jordan Example")
 	e.json(&task, "task", "add", "Photograph the board", "--project", project.ID)
 	id := task.ID
 	out := e.ok("attachment", "add", id, file)

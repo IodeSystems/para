@@ -10,9 +10,9 @@ import (
 // Relinking dependents moves an optional edge too, and it stays optional.
 func TestRelinkMovesOptionalEdges(t *testing.T) {
 	d := dependsVault(t)
-	goal := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example"}).ID
+	goal := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example"}).ID
 	task := func(title string) string {
-		return must(t, TaskAdd, d, TaskAddInput{Project: goal, Title: title, DoneWhen: "Done."}).ID
+		return must(t, TaskAdd, d, TaskAddInput{Goal: goal, Title: title, DoneWhen: "Done."}).ID
 	}
 	deps := func(id string) ([]string, []string) {
 		t.Helper()

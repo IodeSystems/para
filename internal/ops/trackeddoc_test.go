@@ -16,7 +16,7 @@ func trackFix(t *testing.T) (*agentFix, string) {
 	f := newAgentFix(t)
 	mustRun(t, OrgPersonAdd, f.owner, OrgAddInput{Name: "Ada Example", Org: "acme.example"})
 	out := mustRun(t, DocTrack, f.owner, DocTrackInput{URL: "https://wiki.acme.example/runbooks/portal", Text: runbookV1, System: model.SystemConfluence,
-		Project: f.proj, Owner: "person-ada-example", Via: &model.IOVia{Source: "confluence", Ref: "12345"}})
+		Goal: f.proj, Owner: "person-ada-example", Via: &model.IOVia{Source: "confluence", Ref: "12345"}})
 	return f, out.ID
 }
 
@@ -157,14 +157,14 @@ func TestDocCommentFile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r := rfx.Meta.(*model.RFX); r.Direction != model.RFXIn || r.Route != "confluence" || r.Project.Target() != f.proj || len(r.Targets) != 1 {
+	if r := rfx.Meta.(*model.RFX); r.Direction != model.RFXIn || r.Route != "confluence" || r.Goal.Target() != f.proj || len(r.Targets) != 1 {
 		t.Fatalf("ask = %+v", r)
 	}
 	if !strings.Contains(rfx.Body, "> drain the node") || !strings.Contains(rfx.Body, "[["+id+"]]") {
 		t.Fatalf("ask body = %q", rfx.Body)
 	}
 	task, _ := f.owner.Store.Get(t.Context(), com.Became)
-	if m := task.Meta.(*model.Task); m.EffectiveKind() != model.KindCommitment || string(m.Due) != due || m.Project.Target() != f.proj {
+	if m := task.Meta.(*model.Task); m.EffectiveKind() != model.KindCommitment || string(m.Due) != due || m.Goal.Target() != f.proj {
 		t.Fatalf("commitment = %+v", m)
 	}
 	if _, err := DocCommentFile.Run(t.Context(), f.owner, DocCommentFileInput{ID: id, Comment: "c1", To: CommentToAsk}); err == nil || !strings.Contains(err.Error(), "already became") {

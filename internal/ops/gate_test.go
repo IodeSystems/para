@@ -34,14 +34,14 @@ func TestNotUndoableOpsAreTheOwners(t *testing.T) {
 	mustRun(t, DocRename, f.owner, DocRenameInput{ID: f.source, NewID: "note-renamed"})
 
 	// An archive of an item others wait on is the owner's; with none it applies.
-	dep := mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Order parts", DoneWhen: "Ordered."}).ID
-	mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Build it", DoneWhen: "Built.", DependsOn: []string{dep}})
+	dep := mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Order parts", DoneWhen: "Ordered."}).ID
+	mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Build it", DoneWhen: "Built.", DependsOn: []string{dep}})
 	_, err := DocArchive.Run(w, f.agent, DocArchiveInput{ID: dep, Reason: "Not needed."})
 	if !errors.Is(err, ErrPersonOnly) || !strings.Contains(err.Error(), "1 items wait on "+dep) {
 		t.Fatalf("agent archive with dependents = %v", err)
 	}
 	mustRun(t, DocArchive, f.owner, DocArchiveInput{ID: dep, Reason: "Not needed."})
-	free := mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Tidy up", DoneWhen: "Tidy."}).ID
+	free := mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Tidy up", DoneWhen: "Tidy."}).ID
 	if _, err := DocArchive.Run(w, f.agent, DocArchiveInput{ID: free, Reason: "Done elsewhere."}); err != nil {
 		t.Fatalf("agent archive with no dependents = %v", err)
 	}
@@ -52,14 +52,14 @@ func TestNotUndoableOpsAreTheOwners(t *testing.T) {
 func TestFormerlyHeldWritesApply(t *testing.T) {
 	f := newAgentFix(t)
 	w := writeCtx(t)
-	task := mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Renew the cert", DoneWhen: "Renewed."}).ID
+	task := mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Renew the cert", DoneWhen: "Renewed."}).ID
 	if _, err := TaskAssign.Run(w, f.agent, TaskAssignInput{ID: task, Assignee: "self"}); err != nil {
 		t.Fatalf("task_assign (review) = %v", err)
 	}
 	if _, err := Defer.Run(w, f.agent, DeferInput{IDs: []string{task}, Until: "2099-01-01"}); err != nil {
 		t.Fatalf("defer = %v", err)
 	}
-	other := mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Rotate keys", DoneWhen: "Rotated."}).ID
+	other := mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Rotate keys", DoneWhen: "Rotated."}).ID
 	if _, err := TaskResolve.Run(w, f.agent, TaskResolveInput{ID: other, Outcome: model.OutcomeFailed, Tried: "Twice.", StoppedBecause: "No access."}); err != nil {
 		t.Fatalf("task_resolve failed = %v", err)
 	}
@@ -155,7 +155,7 @@ func TestGateSettingUnused(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Set or not, an unrated agent write applies.
-	if _, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Applies anyway", DoneWhen: "Done."}); err != nil {
+	if _, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Goal: f.proj, Title: "Applies anyway", DoneWhen: "Done."}); err != nil {
 		t.Fatal(err)
 	}
 	found := false

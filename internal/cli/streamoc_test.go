@@ -14,7 +14,7 @@ func seedStreamOCParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
 	docs := []model.Document{{ID: "project-oc-seed", Folder: model.FolderProjects, Title: "OC project",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}}}
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}}}
 	for _, id := range []string{"question-oc-a", "question-oc-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderQuestions, Title: "Q " + id,
 			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Scope: model.LinkTo("project-oc-seed")}})

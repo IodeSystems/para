@@ -85,7 +85,7 @@ func TestRFXAdd(t *testing.T) {
 		{"no ask", RFXAddInput{Direction: "out", Route: "r"}, "ask", false, ""},
 		{"bad nudge", RFXAddInput{Direction: "out", Ask: "a", Route: "r", NextNudge: "tomorrow"}, "next_nudge", false, ""},
 		{"missing dependency", RFXAddInput{Direction: "out", Ask: "a", Route: "r", DependsOn: []string{"rfx-nope"}}, "depends_on", false, ""},
-		{"missing project", RFXAddInput{Direction: "out", Ask: "a", Route: "r", Project: "nope"}, "project", false, ""},
+		{"missing project", RFXAddInput{Direction: "out", Ask: "a", Route: "r", Goal: "nope"}, "goal", false, ""},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

@@ -29,7 +29,6 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"project.status", strs(ProjectStatuses), paramd.FieldEnum("project", "status")},
 		{"goal.status", strs(GoalStatuses), paramd.FieldEnum("goal", "status")},
 		{"goal.validation", strs(Validations), paramd.FieldEnum("goal", "validation")},
-		{"project.validation", strs(Validations), paramd.FieldEnum("project", "validation")},
 		{"area.status", strs(AreaStatuses), paramd.FieldEnum("area", "status")},
 		{"area.kind", strs(AreaKinds), paramd.FieldEnum("area", "kind")},
 		{"pointer.kind", strs(PointerKinds), paramd.ItemFieldEnum("area", "links", "kind")},
@@ -69,8 +68,8 @@ func TestEnumsMatchParamd(t *testing.T) {
 		{"contact.method", strs(Mediums), paramd.ItemFieldEnum("person", "contacts", "method")},
 		{"target.medium", strs(Mediums), paramd.ItemFieldEnum("rfx", "targets", "medium")},
 		{"target.state", strs(TargetStates), paramd.ItemFieldEnum("rfx", "targets", "state")},
-		{"risk.impact", strs(Levels), paramd.ItemFieldEnum("project", "risks", "impact")},
-		{"risk.likelihood", strs(Levels), paramd.ItemFieldEnum("project", "risks", "likelihood")},
+		{"risk.impact", strs(Levels), paramd.ItemFieldEnum("goal", "risks", "impact")},
+		{"risk.likelihood", strs(Levels), paramd.ItemFieldEnum("goal", "risks", "likelihood")},
 		{"assumption.status", strs(AssumptionStatuses), paramd.ItemFieldEnum("task", "assumptions", "status")},
 	}
 	for _, c := range cases {
@@ -98,10 +97,10 @@ func TestRenderedTypesLintClean(t *testing.T) {
 	}{
 		{"acme-portal", &Project{Common: c(TypeProject), Status: ProjectActive, Owner: "Jordan Example", Area: LinkTo("health"),
 			Links: []Pointer{{Label: "Plan", Kind: PointerPlan, Target: "/srv/plans/portal.md"}}}, ""},
-		{"note-one", &Note{Common: c(TypeNote), Area: LinkTo("health"), Project: LinkTo("acme-portal")}, "Reference text."},
+		{"note-one", &Note{Common: c(TypeNote), Area: LinkTo("health"), Goal: LinkTo("acme-portal")}, "Reference text."},
 		{"health", &Area{Common: c(TypeArea), Status: AreaActive, Links: []Pointer{
 			{Label: "Runbook", Kind: PointerRunbook, Target: "~/doc/runbook.md"}, {Label: "Repo", Kind: PointerRepo, Target: "https://git.acme.example/atlas"}}}, "Standard."},
-		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Project: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
+		{"task-one", &Task{Common: c(TypeTask), Status: TaskBlocked, Goal: LinkTo("acme-portal"), BlockedBy: []string{"waiting on rfx-one"}, DependsOn: []Link{LinkTo("rfx-one")}}, ""},
 		{"task-area", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health")}, ""},
 		{"incident-one", &Incident{Common: c(TypeIncident), Severity: Sev2, Status: IncidentResolved, Started: "2026-11-01T09:00:00Z", Ended: "2026-11-01T10:30:00Z",
 			Area: LinkTo("health"), Links: []Pointer{{Label: "Dashboard", Kind: PointerDashboard, Target: "https://grafana.acme.example/d/atlas"}}}, "## Timeline\n\n- 2026-11-01T09:00:00Z opened"},
@@ -111,7 +110,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 		{"question-root", &Question{Common: c(TypeQuestion), Status: QuestionOpen, Scope: ScopeRoot}, ""},
 		{"task-follow", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health"), Incident: LinkTo("incident-one")}, ""},
 		{"task-recur", &Task{Common: c(TypeTask), Status: TaskTodo, Area: LinkTo("health"), Due: "2026-11-08", Recur: "every 3 days", Assignee: "agent:scribe", Previous: LinkTo("task-area")}, ""},
-		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Project: LinkTo("acme-portal")}, ""},
+		{"rfx-one", &RFX{Common: c(TypeRFX), Direction: RFXOut, Status: RFXOpen, Route: "email", SelfServeCheck: "searched wiki", Goal: LinkTo("acme-portal")}, ""},
 		{"rfx-two", &RFX{Common: c(TypeRFX), Direction: RFXIn, Status: RFXOpen, Route: "domain-logging", SelfServeCheck: "n/a", Targets: []Target{
 			{To: LinkTo("jordan-example"), Medium: MediumSlack, Value: "@jordan", State: TargetSent, Ref: "https://acme.example.slack.com/archives/C0/p1", Sent: "2026-11-01"},
 			{To: LinkTo("atlas-group"), Medium: MediumEmail, State: TargetDrafted},
@@ -121,7 +120,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			With: []Link{LinkTo("jordan-example")}, RFX: []Link{LinkTo("rfx-one")}}, "## Questions\n\n- [[rfx-one]]\n\n## Notes"},
 		{"receipt-one", &Receipt{Common: c(TypeReceipt), Actor: "claude", Op: "task_add", Doc: "task-one", Check: ReceiptUnchecked}, ""},
 		{"task-meeting", &Task{Common: c(TypeTask), Status: TaskTodo, Kind: KindMeeting, Occasion: Occasion{Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []Link{LinkTo("jordan-example")}, RFX: []Link{LinkTo("rfx-one")}}}, "## Questions\n\n- [[rfx-one]]\n\n## Notes"},
-		{"task-call", &Task{Common: c(TypeTask), Status: TaskTodo, Kind: KindCall, Project: LinkTo("acme-portal"), Occasion: Occasion{Scheduled: "2026-11-05", With: []Link{LinkTo("jordan-example")}}}, ""},
+		{"task-call", &Task{Common: c(TypeTask), Status: TaskTodo, Kind: KindCall, Goal: LinkTo("acme-portal"), Occasion: Occasion{Scheduled: "2026-11-05", With: []Link{LinkTo("jordan-example")}}}, ""},
 		{"obligation-sync", &Obligation{Common: c(TypeObligation), Kind: KindMeeting, State: StateOpen, Schedule: ScheduleSeries, Recur: "weekly",
 			OccurrenceOf: LinkTo("obligation-first"), Occasion: Occasion{Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []Link{LinkTo("jordan-example")}, Optional: true}}, "## Notes"},
 		{"obligation-owed", &Obligation{Common: c(TypeObligation), Kind: KindCommitment, State: StateClosed, Outcome: OutcomeSkipped, Schedule: ScheduleOnce,
@@ -158,7 +157,7 @@ func TestRenderedTypesLintClean(t *testing.T) {
 			Expects: ExpectsResponse, Route: "billing", Became: LinkTo("acme-portal"), Thread: LinkTo("acme-portal")}, "Hi."},
 		{"runbook", &TrackedDoc{Common: c(TypeTrackedDoc), URL: "https://wiki.acme.example/runbook", Via: &IOVia{Source: "confluence", Ref: "123"},
 			System: SystemConfluence, Status: DocWatching, Owner: LinkTo("jordan-example"), Watchers: []Link{LinkTo("jordan-example")},
-			Project: LinkTo("acme-portal"), Latest: 2, LastSeen: 1, SeenAt: "2026-11-01T09:00:00Z", Checked: "2026-11-02T09:00:00Z",
+			Goal: LinkTo("acme-portal"), Latest: 2, LastSeen: 1, SeenAt: "2026-11-01T09:00:00Z", Checked: "2026-11-02T09:00:00Z",
 			Comments: []DocComment{{ID: "c1", By: "[[jordan-example]]", At: "2026-11-01T09:00:00Z", Text: "Drop step 3?", Quote: "Step 3", Version: 1,
 				Anchor: &DocAnchor{Version: 2, Lost: true}, Became: LinkTo("rfx-one"), Resolution: CommentBecame}}}, "Runbook of the portal."},
 		{"runbook-v1.source", &Transcript{Common: c(TypeTranscript), Of: LinkTo("runbook"), Source: source(), Version: 1, FetchedBy: "claude",

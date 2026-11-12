@@ -21,7 +21,7 @@ func seedStreamANParity(t *testing.T, deps ops.Deps) {
 	for _, s := range []string{"a", "b"} {
 		d := model.Document{ID: "call-an-" + s, Folder: model.FolderProjects, Title: "AN call " + s,
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindCall,
-				Project: model.LinkTo("project-bg"), Occasion: model.Occasion{Scheduled: "2026-11-20"}}}
+				Goal: model.LinkTo("project-bg"), Occasion: model.Occasion{Scheduled: "2026-11-20"}}}
 		if _, err := deps.Store.Create(ctx, d); err != nil {
 			t.Fatalf("seed %s: %v", d.ID, err)
 		}

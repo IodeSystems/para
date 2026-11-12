@@ -63,7 +63,7 @@ func checkKindLinks(ctx context.Context, s store.Store, doc model.Document) erro
 		return nil
 	}
 	switch m := doc.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		if m.Area != "" {
 			if err := area("area", m.Area, model.AreaKindProject); err != nil {
 				return err
@@ -105,7 +105,7 @@ func checkKindLinks(ctx context.Context, s store.Store, doc model.Document) erro
 // allow: a goal's home must stay a project area, and a concepts entry must stay
 // a concept area.
 func checkAreaUsers(ctx context.Context, s store.Store, id string, kind model.AreaKind) error {
-	for _, typ := range []model.Type{model.TypeProject, model.TypeArea} {
+	for _, typ := range []model.Type{model.TypeGoal, model.TypeArea} {
 		refs, err := s.List(ctx, store.Filter{Type: typ})
 		if err != nil {
 			return err
@@ -121,7 +121,7 @@ func checkAreaUsers(ctx context.Context, s store.Store, id string, kind model.Ar
 			var home model.Link
 			var cs []model.Link
 			switch m := d.Meta.(type) {
-			case *model.Project:
+			case *model.Goal:
 				home, cs = m.Area, m.Concepts
 			case *model.Area:
 				cs = m.Concepts
@@ -346,18 +346,18 @@ func scopeChain(ctx context.Context, s store.Store, id string) ([]string, error)
 		return nil
 	}
 	add(doc.ID)
-	var goal *model.Project
+	var goal *model.Goal
 	var home string
 	switch m := obligationShape(doc).Meta.(type) {
 	case *model.Task:
-		if p, ok := get(m.Project.Target()).(*model.Project); ok {
-			add(m.Project.Target())
+		if p, ok := get(m.Goal.Target()).(*model.Goal); ok {
+			add(m.Goal.Target())
 			goal, home = p, p.Area.Target()
 		} else {
 			home = m.Area.Target()
 		}
 	case *model.Meeting:
-	case *model.Project:
+	case *model.Goal:
 		goal, home = m, m.Area.Target()
 	case *model.Area:
 		home = doc.ID

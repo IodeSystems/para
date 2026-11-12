@@ -37,7 +37,7 @@ func newRFXCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&via, "via", nil, "medium for the matching --to: "+mediumList)
 				fs.StringVar(&in.Route, "route", "", "domain id (see `para route`)")
 				fs.StringVar(&in.SelfServe, "self-serve", "", "what you checked before asking")
-				fs.StringVar(&in.Project, "project", "", "project id")
+				fs.StringVar(&in.Goal, "project", "", "project id")
 				fs.StringSliceVar(&in.Blocks, "blocks", nil, "ids this blocks")
 				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "RFX ids that must resolve first")
 				fs.StringVar(&in.NextNudge, "next-nudge", "", "YYYY-MM-DD")

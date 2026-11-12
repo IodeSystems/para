@@ -190,11 +190,11 @@ type AreaShowInput struct {
 // AreaShowOutput is the output of area_show. Tasks holds the area's own tasks
 // and the tasks of its projects; Notes likewise.
 type AreaShowOutput struct {
-	Area     AreaView      `json:"area"`
-	Body     string        `json:"body"`
-	Projects []ProjectView `json:"projects"`
-	Tasks    []TaskView    `json:"tasks"`
-	Notes    []NoteView    `json:"notes"`
+	Area     AreaView   `json:"area"`
+	Body     string     `json:"body"`
+	Projects []GoalView `json:"projects"`
+	Tasks    []TaskView `json:"tasks"`
+	Notes    []NoteView `json:"notes"`
 	// Incidents are the area's incidents, open ones first. Recurring are its
 	// open tasks with a recurrence.
 	Incidents []IncidentView `json:"incidents"`
@@ -222,7 +222,7 @@ type AreaUser struct {
 }
 
 // AreaShow returns an area with its projects and tasks.
-var AreaShow = defineRead("area_show", "Show an area with its projects and tasks, its body by section with its annotations (notes, exceptions, conventions, constraints), and the source it follows", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
+var AreaShow = defineRead("area_show", "Show an area with its goals and tasks, its body by section with its annotations (notes, exceptions, conventions, constraints), and the source it follows", func(ctx context.Context, d Deps, in AreaShowInput) (AreaShowOutput, error) {
 	doc, a, err := getArea(ctx, d.Store, in.ID)
 	if err != nil {
 		return AreaShowOutput{}, err
@@ -231,7 +231,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
-	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []ProjectView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}, DrawnOnBy: []AreaUser{}}
+	out := AreaShowOutput{Area: v, Body: doc.Body, Projects: []GoalView{}, Tasks: []TaskView{}, Notes: []NoteView{}, Incidents: []IncidentView{}, Recurring: []TaskView{}, DrawnOnBy: []AreaUser{}}
 	if out.Annotations, err = annotationsOf(ctx, d, doc); err != nil {
 		return AreaShowOutput{}, err
 	}
@@ -243,7 +243,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		}
 		out.Follows = &pv
 	}
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
+	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeGoal})
 	if err != nil {
 		return AreaShowOutput{}, err
 	}
@@ -253,7 +253,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		if err != nil {
 			return AreaShowOutput{}, err
 		}
-		pv, err := projectView(pd)
+		pv, err := goalView(pd)
 		if err != nil {
 			return AreaShowOutput{}, err
 		}
@@ -262,7 +262,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 			inArea[pv.ID] = true
 		}
 		if slices.Contains(pv.Concepts, doc.ID) {
-			out.DrawnOnBy = append(out.DrawnOnBy, AreaUser{ID: pv.ID, Type: model.TypeProject, Title: pv.Title})
+			out.DrawnOnBy = append(out.DrawnOnBy, AreaUser{ID: pv.ID, Type: model.TypeGoal, Title: pv.Title})
 		}
 	}
 	arefs, err := d.Store.List(ctx, store.Filter{Type: model.TypeArea})
@@ -283,7 +283,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 		return AreaShowOutput{}, err
 	}
 	for _, t := range tasks {
-		if t.Area == doc.ID || inArea[t.Project] {
+		if t.Area == doc.ID || inArea[t.Goal] {
 			out.Tasks = append(out.Tasks, t)
 			if t.Recur != "" && !taskTerminal(t.Status) {
 				out.Recurring = append(out.Recurring, t)
@@ -296,7 +296,7 @@ var AreaShow = defineRead("area_show", "Show an area with its projects and tasks
 	if out.Questions, err = openQuestions(ctx, d.Store, func(x qrow) bool { return x.area == doc.ID }); err != nil {
 		return AreaShowOutput{}, err
 	}
-	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Project] }); err != nil {
+	if out.Notes, err = listNotes(ctx, d.Store, func(n NoteView) bool { return n.Area == doc.ID || inArea[n.Goal] }); err != nil {
 		return AreaShowOutput{}, err
 	}
 	if out.LastAligned, err = LastAligned(ctx, d.Store, doc.ID); err != nil {

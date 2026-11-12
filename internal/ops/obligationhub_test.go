@@ -24,11 +24,11 @@ func partIDs(ps []ObligationPart) []string {
 // takes the obligation's.
 func TestParentMayBeAnObligation(t *testing.T) {
 	d, proj, person := obFixture(t)
-	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the plan", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
 	task := must(t, TaskAdd, d, TaskAddInput{Title: "Draft the plan", Parent: ob.ID, DoneWhen: "Draft in the folder."})
 	if doc, err := d.Store.Get(ctx, task.ID); err != nil {
 		t.Fatal(err)
-	} else if tk := doc.Meta.(*model.Task); tk.Parent != model.LinkTo(ob.ID) || tk.Project != model.LinkTo(proj) {
+	} else if tk := doc.Meta.(*model.Task); tk.Parent != model.LinkTo(ob.ID) || tk.Goal != model.LinkTo(proj) {
 		t.Fatalf("task = %+v", tk)
 	}
 	ask := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Numbers for the plan", Route: "domain-billing", Parent: ob.ID,
@@ -39,17 +39,17 @@ func TestParentMayBeAnObligation(t *testing.T) {
 		t.Fatalf("rfx parent = %q", r.Parent)
 	}
 	follow := must(t, ObligationAdd, d, ObligationAddInput{Title: "Review the plan with Ada", OwedTo: []string{person}, Due: "2026-11-20", Parent: ob.ID})
-	if _, o := getOb(t, d, follow.ID); o.Parent != model.LinkTo(ob.ID) || o.Project != model.LinkTo(proj) {
+	if _, o := getOb(t, d, follow.ID); o.Parent != model.LinkTo(ob.ID) || o.Goal != model.LinkTo(proj) {
 		t.Fatalf("obligation parent = %+v", o)
 	}
-	other := must(t, TaskAdd, d, TaskAddInput{Title: "Book the room", Project: proj, DoneWhen: "Booked."})
+	other := must(t, TaskAdd, d, TaskAddInput{Title: "Book the room", Goal: proj, DoneWhen: "Booked."})
 	if out := must(t, TaskEdit, d, TaskEditInput{ID: other.ID, Parent: ob.ID}); out.Parent != ob.ID {
 		t.Fatalf("task_edit parent = %+v", out)
 	}
 	if out := must(t, TaskEdit, d, TaskEditInput{ID: other.ID, ClearParent: true}); out.Parent != "" {
 		t.Fatalf("task_edit clear_parent = %+v", out)
 	}
-	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "x", Parent: person, Project: proj, DoneWhen: "x."}); err == nil || !strings.Contains(err.Error(), "want a task or an obligation") {
+	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "x", Parent: person, Goal: proj, DoneWhen: "x."}); err == nil || !strings.Contains(err.Error(), "want a task or an obligation") {
 		t.Fatalf("parent person: %v", err)
 	}
 	must(t, Close, d, CloseInput{ID: follow.ID, Reason: "Reviewed."})
@@ -70,10 +70,10 @@ func TestParentMayBeAnObligation(t *testing.T) {
 // with backward dates, and the action items meeting_hold files after.
 func TestObligationPartsBeforeAndCameOut(t *testing.T) {
 	d, proj, person := obFixture(t)
-	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-10T14:00:00Z", End: "2026-11-10T15:00:00Z", Project: proj})
+	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-10T14:00:00Z", End: "2026-11-10T15:00:00Z", Goal: proj})
 	prep := must(t, TaskAdd, d, TaskAddInput{Title: "Write the review notes", Parent: m.ID, Effort: model.EffortL, DoneWhen: "Notes written."})
 	small := must(t, TaskAdd, d, TaskAddInput{Title: "Print the agenda", Parent: m.ID, Effort: model.EffortS, DoneWhen: "Printed."})
-	dep := must(t, TaskAdd, d, TaskAddInput{Title: "Get the numbers", Project: proj, Effort: model.EffortM, DoneWhen: "Numbers in."})
+	dep := must(t, TaskAdd, d, TaskAddInput{Title: "Get the numbers", Goal: proj, Effort: model.EffortM, DoneWhen: "Numbers in."})
 	doc, o := getOb(t, d, m.ID)
 	o.DependsOn = []model.Link{model.LinkTo(dep.ID)}
 	if _, err := d.Store.Update(ctx, doc); err != nil {
@@ -119,13 +119,13 @@ func TestObligationPartsBeforeAndCameOut(t *testing.T) {
 // startable and rises. Prep of a promise outside the window does not.
 func TestOrderOwedTier(t *testing.T) {
 	d, proj, person := obFixture(t)
-	near := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
-	far := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the audit", OwedTo: []string{person}, Due: "2026-11-30", Project: proj})
+	near := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the plan", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
+	far := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send Ada the audit", OwedTo: []string{person}, Due: "2026-11-30", Goal: proj})
 	prep := must(t, TaskAdd, d, TaskAddInput{Title: "Draft the plan", Parent: near.ID, Effort: model.EffortL, DoneWhen: "Drafted."})
 	farPrep := must(t, TaskAdd, d, TaskAddInput{Title: "Draft the audit", Parent: far.ID, Effort: model.EffortL, DoneWhen: "Drafted."})
 	meet := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-09T14:00:00Z", End: "2026-11-09T15:00:00Z"})
-	mprep := must(t, TaskAdd, d, TaskAddInput{Title: "Read the plan", Parent: meet.ID, Effort: model.EffortM, Project: proj, DoneWhen: "Read."})
-	plain := must(t, TaskAdd, d, TaskAddInput{Title: "Tidy the wiki", Project: proj, DoneWhen: "Tidy."})
+	mprep := must(t, TaskAdd, d, TaskAddInput{Title: "Read the plan", Parent: meet.ID, Effort: model.EffortM, Goal: proj, DoneWhen: "Read."})
+	plain := must(t, TaskAdd, d, TaskAddInput{Title: "Tidy the wiki", Goal: proj, DoneWhen: "Tidy."})
 	rows := orderIDs(t, d)
 	if r, ok := rows[meet.ID]; ok && r.Bucket != BucketNotYet {
 		t.Errorf("a booked meeting after today is not yet startable: %+v", r)
@@ -228,8 +228,8 @@ func noticeOf(t *testing.T, d Deps, id string) (model.Document, *model.IO) {
 func TestObligationChangePushNotifiesPerChannel(t *testing.T) {
 	d, proj, person := obFixture(t)
 	addPeople(t, d)
-	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Interested: []string{"person-bo-example"}, Due: "2026-11-11", Project: proj})
-	urgent := must(t, TaskAdd, d, TaskAddInput{Title: "Fix the outage review", Project: proj, DoneWhen: "Done."})
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Interested: []string{"person-bo-example"}, Due: "2026-11-11", Goal: proj})
+	urgent := must(t, TaskAdd, d, TaskAddInput{Title: "Fix the outage review", Goal: proj, DoneWhen: "Done."})
 	if _, err := ObligationChange.Run(ctx, d, ObligationChangeInput{ID: ob.ID, Action: ChangePush, Due: "2026-11-13"}); err == nil || !strings.Contains(err.Error(), "give reason") {
 		t.Fatalf("no reason: %v", err)
 	}
@@ -284,17 +284,17 @@ func TestObligationChangePushNotifiesPerChannel(t *testing.T) {
 func TestObligationChangeRedirectCancelSeries(t *testing.T) {
 	d, proj, person := obFixture(t)
 	addPeople(t, d)
-	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
 	r := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangeRedirect, To: "person-bo-example", Reason: "Bo owns the plan now"})
 	if !slices.Equal(r.OwedBy, []string{"person-bo-example"}) || r.State != model.StateOpen || len(r.Notices) != 2 {
 		t.Fatalf("redirect = %+v", r)
 	}
-	away := must(t, ObligationAdd, d, ObligationAddInput{Title: "File the expense", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	away := must(t, ObligationAdd, d, ObligationAddInput{Title: "File the expense", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
 	rr := must(t, ObligationChange, d, ObligationChangeInput{ID: away.ID, Action: ChangeRedirect, To: "https://tracker.acme.example/EXP-4", Reason: "The tracker holds it", Notify: new(bool)})
 	if _, o := getOb(t, d, away.ID); rr.State != model.StateClosed || o.Outcome != model.OutcomeRerouted {
 		t.Fatalf("reroute = %+v / %+v", rr, o)
 	}
-	c := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	c := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
 	cc := must(t, ObligationChange, d, ObligationChangeInput{ID: c.ID, Action: ChangeCancel, Reason: "The launch moved a quarter"})
 	if _, o := getOb(t, d, c.ID); o.State != model.StateClosed || o.Outcome != model.OutcomeDeclined || len(cc.Notices) != 1 {
 		t.Fatalf("cancel = %+v / %+v", cc, o)
@@ -329,16 +329,16 @@ func TestObligationChangeRedirectCancelSeries(t *testing.T) {
 func TestPromiseScoreAndHealth(t *testing.T) {
 	d, proj, person := obFixture(t)
 	addPeople(t, d)
-	kept := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj})
+	kept := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj})
 	must(t, Close, d, CloseInput{ID: kept.ID, Reason: "Sent."})
 	if _, o := getOb(t, d, kept.ID); o.Promise != model.PromiseKept {
 		t.Fatalf("kept = %q", o.Promise)
 	}
-	late := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the audit", OwedTo: []string{person}, Due: "2026-11-03", Project: proj})
+	late := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the audit", OwedTo: []string{person}, Due: "2026-11-03", Goal: proj})
 	if got := healthOf(t, d, late.ID); !slices.Contains(got, HealthPromiseUntold) {
 		t.Fatalf("health of a late promise = %v", got)
 	}
-	reneg := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-09", Project: proj})
+	reneg := must(t, ObligationAdd, d, ObligationAddInput{Title: "Write the post", OwedTo: []string{person}, Due: "2026-11-09", Goal: proj})
 	ch := must(t, ObligationChange, d, ObligationChangeInput{ID: reneg.ID, Action: ChangeCancel, Reason: "The launch moved"})
 	if _, o := getOb(t, d, reneg.ID); o.Promise != "" {
 		t.Fatalf("before approval = %q", o.Promise)
@@ -377,12 +377,12 @@ func TestPromiseScoreAndHealth(t *testing.T) {
 func TestObligationTimelineAtRisk(t *testing.T) {
 	d, proj, person := obFixture(t)
 	// Thursday noon: 3 hours left today, 6 on Friday.
-	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-06", Project: proj})
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-06", Goal: proj})
 	must(t, TaskAdd, d, TaskAddInput{Title: "Draft", Parent: ob.ID, Effort: model.EffortL, DoneWhen: "Drafted."})
 	must(t, TaskAdd, d, TaskAddInput{Title: "Check", Parent: ob.ID, Effort: model.EffortS, DoneWhen: "Checked."})
 	// Monday 11:00: Thursday 3 + Friday 6 + Monday 2 = 11 hours.
 	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-09T11:00:00Z", End: "2026-11-09T12:00:00Z"})
-	blocked := must(t, TaskAdd, d, TaskAddInput{Title: "Get the room", Parent: m.ID, Effort: model.EffortXS, Project: proj, DoneWhen: "Booked."})
+	blocked := must(t, TaskAdd, d, TaskAddInput{Title: "Get the room", Parent: m.ID, Effort: model.EffortXS, Goal: proj, DoneWhen: "Booked."})
 	tl := must(t, ObligationTimeline, d, ObligationTimelineInput{Days: 7})
 	point := func(id string) TimelinePoint {
 		for _, day := range tl.Days {

@@ -25,8 +25,8 @@ func newHoldFixture(t *testing.T) holdFixture {
 	d := f.d
 	f.person2 = "person-bo-example"
 	f.noRFX = must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Can we skip the audit?", Route: "domain-logging",
-		SelfServe: "read policies", Project: f.project, Targets: []TargetInput{{To: f.person2, Medium: model.MediumEmail}}}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Who signs off?", Project: f.project})
+		SelfServe: "read policies", Goal: f.project, Targets: []TargetInput{{To: f.person2, Medium: model.MediumEmail}}}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Who signs off?", Goal: f.project})
 	f.asked = q.ID
 	ask := must(t, QuestionAsk, d, QuestionAskInput{ID: q.ID, To: f.person, Via: model.MediumSlack, Route: "domain-logging"})
 	f.askRFX = ask.RFX
@@ -79,7 +79,7 @@ func TestMeetingHold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if tm.Assignee != f.person || tm.Due != "2026-11-10" || !strings.Contains(task.Body, "[["+f.meeting+"]]") || tm.Project.Target() != f.project {
+	if tm.Assignee != f.person || tm.Due != "2026-11-10" || !strings.Contains(task.Body, "[["+f.meeting+"]]") || tm.Goal.Target() != f.project {
 		t.Errorf("task = %+v body %q", tm, task.Body)
 	}
 	if _, tm2, _ := getTask(ctx, d.Store, out.Tasks[1]); tm2.Assignee != "" {
@@ -131,7 +131,7 @@ func TestMeetingHoldChecksBeforeWriting(t *testing.T) {
 		want string
 	}{
 		{"bad assignee", MeetingHoldInput{Replies: []RFXReplyInput{reply}, Actions: []HoldAction{{Title: "x", Assignee: "person-nope"}}}, "actions[0]"},
-		{"no scope for a task", MeetingHoldInput{Replies: []RFXReplyInput{reply}, Actions: []HoldAction{{Title: "x", Project: "", Area: "area-nope"}}}, "actions[0]"},
+		{"no scope for a task", MeetingHoldInput{Replies: []RFXReplyInput{reply}, Actions: []HoldAction{{Title: "x", Goal: "", Area: "area-nope"}}}, "actions[0]"},
 		{"bad due", MeetingHoldInput{Replies: []RFXReplyInput{reply}, Actions: []HoldAction{{Title: "x", Due: "soon"}}}, "actions[0]"},
 		{"empty title", MeetingHoldInput{Replies: []RFXReplyInput{reply}, Actions: []HoldAction{{Title: " "}}}, "title"},
 		{"raw html in notes", MeetingHoldInput{Notes: "see <b>this</b>", Replies: []RFXReplyInput{reply}}, "notes"},
@@ -193,7 +193,7 @@ func TestMeetingHoldActionForAgent(t *testing.T) {
 	f := newMeetingFixture(t)
 	d := f.d
 	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "x", With: []string{f.person}, Start: "2026-11-04T10:00:00Z", End: "2026-11-04T10:30:00Z"})
-	out := must(t, MeetingHold, d, MeetingHoldInput{ID: m.ID, Project: f.project, Actions: []HoldAction{{Title: "Summarize the notes", Assignee: "agent:scribe"}}})
+	out := must(t, MeetingHold, d, MeetingHoldInput{ID: m.ID, Goal: f.project, Actions: []HoldAction{{Title: "Summarize the notes", Assignee: "agent:scribe"}}})
 	_, tm, _ := getTask(ctx, d.Store, out.Tasks[0])
 	if tm.Assignee != "agent:scribe" {
 		t.Errorf("assignee = %q", tm.Assignee)

@@ -28,8 +28,8 @@ func agendaHas(t *testing.T, d Deps, id string) bool {
 // reads a stale list.
 func TestDoneLeavesAgenda(t *testing.T) {
 	d := newDepsAt(t, time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC), "m1")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "File the form", Due: "2026-11-05"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "File the form", Due: "2026-11-05"}).ID
 	if !orderHas(t, d, id) || !agendaHas(t, d, id) {
 		t.Fatal("open task due today is not listed")
 	}
@@ -43,8 +43,8 @@ func TestDoneLeavesAgenda(t *testing.T) {
 // title: its next occurrence is after today.
 func TestRecurringDoneLateNotDueToday(t *testing.T) {
 	d := newDepsAt(t, time.Date(2026, 11, 5, 12, 0, 0, 0, time.Local), "m1")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Water plants", Due: "2026-10-01", Recur: "daily"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Water plants", Due: "2026-10-01", Recur: "daily"}).ID
 	out := must(t, TaskDone, d, TaskDoneInput{ID: id})
 	if out.Next == "" {
 		t.Fatal("no next occurrence")
@@ -80,9 +80,9 @@ func TestItemCloseAsk(t *testing.T) {
 // future date, or someday), and no meeting held or cancelled.
 func TestAgendaLeavesDeferredAndHeld(t *testing.T) {
 	d := newDepsAt(t, time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC), "m1")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	add := func(title string) string {
-		return must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: title, Due: "2026-11-05"}).ID
+		return must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: title, Due: "2026-11-05"}).ID
 	}
 	open, until, someday := add("Open"), add("Until"), add("Someday")
 	must(t, Defer, d, DeferInput{IDs: []string{until}, Until: "2026-12-01"})

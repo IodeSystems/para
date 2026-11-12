@@ -58,9 +58,9 @@ func day(n int) string { return time.Now().AddDate(0, 0, n).Format(dateLayout) }
 func TestViewsAreTheNeedsYouSet(t *testing.T) {
 	in, d := fixture(t)
 	ada := must(t, ops.OrgPersonAdd, d, ops.OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
-	proj := must(t, ops.ProjectAdd, d, ops.ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, ops.GoalAdd, d, ops.GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	task := func(title string, f func(*ops.TaskAddInput)) string {
-		in := ops.TaskAddInput{Project: proj, Title: title, DoneWhen: "Done."}
+		in := ops.TaskAddInput{Goal: proj, Title: title, DoneWhen: "Done."}
 		if f != nil {
 			f(&in)
 		}
@@ -75,11 +75,11 @@ func TestViewsAreTheNeedsYouSet(t *testing.T) {
 	task("For Ada", func(i *ops.TaskAddInput) { i.Due, i.Assignee = day(0), ada })
 	blocked := task("Blocked", nil)
 	must(t, ops.TaskBlock, d, ops.TaskBlockInput{ID: blocked, Reason: "Waiting for access."})
-	q := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which region?", Project: proj}).ID
+	q := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which region?", Goal: proj}).ID
 	task("Waits on the question", func(i *ops.TaskAddInput) { i.Due, i.DependsOn = day(0), []string{q} })
-	must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which vendor?", Project: proj})
-	qLater := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which logo?", Project: proj}).ID
-	qSent := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which budget?", Project: proj}).ID
+	must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which vendor?", Goal: proj})
+	qLater := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which logo?", Goal: proj}).ID
+	qSent := must(t, ops.QuestionAdd, d, ops.QuestionAddInput{Text: "Which budget?", Goal: proj}).ID
 	tSent := task("Sent to an agent", func(i *ops.TaskAddInput) { i.Due = day(0) })
 	must(t, ops.Defer, d, ops.DeferInput{IDs: []string{later, qLater}, Until: day(5)})
 	must(t, ops.RFXAdd, d, ops.RFXAddInput{Direction: model.RFXIn, Ask: "Review the numbers", Route: ada,

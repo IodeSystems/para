@@ -26,7 +26,7 @@ func newVerbVault(t *testing.T) *verbVault {
 	t.Helper()
 	rv := newReqVault(t)
 	v := &verbVault{rv: rv, cli: rv.as("user", "cli", "install-a"), pwa: rv.as("user", "pwa", "install-a"), agent: rv.as("claude", "mcp", "install-a")}
-	p, err := ProjectAdd.Run(t.Context(), v.cli, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
+	p, err := GoalAdd.Run(t.Context(), v.cli, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func newVerbVault(t *testing.T) *verbVault {
 
 func (v *verbVault) task(t *testing.T, title string) string {
 	t.Helper()
-	out, err := TaskAdd.Run(t.Context(), v.cli, TaskAddInput{Project: v.proj, Title: title, DoneWhen: "It is done."})
+	out, err := TaskAdd.Run(t.Context(), v.cli, TaskAddInput{Goal: v.proj, Title: title, DoneWhen: "It is done."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +60,7 @@ func (v *verbVault) meeting(t *testing.T, title string) string {
 
 func (v *verbVault) question(t *testing.T, text string) string {
 	t.Helper()
-	out, err := QuestionAdd.Run(t.Context(), v.cli, QuestionAddInput{Text: text, Project: v.proj})
+	out, err := QuestionAdd.Run(t.Context(), v.cli, QuestionAddInput{Text: text, Goal: v.proj})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,8 +194,8 @@ func TestOldOpParity(t *testing.T) {
 			`{"id":"%s","reason":"Not needed."}`, `{"id":"%s","outcome":"dropped","reason":"Not needed."}`},
 		{"question_drop", "close", "mcp", func(t *testing.T, v *verbVault) string { return v.question(t, "Which vendor?") },
 			`{"id":"%s","reason":"Moot."}`, `{"id":"%s","outcome":"dropped","reason":"Moot."}`},
-		{"project_close", "close", "cli", func(t *testing.T, v *verbVault) string {
-			p, err := ProjectAdd.Run(t.Context(), v.cli, ProjectAddInput{DoneWhen: "Done.", Title: "Side goal", Owner: "Jordan Example"})
+		{"goal_close", "close", "cli", func(t *testing.T, v *verbVault) string {
+			p, err := GoalAdd.Run(t.Context(), v.cli, GoalAddInput{DoneWhen: "Done.", Title: "Side goal", Owner: "Jordan Example"})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -477,7 +477,7 @@ func TestCloseEvidenceMustBeVerifiable(t *testing.T) {
 		t.Fatalf("receipt sources %v, op %s", list.Items[0].Sources, out.Op)
 	}
 	if _, err := Close.Run(t.Context(), v.cli, CloseInput{ID: v.proj, Reason: "Shipped."}); err == nil {
-		t.Fatal("project_close took a reason it cannot keep")
+		t.Fatal("goal_close took a reason it cannot keep")
 	}
 }
 
@@ -512,7 +512,7 @@ func TestListAndShow(t *testing.T) {
 	if got := ids(ListInput{}); !reflect.DeepEqual(got, ids(ListInput{NeedsYou: true})) {
 		t.Fatalf("list {} = %v", got)
 	}
-	if got, want := ids(ListInput{Type: "goal"}), ids(ListInput{Type: model.TypeProject}); len(want) == 0 || !reflect.DeepEqual(got, want) {
+	if got, want := ids(ListInput{Type: "goal"}), ids(ListInput{Type: model.TypeGoal}); len(want) == 0 || !reflect.DeepEqual(got, want) {
 		t.Fatalf("list goal = %v, project = %v", got, want)
 	}
 	// needs_you is ranked as order ranks it, and every ranked row comes first.

@@ -39,8 +39,8 @@ func orderList(t *testing.T, d Deps) []string {
 
 func TestPreparedReadyAndStale(t *testing.T) {
 	d := gapVault(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
 	if r := rowOf(t, d, task); r.Ready {
 		t.Fatalf("raw task is ready: %+v", r)
 	}
@@ -67,7 +67,7 @@ func TestPreparedReadyAndStale(t *testing.T) {
 	mustLintClean(t, d)
 
 	// A question with an agent's proposed answer is ready by itself.
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which CA?", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which CA?", Goal: proj}).ID
 	qd, err := d.Store.Get(ctx, q)
 	if err != nil {
 		t.Fatal(err)
@@ -83,10 +83,10 @@ func TestPreparedReadyAndStale(t *testing.T) {
 
 func TestPreparedReadyFirstWithinGroup(t *testing.T) {
 	d := gapVault(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Older", DoneWhen: "Done.", Effort: model.EffortS})
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Newer", DoneWhen: "Done.", Effort: model.EffortS})
-	soon := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Due", DoneWhen: "Done.", Effort: model.EffortS, Due: "2026-11-03"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Older", DoneWhen: "Done.", Effort: model.EffortS})
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Newer", DoneWhen: "Done.", Effort: model.EffortS})
+	soon := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Due", DoneWhen: "Done.", Effort: model.EffortS, Due: "2026-11-03"}).ID
 	// older and newer tie on everything but id (same created time on the test
 	// clock), so the raw order between them is the id order: prepare the one
 	// that sorts second.

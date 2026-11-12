@@ -17,7 +17,7 @@ func TestReceiptInputCitesTheIO(t *testing.T) {
 	ctx := WithWrite(t.Context(), WriteMeta{Why: "From the message.", Sources: []string{f.source}, Input: msg.ID})
 	var tasks []string
 	for _, title := range []string{"Rotate the portal keys", "Write the billing parser", "Book the vendor review"} {
-		r, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: title, DoneWhen: "It is done."})
+		r, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: title, DoneWhen: "It is done."})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +49,7 @@ func TestReceiptInputCitesTheIO(t *testing.T) {
 		t.Fatal(err)
 	}
 	plain := WithWrite(t.Context(), WriteMeta{Why: "Filed from the inbox.", Sources: []string{f.source}})
-	filed, err := IOFile.Run(plain, f.agent, IOFileInput{ID: other.ID, To: TriageTask, Project: f.proj, DoneWhen: "Renewed."})
+	filed, err := IOFile.Run(plain, f.agent, IOFileInput{ID: other.ID, To: TriageTask, Goal: f.proj, DoneWhen: "Renewed."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,7 +70,7 @@ func TestReceiptInputCitesTheIO(t *testing.T) {
 
 	// A source that names one io item sets it.
 	cited := WithWrite(t.Context(), WriteMeta{Why: "The message says so.", Sources: []string{"[[" + msg.ID + "]]"}})
-	r, err := TaskAdd.Run(cited, f.agent, TaskAddInput{Project: f.proj, Title: "Call the registrar", DoneWhen: "Called."})
+	r, err := TaskAdd.Run(cited, f.agent, TaskAddInput{Goal: f.proj, Title: "Call the registrar", DoneWhen: "Called."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +81,7 @@ func TestReceiptInputCitesTheIO(t *testing.T) {
 	// An input that is not an io item is refused, and nothing is written.
 	for _, bad := range []string{f.source, "io-nothing-here"} {
 		ctx := WithWrite(t.Context(), WriteMeta{Why: "w", Sources: []string{f.source}, Input: bad})
-		if _, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Never written " + bad, DoneWhen: "No."}); err == nil || !strings.Contains(err.Error(), "not an io item") {
+		if _, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Never written " + bad, DoneWhen: "No."}); err == nil || !strings.Contains(err.Error(), "not an io item") {
 			t.Fatalf("input %s: %v", bad, err)
 		}
 	}
@@ -102,7 +102,7 @@ func TestReceiptInputFromHeldRequest(t *testing.T) {
 		t.Fatalf("next = %+v %v", next, err)
 	}
 	ctx := WithWrite(t.Context(), WriteMeta{Why: "From the message.", Sources: []string{f.source}})
-	r, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Ship the portal build", DoneWhen: "Shipped."})
+	r, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Ship the portal build", DoneWhen: "Shipped."})
 	if err != nil {
 		t.Fatal(err)
 	}

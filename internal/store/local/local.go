@@ -44,6 +44,13 @@ func (s *Store) As(actor, surface string) *Store {
 	return &Store{v: v, log: v.Log(), root: s.root}
 }
 
+// Native returns the Store without the reading of a vault below
+// model.GoalsFormat as format 11 (vault.Native).
+func (s *Store) Native() store.Store {
+	v := s.v.Native()
+	return &Store{v: v, log: v.Log(), root: s.root}
+}
+
 // ActAs is As behind the store.Store interface.
 func (s *Store) ActAs(actor, surface string) store.Store { return s.As(actor, surface) }
 

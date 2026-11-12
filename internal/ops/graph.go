@@ -31,7 +31,7 @@ type GraphNode struct {
 	Title     string     `json:"title"`
 	Status    string     `json:"status"`
 	State     string     `json:"state"`
-	Project   string     `json:"project,omitempty"`
+	Goal      string     `json:"goal,omitempty"`
 	Area      string     `json:"area,omitempty"`
 	BlockedBy []string   `json:"blocked_by"`
 	WaitingOn []string   `json:"waiting_on"`
@@ -40,9 +40,9 @@ type GraphNode struct {
 	Kind  model.QuestionKind `json:"kind,omitempty"`
 	Scope string             `json:"scope,omitempty"`
 	// Names are the titles of Project, Area and Scope, for people.
-	ProjectName string `json:"project_name,omitempty" nameof:"Project"`
-	AreaName    string `json:"area_name,omitempty" nameof:"Area"`
-	ScopeName   string `json:"scope_name,omitempty" nameof:"Scope"`
+	GoalName  string `json:"goal_name,omitempty" nameof:"Goal"`
+	AreaName  string `json:"area_name,omitempty" nameof:"Area"`
+	ScopeName string `json:"scope_name,omitempty" nameof:"Scope"`
 }
 
 // GraphEdge says From depends on To.
@@ -53,8 +53,8 @@ type GraphEdge struct {
 
 // GraphInput is the input of graph.
 type GraphInput struct {
-	Project string `json:"project,omitempty" query:"project"` // project id
-	Area    string `json:"area,omitempty" query:"area"`       // area id: its own tasks and those of its projects
+	Goal string `json:"goal,omitempty" query:"goal"` // goal id
+	Area string `json:"area,omitempty" query:"area"` // area id: its own tasks and those of its projects
 	// With neither, the graph covers every task in the vault.
 }
 
@@ -83,10 +83,10 @@ func cyclesError(c [][]string) error {
 // Dependency targets outside the project are included, with their own
 // dependencies, so readiness is right across projects.
 var Graph = defineRead("graph", "Show task and rfx dependencies", func(ctx context.Context, d Deps, in GraphInput) (GraphOutput, error) {
-	if in.Project != "" && in.Area != "" {
-		return GraphOutput{}, errors.New("give project or area, not both")
+	if in.Goal != "" && in.Area != "" {
+		return GraphOutput{}, errors.New("give goal or area, not both")
 	}
-	w, err := loadWork(ctx, d.Store, in.Project, in.Area)
+	w, err := loadWork(ctx, d.Store, in.Goal, in.Area)
 	if err != nil {
 		return GraphOutput{}, err
 	}
@@ -95,7 +95,7 @@ var Graph = defineRead("graph", "Show task and rfx dependencies", func(ctx conte
 
 // NextInput is the input of next.
 type NextInput struct {
-	Project string `json:"project,omitempty" query:"project"`
+	Goal string `json:"goal,omitempty" query:"goal"`
 }
 
 // NextOutput is the output of next. Cycles is as in GraphOutput.
@@ -111,7 +111,7 @@ func (o NextOutput) Failed() error { return cyclesError(o.Cycles) }
 // dependency resolved, and assigned to you (not to a person or an agent). Order: due date first (earliest first, undated last),
 // then oldest created, then id.
 var Next = defineRead("next", "List tasks that are ready to work", func(ctx context.Context, d Deps, in NextInput) (NextOutput, error) {
-	w, err := loadWork(ctx, d.Store, in.Project, "")
+	w, err := loadWork(ctx, d.Store, in.Goal, "")
 	if err != nil {
 		return NextOutput{}, err
 	}
@@ -121,7 +121,7 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 	}
 	for _, id := range w.g.Ready() {
 		// An optional meeting the owner has not said they go to is not work.
-		if v, ok := w.tasks[id]; ok && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) && !attendQuiet(v.Kind, v.Optional, v.Attend) {
+		if v, ok := w.tasks[id]; ok && (in.Goal == "" || v.Goal == in.Goal) && !IsOther(v.Assignee) && !attendQuiet(v.Kind, v.Optional, v.Attend) {
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
@@ -131,7 +131,7 @@ var Next = defineRead("next", "List tasks that are ready to work", func(ctx cont
 	today := d.Store.Now().Format(dateLayout)
 	for _, n := range w.nodes {
 		v, ok := w.tasks[n.ID]
-		if ok && v.Status == model.TaskBlocked && returnsBy(v.DeferUntil, today) && (in.Project == "" || v.Project == in.Project) && !IsOther(v.Assignee) {
+		if ok && v.Status == model.TaskBlocked && returnsBy(v.DeferUntil, today) && (in.Goal == "" || v.Goal == in.Goal) && !IsOther(v.Assignee) {
 			out.Tasks = append(out.Tasks, v)
 		}
 	}
@@ -193,7 +193,7 @@ type work struct {
 // then every task and rfx they depend on, transitively.
 func loadWork(ctx context.Context, s store.Store, project, area string) (*work, error) {
 	if project != "" {
-		if _, _, err := getProject(ctx, s, project); err != nil {
+		if _, _, err := getGoal(ctx, s, project); err != nil {
 			return nil, err
 		}
 	}
@@ -203,7 +203,7 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 		if _, _, err := getArea(ctx, s, area); err != nil {
 			return nil, err
 		}
-		projects, err := s.List(ctx, store.Filter{Type: model.TypeProject})
+		projects, err := s.List(ctx, store.Filter{Type: model.TypeGoal})
 		if err != nil {
 			return nil, err
 		}
@@ -212,7 +212,7 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 			if err != nil {
 				return nil, err
 			}
-			if p, ok := doc.Meta.(*model.Project); ok && p.Area.Target() == area {
+			if p, ok := doc.Meta.(*model.Goal); ok && p.Area.Target() == area {
 				inArea[r.ID] = true
 			}
 		}
@@ -232,7 +232,7 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 	}
 	for _, t := range all {
 		w.tasks[t.ID] = t
-		if (project == "" && area == "" || t.Project == project && project != "") || (area != "" && (t.Area == area || inArea[t.Project])) {
+		if (project == "" && area == "" || t.Goal == project && project != "") || (area != "" && (t.Area == area || inArea[t.Goal])) {
 			queue = append(queue, t.ID)
 		}
 	}
@@ -277,22 +277,22 @@ func loadWork(ctx context.Context, s store.Store, project, area string) (*work, 
 		case *model.Task:
 			t := w.tasks[id]
 			add(GraphNode{ID: id, Type: typ, Title: doc.Title, Status: string(m.Status),
-				Project: t.Project, Area: t.Area, BlockedBy: t.BlockedBy}, resolved(doc), m.Status == model.TaskBlocked)
+				Goal: t.Goal, Area: t.Area, BlockedBy: t.BlockedBy}, resolved(doc), m.Status == model.TaskBlocked)
 			deps = t.DependsOn
 		case *model.RFX:
 			add(GraphNode{ID: id, Type: model.TypeRFX, Title: doc.Title, Status: string(m.Status),
-				Project: m.Project.Target()}, resolved(doc), false)
+				Goal: m.Goal.Target()}, resolved(doc), false)
 		case *model.Question:
 			gn := GraphNode{ID: id, Type: model.TypeQuestion, Title: doc.Title, Status: string(m.Status),
 				Kind: m.AsKind(), Scope: scopeID(m)}
 			if sd, err := scopeDoc(ctx, s, gn.Scope); err == nil {
 				switch sm := sd.Meta.(type) {
-				case *model.Project:
-					gn.Project = sd.ID
+				case *model.Goal:
+					gn.Goal = sd.ID
 				case *model.Area:
 					gn.Area = sd.ID
 				case *model.Task:
-					gn.Project, gn.Area = sm.Project.Target(), sm.Area.Target()
+					gn.Goal, gn.Area = sm.Goal.Target(), sm.Area.Target()
 				}
 			}
 			add(gn, resolved(doc), false)

@@ -80,9 +80,9 @@ type AgendaItem struct {
 	// Who is the people of a meeting, or the targets of a nudge.
 	Who      []string `json:"who"`
 	WhoNames []string `json:"who_names,omitempty" nameof:"Who"`
-	Project  string   `json:"project,omitempty"` // a task's project or area
+	Goal     string   `json:"goal,omitempty"` // a task's goal or area
 	// ProjectName is the title of Project, for people.
-	ProjectName string `json:"project_name,omitempty" nameof:"Project"`
+	GoalName string `json:"goal_name,omitempty" nameof:"Goal"`
 	// PartOf is what the item is part of, nearest first (theme.go).
 	PartOf []PartOfRef `json:"part_of,omitempty" partof:"ID"`
 	// Optional and Attend are a meeting's attendance: an optional meeting
@@ -226,7 +226,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 			if ongoing && need.Pending() {
 				if date := cmp.Or(need.On, w.today); date < w.after {
 					add(AgendaItem{Kind: AgendaDue, ID: doc.ID, Title: doc.Title, Date: date, Overdue: date < w.today,
-						Detail: need.Reason, Who: targets(o.OwedTo), Project: cmp.Or(o.Project.Target(), o.Area.Target())}, need)
+						Detail: need.Reason, Who: targets(o.OwedTo), Goal: cmp.Or(o.Goal.Target(), o.Area.Target())}, need)
 				}
 				continue
 			}
@@ -295,7 +295,7 @@ func agendaItems(ctx context.Context, d Deps, w window, overdue bool) (items, sk
 				detail = string(m.Kind)
 			}
 			add(AgendaItem{Kind: AgendaDue, ID: doc.ID, Title: doc.Title, Date: date, Overdue: late,
-				Detail: detail, Who: []string{}, Project: cmp.Or(m.Project.Target(), m.Area.Target())}, need)
+				Detail: detail, Who: []string{}, Goal: cmp.Or(m.Goal.Target(), m.Area.Target())}, need)
 		case *model.RFX:
 			if m.NextNudge == "" {
 				continue

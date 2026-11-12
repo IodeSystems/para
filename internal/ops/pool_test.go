@@ -101,14 +101,14 @@ func TestIdeaAddMakesASomedayTaggedItem(t *testing.T) {
 	}
 	// A goal idea; and a pool not in the file yet takes the name as its tag.
 	g := must(t, IdeaAdd, agent, IdeaAddInput{Pool: "build-day", Title: "Home robot", Kind: "goal"})
-	if doc, _ := d.Store.Get(ctx, g.ID); doc.Meta.(*model.Project).DeferUntil != model.SomedayWord {
+	if doc, _ := d.Store.Get(ctx, g.ID); doc.Meta.(*model.Goal).DeferUntil != model.SomedayWord {
 		t.Fatalf("goal idea = %+v", doc.Meta)
 	}
 	n := must(t, IdeaAdd, d, IdeaAddInput{Pool: "garden", Title: "Rain barrel", Area: "area-tinkering"})
 	if n.Tag != "garden" || len(n.Warnings) != 1 {
 		t.Fatalf("new pool = %+v", n)
 	}
-	if _, err := IdeaAdd.Run(ctx, d, IdeaAddInput{Pool: "garden", Title: "No home"}); err == nil || !strings.Contains(err.Error(), "project or an area") {
+	if _, err := IdeaAdd.Run(ctx, d, IdeaAddInput{Pool: "garden", Title: "No home"}); err == nil || !strings.Contains(err.Error(), "goal or an area") {
 		t.Fatalf("no area: %v", err)
 	}
 	if _, ok := rowsOf(t, d)[out.ID]; ok {

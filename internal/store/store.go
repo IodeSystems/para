@@ -138,3 +138,13 @@ type Store interface {
 	// Events returns the last n events, oldest first.
 	Events(ctx context.Context, n int) ([]model.Event, error)
 }
+
+// Native returns s without the reading of a vault below model.GoalsFormat as
+// format 11, when s offers one (local.Store); else s. Below that format a
+// file of type project is a goal; through Native it is what is on disk.
+func Native(s Store) Store {
+	if n, ok := s.(interface{ Native() Store }); ok {
+		return n.Native()
+	}
+	return s
+}

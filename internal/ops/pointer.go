@@ -29,7 +29,7 @@ type LinkAddInput struct {
 	Target string            `json:"target"` // URL or path; ~/ is stored as written
 }
 
-// LinkRemoveInput is the input of area_link_remove and project_link_remove.
+// LinkRemoveInput is the input of area_link_remove and goal_link_remove.
 type LinkRemoveInput struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
@@ -65,7 +65,7 @@ func pointers(doc model.Document) (*[]model.Pointer, error) {
 	switch m := doc.Meta.(type) {
 	case *model.Area:
 		return &m.Links, nil
-	case *model.Project:
+	case *model.Goal:
 		return &m.Links, nil
 	case *model.Incident:
 		return &m.Links, nil
@@ -140,10 +140,10 @@ func editLinks(ctx context.Context, d Deps, kind model.Type, id string, fn func(
 
 // The link ops. Each kind shares one implementation.
 var (
-	AreaLinkAdd       = defineSafe("area_link_add", "Point an area at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeArea))
-	AreaLinkRemove    = defineSafe("area_link_remove", "Remove a link from an area by label", linkRemove(model.TypeArea))
-	ProjectLinkAdd    = defineSafe("project_link_add", "Point a project at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeProject))
-	ProjectLinkRemove = defineSafe("project_link_remove", "Remove a link from a project by label", linkRemove(model.TypeProject))
+	AreaLinkAdd    = defineSafe("area_link_add", "Point an area at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeArea))
+	AreaLinkRemove = defineSafe("area_link_remove", "Remove a link from an area by label", linkRemove(model.TypeArea))
+	GoalLinkAdd    = defineSafe("goal_link_add", "Point a goal at a repo, plan, docs, or runbook that lives elsewhere", linkAdd(model.TypeGoal))
+	GoalLinkRemove = defineSafe("goal_link_remove", "Remove a link from a goal by label", linkRemove(model.TypeGoal))
 )
 
 // WhereInput is the input of where.
@@ -175,13 +175,13 @@ type WhereOutput struct {
 // lists its open incidents. Every word of
 // the query must appear in the id, title, or a link label (case-insensitive).
 // It reads no target.
-var Where = defineRead("where", "Find areas and projects by name or link label and show their links", func(ctx context.Context, d Deps, in WhereInput) (WhereOutput, error) {
+var Where = defineRead("where", "Find areas and goals by name or link label and show their links", func(ctx context.Context, d Deps, in WhereInput) (WhereOutput, error) {
 	words := strings.Fields(strings.ToLower(in.Query))
 	if len(words) == 0 {
 		return WhereOutput{}, errors.New("query is empty")
 	}
 	out := WhereOutput{Matches: []WhereMatch{}}
-	for _, typ := range []model.Type{model.TypeArea, model.TypeProject} {
+	for _, typ := range []model.Type{model.TypeArea, model.TypeGoal} {
 		refs, err := d.Store.List(ctx, store.Filter{Type: typ, All: in.All})
 		if err != nil {
 			return WhereOutput{}, err

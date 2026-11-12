@@ -265,7 +265,7 @@ func TestCreateRefusals(t *testing.T) {
 		{"crlf", bad(func(d *model.Document) { d.Body = "a\r\nb" }), paramd.CodeLineEnding},
 		{"bad date", bad(func(d *model.Document) { d.Meta.Header().Created = "11/01/2026" }), paramd.CodeFieldValue},
 		{"bad enum", bad(func(d *model.Document) {
-			d.Meta = &model.Project{Common: model.Common{Type: model.TypeProject}, Status: "maybe", Owner: "x"}
+			d.Meta = &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: "maybe", Owner: "x"}
 		}), paramd.CodeFieldValue},
 		{"path id", bad(func(d *model.Document) { d.ID = "../escape" }), ""},
 		{"uppercase id", bad(func(d *model.Document) { d.ID = "Upper" }), ""},
@@ -327,7 +327,7 @@ func TestEventPerMutation(t *testing.T) {
 	v, _ := newVault(t)
 	proj := model.Document{
 		ID: "acme-portal", Folder: model.FolderProjects, Title: "Portal",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan"},
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan"},
 	}
 	d, err := v.Create(ctx, proj)
 	if err != nil {
@@ -346,7 +346,7 @@ func TestEventPerMutation(t *testing.T) {
 		}, events.OpUpdate, "", ""},
 		{"status change", func() error {
 			got, _ := v.Get(ctx, d.ID)
-			got.Meta.(*model.Project).Status = model.ProjectPaused
+			got.Meta.(*model.Goal).Status = model.GoalPaused
 			_, err := v.Update(ctx, got)
 			return err
 		}, events.OpUpdate, "active", "paused"},
@@ -531,11 +531,11 @@ func TestMoveKeepsFilenameAndLinks(t *testing.T) {
 	v, root := newVault(t)
 	proj := model.Document{
 		ID: "acme-portal", Folder: model.FolderProjects, Title: "Portal",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectDone, Owner: "Jordan"},
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalDone, Owner: "Jordan"},
 	}
 	task := model.Document{
 		ID: "task-one", Folder: model.FolderProjects, Title: "Task", Body: "See [[acme-portal]].",
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskDone, Project: model.LinkTo("acme-portal")},
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskDone, Goal: model.LinkTo("acme-portal")},
 	}
 	for _, d := range []model.Document{proj, task} {
 		if _, err := v.Create(ctx, d); err != nil {
@@ -961,7 +961,7 @@ func TestList(t *testing.T) {
 	}
 	p := model.Document{
 		ID: "acme-portal", Folder: model.FolderProjects, Title: "Portal",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan"},
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan"},
 	}
 	if _, err := v.Create(ctx, p); err != nil {
 		t.Fatal(err)

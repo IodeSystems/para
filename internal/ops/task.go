@@ -19,7 +19,7 @@ type TaskView struct {
 	Folder   model.Folder     `json:"folder"`
 	Title    string           `json:"title"`
 	Status   model.TaskStatus `json:"status"`
-	Project  string           `json:"project"`
+	Goal     string           `json:"goal"`
 	Area     string           `json:"area,omitempty"`
 	Created  model.Date       `json:"created"`
 	Updated  model.Date       `json:"updated,omitempty"`
@@ -93,7 +93,7 @@ type TaskView struct {
 	LaterText string `json:"later_text,omitempty"`
 	// Names are for people: the title of what the id fields point at, "" when
 	// unknown. DependsOnNames has one entry per DependsOn.
-	ProjectName    string   `json:"project_name,omitempty" nameof:"Project"`
+	GoalName       string   `json:"goal_name,omitempty" nameof:"Goal"`
 	AreaName       string   `json:"area_name,omitempty" nameof:"Area"`
 	AssigneeName   string   `json:"assignee_name,omitempty" nameof:"Assignee"`
 	IncidentName   string   `json:"incident_name,omitempty" nameof:"Incident"`
@@ -112,7 +112,7 @@ func taskView(d model.Document) (TaskView, error) {
 	}
 	v := TaskView{
 		ID: d.ID, Folder: d.Folder, Title: d.Title, Status: t.Status,
-		Project: t.Project.Target(), Area: t.Area.Target(), Created: t.Created, Updated: t.Updated, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, RequestedBy: t.RequestedBy, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
+		Goal: t.Goal.Target(), Area: t.Area.Target(), Created: t.Created, Updated: t.Updated, Due: t.Due, Recur: t.Recur, Assignee: t.Assignee, RequestedBy: t.RequestedBy, Previous: t.Previous.Target(), Incident: t.Incident.Target(), Parent: t.Parent.Target(), Commitment: t.EffectiveKind() == model.KindCommitment, Kind: t.EffectiveKind(), Scheduled: t.Scheduled, End: t.End, With: targets(t.With), DoneWhen: t.DoneWhen, DoURL: t.DoURL, DoCommand: t.DoCommand, Steps: t.Steps, Outcome: t.Outcome, DeclinedBy: t.DeclinedBy, DeclinedPerson: t.DeclinedPerson.Target(), RetryAfter: t.RetryAfter, ReroutedTo: t.ReroutedTo, DependsOn: []string{}, BlockedBy: []string{}, Rev: d.Rev,
 		DeferUntil: t.DeferUntil, DeferredReason: t.DeferredReason, WaitsOn: []string{}, Optional: t.Optional, Attend: t.Attend,
 	}
 	for _, l := range t.DependsOn {
@@ -179,7 +179,7 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 	out := []TaskView{}
 	for _, v := range all {
 		v.Items = items[v.ID]
-		if (project == "" || v.Project == project) && (status == "" || v.Status == status) {
+		if (project == "" || v.Goal == project) && (status == "" || v.Status == status) {
 			out = append(out, v)
 		}
 	}
@@ -188,8 +188,8 @@ func listTasks(ctx context.Context, s store.Store, project string, status model.
 
 // TaskAddInput is the input of task_add.
 type TaskAddInput struct {
-	Project  string `json:"project,omitempty"` // project id; a task needs a project or an area
-	Area     string `json:"area,omitempty"`    // area id
+	Goal     string `json:"goal,omitempty"` // goal id; a task needs a goal or an area
+	Area     string `json:"area,omitempty"` // area id
 	Title    string `json:"title"`
 	Body     string `json:"body,omitempty"`
 	Due      string `json:"due,omitempty"`      // YYYY-MM-DD
@@ -198,7 +198,7 @@ type TaskAddInput struct {
 	// RequestedBy is who the task is for: a person or group id, or free text
 	// (a role, an address). Optional.
 	RequestedBy string   `json:"requested_by,omitempty"`
-	Incident    string   `json:"incident,omitempty"`   // incident id this task follows up; with no project or area the task goes in the incident's area
+	Incident    string   `json:"incident,omitempty"`   // incident id this task follows up; with no goal or area the task goes in the incident's area
 	DoneWhen    string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
 	DependsOn   []string `json:"depends_on,omitempty"` // task, obligation, rfx, question, goal, or agent work ids
 	// DoURL is the page where the owner does it, DoCommand the exact command
@@ -212,7 +212,7 @@ type TaskAddInput struct {
 	Effort model.Effort `json:"effort,omitempty"`
 	// Parent is the id of an open task or obligation this one is an action
 	// item of: prep for a meeting or a promise, or what came out of it. The
-	// parent does not wait on it. With no project or area the task takes the
+	// parent does not wait on it. With no goal or area the task takes the
 	// parent's.
 	Parent string `json:"parent,omitempty"`
 	// Commitment is kind commitment: something owed to someone. It needs a due
@@ -251,8 +251,8 @@ type TaskAddOutput struct {
 }
 
 // TaskAdd creates a todo task in a project, an area, or both. Tasks live in
-// projects/. A dependency may be any task or rfx, in any project or area.
-var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at least one). A task for the owner says how to do it: do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines); prepare drafts, config, and the command first. A secret never goes in them: say where the owner pastes it", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
+// projects/. A dependency may be any task or rfx, in any goal or area.
+var TaskAdd = defineSafe("task_add", "Create a task in a goal or an area (at least one). A task for the owner says how to do it: do_url (the page where it is done), do_command (the exact command), or steps (1 to 5 lines); prepare drafts, config, and the command first. A secret never goes in them: say where the owner pastes it", func(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutput, error) {
 	if in.Kind == model.KindIncident {
 		return addIncidentTask(ctx, d, in)
 	}
@@ -278,7 +278,7 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 	if err != nil {
 		return TaskAddOutput{}, err
 	}
-	in.Project = normID(in.Project)
+	in.Goal = normID(in.Goal)
 	var parent model.Link
 	if id := normID(in.Parent); id != "" {
 		p, err := parentOf(ctx, d, id)
@@ -286,8 +286,8 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			return TaskAddOutput{}, err
 		}
 		parent = p.link
-		if in.Project == "" && normID(in.Area) == "" {
-			in.Project, in.Area = p.project.Target(), p.area.Target()
+		if in.Goal == "" && normID(in.Area) == "" {
+			in.Goal, in.Area = p.project.Target(), p.area.Target()
 		}
 	}
 	kind, err := kindOf(in)
@@ -312,23 +312,23 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 			return TaskAddOutput{}, linkErr("incident", id, err)
 		}
 		incident = model.LinkTo(idoc.ID)
-		if in.Project == "" && normID(in.Area) == "" {
+		if in.Goal == "" && normID(in.Area) == "" {
 			in.Area = im.Area.Target()
 		}
 	}
-	if in.Project == "" && normID(in.Area) == "" && kind != model.KindMeeting && kind != model.KindCall {
-		return TaskAddOutput{}, errors.New("a task needs a project or an area")
+	if in.Goal == "" && normID(in.Area) == "" && kind != model.KindMeeting && kind != model.KindCall {
+		return TaskAddOutput{}, errors.New("a task needs a goal or an area")
 	}
 	var project model.Link
-	if in.Project != "" {
-		proj, _, err := getProject(ctx, d.Store, in.Project)
+	if in.Goal != "" {
+		proj, _, err := getGoal(ctx, d.Store, in.Goal)
 		if err != nil {
 			return TaskAddOutput{}, err
 		}
 		if proj.Folder == model.FolderArchive {
-			return TaskAddOutput{}, fmt.Errorf("project %s is archived", in.Project)
+			return TaskAddOutput{}, fmt.Errorf("project %s is archived", in.Goal)
 		}
-		project = model.LinkTo(in.Project)
+		project = model.LinkTo(in.Goal)
 	}
 	area, err := areaLink(ctx, d.Store, in.Area)
 	if err != nil {
@@ -353,14 +353,14 @@ var TaskAdd = defineSafe("task_add", "Create a task in a project or an area (at 
 		}
 	}
 	doc, err := storedShape(d, model.Document{
-		Folder: model.FolderProjects,
+		Folder: model.FolderGoals,
 		Title:  title,
 		Body:   demoteH1(in.Body),
 		Meta: &model.Task{
 			Common:      model.Common{Type: model.TypeTask},
 			Status:      model.TaskTodo,
 			Parent:      parent,
-			Project:     project,
+			Goal:        project,
 			Area:        area,
 			Due:         due,
 			Recur:       strings.Join(strings.Fields(in.Recur), " "),
@@ -418,9 +418,9 @@ func addIncidentTask(ctx context.Context, d Deps, in TaskAddInput) (TaskAddOutpu
 
 // TaskListInput is the input of task_list.
 type TaskListInput struct {
-	Project string           `json:"project,omitempty" query:"project"`
-	Area    string           `json:"area,omitempty" query:"area"` // tasks with this area of their own
-	Status  model.TaskStatus `json:"status,omitempty" query:"status"`
+	Goal   string           `json:"goal,omitempty" query:"goal"`
+	Area   string           `json:"area,omitempty" query:"area"` // tasks with this area of their own
+	Status model.TaskStatus `json:"status,omitempty" query:"status"`
 	// Open keeps the tasks that are todo, doing, or blocked. It cannot be
 	// combined with status.
 	Open bool `json:"open,omitempty" query:"open"`
@@ -454,7 +454,7 @@ var TaskList = defineRead("task_list", "List tasks; open: true lists every task 
 	if in.Outcome != "" && !slices.Contains(model.TaskOutcomes, in.Outcome) {
 		return TaskListOutput{}, fmt.Errorf("unknown outcome %q: want one of %v", in.Outcome, model.TaskOutcomes)
 	}
-	tasks, err := listTasks(ctx, d.Store, in.Project, in.Status)
+	tasks, err := listTasks(ctx, d.Store, in.Goal, in.Status)
 	if err != nil {
 		return TaskListOutput{}, err
 	}
@@ -759,14 +759,14 @@ var TaskDue = defineSafe("task_due", "Set or clear the due date of a task", func
 })
 
 // dependencyLink checks that id names a task, obligation, rfx, question, goal,
-// or agent work, in any project or area.
+// or agent work, in any goal or area.
 func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
 	id := normID(raw)
 	dep, err := s.Get(ctx, id)
 	if err != nil {
 		return "", linkErr("depends_on", id, err)
 	}
-	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeObligation && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeProject && typ != model.TypeRequest {
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeObligation && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeGoal && typ != model.TypeRequest {
 		return "", fmt.Errorf("depends_on %s is a %s: want a task, obligation, rfx, question, goal, or agent work", id, typ)
 	}
 	return model.LinkTo(id), nil
@@ -808,7 +808,7 @@ func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]stri
 // TaskDependsInput is the input of task_depends_add and task_depends_remove.
 type TaskDependsInput struct {
 	ID        string   `json:"id"`
-	DependsOn []string `json:"depends_on"` // task, obligation, rfx, question, goal, or agent work ids, in any project or area
+	DependsOn []string `json:"depends_on"` // task, obligation, rfx, question, goal, or agent work ids, in any goal or area
 }
 
 // TaskDependsOutput is the output of task_depends_add and task_depends_remove.

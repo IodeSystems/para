@@ -4,7 +4,7 @@ id that the creating command prints.
 1. Start a vault
   $ para init life ~/vaults/life
   $ para area add "Home"
-  $ para project add "Paint the hall" --area area-home --done-when "The hall is painted and the room is back in use"
+  $ para goal add "Paint the hall" --area area-home --done-when "The hall is painted and the room is back in use"
   $ para task add "Water the plants" --area area-home --due 2026-11-08 --recur weekly
 
 2. Inbox and outbox (io)
@@ -18,12 +18,12 @@ id that the creating command prints.
   $ para io send io-example --url https://mail.example/m/1
 
 3. A goal with a task DAG
-  $ para project add "Move the server" --area area-home --done-when "The server runs in the new rack and the old one is off"
+  $ para goal add "Move the server" --area area-home --done-when "The server runs in the new rack and the old one is off"
   $ para task add "Order the disk" -p project-move --done-when "The disk is on order with a delivery date"
   $ para task add "Mount the disk" -p project-move --depends-on task-order
   $ para task depends add task-mount task-order
   $ para task due task-mount 2026-12-01
-  $ para project edit project-move --done-when "The server runs in the new rack and the old one is off"
+  $ para goal edit project-move --done-when "The server runs in the new rack and the old one is off"
   $ para task edit task-order --done-when "The disk is on order with a delivery date"
   $ para graph project-move
   $ para next

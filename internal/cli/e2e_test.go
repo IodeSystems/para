@@ -416,26 +416,39 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Read natively, as after upgrade step goals, so the ongoing project ops run.
+	if err := deps.Store.SetConfig(context.Background(), model.GoalsStepKey, "test"); err != nil {
+		t.Fatal(err)
+	}
 	seedWork(t, deps)
+	for _, id := range []string{"project-ongoing-a", "project-ongoing-r1", "project-ongoing-r2"} {
+		if _, err := deps.Store.Create(context.Background(), model.Document{ID: id, Folder: model.FolderProjects, Title: "Home " + id,
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	cases := map[string]parityCase{
+		"project_add":     {`{"title":"Home"}`, []string{"project", "add", "Home"}, false},
+		"project_show":    {`{"id":"project-ongoing-a"}`, []string{"project", "show", "project-ongoing-a"}, true},
+		"project_retire":  {`{"id":"project-ongoing-r1"}`, []string{"project", "retire", "project-ongoing-r2"}, false},
 		"io_add":          {`{"direction":"in","text":"synthetic"}`, []string{"io", "add", "--direction", "in", "synthetic"}, false},
 		"lint":            {``, []string{"lint"}, true},
 		"reconcile":       {`{}`, []string{"reconcile"}, true},
 		"events_tail":     {`{"limit":20}`, []string{"events", "tail"}, true},
-		"project_add":     {`{"title":"One","owner":"Jordan Example","done_when":"Done."}`, []string{"project", "add", "--done-when", "Done.", "One", "--owner", "Jordan Example"}, false},
-		"project_edit":    {`{"id":"project-a","done_when":"All checks pass."}`, []string{"project", "edit", "project-a", "--done-when", "All checks pass."}, false},
+		"goal_add":        {`{"title":"One","owner":"Jordan Example","done_when":"Done."}`, []string{"goal", "add", "--done-when", "Done.", "One", "--owner", "Jordan Example"}, false},
+		"goal_edit":       {`{"id":"project-a","done_when":"All checks pass."}`, []string{"goal", "edit", "project-a", "--done-when", "All checks pass."}, false},
 		"task_edit":       {`{"id":"task-d1","done_when":"It is checked."}`, []string{"task", "edit", "task-d1", "--done-when", "It is checked."}, false},
-		"project_list":    {`{}`, []string{"project", "list"}, true},
-		"project_show":    {`{"id":"project-a"}`, []string{"project", "show", "project-a"}, true},
-		"project_close":   {`{"id":"project-c1"}`, []string{"project", "close", "project-c2"}, false},
-		"task_add":        {`{"project":"project-a","title":"T","depends_on":["task-d1"]}`, []string{"task", "add", "T", "-p", "project-a", "--depends-on", "task-d1"}, false},
-		"task_list":       {`{"project":"project-a"}`, []string{"task", "list", "-p", "project-a"}, false},
+		"goal_list":       {`{}`, []string{"goal", "list"}, true},
+		"goal_show":       {`{"id":"project-a"}`, []string{"goal", "show", "project-a"}, true},
+		"goal_close":      {`{"id":"project-c1"}`, []string{"goal", "close", "project-c2"}, false},
+		"task_add":        {`{"goal":"project-a","title":"T","depends_on":["task-d1"]}`, []string{"task", "add", "T", "-p", "project-a", "--depends-on", "task-d1"}, false},
+		"task_list":       {`{"goal":"project-a"}`, []string{"task", "list", "-p", "project-a"}, false},
 		"task_show":       {`{"id":"task-d1"}`, []string{"task", "show", "task-d1"}, true},
 		"task_start":      {`{"id":"task-s1"}`, []string{"task", "start", "task-s2"}, false},
 		"task_done":       {`{"id":"task-d2"}`, []string{"task", "done", "task-d3"}, false},
 		"task_block":      {`{"id":"task-b1","reason":"waiting"}`, []string{"task", "block", "task-b2", "--reason", "waiting"}, false},
-		"graph":           {`{"project":"project-a"}`, []string{"graph", "project-a"}, false},
-		"next":            {`{"project":"project-a"}`, []string{"next", "project-a"}, false},
+		"graph":           {`{"goal":"project-a"}`, []string{"graph", "project-a"}, false},
+		"next":            {`{"goal":"project-a"}`, []string{"next", "project-a"}, false},
 		"journal":         {`{"period":"weekly","date":"2026-11-01"}`, []string{"journal", "--period", "weekly", "2026-11-01"}, false},
 		"journal_daily":   {`{"date":"2026-11-01"}`, []string{"journal", "daily", "2026-11-01"}, false},
 		"journal_weekly":  {`{"date":"2026-11-01"}`, []string{"journal", "weekly", "2026-11-01"}, false},

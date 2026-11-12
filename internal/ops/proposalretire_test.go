@@ -28,19 +28,19 @@ func oldStaged(t *testing.T, d Deps, id string, items ...model.ProposalItem) {
 
 func TestProposalRetire(t *testing.T) {
 	f := newAgentFix(t)
-	task := mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
+	task := mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
 	oldStaged(t, f.owner, "proposal-applied",
 		model.ProposalItem{ID: "s1", Op: "task_edit", Input: map[string]any{"id": task, "effort": "s"}},
-		model.ProposalItem{ID: "s2", Op: "task_add", Input: map[string]any{"project": f.proj, "title": "Rotate keys", "done_when": "Rotated."}})
+		model.ProposalItem{ID: "s2", Op: "task_add", Input: map[string]any{"goal": f.proj, "title": "Rotate keys", "done_when": "Rotated."}})
 	oldStaged(t, f.owner, "proposal-unapplied",
-		model.ProposalItem{ID: "s1", Op: "task_add", Input: map[string]any{"project": f.proj, "title": "Never made", "done_when": "Made."}})
+		model.ProposalItem{ID: "s1", Op: "task_add", Input: map[string]any{"goal": f.proj, "title": "Never made", "done_when": "Made."}})
 	lint, err := f.owner.Store.Lint(t.Context())
 	if err != nil || len(lint) != 3 {
 		t.Fatalf("lint before = %v %v", lint, err)
 	}
 	// The agent made the staged writes directly.
 	mustRun(t, TaskEdit, f.agent, TaskEditInput{ID: task, Effort: model.EffortS})
-	mustRun(t, TaskAdd, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate keys", DoneWhen: "Rotated."})
+	mustRun(t, TaskAdd, f.agent, TaskAddInput{Goal: f.proj, Title: "Rotate keys", DoneWhen: "Rotated."})
 
 	if _, err := ProposalRetire.Run(t.Context(), f.agent, ProposalRetireInput{IDs: []string{"proposal-applied"}}); !errors.Is(err, ErrPersonOnly) {
 		t.Fatalf("agent retire = %v", err)

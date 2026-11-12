@@ -207,7 +207,7 @@ func bulkTargets(ctx context.Context, d Deps, verb string, in BulkInput) ([]stri
 			return nil, linkErr("scope", scope, err)
 		}
 		switch sd.Meta.(type) {
-		case *model.Project, *model.Area:
+		case *model.Goal, *model.Area:
 		default:
 			return nil, fmt.Errorf("scope %s is a %s: give a goal or an area", sd.ID, typeWord(sd))
 		}

@@ -51,7 +51,7 @@ func healthKinds(t *testing.T, d Deps, id string) []string {
 // goal stays lint clean; health flags a high impact with no mitigation.
 func TestGoalRiskSet(t *testing.T) {
 	d := grillDeps(t)
-	g := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
 	if _, err := GoalRiskSet.Run(ctx, d, GoalRiskSetInput{ID: g.ID, Text: "Vendor slips"}); err == nil || !strings.Contains(err.Error(), "source") {
 		t.Fatalf("no source: %v", err)
 	}
@@ -80,8 +80,8 @@ func TestGoalRiskSet(t *testing.T) {
 // needs a fact, and a goal takes them too.
 func TestAssumptionSet(t *testing.T) {
 	d := grillDeps(t)
-	g := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
-	task := must(t, TaskAdd, d, TaskAddInput{Project: g.ID, Title: "Runbook", DoneWhen: "Merged."})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: g.ID, Title: "Runbook", DoneWhen: "Merged."})
 	if _, err := AssumptionSet.Run(ctx, d, AssumptionSetInput{ID: task.ID, Text: "API is stable"}); err == nil {
 		t.Fatal("no source accepted")
 	}
@@ -105,12 +105,12 @@ func TestAssumptionSet(t *testing.T) {
 // against all show.
 func TestGrillContext(t *testing.T) {
 	d := grillDeps(t)
-	g := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
 	must(t, GoalRiskSet, d, GoalRiskSetInput{ID: g.ID, Text: "Vendor slips", Impact: model.LevelHigh, Source: "chat"})
-	must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region first?", Project: g.ID})
+	must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region first?", Goal: g.ID})
 	seedDoc(t, d, constraintDoc("constraint-freeze", "2027-01-01", g.ID))
 	seedDoc(t, d, model.Document{ID: "task-vendor", Folder: model.FolderProjects, Title: "Vendor delivers keys", Body: "## Assumptions\n\n- Keys arrive by Friday",
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo(g.ID), Assignee: "person-riley"}})
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo(g.ID), Assignee: "person-riley"}})
 	out := must(t, GrillContext, d, GrillContextInput{ID: g.ID})
 	var kinds []string
 	for i, p := range out.Probes {
@@ -147,11 +147,11 @@ func TestGrillContext(t *testing.T) {
 // recording, and the stale health finding.
 func TestRecheck(t *testing.T) {
 	d := grillDeps(t)
-	g := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
 	must(t, AssumptionSet, d, AssumptionSetInput{ID: g.ID, Text: "Budget holds", Source: "chat", Status: model.AssumptionHolds, Checked: "2026-09-01"})
 	must(t, AssumptionSet, d, AssumptionSetInput{ID: g.ID, Text: "Team stays", Source: "chat", Status: model.AssumptionHolds, Checked: "2026-11-01"})
 	seedDoc(t, d, model.Document{ID: "task-keys", Folder: model.FolderProjects, Title: "Get keys", Body: "## Assumptions\n\n- Keys arrive by Friday",
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo(g.ID)}})
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo(g.ID)}})
 	seedDoc(t, d, constraintDoc("constraint-due", "2026-10-01", g.ID))
 	seedDoc(t, d, constraintDoc("constraint-later", "2027-06-01", g.ID))
 	seedDoc(t, d, constraintDoc("constraint-elsewhere", "2026-10-01", "area-other"))

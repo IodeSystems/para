@@ -54,7 +54,7 @@ func newNoteCmd(l *loader) *cobra.Command {
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.NoteAddInput) {
 				fs.StringVar(&in.Area, "area", "", "area id")
-				fs.StringVarP(&in.Project, "project", "p", "", "project id")
+				fs.StringVarP(&in.Goal, "project", "p", "", "project id")
 				fs.StringSliceVar(&in.Tags, "tag", nil, "tag (repeatable)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 			},
@@ -69,7 +69,7 @@ func newNoteCmd(l *loader) *cobra.Command {
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.NoteListInput) {
 				fs.StringVar(&in.Area, "area", "", "only this area")
-				fs.StringVarP(&in.Project, "project", "p", "", "only this project")
+				fs.StringVarP(&in.Goal, "project", "p", "", "only this project")
 				fs.StringVar(&in.Tag, "tag", "", "only this tag")
 			},
 			Text: func(w io.Writer, out ops.NoteListOutput) error { return writeNotes(w, out.Notes) },
@@ -82,7 +82,7 @@ func newNoteCmd(l *loader) *cobra.Command {
 				p := &printer{w: w}
 				n := out.Note
 				p.f("%s\t%s\n", n.ID, n.Title)
-				p.f("area\t%s\nproject\t%s\ntags\t%s\n%s\n", dash(n.Area), dash(n.Project), joinOrDash(n.Tags), out.Body)
+				p.f("area\t%s\nproject\t%s\ntags\t%s\n%s\n", dash(n.Area), dash(n.Goal), joinOrDash(n.Tags), out.Body)
 				return p.err
 			},
 		}),
@@ -100,7 +100,7 @@ func dash(s string) string {
 func writeNotes(w io.Writer, notes []ops.NoteView) error {
 	p := &printer{w: w}
 	for _, n := range notes {
-		p.f("%s\t%s\t%s\t%s\n", n.ID, dash(n.Area), dash(n.Project), n.Title)
+		p.f("%s\t%s\t%s\t%s\n", n.ID, dash(n.Area), dash(n.Goal), n.Title)
 	}
 	return p.err
 }

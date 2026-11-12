@@ -133,9 +133,9 @@ func triageVault(t *testing.T) (Deps, string) {
 	must(t, OrgPersonGroupAdd, d, PersonGroupInput{ID: "person-val-example", Group: "group-vendors"})
 	must(t, SourceAdd, d, SourceAddInput{ID: "src-outlook", Title: "Mail", System: model.SourceMail, Vendor: "outlook",
 		RefURL: "https://mail.example.com/thread/{ref}"})
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "self", DoneWhen: "Shipped."}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "self", DoneWhen: "Shipped."}).ID
 	createDoc(t, d, model.Document{ID: "task-launch", Folder: model.FolderProjects, Title: "Launch",
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo(proj)}})
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo(proj)}})
 	writeTriage(t, root, triageRules)
 	return d, root
 }

@@ -30,7 +30,7 @@ func briefFields() map[string]any {
 func TestGoalBriefThroughDocEdit(t *testing.T) {
 	d, proj := laterVault(t)
 	must(t, DocEdit, d, DocEditInput{ID: proj, Fields: briefFields()})
-	v := must(t, ProjectShow, d, ProjectShowInput{ID: proj}).Project
+	v := must(t, GoalShow, d, GoalShowInput{ID: proj}).Goal
 	if v.Brief == nil || v.Brief.Why.Text == "" || len(v.Brief.Signals) != 1 || v.Brief.Pivot.Action != "ask" || !v.Brief.Ecosystem.KeyHolder {
 		t.Fatalf("brief = %+v", v.Brief)
 	}

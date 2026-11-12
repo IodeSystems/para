@@ -53,12 +53,12 @@ var TaskToQuestion = define("task_to_question", "Convert a task that is really a
 	// A question is scoped; the task's project, else its area.
 	var scope model.Link
 	switch {
-	case t.Project != "":
-		scope = t.Project
+	case t.Goal != "":
+		scope = t.Goal
 	case t.Area != "":
 		scope = t.Area
 	default:
-		return TaskToQuestionOutput{}, fmt.Errorf("%s has no project or area to scope the question to", doc.ID)
+		return TaskToQuestionOutput{}, fmt.Errorf("%s has no goal or area to scope the question to", doc.ID)
 	}
 	kind := in.Kind
 	if kind == model.KindQuestion {

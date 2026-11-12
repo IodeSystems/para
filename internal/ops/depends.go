@@ -92,7 +92,7 @@ func setEdge(ctx context.Context, d Deps, id string, hard, opt *[]model.Link, on
 		return linkErr("on", on, err)
 	}
 	switch dep.Meta.Header().Type {
-	case model.TypeTask, model.TypeObligation, model.TypeRFX, model.TypeQuestion, model.TypeProject, model.TypeRequest:
+	case model.TypeTask, model.TypeObligation, model.TypeRFX, model.TypeQuestion, model.TypeGoal, model.TypeRequest:
 	default:
 		return fmt.Errorf("on %s is a %s: want a task, obligation, rfx, question, goal, or agent work", on, dep.Meta.Header().Type)
 	}

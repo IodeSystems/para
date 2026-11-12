@@ -231,7 +231,7 @@ func TestWorkActions(t *testing.T) {
 func TestUndoVerb(t *testing.T) {
 	v := newVerbVault(t)
 	ctx := writeCtx(t)
-	task, err := TaskAdd.Run(ctx, v.agent, TaskAddInput{Project: v.proj, Title: "Undo me", DoneWhen: "Never."})
+	task, err := TaskAdd.Run(ctx, v.agent, TaskAddInput{Goal: v.proj, Title: "Undo me", DoneWhen: "Never."})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -7,6 +7,7 @@
 package index
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -273,7 +274,8 @@ func newRow(d model.Document) row {
 	}
 	r.status = metaString(d.Meta, "Status")
 	r.area = linkTarget(metaString(d.Meta, "Area"))
-	r.project = linkTarget(metaString(d.Meta, "Project"))
+	// project matches the goal a document links, else the project.
+	r.project = linkTarget(cmp.Or(metaString(d.Meta, "Goal"), metaString(d.Meta, "Project")))
 	switch m := d.Meta.(type) {
 	case *model.Policy:
 		r.kind, r.url, r.unverified = KindSummary, m.Source.URL, !m.Verified

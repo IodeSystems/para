@@ -99,7 +99,7 @@ func CheckVault(files []*File) []Finding {
 	return out
 }
 
-// checkScope: a question is scoped to a project, a task, or an area, or to
+// checkScope: a question is scoped to a goal, a project, a task, or an area, or to
 // root. Lint checks the shape of the field; only the vault can check the type of
 // the target. A target that does not exist is a link-unresolved finding.
 func checkScope(f *File, byName map[string]*File) []Finding {
@@ -111,9 +111,9 @@ func checkScope(f *File, byName map[string]*File) []Finding {
 	dst, ok := byName[strings.ToLower(m[1])]
 	switch {
 	case !ok: // link-unresolved reports it
-	case dst.Type() != "project" && dst.Type() != "task" && dst.Type() != "area":
+	case dst.Type() != "goal" && dst.Type() != "project" && dst.Type() != "task" && dst.Type() != "area":
 		return []Finding{{Path: f.Path, Code: CodeScope, Severity: Error,
-			Msg: fmt.Sprintf("scope %s is a %s: want a project, a task, an area, or root", scope, dst.Type())}}
+			Msg: fmt.Sprintf("scope %s is a %s: want a goal, a project, a task, an area, or root", scope, dst.Type())}}
 	}
 	return nil
 }
@@ -158,17 +158,18 @@ func areaKind(f *File) string {
 }
 
 // checkAreaKinds: a goal's area is an area of kind project, and every entry of
-// concepts, on a goal or a project area, is an area of kind concept.
+// concepts, on a goal, a project, or a project area, is an area of kind
+// concept.
 func checkAreaKinds(f *File, byName map[string]*File) []Finding {
 	typ := f.Type()
-	if typ != "project" && typ != "area" {
+	if typ != "goal" && typ != "project" && typ != "area" {
 		return nil
 	}
 	var out []Finding
 	bad := func(format string, a ...any) {
 		out = append(out, Finding{Path: f.Path, Code: CodeFieldValue, Severity: Error, Msg: fmt.Sprintf(format, a...)})
 	}
-	if typ == "project" {
+	if typ == "goal" {
 		if v := f.Frontmatter["area"]; v != nil {
 			switch dst := linkTarget(v, byName); {
 			case dst == nil:

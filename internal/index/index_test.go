@@ -300,7 +300,7 @@ func TestOpenRecovers(t *testing.T) {
 func task(id, title, body, status, project, area, updated string) model.Document {
 	return model.Document{ID: id, Folder: model.FolderProjects, Title: title, Body: body,
 		Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Created: "2026-01-01", Updated: model.Date(updated)},
-			Status: model.TaskStatus(status), Project: model.Link(project), Area: model.Link(area)}}
+			Status: model.TaskStatus(status), Goal: model.Link(project), Area: model.Link(area)}}
 }
 
 func TestFindFilters(t *testing.T) {

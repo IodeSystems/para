@@ -4,7 +4,8 @@ import (
 	"sort"
 )
 
-// Op names an agent can no longer call (0.5.0). An internal op is still
+// Op names an agent can no longer call (0.5.0, and the project ops of a goal
+// in 0.6.0). An internal op is still
 // defined and keeps its name: the generic verbs route to it (verbs.go,
 // verbwrite.go), the CLI and the web app call it by reference, receipts and
 // staged items name it, and it runs with its own gate, risk class, and
@@ -15,10 +16,14 @@ import (
 
 const removedVersion = "0.5.0"
 
+// removed060Version is when the project ops that meant a goal were renamed
+// goal_* (plan/paralog.md): project is now the ongoing project.
+const removed060Version = "0.6.0"
+
 // internalTable maps each internal op to what an agent uses instead.
 var internalTable = map[string]string{
 	// show routes to the show op of the item's type.
-	"task_show": "show", "question_show": "show", "project_show": "show", "rfx_show": "show", "io_show": "show",
+	"task_show": "show", "question_show": "show", "goal_show": "show", "project_show": "show", "rfx_show": "show", "io_show": "show",
 	"request_show": "show", "area_show": "show", "incident_show": "show", "receipt_show": "show", "source_show": "show",
 	"exception_show": "show", "convention_show": "show", "constraint_show": "show", "interaction_show": "show",
 	"note_show": "show", "policy_show": "show", "org_person_show": "show", "org_team_show": "show",
@@ -26,13 +31,13 @@ var internalTable = map[string]string{
 	// edit routes to the edit op of the item's type. io_edit stays a web
 	// route: the app's Edit of an io item. Its text names the words an agent
 	// searches with (ops_describe matches replacement texts too).
-	"task_edit": "edit {id, fields}", "project_edit": "edit {id, fields}", "question_edit": "edit {id, fields}",
+	"task_edit": "edit {id, fields}", "goal_edit": "edit {id, fields}", "question_edit": "edit {id, fields}",
 	"note_edit": "edit {id, fields}", "org_person_edit": "edit {id, fields}",
 	"io_edit":  "edit {id, fields: {state: read}} marks an incoming message read (seen, reviewed), state unread undoes it; a draft takes fields text, subject, to",
 	"area_add": "add {type: area}",
 	// close routes to the op of the item's type and outcome.
 	"task_done": "close", "task_resolve": "close {id, outcome}", "meeting_hold": "close", "meeting_cancel": "close {id, outcome: dropped}",
-	"question_drop": "close {id, outcome: dropped}", "project_close": "close {id, outcome}", "rfx_close": "close",
+	"question_drop": "close {id, outcome: dropped}", "goal_close": "close {id, outcome}", "project_retire": "close {id, outcome: retired}", "rfx_close": "close",
 	"rfx_status": "close {id, outcome: declined|answered|closed}, or reopen", "io_drop": "close {id, outcome: dropped}",
 	"io_done": "close {id, outcome: sent}", "request_cancel": "close", "meeting_attend": "obligation_attend",
 	"defer": "later", "undefer": "reopen", "agent_send": "send_to_agent", "request_respond": "thread_post",
@@ -59,15 +64,28 @@ var internalTable = map[string]string{
 // instead (free text).
 var removedTable = map[string]string{}
 
+// removed060 maps a project op that meant a goal, removed in 0.6.0, to what
+// to use instead. project_add and project_show are ops again, of the ongoing
+// project; given a goal they say so (project.go).
+var removed060 = map[string]string{
+	"project_edit":        "edit {id, fields} (a goal since 0.6.0: goal_edit)",
+	"project_close":       "close {id, outcome} (a goal since 0.6.0: goal_close; a project retires with outcome retired)",
+	"project_list":        "list {type: goal} for goals, list {type: project} for ongoing projects",
+	"project_link_add":    "link {from, to, rel: link} (a goal since 0.6.0: goal_link_add)",
+	"project_link_remove": "link {from, to, rel: link, remove: true} (a goal since 0.6.0: goal_link_remove)",
+}
+
 func init() {
 	for name := range internalTable {
 		if _, ok := registry[name]; !ok {
 			panic("ops: internal op " + name + ": no such op")
 		}
 	}
-	for name := range removedTable {
-		if _, ok := registry[name]; ok {
-			panic("ops: removed op " + name + " is still defined")
+	for _, t := range []map[string]string{removedTable, removed060} {
+		for name := range t {
+			if _, ok := registry[name]; ok {
+				panic("ops: removed op " + name + " is still defined")
+			}
 		}
 	}
 }
@@ -80,6 +98,9 @@ func RemovedIn(name string) (version, replacement string, ok bool) {
 	}
 	if replacement, ok = removedTable[name]; ok {
 		return removedVersion, replacement, true
+	}
+	if replacement, ok = removed060[name]; ok {
+		return removed060Version, replacement, true
 	}
 	return "", "", false
 }

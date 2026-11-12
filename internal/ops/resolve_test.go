@@ -18,7 +18,7 @@ func taskOf(t *testing.T, d Deps, id string) (TaskView, string) {
 func TestTaskResolveOutcomes(t *testing.T) {
 	d, proj := laterVault(t)
 	add := func(title string, deps ...string) string {
-		return must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: title, DependsOn: deps}).ID
+		return must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: title, DependsOn: deps}).ID
 	}
 
 	// Refusals first: nothing is written.
@@ -49,7 +49,7 @@ func TestTaskResolveOutcomes(t *testing.T) {
 	if v, body := taskOf(t, d, a); v.Outcome != model.OutcomeDone || !strings.Contains(body, "## Outcome\n\nMerged.") {
 		t.Errorf("done task = %+v %q", v, body)
 	}
-	rec := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Weekly", Recur: "weekly", Due: "2026-11-03"}).ID
+	rec := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Weekly", Recur: "weekly", Due: "2026-11-03"}).ID
 	if r := must(t, TaskResolve, d, TaskResolveInput{ID: rec}); r.Next == "" {
 		t.Errorf("recurring done made no next: %+v", r)
 	}
@@ -63,7 +63,7 @@ func TestTaskResolveOutcomes(t *testing.T) {
 		t.Fatalf("partial = %+v", o)
 	}
 	fu, _ := taskOf(t, d, o.FollowUps[0])
-	if fu.Project != proj || fu.Due != "2026-12-01" || fu.Status != model.TaskTodo {
+	if fu.Goal != proj || fu.Due != "2026-12-01" || fu.Status != model.TaskTodo {
 		t.Errorf("follow-up = %+v", fu)
 	}
 	for _, w := range []string{w1, w2} {
@@ -131,7 +131,7 @@ func TestTaskResolveOutcomes(t *testing.T) {
 	}
 
 	// A recurring task: dropped skips this one; the rest are refused.
-	rc := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Monthly", Recur: "monthly", Due: "2026-11-03"}).ID
+	rc := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Monthly", Recur: "monthly", Due: "2026-11-03"}).ID
 	if _, err := TaskResolve.Run(ctx, d, TaskResolveInput{ID: rc, Outcome: model.OutcomePartial, Note: "x"}); err == nil {
 		t.Error("partial on a recurring task")
 	}
@@ -144,7 +144,7 @@ func TestTaskResolveOutcomes(t *testing.T) {
 func TestTaskResolveFromAnAgent(t *testing.T) {
 	d, proj := laterVault(t)
 	agent := agentOf(d)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Check"}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Check"}).ID
 	// Every outcome is open to an agent; each leaves a receipt.
 	if o := must(t, TaskResolve, agent, TaskResolveInput{ID: id, Outcome: model.OutcomeDropped, Note: "x"}); o.Outcome != model.OutcomeDropped {
 		t.Errorf("agent drop = %+v", o)
@@ -156,7 +156,7 @@ func TestTaskResolveFromAnAgent(t *testing.T) {
 
 func TestTaskDelegate(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Draft the notes", DoneWhen: "Notes are in the wiki."}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Draft the notes", DoneWhen: "Notes are in the wiki."}).ID
 	if _, err := TaskDelegate.Run(ctx, agentOf(d), TaskDelegateInput{ID: id, Agent: "scribe"}); !errors.Is(err, ErrPersonOnly) {
 		t.Errorf("agent: %v", err)
 	}

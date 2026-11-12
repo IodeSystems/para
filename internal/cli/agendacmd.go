@@ -33,8 +33,8 @@ func agendaLine(it ops.AgendaItem) string {
 	if names := joinNonEmpty(it.WhoNames); names != "" {
 		line += "  with " + names
 	}
-	if it.ProjectName != "" {
-		line += "  " + it.ProjectName
+	if it.GoalName != "" {
+		line += "  " + it.GoalName
 	}
 	if it.Overdue {
 		line += "  overdue"

@@ -144,7 +144,7 @@ type ItemPreparedOutput struct {
 }
 
 // preparedTypes are the types item_prepared marks: what needs the owner.
-var preparedTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeIO, model.TypeProject, model.TypeIncident}
+var preparedTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeIO, model.TypeGoal, model.TypeIncident}
 
 // ItemPrepared records that an agent prepared an item.
 var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, or artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref; any artifact but a message closes the occurrence done at once, undoable), and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item (an io item, an ask made to the owner, or a question): those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {

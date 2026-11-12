@@ -22,7 +22,7 @@ func madeRow(t *testing.T, out IOMadeOutput, id string) IOMadeRow {
 func TestIOMadeListsWhatTheIOChanged(t *testing.T) {
 	f := newAgentFix(t)
 	setup := func(title string) string {
-		r, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: title, DoneWhen: "Done."})
+		r, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: title, DoneWhen: "Done."})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -38,7 +38,7 @@ func TestIOMadeListsWhatTheIOChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := WithWrite(t.Context(), WriteMeta{Why: "From the message.", Sources: []string{f.source}, Input: msg.ID})
-	created, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "New from message", DoneWhen: "Done."})
+	created, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "New from message", DoneWhen: "Done."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestIOMadeLinkedOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	filed, err := IOFile.Run(t.Context(), f.owner, IOFileInput{ID: msg.ID, To: TriageTask, Project: f.proj, DoneWhen: "Renewed."})
+	filed, err := IOFile.Run(t.Context(), f.owner, IOFileInput{ID: msg.ID, To: TriageTask, Goal: f.proj, DoneWhen: "Renewed."})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -32,8 +32,8 @@ func streamSParityCases() map[string]parityCase {
 		"task_depends_remove": {`{"id":"task-s-dep-d","depends_on":["task-s-due-b"]}`, []string{"task", "depends", "remove", "task-s-dep-e", "task-s-due-b"}, false},
 		"area_link_add":       {`{"id":"area-s-seed","label":"Repo","kind":"repo","target":"~/src/seed"}`, []string{"area", "link", "add", "area-s-link-b", "Repo", "--kind", "repo", "--target", "~/src/seed"}, false},
 		"area_link_remove":    {`{"id":"area-s-link-a","label":"Runbook"}`, []string{"area", "link", "remove", "area-s-link-b2", "Runbook"}, false},
-		"project_link_add":    {`{"id":"project-s-seed","label":"Plan","kind":"plan","target":"/srv/plans/seed.md"}`, []string{"project", "link", "add", "project-s-seed", "Other plan", "--kind", "plan", "--target", "/srv/plans/other.md"}, false},
-		"project_link_remove": {`{"id":"project-s-link-a","label":"Plan"}`, []string{"project", "link", "remove", "project-s-link-b", "Plan"}, false},
+		"goal_link_add":       {`{"id":"project-s-seed","label":"Plan","kind":"plan","target":"/srv/plans/seed.md"}`, []string{"goal", "link", "add", "project-s-seed", "Other plan", "--kind", "plan", "--target", "/srv/plans/other.md"}, false},
+		"goal_link_remove":    {`{"id":"project-s-link-a","label":"Plan"}`, []string{"goal", "link", "remove", "project-s-link-b", "Plan"}, false},
 		"where":               {`{"query":"seed"}`, []string{"where", "seed"}, false},
 		"note_show":           {`{"id":"note-s-seed"}`, []string{"note", "show", "note-s-seed"}, true},
 	}
@@ -69,11 +69,11 @@ func seedStreamSParity(t *testing.T, deps ops.Deps) {
 		{ID: "area-s-link-b2", Folder: model.FolderAreas, Title: "Link area b",
 			Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive, Links: []model.Pointer{{Label: "Runbook", Kind: model.PointerRunbook, Target: "~/rb.md"}}}},
 		{ID: "project-s-link-a", Folder: model.FolderProjects, Title: "Link project a",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
 		{ID: "project-s-link-b", Folder: model.FolderProjects, Title: "Link project b",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "self", Links: []model.Pointer{{Label: "Plan", Kind: model.PointerPlan, Target: "~/plan.md"}}}},
 		{ID: "project-s-seed", Folder: model.FolderProjects, Title: "Seed project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self", Area: model.LinkTo("area-s-seed")}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "self", Area: model.LinkTo("area-s-seed")}},
 	} {
 		if _, err := deps.Store.Create(ctx, d); err != nil {
 			t.Fatalf("seed %s: %v", d.ID, err)
@@ -118,8 +118,8 @@ func TestNoteCommands(t *testing.T) {
 	e.init("life")
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "Move", "--owner", "self")
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "Move", "--owner", "self")
 	var n ops.NoteAddOutput
 	e.json(&n, "note", "add", "Paint colours", "--area", a.ID, "-p", p.ID, "--tag", "house", "--tag", "house", "--body", "Hall: grey.")
 	if !strings.HasPrefix(n.ID, "note-") || n.Folder != model.FolderResources {
@@ -186,8 +186,8 @@ func TestTaskInAnArea(t *testing.T) {
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home")
 	// Owner default: the vault property, else self.
-	var p1, p2 ops.ProjectAddOutput
-	e.json(&p1, "project", "add", "--done-when", "Done.", "Move")
+	var p1, p2 ops.GoalAddOutput
+	e.json(&p1, "goal", "add", "--done-when", "Done.", "Move")
 	cfg := filepath.Join(path, ".para", "vault.properties")
 	raw, err := os.ReadFile(cfg)
 	if err != nil {
@@ -196,11 +196,11 @@ func TestTaskInAnArea(t *testing.T) {
 	if err := os.WriteFile(cfg, append(raw, "owner=Jordan Example\n"...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	e.json(&p2, "project", "add", "--done-when", "Done.", "Paint", "--area", a.ID)
-	var projects ops.ProjectListOutput
-	e.json(&projects, "project", "list")
+	e.json(&p2, "goal", "add", "--done-when", "Done.", "Paint", "--area", a.ID)
+	var projects ops.GoalListOutput
+	e.json(&projects, "goal", "list")
 	owners := map[string]string{}
-	for _, p := range projects.Projects {
+	for _, p := range projects.Goals {
 		owners[p.ID] = p.Owner
 	}
 	if owners[p1.ID] != "self" || owners[p2.ID] != "Jordan Example" {
@@ -214,11 +214,11 @@ func TestTaskInAnArea(t *testing.T) {
 	e.json(&both, "task", "add", "Call landlord", "-p", p1.ID, "--area", a.ID, "--depends-on", inProject.ID)
 	var sh ops.TaskShowOutput
 	e.json(&sh, "task", "show", both.ID)
-	if sh.Task.Project != p1.ID || sh.Task.Area != a.ID || len(sh.Task.DependsOn) != 1 {
+	if sh.Task.Goal != p1.ID || sh.Task.Area != a.ID || len(sh.Task.DependsOn) != 1 {
 		t.Fatalf("task = %+v", sh.Task)
 	}
 	e.json(&sh, "task", "show", own.ID)
-	if sh.Task.Project != "" || sh.Task.Area != a.ID {
+	if sh.Task.Goal != "" || sh.Task.Area != a.ID {
 		t.Fatalf("task = %+v", sh.Task)
 	}
 	var list ops.TaskListOutput
@@ -242,7 +242,7 @@ func TestTaskInAnArea(t *testing.T) {
 		t.Fatalf("lint = %+v", lint)
 	}
 	e.ok("task", "done", own.ID)
-	e.ok("project", "close", p2.ID, "--force")
+	e.ok("goal", "close", p2.ID, "--force")
 }
 
 func TestDueDates(t *testing.T) {
@@ -366,8 +366,8 @@ func TestEditDependencies(t *testing.T) {
 	var a, b ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home")
 	e.json(&b, "area", "add", "Money")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "Move", "--area", a.ID)
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "Move", "--area", a.ID)
 	task := func(title string, args ...string) string {
 		var o ops.TaskAddOutput
 		e.json(&o, append([]string{"task", "add", title}, args...)...)
@@ -470,22 +470,22 @@ func TestLinks(t *testing.T) {
 	e.init("life")
 	var a ops.AreaAddOutput
 	e.json(&a, "area", "add", "Home lab")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "Server move", "--area", a.ID)
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "Server move", "--area", a.ID)
 	var out ops.LinkOutput
 	e.json(&out, "area", "link", "add", a.ID, "Ops", "runbook", "--kind", "runbook", "--target", "~/doc/lab/runbook.md")
 	e.json(&out, "area", "link", "add", a.ID, "Repo", "--kind", "repo", "--target", "https://git.acme.example/lab")
 	if len(out.Links) != 2 || out.Links[0].Label != "Ops runbook" || out.Links[0].Target != "~/doc/lab/runbook.md" {
 		t.Fatalf("links = %+v", out.Links)
 	}
-	e.ok("project", "link", "add", p.ID, "Migration plan", "--kind", "plan", "--target", "/srv/plans/move.md")
+	e.ok("goal", "link", "add", p.ID, "Migration plan", "--kind", "plan", "--target", "/srv/plans/move.md")
 	for _, bad := range [][]string{
 		{"area", "link", "add", a.ID, "Repo", "--kind", "repo", "--target", "~/other"},  // label repeats
 		{"area", "link", "add", a.ID, "X", "--kind", "wiki", "--target", "~/x"},         // bad kind
 		{"area", "link", "add", a.ID, "X", "--kind", "docs", "--target", "notes.md"},    // not a path or URL
 		{"area", "link", "add", a.ID, "X", "--kind", "docs", "--target", "~/has space"}, // space
 		{"area", "link", "add", p.ID, "X", "--kind", "docs", "--target", "~/x"},         // a project is not an area
-		{"project", "link", "add", a.ID, "X", "--kind", "docs", "--target", "~/x"},      // an area is not a project
+		{"goal", "link", "add", a.ID, "X", "--kind", "docs", "--target", "~/x"},         // an area is not a goal
 		{"area", "link", "remove", a.ID, "Nope"},                                        // unknown label
 	} {
 		if _, _, err := e.run(bad...); err == nil {
@@ -499,7 +499,7 @@ func TestLinks(t *testing.T) {
 	if li := strings.Index(show, "links\n  Ops runbook\trunbook\t~/doc/lab/runbook.md"); li < 0 || li >= strings.Index(show, "projects\n") {
 		t.Errorf("links must come first:\n%s", show)
 	}
-	if ps := e.ok("project", "show", p.ID); !strings.Contains(ps, "Migration plan\tplan\t/srv/plans/move.md") {
+	if ps := e.ok("goal", "show", p.ID); !strings.Contains(ps, "Migration plan\tplan\t/srv/plans/move.md") {
 		t.Errorf("project show = %q", ps)
 	}
 	var w ops.WhereOutput
@@ -519,7 +519,7 @@ func TestLinks(t *testing.T) {
 		t.Error("where needs text")
 	}
 	e.ok("area", "link", "remove", a.ID, "repo")
-	e.ok("project", "close", p.ID)
+	e.ok("goal", "close", p.ID)
 	e.json(&w, "where", "migration")
 	if len(w.Matches) != 0 {
 		t.Errorf("archived project listed: %+v", w)

@@ -196,9 +196,9 @@ var TaskResolve = withOneReceipt(defineSafe("task_resolve", TaskResolveDescripti
 	// Follow-ups first: if a later step fails, the task is still open.
 	for _, title := range titles {
 		fu, err := d.Store.Create(ctx, model.Document{
-			Folder: model.FolderProjects, Title: title, Body: "Follow-up of [[" + id + "]].",
+			Folder: model.FolderGoals, Title: title, Body: "Follow-up of [[" + id + "]].",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo,
-				Project: t.Project, Area: t.Area, Incident: t.Incident, Due: due},
+				Goal: t.Goal, Area: t.Area, Incident: t.Incident, Due: due},
 		})
 		if err != nil {
 			return out, fmt.Errorf("task_resolve: follow-up %q: %w (made: %v)", title, err, out.FollowUps)

@@ -61,6 +61,9 @@ type ParaV1MutationNamespace {
   edit(body: para_EditInputInput!): para_VerbOutput @derived(operationId: "edit")
   export(body: para_ExportInputInput!): para_ExportOutput @derived(operationId: "export")
   feedbackAdd(body: para_FeedbackAddInputInput!): para_FeedbackAddOutput @derived(operationId: "feedbackAdd")
+  goalAdd(body: para_GoalAddInputInput!): para_GoalAddOutput @derived(operationId: "goalAdd")
+  goalLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "goalLinkAdd")
+  goalLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "goalLinkRemove")
   goalRank(body: para_GoalRankInputInput!): para_GoalRankOutput @derived(operationId: "goalRank")
   goalRiskSet(body: para_GoalRiskSetInputInput!): para_GoalRiskSetOutput @derived(operationId: "goalRiskSet")
   goalSignalAdd(body: para_GoalSignalAddInputInput!): para_GoalSignalAddOutput @derived(operationId: "goalSignalAdd")
@@ -107,8 +110,6 @@ type ParaV1MutationNamespace {
   poolRun(body: para_PoolRunInputInput!): para_PoolRunOutput @derived(operationId: "poolRun")
   prioritySet(body: para_PrioritySetInputInput!): para_PrioritySetOutput @derived(operationId: "prioritySet")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
-  projectLinkAdd(body: para_LinkAddInputInput!): para_LinkOutput @derived(operationId: "projectLinkAdd")
-  projectLinkRemove(body: para_LinkRemoveInputInput!): para_LinkOutput @derived(operationId: "projectLinkRemove")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
   proposalRetire(body: para_ProposalRetireInputInput!): para_ProposalRetireOutput @derived(operationId: "proposalRetire")
   publishSet(body: para_PublishSetInputInput!): para_PublishSetOutput @derived(operationId: "publishSet")
@@ -212,7 +213,8 @@ type ParaV1QueryNamespace {
   exceptionList(kind: para_exceptionListKind, policy: String, status: para_exceptionListStatus): para_ExceptionListOutput @derived(operationId: "exceptionList")
   exportList: para_ExportListOutput @derived(operationId: "exportList")
   goalCompare(ids: String): para_GoalCompareOutput @derived(operationId: "goalCompare")
-  graph(area: String, project: String): para_GraphOutput @derived(operationId: "graph")
+  goalList(all: Boolean): para_GoalListOutput @derived(operationId: "goalList")
+  graph(area: String, goal: String): para_GraphOutput @derived(operationId: "graph")
   grillContext(id: String!): para_GrillContextOutput @derived(operationId: "grillContext")
   health: para_HealthOutput @derived(operationId: "health")
   history(before: String, filter: para_historyFilter, id: String!, limit: Int): para_HistoryOutput @derived(operationId: "history")
@@ -235,8 +237,8 @@ type ParaV1QueryNamespace {
   list(limit: Int, needs_you: Boolean, state: String, tag: String, type: para_listType): para_ListOutput @derived(operationId: "list")
   meetingList(all: Boolean, status: para_meetingListStatus): para_MeetingListOutput @derived(operationId: "meetingList")
   meetingShow(id: String!): para_MeetingShowOutput @derived(operationId: "meetingShow")
-  next(project: String): para_NextOutput @derived(operationId: "next")
-  noteList(area: String, project: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
+  next(goal: String): para_NextOutput @derived(operationId: "next")
+  noteList(area: String, goal: String, tag: String): para_NoteListOutput @derived(operationId: "noteList")
   notesRead(id: String!): para_NotesReadOutput @derived(operationId: "notesRead")
   obligationParts(id: String!): para_ObligationPartsOutput @derived(operationId: "obligationParts")
   obligationTimeline(days: Int): para_ObligationTimelineOutput @derived(operationId: "obligationTimeline")
@@ -250,11 +252,10 @@ type ParaV1QueryNamespace {
   pinned: para_PinnedOutput @derived(operationId: "pinned")
   policyList: para_PolicyListOutput @derived(operationId: "policyList")
   poolList(name: String): para_PoolListOutput @derived(operationId: "poolList")
-  projectList(all: Boolean): para_ProjectListOutput @derived(operationId: "projectList")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
-  questionList(all: Boolean, area: String, deferred: Boolean, project: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
+  questionList(all: Boolean, area: String, deferred: Boolean, goal: String, root: Boolean, status: para_questionListStatus, task: String): para_QuestionListOutput @derived(operationId: "questionList")
   receiptList(actor: String, batch: String, check: para_receiptListCheck, doc: String, limit: Int, op: String, request: String, since: String, until: String): para_ReceiptListOutput @derived(operationId: "receiptList")
   reportOutcomes(since: String, until: String): para_ReportOutcomesOutput @derived(operationId: "reportOutcomes")
   requestChanges(id: String!): para_RequestChangesOutput @derived(operationId: "requestChanges")
@@ -291,7 +292,7 @@ type ParaV1QueryNamespace {
   sweepPlan(sources: [String!]): para_SweepPlanOutput @derived(operationId: "sweepPlan")
   sweepReport(since: String): para_SweepReportOutput @derived(operationId: "sweepReport")
   tagList: para_TagListOutput @derived(operationId: "tagList")
-  taskList(area: String, assignee: String, deferred: Boolean, incident: String, open: Boolean, outcome: para_taskListOutcome, project: String, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
+  taskList(area: String, assignee: String, deferred: Boolean, goal: String, incident: String, open: Boolean, outcome: para_taskListOutcome, status: para_taskListStatus): para_TaskListOutput @derived(operationId: "taskList")
   themeItems(theme: String!): para_ThemeItemsOutput @derived(operationId: "themeItems")
   thread(id: String, key: String): para_ThreadOutput @derived(operationId: "thread")
   uiDoc(id: String!): para_Document @derived(operationId: "uiDoc")
@@ -372,6 +373,7 @@ enum para_AddOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -405,14 +407,14 @@ type para_AgendaItem {
   created: String
   date: String!
   detail: String
+  goal: String
+  goalName: String
   id: String!
   kind: para_AgendaItemKind!
   needsYou: Boolean!
   optional: Boolean
   overdue: Boolean!
   partOf: [para_PartOfRef!]
-  project: String
-  projectName: String
   reason: String
   time: String
   title: String!
@@ -672,7 +674,7 @@ type para_AreaShowOutput {
   incidents: [para_IncidentView!]!
   lastAligned: String
   notes: [para_NoteView!]!
-  projects: [para_ProjectView!]!
+  projects: [para_GoalView!]!
   questions: [para_QuestionView!]!
   recurring: [para_TaskView!]!
   sections: [para_AreaSection!]!
@@ -690,6 +692,7 @@ enum para_AreaUserType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -736,6 +739,7 @@ enum para_AreaViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -1405,6 +1409,7 @@ enum para_DepRowType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -1536,8 +1541,8 @@ input para_DocCommentFileInputInput {
   comment: String!
   doneWhen: String
   due: String
+  goal: String
   id: String!
-  project: String
   root: Boolean
   route: String
   task: String
@@ -1558,6 +1563,7 @@ enum para_DocCommentFileOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -1700,6 +1706,7 @@ enum para_DocRetypeInputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -1740,6 +1747,7 @@ enum para_DocRetypeOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -1766,6 +1774,7 @@ enum para_DocRetypeOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -1816,10 +1825,10 @@ input para_DocTrackInputInput {
   area: String
   fetchedAt: String
   fidelity: para_DocTrackInputFidelity
+  goal: String
   id: String
   note: String
   owner: String
-  project: String
   route: String
   system: para_DocTrackInputSystem
   text: String!
@@ -1929,6 +1938,7 @@ enum para_DocumentFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -2290,6 +2300,53 @@ type para_ForParty {
   role: String!
 }
 
+input para_GoalAddInputInput {
+  area: String
+  body: String
+  concepts: [String!]
+  doneWhen: String!
+  due: String
+  id: String
+  importedFrom: para_ImportedFromInput
+  owner: String
+  project: String
+  title: String!
+}
+
+type para_GoalAddOutput {
+  folder: para_GoalAddOutputFolder!
+  id: String!
+  rev: String!
+  warnings: [String!]!
+}
+
+enum para_GoalAddOutputFolder {
+  archive
+  areas
+  constraints
+  conventions
+  goals
+  inbox
+  incidents
+  interactions
+  io
+  journal
+  meetings
+  obligations
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+  sources
+  threads
+  tracked
+}
+
 type para_GoalBrief {
   alternatives: [para_OptionDetail!]
   confidence: para_GoalConfidence
@@ -2340,6 +2397,10 @@ type para_GoalConfidence {
   basis: String
   history: [para_ConfidenceReading!]
   percent: Int!
+}
+
+type para_GoalListOutput {
+  goals: [para_GoalView!]!
 }
 
 type para_GoalPivot {
@@ -2422,6 +2483,16 @@ type para_GoalRiskSetOutput {
   risks: [para_GoalRisk!]!
 }
 
+type para_GoalShowOutput {
+  assumptions: [para_AssumptionView!]!
+  body: String!
+  goal: para_GoalView!
+  lastAligned: String
+  questions: [para_QuestionView!]!
+  rules: [para_RuleRef!]!
+  tasks: [para_TaskView!]!
+}
+
 input para_GoalSignalAddInputInput {
   date: String
   id: String!
@@ -2436,6 +2507,60 @@ type para_GoalSignalAddOutput {
   readings: Int!
   rev: String!
   what: String!
+}
+
+type para_GoalView {
+  area: String
+  areaName: String
+  brief: para_GoalBrief
+  concepts: [String!]!
+  doneWhen: String
+  due: String
+  folder: para_GoalViewFolder!
+  id: String!
+  links: [para_Pointer!]
+  owner: String!
+  project: String
+  projectName: String
+  resumeWhen: String
+  rev: String!
+  status: para_GoalViewStatus!
+  title: String!
+}
+
+enum para_GoalViewFolder {
+  archive
+  areas
+  constraints
+  conventions
+  goals
+  inbox
+  incidents
+  interactions
+  io
+  journal
+  meetings
+  obligations
+  org
+  policies
+  projects
+  proposals
+  questions
+  receipts
+  requests
+  resources
+  rfx
+  sources
+  threads
+  tracked
+}
+
+enum para_GoalViewStatus {
+  active
+  done
+  dropped
+  parked
+  paused
 }
 
 type para_GoalWhy {
@@ -2458,10 +2583,10 @@ type para_GraphNode {
   area: String
   areaName: String
   blockedBy: [String!]!
+  goal: String
+  goalName: String
   id: String!
   kind: para_GraphNodeKind
-  project: String
-  projectName: String
   scope: String
   scopeName: String
   state: String!
@@ -2482,6 +2607,7 @@ enum para_GraphNodeType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -2730,6 +2856,7 @@ enum para_IOAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -3003,13 +3130,13 @@ input para_IOFileInputInput {
   doneWhen: String
   due: String
   existing: String
+  goal: String
   id: String!
   kind: para_IOFileInputKind
   nextNudge: String
   options: [String!]
   owner: String
   person: String
-  project: String
   recommended: String
   requestedBy: String
   root: Boolean
@@ -3031,10 +3158,10 @@ enum para_IOFileInputKind {
 
 enum para_IOFileInputTo {
   area
+  goal
   interaction
   note
   obligation
-  project
   question
   rfx
   task
@@ -3068,10 +3195,10 @@ enum para_IOFileOutputState {
 
 enum para_IOFileOutputTo {
   area
+  goal
   interaction
   note
   obligation
-  project
   question
   rfx
   task
@@ -3350,6 +3477,7 @@ enum para_IOSendOutputBecame_type {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -3537,9 +3665,9 @@ enum para_IdeaAddInputEffort {
 input para_IdeaAddInputInput {
   area: String
   effort: para_IdeaAddInputEffort
+  goal: String
   kind: String
   pool: String!
-  project: String
   text: String
   title: String!
 }
@@ -3597,6 +3725,7 @@ enum para_ImportedDocFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -3623,6 +3752,7 @@ enum para_ImportedDocType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -3721,6 +3851,7 @@ enum para_IncidentViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -3898,6 +4029,7 @@ enum para_ItemContextOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -4291,6 +4423,7 @@ enum para_ListRowType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -4397,6 +4530,7 @@ enum para_MeetingViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -4504,7 +4638,9 @@ type para_Meta {
   foldedInto: String
   followed: [String!]
   follows: para_Followed
+  formerIds: [String!]
   from: String
+  goal: String
   group: String
   groups: [String!]
   healthDismissed: [para_HealthDismissal!]
@@ -4589,6 +4725,7 @@ type para_Meta {
   reroutedTo: String
   resolution: String
   resultLinks: [String!]
+  resumeWhen: String
   retryAfter: String
   reviewAt: String
   reviewBatch: String
@@ -4629,6 +4766,8 @@ type para_Meta {
   start: String
   started: String
   state: JSON
+  stateDate: String
+  stateLine: String
   status: String
   steps: String
   subject: String
@@ -4700,6 +4839,7 @@ enum para_MetaType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -4740,8 +4880,8 @@ type para_NextOutput {
 input para_NoteAddInputInput {
   area: String
   body: String
+  goal: String
   importedFrom: para_ImportedFromInput
-  project: String
   tags: [String!]
   title: String!
 }
@@ -4757,6 +4897,7 @@ enum para_NoteAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -4790,8 +4931,8 @@ type para_NoteShowOutput {
 type para_NoteView {
   area: String
   folder: para_NoteViewFolder!
+  goal: String
   id: String!
-  project: String
   rev: String!
   tags: [String!]!
   title: String!
@@ -4802,6 +4943,7 @@ enum para_NoteViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -4884,6 +5026,7 @@ input para_ObligationAddInputInput {
   doneWhen: String
   due: String
   end: String
+  goal: String
   importedFrom: para_ImportedFromInput
   interested: [String!]
   kind: para_ObligationAddInputKind
@@ -4892,7 +5035,6 @@ input para_ObligationAddInputInput {
   owedTo: [String!]
   parent: String
   produce: para_ProduceInputInput
-  project: String
   recur: String
   rfx: [String!]
   schedule: para_ObligationAddInputSchedule
@@ -4934,6 +5076,7 @@ enum para_ObligationAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -4976,6 +5119,7 @@ enum para_ObligationAddOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -5072,6 +5216,7 @@ enum para_ObligationPartType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -5328,6 +5473,7 @@ enum para_OrgAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -5540,6 +5686,7 @@ enum para_PinOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -5602,6 +5749,7 @@ enum para_PinnedCardType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -5790,13 +5938,13 @@ type para_PoolView {
   area: String
   date: String
   fires: Boolean!
+  goal: String
   ideas: [para_PoolIdea!]!
   instance: String
   name: String!
   next: String
   pick: Int!
   problem: String
-  project: String
   row: String!
   size: Int!
   tag: String!
@@ -5956,12 +6104,10 @@ enum para_ProduceViewRequest_status {
 input para_ProjectAddInputInput {
   area: String
   body: String
-  concepts: [String!]
-  doneWhen: String!
+  doneWhen: String
   due: String
-  id: String
-  importedFrom: para_ImportedFromInput
   owner: String
+  stateLine: String
   title: String!
 }
 
@@ -5969,7 +6115,6 @@ type para_ProjectAddOutput {
   folder: para_ProjectAddOutputFolder!
   id: String!
   rev: String!
-  warnings: [String!]!
 }
 
 enum para_ProjectAddOutputFolder {
@@ -5977,6 +6122,7 @@ enum para_ProjectAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -5998,32 +6144,23 @@ enum para_ProjectAddOutputFolder {
   tracked
 }
 
-type para_ProjectListOutput {
-  projects: [para_ProjectView!]!
-}
-
 type para_ProjectShowOutput {
-  assumptions: [para_AssumptionView!]!
   body: String!
-  lastAligned: String
+  goals: [para_GoalView!]!
   project: para_ProjectView!
-  questions: [para_QuestionView!]!
-  rules: [para_RuleRef!]!
-  tasks: [para_TaskView!]!
 }
 
 type para_ProjectView {
   area: String
   areaName: String
-  brief: para_GoalBrief
   concepts: [String!]!
-  doneWhen: String
-  due: String
   folder: para_ProjectViewFolder!
   id: String!
   links: [para_Pointer!]
-  owner: String!
+  owner: String
   rev: String!
+  stateDate: String
+  stateLine: String
   status: para_ProjectViewStatus!
   title: String!
 }
@@ -6033,6 +6170,7 @@ enum para_ProjectViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -6056,9 +6194,8 @@ enum para_ProjectViewFolder {
 
 enum para_ProjectViewStatus {
   active
-  done
-  dropped
   paused
+  retired
 }
 
 type para_ProposalDetail {
@@ -6110,6 +6247,7 @@ enum para_ProposalExecutedOutputBecame_type {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -6224,11 +6362,11 @@ input para_QuestionAddInputInput {
   area: String
   context: String
   effort: para_QuestionAddInputEffort
+  goal: String
   importedFrom: para_ImportedFromInput
   kind: para_QuestionAddInputKind
   optionDetails: [para_OptionDetailInput!]
   options: [String!]
-  project: String
   recommended: String
   root: Boolean
   task: String
@@ -6252,6 +6390,7 @@ enum para_QuestionAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -6426,6 +6565,7 @@ enum para_QuestionViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -6477,10 +6617,10 @@ input para_RFXAddInputInput {
   dependsOn: [String!]
   direction: para_RFXAddInputDirection!
   effort: para_RFXAddInputEffort
+  goal: String
   importedFrom: para_ImportedFromInput
   nextNudge: String
   parent: String
-  project: String
   question: String
   route: String!
   selfServe: String
@@ -6499,6 +6639,7 @@ enum para_RFXAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -6977,6 +7118,7 @@ enum para_RecheckRecordOutputResult {
 type para_ReconcileResult {
   baseline: Boolean!
   changes: [para_Change!]!
+  relinked: [String!]
 }
 
 type para_Ref {
@@ -6992,6 +7134,7 @@ enum para_RefFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -7024,6 +7167,7 @@ enum para_RefType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -7171,6 +7315,7 @@ enum para_RequestAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -7564,6 +7709,7 @@ enum para_RuleInEffectType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -7712,7 +7858,7 @@ type para_SessionView {
   vault: String!
 }
 
-union para_ShowDetail = para_AreaShowOutput | para_ConstraintShowOutput | para_ConventionShowOutput | para_DocTrackedShowOutput | para_ExceptionShowOutput | para_IncidentShowOutput | para_InteractionShowOutput | para_IOShowOutput | para_MeetingShowOutput | para_NoteShowOutput | para_OrgShowOutput | para_GroupShowOutput | para_PolicyShowOutput | para_ProjectShowOutput | para_QuestionShowOutput | para_ReceiptDetail | para_RequestShowOutput | para_RFXShowOutput | para_SourceShowOutput | para_TaskShowOutput
+union para_ShowDetail = para_AreaShowOutput | para_ConstraintShowOutput | para_ConventionShowOutput | para_DocTrackedShowOutput | para_ExceptionShowOutput | para_GoalShowOutput | para_IncidentShowOutput | para_InteractionShowOutput | para_IOShowOutput | para_MeetingShowOutput | para_NoteShowOutput | para_OrgShowOutput | para_GroupShowOutput | para_PolicyShowOutput | para_ProjectShowOutput | para_QuestionShowOutput | para_ReceiptDetail | para_RequestShowOutput | para_RFXShowOutput | para_SourceShowOutput | para_TaskShowOutput
 
 type para_ShowOutput {
   detail: para_ShowDetail
@@ -7747,6 +7893,7 @@ enum para_ShowOutputType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -7816,6 +7963,7 @@ enum para_SimilarType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -7939,6 +8087,7 @@ enum para_SourceCiteType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -8146,9 +8295,12 @@ type para_StepOutcome {
   auto: Boolean!
   batch: String
   count: Int!
+  counts: JSON
   docs: [String!]!
   id: String!
   plan: [para_PlanLine!]
+  skipped: String
+  snapshot: String
   title: String!
 }
 
@@ -8402,11 +8554,11 @@ input para_TaskAddInputInput {
   due: String
   effort: para_TaskAddInputEffort
   end: String
+  goal: String
   importedFrom: para_ImportedFromInput
   incident: String
   kind: para_TaskAddInputKind
   parent: String
-  project: String
   recur: String
   requestedBy: String
   scheduled: String
@@ -8444,6 +8596,7 @@ enum para_TaskAddOutputFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -8570,9 +8723,9 @@ type para_TaskListOutput {
 
 input para_TaskMoveInputInput {
   area: String
+  goal: String
   id: String
   ids: [String!]
-  project: String
 }
 
 type para_TaskMoveOutput {
@@ -8700,6 +8853,8 @@ type para_TaskView {
   due: String
   end: String
   folder: para_TaskViewFolder!
+  goal: String!
+  goalName: String
   id: String!
   incident: String
   incidentName: String
@@ -8714,8 +8869,6 @@ type para_TaskView {
   parentName: String
   partOf: [para_PartOfRef!]
   previous: String
-  project: String!
-  projectName: String
   readyWhy: String
   reason: String
   recur: String
@@ -8752,6 +8905,7 @@ enum para_TaskViewFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -8846,6 +9000,7 @@ enum para_ThemeItemType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -9132,13 +9287,13 @@ type para_TodayItem {
   detail: String
   due: String
   effort: para_TodayItemEffort
+  goal: String
+  goalName: String
   group: String
   id: String!
   kind: String
   partOf: [para_PartOfRef!]
   prep: Boolean
-  project: String
-  projectName: String
   proposal: Boolean
   ready: Boolean
   readyKind: para_TodayItemReady_kind
@@ -9211,13 +9366,13 @@ type para_TrackedView {
   area: String
   checked: String
   created: String!
+  goal: String
   id: String!
   lastSeen: Int!
   latest: Int!
   lostAnchors: Int!
   openComments: Int!
   owner: String
-  project: String
   seenAt: String
   status: para_TrackedViewStatus!
   system: para_TrackedViewSystem!
@@ -9453,6 +9608,7 @@ input para_VaultUpgradeInputInput {
   dryRun: Boolean
   file: Boolean
   force: Boolean
+  unattended: Boolean
   undo: String
 }
 
@@ -9547,6 +9703,7 @@ enum para_WhereMatchFolder {
   areas
   constraints
   conventions
+  goals
   inbox
   incidents
   interactions
@@ -9573,6 +9730,7 @@ enum para_WhereMatchType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -9811,6 +9969,7 @@ enum para_listType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident
@@ -9895,6 +10054,7 @@ enum para_similarType {
   constraint
   convention
   domain
+  goal
   group
   inbox
   incident

@@ -25,9 +25,9 @@ func seedStreamBOParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	docs := []model.Document{
 		{ID: "project-bo", Folder: model.FolderProjects, Title: "BO goal",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}},
 		{ID: "task-bo", Folder: model.FolderProjects, Title: "BO task", Body: "## Assumptions\n\n- Legal signs off in a week",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-bo")}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-bo")}},
 	}
 	for _, id := range []string{"constraint-bo-a", "constraint-bo-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderConstraints, Title: "BO " + id,
@@ -47,8 +47,8 @@ func seedStreamBOParity(t *testing.T, deps ops.Deps) {
 func TestGrillRecheckCLI(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
-	var goal ops.ProjectAddOutput
-	e.json(&goal, "project", "add", "Launch the portal", "--done-when", "Live.")
+	var goal ops.GoalAddOutput
+	e.json(&goal, "goal", "add", "Launch the portal", "--done-when", "Live.")
 	var task ops.TaskAddOutput
 	e.json(&task, "task", "add", "Write the runbook", "-p", goal.ID, "--done-when", "Merged.")
 	e.ok("goal", "risk", "set", goal.ID, "Vendor slips", "--impact", "high", "--source", "owner in chat")

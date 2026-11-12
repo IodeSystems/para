@@ -120,7 +120,7 @@ func TestCommitmentTagReadsAsKind(t *testing.T) {
 	d := f.d
 	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderProjects, Title: "Send the audit plan",
 		Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Tags: []string{"commitment"}}, Status: model.TaskTodo,
-			Project: model.LinkTo(f.project), Due: "2026-11-10"}})
+			Goal: model.LinkTo(f.project), Due: "2026-11-10"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +128,7 @@ func TestCommitmentTagReadsAsKind(t *testing.T) {
 		t.Errorf("tagged commitment reads as %s", v.Kind)
 	}
 	// A new one is written as kind, with no tag; it closes with an outcome.
-	n := must(t, TaskAdd, d, TaskAddInput{Title: "Owe a reply", Project: f.project, Commitment: true, Due: "2026-11-12", With: []string{f.person}})
+	n := must(t, TaskAdd, d, TaskAddInput{Title: "Owe a reply", Goal: f.project, Commitment: true, Due: "2026-11-12", With: []string{f.person}})
 	nd, _ := d.Store.Get(ctx, n.ID)
 	if tk := nd.Meta.(*model.Task); tk.Kind != model.KindCommitment || len(tk.Tags) != 0 {
 		t.Errorf("new commitment = %#v", tk)
@@ -137,10 +137,10 @@ func TestCommitmentTagReadsAsKind(t *testing.T) {
 		t.Errorf("task_done err = %v", err)
 	}
 	must(t, TaskResolve, d, TaskResolveInput{ID: n.ID, Outcome: model.OutcomeDone})
-	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "Work", Project: f.project, Kind: model.KindWorkWith, With: []string{f.person}}); err == nil || !strings.Contains(err.Error(), "done_when") {
+	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "Work", Goal: f.project, Kind: model.KindWorkWith, With: []string{f.person}}); err == nil || !strings.Contains(err.Error(), "done_when") {
 		t.Errorf("work_with without done_when: %v", err)
 	}
-	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "Work", Project: f.project, Kind: model.KindWorkWith, DoneWhen: "Shipped."}); err == nil {
+	if _, err := TaskAdd.Run(ctx, d, TaskAddInput{Title: "Work", Goal: f.project, Kind: model.KindWorkWith, DoneWhen: "Shipped."}); err == nil {
 		t.Error("work_with without with must fail")
 	}
 	mustLintClean(t, d)
@@ -177,7 +177,7 @@ func TestCallAttempts(t *testing.T) {
 	if v := must(t, TaskShow, d, TaskShowInput{ID: call.ID}).Task; v.Stuck || v.Attempts != 4 {
 		t.Errorf("after reached = %+v", v)
 	}
-	plain := must(t, TaskAdd, d, TaskAddInput{Title: "Plain", Project: f.project})
+	plain := must(t, TaskAdd, d, TaskAddInput{Title: "Plain", Goal: f.project})
 	if _, err := TaskAttempt.Run(ctx, d, TaskAttemptInput{ID: plain.ID, Result: CallReached}); err == nil {
 		t.Error("task_attempt on a task must fail")
 	}

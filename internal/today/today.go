@@ -53,14 +53,14 @@ type Item struct {
 	ReadyRef  string             `json:"ready_ref,omitempty"`
 	// Proposal marks a question with an answer to check.
 	Proposal bool `json:"proposal,omitempty"`
-	// Names, for people. Project is a task's project id, Scope a question's
-	// scope id ("root" for the vault); each has the title of what it points at.
-	// With is who a request goes to, by name.
-	Project     string   `json:"project,omitempty"`
-	ProjectName string   `json:"project_name,omitempty"`
-	Scope       string   `json:"scope,omitempty"`
-	ScopeName   string   `json:"scope_name,omitempty"`
-	With        []string `json:"with,omitempty"`
+	// Names, for people. Goal is a task's goal id (or its area id), Scope a
+	// question's scope id ("root" for the vault); each has the title of what
+	// it points at. With is who a request goes to, by name.
+	Goal      string   `json:"goal,omitempty"`
+	GoalName  string   `json:"goal_name,omitempty"`
+	Scope     string   `json:"scope,omitempty"`
+	ScopeName string   `json:"scope_name,omitempty"`
+	With      []string `json:"with,omitempty"`
 	// PartOf is what the item is part of, nearest first; the server fills
 	// it (ops.FillNames).
 	PartOf []ops.PartOfRef `json:"part_of,omitempty" partof:"ID"`
@@ -357,10 +357,10 @@ func readVault(ctx context.Context, rv registry.Vault, actor, surface, date stri
 				}
 			}
 		case *model.Task:
-			if item.Project = m.Project.Target(); item.Project == "" {
-				item.Project = m.Area.Target()
+			if item.Goal = m.Goal.Target(); item.Goal == "" {
+				item.Goal = m.Area.Target()
 			}
-			item.ProjectName = titles[item.Project]
+			item.GoalName = titles[item.Goal]
 			open := m.Status != model.TaskDone && m.Status != model.TaskDropped
 			if open && m.Assignee != "" && m.Assignee != "self" {
 				vt.Waiting++

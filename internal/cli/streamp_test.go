@@ -23,7 +23,7 @@ func streamPParityCases() (map[string]parityCase, map[string]string) {
 		"io_made":      {`{"id":"io-p-show"}`, []string{"io", "made", "io-p-show"}, true},
 		"io_proposals": {`{}`, []string{"io", "proposals"}, true},
 		"io_sent":      {`{}`, []string{"io", "sent"}, true},
-		"io_file": {`{"id":"io-p-a","to":"task","project":"project-a"}`,
+		"io_file": {`{"id":"io-p-a","to":"task","goal":"project-a"}`,
 			[]string{"io", "file", "io-p-b", "--to", "task", "--project", "project-a"}, false},
 		"io_edit": {`{"id":"io-p-c","state":"read"}`, []string{"io", "edit", "io-p-d", "--state", "read"}, false},
 		"io_drop": {`{"id":"io-p-e","reason":"Spam."}`, []string{"io", "drop", "io-p-f", "--reason", "Spam."}, false},
@@ -86,14 +86,14 @@ func seedStreamPParity(t *testing.T, deps ops.Deps) {
 func TestIOFileCommand(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
-	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	var proj ops.GoalAddOutput
+	e.json(&proj, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var add ops.IOAddOutput
 	e.json(&add, "inbox", "add", "write the parser") // the old name, kept for one release
 	if out := e.ok("io", "inbox"); !strings.Contains(out, add.ID) || !strings.HasPrefix(add.ID, "io-") {
 		t.Fatalf("list:\n%s", out)
 	}
-	if _, _, err := e.run("io", "file", add.ID, "--to", "task"); err == nil || !strings.Contains(err.Error(), "needs project") {
+	if _, _, err := e.run("io", "file", add.ID, "--to", "task"); err == nil || !strings.Contains(err.Error(), "needs goal") {
 		t.Fatalf("err = %v", err)
 	}
 	var out ops.IOFileOutput

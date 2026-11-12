@@ -254,11 +254,11 @@ func TestRecurrence(t *testing.T) {
 	}
 
 	// A closed project gets no next task.
-	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "--done-when", "Done.", "Move rack", "--owner", "Jordan Example")
+	var proj ops.GoalAddOutput
+	e.json(&proj, "goal", "add", "--done-when", "Done.", "Move rack", "--owner", "Jordan Example")
 	var pt ops.TaskAddOutput
 	e.json(&pt, "task", "add", "Dust", "-p", proj.ID, "--recur", "daily")
-	e.ok("project", "close", proj.ID, "--force")
+	e.ok("goal", "close", proj.ID, "--force")
 	var pd ops.TaskDoneOutput
 	e.json(&pd, "task", "done", pt.ID)
 	if pd.Next != "" || len(pd.Warnings) != 1 || !strings.Contains(pd.Warnings[0], "closed") {
@@ -311,8 +311,8 @@ func TestIncidentFlow(t *testing.T) {
 	var minor, major ops.IncidentAddOutput
 	e.json(&minor, "incident", "add", "Slow search", "--severity", "sev3", "--area", area.ID, "--started", "2026-11-01T08:00:00Z", "--body", "Search p99 is high.")
 	e.json(&major, "incident", "add", "Atlas down", "--severity", "sev1", "--area", area.ID, "--started", "2026-11-01T09:00:00Z")
-	// A new vault is at format 10: an incident is a task of kind incident in projects/.
-	if !strings.HasPrefix(major.ID, "task-") || major.Folder != model.FolderProjects {
+	// A new vault is at format 11: an incident is a task of kind incident in goals/.
+	if !strings.HasPrefix(major.ID, "task-") || major.Folder != model.FolderGoals {
 		t.Fatalf("add = %+v", major)
 	}
 

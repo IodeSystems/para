@@ -21,12 +21,12 @@ func newMeetingFixture(t *testing.T) meetingFixture {
 	d := newDeps(t)
 	seedOrg(t, d)
 	f := meetingFixture{d: d, person: "person-ada-example"}
-	f.project = must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	other := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Elsewhere"}).ID
+	f.project = must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	other := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Elsewhere"}).ID
 	f.rfx = must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Can the portal launch before the audit?", Route: "domain-logging",
-		SelfServe: "read policies", Project: f.project, Targets: []TargetInput{{To: f.person, Medium: model.MediumEmail}}}).ID
-	f.inScope = must(t, QuestionAdd, d, QuestionAddInput{Text: "Which window does the audit use?", Project: f.project}).ID
-	f.outOfScope = must(t, QuestionAdd, d, QuestionAddInput{Text: "Unrelated thing?", Project: other}).ID
+		SelfServe: "read policies", Goal: f.project, Targets: []TargetInput{{To: f.person, Medium: model.MediumEmail}}}).ID
+	f.inScope = must(t, QuestionAdd, d, QuestionAddInput{Text: "Which window does the audit use?", Goal: f.project}).ID
+	f.outOfScope = must(t, QuestionAdd, d, QuestionAddInput{Text: "Unrelated thing?", Goal: other}).ID
 	return f
 }
 

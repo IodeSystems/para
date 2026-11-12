@@ -23,10 +23,10 @@ func TestHistoryJoinsEverySource(t *testing.T) {
 	step := func() { rv.advance(time.Minute) }
 	day := func() string { return time.Unix(0, rv.now.Load()).In(time.Local).Format(dateLayout) }
 
-	proj := must(t, ProjectAdd, owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, GoalAdd, owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	sam := must(t, OrgPersonAdd, owner, OrgAddInput{Name: "Sam Example", Org: "acme.example"}).ID
 	step()
-	task := must(t, TaskAdd, owner, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID
+	task := must(t, TaskAdd, owner, TaskAddInput{Goal: proj, Title: "Renew the cert"}).ID
 	step()
 	must(t, TaskEdit, owner, TaskEditInput{ID: task, DoneWhen: "The new cert is live."})
 	step()
@@ -174,7 +174,7 @@ func TestHistoryJoinsEverySource(t *testing.T) {
 // row says so.
 func TestHistoryUndo(t *testing.T) {
 	f := newAgentFix(t)
-	task := must(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Undo me"}).ID
+	task := must(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Undo me"}).ID
 	if _, err := TaskStart.Run(writeCtx(t), f.agent, TaskStartInput{ID: task}); err != nil {
 		t.Fatal(err)
 	}

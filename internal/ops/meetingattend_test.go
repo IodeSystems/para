@@ -16,7 +16,7 @@ func attendFixture(t *testing.T) (Deps, string, string) {
 	t.Cleanup(func() { time.Local = old })
 	d := newDepsAt(t, time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC), "a1")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	return d, proj, "person-ada-example"
 }
 
@@ -152,7 +152,7 @@ func TestOptionalMeetingAsksNothing(t *testing.T) {
 func TestSkippedMeetingFreesDependents(t *testing.T) {
 	d, proj, person := attendFixture(t)
 	m := addMeeting(t, d, "Planning", person, "2026-11-09T10:00:00Z", "2026-11-09T11:00:00Z", true)
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Write the plan", DoneWhen: "The plan is shared."}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Write the plan", DoneWhen: "The plan is shared."}).ID
 	must(t, TaskDependsAdd, d, TaskDependsInput{ID: task, DependsOn: []string{m}})
 	if r, ok := orderIDs(t, d)[task]; ok {
 		t.Fatalf("task waiting on an undecided optional meeting is listed: %+v", r)

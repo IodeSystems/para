@@ -98,7 +98,7 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 	}
 	switch it.Op {
 	case "task_add":
-		return with("Add task: "+str("title"), person("assignee"), prefixed("due ", z.date(str("due"))), prefixed("in ", firstNonEmpty(ref("project"), ref("area"))))
+		return with("Add task: "+str("title"), person("assignee"), prefixed("due ", z.date(str("due"))), prefixed("in ", firstNonEmpty(ref("goal"), ref("area"))))
 	case "task_done":
 		return "Mark done: " + ref("id")
 	case "rfx_path_add":
@@ -139,7 +139,7 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return "Add note: " + str("title")
 	case "question_add":
 		return "Ask a question: " + first(str("text"))
-	case "project_add":
+	case "goal_add":
 		return "Add project: " + str("title")
 	case "area_add":
 		return "Add area: " + str("title")
@@ -253,7 +253,7 @@ func (z itemSummarizer) date(s string) string {
 // fieldWords are input keys whose plain label differs from the key.
 var fieldWords = map[string]string{
 	"assignee": "Given to", "with": "With", "ask": "Ask", "text": "Text", "area": "Area",
-	"project": "Project", "due": "Due", "date": "Date", "id": "Item", "depends_on": "Needs first",
+	"goal": "Goal", "project": "Project", "due": "Due", "date": "Date", "id": "Item", "depends_on": "Needs first",
 }
 
 // change is the exact change of an item in plain words: one line per field,

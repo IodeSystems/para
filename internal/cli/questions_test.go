@@ -14,8 +14,8 @@ import (
 // seedQuestionParity.
 func questionParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"question_add":    {`{"text":"Which port?","project":"project-q-seed","kind":"decision","options":["80","8080"],"recommended":"80"}`, []string{"question", "add", "Which", "port?", "--project", "project-q-seed", "--kind", "decision", "--option", "80", "--option", "8080", "--recommended", "80"}, false},
-		"question_list":   {`{"project":"project-q-seed"}`, []string{"question", "list", "--project", "project-q-seed"}, true},
+		"question_add":    {`{"text":"Which port?","goal":"project-q-seed","kind":"decision","options":["80","8080"],"recommended":"80"}`, []string{"question", "add", "Which", "port?", "--project", "project-q-seed", "--kind", "decision", "--option", "80", "--option", "8080", "--recommended", "80"}, false},
+		"question_list":   {`{"goal":"project-q-seed"}`, []string{"question", "list", "--project", "project-q-seed"}, true},
 		"question_show":   {`{"id":"question-q-show"}`, []string{"question", "show", "question-q-show"}, true},
 		"question_answer": {`{"id":"question-q-ans-a","text":"Saturday.","why":"Agreed."}`, []string{"question", "answer", "question-q-ans-b", "--text", "Saturday.", "--why", "Agreed."}, false},
 		"question_drop":   {`{"id":"question-q-drop-a","reason":"Not needed."}`, []string{"question", "drop", "question-q-drop-b", "--reason", "Not needed."}, false},
@@ -35,7 +35,7 @@ func seedQuestionParity(t *testing.T, deps ops.Deps) {
 	ctx := context.Background()
 	docs := []model.Document{
 		{ID: "project-q-seed", Folder: model.FolderProjects, Title: "Q project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}},
 		{ID: "person-q-seed", Folder: model.FolderOrg, Title: "Quinn Example",
 			Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}},
 	}
@@ -59,7 +59,7 @@ func seedQuestionParity(t *testing.T, deps ops.Deps) {
 	}
 	for _, id := range []string{"task-q-conv-a", "task-q-conv-b", "task-q-dep"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "Q " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-q-seed")}})
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-q-seed")}})
 	}
 	for _, d := range docs {
 		if _, err := deps.Store.Create(ctx, d); err != nil {
@@ -73,8 +73,8 @@ func seedQuestionParity(t *testing.T, deps ops.Deps) {
 func TestQuestionFlowThroughTheCLI(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
-	var proj ops.ProjectAddOutput
-	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	var proj ops.GoalAddOutput
+	e.json(&proj, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	if out, _, err := e.run("question", "add", "Which window?"); err == nil {
 		t.Fatalf("an unscoped question was accepted: %s", out)
 	}
@@ -102,7 +102,7 @@ func TestQuestionFlowThroughTheCLI(t *testing.T) {
 	if out := e.ok("task", "show", task.ID); !strings.Contains(out, q.ID) {
 		t.Fatalf("task show: %s", out)
 	}
-	if out := e.ok("project", "show", proj.ID); !strings.Contains(out, "questions") || !strings.Contains(out, q.ID) {
+	if out := e.ok("goal", "show", proj.ID); !strings.Contains(out, "questions") || !strings.Contains(out, q.ID) {
 		t.Fatalf("project show: %s", out)
 	}
 	if out := e.ok("graph"); !strings.Contains(out, "question:decision:"+proj.ID) {

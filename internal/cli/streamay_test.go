@@ -22,9 +22,9 @@ func seedStreamAYParity(t *testing.T, deps ops.Deps) {
 	ctx := context.Background()
 	docs := []model.Document{
 		{ID: "project-ay", Folder: model.FolderProjects, Title: "AY project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example", DoneWhen: "Done."}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example", DoneWhen: "Done."}},
 		{ID: "task-ay", Folder: model.FolderProjects, Title: "AY task",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-ay"), DoneWhen: "Done."}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-ay"), DoneWhen: "Done."}},
 	}
 	for _, d := range docs {
 		if _, err := deps.Store.Create(ctx, d); err != nil {
@@ -41,7 +41,7 @@ func TestAlignCommands(t *testing.T) {
 	var proj struct {
 		ID string `json:"id"`
 	}
-	e.json(&proj, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	e.json(&proj, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var task struct {
 		ID string `json:"id"`
 	}
@@ -58,7 +58,7 @@ func TestAlignCommands(t *testing.T) {
 	if !strings.Contains(out, "Checked 2: 2 matched, 0 differ, 1 unreachable (jira)") {
 		t.Fatalf("record = %q", out)
 	}
-	if out := e.ok("project", "show", proj.ID); !strings.Contains(out, "aligned") {
+	if out := e.ok("goal", "show", proj.ID); !strings.Contains(out, "aligned") {
 		t.Logf("project show does not print the aligned date: %q", out)
 	}
 }

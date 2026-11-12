@@ -10,22 +10,22 @@ import (
 
 func TestDoneWhen(t *testing.T) {
 	d := directoryDeps(t)
-	if _, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: "Portal"}); err == nil || !strings.Contains(err.Error(), "area") {
+	if _, err := GoalAdd.Run(ctx, d, GoalAddInput{Title: "Portal"}); err == nil || !strings.Contains(err.Error(), "area") {
 		t.Fatalf("goal with no done condition: %v", err)
 	}
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", DoneWhen: "Launched and used by ten people."}).ID
-	if v := must(t, ProjectShow, d, ProjectShowInput{ID: proj}).Project; v.DoneWhen != "Launched and used by ten people." {
+	proj := must(t, GoalAdd, d, GoalAddInput{Title: "Portal", DoneWhen: "Launched and used by ten people."}).ID
+	if v := must(t, GoalShow, d, GoalShowInput{ID: proj}).Goal; v.DoneWhen != "Launched and used by ten people." {
 		t.Fatalf("view = %+v", v)
 	}
-	must(t, ProjectEdit, d, ProjectEditInput{ID: proj, DoneWhen: "Ten people use it."})
+	must(t, GoalEdit, d, GoalEditInput{ID: proj, DoneWhen: "Ten people use it."})
 
 	// A person captures fast; an agent says how we know.
-	quick := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Quick"}).ID
+	quick := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Quick"}).ID
 	agent := agentOf(d)
-	if _, err := TaskAdd.Run(ctx, agent, TaskAddInput{Project: proj, Title: "From an agent"}); err == nil || !strings.Contains(err.Error(), "done_when") {
+	if _, err := TaskAdd.Run(ctx, agent, TaskAddInput{Goal: proj, Title: "From an agent"}); err == nil || !strings.Contains(err.Error(), "done_when") {
 		t.Fatalf("agent task with no done_when: %v", err)
 	}
-	ok := must(t, TaskAdd, agent, TaskAddInput{Project: proj, Title: "From an agent", DoneWhen: "The parser passes its tests."}).ID
+	ok := must(t, TaskAdd, agent, TaskAddInput{Goal: proj, Title: "From an agent", DoneWhen: "The parser passes its tests."}).ID
 	if v := must(t, TaskShow, d, TaskShowInput{ID: ok}).Task; v.DoneWhen != "The parser passes its tests." {
 		t.Fatalf("task = %+v", v)
 	}
@@ -35,7 +35,7 @@ func TestDoneWhen(t *testing.T) {
 	}
 
 	// A recurring task hands its condition to the next one.
-	rec := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Weekly", Recur: "weekly", Due: "2026-11-03", DoneWhen: "Report sent."}).ID
+	rec := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Weekly", Recur: "weekly", Due: "2026-11-03", DoneWhen: "Report sent."}).ID
 	next := must(t, TaskDone, d, TaskDoneInput{ID: rec}).Next
 	if v := must(t, TaskShow, d, TaskShowInput{ID: next}).Task; v.DoneWhen != "Report sent." {
 		t.Fatalf("successor = %+v", v)
@@ -43,7 +43,7 @@ func TestDoneWhen(t *testing.T) {
 
 	// A hold action must say done_when.
 	mt := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{"person-ada-example"}, Start: "2026-11-05T10:00:00Z", End: "2026-11-05T10:30:00Z"}).ID
-	if _, err := MeetingHold.Run(ctx, agent, MeetingHoldInput{ID: mt, Actions: []HoldAction{{Title: "t", Project: proj}}}); err == nil {
+	if _, err := MeetingHold.Run(ctx, agent, MeetingHoldInput{ID: mt, Actions: []HoldAction{{Title: "t", Goal: proj}}}); err == nil {
 		t.Fatal("hold with an action lacking done_when")
 	}
 	if m := must(t, MeetingShow, d, MeetingShowInput{ID: mt}).Meeting; m.Status == model.MeetingHeld {

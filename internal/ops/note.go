@@ -13,13 +13,13 @@ import (
 
 // NoteView is a note without its body.
 type NoteView struct {
-	ID      string       `json:"id"`
-	Folder  model.Folder `json:"folder"`
-	Title   string       `json:"title"`
-	Area    string       `json:"area,omitempty"`
-	Project string       `json:"project,omitempty"`
-	Tags    []string     `json:"tags"`
-	Rev     string       `json:"rev"`
+	ID     string       `json:"id"`
+	Folder model.Folder `json:"folder"`
+	Title  string       `json:"title"`
+	Area   string       `json:"area,omitempty"`
+	Goal   string       `json:"goal,omitempty"`
+	Tags   []string     `json:"tags"`
+	Rev    string       `json:"rev"`
 }
 
 func noteView(d model.Document) (NoteView, error) {
@@ -27,7 +27,7 @@ func noteView(d model.Document) (NoteView, error) {
 	if !ok {
 		return NoteView{}, fmt.Errorf("%s is a %s, not a note", d.ID, d.Meta.Header().Type)
 	}
-	return NoteView{ID: d.ID, Folder: d.Folder, Title: d.Title, Area: n.Area.Target(), Project: n.Project.Target(),
+	return NoteView{ID: d.ID, Folder: d.Folder, Title: d.Title, Area: n.Area.Target(), Goal: n.Goal.Target(),
 		Tags: nonNil(n.Tags), Rev: d.Rev}, nil
 }
 
@@ -54,25 +54,26 @@ func listNotes(ctx context.Context, s store.Store, keep func(NoteView) bool) ([]
 	return out, nil
 }
 
-// projectLink returns the link to an existing project; an empty id gives no link.
-func projectLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
+// goalLink returns the link to an existing goal; an empty id gives no link.
+func goalLink(ctx context.Context, s store.Store, raw string) (model.Link, error) {
 	id := normID(raw)
 	if id == "" {
 		return "", nil
 	}
-	if _, _, err := getProject(ctx, s, id); err != nil {
-		return "", linkErr("project", id, err)
+	d, _, err := getGoal(ctx, s, id)
+	if err != nil {
+		return "", linkErr("goal", id, err)
 	}
-	return model.LinkTo(id), nil
+	return model.LinkTo(d.ID), nil
 }
 
 // NoteAddInput is the input of note_add.
 type NoteAddInput struct {
-	Title   string   `json:"title"`
-	Body    string   `json:"body,omitempty"`
-	Area    string   `json:"area,omitempty"`    // area id
-	Project string   `json:"project,omitempty"` // project id
-	Tags    []string `json:"tags,omitempty"`
+	Title string   `json:"title"`
+	Body  string   `json:"body,omitempty"`
+	Area  string   `json:"area,omitempty"` // area id
+	Goal  string   `json:"goal,omitempty"` // goal id
+	Tags  []string `json:"tags,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -85,7 +86,7 @@ type NoteAddOutput struct {
 }
 
 // NoteAdd creates a note in resources/.
-var NoteAdd = defineSafe("note_add", "Create a note (reference material), optionally linked to an area or project", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
+var NoteAdd = defineSafe("note_add", "Create a note (reference material), optionally linked to an area or goal", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return NoteAddOutput{}, errors.New("title is empty")
@@ -94,13 +95,13 @@ var NoteAdd = defineSafe("note_add", "Create a note (reference material), option
 	if err != nil {
 		return NoteAddOutput{}, err
 	}
-	project, err := projectLink(ctx, d.Store, in.Project)
+	project, err := goalLink(ctx, d.Store, in.Goal)
 	if err != nil {
 		return NoteAddOutput{}, err
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderResources, Title: title, Body: demoteH1(in.Body),
-		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Project: project},
+		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Goal: project},
 	})
 	if err != nil {
 		return NoteAddOutput{}, err
@@ -110,9 +111,9 @@ var NoteAdd = defineSafe("note_add", "Create a note (reference material), option
 
 // NoteListInput is the input of note_list.
 type NoteListInput struct {
-	Area    string `json:"area,omitempty" query:"area"`
-	Project string `json:"project,omitempty" query:"project"`
-	Tag     string `json:"tag,omitempty" query:"tag"`
+	Area string `json:"area,omitempty" query:"area"`
+	Goal string `json:"goal,omitempty" query:"goal"`
+	Tag  string `json:"tag,omitempty" query:"tag"`
 }
 
 // NoteListOutput is the output of note_list.
@@ -122,9 +123,9 @@ type NoteListOutput struct {
 
 // NoteList lists notes.
 var NoteList = defineRead("note_list", "List notes", func(ctx context.Context, d Deps, in NoteListInput) (NoteListOutput, error) {
-	area, project, tag := normID(in.Area), normID(in.Project), strings.TrimSpace(in.Tag)
+	area, project, tag := normID(in.Area), normID(in.Goal), strings.TrimSpace(in.Tag)
 	notes, err := listNotes(ctx, d.Store, func(n NoteView) bool {
-		return (area == "" || n.Area == area) && (project == "" || n.Project == project) &&
+		return (area == "" || n.Area == area) && (project == "" || n.Goal == project) &&
 			(tag == "" || slices.Contains(n.Tags, tag))
 	})
 	return NoteListOutput{Notes: notes}, err

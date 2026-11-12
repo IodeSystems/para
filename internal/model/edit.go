@@ -14,9 +14,9 @@ import (
 // FolderOf returns the folder a document of type t lives in.
 func FolderOf(t Type) Folder {
 	switch t {
-	case TypeProject, TypeTask:
+	case TypeProject:
 		return FolderProjects
-	case TypeGoal:
+	case TypeGoal, TypeTask:
 		return FolderGoals
 	case TypeArea:
 		return FolderAreas

@@ -30,7 +30,7 @@ func writeCtx(t *testing.T) context.Context {
 func TestReceiptRecordsDiffAndWhy(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := writeCtx(t)
-	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Receipted", DoneWhen: "It exists."})
+	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Receipted", DoneWhen: "It exists."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,7 +82,7 @@ func TestReceiptRecordsDiffAndWhy(t *testing.T) {
 
 func TestReceiptWrongOpensWork(t *testing.T) {
 	f := newAgentFix(t)
-	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Wrong one", DoneWhen: "It exists."})
+	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Goal: f.proj, Title: "Wrong one", DoneWhen: "It exists."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,7 +101,7 @@ func TestReceiptWrongOpensWork(t *testing.T) {
 
 func TestPersonWriteLeavesNoReceipt(t *testing.T) {
 	f := newAgentFix(t)
-	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Mine"}); err != nil {
+	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Mine"}); err != nil {
 		t.Fatal(err)
 	}
 	list, _ := ReceiptList.Run(t.Context(), f.owner, ReceiptListInput{})
@@ -111,7 +111,7 @@ func TestPersonWriteLeavesNoReceipt(t *testing.T) {
 }
 
 func TestEveryOpHasARisk(t *testing.T) {
-	want := map[string]Risk{"task_list": RiskRead, "inbox_add": RiskSafe, "project_close": RiskReview, "org_person_add": RiskReview}
+	want := map[string]Risk{"task_list": RiskRead, "inbox_add": RiskSafe, "goal_close": RiskReview, "org_person_add": RiskReview}
 	for _, e := range All() {
 		if !slices.Contains([]Risk{RiskRead, RiskSafe, RiskReview}, e.Risk()) {
 			t.Errorf("%s: risk %q", e.Name(), e.Risk())
@@ -125,23 +125,23 @@ func TestEveryOpHasARisk(t *testing.T) {
 func TestSearchBeforeCreate(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := writeCtx(t)
-	first, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys", DoneWhen: "Keys are new."})
+	first, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Rotate the staging keys", DoneWhen: "Keys are new."})
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Exact title.
-	_, err = TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "rotate the  staging keys", DoneWhen: "x"})
+	_, err = TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "rotate the  staging keys", DoneWhen: "x"})
 	if err == nil || !strings.Contains(err.Error(), first.ID) || !strings.Contains(err.Error(), "Rotate the staging keys") {
 		t.Fatalf("duplicate: %v", err)
 	}
 	// Near title, and a near type.
-	_, err = QuestionAdd.Run(ctx, f.agent, QuestionAddInput{Text: "Rotate staging keys", Project: f.proj})
+	_, err = QuestionAdd.Run(ctx, f.agent, QuestionAddInput{Text: "Rotate staging keys", Goal: f.proj})
 	if err == nil || !strings.Contains(err.Error(), first.ID) {
 		t.Fatalf("near type: %v", err)
 	}
 	// An override with a reason passes and lands in the receipt.
 	over := WithWrite(t.Context(), WriteMeta{Why: "w", NotDuplicate: "This one is for production."})
-	dup, err := TaskAdd.Run(over, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys", DoneWhen: "x"})
+	dup, err := TaskAdd.Run(over, f.agent, TaskAddInput{Goal: f.proj, Title: "Rotate the staging keys", DoneWhen: "x"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,14 +150,14 @@ func TestSearchBeforeCreate(t *testing.T) {
 		t.Fatalf("receipt = %+v", list.Items)
 	}
 	// A person is never refused.
-	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys"}); err != nil {
+	if _, err := TaskAdd.Run(t.Context(), f.owner, TaskAddInput{Goal: f.proj, Title: "Rotate the staging keys"}); err != nil {
 		t.Fatalf("person: %v", err)
 	}
 	if hint := SimilarFor(t.Context(), f.owner.Store, "task_add", TaskAddInput{Title: "Rotate the staging keys"}); len(hint) == 0 {
 		t.Fatal("no hint")
 	}
 	again := WithWrite(t.Context(), WriteMeta{Why: "Another environment.", NotDuplicate: "Another environment."})
-	if _, err := TaskAdd.Run(again, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the staging keys", DoneWhen: "Done."}); err != nil {
+	if _, err := TaskAdd.Run(again, f.agent, TaskAddInput{Goal: f.proj, Title: "Rotate the staging keys", DoneWhen: "Done."}); err != nil {
 		t.Fatalf("not_duplicate: %v", err)
 	}
 	// A closed match is not a match.
@@ -191,7 +191,7 @@ func TestAgentWorkTurns(t *testing.T) {
 	if _, err := RequestDone.Run(t.Context(), f.agent, RequestDoneInput{ID: add.ID, Resolution: model.ResolutionDone, Result: "x"}); err == nil || !strings.Contains(err.Error(), "requires") {
 		t.Fatalf("no citation: %v", err)
 	}
-	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Under the request", DoneWhen: "It exists."})
+	task, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Goal: f.proj, Title: "Under the request", DoneWhen: "It exists."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +229,7 @@ func TestAgentWorkTurns(t *testing.T) {
 func TestReceiptUndoManyNewestFirst(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := writeCtx(t)
-	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Undo me", DoneWhen: "It exists."})
+	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Undo me", DoneWhen: "It exists."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,10 +259,10 @@ func TestReceiptUndoManyNewestFirst(t *testing.T) {
 
 func TestSimilarNotFalsePositive(t *testing.T) {
 	d := newDeps(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Home", DoneWhen: "Done."}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Collect the HOA packet", DoneWhen: "x"})
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Call the surveyor", DoneWhen: "x"})
-	must(t, QuestionAdd, d, QuestionAddInput{Text: "Renew the EV registration", Project: proj})
+	proj := must(t, GoalAdd, d, GoalAddInput{Title: "Home", DoneWhen: "Done."}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Collect the HOA packet", DoneWhen: "x"})
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Call the surveyor", DoneWhen: "x"})
+	must(t, QuestionAdd, d, QuestionAddInput{Text: "Renew the EV registration", Goal: proj})
 	for _, c := range []struct {
 		typ   model.Type
 		title string

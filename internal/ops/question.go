@@ -248,7 +248,7 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 		return nil, err
 	}
 	projArea := map[string]string{}
-	prefs, err := s.List(ctx, store.Filter{Type: model.TypeProject})
+	prefs, err := s.List(ctx, store.Filter{Type: model.TypeGoal})
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,7 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 		if err != nil {
 			return nil, err
 		}
-		if p, ok := doc.Meta.(*model.Project); ok {
+		if p, ok := doc.Meta.(*model.Goal); ok {
 			projArea[r.ID] = p.Area.Target()
 		}
 	}
@@ -297,12 +297,12 @@ func loadQuestions(ctx context.Context, s store.Store) ([]qrow, error) {
 			x.v.ScopeType = "missing"
 		default:
 			switch m := sd.Meta.(type) {
-			case *model.Project:
+			case *model.Goal:
 				x.v.ScopeType, x.project, x.area = ScopeProject, sd.ID, m.Area.Target()
 			case *model.Area:
 				x.v.ScopeType, x.area = ScopeArea, sd.ID
 			case *model.Task:
-				x.v.ScopeType, x.project, x.area = ScopeTask, m.Project.Target(), m.Area.Target()
+				x.v.ScopeType, x.project, x.area = ScopeTask, m.Goal.Target(), m.Area.Target()
 				if x.area == "" {
 					x.area = projArea[x.project]
 				}
@@ -364,14 +364,14 @@ func scopeLink(ctx context.Context, s store.Store, project, task, area string, r
 	for _, g := range []struct {
 		name string
 		set  bool
-	}{{"project", project != ""}, {"task", task != ""}, {"area", area != ""}, {"root", root}} {
+	}{{"goal", project != ""}, {"task", task != ""}, {"area", area != ""}, {"root", root}} {
 		if g.set {
 			given = append(given, g.name)
 		}
 	}
 	switch len(given) {
 	case 0:
-		return "", errors.New("a question needs a scope: give project, task, area, or root (for the whole vault)")
+		return "", errors.New("a question needs a scope: give goal, task, area, or root (for the whole vault)")
 	case 1:
 	default:
 		return "", fmt.Errorf("a question has one scope: got %s", strings.Join(given, " and "))
@@ -380,12 +380,12 @@ func scopeLink(ctx context.Context, s store.Store, project, task, area string, r
 	case root:
 		return model.ScopeRoot, nil
 	case project != "":
-		doc, _, err := getProject(ctx, s, project)
+		doc, _, err := getGoal(ctx, s, project)
 		if err != nil {
-			return "", linkErr("project", project, err)
+			return "", linkErr("goal", project, err)
 		}
 		if doc.Folder == model.FolderArchive {
-			return "", fmt.Errorf("project %s is archived", project)
+			return "", fmt.Errorf("goal %s is archived", project)
 		}
 		return model.LinkTo(doc.ID), nil
 	case task != "":
@@ -424,7 +424,7 @@ func checkOptions(kind model.QuestionKind, options []string, recommended string)
 // Area, and Root is required.
 type QuestionAddInput struct {
 	Text        string             `json:"text"`                  // the question; the first line is the title
-	Project     string             `json:"project,omitempty"`     // scope: a project id
+	Goal        string             `json:"goal,omitempty"`        // scope: a goal id
 	Task        string             `json:"task,omitempty"`        // scope: a task id
 	Area        string             `json:"area,omitempty"`        // scope: an area id
 	Root        bool               `json:"root,omitempty"`        // scope: the whole vault
@@ -450,12 +450,12 @@ type QuestionAddOutput struct {
 }
 
 // QuestionAdd records an open question.
-var QuestionAdd = defineSafe("question_add", "Record an open question, decision, or input the owner owes, with one scope (project, task, area, or root); a task is work to do, a question is something to answer", func(ctx context.Context, d Deps, in QuestionAddInput) (QuestionAddOutput, error) {
+var QuestionAdd = defineSafe("question_add", "Record an open question, decision, or input the owner owes, with one scope (goal, task, area, or root); a task is work to do, a question is something to answer", func(ctx context.Context, d Deps, in QuestionAddInput) (QuestionAddOutput, error) {
 	title, body, err := splitCapture(in.Text)
 	if err != nil {
 		return QuestionAddOutput{}, fmt.Errorf("text: %w", err)
 	}
-	scope, err := scopeLink(ctx, d.Store, in.Project, in.Task, in.Area, in.Root)
+	scope, err := scopeLink(ctx, d.Store, in.Goal, in.Task, in.Area, in.Root)
 	if err != nil {
 		return QuestionAddOutput{}, err
 	}
@@ -541,12 +541,12 @@ func checkDecision(d Deps, kind model.QuestionKind, options []string, recommende
 
 // QuestionListInput is the input of question_list. Empty fields match all.
 type QuestionListInput struct {
-	Status  model.QuestionStatus `json:"status,omitempty" query:"status"`
-	Project string               `json:"project,omitempty" query:"project"` // scoped to the project or to one of its tasks
-	Task    string               `json:"task,omitempty" query:"task"`       // scoped to this task
-	Area    string               `json:"area,omitempty" query:"area"`       // scoped to the area, to one of its projects, or to one of their tasks
-	Root    bool                 `json:"root,omitempty" query:"root"`       // only vault-level questions
-	All     bool                 `json:"all,omitempty" query:"all"`         // include answered and dropped questions
+	Status model.QuestionStatus `json:"status,omitempty" query:"status"`
+	Goal   string               `json:"goal,omitempty" query:"goal"` // scoped to the goal or to one of its tasks
+	Task   string               `json:"task,omitempty" query:"task"` // scoped to this task
+	Area   string               `json:"area,omitempty" query:"area"` // scoped to the area, to one of its projects, or to one of their tasks
+	Root   bool                 `json:"root,omitempty" query:"root"` // only vault-level questions
+	All    bool                 `json:"all,omitempty" query:"all"`   // include answered and dropped questions
 	// Deferred includes the questions a person put off (Later). They are left
 	// out by default, as the agent lists leave them out; each is marked.
 	Deferred bool `json:"deferred,omitempty" query:"deferred"`
@@ -566,7 +566,7 @@ var QuestionList = defineRead("question_list", "List open questions, ordered by 
 	if err != nil {
 		return QuestionListOutput{}, err
 	}
-	project, task, area := normID(in.Project), normID(in.Task), normID(in.Area)
+	project, task, area := normID(in.Goal), normID(in.Task), normID(in.Area)
 	out := QuestionListOutput{Questions: []QuestionView{}}
 	for _, x := range all {
 		switch {
@@ -888,10 +888,10 @@ var QuestionAsk = defineSafe("question_ask", "Ask a person an open question: mak
 	if !q.IsRoot() && q.Scope.Target() != "" {
 		if sd, err := d.Store.Get(ctx, q.Scope.Target()); err == nil {
 			switch m := sd.Meta.(type) {
-			case *model.Project:
-				rin.Project = sd.ID
+			case *model.Goal:
+				rin.Goal = sd.ID
 			case *model.Task:
-				rin.Project = m.Project.Target()
+				rin.Goal = m.Goal.Target()
 			}
 		}
 	}

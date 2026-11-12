@@ -70,7 +70,7 @@ func TestReceiptSourceLinks(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := WithWrite(t.Context(), WriteMeta{Why: "Mail asked.", Sources: []string{"work-mailbox:m1", "work-mailbox:m1"}, Verify: "Open it."})
-	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "From mail", DoneWhen: "Done."})
+	task, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "From mail", DoneWhen: "Done."})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,11 +87,11 @@ func TestReceiptSourceLinks(t *testing.T) {
 func TestTaskHowFieldsAndWarning(t *testing.T) {
 	f := newAgentFix(t)
 	ctx := t.Context()
-	bare, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Renew the API token acli-download before it expires", DoneWhen: "The token works."})
+	bare, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Renew the API token acli-download before it expires", DoneWhen: "The token works."})
 	if err != nil || !hasWarn(bare.Warnings, "say how to do it") {
 		t.Fatalf("agent task with no how: %+v %v", bare, err)
 	}
-	out, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Rotate the signing key for the deploy bot", DoneWhen: "The token works.",
+	out, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Rotate the signing key for the deploy bot", DoneWhen: "The token works.",
 		DoURL: "https://id.example.test/manage-profile/security/api-tokens", DoCommand: "acli auth login --token -",
 		Steps: "1. Create a token on the page.\n2. Run the command.\n3. Paste the token when asked."})
 	if err != nil || hasWarn(out.Warnings, "say how to do it") {
@@ -102,7 +102,7 @@ func TestTaskHowFieldsAndWarning(t *testing.T) {
 		t.Fatalf("show = %+v %v", show.Task, err)
 	}
 	// A person captures without a how and gets no warning.
-	own, err := TaskAdd.Run(ctx, f.owner, TaskAddInput{Project: f.proj, Title: "Pay the invoice"})
+	own, err := TaskAdd.Run(ctx, f.owner, TaskAddInput{Goal: f.proj, Title: "Pay the invoice"})
 	if err != nil || hasWarn(own.Warnings, "say how to do it") {
 		t.Fatalf("owner: %+v %v", own, err)
 	}
@@ -114,7 +114,7 @@ func TestTaskHowFieldsAndWarning(t *testing.T) {
 	if ed, err = TaskEdit.Run(ctx, f.agent, TaskEditInput{ID: bare.ID, ClearHow: true}); err != nil || ed.DoCommand != "" {
 		t.Fatalf("clear = %+v %v", ed, err)
 	}
-	if _, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Project: f.proj, Title: "Bad url", DoneWhen: "x.", DoURL: "ftp://x"}); err == nil {
+	if _, err := TaskAdd.Run(ctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Bad url", DoneWhen: "x.", DoURL: "ftp://x"}); err == nil {
 		t.Fatal("do_url must be http(s)")
 	}
 }

@@ -32,7 +32,7 @@ func steps() []Step {
 			ID:      "done-when",
 			Version: 2,
 			Title:   "Give each open goal and task a done_when",
-			Types:   []model.Type{model.TypeProject, model.TypeGoal, model.TypeTask},
+			Types:   []model.Type{model.TypeGoal, model.TypeTask},
 			Select:  lacksDoneWhen,
 			Instructions: "Each document the selector lists is an open goal or task with no done_when. " +
 				"Read the document, its links, and its history. Where the vault or your own tools show what done means, " +
@@ -213,6 +213,7 @@ func steps() []Step {
 			Select:  legacyGoal,
 			Rewrite: asGoal,
 			Custom:  runGoals,
+			Native:  true,
 		},
 		{
 			ID:         "projects-sort",
@@ -420,9 +421,7 @@ func legacyOpenProposal(d model.Document) bool {
 // A meeting, a call, and the other kinds do not take one.
 func lacksDoneWhen(d model.Document) bool {
 	switch m := d.Meta.(type) {
-	case *model.Project:
-		return (m.Status == model.ProjectActive || m.Status == model.ProjectPaused) && m.DoneWhen == ""
-	case *model.Goal: // a project after step goals
+	case *model.Goal: // below format 11 the vault reads a file of type project as a goal
 		return (m.Status == model.GoalActive || m.Status == model.GoalPaused) && m.DoneWhen == ""
 	case *model.Task:
 		open := m.Status != model.TaskDone && m.Status != model.TaskDropped

@@ -37,10 +37,23 @@ const (
 	TypeMeeting         Type = "meeting"
 	TypeObligation      Type = "obligation"
 	TypeThread          Type = "thread" // a thread key pinned by the owner (pin); items pin on their own frontmatter
-	// TypeGoal is a finite outcome with a done condition. Until upgrade step
-	// goals (format 11), a goal is a file of type project (TypeProject).
+	// TypeGoal is a finite outcome with a done condition. Below format 11
+	// (upgrade step goals) a goal is a file of type project, which the vault
+	// reads as a goal (GoalsFormat).
 	TypeGoal Type = "goal"
 )
+
+// GoalsFormat is the vault format at which a goal is a file of type goal in
+// goals/ and type project is the ongoing project. Below it a file of type
+// project is a goal, and a task, note, obligation, rfx, or tracked doc links
+// its goal with project:.
+const GoalsFormat = 11
+
+// GoalsStepKey is the vault.properties key upgrade step goals sets, to its
+// batch id, once it has rewritten the files: from then on the vault holds the
+// format-11 files even while an earlier judgement step holds format_version
+// below GoalsFormat. Undo of that batch removes it.
+const GoalsStepKey = "goals_step"
 
 // Types lists every Type, in the order of paramd.Types.
 var Types = []Type{
@@ -99,19 +112,6 @@ func (f Folder) Valid() bool {
 	return false
 }
 
-// ProjectStatus is project.status.
-type ProjectStatus string
-
-const (
-	ProjectActive  ProjectStatus = "active"
-	ProjectPaused  ProjectStatus = "paused"
-	ProjectDone    ProjectStatus = "done"
-	ProjectDropped ProjectStatus = "dropped"
-)
-
-// ProjectStatuses lists every ProjectStatus.
-var ProjectStatuses = []ProjectStatus{ProjectActive, ProjectPaused, ProjectDone, ProjectDropped}
-
 // GoalStatus is goal.status. A parked goal is in its project's icebox: it
 // waits on the condition in resume_when.
 type GoalStatus string
@@ -130,21 +130,21 @@ func (GoalStatus) Enum() []string { return enumStrings(GoalStatuses) }
 // GoalStatuses lists every GoalStatus.
 var GoalStatuses = []GoalStatus{GoalActive, GoalPaused, GoalParked, GoalDone, GoalDropped}
 
-// OngoingStatus is the status of an OngoingProject. Active projects are the
-// Projects view; a retired one is kept for its history.
-type OngoingStatus string
+// ProjectStatus is project.status. Active projects are the Projects view; a
+// retired one is kept for its history.
+type ProjectStatus string
 
 const (
-	OngoingActive  OngoingStatus = "active"
-	OngoingPaused  OngoingStatus = "paused"
-	OngoingRetired OngoingStatus = "retired"
+	ProjectActive  ProjectStatus = "active"
+	ProjectPaused  ProjectStatus = "paused"
+	ProjectRetired ProjectStatus = "retired"
 )
 
 // Enum lists the allowed values, for schema generation.
-func (OngoingStatus) Enum() []string { return enumStrings(OngoingStatuses) }
+func (ProjectStatus) Enum() []string { return enumStrings(ProjectStatuses) }
 
-// OngoingStatuses lists every OngoingStatus.
-var OngoingStatuses = []OngoingStatus{OngoingActive, OngoingPaused, OngoingRetired}
+// ProjectStatuses lists every ProjectStatus.
+var ProjectStatuses = []ProjectStatus{ProjectActive, ProjectPaused, ProjectRetired}
 
 // PointerKind is pointers[].kind: what a pointer to outside material is.
 type PointerKind string

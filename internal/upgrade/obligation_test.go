@@ -35,7 +35,7 @@ func obligationFixture(t *testing.T) (*fixture, store.Store) {
 		t.Fatal(err)
 	}
 	task := func(st model.TaskStatus, k model.TaskKind) *model.Task {
-		return &model.Task{Common: model.Common{Type: model.TypeTask}, Status: st, Kind: k, Project: model.LinkTo("project-x")}
+		return &model.Task{Common: model.Common{Type: model.TypeTask}, Status: st, Kind: k, Goal: model.LinkTo("project-x")}
 	}
 	sync := task(model.TaskTodo, model.KindMeeting)
 	sync.Occasion = model.Occasion{Scheduled: "2026-11-04T10:00:00-05:00", End: "2026-11-04T10:30:00-05:00", With: []model.Link{model.LinkTo("person-x")},
@@ -51,7 +51,7 @@ func obligationFixture(t *testing.T) (*fixture, store.Store) {
 	plain := task(model.TaskTodo, "")
 	plain.DependsOn = []model.Link{model.LinkTo("asked-in")}
 	for _, d := range []model.Document{
-		{ID: "project-x", Folder: model.FolderProjects, Title: "Goal", Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me", DoneWhen: "Done."}},
+		{ID: "project-x", Folder: model.FolderProjects, Title: "Goal", Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "me", DoneWhen: "Done."}},
 		{ID: "person-x", Folder: model.FolderOrg, Title: "Person X", Meta: &model.Person{Common: model.Common{Type: model.TypePerson}}},
 		{ID: "sync", Folder: model.FolderProjects, Title: "Sync", Body: "## Notes\n\nSee [[plain]].", Meta: sync},
 		{ID: "owed", Folder: model.FolderProjects, Title: "Send the report", Meta: owed},
@@ -125,7 +125,7 @@ func TestObligationsStep(t *testing.T) {
 	}
 	d, o := get("sync")
 	if o.Kind != model.KindMeeting || o.State != model.StateOpen || o.Schedule != model.ScheduleAt || o.FoldedFrom != model.TypeTask ||
-		o.Attend != model.AttendYes || !o.Optional || len(o.UIDs()) != 1 || o.Project != model.LinkTo("project-x") || !strings.Contains(d.Body, "[[plain]]") {
+		o.Attend != model.AttendYes || !o.Optional || len(o.UIDs()) != 1 || o.Goal != model.LinkTo("project-x") || !strings.Contains(d.Body, "[[plain]]") {
 		t.Fatalf("sync = %+v", o)
 	}
 	text := raw(t, f, "obligations/sync.md")

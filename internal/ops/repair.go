@@ -23,7 +23,7 @@ import (
 // alike.
 func checkDoc(d model.Document) error {
 	switch m := d.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		if err := m.CheckBrief(); err != nil {
 			return fmt.Errorf("%s: %w", d.ID, err)
 		}
@@ -171,6 +171,11 @@ var DocRetype = define("doc_retype", "Change a document's type (note to policy_e
 	if in.Type == "" || model.FolderOf(in.Type) == "" {
 		return DocRetypeOutput{}, fmt.Errorf("doc_retype: unknown type %q", in.Type)
 	}
+	if in.Type == model.TypeProject {
+		if err := projectsOn(d.Store); err != nil {
+			return DocRetypeOutput{}, fmt.Errorf("doc_retype: %w", err)
+		}
+	}
 	nd, err := model.Retype(doc, in.Type, snakeFields(in.Fields))
 	if err != nil {
 		return DocRetypeOutput{}, fmt.Errorf("doc_retype: %w", err)
@@ -198,13 +203,13 @@ var DocRetype = define("doc_retype", "Change a document's type (note to policy_e
 	return out, nil
 })
 
-// TaskMoveInput is the input of task_move. Give project or area; ids moves
+// TaskMoveInput is the input of task_move. Give goal or area; ids moves
 // several tasks.
 type TaskMoveInput struct {
-	ID      string   `json:"id,omitempty"`
-	IDs     []string `json:"ids,omitempty"`
-	Project string   `json:"project,omitempty"`
-	Area    string   `json:"area,omitempty"`
+	ID   string   `json:"id,omitempty"`
+	IDs  []string `json:"ids,omitempty"`
+	Goal string   `json:"goal,omitempty"`
+	Area string   `json:"area,omitempty"`
 }
 
 // TaskMoveOutput is the output of task_move.
@@ -213,7 +218,7 @@ type TaskMoveOutput struct {
 }
 
 // TaskMove points tasks at another goal or area. A task keeps its other links.
-var TaskMove = define("task_move", "Move tasks to another goal (project) or area; give project or area, and id or ids", func(ctx context.Context, d Deps, in TaskMoveInput) (TaskMoveOutput, error) {
+var TaskMove = define("task_move", "Move tasks to another goal or area; give goal or area, and id or ids", func(ctx context.Context, d Deps, in TaskMoveInput) (TaskMoveOutput, error) {
 	ids := slices.Clone(in.IDs)
 	if in.ID != "" {
 		ids = append(ids, in.ID)
@@ -221,10 +226,10 @@ var TaskMove = define("task_move", "Move tasks to another goal (project) or area
 	if len(ids) == 0 {
 		return TaskMoveOutput{}, errors.New("task_move: give id or ids")
 	}
-	if (in.Project == "") == (in.Area == "") {
-		return TaskMoveOutput{}, errors.New("task_move: give exactly one of project or area")
+	if (in.Goal == "") == (in.Area == "") {
+		return TaskMoveOutput{}, errors.New("task_move: give exactly one of goal or area")
 	}
-	project, err := projectLink(ctx, d.Store, in.Project)
+	project, err := goalLink(ctx, d.Store, in.Goal)
 	if err != nil {
 		return TaskMoveOutput{}, fmt.Errorf("task_move: %w", err)
 	}
@@ -245,9 +250,9 @@ var TaskMove = define("task_move", "Move tasks to another goal (project) or area
 	for _, doc := range docs {
 		t := doc.Meta.(*model.Task)
 		if project != "" {
-			t.Project, t.Area = project, ""
+			t.Goal, t.Area = project, ""
 		} else {
-			t.Project, t.Area = "", area
+			t.Goal, t.Area = "", area
 		}
 		if _, err := d.Store.Update(ctx, doc); err != nil {
 			return out, fmt.Errorf("task_move: %s: %w", doc.ID, err)

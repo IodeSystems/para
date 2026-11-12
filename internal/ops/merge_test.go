@@ -21,11 +21,11 @@ func TestDocMergeMovesLinksListsAndNotesAndHidesAlias(t *testing.T) {
 	d, proj := laterVault(t)
 	ada := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
 	bo := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Bo Example", Org: "acme.example"}).ID
-	keep := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Weekly sync", Kind: model.KindMeeting, With: []string{ada}}).ID
-	alias := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Weekly sync (moved)", Kind: model.KindMeeting, With: []string{ada, bo}}).ID
-	pre := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Prep slides"}).ID
+	keep := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Weekly sync", Kind: model.KindMeeting, With: []string{ada}}).ID
+	alias := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Weekly sync (moved)", Kind: model.KindMeeting, With: []string{ada, bo}}).ID
+	pre := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Prep slides"}).ID
 	must(t, TaskDependsAdd, d, TaskDependsInput{ID: alias, DependsOn: []string{pre}})
-	after := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Send minutes", DependsOn: []string{alias, keep}}).ID
+	after := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Send minutes", DependsOn: []string{alias, keep}}).ID
 	note := must(t, NoteAdd, d, NoteAddInput{Title: "Agenda", Body: "See [[" + alias + "]] for the room."}).ID
 	must(t, NotesEdit, d, NotesEditInput{ID: alias, MD: "Room 4 is booked."})
 	must(t, NotesEdit, d, NotesEditInput{ID: keep, MD: "Bring the roadmap."})
@@ -101,8 +101,8 @@ func TestDocMergeMovesLinksListsAndNotesAndHidesAlias(t *testing.T) {
 
 func TestTaskResolveDuplicateMerges(t *testing.T) {
 	d, proj := laterVault(t)
-	keep := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew cert"}).ID
-	alias := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the TLS cert"}).ID
+	keep := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew cert"}).ID
+	alias := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew the TLS cert"}).ID
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which CA?", Task: alias}).ID
 	out := must(t, TaskResolve, d, TaskResolveInput{ID: alias, Outcome: model.OutcomeDuplicate, Link: keep})
 	if out.Merge == nil || out.Status != model.TaskDropped {
@@ -124,7 +124,7 @@ func TestTaskResolveDuplicateMerges(t *testing.T) {
 func TestDocArchiveHidesAndUndoRestores(t *testing.T) {
 	d, proj := laterVault(t)
 	ada := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
-	m := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Old standup", Kind: model.KindMeeting, With: []string{ada}}).ID
+	m := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Old standup", Kind: model.KindMeeting, With: []string{ada}}).ID
 	out := must(t, DocArchive, d, DocArchiveInput{ID: m, Reason: "It moved to Tuesday."})
 	if out.Folder != string(model.FolderArchive) {
 		t.Fatalf("archive = %+v", out)
@@ -150,7 +150,7 @@ func TestDocArchiveHidesAndUndoRestores(t *testing.T) {
 
 func TestNotesReadEdit(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Plan offsite", Body: "Context line.\n\n## Updates\n\n### 2026-11-01\n\nBooked."}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Plan offsite", Body: "Context line.\n\n## Updates\n\n### 2026-11-01\n\nBooked."}).ID
 	r := must(t, NotesRead, d, NotesReadInput{ID: id})
 	if r.MD != "" || r.Hash != "" {
 		t.Fatalf("empty notes = %+v", r)

@@ -63,7 +63,7 @@ var policyLinkRe = regexp.MustCompile(`\[\[([a-z0-9][a-z0-9.-]*)(?:[#|][^\]]*)?\
 
 // GrillContext gathers the probes of a goal.
 var GrillContext = defineRead("grill_context", "For a goal, list what an interviewer must settle, in value order: brief gaps (no done_when, risks, or signals), open questions, asks and blockers with no owner or route, rules and policies in effect, dependencies outside the owner's control, stale or unchecked assumptions, and the case against. Each probe says what the vault knows, its sources, and the question to ask only if the vault and sources cannot answer", func(ctx context.Context, d Deps, in GrillContextInput) (GrillContextOutput, error) {
-	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
+	doc, p, err := getGoal(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return GrillContextOutput{}, err
 	}
@@ -139,7 +139,7 @@ var GrillContext = defineRead("grill_context", "For a goal, list what an intervi
 
 type griller struct {
 	goal model.Document
-	p    *model.Project
+	p    *model.Goal
 	out  []GrillProbe
 }
 
@@ -178,7 +178,7 @@ func goalDocs(ctx context.Context, s store.Store, goal string) ([]model.Document
 			return nil, err
 		}
 		doc = obligationShape(doc)
-		if t, ok := doc.Meta.(*model.Task); ok && t.Project.Target() == goal && !taskTerminal(t.Status) {
+		if t, ok := doc.Meta.(*model.Task); ok && t.Goal.Target() == goal && !taskTerminal(t.Status) {
 			out = append(out, doc)
 		}
 	}
@@ -246,7 +246,7 @@ func (g *griller) asks(ctx context.Context, s store.Store, tasks []model.Documen
 		if !ok || m.Status != model.RFXOpen || m.Direction != model.RFXOut {
 			continue
 		}
-		if m.Project.Target() == g.goal.ID || want[doc.ID] {
+		if m.Goal.Target() == g.goal.ID || want[doc.ID] {
 			out = append(out, doc)
 		}
 	}

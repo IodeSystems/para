@@ -46,7 +46,7 @@ type field struct {
 }
 
 var (
-	projectStatus      = []string{"active", "paused", "done", "dropped"}
+	projectStatus      = []string{"active", "paused", "retired"}
 	goalStatus         = []string{"active", "paused", "parked", "done", "dropped"}
 	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
 	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded", "declined", "failed", "rerouted"}
@@ -128,26 +128,17 @@ var commonFields = []field{
 
 // typeFields are the per-type fields, on top of commonFields.
 var typeFields = map[string][]field{
+	// project is the ongoing project from format 11. Below it a file of type
+	// project is a goal: the vault lints it as type goal.
 	"project": {
 		{Name: "status", Kind: kEnum, Enum: projectStatus, Required: true},
-		{Name: "owner", Kind: kString, Required: true},
-		{Name: "area", Kind: kLink},         // an area of kind project (vault check)
+		{Name: "owner", Kind: kString},
+		{Name: "area", Kind: kLink},         // a facet
 		{Name: "concepts", Kind: kLinkList}, // areas of kind concept (vault check)
-		{Name: "done_when", Kind: kString},
+		{Name: "state_line", Kind: kString}, // where the project stands, one line
+		{Name: "state_date", Kind: kDate},   // the day state_line last changed; para sets it
 		{Name: "links", Kind: kPointers},
-		// The goal brief; all optional.
-		{Name: "why", Kind: kMap},
-		{Name: "confidence", Kind: kMap},
-		{Name: "alternatives", Kind: kMaps},
-		{Name: "unknowns", Kind: kMaps},
-		{Name: "signals", Kind: kMaps},
-		{Name: "risks", Kind: kRisks},
-		{Name: "assumptions", Kind: kAssumptions},
-		{Name: "pivot", Kind: kMap},
-		{Name: "extensions", Kind: kList},
-		{Name: "ecosystem", Kind: kMap},
-		{Name: "rank", Kind: kCount},
-		{Name: "validation", Kind: kEnum, Enum: validationStates},
+		{Name: "folded_from", Kind: kEnum, Enum: Types}, // area or goal: the type before upgrade step projects-sort
 	},
 	// goal is what project was below format 11 (upgrade step goals).
 	"goal": {
@@ -201,8 +192,8 @@ var typeFields = map[string][]field{
 	},
 	"task": {
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},
-		{Name: "project", Kind: kLink}, // project or area: at least one (lint); below format 11 a goal
-		{Name: "goal", Kind: kLink},
+		{Name: "project", Kind: kLink}, // from format 11 only on a task a cron made (N5b)
+		{Name: "goal", Kind: kLink},    // goal or area: at least one (lint)
 		{Name: "area", Kind: kLink},
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, quarterly, yearly, every <n> days; another value is a warning
@@ -666,7 +657,7 @@ var kindNames = map[kind]string{
 // editableTypes are the types doc_edit changes. A proposal, receipt, question,
 // and note keep their own ops; a note goes through note_edit.
 var editableTypes = []string{
-	"task", "obligation", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
+	"task", "obligation", "goal", "project", "area", "rfx", "meeting", "journal", "incident", "request", "person", "group", "team",
 	"role", "domain", "convention", "constraint", "policy", "policy_exception", "interaction", "inbox", "transcript", "tracked_doc", "source",
 }
 

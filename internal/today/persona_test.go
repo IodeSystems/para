@@ -58,7 +58,7 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	must(t, ops.OrgPersonContactAdd, owner, ops.PersonContactInput{ID: client, Method: "email", Value: "rae@rae.example"})
 	must(t, ops.PrioritySet, owner, ops.PrioritySetInput{ID: client, Priority: model.PriorityHigh})
 	studio := must(t, ops.AreaAdd, owner, ops.AreaAddInput{Title: "Studio"}).ID
-	goal := must(t, ops.ProjectAdd, owner, ops.ProjectAddInput{Title: "Rae brand refresh", DoneWhen: "Logo files delivered.", Area: studio}).ID
+	goal := must(t, ops.GoalAdd, owner, ops.GoalAddInput{Title: "Rae brand refresh", DoneWhen: "Logo files delivered.", Area: studio}).ID
 	for _, s := range []ops.SourceAddInput{
 		{ID: "studio-mail", Title: "Studio mail", System: model.SourceMail, Vendor: "outlook", Cadence: "daily"},
 		{ID: "client-chat", Title: "Client chat", System: model.SourceChat, Vendor: "teams", Cadence: "daily"},
@@ -76,7 +76,7 @@ func TestPersonaFreelanceDesignerFullLoop(t *testing.T) {
 	invoice := must(t, ops.ObligationAdd, owner, ops.ObligationAddInput{Kind: model.KindCommitment, Title: "Weekly invoice reminder",
 		OwedBy: []string{"agent:claude"}, OwedTo: []string{client}, Recur: "weekly", Due: day(0), Area: studio,
 		Produce: &ops.ProduceInput{Kind: model.ProduceMessage, Template: "Hi Rae, this week's invoice is attached. It is due on Friday.", To: []string{client}, Medium: model.MediumEmail}}).ID
-	task := must(t, ops.TaskAdd, owner, ops.TaskAddInput{Project: goal, Title: "Export the logo files", DoneWhen: "Files in the shared folder.", Due: day(1)}).ID
+	task := must(t, ops.TaskAdd, owner, ops.TaskAddInput{Goal: goal, Title: "Export the logo files", DoneWhen: "Files in the shared folder.", Due: day(1)}).ID
 
 	views := func(step string) map[string]bool {
 		t.Helper()

@@ -31,8 +31,8 @@ func setDep(t *testing.T, d Deps, id, on string, optional bool) DependsSetOutput
 func TestOptionalDependencyHoldsNothing(t *testing.T) {
 	d := dependsVault(t)
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Platform"}).ID
-	goal := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example", Due: "2026-12-01"}).ID
-	a := must(t, TaskAdd, d, TaskAddInput{Project: goal, Title: "Ship it", Due: "2026-11-20", DoneWhen: "Shipped."}).ID
+	goal := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example", Due: "2026-12-01"}).ID
+	a := must(t, TaskAdd, d, TaskAddInput{Goal: goal, Title: "Ship it", Due: "2026-11-20", DoneWhen: "Shipped."}).ID
 	b := must(t, TaskAdd, d, TaskAddInput{Area: area, Title: "Tidy the config", DoneWhen: "Tidy."}).ID
 
 	check := func(label string, hard bool) {
@@ -98,8 +98,8 @@ func TestOptionalDependencyIsStartable(t *testing.T) {
 // An obligation's optional dependency is no prep: no backward date.
 func TestOptionalDependencyNoBackwardDate(t *testing.T) {
 	d, proj, person := obFixture(t)
-	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-10T14:00:00Z", End: "2026-11-10T15:00:00Z", Project: proj}).ID
-	dep := must(t, TaskAdd, d, TaskAddInput{Title: "Get the numbers", Project: proj, Effort: model.EffortM, DoneWhen: "Numbers in."}).ID
+	m := must(t, ObligationAdd, d, ObligationAddInput{Title: "Plan review", With: []string{person}, Start: "2026-11-10T14:00:00Z", End: "2026-11-10T15:00:00Z", Goal: proj}).ID
+	dep := must(t, TaskAdd, d, TaskAddInput{Title: "Get the numbers", Goal: proj, Effort: model.EffortM, DoneWhen: "Numbers in."}).ID
 	setDep(t, d, m, dep, true)
 	if got := partIDs(must(t, ObligationParts, d, ObligationPartsInput{ID: m}).Before); slices.Contains(got, dep) {
 		t.Fatalf("optional: before = %v", got)

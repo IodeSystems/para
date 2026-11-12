@@ -49,15 +49,15 @@ func reasonGoals(g *reasonGraph, id string) []string {
 // edge leads to no goal.
 func TestValueGoalsAreReasonGoals(t *testing.T) {
 	d := newDeps(t)
-	g1 := must(t, ProjectAdd, d, ProjectAddInput{Title: "Ship the portal", Owner: "me", DoneWhen: "Shipped.", Due: "2026-12-01"}).ID
-	g2 := must(t, ProjectAdd, d, ProjectAddInput{Title: "Move the office", Owner: "me", DoneWhen: "Moved."}).ID
+	g1 := must(t, GoalAdd, d, GoalAddInput{Title: "Ship the portal", Owner: "me", DoneWhen: "Shipped.", Due: "2026-12-01"}).ID
+	g2 := must(t, GoalAdd, d, GoalAddInput{Title: "Move the office", Owner: "me", DoneWhen: "Moved."}).ID
 	mk := func(title string, m *model.Task) string {
 		t.Helper()
 		m.Common, m.Status, m.DoneWhen = model.Common{Type: model.TypeTask}, model.TaskTodo, "Done."
-		if m.Project == "" {
+		if m.Goal == "" {
 			// Lint wants a project; a gone one leads nowhere, as a hand edit
 			// can leave it.
-			m.Project = model.LinkTo("project-gone")
+			m.Goal = model.LinkTo("project-gone")
 		}
 		doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderProjects, Title: title, Meta: m})
 		if err != nil {
@@ -65,17 +65,17 @@ func TestValueGoalsAreReasonGoals(t *testing.T) {
 		}
 		return doc.ID
 	}
-	direct := mk("Direct", &model.Task{Project: model.LinkTo(g1)})
-	parent := mk("Parent", &model.Task{Project: model.LinkTo(g1)})
+	direct := mk("Direct", &model.Task{Goal: model.LinkTo(g1)})
+	parent := mk("Parent", &model.Task{Goal: model.LinkTo(g1)})
 	child := mk("Child", &model.Task{Parent: model.LinkTo(parent)})
 	// a0 <- a1 <- b (b is in g2): a0 and a1 lead to g2.
 	a0 := mk("Chain start", &model.Task{})
 	a1 := mk("Chain middle", &model.Task{DependsOn: []model.Link{model.LinkTo(a0)}})
-	mk("Chain end", &model.Task{Project: model.LinkTo(g2), DependsOn: []model.Link{model.LinkTo(a1)}})
+	mk("Chain end", &model.Task{Goal: model.LinkTo(g2), DependsOn: []model.Link{model.LinkTo(a1)}})
 	// opt is only better before a g1 task: no goal.
 	opt := mk("Better before", &model.Task{})
-	mk("Takes the optional", &model.Task{Project: model.LinkTo(g1), OptionalAfter: []model.Link{model.LinkTo(opt)}})
-	hub := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the move plan", Project: g2, Due: "2026-11-20", DoneWhen: "Sent."}).ID
+	mk("Takes the optional", &model.Task{Goal: model.LinkTo(g1), OptionalAfter: []model.Link{model.LinkTo(opt)}})
+	hub := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the move plan", Goal: g2, Due: "2026-11-20", DoneWhen: "Sent."}).ID
 	hubChild := mk("Draft the move plan", &model.Task{Parent: model.LinkTo(hub)})
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which login page?", Task: direct}).ID
 

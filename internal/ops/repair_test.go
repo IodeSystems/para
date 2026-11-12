@@ -28,7 +28,7 @@ func TestDocRenameRewritesLinks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tsk, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "Uses it", DependsOn: nil})
+	tsk, err := TaskAdd.Run(ctx, d, TaskAddInput{Goal: f.proj, Title: "Uses it", DependsOn: nil})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func TestDocRetypeKeepsExtras(t *testing.T) {
 		t.Fatalf("missing fields: %v", err)
 	}
 	doc, _ := d.Store.Get(ctx, n.ID)
-	doc.Meta.(*model.Note).Project = model.LinkTo(f.proj)
+	doc.Meta.(*model.Note).Goal = model.LinkTo(f.proj)
 	if _, err := d.Store.Update(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
@@ -81,11 +81,11 @@ func TestDocRetypeKeepsExtras(t *testing.T) {
 	if !ok || got.Folder != model.FolderPolicies || e.Kind != model.ExceptionEstablishedExample || e.PolicyText != "Logging standard" || got.Body != "Text." {
 		t.Fatalf("got %+v folder %s", got.Meta, got.Folder)
 	}
-	if !slicesHas(out.Kept, "project") {
+	if !slicesHas(out.Kept, "goal") {
 		t.Fatalf("kept = %v", out.Kept)
 	}
 	text, _ := got.FieldText()
-	if text["project"] != "[["+f.proj+"]]" {
+	if text["goal"] != "[["+f.proj+"]]" {
 		t.Fatalf("project dropped: %v", text)
 	}
 	mustLintClean(t, d)
@@ -115,23 +115,23 @@ func slicesHas(l []string, s string) bool {
 func TestTaskMove(t *testing.T) {
 	f := newAgentFix(t)
 	d := f.owner
-	p2, _ := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: "Second", Owner: "Jordan Example", DoneWhen: "Done."})
-	a, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "A"})
-	b, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "B"})
-	if _, err := TaskMove.Run(ctx, d, TaskMoveInput{IDs: []string{a.ID, b.ID}, Project: p2.ID}); err != nil {
+	p2, _ := GoalAdd.Run(ctx, d, GoalAddInput{Title: "Second", Owner: "Jordan Example", DoneWhen: "Done."})
+	a, _ := TaskAdd.Run(ctx, d, TaskAddInput{Goal: f.proj, Title: "A"})
+	b, _ := TaskAdd.Run(ctx, d, TaskAddInput{Goal: f.proj, Title: "B"})
+	if _, err := TaskMove.Run(ctx, d, TaskMoveInput{IDs: []string{a.ID, b.ID}, Goal: p2.ID}); err != nil {
 		t.Fatal(err)
 	}
 	for _, id := range []string{a.ID, b.ID} {
 		doc, _ := d.Store.Get(ctx, id)
-		if doc.Meta.(*model.Task).Project.Target() != p2.ID {
+		if doc.Meta.(*model.Task).Goal.Target() != p2.ID {
 			t.Fatalf("%s not moved", id)
 		}
 	}
-	if _, err := TaskMove.Run(ctx, d, TaskMoveInput{IDs: []string{a.ID, "task-none"}, Project: f.proj}); err == nil {
+	if _, err := TaskMove.Run(ctx, d, TaskMoveInput{IDs: []string{a.ID, "task-none"}, Goal: f.proj}); err == nil {
 		t.Fatal("a bad id moved")
 	}
 	doc, _ := d.Store.Get(ctx, a.ID)
-	if doc.Meta.(*model.Task).Project.Target() != p2.ID {
+	if doc.Meta.(*model.Task).Goal.Target() != p2.ID {
 		t.Fatal("a failed move changed a task")
 	}
 }
@@ -139,7 +139,7 @@ func TestTaskMove(t *testing.T) {
 func TestDocEditFieldLimitsAndConflict(t *testing.T) {
 	f := newAgentFix(t)
 	d := f.owner
-	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "Edit me"})
+	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Goal: f.proj, Title: "Edit me"})
 	title, body := "Edited title", "Edited body."
 	if _, err := DocEdit.Run(ctx, d, DocEditInput{ID: tk.ID, Title: &title, Body: &body, Fields: map[string]any{"assignee": "agent:x", "done_when": "It reads well."}}); err != nil {
 		t.Fatal(err)
@@ -232,7 +232,7 @@ func TestExceptionPolicyTextAndBy(t *testing.T) {
 func TestAttemptAddAndNudge(t *testing.T) {
 	f := newAgentFix(t)
 	d := f.owner
-	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Project: f.proj, Title: "Chase"})
+	tk, _ := TaskAdd.Run(ctx, d, TaskAddInput{Goal: f.proj, Title: "Chase"})
 	for i := 0; i < 2; i++ {
 		if _, err := AttemptAdd.Run(ctx, d, AttemptAddInput{Target: tk.ID, What: "Emailed", Result: "No reply", Sources: []string{"https://acme.example/m/1"}}); err != nil {
 			t.Fatal(err)

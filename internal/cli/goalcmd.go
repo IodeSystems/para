@@ -12,10 +12,11 @@ import (
 	"github.com/iodesystems/para/internal/ops"
 )
 
-// newGoalCmd is `para goal`: the goal brief's readings, the owner's rank, and
-// goals side by side. The brief itself is edited with `para doc edit`.
+// newGoalCmd is `para goal`: goals (add, list, show, edit, close, link), the
+// goal brief's readings, the owner's rank, and goals side by side. The brief itself is edited with `para doc edit`.
 func newGoalCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "goal", Short: "Goal validation: signal readings, rank, and a side-by-side comparison", Args: cobra.NoArgs}
+	cmd := &cobra.Command{Use: "goal", Short: "Goals: bounded outcomes with a done condition; validation: signal readings, risks, rank, and a side-by-side comparison", Args: cobra.NoArgs}
+	cmd.AddCommand(goalCommands(l)...)
 	signal := &cobra.Command{Use: "signal", Short: "Readings of the signals a goal's brief defines", Args: cobra.NoArgs}
 	signal.AddCommand(
 		opCommand(l, ops.GoalSignalAdd, binding[ops.GoalSignalAddInput, ops.GoalSignalAddOutput]{

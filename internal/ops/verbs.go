@@ -309,16 +309,21 @@ func closeRoute(ctx context.Context, d Deps, in CloseInput) (verbRoute, error) {
 		default:
 			return verbRoute{}, bad("dropped, or answered (answer or choice, and sources)")
 		}
-	case *model.Project:
+	case *model.Goal:
 		switch outcome {
 		case "", "done":
-			op = ProjectClose
-		case string(model.ProjectDropped):
-			op = ProjectClose
+			op = GoalClose
+		case string(model.GoalDropped):
+			op = GoalClose
 			base["dropped"] = true
 		default:
 			return verbRoute{}, bad("none or done, or dropped")
 		}
+	case *model.Project:
+		if outcome != "" && outcome != string(model.ProjectRetired) {
+			return verbRoute{}, bad("retired (a project has no done: its goals do)")
+		}
+		op = ProjectRetire
 	case *model.RFX:
 		_, from := in.Fields["from"]
 		switch {
@@ -440,7 +445,7 @@ func typeWord(doc model.Document) string {
 		if k := t.EffectiveKind(); k != model.KindTask {
 			return string(k)
 		}
-	case *model.Project:
+	case *model.Goal:
 		return "goal"
 	case *model.RFX:
 		return "ask"
@@ -645,11 +650,11 @@ func reopenOne(ctx context.Context, d Deps, id, reason string) (ReopenedItem, st
 		if from == string(model.QuestionAnswered) {
 			warn = doc.ID + " was answered: the answer text stays in its body until a new answer replaces it"
 		}
-	case *model.Project:
-		from, to = string(m.Status), string(model.ProjectActive)
-		m.Status = model.ProjectActive
+	case *model.Goal:
+		from, to = string(m.Status), string(model.GoalActive)
+		m.Status = model.GoalActive
 		if doc.Folder == model.FolderArchive {
-			move = model.FolderProjects
+			move = model.FolderGoals
 		}
 	case *model.RFX:
 		from, to = string(m.Status), string(model.RFXOpen)
@@ -768,7 +773,7 @@ type ShowOutput struct {
 // a task (task_show); meeting_show reads the older meeting documents too.
 func showOps() map[model.Type]Entry {
 	return map[model.Type]Entry{
-		model.TypeTask: TaskShow, model.TypeQuestion: QuestionShow, model.TypeProject: ProjectShow, model.TypeRFX: RFXShow,
+		model.TypeTask: TaskShow, model.TypeQuestion: QuestionShow, model.TypeGoal: GoalShow, model.TypeProject: ProjectShow, model.TypeRFX: RFXShow,
 		model.TypeIO: IOShow, model.TypeRequest: RequestShow, model.TypeArea: AreaShow, model.TypeIncident: IncidentShow,
 		model.TypeMeeting: MeetingShow, model.TypeReceipt: ReceiptShow, model.TypeSource: SourceShow, model.TypeTrackedDoc: DocTrackedShow,
 		model.TypePolicyException: ExceptionShow, model.TypeConvention: ConventionShow, model.TypeConstraint: ConstraintShow,
@@ -842,6 +847,8 @@ func statusOf(m model.Meta) string {
 		return string(cmp.Or(x.State, model.StateOpen))
 	case *model.Question:
 		return string(x.Status)
+	case *model.Goal:
+		return string(x.Status)
 	case *model.Project:
 		return string(x.Status)
 	case *model.RFX:
@@ -864,7 +871,7 @@ func statusOf(m model.Meta) string {
 
 // --- list ---
 
-// ListInput is the input of list. With no type, needs_you is on. goal is project; ask is rfx.
+// ListInput is the input of list. With no type, needs_you is on. ask is rfx.
 type ListInput struct {
 	Type model.Type `json:"type,omitempty" query:"type"`
 	// State is open, later, closed, or all; empty is open and later (not
@@ -924,17 +931,14 @@ type ListOutput struct {
 var listStates = []string{"", string(LifeOpen), string(LifeLater), string(LifeClosed), "all"}
 
 // List lists items of any type with their lifecycle and needs_you.
-var List = defineRead("list", "List items of a type (task, question, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (default with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
+var List = defineRead("list", "List items of a type (task, question, goal, project, rfx, io, request, area, incident, ...) with life (open, later, closed), whether each needs the owner now (needs_you) and why. state: open, later, closed, or all; default open and later. needs_you: only what needs the owner now (default with no type: every type), ranked as the order op ranks it (rank, group): use that order as it is. tag: a topic. Closed goals live in archive/ and are listed with state closed or all",
 	func(ctx context.Context, d Deps, in ListInput) (ListOutput, error) {
 		state := strings.TrimSpace(in.State)
 		if !slices.Contains(listStates, state) {
 			return ListOutput{}, fmt.Errorf("state %q: want open, later, closed, or all", state)
 		}
 		in.Type = model.Type(strings.TrimSpace(string(in.Type)))
-		switch in.Type { // the UI says goal and ask
-		case "goal":
-			in.Type = model.TypeProject
-		case "ask":
+		if in.Type == "ask" { // the UI says ask
 			in.Type = model.TypeRFX
 		}
 		if in.Type == "" {

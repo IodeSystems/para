@@ -25,18 +25,18 @@ func newThemeFixture(t *testing.T) themeFixture {
 	t.Helper()
 	v := newVerbVault(t)
 	f := themeFixture{v: v}
-	ob := must(t, ObligationAdd, v.cli, ObligationAddInput{Title: "Trip to the coast", Kind: model.KindCommitment, Due: "2026-12-01", OwedTo: []string{v.person}, Project: v.proj})
+	ob := must(t, ObligationAdd, v.cli, ObligationAddInput{Title: "Trip to the coast", Kind: model.KindCommitment, Due: "2026-12-01", OwedTo: []string{v.person}, Goal: v.proj})
 	f.trip = ob.ID
 	add := func(in TaskAddInput) string {
 		t.Helper()
-		if in.Project == "" && in.Area == "" {
-			in.Project = v.proj
+		if in.Goal == "" && in.Area == "" {
+			in.Goal = v.proj
 		}
 		in.DoneWhen = "It is done."
 		return must(t, TaskAdd, v.cli, in).ID
 	}
 	f.child = add(TaskAddInput{Title: "Pack the bags", Parent: f.trip})
-	f.waits = add(TaskAddInput{Title: "Post the photos", Area: "", Project: v.proj})
+	f.waits = add(TaskAddInput{Title: "Post the photos", Area: "", Goal: v.proj})
 	must(t, DependsSet, v.cli, DependsSetInput{ID: f.waits, On: f.trip})
 	f.optional = add(TaskAddInput{Title: "Write the travel notes"})
 	must(t, DependsSet, v.cli, DependsSetInput{ID: f.optional, On: f.trip, Optional: true})
@@ -102,7 +102,7 @@ func TestPartOfNearestFirst(t *testing.T) {
 	if ctxOut.PartOf[0].Title != "Trip to the coast" {
 		t.Errorf("parent title = %q", ctxOut.PartOf[0].Title)
 	}
-	list := must(t, TaskList, v.pwa, TaskListInput{Project: v.proj})
+	list := must(t, TaskList, v.pwa, TaskListInput{Goal: v.proj})
 	for _, tv := range list.Tasks {
 		if tv.ID == f.tagged && !slices.Equal(partKinds(tv.PartOf), []string{PartGoal + "/" + ViaGoal + "/" + v.proj, PartTag + "/" + ViaTag + "/summer"}) {
 			t.Errorf("task_list part_of of the tagged task = %v", partKinds(tv.PartOf))
@@ -181,8 +181,8 @@ func TestThemeCloseIsOneBatchUndo(t *testing.T) {
 	}
 	moved, _ := v.pwa.Store.Get(t.Context(), f.waits)
 	// The goal stays: only what ends (the trip) is taken off a kept item.
-	if tm := moved.Meta.(*model.Task); tm.Area.Target() != f.area || tm.Project.Target() != v.proj {
-		t.Errorf("moved task area %q project %q", tm.Area, tm.Project)
+	if tm := moved.Meta.(*model.Task); tm.Area.Target() != f.area || tm.Goal.Target() != v.proj {
+		t.Errorf("moved task area %q project %q", tm.Area, tm.Goal)
 	}
 	if lifeNow(t, v.pwa, f.optional) != LifeOpen {
 		t.Error("a kept item closed")
@@ -202,12 +202,12 @@ func TestThemeCloseIsOneBatchUndo(t *testing.T) {
 func TestThemeCloseGoalForcesAndAnsweredQuestionOnlyDrops(t *testing.T) {
 	f := newThemeFixture(t)
 	v := f.v
-	// project_close alone refuses a goal with open tasks.
+	// goal_close alone refuses a goal with open tasks.
 	if _, err := Close.Run(t.Context(), v.pwa, CloseInput{ID: v.proj}); err == nil {
 		t.Fatal("close of a goal with open tasks passed")
 	}
 	out := must(t, ThemeClose, v.pwa, ThemeCloseInput{Theme: v.proj, Drop: []string{f.tagged}})
-	if out.Closed != ProjectClose.Name() || lifeNow(t, v.pwa, v.proj) != LifeClosed {
+	if out.Closed != GoalClose.Name() || lifeNow(t, v.pwa, v.proj) != LifeClosed {
 		t.Fatalf("goal close = %+v", out)
 	}
 	undo := must(t, Bulk, v.pwa, BulkInput{Verb: BulkUndo, Batch: out.Batch})
@@ -255,9 +255,9 @@ func TestAgentCannotDropThemeItems(t *testing.T) {
 // An item put off until an obligation starts is part of it, and hangs on it.
 func TestPartOfUntilStart(t *testing.T) {
 	d, proj, _ := obFixture(t)
-	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Seattle trip", Project: proj,
+	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Seattle trip", Goal: proj,
 		Start: "2026-12-01T09:00:00-08:00", End: "2026-12-10T18:00:00-08:00"}).ID
-	visit := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Visit the office", DoneWhen: "Badge picked up."}).ID
+	visit := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Visit the office", DoneWhen: "Badge picked up."}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{visit}, UntilStart: trip})
 	got := partKinds(must(t, ItemContext, d, ItemContextInput{ID: visit}).PartOf)
 	if !slices.Contains(got, PartObligation+"/"+ViaPutOff+"/"+trip) {

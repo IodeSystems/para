@@ -15,7 +15,7 @@ func TestReviewDecideScope(t *testing.T) {
 	viewer := f.key(f.keyA, "viewer", netguard.ScopeVaultRead, netguard.ScopeReviewDecide)
 	session := f.cookieHeader(viewer)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/task/add", header: session,
-		body: `{"project":"project-sample","title":"Nope","done_when":"Never."}`}), 403)
+		body: `{"goal":"project-sample","title":"Nope","done_when":"Never."}`}), 403)
 	review := `{"id":"question-sample","decision":"skip"}`
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/question/review", token: viewer, body: review}), 403)
 	wantStatus(t, f.do(call{method: post, target: "/api/v1/question/review", header: session, body: review}), 200)

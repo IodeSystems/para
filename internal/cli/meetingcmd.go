@@ -79,7 +79,7 @@ func newMeetingHoldCmd(l *loader) *cobra.Command {
 			fs.StringVar(&in.Notes, "notes", "", "what was said, in your words (never a transcript)")
 			fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone; only for a meeting that was never scheduled")
 			fs.StringVar(&in.End, "end", "", "RFC 3339 end with a zone; as --start")
-			fs.StringVar(&in.Project, "project", "", "project of the action items")
+			fs.StringVar(&in.Goal, "project", "", "project of the action items")
 			fs.StringVar(&in.Area, "area", "", "area of the action items")
 			fs.StringArrayVar(&hf.actions, "action", nil, `action item "title | assignee | YYYY-MM-DD" (repeatable); assignee is self, a person id, or agent:<name>`)
 			fs.StringArrayVar(&hf.answers, "answer", nil, `answer "<question-id>=<text>" (repeatable)`)
@@ -108,7 +108,7 @@ func newMeetingHoldCmd(l *loader) *cobra.Command {
 			if !hf.stdin {
 				return nil
 			}
-			if in.Notes != "" || len(in.Actions) > 0 || len(in.Answers) > 0 || in.Start != "" || in.Project != "" || in.Area != "" {
+			if in.Notes != "" || len(in.Actions) > 0 || len(in.Answers) > 0 || in.Start != "" || in.Goal != "" || in.Area != "" {
 				return errors.New("--stdin-json takes the whole input: leave out the other flags")
 			}
 			id := in.ID

@@ -22,7 +22,7 @@ func briefed(t *testing.T, d Deps, id string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	doc.Meta.(*model.Project).Rank = 1
+	doc.Meta.(*model.Goal).Rank = 1
 	if _, err := d.Store.Update(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
@@ -47,12 +47,12 @@ func gapItems(t *testing.T, d Deps, ids []string) []string {
 
 func TestTickGapCapAndOrder(t *testing.T) {
 	d := gapVault(t, "gap.daily_cap=2")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	briefed(t, d, proj)
-	late := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Overdue", Due: "2026-11-01"}).ID
-	soon := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Due soon", Due: "2026-11-03"}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Undated"})
-	full := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Complete", Due: "2026-11-01", DoneWhen: "It is.", Steps: "1. Do it.", Effort: model.EffortS}).ID
+	late := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Overdue", Due: "2026-11-01"}).ID
+	soon := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Due soon", Due: "2026-11-03"}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Undated"})
+	full := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Complete", Due: "2026-11-01", DoneWhen: "It is.", Steps: "1. Do it.", Effort: model.EffortS}).ID
 
 	out := tick(t, d)
 	got := gapItems(t, d, out.Gaps)
@@ -84,10 +84,10 @@ func TestTickGapCapAndOrder(t *testing.T) {
 func TestTickGapNoDuplicateAndFixed(t *testing.T) {
 	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia", "request.surfaces=cli,pwa,tick")
 	d := tv.open("ia", "cli")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	briefed(t, d, proj)
-	a := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Alpha"}).ID
-	b := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Beta"}).ID
+	a := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Alpha"}).ID
+	b := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Beta"}).ID
 	first := tick(t, d)
 	if got := gapItems(t, d, first.Gaps); len(got) != 2 {
 		t.Fatalf("first pass: %v", got)
@@ -120,8 +120,8 @@ func TestTickGapNoDuplicateAndFixed(t *testing.T) {
 
 func TestTickGapDisabledAndNotQueued(t *testing.T) {
 	d := gapVault(t, "gap.enabled=false")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Alpha"})
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Alpha"})
 	if out := tick(t, d); len(out.Gaps) != 0 || out.NotQueued != "" {
 		t.Fatalf("disabled: %+v", out)
 	}
@@ -129,8 +129,8 @@ func TestTickGapDisabledAndNotQueued(t *testing.T) {
 	// The default surfaces cannot queue from tick: nothing is proposed to the owner.
 	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia")
 	d = tv.open("ia", "cli")
-	proj = must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Alpha"})
+	proj = must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Alpha"})
 	out := tick(t, d)
 	if len(out.Gaps) != 0 || out.Proposed != 0 || !strings.Contains(out.NotQueued, "request.surfaces") {
 		t.Fatalf("not queued: %+v", out)
@@ -142,9 +142,9 @@ func TestTickGapDisabledAndNotQueued(t *testing.T) {
 func TestTickGapPersonaVault(t *testing.T) {
 	d := gapVault(t)
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Household", Kind: model.AreaKindProject}).ID
-	goal := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "The garden is planted.", Title: "Garden", Area: area}).ID
-	research := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which soil suits tomatoes?", Project: goal}).ID
-	must(t, QuestionAdd, d, QuestionAddInput{Text: "Which bed first?", Project: goal, Kind: model.KindDecision, Options: []string{"north", "south"}})
+	goal := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "The garden is planted.", Title: "Garden", Area: area}).ID
+	research := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which soil suits tomatoes?", Goal: goal}).ID
+	must(t, QuestionAdd, d, QuestionAddInput{Text: "Which bed first?", Goal: goal, Kind: model.KindDecision, Options: []string{"north", "south"}})
 	out := tick(t, d)
 	got := gapItems(t, d, out.Gaps)
 	if !slices.Equal(got, []string{research, goal}) {

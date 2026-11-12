@@ -154,8 +154,8 @@ func TestCalendarCompare(t *testing.T) {
 func TestCalendarUIDOnlyOnMeetingsAndCalls(t *testing.T) {
 	d := newDepsAt(t, time.Date(2026, 11, 2, 8, 0, 0, 0, time.UTC), "install-a")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{Title: "Portal", DoneWhen: "Done."}).ID
-	if _, err := TaskAdd.Run(t.Context(), d, TaskAddInput{Project: proj, Title: "Plain", CalendarUID: "x@acme.example"}); err == nil {
+	proj := must(t, GoalAdd, d, GoalAddInput{Title: "Portal", DoneWhen: "Done."}).ID
+	if _, err := TaskAdd.Run(t.Context(), d, TaskAddInput{Goal: proj, Title: "Plain", CalendarUID: "x@acme.example"}); err == nil {
 		t.Error("calendar_uid on a plain task was accepted")
 	}
 	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{"person-ada-example"}})

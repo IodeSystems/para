@@ -222,7 +222,7 @@ func asksOf(ctx context.Context, s store.Store, id string, t *model.Task) ([]ask
 			rel = askBlocks
 		case len(deps) > 0 && !slices.ContainsFunc(deps, func(x string) bool { return x != id }):
 			rel = askDependsOn
-		case r.Project.Target() == id:
+		case r.Goal.Target() == id:
 			rel = askProject
 		}
 		if rel != "" {

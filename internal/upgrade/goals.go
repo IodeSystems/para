@@ -14,7 +14,7 @@ import (
 // GoalsFormat is the format at which a finite outcome is a goal (type goal in
 // goals/, id goal-<ashid>) and type project is the ongoing project
 // (plan/paralog.md). Below it a file of type project is a goal.
-const GoalsFormat = 11
+const GoalsFormat = model.GoalsFormat
 
 // ProjectSort is the health kind the owner dismisses on an area or a goal to
 // keep it as it is: the judgement step projects-sort then leaves it.
@@ -39,6 +39,9 @@ const (
 var CountOrder = []string{CountGoals, CountRePrefixed, CountMoved, CountRelinked, CountKeysMoved, CountParked, CountParkedNoWhen, CountRecordsLeft}
 
 // legacyGoal selects what step goals changes: every file of type project.
+// The step reads the vault natively (store.Native), so a goal below format 11
+// decodes as a project that keeps its goal keys; project ops refuse below
+// format 11, so every such file is a goal.
 func legacyGoal(d model.Document) bool {
 	_, ok := d.Meta.(*model.Project)
 	return ok
@@ -57,20 +60,18 @@ func goalID(id string) string {
 // goals/ (an archived one stays in archive/). A someday goal is parked, and
 // its deferred_reason becomes resume_when.
 func asGoal(d model.Document) (model.Document, error) {
-	p := d.Meta.(*model.Project)
-	set := map[string]any{"folded_from": string(goalFoldedFromType)}
-	if parks(p) {
-		set["status"] = string(model.GoalParked)
-		set["defer_until"] = nil
-		if r := strings.TrimSpace(p.DeferredReason); r != "" {
-			set["resume_when"] = r
-			set["deferred_reason"] = nil
-		}
-	}
 	folder := d.Folder
-	out, err := model.Retype(d, model.TypeGoal, set)
+	out, err := model.Retype(d, model.TypeGoal, map[string]any{"folded_from": string(goalFoldedFromType)})
 	if err != nil {
 		return d, err
+	}
+	if g := out.Meta.(*model.Goal); parks(g) {
+		g.Status = model.GoalParked
+		g.DeferUntil = ""
+		if r := strings.TrimSpace(g.DeferredReason); r != "" {
+			g.ResumeWhen = r
+			g.DeferredReason = ""
+		}
 	}
 	if folder == model.FolderArchive {
 		out.Folder = folder
@@ -80,8 +81,8 @@ func asGoal(d model.Document) (model.Document, error) {
 
 // parks reports whether a legacy goal becomes parked: deferred to someday and
 // not closed.
-func parks(p *model.Project) bool {
-	return p.DeferUntil == model.SomedayWord && p.Status != model.ProjectDone && p.Status != model.ProjectDropped
+func parks(g *model.Goal) bool {
+	return g.DeferUntil == model.SomedayWord && g.Status != model.GoalDone && g.Status != model.GoalDropped
 }
 
 // goalsPlan is what step goals would do, read once.
@@ -96,6 +97,7 @@ type goalsPlan struct {
 }
 
 func planGoals(ctx context.Context, s store.Store) (goalsPlan, error) {
+	s = store.Native(s)
 	g := goalsPlan{goals: map[string]bool{}, ids: map[string]string{}, tasks: map[string]bool{}, counts: map[string]int{}}
 	refs, err := s.List(ctx, store.Filter{All: true})
 	if err != nil {
@@ -116,7 +118,11 @@ func planGoals(ctx context.Context, s store.Store) (goalsPlan, error) {
 	}
 	for _, id := range sortedKeys(g.goals) {
 		d := docs[id]
-		p := d.Meta.(*model.Project)
+		gd, err := model.Retype(d, model.TypeGoal, nil)
+		if err != nil {
+			return g, fmt.Errorf("%s: %w", id, err)
+		}
+		p := gd.Meta.(*model.Goal)
 		g.counts[CountGoals]++
 		lines := []string{"type project → goal (folded_from: project)"}
 		if nw := goalID(id); nw != id {
@@ -235,6 +241,7 @@ func sortedKeys[V any](m map[string]V) []string {
 // machine), then changes the ids and every link (vault ChangeIDs), which
 // also moves project: links that name a goal to goal:.
 func runGoals(ctx context.Context, s store.Store, dry bool, batch string) (StepOutcome, error) {
+	s = store.Native(s)
 	g, err := planGoals(ctx, s)
 	so := StepOutcome{Docs: g.docs, Count: len(g.docs), Plan: g.plan, Counts: g.counts}
 	if err != nil || dry || len(g.goals) == 0 {
@@ -259,6 +266,11 @@ func runGoals(ctx context.Context, s store.Store, dry bool, batch string) (StepO
 	}
 	if len(out.Docs) > 0 {
 		so.Batch = batch
+	}
+	// The files are format 11 now, even while an earlier judgement step
+	// holds format_version below it.
+	if err := s.SetConfig(ctx, model.GoalsStepKey, batch); err != nil {
+		return so, err
 	}
 	ch, err := s.ChangeIDs(ctx, g.ids)
 	if err != nil {

@@ -85,8 +85,8 @@ func lifeOf(m model.Meta) Lifecycle {
 		open = x.Open()
 	case *model.Question:
 		open = x.Status == model.QuestionOpen
-	case *model.Project:
-		open = x.Status == model.ProjectActive || x.Status == model.ProjectPaused
+	case *model.Goal:
+		open = x.Status == model.GoalActive || x.Status == model.GoalPaused
 	case *model.RFX:
 		open = x.Status == model.RFXOpen
 	case *model.Request:
@@ -199,7 +199,7 @@ type Snapshot struct {
 
 // snapTypes are the types a snapshot loads at once; any other document is
 // read on first use.
-var snapTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeProject, model.TypeRFX,
+var snapTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeGoal, model.TypeRFX,
 	model.TypeRequest, model.TypeIO, model.TypeInbox, model.TypeIncident, model.TypeArea, model.TypePolicyException, model.TypeConstraint}
 
 // NewSnapshot reads the vault for the store's date.
@@ -617,9 +617,9 @@ func (sn *Snapshot) deferredSet() (map[string]deferHold, error) {
 		}
 		switch m := doc.Meta.(type) {
 		case *model.Task:
-			goal[doc.ID] = m.Project.Target()
+			goal[doc.ID] = m.Goal.Target()
 		case *model.Obligation:
-			goal[doc.ID] = m.Project.Target()
+			goal[doc.ID] = m.Goal.Target()
 		case *model.Question:
 			scope[doc.ID] = scopeID(m)
 		}

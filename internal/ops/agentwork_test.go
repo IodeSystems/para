@@ -53,11 +53,11 @@ func TestAgentWorkEntryPointsMakeOneLinkedRequest(t *testing.T) {
 	rv := newReqVault(t)
 	person := rv.as("user", "cli", "inst-a")
 	agent := rv.as("agent-1", "mcp", "inst-a")
-	project := must(t, ProjectAdd, person, ProjectAddInput{Title: "Launch", DoneWhen: "Shipped."}).ID
-	task := must(t, TaskAdd, person, TaskAddInput{Project: project, Title: "Write the plan"}).ID
-	other := must(t, TaskAdd, person, TaskAddInput{Project: project, Title: "Book the hall"}).ID
-	q1 := must(t, QuestionAdd, person, QuestionAddInput{Text: "Which region first?", Project: project}).ID
-	q2 := must(t, QuestionAdd, person, QuestionAddInput{Text: "Which vendor?", Project: project}).ID
+	project := must(t, GoalAdd, person, GoalAddInput{Title: "Launch", DoneWhen: "Shipped."}).ID
+	task := must(t, TaskAdd, person, TaskAddInput{Goal: project, Title: "Write the plan"}).ID
+	other := must(t, TaskAdd, person, TaskAddInput{Goal: project, Title: "Book the hall"}).ID
+	q1 := must(t, QuestionAdd, person, QuestionAddInput{Text: "Which region first?", Goal: project}).ID
+	q2 := must(t, QuestionAdd, person, QuestionAddInput{Text: "Which vendor?", Goal: project}).ID
 
 	cases := []struct {
 		name string
@@ -255,8 +255,8 @@ func TestLegacyRequestsStillList(t *testing.T) {
 	ctx := context.Background()
 	rv := newReqVault(t)
 	person := rv.as("user", "cli", "inst-a")
-	project := must(t, ProjectAdd, person, ProjectAddInput{Title: "Launch", DoneWhen: "Shipped."}).ID
-	task := must(t, TaskAdd, person, TaskAddInput{Project: project, Title: "Write the plan"}).ID
+	project := must(t, GoalAdd, person, GoalAddInput{Title: "Launch", DoneWhen: "Shipped."}).ID
+	task := must(t, TaskAdd, person, TaskAddInput{Goal: project, Title: "Write the plan"}).ID
 	mk := func(id, title string, status model.RequestStatus, res model.RequestResolution) {
 		t.Helper()
 		r := &model.Request{Common: model.Common{Type: model.TypeRequest}, Status: status, Runner: "inst-a", Queued: "2026-10-01T09:00:00Z",

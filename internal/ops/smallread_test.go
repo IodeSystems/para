@@ -130,7 +130,7 @@ func TestReadersSameAfterSmallTypesFold(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.FormatVersion != upgrade.SmallTypesFormat {
+	if res.FormatVersion != upgrade.Latest() {
 		t.Fatalf("run = %+v", res)
 	}
 	for id, want := range map[string]model.Type{v.team: model.TypeGroup, v.dom: model.TypeGroup, v.in: model.TypeIO, v.sev1: model.TypeTask} {

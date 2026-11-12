@@ -37,26 +37,26 @@ func goalsFixture(t *testing.T) (*fixture, store.Store) {
 	if err := s.SetConfig(ctx, ConfigKey, strconv.Itoa(GoalsFormat-1)); err != nil {
 		t.Fatal(err)
 	}
-	proj := func(id string, st model.ProjectStatus, defer_, reason, done string) model.Document {
+	proj := func(id string, st model.GoalStatus, defer_, reason, done string) model.Document {
 		return model.Document{ID: id, Folder: model.FolderProjects, Title: "Goal " + id,
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: st, Owner: "me", DoneWhen: done,
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: st, Owner: "me", DoneWhen: done,
 				Deferral: model.Deferral{DeferUntil: defer_, DeferredReason: reason}}}
 	}
 	for _, d := range []model.Document{
-		proj("project-ship", model.ProjectActive, "", "", "It ships."),
-		proj("project-later", model.ProjectActive, model.SomedayWord, "The vendor ships 2.0.", "It runs."),
-		proj("project-idle", model.ProjectPaused, model.SomedayWord, "", "It runs."),
-		proj("acme-portal", model.ProjectActive, "", "", ""),
+		proj("project-ship", model.GoalActive, "", "", "It ships."),
+		proj("project-later", model.GoalActive, model.SomedayWord, "The vendor ships 2.0.", "It runs."),
+		proj("project-idle", model.GoalPaused, model.SomedayWord, "", "It runs."),
+		proj("acme-portal", model.GoalActive, "", "", ""),
 		{ID: "task-a", Folder: model.FolderProjects, Title: "Write it", Body: "For [[project-ship]].",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-ship")}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-ship")}},
 		{ID: "task-b", Folder: model.FolderProjects, Title: "Portal page",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("acme-portal")}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("acme-portal")}},
 		{ID: "note-a", Folder: model.FolderResources, Title: "Background",
-			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}, Project: model.LinkTo("project-ship")}},
+			Meta: &model.Note{Common: model.Common{Type: model.TypeNote}, Goal: model.LinkTo("project-ship")}},
 		{ID: "ask-a", Folder: model.FolderRFX, Title: "Ask X", Meta: &model.RFX{Common: model.Common{Type: model.TypeRFX}, Direction: model.RFXOut,
-			Status: model.RFXOpen, Route: "x", SelfServeCheck: "searched", Project: model.LinkTo("project-later")}},
+			Status: model.RFXOpen, Route: "x", SelfServeCheck: "searched", Goal: model.LinkTo("project-later")}},
 		{ID: "owed-a", Folder: model.FolderObligations, Title: "Send the report", Meta: &model.Obligation{Common: model.Common{Type: model.TypeObligation},
-			Kind: model.KindCommitment, State: model.StateOpen, Schedule: model.ScheduleOnce, Project: model.LinkTo("project-ship")}},
+			Kind: model.KindCommitment, State: model.StateOpen, Schedule: model.ScheduleOnce, Goal: model.LinkTo("project-ship")}},
 		{ID: "receipt-a", Folder: model.FolderReceipts, Title: "Receipt",
 			Meta: &model.Receipt{Common: model.Common{Type: model.TypeReceipt}, Actor: "claude", Op: "task_add", Doc: "project-ship", Check: model.ReceiptUnchecked}},
 		{ID: "area-ops", Folder: model.FolderAreas, Title: "Ops", Meta: &model.Area{Common: model.Common{Type: model.TypeArea}, Status: model.AreaActive}},
@@ -65,7 +65,7 @@ func goalsFixture(t *testing.T) (*fixture, store.Store) {
 			t.Fatalf("create %s: %v", d.ID, err)
 		}
 	}
-	old := proj("project-old", model.ProjectDone, "", "", "Done.")
+	old := proj("project-old", model.GoalDone, "", "", "Done.")
 	old.Folder = model.FolderArchive
 	if _, err := s.Create(ctx, old); err != nil {
 		t.Fatal(err)

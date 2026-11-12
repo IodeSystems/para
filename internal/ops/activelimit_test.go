@@ -28,13 +28,13 @@ func TestActiveGoalLimit(t *testing.T) {
 	today := d.Store.Now().Format(dateLayout)
 
 	// Off by default: no finding, no warning.
-	b := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Second", Owner: "Jordan Example"})
+	b := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Second", Owner: "Jordan Example"})
 	if len(b.Warnings) != 0 || len(activeFindings(t, d)) != 0 {
 		t.Fatalf("limit off: warnings %v", b.Warnings)
 	}
 
 	// A deferred goal is not counted.
-	c := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Third", Owner: "Jordan Example"})
+	c := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Third", Owner: "Jordan Example"})
 	must(t, Defer, d, DeferInput{IDs: []string{c.ID}})
 	if n, err := activeGoalCount(ctx, d.Store, today); err != nil || n != 2 {
 		t.Fatalf("count = %d, %v; want 2 (deferred excluded)", n, err)
@@ -48,7 +48,7 @@ func TestActiveGoalLimit(t *testing.T) {
 	}
 
 	// Adding a third active goal succeeds and warns.
-	e := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Fourth", Owner: "Jordan Example"})
+	e := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Fourth", Owner: "Jordan Example"})
 	if e.ID == "" || len(e.Warnings) != 1 || !strings.Contains(e.Warnings[0], "3") || !strings.Contains(e.Warnings[0], "limit of 2") {
 		t.Fatalf("add over the limit: %+v", e)
 	}

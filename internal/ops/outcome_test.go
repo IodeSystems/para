@@ -11,7 +11,7 @@ import (
 func TestTaskResolveDeclinedFailedRerouted(t *testing.T) {
 	d, proj := laterVault(t)
 	add := func(title string, deps ...string) string {
-		return must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: title, DependsOn: deps}).ID
+		return must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: title, DependsOn: deps}).ID
 	}
 	ada := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
 	a := add("Ask for budget")
@@ -125,7 +125,7 @@ func rfxStatus(r RFXShowOutput) model.RFXStatus { return r.Doc.Meta.(*model.RFX)
 // (what needs the owner) does not list it.
 func TestFailedRetryShowsInHealthOnly(t *testing.T) {
 	d, proj := laterVault(t)
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew", DoneWhen: "Renewed."}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew", DoneWhen: "Renewed."}).ID
 	today := d.Store.Now().Format(dateLayout)
 	must(t, TaskResolve, d, TaskResolveInput{ID: id, Outcome: model.OutcomeFailed, Tried: "Ran it.", StoppedBecause: "CA down.", RetryAfter: today})
 	h := must(t, HealthOp, d, HealthInput{})

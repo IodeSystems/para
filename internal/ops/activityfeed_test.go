@@ -17,11 +17,11 @@ func TestActivityFeed(t *testing.T) {
 	agent := rv.as("claude", "mcp", "inst-a")
 	step := func() { rv.advance(time.Minute * 5) }
 
-	proj := must(t, ProjectAdd, a, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, GoalAdd, a, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	step()
-	task := must(t, TaskAdd, a, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID
+	task := must(t, TaskAdd, a, TaskAddInput{Goal: proj, Title: "Renew the cert"}).ID
 	step()
-	other := must(t, TaskAdd, b, TaskAddInput{Project: proj, Title: "Rotate keys"}).ID
+	other := must(t, TaskAdd, b, TaskAddInput{Goal: proj, Title: "Rotate keys"}).ID
 	step()
 	// A burst: three edits of one item by one actor within a minute.
 	for i := range 3 {
@@ -112,9 +112,9 @@ func TestActivityJoinsReceipts(t *testing.T) {
 	owner := rv.as("user", "cli", "inst-a")
 	agent := rv.as("claude", "mcp", "inst-a")
 
-	proj := must(t, ProjectAdd, owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, GoalAdd, owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	rv.advance(time.Hour)
-	task := must(t, TaskAdd, owner, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID
+	task := must(t, TaskAdd, owner, TaskAddInput{Goal: proj, Title: "Renew the cert"}).ID
 	rv.advance(time.Hour)
 	rec := must(t, ReceiptList, owner, ReceiptListInput{Doc: task})
 	before := len(rec.Items)

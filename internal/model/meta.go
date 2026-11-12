@@ -125,36 +125,6 @@ type Pointer struct {
 	Target string      `yaml:"target" json:"target"`
 }
 
-// Project is type: project below format 11: the legacy goal. Upgrade step
-// goals retypes each one to Goal; at the flip (plan/paralog.md, N4) type
-// project decodes as OngoingProject, which then takes this name.
-type Project struct {
-	Common `yaml:",inline"`
-	Status ProjectStatus `yaml:"status" json:"status"`
-	Owner  string        `yaml:"owner" json:"owner"`
-	// Area is the area of life or work the project belongs to; optional. It
-	// is an area of kind project: the goal's home.
-	Area Link `yaml:"area,omitempty" json:"area,omitempty"`
-	// Concepts link the concept areas the goal draws on; optional.
-	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
-	// DoneWhen says how we know the goal is reached. Optional in a file, so
-	// older files stay valid; project_add requires it.
-	DoneWhen string `yaml:"done_when,omitempty" json:"done_when,omitempty"`
-	// Due is the date the goal is due, optional. Work that leads to the goal
-	// inherits the date (internal/ops value order).
-	Due Date `yaml:"due,omitempty" json:"due,omitempty"`
-	// DeferUntil and DeferredReason: see Deferral. A deferred goal pushes out
-	// its tasks and questions.
-	Deferral `yaml:",inline"`
-	// Links point at plans, repos, and docs that live elsewhere.
-	Links []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
-	// GoalBrief is the optional brief (goalbrief.go). A small goal needs none.
-	GoalBrief `yaml:",inline"`
-	// Assumptions are what the goal takes as true, each with when it was
-	// last checked (grill.go).
-	Assumptions []Assumption `yaml:"assumptions,omitempty" json:"assumptions,omitempty"`
-}
-
 // Goal is type: goal, a finite outcome with a done condition: what a file of
 // type project was before upgrade step goals (format 11). Project links the
 // ongoing project the goal belongs to; Area is a facet, not its home.
@@ -184,14 +154,13 @@ type Goal struct {
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`
 }
 
-// OngoingProject is the ongoing project of format 11: a tracked body of work
+// Project is type: project from format 11: an ongoing tracked body of work
 // with a state line, the goals in flight, and an icebox of parked goals. It
-// has no done condition. Until the flip (plan/paralog.md, N4) a file of type
-// project decodes as the legacy goal (Project), so this type is not decoded
-// yet; at the flip it takes the name Project.
-type OngoingProject struct {
+// has no done condition. Below format 11 a file of type project is a goal:
+// the vault reads it as one (vault legacy.go).
+type Project struct {
 	Common `yaml:",inline"`
-	Status OngoingStatus `yaml:"status" json:"status"`
+	Status ProjectStatus `yaml:"status" json:"status"`
 	Owner  string        `yaml:"owner,omitempty" json:"owner,omitempty"`
 	// Area is a facet: information about working in an area. Optional.
 	Area     Link   `yaml:"area,omitempty" json:"area,omitempty"`
@@ -207,7 +176,7 @@ type OngoingProject struct {
 }
 
 // Active reports whether the project shows in the Projects view.
-func (p *OngoingProject) Active() bool { return p.Status == OngoingActive }
+func (p *Project) Active() bool { return p.Status == ProjectActive }
 
 // SomedayWord is the defer_until value for deferred with no date.
 const SomedayWord = "someday"
@@ -1278,7 +1247,7 @@ func (q *Question) AsKind() QuestionKind {
 func NewMeta(t Type) (Meta, bool) {
 	c := Common{Type: t}
 	switch t {
-	case TypeProject: // the legacy goal until the flip (OngoingProject)
+	case TypeProject:
 		return &Project{Common: c}, true
 	case TypeGoal:
 		return &Goal{Common: c}, true

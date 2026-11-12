@@ -227,7 +227,7 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 	}
 	for _, p := range st.Pending {
 		step := stepByID(p.ID)
-		if p.Auto || step.Instructions == "" || have[upgradePrefix+p.Title] {
+		if p.Auto || step.Instructions == "" || have[upgradePrefix+p.Title] || autoBefore(st, step) {
 			continue
 		}
 		ask := step.Instructions + "\n\n## Documents\n\n" + upgradeDocs(p) + "\n\n## Done when\n\n" + step.Done +
@@ -239,6 +239,18 @@ func fileUpgradeWork(ctx context.Context, d Deps, st upgrade.Status) ([]string, 
 		filed = append(filed, r.ID)
 	}
 	return filed, nil
+}
+
+// autoBefore reports whether an automated step at or below the judgement
+// step's version is still pending: the judgement work waits for its run
+// (projects-sort waits for step goals).
+func autoBefore(st upgrade.Status, step upgrade.Step) bool {
+	for _, p := range st.Pending {
+		if p.Auto && p.ID != step.ID && stepByID(p.ID).Version <= step.Version {
+			return true
+		}
+	}
+	return false
 }
 
 // AutoStepsTitle (after "Vault upgrade: ") is the agent work filed for the

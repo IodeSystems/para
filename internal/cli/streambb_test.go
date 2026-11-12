@@ -21,7 +21,7 @@ func streamBBParityCases() map[string]parityCase {
 func seedStreamBBParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	d := model.Document{ID: "project-bb", Folder: model.FolderProjects, Title: "BB goal",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example",
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example",
 			GoalBrief: model.GoalBrief{Signals: []model.Signal{{What: "Pilots", How: "Count them", EveryDays: 14, Expected: "3"}}}}}
 	if _, err := deps.Store.Create(context.Background(), d); err != nil {
 		t.Fatalf("seed %s: %v", d.ID, err)

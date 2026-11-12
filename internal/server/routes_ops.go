@@ -16,11 +16,14 @@ const (
 )
 
 func registerWork(r *registrar) {
+	reg(r, ops.GoalAdd, post, write)
+	reg(r, ops.GoalList, get, read)
+	scopeOnly(r, ops.GoalShow, read)
+	scopeOnly(r, ops.GoalClose, write)
+	scopeOnly(r, ops.GoalEdit, write)
 	reg(r, ops.ProjectAdd, post, write)
-	reg(r, ops.ProjectList, get, read)
 	scopeOnly(r, ops.ProjectShow, read)
-	scopeOnly(r, ops.ProjectClose, write)
-	scopeOnly(r, ops.ProjectEdit, write)
+	scopeOnly(r, ops.ProjectRetire, write)
 	reg(r, ops.GoalSignalAdd, post, write)
 	reg(r, ops.GoalRank, post, write)
 	reg(r, ops.GoalCompare, get, read)

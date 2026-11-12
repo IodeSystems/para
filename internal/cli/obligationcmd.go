@@ -26,7 +26,7 @@ func newObligationCmd(l *loader) *cobra.Command {
 				fs.StringArrayVar(&in.OwedBy, "owed-by", nil, "person or group id that owes it, or agent or agent:<name>; default you (repeatable)")
 				fs.StringArrayVar(&in.Interested, "interested", nil, "person or group id to tell when it changes, beside owed-to and with (repeatable)")
 				fs.StringVar(&in.Parent, "parent", "", "task or obligation id it came out of (a follow-up of a meeting)")
-				fs.StringVarP(&in.Project, "project", "p", "", "project id")
+				fs.StringVarP(&in.Goal, "project", "p", "", "project id")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD")
 				fs.StringVar(&in.Start, "start", "", "RFC 3339 start with a zone; a commitment may give a date")

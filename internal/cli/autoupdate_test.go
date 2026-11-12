@@ -54,7 +54,7 @@ func TestAutoInstallFilesVaultStepsUnlessAuto(t *testing.T) {
 			if i, j := strings.Index(calls, "upgrade --file"), strings.Index(calls, "service restart"); i < 0 || j < i {
 				t.Errorf("the service restarted before the vault steps were filed:\n%s", calls)
 			}
-			if got := strings.Contains(calls, "--vault acme vault upgrade\n"); got != c.applied {
+			if got := strings.Contains(calls, "--vault acme vault upgrade --unattended\n"); got != c.applied {
 				t.Errorf("steps applied = %v, want %v:\n%s", got, c.applied, calls)
 			}
 			if st := update.LoadState(u.StatePath); st.InstalledFrom != "v0.3.0" || st.InstalledTo != "v0.4.0" {

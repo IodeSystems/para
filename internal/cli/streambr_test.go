@@ -18,13 +18,13 @@ func seedStreamBRParity(t *testing.T, deps ops.Deps) {
 		{ID: "person-br-sam", Folder: model.FolderOrg, Title: "Sam Example",
 			Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}},
 		{ID: "project-br", Folder: model.FolderProjects, Title: "BR project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}},
 		{ID: "rfx-br-ask", Folder: model.FolderRFX, Title: "Can Sam review the plan?",
 			Meta: &model.RFX{Common: model.Common{Type: model.TypeRFX}, Direction: model.RFXOut, Status: model.RFXOpen, Route: "unknown",
 				SelfServeCheck: "read the plan", Targets: []model.Target{{To: model.LinkTo("person-br-sam"), Medium: model.MediumEmail, State: model.TargetSent, Sent: "2026-11-02"}}}},
 		{ID: "task-br-sync", Folder: model.FolderProjects, Title: "Plan sync",
 			Body: "Walk through the plan.\n\n## Questions\n\n- [[rfx-br-ask]] Can Sam review the plan?\n\n## Notes\n",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Project: model.LinkTo("project-br"),
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Goal: model.LinkTo("project-br"),
 				Occasion: model.Occasion{Scheduled: "2026-11-10T10:00:00-05:00", End: "2026-11-10T10:30:00-05:00", With: []model.Link{model.LinkTo("person-br-sam")}, Attendees: []string{"Pat Nobody <pat@elsewhere.example>"}}}},
 	}
 	for _, doc := range docs {

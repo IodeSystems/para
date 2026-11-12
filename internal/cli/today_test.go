@@ -271,13 +271,13 @@ func TestVaultListShowsBrokenAndMissing(t *testing.T) {
 func TestTodayNamesProjectAndScope(t *testing.T) {
 	e := newEnv(t)
 	a := e.init("acme")
-	write(t, a, "projects/p.md", "---\ntype: project\ncreated: 2026-11-01\nstatus: active\nowner: self\n---\n\n# Portal rebuild\n")
-	write(t, a, "projects/t.md", "---\ntype: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ndue: 2020-01-01\n---\n\n# Order the pool\n")
-	write(t, a, "projects/q.md", "---\ntype: question\ncreated: 2026-11-01\nstatus: open\nkind: input\nscope: \"[[p]]\"\n---\n\n# Which window?\n")
+	write(t, a, "goals/p.md", "---\ntype: goal\ncreated: 2026-11-01\nstatus: active\nowner: self\n---\n\n# Portal rebuild\n")
+	write(t, a, "goals/t.md", "---\ntype: task\ncreated: 2026-11-01\nstatus: todo\ngoal: \"[[p]]\"\ndue: 2020-01-01\n---\n\n# Order the pool\n")
+	write(t, a, "goals/q.md", "---\ntype: question\ncreated: 2026-11-01\nstatus: open\nkind: input\nscope: \"[[p]]\"\n---\n\n# Which window?\n")
 	var rep today.Report
 	e.json(&rep, "today")
 	v := rep.Vaults[0]
-	if len(v.Overdue.Items) != 1 || v.Overdue.Items[0].Project != "p" || v.Overdue.Items[0].ProjectName != "Portal rebuild" {
+	if len(v.Overdue.Items) != 1 || v.Overdue.Items[0].Goal != "p" || v.Overdue.Items[0].GoalName != "Portal rebuild" {
 		t.Errorf("overdue = %+v", v.Overdue.Items)
 	}
 	// One list: the question that blocks nothing is in focus; the task, long

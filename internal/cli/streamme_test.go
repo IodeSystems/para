@@ -20,12 +20,12 @@ func seedStreamMEParity(t *testing.T, deps ops.Deps) {
 	}
 	for _, id := range []string{"task-me-a", "task-me-b", "task-me-c", "task-me-d", "task-me-wait-a", "task-me-wait-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "ME " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-me-seed")}})
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-me-seed")}})
 	}
 	docs = append(docs, model.Document{ID: "person-me", Folder: model.FolderOrg, Title: "Me Example",
 		Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}})
 	docs = append(docs, model.Document{ID: "project-me-seed", Folder: model.FolderProjects, Title: "ME project",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}})
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}})
 	for _, doc := range docs {
 		if _, err := deps.Store.Create(ctx, doc); err != nil {
 			t.Fatalf("seed %s: %v", doc.ID, err)

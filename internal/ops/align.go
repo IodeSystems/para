@@ -123,7 +123,7 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 		}
 		out.Title = doc.Title
 		switch m := doc.Meta.(type) {
-		case *model.Project:
+		case *model.Goal:
 			out.Kind, out.DoneWhen, out.Links = "goal", m.DoneWhen, append(out.Links, m.Links...)
 		case *model.Area:
 			out.Kind, out.Links = "area", append(out.Links, m.Links...)
@@ -158,7 +158,7 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 	}
 	areaOfGoal := func(goal string) string {
 		if gd, ok := get(goal); ok {
-			if p, ok := gd.Meta.(*model.Project); ok {
+			if p, ok := gd.Meta.(*model.Goal); ok {
 				return p.Area.Target()
 			}
 		}
@@ -215,12 +215,12 @@ var AlignScope = defineRead("align_scope", "List what to check against reality f
 // alignHome finds the goal and the area an open item belongs to.
 func alignHome(doc model.Document, get func(string) (model.Document, bool), areaOfGoal func(string) string) (goal, area string) {
 	switch m := doc.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		return doc.ID, m.Area.Target()
 	case *model.Task:
-		goal, area = m.Project.Target(), m.Area.Target()
+		goal, area = m.Goal.Target(), m.Area.Target()
 	case *model.RFX:
-		goal = m.Project.Target()
+		goal = m.Goal.Target()
 	case *model.Question:
 		if m.IsRoot() {
 			return "", ""
@@ -231,12 +231,12 @@ func alignHome(doc model.Document, get func(string) (model.Document, bool), area
 			return "", ""
 		}
 		switch s := sd.Meta.(type) {
-		case *model.Project:
+		case *model.Goal:
 			goal = sc
 		case *model.Area:
 			return "", sc
 		case *model.Task:
-			goal, area = s.Project.Target(), s.Area.Target()
+			goal, area = s.Goal.Target(), s.Area.Target()
 		}
 	case *model.Incident:
 		return "", m.Area.Target()
@@ -249,7 +249,7 @@ func alignHome(doc model.Document, get func(string) (model.Document, bool), area
 
 func fillAlignItem(it *AlignItem, doc model.Document) {
 	switch m := doc.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		it.State, it.DoneWhen = string(m.Status), m.DoneWhen
 		it.Links = append(it.Links, m.Links...)
 	case *model.Task:
@@ -310,7 +310,7 @@ func LastAligned(ctx context.Context, s store.Store, goal string) (string, error
 	}
 	area := ""
 	if d, err := s.Get(ctx, goal); err == nil {
-		if p, ok := d.Meta.(*model.Project); ok {
+		if p, ok := d.Meta.(*model.Goal); ok {
 			area = p.Area.Target()
 		}
 	}
@@ -349,7 +349,7 @@ var AlignRecord = defineSafe(opAlignRecord, "Record the outcome of an align run 
 			return AlignRecordOutput{}, err
 		}
 		switch doc.Meta.(type) {
-		case *model.Project, *model.Area:
+		case *model.Goal, *model.Area:
 			title = doc.Title
 		default:
 			return AlignRecordOutput{}, fmt.Errorf("%s is a %s: give a goal, an area, or vault", doc.ID, doc.Meta.Header().Type)
@@ -424,7 +424,7 @@ func (h *healther) notAligned(ctx context.Context, s store.Store) error {
 			continue
 		}
 		area := ""
-		if p, ok := d.Meta.(*model.Project); ok {
+		if p, ok := d.Meta.(*model.Goal); ok {
 			area = p.Area.Target()
 		}
 		last := lastAligned(dates, id, area)

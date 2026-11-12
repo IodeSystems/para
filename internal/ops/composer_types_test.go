@@ -16,7 +16,7 @@ func TestAgentSendLinksAndManagesMoreTypes(t *testing.T) {
 	rfx := mustRun(t, RFXAdd, f.owner, RFXAddInput{Direction: model.RFXOut, Ask: "Chase the audit", Route: "domain-logging", SelfServe: "x",
 		Targets: []TargetInput{{To: person, Medium: model.MediumEmail}}}).ID
 	doc := mustRun(t, DocTrack, f.owner, DocTrackInput{URL: "https://wiki.acme.example/runbooks/portal", Text: runbookV1, System: model.SystemConfluence,
-		Project: f.proj, Owner: person, Via: &model.IOVia{Source: "confluence", Ref: "12345"}}).ID
+		Goal: f.proj, Owner: person, Via: &model.IOVia{Source: "confluence", Ref: "12345"}}).ID
 	area := mustRun(t, AreaAdd, f.owner, AreaAddInput{Title: "Platform"}).ID
 	for id, want := range map[string]string{
 		person: "update its record",

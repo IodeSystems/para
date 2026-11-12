@@ -23,13 +23,13 @@ func streamVParityCases() map[string]parityCase {
 		"meeting_list":     {`{"all":true}`, []string{"meeting", "list", "--all"}, false},
 		"meeting_show":     {`{"id":"meeting-v-show"}`, []string{"meeting", "show", "meeting-v-show"}, true},
 		"meeting_schedule": {`{"id":"meeting-v-a","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`, []string{"meeting", "schedule", "meeting-v-b", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
-		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","project":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--project", "project-v-seed"}, false},
+		"meeting_hold":     {`{"id":"meeting-v-e","notes":"Agreed to ship in January.","actions":[{"title":"Send the plan","assignee":"person-v-seed","goal":"project-v-seed"}]}`, []string{"meeting", "hold", "meeting-v-f", "--notes", "Agreed to ship in January.", "--action", "Send the plan | person-v-seed", "--project", "project-v-seed"}, false},
 		"agenda":           {`{"days":14}`, []string{"agenda", "--days", "14"}, false},
 		"calendar_export":  {`{"days":30}`, []string{"calendar", "export", "--days", "30"}, false},
 		"meeting_cancel":   {`{"id":"meeting-v-c","reason":"Not needed."}`, []string{"meeting", "cancel", "meeting-v-d", "--reason", "Not needed."}, false},
 		"meeting_attend":   {`{"id":"meeting-v-g","attend":"no","optional":true,"all_future":true}`, []string{"meeting", "attend", "meeting-v-h", "no", "--optional", "--all-future"}, false},
 		"meeting_rsvp":     {`{"id":"meeting-v-i","attend":"yes"}`, []string{"meeting", "rsvp", "meeting-v-j", "yes"}, false},
-		"obligation_add": {`{"title":"Send Vera the plan","owed_to":["person-v-seed"],"due":"2026-11-20","project":"project-v-seed"}`,
+		"obligation_add": {`{"title":"Send Vera the plan","owed_to":["person-v-seed"],"due":"2026-11-20","goal":"project-v-seed"}`,
 			[]string{"obligation", "add", "Send", "Vera", "the", "plan", "--owed-to", "person-v-seed", "--due", "2026-11-20", "-p", "project-v-seed"}, false},
 		"obligation_schedule": {`{"id":"meeting-v-k","start":"2026-11-05T09:00:00+01:00","end":"2026-11-05T09:30:00+01:00"}`,
 			[]string{"obligation", "schedule", "meeting-v-l", "--start", "2026-11-05T09:00:00+01:00", "--end", "2026-11-05T09:30:00+01:00"}, false},
@@ -45,7 +45,7 @@ func seedStreamVParity(t *testing.T, deps ops.Deps) {
 		{ID: "person-v-seed", Folder: model.FolderOrg, Title: "Vera Example",
 			Meta: &model.Person{Common: model.Common{Type: model.TypePerson}, Org: "acme.example"}},
 		{ID: "project-v-seed", Folder: model.FolderProjects, Title: "V project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Vera Example"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Vera Example"}},
 	}
 	for _, id := range []string{"meeting-v-show", "meeting-v-a", "meeting-v-b", "meeting-v-c", "meeting-v-d", "meeting-v-e", "meeting-v-f"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderMeetings, Title: "V meeting " + id,
@@ -101,8 +101,8 @@ func TestMeetingHoldCLI(t *testing.T) {
 	e.init("acme")
 	var person ops.OrgAddOutput
 	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
-	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	var project ops.GoalAddOutput
+	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	var q ops.QuestionAddOutput
 	e.json(&q, "question", "add", "Which window?", "--project", project.ID)
 	var m ops.MeetingAddOutput
@@ -127,7 +127,7 @@ func TestMeetingHoldCLI(t *testing.T) {
 	// The whole input as JSON on stdin; mixing it with flags is refused.
 	var m2 ops.MeetingAddOutput
 	e.json(&m2, "meeting", "add", "Second", "--with", person.ID, "--start", "2026-11-05T10:00:00Z", "--end", "2026-11-05T10:30:00Z")
-	e.stdin = `{"notes":"Done.","actions":[{"title":"Follow up","project":"` + project.ID + `"}]}`
+	e.stdin = `{"notes":"Done.","actions":[{"title":"Follow up","goal":"` + project.ID + `"}]}`
 	var h2 ops.MeetingHoldOutput
 	e.json(&h2, "meeting", "hold", m2.ID, "--stdin-json")
 	if len(h2.Tasks) != 1 {
@@ -146,8 +146,8 @@ func TestAgendaAndCalendarCLI(t *testing.T) {
 	vaultPath := e.init("acme")
 	var person ops.OrgAddOutput
 	e.json(&person, "org", "person", "add", "Vera Example", "--org", "acme.example")
-	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	var project ops.GoalAddOutput
+	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	at := time.Now().Add(3 * time.Hour).Truncate(time.Minute)
 	e.ok("meeting", "add", "Launch", "sync", "--with", person.ID, "--start", at.Format(time.RFC3339), "--end", at.Add(30*time.Minute).Format(time.RFC3339))
 	e.ok("task", "add", "File the form", "-p", project.ID, "--due", time.Now().Format("2006-01-02"))
@@ -229,12 +229,12 @@ func TestTickCLI(t *testing.T) {
 	if err := os.WriteFile(props, append(cur, []byte("request.runner="+id+"\n")...), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	var project ops.ProjectAddOutput
-	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example", "--vault", "acme")
+	var project ops.GoalAddOutput
+	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example", "--vault", "acme")
 	var task ops.TaskAddOutput
 	e.json(&task, "task", "add", "Rotate disks", "-p", project.ID, "--due", "2026-01-01", "--recur", "monthly", "--vault", "acme")
 	// Mark it done by hand.
-	file := filepath.Join(acme, "projects", task.ID+".md")
+	file := filepath.Join(acme, "goals", task.ID+".md")
 	raw, _ := os.ReadFile(file)
 	if err := os.WriteFile(file, []byte(strings.Replace(string(raw), "status: todo", "status: done", 1)), 0o600); err != nil {
 		t.Fatal(err)

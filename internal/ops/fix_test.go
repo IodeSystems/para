@@ -19,7 +19,7 @@ func newAgentFix(t *testing.T) *agentFix {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proj, err := ProjectAdd.Run(t.Context(), f.owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
+	proj, err := GoalAdd.Run(t.Context(), f.owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	if err != nil {
 		t.Fatal(err)
 	}

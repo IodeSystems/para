@@ -38,7 +38,7 @@ func seedStreamTDParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	ctx := context.Background()
 	for _, id := range []string{"doc-td-a", "doc-td-b", "doc-td-c"} {
-		if _, err := ops.DocTrack.Run(ctx, deps, ops.DocTrackInput{ID: id, URL: "https://wiki.acme.example/td/" + id, Text: "One.\nTwo.", Project: "project-a"}); err != nil {
+		if _, err := ops.DocTrack.Run(ctx, deps, ops.DocTrackInput{ID: id, URL: "https://wiki.acme.example/td/" + id, Text: "One.\nTwo.", Goal: "project-a"}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := ops.DocVersionAdd.Run(ctx, deps, ops.DocVersionAddInput{ID: id, Text: "One.\nTwo.\nThree."}); err != nil {

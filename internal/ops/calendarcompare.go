@@ -78,7 +78,7 @@ func paraCalendarItems(ctx context.Context, s store.Store, loc *time.Location) (
 				for _, e := range m.UIDs() {
 					it.UIDs = append(it.UIDs, e.UID)
 				}
-				it.With, it.RFX, it.Project, it.Area = targets(m.With), targets(m.RFX), m.Project.Target(), m.Area.Target()
+				it.With, it.RFX, it.Project, it.Area = targets(m.With), targets(m.RFX), m.Goal.Target(), m.Area.Target()
 				it.Cancelled, it.Optional = m.Status == model.TaskDropped, m.Optional
 				when, end = m.Scheduled, m.End
 				if k == model.KindMeeting {

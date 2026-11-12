@@ -344,7 +344,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 	var project struct {
 		ID string `json:"id"`
 	}
-	e.json(&project, "project", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
+	e.json(&project, "goal", "add", "--done-when", "Done.", "Portal", "--owner", "Jordan Example")
 	e.ok("task", "add", "Write parser", "--project", project.ID)
 	e.ok("inbox", "add", "sample capture")
 	tok := strings.TrimSpace(e.ok("key", "create", "agent", "--scope", "vault:read", "--scope", "vault:write"))
@@ -354,7 +354,7 @@ func TestAPIEqualsCLIJSON(t *testing.T) {
 		path string
 		args []string
 	}{
-		{"/api/v1/project/list", []string{"project", "list"}},
+		{"/api/v1/goal/list", []string{"goal", "list"}},
 		{"/api/v1/show?id=" + project.ID, []string{"show", project.ID}},
 		{"/api/v1/task/list", []string{"task", "list"}},
 		{"/api/v1/io/list", []string{"io", "list"}},

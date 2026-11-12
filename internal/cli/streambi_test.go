@@ -21,10 +21,10 @@ func streamBIParityCases() map[string]parityCase {
 func seedStreamBIParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	docs := []model.Document{{ID: "project-bi", Folder: model.FolderProjects, Title: "BI project",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}}}
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}}}
 	for _, id := range []string{"task-bi-r-a", "task-bi-r-b", "task-bi-d-a", "task-bi-d-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "BI " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-bi")}})
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-bi")}})
 	}
 	for _, d := range docs {
 		if _, err := deps.Store.Create(context.Background(), d); err != nil {

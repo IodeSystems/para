@@ -18,34 +18,34 @@ func healthSeed(t *testing.T) Deps {
 	docs := []model.Document{
 		// A dated goal: a clean task under it needs no date; a task with no done_when is flagged.
 		{ID: "project-dated", Folder: model.FolderProjects, Title: "Dated",
-			Meta: &model.Project{Common: hc(model.TypeProject), Status: model.ProjectActive, Owner: "Jordan Example", DoneWhen: "Shipped.", Due: "2026-12-01"}},
+			Meta: &model.Goal{Common: hc(model.TypeGoal), Status: model.GoalActive, Owner: "Jordan Example", DoneWhen: "Shipped.", Due: "2026-12-01"}},
 		{ID: "task-dated-ok", Folder: model.FolderProjects, Title: "Clean",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-dated"), DoneWhen: "Done."}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-dated"), DoneWhen: "Done."}},
 		{ID: "task-dated-nodw", Folder: model.FolderProjects, Title: "No done when",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-dated"), DoneWhen: "Done."}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-dated"), DoneWhen: "Done."}},
 		// A blocker under the dated goal inherits its date; a short reason is incomplete.
 		{ID: "task-dated-blocked", Folder: model.FolderProjects, Title: "Blocked",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskBlocked, Project: link("project-dated"), DoneWhen: "Done.", BlockedBy: []string{"legal"}}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskBlocked, Goal: link("project-dated"), DoneWhen: "Done.", BlockedBy: []string{"legal"}}},
 		// An undated goal with no open task, no done_when.
 		{ID: "project-bare", Folder: model.FolderProjects, Title: "Bare",
-			Meta: &model.Project{Common: hc(model.TypeProject), Status: model.ProjectActive, Owner: "Jordan Example"}},
+			Meta: &model.Goal{Common: hc(model.TypeGoal), Status: model.GoalActive, Owner: "Jordan Example"}},
 		// A blocker with a full reason but no date and no dated goal.
 		{ID: "project-open", Folder: model.FolderProjects, Title: "Open",
-			Meta: &model.Project{Common: hc(model.TypeProject), Status: model.ProjectActive, Owner: "Jordan Example", DoneWhen: "Done.", Due: "2026-12-15"}},
+			Meta: &model.Goal{Common: hc(model.TypeGoal), Status: model.GoalActive, Owner: "Jordan Example", DoneWhen: "Done.", Due: "2026-12-15"}},
 		{ID: "task-cyc-a", Folder: model.FolderProjects, Title: "Cycle A",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-cyc-b")}}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-cyc-b")}}},
 		{ID: "task-cyc-b", Folder: model.FolderProjects, Title: "Cycle B",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-cyc-a")}}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-cyc-a")}}},
 		{ID: "task-dangling", Folder: model.FolderProjects, Title: "Dangling",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-gone")}}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("task-gone")}}},
 		// Deferred: skipped.
 		{ID: "task-later", Folder: model.FolderProjects, Title: "Later",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-open"),
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-open"),
 				Deferral: model.Deferral{DeferUntil: model.SomedayWord}}},
 		// Dismissed: counted, not listed.
 		{ID: "task-dismissed", Folder: model.FolderProjects, Title: "Dismissed",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Created: "2026-11-01", HealthDismissed: []model.HealthDismissal{{Kind: HealthTaskNoDoneWhen, Reason: "Obvious.", Date: "2026-11-01"}}},
-				Status: model.TaskTodo, Project: link("project-open")}},
+				Status: model.TaskTodo, Goal: link("project-open")}},
 		// Area, person, constraint with no place filled.
 		{ID: "area-bare", Folder: model.FolderAreas, Title: "Bare area",
 			Meta: &model.Area{Common: hc(model.TypeArea), Status: model.AreaActive}},
@@ -56,7 +56,7 @@ func healthSeed(t *testing.T) Deps {
 				Source: model.Source{URL: "https://wiki.acme.example/a", Retrieved: "2026-10-01", Fidelity: model.FidelityNone}}},
 		// An ask with no follow-up and no target.
 		{ID: "rfx-bare", Folder: model.FolderProjects, Title: "Bare ask",
-			Meta: &model.RFX{Common: hc(model.TypeRFX), Direction: model.RFXOut, Status: model.RFXOpen, Route: "domain-x", SelfServeCheck: "wiki", Project: link("project-open")}},
+			Meta: &model.RFX{Common: hc(model.TypeRFX), Direction: model.RFXOut, Status: model.RFXOpen, Route: "domain-x", SelfServeCheck: "wiki", Goal: link("project-open")}},
 		// Questions: stale and blocking nothing; recent; stale but blocking a task.
 		{ID: "question-stale", Folder: model.FolderQuestions, Title: "Stale",
 			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion, Created: "2026-09-01"}, Status: model.QuestionOpen, Scope: link("project-open")}},
@@ -65,7 +65,7 @@ func healthSeed(t *testing.T) Deps {
 		{ID: "question-blocking", Folder: model.FolderQuestions, Title: "Blocking",
 			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion, Created: "2026-09-01"}, Status: model.QuestionOpen, Scope: link("project-open")}},
 		{ID: "task-waits", Folder: model.FolderProjects, Title: "Waits",
-			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Project: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("question-blocking")}}},
+			Meta: &model.Task{Common: hc(model.TypeTask), Status: model.TaskTodo, Goal: link("project-open"), DoneWhen: "Done.", DependsOn: []model.Link{link("question-blocking")}}},
 		// Answered decision with and without a source.
 		{ID: "question-decided", Folder: model.FolderQuestions, Title: "Decided",
 			Meta: &model.Question{Common: hc(model.TypeQuestion), Kind: model.KindDecision, Status: model.QuestionAnswered, Scope: link("project-open")}},

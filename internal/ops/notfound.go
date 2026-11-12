@@ -22,7 +22,8 @@ func (e *notFoundError) Unwrap() error { return model.ErrNotFound }
 
 // notFoundHints says, per document kind, which tools find an id.
 var notFoundHints = map[string]string{
-	"project":  "list goals with project_list or search with similar",
+	"goal":     "list goals with goal_list or search with similar",
+	"project":  "list projects with list {type: project} or search with similar",
 	"area":     "list areas with area_list or search with similar",
 	"task":     "list tasks with task_list or search with similar",
 	"incident": "list incidents with incident_list or search with similar",

@@ -23,9 +23,9 @@ func newThreadFix(t *testing.T) *threadFix {
 	t.Helper()
 	rv := newReqVault(t)
 	f := &threadFix{rv: rv, owner: rv.as("user", "cli", "install-a"), agent: rv.as("claude", "mcp", "install-a")}
-	proj := must(t, ProjectAdd, f.owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
+	proj := must(t, GoalAdd, f.owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	f.proj = proj.ID
-	f.task = must(t, TaskAdd, f.owner, TaskAddInput{Project: proj.ID, Title: "Write the launch post", DoneWhen: "It is posted."}).ID
+	f.task = must(t, TaskAdd, f.owner, TaskAddInput{Goal: proj.ID, Title: "Write the launch post", DoneWhen: "It is posted."}).ID
 	return f
 }
 
@@ -127,7 +127,7 @@ func TestThreadPostWhileHeldReplyAndReceipts(t *testing.T) {
 		t.Fatalf("second while held = %+v %v", second, err)
 	}
 	must(t, RequestNote, f.agent, RequestNoteInput{ID: first.Request, Text: "Reading the post."})
-	sub, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Project: f.proj, Title: "Trim the intro", DoneWhen: "It is short."})
+	sub, err := TaskAdd.Run(writeCtx(t), f.agent, TaskAddInput{Goal: f.proj, Title: "Trim the intro", DoneWhen: "It is short."})
 	if err != nil {
 		t.Fatal(err)
 	}

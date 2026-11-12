@@ -307,7 +307,7 @@ func TestRequestLinks(t *testing.T) {
 	rv := newReqVault(t)
 	p := rv.as("user", "cli", "inst-a")
 	if _, err := p.Store.Create(ctx, model.Document{ID: "project-a", Folder: model.FolderProjects, Title: "A",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}}); err != nil {
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := RequestAdd.Run(ctx, p, RequestAddInput{Ask: "x", Links: []string{"project-a"}}); err != nil {

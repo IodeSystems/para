@@ -132,7 +132,7 @@ func TestLint(t *testing.T) {
 		{"team missing org", "jo.md", doc("type: team\ncreated: 2026-11-01\n", "# Jo\n"), []string{"field:1"}},
 		{"bad date", "jo.md", doc("type: person\ncreated: yesterday\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
 		{"timestamp not date", "jo.md", doc("type: person\ncreated: 2026-11-01T10:00:00Z\norg: acme.example\n", "# Jo\n"), []string{"field-value:1"}},
-		{"bad enum", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: weird\nowner: Jo\n", "# P\n"), []string{"field-value:1"}},
+		{"bad enum", "p.md", doc("type: goal\ncreated: 2026-11-01\nstatus: weird\nowner: Jo\n", "# P\n"), []string{"field-value:1"}},
 		{"task with neither", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\n", "# T\n"), []string{"field:1"}},
 		{"task with area only", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\narea: \"[[health]]\"\n", "# T\n"), nil},
 		{"unquoted link", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: [[acme-portal]]\n", "# T\n"), []string{"field-value:1"}},
@@ -233,9 +233,9 @@ func TestLint(t *testing.T) {
 		{"area bad kind", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: hobby\n", "# A\n"), []string{"field-value:1"}},
 		{"area bad cadence warns", "area-a.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\ncadence: sometimes\n", "# A\n"), []string{"recur:1"}},
 		{"concept area with concepts", "area-c.md", doc("type: area\ncreated: 2026-11-01\nstatus: active\nkind: concept\nconcepts:\n  - \"[[area-d]]\"\n", "# C\n"), []string{"field-value:1"}},
-		{"goal risks ok", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    likelihood: medium\n    impact: high\n    owner: \"[[jo]]\"\n    mitigation: Second vendor\n    source: chat\n", "# P\n"), nil},
-		{"goal risk bad impact", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    impact: huge\n", "# P\n"), []string{"field-value:1"}},
-		{"goal risk no text", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - impact: low\n", "# P\n"), []string{"field-value:1"}},
+		{"goal risks ok", "p.md", doc("type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    likelihood: medium\n    impact: high\n    owner: \"[[jo]]\"\n    mitigation: Second vendor\n    source: chat\n", "# P\n"), nil},
+		{"goal risk bad impact", "p.md", doc("type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - text: Vendor slips\n    impact: huge\n", "# P\n"), []string{"field-value:1"}},
+		{"goal risk no text", "p.md", doc("type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nrisks:\n  - impact: low\n", "# P\n"), []string{"field-value:1"}},
 		{"task assumptions ok", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    source: chat\n    checked: 2026-11-02\n    by: jo\n    status: holds\n", "# T\n"), nil},
 		{"assumption bad status", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\nassumptions:\n  - text: The API is stable\n    status: maybe\n", "# T\n"), []string{"field-value:1"}},
 		{"imported_from ok", "jo.md", doc("type: person\ncreated: 2026-11-01\nimported_from:\n  path: /old/people/jo.md\n  hash: "+hash+"\n", "# Jo\n"), nil},
@@ -248,7 +248,7 @@ func TestLint(t *testing.T) {
 		{"calendar_uids repeated uid", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uids:\n  - uid: a@x\n  - uid: a@x\n", "# T\n"), []string{"field-value"}},
 		{"calendar_uids unknown key", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nkind: meeting\ncalendar_uids:\n  - uid: a@x\n    room: 4\n", "# T\n"), []string{"field-value"}},
 		{"calendar_uids on a plain task", "t.md", doc("type: task\ncreated: 2026-11-01\nstatus: todo\nproject: \"[[p]]\"\ncalendar_uids:\n  - uid: a@x\n", "# T\n"), []string{"field-value:1"}},
-		{"assumption bad checked", "p.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nassumptions:\n  - text: Budget holds\n    checked: last week\n", "# P\n"), []string{"field-value:1"}},
+		{"assumption bad checked", "p.md", doc("type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\nassumptions:\n  - text: Budget holds\n    checked: last week\n", "# P\n"), []string{"field-value:1"}},
 		{"interaction signed url", "interaction-a.md", doc(strings.Replace(interactionFM, "url: https://acme.example/m/1", "url: https://acme.example/m/1?token=abc", 1), "# A\n"), []string{"url:10"}},
 	}
 	for _, c := range cases {
@@ -361,7 +361,7 @@ func TestCheckVault(t *testing.T) {
 	mk := func(path, src string) *File { return Parse(path, []byte(src)) }
 	person := "type: person\ncreated: 2026-11-01\norg: acme.example\n"
 	pol := mk("policies/policy-a.md", doc(policyFM, "# A\n\nR1 policy-a: x. ^R1\n"))
-	goalFM := "type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n"
+	goalFM := "type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n"
 	areaFM := "type: area\ncreated: 2026-11-01\nstatus: active\n"
 	areaP := mk("areas/area-p.md", doc(areaFM, "# P\n")) // no kind: reads as project
 	areaC := mk("areas/area-c.md", doc(areaFM+"kind: concept\n", "# C\n"))
@@ -383,7 +383,7 @@ func TestCheckVault(t *testing.T) {
 		{"case-insensitive duplicate", []*File{mk("org/jo.md", doc(person, "# Jo\n")), mk("archive/JO.md", doc(person, "# Jo\n"))}, []string{"filename-duplicate"}},
 		{"broken link", []*File{mk("org/jo.md", doc(person, "# Jo\n\n[[nobody]]\n"))}, []string{"link-unresolved:9"}},
 		{"broken block", []*File{pol, tr, mk("org/jo.md", doc(person, "# Jo\n\n[[policy-a#^R9]]\n"))}, []string{"block-unresolved:9"}},
-		{"question scope is a project", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[acme-portal]]\"\n", "# Q\n")), mk("projects/acme-portal.md", doc("type: project\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n", "# P\n"))}, nil},
+		{"question scope is a project", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[acme-portal]]\"\n", "# Q\n")), mk("projects/acme-portal.md", doc("type: goal\ncreated: 2026-11-01\nstatus: active\nowner: Jo\n", "# P\n"))}, nil},
 		{"question scope is missing", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[acme-portal]]\"\n", "# Q\n"))}, []string{"link-unresolved:5"}},
 		{"question scope is a person", []*File{mk("questions/question-a.md", doc("type: question\ncreated: 2026-11-01\nstatus: open\nscope: \"[[jo]]\"\n", "# Q\n")), mk("org/jo.md", doc(person, "# Jo\n"))}, []string{"scope"}},
 		{"goal home is a project area", []*File{mk("projects/goal-a.md", doc(goalFM+"area: \"[[area-p]]\"\nconcepts:\n  - \"[[area-c]]\"\n", "# G\n")), areaP, areaC}, nil},

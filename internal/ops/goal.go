@@ -39,7 +39,7 @@ type GoalSignalAddOutput struct {
 
 // GoalSignalAdd adds a dated reading to a signal that the brief defines.
 var GoalSignalAdd = defineSafe("goal_signal_add", "Add a dated reading, with its source, to a signal the goal's brief defines", func(ctx context.Context, d Deps, in GoalSignalAddInput) (GoalSignalAddOutput, error) {
-	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
+	doc, p, err := getGoal(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return GoalSignalAddOutput{}, err
 	}
@@ -95,7 +95,7 @@ var GoalRank = definePerson("goal_rank", "Set the owner's rank of a goal: 1 is f
 	if in.Rank < 0 {
 		return GoalRankOutput{}, errors.New("goal_rank: rank is negative")
 	}
-	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
+	doc, p, err := getGoal(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return GoalRankOutput{}, err
 	}
@@ -157,14 +157,14 @@ var GoalCompare = defineRead("goal_compare", "Show goals side by side: why, bene
 	var docs []model.Document
 	if ids := strings.FieldsFunc(in.IDs, func(r rune) bool { return r == ',' || r == ' ' }); len(ids) > 0 {
 		for _, id := range ids {
-			doc, _, err := getProject(ctx, d.Store, normID(id))
+			doc, _, err := getGoal(ctx, d.Store, normID(id))
 			if err != nil {
 				return GoalCompareOutput{}, err
 			}
 			docs = append(docs, doc)
 		}
 	} else {
-		refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeProject})
+		refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeGoal})
 		if err != nil {
 			return GoalCompareOutput{}, err
 		}
@@ -173,14 +173,14 @@ var GoalCompare = defineRead("goal_compare", "Show goals side by side: why, bene
 			if err != nil {
 				return GoalCompareOutput{}, err
 			}
-			if p := doc.Meta.(*model.Project); p.Status == model.ProjectActive {
+			if p := doc.Meta.(*model.Goal); p.Status == model.GoalActive {
 				docs = append(docs, doc)
 			}
 		}
 	}
 	out := GoalCompareOutput{Goals: []GoalCompareRow{}}
 	for _, doc := range docs {
-		p := doc.Meta.(*model.Project)
+		p := doc.Meta.(*model.Goal)
 		row := GoalCompareRow{ID: doc.ID, Title: doc.Title, Status: string(p.Status), Due: string(p.Due), Rank: p.Rank,
 			Validation: string(p.Validation), Alternatives: len(p.Alternatives), Unknowns: len(p.Unknowns)}
 		if w := p.Why; w != nil {
@@ -269,7 +269,7 @@ const (
 // date and the due date of each signal that has a frequency. A goal whose
 // validation is stopped or pivoted is left out: its pivot has happened.
 func goalWatches(ctx context.Context, s store.Store, today string) ([]GoalWatch, error) {
-	refs, err := s.List(ctx, store.Filter{Type: model.TypeProject})
+	refs, err := s.List(ctx, store.Filter{Type: model.TypeGoal})
 	if err != nil {
 		return nil, err
 	}
@@ -279,8 +279,8 @@ func goalWatches(ctx context.Context, s store.Store, today string) ([]GoalWatch,
 		if err != nil {
 			return nil, err
 		}
-		p := doc.Meta.(*model.Project)
-		if p.Status != model.ProjectActive || p.IsDeferred(today) || !p.HasBrief() ||
+		p := doc.Meta.(*model.Goal)
+		if p.Status != model.GoalActive || p.IsDeferred(today) || !p.HasBrief() ||
 			p.Validation == model.ValidationStopped || p.Validation == model.ValidationPivoted {
 			continue
 		}

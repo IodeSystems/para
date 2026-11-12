@@ -22,7 +22,7 @@ type HoldAction struct {
 	Title    string `json:"title"`
 	Assignee string `json:"assignee,omitempty"` // self (default), a person id, or agent:<name>
 	Due      string `json:"due,omitempty"`      // YYYY-MM-DD
-	Project  string `json:"project,omitempty"`  // default: the project of the hold, else of a linked request
+	Goal     string `json:"goal,omitempty"`     // default: the goal of the hold, else of a linked request
 	Area     string `json:"area,omitempty"`
 	Body     string `json:"body,omitempty"`
 	DoneWhen string `json:"done_when,omitempty"` // how we know the task is done; required from an agent
@@ -37,7 +37,7 @@ type MeetingHoldInput struct {
 	Replies []RFXReplyInput       `json:"replies,omitempty"` // answers to linked requests, as rfx_reply takes them
 	Answers []QuestionAnswerInput `json:"answers,omitempty"` // answers to open questions, as question_answer takes them
 	Actions []HoldAction          `json:"actions,omitempty"` // action items: each becomes a task
-	Project string                `json:"project,omitempty"` // default project of the actions
+	Goal    string                `json:"goal,omitempty"`    // default goal of the actions
 	Area    string                `json:"area,omitempty"`    // default area of the actions
 }
 
@@ -208,29 +208,29 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 			}
 		}
 	}
-	project, area := normID(in.Project), normID(in.Area)
+	project, area := normID(in.Goal), normID(in.Area)
 	if project == "" && area == "" && m.ob != nil {
-		project, area = m.ob.Project.Target(), m.ob.Area.Target() // the meeting's own goal or area
+		project, area = m.ob.Goal.Target(), m.ob.Area.Target() // the meeting's own goal or area
 	}
 	if project == "" && area == "" {
 		for _, rl := range m.RFX {
-			if _, rm, err := getRFX(ctx, d, rl.Target()); err == nil && rm.Project != "" {
-				project = rm.Project.Target()
+			if _, rm, err := getRFX(ctx, d, rl.Target()); err == nil && rm.Goal != "" {
+				project = rm.Goal.Target()
 				break
 			}
 		}
 	}
 	tasks := make([]TaskAddInput, 0, len(in.Actions))
 	for i, a := range in.Actions {
-		ti := TaskAddInput{Title: a.Title, Assignee: a.Assignee, Due: a.Due, Project: a.Project, Area: a.Area, DoneWhen: a.DoneWhen}
+		ti := TaskAddInput{Title: a.Title, Assignee: a.Assignee, Due: a.Due, Goal: a.Goal, Area: a.Area, DoneWhen: a.DoneWhen}
 		if !m.Legacy {
 			ti.Parent = doc.ID // an action item came out of the meeting
 		}
-		if normID(ti.Project) == "" && normID(ti.Area) == "" {
-			ti.Project, ti.Area = project, area
+		if normID(ti.Goal) == "" && normID(ti.Area) == "" {
+			ti.Goal, ti.Area = project, area
 		}
-		if normID(ti.Project) == "" && normID(ti.Area) == "" {
-			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: a task needs a project or an area: pass one on the action, or project or area for the whole hold", i)
+		if normID(ti.Goal) == "" && normID(ti.Area) == "" {
+			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: a task needs a goal or an area: pass one on the action, or goal or area for the whole hold", i)
 		}
 		if strings.TrimSpace(ti.Title) == "" {
 			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: title is empty", i)
@@ -244,8 +244,8 @@ var MeetingHold = defineSafe("meeting_hold", "Record a held meeting: notes, repl
 		if _, err := parseDue(a.Due); err != nil {
 			return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: %w", i, err)
 		}
-		if normID(ti.Project) != "" {
-			if _, _, err := getProject(ctx, d.Store, normID(ti.Project)); err != nil {
+		if normID(ti.Goal) != "" {
+			if _, _, err := getGoal(ctx, d.Store, normID(ti.Goal)); err != nil {
 				return MeetingHoldOutput{}, fmt.Errorf("actions[%d]: project: %w", i, err)
 			}
 		}

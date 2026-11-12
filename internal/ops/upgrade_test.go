@@ -14,26 +14,34 @@ func TestVaultUpgradeFilesJudgementWorkOnceAndRefusesAgents(t *testing.T) {
 	d := tv.open("one", "cli")
 	ctx := t.Context()
 	if _, err := d.Store.Create(ctx, model.Document{ID: "project-open", Folder: model.FolderProjects, Title: "Open goal",
-		Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me"}}); err != nil {
+		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "me"}}); err != nil {
 		t.Fatal(err)
 	}
 	out, err := VaultUpgrade.Run(ctx, d, VaultUpgradeInput{File: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(out.Filed) != 1 {
+	// The done-when work, and the item that asks the owner to run step goals;
+	// projects-sort waits for that run.
+	if len(out.Filed) != 2 {
 		t.Fatalf("filed = %v", out.Filed)
 	}
-	req, err := d.Store.Get(ctx, out.Filed[0])
-	if err != nil {
-		t.Fatal(err)
+	var req model.Document
+	for _, id := range out.Filed {
+		doc, err := d.Store.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(doc.Title, AutoStepsTitle) {
+			req = doc
+		}
 	}
 	r := req.Meta.(*model.Request)
 	if r.Kind != upgradeKind || !strings.HasPrefix(req.Title, upgradePrefix) || !strings.Contains(req.Body, "project-open") || !strings.Contains(req.Body, "Done when") {
 		t.Fatalf("request = %+v %q", r, req.Body)
 	}
 	// Filing changes no document.
-	if got, _ := d.Store.Get(ctx, "project-open"); got.Meta.(*model.Project).DoneWhen != "" {
+	if got, _ := d.Store.Get(ctx, "project-open"); got.Meta.(*model.Goal).DoneWhen != "" {
 		t.Fatal("filing edited a document")
 	}
 	again, err := VaultUpgrade.Run(ctx, d, VaultUpgradeInput{File: true})
@@ -49,7 +57,7 @@ func TestVaultUpgradeFilesJudgementWorkOnceAndRefusesAgents(t *testing.T) {
 		t.Fatal("an agent ran vault_upgrade")
 	}
 	st, err := VaultUpgradeStatus.Run(ctx, agent, VaultUpgradeStatusInput{})
-	if err != nil || len(st.Pending) != 1 || st.Pending[0].ID != "done-when" {
+	if err != nil || len(st.Pending) == 0 || st.Pending[0].ID != "done-when" {
 		t.Fatalf("agent status = %+v, %v", st, err)
 	}
 }

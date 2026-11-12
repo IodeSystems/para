@@ -20,8 +20,8 @@ func TestAskInFoldKeepsItsOrderSignals(t *testing.T) {
 		t.Fatal(err)
 	}
 	must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"})
-	goal := must(t, ProjectAdd, d, ProjectAddInput{Title: "Report", Owner: "Jordan Example", DoneWhen: "Sent."}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: goal, Title: "Ship the report", DoneWhen: "Sent.", Due: "2026-11-09"}).ID
+	goal := must(t, GoalAdd, d, GoalAddInput{Title: "Report", Owner: "Jordan Example", DoneWhen: "Sent."}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: goal, Title: "Ship the report", DoneWhen: "Sent.", Due: "2026-11-09"}).ID
 	ask := must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXIn, Ask: "Can you send the numbers", Route: "email", SelfServe: "none",
 		Targets: []TargetInput{{To: "person-ada-example", Medium: model.MediumEmail, Value: "ada@acme.example"}}, Blocks: []string{task}}).ID
 	row := func(rows []ValueRow, id string) ValueRow {
@@ -65,15 +65,15 @@ func TestReadersReadObligations(t *testing.T) {
 	if err := d.Store.SetConfig(ctx, upgrade.ConfigKey, "7"); err != nil {
 		t.Fatal(err)
 	}
-	g := must(t, ProjectAdd, d, ProjectAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
+	g := must(t, GoalAdd, d, GoalAddInput{Title: "Launch", Owner: "Jordan Example", DoneWhen: "Live."})
 	seedDoc(t, d, obligationDoc("obligation-owed", "Send the numbers", &model.Obligation{Kind: model.KindCommitment, Schedule: model.ScheduleOnce,
-		Due: "2026-11-04", Project: model.LinkTo(g.ID), DoneWhen: "Sent."}))
+		Due: "2026-11-04", Goal: model.LinkTo(g.ID), DoneWhen: "Sent."}))
 	seedDoc(t, d, obligationDoc("obligation-vendor", "Vendor sends keys", &model.Obligation{Kind: model.KindCommitment, Schedule: model.ScheduleOnce,
-		Due: "2026-11-20", Project: model.LinkTo(g.ID), OwedBy: []model.Link{model.LinkTo("person-riley")}}))
+		Due: "2026-11-20", Goal: model.LinkTo(g.ID), OwedBy: []model.Link{model.LinkTo("person-riley")}}))
 	seedDoc(t, d, obligationDoc("obligation-review", "Keep the rota", &model.Obligation{Kind: model.KindCommitment, Schedule: model.ScheduleOngoing,
-		Cadence: "monthly", LastReviewed: "2026-09-01", Project: model.LinkTo(g.ID)}))
+		Cadence: "monthly", LastReviewed: "2026-09-01", Goal: model.LinkTo(g.ID)}))
 	seedDoc(t, d, obligationDoc("obligation-fresh", "Keep the backups", &model.Obligation{Kind: model.KindCommitment, Schedule: model.ScheduleOngoing,
-		Cadence: "monthly", LastReviewed: "2026-11-01", Project: model.LinkTo(g.ID)}))
+		Cadence: "monthly", LastReviewed: "2026-11-01", Goal: model.LinkTo(g.ID)}))
 
 	scope := must(t, AlignScope, d, AlignScopeInput{Scope: g.ID})
 	i := slices.IndexFunc(scope.Items, func(it AlignItem) bool { return it.ID == "obligation-owed" })

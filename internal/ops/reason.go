@@ -198,18 +198,18 @@ func (g *reasonGraph) hop(id string) reasonHop {
 	}
 	switch m := g.docs[id].Meta.(type) {
 	case *model.Task:
-		end(m.Project)
+		end(m.Goal)
 		end(m.Area)
 		step(m.Parent, StepActionItemOf)
 		step(m.Incident, StepFollowsUp)
 	case *model.Obligation:
-		end(m.Project)
+		end(m.Goal)
 		end(m.Area)
 		step(m.Parent, StepActionItemOf)
 	case *model.Incident:
 		end(m.Area)
 	case *model.RFX:
-		end(m.Project)
+		end(m.Goal)
 		step(m.Parent, StepActionItemOf)
 	case *model.Question:
 		if !m.IsRoot() {
@@ -224,7 +224,7 @@ func (g *reasonGraph) hop(id string) reasonHop {
 
 // isGoal reports whether id is a goal (type project).
 func (g *reasonGraph) isGoal(id string) bool {
-	_, ok := g.docs[id].Meta.(*model.Project)
+	_, ok := g.docs[id].Meta.(*model.Goal)
 	return ok
 }
 
@@ -268,7 +268,7 @@ func (g *reasonGraph) reasons(id string) []Reason {
 				return
 			}
 			switch p := gd.Meta.(type) {
-			case *model.Project:
+			case *model.Goal:
 				add(Reason{Kind: ReasonGoal, Ref: t, Title: g.title(t), Due: string(p.Due), Status: string(p.Status)})
 			case *model.Area:
 				add(Reason{Kind: ReasonUpkeep, Ref: t, Title: g.title(t)})
@@ -288,7 +288,7 @@ func (g *reasonGraph) reasons(id string) []Reason {
 			add(Reason{Kind: ReasonUpkeep, Title: strings.TrimSpace("recurring " + recur)})
 		}
 		switch m := d.Meta.(type) {
-		case *model.Project:
+		case *model.Goal:
 			add(Reason{Kind: ReasonGoal, Ref: h.id, Title: g.title(h.id), Due: string(m.Due), Status: string(m.Status)})
 			continue
 		case *model.Area:
@@ -400,7 +400,7 @@ func reasonText(r Reason, self string) string {
 		if r.Due != "" {
 			head += ", due " + r.Due
 		}
-		if r.Status != "" && r.Status != string(model.ProjectActive) {
+		if r.Status != "" && r.Status != string(model.GoalActive) {
 			head += ", " + r.Status
 		}
 	case ReasonOwed:

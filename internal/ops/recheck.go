@@ -126,7 +126,7 @@ func recheckHolders(ctx context.Context, s store.Store, scope string) (holders [
 	docs := map[string]model.Document{}
 	var goalsAndTasks []model.Document
 	for _, r := range all {
-		if r.Type != model.TypeProject && r.Type != model.TypeTask {
+		if r.Type != model.TypeGoal && r.Type != model.TypeTask {
 			continue
 		}
 		doc, err := s.Get(ctx, r.ID)
@@ -138,8 +138,8 @@ func recheckHolders(ctx context.Context, s store.Store, scope string) (holders [
 	}
 	live := func(doc model.Document) bool {
 		switch m := doc.Meta.(type) {
-		case *model.Project:
-			return m.Status == model.ProjectActive
+		case *model.Goal:
+			return m.Status == model.GoalActive
 		case *model.Task:
 			return !taskTerminal(m.Status)
 		}
@@ -170,24 +170,24 @@ func recheckHolders(ctx context.Context, s store.Store, scope string) (holders [
 		switch doc.Meta.(type) {
 		case *model.Task:
 			add(doc)
-		case *model.Project:
+		case *model.Goal:
 			add(doc)
 			for _, x := range goalsAndTasks {
-				if t, ok := x.Meta.(*model.Task); ok && t.Project.Target() == doc.ID {
+				if t, ok := x.Meta.(*model.Task); ok && t.Goal.Target() == doc.ID {
 					add(x)
 				}
 			}
 		case *model.Area:
 			goals := map[string]bool{}
 			for _, x := range goalsAndTasks {
-				if p, ok := x.Meta.(*model.Project); ok && p.Area.Target() == doc.ID {
+				if p, ok := x.Meta.(*model.Goal); ok && p.Area.Target() == doc.ID {
 					goals[x.ID] = true
 					add(x)
 					chains = append(chains, x.ID)
 				}
 			}
 			for _, x := range goalsAndTasks {
-				if t, ok := x.Meta.(*model.Task); ok && (t.Area.Target() == doc.ID || goals[t.Project.Target()]) {
+				if t, ok := x.Meta.(*model.Task); ok && (t.Area.Target() == doc.ID || goals[t.Goal.Target()]) {
 					add(x)
 				}
 			}
@@ -249,7 +249,7 @@ func recheckItems(ctx context.Context, s store.Store, scope, tag, cutoff, today 
 		if !ok || !o.Open() || o.Schedule != model.ScheduleOngoing || !tagged(o) {
 			continue
 		}
-		if scope != "" && !inScope[o.Project.Target()] && !inScope[o.Area.Target()] && !inScope[o.Parent.Target()] {
+		if scope != "" && !inScope[o.Goal.Target()] && !inScope[o.Area.Target()] && !inScope[o.Parent.Target()] {
 			continue
 		}
 		turn := ongoingTurn(o)
@@ -379,7 +379,7 @@ var RecheckRecord = define("recheck_record", "Record the result of checking one 
 	out := RecheckRecordOutput{ID: doc.ID, Result: in.Result, Checked: today}
 	what := ""
 	switch m := doc.Meta.(type) {
-	case *model.Project, *model.Task:
+	case *model.Goal, *model.Task:
 		text := fold(in.Assumption)
 		if text == "" {
 			return RecheckRecordOutput{}, fmt.Errorf("%s is a %s: give the assumption's text", doc.ID, doc.Meta.Header().Type)
@@ -499,7 +499,7 @@ func recheckContext(id, what string, result model.AssumptionStatus, fact, source
 func questionScope(ctx context.Context, s store.Store, doc model.Document, scope string, in *QuestionAddInput) error {
 	target := doc
 	switch doc.Meta.(type) {
-	case *model.Project, *model.Task:
+	case *model.Goal, *model.Task:
 	default:
 		if normID(scope) == "" {
 			in.Root = true
@@ -511,8 +511,8 @@ func questionScope(ctx context.Context, s store.Store, doc model.Document, scope
 		}
 	}
 	switch target.Meta.(type) {
-	case *model.Project:
-		in.Project = target.ID
+	case *model.Goal:
+		in.Goal = target.ID
 	case *model.Task:
 		in.Task = target.ID
 	case *model.Area:

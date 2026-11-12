@@ -11,8 +11,8 @@ import (
 
 func TestSentListShowsOnlyWhatTheOwnerSent(t *testing.T) {
 	f, rv := clockFix(t)
-	task := must(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: "Book the venue"}).ID
-	q := must(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which venue?", Project: f.proj}).ID
+	task := must(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: "Book the venue"}).ID
+	q := must(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which venue?", Goal: f.proj}).ID
 
 	qr := must(t, QuestionReview, f.owner, QuestionReviewInput{ID: q, Decision: ReviewAsk, Note: "Ask Sam which one."})
 	rv.advance(time.Second)

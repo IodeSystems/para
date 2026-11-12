@@ -266,7 +266,7 @@ func gatherQuestions(ctx context.Context, d Deps, rfx []model.Link, scope []stri
 			asked[q] = true
 			line += fmt.Sprintf(" (question [[%s]])", q)
 		}
-		if p := m.Project.Target(); p != "" {
+		if p := m.Goal.Target(); p != "" {
 			scopeSet[p] = true
 		}
 		lines = append(lines, line)
@@ -403,7 +403,7 @@ func addMeetingDoc(ctx context.Context, d Deps, in MeetingAddInput, pre func(*mo
 		}
 	}
 	for _, s := range in.Scope {
-		if _, err := linkTo(ctx, d, "scope", s, model.TypeProject, model.TypeArea, model.TypeTask); err != nil {
+		if _, err := linkTo(ctx, d, "scope", s, model.TypeGoal, model.TypeArea, model.TypeTask); err != nil {
 			return MeetingAddOutput{}, model.Document{}, err
 		}
 	}
@@ -426,7 +426,7 @@ func addMeetingDoc(ctx context.Context, d Deps, in MeetingAddInput, pre func(*mo
 	if pre != nil {
 		pre(meta)
 	}
-	doc, err := storedShape(d, model.Document{Folder: model.FolderProjects, Title: title, Body: meetingBody(in.Body, qs), Meta: meta})
+	doc, err := storedShape(d, model.Document{Folder: model.FolderGoals, Title: title, Body: meetingBody(in.Body, qs), Meta: meta})
 	if err != nil {
 		return MeetingAddOutput{}, model.Document{}, err
 	}

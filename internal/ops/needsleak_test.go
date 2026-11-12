@@ -18,7 +18,7 @@ func leakVault(t *testing.T) (Deps, string) {
 	t.Cleanup(func() { time.Local = old })
 	d := newDepsAt(t, needsNow, "m1")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	return d, proj
 }
 
@@ -47,12 +47,12 @@ func agendaIDs(t *testing.T, d Deps, days int) map[string]bool {
 // Leak 1: the agenda listed done items and items put off.
 func TestLeakAgendaHidesDoneAndLater(t *testing.T) {
 	d, proj := leakVault(t)
-	open := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Open, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
-	done := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Done, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
+	open := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Open, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
+	done := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Done, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
 	must(t, TaskDone, d, TaskDoneInput{ID: done})
-	failed := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Failed, retry today", DoneWhen: "Done."}).ID
+	failed := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Failed, retry today", DoneWhen: "Done."}).ID
 	must(t, TaskResolve, d, TaskResolveInput{ID: failed, Outcome: model.OutcomeFailed, Tried: "Ran it.", StoppedBecause: "Down.", RetryAfter: "2026-11-05"})
-	later := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Put off, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
+	later := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Put off, due today", Due: "2026-11-05", DoneWhen: "Done."}).ID
 	in := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Can you look at the invoice?", From: "person-ada-example", Expects: model.ExpectsResponse}).ID
 	inLater := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Newsletter", From: "person-bo-example"}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{later, inLater}, Until: "2026-11-12"})
@@ -122,9 +122,9 @@ func TestLeakOptionalMeetingsDoNotCount(t *testing.T) {
 // claimed showed as needing the owner.
 func TestLeakSentToAgentLeavesEveryView(t *testing.T) {
 	d, proj := leakVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region?", Project: proj}).ID
-	answered := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which vendor?", Project: proj}).ID
-	tk := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "File the form", Due: "2026-11-05", DoneWhen: "Filed."}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which region?", Goal: proj}).ID
+	answered := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which vendor?", Goal: proj}).ID
+	tk := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "File the form", Due: "2026-11-05", DoneWhen: "Filed."}).ID
 	if set := setOf(t, d); !set[q] || !set[answered] {
 		t.Fatalf("open questions do not need the owner: %v", set)
 	}

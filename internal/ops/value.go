@@ -861,7 +861,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 	reasons := newReasonGraph(sn.docs)
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
-		case model.TypeIncident, model.TypeProject, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO, model.TypeObligation:
+		case model.TypeIncident, model.TypeGoal, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO, model.TypeObligation:
 		default:
 			continue
 		}
@@ -949,10 +949,10 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		switch m := doc.Meta.(type) {
 		case *model.Incident:
 			n.Kind, n.Sev = KindIncident, string(m.Severity)
-		case *model.Project:
+		case *model.Goal:
 			// A goal shapes the order and is never listed: it asks nothing.
 			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
-			if m.Status != model.ProjectActive {
+			if m.Status != model.GoalActive {
 				continue
 			}
 		case *model.Task:

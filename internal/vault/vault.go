@@ -68,6 +68,10 @@ type Vault struct {
 	install  string
 
 	paths *pathCache // shared by copies made with As
+	// format caches format_version (legacy.go); native turns off the
+	// reading of a vault below model.GoalsFormat as format 11.
+	format *formatCache
+	native bool
 }
 
 // pathCache maps a document id to its file, so Get does not walk the vault.
@@ -126,7 +130,7 @@ func Open(root string, o Options) (*Vault, error) {
 	log := events.NewLog(filepath.Join(root, dirEvents), events.Source{
 		Vault: id, Install: o.Install, Actor: o.Actor, Surface: o.Surface, Now: o.Now, Warn: o.Warn,
 	})
-	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install, paths: &pathCache{}}, nil
+	return &Vault{root: root, id: id, log: log, now: o.Now, stateDir: o.StateDir, readOnly: o.ReadOnly, actor: o.Actor, surface: o.Surface, install: o.Install, paths: &pathCache{}, format: &formatCache{}}, nil
 }
 
 // Actor, Surface, and Install return the Options they were opened with.
@@ -222,8 +226,12 @@ func (v *Vault) Create(ctx context.Context, d model.Document) (model.Document, e
 	if d.Meta.Header().Created == "" {
 		d.Meta.Header().Created = v.today()
 	}
+	leg := v.legacy()
+	if leg {
+		d.Folder = legacyFolder(d.Folder)
+	}
 	rel := path.Join(string(d.Folder), d.ID+".md")
-	data, err := renderChecked(rel, d, nil)
+	data, err := renderChecked(rel, d, nil, leg)
 	if err != nil {
 		return d, fmt.Errorf("vault: create: %w", err)
 	}
@@ -280,7 +288,7 @@ func (v *Vault) Update(ctx context.Context, d model.Document) (model.Document, e
 			return fmt.Errorf("%w: %s", model.ErrConflict, f.rel)
 		}
 		d.Folder = f.folder
-		data, err := renderChecked(f.rel, d, paramd.Parse(f.rel, old).FrontmatterYAML())
+		data, err := renderChecked(f.rel, d, paramd.Parse(f.rel, old).FrontmatterYAML(), v.legacy())
 		if err != nil {
 			return err
 		}
@@ -316,6 +324,7 @@ func (v *Vault) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 	if !to.Valid() {
 		return model.Document{}, fmt.Errorf("vault: move: unknown folder %q", to)
 	}
+	to = v.folderFor(to)
 	err := v.withLock(ctx, func(m *events.Manifest) error {
 		f, err := v.find(id)
 		if err != nil {
@@ -452,7 +461,7 @@ func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 		return model.Document{}, fmt.Errorf("vault: get: %w", err)
 	}
 	pf := paramd.Parse(f.rel, data)
-	d, err := decodeFile(f, pf)
+	d, err := decodeFile(f, pf, v.legacy())
 	if err != nil {
 		return d, fmt.Errorf("vault: get: %w", err)
 	}
@@ -468,6 +477,7 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		return nil, fmt.Errorf("vault: list: %w", err)
 	}
 	out := []model.Ref{}
+	leg := v.legacy()
 	for _, f := range files {
 		if folder != "" && f.folder != folder {
 			continue
@@ -477,10 +487,11 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 			return nil, fmt.Errorf("vault: list: %w", err)
 		}
 		l := v.listedOf(f.rel, data)
-		if typ != "" && l.typ != typ {
+		lt := typeOf(l.typ, leg)
+		if typ != "" && lt != typ {
 			continue
 		}
-		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: l.typ, Title: l.title, Rev: l.hash, Pinned: l.pinned,
+		out = append(out, model.Ref{ID: f.id, Folder: f.folder, Type: lt, Title: l.title, Rev: l.hash, Pinned: l.pinned,
 			Hidden: f.folder == model.FolderArchive || strings.TrimSpace(l.dup) != ""})
 	}
 	return out, nil
@@ -497,7 +508,7 @@ func (v *Vault) Check(_ context.Context) ([]model.Finding, error) {
 	for _, f := range files {
 		rels = append(rels, f.rel)
 	}
-	out, err := lintFiles(v.root, rels)
+	out, err := lintFiles(v.root, rels, v.legacy())
 	if err != nil {
 		return nil, fmt.Errorf("vault: check: %w", err)
 	}
@@ -792,8 +803,12 @@ func mdFiles(root, dir string) ([]string, error) {
 }
 
 // decodeFile decodes the frontmatter paramd already parsed. Invalid YAML goes
-// through model.Decode so the error is the YAML error.
-func decodeFile(f docFile, pf *paramd.File) (model.Document, error) {
+// through model.Decode so the error is the YAML error. legacy reads a file
+// below model.GoalsFormat as format 11 (legacy.go).
+func decodeFile(f docFile, pf *paramd.File, legacy bool) (model.Document, error) {
+	if legacy {
+		legacyParsed(pf)
+	}
 	if pf.FMNode == nil {
 		return model.Decode(f.id, f.folder, pf.FrontmatterYAML(), pf.Title, bodyAfterTitle(pf))
 	}

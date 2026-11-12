@@ -162,8 +162,8 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 	if existing, err := successor(ctx, d, doc.ID); err != nil || existing != "" {
 		return existing, "", nil, err
 	}
-	if p := t.Project.Target(); p != "" {
-		proj, _, err := getProject(ctx, d.Store, p)
+	if p := t.Goal.Target(); p != "" {
+		proj, _, err := getGoal(ctx, d.Store, p)
 		if err != nil {
 			return "", "", nil, fmt.Errorf("next task: %w", err)
 		}
@@ -180,13 +180,13 @@ func makeNext(ctx context.Context, d Deps, doc model.Document, t *model.Task, ru
 		rfx = t.RFX
 	}
 	next, err := d.Store.Create(ctx, model.Document{
-		Folder: model.FolderProjects,
+		Folder: model.FolderGoals,
 		Title:  doc.Title,
 		Body:   doc.Body,
 		Meta: &model.Task{
 			Common:   model.Common{Type: model.TypeTask},
 			Status:   model.TaskTodo,
-			Project:  t.Project,
+			Goal:     t.Goal,
 			Area:     t.Area,
 			Due:      due,
 			Recur:    t.Recur,

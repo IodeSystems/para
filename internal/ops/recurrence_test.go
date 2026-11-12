@@ -12,7 +12,7 @@ func recurSlotTask(t *testing.T, d Deps, project string, tk *model.Task) (model.
 	t.Helper()
 	tk.Common = model.Common{Type: model.TypeTask}
 	tk.Status = model.TaskTodo
-	tk.Project = model.LinkTo(project)
+	tk.Goal = model.LinkTo(project)
 	tk.Recur = "weekly"
 	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderProjects, Title: "Standup", Meta: tk})
 	if err != nil {
@@ -47,7 +47,7 @@ func TestRecurringMeetingKeepsSlot(t *testing.T) {
 
 	d := newDepsAt(t, time.Date(2026, 10, 30, 12, 0, 0, 0, la), "m1")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	person := "person-ada-example"
 	doc, tk := recurSlotTask(t, d, proj, &model.Task{
 		Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00", With: []model.Link{model.LinkTo(person)}, Attendees: []string{"Bob Nobody <bob@vendor.example>"}, RFX: []model.Link{model.LinkTo("rfx-x")}, CalendarUID: "uid-1@example.com"}})
@@ -74,7 +74,7 @@ func TestRecurringMeetingKeepsSlot(t *testing.T) {
 func TestRecurringCallDateAndDue(t *testing.T) {
 	d := newDepsAt(t, time.Date(2026, 10, 30, 12, 0, 0, 0, time.Local), "m1")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	doc, tk := recurSlotTask(t, d, proj, &model.Task{
 		Kind: model.KindCall, Occasion: model.Occasion{Scheduled: "2026-11-02", RFX: []model.Link{model.LinkTo("rfx-x")}}, Due: "2026-11-03"})
 	if _, _, _, err := makeNext(ctx, d, doc, tk, mustRule(t, "weekly")); err != nil {
@@ -107,7 +107,7 @@ func TestMeetingHoldRecurs(t *testing.T) {
 
 	d := newDepsAt(t, time.Date(2026, 10, 30, 12, 0, 0, 0, la), "m1")
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	person := "person-ada-example"
 	doc, _ := recurSlotTask(t, d, proj, &model.Task{
 		Kind: model.KindMeeting, Occasion: model.Occasion{Scheduled: "2026-10-29T09:00:00-07:00", End: "2026-10-29T09:30:00-07:00", With: []model.Link{model.LinkTo(person)}, CalendarUID: "uid-1@example.com"}})

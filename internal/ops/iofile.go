@@ -13,7 +13,7 @@ import (
 )
 
 // An incoming io item is filed once: into a task, question, Ask, note,
-// interaction, or project that para makes from it, or into a document that
+// interaction, or goal that para makes from it, or into a document that
 // already holds it. became links what it was filed into, and the new document
 // links back. The item stays in io/ with state filed, so links keep resolving.
 
@@ -23,7 +23,7 @@ type TriageTarget string
 const (
 	TriageTask        TriageTarget = "task"
 	TriageRFX         TriageTarget = "rfx"
-	TriageProject     TriageTarget = "project"
+	TriageGoal        TriageTarget = "goal"
 	TriageNote        TriageTarget = "note"        // a note document; with Person, a dated line in a person's notes
 	TriageQuestion    TriageTarget = "question"    // an open question; it needs a scope
 	TriageInteraction TriageTarget = "interaction" // a logged contact; with names the people
@@ -34,7 +34,7 @@ const (
 )
 
 // TriageTargets lists every TriageTarget.
-var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageProject, TriageNote, TriageQuestion, TriageInteraction, TriageObligation, TriageArea}
+var TriageTargets = []TriageTarget{TriageTask, TriageRFX, TriageGoal, TriageNote, TriageQuestion, TriageInteraction, TriageObligation, TriageArea}
 
 // linkOnly are the targets io_file links with existing and never makes.
 var linkOnly = []TriageTarget{TriageObligation, TriageArea}
@@ -50,7 +50,7 @@ func (TriageTarget) Enum() []string {
 
 // triageTypes are the document types each target names, for existing.
 var triageTypes = map[TriageTarget][]model.Type{
-	TriageTask: {model.TypeTask}, TriageRFX: {model.TypeRFX}, TriageProject: {model.TypeProject},
+	TriageTask: {model.TypeTask}, TriageRFX: {model.TypeRFX}, TriageGoal: {model.TypeGoal},
 	TriageNote: {model.TypeNote, model.TypePerson}, TriageQuestion: {model.TypeQuestion}, TriageInteraction: {model.TypeInteraction},
 	TriageObligation: {model.TypeObligation}, TriageArea: {model.TypeArea},
 }
@@ -65,7 +65,7 @@ type IOFileInput struct {
 	// links it and makes nothing.
 	Existing string `json:"existing,omitempty"`
 	// task
-	Project string `json:"project,omitempty"` // task: project id (or Area); rfx: optional project id
+	Goal string `json:"goal,omitempty"` // task: goal id (or Area); rfx: optional goal id
 	// RequestedBy is who the new task is for: a person or group id, or free
 	// text. Default the sender (from), except for medium swivel.
 	RequestedBy string `json:"requested_by,omitempty"`
@@ -73,7 +73,7 @@ type IOFileInput struct {
 	// its due date, YYYY-MM-DD.
 	Title string `json:"title,omitempty"`
 	Due   string `json:"due,omitempty"`
-	// project
+	// goal
 	Owner string `json:"owner,omitempty"`
 	// rfx
 	Direction model.RFXDirection `json:"direction,omitempty"` // default in: someone asks the owner
@@ -81,13 +81,13 @@ type IOFileInput struct {
 	Targets   []TargetInput      `json:"targets,omitempty"`
 	SelfServe string             `json:"self_serve,omitempty"`
 	NextNudge string             `json:"next_nudge,omitempty"`
-	// area: task (instead of or beside Project), project, or note document
+	// area: task (instead of or beside Goal), goal, or note document
 	Area string `json:"area,omitempty"`
 	// note: a note document (Area, Project), or with Person a person note (Date)
 	Person string `json:"person,omitempty"` // person id
 	Date   string `json:"date,omitempty"`   // YYYY-MM-DD; default the local date
 	// question: Project, Area, Task, or Root, exactly one
-	DoneWhen    string             `json:"done_when,omitempty"` // task: how we know it is done; project: required
+	DoneWhen    string             `json:"done_when,omitempty"` // task: how we know it is done; goal: required
 	Task        string             `json:"task,omitempty"`
 	Root        bool               `json:"root,omitempty"`
 	Kind        model.QuestionKind `json:"kind,omitempty"`
@@ -111,7 +111,7 @@ type IOFileOutput struct {
 
 // IOFile files an incoming message. The new document is made first: if the io
 // item then cannot be marked filed, the error names the new document.
-var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or project, or link an existing document (also an obligation or an area) with existing; the item is marked filed and leaves the inbox; a reply it owes stays owed and links what it was filed into", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
+var IOFile = defineSafe("io_file", "File an incoming io item into a new task, Ask (rfx), question (it needs a scope), note (a note document, or a person note with person), interaction, or goal, or link an existing document (also an obligation or an area) with existing; the item is marked filed and leaves the inbox; a reply it owes stays owed and links what it was filed into", func(ctx context.Context, d Deps, in IOFileInput) (IOFileOutput, error) {
 	doc, m, err := getOpenIO(ctx, d, in.ID)
 	if err != nil {
 		return IOFileOutput{}, err
@@ -174,7 +174,7 @@ func fileExisting(ctx context.Context, d Deps, in IOFileInput) (TriageTarget, st
 			return to, doc.ID, nil
 		}
 	}
-	return "", "", fmt.Errorf("existing %s is a %s: file into a task, Ask, question, note, person, interaction, project, obligation, or area", id, t)
+	return "", "", fmt.Errorf("existing %s is a %s: file into a task, Ask, question, note, person, interaction, goal, obligation, or area", id, t)
 }
 
 // fileNew makes the document the item is filed into.
@@ -193,13 +193,13 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 				requestedBy = model.Link(m.From).Target() // a sender no longer in the vault: as text
 			}
 		}
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: in.Project, Area: in.Area, Title: firstOf(in.Title, doc.Title), Due: in.Due, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen, RequestedBy: requestedBy})
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Goal: in.Goal, Area: in.Area, Title: firstOf(in.Title, doc.Title), Due: in.Due, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen, RequestedBy: requestedBy})
 		if err != nil {
 			return err
 		}
 		out.Became = r.ID
-	case TriageProject:
-		r, err := ProjectAdd.Run(ctx, d, ProjectAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
+	case TriageGoal:
+		r, err := GoalAdd.Run(ctx, d, GoalAddInput{Title: doc.Title, Owner: in.Owner, Area: in.Area, Body: joinBody(doc.Body, back), DoneWhen: in.DoneWhen})
 		if err != nil {
 			return err
 		}
@@ -211,7 +211,7 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 		}
 		r, err := RFXAdd.Run(ctx, d, RFXAddInput{
 			Direction: dir, Ask: joinBody(text, back), Route: in.Route, Targets: in.Targets,
-			SelfServe: in.SelfServe, Project: in.Project, NextNudge: in.NextNudge,
+			SelfServe: in.SelfServe, Goal: in.Goal, NextNudge: in.NextNudge,
 		})
 		if err != nil {
 			return err
@@ -219,7 +219,7 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 		out.Became, out.Warnings = r.ID, r.Warnings
 	case TriageQuestion:
 		r, err := QuestionAdd.Run(ctx, d, QuestionAddInput{
-			Text: joinBody(text, back), Project: in.Project, Task: in.Task, Area: in.Area, Root: in.Root,
+			Text: joinBody(text, back), Goal: in.Goal, Task: in.Task, Area: in.Area, Root: in.Root,
 			Kind: in.Kind, Options: in.Options, Recommended: in.Recommended,
 		})
 		if err != nil {
@@ -228,7 +228,7 @@ func fileNew(ctx context.Context, d Deps, doc model.Document, m *model.IO, in IO
 		out.Became = r.ID
 	case TriageNote:
 		if in.Person == "" {
-			r, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: doc.Title, Body: joinBody(doc.Body, back), Area: in.Area, Project: in.Project})
+			r, err := NoteAdd.Run(ctx, d, NoteAddInput{Title: doc.Title, Body: joinBody(doc.Body, back), Area: in.Area, Goal: in.Goal})
 			if err != nil {
 				return err
 			}
@@ -296,7 +296,7 @@ func checkTriageFields(in IOFileInput) error {
 		return fmt.Errorf("to %s: io_file makes no %s; give existing <id> to link one", in.To, in.To)
 	}
 	have := map[string]bool{
-		"project":      in.Project != "",
+		"goal":         in.Goal != "",
 		"requested_by": in.RequestedBy != "",
 		"title":        in.Title != "",
 		"due":          in.Due != "",
@@ -318,25 +318,25 @@ func checkTriageFields(in IOFileInput) error {
 		"visibility":   in.Visibility != "",
 	}
 	allowed := map[TriageTarget][]string{
-		TriageTask:        {"project", "area", "requested_by", "title", "due"},
-		TriageProject:     {"owner", "area"},
-		TriageRFX:         {"direction", "route", "targets", "self_serve", "project", "next_nudge"},
-		TriageNote:        {"person", "date", "area", "project"},
-		TriageQuestion:    {"project", "area", "task", "root", "kind", "options", "recommended"},
+		TriageTask:        {"goal", "area", "requested_by", "title", "due"},
+		TriageGoal:        {"owner", "area"},
+		TriageRFX:         {"direction", "route", "targets", "self_serve", "goal", "next_nudge"},
+		TriageNote:        {"person", "date", "area", "goal"},
+		TriageQuestion:    {"goal", "area", "task", "root", "kind", "options", "recommended"},
 		TriageInteraction: {"with", "visibility", "date"},
 	}[in.To]
 	required := map[TriageTarget][]string{
 		TriageRFX: {"route"},
 	}[in.To]
-	if in.To == TriageTask && in.Project == "" && in.Area == "" {
-		return errors.New("to task needs project or area")
+	if in.To == TriageTask && in.Goal == "" && in.Area == "" {
+		return errors.New("to task needs goal or area")
 	}
 	if in.To == TriageInteraction && in.Date != "" {
 		return errors.New("date applies to a person note; an interaction takes the date of at")
 	}
 	if in.To == TriageNote {
-		if in.Person != "" && (in.Area != "" || in.Project != "") {
-			return errors.New("area and project apply to a note document: drop person, or drop area and project")
+		if in.Person != "" && (in.Area != "" || in.Goal != "") {
+			return errors.New("area and goal apply to a note document: drop person, or drop area and goal")
 		}
 		if in.Person == "" && in.Date != "" {
 			return errors.New("date applies to a person note: give person")

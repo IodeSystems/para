@@ -30,7 +30,7 @@ func TestTaskToAsks(t *testing.T) {
 	d, proj := laterVault(t)
 	ada := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Ada Example", Org: "acme.example"}).ID
 	bo := must(t, OrgPersonAdd, d, OrgAddInput{Name: "Bo Example", Org: "acme.example"}).ID
-	added := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Waiting on Ada and Bo for the budget", Due: "2026-11-09"})
+	added := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Waiting on Ada and Bo for the budget", Due: "2026-11-09"})
 	if !slices.ContainsFunc(added.Warnings, func(w string) bool { return strings.Contains(w, "task_to_asks") }) {
 		t.Fatalf("task_add warnings = %v", added.Warnings)
 	}
@@ -44,7 +44,7 @@ func TestTaskToAsks(t *testing.T) {
 	if !found {
 		t.Fatalf("health has no %s for %s: %+v", HealthTaskIsWaiting, added.ID, h)
 	}
-	dep := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Spend the budget", DependsOn: []string{added.ID}}).ID
+	dep := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Spend the budget", DependsOn: []string{added.ID}}).ID
 	if _, err := TaskToAsks.Run(ctx, d, TaskToAsksInput{ID: added.ID}); err == nil {
 		t.Fatal("no people was accepted")
 	}

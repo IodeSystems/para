@@ -31,7 +31,7 @@ type RFXAddInput struct {
 	Route     string             `json:"route"`                // domain id, slug, or title; unknown text is kept with a warning
 	Targets   []TargetInput      `json:"targets,omitempty"`    // who is asked (out) or who asked (in)
 	SelfServe string             `json:"self_serve,omitempty"` // what was checked first
-	Project   string             `json:"project,omitempty"`
+	Goal      string             `json:"goal,omitempty"`
 	Blocks    []string           `json:"blocks,omitempty"`     // ids this RFX blocks
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
@@ -123,16 +123,16 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 			return RFXAddOutput{}, err
 		}
 		meta.Parent = p.link
-		if normID(in.Project) == "" && p.project != "" {
-			in.Project = p.project.Target()
+		if normID(in.Goal) == "" && p.project != "" {
+			in.Goal = p.project.Target()
 		}
 	}
-	if p := normID(in.Project); p != "" {
-		links, err := existingLinks(ctx, d, "project", []string{p})
+	if p := normID(in.Goal); p != "" {
+		links, err := existingLinks(ctx, d, "goal", []string{p})
 		if err != nil {
 			return RFXAddOutput{}, err
 		}
-		meta.Project = links[0]
+		meta.Goal = links[0]
 	}
 	warn := false
 	if meta.SelfServeCheck == "" {

@@ -15,8 +15,8 @@ func TestAgentAnswerNeedsSources(t *testing.T) {
 	d, proj, _ := questionVault(t)
 	agent := agentOf(d)
 	note := must(t, NoteAdd, d, NoteAddInput{Title: "Runbook", Body: "Window is Saturday."}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj, Options: []string{"Sat", "Sun"}}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Schedule", DependsOn: []string{q}}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj, Options: []string{"Sat", "Sun"}}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Schedule", DependsOn: []string{q}}).ID
 
 	// No source, no answer.
 	for name, src := range map[string][]model.AnswerSource{
@@ -53,7 +53,7 @@ func TestAgentAnswerNeedsSources(t *testing.T) {
 	}
 
 	// The owner's words in the chat are a source.
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which team", Project: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which team", Goal: proj}).ID
 	must(t, QuestionAnswer, agent, QuestionAnswerInput{ID: q2, Text: "Platform.", Sources: []model.AnswerSource{{Ref: "Owner in chat", Quote: "It is the platform team."}}})
 	sh = must(t, QuestionShow, d, QuestionShowInput{ID: q2})
 	if sh.Question.Status != model.QuestionAnswered || !strings.Contains(sh.Body, OwnerInChat) || !strings.Contains(sh.Body, "It is the platform team.") {
@@ -78,8 +78,8 @@ func TestAgentAnswerNeedsSources(t *testing.T) {
 func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 	d := targetDeps(t)
 	agent := agentOf(d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Can it launch?", Project: proj}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Can it launch?", Goal: proj}).ID
 	ask := must(t, QuestionAsk, d, QuestionAskInput{ID: q, To: "person-ada-example", Via: "email", Route: "domain-logging"})
 	must(t, RFXTargetState, d, RFXTargetStateInput{ID: ask.RFX, To: "person-ada-example", State: "sent"})
 	in := RFXReplyInput{ID: ask.RFX, From: "person-ada-example", Outcome: ReplyAnswered, Text: "Yes."}
@@ -99,7 +99,7 @@ func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 		t.Fatalf("question = %+v\n%s", sh.Question, sh.Body)
 	}
 
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Who owns it?", Project: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Who owns it?", Goal: proj}).ID
 	m := must(t, MeetingAdd, d, MeetingAddInput{Title: "Sync", With: []string{"person-ada-example"}, Start: "2026-11-05T10:00:00Z", End: "2026-11-05T10:30:00Z"})
 	if _, err := MeetingHold.Run(ctx, agent, MeetingHoldInput{ID: m.ID, Answers: []QuestionAnswerInput{{ID: q2, Text: "Ada"}}}); !errors.Is(err, ErrNoSource) {
 		t.Fatalf("hold err = %v", err)
@@ -112,9 +112,9 @@ func TestReplyAndHoldNeedSourcesFromAgents(t *testing.T) {
 
 func TestQuestionDependsAndEdit(t *testing.T) {
 	d, proj, _ := questionVault(t)
-	a := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Measure"}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the size", Project: proj}).ID
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the vendor", Project: proj}).ID
+	a := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Measure"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the size", Goal: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the vendor", Goal: proj}).ID
 	must(t, QuestionDependsAdd, d, QuestionDependsInput{ID: q, DependsOn: []string{a}})
 	must(t, QuestionDependsAdd, d, QuestionDependsInput{ID: q2, DependsOn: []string{q}})
 	if _, err := QuestionDependsAdd.Run(ctx, d, QuestionDependsInput{ID: q, DependsOn: []string{q2}}); err == nil || !strings.Contains(err.Error(), "cycle") {
@@ -159,8 +159,8 @@ func TestQuestionDependsAndEdit(t *testing.T) {
 
 func TestTaskToQuestionKeepsDependencies(t *testing.T) {
 	d, proj, _ := questionVault(t)
-	dep := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Measure"}).ID
-	old := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Decide size", DependsOn: []string{dep}}).ID
+	dep := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Measure"}).ID
+	old := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Decide size", DependsOn: []string{dep}}).ID
 	out := must(t, TaskToQuestion, d, TaskToQuestionInput{ID: old, Title: "Which size?"})
 	sh := must(t, QuestionShow, d, QuestionShowInput{ID: out.Question})
 	if sh.Question.Title != "Which size?" || len(sh.Question.DependsOn) != 1 || sh.Question.DependsOn[0] != dep {

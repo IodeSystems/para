@@ -205,19 +205,19 @@ func matters(m model.Meta) string {
 	var ls []model.Link
 	switch x := m.(type) {
 	case *model.Task:
-		ls = []model.Link{x.Project, x.Area, x.Parent}
+		ls = []model.Link{x.Goal, x.Area, x.Parent}
 	case *model.Obligation:
-		ls = []model.Link{x.Project, x.Area, x.Parent}
+		ls = []model.Link{x.Goal, x.Area, x.Parent}
 	case *model.RFX:
-		ls = []model.Link{x.Project, x.Parent}
+		ls = []model.Link{x.Goal, x.Parent}
 	case *model.Question:
 		if x.Scope != model.ScopeRoot {
 			ls = []model.Link{x.Scope}
 		}
-	case *model.Project:
+	case *model.Goal:
 		ls = []model.Link{x.Area}
 	case *model.Note:
-		ls = []model.Link{x.Project, x.Area}
+		ls = []model.Link{x.Goal, x.Area}
 	case *model.Incident:
 		ls = []model.Link{x.Area}
 	}

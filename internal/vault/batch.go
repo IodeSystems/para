@@ -54,6 +54,7 @@ func (v *Vault) batchDir(batch string) string { return filepath.Join(v.stateDir,
 // Scan calls fn for each document that decodes. A file that does not decode is
 // skipped: lint reports it. It reads only, so it works on a read-only vault.
 func (v *Vault) Scan(_ context.Context, fn func(model.Document) error) error {
+	leg := v.legacy()
 	files, err := v.docFiles()
 	if err != nil {
 		return fmt.Errorf("vault: scan: %w", err)
@@ -64,7 +65,7 @@ func (v *Vault) Scan(_ context.Context, fn func(model.Document) error) error {
 			return fmt.Errorf("vault: scan: %w", err)
 		}
 		pf := paramd.Parse(f.rel, data)
-		d, err := decodeFile(f, pf)
+		d, err := decodeFile(f, pf, leg)
 		if err != nil {
 			continue
 		}
@@ -116,13 +117,14 @@ func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn mo
 		for _, f := range files {
 			taken[strings.ToLower(f.id)] = true
 		}
+		leg := v.legacy()
 		for _, f := range files {
 			old, err := os.ReadFile(v.abs(f.rel))
 			if err != nil {
 				return err
 			}
 			pf := paramd.Parse(f.rel, old)
-			d, err := decodeFile(f, pf)
+			d, err := decodeFile(f, pf, leg)
 			if err != nil {
 				continue
 			}
@@ -140,6 +142,9 @@ func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn mo
 					return fmt.Errorf("%s: unknown folder %q", f.id, nd.Folder)
 				}
 				to = nd.Folder
+				if leg {
+					to = legacyFolder(to)
+				}
 			}
 			nd.ID, nd.Folder = f.id, to
 			nd.Meta.Header().Updated = v.today()
@@ -150,7 +155,7 @@ func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn mo
 					return fmt.Errorf("%s: %s already exists", f.id, entry.To)
 				}
 			}
-			data, err := renderChecked(entry.at(), nd, nil)
+			data, err := renderChecked(entry.at(), nd, nil, leg)
 			if err != nil {
 				return fmt.Errorf("%s: %w", f.id, err)
 			}
@@ -175,8 +180,11 @@ func (v *Vault) RewriteExpand(ctx context.Context, batch string, dry bool, fn mo
 				if n.Meta.Header().Created == "" {
 					n.Meta.Header().Created = v.today()
 				}
+				if leg {
+					n.Folder = legacyFolder(n.Folder)
+				}
 				rel := path.Join(string(n.Folder), n.ID+".md")
-				data, err := renderChecked(rel, n, nil)
+				data, err := renderChecked(rel, n, nil, leg)
 				if err != nil {
 					return fmt.Errorf("%s: new document %s: %w", f.id, n.ID, err)
 				}
@@ -409,6 +417,7 @@ func (v *Vault) UnsetConfig(ctx context.Context, key string) error {
 // sets key, or -1.
 func (v *Vault) editConfig(ctx context.Context, what, key string, edit func(lines []string, at int) []string) error {
 	p := filepath.Join(v.root, dirState, "vault.properties")
+	defer v.format.reset()
 	err := v.lock(ctx, func() error {
 		data, err := os.ReadFile(p)
 		if err != nil {

@@ -126,7 +126,7 @@ type DocTrackInput struct {
 	Owner     string          `json:"owner,omitempty"`
 	Watchers  []string        `json:"watchers,omitempty"` // person ids
 	Area      string          `json:"area,omitempty"`
-	Project   string          `json:"project,omitempty"`
+	Goal      string          `json:"goal,omitempty"`
 	Route     string          `json:"route,omitempty"` // domain an Ask from a comment goes to
 	Note      string          `json:"note,omitempty"`  // what the document is to the owner; the body
 	Fidelity  model.Fidelity  `json:"fidelity,omitempty"`
@@ -143,7 +143,7 @@ type DocTrackOutput struct {
 }
 
 // DocTrack starts tracking a remote document with the text the agent read.
-var DocTrack = defineSafe("doc_track", "Start tracking a remote document (a wiki page, ticket, pull request, or comment): url, the text you read with your own tools (version 1, the original), system, and optional via, owner, watchers, area, project. Para fetches nothing", func(ctx context.Context, d Deps, in DocTrackInput) (DocTrackOutput, error) {
+var DocTrack = defineSafe("doc_track", "Start tracking a remote document (a wiki page, ticket, pull request, or comment): url, the text you read with your own tools (version 1, the original), system, and optional via, owner, watchers, area, goal. Para fetches nothing", func(ctx context.Context, d Deps, in DocTrackInput) (DocTrackOutput, error) {
 	u, err := checkURL(in.URL)
 	if err != nil {
 		return DocTrackOutput{}, err
@@ -195,7 +195,7 @@ var DocTrack = defineSafe("doc_track", "Start tracking a remote document (a wiki
 	if m.Area, err = linkTo(ctx, d, "area", in.Area, model.TypeArea); err != nil {
 		return DocTrackOutput{}, err
 	}
-	if m.Project, err = linkTo(ctx, d, "project", in.Project, model.TypeProject); err != nil {
+	if m.Goal, err = linkTo(ctx, d, "goal", in.Goal, model.TypeGoal); err != nil {
 		return DocTrackOutput{}, err
 	}
 	title := ioLine(in.Title)
@@ -360,7 +360,7 @@ type TrackedView struct {
 	Status   model.DocStatus `json:"status"`
 	Owner    string          `json:"owner,omitempty"` // id
 	Area     string          `json:"area,omitempty"`
-	Project  string          `json:"project,omitempty"`
+	Goal     string          `json:"goal,omitempty"`
 	Latest   int             `json:"latest"`
 	LastSeen int             `json:"last_seen"`
 	Unseen   int             `json:"unseen"` // versions after last_seen
@@ -375,7 +375,7 @@ type TrackedView struct {
 
 func trackedView(doc model.Document, m *model.TrackedDoc) TrackedView {
 	v := TrackedView{ID: doc.ID, Title: doc.Title, URL: m.URL, System: m.System, Status: m.Status, Owner: m.Owner.Target(),
-		Area: m.Area.Target(), Project: m.Project.Target(), Latest: m.Latest, LastSeen: m.LastSeen, Unseen: max(0, m.Latest-m.LastSeen),
+		Area: m.Area.Target(), Goal: m.Goal.Target(), Latest: m.Latest, LastSeen: m.LastSeen, Unseen: max(0, m.Latest-m.LastSeen),
 		Checked: m.Checked, SeenAt: m.SeenAt, Created: m.Created}
 	for _, c := range m.Comments {
 		if c.Open() {

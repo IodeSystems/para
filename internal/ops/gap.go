@@ -83,8 +83,8 @@ func itemGaps(doc model.Document) []string {
 		if m.Status == model.QuestionOpen && (m.Kind == "" || m.Kind == model.KindQuestion) && !m.HasProposal() {
 			out = append(out, GapAnswer)
 		}
-	case *model.Project:
-		if m.Status == model.ProjectActive && !m.HasBrief() {
+	case *model.Goal:
+		if m.Status == model.GoalActive && !m.HasBrief() {
 			out = append(out, GapBrief)
 		}
 	}

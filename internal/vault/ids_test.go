@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -18,6 +19,9 @@ import (
 func TestChangeIDs(t *testing.T) {
 	ctx := context.Background()
 	v, root := newVault(t)
+	if err := v.SetConfig(ctx, "format_version", strconv.Itoa(model.GoalsFormat)); err != nil {
+		t.Fatal(err)
+	}
 	mk := func(d model.Document) {
 		t.Helper()
 		if _, err := v.Create(ctx, d); err != nil {
@@ -27,7 +31,7 @@ func TestChangeIDs(t *testing.T) {
 	mk(model.Document{ID: "project-x", Folder: model.FolderGoals, Title: "Ship X",
 		Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "self"}})
 	mk(model.Document{ID: "task-a", Folder: model.FolderProjects, Title: "Write it", Body: "Part of [[project-x|X]].",
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Threads: []string{"project-x"}}, Status: model.TaskTodo, Project: model.LinkTo("project-x")}})
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask, Threads: []string{"project-x"}}, Status: model.TaskTodo, Goal: model.LinkTo("project-x")}})
 	mk(model.Document{ID: "receipt-a", Folder: model.FolderReceipts, Title: "Receipt",
 		Meta: &model.Receipt{Common: model.Common{Type: model.TypeReceipt}, Actor: "claude", Op: "task_add", Doc: "project-x", Check: model.ReceiptUnchecked}})
 

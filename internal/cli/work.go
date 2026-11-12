@@ -61,56 +61,58 @@ func assigneeSuffix(t ops.TaskView) string {
 	return ""
 }
 
-// scope is where a task lives: its project, else its area.
+// scope is where a task lives: its goal, else its area.
 func scope(t ops.TaskView) string {
-	if t.Project != "" {
-		return t.Project
+	if t.Goal != "" {
+		return t.Goal
 	}
 	return t.Area
 }
 
-func newProjectCmd(l *loader) *cobra.Command {
-	cmd := &cobra.Command{Use: "project", Short: "Goals (projects): bounded outcomes with a done condition", Args: cobra.NoArgs}
-	cmd.AddCommand(
-		newLinkCmd(l, ops.ProjectLinkAdd, ops.ProjectLinkRemove),
-		opCommand(l, ops.ProjectAdd, binding[ops.ProjectAddInput, ops.ProjectAddOutput]{
+// goalCommands are the goal commands of `para goal` (newGoalCmd): goals are
+// bounded outcomes with a done condition.
+func goalCommands(l *loader) []*cobra.Command {
+	return []*cobra.Command{
+		newLinkCmd(l, ops.GoalLinkAdd, ops.GoalLinkRemove),
+		opCommand(l, ops.GoalAdd, binding[ops.GoalAddInput, ops.GoalAddOutput]{
 			Use:  "add <title>",
 			Args: cobra.MinimumNArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProjectAddInput) {
-				fs.StringVar(&in.Owner, "owner", "", "project owner (default: the vault's owner property, else self)")
+			Flags: func(fs *pflag.FlagSet, in *ops.GoalAddInput) {
+				fs.StringVar(&in.Owner, "owner", "", "goal owner (default: the vault's owner property, else self)")
 				fs.StringVar(&in.Area, "area", "", "id of the goal's home, an area of kind project")
+				fs.StringVar(&in.Project, "project", "", "id of the ongoing project the goal belongs to (vault format 11)")
 				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on (repeat or comma-separate)")
 				fs.StringVar(&in.Body, "body", "", "text after the title")
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required); a goal that never finishes is an area")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 			},
-			Bind: func(args []string, in *ops.ProjectAddInput) error {
+			Bind: func(args []string, in *ops.GoalAddInput) error {
 				in.Title = strings.Join(args, " ")
 				return nil
 			},
-			Text: printID(func(o ops.ProjectAddOutput) string { return o.ID }),
+			Text: printID(func(o ops.GoalAddOutput) string { return o.ID }),
 		}),
-		opCommand(l, ops.ProjectEdit, binding[ops.ProjectEditInput, ops.ProjectEditOutput]{
+		opCommand(l, ops.GoalEdit, binding[ops.GoalEditInput, ops.GoalEditOutput]{
 			Use:  "edit <id> [--done-when <text>] [--due <date>] [--area <id>] [--concepts <ids>]",
 			Args: cobra.ExactArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProjectEditInput) {
+			Flags: func(fs *pflag.FlagSet, in *ops.GoalEditInput) {
 				fs.StringVar(&in.DoneWhen, "done-when", "", "how we know the goal is reached (required unless you change only the date, area, or concepts)")
 				fs.StringVar(&in.Due, "due", "", "YYYY-MM-DD the goal is due")
 				fs.BoolVar(&in.ClearDue, "clear-due", false, "remove the due date")
 				fs.StringVar(&in.Area, "area", "", "id of the goal's home, an area of kind project")
 				fs.StringSliceVar(&in.Concepts, "concepts", nil, "ids of concept areas the goal draws on; replaces the list")
 			},
-			Bind: func(args []string, in *ops.ProjectEditInput) error { in.ID = args[0]; return nil },
-			Text: printID(func(o ops.ProjectEditOutput) string { return o.ID }),
+			Bind: func(args []string, in *ops.GoalEditInput) error { in.ID = args[0]; return nil },
+			Text: printID(func(o ops.GoalEditOutput) string { return o.ID }),
 		}),
-		opCommand(l, ops.ProjectList, binding[ops.ProjectListInput, ops.ProjectListOutput]{
+		opCommand(l, ops.GoalList, binding[ops.GoalListInput, ops.GoalListOutput]{
 			Use:  "list",
 			Args: cobra.NoArgs,
-			Flags: func(fs *pflag.FlagSet, in *ops.ProjectListInput) {
-				fs.BoolVar(&in.All, "all", false, "include archived projects")
+			Flags: func(fs *pflag.FlagSet, in *ops.GoalListInput) {
+				fs.BoolVar(&in.All, "all", false, "include archived goals")
 			},
-			Text: func(w io.Writer, out ops.ProjectListOutput) error {
-				for _, p := range out.Projects {
+			Text: func(w io.Writer, out ops.GoalListOutput) error {
+				for _, p := range out.Goals {
 					if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", p.ID, p.Status, p.Owner, p.Title); err != nil {
 						return err
 					}
@@ -118,12 +120,12 @@ func newProjectCmd(l *loader) *cobra.Command {
 				return nil
 			},
 		}),
-		opCommand(l, ops.ProjectShow, binding[ops.ProjectShowInput, ops.ProjectShowOutput]{
+		opCommand(l, ops.GoalShow, binding[ops.GoalShowInput, ops.GoalShowOutput]{
 			Use:  "show <id>",
 			Args: cobra.ExactArgs(1),
-			Bind: func(args []string, in *ops.ProjectShowInput) error { in.ID = args[0]; return nil },
-			Text: func(w io.Writer, out ops.ProjectShowOutput) error {
-				p := out.Project
+			Bind: func(args []string, in *ops.GoalShowInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.GoalShowOutput) error {
+				p := out.Goal
 				if _, err := fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", p.ID, p.Status, p.Owner, p.Folder, p.Title); err != nil {
 					return err
 				}
@@ -131,7 +133,7 @@ func newProjectCmd(l *loader) *cobra.Command {
 				if p.DoneWhen != "" {
 					pr.f("done when\t%s\n", p.DoneWhen)
 				} else {
-					pr.f("done when\t(none: set one with para project edit %s --done-when <text>)\n", p.ID)
+					pr.f("done when\t(none: set one with para goal edit %s --done-when <text>)\n", p.ID)
 				}
 				writeLinks(pr, p.Links)
 				writeBrief(pr, p.Brief)
@@ -145,21 +147,20 @@ func newProjectCmd(l *loader) *cobra.Command {
 				return writeTasks(w, out.Tasks)
 			},
 		}),
-		opCommand(l, ops.ProjectClose, binding[ops.ProjectCloseInput, ops.ProjectCloseOutput]{
+		opCommand(l, ops.GoalClose, binding[ops.GoalCloseInput, ops.GoalCloseOutput]{
 			Use:  "close <id>",
 			Args: cobra.ExactArgs(1),
-			Flags: func(fs *pflag.FlagSet, in *ops.ProjectCloseInput) {
+			Flags: func(fs *pflag.FlagSet, in *ops.GoalCloseInput) {
 				fs.BoolVar(&in.Dropped, "dropped", false, "close as dropped, not done")
 				fs.BoolVar(&in.Force, "force", false, "close with open tasks")
 			},
-			Bind: func(args []string, in *ops.ProjectCloseInput) error { in.ID = args[0]; return nil },
-			Text: func(w io.Writer, out ops.ProjectCloseOutput) error {
+			Bind: func(args []string, in *ops.GoalCloseInput) error { in.ID = args[0]; return nil },
+			Text: func(w io.Writer, out ops.GoalCloseOutput) error {
 				_, err := fmt.Fprintf(w, "%s\t%s\t%s\n", out.ID, out.Status, out.Folder)
 				return err
 			},
 		}),
-	)
-	return cmd
+	}
 }
 
 func changeText(w io.Writer, out ops.TaskChangeOutput) error {
@@ -173,7 +174,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 		opCommand(l, ops.TaskMove, binding[ops.TaskMoveInput, ops.TaskMoveOutput]{
 			Use: "move <id>... (--project <id> | --area <id>)", Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskMoveInput) {
-				fs.StringVarP(&in.Project, "project", "p", "", "move to this goal (project id)")
+				fs.StringVarP(&in.Goal, "project", "p", "", "move to this goal (project id)")
 				fs.StringVar(&in.Area, "area", "", "move to this area id")
 			},
 			Bind: func(args []string, in *ops.TaskMoveInput) error { in.IDs = args; return nil },
@@ -187,7 +188,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Args: cobra.ArbitraryArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskAddInput) {
 				fs.StringVar(&in.Title, "title", "", "the title (same as <title>)")
-				fs.StringVarP(&in.Project, "project", "p", "", "project id (a task needs a project or an area)")
+				fs.StringVarP(&in.Goal, "project", "p", "", "project id (a task needs a project or an area)")
 				fs.StringVar(&in.Area, "area", "", "area id")
 				fs.StringVar(&in.Due, "due", "", "due date YYYY-MM-DD")
 				fs.StringVar(&in.Recur, "recur", "", "recurrence: daily, weekly, monthly, quarterly, yearly, or \"every <n> days\"; done makes the next task")
@@ -237,7 +238,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Use:  "list",
 			Args: cobra.NoArgs,
 			Flags: func(fs *pflag.FlagSet, in *ops.TaskListInput) {
-				fs.StringVarP(&in.Project, "project", "p", "", "only this project")
+				fs.StringVarP(&in.Goal, "project", "p", "", "only this project")
 				fs.StringVar(&in.Area, "area", "", "only tasks with this area of their own")
 				fs.StringVar((*string)(&in.Status), "status", "", "only this status")
 				fs.BoolVar(&in.Open, "open", false, "only open tasks: todo, doing, blocked")
@@ -264,7 +265,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 			Text: func(w io.Writer, out ops.TaskShowOutput) error {
 				t := out.Task
 				_, err := fmt.Fprintf(w, "%s\t%s\t%s\nproject\t%s\narea\t%s\ndue\t%s\nrecur\t%s\nprevious\t%s\nincident\t%s\nassignee\t%s\ndepends_on\t%s\nblocked_by\t%s\ndone_when\t%s\n%s\n",
-					t.ID, t.Status, t.Title, dash(t.Project), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), dash(t.DoneWhen), out.Body)
+					t.ID, t.Status, t.Title, dash(t.Goal), dash(t.Area), dash(string(t.Due)), dash(t.Recur), dash(t.Previous), dash(t.Incident), orSelf(t.Assignee), joinOrDash(t.DependsOn), joinOrDash(t.BlockedBy), dash(t.DoneWhen), out.Body)
 				if err == nil && (t.DoURL != "" || t.DoCommand != "" || t.Steps != "") {
 					_, err = fmt.Fprintf(w, "do_url\t%s\ndo_command\t%s\nsteps\t%s\n", dash(t.DoURL), dash(t.DoCommand), dash(t.Steps))
 				}
@@ -560,7 +561,7 @@ func newGraphCmd(l *loader) *cobra.Command {
 		},
 		Bind: func(args []string, in *ops.GraphInput) error {
 			if len(args) == 1 {
-				in.Project = args[0]
+				in.Goal = args[0]
 			}
 			return nil
 		},
@@ -592,7 +593,7 @@ func newNextCmd(l *loader) *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		Bind: func(args []string, in *ops.NextInput) error {
 			if len(args) == 1 {
-				in.Project = args[0]
+				in.Goal = args[0]
 			}
 			return nil
 		},

@@ -26,7 +26,7 @@ func reasonDeps(t *testing.T) Deps {
 func bareTask(t *testing.T, d Deps, title string) string {
 	t.Helper()
 	doc, err := d.Store.Create(ctx, model.Document{Folder: model.FolderProjects, Title: title,
-		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, DoneWhen: "Done.", Project: model.LinkTo("project-gone")}})
+		Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, DoneWhen: "Done.", Goal: model.LinkTo("project-gone")}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,10 +48,10 @@ func reasonKinds(rs []Reason) []string {
 
 func TestContextCameFromIOAndRequestedBy(t *testing.T) {
 	d := reasonDeps(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	io := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Medium: model.MediumEmail, Text: "Please fix the login page",
 		From: "person-bo-example", Ref: "https://mail.example.com/m/1", At: "2026-11-05T10:00:00Z"}).ID
-	f := must(t, IOFile, d, IOFileInput{ID: io, To: TriageTask, Project: proj, DoneWhen: "Login works."})
+	f := must(t, IOFile, d, IOFileInput{ID: io, To: TriageTask, Goal: proj, DoneWhen: "Login works."})
 	_, task, err := getTask(ctx, d.Store, f.Became)
 	if err != nil {
 		t.Fatal(err)
@@ -78,14 +78,14 @@ func TestContextCameFromIOAndRequestedBy(t *testing.T) {
 
 	// Filing into an existing task changes nothing on it; the filer's
 	// requested_by wins on a new one.
-	other := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Existing", DoneWhen: "Done.", RequestedBy: "VP eng"}).ID
+	other := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Existing", DoneWhen: "Done.", RequestedBy: "VP eng"}).ID
 	io2 := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Also this", From: "person-ada-example"}).ID
 	must(t, IOFile, d, IOFileInput{ID: io2, Existing: other})
 	if _, tk, _ := getTask(ctx, d.Store, other); tk.RequestedBy != "VP eng" {
 		t.Errorf("existing requested_by = %q", tk.RequestedBy)
 	}
 	io3 := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Third", From: "person-ada-example"}).ID
-	f3 := must(t, IOFile, d, IOFileInput{ID: io3, To: TriageTask, Project: proj, DoneWhen: "Done.", RequestedBy: "person-cy-example"})
+	f3 := must(t, IOFile, d, IOFileInput{ID: io3, To: TriageTask, Goal: proj, DoneWhen: "Done.", RequestedBy: "person-cy-example"})
 	if _, tk, _ := getTask(ctx, d.Store, f3.Became); tk.RequestedBy != "[[person-cy-example]]" {
 		t.Errorf("filer requested_by = %q", tk.RequestedBy)
 	}
@@ -102,8 +102,8 @@ func TestContextCameFromIOAndRequestedBy(t *testing.T) {
 func TestContextWhyChain(t *testing.T) {
 	d := reasonDeps(t)
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Infra"}).ID
-	goal := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example", Due: "2026-12-01"}).ID
-	parent := must(t, TaskAdd, d, TaskAddInput{Project: goal, Title: "Ship it", DoneWhen: "Shipped."}).ID
+	goal := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Launch", Owner: "Jordan Example", Due: "2026-12-01"}).ID
+	parent := must(t, TaskAdd, d, TaskAddInput{Goal: goal, Title: "Ship it", DoneWhen: "Shipped."}).ID
 	kid := bareTask(t, d, "Write the notes")
 	doc, tk, _ := getTask(ctx, d.Store, kid)
 	tk.Parent = model.LinkTo(parent)
@@ -205,13 +205,13 @@ func TestOwnerMediumsNeedNoRef(t *testing.T) {
 	}
 	// Filed into a new task, the swivel item says where it came from and
 	// sets no requested_by (from is a system).
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Budget", Owner: "Jordan Example"}).ID
-	f := must(t, IOFile, d, IOFileInput{ID: sw.ID, To: TriageTask, Project: proj, DoneWhen: "Done."})
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Budget", Owner: "Jordan Example"}).ID
+	f := must(t, IOFile, d, IOFileInput{ID: sw.ID, To: TriageTask, Goal: proj, DoneWhen: "Done."})
 	c := itemContext(t, d, f.Became)
 	if len(c.CameFrom) != 1 || !strings.HasPrefix(c.CameFrom[0].Text, "Carried over by hand from the finance tracker") || len(c.For) != 0 {
 		t.Errorf("swivel context = %+v", c)
 	}
-	f2 := must(t, IOFile, d, IOFileInput{ID: vb.ID, To: TriageTask, Project: proj, DoneWhen: "Done."})
+	f2 := must(t, IOFile, d, IOFileInput{ID: vb.ID, To: TriageTask, Goal: proj, DoneWhen: "Done."})
 	if c := itemContext(t, d, f2.Became); len(c.CameFrom) != 1 || !strings.HasPrefix(c.CameFrom[0].Text, "Conversation with Ada Example") {
 		t.Errorf("verbal context = %+v", c.CameFrom)
 	}

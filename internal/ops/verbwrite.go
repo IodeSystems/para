@@ -20,7 +20,7 @@ import (
 
 // --- add ---
 
-// AddType is the type of item add makes. goal is project; ask is rfx.
+// AddType is the type of item add makes. ask is rfx.
 type AddType string
 
 // AddTypes lists every AddType.
@@ -68,22 +68,23 @@ const addJoinBody = "join"
 
 func addRoutes() map[AddType]addRoute {
 	task := addRoute{op: TaskAdd, typ: model.TypeTask, title: "title", body: "body", parents: map[model.Type]string{
-		model.TypeProject: "project", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent", model.TypeIncident: "incident"}}
-	project := addRoute{op: ProjectAdd, typ: model.TypeProject, title: "title", body: "body", parents: map[model.Type]string{model.TypeArea: "area"}}
+		model.TypeGoal: "goal", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent", model.TypeIncident: "incident"}}
 	rfx := addRoute{op: RFXAdd, typ: model.TypeRFX, title: "ask", body: addJoinBody, parents: map[model.Type]string{
-		model.TypeProject: "project", model.TypeTask: "parent", model.TypeObligation: "parent"}}
+		model.TypeGoal: "goal", model.TypeTask: "parent", model.TypeObligation: "parent"}}
 	return map[AddType]addRoute{
 		"task": task,
 		"question": {op: QuestionAdd, typ: model.TypeQuestion, title: "text", body: addJoinBody, parents: map[model.Type]string{
-			model.TypeProject: "project", model.TypeArea: "area", model.TypeTask: "task"}},
-		"project": project, "goal": project,
-		"area":   {op: AreaAdd, typ: model.TypeArea, title: "title", body: "body"},
-		"person": {op: OrgPersonAdd, typ: model.TypePerson, title: "name"},
-		"group":  {op: OrgGroupAdd, typ: model.TypeGroup, title: "name"},
+			model.TypeGoal: "goal", model.TypeArea: "area", model.TypeTask: "task"}},
+		"goal": {op: GoalAdd, typ: model.TypeGoal, title: "title", body: "body", parents: map[model.Type]string{
+			model.TypeArea: "area", model.TypeProject: "project"}},
+		"project": {op: ProjectAdd, typ: model.TypeProject, title: "title", body: "body", parents: map[model.Type]string{model.TypeArea: "area"}},
+		"area":    {op: AreaAdd, typ: model.TypeArea, title: "title", body: "body"},
+		"person":  {op: OrgPersonAdd, typ: model.TypePerson, title: "name"},
+		"group":   {op: OrgGroupAdd, typ: model.TypeGroup, title: "name"},
 		"obligation": {op: ObligationAdd, typ: model.TypeObligation, title: "title", body: "body", parents: map[model.Type]string{
-			model.TypeProject: "project", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent"}},
+			model.TypeGoal: "goal", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent"}},
 		"note": {op: NoteAdd, typ: model.TypeNote, title: "title", body: "body", tags: true, parents: map[model.Type]string{
-			model.TypeProject: "project", model.TypeArea: "area"}},
+			model.TypeGoal: "goal", model.TypeArea: "area"}},
 		"rfx": rfx, "ask": rfx,
 		// An io item's title is the first line of its text; parent is the
 		// item it answers or acts on (thread).
@@ -94,7 +95,7 @@ func addRoutes() map[AddType]addRoute {
 
 // Add makes an item of any type by that type's add op.
 var Add = func() *Op[AddInput, AddOutput] {
-	op := define("add", "Add an item of type. parent sets its project, area, or parent; do not repeat it in fields. A task needs fields.done_when", runAdd)
+	op := define("add", "Add an item of type. parent sets its goal, area, or parent; do not repeat it in fields. A task needs fields.done_when", runAdd)
 	// The type's add op gates and files the receipt; add does neither.
 	op.verb = true
 	return op
@@ -219,7 +220,7 @@ type EditInput struct {
 // editOps is the edit op of each type that has one. Others edit by doc_edit.
 func editOps() map[model.Type]Entry {
 	return map[model.Type]Entry{
-		model.TypeTask: TaskEdit, model.TypeProject: ProjectEdit, model.TypeQuestion: QuestionEdit,
+		model.TypeTask: TaskEdit, model.TypeGoal: GoalEdit, model.TypeQuestion: QuestionEdit,
 		model.TypeNote: NoteEdit, model.TypePerson: OrgPersonEdit, model.TypeIO: IOEdit,
 	}
 }
@@ -356,7 +357,7 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 	if rel == "" {
 		rel = RelDependsOn
 		switch typ {
-		case model.TypeArea, model.TypeProject, model.TypeIncident:
+		case model.TypeArea, model.TypeGoal, model.TypeIncident:
 			rel = RelLink
 		case model.TypeIO:
 			rel = RelBecame
@@ -394,8 +395,8 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 		switch typ {
 		case model.TypeArea:
 			add, rm = AreaLinkAdd, AreaLinkRemove
-		case model.TypeProject:
-			add, rm = ProjectLinkAdd, ProjectLinkRemove
+		case model.TypeGoal:
+			add, rm = GoalLinkAdd, GoalLinkRemove
 		case model.TypeIncident:
 			add, rm = IncidentLinkAdd, IncidentLinkRemove
 		default:

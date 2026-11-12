@@ -27,7 +27,7 @@ func TestSourcesAndEvidenceTakeLocalFiles(t *testing.T) {
 	}
 	t.Setenv("HOME", home)
 
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
 	for name, ref := range map[string]string{
 		"relative":  "notes/window.md",
 		"missing":   filepath.Join(dir, "nope.md"),

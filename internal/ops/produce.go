@@ -407,7 +407,7 @@ func produceAsk(ctx context.Context, d Deps, doc model.Document, o *model.Obliga
 		}
 	}
 	var inputs []string
-	if l := o.Project.Target(); l != "" {
+	if l := o.Goal.Target(); l != "" {
 		inputs = append(inputs, "the goal [["+l+"]] and its open items")
 	}
 	if l := o.Area.Target(); l != "" {

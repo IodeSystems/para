@@ -41,7 +41,7 @@ func TestMarkerStepRaisesFormatAndNewerRefuses(t *testing.T) {
 			t.Fatal(err)
 		}
 		switch m := d.Meta.(type) {
-		case *model.Project:
+		case *model.Goal:
 			m.DoneWhen = "Shipped."
 		case *model.Task:
 			m.DoneWhen = "Done."

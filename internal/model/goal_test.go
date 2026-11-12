@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestGoalDecodes(t *testing.T) {
@@ -29,14 +31,64 @@ func TestGoalDecodes(t *testing.T) {
 	}
 }
 
-// A type: project file stays the legacy goal until the flip (plan/paralog.md).
-func TestProjectIsLegacyGoalUntilFlip(t *testing.T) {
-	d, err := Decode("project-x", FolderProjects, []byte("type: project\ncreated: 2026-11-11\nstatus: active\nowner: self\ndone_when: shipped\n"), "X", "")
+// A type: project file is the ongoing project. Below format 11 the vault
+// reads it as a goal through LegacyRead.
+func TestProjectDecodes(t *testing.T) {
+	fm := "type: project\ncreated: 2026-11-11\nstatus: active\nowner: self\nstate_line: on track\n"
+	d, err := Decode("project-x", FolderProjects, []byte(fm), "X", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p, ok := d.Meta.(*Project); !ok || p.DoneWhen != "shipped" {
+	if p, ok := d.Meta.(*Project); !ok || p.StateLine != "on track" || !p.Active() {
 		t.Fatalf("meta %T %+v", d.Meta, d.Meta)
+	}
+	if FolderOf(TypeProject) != FolderProjects || FolderOf(TypeTask) != FolderGoals {
+		t.Errorf("folders %s %s", FolderOf(TypeProject), FolderOf(TypeTask))
+	}
+}
+
+// Below format 11 a goal is type project and a task links it with project:.
+// LegacyRead reads both in the format-11 form; LegacyWrite writes them back.
+func TestLegacyGoalRoundTrip(t *testing.T) {
+	var doc yaml.Node
+	if err := yaml.Unmarshal([]byte("type: project\ncreated: 2026-11-11\nstatus: done\nowner: self\ndone_when: shipped\n"), &doc); err != nil {
+		t.Fatal(err)
+	}
+	root := doc.Content[0]
+	d, err := DecodeNode("project-x", FolderProjects, LegacyRead(root), "X", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, ok := d.Meta.(*Goal)
+	if !ok || g.DoneWhen != "shipped" || g.Status != GoalDone || g.Type != TypeGoal {
+		t.Fatalf("meta %T %+v", d.Meta, d.Meta)
+	}
+	if root.Content[1].Value != "project" {
+		t.Errorf("LegacyRead changed its input: %s", root.Content[1].Value)
+	}
+	out, err := Render(LegacyWrite(d))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "type: project\n") || g.Type != TypeGoal {
+		t.Errorf("legacy write:\n%s", out)
+	}
+	if err := yaml.Unmarshal([]byte("type: task\ncreated: 2026-11-11\nstatus: todo\nproject: \"[[project-x]]\"\n"), &doc); err != nil {
+		t.Fatal(err)
+	}
+	td, err := DecodeNode("task-a", FolderProjects, LegacyRead(doc.Content[0]), "A", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tk := td.Meta.(*Task); tk.Goal.Target() != "project-x" || tk.Project != "" {
+		t.Fatalf("task %+v", tk)
+	}
+	out, err = Render(LegacyWrite(td))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "project: '[[project-x]]'") && !strings.Contains(string(out), `project: "[[project-x]]"`) || strings.Contains(string(out), "goal:") {
+		t.Errorf("legacy task write:\n%s", out)
 	}
 }
 

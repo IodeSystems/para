@@ -33,13 +33,13 @@ func activeGoalLimit(s store.Store) (int, error) {
 // isActiveGoal reports whether d is a goal that counts toward the limit on the
 // date today (YYYY-MM-DD).
 func isActiveGoal(d model.Document, today string) bool {
-	p, ok := d.Meta.(*model.Project)
-	return ok && p.Status == model.ProjectActive && !p.IsDeferred(today)
+	p, ok := d.Meta.(*model.Goal)
+	return ok && p.Status == model.GoalActive && !p.IsDeferred(today)
 }
 
 // activeGoalCount counts the active goals of the vault.
 func activeGoalCount(ctx context.Context, s store.Store, today string) (int, error) {
-	refs, err := s.List(ctx, store.Filter{Type: model.TypeProject})
+	refs, err := s.List(ctx, store.Filter{Type: model.TypeGoal})
 	if err != nil {
 		return 0, err
 	}

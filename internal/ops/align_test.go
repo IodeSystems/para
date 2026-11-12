@@ -22,12 +22,12 @@ func alignIDs(out AlignScopeOutput) []string {
 func TestAlignScopeListsOpenItemsOfOneScope(t *testing.T) {
 	f := newAgentFix(t)
 	area := must(t, AreaAdd, f.owner, AreaAddInput{Title: "Platform"})
-	goal := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "Ship the portal", Owner: "Jordan Example", DoneWhen: "Live.", Due: "2026-11-20", Area: area.ID})
-	other := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "Unrelated goal", Owner: "Jordan Example", DoneWhen: "Done."})
-	must(t, ProjectLinkAdd, f.owner, LinkAddInput{ID: goal.ID, Label: "Repo", Kind: model.PointerRepo, Target: "https://github.example/acme/portal"})
-	task := must(t, TaskAdd, f.owner, TaskAddInput{Project: goal.ID, Title: "Cut the release", DoneWhen: "Tagged.", Due: "2026-11-10"})
-	elsewhere := must(t, TaskAdd, f.owner, TaskAddInput{Project: other.ID, Title: "Elsewhere", DoneWhen: "Done."})
-	ask := must(t, RFXAdd, f.owner, RFXAddInput{Direction: model.RFXOut, Ask: "Is the cert renewed", Project: goal.ID, Route: "domain-x", SelfServe: "wiki", NextNudge: "2026-11-05"})
+	goal := must(t, GoalAdd, f.owner, GoalAddInput{Title: "Ship the portal", Owner: "Jordan Example", DoneWhen: "Live.", Due: "2026-11-20", Area: area.ID})
+	other := must(t, GoalAdd, f.owner, GoalAddInput{Title: "Unrelated goal", Owner: "Jordan Example", DoneWhen: "Done."})
+	must(t, GoalLinkAdd, f.owner, LinkAddInput{ID: goal.ID, Label: "Repo", Kind: model.PointerRepo, Target: "https://github.example/acme/portal"})
+	task := must(t, TaskAdd, f.owner, TaskAddInput{Goal: goal.ID, Title: "Cut the release", DoneWhen: "Tagged.", Due: "2026-11-10"})
+	elsewhere := must(t, TaskAdd, f.owner, TaskAddInput{Goal: other.ID, Title: "Elsewhere", DoneWhen: "Done."})
+	ask := must(t, RFXAdd, f.owner, RFXAddInput{Direction: model.RFXOut, Ask: "Is the cert renewed", Goal: goal.ID, Route: "domain-x", SelfServe: "wiki", NextNudge: "2026-11-05"})
 	q := must(t, QuestionAdd, f.owner, QuestionAddInput{Text: "Which region", Task: task.ID})
 
 	got := must(t, AlignScope, f.agent, AlignScopeInput{Scope: goal.ID})
@@ -125,7 +125,7 @@ func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
 		t.Errorf("activity lists %d align records, want 2", n)
 	}
 	// The goal page reads the date.
-	show := must(t, ProjectShow, f.owner, ProjectShowInput{ID: f.proj})
+	show := must(t, GoalShow, f.owner, GoalShowInput{ID: f.proj})
 	if show.LastAligned != "2026-11-01" {
 		t.Errorf("last aligned = %q", show.LastAligned)
 	}
@@ -138,7 +138,7 @@ func TestAlignRecordLeavesAReceiptEvenWhenNothingChanged(t *testing.T) {
 func TestAlignedDateComesFromTheGoalItsAreaOrTheVault(t *testing.T) {
 	f := newAgentFix(t)
 	area := must(t, AreaAdd, f.owner, AreaAddInput{Title: "Platform"})
-	inArea := must(t, ProjectAdd, f.owner, ProjectAddInput{Title: "In the area", Owner: "Jordan Example", DoneWhen: "Done.", Area: area.ID})
+	inArea := must(t, GoalAdd, f.owner, GoalAddInput{Title: "In the area", Owner: "Jordan Example", DoneWhen: "Done.", Area: area.ID})
 	if got, _ := LastAligned(t.Context(), f.owner.Store, inArea.ID); got != "" {
 		t.Fatalf("before any run: %q", got)
 	}
@@ -154,8 +154,8 @@ func TestAlignedDateComesFromTheGoalItsAreaOrTheVault(t *testing.T) {
 func TestHealthNotAlignedIsOffUnlessTheVaultSetsDays(t *testing.T) {
 	rv := newReqVault(t)
 	owner := rv.as("user", "cli", "install-a")
-	goal := must(t, ProjectAdd, owner, ProjectAddInput{Title: "Portal", Owner: "Jordan Example", DoneWhen: "Done.", Due: "2026-12-01"})
-	must(t, TaskAdd, owner, TaskAddInput{Project: goal.ID, Title: "Work", DoneWhen: "Done."})
+	goal := must(t, GoalAdd, owner, GoalAddInput{Title: "Portal", Owner: "Jordan Example", DoneWhen: "Done.", Due: "2026-12-01"})
+	must(t, TaskAdd, owner, TaskAddInput{Goal: goal.ID, Title: "Work", DoneWhen: "Done."})
 
 	count := func(d Deps) int {
 		out, err := Health(t.Context(), d.Store)

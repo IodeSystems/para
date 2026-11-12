@@ -35,7 +35,7 @@ func openWorkFor(t *testing.T, d Deps, id string) []model.Document {
 func TestObligationRedirectToAgentQueuesWork(t *testing.T) {
 	d, proj, person := obFixture(t)
 	addPeople(t, d)
-	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Project: proj, DoneWhen: "The plan is sent."})
+	ob := must(t, ObligationAdd, d, ObligationAddInput{Title: "Send the plan", OwedTo: []string{person}, Due: "2026-11-11", Goal: proj, DoneWhen: "The plan is sent."})
 	r := must(t, ObligationChange, d, ObligationChangeInput{ID: ob.ID, Action: ChangeRedirect, To: "agent:robin", Reason: "Robin drafts it", Notify: new(bool)})
 	if len(r.Work) != 1 {
 		t.Fatalf("redirect = %+v", r)

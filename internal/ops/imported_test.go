@@ -20,7 +20,7 @@ func TestImportedFromIsStampedOnCreatesNotReceipts(t *testing.T) {
 	f := newAgentFix(t)
 	wctx := WithWrite(t.Context(), WriteMeta{Why: "Import of the old vault."})
 	src := &model.ImportedFrom{Path: "/old/vault/tasks/cut-release.md", Hash: strings.ToUpper(sha("cut the release"))}
-	out, err := TaskAdd.Run(wctx, f.agent, TaskAddInput{Project: f.proj, Title: "Cut the release", DoneWhen: "Tagged.", ImportedFrom: src})
+	out, err := TaskAdd.Run(wctx, f.agent, TaskAddInput{Goal: f.proj, Title: "Cut the release", DoneWhen: "Tagged.", ImportedFrom: src})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestImportVerifyImportedMissingChangedExtra(t *testing.T) {
 	gone := add("Gone file", "/old/notes/gone.md", "gone")
 	moved := add("Moved", "/old/notes/moved.md", "moved body")
 	outside := add("Elsewhere", "/other/x.md", "x")
-	goal := must(t, ProjectAdd, d, ProjectAddInput{Title: "Imported goal", Owner: "Jordan Example", DoneWhen: "Done.",
+	goal := must(t, GoalAdd, d, GoalAddInput{Title: "Imported goal", Owner: "Jordan Example", DoneWhen: "Done.",
 		ImportedFrom: &model.ImportedFrom{Path: "/old/goals.md", Hash: sha("goals")}})
 
 	out := must(t, ImportVerify, d, ImportVerifyInput{Root: "/old", Files: []ImportFile{

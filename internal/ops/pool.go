@@ -179,7 +179,7 @@ func checkPool(pc PoolConfig) (pool, error) {
 		case "task":
 			p.existsType = model.TypeTask
 		case "goal", "project":
-			p.existsType = model.TypeProject
+			p.existsType = model.TypeGoal
 		default:
 			return p, fmt.Errorf("when: exists type %q: want obligation, task, or goal", w.Exists.Type)
 		}
@@ -212,7 +212,7 @@ func (p pool) trigger() string {
 }
 
 func poolTypeName(t model.Type) string {
-	if t == model.TypeProject {
+	if t == model.TypeGoal {
 		return "goal"
 	}
 	return string(t)
@@ -270,7 +270,7 @@ func itemDay(m model.Meta) string {
 		}
 		day, _ := meetingDay(x.Scheduled)
 		return day
-	case *model.Project:
+	case *model.Goal:
 		return string(x.Due)
 	}
 	return ""
@@ -287,7 +287,7 @@ func poolIdeas(sn *Snapshot, tag string) []model.Document {
 	var out []model.Document
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
-		case model.TypeTask, model.TypeProject, model.TypeQuestion:
+		case model.TypeTask, model.TypeGoal, model.TypeQuestion:
 		default:
 			continue
 		}
@@ -472,8 +472,8 @@ type PoolView struct {
 	Row   string `json:"row"`
 	Size  int    `json:"size"`
 	// Area is where idea_add puts a new idea when it names none.
-	Area    string `json:"area,omitempty"`
-	Project string `json:"project,omitempty"`
+	Area string `json:"area,omitempty"`
+	Goal string `json:"goal,omitempty"`
 	// Problem says why the trigger cannot be read, such as a missing item.
 	Problem string     `json:"problem,omitempty"`
 	Ideas   []PoolIdea `json:"ideas"`
@@ -557,7 +557,7 @@ func rankIdeas(sn *Snapshot, ideas []model.Document) ([]PoolIdea, error) {
 		d := byID[r.ID]
 		num, den := scoreOf(r)
 		kind := r.Kind
-		if d.Meta.Header().Type == model.TypeProject {
+		if d.Meta.Header().Type == model.TypeGoal {
 			kind = KindGoal
 		}
 		out = append(out, PoolIdea{ID: d.ID, Title: d.Title, Kind: kind, Text: firstSentence(d.Body), Effort: r.Effort, EffortSet: r.EffortSet,
@@ -569,7 +569,7 @@ func rankIdeas(sn *Snapshot, ideas []model.Document) ([]PoolIdea, error) {
 func poolView(sn *Snapshot, f poolFire) (PoolView, error) {
 	v := PoolView{Name: f.p.name, Tag: f.p.tag, Pick: f.p.pick, Trigger: f.p.trigger(), Fires: f.fires && len(f.ideas) > 0,
 		TriggerID: f.trigger, TriggerTitle: f.triggerTitle, Date: f.date, Next: f.next, Title: f.title(), Row: poolRowPrefix + f.p.name,
-		Size: len(f.ideas), Area: f.p.area, Project: f.p.project, Problem: f.problem}
+		Size: len(f.ideas), Area: f.p.area, Goal: f.p.project, Problem: f.problem}
 	if v.Fires {
 		v.Instance = f.instance
 	}
@@ -807,9 +807,9 @@ type IdeaAddInput struct {
 	Kind string `json:"kind,omitempty"`
 	// Area and Project are where the idea lives; default the pool's area or
 	// project.
-	Area    string       `json:"area,omitempty"`
-	Project string       `json:"project,omitempty"`
-	Effort  model.Effort `json:"effort,omitempty"`
+	Area   string       `json:"area,omitempty"`
+	Goal   string       `json:"goal,omitempty"`
+	Effort model.Effort `json:"effort,omitempty"`
 }
 
 // IdeaAddOutput is the output of idea_add.
@@ -842,7 +842,7 @@ var IdeaAdd = defineSafe("idea_add", "Keep an idea in a pool: a task (default) o
 	if err != nil {
 		return out, err
 	}
-	area, project := normID(in.Area), normID(in.Project)
+	area, project := normID(in.Area), normID(in.Goal)
 	if i := slices.IndexFunc(ps, func(p pool) bool { return p.name == name }); i >= 0 {
 		out.Tag = ps[i].tag
 		if area == "" && project == "" {
@@ -857,7 +857,7 @@ var IdeaAdd = defineSafe("idea_add", "Keep an idea in a pool: a task (default) o
 	}
 	var projLk model.Link
 	if project != "" {
-		if _, _, err := getProject(ctx, d.Store, project); err != nil {
+		if _, _, err := getGoal(ctx, d.Store, project); err != nil {
 			return out, err
 		}
 		projLk = model.LinkTo(project)
@@ -868,18 +868,18 @@ var IdeaAdd = defineSafe("idea_add", "Keep an idea in a pool: a task (default) o
 	switch strings.ToLower(strings.TrimSpace(in.Kind)) {
 	case "", "task":
 		if areaLk == "" && projLk == "" {
-			return out, fmt.Errorf("a task needs a project or an area: give area or project, or set area on pool %s in .para/%s", name, poolsFile)
+			return out, fmt.Errorf("a task needs a goal or an area: give area or goal, or set area on pool %s in .para/%s", name, poolsFile)
 		}
 		common.Type = model.TypeTask
-		doc = model.Document{Folder: model.FolderProjects, Meta: &model.Task{Common: common, Status: model.TaskTodo, Project: projLk, Area: areaLk,
+		doc = model.Document{Folder: model.FolderGoals, Meta: &model.Task{Common: common, Status: model.TaskTodo, Goal: projLk, Area: areaLk,
 			Effort: in.Effort, Deferral: later}}
 	case "goal":
 		owner, err := d.Store.Config("owner")
 		if err != nil {
 			return out, err
 		}
-		common.Type = model.TypeProject
-		doc = model.Document{Folder: model.FolderProjects, Meta: &model.Project{Common: common, Status: model.ProjectActive,
+		common.Type = model.TypeGoal
+		doc = model.Document{Folder: model.FolderGoals, Meta: &model.Goal{Common: common, Status: model.GoalActive,
 			Owner: cmp.Or(strings.TrimSpace(owner), "self"), Area: areaLk, Deferral: later}}
 		if in.Effort != "" {
 			out.Warnings = append(out.Warnings, "a goal has no effort: effort not kept")

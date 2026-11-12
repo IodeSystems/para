@@ -289,7 +289,7 @@ func HealthAt(ctx context.Context, s store.Store, today string) (HealthOutput, e
 		for _, d := range docs {
 			if upgrade.NotePending(d) {
 				n := d.Meta.(*model.Note)
-				h.add(HealthNotePlacement, d.ID, "", "note links "+cmp.Or(n.Project.Target(), n.Area.Target())+": its text belongs in that item's notes",
+				h.add(HealthNotePlacement, d.ID, "", "note links "+cmp.Or(n.Goal.Target(), n.Area.Target())+": its text belongs in that item's notes",
 					fmt.Sprintf("notes_read and notes_edit on the item (or annotate kind note in an area section), then doc_archive {id: %s}; or health_dismiss {id: %s, kind: %s}", d.ID, d.ID, HealthNotePlacement))
 			}
 		}
@@ -421,19 +421,19 @@ func (h *healther) add(kind, id, goal, msg, fix string) {
 func (h *healther) goalOf(d model.Document) (goal string, skip bool) {
 	var g string
 	switch m := d.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		g = d.ID
 	case *model.Task:
-		g = m.Project.Target()
+		g = m.Goal.Target()
 	case *model.RFX:
-		g = m.Project.Target()
+		g = m.Goal.Target()
 	case *model.Question:
 		if !m.IsRoot() {
 			sc := m.Scope.Target()
 			if sd, ok := h.docs[sc]; ok {
 				if t, ok := sd.Meta.(*model.Task); ok {
-					g = t.Project.Target()
-				} else if _, ok := sd.Meta.(*model.Project); ok {
+					g = t.Goal.Target()
+				} else if _, ok := sd.Meta.(*model.Goal); ok {
 					g = sc
 				}
 			}
@@ -446,11 +446,11 @@ func (h *healther) goalOf(d model.Document) (goal string, skip bool) {
 	if !ok {
 		return "", false
 	}
-	p, ok := gd.Meta.(*model.Project)
+	p, ok := gd.Meta.(*model.Goal)
 	if !ok {
 		return "", false
 	}
-	if p.Status != model.ProjectActive || h.deferred(p) {
+	if p.Status != model.GoalActive || h.deferred(p) {
 		return "", true
 	}
 	return g, false
@@ -468,8 +468,8 @@ func (h *healther) index() {
 					h.ioFor[t] = append(h.ioFor[t], id)
 				}
 			}
-		case *model.Project:
-			if m.Status == model.ProjectActive && !h.deferred(m) {
+		case *model.Goal:
+			if m.Status == model.GoalActive && !h.deferred(m) {
 				h.openGoals[id] = true
 				h.goalDue[id] = string(m.Due)
 			}
@@ -481,7 +481,7 @@ func (h *healther) index() {
 	}
 	for _, d := range h.docs {
 		if t, ok := d.Meta.(*model.Task); ok && !taskTerminal(t.Status) {
-			h.openTasks[t.Project.Target()]++
+			h.openTasks[t.Goal.Target()]++
 		}
 	}
 }
@@ -508,20 +508,20 @@ func (h *healther) scan() {
 			continue
 		}
 		switch m := d.Meta.(type) {
-		case *model.Project:
-			if m.Status != model.ProjectActive {
+		case *model.Goal:
+			if m.Status != model.GoalActive {
 				continue
 			}
 			if m.Due == "" {
-				h.add(HealthGoalNoDue, id, goal, "goal has no due date", fmt.Sprintf("project_edit {id: %s, due: YYYY-MM-DD}, or health_dismiss", id))
+				h.add(HealthGoalNoDue, id, goal, "goal has no due date", fmt.Sprintf("goal_edit {id: %s, due: YYYY-MM-DD}, or health_dismiss", id))
 			}
 			if strings.TrimSpace(m.DoneWhen) == "" {
-				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done-when line", fmt.Sprintf("project_edit {id: %s, done_when: ...}", id))
+				h.add(HealthGoalNoDoneWhen, id, goal, "goal has no done-when line", fmt.Sprintf("goal_edit {id: %s, done_when: ...}", id))
 			}
 			h.brief(id, goal, m)
 			h.assumptions(d, goal)
 			if h.openTasks[id] == 0 {
-				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {project: %s, ...}, or project_close {id: %s}", id, id))
+				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {goal: %s, ...}, or goal_close {id: %s}", id, id))
 			}
 		case *model.Task:
 			if taskTerminal(m.Status) && len(h.openKids[id]) > 0 {
@@ -645,7 +645,7 @@ func (h *healther) annotations(d model.Document, a *model.Area) {
 
 // brief flags an active goal whose brief defines signals and has read none, and
 // one whose pivot date has come. A goal that is stopped or pivoted is settled.
-func (h *healther) brief(id, goal string, m *model.Project) {
+func (h *healther) brief(id, goal string, m *model.Goal) {
 	if m.Validation == model.ValidationStopped || m.Validation == model.ValidationPivoted {
 		return
 	}
@@ -668,7 +668,7 @@ func (h *healther) brief(id, goal string, m *model.Project) {
 		h.add(HealthRiskUnmitigated, id, goal, "high-impact risk with no mitigation: "+strings.Join(bare, "; "), fmt.Sprintf("ask the owner what reduces it, or whether it is accepted; then goal_risk_set {id: %s, text: ..., mitigation: ...}", id))
 	}
 	if pv := m.Pivot; pv != nil && pv.Date != "" && string(pv.Date) <= h.today {
-		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("the date to decide on a change of course, %s, has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or project_close {id: %s}", id, id))
+		h.add(HealthPivotPassed, id, goal, fmt.Sprintf("the date to decide on a change of course, %s, has come: %s (%s)", pv.Date, pv.Condition, pv.Action), fmt.Sprintf("ask the owner; then doc_edit {id: %s, fields: {validation: pivoted|stopped|active, pivot: ...}}, or goal_close {id: %s}", id, id))
 	}
 }
 

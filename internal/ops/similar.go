@@ -21,8 +21,9 @@ import (
 var nearTypes = map[model.Type][]model.Type{
 	model.TypeTask:     {model.TypeTask, model.TypeQuestion},
 	model.TypeQuestion: {model.TypeQuestion, model.TypeTask},
-	model.TypeProject:  {model.TypeProject, model.TypeArea},
-	model.TypeArea:     {model.TypeArea, model.TypeProject},
+	model.TypeGoal:     {model.TypeGoal, model.TypeProject, model.TypeArea},
+	model.TypeProject:  {model.TypeProject, model.TypeGoal, model.TypeArea},
+	model.TypeArea:     {model.TypeArea, model.TypeGoal, model.TypeProject},
 	model.TypeNote:     {model.TypeNote},
 	// A team, role, or domain is a group since vault format 10.
 	model.TypeTeam:   {model.TypeTeam, model.TypeGroup},
@@ -164,8 +165,8 @@ func closedRef(ctx context.Context, s store.Store, id string) bool {
 	if closesDoc(doc) {
 		return true
 	}
-	if p, ok := doc.Meta.(*model.Project); ok {
-		return p.Status == model.ProjectDone || p.Status == model.ProjectDropped
+	if p, ok := doc.Meta.(*model.Goal); ok {
+		return p.Status == model.GoalDone || p.Status == model.GoalDropped
 	}
 	return false
 }
@@ -176,6 +177,7 @@ var createOps = map[string]struct {
 	field string
 }{
 	"task_add":       {model.TypeTask, "title"},
+	"goal_add":       {model.TypeGoal, "title"},
 	"project_add":    {model.TypeProject, "title"},
 	"area_add":       {model.TypeArea, "title"},
 	"note_add":       {model.TypeNote, "title"},

@@ -10,7 +10,7 @@ import (
 func TestIOFile(t *testing.T) {
 	d := newDeps(t)
 	seedOrg(t, d)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"})
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Home"})
 	add := func(text string) string {
 		return must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: text, From: "person-bo-example"}).ID
@@ -23,13 +23,13 @@ func TestIOFile(t *testing.T) {
 		wantErr string
 		check   func(t *testing.T, created string)
 	}{
-		{"task", "write parser\nfor the portal", IOFileInput{To: TriageTask, Project: proj.ID}, "", func(t *testing.T, id string) {
+		{"task", "write parser\nfor the portal", IOFileInput{To: TriageTask, Goal: proj.ID}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
 			if err != nil || doc.Title != "write parser" || !strings.Contains(doc.Body, "for the portal") || !strings.Contains(doc.Body, "From [[io-") {
 				t.Fatalf("task = %+v, %v", doc, err)
 			}
 		}},
-		{"project", "new thing", IOFileInput{To: TriageProject, Owner: "Jordan Example", DoneWhen: "Done."}, "", nil},
+		{"project", "new thing", IOFileInput{To: TriageGoal, Owner: "Jordan Example", DoneWhen: "Done."}, "", nil},
 		{"rfx", "who owns logs?", IOFileInput{To: TriageRFX, Route: "domain-logging", SelfServe: "searched policies",
 			Targets: []TargetInput{{To: "person-bo-example", Medium: "email"}}}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
@@ -54,14 +54,14 @@ func TestIOFile(t *testing.T) {
 		{"existing", "already a task", IOFileInput{Existing: proj.ID}, "", nil},
 		{"existing type mismatch", "x", IOFileInput{To: TriageTask, Existing: proj.ID}, "not a task", nil},
 		{"existing takes no fields", "x", IOFileInput{Existing: proj.ID, Area: area.ID}, "leave out", nil},
-		{"task needs project or area", "x", IOFileInput{To: TriageTask}, "needs project or area", nil},
-		{"project owner defaults", "x", IOFileInput{To: TriageProject, DoneWhen: "Done."}, "", func(t *testing.T, id string) {
+		{"task needs project or area", "x", IOFileInput{To: TriageTask}, "needs goal or area", nil},
+		{"project owner defaults", "x", IOFileInput{To: TriageGoal, DoneWhen: "Done."}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
-			if p, _ := doc.Meta.(*model.Project); err != nil || p == nil || p.Owner != "self" {
+			if p, _ := doc.Meta.(*model.Goal); err != nil || p == nil || p.Owner != "self" {
 				t.Fatalf("project = %+v, %v", doc, err)
 			}
 		}},
-		{"task with title and due", "write parser\nfor the portal", IOFileInput{To: TriageTask, Project: proj.ID, Title: "Parser for the portal", Due: "2026-12-01"}, "", func(t *testing.T, id string) {
+		{"task with title and due", "write parser\nfor the portal", IOFileInput{To: TriageTask, Goal: proj.ID, Title: "Parser for the portal", Due: "2026-12-01"}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
 			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || doc.Title != "Parser for the portal" || string(m.Due) != "2026-12-01" {
 				t.Fatalf("task = %+v, %v", doc, err)
@@ -70,26 +70,26 @@ func TestIOFile(t *testing.T) {
 		{"title applies to a task", "x", IOFileInput{To: TriageNote, Title: "T"}, "does not apply", nil},
 		{"task in an area", "water plants", IOFileInput{To: TriageTask, Area: area.ID}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
-			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || m.Area != model.LinkTo(area.ID) || m.Project != "" {
+			if m, _ := doc.Meta.(*model.Task); err != nil || m == nil || m.Area != model.LinkTo(area.ID) || m.Goal != "" {
 				t.Fatalf("task = %+v, %v", doc, err)
 			}
 		}},
 		{"rfx needs route", "x", IOFileInput{To: TriageRFX}, "needs route", nil},
-		{"note document", "keep this recipe", IOFileInput{To: TriageNote, Area: area.ID, Project: proj.ID}, "", func(t *testing.T, id string) {
+		{"note document", "keep this recipe", IOFileInput{To: TriageNote, Area: area.ID, Goal: proj.ID}, "", func(t *testing.T, id string) {
 			doc, err := d.Store.Get(ctx, id)
 			n, _ := doc.Meta.(*model.Note)
 			if err != nil || n == nil || doc.Folder != model.FolderResources || n.Area != model.LinkTo(area.ID) ||
-				n.Project != model.LinkTo(proj.ID) || !strings.Contains(doc.Body, "From [[io-") {
+				n.Goal != model.LinkTo(proj.ID) || !strings.Contains(doc.Body, "From [[io-") {
 				t.Fatalf("note = %+v, %v", doc, err)
 			}
 		}},
 		{"bare note document", "no links", IOFileInput{To: TriageNote}, "", nil},
-		{"person note refuses area", "x", IOFileInput{To: TriageNote, Person: "person-bo-example", Area: area.ID}, "area and project apply", nil},
+		{"person note refuses area", "x", IOFileInput{To: TriageNote, Person: "person-bo-example", Area: area.ID}, "area and goal apply", nil},
 		{"note date needs person", "x", IOFileInput{To: TriageNote, Date: "2026-11-01"}, "date applies", nil},
 		{"note unknown area", "x", IOFileInput{To: TriageNote, Area: "area-none"}, "area-none", nil},
-		{"stray field", "x", IOFileInput{To: TriageInteraction, Project: proj.ID}, "does not apply", nil},
+		{"stray field", "x", IOFileInput{To: TriageInteraction, Goal: proj.ID}, "does not apply", nil},
 		{"bad target", "x", IOFileInput{To: "file"}, "want one of", nil},
-		{"unknown project", "x", IOFileInput{To: TriageTask, Project: "project-none"}, "project-none", nil},
+		{"unknown project", "x", IOFileInput{To: TriageTask, Goal: "project-none"}, "project-none", nil},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

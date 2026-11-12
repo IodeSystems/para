@@ -67,7 +67,7 @@ type ObligationAddInput struct {
 	// Parent is the open task or obligation this one came out of: a
 	// follow-up of a meeting, or a promise made in it.
 	Parent   string `json:"parent,omitempty"`
-	Project  string `json:"project,omitempty"`
+	Goal     string `json:"goal,omitempty"`
 	Area     string `json:"area,omitempty"`
 	Due      string `json:"due,omitempty"`   // YYYY-MM-DD
 	Start    string `json:"start,omitempty"` // RFC 3339 with a zone; a commitment may give a date
@@ -148,8 +148,8 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 		if parent, err = parentOf(ctx, d, id); err != nil {
 			return ObligationAddOutput{}, err
 		}
-		if normID(in.Project) == "" && normID(in.Area) == "" {
-			in.Project, in.Area = parent.project.Target(), parent.area.Target()
+		if normID(in.Goal) == "" && normID(in.Area) == "" {
+			in.Goal, in.Area = parent.project.Target(), parent.area.Target()
 		}
 	}
 	if !on && (len(interested) > 0 || parent.link != "") {
@@ -191,8 +191,8 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 		return ObligationAddOutput{}, err
 	}
 	var project, area model.Link
-	if p := normID(in.Project); p != "" {
-		if _, _, err := getProject(ctx, d.Store, p); err != nil {
+	if p := normID(in.Goal); p != "" {
+		if _, _, err := getGoal(ctx, d.Store, p); err != nil {
 			return ObligationAddOutput{}, err
 		}
 		project = model.LinkTo(p)
@@ -201,7 +201,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 		return ObligationAddOutput{}, err
 	}
 	pre := func(t *model.Task) {
-		t.Project, t.Area, t.Due, t.Recur, t.DoneWhen = project, area, due, flatLine(in.Recur), doneWhen
+		t.Goal, t.Area, t.Due, t.Recur, t.DoneWhen = project, area, due, flatLine(in.Recur), doneWhen
 		if t.Kind == model.KindCommitment && len(t.With) == 0 {
 			t.With = owedTo
 		}
@@ -231,7 +231,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 			return out, err
 		}
 		if !on && project == "" && area == "" {
-			return out, fmt.Errorf("this vault is below format %d, where a commitment is a task: give project or area", upgrade.ObligationFormat)
+			return out, fmt.Errorf("this vault is below format %d, where a commitment is a task: give goal or area", upgrade.ObligationFormat)
 		}
 		t := &model.Task{Common: model.Common{Type: model.TypeTask, ImportedFrom: in.ImportedFrom}, Status: model.TaskTodo, Kind: model.KindCommitment}
 		if in.Start != "" || in.End != "" {
@@ -240,7 +240,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 			}
 		}
 		pre(t)
-		if doc, err = storedShape(d, model.Document{Folder: model.FolderProjects, Title: title, Body: demoteH1(in.Body), Meta: t}); err != nil {
+		if doc, err = storedShape(d, model.Document{Folder: model.FolderGoals, Title: title, Body: demoteH1(in.Body), Meta: t}); err != nil {
 			return out, err
 		}
 		if o, ok := doc.Meta.(*model.Obligation); ok {
@@ -487,7 +487,7 @@ func nextObligation(ctx context.Context, d Deps, doc model.Document, o *model.Ob
 		rfx = o.RFX
 	}
 	next := &model.Obligation{Common: model.Common{Type: model.TypeObligation, Tags: slices.Clone(o.Tags)}, Kind: o.Kind, State: model.StateOpen,
-		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Project: o.Project, Area: o.Area, Due: due, Recur: o.Recur,
+		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Goal: o.Goal, Area: o.Area, Due: due, Recur: o.Recur,
 		OccurrenceOf: cmp.Or(o.OccurrenceOf, model.LinkTo(doc.ID)), Previous: model.LinkTo(doc.ID),
 		Occasion: nextOccasion(o.Occasion, rfx, sched, end), DoneWhen: o.DoneWhen, Effort: o.Effort, Interested: o.Interested}
 	if o.Produce != nil {

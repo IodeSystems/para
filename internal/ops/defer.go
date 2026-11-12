@@ -27,7 +27,7 @@ func deferralOf(m model.Meta) *model.Deferral {
 		return &x.Deferral
 	case *model.Question:
 		return &x.Deferral
-	case *model.Project:
+	case *model.Goal:
 		return &x.Deferral
 	case *model.IO:
 		return &x.Deferral
@@ -148,8 +148,8 @@ func deferOnce(ctx context.Context, d Deps, id, until, reason, after string, fl 
 		if m.Status != model.QuestionOpen {
 			return false, doc.ID + ": already " + string(m.Status), nil
 		}
-	case *model.Project:
-		if m.Status == model.ProjectDone || m.Status == model.ProjectDropped {
+	case *model.Goal:
+		if m.Status == model.GoalDone || m.Status == model.GoalDropped {
 			return false, doc.ID + ": already " + string(m.Status), nil
 		}
 	case *model.IO:
@@ -278,7 +278,7 @@ var Defer = withProposalReceipts(define("defer", "Put questions, tasks, goals, o
 		}
 		var qs []QuestionView
 		switch sd.Meta.(type) {
-		case *model.Project:
+		case *model.Goal:
 			qs, err = openQuestions(ctx, d.Store, func(x qrow) bool { return x.project == sd.ID })
 		case *model.Area:
 			qs, err = openQuestions(ctx, d.Store, func(x qrow) bool { return x.area == sd.ID })
@@ -439,8 +439,8 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 			return "", false, nil, fmt.Errorf("place %s: %w", place, err)
 		}
 		switch pd.Meta.(type) {
-		case *model.Project:
-			in.Project = pd.ID
+		case *model.Goal:
+			in.Goal = pd.ID
 		case *model.Area:
 			in.Area = pd.ID
 		default:
@@ -453,7 +453,7 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 		}
 		switch m := first.Meta.(type) {
 		case *model.Task:
-			in.Project, in.Area = m.Project.Target(), m.Area.Target()
+			in.Goal, in.Area = m.Goal.Target(), m.Area.Target()
 		case *model.Question:
 			if sc := scopeID(m); sc != ScopeRootWord {
 				sd, err := d.Store.Get(ctx, sc)
@@ -461,17 +461,17 @@ func whenTask(ctx context.Context, d Deps, ids []string, when, place string, for
 					return "", false, nil, err
 				}
 				switch sm := sd.Meta.(type) {
-				case *model.Project:
-					in.Project = sd.ID
+				case *model.Goal:
+					in.Goal = sd.ID
 				case *model.Area:
 					in.Area = sd.ID
 				case *model.Task:
-					in.Project, in.Area = sm.Project.Target(), sm.Area.Target()
+					in.Goal, in.Area = sm.Goal.Target(), sm.Area.Target()
 				}
 			}
 		}
 	}
-	if in.Project == "" && in.Area == "" {
+	if in.Goal == "" && in.Area == "" {
 		return "", false, nil, fmt.Errorf("%s has no goal or area: give place, a goal or an area for the task", normID(ids[0]))
 	}
 	out, err := TaskAdd.Run(ctx, d, in)
@@ -553,7 +553,7 @@ func addWaiters(ctx context.Context, d Deps, doc model.Document, ids []string) e
 }
 
 // deferrable lists the vault types defer puts off by id.
-var deferrable = []model.Type{model.TypeTask, model.TypeQuestion, model.TypeProject, model.TypeIO, model.TypeObligation}
+var deferrable = []model.Type{model.TypeTask, model.TypeQuestion, model.TypeGoal, model.TypeIO, model.TypeObligation}
 
 // deferTargets splits what defer or undefer names into vault ids and dossier
 // items: a dossier's id becomes its items, and a tag becomes every tagged

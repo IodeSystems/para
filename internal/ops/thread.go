@@ -202,7 +202,7 @@ func postTurn(ctx context.Context, d Deps, add RequestAddInput, turn ownerTurn) 
 
 // turnLinkTypes are the item types a turn links, so the item is the agent's
 // turn (needs.go agent_turn); any other item goes in context.
-var turnLinkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
+var turnLinkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeGoal, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
 	model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO, model.TypeArea, model.TypeNote, model.TypeTrackedDoc, model.TypePerson, model.TypeGroup}
 
 // ThreadPost is one owner turn in a thread.

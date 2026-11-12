@@ -37,12 +37,12 @@ func parentOf(ctx context.Context, d Deps, id string) (parentRef, error) {
 		if taskTerminal(m.Status) {
 			return parentRef{}, fmt.Errorf("parent %s is already %s", doc.ID, m.Status)
 		}
-		return parentRef{link: model.LinkTo(doc.ID), project: m.Project, area: m.Area}, nil
+		return parentRef{link: model.LinkTo(doc.ID), project: m.Goal, area: m.Area}, nil
 	case *model.Obligation:
 		if !m.Open() {
 			return parentRef{}, fmt.Errorf("parent %s is already closed (%s)", doc.ID, m.Outcome)
 		}
-		return parentRef{link: model.LinkTo(doc.ID), project: m.Project, area: m.Area}, nil
+		return parentRef{link: model.LinkTo(doc.ID), project: m.Goal, area: m.Area}, nil
 	}
 	return parentRef{}, fmt.Errorf("parent %s is a %s: want a task or an obligation", doc.ID, typeWord(doc))
 }

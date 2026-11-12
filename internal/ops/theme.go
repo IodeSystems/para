@@ -134,11 +134,11 @@ func (p *partIndex) servesOf(id string) []string {
 func partLinks(m model.Meta) (parent, goal string) {
 	switch x := m.(type) {
 	case *model.Task:
-		return x.Parent.Target(), x.Project.Target()
+		return x.Parent.Target(), x.Goal.Target()
 	case *model.Obligation:
-		return x.Parent.Target(), x.Project.Target()
+		return x.Parent.Target(), x.Goal.Target()
 	case *model.RFX:
-		return x.Parent.Target(), x.Project.Target()
+		return x.Parent.Target(), x.Goal.Target()
 	case *model.Question:
 		return "", x.Scope.Target()
 	}
@@ -200,7 +200,7 @@ func (p *partIndex) partOf(doc model.Document) []PartOfRef {
 	}
 	if goal != "" {
 		if gd, ok := p.get(goal); ok {
-			if _, isGoal := gd.Meta.(*model.Project); isGoal {
+			if _, isGoal := gd.Meta.(*model.Goal); isGoal {
 				add(PartGoal, ViaGoal, gd.ID, gd.Title)
 			}
 		}
@@ -331,7 +331,7 @@ func themeKind(doc model.Document) string {
 		return PartObligation
 	case doc.Meta.Header().Type == model.TypeQuestion:
 		return PartQuestion
-	case doc.Meta.Header().Type == model.TypeProject:
+	case doc.Meta.Header().Type == model.TypeGoal:
 		return PartGoal
 	}
 	return PartParent
@@ -363,7 +363,7 @@ func hanging(ctx context.Context, d Deps, id string) []ThemeItem {
 		return nil
 	}
 	switch {
-	case eventLike(doc.Meta), doc.Meta.Header().Type == model.TypeQuestion, doc.Meta.Header().Type == model.TypeProject:
+	case eventLike(doc.Meta), doc.Meta.Header().Type == model.TypeQuestion, doc.Meta.Header().Type == model.TypeGoal:
 	default:
 		return nil
 	}
@@ -610,7 +610,7 @@ func themeMove(ctx context.Context, d Deps, k ThemeKeep, ti ThemeItemsOutput) (i
 	fields := map[string]any{"area": "[[" + ad.ID + "]]"}
 	parent, goal := partLinks(doc.Meta)
 	if ti.Kind == PartGoal && goal == ti.Theme {
-		fields["project"] = nil
+		fields["goal"] = nil
 	}
 	if parent == ti.Theme {
 		fields["parent"] = nil

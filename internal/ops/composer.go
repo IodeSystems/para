@@ -21,7 +21,7 @@ const composerPrefix = "From the owner: "
 
 // linkTypes are the item types a request may link (request_add links);
 // the composer names any other item in context.
-var linkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
+var linkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeGoal, model.TypeProject, model.TypeProposal, model.TypeJournal, model.TypeQuestion,
 	model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypePerson, model.TypeGroup, model.TypeTrackedDoc, model.TypeArea}
 
 // manageNote says what managing an item of this type means, so the agent

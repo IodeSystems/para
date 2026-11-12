@@ -13,7 +13,7 @@ import (
 func TestReportOutcomes(t *testing.T) {
 	f := newAgentFix(t)
 	add := func(title string) string {
-		return mustRun(t, TaskAdd, f.owner, TaskAddInput{Project: f.proj, Title: title, DoneWhen: "Done."}).ID
+		return mustRun(t, TaskAdd, f.owner, TaskAddInput{Goal: f.proj, Title: title, DoneWhen: "Done."}).ID
 	}
 	mustRun(t, TaskDone, f.owner, TaskDoneInput{ID: add("One")})
 	mustRun(t, TaskResolve, f.owner, TaskResolveInput{ID: add("Two"), Outcome: model.OutcomeDropped, Note: "Not needed."})

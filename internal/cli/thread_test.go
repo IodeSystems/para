@@ -13,7 +13,7 @@ func seedStreamTHParity(t *testing.T, deps ops.Deps) {
 	t.Helper()
 	for _, id := range []string{"task-th-a", "task-th-b", "task-th-c"} {
 		if _, err := deps.Store.Create(context.Background(), model.Document{ID: id, Folder: model.FolderProjects, Title: "TH " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-a")}}); err != nil {
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-a")}}); err != nil {
 			t.Fatal(err)
 		}
 	}

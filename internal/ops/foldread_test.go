@@ -48,8 +48,8 @@ func newFoldVault(t *testing.T) foldVault {
 	v.con = must(t, ConstraintAdd, d, ConstraintAddInput{Says: "No shared log accounts", Why: "audit", By: "Ada Example", Source: "https://acme.example/audit",
 		AppliesIn: []string{"area-ops", "prod"}, NotIn: []string{"dev"}, ReviewBy: "2026-11-01", Text: "Per the logging audit."}).ID
 	must(t, TagAdd, d, TagInput{IDs: []string{v.exRule, v.con}, Tags: []string{"audit"}})
-	v.goal = must(t, ProjectAdd, d, ProjectAddInput{Title: "Ship log retention", Owner: "me", DoneWhen: "Shipped.", Area: "area-ops"}).ID
-	v.task = must(t, TaskAdd, d, TaskAddInput{Project: v.goal, Title: "Set log retention", Body: "Per [[" + v.pol + "]] and [[" + v.exRule + "]]."}).ID
+	v.goal = must(t, GoalAdd, d, GoalAddInput{Title: "Ship log retention", Owner: "me", DoneWhen: "Shipped.", Area: "area-ops"}).ID
+	v.task = must(t, TaskAdd, d, TaskAddInput{Goal: v.goal, Title: "Set log retention", Body: "Per [[" + v.pol + "]] and [[" + v.exRule + "]]."}).ID
 	v.ask = addRFX(t, d, RFXAddInput{Ask: "Can we keep logs longer?", Targets: []TargetInput{{To: "person-ada-example", Medium: "email"}}})
 	must(t, RFXPathAdd, d, RFXPathAddInput{ID: v.ask, To: "person-bo-example", Medium: "email", Reason: model.FrictionPolicyConflict,
 		Why: "The rule is unclear.", About: v.exRule})

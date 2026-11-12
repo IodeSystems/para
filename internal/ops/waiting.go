@@ -111,7 +111,7 @@ var TaskToAsks = withOneReceipt(define("task_to_asks", "Turn a task that is wait
 			text += "\n\n" + body
 		}
 		text += "\n\nFrom the task [[" + id + "]]."
-		r, err := rfxAdd(ctx, d, RFXAddInput{Direction: model.RFXOut, Ask: text, Route: a.route, Project: firstOf(t.Project.Target(), t.Area.Target()),
+		r, err := rfxAdd(ctx, d, RFXAddInput{Direction: model.RFXOut, Ask: text, Route: a.route, Goal: firstOf(t.Goal.Target(), t.Area.Target()),
 			Targets: []TargetInput{{To: a.to, Medium: a.medium}}, NextNudge: nudge, SelfServe: "Moved from a task that waited on this person."})
 		if err != nil {
 			return out, fmt.Errorf("ask of %s: %w (made: %v)", a.to, err, out.Asks)

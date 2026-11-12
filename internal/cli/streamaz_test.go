@@ -26,7 +26,7 @@ func seedStreamAZParity(t *testing.T, deps ops.Deps) {
 	ctx := context.Background()
 	docs := []model.Document{
 		{ID: "project-az", Folder: model.FolderProjects, Title: "AZ project",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"}},
 		{ID: "question-az-c", Folder: model.FolderQuestions, Title: "AZ blocker",
 			Meta: &model.Question{Common: model.Common{Type: model.TypeQuestion}, Status: model.QuestionOpen, Scope: model.LinkTo("project-az")}},
 	}
@@ -36,16 +36,16 @@ func seedStreamAZParity(t *testing.T, deps ops.Deps) {
 	}
 	for _, id := range []string{"task-az-d-a", "task-az-d-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "AZ " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-az")}})
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-az")}})
 	}
 	for _, id := range []string{"task-az-u-a", "task-az-u-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "AZ " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-az"),
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-az"),
 				Deferral: model.Deferral{DeferUntil: model.SomedayWord}}})
 	}
 	for _, id := range []string{"task-az-c-a", "task-az-c-b"} {
 		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "AZ " + id,
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-az"),
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-az"),
 				DependsOn: []model.Link{model.LinkTo("question-az-c")}}})
 	}
 	for _, d := range docs {

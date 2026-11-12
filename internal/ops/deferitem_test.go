@@ -10,7 +10,7 @@ func clockFix(t *testing.T) (*agentFix, *reqVault) {
 	t.Helper()
 	rv := newReqVault(t)
 	f := &agentFix{t: t, root: rv.root, owner: rv.as("user", "cli", "install-a"), agent: rv.as("claude", "mcp", "install-a")}
-	f.proj = must(t, ProjectAdd, f.owner, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
+	f.proj = must(t, GoalAdd, f.owner, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example"}).ID
 	f.source = must(t, NoteAdd, f.owner, NoteAddInput{Title: "Sync notes", Body: "Ship it."}).ID
 	return f, rv
 }

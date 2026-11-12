@@ -88,6 +88,10 @@ type Step struct {
 	// selects a document, also after format_version passed it, so filing
 	// makes it agent work after the run that reached its format.
 	KeepListed bool
+	// Native reads the vault without the reading of a vault below
+	// model.GoalsFormat as format 11 (store.Native): step goals selects the
+	// files of type project as they are on disk.
+	Native bool
 }
 
 // Steps returns every step in order.
@@ -195,6 +199,7 @@ func pending(ctx context.Context, r Reader, s Step) (bool, error) {
 
 // matching returns the ids of all documents sel selects, and the count.
 func matching(ctx context.Context, r Reader, s Step, sel func(model.Document) bool) ([]string, int, error) {
+	r = nativeFor(r, s)
 	var ids []string
 	n := 0
 	for _, t := range s.Types {
@@ -387,6 +392,7 @@ func run(ctx context.Context, s store.Store, dry, force, unattended bool) (RunRe
 
 // explain lists the step's plan for each document either part selects.
 func explain(ctx context.Context, r Reader, s Step) ([]PlanLine, error) {
+	r = nativeFor(r, s)
 	var out []PlanLine
 	for _, t := range s.Types {
 		refs, err := r.List(ctx, store.Filter{Type: t, All: true})
@@ -404,6 +410,14 @@ func explain(ctx context.Context, r Reader, s Step) ([]PlanLine, error) {
 		}
 	}
 	return out, nil
+}
+
+// nativeFor is r read natively (store.Native) for a step that sets Native.
+func nativeFor(r Reader, s Step) Reader {
+	if st, ok := r.(store.Store); ok && s.Native {
+		return store.Native(st)
+	}
+	return r
 }
 
 // settle raises format_version to the last step whose predecessors are all done.
@@ -471,6 +485,11 @@ func Undo(ctx context.Context, s store.Store, batch string) (model.BatchResult, 
 	}
 	if cur >= step.Version {
 		if err := s.SetConfig(ctx, ConfigKey, strconv.Itoa(step.Version-1)); err != nil {
+			return res, fmt.Errorf("upgrade: undo: %w", err)
+		}
+	}
+	if step.Native { // step goals: the files are below format 11 again
+		if err := s.UnsetConfig(ctx, model.GoalsStepKey); err != nil {
 			return res, fmt.Errorf("upgrade: undo: %w", err)
 		}
 	}

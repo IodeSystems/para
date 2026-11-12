@@ -44,11 +44,11 @@ func newFixture(t *testing.T) *fixture {
 		{ID: "meeting-b", Folder: model.FolderMeetings, Title: "Old review", Body: "## Notes\n\nHeld.\n",
 			Meta: &model.Meeting{Common: model.Common{Type: model.TypeMeeting}, Status: model.MeetingHeld, Start: "2026-10-01T09:00:00Z", End: "2026-10-01T09:30:00Z", With: []model.Link{model.LinkTo("person-x")}}},
 		{ID: "project-open", Folder: model.FolderProjects, Title: "Open goal",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me"}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "me"}},
 		{ID: "project-set", Folder: model.FolderProjects, Title: "Goal with a condition",
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me", DoneWhen: "Shipped."}},
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "me", DoneWhen: "Shipped."}},
 		{ID: "task-open", Folder: model.FolderProjects, Title: "Task without a condition",
-			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-open")}},
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-open")}},
 	} {
 		if _, err := s.Create(ctx, d); err != nil {
 			t.Fatalf("create %s: %v", d.ID, err)
@@ -276,8 +276,6 @@ func TestJudgementStepClearsWhenDoneTestFindsNothing(t *testing.T) {
 		switch m := d.Meta.(type) {
 		case *model.Goal:
 			m.DoneWhen = "Agreed by the owner."
-		case *model.Project:
-			m.DoneWhen = "Agreed by the owner."
 		case *model.Task:
 			m.DoneWhen = "The draft is sent."
 		}
@@ -409,7 +407,7 @@ func TestStatusListsEveryDocument(t *testing.T) {
 	for i := 0; i < 30; i++ {
 		id := "project-bulk-" + string(rune('a'+i/26)) + string(rune('a'+i%26))
 		if _, err := s.Create(ctx, model.Document{ID: id, Folder: model.FolderProjects, Title: "Bulk " + id,
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "me"}}); err != nil {
+			Meta: &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "me"}}); err != nil {
 			t.Fatal(err)
 		}
 	}

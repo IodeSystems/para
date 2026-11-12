@@ -136,7 +136,7 @@ func TestBulkRefusedItemDoesNotStopOthers(t *testing.T) {
 func TestBulkOptionalMakesEdgesOptional(t *testing.T) {
 	v := newVerbVault(t)
 	gate := v.task(t, "Gate")
-	w1, err := TaskAdd.Run(t.Context(), v.cli, TaskAddInput{Project: v.proj, Title: "Waits one", DependsOn: []string{gate}})
+	w1, err := TaskAdd.Run(t.Context(), v.cli, TaskAddInput{Goal: v.proj, Title: "Waits one", DependsOn: []string{gate}})
 	if err != nil {
 		t.Fatal(err)
 	}

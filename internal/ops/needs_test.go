@@ -29,7 +29,7 @@ func snapOf(t *testing.T, docs ...model.Document) *Snapshot {
 func common(typ model.Type) model.Common { return model.Common{Type: typ, Created: "2026-11-01"} }
 
 func nTask(id string, f func(*model.Task)) model.Document {
-	m := &model.Task{Common: common(model.TypeTask), Status: model.TaskTodo, Project: model.LinkTo("project-goal")}
+	m := &model.Task{Common: common(model.TypeTask), Status: model.TaskTodo, Goal: model.LinkTo("project-goal")}
 	if f != nil {
 		f(m)
 	}
@@ -100,9 +100,9 @@ func TestNeedsYouTable(t *testing.T) {
 	time.Local = time.UTC
 	t.Cleanup(func() { time.Local = old })
 	goal := model.Document{ID: "project-goal", Folder: model.FolderProjects, Title: "Goal",
-		Meta: &model.Project{Common: common(model.TypeProject), Status: model.ProjectActive}}
+		Meta: &model.Goal{Common: common(model.TypeGoal), Status: model.GoalActive}}
 	offGoal := model.Document{ID: "project-off", Folder: model.FolderProjects, Title: "Off",
-		Meta: &model.Project{Common: common(model.TypeProject), Status: model.ProjectActive, Deferral: model.Deferral{DeferUntil: model.SomedayWord}}}
+		Meta: &model.Goal{Common: common(model.TypeGoal), Status: model.GoalActive, Deferral: model.Deferral{DeferUntil: model.SomedayWord}}}
 	person := model.Document{ID: "person-ada", Folder: model.FolderOrg, Title: "Ada", Meta: &model.Person{Common: common(model.TypePerson)}}
 	openQ := nQuestion("question-open-dep", nil)
 	doneQ := nQuestion("question-done-dep", func(q *model.Question) { q.Status = model.QuestionAnswered })
@@ -122,7 +122,7 @@ func TestNeedsYouTable(t *testing.T) {
 		{doc: nTask("task-later", func(m *model.Task) { m.DeferUntil = "2026-11-10" }), reason: "later"},
 		{doc: nTask("task-back", func(m *model.Task) { m.DeferUntil = "2026-11-01" }), want: true, reason: "task to do"},
 		{doc: nTask("task-someday", func(m *model.Task) { m.DeferUntil = model.SomedayWord }), reason: "later"},
-		{doc: nTask("task-off-goal", func(m *model.Task) { m.Project = model.LinkTo("project-off") }), extra: []model.Document{offGoal}, reason: "later"},
+		{doc: nTask("task-off-goal", func(m *model.Task) { m.Goal = model.LinkTo("project-off") }), extra: []model.Document{offGoal}, reason: "later"},
 		{doc: nTask("task-wait-after", func(m *model.Task) { m.DeferredAfter = []string{"question-open-dep"} }), extra: []model.Document{openQ}, reason: "later"},
 		{doc: nTask("task-person", func(m *model.Task) { m.Assignee = "person-ada" }), reason: "waiting on person-ada"},
 		{doc: nTask("task-agent", func(m *model.Task) { m.Assignee = "agent:claude" }), reason: "assigned to agent:claude"},
@@ -206,7 +206,7 @@ func TestNeedsYouTable(t *testing.T) {
 		{doc: nException("exception-resolved", func(e *model.PolicyException) {
 			e.ReviewBy, e.Status = "2026-11-06", model.ExceptionResolved
 		}), reason: "closed"},
-		{doc: goal, reason: "project"},
+		{doc: goal, reason: "goal"},
 		{doc: person, reason: "person"},
 		{doc: model.Document{ID: "incident-x", Title: "Outage", Meta: &model.Incident{Common: common(model.TypeIncident), Status: model.IncidentOpen, Severity: "sev2"}}, want: true, reason: "incident sev2"},
 		{doc: model.Document{ID: "incident-r", Title: "Outage", Meta: &model.Incident{Common: common(model.TypeIncident), Status: model.IncidentResolved, Severity: "sev2"}}, reason: "closed"},
@@ -254,8 +254,8 @@ func TestLifecycle(t *testing.T) {
 		{&model.Task{Status: model.TaskDropped}, LifeClosed},
 		{&model.Meeting{Status: model.MeetingHeld}, LifeClosed},
 		{&model.Meeting{Status: model.MeetingScheduled}, LifeOpen},
-		{&model.Project{Status: model.ProjectPaused}, LifeOpen},
-		{&model.Project{Status: model.ProjectDone}, LifeClosed},
+		{&model.Goal{Status: model.GoalPaused}, LifeOpen},
+		{&model.Goal{Status: model.GoalDone}, LifeClosed},
 		{&model.RFX{Status: model.RFXDeclined}, LifeClosed},
 		{&model.Request{Status: model.RequestDone, Resolution: model.ResolutionStuck}, LifeOpen},
 		{&model.Request{Status: model.RequestDone, Resolution: model.ResolutionDone}, LifeClosed},

@@ -32,10 +32,10 @@ func laterRow(t *testing.T, d Deps, id string) TaskView {
 // with a note that says why. The fixture day is 2026-11-05.
 func TestDeferUntilObligationStartFollows(t *testing.T) {
 	d, proj, _ := obFixture(t)
-	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Seattle trip", Project: proj,
+	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Seattle trip", Goal: proj,
 		Start: "2026-12-01T09:00:00-08:00", End: "2026-12-10T18:00:00-08:00"}).ID
-	visit := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Visit the office", DoneWhen: "Badge picked up."}).ID
-	unpack := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Expense the trip", DoneWhen: "Report filed."}).ID
+	visit := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Visit the office", DoneWhen: "Badge picked up."}).ID
+	unpack := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Expense the trip", DoneWhen: "Report filed."}).ID
 
 	out := must(t, Defer, d, DeferInput{IDs: []string{visit}, UntilStart: trip})
 	if out.Until != "2026-12-01" || len(out.Changed) != 1 || !strings.Contains(out.Follows, "until Seattle trip starts (2026-12-01)") {
@@ -101,8 +101,8 @@ func TestDeferUntilObligationStartFollows(t *testing.T) {
 // Undoing a push puts the follower's date back too.
 func TestDeferUntilStartUndoPush(t *testing.T) {
 	d, proj, _ := obFixture(t)
-	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Trip", Project: proj, Due: "2026-12-01"}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Something", DoneWhen: "Done."}).ID
+	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Trip", Goal: proj, Due: "2026-12-01"}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Something", DoneWhen: "Done."}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{task}, UntilStart: trip})
 	out := must(t, ObligationChange, d, ObligationChangeInput{ID: trip, Action: ChangePush, Due: "2026-12-04", Reason: "Moved", Notify: new(bool)})
 	if _, tk := taskDeferral(t, d, task); tk.DeferUntil != "2026-12-04" {
@@ -119,10 +119,10 @@ func TestDeferUntilStartUndoPush(t *testing.T) {
 
 func TestDeferUntilStartRefuses(t *testing.T) {
 	d, proj, _ := obFixture(t)
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Something", DoneWhen: "Done."}).ID
-	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Trip", Project: proj, Due: "2026-12-01"}).ID
-	past := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Today thing", Project: proj, Due: "2026-11-05"}).ID
-	ongoing := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Upkeep", Project: proj, Cadence: "monthly"}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Something", DoneWhen: "Done."}).ID
+	trip := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Trip", Goal: proj, Due: "2026-12-01"}).ID
+	past := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Today thing", Goal: proj, Due: "2026-11-05"}).ID
+	ongoing := must(t, ObligationAdd, d, ObligationAddInput{Kind: model.KindCommitment, Title: "Upkeep", Goal: proj, Cadence: "monthly"}).ID
 	for name, in := range map[string]DeferInput{
 		"with until":      {IDs: []string{task}, UntilStart: trip, Until: "2026-12-20"},
 		"with after":      {IDs: []string{task}, UntilStart: trip, After: trip},

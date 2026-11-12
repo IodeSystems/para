@@ -36,7 +36,7 @@ func laterVault(t *testing.T) (Deps, string) {
 		t.Fatal(err)
 	}
 	d := Deps{Store: st}
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example", Due: "2026-11-12"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal", Owner: "Jordan Example", Due: "2026-11-12"}).ID
 	return d, proj
 }
 
@@ -50,9 +50,9 @@ func listedIDs(q QuestionListOutput) []string {
 
 func TestDeferHidesFromListsAndStillBlocks(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
-	free := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Free"}).ID
-	waits := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Waits", DependsOn: []string{q}, Due: "2026-11-10"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
+	free := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Free"}).ID
+	waits := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Waits", DependsOn: []string{q}, Due: "2026-11-10"}).ID
 
 	out := must(t, Defer, d, DeferInput{IDs: []string{q, free}, Until: "2026-12-01", Reason: "After the audit."})
 	if len(out.Changed) != 2 || out.Until != "2026-12-01" {
@@ -107,8 +107,8 @@ func TestDeferHidesFromListsAndStillBlocks(t *testing.T) {
 
 func TestDeferReturnsOnItsDateAndSomedayStays(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
-	s := must(t, QuestionAdd, d, QuestionAddInput{Text: "Some day?", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
+	s := must(t, QuestionAdd, d, QuestionAddInput{Text: "Some day?", Goal: proj}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{q}, Until: "2026-11-03"})
 	must(t, Defer, d, DeferInput{IDs: []string{s}})
 	azClock = azNow.AddDate(0, 0, 1)
@@ -123,7 +123,7 @@ func TestDeferReturnsOnItsDateAndSomedayStays(t *testing.T) {
 
 func TestDeferRules(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
 	for name, in := range map[string]DeferInput{
 		"past":       {IDs: []string{q}, Until: "2026-11-02"},
 		"bad date":   {IDs: []string{q}, Until: "next week"},
@@ -149,10 +149,10 @@ func TestDeferRules(t *testing.T) {
 
 func TestDeferScopeTakesQuestionsThatBlockNothing(t *testing.T) {
 	d, proj := laterVault(t)
-	idle := must(t, QuestionAdd, d, QuestionAddInput{Text: "Idle one", Project: proj}).ID
-	blocks := must(t, QuestionAdd, d, QuestionAddInput{Text: "Blocking one", Project: proj}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Waits", DependsOn: []string{blocks}})
-	prop := must(t, QuestionAdd, d, QuestionAddInput{Text: "Has a proposal", Project: proj}).ID
+	idle := must(t, QuestionAdd, d, QuestionAddInput{Text: "Idle one", Goal: proj}).ID
+	blocks := must(t, QuestionAdd, d, QuestionAddInput{Text: "Blocking one", Goal: proj}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Waits", DependsOn: []string{blocks}})
+	prop := must(t, QuestionAdd, d, QuestionAddInput{Text: "Has a proposal", Goal: proj}).ID
 	must(t, QuestionAnswer, agentOf(d), QuestionAnswerInput{ID: prop, Text: "Maybe.", Sources: []model.AnswerSource{{Ref: "https://wiki.example/x"}}})
 	o := must(t, Defer, d, DeferInput{Scope: proj, Reason: "Not now."})
 	if len(o.Changed) != 1 || o.Changed[0] != idle {
@@ -162,7 +162,7 @@ func TestDeferScopeTakesQuestionsThatBlockNothing(t *testing.T) {
 
 func TestDeferringAGoalPushesOutItsWork(t *testing.T) {
 	d, proj := laterVault(t)
-	tk := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Inside"}).ID
+	tk := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Inside"}).ID
 	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Inside question", Task: tk}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{proj}, Until: "2027-01-01"})
 	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 0 {
@@ -175,7 +175,7 @@ func TestDeferringAGoalPushesOutItsWork(t *testing.T) {
 
 func TestInvestigateQueuesLinkedWork(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port does prod use?", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port does prod use?", Goal: proj}).ID
 	if _, err := Investigate.Run(ctx, agentOf(d), InvestigateInput{ID: q, Hint: "wiki"}); !errors.Is(err, ErrPersonOnly) {
 		t.Errorf("agent: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestInvestigateQueuesLinkedWork(t *testing.T) {
 		t.Errorf("%d requests, want 1", n)
 	}
 	// A runner on another install is the person's choice.
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another?", Project: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another?", Goal: proj}).ID
 	if o2 := must(t, Investigate, d, InvestigateInput{ID: q2, Hint: "wiki", Runner: "m2"}); o2.Runner != "m2" {
 		t.Errorf("runner = %s", o2.Runner)
 	}
@@ -221,8 +221,8 @@ func TestInvestigateQueuesLinkedWork(t *testing.T) {
 func TestInvestigateAcceptsEachType(t *testing.T) {
 	f := newMeetingFixture(t)
 	d, proj, rfx := f.d, f.project, f.rfx
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Write the plan"}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Write the plan"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Goal: proj}).ID
 	meet := must(t, MeetingAdd, d, MeetingAddInput{Title: "Launch sync", With: []string{f.person}}).ID
 	other := must(t, RequestAdd, d, RequestAddInput{Title: "Check backups", Ask: "Check them."}).ID
 	for name, id := range map[string]string{"task": task, "question": q, "meeting": meet, "ask": rfx, "goal": proj, "agent work": other} {
@@ -285,8 +285,8 @@ func TestRequestAddLinksTakeMeetingsAsksAndRequests(t *testing.T) {
 
 func TestCutRecordsTheAssumption(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
-	tk := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Schedule", DependsOn: []string{q}}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
+	tk := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Schedule", DependsOn: []string{q}}).ID
 	if _, err := DependsCut.Run(ctx, d, DependsCutInput{ID: tk, Dep: q}); err == nil {
 		t.Error("cut without a reason accepted")
 	}
@@ -316,7 +316,7 @@ func TestCutRecordsTheAssumption(t *testing.T) {
 
 func TestPersonAnswersWithFreeTextSource(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Pick the window", Goal: proj}).ID
 	must(t, QuestionAnswer, d, QuestionAnswerInput{ID: q, Text: "Nov 14.", Sources: []model.AnswerSource{
 		{Ref: "Platform sync, Oct 29", Quote: "we ship on the 14th"}, {Ref: "https://wiki.example/window"}}})
 	sh := must(t, QuestionShow, d, QuestionShowInput{ID: q})
@@ -326,7 +326,7 @@ func TestPersonAnswersWithFreeTextSource(t *testing.T) {
 		}
 	}
 	// An agent still needs a real source: free text is refused.
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another?", Project: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another?", Goal: proj}).ID
 	if _, err := QuestionAnswer.Run(ctx, agentOf(d), QuestionAnswerInput{ID: q2, Text: "x", Sources: []model.AnswerSource{{Ref: "a meeting I remember"}}}); err == nil {
 		t.Error("agent free-text source accepted")
 	}
@@ -337,9 +337,9 @@ func TestPersonAnswersWithFreeTextSource(t *testing.T) {
 
 func TestOrderPutsABlockerOfADatedGoalFirst(t *testing.T) {
 	d, proj := laterVault(t)
-	idle := must(t, QuestionAdd, d, QuestionAddInput{Text: "Idle", Project: proj}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Blocker", Project: proj}).ID
-	tk := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Waits", DependsOn: []string{q}}).ID
+	idle := must(t, QuestionAdd, d, QuestionAddInput{Text: "Idle", Goal: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Blocker", Goal: proj}).ID
+	tk := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Waits", DependsOn: []string{q}}).ID
 	rows := must(t, OrderOp, d, OrderInput{}).Rows
 	var order []string
 	for _, r := range rows {
@@ -371,8 +371,8 @@ func laterQuestion(t *testing.T, d Deps, id string) QuestionView {
 
 func TestDeferAfterItemAndUndefer(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Project: proj}).ID
-	pol := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Policy notes updated"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Goal: proj}).ID
+	pol := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Policy notes updated"}).ID
 
 	must(t, Defer, d, DeferInput{IDs: []string{q}, After: pol})
 	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 0 {
@@ -418,9 +418,9 @@ func TestDeferAfterItemAndUndefer(t *testing.T) {
 
 func TestDeferUndeferKeepsManualDependency(t *testing.T) {
 	d, proj := laterVault(t)
-	a := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "A"}).ID
-	b := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "B"}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Project: proj}).ID
+	a := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "A"}).ID
+	b := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "B"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Goal: proj}).ID
 	must(t, QuestionDependsAdd, d, QuestionDependsInput{ID: q, DependsOn: []string{a}})
 	must(t, Defer, d, DeferInput{IDs: []string{q}, After: a})
 	must(t, Defer, d, DeferInput{IDs: []string{q}, After: b})
@@ -433,13 +433,13 @@ func TestDeferUndeferKeepsManualDependency(t *testing.T) {
 
 func TestDeferWhenMakesTask(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Project: proj}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which AI vendor", Goal: proj}).ID
 	out := must(t, Defer, d, DeferInput{IDs: []string{q}, When: "AI policy notes updated"})
 	if out.Created == "" || out.After != out.Created || len(out.Changed) != 1 {
 		t.Fatalf("out = %+v", out)
 	}
 	doc, tk, err := getTask(ctx, d.Store, out.Created)
-	if err != nil || tk.DoneWhen != "AI policy notes updated" || tk.Project.Target() != proj || doc.Title != "AI policy notes updated" {
+	if err != nil || tk.DoneWhen != "AI policy notes updated" || tk.Goal.Target() != proj || doc.Title != "AI policy notes updated" {
 		t.Fatalf("task = %+v %v", tk, err)
 	}
 	// The body says the condition and what waits on it.
@@ -448,7 +448,7 @@ func TestDeferWhenMakesTask(t *testing.T) {
 	}
 	// The same condition, written another way, reuses the open task: nothing
 	// made, and the body lists the new waiter.
-	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another AI question", Project: proj}).ID
+	q2 := must(t, QuestionAdd, d, QuestionAddInput{Text: "Another AI question", Goal: proj}).ID
 	o2 := must(t, Defer, d, DeferInput{IDs: []string{q2}, When: "  ai policy notes   updated. "})
 	if o2.Created != "" || o2.After != out.Created || len(o2.Similar) != 0 || len(o2.Changed) != 1 {
 		t.Fatalf("reuse = %+v", o2)
@@ -458,7 +458,7 @@ func TestDeferWhenMakesTask(t *testing.T) {
 	}
 	// A similar open task that is not that condition is offered, nothing
 	// changes; new makes the task.
-	q3 := must(t, QuestionAdd, d, QuestionAddInput{Text: "A third AI question", Project: proj}).ID
+	q3 := must(t, QuestionAdd, d, QuestionAddInput{Text: "A third AI question", Goal: proj}).ID
 	o3 := must(t, Defer, d, DeferInput{IDs: []string{q3}, When: "AI policy notes updated and signed"})
 	if len(o3.Similar) == 0 || len(o3.Changed) != 0 {
 		t.Fatalf("similar = %+v", o3)
@@ -468,7 +468,7 @@ func TestDeferWhenMakesTask(t *testing.T) {
 		t.Fatalf("new = %+v", o4)
 	}
 	// The item put off is never its own similar match.
-	self := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Vendor contract signed"}).ID
+	self := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Vendor contract signed"}).ID
 	o5 := must(t, Defer, d, DeferInput{IDs: []string{self}, When: "Vendor contract signed"})
 	if len(o5.Similar) != 0 || len(o5.Changed) != 1 || o5.Created == "" || o5.Created == self {
 		t.Fatalf("self match = %+v", o5)
@@ -483,8 +483,8 @@ func TestDeferWhenMakesTask(t *testing.T) {
 
 func TestDeferAfterWithDateReturnsWhenBothMet(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Project: proj}).ID
-	pol := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Notes"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which", Goal: proj}).ID
+	pol := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Notes"}).ID
 	must(t, Defer, d, DeferInput{IDs: []string{q}, After: pol, Until: "2026-11-10"})
 	must(t, TaskDone, d, TaskDoneInput{ID: pol})
 	if got := listedIDs(must(t, QuestionList, d, QuestionListInput{})); len(got) != 0 {
@@ -500,8 +500,8 @@ func TestDeferAfterWithDateReturnsWhenBothMet(t *testing.T) {
 // read as find work, and a done find shows its resolution note as a reply.
 func TestInvestigateEmptyAndReply(t *testing.T) {
 	d, proj := laterVault(t)
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Fix it"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Goal: proj}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Fix it"}).ID
 	oq := must(t, Investigate, d, InvestigateInput{ID: q})
 	ot := must(t, Investigate, d, InvestigateInput{ID: task})
 	if r := must(t, RequestShow, d, RequestShowInput{ID: oq.Request}).Doc; r.Title != "Find evidence: Which port?" {
@@ -513,7 +513,7 @@ func TestInvestigateEmptyAndReply(t *testing.T) {
 	if !isFindTitle("Ask: x") || !isFindTitle("Find context: x") || isFindTitle("Work on: x") {
 		t.Error("isFindTitle")
 	}
-	ask := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Wrong type"}).ID, Hint: "should this be a question?"})
+	ask := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Wrong type"}).ID, Hint: "should this be a question?"})
 	doc := must(t, RequestShow, d, RequestShowInput{ID: ask.Request}).Doc
 	for _, v := range must(t, RequestList, d, RequestListInput{}).Items {
 		if v.Reply != "" {
@@ -548,7 +548,7 @@ func TestInvestigateTaskInstruction(t *testing.T) {
 		"Recheck its assumptions", "depends_on", "due date", "who does it", "still needed",
 		"stay read-only outside para", "a guess is not a source", "a short note",
 	}
-	plain := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew the cert"}).ID})
+	plain := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew the cert"}).ID})
 	body := must(t, RequestShow, d, RequestShowInput{ID: plain.Request}).Doc.Body
 	for _, w := range three {
 		if !strings.Contains(body, w) {
@@ -558,7 +558,7 @@ func TestInvestigateTaskInstruction(t *testing.T) {
 	if strings.Contains(body, "## Ask") {
 		t.Errorf("no note: body has an Ask:\n%s", body)
 	}
-	noted := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Book the venue"}).ID, Hint: "I think Sam did this already"})
+	noted := must(t, Investigate, d, InvestigateInput{ID: must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Book the venue"}).ID, Hint: "I think Sam did this already"})
 	doc := must(t, RequestShow, d, RequestShowInput{ID: noted.Request}).Doc
 	for _, w := range append(three, "## Ask\n\nI think Sam did this already", "doc_retype") {
 		if !strings.Contains(doc.Body, w) {
@@ -568,7 +568,7 @@ func TestInvestigateTaskInstruction(t *testing.T) {
 	if !strings.HasPrefix(doc.Title, "Ask: ") {
 		t.Errorf("note: title = %q", doc.Title)
 	}
-	q := must(t, Investigate, d, InvestigateInput{ID: must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Project: proj}).ID})
+	q := must(t, Investigate, d, InvestigateInput{ID: must(t, QuestionAdd, d, QuestionAddInput{Text: "Which port?", Goal: proj}).ID})
 	if b := must(t, RequestShow, d, RequestShowInput{ID: q.Request}).Doc.Body; strings.Contains(b, "Fill in missing details") || !strings.Contains(b, "question_answer") {
 		t.Errorf("question body:\n%s", b)
 	}
@@ -580,7 +580,7 @@ func TestInvestigateTaskInstruction(t *testing.T) {
 func TestRowsCarryCreatedAndUpdated(t *testing.T) {
 	d, proj := laterVault(t)
 	day := model.Date(azNow.Format("2006-01-02"))
-	id := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Pay the invoice", Due: string(day)}).ID
+	id := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Pay the invoice", Due: string(day)}).ID
 	azClock = azNow.AddDate(0, 0, 1)
 	next := model.Date(azClock.Format("2006-01-02"))
 	must(t, TaskEdit, d, TaskEditInput{ID: id, DoneWhen: "The bank shows it paid."})

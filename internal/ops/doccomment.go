@@ -267,7 +267,7 @@ const (
 )
 
 // DocCommentFileInput is the input of doc_comment_file. The new item takes the
-// tracked document's project or area unless one is given. An Ask is
+// tracked document's goal or area unless one is given. An Ask is
 // incoming (the commenter asks the owner) and goes to route, default the
 // document's route, else its system. A commitment is due on due, default
 // seven days on.
@@ -275,7 +275,7 @@ type DocCommentFileInput struct {
 	ID       string `json:"id"`
 	Comment  string `json:"comment"`
 	To       string `json:"to"` // ask, question, or commitment
-	Project  string `json:"project,omitempty"`
+	Goal     string `json:"goal,omitempty"`
 	Area     string `json:"area,omitempty"`
 	Task     string `json:"task,omitempty"` // question: scope a task
 	Root     bool   `json:"root,omitempty"` // question: scope the whole vault
@@ -296,7 +296,7 @@ type DocCommentFileOutput struct {
 
 // DocCommentFile turns a comment into an Ask, a question, or a commitment and
 // links it.
-var DocCommentFile = defineSafe("doc_comment_file", "Turn a comment of a tracked document into an Ask (the commenter asks the owner), a question, or a commitment (a task the owner owes, due default a week on), in the document's project or area unless given; the comment links it and closes as became", func(ctx context.Context, d Deps, in DocCommentFileInput) (DocCommentFileOutput, error) {
+var DocCommentFile = defineSafe("doc_comment_file", "Turn a comment of a tracked document into an Ask (the commenter asks the owner), a question, or a commitment (a task the owner owes, due default a week on), in the document's goal or area unless given; the comment links it and closes as became", func(ctx context.Context, d Deps, in DocCommentFileInput) (DocCommentFileOutput, error) {
 	return fileComment(ctx, d, in)
 })
 
@@ -313,9 +313,9 @@ func fileComment(ctx context.Context, d Deps, in DocCommentFileInput) (DocCommen
 		return DocCommentFileOutput{}, fmt.Errorf("comment %s is already %s", c.ID, c.Resolution)
 	}
 	out := DocCommentFileOutput{ID: doc.ID, Comment: c.ID, Warnings: []string{}}
-	project, area := in.Project, in.Area
+	project, area := in.Goal, in.Area
 	if project == "" && area == "" && in.Task == "" && !in.Root {
-		project, area = m.Project.Target(), m.Area.Target()
+		project, area = m.Goal.Target(), m.Area.Target()
 		if project != "" {
 			area = ""
 		}
@@ -337,21 +337,21 @@ func fileComment(ctx context.Context, d Deps, in DocCommentFileInput) (DocCommen
 		if id := ioLinks([]string{c.By}); len(id) > 0 {
 			tg = append(tg, TargetInput{To: id[0], Medium: mediumOf(m.System)})
 		}
-		r, err := RFXAdd.Run(ctx, d, RFXAddInput{Direction: model.RFXIn, Ask: text, Route: route, Targets: tg, Project: project})
+		r, err := RFXAdd.Run(ctx, d, RFXAddInput{Direction: model.RFXIn, Ask: text, Route: route, Targets: tg, Goal: project})
 		if err != nil {
 			return out, err
 		}
 		out.Became, out.Type, out.Warnings = r.ID, model.TypeRFX, r.Warnings
 	case CommentToQuestion:
 		root := in.Root || (project == "" && area == "" && in.Task == "")
-		r, err := QuestionAdd.Run(ctx, d, QuestionAddInput{Text: text, Project: project, Area: area, Task: in.Task, Root: root})
+		r, err := QuestionAdd.Run(ctx, d, QuestionAddInput{Text: text, Goal: project, Area: area, Task: in.Task, Root: root})
 		if err != nil {
 			return out, err
 		}
 		out.Became, out.Type = r.ID, model.TypeQuestion
 	case CommentToCommitment:
 		if project == "" && area == "" {
-			return out, fmt.Errorf("%s has no project or area: give project or area for the commitment", doc.ID)
+			return out, fmt.Errorf("%s has no goal or area: give goal or area for the commitment", doc.ID)
 		}
 		due := in.Due
 		if due == "" {
@@ -361,7 +361,7 @@ func fileComment(ctx context.Context, d Deps, in DocCommentFileInput) (DocCommen
 		if err != nil {
 			return out, err
 		}
-		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Project: project, Area: area, Title: title, Body: body, Due: due, Kind: model.KindCommitment,
+		r, err := TaskAdd.Run(ctx, d, TaskAddInput{Goal: project, Area: area, Title: title, Body: body, Due: due, Kind: model.KindCommitment,
 			DoneWhen: firstOf(ioLine(in.DoneWhen), "The comment "+c.ID+" on "+doc.Title+" is answered or done.")})
 		if err != nil {
 			return out, err

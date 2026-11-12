@@ -73,7 +73,7 @@ func explains(d model.Document) bool {
 		return true
 	}
 	switch m := d.Meta.(type) {
-	case *model.Project:
+	case *model.Goal:
 		return m.HasBrief()
 	case *model.Task:
 		return meaningfulText(m.DoneWhen)
@@ -95,7 +95,7 @@ func (h *healther) hasContext(d model.Document) bool {
 		if strings.TrimSpace(m.DoneWhen) != "" || meaningfulText(m.Steps) {
 			return true
 		}
-		linked = append(linked, m.Parent.Target(), m.Incident.Target(), m.Previous.Target(), m.Project.Target())
+		linked = append(linked, m.Parent.Target(), m.Incident.Target(), m.Previous.Target(), m.Goal.Target())
 	case *model.Question:
 		if strings.TrimSpace(m.Context) != "" || len(m.OptionDetails) > 0 {
 			return true
@@ -104,7 +104,7 @@ func (h *healther) hasContext(d model.Document) bool {
 			linked = append(linked, sc)
 			if sd, ok := h.docs[sc]; ok {
 				if t, ok := sd.Meta.(*model.Task); ok {
-					linked = append(linked, t.Project.Target())
+					linked = append(linked, t.Goal.Target())
 				}
 			}
 		}

@@ -26,22 +26,22 @@ func newBriefFixture(t *testing.T) briefFixture {
 	d := newDeps(t)
 	seedOrg(t, d)
 	f := briefFixture{d: d, ada: "person-ada-example", bo: "person-bo-example"}
-	project := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	f.question = must(t, QuestionAdd, d, QuestionAddInput{Text: "Which window does the audit use?", Project: project}).ID
+	project := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	f.question = must(t, QuestionAdd, d, QuestionAddInput{Text: "Which window does the audit use?", Goal: project}).ID
 	f.askOut = must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Can the portal launch before the audit?", Route: "domain-logging",
-		SelfServe: "read policies", Project: project, Question: f.question, Targets: []TargetInput{{To: f.ada, Medium: model.MediumEmail}}}).ID
+		SelfServe: "read policies", Goal: project, Question: f.question, Targets: []TargetInput{{To: f.ada, Medium: model.MediumEmail}}}).ID
 	f.settle = must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXOut, Ask: "Who signs off the launch?", Route: "domain-logging",
-		SelfServe: "read policies", Project: project, Targets: []TargetInput{{To: f.bo, Medium: model.MediumEmail}}}).ID
+		SelfServe: "read policies", Goal: project, Targets: []TargetInput{{To: f.bo, Medium: model.MediumEmail}}}).ID
 	f.askIn = must(t, RFXAdd, d, RFXAddInput{Direction: model.RFXIn, Ask: "Send the retention numbers", Route: "domain-logging",
 		Targets: []TargetInput{{To: f.ada, Medium: model.MediumEmail}}}).ID
-	f.owed = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Draft the rollout note for Ada", Kind: model.KindCommitment, With: []string{f.ada}, Due: "2026-11-20"}).ID
-	f.waits = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Book the launch slot", DependsOn: []string{f.askOut}}).ID
-	f.bosJob = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Check the log volume", Assignee: f.bo}).ID
+	f.owed = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Draft the rollout note for Ada", Kind: model.KindCommitment, With: []string{f.ada}, Due: "2026-11-20"}).ID
+	f.waits = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Book the launch slot", DependsOn: []string{f.askOut}}).ID
+	f.bosJob = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Check the log volume", Assignee: f.bo}).ID
 
 	// A weekly meeting: holding one occurrence makes the next.
-	f.prev = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Portal sync", Kind: model.KindMeeting, Recur: "weekly",
+	f.prev = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Portal sync", Kind: model.KindMeeting, Recur: "weekly",
 		Scheduled: "2026-10-28T10:00:00-04:00", End: "2026-10-28T10:30:00-04:00", With: []string{f.ada, f.bo}}).ID
-	f.oldItem = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Send Ada the audit dates", Parent: f.prev}).ID
+	f.oldItem = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Send Ada the audit dates", Parent: f.prev}).ID
 	held := must(t, MeetingHold, d, MeetingHoldInput{ID: f.prev, Notes: "Agreed the audit window comes first."})
 	if held.Next == "" {
 		t.Fatalf("hold made no next occurrence: %+v", held)
@@ -58,7 +58,7 @@ func newBriefFixture(t *testing.T) briefFixture {
 	if _, err := d.Store.Update(ctx, doc); err != nil {
 		t.Fatal(err)
 	}
-	f.action = must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Bring the launch checklist", Parent: f.meeting}).ID
+	f.action = must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Bring the launch checklist", Parent: f.meeting}).ID
 	return f
 }
 
@@ -161,8 +161,8 @@ func TestBriefResolvesAttendeeAddedLater(t *testing.T) {
 
 func TestBriefRefusesItemWithoutPeople(t *testing.T) {
 	d := newDeps(t)
-	project := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Solo"}).ID
-	task := must(t, TaskAdd, d, TaskAddInput{Project: project, Title: "Think"}).ID
+	project := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Solo"}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: project, Title: "Think"}).ID
 	if _, err := Brief.Run(ctx, d, BriefInput{ID: task}); err == nil || !strings.Contains(err.Error(), "names no people") {
 		t.Errorf("err = %v", err)
 	}

@@ -10,8 +10,8 @@ import (
 // prepared by that draft, as an ask made to the owner does.
 func TestDraftThreadedToQuestionPreparesIt(t *testing.T) {
 	d := gapVault(t)
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which CA do we use?", Project: proj}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	q := must(t, QuestionAdd, d, QuestionAddInput{Text: "Which CA do we use?", Goal: proj}).ID
 	if r := rowOf(t, d, q); r.Ready {
 		t.Fatalf("raw question is ready: %+v", r)
 	}
@@ -25,7 +25,7 @@ func TestDraftThreadedToQuestionPreparesIt(t *testing.T) {
 		t.Fatalf("question with a threaded draft: %+v", r)
 	}
 	// A task is still refused as a thread.
-	task := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
+	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
 	if _, err := IOAdd.Run(ctx, agentOf(d), IOAddInput{Direction: model.IOOut, Medium: model.MediumOther, Text: "x",
 		To: []string{"wiki.acme.example/ca"}, Expects: model.ExpectsNone, Thread: task}); err == nil {
 		t.Fatal("a task accepted as thread")

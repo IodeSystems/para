@@ -75,7 +75,7 @@ type AssumptionView struct {
 // false for another type.
 func metaAssumptions(m model.Meta) (*[]model.Assumption, bool) {
 	switch x := m.(type) {
-	case *model.Project:
+	case *model.Goal:
 		return &x.Assumptions, true
 	case *model.Task:
 		return &x.Assumptions, true
@@ -146,7 +146,7 @@ type GoalRiskSetOutput struct {
 
 // GoalRiskSet adds, updates, or removes one risk of a goal's brief.
 var GoalRiskSet = defineSafe("goal_risk_set", "Add or update one risk of a goal's brief, matched by text: likelihood and impact (low, medium, high), owner, mitigation, and source (required for a new risk; the owner's chat words count). remove drops it", func(ctx context.Context, d Deps, in GoalRiskSetInput) (GoalRiskSetOutput, error) {
-	doc, p, err := getProject(ctx, d.Store, normID(in.ID))
+	doc, p, err := getGoal(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return GoalRiskSetOutput{}, err
 	}

@@ -41,14 +41,22 @@ func lintFile(f *paramd.File) []paramd.Finding {
 }
 
 // renderChecked renders d (onto oldFrontmatter, as model.RenderOnto) and refuses it if Lint reports an error. Warnings
-// do not refuse a write.
-func renderChecked(rel string, d model.Document, oldFrontmatter []byte) ([]byte, error) {
+// do not refuse a write. legacy writes the form of a vault below
+// model.GoalsFormat (legacy.go).
+func renderChecked(rel string, d model.Document, oldFrontmatter []byte, legacy bool) ([]byte, error) {
+	if legacy {
+		d = model.LegacyWrite(d)
+	}
 	data, err := model.RenderOnto(d, oldFrontmatter)
 	if err != nil {
 		return nil, err
 	}
+	pf := paramd.Parse(rel, data)
+	if legacy {
+		legacyParsed(pf)
+	}
 	var bad []model.Finding
-	for _, f := range convert(lintFile(paramd.Parse(rel, data))) {
+	for _, f := range convert(lintFile(pf)) {
 		if f.Severity == model.SeverityError {
 			bad = append(bad, f)
 		}
@@ -60,7 +68,8 @@ func renderChecked(rel string, d model.Document, oldFrontmatter []byte) ([]byte,
 }
 
 // lintFiles runs Lint and CheckVault over rels, which are relative to root.
-func lintFiles(root string, rels []string) ([]model.Finding, error) {
+// legacy lints a vault below model.GoalsFormat as format 11 (legacy.go).
+func lintFiles(root string, rels []string, legacy bool) ([]model.Finding, error) {
 	var files []*paramd.File
 	var out []paramd.Finding
 	for _, rel := range rels {
@@ -69,6 +78,9 @@ func lintFiles(root string, rels []string) ([]model.Finding, error) {
 			return nil, err
 		}
 		f := paramd.Parse(rel, data)
+		if legacy {
+			legacyParsed(f)
+		}
 		files = append(files, f)
 		out = append(out, lintFile(f)...)
 	}
@@ -93,7 +105,9 @@ func LintPath(p string) ([]model.Finding, error) {
 		return convert(lintFile(f)), nil
 	}
 	dirs := []string{"."}
+	legacy := false
 	if _, err := os.Stat(filepath.Join(p, dirState)); err == nil {
+		legacy = legacyAt(p, nil)
 		dirs = dirs[:0]
 		for _, f := range model.Folders {
 			dirs = append(dirs, string(f))
@@ -109,7 +123,7 @@ func LintPath(p string) ([]model.Finding, error) {
 		}
 		rels = append(rels, found...)
 	}
-	out, err := lintFiles(p, rels)
+	out, err := lintFiles(p, rels, legacy)
 	if err != nil {
 		return nil, fmt.Errorf("vault: lint path: %w", err)
 	}

@@ -59,7 +59,7 @@ func (h *healther) trackedDocs(checkDays int) {
 		if !ok || m.Status != model.DocWatching {
 			continue
 		}
-		goal := m.Project.Target()
+		goal := m.Goal.Target()
 		if !h.openGoals[goal] {
 			goal = ""
 		}

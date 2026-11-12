@@ -22,10 +22,10 @@ func seedWork(t *testing.T, d ops.Deps) {
 		}
 	}
 	for _, id := range []string{"project-a", "project-c1", "project-c2"} {
-		mk(id, "Project "+id, &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "Jordan Example"})
+		mk(id, "Project "+id, &model.Goal{Common: model.Common{Type: model.TypeGoal}, Status: model.GoalActive, Owner: "Jordan Example"})
 	}
 	for _, id := range []string{"task-s1", "task-s2", "task-d1", "task-d2", "task-d3", "task-b1", "task-b2"} {
-		mk(id, "Task "+id, &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Project: model.LinkTo("project-a")})
+		mk(id, "Task "+id, &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-a")})
 	}
 }
 
@@ -33,10 +33,10 @@ func TestWorkFlow(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
 
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "Portal rewrite", "--owner", "Jordan Example")
-	if !strings.HasPrefix(p.ID, "project-") || p.Folder != model.FolderProjects {
-		t.Fatalf("project = %+v", p)
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "Portal rewrite", "--owner", "Jordan Example")
+	if !strings.HasPrefix(p.ID, "goal-") || p.Folder != model.FolderGoals {
+		t.Fatalf("goal = %+v", p)
 	}
 	add := func(title string, deps ...string) string {
 		args := []string{"task", "add", title, "-p", p.ID}
@@ -110,17 +110,17 @@ func TestWorkFlow(t *testing.T) {
 		t.Fatalf("lint = %+v", lint)
 	}
 
-	e.ok("project", "close", p.ID)
+	e.ok("goal", "close", p.ID)
 	if _, err := os.Stat(filepath.Join(path, "archive", p.ID+".md")); err != nil {
 		t.Fatal(err)
 	}
-	var list ops.ProjectListOutput
-	e.json(&list, "project", "list")
-	if len(list.Projects) != 0 {
+	var list ops.GoalListOutput
+	e.json(&list, "goal", "list")
+	if len(list.Goals) != 0 {
 		t.Fatalf("active list = %+v", list)
 	}
-	e.json(&list, "project", "list", "--all")
-	if len(list.Projects) != 1 || list.Projects[0].Status != model.ProjectDone || list.Projects[0].Folder != model.FolderArchive {
+	e.json(&list, "goal", "list", "--all")
+	if len(list.Goals) != 1 || list.Goals[0].Status != model.GoalDone || list.Goals[0].Folder != model.FolderArchive {
 		t.Fatalf("all list = %+v", list)
 	}
 }
@@ -128,27 +128,27 @@ func TestWorkFlow(t *testing.T) {
 func TestProjectCloseRefusesOpenTasks(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "P", "--owner", "x")
 	e.ok("task", "add", "open", "-p", p.ID)
-	if _, _, err := e.run("project", "close", p.ID); err == nil || !strings.Contains(err.Error(), "open tasks") {
+	if _, _, err := e.run("goal", "close", p.ID); err == nil || !strings.Contains(err.Error(), "open tasks") {
 		t.Fatalf("err = %v", err)
 	}
-	e.ok("project", "close", p.ID, "--force", "--dropped")
+	e.ok("goal", "close", p.ID, "--force", "--dropped")
 }
 
 func TestCycleIsReported(t *testing.T) {
 	e := newEnv(t)
 	path := e.init("acme")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "P", "--owner", "x")
 	var x, y ops.TaskAddOutput
 	e.json(&x, "task", "add", "x", "-p", p.ID)
 	e.json(&y, "task", "add", "y", "-p", p.ID, "--depends-on", x.ID)
 	// A hand edit closes the loop; add cannot.
-	file := filepath.Join(path, "projects", x.ID+".md")
+	file := filepath.Join(path, "goals", x.ID+".md")
 	raw, _ := os.ReadFile(file)
-	edited := strings.Replace(string(raw), "project: ", "depends_on:\n  - \"[["+y.ID+"]]\"\nproject: ", 1)
+	edited := strings.Replace(string(raw), "goal: ", "depends_on:\n  - \"[["+y.ID+"]]\"\ngoal: ", 1)
 	if err := os.WriteFile(file, []byte(edited), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -166,8 +166,8 @@ func TestCycleIsReported(t *testing.T) {
 func TestTaskAddRefusals(t *testing.T) {
 	e := newEnv(t)
 	e.init("acme")
-	var p ops.ProjectAddOutput
-	e.json(&p, "project", "add", "--done-when", "Done.", "P", "--owner", "x")
+	var p ops.GoalAddOutput
+	e.json(&p, "goal", "add", "--done-when", "Done.", "P", "--owner", "x")
 	var a struct {
 		ID string `json:"id"`
 	}
@@ -177,7 +177,7 @@ func TestTaskAddRefusals(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"no project or area", []string{"task", "add", "t"}, "needs a project or an area"},
+		{"no project or area", []string{"task", "add", "t"}, "needs a goal or an area"},
 		{"unknown area", []string{"task", "add", "t", "--area", "area-nope"}, "not found"},
 		{"project is not an area", []string{"task", "add", "t", "--area", p.ID}, "not an area"},
 		{"unknown project", []string{"task", "add", "t", "-p", "project-nope"}, "not found"},

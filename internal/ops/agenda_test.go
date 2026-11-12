@@ -51,8 +51,8 @@ func ids(items []AgendaItem) []string {
 func TestAgendaDaysFollowTheZone(t *testing.T) {
 	d, ada := agendaVault(t, "2026-11-05T03:00:00Z") // 22:00 on Nov 4 in New York, 04:00 on Nov 5 in Berlin
 	m := meet(t, d, ada, "Late call", "2026-11-05T01:00:00Z", "2026-11-05T02:00:00Z")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	due := must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "File the form", Due: "2026-11-04"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	due := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "File the form", Due: "2026-11-04"}).ID
 
 	ny := agendaOf(t, d, AgendaInput{Zone: "America/New_York", Days: 2})
 	if ny.From != "2026-11-04" || ny.To != "2026-11-05" || ny.Zone != "America/New_York" {
@@ -144,9 +144,9 @@ func TestAgendaAcrossClockChanges(t *testing.T) {
 
 func TestAgendaKindsAndOrder(t *testing.T) {
 	d, ada := agendaVault(t, "2026-11-02T14:00:00Z")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	task := func(title, due string, extra TaskAddInput) string {
-		extra.Project, extra.Title, extra.Due = proj, title, due
+		extra.Goal, extra.Title, extra.Due = proj, title, due
 		return must(t, TaskAdd, d, extra).ID
 	}
 	late := task("Late one", "2026-10-30", TaskAddInput{})
@@ -218,10 +218,10 @@ func TestAgendaInputs(t *testing.T) {
 
 func TestCalendarExport(t *testing.T) {
 	d, ada := agendaVault(t, "2026-11-02T14:00:00Z")
-	proj := must(t, ProjectAdd, d, ProjectAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "File the form, then; call", Due: "2026-11-05"})
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Overdue one", Due: "2026-10-01"})
-	must(t, TaskAdd, d, TaskAddInput{Project: proj, Title: "Not mine", Due: "2026-11-05", Assignee: ada})
+	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "File the form, then; call", Due: "2026-11-05"})
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Overdue one", Due: "2026-10-01"})
+	must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Not mine", Due: "2026-11-05", Assignee: ada})
 	long := "Quarterly review of the portal launch plan with a very long title that has to fold over a line, with \u00e9\u00e8\u00ea\u00eb accents to cross a fold boundary"
 	meet(t, d, ada, long, "2026-11-04T10:00:00-05:00", "2026-11-04T10:30:00-05:00")
 	must(t, MeetingAdd, d, MeetingAddInput{Title: "Requested only", With: []string{ada}})
