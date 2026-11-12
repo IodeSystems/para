@@ -24,15 +24,24 @@ func tickOptionalMeetings(ctx context.Context, d Deps, out *TickOutput) error {
 	if err != nil {
 		return err
 	}
-	receipts, err := listReceipts(ctx, d.Store)
-	if err != nil {
-		return err
-	}
-	done := map[string]bool{}
-	for _, r := range receipts {
-		if r.Actor == TickSurface && (r.Op == MeetingAttend.Name() || r.Op == ObligationAttend.Name()) {
-			done[r.Doc] = true
+	// Read the receipts only when a past optional meeting needs them, and
+	// without SourceLinks, which this pass does not use.
+	var done map[string]bool
+	attended := func() (map[string]bool, error) {
+		if done != nil {
+			return done, nil
 		}
+		receipts, err := readReceipts(ctx, d.Store, false)
+		if err != nil {
+			return nil, err
+		}
+		done = map[string]bool{}
+		for _, r := range receipts {
+			if r.Actor == TickSurface && (r.Op == MeetingAttend.Name() || r.Op == ObligationAttend.Name()) {
+				done[r.Doc] = true
+			}
+		}
+		return done, nil
 	}
 	now := d.Store.Now()
 	wctx := WithWrite(ctx, WriteMeta{Why: tickSkipWhy, Confidence: model.ConfidenceHigh})
@@ -45,11 +54,18 @@ func tickOptionalMeetings(ctx context.Context, d Deps, out *TickOutput) error {
 		if !ok || mt.occ == nil || mt.Status != model.MeetingScheduled {
 			continue
 		}
-		if t := mt.occ; !t.Optional || (t.Attend != "" && t.Attend != model.AttendMaybe) || done[doc.ID] {
+		if t := mt.occ; !t.Optional || (t.Attend != "" && t.Attend != model.AttendMaybe) {
 			continue
 		}
 		end, err := time.Parse(time.RFC3339, mt.End)
 		if err != nil || end.After(now) {
+			continue
+		}
+		att, err := attended()
+		if err != nil {
+			return err
+		}
+		if att[doc.ID] {
 			continue
 		}
 		if _, err := ObligationAttend.Run(wctx, d, MeetingAttendInput{ID: doc.ID, Attend: string(model.AttendNo)}); err != nil {

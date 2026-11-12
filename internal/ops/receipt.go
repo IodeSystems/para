@@ -86,6 +86,13 @@ type ReceiptListOutput struct {
 
 // listReceipts reads every receipt, newest first.
 func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
+	return readReceipts(ctx, s, true)
+}
+
+// readReceipts is listReceipts; resolve fills SourceLinks, which looks up
+// every source id of every receipt. A caller that does not read SourceLinks
+// passes false.
+func readReceipts(ctx context.Context, s store.Store, resolve bool) ([]ReceiptView, error) {
 	refs, err := s.List(ctx, store.Filter{Folder: model.FolderReceipts, Type: model.TypeReceipt})
 	if err != nil {
 		return nil, err
@@ -98,7 +105,9 @@ func listReceipts(ctx context.Context, s store.Store) ([]ReceiptView, error) {
 			return nil, err
 		}
 		v := receiptView(doc, r)
-		v.SourceLinks = res.resolveRefs(r.Sources)
+		if resolve {
+			v.SourceLinks = res.resolveRefs(r.Sources)
+		}
 		out = append(out, v)
 	}
 	slices.SortStableFunc(out, func(a, b ReceiptView) int {
