@@ -22,6 +22,9 @@ import (
 // A field of type []PartOfRef tagged `partof:"Sibling"` is filled the same way
 // with what the document the sibling names is part of (theme.go): its parent,
 // obligations and questions, goal, and tags, nearest first.
+//
+// A field of type []Blocker tagged `blockersof:"Sibling"` is filled with the
+// open items among the ids the sibling holds (blockers.go).
 
 var namesNeeded sync.Map // reflect.Type -> bool
 
@@ -52,6 +55,9 @@ func scanNames(t reflect.Type, seen map[reflect.Type]bool) bool {
 			if _, ok := f.Tag.Lookup("partof"); ok {
 				return true
 			}
+			if _, ok := f.Tag.Lookup("blockersof"); ok {
+				return true
+			}
 			if f.IsExported() && scanNames(f.Type, seen) {
 				return true
 			}
@@ -66,6 +72,7 @@ type namer struct {
 	s      store.Store
 	titles map[string]string
 	parts  *partIndex
+	docs   map[string]*model.Document
 }
 
 // partOf is what the document id names is part of.
@@ -94,6 +101,33 @@ func (n *namer) load() {
 	for _, r := range refs {
 		n.titles[r.ID] = r.Title
 	}
+}
+
+// get reads a document, once per id.
+func (n *namer) get(id string) (model.Document, bool) {
+	if n.s == nil {
+		return model.Document{}, false
+	}
+	if n.docs == nil {
+		n.docs = map[string]*model.Document{}
+	}
+	if d, ok := n.docs[id]; ok {
+		return derefDoc(d)
+	}
+	d, err := n.s.Get(n.ctx, id)
+	if err != nil {
+		n.docs[id] = nil
+		return model.Document{}, false
+	}
+	n.docs[id] = &d
+	return d, true
+}
+
+func derefDoc(d *model.Document) (model.Document, bool) {
+	if d == nil {
+		return model.Document{}, false
+	}
+	return *d, true
 }
 
 // name is the display name of a link or id: "" when there is none to show.
@@ -169,6 +203,12 @@ func fillValue(n *namer, v reflect.Value) {
 			if spec, ok := f.Tag.Lookup("partof"); ok {
 				if ids, ok := sourceIDs(v, spec); ok && len(ids) > 0 && v.Field(i).CanSet() {
 					v.Field(i).Set(reflect.ValueOf(n.partOf(ids[0])))
+				}
+				continue
+			}
+			if spec, ok := f.Tag.Lookup("blockersof"); ok {
+				if ids, ok := sourceIDs(v, spec); ok && len(ids) > 0 && v.Field(i).CanSet() {
+					v.Field(i).Set(reflect.ValueOf(blockersOf(n.get, ids)))
 				}
 				continue
 			}

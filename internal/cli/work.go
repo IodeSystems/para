@@ -197,7 +197,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				fs.StringVar(&in.Assignee, "assignee", "", "self (default), a person id, or agent:<name>")
 				fs.StringVar(&in.RequestedBy, "requested-by", "", "who it is for: a person or group id, or free text")
 				fs.StringVar(&in.Incident, "incident", "", "incident id this task follows up (the task goes in the incident's area unless you name a project or area)")
-				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "id this task waits on: a task, obligation, rfx, question, goal, or agent work, in any project or area (repeatable)")
+				fs.StringSliceVar(&in.DependsOn, "depends-on", nil, "id this task waits on: a task, obligation, rfx, question, goal, agent work, or io item (an outgoing draft), in any project or area (repeatable)")
 				fs.StringVar(&in.Parent, "parent", "", "task or obligation id this is an action item of: prep for a meeting or a promise, or what came out of it (the parent does not wait on it)")
 				fs.BoolVar(&in.Commitment, "commitment", false, "same as --kind commitment: owed to someone; needs --due")
 				fs.StringVar((*string)(&in.Kind), "kind", "", "task (default), meeting, call, work_with, or commitment; all but task are with someone (--with)")

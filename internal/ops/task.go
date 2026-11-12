@@ -100,6 +100,8 @@ type TaskView struct {
 	ParentName     string   `json:"parent_name,omitempty" nameof:"Parent"`
 	DependsOnNames []string `json:"depends_on_names,omitempty" nameof:"DependsOn"`
 	WithNames      []string `json:"with_names,omitempty" nameof:"With"`
+	// Blockers is the open items of DependsOn, labelled for the owner.
+	Blockers []Blocker `json:"blockers,omitempty" blockersof:"DependsOn"`
 	// PartOf is what the task is part of, nearest first (theme.go).
 	PartOf []PartOfRef `json:"part_of,omitempty" partof:"ID"`
 }
@@ -200,7 +202,7 @@ type TaskAddInput struct {
 	RequestedBy string   `json:"requested_by,omitempty"`
 	Incident    string   `json:"incident,omitempty"`   // incident id this task follows up; with no goal or area the task goes in the incident's area
 	DoneWhen    string   `json:"done_when,omitempty"`  // how we know it is done; required from an agent
-	DependsOn   []string `json:"depends_on,omitempty"` // task, obligation, rfx, question, goal, or agent work ids
+	DependsOn   []string `json:"depends_on,omitempty"` // task, obligation, rfx, question, goal, agent work, or io ids
 	// DoURL is the page where the owner does it, DoCommand the exact command
 	// to run (no secret in it), Steps a short markdown list. An agent that
 	// adds a task for the owner gives at least one when it can find out how.
@@ -766,8 +768,8 @@ func dependencyLink(ctx context.Context, s store.Store, raw string) (model.Link,
 	if err != nil {
 		return "", linkErr("depends_on", id, err)
 	}
-	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeObligation && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeGoal && typ != model.TypeRequest {
-		return "", fmt.Errorf("depends_on %s is a %s: want a task, obligation, rfx, question, goal, or agent work", id, typ)
+	if typ := dep.Meta.Header().Type; typ != model.TypeTask && typ != model.TypeObligation && typ != model.TypeRFX && typ != model.TypeQuestion && typ != model.TypeGoal && typ != model.TypeRequest && typ != model.TypeIO {
+		return "", fmt.Errorf("depends_on %s is a %s: want a task, obligation, rfx, question, goal, agent work, or io item", id, typ)
 	}
 	return model.LinkTo(id), nil
 }
@@ -808,7 +810,7 @@ func dependencyPath(ctx context.Context, s store.Store, from, to string) ([]stri
 // TaskDependsInput is the input of task_depends_add and task_depends_remove.
 type TaskDependsInput struct {
 	ID        string   `json:"id"`
-	DependsOn []string `json:"depends_on"` // task, obligation, rfx, question, goal, or agent work ids, in any goal or area
+	DependsOn []string `json:"depends_on"` // task, obligation, rfx, question, goal, agent work, or io ids, in any goal or area
 }
 
 // TaskDependsOutput is the output of task_depends_add and task_depends_remove.

@@ -92,9 +92,9 @@ func setEdge(ctx context.Context, d Deps, id string, hard, opt *[]model.Link, on
 		return linkErr("on", on, err)
 	}
 	switch dep.Meta.Header().Type {
-	case model.TypeTask, model.TypeObligation, model.TypeRFX, model.TypeQuestion, model.TypeGoal, model.TypeRequest:
+	case model.TypeTask, model.TypeObligation, model.TypeRFX, model.TypeQuestion, model.TypeGoal, model.TypeRequest, model.TypeIO:
 	default:
-		return fmt.Errorf("on %s is a %s: want a task, obligation, rfx, question, goal, or agent work", on, dep.Meta.Header().Type)
+		return fmt.Errorf("on %s is a %s: want a task, obligation, rfx, question, goal, agent work, or io item", on, dep.Meta.Header().Type)
 	}
 	if optional {
 		// An optional edge never waits, so it cannot deadlock: no cycle check.

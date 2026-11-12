@@ -38,6 +38,12 @@ const ContextDoc = graphql(/* GraphQL */ `
             id
             title
           }
+          blockedBy {
+            id
+            type
+            state
+            title
+          }
           waitsOn {
             ...DepRowFields
           }

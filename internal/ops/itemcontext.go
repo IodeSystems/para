@@ -82,6 +82,9 @@ type ItemContextOutput struct {
 	// WaitsOn is what the item waits on, Blocks what waits on it (dependsRows).
 	WaitsOn []DepRow `json:"waits_on"`
 	Blocks  []DepRow `json:"blocks"`
+	// BlockedBy is the open items it waits on (depends_on), labelled for the
+	// owner: each with type, state, and title.
+	BlockedBy []Blocker `json:"blocked_by"`
 	// Later is "until <title> starts (<date>)" or "until <title> ends
 	// (<date>)" while the item is put off until an obligation starts or
 	// ends; LaterRef is that obligation's id.
@@ -115,7 +118,7 @@ type DepRow struct {
 }
 
 // ItemContext shows what an item is for.
-var ItemContext = defineRead("context", "Show what an item is for and what it waits on: later (\"until <obligation> starts (<date>)\" while put off until an obligation starts or ends, with later_ref its id), waits_on (each item it waits on with type, state, and optional: an optional one never holds it; a text reason has reason and no id), blocks (the open items that wait on it, optional too), came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. part_of is what it belongs to, nearest first: parent, the obligations and questions it waits on, is put off until, or serves, goal, tags. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
+var ItemContext = defineRead("context", "Show what an item is for and what it waits on: later (\"until <obligation> starts (<date>)\" while put off until an obligation starts or ends, with later_ref its id), waits_on (each item it waits on with type, state, and optional: an optional one never holds it; a text reason has reason and no id), blocks (the open items that wait on it, optional too), blocked_by (the open items it waits on, each with a type label such as output or input for an io item, a state label such as unapproved or waiting for reply, and title), came_from (the io items filed into it or linking it, with medium, from, when, and url; the agent work that made or changed it; its parent, previous, incident), for (requested_by, owed_to, owed_by, a commitment's with, assignee), and reasons: goal (it leads to a goal, directly or through parent, what it unblocks, or a question's scope), owed (someone waits for it), upkeep (an area, a recurring item, an incident), or none. Each reason has via (the items on the way) and text. part_of is what it belongs to, nearest first: parent, the obligations and questions it waits on, is put off until, or serves, goal, tags. Read it before you decide whether an item is still needed", func(ctx context.Context, d Deps, in ItemContextInput) (ItemContextOutput, error) {
 	id := normID(in.ID)
 	doc, err := d.Store.Get(ctx, id)
 	if err != nil {
@@ -142,6 +145,7 @@ var ItemContext = defineRead("context", "Show what an item is for and what it wa
 	c.parties(doc)
 	out.Reasons = g.reasonsOrNone(doc.ID)
 	out.WaitsOn, out.Blocks = dependsRows(docs, doc.ID)
+	out.BlockedBy = blockersOf(func(id string) (model.Document, bool) { x, ok := docs[id]; return x, ok }, targets(model.HardDeps(doc.Meta)))
 	looking, err := investigating(ctx, d.Store)
 	if err != nil {
 		return out, fmt.Errorf("ops: context: %w", err)

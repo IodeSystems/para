@@ -11,6 +11,8 @@ import { DocLink } from '@/components/DocLink'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemActions } from '@/components/AgendaActions'
 import { BulkList, SelectBox } from '@/components/BulkSelect'
+import { BlockedBy } from '@/components/BlockedBy'
+import type { BlockerLike } from '@/lib/blockers'
 import { PartOfLine } from '@/components/PartOf'
 import type { PartRef } from '@/lib/partof'
 import { isClosed, splitDone } from '@/lib/agenda'
@@ -32,6 +34,8 @@ export type TaskRow = {
   dependsOn: string[]
   dependsOnNames?: string[] | null
   blockedBy: string[]
+  // blockers are the open items of dependsOn, labelled by the server (Blocked by row).
+  blockers?: BlockerLike[] | null
   doneWhen?: string | null
   outcome?: string | null
   deferred?: boolean
@@ -127,6 +131,7 @@ export function TaskRows({
                     open={false}
                   />
                 </Stack>
+                {open && <BlockedBy blockers={t.blockers} />}
                 <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 0.5 }}>
                   {t.status !== 'todo' && <StateChip state={t.status} />}
                   {t.due && open && <DueChip due={t.due} />}

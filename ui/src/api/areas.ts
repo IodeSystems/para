@@ -19,6 +19,12 @@ export const TaskRowFields = graphql(/* GraphQL */ `
     dependsOn
     dependsOnNames
     blockedBy
+    blockers {
+      id
+      type
+      state
+      title
+    }
     doneWhen
     created
     updated

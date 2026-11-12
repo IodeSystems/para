@@ -886,6 +886,13 @@ type para_BatchResult {
   skipped: [String!]
 }
 
+type para_Blocker {
+  id: String!
+  state: String!
+  title: String!
+  type: String!
+}
+
 type para_BodyFile {
   doc: String!
   path: String!
@@ -4108,6 +4115,7 @@ type para_ItemAnswer {
 }
 
 type para_ItemContextOutput {
+  blockedBy: [para_Blocker!]!
   blocks: [para_DepRow!]!
   cameFrom: [para_CameFrom!]!
   for: [para_ForParty!]!
@@ -9082,6 +9090,7 @@ type para_TaskView {
   attempts: Int
   attend: para_TaskViewAttend
   blockedBy: [String!]!
+  blockers: [para_Blocker!]
   commitment: Boolean
   created: String!
   declinedBy: para_TaskViewDeclined_by

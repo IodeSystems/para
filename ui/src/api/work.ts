@@ -43,6 +43,12 @@ const WorkDoc = graphql(/* GraphQL */ `
             dependsOn
             dependsOnNames
             blockedBy
+            blockers {
+              id
+              type
+              state
+              title
+            }
             doneWhen
             outcome
             created

@@ -401,7 +401,7 @@ func TestEditDependencies(t *testing.T) {
 		{[]string{"task", "depends", "add", one, one}, "itself"},
 		{[]string{"task", "depends", "add", one, other, three}, "dependency cycle"},
 		{[]string{"task", "depends", "add", one, "task-nope"}, "not found"},
-		{[]string{"task", "depends", "add", one, badArea.ID}, "want a task, obligation, rfx, question, goal, or agent work"},
+		{[]string{"task", "depends", "add", one, badArea.ID}, "want a task, obligation, rfx, question, goal, agent work, or io item"},
 		{[]string{"task", "depends", "remove", one, two}, "does not depend"},
 	} {
 		if _, _, err := e.run(c.args...); err == nil || !strings.Contains(err.Error(), c.want) {

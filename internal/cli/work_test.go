@@ -181,7 +181,7 @@ func TestTaskAddRefusals(t *testing.T) {
 		{"unknown area", []string{"task", "add", "t", "--area", "area-nope"}, "not found"},
 		{"project is not an area", []string{"task", "add", "t", "--area", p.ID}, "not an area"},
 		{"unknown project", []string{"task", "add", "t", "-p", "project-nope"}, "not found"},
-		{"area is not a task", []string{"task", "add", "t", "-p", p.ID, "--depends-on", a.ID}, "want a task, obligation, rfx, question, goal, or agent work"},
+		{"area is not a task", []string{"task", "add", "t", "-p", p.ID, "--depends-on", a.ID}, "want a task, obligation, rfx, question, goal, agent work, or io item"},
 		{"unknown dependency", []string{"task", "add", "t", "-p", p.ID, "--depends-on", "task-nope"}, "not found"},
 		{"block without reason", []string{"task", "block", "task-nope"}, "reason is empty"},
 		{"bad status filter", []string{"task", "list", "--status", "nope"}, "unknown status"},
