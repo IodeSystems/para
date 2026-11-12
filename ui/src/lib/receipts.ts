@@ -66,3 +66,44 @@ export const emptyToUndefined = (s: string): string | undefined => s.trim() || u
 // noteRequired: a wrong verdict needs a note that says what is wrong.
 export const noteRequired = (verdict: 'verified' | 'wrong', note: string): boolean =>
   verdict === 'wrong' && note.trim() === ''
+
+export type ActorClass = 'owner' | 'agent' | 'para'
+
+// Actors that are the owner: the CLI user, and the owner through the web UI.
+const OWNER_ACTORS = new Set(['user', 'owner'])
+// Actors that are para itself: scheduled runs, dispatch, upgrades.
+const PARA_ACTORS = new Set(['para', 'tick', 'dispatch', 'system', 'upgrade'])
+
+// actorClass sorts a receipt's actor into the owner, an agent, or para (a system write).
+export function actorClass(actor: string): ActorClass {
+  const a = actor.trim().toLowerCase()
+  if (OWNER_ACTORS.has(a)) return 'owner'
+  if (PARA_ACTORS.has(a)) return 'para'
+  return 'agent'
+}
+
+// actorLabel is the chip text: owner, agent <name>, or para.
+export function actorLabel(actor: string): string {
+  const c = actorClass(actor)
+  if (c !== 'agent') return c
+  const name = actor.trim().replace(/^agent[:\s-]*/i, '')
+  return name ? `agent ${name}` : 'agent'
+}
+
+export type OpGroup = 'add' | 'edit' | 'close' | 'send' | 'link' | 'undo' | 'system'
+
+// opGroup groups an op name (note_add, io_send, receipt_undo) by what it did.
+export function opGroup(op: string): OpGroup {
+  if (/undo|revert/.test(op)) return 'undo'
+  if (/^(io_send|io_approve|rfx_nudge|rfx_reply)/.test(op)) return 'send'
+  if (/(close|done|drop|cancel|resolve|retire|fail|archive)/.test(op)) return 'close'
+  if (/(link|depends|^tag|_tag)/.test(op)) return 'link'
+  if (
+    /^(index_rebuild|reconcile|triage_run|journal|sweep|recheck|pool_run|policy_refresh|proposal_executed)/.test(
+      op,
+    )
+  )
+    return 'system'
+  if (/(^add$|_add$|_file$|^ingest$|_draft$|_note$|_reading$|_signal$)/.test(op)) return 'add'
+  return 'edit'
+}

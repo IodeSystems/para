@@ -35,11 +35,11 @@ export const PAGES: { label: string; to: string; words: string[] }[] = [
     words: ['areas', 'policy', 'exceptions', 'conventions', 'constraints'],
   },
   { label: 'Questions', to: '/agenda?show=questions', words: ['questions'] },
-  { label: 'Receipts', to: '/receipts', words: ['receipts'] },
+  { label: 'Log', to: '/log', words: ['log', 'receipts'] },
   {
     label: 'Recent activity',
     to: '/activity',
-    words: ['activity', 'recent', 'changes', 'change log', 'log'],
+    words: ['activity', 'recent', 'changes', 'change log'],
   },
   { label: 'Meetings', to: '/meetings', words: ['meetings'] },
   { label: 'Input', to: '/input', words: ['input', 'inbox', 'messages', 'incoming'] },

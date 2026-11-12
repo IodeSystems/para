@@ -157,7 +157,7 @@ function FeedRow({ r }: { r: ActivityItem }) {
       )}
       {r.receipt && (
         <TextLink to="/docs/$id" params={{ id: r.receipt }} underline="hover" variant="body2">
-          Receipt
+          Log entry
         </TextLink>
       )}
     </Box>

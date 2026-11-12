@@ -16,6 +16,7 @@ import { Route as AuthedActivityRouteImport } from './routes/_authed.activity'
 import { Route as AuthedAgendaRouteImport } from './routes/_authed.agenda'
 import { Route as AuthedHealthRouteImport } from './routes/_authed.health'
 import { Route as AuthedInputRouteImport } from './routes/_authed.input'
+import { Route as AuthedLogRouteImport } from './routes/_authed.log'
 import { Route as AuthedNextRouteImport } from './routes/_authed.next'
 import { Route as AuthedOutputRouteImport } from './routes/_authed.output'
 import { Route as AuthedPinnedRouteImport } from './routes/_authed.pinned'
@@ -84,6 +85,11 @@ const AuthedHealthRoute = AuthedHealthRouteImport.update({
 const AuthedInputRoute = AuthedInputRouteImport.update({
   id: '/input',
   path: '/input',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedLogRoute = AuthedLogRouteImport.update({
+  id: '/log',
+  path: '/log',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedNextRoute = AuthedNextRouteImport.update({
@@ -269,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AuthedAgendaRoute
   '/health': typeof AuthedHealthRoute
   '/input': typeof AuthedInputRoute
+  '/log': typeof AuthedLogRoute
   '/next': typeof AuthedNextRoute
   '/output': typeof AuthedOutputRoute
   '/pinned': typeof AuthedPinnedRoute
@@ -312,6 +319,7 @@ export interface FileRoutesByTo {
   '/agenda': typeof AuthedAgendaRoute
   '/health': typeof AuthedHealthRoute
   '/input': typeof AuthedInputRoute
+  '/log': typeof AuthedLogRoute
   '/next': typeof AuthedNextRoute
   '/output': typeof AuthedOutputRoute
   '/pinned': typeof AuthedPinnedRoute
@@ -357,6 +365,7 @@ export interface FileRoutesById {
   '/_authed/agenda': typeof AuthedAgendaRoute
   '/_authed/health': typeof AuthedHealthRoute
   '/_authed/input': typeof AuthedInputRoute
+  '/_authed/log': typeof AuthedLogRoute
   '/_authed/next': typeof AuthedNextRoute
   '/_authed/output': typeof AuthedOutputRoute
   '/_authed/pinned': typeof AuthedPinnedRoute
@@ -402,6 +411,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/health'
     | '/input'
+    | '/log'
     | '/next'
     | '/output'
     | '/pinned'
@@ -445,6 +455,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/health'
     | '/input'
+    | '/log'
     | '/next'
     | '/output'
     | '/pinned'
@@ -489,6 +500,7 @@ export interface FileRouteTypes {
     | '/_authed/agenda'
     | '/_authed/health'
     | '/_authed/input'
+    | '/_authed/log'
     | '/_authed/next'
     | '/_authed/output'
     | '/_authed/pinned'
@@ -581,6 +593,13 @@ declare module '@tanstack/react-router' {
       path: '/input'
       fullPath: '/input'
       preLoaderRoute: typeof AuthedInputRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/log': {
+      id: '/_authed/log'
+      path: '/log'
+      fullPath: '/log'
+      preLoaderRoute: typeof AuthedLogRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/next': {
@@ -836,6 +855,7 @@ interface AuthedRouteChildren {
   AuthedAgendaRoute: typeof AuthedAgendaRoute
   AuthedHealthRoute: typeof AuthedHealthRoute
   AuthedInputRoute: typeof AuthedInputRoute
+  AuthedLogRoute: typeof AuthedLogRoute
   AuthedNextRoute: typeof AuthedNextRoute
   AuthedOutputRoute: typeof AuthedOutputRoute
   AuthedPinnedRoute: typeof AuthedPinnedRoute
@@ -878,6 +898,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAgendaRoute: AuthedAgendaRoute,
   AuthedHealthRoute: AuthedHealthRoute,
   AuthedInputRoute: AuthedInputRoute,
+  AuthedLogRoute: AuthedLogRoute,
   AuthedNextRoute: AuthedNextRoute,
   AuthedOutputRoute: AuthedOutputRoute,
   AuthedPinnedRoute: AuthedPinnedRoute,

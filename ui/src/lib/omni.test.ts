@@ -12,7 +12,7 @@ describe('omni', () => {
     expect(idOf('quota')).toBeNull()
   })
   it('matches page names', () => {
-    expect(pagesFor('rec').map((p) => p.to)).toEqual(['/receipts', '/activity'])
+    expect(pagesFor('rec').map((p) => p.to)).toEqual(['/log', '/activity'])
     expect(pagesFor('activity').map((p) => p.to)).toEqual(['/activity'])
     expect(pagesFor('Today')[0]?.to).toBe('/agenda')
     expect(pagesFor('')).toEqual([])

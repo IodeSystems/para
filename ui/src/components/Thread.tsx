@@ -108,7 +108,7 @@ function RequestTurn({ t }: { t: ThreadTurnData }) {
               await r.undo?.()
             }
           : undefined,
-        note: r.undo ? undefined : 'This withdraw left no receipt to undo.',
+        note: r.undo ? undefined : 'This withdraw left no log entry to undo.',
       })
     } catch (e) {
       toasts.push({ text: `Could not withdraw: ${errorText(e)}`, tone: 'error' })

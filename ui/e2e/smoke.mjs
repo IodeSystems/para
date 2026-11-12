@@ -4,7 +4,7 @@
 // `para serve` on 127.0.0.1, signs in Chrome with a read-only key, and checks that every main page
 // loads, shows no write control, and logs no console error; that /stack lands on /next; and that a
 // closed dossier is read only on /docs/<id>. Then it signs in with a review:decide key and checks
-// receipts, Next, IO drafts, notes, the composer, and Asked of agents. Needs Google Chrome
+// the Log, Next, IO drafts, notes, the composer, and Asked of agents. Needs Google Chrome
 // (playwright channel 'chrome') and a built ui/dist (`pnpm build`) when it builds the binary.
 //
 //   pnpm build && PARA_E2E_PORT=8245 pnpm e2e
@@ -757,7 +757,7 @@ try {
     'Mark seen marks the document read to the latest version',
   )
 
-  // Receipts: the owner checks or undoes agent writes. The confirm is in the row, never a dialog.
+  // Log: the owner checks or undoes agent writes. The confirm is in the row, never a dialog.
   const rcDialogs = []
   rpage.on('dialog', (d) => {
     rcDialogs.push(d.message())
@@ -784,8 +784,8 @@ try {
   const verifyRid = await receiptOf(verifyMe.id)
   const quotaRid = await receiptOf(note.id)
   check(!!revertRid && !!verifyRid && !!quotaRid, 'MCP seeds two more notes with receipts')
-  await rpage.goto(`${base}/receipts`)
-  await rpage.getByRole('heading', { name: 'Receipts', exact: true }).waitFor()
+  await rpage.goto(`${base}/log`)
+  await rpage.getByRole('heading', { name: 'Log', exact: true }).waitFor()
   const rcRows = rpage.locator('[data-receipt]')
   await rcRows.first().waitFor()
   const rcRow = (id, state) =>
@@ -798,20 +798,29 @@ try {
   const rcAt = (id) => rcOrder.indexOf(id)
   check(
     rcAt(verifyRid) >= 0 && rcAt(verifyRid) < rcAt(revertRid) && rcAt(revertRid) < rcAt(quotaRid),
-    'the receipts page lists the newest write first',
+    'the Log page lists the newest write first',
   )
   check(
     (await rcRevert.getByText('Seeded to test undo.').count()) === 1 &&
       (await rcRevert.getByRole('link', { name: 'https://example.com/receipts-undo' }).count()) ===
         1 &&
       (await rcRevert.locator('[data-sources] a[href*="/docs/"]').count()) >= 1,
-    'a receipt row shows why, an address source as a link, and a vault source as a document link',
+    'a log row shows why, an address source as a link, and a vault source as a document link',
   )
-  check((await rcOld.getAttribute('data-check')) === 'unchecked', 'a new receipt is unchecked')
+  check((await rcOld.getAttribute('data-check')) === 'unchecked', 'a new log entry is unchecked')
+  check(
+    (await rcRevert.locator('[data-actor-chip="agent"]').count()) === 1 &&
+      (await rcRevert.locator('[data-type-chip="add"]').count()) === 1,
+    'a log row has an agent actor chip and an add type chip',
+  )
+  await rpage.goto(`${base}/receipts`)
+  await rpage.waitForURL(/\/log$/)
+  await rcRevert.waitFor()
+  check(rpage.url().endsWith('/log'), '/receipts redirects to /log')
 
   // Filter by check state.
   await rpage.getByLabel('Actor').fill('nobody-e2e')
-  await rpage.getByText('No receipt matches.').waitFor()
+  await rpage.getByText('No log entry matches.').waitFor()
   check((await rcRows.count()) === 0, 'the actor filter drops other actors')
   await rpage.getByLabel('Actor').fill('')
   await rcRevert.waitFor()
@@ -836,7 +845,7 @@ try {
     (await rpage.locator('[data-outcomes] [data-undo]').count()) >= 1,
     'the undo shows in the Outcomes section',
   )
-  check(rcDialogs.length === 0, 'the receipts page opened no browser dialog')
+  check(rcDialogs.length === 0, 'the Log page opened no browser dialog')
 
   // Mark verified.
   await rcVerify.getByRole('button', { name: 'Mark verified' }).click()
@@ -859,7 +868,7 @@ try {
   )
   check(
     rerrors.length === 0,
-    `the receipts page logs no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
+    `the Log page logs no console errors${rerrors.length ? `: ${rerrors.join(' | ')}` : ''}`,
   )
   // The shared card frame: decline, skip, ask agent, edit a message, done by me, a path body.
   const outDraft = (subject, text) =>

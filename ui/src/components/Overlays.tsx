@@ -40,7 +40,7 @@ function HelpDialog() {
       <DialogTitle id="help-title">{touch ? 'Help' : 'Keyboard'}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" sx={{ mb: 2 }}>
-          Agents write through the chat and leave receipts you can check or undo. For other changes,
+          Agents write through the chat and leave log entries you can check or undo. For other changes,
           use the chat with your agent.
         </Typography>
         {!touch && (

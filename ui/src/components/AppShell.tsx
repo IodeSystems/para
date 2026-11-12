@@ -157,7 +157,7 @@ export function AppShell({ session, children }: { session: SessionView; children
           />
           <LinkBottomNavAction value="/next" label="Next" icon={<PlayArrowIcon />} to="/next" />
           <LinkBottomNavAction value="/agenda" label="Agenda" icon={<TodayIcon />} to="/agenda" />
-          {/* Obligations took the place of Receipts (owner 2026-11-06: a main item); Receipts is
+          {/* Obligations took the place of the Log (owner 2026-11-06: a main item); the Log is
               in the menu and on key 2. */}
           <LinkBottomNavAction
             value="/obligations"

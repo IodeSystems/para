@@ -119,7 +119,7 @@ function ChangeDialog({
               await qc.invalidateQueries()
             }
           : undefined,
-        note: out.receipt ? undefined : 'This change left no receipt to undo.',
+        note: out.receipt ? undefined : 'This change left no log entry to undo.',
       })
     } catch (e) {
       setErr(errorText(e))

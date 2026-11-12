@@ -18,8 +18,8 @@ export const TABS: Tab[] = [
   },
   {
     key: '2',
-    to: '/receipts',
-    label: 'Receipts',
+    to: '/log',
+    label: 'Log',
     hint: 'check, verify, or undo what agents wrote',
   },
   { key: '3', to: '/work', label: 'Work' },

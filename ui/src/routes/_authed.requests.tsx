@@ -215,7 +215,7 @@ function WorkRow({
             ))}
             {(it.receipts ?? []).length > 0 && (
               <Typography variant="caption" color="text.secondary">
-                receipts:
+                log entries:
               </Typography>
             )}
             {(it.receipts ?? []).map((r) => (

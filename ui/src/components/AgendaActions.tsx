@@ -228,7 +228,7 @@ export function useItemActions(
         target: { id: x.id, kind: openTarget(x.kind) },
         undo,
         note: !undo
-          ? 'This close left no receipt to undo.'
+          ? 'This close left no log entry to undo.'
           : r.noted
             ? 'Undo opens it again and takes the note out.'
             : undefined,

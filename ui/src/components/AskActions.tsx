@@ -313,7 +313,7 @@ export function DropButton({ id, title }: { id: string; title: string }) {
         : undefined,
       note: undo
         ? 'Undo opens it again and takes the note out.'
-        : 'This close left no receipt to undo.',
+        : 'This close left no log entry to undo.',
     })
   }
   return (

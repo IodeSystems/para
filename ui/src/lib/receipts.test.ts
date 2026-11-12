@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  actorClass,
+  actorLabel,
   checkTone,
   emptyToUndefined,
   isUrl,
@@ -7,6 +9,7 @@ import {
   dayOf,
   groupByDay,
   newestFirst,
+  opGroup,
   receiptTime,
   undoCommand,
 } from '@/lib/receipts'
@@ -77,5 +80,28 @@ describe('receipt page helpers', () => {
     expect(noteRequired('wrong', ' ')).toBe(true)
     expect(noteRequired('wrong', 'bad date')).toBe(false)
     expect(noteRequired('verified', '')).toBe(false)
+  })
+})
+
+describe('actor and op chips', () => {
+  it('sorts actors', () => {
+    expect(actorClass('user')).toBe('owner')
+    expect(actorClass('owner')).toBe('owner')
+    expect(actorClass('tick')).toBe('para')
+    expect(actorClass('claude')).toBe('agent')
+    expect(actorLabel('claude')).toBe('agent claude')
+    expect(actorLabel('agent:writer')).toBe('agent writer')
+    expect(actorLabel('tick')).toBe('para')
+  })
+  it('groups ops', () => {
+    const g = (op: string) => opGroup(op)
+    expect(g('note_add')).toBe('add')
+    expect(g('task_edit')).toBe('edit')
+    expect(g('task_done')).toBe('close')
+    expect(g('io_send')).toBe('send')
+    expect(g('goal_link_add')).toBe('link')
+    expect(g('tag_add')).toBe('link')
+    expect(g('receipt_undo')).toBe('undo')
+    expect(g('reconcile')).toBe('system')
   })
 })

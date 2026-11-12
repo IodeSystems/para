@@ -74,7 +74,7 @@ export function DoIt({
             : undefined,
           note: undo
             ? 'Undo opens it again and takes the note out.'
-            : 'This close left no receipt to undo.',
+            : 'This close left no log entry to undo.',
         })
         return
       }
@@ -90,7 +90,7 @@ export function DoIt({
               await qc.invalidateQueries()
             }
           : undefined,
-        note: receipt ? undefined : 'This close left no receipt to undo.',
+        note: receipt ? undefined : 'This close left no log entry to undo.',
       })
     } catch (e) {
       toasts.push({ text: `Could not mark done: ${title}: ${errorText(e)}`, tone: 'error' })

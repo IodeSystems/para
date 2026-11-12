@@ -9,6 +9,7 @@ import TextField from '@mui/material/TextField'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import Alert from '@mui/material/Alert'
+import Chip from '@mui/material/Chip'
 import {
   useOutcomes,
   useReceipt,
@@ -22,9 +23,58 @@ import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { useRouter } from '@tanstack/react-router'
 import { diffKind } from '@/lib/diff'
-import { checkTone, noteRequired, receiptTime } from '@/lib/receipts'
+import {
+  actorClass,
+  actorLabel,
+  checkTone,
+  noteRequired,
+  opGroup,
+  receiptTime,
+} from '@/lib/receipts'
 import { refKind, refLinks } from '@/lib/refs'
 import { exactTime, humanTime } from '@/lib/when'
+
+// Category colors, from the theme palette: one per actor class (filled chip) and one per op group
+// (outlined chip). They name a kind, not a state, so they do not use the status tones.
+const ACTOR_COLOR = { owner: 'primary', agent: 'info', para: 'default' } as const
+const OP_COLOR = {
+  add: 'success',
+  edit: 'info',
+  close: 'warning',
+  send: 'primary',
+  link: 'default',
+  undo: 'error',
+  system: 'default',
+} as const
+
+// ActorChip says who made a write; the raw actor is the hover text.
+export function ActorChip({ actor }: { actor: string }) {
+  return (
+    <Chip
+      size="small"
+      data-actor-chip={actorClass(actor)}
+      title={actor}
+      label={actorLabel(actor)}
+      color={ACTOR_COLOR[actorClass(actor)]}
+      variant="filled"
+    />
+  )
+}
+
+// OpChip says what kind of write it was, grouped; the op name is the hover text.
+export function OpChip({ op }: { op: string }) {
+  const g = opGroup(op)
+  return (
+    <Chip
+      size="small"
+      data-type-chip={g}
+      title={op}
+      label={g}
+      color={OP_COLOR[g]}
+      variant="outlined"
+    />
+  )
+}
 
 const mono = { fontFamily: 'ui-monospace, monospace', fontSize: 13 } as const
 
@@ -114,7 +164,7 @@ function SourceLinks({ r }: { r: Pick<Receipt, 'sources' | 'sourceLinks'> }) {
   )
 }
 
-// ReceiptRow is one agent write on the Receipts page: what it did, why, from what, how to
+// ReceiptRow is one write on the Log page: what it did, why, from what, how to
 // check it, and the owner's actions. Undo and "wrong" ask in the row, never in a browser dialog.
 export function ReceiptRow({ r, undone }: { r: Receipt; undone: boolean }) {
   const t = receiptTime(r)
@@ -142,8 +192,10 @@ export function ReceiptRow({ r, undone }: { r: Receipt; undone: boolean }) {
             {humanTime(t)}
           </Typography>
         </Tooltip>
+        <ActorChip actor={r.actor} />
+        <OpChip op={r.op} />
         <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
-          {r.actor}: {r.op.replace(/_/g, ' ')}{' '}
+          {r.op.replace(/_/g, ' ')}{' '}
           {r.doc === 'vault' ? (
             'the vault'
           ) : (

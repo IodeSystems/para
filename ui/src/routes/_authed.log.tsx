@@ -11,11 +11,11 @@ import { DataState } from '@/components/DataState'
 import { OutcomesSection, ReceiptRow } from '@/components/Receipts'
 import { emptyToUndefined, newestFirst, type CheckState } from '@/lib/receipts'
 
-export const Route = createFileRoute('/_authed/receipts')({ component: Receipts })
+export const Route = createFileRoute('/_authed/log')({ component: Log })
 
-// Receipts: every agent write, newest first, with its reason and sources. The owner checks a
+// Log: every write, newest first, with its reason and sources. The owner checks a
 // write (verified or wrong) or undoes it here.
-function Receipts() {
+function Log() {
   const [actor, setActor] = useState('')
   const [op, setOp] = useState('')
   const [check, setCheck] = useState<CheckState | ''>('')
@@ -31,8 +31,8 @@ function Receipts() {
   const q = useReceipts({ ...filter, limit: 200 })
   return (
     <>
-      <PageTitle subtitle="What agents changed, newest first. Check a write, or undo it.">
-        Receipts
+      <PageTitle subtitle="What was changed, and by whom, newest first. Check a write, or undo it.">
+        Log
       </PageTitle>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap', mb: 2 }}>
         <TextField
@@ -84,7 +84,7 @@ function Receipts() {
       <DataState q={q}>
         {(rows) =>
           rows.length === 0 ? (
-            <Empty>No receipt matches.</Empty>
+            <Empty>No log entry matches.</Empty>
           ) : (
             <List dense disablePadding sx={{ mb: 2 }}>
               {newestFirst(rows).map((r) => (
