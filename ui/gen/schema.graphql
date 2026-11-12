@@ -161,6 +161,7 @@ type ParaV1MutationNamespace {
   taskDependsRemove(body: para_TaskDependsInputInput!): para_TaskDependsOutput @derived(operationId: "taskDependsRemove")
   taskDue(body: para_TaskDueInputInput!): para_TaskDueOutput @derived(operationId: "taskDue")
   taskMove(body: para_TaskMoveInputInput!): para_TaskMoveOutput @derived(operationId: "taskMove")
+  taskSplit(body: para_TaskSplitInputInput!): para_TaskSplitOutput @derived(operationId: "taskSplit")
   taskStart(body: para_TaskStartInputInput!): para_TaskChangeOutput @derived(operationId: "taskStart")
   taskToAsks(body: para_TaskToAsksInputInput!): para_TaskToAsksOutput @derived(operationId: "taskToAsks")
   taskToQuestion(body: para_TaskToQuestionInputInput!): para_TaskToQuestionOutput @derived(operationId: "taskToQuestion")
@@ -8487,6 +8488,18 @@ type para_Span {
   start: Int!
 }
 
+input para_SplitDoneInput {
+  evidence: para_EvidenceInput
+  note: String
+  title: String!
+}
+
+input para_SplitRemainingInput {
+  body: String
+  due: String
+  title: String!
+}
+
 type para_StaleInstall {
   format: Int!
   install: String!
@@ -8965,6 +8978,21 @@ type para_TaskShowOutput {
   rules: [para_RuleRef!]!
   task: para_TaskView!
   updates: String
+}
+
+input para_TaskSplitInputInput {
+  done: [para_SplitDoneInput!]
+  id: String!
+  reason: String!
+  remaining: [para_SplitRemainingInput!]
+  title: String
+}
+
+type para_TaskSplitOutput {
+  done: [String!]!
+  id: String!
+  remaining: [String!]!
+  rev: String!
 }
 
 input para_TaskStartInputInput {

@@ -254,6 +254,7 @@ var Inputs = map[string]string{
 	"doc_merge":                 `{"keep":"note-sample","alias":"note-receipted"}`,
 	"doc_archive":               `{"id":"note-receipted","reason":"Sample is old."}`,
 	"doc_merges":                `{"id":"note-sample"}`,
+	"task_split":                `{"id":"task-other","done":[{"title":"Draft the plan","evidence":{"quote":"Plan v1","locator":"https://wiki.acme.example/plan"}}],"remaining":[{"title":"Review the plan"}],"reason":"The draft is up; the review remains."}`,
 	"task_to_asks":              `{"id":"task-other","people":["person-sample"]}`,
 	"notes_read":                `{"id":"task-sample"}`,
 	"notes_edit":                `{"id":"task-sample","md":"Sample notes."}`,

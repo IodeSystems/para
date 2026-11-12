@@ -43,6 +43,7 @@ func registerWork(r *registrar) {
 	reg(r, ops.TaskBlock, post, write)
 	reg(r, ops.TaskAssign, post, write)
 	scopeOnly(r, ops.TaskResolve, write)
+	reg(r, ops.TaskSplit, post, write)
 	reg(r, ops.TaskToAsks, post, write)
 	reg(r, ops.TaskAttempt, post, write)
 	reg(r, ops.TaskDelegate, post, write)

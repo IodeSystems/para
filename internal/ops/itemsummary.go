@@ -105,6 +105,8 @@ func (z itemSummarizer) of(it model.ProposalItem) string {
 		return with("Next move on "+ref("id")+": "+ref("to")+" by "+str("medium"), prefixed("because ", str("why")))
 	case "task_resolve":
 		return with("Close "+ref("id")+" as "+firstNonEmpty(str("outcome"), "done"), prefixed("see ", ref("link")), prefixed("because ", first(str("note"))))
+	case "task_split":
+		return with("Split "+ref("id")+" into done and remaining parts", prefixed("because ", first(str("reason"))))
 	case "task_due":
 		if str("date") == "" {
 			return "Remove the due date of: " + ref("id")

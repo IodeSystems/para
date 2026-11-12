@@ -463,6 +463,7 @@ func newTaskCmd(l *loader) *cobra.Command {
 				return p.err
 			},
 		}),
+		taskSplitCmd(l),
 		opCommand(l, ops.TaskDelegate, binding[ops.TaskDelegateInput, ops.TaskDelegateOutput]{
 			Use:  "delegate <id>",
 			Args: cobra.ExactArgs(1),
@@ -686,4 +687,52 @@ func namesOrIDs(names, ids []string) []string {
 		}
 	}
 	return out
+}
+
+// taskSplitCmd is `para task split`: --done and --evidence pair by order,
+// --due is the due date of every remaining part.
+func taskSplitCmd(l *loader) *cobra.Command {
+	var done, evidence, remaining []string
+	var due string
+	return opCommand(l, ops.TaskSplit, binding[ops.TaskSplitInput, ops.TaskSplitOutput]{
+		Use:  "split <id> --remaining <title>... [--done <title> --evidence <locator>]...",
+		Args: cobra.ExactArgs(1),
+		Flags: func(fs *pflag.FlagSet, in *ops.TaskSplitInput) {
+			fs.StringArrayVar(&done, "done", nil, "title of a part that is done: it closes done at once (repeatable)")
+			fs.StringArrayVar(&evidence, "evidence", nil, "what shows the done part of the same position done: a URL, vault id, or file (repeatable)")
+			fs.StringArrayVar(&remaining, "remaining", nil, "title of a part that remains: an open task the task waits on (repeatable)")
+			fs.StringVar(&due, "due", "", "due date YYYY-MM-DD of the remaining parts")
+			fs.StringVar(&in.Title, "title", "", "a new title for the task")
+			fs.StringVar(&in.Reason, "reason", "", "what is done and what remains")
+		},
+		Bind: func(args []string, in *ops.TaskSplitInput) error {
+			in.ID = args[0]
+			if len(evidence) > len(done) {
+				return fmt.Errorf("%d --evidence for %d --done", len(evidence), len(done))
+			}
+			in.Done, in.Remaining = nil, nil
+			for i, t := range done {
+				p := ops.SplitDone{Title: t}
+				if i < len(evidence) {
+					p.Evidence = &model.Evidence{Locator: evidence[i]}
+				}
+				in.Done = append(in.Done, p)
+			}
+			for _, t := range remaining {
+				in.Remaining = append(in.Remaining, ops.SplitRemaining{Title: t, Due: due})
+			}
+			return nil
+		},
+		Text: func(w io.Writer, out ops.TaskSplitOutput) error {
+			p := &printer{w: w}
+			p.f("%s\tsplit\n", out.ID)
+			for _, id := range out.Done {
+				p.f("done\t%s\n", id)
+			}
+			for _, id := range out.Remaining {
+				p.f("remaining\t%s\n", id)
+			}
+			return p.err
+		},
+	})
 }
