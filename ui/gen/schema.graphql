@@ -234,7 +234,7 @@ type ParaV1QueryNamespace {
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
   lint: para_LintOutput @derived(operationId: "lint")
-  list(limit: Int, needs_you: Boolean, state: String, tag: String, type: para_listType): para_ListOutput @derived(operationId: "list")
+  list(limit: Int, needs_you: Boolean, state: String, status: String, tag: String, type: para_listType): para_ListOutput @derived(operationId: "list")
   meetingList(all: Boolean, status: para_meetingListStatus): para_MeetingListOutput @derived(operationId: "meetingList")
   meetingShow(id: String!): para_MeetingShowOutput @derived(operationId: "meetingShow")
   next(goal: String): para_NextOutput @derived(operationId: "next")
@@ -967,6 +967,75 @@ type para_BulkOutput {
   items: [para_BulkItem!]!
   refused: Int!
   verb: String!
+}
+
+type para_BundleEvent {
+  at: String!
+  id: String!
+  kind: String!
+  summary: String!
+}
+
+type para_BundleGoal {
+  doneWhen: String
+  due: String
+  id: String!
+  moreTasks: Int
+  next: String
+  status: para_BundleGoalStatus!
+  tasks: [para_BundleItem!]!
+  title: String!
+}
+
+enum para_BundleGoalStatus {
+  active
+  done
+  dropped
+  parked
+  paused
+}
+
+type para_BundleItem {
+  due: String
+  id: String!
+  note: String
+  status: String
+  title: String!
+  type: para_BundleItemType!
+  via: String
+}
+
+enum para_BundleItemType {
+  area
+  constraint
+  convention
+  domain
+  goal
+  group
+  inbox
+  incident
+  interaction
+  io
+  journal
+  meeting
+  note
+  obligation
+  person
+  policy
+  policy_exception
+  project
+  proposal
+  question
+  receipt
+  request
+  rfx
+  role
+  source
+  task
+  team
+  thread
+  tracked_doc
+  transcript
 }
 
 type para_CalendarAlias {
@@ -1829,6 +1898,7 @@ input para_DocTrackInputInput {
   id: String
   note: String
   owner: String
+  project: String
   route: String
   system: para_DocTrackInputSystem
   text: String!
@@ -4882,6 +4952,7 @@ input para_NoteAddInputInput {
   body: String
   goal: String
   importedFrom: para_ImportedFromInput
+  project: String
   tags: [String!]
   title: String!
 }
@@ -4933,6 +5004,7 @@ type para_NoteView {
   folder: para_NoteViewFolder!
   goal: String
   id: String!
+  project: String
   rev: String!
   tags: [String!]!
   title: String!
@@ -5035,6 +5107,7 @@ input para_ObligationAddInputInput {
   owedTo: [String!]
   parent: String
   produce: para_ProduceInputInput
+  project: String
   recur: String
   rfx: [String!]
   schedule: para_ObligationAddInputSchedule
@@ -6146,16 +6219,25 @@ enum para_ProjectAddOutputFolder {
 
 type para_ProjectShowOutput {
   body: String!
-  goals: [para_GoalView!]!
+  direct: [para_BundleItem!]!
+  goals: [para_BundleGoal!]!
+  history: [para_BundleEvent!]!
+  icebox: [para_BundleItem!]!
+  lastActivity: String
+  more: [String!]!
   project: para_ProjectView!
+  stateAgeDays: Int!
+  waitsOn: [para_BundleItem!]!
 }
 
 type para_ProjectView {
   area: String
   areaName: String
+  cadence: String
   concepts: [String!]!
   folder: para_ProjectViewFolder!
   id: String!
+  lastReviewed: String
   links: [para_Pointer!]
   owner: String
   rev: String!
@@ -6621,6 +6703,7 @@ input para_RFXAddInputInput {
   importedFrom: para_ImportedFromInput
   nextNudge: String
   parent: String
+  project: String
   question: String
   route: String!
   selfServe: String

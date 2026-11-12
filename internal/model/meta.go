@@ -167,9 +167,14 @@ type Project struct {
 	Concepts []Link `yaml:"concepts,omitempty" json:"concepts,omitempty"`
 	// StateLine is one line on where the project stands; StateDate is the
 	// day it last changed, set by para when the line changes.
-	StateLine string    `yaml:"state_line,omitempty" json:"state_line,omitempty"`
-	StateDate Date      `yaml:"state_date,omitempty" json:"state_date,omitempty"`
-	Links     []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	StateLine string `yaml:"state_line,omitempty" json:"state_line,omitempty"`
+	StateDate Date   `yaml:"state_date,omitempty" json:"state_date,omitempty"`
+	// Cadence is how often the owner reviews the project, in the recur
+	// grammar; a state line older than one cadence is stale (health).
+	// LastReviewed comes over from a retyped area.
+	Cadence      string    `yaml:"cadence,omitempty" json:"cadence,omitempty"`
+	LastReviewed Date      `yaml:"last_reviewed,omitempty" json:"last_reviewed,omitempty"`
+	Links        []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
 	// FoldedFrom is the type the project was before upgrade step
 	// projects-sort: area or goal.
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`

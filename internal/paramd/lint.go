@@ -216,6 +216,16 @@ func (l *linter) frontmatter() {
 	if typ == "area" {
 		l.area()
 	}
+	if typ == "goal" && str(f.Frontmatter["status"]) == "parked" && strings.TrimSpace(str(f.Frontmatter["resume_when"])) == "" {
+		l.add(1, CodeField, Warn, "type goal: status parked needs field %q: what it waits on, a condition or a date", "resume_when")
+	}
+	if typ == "project" {
+		if c := str(f.Frontmatter["cadence"]); c != "" {
+			if _, err := recur.Parse(c); err != nil {
+				l.add(1, CodeRecur, Warn, "cadence: %v: health reads the state line as stale after 14 days", err)
+			}
+		}
+	}
 	if typ == "question" {
 		l.question()
 	}
@@ -343,6 +353,11 @@ func (l *linter) task() {
 	kind := str(fm["kind"])
 	if fm["project"] == nil && fm["goal"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" && kind != "incident" {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "goal", "area")
+	}
+	// A task reaches a project only through a goal. Below format 11 the
+	// vault reads a task's project: as goal: before lint (vault legacy.go).
+	if fm["project"] != nil {
+		l.errf(1, CodeFieldValue, "field %q: a task reaches a project through a goal: link the goal (goal:)", "project")
 	}
 	if kind == "incident" {
 		for _, k := range []string{"severity", "started"} {

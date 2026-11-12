@@ -10,6 +10,7 @@ import (
 
 	"github.com/iodesystems/para/internal/model"
 	"github.com/iodesystems/para/internal/paramd"
+	"github.com/iodesystems/para/internal/recur"
 	"github.com/iodesystems/para/internal/store"
 	"github.com/iodesystems/para/internal/upgrade"
 )
@@ -92,7 +93,19 @@ const (
 	// HealthPromiseUntold is an open obligation to people past its date that
 	// nobody was told of: no notice approved or sent.
 	HealthPromiseUntold = "promise_untold"
+	// HealthGoalParkedNoResume is a parked goal (the icebox) that does not
+	// say what it waits on to resume.
+	HealthGoalParkedNoResume = "goal_parked_no_resume_when"
+	// HealthProjectNoStateLine is an active project with no state line.
+	HealthProjectNoStateLine = "project_no_state_line"
+	// HealthProjectStateStale is an active project whose state line is older
+	// than one review cadence, or projectStaleDays with no cadence.
+	HealthProjectStateStale = "project_state_stale"
 )
+
+// projectStaleDays is the age of a state line that is stale on a project with
+// no review cadence.
+const projectStaleDays = 14
 
 // HealthKinds lists every finding kind, in the order findings print.
 var HealthKinds = []string{
@@ -108,6 +121,7 @@ var HealthKinds = []string{
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
 	HealthUnreviewedOutward, HealthAgentWorkStale, HealthRetryWriteOpen, HealthGateUnused, HealthPoolsInvalid, HealthUpgradePending,
 	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop, HealthNotePlacement,
+	HealthGoalParkedNoResume, HealthProjectNoStateLine, HealthProjectStateStale,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -158,6 +172,9 @@ var HealthKindWords = map[string]string{
 	HealthAnnotationAtTop:    "Annotation not placed in a section",
 	HealthNotePlacement:      "Note not moved to its item",
 	HealthPromiseUntold:      "Past its date, nobody told: tell them now",
+	HealthGoalParkedNoResume: "Parked goal with no resume-when",
+	HealthProjectNoStateLine: "Project with no state line",
+	HealthProjectStateStale:  "Project state line is stale",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -405,6 +422,34 @@ func (h *healther) deferred(m model.Meta) bool {
 	return false
 }
 
+// project reports an active project with no state line, or a stale one.
+func (h *healther) project(id string, p *model.Project) {
+	if p.Status != model.ProjectActive {
+		return
+	}
+	fix := fmt.Sprintf("ask the owner where it stands, then edit {id: %s, fields: {state_line: ...}}", id)
+	if strings.TrimSpace(p.StateLine) == "" {
+		h.add(HealthProjectNoStateLine, id, "", "project has no state line", fix)
+		return
+	}
+	if projectStale(p, h.today) {
+		h.add(HealthProjectStateStale, id, "", "state line is from "+cmp.Or(string(p.StateDate), "an unknown day"), fix)
+	}
+}
+
+// projectStale reports whether a project's state line is older than one
+// review cadence (projectStaleDays with no cadence para can read) on today.
+func projectStale(p *model.Project, today string) bool {
+	last, err := time.Parse(dateLayout, string(p.StateDate))
+	if err != nil {
+		return true
+	}
+	if rule, err := recur.Parse(p.Cadence); p.Cadence != "" && err == nil {
+		return rule.After(last).Format(dateLayout) < today
+	}
+	return daysBetween(string(p.StateDate), today) > projectStaleDays
+}
+
 func healthLabel(kind string) string {
 	if w, ok := HealthKindWords[kind]; ok {
 		return w
@@ -503,6 +548,10 @@ func (h *healther) scan() {
 		if d.Meta == nil {
 			continue
 		}
+		if g, ok := d.Meta.(*model.Goal); ok && g.Status == model.GoalParked && strings.TrimSpace(g.ResumeWhen) == "" {
+			h.add(HealthGoalParkedNoResume, id, "", "parked goal does not say what it waits on to resume",
+				fmt.Sprintf("ask the owner, then edit {id: %s, fields: {resume_when: ...}}", id))
+		}
 		goal, skip := h.goalOf(d)
 		if skip || h.deferred(d.Meta) {
 			continue
@@ -523,6 +572,8 @@ func (h *healther) scan() {
 			if h.openTasks[id] == 0 {
 				h.add(HealthGoalNoOpenTask, id, goal, "goal has no open task", fmt.Sprintf("task_add {goal: %s, ...}, or goal_close {id: %s}", id, id))
 			}
+		case *model.Project:
+			h.project(id, m)
 		case *model.Task:
 			if taskTerminal(m.Status) && len(h.openKids[id]) > 0 {
 				slices.Sort(h.openKids[id])

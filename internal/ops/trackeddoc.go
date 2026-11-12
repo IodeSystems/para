@@ -127,8 +127,9 @@ type DocTrackInput struct {
 	Watchers  []string        `json:"watchers,omitempty"` // person ids
 	Area      string          `json:"area,omitempty"`
 	Goal      string          `json:"goal,omitempty"`
-	Route     string          `json:"route,omitempty"` // domain an Ask from a comment goes to
-	Note      string          `json:"note,omitempty"`  // what the document is to the owner; the body
+	Project   string          `json:"project,omitempty"` // an ongoing project, linked directly
+	Route     string          `json:"route,omitempty"`   // domain an Ask from a comment goes to
+	Note      string          `json:"note,omitempty"`    // what the document is to the owner; the body
 	Fidelity  model.Fidelity  `json:"fidelity,omitempty"`
 	FetchedAt string          `json:"fetched_at,omitempty"` // RFC 3339; default now
 	ID        string          `json:"id,omitempty"`         // empty means generated
@@ -196,6 +197,9 @@ var DocTrack = defineSafe("doc_track", "Start tracking a remote document (a wiki
 		return DocTrackOutput{}, err
 	}
 	if m.Goal, err = linkTo(ctx, d, "goal", in.Goal, model.TypeGoal); err != nil {
+		return DocTrackOutput{}, err
+	}
+	if m.Project, err = projectLink(ctx, d.Store, in.Project); err != nil {
 		return DocTrackOutput{}, err
 	}
 	title := ioLine(in.Title)

@@ -137,6 +137,8 @@ var typeFields = map[string][]field{
 		{Name: "concepts", Kind: kLinkList}, // areas of kind concept (vault check)
 		{Name: "state_line", Kind: kString}, // where the project stands, one line
 		{Name: "state_date", Kind: kDate},   // the day state_line last changed; para sets it
+		{Name: "cadence", Kind: kString},    // how often the owner reviews the project, in the recur grammar
+		{Name: "last_reviewed", Kind: kDate},
 		{Name: "links", Kind: kPointers},
 		{Name: "folded_from", Kind: kEnum, Enum: Types}, // area or goal: the type before upgrade step projects-sort
 	},
@@ -672,6 +674,7 @@ var editLocked = map[string][]string{
 	"rfx":         {"targets", "question"},
 	"policy":      {"source", "verified"},
 	"area":        {"follows", "folded_from"},
+	"project":     {"state_date", "folded_from"},
 	"transcript":  {"source", "of", "version", "fetched_by", "proposal", "item"},
 	"tracked_doc": {"latest", "last_seen", "seen_at", "checked", "comments"},
 	"source":      {"last_scan", "cursor"},

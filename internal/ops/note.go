@@ -18,8 +18,10 @@ type NoteView struct {
 	Title  string       `json:"title"`
 	Area   string       `json:"area,omitempty"`
 	Goal   string       `json:"goal,omitempty"`
-	Tags   []string     `json:"tags"`
-	Rev    string       `json:"rev"`
+	// Project is the ongoing project the note is for, linked directly.
+	Project string   `json:"project,omitempty"`
+	Tags    []string `json:"tags"`
+	Rev     string   `json:"rev"`
 }
 
 func noteView(d model.Document) (NoteView, error) {
@@ -27,7 +29,7 @@ func noteView(d model.Document) (NoteView, error) {
 	if !ok {
 		return NoteView{}, fmt.Errorf("%s is a %s, not a note", d.ID, d.Meta.Header().Type)
 	}
-	return NoteView{ID: d.ID, Folder: d.Folder, Title: d.Title, Area: n.Area.Target(), Goal: n.Goal.Target(),
+	return NoteView{ID: d.ID, Folder: d.Folder, Title: d.Title, Area: n.Area.Target(), Goal: n.Goal.Target(), Project: n.Project.Target(),
 		Tags: nonNil(n.Tags), Rev: d.Rev}, nil
 }
 
@@ -69,11 +71,13 @@ func goalLink(ctx context.Context, s store.Store, raw string) (model.Link, error
 
 // NoteAddInput is the input of note_add.
 type NoteAddInput struct {
-	Title string   `json:"title"`
-	Body  string   `json:"body,omitempty"`
-	Area  string   `json:"area,omitempty"` // area id
-	Goal  string   `json:"goal,omitempty"` // goal id
-	Tags  []string `json:"tags,omitempty"`
+	Title string `json:"title"`
+	Body  string `json:"body,omitempty"`
+	Area  string `json:"area,omitempty"` // area id
+	Goal  string `json:"goal,omitempty"` // goal id
+	// Project is the id of an ongoing project the note is for.
+	Project string   `json:"project,omitempty"`
+	Tags    []string `json:"tags,omitempty"`
 	// ImportedFrom is the file the new document comes from (import_verify).
 	ImportedFrom *model.ImportedFrom `json:"imported_from,omitempty"`
 }
@@ -86,7 +90,7 @@ type NoteAddOutput struct {
 }
 
 // NoteAdd creates a note in resources/.
-var NoteAdd = defineSafe("note_add", "Create a note (reference material), optionally linked to an area or goal", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
+var NoteAdd = defineSafe("note_add", "Create a note (reference material), optionally linked to an area, a goal, or a project", func(ctx context.Context, d Deps, in NoteAddInput) (NoteAddOutput, error) {
 	title := strings.Join(strings.Fields(in.Title), " ")
 	if title == "" {
 		return NoteAddOutput{}, errors.New("title is empty")
@@ -95,13 +99,17 @@ var NoteAdd = defineSafe("note_add", "Create a note (reference material), option
 	if err != nil {
 		return NoteAddOutput{}, err
 	}
-	project, err := goalLink(ctx, d.Store, in.Goal)
+	goal, err := goalLink(ctx, d.Store, in.Goal)
+	if err != nil {
+		return NoteAddOutput{}, err
+	}
+	project, err := projectLink(ctx, d.Store, in.Project)
 	if err != nil {
 		return NoteAddOutput{}, err
 	}
 	doc, err := d.Store.Create(ctx, model.Document{
 		Folder: model.FolderResources, Title: title, Body: demoteH1(in.Body),
-		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Goal: project},
+		Meta: &model.Note{Common: model.Common{Type: model.TypeNote, Tags: cleanList(in.Tags)}, Area: area, Goal: goal, Project: project},
 	})
 	if err != nil {
 		return NoteAddOutput{}, err
@@ -162,6 +170,9 @@ type NoteEditInput struct {
 	Title *string   `json:"title,omitempty"`
 	Body  *string   `json:"body,omitempty"`
 	Tags  *[]string `json:"tags,omitempty"`
+	// Goal and Project set what the note is for, by id; "" removes the link.
+	Goal    *string `json:"goal,omitempty"`
+	Project *string `json:"project,omitempty"`
 }
 
 // NoteEditOutput is the output of note_edit.
@@ -171,9 +182,9 @@ type NoteEditOutput struct {
 }
 
 // NoteEdit changes the title, body, or tags of a note.
-var NoteEdit = define("note_edit", "Change the title, body, or tags of a note (reference material)", func(ctx context.Context, d Deps, in NoteEditInput) (NoteEditOutput, error) {
-	if in.Title == nil && in.Body == nil && in.Tags == nil {
-		return NoteEditOutput{}, errors.New("nothing to edit: give title, body, or tags")
+var NoteEdit = define("note_edit", "Change the title, body, tags, goal, or project of a note (reference material)", func(ctx context.Context, d Deps, in NoteEditInput) (NoteEditOutput, error) {
+	if in.Title == nil && in.Body == nil && in.Tags == nil && in.Goal == nil && in.Project == nil {
+		return NoteEditOutput{}, errors.New("nothing to edit: give title, body, tags, goal, or project")
 	}
 	doc, err := d.Store.Get(ctx, normID(in.ID))
 	if err != nil {
@@ -195,6 +206,16 @@ var NoteEdit = define("note_edit", "Change the title, body, or tags of a note (r
 	}
 	if in.Tags != nil {
 		n.Tags = cleanList(*in.Tags)
+	}
+	if in.Goal != nil {
+		if n.Goal, err = goalLink(ctx, d.Store, *in.Goal); err != nil {
+			return NoteEditOutput{}, err
+		}
+	}
+	if in.Project != nil {
+		if n.Project, err = projectLink(ctx, d.Store, *in.Project); err != nil {
+			return NoteEditOutput{}, err
+		}
 	}
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {

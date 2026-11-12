@@ -150,7 +150,7 @@ func TestEditRoutes(t *testing.T) {
 	}
 	for _, c := range []struct{ in, want string }{
 		{`{"id":"` + task + `","title":"T","fields":{"effort":"s"}}`, "give the two in separate calls"},
-		{`{"id":"` + note.ID + `","fields":{"append":"x"}}`, "note_edit takes body, tags, title"},
+		{`{"id":"` + note.ID + `","fields":{"append":"x"}}`, "note_edit takes body, goal, project, tags, title"},
 		{`{"id":"` + task + `"}`, "nothing to edit"},
 		{`{"id":"` + task + `","fields":{"title":"T"}}`, "give title beside fields"},
 	} {
@@ -280,7 +280,7 @@ func TestLinkRels(t *testing.T) {
 	}
 	for _, c := range []struct{ in, want string }{
 		{`{"from":"` + v.proj + `","to":"` + a + `","rel":"depends_on"}`, "rel depends_on links from a task, question, obligation, or rfx"},
-		{`{"from":"` + a + `","to":"https://x.example","rel":"link"}`, "rel link links from an area, a goal, or an incident"},
+		{`{"from":"` + a + `","to":"https://x.example","rel":"link"}`, "rel link links from an area, a goal, a project, or an incident"},
 		{`{"from":"` + a + `","to":"` + b + `","rel":"next"}`, `rel "next": want one of`},
 		{`{"from":"` + a + `","to":"` + b + `","label":"L"}`, "label and kind are a link's"},
 		{`{"from":"` + a + `"}`, "to is empty"},

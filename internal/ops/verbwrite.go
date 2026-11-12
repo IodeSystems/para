@@ -70,7 +70,7 @@ func addRoutes() map[AddType]addRoute {
 	task := addRoute{op: TaskAdd, typ: model.TypeTask, title: "title", body: "body", parents: map[model.Type]string{
 		model.TypeGoal: "goal", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent", model.TypeIncident: "incident"}}
 	rfx := addRoute{op: RFXAdd, typ: model.TypeRFX, title: "ask", body: addJoinBody, parents: map[model.Type]string{
-		model.TypeGoal: "goal", model.TypeTask: "parent", model.TypeObligation: "parent"}}
+		model.TypeGoal: "goal", model.TypeProject: "project", model.TypeTask: "parent", model.TypeObligation: "parent"}}
 	return map[AddType]addRoute{
 		"task": task,
 		"question": {op: QuestionAdd, typ: model.TypeQuestion, title: "text", body: addJoinBody, parents: map[model.Type]string{
@@ -82,9 +82,9 @@ func addRoutes() map[AddType]addRoute {
 		"person":  {op: OrgPersonAdd, typ: model.TypePerson, title: "name"},
 		"group":   {op: OrgGroupAdd, typ: model.TypeGroup, title: "name"},
 		"obligation": {op: ObligationAdd, typ: model.TypeObligation, title: "title", body: "body", parents: map[model.Type]string{
-			model.TypeGoal: "goal", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent"}},
+			model.TypeGoal: "goal", model.TypeProject: "project", model.TypeArea: "area", model.TypeTask: "parent", model.TypeObligation: "parent"}},
 		"note": {op: NoteAdd, typ: model.TypeNote, title: "title", body: "body", tags: true, parents: map[model.Type]string{
-			model.TypeGoal: "goal", model.TypeArea: "area"}},
+			model.TypeGoal: "goal", model.TypeProject: "project", model.TypeArea: "area"}},
 		"rfx": rfx, "ask": rfx,
 		// An io item's title is the first line of its text; parent is the
 		// item it answers or acts on (thread).
@@ -159,6 +159,9 @@ func addRouteFor(ctx context.Context, d Deps, in AddInput) (addRoute, verbRoute,
 		}
 		pt := incidentShape(doc).Meta.Header().Type // a task of kind incident is an incident parent
 		field, ok := ar.parents[pt]
+		if !ok && pt == model.TypeProject && ar.typ == model.TypeTask {
+			return ar, verbRoute{}, fmt.Errorf("parent %s is a project: a task reaches a project through a goal: give a goal of the project as parent", doc.ID)
+		}
 		if !ok {
 			return ar, verbRoute{}, fmt.Errorf("parent %s is a %s; type %s takes %s", doc.ID, typeWord(doc), in.Type, parentWords(ar))
 		}
@@ -340,7 +343,7 @@ type LinkInput struct {
 }
 
 // Link links two items, or an item and a URL, by the op of from's type.
-var Link = defineVerb("link", "Link. depends_on: waits on to; link: area/goal/incident URL; part_of: task under to; became: io filed; member_of: group",
+var Link = defineVerb("link", "Link. depends_on: waits on to; link: area/goal/project URL; part_of: under a goal, project, or task; became; member_of",
 	RiskSafe, linkRoute)
 
 func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
@@ -357,12 +360,20 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 	if rel == "" {
 		rel = RelDependsOn
 		switch typ {
-		case model.TypeArea, model.TypeGoal, model.TypeIncident:
+		case model.TypeArea, model.TypeGoal, model.TypeProject, model.TypeIncident:
 			rel = RelLink
 		case model.TypeIO:
 			rel = RelBecame
 		case model.TypePerson:
 			rel = RelMemberOf
+		case model.TypeNote, model.TypeTrackedDoc:
+			rel = RelPartOf
+		}
+		// A goal linked to a project joins it (part_of), not a URL.
+		if typ == model.TypeGoal {
+			if td, err := d.Store.Get(ctx, normID(in.To)); err == nil && td.Meta.Header().Type == model.TypeProject {
+				rel = RelPartOf
+			}
 		}
 	}
 	if rel != RelLink && (in.Label != "" || in.Kind != "") {
@@ -399,8 +410,10 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 			add, rm = GoalLinkAdd, GoalLinkRemove
 		case model.TypeIncident:
 			add, rm = IncidentLinkAdd, IncidentLinkRemove
+		case model.TypeProject:
+			return projectLinkRoute(doc, in, to)
 		default:
-			return verbRoute{}, bad("an area, a goal, or an incident")
+			return verbRoute{}, bad("an area, a goal, a project, or an incident")
 		}
 		if !in.Remove {
 			return newRoute(add, LinkAddInput{ID: doc.ID, Label: cmp.Or(in.Label, to), Kind: cmp.Or(in.Kind, model.PointerOther), Target: to}, false)
@@ -422,13 +435,7 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 		}
 		return newRoute(IOFile, IOFileInput{ID: doc.ID, Existing: to}, false)
 	case RelPartOf:
-		if typ != model.TypeTask {
-			return verbRoute{}, bad("a task")
-		}
-		if in.Remove {
-			return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, ClearParent: true}, false)
-		}
-		return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, Parent: to}, false)
+		return partOfRoute(ctx, d, doc, typ, in.Remove, to)
 	case RelMemberOf:
 		if typ != model.TypePerson {
 			return verbRoute{}, bad("a person")
@@ -436,6 +443,103 @@ func linkRoute(ctx context.Context, d Deps, in LinkInput) (verbRoute, error) {
 		return newRoute(pick(in.Remove, OrgPersonGroupRemove, OrgPersonGroupAdd), PersonGroupInput{ID: doc.ID, Group: to}, false)
 	}
 	return verbRoute{}, fmt.Errorf("rel %q: want one of %v", rel, LinkRels)
+}
+
+// partOfRoute is link rel part_of: a task under a task or an obligation (its
+// parent) or under a goal; a goal under a project; a note, an Ask, an
+// obligation, or a tracked document for a goal or a project. A task reaches
+// a project only through a goal.
+func partOfRoute(ctx context.Context, d Deps, doc model.Document, typ model.Type, remove bool, to string) (verbRoute, error) {
+	var tt model.Type
+	if to != "" {
+		td, err := d.Store.Get(ctx, to)
+		if err != nil {
+			return verbRoute{}, linkErr("to", to, err)
+		}
+		to, tt = td.ID, td.Meta.Header().Type
+	}
+	key := ""
+	switch tt {
+	case model.TypeGoal:
+		key = "goal"
+	case model.TypeProject:
+		key = "project"
+	}
+	switch typ {
+	case model.TypeTask:
+		switch {
+		case tt == model.TypeProject:
+			return verbRoute{}, fmt.Errorf("%s is a project: a task reaches a project through a goal: link the task part_of a goal of the project", to)
+		case tt == model.TypeGoal && remove:
+			return verbRoute{}, fmt.Errorf("%s: a task keeps a goal or an area: move it with task_move {id, goal|area}", doc.ID)
+		case tt == model.TypeGoal:
+			return newRoute(TaskMove, TaskMoveInput{ID: doc.ID, Goal: to}, false)
+		case remove:
+			return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, ClearParent: true}, false)
+		}
+		return newRoute(TaskEdit, TaskEditInput{ID: doc.ID, Parent: to}, false)
+	case model.TypeGoal, model.TypeNote, model.TypeRFX, model.TypeObligation, model.TypeTrackedDoc:
+	default:
+		return verbRoute{}, fmt.Errorf("%s is a %s: rel part_of links from a task, goal, note, rfx, obligation, or tracked_doc", doc.ID, typeWord(doc))
+	}
+	if key == "" || typ == model.TypeGoal && key != "project" {
+		want := "a goal or a project"
+		if typ == model.TypeGoal {
+			want = "a project"
+		}
+		return verbRoute{}, fmt.Errorf("to %q: a %s is part of %s", to, typeWord(doc), want)
+	}
+	value := to
+	if remove {
+		value = ""
+	}
+	if typ == model.TypeNote {
+		in := NoteEditInput{ID: doc.ID}
+		if key == "goal" {
+			in.Goal = &value
+		} else {
+			in.Project = &value
+		}
+		return newRoute(NoteEdit, in, false)
+	}
+	return newRoute(DocEdit, DocEditInput{ID: doc.ID, Fields: map[string]any{key: value}}, false)
+}
+
+// projectLinkRoute is link rel link on a project: doc_edit of its links.
+func projectLinkRoute(doc model.Document, in LinkInput, to string) (verbRoute, error) {
+	p := doc.Meta.(*model.Project)
+	links := slices.Clone(p.Links)
+	if in.Remove {
+		label := in.Label
+		n := len(links)
+		links = slices.DeleteFunc(links, func(l model.Pointer) bool {
+			return label != "" && strings.EqualFold(l.Label, label) || label == "" && l.Target == to
+		})
+		if len(links) == n {
+			return verbRoute{}, fmt.Errorf("%s has no link %s", doc.ID, cmp.Or(label, to))
+		}
+	} else {
+		label := strings.Join(strings.Fields(cmp.Or(in.Label, to)), " ")
+		kind := cmp.Or(in.Kind, model.PointerOther)
+		if !slices.Contains(model.PointerKinds, kind) {
+			return verbRoute{}, fmt.Errorf("kind %q must be one of %v", kind, model.PointerKinds)
+		}
+		target, err := checkTarget(to)
+		if err != nil {
+			return verbRoute{}, err
+		}
+		for _, l := range links {
+			if strings.EqualFold(l.Label, label) {
+				return verbRoute{}, fmt.Errorf("link %q already exists: remove it first", l.Label)
+			}
+		}
+		links = append(links, model.Pointer{Label: label, Kind: kind, Target: target})
+	}
+	list := make([]any, len(links))
+	for i, l := range links {
+		list[i] = map[string]any{"label": l.Label, "kind": string(l.Kind), "target": l.Target}
+	}
+	return newRoute(DocEdit, DocEditInput{ID: doc.ID, Fields: map[string]any{"links": list}}, false)
 }
 
 func pick(remove bool, rm, add Entry) Entry {

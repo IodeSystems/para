@@ -336,6 +336,10 @@ type GoalEditInput struct {
 	// replace the concept areas the goal draws on. Clear either with doc_edit.
 	Area     string   `json:"area,omitempty"`
 	Concepts []string `json:"concepts,omitempty"`
+	// Status moves the goal between active, paused, and parked (the icebox;
+	// close ends it). Parked needs resume_when: what it waits on.
+	Status     model.GoalStatus `json:"status,omitempty"`
+	ResumeWhen string           `json:"resume_when,omitempty"`
 }
 
 // GoalEditOutput is the output of goal_edit.
@@ -345,14 +349,51 @@ type GoalEditOutput struct {
 	Rev      string `json:"rev"`
 }
 
+// goalStatusEdit sets the status and resume_when of a goal p in doc. Parked
+// needs a resume_when, given or already set; leaving parked clears it.
+func goalStatusEdit(doc model.Document, p *model.Goal, status model.GoalStatus, resume string) error {
+	resume = strings.Join(strings.Fields(resume), " ")
+	if resume != "" {
+		if err := lintText("resume_when", resume); err != nil {
+			return err
+		}
+	}
+	switch status {
+	case "":
+		if resume != "" && p.Status != model.GoalParked {
+			return errors.New("resume_when is what a parked goal waits on: give status parked with it")
+		}
+	case model.GoalActive, model.GoalPaused, model.GoalParked:
+		if doc.Folder == model.FolderArchive {
+			return fmt.Errorf("%s is closed: reopen it first", doc.ID)
+		}
+		if status == model.GoalParked && resume == "" && p.ResumeWhen == "" {
+			return errors.New("status parked needs resume_when: what the goal waits on to resume, a condition or a date")
+		}
+		if status != model.GoalParked {
+			if resume != "" {
+				return fmt.Errorf("resume_when goes with status parked, not %s", status)
+			}
+			p.ResumeWhen = ""
+		}
+		p.Status = status
+	default:
+		return fmt.Errorf("status %q: want active, paused, or parked; close {id, outcome} ends a goal", status)
+	}
+	if resume != "" {
+		p.ResumeWhen = resume
+	}
+	return nil
+}
+
 // GoalEdit sets the done condition of a goal.
-var GoalEdit = define("goal_edit", "Set the done condition, the due date, the home area, or the concepts of a goal", func(ctx context.Context, d Deps, in GoalEditInput) (GoalEditOutput, error) {
+var GoalEdit = define("goal_edit", "Set the done condition, the due date, the home area, the concepts, or the status (active, paused, parked with resume_when) of a goal", func(ctx context.Context, d Deps, in GoalEditInput) (GoalEditOutput, error) {
 	doc, p, err := getGoal(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return GoalEditOutput{}, err
 	}
 	dw := p.DoneWhen
-	other := in.Due != "" || in.ClearDue || in.Area != "" || len(in.Concepts) > 0
+	other := in.Due != "" || in.ClearDue || in.Area != "" || len(in.Concepts) > 0 || in.Status != "" || in.ResumeWhen != ""
 	if in.DoneWhen != "" || !other {
 		if dw, err = checkDoneWhen(in.DoneWhen, true); err != nil {
 			return GoalEditOutput{}, err
@@ -379,6 +420,9 @@ var GoalEdit = define("goal_edit", "Set the done condition, the due date, the ho
 		if p.Concepts, err = conceptLinks(ctx, d.Store, in.Concepts); err != nil {
 			return GoalEditOutput{}, err
 		}
+	}
+	if err := goalStatusEdit(doc, p, in.Status, in.ResumeWhen); err != nil {
+		return GoalEditOutput{}, err
 	}
 	if err := checkKindLinks(ctx, d.Store, doc); err != nil {
 		return GoalEditOutput{}, err

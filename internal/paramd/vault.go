@@ -62,6 +62,7 @@ func CheckVault(files []*File) []Finding {
 			out = append(out, checkScope(f, byName)...)
 		}
 		out = append(out, checkAreaKinds(f, byName)...)
+		out = append(out, checkTypedLinks(f, byName)...)
 		out = append(out, checkParent(f, byName)...)
 		out = append(out, checkRefines(f, byName)...)
 		if f.Type() == "tracked_doc" {
@@ -188,6 +189,30 @@ func checkAreaKinds(f *File, byName map[string]*File) []Finding {
 			bad("concepts: %s is a %s: want an area of kind concept", str(v), dst.Type())
 		case areaKind(dst) != "concept":
 			bad("concepts: %s is an area of kind %s: want kind concept", str(v), areaKind(dst))
+		}
+	}
+	return out
+}
+
+// typedLinkTypes are the types whose goal: and project: keys link a document
+// of that type.
+var typedLinkTypes = map[string]bool{"task": true, "note": true, "obligation": true, "rfx": true, "tracked_doc": true, "goal": true}
+
+// checkTypedLinks: goal: names a goal and project: names a project (format
+// 11; below it the vault reads the old project: key as goal: before lint).
+func checkTypedLinks(f *File, byName map[string]*File) []Finding {
+	if !typedLinkTypes[f.Type()] {
+		return nil
+	}
+	var out []Finding
+	for _, key := range []string{"goal", "project"} {
+		v := f.Frontmatter[key]
+		if v == nil || key == "goal" && f.Type() == "goal" {
+			continue
+		}
+		if dst := linkTarget(v, byName); dst != nil && dst.Type() != key {
+			out = append(out, Finding{Path: f.Path, Code: CodeFieldValue, Severity: Error,
+				Msg: fmt.Sprintf("%s %s is a %s: want a %s", key, str(v), dst.Type(), key)})
 		}
 	}
 	return out

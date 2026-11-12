@@ -87,6 +87,8 @@ func lifeOf(m model.Meta) Lifecycle {
 		open = x.Status == model.QuestionOpen
 	case *model.Goal:
 		open = x.Status == model.GoalActive || x.Status == model.GoalPaused
+	case *model.Project:
+		open = x.Status != model.ProjectRetired
 	case *model.RFX:
 		open = x.Status == model.RFXOpen
 	case *model.Request:

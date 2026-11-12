@@ -2,7 +2,7 @@
 type: task
 created: 2026-11-01
 status: todo
-project: "[[acme-portal]]"
+goal: "[[portal-launch]]"
 area: "[[health]]"
 due: 2026-11-08
 recur: weekly

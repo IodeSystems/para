@@ -32,6 +32,7 @@ type RFXAddInput struct {
 	Targets   []TargetInput      `json:"targets,omitempty"`    // who is asked (out) or who asked (in)
 	SelfServe string             `json:"self_serve,omitempty"` // what was checked first
 	Goal      string             `json:"goal,omitempty"`
+	Project   string             `json:"project,omitempty"`    // an ongoing project the Ask serves directly
 	Blocks    []string           `json:"blocks,omitempty"`     // ids this RFX blocks
 	DependsOn []string           `json:"depends_on,omitempty"` // ids that must resolve first
 	NextNudge string             `json:"next_nudge,omitempty"` // YYYY-MM-DD
@@ -133,6 +134,9 @@ func rfxAdd(ctx context.Context, d Deps, in RFXAddInput) (RFXAddOutput, error) {
 			return RFXAddOutput{}, err
 		}
 		meta.Goal = links[0]
+	}
+	if meta.Project, err = projectLink(ctx, d.Store, in.Project); err != nil {
+		return RFXAddOutput{}, err
 	}
 	warn := false
 	if meta.SelfServeCheck == "" {

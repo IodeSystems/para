@@ -78,15 +78,18 @@ type ProjectView struct {
 	Concepts  []string            `json:"concepts"`
 	StateLine string              `json:"state_line,omitempty"`
 	StateDate model.Date          `json:"state_date,omitempty"`
-	Links     []model.Pointer     `json:"links,omitempty"`
-	Rev       string              `json:"rev"`
+	// Cadence is how often the owner reviews the project (recur grammar).
+	Cadence      string          `json:"cadence,omitempty"`
+	LastReviewed model.Date      `json:"last_reviewed,omitempty"`
+	Links        []model.Pointer `json:"links,omitempty"`
+	Rev          string          `json:"rev"`
 	// AreaName is the title of Area, for people.
 	AreaName string `json:"area_name,omitempty" nameof:"Area"`
 }
 
 func projectView(d model.Document, p *model.Project) ProjectView {
 	return ProjectView{ID: d.ID, Folder: d.Folder, Title: d.Title, Status: p.Status, Owner: p.Owner, Area: p.Area.Target(),
-		Concepts: targets(p.Concepts), StateLine: p.StateLine, StateDate: p.StateDate, Links: p.Links, Rev: d.Rev}
+		Concepts: targets(p.Concepts), StateLine: p.StateLine, StateDate: p.StateDate, Cadence: p.Cadence, LastReviewed: p.LastReviewed, Links: p.Links, Rev: d.Rev}
 }
 
 // ProjectAddInput is the input of project_add.
@@ -155,39 +158,86 @@ type ProjectShowInput struct {
 	ID string `json:"id" query:"id" required:"true"`
 }
 
-// ProjectShowOutput is the output of project_show.
+// projectBundleMax bounds the encoded bundle (plan/paralog.md § 7). The
+// header is never cut; lists are cut from their end, each with a "more" line.
+const projectBundleMax = 8000
+
+// Section limits before the byte cap: history rows and the body text.
+const (
+	projectHistoryMax = 10
+	projectBodyMax    = 1200
+)
+
+// ProjectShowOutput is the project bundle: one read with what an agent or a
+// person needs to pick the project up.
 type ProjectShowOutput struct {
 	Project ProjectView `json:"project"`
-	Body    string      `json:"body"`
-	// Goals are the goals that link the project, closed ones left out.
-	Goals []GoalView `json:"goals"`
+	// Body is the project's text, cut to projectBodyMax runes.
+	Body string `json:"body"`
+	// LastActivity is the newest updated date of the project, its goals,
+	// their tasks, and what links it.
+	LastActivity model.Date `json:"last_activity,omitempty"`
+	// StateAgeDays is the age of state_line in days; -1 with no state_date.
+	StateAgeDays int `json:"state_age_days"`
+	// Goals are the goals in flight (active and paused) with their open tasks.
+	Goals []BundleGoal `json:"goals"`
+	// WaitsOn is what the project waits on: open asks, open questions, and
+	// blocked tasks, under its goals or linked to it directly.
+	WaitsOn []BundleItem `json:"waits_on"`
+	// Icebox are the parked goals and what each waits on to resume.
+	Icebox []BundleItem `json:"icebox"`
+	// Direct are the open notes, asks, obligations, and tracked documents
+	// that link the project itself (project:).
+	Direct []BundleItem `json:"direct"`
+	// History is what happened, newest first: closed goals and the
+	// project's own timeline (history {id}).
+	History []BundleEvent `json:"history"`
+	// More says what each cut list left out and how to read the rest.
+	More []string `json:"more"`
 }
 
-// ProjectShow returns a project and its goals.
-var ProjectShow = defineRead("project_show", "Show an ongoing project and its goals", func(ctx context.Context, d Deps, in ProjectShowInput) (ProjectShowOutput, error) {
+// BundleGoal is a goal in flight in a project bundle. Next is its first open
+// task that is not blocked.
+type BundleGoal struct {
+	ID       string           `json:"id"`
+	Title    string           `json:"title"`
+	Status   model.GoalStatus `json:"status"`
+	DoneWhen string           `json:"done_when,omitempty"`
+	Due      model.Date       `json:"due,omitempty"`
+	Next     string           `json:"next,omitempty"`
+	Tasks    []BundleItem     `json:"tasks"`
+	// MoreTasks counts the open tasks the cap left out.
+	MoreTasks int `json:"more_tasks,omitempty"`
+}
+
+// BundleItem is one item in a project bundle. Via is the goal it comes
+// through, empty when it links the project itself. Note is what a parked goal
+// waits on, or a blocked task's reason.
+type BundleItem struct {
+	ID     string     `json:"id"`
+	Type   model.Type `json:"type"`
+	Title  string     `json:"title"`
+	Status string     `json:"status,omitempty"`
+	Due    model.Date `json:"due,omitempty"`
+	Via    string     `json:"via,omitempty"`
+	Note   string     `json:"note,omitempty"`
+}
+
+// BundleEvent is one history row of a project bundle.
+type BundleEvent struct {
+	At      string `json:"at"` // YYYY-MM-DD
+	ID      string `json:"id"`
+	Kind    string `json:"kind"`
+	Summary string `json:"summary"`
+}
+
+// ProjectShow returns the project bundle.
+var ProjectShow = defineRead("project_show", "Show an ongoing project as one bundle: header, goals in flight with open tasks, what it waits on, icebox, direct links, history", func(ctx context.Context, d Deps, in ProjectShowInput) (ProjectShowOutput, error) {
 	doc, p, err := getOngoing(ctx, d.Store, normID(in.ID))
 	if err != nil {
 		return ProjectShowOutput{}, err
 	}
-	refs, err := d.Store.List(ctx, store.Filter{Type: model.TypeGoal})
-	if err != nil {
-		return ProjectShowOutput{}, err
-	}
-	out := ProjectShowOutput{Project: projectView(doc, p), Body: doc.Body, Goals: []GoalView{}}
-	for _, r := range refs {
-		gd, err := d.Store.Get(ctx, r.ID)
-		if err != nil {
-			continue
-		}
-		if g, ok := gd.Meta.(*model.Goal); ok && g.Project.Target() == doc.ID {
-			v, err := goalView(gd)
-			if err != nil {
-				return ProjectShowOutput{}, err
-			}
-			out.Goals = append(out.Goals, v)
-		}
-	}
-	return out, nil
+	return projectBundle(ctx, d, doc, p)
 })
 
 // ProjectRetireInput is the input of project_retire.

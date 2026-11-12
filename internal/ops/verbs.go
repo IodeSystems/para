@@ -876,7 +876,10 @@ type ListInput struct {
 	Type model.Type `json:"type,omitempty" query:"type"`
 	// State is open, later, closed, or all; empty is open and later (not
 	// closed).
-	State    string `json:"state,omitempty" query:"state"`
+	State string `json:"state,omitempty" query:"state"`
+	// Status is the type's own status (goal parked: the icebox); with no
+	// state it lists every life. A project lists status active by default.
+	Status   string `json:"status,omitempty" query:"status"`
 	Tag      string `json:"tag,omitempty" query:"tag"`
 	NeedsYou bool   `json:"needs_you,omitempty" query:"needs_you"`
 	Limit    int    `json:"limit,omitempty" query:"limit"`
@@ -947,6 +950,16 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 		if in.Type != "" && !slices.Contains(model.Types, in.Type) {
 			return ListOutput{}, fmt.Errorf("type %q: want one of %v", in.Type, model.Types)
 		}
+		status := strings.TrimSpace(in.Status)
+		if status != "" && in.Type == "" {
+			return ListOutput{}, errors.New("status needs type: a status is a type's own")
+		}
+		if in.Type == model.TypeProject && status == "" && state == "" {
+			status = string(model.ProjectActive)
+		}
+		if status != "" && state == "" {
+			state = "all"
+		}
 		sn, err := NewSnapshot(ctx, d.Store)
 		if err != nil {
 			return ListOutput{}, err
@@ -977,6 +990,9 @@ var List = defineRead("list", "List items of a type (task, question, goal, proje
 			}
 			doc, err := sn.Get(r.ID)
 			if err != nil {
+				continue
+			}
+			if status != "" && statusOf(incidentShape(doc).Meta) != status {
 				continue
 			}
 			if tag != "" && !slices.Contains(normTags(doc.Meta.Header().Tags), tag) {

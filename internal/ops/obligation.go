@@ -68,6 +68,7 @@ type ObligationAddInput struct {
 	// follow-up of a meeting, or a promise made in it.
 	Parent   string `json:"parent,omitempty"`
 	Goal     string `json:"goal,omitempty"`
+	Project  string `json:"project,omitempty"` // an ongoing project the obligation serves directly
 	Area     string `json:"area,omitempty"`
 	Due      string `json:"due,omitempty"`   // YYYY-MM-DD
 	Start    string `json:"start,omitempty"` // RFC 3339 with a zone; a commitment may give a date
@@ -200,6 +201,10 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	if area, err = areaLink(ctx, d.Store, in.Area); err != nil {
 		return ObligationAddOutput{}, err
 	}
+	ongoing, err := projectLink(ctx, d.Store, in.Project)
+	if err != nil {
+		return ObligationAddOutput{}, err
+	}
 	pre := func(t *model.Task) {
 		t.Goal, t.Area, t.Due, t.Recur, t.DoneWhen = project, area, due, flatLine(in.Recur), doneWhen
 		if t.Kind == model.KindCommitment && len(t.With) == 0 {
@@ -208,7 +213,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	}
 	post := func(o *model.Obligation) {
 		o.OwedTo, o.OwedBy, o.Schedule, o.Cadence, o.Produce = owedTo, owedBy, sched, flatLine(in.Cadence), produce
-		o.Interested, o.Parent = interested, parent.link
+		o.Interested, o.Parent, o.Project = interested, parent.link, ongoing
 		if kind == model.KindCommitment {
 			o.With = nil
 		}

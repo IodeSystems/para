@@ -255,11 +255,18 @@ func runGoals(ctx context.Context, s store.Store, dry bool, batch string) (StepO
 		case g.goals[d.ID]:
 			nd, err := asGoal(d)
 			return nd, nil, err == nil, err
-		case g.tasks[d.ID]:
-			d.Folder = model.FolderGoals
-			return d, nil, true, nil
 		}
-		return d, nil, false, nil
+		// A task's project: names its goal: it moves to goal: in the same
+		// write, since a task with project: fails lint at format 11.
+		t, ok := d.Meta.(*model.Task)
+		rekey := ok && t.Goal == "" && g.goals[t.Project.Target()]
+		if rekey {
+			t.Goal, t.Project = t.Project, ""
+		}
+		if g.tasks[d.ID] {
+			d.Folder = model.FolderGoals
+		}
+		return d, nil, rekey || g.tasks[d.ID], nil
 	})
 	if err != nil {
 		return so, err

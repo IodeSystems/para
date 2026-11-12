@@ -355,6 +355,42 @@ func addAttemptLine(doc *model.Document, line string) {
 	doc.Body = appendSection(doc.Body, "Attempts", line)
 }
 
+// typedLinkFields checks the goal and project fields of a doc_edit on a
+// document of type typ and writes each as a link: goal names a goal, project
+// an ongoing project, and a task reaches a project only through its goal. A
+// null value removes the link.
+func typedLinkFields(ctx context.Context, s store.Store, typ model.Type, fields map[string]any) error {
+	for _, key := range []string{"goal", "project"} {
+		v, ok := fields[key]
+		if !ok || v == nil {
+			continue
+		}
+		raw, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("%s: want an id", key)
+		}
+		if strings.TrimSpace(raw) == "" {
+			fields[key] = nil
+			continue
+		}
+		var link model.Link
+		var err error
+		switch {
+		case key == "project" && typ == model.TypeTask:
+			return errors.New("project: a task reaches a project through a goal: set goal")
+		case key == "project":
+			link, err = projectLink(ctx, s, raw)
+		default:
+			link, err = goalLink(ctx, s, raw)
+		}
+		if err != nil {
+			return err
+		}
+		fields[key] = string(link)
+	}
+	return nil
+}
+
 // DocEditInput is the input of doc_edit. Fields left out stay as they are. Fields
 // are frontmatter keys the type declares and a person may change; a null value
 // removes a key. Rev, when set, is the revision the edit was made from; a
@@ -464,6 +500,9 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 			return DocEditOutput{}, fmt.Errorf("doc_edit: %q is not an editable field of a %s; editable: %s", k, typ, strings.Join(names, ", "))
 		}
 	}
+	if err := typedLinkFields(ctx, d.Store, typ, in.Fields); err != nil {
+		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
+	}
 	// Field text gets the check task_add and task_edit give it: lint of the
 	// file reads only the body, so text in a field is checked here, before
 	// the write.
@@ -491,8 +530,17 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 		}
 	}
 	if len(in.Fields) > 0 {
+		var before string
+		if p, ok := doc.Meta.(*model.Project); ok {
+			before = p.StateLine
+		}
 		if doc, err = doc.WithFields(in.Fields); err != nil {
 			return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
+		}
+		// A new state line is dated today (state_date is para's).
+		if p, ok := doc.Meta.(*model.Project); ok && p.StateLine != before {
+			p.StateLine = strings.Join(strings.Fields(p.StateLine), " ")
+			p.StateDate = model.Date(d.Store.Now().Format(dateLayout))
 		}
 		_, sys := in.Fields["system"]
 		_, ven := in.Fields["vendor"]

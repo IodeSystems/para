@@ -42,8 +42,28 @@ func newProjectCmd(l *loader) *cobra.Command {
 					pr.f("state\t%s\t%s\n", p.StateLine, p.StateDate)
 				}
 				writeLinks(pr, p.Links)
+				if out.LastActivity != "" {
+					pr.f("last activity\t%s\n", out.LastActivity)
+				}
 				for _, g := range out.Goals {
 					pr.f("goal\t%s\t%s\t%s\n", g.ID, g.Status, g.Title)
+					for _, t := range g.Tasks {
+						pr.f("  task\t%s\t%s\t%s\n", t.ID, t.Status, t.Title)
+					}
+				}
+				for _, sec := range []struct {
+					name  string
+					items []ops.BundleItem
+				}{{"waits on", out.WaitsOn}, {"parked", out.Icebox}, {"linked", out.Direct}} {
+					for _, it := range sec.items {
+						pr.f("%s\t%s\t%s\t%s\t%s\n", sec.name, it.ID, it.Type, it.Title, it.Note)
+					}
+				}
+				for _, h := range out.History {
+					pr.f("history\t%s\t%s\t%s\n", h.At, h.Kind, h.Summary)
+				}
+				for _, m := range out.More {
+					pr.f("%s\n", m)
 				}
 				return pr.err
 			},
