@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path"
 	"slices"
 	"sort"
@@ -24,16 +23,17 @@ import (
 
 // formerOf returns the document that lists id in former_ids.
 func (v *Vault) formerOf(id string) (docFile, bool, error) {
+	leg := v.legacy()
 	files, err := v.docFiles()
 	if err != nil {
 		return docFile{}, false, err
 	}
 	for _, f := range files {
-		data, err := os.ReadFile(v.abs(f.rel))
+		e, err := v.entryOf(f.rel, leg)
 		if err != nil {
 			return docFile{}, false, err
 		}
-		if slices.ContainsFunc(v.listedOf(f.rel, data).former, func(x string) bool { return strings.EqualFold(x, id) }) {
+		if slices.ContainsFunc(e.l.former, func(x string) bool { return strings.EqualFold(x, id) }) {
 			return f, true, nil
 		}
 	}
@@ -130,16 +130,17 @@ func (v *Vault) RelinkFormer(ctx context.Context) (model.IDChangeResult, error) 
 // formerIDs maps every former id in the vault to the document that lists it.
 func (v *Vault) formerIDs() (map[string]string, error) {
 	ids := map[string]string{}
+	leg := v.legacy()
 	files, err := v.docFiles()
 	if err != nil {
 		return nil, fmt.Errorf("vault: relink: %w", err)
 	}
 	for _, f := range files {
-		data, err := os.ReadFile(v.abs(f.rel))
+		e, err := v.entryOf(f.rel, leg)
 		if err != nil {
 			return nil, fmt.Errorf("vault: relink: %w", err)
 		}
-		for _, old := range v.listedOf(f.rel, data).former {
+		for _, old := range e.l.former {
 			if _, taken := ids[old]; !taken {
 				ids[old] = f.id
 			}

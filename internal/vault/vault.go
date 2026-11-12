@@ -78,12 +78,11 @@ type Vault struct {
 // Every walk refreshes it. A hit is used only while the file is still there:
 // a sync tool or a hand edit can move or delete files at any time.
 //
-// refs holds what List takes from each file, keyed by path, and is used only
-// when the file's content hash is unchanged.
+// refs holds each file's parse, keyed by path (cache.go).
 type pathCache struct {
 	mu   sync.Mutex
 	m    map[string]docFile
-	refs map[string]listed
+	refs map[string]*entry
 }
 
 type listed struct {
@@ -342,6 +341,7 @@ func (v *Vault) Move(ctx context.Context, id string, to model.Folder) (model.Doc
 			return err
 		}
 		rel := path.Join(string(to), path.Base(f.rel))
+		defer v.forget(f.rel, rel)
 		if err := os.MkdirAll(filepath.Dir(v.abs(rel)), 0o700); err != nil {
 			return err
 		}
@@ -417,6 +417,7 @@ func (v *Vault) Rename(ctx context.Context, id, newID string) (model.Document, e
 			return err
 		}
 		rel := path.Join(path.Dir(f.rel), newID+".md")
+		defer v.forget(f.rel, rel)
 		if err := os.Rename(v.abs(f.rel), v.abs(rel)); err != nil {
 			return err
 		}
@@ -456,23 +457,27 @@ func (v *Vault) Get(_ context.Context, id string) (model.Document, error) {
 	if err != nil {
 		return model.Document{}, fmt.Errorf("vault: get: %w", err)
 	}
-	data, err := os.ReadFile(v.abs(f.rel))
+	e, err := v.entryOf(f.rel, v.legacy())
 	if err != nil {
 		return model.Document{}, fmt.Errorf("vault: get: %w", err)
 	}
-	pf := paramd.Parse(f.rel, data)
-	d, err := decodeFile(f, pf, v.legacy())
+	d, err := e.doc(f)
 	if err != nil {
 		return d, fmt.Errorf("vault: get: %w", err)
 	}
-	d.Rev = events.Hash(data)
 	return d, nil
 }
 
 // List returns one Ref per document, sorted by id. folder and typ filter when
 // not empty. A file that does not parse is listed with an empty title or type.
+// A type other than receipt skips the receipts folder: it holds only receipts,
+// and most of a vault's files.
 func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]model.Ref, error) {
-	files, err := v.docFiles()
+	var skip model.Folder
+	if typ != "" && typ != model.TypeReceipt {
+		skip = model.FolderOf(model.TypeReceipt)
+	}
+	files, err := v.scanFiles(skip)
 	if err != nil {
 		return nil, fmt.Errorf("vault: list: %w", err)
 	}
@@ -482,11 +487,11 @@ func (v *Vault) List(_ context.Context, folder model.Folder, typ model.Type) ([]
 		if folder != "" && f.folder != folder {
 			continue
 		}
-		data, err := os.ReadFile(v.abs(f.rel))
+		e, err := v.entryOf(f.rel, leg)
 		if err != nil {
 			return nil, fmt.Errorf("vault: list: %w", err)
 		}
-		l := v.listedOf(f.rel, data)
+		l := e.l
 		lt := typeOf(l.typ, leg)
 		if typ != "" && lt != typ {
 			continue
@@ -602,6 +607,7 @@ func (v *Vault) saveManifest(m events.Manifest) error {
 }
 
 func (v *Vault) write(rel string, data []byte, mode fs.FileMode) error {
+	defer v.forget(rel)
 	return atomicfile.Write(v.abs(rel), data, mode)
 }
 
@@ -692,9 +698,16 @@ type docFile struct {
 }
 
 // docFiles lists every .md file under the document folders.
-func (v *Vault) docFiles() ([]docFile, error) {
+func (v *Vault) docFiles() ([]docFile, error) { return v.scanFiles("") }
+
+// scanFiles is docFiles without the folder skip, when set. A partial scan leaves the
+// path cache as it is.
+func (v *Vault) scanFiles(skip model.Folder) ([]docFile, error) {
 	var out []docFile
 	for _, folder := range model.Folders {
+		if folder == skip {
+			continue
+		}
 		rels, err := mdFiles(v.root, string(folder))
 		if err != nil {
 			return nil, err
@@ -704,6 +717,9 @@ func (v *Vault) docFiles() ([]docFile, error) {
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
+	if skip != "" {
+		return out, nil
+	}
 	m := make(map[string]docFile, len(out))
 	for _, f := range out {
 		if _, dup := m[f.id]; !dup {
@@ -719,42 +735,6 @@ func (v *Vault) docFiles() ([]docFile, error) {
 	}
 	v.paths.mu.Unlock()
 	return out, nil
-}
-
-// listedOf parses data only when the file at rel changed since the last List.
-func (v *Vault) listedOf(rel string, data []byte) listed {
-	hash := events.Hash(data)
-	v.paths.mu.Lock()
-	l, ok := v.paths.refs[rel]
-	v.paths.mu.Unlock()
-	if ok && l.hash == hash {
-		return l
-	}
-	pf := paramd.Parse(rel, data)
-	dup, _ := pf.Frontmatter["duplicate_of"].(string)
-	pinned := ""
-	switch p := pf.Frontmatter["pinned"].(type) {
-	case string:
-		pinned = p
-	case time.Time:
-		pinned = p.UTC().Format(time.RFC3339)
-	}
-	var former []string
-	if list, ok := pf.Frontmatter["former_ids"].([]any); ok {
-		for _, x := range list {
-			if id := strings.TrimSpace(fmt.Sprint(x)); id != "" {
-				former = append(former, id)
-			}
-		}
-	}
-	l = listed{hash: hash, typ: model.Type(pf.Type()), title: pf.Title, dup: dup, pinned: pinned, former: former}
-	v.paths.mu.Lock()
-	if v.paths.refs == nil {
-		v.paths.refs = map[string]listed{}
-	}
-	v.paths.refs[rel] = l
-	v.paths.mu.Unlock()
-	return l
 }
 
 func (v *Vault) find(id string) (docFile, error) {
