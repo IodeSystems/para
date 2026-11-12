@@ -186,8 +186,11 @@ type ProjectShowOutput struct {
 	WaitsOn []BundleItem `json:"waits_on"`
 	// Icebox are the parked goals and what each waits on to resume.
 	Icebox []BundleItem `json:"icebox"`
+	// Crons are the project's crons, one line each: what a run makes, who
+	// owes it, the next run, and the last (cron.go).
+	Crons []string `json:"crons"`
 	// Direct are the open notes, asks, obligations, and tracked documents
-	// that link the project itself (project:).
+	// that link the project itself (project:), and the tasks its crons made.
 	Direct []BundleItem `json:"direct"`
 	// History is what happened, newest first: closed goals and the
 	// project's own timeline (history {id}).
@@ -221,6 +224,9 @@ type BundleItem struct {
 	Due    model.Date `json:"due,omitempty"`
 	Via    string     `json:"via,omitempty"`
 	Note   string     `json:"note,omitempty"`
+	// HiddenTasks counts, on a parked goal, its open tasks that Next and
+	// needs_you hide while it is parked.
+	HiddenTasks int `json:"hidden_tasks,omitempty"`
 }
 
 // BundleEvent is one history row of a project bundle.

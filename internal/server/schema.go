@@ -276,6 +276,8 @@ type Meta struct {
 	OwedTo          []string              `json:"owed_to,omitempty"`
 	OwedBy          []string              `json:"owed_by,omitempty"`
 	OccurrenceOf    string                `json:"occurrence_of,omitempty"`
+	Makes           string                `json:"makes,omitempty"` // obligation, a cron: what each run makes
+	Cron            string                `json:"cron,omitempty"`  // task: the cron run that made it
 	FoldedFrom      string                `json:"folded_from,omitempty"`
 	FoldedInto      string                `json:"folded_into,omitempty"` // an exception, convention, or constraint: the area it is an annotation in
 	Follows         *model.Followed       `json:"follows,omitempty"`     // area: the source it summarizes
@@ -336,6 +338,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Folders)
 	addEnum(reg, model.GoalStatuses)
 	addEnum(reg, model.ProjectStatuses)
+	addEnum(reg, model.CronMakesValues)
 	addEnum(reg, model.Validations)
 	addEnum(reg, model.PivotActions)
 	addEnum(reg, model.AreaStatuses)

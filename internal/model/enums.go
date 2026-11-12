@@ -130,6 +130,20 @@ func (GoalStatus) Enum() []string { return enumStrings(GoalStatuses) }
 // GoalStatuses lists every GoalStatus.
 var GoalStatuses = []GoalStatus{GoalActive, GoalPaused, GoalParked, GoalDone, GoalDropped}
 
+// CronMakes is obligation.makes: what each run of a cron makes.
+type CronMakes string
+
+const (
+	MakesObligation CronMakes = "obligation"
+	MakesTask       CronMakes = "task"
+)
+
+// Enum lists the allowed values, for schema generation.
+func (CronMakes) Enum() []string { return enumStrings(CronMakesValues) }
+
+// CronMakesValues lists every CronMakes.
+var CronMakesValues = []CronMakes{MakesObligation, MakesTask}
+
 // ProjectStatus is project.status. Active projects are the Projects view; a
 // retired one is kept for its history.
 type ProjectStatus string

@@ -357,9 +357,9 @@ func addAttemptLine(doc *model.Document, line string) {
 
 // typedLinkFields checks the goal and project fields of a doc_edit on a
 // document of type typ and writes each as a link: goal names a goal, project
-// an ongoing project, and a task reaches a project only through its goal. A
-// null value removes the link.
-func typedLinkFields(ctx context.Context, s store.Store, typ model.Type, fields map[string]any) error {
+// an ongoing project, and a task reaches a project only through its goal,
+// unless a cron made it (cronMade). A null value removes the link.
+func typedLinkFields(ctx context.Context, s store.Store, typ model.Type, cronMade bool, fields map[string]any) error {
 	for _, key := range []string{"goal", "project"} {
 		v, ok := fields[key]
 		if !ok || v == nil {
@@ -376,8 +376,8 @@ func typedLinkFields(ctx context.Context, s store.Store, typ model.Type, fields 
 		var link model.Link
 		var err error
 		switch {
-		case key == "project" && typ == model.TypeTask:
-			return errors.New("project: a task reaches a project through a goal: set goal")
+		case key == "project" && typ == model.TypeTask && !cronMade:
+			return errors.New("project: a task reaches a project through a goal: set goal (only a task a cron made links a project)")
 		case key == "project":
 			link, err = projectLink(ctx, s, raw)
 		default:
@@ -500,7 +500,11 @@ var DocEdit = define("doc_edit", "Change the title, body, or declared fields of 
 			return DocEditOutput{}, fmt.Errorf("doc_edit: %q is not an editable field of a %s; editable: %s", k, typ, strings.Join(names, ", "))
 		}
 	}
-	if err := typedLinkFields(ctx, d.Store, typ, in.Fields); err != nil {
+	cronMade := false
+	if t, ok := doc.Meta.(*model.Task); ok {
+		cronMade = t.Cron != ""
+	}
+	if err := typedLinkFields(ctx, d.Store, typ, cronMade, in.Fields); err != nil {
 		return DocEditOutput{}, fmt.Errorf("doc_edit: %w", err)
 	}
 	// Field text gets the check task_add and task_edit give it: lint of the

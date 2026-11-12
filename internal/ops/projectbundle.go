@@ -40,7 +40,7 @@ func linksOf(m model.Meta) (goal, project string) {
 // projectBundle builds the bundle of the project doc.
 func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Project) (ProjectShowOutput, error) {
 	out := ProjectShowOutput{Project: projectView(doc, p), Body: clip(doc.Body, projectBodyMax), StateAgeDays: -1,
-		Goals: []BundleGoal{}, WaitsOn: []BundleItem{}, Icebox: []BundleItem{}, Direct: []BundleItem{}, History: []BundleEvent{}, More: []string{}}
+		Goals: []BundleGoal{}, WaitsOn: []BundleItem{}, Icebox: []BundleItem{}, Crons: []string{}, Direct: []BundleItem{}, History: []BundleEvent{}, More: []string{}}
 	today := d.Store.Now().Format(dateLayout)
 	if p.StateDate != "" {
 		out.StateAgeDays = daysBetween(string(p.StateDate), today)
@@ -59,6 +59,7 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 		return out, err
 	}
 	goals := map[string]*BundleGoal{} // in flight, by id and former id
+	parked := map[string]string{}     // parked goal by id and former id -> its id
 	var closed []BundleEvent
 	for _, r := range grefs {
 		gd, err := d.Store.Get(ctx, r.ID)
@@ -75,6 +76,10 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 			out.Goals = append(out.Goals, BundleGoal{ID: gd.ID, Title: gd.Title, Status: g.Status, DoneWhen: g.DoneWhen, Due: g.Due, Tasks: []BundleItem{}})
 		case model.GoalParked:
 			out.Icebox = append(out.Icebox, BundleItem{ID: gd.ID, Type: model.TypeGoal, Title: gd.Title, Status: string(g.Status), Note: cmp.Or(g.ResumeWhen, "no resume_when")})
+			parked[gd.ID] = gd.ID
+			for _, f := range g.FormerIDs {
+				parked[f] = gd.ID
+			}
 		default:
 			closed = append(closed, BundleEvent{At: string(cmp.Or(g.Updated, g.Created)), ID: gd.ID, Kind: "goal_" + string(g.Status), Summary: gd.Title})
 		}
@@ -91,7 +96,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 		}
 	}
 
-	// Tasks, waits, and direct links.
+	// Tasks, waits, and direct links. The open tasks of a parked goal are
+	// only counted: Next and needs_you hide them until it is unparked.
+	hidden := map[string]int{}
 	for _, typ := range bundleTypes {
 		refs, err := d.Store.List(ctx, store.Filter{Type: typ})
 		if err != nil {
@@ -103,6 +110,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 				continue
 			}
 			gid, pid := linksOf(x.Meta)
+			if pg := parked[gid]; pg != "" && typ == model.TypeTask && lifeOf(x.Meta) == LifeOpen {
+				hidden[pg]++
+			}
 			g := goals[gid]
 			direct := mine(pid)
 			if g == nil && !direct {
@@ -110,6 +120,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 			}
 			if lifeOf(x.Meta) != LifeOpen {
 				continue
+			}
+			if o, ok := x.Meta.(*model.Obligation); ok && isCron(o) && mine(pid) {
+				continue // a cron is a line of its own (crons)
 			}
 			seen(x.Meta.Header())
 			it := BundleItem{ID: x.ID, Type: x.Meta.Header().Type, Title: x.Title, Status: statusOf(x.Meta)}
@@ -144,6 +157,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 			}
 		}
 	}
+	for i := range out.Icebox {
+		out.Icebox[i].HiddenTasks = hidden[out.Icebox[i].ID]
+	}
 	byDue := func(a, b BundleItem) int { return cmp.Or(cmpDue(a.Due, b.Due), cmp.Compare(a.ID, b.ID)) }
 	for i := range out.Goals {
 		g := &out.Goals[i]
@@ -156,6 +172,12 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 	slices.SortFunc(out.Direct, func(a, b BundleItem) int { return cmp.Or(cmp.Compare(a.Type, b.Type), cmp.Compare(a.ID, b.ID)) })
 	out.LastActivity = model.Date(latest)
 
+	crons, cut, err := projectCrons(ctx, d.Store, mine)
+	if err != nil {
+		return out, err
+	}
+	out.Crons = append(out.Crons, crons...)
+
 	// History: closed goals and the project's own timeline, newest first.
 	rows, _, err := historyRows(ctx, d, doc.ID)
 	if err != nil {
@@ -167,6 +189,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 	}
 	slices.SortStableFunc(hist, func(a, b BundleEvent) int { return cmp.Compare(b.At, a.At) })
 	more := map[string]int{}
+	if cut > 0 {
+		more["crons"] = cut
+	}
 	if len(hist) > projectHistoryMax {
 		more["history"] = len(hist) - projectHistoryMax
 		hist = hist[:projectHistoryMax]
@@ -215,6 +240,7 @@ func capBundle(out *ProjectShowOutput, more map[string]int) {
 		add("tasks", "show {id: <goal>} for each goal")
 		add("waits_on", "show {id: <goal>}, list {type: rfx}")
 		add("icebox", "list {type: goal, status: parked}")
+		add("crons", "list {type: obligation} (crons with project "+id+")")
 		add("direct", "search {query: "+id+"}")
 		add("history", "op_run {op: history, input: {id: "+id+"}}")
 		return l

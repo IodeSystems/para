@@ -63,6 +63,9 @@ type TickOutput struct {
 	// source with none open; they are in Requests too.
 	Sweeps   []string `json:"sweeps"`
 	Proposed int      `json:"proposed"`
+	// Crons lists the cron runs this pass made a task for, as
+	// "<occurrence>: <task>" (cron.go).
+	Crons []string `json:"crons"`
 	// Gaps lists the fill-gap requests tick made this pass (gap.go); they
 	// are in Requests too.
 	Gaps []string `json:"gaps"`
@@ -120,7 +123,7 @@ func (o TickOutput) Failed() error {
 func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 	base := d.Store
 	info := base.Info()
-	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Warnings: []string{}}
+	out := TickOutput{Vault: base.VaultID(), Revived: []string{}, Requests: []string{}, Journals: []string{}, Produce: []string{}, Occurrences: []string{}, Defaults: []string{}, Sweeps: []string{}, Gaps: []string{}, Reasons: []string{}, Replies: []string{}, Promises: []string{}, Prepares: []string{}, Nudges: []string{}, Goals: []string{}, MeetingsSkipped: []string{}, Followed: []string{}, Crons: []string{}, Warnings: []string{}}
 	runner, err := base.Config(runnerConfig)
 	if err != nil {
 		return out, fmt.Errorf("tick: %w", err)
@@ -149,6 +152,9 @@ func Tick(ctx context.Context, d Deps, _ TickInput) (TickOutput, error) {
 
 	if err := tickRecurring(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: recurring: %w", err)
+	}
+	if err := tickCrons(ctx, d, &out); err != nil {
+		return out, fmt.Errorf("tick: crons: %w", err)
 	}
 	if err := tickRequests(ctx, d, &out); err != nil {
 		return out, fmt.Errorf("tick: requests: %w", err)

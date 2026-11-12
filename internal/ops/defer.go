@@ -381,7 +381,8 @@ var Undefer = withProposalReceipts(definePerson("undefer", "Bring questions, tas
 type deferHold struct {
 	Date      bool     // its own date or someday is in force
 	Waits     []string // open items in deferred_after
-	Inherited bool     // its goal or scope task is put off
+	Inherited bool     // its goal or scope task is put off, or its goal is parked
+	Parked    string   // the parked goal (the icebox) it inherits from, when that holds it
 	Ready     string   // "ready: <title> done" for 7 days after the last wait resolved
 	Follows   string   // "until <title> starts (<date>)": it follows an obligation
 }

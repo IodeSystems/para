@@ -48,6 +48,7 @@ type field struct {
 var (
 	projectStatus      = []string{"active", "paused", "retired"}
 	goalStatus         = []string{"active", "paused", "parked", "done", "dropped"}
+	cronMakes          = []string{"obligation", "task"}
 	taskStatus         = []string{"todo", "doing", "blocked", "done", "dropped"}
 	taskOutcome        = []string{"done", "partial", "dropped", "duplicate", "superseded", "declined", "failed", "rerouted"}
 	declinedBy         = []string{"owner", "other"}
@@ -194,9 +195,10 @@ var typeFields = map[string][]field{
 	},
 	"task": {
 		{Name: "status", Kind: kEnum, Enum: taskStatus, Required: true},
-		{Name: "project", Kind: kLink}, // from format 11 only on a task a cron made (N5b)
+		{Name: "project", Kind: kLink}, // from format 11 only on a task a cron made (cron set)
 		{Name: "goal", Kind: kLink},    // goal or area: at least one (lint)
 		{Name: "area", Kind: kLink},
+		{Name: "cron", Kind: kLink}, // the cron run (an obligation occurrence) that made it
 		{Name: "due", Kind: kDate},
 		{Name: "recur", Kind: kString}, // daily, weekly, monthly, quarterly, yearly, every <n> days; another value is a warning
 		{Name: "previous", Kind: kLink},
@@ -288,6 +290,7 @@ var typeFields = map[string][]field{
 		{Name: "owed_by", Kind: kOwers},   // empty: the owner owes it; agent or agent:<name>: an agent
 		{Name: "produce", Kind: kProduce}, // owed by an agent: what it produces each time
 		{Name: "project", Kind: kLink},
+		{Name: "makes", Kind: kEnum, Enum: cronMakes}, // a cron (series on a project): what each run makes
 		{Name: "goal", Kind: kLink},
 		{Name: "area", Kind: kLink},
 		{Name: "parent", Kind: kLink}, // the task or obligation it came from (vault check)
@@ -667,7 +670,7 @@ var editableTypes = []string{
 // owns, per type. status is locked for every type.
 var editLocked = map[string][]string{
 	"request":     {"queued_at", "claimed_by", "lease_until", "claimed_at", "active_at", "resolution", "result_links", "followed"},
-	"task":        {"previous", "rfx", "folded_from"},
+	"task":        {"previous", "rfx", "folded_from", "cron"},
 	"group":       {"folded_from"},
 	"io":          {"folded_from"},
 	"obligation":  {"state", "outcome", "closed", "previous", "occurrence_of", "rfx", "folded_from"},

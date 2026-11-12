@@ -997,6 +997,7 @@ enum para_BundleGoalStatus {
 
 type para_BundleItem {
   due: String
+  hiddenTasks: Int
   id: String!
   note: String
   status: String
@@ -4677,6 +4678,7 @@ type para_Meta {
   contacts: [para_Contact!]
   context: JSON
   created: String!
+  cron: String
   cursor: String
   date: String
   declinedBy: para_MetaDeclined_by
@@ -4732,6 +4734,7 @@ type para_Meta {
   latest: Int
   leaseUntil: String
   links: JSON
+  makes: String
   medium: para_MetaMedium
   nextNudge: String
   notDuplicate: String
@@ -5102,6 +5105,7 @@ input para_ObligationAddInputInput {
   importedFrom: para_ImportedFromInput
   interested: [String!]
   kind: para_ObligationAddInputKind
+  makes: para_ObligationAddInputMakes
   optional: Boolean
   owedBy: [String!]
   owedTo: [String!]
@@ -5124,6 +5128,11 @@ enum para_ObligationAddInputKind {
   meeting
   task
   work_with
+}
+
+enum para_ObligationAddInputMakes {
+  obligation
+  task
 }
 
 enum para_ObligationAddInputSchedule {
@@ -6219,6 +6228,7 @@ enum para_ProjectAddOutputFolder {
 
 type para_ProjectShowOutput {
   body: String!
+  crons: [String!]!
   direct: [para_BundleItem!]!
   goals: [para_BundleGoal!]!
   history: [para_BundleEvent!]!

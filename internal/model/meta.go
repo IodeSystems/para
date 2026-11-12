@@ -267,10 +267,14 @@ type Task struct {
 	Status TaskStatus `yaml:"status" json:"status"`
 	// Project links the goal below format 11 (read until upgrade step goals
 	// moves it to Goal); a task reaches an ongoing project only through its
-	// goal. Goal or area, at least one.
+	// goal, except a task a cron made (Cron set), which may link the project
+	// directly. Goal or area, at least one, or project with cron.
 	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
 	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
 	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
+	// Cron links the cron run that made the task: the occurrence of a cron
+	// (an obligation series on a project with makes: task). Tick sets it.
+	Cron Link `yaml:"cron,omitempty" json:"cron,omitempty"`
 	// Due is the date the task is due. Recur is daily, weekly, monthly, quarterly, yearly, or
 	// every <n> days: marking the task done creates the next one (internal/recur).
 	// Previous links the task this one recurred from.
@@ -440,6 +444,11 @@ type Obligation struct {
 	Project Link `yaml:"project,omitempty" json:"project,omitempty"`
 	Goal    Link `yaml:"goal,omitempty" json:"goal,omitempty"`
 	Area    Link `yaml:"area,omitempty" json:"area,omitempty"`
+	// Makes is set on a cron: a series on a project (plan/paralog.md § 10).
+	// Each run makes an obligation occurrence (obligation, the default) or a
+	// task (task): under Goal when it names a goal of the project, else
+	// linked to the project with cron:. Empty is obligation.
+	Makes CronMakes `yaml:"makes,omitempty" json:"makes,omitempty"`
 	// Parent links the task or obligation this one came from, as a task's
 	// parent does: a follow-up obligation of a meeting.
 	Parent Link   `yaml:"parent,omitempty" json:"parent,omitempty"`

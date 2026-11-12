@@ -92,6 +92,11 @@ type ObligationAddInput struct {
 	// other), from which template, and for a message to whom. owed_by must
 	// name an agent; empty owed_by is agent.
 	Produce *ProduceInput `json:"produce,omitempty"`
+	// Makes makes it a cron: a series (recur) on a project (project) that
+	// says what each run makes: obligation (default), an occurrence like any
+	// series; or task, a task that tick makes on the day, under goal when
+	// given (a goal of the project), else linked to the project directly.
+	Makes model.CronMakes `json:"makes,omitempty"`
 }
 
 // ObligationAddOutput is the output of obligation_add. Type is obligation,
@@ -158,7 +163,12 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	}
 	var produce *model.Produce
 	agentOwed := slices.ContainsFunc(owedBy, model.IsAgentOwer)
+	if err := checkCron(in, kind, sched, owedBy); err != nil {
+		return ObligationAddOutput{}, err
+	}
 	switch {
+	case in.Makes == model.MakesTask:
+		// A cron that makes a task: the task is the work, assigned to whoever owes it.
 	case in.Produce != nil && kind != model.KindCommitment:
 		return ObligationAddOutput{}, errors.New("produce: a meeting is attended, not produced; give kind commitment")
 	case in.Produce != nil && len(owedBy) == 0:
@@ -205,6 +215,11 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	if err != nil {
 		return ObligationAddOutput{}, err
 	}
+	if in.Makes == model.MakesTask && project != "" {
+		if err := goalOfProject(ctx, d.Store, project.Target(), ongoing.Target()); err != nil {
+			return ObligationAddOutput{}, err
+		}
+	}
 	pre := func(t *model.Task) {
 		t.Goal, t.Area, t.Due, t.Recur, t.DoneWhen = project, area, due, flatLine(in.Recur), doneWhen
 		if t.Kind == model.KindCommitment && len(t.With) == 0 {
@@ -213,7 +228,7 @@ func obligationAdd(ctx context.Context, d Deps, in ObligationAddInput) (Obligati
 	}
 	post := func(o *model.Obligation) {
 		o.OwedTo, o.OwedBy, o.Schedule, o.Cadence, o.Produce = owedTo, owedBy, sched, flatLine(in.Cadence), produce
-		o.Interested, o.Parent, o.Project = interested, parent.link, ongoing
+		o.Interested, o.Parent, o.Project, o.Makes = interested, parent.link, ongoing, in.Makes
 		if kind == model.KindCommitment {
 			o.With = nil
 		}
@@ -492,7 +507,7 @@ func nextObligation(ctx context.Context, d Deps, doc model.Document, o *model.Ob
 		rfx = o.RFX
 	}
 	next := &model.Obligation{Common: model.Common{Type: model.TypeObligation, Tags: slices.Clone(o.Tags)}, Kind: o.Kind, State: model.StateOpen,
-		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Goal: o.Goal, Area: o.Area, Due: due, Recur: o.Recur,
+		Schedule: o.Schedule, OwedTo: o.OwedTo, OwedBy: o.OwedBy, Project: o.Project, Makes: o.Makes, Goal: o.Goal, Area: o.Area, Due: due, Recur: o.Recur,
 		OccurrenceOf: cmp.Or(o.OccurrenceOf, model.LinkTo(doc.ID)), Previous: model.LinkTo(doc.ID),
 		Occasion: nextOccasion(o.Occasion, rfx, sched, end), DoneWhen: o.DoneWhen, Effort: o.Effort, Interested: o.Interested}
 	if o.Produce != nil {

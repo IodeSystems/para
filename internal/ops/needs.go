@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -354,7 +355,10 @@ func (sn *Snapshot) need(doc model.Document) Need {
 	if life == LifeClosed {
 		return Need{Life: LifeClosed, Turn: TurnNone, Reason: "closed"}
 	}
-	if sn.later[doc.ID].any() {
+	if h := sn.later[doc.ID]; h.any() {
+		if h.Parked != "" && !h.Date && len(h.Waits) == 0 {
+			return Need{Life: LifeLater, Turn: TurnNone, Reason: "goal " + h.Parked + " is parked"}
+		}
 		return Need{Life: LifeLater, Turn: TurnNone, Reason: "later"}
 	}
 	if req := sn.agent[doc.ID]; req != "" {
@@ -374,6 +378,9 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 	// an ongoing one is due on its review cadence.
 	if o, ok := doc.Meta.(*model.Obligation); ok {
 		switch {
+		case isCron(o) && o.Makes == model.MakesTask:
+			// The run is the task tick makes on the day (cron.go).
+			return none("cron: makes a task on " + cmp.Or(string(o.Due), "its day"))
 		case o.Agent() != "" && o.Produce != nil:
 			// A recurring artifact: the agent's until it is produced, then the
 			// owner approves it.
@@ -597,8 +604,15 @@ func (sn *Snapshot) deferredSet() (map[string]deferHold, error) {
 	out := map[string]deferHold{}
 	goal := map[string]string{} // task id -> goal id
 	scope := map[string]string{}
+	parked := map[string]string{} // goal id and former ids -> the parked goal
 	for _, r := range sn.refs {
 		doc := sn.docs[r.ID]
+		if g, ok := doc.Meta.(*model.Goal); ok && g.Status == model.GoalParked {
+			parked[doc.ID] = doc.ID
+			for _, f := range g.FormerIDs {
+				parked[f] = doc.ID
+			}
+		}
 		if df := deferralOf(doc.Meta); df != nil {
 			h := deferHold{Date: df.IsDeferred(sn.Today)}
 			if h.Date {
@@ -626,17 +640,20 @@ func (sn *Snapshot) deferredSet() (map[string]deferHold, error) {
 			scope[doc.ID] = scopeID(m)
 		}
 	}
+	// A parked goal is closed, so it holds nothing itself; its open items
+	// are put off with it, in the file as they were, and come back when it
+	// is unparked.
 	for id, g := range goal {
-		if out[g].any() {
+		if out[g].any() || parked[g] != "" {
 			h := out[id]
-			h.Inherited = true
+			h.Inherited, h.Parked = true, cmp.Or(h.Parked, parked[g])
 			out[id] = h
 		}
 	}
 	for id, sc := range scope {
-		if out[sc].any() || out[goal[sc]].any() {
+		if out[sc].any() || out[goal[sc]].any() || parked[sc] != "" || parked[goal[sc]] != "" {
 			h := out[id]
-			h.Inherited = true
+			h.Inherited, h.Parked = true, cmp.Or(h.Parked, parked[sc], parked[goal[sc]])
 			out[id] = h
 		}
 	}

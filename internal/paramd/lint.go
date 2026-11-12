@@ -354,10 +354,11 @@ func (l *linter) task() {
 	if fm["project"] == nil && fm["goal"] == nil && fm["area"] == nil && kind != "meeting" && kind != "call" && kind != "incident" {
 		l.errf(1, CodeField, "type task: needs field %q or %q", "goal", "area")
 	}
-	// A task reaches a project only through a goal. Below format 11 the
-	// vault reads a task's project: as goal: before lint (vault legacy.go).
-	if fm["project"] != nil {
-		l.errf(1, CodeFieldValue, "field %q: a task reaches a project through a goal: link the goal (goal:)", "project")
+	// A task reaches a project only through a goal, except a task a cron
+	// made (cron:). Below format 11 the vault reads a task's project: as
+	// goal: before lint (vault legacy.go).
+	if fm["project"] != nil && fm["cron"] == nil {
+		l.errf(1, CodeFieldValue, "field %q: a task reaches a project through a goal: link the goal (goal:); only a task a cron made (cron:) links a project", "project")
 	}
 	if kind == "incident" {
 		for _, k := range []string{"severity", "started"} {
@@ -387,6 +388,10 @@ func (l *linter) obligation() {
 		if str(fm["cadence"]) == "" {
 			l.errf(1, CodeField, "type obligation: schedule ongoing requires field %q", "cadence")
 		}
+	}
+	// A cron is a series on a project: makes needs both.
+	if fm["makes"] != nil && (str(fm["schedule"]) != "series" || fm["project"] == nil) {
+		l.errf(1, CodeFieldValue, "field %q: a cron is a series on a project: needs schedule series and field %q", "makes", "project")
 	}
 	for _, k := range []string{"recur", "cadence"} {
 		if r := str(fm[k]); r != "" {
