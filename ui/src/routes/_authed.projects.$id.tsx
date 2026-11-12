@@ -13,7 +13,7 @@ import { CHIP_ROW, Empty, PageTitle, Section, StateChip } from '@/components/Bit
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
 import { AgentLooking } from '@/components/FindContext'
-import { ItemLog } from '@/components/ItemLog'
+import { ItemLayout } from '@/components/ItemLayout'
 import { TextLink } from '@/components/links'
 import { Markdown } from '@/components/Markdown'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
@@ -121,7 +121,7 @@ function ProjectPage() {
         }
         const p = d.project
         return (
-          <>
+          <ItemLayout id={p.id} composer>
             <PageTitle
               pin={{ id: p.id }}
               action={
@@ -259,10 +259,9 @@ function ProjectPage() {
                 <Markdown source={d.body} />
               </Section>
             )}
-            <ItemLog id={p.id} composer />
             <MergedFrom id={p.id} />
             <NotesEditor id={p.id} />
-          </>
+          </ItemLayout>
         )
       }}
     </DataState>

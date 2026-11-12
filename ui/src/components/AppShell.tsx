@@ -20,6 +20,7 @@ import PushPinOutlinedIcon from '@mui/icons-material/PushPinOutlined'
 import HandshakeOutlinedIcon from '@mui/icons-material/HandshakeOutlined'
 import TodayIcon from '@mui/icons-material/Today'
 import { TellAgent } from '@/components/CaptureButton'
+import { ITEM_PATH } from '@/components/ItemLayout'
 import { OmniBar } from '@/components/OmniBar'
 import { HttpBanner, ReadOnlyBanner, UpdateBanner } from '@/components/Banners'
 import { LinkBottomNavAction, LinkButton, LinkIconButton, LinkTab } from '@/components/links'
@@ -119,7 +120,15 @@ export function AppShell({ session, children }: { session: SessionView; children
       <HttpBanner />
       <ReadOnlyBanner session={session} />
       <UpdateBanner />
-      <Box component="main" sx={{ px: { xs: 1, sm: 3 }, py: 2, maxWidth: 960, mx: 'auto' }}>
+      <Box
+        component="main"
+        sx={{
+          px: { xs: 1, sm: 3 },
+          py: 2,
+          maxWidth: ITEM_PATH.test(path) ? 1440 : 960,
+          mx: 'auto',
+        }}
+      >
         {children}
       </Box>
       {/* On a phone the screens you open most are one tap away. */}

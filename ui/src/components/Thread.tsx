@@ -17,7 +17,7 @@ import {
 import { errorText } from '@/client/gqlClient'
 import { useQueryClient } from '@tanstack/react-query'
 import { canDecide } from '@/client/session'
-import { Section, StatusChip } from '@/components/Bits'
+import { StatusChip } from '@/components/Bits'
 import { DocLink } from '@/components/DocLink'
 import { Markdown } from '@/components/Markdown'
 import { useToasts } from '@/components/ToastStack'
@@ -46,35 +46,71 @@ import {
 
 const when = (s: string) => humanTime(s)
 
-export function Thread({ id, composer = false }: { id: string; composer?: boolean }) {
+// The turn list is its own scroll pane. column-reverse makes the browser anchor the scroll to the
+// bottom: the first load and every new turn show the newest one, with no scroll code. Oldest turn
+// at the top, newest next to the composer. fill: the pane takes the height of its parent (a flex
+// column); otherwise it is capped at maxHeight. hideEmpty: render nothing until a turn exists.
+export function Thread({
+  id,
+  composer = false,
+  fill = false,
+  maxHeight = 420,
+  hideEmpty = false,
+}: {
+  id: string
+  composer?: boolean
+  fill?: boolean
+  maxHeight?: number | string
+  hideEmpty?: boolean
+}) {
   const q = useThreadOf(id)
   const t = q.data
   if (!t) return null
+  if (hideEmpty && t.turns.length === 0 && !composer) return null
   const turns = orderTurns(t.turns)
   const chips = threadChips(t)
   return (
-    <Section title="Thread" count={turns.length}>
-      <Box data-thread={id}>
-        {chips.length > 0 && (
-          <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mb: 1 }}>
-            {chips.map((c) => (
-              <StatusChip key={c.label} tone={c.tone} label={c.label} />
+    <Box
+      data-thread={id}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: 0,
+        ...(fill ? { height: '100%' } : {}),
+      }}
+    >
+      <Box
+        data-thread-turns
+        sx={{
+          display: 'flex',
+          flexDirection: 'column-reverse',
+          overflowY: 'auto',
+          minHeight: 0,
+          ...(fill ? { flex: 1 } : { maxHeight }),
+        }}
+      >
+        <Box>
+          {chips.length > 0 && (
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap', mb: 1 }}>
+              {chips.map((c) => (
+                <StatusChip key={c.label} tone={c.tone} label={c.label} />
+              ))}
+            </Stack>
+          )}
+          {turns.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              No turns yet.
+            </Typography>
+          )}
+          <Stack spacing={1.5}>
+            {turns.map((x, i) => (
+              <Turn key={`${x.request ?? x.io ?? ''}-${i}`} t={x} />
             ))}
           </Stack>
-        )}
-        {turns.length === 0 && (
-          <Typography variant="body2" color="text.secondary">
-            No turns yet.
-          </Typography>
-        )}
-        <Stack spacing={1.5}>
-          {turns.map((x, i) => (
-            <Turn key={`${x.request ?? x.io ?? ''}-${i}`} t={x} />
-          ))}
-        </Stack>
-        {composer && <ThreadComposer id={id} />}
+        </Box>
       </Box>
-    </Section>
+      {composer && <ThreadComposer id={id} />}
+    </Box>
   )
 }
 
@@ -120,7 +156,9 @@ function RequestTurn({ t }: { t: ThreadTurnData }) {
   return (
     <Box sx={{ pl: 1.5, borderLeft: 2, borderColor: 'divider' }} data-thread-turn={t.request}>
       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }} useFlexGap>
-        {t.turnKind && t.turnKind !== 'other' && <Chip size="small" label={kindLabel(t.turnKind)} />}
+        {t.turnKind && t.turnKind !== 'other' && (
+          <Chip size="small" label={kindLabel(t.turnKind)} />
+        )}
         <Typography variant="caption" color="text.secondary" title={exactTime(t.at)}>
           {when(t.at)}
         </Typography>

@@ -19,7 +19,7 @@ import { DataState } from '@/components/DataState'
 import { DoItTask } from '@/components/DoIt'
 import { DraftReady, cardBox } from '@/components/output/ProposalCard'
 import { AgentLooking } from '@/components/FindContext'
-import { ThreadSummary } from '@/components/Thread'
+import { Thread } from '@/components/Thread'
 import { ItemComposer } from '@/components/ItemComposer'
 import { ItemDates } from '@/components/ItemDates'
 import { ItemDraftProvider } from '@/components/ItemDraft'
@@ -293,7 +293,9 @@ function Card({
             )}
           </ItemActions>
         </Stack>
-        <ThreadSummary id={x.id} />
+        <Box sx={{ my: 1 }}>
+          <Thread id={x.id} fill={false} maxHeight={280} hideEmpty />
+        </Box>
         <CardComposer
           id={x.id}
           title={title}

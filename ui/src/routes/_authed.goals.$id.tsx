@@ -3,7 +3,7 @@ import Typography from '@mui/material/Typography'
 import { useSeenOnOpen } from '@/api/requests'
 import { useGoal } from '@/api/areas'
 import Stack from '@mui/material/Stack'
-import { ItemLog } from '@/components/ItemLog'
+import { ItemLayout } from '@/components/ItemLayout'
 import { AgentLooking } from '@/components/FindContext'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
@@ -32,7 +32,7 @@ function GoalPage() {
   return (
     <DataState q={q}>
       {(d) => (
-        <>
+        <ItemLayout id={id} composer>
           <PageTitle
             pin={{ id }}
             action={
@@ -44,7 +44,6 @@ function GoalPage() {
           >
             {d.goal.title || id}
           </PageTitle>
-          <ItemLog id={id} composer />
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             {d.goal.owner ? `owner ${nameOr('', d.goal.owner)}` : 'no owner'}
             {d.goal.area && (
@@ -97,7 +96,7 @@ function GoalPage() {
           )}
           <MergedFrom id={id} />
           <NotesEditor id={id} />
-        </>
+        </ItemLayout>
       )}
     </DataState>
   )

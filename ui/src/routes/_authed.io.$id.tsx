@@ -13,7 +13,7 @@ import { canDecide } from '@/client/session'
 import { PageTitle, Section, StateChip } from '@/components/Bits'
 import { DataState } from '@/components/DataState'
 import { DocLink } from '@/components/DocLink'
-import { ItemLog } from '@/components/ItemLog'
+import { ItemLayout } from '@/components/ItemLayout'
 import { Markdown } from '@/components/Markdown'
 import { DraftEditor } from '@/components/DraftEditor'
 import { DoneForm } from '@/components/stack/parts'
@@ -112,7 +112,7 @@ function IoItemPage() {
           },
         ]
         return (
-          <>
+          <ItemLayout id={id} composer>
             <PageTitle
               pin={{ id }}
               action={<StateChip state={item.state} />}
@@ -175,9 +175,8 @@ function IoItemPage() {
               )}
             </Section>
             <MergedFrom id={id} />
-            <ItemLog id={id} composer />
             <NotesEditor id={id} />
-          </>
+          </ItemLayout>
         )
       }}
     </DataState>
