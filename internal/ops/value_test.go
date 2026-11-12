@@ -530,3 +530,36 @@ func TestRankValueGoalBoost(t *testing.T) {
 		t.Errorf("short: far %s", g["far"].Group)
 	}
 }
+
+// An incoming message the inbox says needs the owner is in order without a
+// reply expected; a digest one is not. An approved draft changed after
+// approval is in order; an approved, unchanged one is not.
+func TestOrderListsInboundNeedsYouAndEditedApproval(t *testing.T) {
+	d, _ := triageVault(t)
+	need := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Your renewal", From: "person-val-example"}).ID
+	digest := must(t, IOAdd, d, IOAddInput{Direction: model.IOIn, Text: "Release notes 2.1", From: "person-val-example"}).ID
+	same := must(t, IOAdd, d, IOAddInput{Direction: model.IOOut, Text: "Unchanged", To: []string{"person-val-example"}, Expects: model.ExpectsNone}).ID
+	edited := must(t, IOAdd, d, IOAddInput{Direction: model.IOOut, Text: "Edited later", To: []string{"person-val-example"}, Expects: model.ExpectsNone}).ID
+	for _, id := range []string{same, edited} {
+		must(t, IOEdit, d, IOEditInput{ID: id, State: model.IOReady})
+	}
+	doc, err := d.Store.Get(ctx, edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc.Body += "\nChanged by hand."
+	if _, err := d.Store.Update(ctx, doc); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]ValueRow{}
+	for _, r := range must(t, OrderOp, d, OrderInput{}).Rows {
+		got[r.ID] = r
+	}
+	for id, want := range map[string]bool{need: true, digest: false, same: false, edited: true} {
+		if r, ok := got[id]; ok != want {
+			t.Errorf("%s in order = %v, want %v (%+v)", id, ok, want, r)
+		} else if ok && (r.Kind != KindIO || !r.NeedsYou || r.Reason == "" || r.Prep) {
+			t.Errorf("%s row = %+v", id, r)
+		}
+	}
+}

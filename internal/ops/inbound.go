@@ -32,6 +32,12 @@ func (sn *Snapshot) inboundTurn(m *model.IO) Need {
 	return Need{Turn: TurnNone, Reason: reason}
 }
 
+// inboundNeedsOwner is the verdict of inboundVerdict, alone.
+func (sn *Snapshot) inboundNeedsOwner(m *model.IO) bool {
+	yes, _ := sn.inboundVerdict(m)
+	return yes
+}
+
 // inboundVerdict is the rule above: whether an incoming message needs the
 // owner, and why in words. It does not look at state: a closed message keeps
 // its verdict, so the digest can list what came in on a day.

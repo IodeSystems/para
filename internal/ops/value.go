@@ -999,19 +999,32 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				continue
 			}
 		case *model.IO:
-			// Listed: an incoming message whose sender waits for a reply, and
-			// an outgoing draft. An agent can prepare both. Other incoming
+			// Listed: an incoming message whose sender waits for a reply or that
+			// the inbox verdict says needs the owner, an outgoing draft, and an
+			// approved draft changed since. An agent can prepare both. Other incoming
 			// messages are sorted in the inbox.
+			prep := true
 			switch {
 			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Expects == model.ExpectsResponse && m.Reply == "":
 				// With a reply obligation, the obligation is the row.
 				n.Owed, n.Waiters = true, 1
 				n.Arrived, _ = meetingDay(m.At)
+			case m.Direction == model.IOIn && (m.State == model.IOUnread || m.State == model.IORead) && m.Reply == "" && sn.inboundNeedsOwner(m):
+				// The inbox verdict says it needs the owner (triage, a
+				// high-priority sender or source): the same rule as the
+				// Input inbox "needs" tab. A digest stays out. Nothing to
+				// prepare: it needs the owner's look, so no prepare request.
+				n.Arrived, _ = meetingDay(m.At)
+				prep = false
 			case m.Direction == model.IOOut && m.State == model.IODraft:
+			case m.Direction == model.IOOut && m.State == model.IOReady && !m.Approved(doc.Body):
+				// Approved, then changed: it is the owner's turn again, to
+				// approve it again; an agent has nothing to prepare.
+				prep = false
 			default:
 				continue
 			}
-			n.Kind, n.Effort, n.Prep = KindIO, m.Effort, true
+			n.Kind, n.Effort, n.Prep = KindIO, m.Effort, prep
 		}
 		if n.Kind == KindGoal && !all {
 			n.Hidden = !n.Deferred
@@ -1111,7 +1124,7 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response, an outgoing draft); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; owed, promises to people within order.owed_soon_days (default 7) and their prep, which falls due by the promise's date minus its effort lead (m 1 day, l 2), soonest first (rows carry for, the promise, and back, that date); reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score, a tie going to owed before goal before upkeep. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response or that the inbox says needs the owner, an outgoing draft, an approved draft changed since); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; owed, promises to people within order.owed_soon_days (default 7) and their prep, which falls due by the promise's date minus its effort lead (m 1 day, l 2), soonest first (rows carry for, the promise, and back, that date); reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score, a tie going to owed before goal before upkeep. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err
