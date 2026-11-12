@@ -89,6 +89,8 @@ type ParaV1MutationNamespace {
   itemPrepared(body: para_ItemPreparedInputInput!): para_ItemPreparedOutput @derived(operationId: "itemPrepared")
   journal(body: para_JournalPeriodInputInput!): para_JournalOutput @derived(operationId: "journal")
   journalSummary(body: para_JournalSummaryInputInput!): para_JournalSummaryOutput @derived(operationId: "journalSummary")
+  kpiAdd(body: para_KPIAddInputInput!): para_KPIAddOutput @derived(operationId: "kpiAdd")
+  kpiReadingAdd(body: para_KPIReadingAddInputInput!): para_KPIReadingAddOutput @derived(operationId: "kpiReadingAdd")
   later(body: para_LaterInputInput!): para_VerbOutput @derived(operationId: "later")
   link(body: para_LinkInputInput!): para_VerbOutput @derived(operationId: "link")
   meetingRsvp(body: para_MeetingAttendInputInput!): para_MeetingAttendOutput @derived(operationId: "meetingRsvp")
@@ -233,6 +235,7 @@ type ParaV1QueryNamespace {
   ioStats(days: Int): para_IOStatsOutput @derived(operationId: "ioStats")
   journalList(level: String, limit: Int): para_JournalListOutput @derived(operationId: "journalList")
   journalShow(id: String!): para_JournalShowOutput @derived(operationId: "journalShow")
+  kpiList(id: String!): para_KPIListOutput @derived(operationId: "kpiList")
   lint: para_LintOutput @derived(operationId: "lint")
   list(limit: Int, needs_you: Boolean, state: String, status: String, tag: String, type: para_listType): para_ListOutput @derived(operationId: "list")
   meetingList(all: Boolean, status: para_meetingListStatus): para_MeetingListOutput @derived(operationId: "meetingList")
@@ -4356,6 +4359,81 @@ type para_JournalView {
   title: String!
 }
 
+type para_KPI {
+  cadence: String
+  direction: para_KPIDirection!
+  name: String!
+  readings: [para_KPIReading!]
+  target: Float!
+  tolerance: Float
+  unit: String
+}
+
+enum para_KPIAddInputDirection {
+  down
+  hold
+  up
+}
+
+input para_KPIAddInputInput {
+  cadence: String
+  direction: para_KPIAddInputDirection!
+  id: String!
+  name: String!
+  target: Float
+  tolerance: Float
+  unit: String
+}
+
+type para_KPIAddOutput {
+  id: String!
+  kpis: Int!
+  name: String!
+  rev: String!
+}
+
+enum para_KPIDirection {
+  down
+  hold
+  up
+}
+
+type para_KPIListOutput {
+  id: String!
+  kpis: [para_KPIView!]!
+}
+
+type para_KPIReading {
+  date: String!
+  source: String!
+  value: Float!
+}
+
+input para_KPIReadingAddInputInput {
+  date: String
+  id: String!
+  name: String!
+  source: String!
+  value: Float
+}
+
+type para_KPIReadingAddOutput {
+  date: String!
+  id: String!
+  line: String!
+  name: String!
+  readings: Int!
+  rev: String!
+}
+
+type para_KPIView {
+  due: String
+  kpi: para_KPI!
+  line: String!
+  off: Boolean!
+  stale: Boolean!
+}
+
 type para_KeyCreateBody {
   key: para_KeyView!
   token: String!
@@ -4739,6 +4817,7 @@ type para_Meta {
   item: String
   key: String
   kind: String
+  kpis: JSON
   lastError: String
   lastFailure: String
   lastReviewed: String
@@ -6241,6 +6320,7 @@ enum para_ProjectAddOutputFolder {
 
 type para_ProjectRow {
   firstWait: String
+  kpiAlerts: Int!
   lastActivity: String
   nextCron: String
   openGoals: Int!
@@ -6257,6 +6337,8 @@ type para_ProjectShowOutput {
   goals: [para_BundleGoal!]!
   history: [para_BundleEvent!]!
   icebox: [para_BundleItem!]!
+  kpiAlerts: [String!]!
+  kpis: [String!]!
   lastActivity: String
   more: [String!]!
   project: para_ProjectView!

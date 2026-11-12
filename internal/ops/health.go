@@ -101,6 +101,12 @@ const (
 	// HealthProjectStateStale is an active project whose state line is older
 	// than one review cadence, or projectStaleDays with no cadence.
 	HealthProjectStateStale = "project_state_stale"
+	// HealthKPIOffTarget is a KPI of an active project whose latest reading
+	// is off target for its direction.
+	HealthKPIOffTarget = "kpi_off_target"
+	// HealthKPIStale is a KPI of an active project with no reading within
+	// its cadence.
+	HealthKPIStale = "kpi_stale"
 )
 
 // projectStaleDays is the age of a state line that is stale on a project with
@@ -121,7 +127,7 @@ var HealthKinds = []string{
 	HealthSourceUnreached, HealthSourceOverdue, HealthSourceMissing, HealthRetryDue, HealthTaskIsWaiting,
 	HealthUnreviewedOutward, HealthAgentWorkStale, HealthRetryWriteOpen, HealthGateUnused, HealthPoolsInvalid, HealthUpgradePending,
 	HealthAnnotationBroken, HealthAnnotationLost, HealthAnnotationAtTop, HealthNotePlacement,
-	HealthGoalParkedNoResume, HealthProjectNoStateLine, HealthProjectStateStale,
+	HealthGoalParkedNoResume, HealthProjectNoStateLine, HealthProjectStateStale, HealthKPIOffTarget, HealthKPIStale,
 }
 
 // HealthKindWords names each finding kind in words, for a screen.
@@ -175,6 +181,8 @@ var HealthKindWords = map[string]string{
 	HealthGoalParkedNoResume: "Parked goal with no resume-when",
 	HealthProjectNoStateLine: "Project with no state line",
 	HealthProjectStateStale:  "Project state line is stale",
+	HealthKPIOffTarget:       "KPI off target",
+	HealthKPIStale:           "KPI not read on time",
 }
 
 // HealthOtherGroup is the group of findings that belong to no goal.
@@ -425,10 +433,21 @@ func (h *healther) deferred(m model.Meta) bool {
 	return false
 }
 
-// project reports an active project with no state line, or a stale one.
+// project reports an active project with no state line, or a stale one,
+// and its KPIs off target or not read within their cadence.
 func (h *healther) project(id string, p *model.Project) {
 	if p.Status != model.ProjectActive {
 		return
+	}
+	for _, s := range projectKPIs(p, h.today) {
+		read := fmt.Sprintf("read it with your own tools, then op_run {op: kpi_reading_add, input: {id: %s, name: %q, value, source}}", id, s.k.Name)
+		if s.off {
+			h.add(HealthKPIOffTarget, id, "", fmt.Sprintf("%s is %s vs %s (%s)", s.k.Name, strings.TrimSpace(num(s.last.Value)+" "+s.k.Unit), targetText(s.k), s.last.Date),
+				"tell the owner; a goal on the project can move it back on target")
+		}
+		if s.stale {
+			h.add(HealthKPIStale, id, "", fmt.Sprintf("%s: no reading since %s (cadence %s)", s.k.Name, cmp.Or(lastDate(s.last), "the project began"), s.k.Cadence), read)
+		}
 	}
 	fix := fmt.Sprintf("ask the owner where it stands, then edit {id: %s, fields: {state_line: ...}}", id)
 	if strings.TrimSpace(p.StateLine) == "" {

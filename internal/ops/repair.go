@@ -34,6 +34,10 @@ func checkDoc(d model.Document) error {
 		if err := model.CheckAssumptions(m.Assumptions); err != nil {
 			return fmt.Errorf("%s: %w", d.ID, err)
 		}
+	case *model.Project:
+		if err := model.CheckKPIs(m.KPIs); err != nil {
+			return fmt.Errorf("%s: %w", d.ID, err)
+		}
 	}
 	b, err := model.Render(d)
 	if err != nil {

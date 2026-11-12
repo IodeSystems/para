@@ -40,11 +40,13 @@ func linksOf(m model.Meta) (goal, project string) {
 // projectBundle builds the bundle of the project doc.
 func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Project) (ProjectShowOutput, error) {
 	out := ProjectShowOutput{Project: projectView(doc, p), Body: clip(doc.Body, projectBodyMax), StateAgeDays: -1,
-		Goals: []BundleGoal{}, WaitsOn: []BundleItem{}, Icebox: []BundleItem{}, Crons: []string{}, Direct: []BundleItem{}, History: []BundleEvent{}, More: []string{}}
+		KPIAlerts: []string{}, KPIs: []string{}, Goals: []BundleGoal{}, WaitsOn: []BundleItem{}, Icebox: []BundleItem{}, Crons: []string{}, Direct: []BundleItem{}, History: []BundleEvent{}, More: []string{}}
 	today := d.Store.Now().Format(dateLayout)
 	if p.StateDate != "" {
 		out.StateAgeDays = daysBetween(string(p.StateDate), today)
 	}
+	kpis, kpiCut, alerts := kpiBundle(projectKPIs(p, today), today)
+	out.KPIs, out.KPIAlerts = kpis, alerts
 	latest := string(cmp.Or(p.Updated, p.Created))
 	seen := func(c *model.Common) {
 		if u := string(cmp.Or(c.Updated, c.Created)); u > latest {
@@ -189,6 +191,9 @@ func projectBundle(ctx context.Context, d Deps, doc model.Document, p *model.Pro
 	}
 	slices.SortStableFunc(hist, func(a, b BundleEvent) int { return cmp.Compare(b.At, a.At) })
 	more := map[string]int{}
+	if kpiCut > 0 {
+		more["kpis"] = kpiCut
+	}
 	if cut > 0 {
 		more["crons"] = cut
 	}
@@ -236,6 +241,7 @@ func capBundle(out *ProjectShowOutput, more map[string]int) {
 				l = append(l, fmt.Sprintf("%s: %d more: %s", key, n, how))
 			}
 		}
+		add("kpis", "op_run {op: kpi_list, input: {id: "+id+"}}")
 		add("goals", "list {type: goal} (goals with project "+id+")")
 		add("tasks", "show {id: <goal>} for each goal")
 		add("waits_on", "show {id: <goal>}, list {type: rfx}")

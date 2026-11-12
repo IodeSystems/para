@@ -423,7 +423,8 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 	seedWork(t, deps)
 	for _, id := range []string{"project-ongoing-a", "project-ongoing-r1", "project-ongoing-r2"} {
 		if _, err := deps.Store.Create(context.Background(), model.Document{ID: id, Folder: model.FolderProjects, Title: "Home " + id,
-			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self"}}); err != nil {
+			Meta: &model.Project{Common: model.Common{Type: model.TypeProject}, Status: model.ProjectActive, Owner: "self",
+				KPIs: []model.KPI{{Name: "Visits", Target: 100, Direction: model.KPIUp, Cadence: "weekly"}}}}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -431,6 +432,9 @@ func TestInvokeMatchesCLIJSON(t *testing.T) {
 		"project_add":     {`{"title":"Home"}`, []string{"project", "add", "Home"}, false},
 		"project_show":    {`{"id":"project-ongoing-a"}`, []string{"project", "show", "project-ongoing-a"}, true},
 		"project_retire":  {`{"id":"project-ongoing-r1"}`, []string{"project", "retire", "project-ongoing-r2"}, false},
+		"kpi_add":         {`{"id":"project-ongoing-a","name":"Signups A","target":40}`, []string{"kpi", "add", "project-ongoing-a", "Signups B", "40"}, false},
+		"kpi_reading_add": {`{"id":"project-ongoing-a","name":"Visits","value":90,"source":"https://stats.acme.example/v"}`, []string{"kpi", "reading", "add", "project-ongoing-a", "Visits", "90", "--source", "https://stats.acme.example/v"}, false},
+		"kpi_list":        {`{"id":"project-ongoing-a"}`, []string{"kpi", "list", "project-ongoing-a"}, true},
 		"io_add":          {`{"direction":"in","text":"synthetic"}`, []string{"io", "add", "--direction", "in", "synthetic"}, false},
 		"lint":            {``, []string{"lint"}, true},
 		"reconcile":       {`{}`, []string{"reconcile"}, true},

@@ -23,6 +23,8 @@ const ProjectShowDoc = graphql(/* GraphQL */ `
               body
               lastActivity
               stateAgeDays
+              kpiAlerts
+              kpis
               crons
               more
               project {
@@ -109,6 +111,7 @@ const ProjectListDoc = graphql(/* GraphQL */ `
               waitsOn
               firstWait
               nextCron
+              kpiAlerts
               lastActivity
             }
           }

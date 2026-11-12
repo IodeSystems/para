@@ -175,6 +175,9 @@ type Project struct {
 	Cadence      string    `yaml:"cadence,omitempty" json:"cadence,omitempty"`
 	LastReviewed Date      `yaml:"last_reviewed,omitempty" json:"last_reviewed,omitempty"`
 	Links        []Pointer `yaml:"links,omitempty" json:"links,omitempty"`
+	// KPIs are the project's named metrics with their recent readings
+	// (kpi.go).
+	KPIs []KPI `yaml:"kpis,omitempty" json:"kpis,omitempty"`
 	// FoldedFrom is the type the project was before upgrade step
 	// projects-sort: area or goal.
 	FoldedFrom Type `yaml:"folded_from,omitempty" json:"folded_from,omitempty"`

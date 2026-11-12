@@ -219,6 +219,7 @@ func newRoot(l *loader) *cobra.Command {
 		newMCPCmd(l),
 		newBootstrapCmd(),
 		newProjectCmd(l),
+		newKPICmd(l),
 		newAreaCmd(l),
 		newWhereCmd(l),
 		newRulesInEffectCmd(l),

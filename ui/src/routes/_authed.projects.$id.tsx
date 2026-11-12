@@ -90,6 +90,22 @@ function CronLine({ line }: { line: string }) {
   return <>{parts}</>
 }
 
+// A KPI line ends in its state: on, off, stale, "off, stale", or no reading (kpi.go). Off and
+// stale lines show in the warning color. The page is read-only: readings come through the CLI or
+// an agent (kpi_reading_add).
+function KPILine({ line }: { line: string }) {
+  const alert = /; (off|stale|off, stale)$/.test(line)
+  return (
+    <Typography
+      component="span"
+      color={alert ? 'warning.main' : undefined}
+      sx={{ ...TEXT, overflowWrap: 'anywhere' }}
+    >
+      {line}
+    </Typography>
+  )
+}
+
 function ProjectPage() {
   const { id } = Route.useParams()
   useSeenOnOpen(id)
@@ -133,6 +149,20 @@ function ProjectPage() {
               {d.lastActivity && ` - last activity ${d.lastActivity}`}
             </Typography>
             <PointerLinks links={p.links} />
+            {d.kpiAlerts.length > 0 && (
+              <Typography color="warning.main" sx={{ ...TEXT, mb: 1 }} data-kpi-alerts>
+                KPIs: {d.kpiAlerts.join(', ')}
+              </Typography>
+            )}
+            <Section title="KPIs" count={d.kpis.length} hideEmpty>
+              <List dense disablePadding>
+                {d.kpis.map((k) => (
+                  <ListItem key={k} disableGutters>
+                    <ListItemText primary={<KPILine line={k} />} />
+                  </ListItem>
+                ))}
+              </List>
+            </Section>
             <Section title="Goals in flight" count={d.goals.length}>
               {d.goals.length === 0 ? (
                 <Empty>No goals in flight.</Empty>

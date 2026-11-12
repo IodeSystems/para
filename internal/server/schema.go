@@ -216,6 +216,7 @@ type Meta struct {
 	Alternatives    *jsonValue            `json:"alternatives,omitempty"`
 	Unknowns        *jsonValue            `json:"unknowns,omitempty"`
 	Signals         *jsonValue            `json:"signals,omitempty"`
+	KPIs            *jsonValue            `json:"kpis,omitempty"`
 	Risks           *jsonValue            `json:"risks,omitempty"`
 	Assumptions     *jsonValue            `json:"assumptions,omitempty"`
 	Pivot           *jsonValue            `json:"pivot,omitempty"`
@@ -338,6 +339,7 @@ func registerAliases(reg huma.Registry) {
 	addEnum(reg, model.Folders)
 	addEnum(reg, model.GoalStatuses)
 	addEnum(reg, model.ProjectStatuses)
+	addEnum(reg, model.KPIDirections)
 	addEnum(reg, model.CronMakesValues)
 	addEnum(reg, model.Validations)
 	addEnum(reg, model.PivotActions)

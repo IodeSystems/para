@@ -25,7 +25,9 @@ type ProjectRow struct {
 	FirstWait string `json:"first_wait,omitempty"`
 	// NextCron is the earliest next run of its crons; a paused cron (goal
 	// parked) has none.
-	NextCron     model.Date `json:"next_cron,omitempty"`
+	NextCron model.Date `json:"next_cron,omitempty"`
+	// KPIAlerts counts the KPIs off target or stale (one each when both).
+	KPIAlerts    int        `json:"kpi_alerts"`
 	LastActivity model.Date `json:"last_activity,omitempty"`
 }
 
@@ -69,6 +71,11 @@ func projectRows(ctx context.Context, d Deps, sn *Snapshot, rows []ListRow) (map
 		pr := &ProjectRow{StateLine: p.StateLine, StateDate: p.StateDate, StateAgeDays: -1}
 		if p.StateDate != "" {
 			pr.StateAgeDays = daysBetween(string(p.StateDate), today)
+		}
+		for _, k := range projectKPIs(p, today) {
+			if k.alert() {
+				pr.KPIAlerts++
+			}
 		}
 		a := &projectAcc{row: pr, latest: string(cmp.Or(p.Updated, p.Created))}
 		out[doc.ID], accs[doc.ID] = pr, a

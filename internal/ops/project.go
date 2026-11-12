@@ -179,6 +179,12 @@ type ProjectShowOutput struct {
 	LastActivity model.Date `json:"last_activity,omitempty"`
 	// StateAgeDays is the age of state_line in days; -1 with no state_date.
 	StateAgeDays int `json:"state_age_days"`
+	// KPIAlerts is the header's list of KPIs off target or stale:
+	// "<name> off", "<name> stale", or "<name> off, stale" (kpi.go).
+	KPIAlerts []string `json:"kpi_alerts"`
+	// KPIs are the project's KPIs, one line each, alerts first: latest
+	// reading and trend vs target, its date and age, on or off (kpi.go).
+	KPIs []string `json:"kpis"`
 	// Goals are the goals in flight (active and paused) with their open tasks.
 	Goals []BundleGoal `json:"goals"`
 	// WaitsOn is what the project waits on: open asks, open questions, and

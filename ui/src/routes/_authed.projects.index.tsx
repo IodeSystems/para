@@ -86,6 +86,8 @@ function Projects() {
                           ? `waits on ${s?.firstWait ?? ''}${waits > 1 ? ` +${waits - 1}` : ''}`
                           : 'waits on nothing'}
                         {s?.nextCron && ` - next cron ${s.nextCron}`}
+                        {!!s?.kpiAlerts &&
+                          ` - ${s.kpiAlerts} ${s.kpiAlerts === 1 ? 'KPI' : 'KPIs'} off or stale`}
                         {s?.lastActivity && ` - last activity ${s.lastActivity}`}
                       </Typography>
                     </Stack>

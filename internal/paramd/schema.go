@@ -141,6 +141,7 @@ var typeFields = map[string][]field{
 		{Name: "cadence", Kind: kString},    // how often the owner reviews the project, in the recur grammar
 		{Name: "last_reviewed", Kind: kDate},
 		{Name: "links", Kind: kPointers},
+		{Name: "kpis", Kind: kMaps},                     // named metrics with readings; checked by model.CheckKPIs
 		{Name: "folded_from", Kind: kEnum, Enum: Types}, // area or goal: the type before upgrade step projects-sort
 	},
 	// goal is what project was below format 11 (upgrade step goals).
