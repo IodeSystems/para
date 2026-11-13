@@ -248,7 +248,7 @@ type ParaV1QueryNamespace {
   obligationParts(id: String!): para_ObligationPartsOutput @derived(operationId: "obligationParts")
   obligationTimeline(days: Int): para_ObligationTimelineOutput @derived(operationId: "obligationTimeline")
   opsStats(since: String, surface: String): para_OpsStatsOutput @derived(operationId: "opsStats")
-  order(kind: String): para_OrderOutput @derived(operationId: "order")
+  order(explain: Boolean, kind: String): para_OrderOutput @derived(operationId: "order")
   orgDomainList: para_OrgListOutput @derived(operationId: "orgDomainList")
   orgGroupList: para_OrgListOutput @derived(operationId: "orgGroupList")
   orgPersonList: para_OrgListOutput @derived(operationId: "orgPersonList")
@@ -5664,6 +5664,7 @@ type para_OrderOutput {
 
 type para_OrderSummary {
   focus: Int!
+  quick: Int!
   reply: Int!
   replyMinutes: Int!
   replyPrep: Int!
@@ -8036,6 +8037,17 @@ type para_RunResult {
   steps: [para_StepOutcome!]!
 }
 
+type para_ScoreFactors {
+  effortWeight: Int!
+  goalRank: Int
+  goalWeight: Float!
+  kpi: Float!
+  score: Float!
+  unblock: Int!
+  urgency: Float!
+  urgencyWhy: String
+}
+
 type para_SearchOutput {
   degraded: String
   hits: [para_Hit!]!
@@ -9843,6 +9855,7 @@ type para_ValueRow {
   effDue: String
   effort: para_ValueRowEffort!
   effortSet: Boolean
+  factors: para_ScoreFactors
   for: String
   group: String!
   id: String!
@@ -9859,6 +9872,7 @@ type para_ValueRow {
   readyKind: para_ValueRowReady_kind
   readyRef: String
   reason: String
+  score: Float!
   starts: String
   title: String!
   updated: String

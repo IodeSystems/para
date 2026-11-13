@@ -44,6 +44,22 @@ const check = (ok, what) => {
 }
 
 const v = ['--vault', 'acme']
+// shots, when set, is a folder the Next card with a proposed close is saved to, at 1440 and 390.
+const shots = process.env.PARA_E2E_SHOTS ? resolve(process.env.PARA_E2E_SHOTS) : ''
+// uiDeck is the deck the Next page draws: rows that need the owner and can start, with the quick
+// approvals (group quick) folded into one card where the first is (lib/next.ts withQuickBatch).
+const uiDeck = (rows) => {
+  const out = []
+  let placed = false
+  for (const r of rows.filter((x) => x.needs_you && x.bucket !== 'not_yet')) {
+    if (r.group !== 'quick') out.push(r)
+    else if (!placed) {
+      out.push({ id: 'quick:batch', kind: 'quick' })
+      placed = true
+    }
+  }
+  return out
+}
 const para = (...args) => execFileSync(bin, ['--home', home, ...args], { encoding: 'utf8' })
 const idOf = (json) => /"id":\s*"([^"]+)"/.exec(json)?.[1]
 // paraIn runs para with text on stdin, as an agent passes a document it read.
@@ -952,10 +968,16 @@ try {
   // card back. Approve on a ready draft approves it and the card leaves.
   {
     const ioNext = outDraft('Badge photo', 'Hi Sam, here is the badge photo.')
-    let deck = (await agent.call('order', {})).rows.filter(
-      (r) => r.needs_you && r.bucket !== 'not_yet',
-    )
+    let deck = uiDeck((await agent.call('order', {})).rows)
     const cardOf = (id) => rpage.locator(`[data-next-card="${id}"]`)
+    // walk skips from card from to card to with each card's Skip (a key press can land in a
+    // card's own field).
+    const walk = async (d, from, to) => {
+      for (let i = from; i < to; i++) {
+        await cardOf(d[i].id).locator('[data-act="skip"]').first().click()
+        await cardOf(d[i + 1].id).waitFor()
+      }
+    }
     await rpage.goto(`${base}/next`)
     await rpage.locator('[data-next-card]').waitFor()
     check(
@@ -1008,17 +1030,37 @@ try {
     )
     // Approve on a ready draft.
     // Done then Undo moves the task in the order: read it again before walking the deck.
-    deck = (await agent.call('order', {})).rows.filter((r) => r.needs_you && r.bucket !== 'not_yet')
-    const di = deck.findIndex((r) => r.id === ioNext)
-    check(di >= 0 && deck[di].ready_kind === 'draft', `the new draft is in the deck, ready (${di})`)
+    // A ready draft that unblocks nothing waits in the quick approvals card: open it and walk on.
+    const rows = (await agent.call('order', {})).rows
+    const raw = rows.find((r) => r.id === ioNext)
+    check(raw?.ready_kind === 'draft', `the new draft is in the order, ready (${raw?.group})`)
+    deck = uiDeck(rows)
+    let di = deck.findIndex((r) => r.id === ioNext)
     await rpage.goto(`${base}/next`)
     await cardOf(deck[0].id).waitFor()
-    for (let i = 0; i < di; i++) {
-      await rpage.keyboard.press('j')
-      await cardOf(deck[i + 1].id).waitFor()
+    if (di < 0) {
+      const bi = deck.findIndex((r) => r.id === 'quick:batch')
+      await walk(deck, 0, bi)
+      const quick = rows.filter((r) => r.group === 'quick')
+      check(
+        new RegExp(`Quick approvals \\(${quick.length}\\)`).test(
+          (await cardOf('quick:batch').textContent()) ?? '',
+        ),
+        `ready approvals that unblock nothing are one Quick approvals card (${quick.length})`,
+      )
+      await cardOf('quick:batch').locator('[data-act="approve"]').click()
+      deck = [...deck.slice(0, bi), ...quick, ...deck.slice(bi + 1)]
+      di = deck.findIndex((r) => r.id === ioNext)
+      await cardOf(deck[bi].id).waitFor()
+      await walk(deck, bi, di)
+    } else {
+      await walk(deck, 0, di)
     }
     // The draft text loads after the card shows; wait for it before reading or approving.
-    await cardOf(ioNext).locator('[data-next-draft]').getByText('Hi Sam, here is the badge photo.').waitFor()
+    await cardOf(ioNext)
+      .locator('[data-next-draft]')
+      .getByText('Hi Sam, here is the badge photo.')
+      .waitFor()
     check(
       /badge photo/.test((await cardOf(ioNext).locator('[data-next-draft]').textContent()) ?? ''),
       'a ready draft shows its text on the card',
@@ -1027,6 +1069,72 @@ try {
     await cardOf(ioNext).waitFor({ state: 'detached' })
     const ok = (await agent.call('show', { id: ioNext })).detail.item
     check(ok.state === 'ready', `a on a ready draft approves it and the card leaves (${ok.state})`)
+  }
+
+  // Proposed close: an agent finds a task done and proposes the close with evidence; the task page
+  // and the Next card show "Likely done, 90%" with Approve close, which closes it as the owner, and
+  // Undo opens it again.
+  {
+    const pc = idOf(para(...v, 'task', 'add', 'Renew the parking badge', '-p', proj, '--json'))
+    const prep = await agent.call('item_prepared', {
+      id: pc,
+      kind: 'close',
+      close: {
+        outcome: 'done',
+        reason: 'The badge office lists the badge as renewed.',
+        evidence: { quote: 'Renewed on 2026-11-01', locator: 'https://example.com/badges/42' },
+        confidence: 90,
+        confidence_basis: 'the badge office page names the new date',
+      },
+      why: 'Prepare: the badge is already renewed.',
+    })
+    check(prep.prepared?.kind === 'close', 'an agent proposes a close (item_prepared kind close)')
+    const cardOf = (id) => rpage.locator(`[data-next-card="${id}"]`)
+    await rpage.goto(`${base}/docs/${pc}`)
+    await rpage.locator(`[data-proposed-close="${pc}"]`).waitFor()
+    check(
+      /Likely done, 90%/.test(
+        (await rpage.locator(`[data-proposed-close="${pc}"]`).textContent()) ?? '',
+      ),
+      'the task page shows the proposed close',
+    )
+    const deck = uiDeck((await agent.call('order', {})).rows)
+    const pi = deck.findIndex((r) => r.id === pc)
+    check(pi >= 0 && deck[pi].ready_kind === 'close', `the task is a ready card (${pi})`)
+    await rpage.goto(`${base}/next`)
+    await cardOf(deck[0].id).waitFor()
+    for (let i = 0; i < pi; i++) {
+      await cardOf(deck[i].id).locator('[data-act="skip"]').first().click()
+      await cardOf(deck[i + 1].id).waitFor()
+    }
+    const box = cardOf(pc).locator(`[data-proposed-close="${pc}"]`)
+    await box.waitFor()
+    check((await box.getAttribute('data-high')) === 'yes', 'a 90% proposed close is highlighted')
+    if (shots) {
+      mkdirSync(shots, { recursive: true })
+      for (const width of [1440, 390]) {
+        await rpage.setViewportSize({ width, height: width === 390 ? 844 : 900 })
+        await cardOf(pc).screenshot({ path: join(shots, `next-proposed-close-${width}.png`) })
+        await rpage.screenshot({ path: join(shots, `next-page-proposed-close-${width}.png`) })
+      }
+      await rpage.setViewportSize({ width: 1280, height: 900 })
+    }
+    await box.locator('[data-act="approve"]').click()
+    await cardOf(pc).waitFor({ state: 'detached' })
+    check(
+      /"status":\s*"done"/.test(para(...v, 'task', 'show', pc, '--json')),
+      'Approve close closes the task',
+    )
+    const toast = rpage
+      .locator('[data-toast="info"]')
+      .filter({ hasText: 'Renew the parking badge' })
+      .last()
+    await toast.locator('[data-act="undo"]').click()
+    await cardOf(pc).waitFor()
+    check(
+      /"status":\s*"todo"/.test(para(...v, 'task', 'show', pc, '--json')),
+      'Undo of Approve close opens the task again',
+    )
   }
 
   // Notes on any item: a save on notes that changed since they were opened is refused, the page
@@ -1463,7 +1571,8 @@ try {
       queued.length === 1 && queued[0].status === 'queued' && queued[0].investigates,
       `Investigate on an agenda row queues one investigate request (${queued.length})`,
     )
-    const body = (await agent.call('show', { id: queued[0]?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
+    const body =
+      (await agent.call('show', { id: queued[0]?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
     check(
       body.includes('Fill in missing details') &&
         body.includes('Check whether it is already done') &&
@@ -1499,7 +1608,8 @@ try {
     await noteToast.waitFor()
     {
       const [req] = await looksFor(pageTask)
-      const b = (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
+      const b =
+        (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.body ?? ''
       check(
         b.includes('Fill in missing details') && b.includes('## Ask\n\nSam may have ordered them.'),
         'Investigate with words in the composer asks the three parts and the Ask on top',
@@ -1515,8 +1625,8 @@ try {
       await noteToast.getByRole('button', { name: 'Undo' }).click()
       await rpage.locator('[data-toast]').filter({ hasText: 'Undone' }).first().waitFor()
       check(
-        (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.meta?.status ===
-          'cancelled' && !notesOf(pageTask).includes('Sam may have ordered them.'),
+        (await agent.call('show', { id: req?.id ?? '' }).then((r) => r.detail)).doc?.meta
+          ?.status === 'cancelled' && !notesOf(pageTask).includes('Sam may have ordered them.'),
         'Undo of Investigate with words cancels the request and takes the note out',
       )
     }

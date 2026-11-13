@@ -44,8 +44,10 @@ import {
   effortWords,
   groupWords,
   headerLine,
+  isQuickBatch,
   left,
   skipCard,
+  withQuickBatch,
 } from '@/lib/next'
 import { RetryFix } from '@/components/RetryFix'
 import { nameOr } from '@/lib/names'
@@ -88,9 +90,11 @@ function Deck({ d }: { d: Order }) {
   const [skipped, setSkipped] = useState<string[]>([])
   const [gone, setGone] = useState<ReadonlySet<string>>(() => new Set())
   const [leaving, setLeaving] = useState<string | null>(null)
+  // batchOpen: the owner opened the quick approvals card; its rows are cards in its place.
+  const [batchOpen, setBatchOpen] = useState(false)
   const deck = deckOf(d.rows)
   const rest = left(deck, gone)
-  const card = currentCard(deck, skipped, gone)
+  const card = currentCard(withQuickBatch(deck, gone, batchOpen), skipped, gone)
 
   // out takes the card away: it fades and slides, then then() drops it from the deck.
   const out = (id: string, then: () => void) => {
@@ -142,19 +146,93 @@ function Deck({ d }: { d: Order }) {
             '@media (prefers-reduced-motion: reduce)': { animation: 'none', transition: 'none' },
           }}
         >
-          <Card
-            x={card}
-            decide={decide}
-            canBack={skipped.length > 0}
-            onGone={(g) => (g ? goneOut(card.id) : back(card.id))}
-            onSkip={() => skip(card.id)}
-            onBack={() => setSkipped(backCard)}
-          />
+          {isQuickBatch(card) ? (
+            <QuickBatchNext
+              batch={card.batch}
+              canBack={skipped.length > 0}
+              onOpen={() => setBatchOpen(true)}
+              onSkip={() => skip(card.id)}
+              onBack={() => setSkipped(backCard)}
+            />
+          ) : (
+            <Card
+              x={card}
+              decide={decide}
+              canBack={skipped.length > 0}
+              onGone={(g) => (g ? goneOut(card.id) : back(card.id))}
+              onSkip={() => skip(card.id)}
+              onBack={() => setSkipped(backCard)}
+            />
+          )}
         </Box>
       ) : (
         <Empty skipped={rest.length} onAgain={() => setSkipped([])} />
       )}
     </>
+  )
+}
+
+// QuickBatchNext is the card of the quick approvals batch: ready approvals (a draft, a proposed
+// answer, a proposed close) that unblock nothing, after the focus cards. Open walks them one by one;
+// Skip passes the whole batch.
+function QuickBatchNext({
+  batch,
+  canBack,
+  onOpen,
+  onSkip,
+  onBack,
+}: {
+  batch: Row[]
+  canBack: boolean
+  onOpen: () => void
+  onSkip: () => void
+  onBack: () => void
+}) {
+  const shown = batch.slice(0, 5)
+  return (
+    <Paper
+      variant="outlined"
+      data-next-card="quick:batch"
+      data-next-kind="quick"
+      sx={{ p: { xs: 1.5, sm: 2 }, borderLeft: 4, borderLeftColor: 'success.main' }}
+    >
+      <Typography variant="overline" color="text.secondary" component="p">
+        Quick approvals - each is ready and unblocks nothing
+      </Typography>
+      <Typography variant="h5" component="h2">
+        Quick approvals ({batch.length})
+      </Typography>
+      <Box component="ul" sx={{ my: 1, pl: 2.5 }}>
+        {shown.map((r) => (
+          <li key={r.id}>
+            <Typography variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+              {r.title || nameOr('', r.id)}
+              {r.readyKind ? ` (${readyWords(r.readyKind).replace(/^Ready: /, '')})` : ''}
+            </Typography>
+          </li>
+        ))}
+        {batch.length > shown.length && (
+          <li>
+            <Typography variant="body2" color="text.secondary">
+              and {batch.length - shown.length} more
+            </Typography>
+          </li>
+        )}
+      </Box>
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: 'wrap' }}>
+        <Button size="small" variant="contained" data-act="approve" onClick={onOpen}>
+          Open, one by one
+        </Button>
+        <Button size="small" data-act="skip" onClick={onSkip}>
+          Skip
+        </Button>
+        {canBack && (
+          <Button size="small" data-act="back" onClick={onBack}>
+            Back
+          </Button>
+        )}
+      </Stack>
+    </Paper>
   )
 }
 

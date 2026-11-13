@@ -7,8 +7,11 @@ import {
   groupWords,
   headerLine,
   homeFor,
+  isQuickBatch,
   left,
+  QUICK_BATCH,
   skipCard,
+  withQuickBatch,
 } from '@/lib/next'
 import { nextKeyFor, NEXT_KEYS, TABS } from '@/lib/keys'
 
@@ -119,5 +122,37 @@ describe('Next keys', () => {
   })
   it('Next is a tab', () => {
     expect(TABS.find((t) => t.to === '/next')?.key).toBe('7')
+  })
+})
+
+describe('quick approvals batch', () => {
+  const rows = [
+    { id: 'f1', group: 'focus' },
+    { id: 'q1', group: 'quick' },
+    { id: 'q2', group: 'quick' },
+    { id: 'r1', group: 'impact' },
+  ]
+  it('is one card where the first quick row is', () => {
+    const d = withQuickBatch(rows, new Set(), false)
+    expect(d.map((c) => c.id)).toEqual(['f1', QUICK_BATCH, 'r1'])
+    const b = d[1]
+    expect(isQuickBatch(b) && b.batch.map((r) => r.id)).toEqual(['q1', 'q2'])
+    expect(isQuickBatch(d[0])).toBe(false)
+  })
+  it('counts only rows not gone, and leaves when all are gone', () => {
+    const d = withQuickBatch(rows, new Set(['q1']), false)
+    const b = d[1]
+    expect(isQuickBatch(b) && b.batch.map((r) => r.id)).toEqual(['q2'])
+    expect(withQuickBatch(rows, new Set(['q1', 'q2']), false).map((c) => c.id)).toEqual([
+      'f1',
+      'r1',
+    ])
+  })
+  it('opened, walks the rows one by one in their place', () => {
+    expect(withQuickBatch(rows, new Set(), true).map((c) => c.id)).toEqual(['f1', 'q1', 'q2', 'r1'])
+  })
+  it('names the group', () => {
+    expect(groupWords('quick')).toBe('Quick approval')
+    expect(groupWords('due_soon')).toBe('')
   })
 })

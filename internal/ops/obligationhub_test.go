@@ -142,11 +142,11 @@ func TestOrderOwedTier(t *testing.T) {
 		t.Errorf("meeting prep row = %+v", r)
 	}
 	for _, id := range []string{far.ID, farPrep.ID, plain.ID} {
-		if g := rows[id].Group; g == GroupOwed || g == GroupDueSoon {
+		if g := rows[id].Group; g == GroupOwed {
 			t.Errorf("%s: group %q, want outside the owed tier", id, g)
 		}
 	}
-	// Owed comes right after due soon: before every other actionable row.
+	// Owed comes right after incidents: before every other actionable row.
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		t.Fatal(err)

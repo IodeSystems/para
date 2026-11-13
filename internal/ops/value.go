@@ -23,9 +23,7 @@ import (
 // any chain) on one of those. Actionable now comes first:
 //
 //  1. Open incidents, worst severity first.
-//  2. Items overdue or due within order.due_soon_days (default 2) by their
-//     effective due date, soonest first.
-//  3. Owed: promises to people. An open obligation the owner owes people
+//  2. Owed: promises to people. An open obligation the owner owes people
 //     (owed_to, with, interested, or attendees; or a reply obligation) whose
 //     date (due, or the day of its start) is within order.owed_soon_days
 //     (default 7), and its open prep (its children, whose parent it is, and
@@ -34,28 +32,46 @@ import (
 //     1, l 2; unset effort is the default below), and that date is its
 //     effective due when it is earlier. Soonest effective date first. A
 //     reply obligation that takes under an hour stays in the reply batch.
-//  4. Reply: someone waits on the owner (an ask made to the owner, an incoming
-//     message that expects a response) and it takes under an hour. Longest
-//     waiting cost first: days waited times the people waiting.
-//  5. Focus: the order.focus_count (default 3) items of the rest with the best
-//     score, (impact+1) / effort weight (xs 1, s 2, m 4, l 8). A goal, agent
-//     work, and an item that waits on another open item are not picked. An
-//     item whose effective due date is within order.goal_soon_days (default
-//     14) scores double, for focus and for the order of the rest.
+//  3. Reply: someone waits on the owner (an ask made to the owner, an incoming
+//     message that expects a response, a reply obligation) and it takes under
+//     an hour. Longest waiting cost first: days waited times the people
+//     waiting.
+//  4. Focus: the order.focus_count (default 3) items of the rest with the best
+//     score (below). A goal, agent work, and an item that waits on another
+//     open item are not picked.
+//  5. Quick approvals: ready approvals that unblock nothing (impact 0: a
+//     draft, a proposed answer, or a proposed close). They leave the score
+//     and wait as one batch after focus. A ready item that unblocks
+//     something stays in the score.
 //  6. Recheck: an item overdue by more than order.stale_days (default 30; 0 is
-//     off) is not due soon. It asks "still needed?", oldest date first. An
-//     incident is never rechecked.
+//     off). It asks "still needed?", oldest date first. An incident is never
+//     rechecked.
 //  7. Everything else by the same score, highest first.
 //
-// A tie in score goes to the item with the better reason (reason.go): owed
-// before goal before upkeep before none, then by effective due date.
+// The score is one number: unblock value x goal weight x date urgency x KPI
+// x 1 / effort weight (scoreFactors).
+//   - Unblock value is impact+1.
+//   - Goal weight is 1 + 1/rank of the best ranked goal the item leads to
+//     (the owner's goal_rank, 1 first): rank 1 doubles, rank 2 is x1.5, rank
+//     4 is x1.25; no ranked goal is x1.
+//   - Date urgency, from the effective due date: overdue or due within
+//     order.due_soon_days (default 2) x3, within order.goal_soon_days
+//     (default 14) x2, else x1. A date is a multiplier, not a group.
+//   - KPI: x1.5 when the item, or a goal it leads to, is on a project with a
+//     KPI off target (health kpi_off_target).
+//   - Effort weight is xs 1, s 2, m 4, l 8.
+//
+// A tie in score goes to the ready item, then the item with the better reason
+// (reason.go): owed before goal before upkeep before none, then by effective
+// due date.
 //
 // A booked meeting after today is not yet startable itself; its prep is
 // startable and rises through the owed tier.
 //
-// Not yet startable comes last, by the day it can start. Within each group,
-// ready items (prepared by an agent and not changed since, Snapshot.Ready)
-// come before raw ones; focus picks by score before that.
+// Not yet startable comes last, by the day it can start. Within the groups
+// above the score (incident, owed, reply) and recheck, ready items (prepared
+// by an agent and not changed since, Snapshot.Ready) come before raw ones; in
+// the scored groups readiness only breaks a tie.
 //
 // Effort is the item's effort field. Unset, it is xs for an ask made to the
 // owner, a question, and an incoming message that expects a response, and m
@@ -98,13 +114,15 @@ const (
 // Groups of ValueRow, in order. All but not_yet are actionable now.
 const (
 	GroupIncident = "incident"
-	GroupDueSoon  = "due_soon"
 	GroupOwed     = "owed"
 	GroupReply    = "reply"
 	GroupFocus    = "focus"
-	GroupRecheck  = "recheck"
-	GroupImpact   = "impact"
-	GroupNotYet   = "not_yet"
+	// GroupQuick is the quick approvals batch: ready approvals that unblock
+	// nothing.
+	GroupQuick   = "quick"
+	GroupRecheck = "recheck"
+	GroupImpact  = "impact"
+	GroupNotYet  = "not_yet"
 )
 
 // FocusCountKey is the vault setting of how many items the focus group holds.
@@ -128,7 +146,7 @@ const OwedSoonKey = "order.owed_soon_days"
 const DefaultOwedSoonDays = 7
 
 // GoalSoonKey is the vault setting of how many days ahead a due date doubles
-// the focus score. 0 is off.
+// the score. 0 is off.
 const GoalSoonKey = "order.goal_soon_days"
 
 // DefaultGoalSoonDays is the goal boost window when the vault sets none.
@@ -176,10 +194,10 @@ const DefaultDueSoonDays = 2
 // RankOptions is what RankValue needs besides the nodes.
 type RankOptions struct {
 	Today        string // YYYY-MM-DD
-	DueSoonDays  int    // overdue or due within this many days of Today ranks by date
+	DueSoonDays  int    // overdue or due within this many days of Today triples the score
 	FocusCount   int    // how many items the focus group holds; 0 is none
 	StaleDays    int    // overdue by more than this many days is recheck, not due soon; 0 is off
-	GoalSoonDays int    // a date within this many days doubles the focus score; 0 is off
+	GoalSoonDays int    // a date within this many days doubles the score; 0 is off
 	OwedSoonDays int    // a promise within this many days, and its prep, rank in the owed tier; 0 is off
 }
 
@@ -217,9 +235,13 @@ type ValueNode struct {
 	Hidden bool
 	// Proposal marks a question with an answer to check.
 	Proposal bool
-	// Rank is the owner's rank of a goal, 1 first; 0 is none. It breaks ties
+	// Rank is the owner's rank of a goal, 1 first; 0 is none. The best rank of
+	// the goals an item leads to sets its goal weight; it also breaks ties
 	// between two goals after their dates.
 	Rank int
+	// KPIOff is true when the item (a goal, or a task a cron made) is on a
+	// project with a KPI off target: it and what leads to it score x1.5.
+	KPIOff bool
 	// Start is the day the item can start, YYYY-MM-DD, or "": a booked
 	// meeting's day, or the day a call or work with someone is scheduled.
 	Start string
@@ -306,36 +328,77 @@ type ValueRow struct {
 	// Created and Updated are the item's own dates, YYYY-MM-DD.
 	Created string `json:"created,omitempty"`
 	Updated string `json:"updated,omitempty"`
-	// boost is true when the row's effective date is within the goal window:
-	// its score doubles (scoreOf).
+	// Score is the row's value score (scoreFactors); the scored groups
+	// (focus, quick, impact) rank by it.
+	Score float64 `json:"score"`
+	// Factors are the parts of the score, with order {explain: true}.
+	Factors *ScoreFactors `json:"factors,omitempty"`
+	// factors are the parts of Score, kept for explain.
+	factors ScoreFactors
+	// boost is true when the row's effective date is within the goal window
+	// or sooner: its score is raised (urgency).
 	boost bool
 }
 
-// scoreOf is a row's score as a fraction: (impact+1), doubled for a date
-// within the goal window, over the effort weight. The order compares two
-// without division (scoreCmp); pools show it as a number.
-func scoreOf(r ValueRow) (num, den int) {
-	num = r.Impact + 1
-	if r.boost {
-		num *= 2
+// Goal weight, date urgency, and KPI multipliers of the score.
+const (
+	urgencyDueSoon  = 3.0
+	urgencyGoalSoon = 2.0
+	kpiOffWeight    = 1.5
+)
+
+// ScoreFactors are the parts of a row's score: Score = Unblock x GoalWeight
+// x Urgency x KPI / EffortWeight. GoalRank is the rank that set the goal
+// weight (0: none); UrgencyWhy names the window (overdue, due soon, goal
+// soon, or "").
+type ScoreFactors struct {
+	Unblock      int     `json:"unblock"`
+	GoalWeight   float64 `json:"goal_weight"`
+	GoalRank     int     `json:"goal_rank,omitempty"`
+	Urgency      float64 `json:"urgency"`
+	UrgencyWhy   string  `json:"urgency_why,omitempty"`
+	KPI          float64 `json:"kpi"`
+	EffortWeight int     `json:"effort_weight"`
+	Score        float64 `json:"score"`
+}
+
+// goalWeightOf is 1 + 1/rank for a ranked goal (1 first), 1 for none.
+func goalWeightOf(rank int) float64 {
+	if rank <= 0 {
+		return 1
 	}
-	return num, max(effortWeight[r.Effort], 1)
+	return 1 + 1/float64(rank)
+}
+
+// scoreFactors computes the score of a row: its impact and effort, the best
+// goal rank it leads to, its date window, and whether a KPI is off.
+func scoreFactors(impact int, effort model.Effort, goalRank int, urgency float64, why string, kpiOff bool) ScoreFactors {
+	f := ScoreFactors{Unblock: impact + 1, GoalWeight: goalWeightOf(goalRank), GoalRank: goalRank, Urgency: urgency, UrgencyWhy: why, KPI: 1,
+		EffortWeight: max(effortWeight[effort], 1)}
+	if kpiOff {
+		f.KPI = kpiOffWeight
+	}
+	f.Score = float64(f.Unblock) * f.GoalWeight * f.Urgency * f.KPI / float64(f.EffortWeight)
+	return f
 }
 
 // scoreCmp puts the better score first.
-func scoreCmp(a, b ValueRow) int {
-	an, ad := scoreOf(a)
-	bn, bd := scoreOf(b)
-	return cmp.Compare(bn*ad, an*bd)
-}
+func scoreCmp(a, b ValueRow) int { return cmp.Compare(b.Score, a.Score) }
+
+// quickKinds are the ready kinds the owner approves in one click: a row of one
+// that unblocks nothing waits in the quick approvals batch.
+var quickKinds = []model.PreparedKind{model.PreparedDraft, model.PreparedAnswer, model.PreparedClose}
 
 // OrderSummary sums up the reply group: how many items, about how many
-// minutes in all (xs 10, s 30), and how many an agent can prepare.
+// minutes in all (xs 10, s 30), and how many an agent can prepare; and
+// counts the focus group and the quick approvals batch.
 type OrderSummary struct {
 	Reply        int `json:"reply"`
 	ReplyMinutes int `json:"reply_minutes"`
 	ReplyPrep    int `json:"reply_prep"`
 	Focus        int `json:"focus"`
+	// Quick counts the quick approvals batch.
+	Quick int `json:"quick"`
 }
 
 // HeldUp says a deferred item holds up work that is due before it returns.
@@ -447,10 +510,15 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		eff, from := n.Due, (*ValueNode)(nil)
 		reached, viaParent := reach(n.ID)
+		bestRank, kpiOff := 0, n.KPIOff
 		for _, u := range reached {
 			r.Impact++
+			kpiOff = kpiOff || u.KPIOff
 			if u.Kind == KindGoal {
 				r.Impact += goalWeight - 1
+				if u.Rank > 0 && (bestRank == 0 || u.Rank < bestRank) {
+					bestRank = u.Rank
+				}
 			} else if !viaParent[u.ID] {
 				r.Blocks++
 			}
@@ -480,15 +548,27 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Group = GroupRecheck
 		case n.Reply && effortWeight[r.Effort] <= effortWeight[model.EffortS] && (eff == "" || eff >= opt.Today):
 			r.Group = GroupReply
-		case eff != "" && eff <= soon:
-			r.Group = GroupDueSoon
 		case owedTier:
 			r.Group = GroupOwed
 		case n.Owed && effortWeight[r.Effort] <= effortWeight[model.EffortS]:
 			r.Group = GroupReply
+		case r.Ready && r.Impact == 0 && slices.Contains(quickKinds, r.ReadyKind):
+			// A one-click approval that unblocks nothing: the batch.
+			r.Group = GroupQuick
 		default:
 			r.Group = GroupImpact
 		}
+		urgency, urgencyWhy := 1.0, ""
+		switch {
+		case eff != "" && eff < opt.Today:
+			urgency, urgencyWhy = urgencyDueSoon, "overdue"
+		case eff != "" && eff <= soon:
+			urgency, urgencyWhy = urgencyDueSoon, "due soon"
+		case eff != "" && goalSoon != "" && eff <= goalSoon:
+			urgency, urgencyWhy = urgencyGoalSoon, "due within the goal window"
+		}
+		r.factors = scoreFactors(r.Impact, r.Effort, bestRank, urgency, urgencyWhy, kpiOff)
+		r.Score = r.factors.Score
 		var waits []string
 		for _, dep := range n.Deps {
 			if u := by[dep]; u != nil {
@@ -496,7 +576,7 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			}
 		}
 		r.Why = why(n, r, from, waits)
-		boost := r.Group == GroupImpact && goalSoon != "" && eff != "" && eff <= goalSoon
+		boost := r.Group == GroupImpact && urgency > 1
 		r.boost = boost
 		if r.Group == GroupImpact && len(waits) == 0 && n.Kind != KindGoal && n.Kind != KindWork {
 			// Focus picks among these below; the reason is set then.
@@ -515,6 +595,9 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 						if from.Kind != KindGoal {
 							label = shorten(from.Title) + " due " + ShortDate(eff)
 						}
+					}
+					if eff < opt.Today {
+						label = "overdue, " + label
 					}
 					lead = strings.Replace(lead, "focus: ", "focus: "+label+"; ", 1)
 					rn.Due, rfrom = "", nil
@@ -547,9 +630,13 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 			r.Why = "not yet, starts " + ShortDate(r.Starts) + "; " + r.Why
 		case r.Group == GroupRecheck:
 			r.Why = "overdue since " + ShortDate(eff) + " (" + ageWords(daysBetween(eff, opt.Today)) + "); recheck: still needed?"
-		case r.Group == GroupDueSoon && eff < opt.Today:
+		case r.Group == GroupQuick && r.Why == whyNone:
+			r.Why = "quick approval: unblocks nothing, no date"
+		case r.Group == GroupQuick:
+			r.Why = "quick approval: unblocks nothing; " + r.Why
+		case r.Group == GroupImpact && eff != "" && eff < opt.Today:
 			r.Why = "overdue; " + r.Why
-		case r.Group == GroupDueSoon:
+		case r.Group == GroupImpact && urgencyWhy == "due soon":
 			r.Why = "due soon; " + r.Why
 		case r.Group == GroupOwed && r.For != "":
 			o := by[r.For]
@@ -559,7 +646,8 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 		}
 		rows = append(rows, r)
 	}
-	rank := map[string]int{GroupIncident: 0, GroupDueSoon: 1, GroupOwed: 2, GroupReply: 3, GroupFocus: 4, GroupRecheck: 5, GroupImpact: 6, GroupNotYet: 7}
+	rank := map[string]int{GroupIncident: 0, GroupOwed: 1, GroupReply: 2, GroupFocus: 3, GroupQuick: 4, GroupRecheck: 5, GroupImpact: 6, GroupNotYet: 7}
+	scored := func(g string) bool { return g == GroupFocus || g == GroupQuick || g == GroupImpact }
 	created := map[string]string{}
 	reasonRank := map[string]int{}
 	sev := map[string]string{}
@@ -572,31 +660,41 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	}
 	// due compares effective dates, an item with none last.
 	due := func(a, b ValueRow) int { return cmp.Compare(dueKey(a.EffDue), dueKey(b.EffDue)) }
-	// readyFirst puts ready rows first within a group. It is off while focus
-	// picks, so focus picks by score alone.
+	// readyCmp puts a ready row first.
+	readyCmp := func(a, b ValueRow) int {
+		switch {
+		case a.Ready == b.Ready:
+			return 0
+		case a.Ready:
+			return -1
+		}
+		return 1
+	}
+	// readyFirst puts ready rows first within a group above the score and in
+	// recheck. It is off while focus picks; a scored group breaks a tie with
+	// readiness only.
 	readyFirst := false
 	order := func(a, b ValueRow) int {
 		if c := cmp.Compare(rank[a.Group], rank[b.Group]); c != 0 {
 			return c
 		}
-		if readyFirst && a.Ready != b.Ready {
-			if a.Ready {
-				return -1
+		if readyFirst && !scored(a.Group) {
+			if c := readyCmp(a, b); c != 0 {
+				return c
 			}
-			return 1
 		}
 		var c int
 		switch a.Group {
 		case GroupIncident:
 			return cmp.Or(cmp.Compare(sev[a.ID], sev[b.ID]), cmp.Compare(created[a.ID], created[b.ID]), cmp.Compare(a.ID, b.ID))
-		case GroupDueSoon, GroupOwed:
+		case GroupOwed:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
 		case GroupRecheck:
 			c = cmp.Or(due(a, b), cmp.Compare(b.Impact, a.Impact))
 		case GroupReply:
 			c = cmp.Or(cmp.Compare(b.WaitingDays, a.WaitingDays), due(a, b))
-		case GroupFocus, GroupImpact:
-			c = cmp.Or(scoreCmp(a, b), cmp.Compare(reasonRank[a.ID], reasonRank[b.ID]), due(a, b))
+		case GroupFocus, GroupQuick, GroupImpact:
+			c = cmp.Or(scoreCmp(a, b), readyCmp(a, b), cmp.Compare(reasonRank[a.ID], reasonRank[b.ID]), due(a, b))
 		case GroupNotYet:
 			c = cmp.Or(cmp.Compare(a.Starts, b.Starts), due(a, b), cmp.Compare(b.Impact, a.Impact))
 		}
@@ -625,6 +723,9 @@ func RankValue(nodes []ValueNode, opt RankOptions) ValueOrder {
 	readyFirst = true
 	slices.SortStableFunc(rows, order)
 	for _, r := range rows {
+		if r.Group == GroupQuick {
+			sum.Quick++
+		}
 		if r.Group == GroupReply {
 			sum.Reply++
 			sum.ReplyMinutes += effortMinutes[r.Effort]
@@ -860,6 +961,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 	}
 	var nodes []ValueNode
 	reasons := newReasonGraph(sn.docs)
+	kpiOff := kpiOffProjects(sn)
 	for _, doc := range sn.Docs() {
 		switch doc.Meta.Header().Type {
 		case model.TypeIncident, model.TypeGoal, model.TypeTask, model.TypeQuestion, model.TypeRFX, model.TypeMeeting, model.TypeRequest, model.TypeIO, model.TypeObligation:
@@ -953,7 +1055,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			n.Kind, n.Sev = KindIncident, string(m.Severity)
 		case *model.Goal:
 			// A goal shapes the order and is never listed: it asks nothing.
-			n.Kind, n.Due, n.Rank = KindGoal, string(m.Due), m.Rank
+			n.Kind, n.Due, n.Rank, n.KPIOff = KindGoal, string(m.Due), m.Rank, kpiOff[m.Project.Target()]
 			if m.Status != model.GoalActive {
 				continue
 			}
@@ -961,7 +1063,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 			if meetingSkipped(m) {
 				continue
 			}
-			n.Kind, n.Due, n.Owed = KindTask, string(m.Due), owed
+			n.Kind, n.Due, n.Owed, n.KPIOff = KindTask, string(m.Due), owed, kpiOff[m.Project.Target()]
 			// A task an agent can prepare: find it done or no longer needed
 			// (a proposed close), or say there is no obvious close.
 			n.Prep = stored == model.TypeTask
@@ -1037,6 +1139,32 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 		nodes = append(nodes, n)
 	}
 	return nodes, nil
+}
+
+// kpiOffProjects is the set of active projects with a KPI off target (health
+// kpi_off_target).
+func kpiOffProjects(sn *Snapshot) map[string]bool {
+	out := map[string]bool{}
+	refs, err := sn.s.List(sn.ctx, store.Filter{Type: model.TypeProject})
+	if err != nil {
+		return out
+	}
+	for _, r := range refs {
+		doc, err := sn.Get(r.ID)
+		if err != nil {
+			continue
+		}
+		p, ok := doc.Meta.(*model.Project)
+		if !ok || p.Status != model.ProjectActive {
+			continue
+		}
+		for _, k := range projectKPIs(p, sn.Today) {
+			if k.off {
+				out[doc.ID] = true
+			}
+		}
+	}
+	return out
 }
 
 // Order reads the vault and returns its value order. Every surface calls it.
@@ -1116,6 +1244,9 @@ func askArrived(m *model.RFX) string {
 // OrderInput is the input of order.
 type OrderInput struct {
 	Kind string `json:"kind,omitempty" query:"kind"` // keep one kind: incident, goal, task, question, ask, meeting, work, io
+	// Explain adds each row's score factors (factors): unblock, goal
+	// weight and rank, urgency and why, KPI, effort weight, and score.
+	Explain bool `json:"explain,omitempty" query:"explain"`
 }
 
 // OrderOutput is the output of order.
@@ -1129,7 +1260,10 @@ type OrderOutput struct {
 }
 
 // OrderOp lists what needs doing in value order.
-var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response or that the inbox says needs the owner, an outgoing draft, an approved draft changed since); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. Actionable now comes first: incidents; items overdue or due within order.due_soon_days (default 2) by date; owed, promises to people within order.owed_soon_days (default 7) and their prep, which falls due by the promise's date minus its effort lead (m 1 day, l 2), soonest first (rows carry for, the promise, and back, that date); reply, where someone waits on the owner and it takes under an hour, longest waiting cost first; focus, the order.focus_count (default 3) best by (impact+1) per effort, doubled when the date, or the date of the goal it feeds, is within order.goal_soon_days (default 14); recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by that score, a tie going to owed before goal before upkeep. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within each group, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. The summary counts the reply batch, its minutes, and how many have prep", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
+var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, not put off, not an agent's turn, the owner's turn) in value order: incidents, tasks, questions, asks, meetings, agent work that waits on the owner, and io items (an incoming message that expects a response or that the inbox says needs the owner, an outgoing draft, an approved draft changed since); goals shape the order and are not listed. Each row comes with why it is there (why) and why it needs the owner (reason), its group, bucket, effort, score, waiting cost, and whether an agent can prepare it (prep). This is the ranking: use it as it is, do not re-rank by reasoning. "+
+	"Above the score: incidents; owed, promises to people within order.owed_soon_days (default 7) and their prep, which falls due by the promise's date minus its effort lead (m 1 day, l 2), soonest first (rows carry for, the promise, and back, that date); reply, where someone waits on the owner and it takes under an hour, longest waiting cost first. "+
+	"Everything else ranks by one score = (impact+1) x goal weight x date urgency x KPI / effort weight: impact counts the open items it unblocks through any chain (a goal twice); goal weight is 1 + 1/rank of the best ranked goal it leads to (rank 1 doubles; none x1); urgency is x3 overdue or due within order.due_soon_days (default 2), x2 within order.goal_soon_days (default 14), by the effective date (its own, or of what it leads to); KPI is x1.5 when it or its goal is on a project with a KPI off target; effort weight is xs 1, s 2, m 4, l 8 (unset: xs for asks, questions, and replies, m otherwise). "+
+	"Focus is the order.focus_count (default 3) best scored rows that wait on nothing; then quick, one batch of ready approvals that unblock nothing (a draft, a proposed answer, or a proposed close); then recheck, overdue by more than order.stale_days (default 30), oldest first, to ask if it is still needed; then the rest by score, a tie going to the ready row, then owed before goal before upkeep. Not yet startable comes last, by the day it can start: a meeting after today, a call scheduled after today, and anything that depends on one. Deferred items are left out. Within incident, owed, reply, and recheck, ready rows (ready: an agent prepared it and it has not changed since; ready_kind and ready_ref say what and where) come before raw ones. explain adds each row's factors. The summary counts the reply batch, its minutes, how many have prep, the focus group, and the quick batch", func(ctx context.Context, d Deps, in OrderInput) (OrderOutput, error) {
 	o, err := Order(ctx, d.Store)
 	if err != nil {
 		return OrderOutput{}, err
@@ -1137,6 +1271,10 @@ var OrderOp = defineRead("order", "List what needs the owner (needs_you: open, n
 	out := OrderOutput{Rows: []ValueRow{}, HeldUp: o.Held, Summary: o.Summary}
 	for _, r := range o.Rows {
 		if in.Kind == "" || r.Kind == in.Kind {
+			if in.Explain {
+				f := r.factors
+				r.Factors = &f
+			}
 			out.Rows = append(out.Rows, r)
 		}
 	}

@@ -46,7 +46,7 @@ import (
 // item when that is an open task or obligation, and records the instance done
 // in vault.properties (pool.<name>.rounds), so the pool stops showing until
 // the next instance. Skip records the instance too, with no picks. Ideas are
-// ranked by the value order's score (scoreOf).
+// ranked by the value order's score (scoreFactors).
 
 const poolsFile = "pools.yaml"
 
@@ -547,6 +547,7 @@ func rankIdeas(sn *Snapshot, ideas []model.Document) ([]PoolIdea, error) {
 		if !ok {
 			// Not a node of the order (a paused goal): no impact, default effort.
 			r = ValueRow{ID: d.ID, Kind: string(d.Meta.Header().Type), Effort: model.EffortM}
+			r.Score = scoreFactors(0, model.EffortM, 0, 1, "", false).Score
 		}
 		ranked = append(ranked, r)
 	}
@@ -555,13 +556,12 @@ func rankIdeas(sn *Snapshot, ideas []model.Document) ([]PoolIdea, error) {
 	})
 	for _, r := range ranked {
 		d := byID[r.ID]
-		num, den := scoreOf(r)
 		kind := r.Kind
 		if d.Meta.Header().Type == model.TypeGoal {
 			kind = KindGoal
 		}
 		out = append(out, PoolIdea{ID: d.ID, Title: d.Title, Kind: kind, Text: firstSentence(d.Body), Effort: r.Effort, EffortSet: r.EffortSet,
-			Impact: r.Impact, Score: float64(int(float64(num)/float64(den)*100+0.5)) / 100})
+			Impact: r.Impact, Score: float64(int(r.Score*100+0.5)) / 100})
 	}
 	return out, nil
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -151,12 +152,18 @@ func newOrderCmd(l *loader) *cobra.Command {
 		Args: cobra.NoArgs,
 		Flags: func(fs *pflag.FlagSet, in *ops.OrderInput) {
 			fs.StringVar(&in.Kind, "kind", "", "only incident, goal, task, question, ask, meeting, work, or io")
+			fs.BoolVar(&in.Explain, "explain", false, "print each row's score factors: unblock x goal weight x urgency x KPI / effort weight")
 		},
 		Text: func(w io.Writer, out ops.OrderOutput) error {
 			p := &printer{w: w}
 			printRows(p, "", out.Summary, len(out.Rows), func(i int) (group, kind, id, why, title string) {
 				r := out.Rows[i]
-				return r.Group, r.Kind, r.ID, r.Why, r.Title
+				if r.Factors != nil {
+					why = explainLine(r) + "\t" + r.Why
+				} else {
+					why = r.Why
+				}
+				return r.Group, r.Kind, r.ID, why, r.Title
 			})
 			return p.err
 		},
@@ -178,15 +185,42 @@ func printRows(p *printer, indent string, sum ops.OrderSummary, n int, row func(
 				p.f("%s%s\n", indent, replyBatch(sum))
 			case group == ops.GroupFocus:
 				p.f("%sfocus\n", indent)
+			case group == ops.GroupQuick:
+				p.f("%squick approvals (%d): ready, each unblocks nothing\n", indent, sum.Quick)
 			case group == ops.GroupRecheck:
 				p.f("%srecheck\n", indent)
-			case group == ops.GroupImpact && (last == ops.GroupOwed || last == ops.GroupReply || last == ops.GroupFocus || last == ops.GroupRecheck):
+			case group == ops.GroupImpact && (last == ops.GroupOwed || last == ops.GroupReply || last == ops.GroupFocus || last == ops.GroupQuick || last == ops.GroupRecheck):
 				p.f("%sthen\n", indent)
 			}
 			last = group
 		}
 		p.f("%s%s\t%s\t%s\t%s\n", indent, kind, id, why, title)
 	}
+}
+
+// explainLine is a row's score and its factors, for order --explain:
+// "score 1.50 = 3 unblock x 2 goal#1 x 3 overdue x 1.5 kpi / 4 effort m".
+// A row above the score (incident, owed, reply) or not yet startable says so.
+func explainLine(r ops.ValueRow) string {
+	f := r.Factors
+	line := fmt.Sprintf("score %.2f = %d unblock", f.Score, f.Unblock)
+	if f.GoalRank > 0 {
+		line += fmt.Sprintf(" x %s goal#%d", strconv.FormatFloat(f.GoalWeight, 'f', -1, 64), f.GoalRank)
+	}
+	if f.Urgency != 1 {
+		line += fmt.Sprintf(" x %s %s", strconv.FormatFloat(f.Urgency, 'f', -1, 64), f.UrgencyWhy)
+	}
+	if f.KPI != 1 {
+		line += fmt.Sprintf(" x %s kpi off", strconv.FormatFloat(f.KPI, 'f', -1, 64))
+	}
+	line += fmt.Sprintf(" / %d effort %s", f.EffortWeight, r.Effort)
+	switch r.Group {
+	case ops.GroupIncident, ops.GroupOwed, ops.GroupReply:
+		line += " (above the score: " + r.Group + ")"
+	case ops.GroupRecheck, ops.GroupNotYet:
+		line += " (not ranked by score: " + r.Group + ")"
+	}
+	return line
 }
 
 // replyBatch is the batch line of the reply group.

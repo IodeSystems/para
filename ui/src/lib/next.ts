@@ -17,6 +17,42 @@ export function deckOf<R extends DeckRow>(rows: readonly R[]): R[] {
   return rows.filter((r) => r.needsYou && r.bucket !== 'not_yet')
 }
 
+// QUICK_BATCH is the id of the quick approvals card: ready approvals that unblock nothing (group
+// quick), one card in the deck where the first of them is. Opening it puts its rows in the deck in
+// their place, so the owner walks them one by one.
+export const QUICK_BATCH = 'quick:batch'
+
+export type QuickBatch<R> = { id: typeof QUICK_BATCH; batch: R[] }
+
+// isQuickBatch tells the batch card from a row.
+export function isQuickBatch<R>(c: R | QuickBatch<R>): c is QuickBatch<R> {
+  return (c as { id?: string }).id === QUICK_BATCH && 'batch' in (c as object)
+}
+
+// withQuickBatch folds the quick rows not gone into one batch card at the place of the first, or,
+// when the batch is open, leaves them in the deck as they are.
+export function withQuickBatch<R extends { id: string; group?: string | null }>(
+  deck: readonly R[],
+  gone: ReadonlySet<string>,
+  open: boolean,
+): (R | QuickBatch<R>)[] {
+  if (open) return [...deck]
+  const batch = deck.filter((r) => r.group === 'quick' && !gone.has(r.id))
+  const out: (R | QuickBatch<R>)[] = []
+  let placed = false
+  for (const r of deck) {
+    if (r.group !== 'quick') {
+      out.push(r)
+      continue
+    }
+    if (!placed && batch.length > 0) {
+      out.push({ id: QUICK_BATCH, batch })
+      placed = true
+    }
+  }
+  return out
+}
+
 // left is the deck without the items gone this visit.
 export function left<R extends { id: string }>(deck: readonly R[], gone: ReadonlySet<string>): R[] {
   return deck.filter((r) => !gone.has(r.id))
@@ -53,10 +89,10 @@ export function headerLine(rows: readonly { ready?: boolean | null }[], s: Order
 
 const GROUP: Record<string, string> = {
   incident: 'Incident',
-  due_soon: 'Due soon',
   owed: 'Owed',
   reply: 'Reply',
   focus: 'Focus',
+  quick: 'Quick approval',
   recheck: 'Recheck',
   impact: 'Then',
 }

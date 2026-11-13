@@ -458,7 +458,7 @@ func TestOrderListsAskToOwner(t *testing.T) {
 	}
 }
 
-// Recheck: overdue by more than order.stale_days is not due soon.
+// Recheck: overdue by more than order.stale_days is rechecked, not scored.
 func TestRankValueRecheck(t *testing.T) {
 	opt := rankAt // today Nov 4
 	opt.StaleDays = DefaultStaleDays
@@ -466,13 +466,13 @@ func TestRankValueRecheck(t *testing.T) {
 		{ID: "old", Kind: KindTask, Due: "2026-07-23"},                  // 104 days
 		{ID: "older", Kind: KindTask, Due: "2026-07-01"},                // 126 days
 		{ID: "edge", Kind: KindTask, Due: "2026-10-05"},                 // 30 days: inside
-		{ID: "late", Kind: KindTask, Due: "2026-10-06"},                 // 29 days: due soon
+		{ID: "late", Kind: KindTask, Due: "2026-10-06"},                 // 29 days: overdue, scored x3
 		{ID: "over", Kind: KindTask, Due: "2026-10-04"},                 // 31 days: recheck
 		{ID: "inc", Kind: KindIncident, Sev: "sev1", Due: "2026-01-01"}, // never recheck
 		{ID: "rest", Kind: KindTask},
 	}
 	got := groupOf(RankValue(nodes, opt))
-	for id, want := range map[string]string{"old": GroupRecheck, "older": GroupRecheck, "over": GroupRecheck, "edge": GroupDueSoon, "late": GroupDueSoon, "inc": GroupIncident, "rest": GroupImpact} {
+	for id, want := range map[string]string{"old": GroupRecheck, "older": GroupRecheck, "over": GroupRecheck, "edge": GroupImpact, "late": GroupImpact, "inc": GroupIncident, "rest": GroupImpact} {
 		if got[id].Group != want {
 			t.Errorf("%s: group %s, want %s", id, got[id].Group, want)
 		}
@@ -481,18 +481,18 @@ func TestRankValueRecheck(t *testing.T) {
 		t.Errorf("why = %q", w)
 	}
 	order := rowIDs(RankValue(nodes, opt).Rows)
-	if !reflect.DeepEqual(order, []string{"inc", "edge", "late", "older", "old", "over", "rest"}) {
+	if !reflect.DeepEqual(order, []string{"inc", "older", "old", "over", "edge", "late", "rest"}) {
 		t.Errorf("order = %v", order)
 	}
 	t.Run("stale_days respected", func(t *testing.T) {
 		o := opt
 		o.StaleDays = 120
 		g := groupOf(RankValue(nodes, o))
-		if g["older"].Group != GroupRecheck || g["old"].Group != GroupDueSoon {
+		if g["older"].Group != GroupRecheck || g["old"].Group != GroupImpact {
 			t.Errorf("older %s, old %s", g["older"].Group, g["old"].Group)
 		}
 		o.StaleDays = 0
-		if g := groupOf(RankValue(nodes, o)); g["older"].Group != GroupDueSoon {
+		if g := groupOf(RankValue(nodes, o)); g["older"].Group != GroupImpact {
 			t.Errorf("off: older %s", g["older"].Group)
 		}
 	})
