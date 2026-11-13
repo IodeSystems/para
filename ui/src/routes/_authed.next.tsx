@@ -30,6 +30,7 @@ import { BriefBody } from '@/components/MeetingBrief'
 import { CopyId } from '@/components/CopyId'
 import { PinButton } from '@/components/PinButton'
 import { PoolCard } from '@/components/Pools'
+import { ProposedClose } from '@/components/ProposedClose'
 import { KPIReadingEditor } from '@/components/ProjectBits'
 import { DueChip } from '@/components/TaskRows'
 import { PartOfLine } from '@/components/PartOf'
@@ -396,7 +397,8 @@ function CardComposer({
 }
 
 // Prepared shows what an agent prepared, inline: a draft reply with Approve and Edit, a proposed
-// answer with Accept and Edit, or the plan or fields filled in on the item.
+// answer with Accept and Edit, a proposed close with Approve close, Edit, and Not it, or the plan
+// or fields filled in on the item.
 function Prepared({
   x,
   decide,
@@ -409,6 +411,8 @@ function Prepared({
   const target = readyTarget(x)
   if (x.readyKind === 'draft') return <DraftReady id={target} decide={decide} onGone={onGone} />
   if (x.readyKind === 'answer') return <AnswerReady id={x.id} decide={decide} onGone={onGone} />
+  if (x.readyKind === 'close')
+    return <ProposedClose id={x.id} title={x.title || x.id} decide={decide} onGone={onGone} />
   // A brief on a meeting is the brief the card shows.
   if (x.readyKind === 'brief' && x.kind === 'meeting') return null
   return <FilledReady id={target} />

@@ -104,6 +104,10 @@ const REVIEW_MUTATIONS = new Set([
   // owner 2026-11-06: PU-PREP. Approve on an outgoing draft (a prepared reply) approves its exact
   // text: io_approve on the owner's path.
   'IOApprove',
+  // owner 2026-11-12: proposed close. Approve close on the Next card and the task page closes a task
+  // as an agent proposed it, with its evidence (prepared_close_approve, a person op); its receipt
+  // undoes it.
+  'PreparedCloseApprove',
   // owner 2026-11-06: PU-REC. New recurring artifact on the Obligations page makes an obligation an
   // agent owes, with what it produces (obligation_add with produce, on the owner's session).
   'ObligationAdd',

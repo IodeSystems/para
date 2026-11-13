@@ -28,6 +28,7 @@ import type { Para_CopyInputAs } from '@/gql/graphql'
 import { MergedFrom, NotesEditor } from '@/components/NotesEditor'
 import { ItemLayout } from '@/components/ItemLayout'
 import { ItemComposer } from '@/components/ItemComposer'
+import { ProposedClose } from '@/components/ProposedClose'
 import { ItemDraftProvider } from '@/components/ItemDraft'
 import { ItemActions } from '@/components/AgendaActions'
 import { PrioritySelect } from '@/components/PrioritySelect'
@@ -155,6 +156,14 @@ function Doc() {
             {(d.meta.type === 'incident' ||
               (d.meta.type === 'task' && d.meta.kind === 'incident')) && (
               <IncidentPanel id={d.id} />
+            )}
+            {d.meta.type === 'task' && d.meta.kind !== 'incident' && (
+              <ProposedClose
+                id={d.id}
+                title={d.title || d.id}
+                decide={canDecide(session)}
+                edit={false}
+              />
             )}
             {d.meta.type === 'task' && d.meta.kind !== 'incident' && <TaskPanel id={d.id} />}
             {copy.isError && (

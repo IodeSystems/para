@@ -110,6 +110,7 @@ type ParaV1MutationNamespace {
   policyReview(body: para_PolicyReviewInputInput!): para_PolicyReviewOutput @derived(operationId: "policyReview")
   poolPick(body: para_PoolPickInputInput!): para_PoolPickOutput @derived(operationId: "poolPick")
   poolRun(body: para_PoolRunInputInput!): para_PoolRunOutput @derived(operationId: "poolRun")
+  preparedCloseApprove(body: para_PreparedCloseInputInput!): para_PreparedCloseApproveOutput @derived(operationId: "preparedCloseApprove")
   prioritySet(body: para_PrioritySetInputInput!): para_PrioritySetOutput @derived(operationId: "prioritySet")
   projectAdd(body: para_ProjectAddInputInput!): para_ProjectAddOutput @derived(operationId: "projectAdd")
   proposalExecuted(body: para_ProposalExecutedInputInput!): para_ProposalExecutedOutput @derived(operationId: "proposalExecuted")
@@ -256,6 +257,7 @@ type ParaV1QueryNamespace {
   pinned: para_PinnedOutput @derived(operationId: "pinned")
   policyList: para_PolicyListOutput @derived(operationId: "policyList")
   poolList(name: String): para_PoolListOutput @derived(operationId: "poolList")
+  preparedClose(id: String!): para_PreparedCloseOutput @derived(operationId: "preparedClose")
   proposalList(limit: Int, status: para_proposalListStatus): para_ProposalListOutput @derived(operationId: "proposalList")
   proposalShow(id: String!): para_ProposalDetail @derived(operationId: "proposalShow")
   publishPreview(set: String!): para_PublishPreviewOutput @derived(operationId: "publishPreview")
@@ -1277,6 +1279,24 @@ input para_CloseInputInput {
   outcome: String
   reason: String
   sources: [para_AnswerSourceInput!]
+}
+
+type para_CloseProposal {
+  confidence: Int!
+  confidenceBasis: String!
+  evidence: para_Evidence
+  fields: JSON
+  outcome: String!
+  reason: String!
+}
+
+input para_CloseProposalInput {
+  confidence: Int!
+  confidenceBasis: String!
+  evidence: para_EvidenceInput
+  fields: JSON
+  outcome: String!
+  reason: String!
 }
 
 type para_CommentAnswer {
@@ -4173,6 +4193,7 @@ type para_ItemDecision {
 }
 
 input para_ItemPreparedInputInput {
+  close: para_CloseProposalInput
   id: String!
   kind: para_ItemPreparedInputKind!
   ref: String
@@ -4182,13 +4203,16 @@ enum para_ItemPreparedInputKind {
   answer
   artifact
   brief
+  close
   draft
   fields
+  none
   plan
 }
 
 type para_ItemPreparedOutput {
   closed: Boolean
+  held: String
   id: String!
   next: String
   prepared: para_Prepared!
@@ -6155,17 +6179,44 @@ type para_PoolView {
 type para_Prepared {
   at: String!
   by: String!
+  close: para_CloseProposal
   hash: String!
   kind: para_PreparedKind!
   ref: String
+}
+
+type para_PreparedCloseApproveOutput {
+  id: String!
+  op: String!
+  outcome: String!
+  proposedBy: String!
+  receipt: String
+}
+
+input para_PreparedCloseInputInput {
+  id: String!
+}
+
+type para_PreparedCloseOutput {
+  at: String
+  by: String
+  check: String
+  close: para_CloseProposal
+  high: Boolean
+  id: String!
+  proposed: Boolean!
+  ready: Boolean!
+  stale: Boolean
 }
 
 enum para_PreparedKind {
   answer
   artifact
   brief
+  close
   draft
   fields
+  none
   plan
 }
 
@@ -9575,8 +9626,10 @@ enum para_TodayItemReady_kind {
   answer
   artifact
   brief
+  close
   draft
   fields
+  none
   plan
 }
 
@@ -9824,8 +9877,10 @@ enum para_ValueRowReady_kind {
   answer
   artifact
   brief
+  close
   draft
   fields
+  none
   plan
 }
 

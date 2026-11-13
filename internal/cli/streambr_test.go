@@ -27,17 +27,35 @@ func seedStreamBRParity(t *testing.T, deps ops.Deps) {
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Kind: model.KindMeeting, Goal: model.LinkTo("project-br"),
 				Occasion: model.Occasion{Scheduled: "2026-11-10T10:00:00-05:00", End: "2026-11-10T10:30:00-05:00", With: []model.Link{model.LinkTo("person-br-sam")}, Attendees: []string{"Pat Nobody <pat@elsewhere.example>"}}}},
 	}
+	for _, id := range []string{"task-br-close1", "task-br-close2"} {
+		docs = append(docs, model.Document{ID: id, Folder: model.FolderProjects, Title: "Renew " + id,
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("project-br")}})
+	}
 	for _, doc := range docs {
 		if _, err := deps.Store.Create(ctx, doc); err != nil {
 			t.Fatalf("seed %s: %v", doc.ID, err)
+		}
+	}
+	// A proposed close on each, for prepared_close_approve (one per surface).
+	for _, id := range []string{"task-br-close1", "task-br-close2"} {
+		doc, err := deps.Store.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		doc.Meta.Header().Prepared = &model.Prepared{By: "agent:scribe", At: "2026-11-02T09:00:00Z", Kind: model.PreparedClose, Hash: model.ItemHash(doc.Meta, doc.Body),
+			Close: &model.CloseProposal{Outcome: "done", Reason: "Renewed.", Evidence: &model.Evidence{Quote: "renewed", Locator: "https://example.com/certs/1"}, Confidence: 90, ConfidenceBasis: "the console says so"}}
+		if _, err := deps.Store.Update(ctx, doc); err != nil {
+			t.Fatal(err)
 		}
 	}
 }
 
 func streamBRParityCases() map[string]parityCase {
 	return map[string]parityCase{
-		"brief":         {`{"id":"task-br-sync"}`, []string{"brief", "task-br-sync"}, true},
-		"item_prepared": {`{"id":"task-br-sync","kind":"brief"}`, []string{"item", "prepared", "task-br-sync", "--kind", "brief"}, false},
+		"brief":                  {`{"id":"task-br-sync"}`, []string{"brief", "task-br-sync"}, true},
+		"item_prepared":          {`{"id":"task-br-sync","kind":"brief"}`, []string{"item", "prepared", "task-br-sync", "--kind", "brief"}, false},
+		"prepared_close":         {`{"id":"task-br-close1"}`, []string{"prepared", "close", "task-br-close1"}, false},
+		"prepared_close_approve": {`{"id":"task-br-close1"}`, []string{"prepared", "close-approve", "task-br-close2"}, false},
 	}
 }
 

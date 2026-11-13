@@ -218,7 +218,7 @@ func TestOwnerMediumsNeedNoRef(t *testing.T) {
 }
 
 func TestTickReasonCheck(t *testing.T) {
-	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia", "request.surfaces=cli,pwa,tick", "gap.daily_cap=2")
+	tv := newTickVault(t, "2026-11-02T09:00:00Z", "request.runner=ia", "request.surfaces=cli,pwa,tick", "gap.daily_cap=2", "prep.ahead=0")
 	d := tv.open("ia", "cli")
 	area := must(t, AreaAdd, d, AreaAddInput{Title: "Home"}).ID
 	// A complete task with a reason: no fill-gap and no reason check.

@@ -12,10 +12,17 @@ const (
 	// PreparedArtifact is what an agent produced for an obligation it owes:
 	// a journal summary, a document, or an outgoing draft (ref).
 	PreparedArtifact PreparedKind = "artifact"
+	// PreparedClose is a proposed close of a task: the agent found it done or
+	// no longer needed (Prepared.Close); the owner approves it.
+	PreparedClose PreparedKind = "close"
+	// PreparedNone says an agent looked and found nothing to prepare (for a
+	// task: no obvious close). It is not ready; it keeps the prepare tick from
+	// asking again until the item changes.
+	PreparedNone PreparedKind = "none"
 )
 
 // PreparedKinds lists every PreparedKind.
-var PreparedKinds = []PreparedKind{PreparedDraft, PreparedAnswer, PreparedFields, PreparedBrief, PreparedPlan, PreparedArtifact}
+var PreparedKinds = []PreparedKind{PreparedDraft, PreparedAnswer, PreparedFields, PreparedBrief, PreparedPlan, PreparedArtifact, PreparedClose, PreparedNone}
 
 // Enum lists the allowed values, for schema generation.
 func (PreparedKind) Enum() []string {
@@ -38,4 +45,25 @@ type Prepared struct {
 	Kind PreparedKind `yaml:"kind" json:"kind"`
 	Ref  Link         `yaml:"ref,omitempty" json:"ref,omitempty"`
 	Hash string       `yaml:"hash" json:"hash"`
+	// Close is the proposed close, for kind close.
+	Close *CloseProposal `yaml:"close,omitempty" json:"close,omitempty"`
 }
+
+// CloseProposal is an agent's proposed close of a task: the outcome (done,
+// or a close outcome such as dropped, duplicate, or superseded), why, the
+// evidence the owner can open, the other inputs the outcome needs (fields:
+// link for a duplicate), and how sure the agent is: Confidence is a percent
+// and ConfidenceBasis says why. Without evidence the confidence is held at
+// LowConfidence or under.
+type CloseProposal struct {
+	Outcome         string         `yaml:"outcome" json:"outcome"`
+	Reason          string         `yaml:"reason" json:"reason"`
+	Evidence        *Evidence      `yaml:"evidence,omitempty" json:"evidence,omitempty"`
+	Fields          map[string]any `yaml:"fields,omitempty" json:"fields,omitempty"`
+	Confidence      int            `yaml:"confidence" json:"confidence"`
+	ConfidenceBasis string         `yaml:"confidence_basis" json:"confidence_basis"`
+}
+
+// HighCloseConfidence is the percent from which a proposed close is shown
+// highlighted.
+const HighCloseConfidence = 80

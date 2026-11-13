@@ -63,13 +63,45 @@ func newItemCmd(l *loader) *cobra.Command {
 		Text: printID(func(o ops.ItemCloseOutput) string { return o.ID + "\t" + o.By }),
 	}))
 	cmd.AddCommand(opCommand(l, ops.ItemPrepared, binding[ops.ItemPreparedInput, ops.ItemPreparedOutput]{
-		Use: "prepared <id> --kind draft|answer|fields|brief|plan [--ref <id>]", Args: cobra.ExactArgs(1),
+		Use: "prepared <id> --kind draft|answer|fields|brief|plan|none [--ref <id>]", Args: cobra.ExactArgs(1),
 		Flags: func(fs *pflag.FlagSet, in *ops.ItemPreparedInput) {
-			fs.StringVar((*string)(&in.Kind), "kind", "", "what was prepared: draft, answer, fields, brief, or plan")
+			fs.StringVar((*string)(&in.Kind), "kind", "", "what was prepared: draft, answer, fields, brief, plan, or none (a proposed close takes close: use op_run)")
 			fs.StringVar(&in.Ref, "ref", "", "the document that holds it, such as an io draft; empty when it is on the item")
 		},
 		Bind: func(args []string, in *ops.ItemPreparedInput) error { in.ID = args[0]; return nil },
 		Text: printID(func(o ops.ItemPreparedOutput) string { return o.ID }),
+	}))
+	return cmd
+}
+
+// newPreparedCmd is `para prepared`: what an agent prepared for an item that
+// the owner approves, such as a proposed close of a task.
+func newPreparedCmd(l *loader) *cobra.Command {
+	cmd := group("prepared", "What an agent prepared for the owner to approve: a proposed close of a task")
+	cmd.AddCommand(opCommand(l, ops.PreparedClose, binding[ops.PreparedCloseInput, ops.PreparedCloseOutput]{
+		Use: "close <id>", Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.PreparedCloseInput) error { in.ID = args[0]; return nil },
+		Text: func(w io.Writer, o ops.PreparedCloseOutput) error {
+			if !o.Proposed {
+				_, err := fmt.Fprintf(w, "%s\tno proposed close\n", o.ID)
+				return err
+			}
+			state := "ready"
+			if !o.Ready {
+				state = "stale"
+			}
+			loc := "-"
+			if o.Close.Evidence != nil {
+				loc = o.Close.Evidence.Locator
+			}
+			_, err := fmt.Fprintf(w, "%s\t%s\tlikely %s, %d%%\t%s\t%s\tby %s\n", o.ID, state, o.Close.Outcome, o.Close.Confidence, o.Close.Reason, loc, o.By)
+			return err
+		},
+	}))
+	cmd.AddCommand(opCommand(l, ops.PreparedCloseApprove, binding[ops.PreparedCloseInput, ops.PreparedCloseApproveOutput]{
+		Use: "close-approve <id>", Args: cobra.ExactArgs(1),
+		Bind: func(args []string, in *ops.PreparedCloseInput) error { in.ID = args[0]; return nil },
+		Text: printID(func(o ops.PreparedCloseApproveOutput) string { return o.ID + "\t" + o.Outcome + "\t" + o.Receipt }),
 	}))
 	return cmd
 }

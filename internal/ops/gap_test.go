@@ -46,7 +46,7 @@ func gapItems(t *testing.T, d Deps, ids []string) []string {
 }
 
 func TestTickGapCapAndOrder(t *testing.T) {
-	d := gapVault(t, "gap.daily_cap=2")
+	d := gapVault(t, "gap.daily_cap=2", "prep.ahead=0") // tasks are prep rows: keep prepare work out
 	proj := must(t, GoalAdd, d, GoalAddInput{DoneWhen: "Done.", Title: "Portal"}).ID
 	briefed(t, d, proj)
 	late := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Overdue", Due: "2026-11-01"}).ID

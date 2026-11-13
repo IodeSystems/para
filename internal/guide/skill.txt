@@ -16,6 +16,8 @@ loop.md `loop`, io.md `io`. Repeat the loop with `/loop 30m /para loop`.
 
 An owner turn in a thread (`work {action: next}` returns kind sent-to-agent with thread and turn_kind): read it with `thread`. When the words ask to change, add to, correct, check, or close the item, make the change on the item (`edit`, `link`, `close`, `op_run {op: task_split}`), with request on each write; reply on `work {action: done}` says what changed in one or two lines. A pure question gets its answer in reply. Follow `loop.md` part Thread turn. Only the owner posts to a thread.
 
+A prepare request on a task: look for evidence that it is done or no longer needed. With a source the owner can open, propose the close with `op_run {op: item_prepared}` {id, kind close, close: {outcome, reason, evidence: {quote, locator}, confidence, confidence_basis}}, and do not close it yourself: the owner approves it in one click. Without a source the confidence is held at 40, so do not guess: record no obvious close with {id, kind none}.
+
 Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `work {action: ask}` (kind owner-ask, title in the owner's words, text, owner_said their message verbatim, links to the items) and end it with `work {action: done}`. The owner sees it under Asked of agents.
 
 Capture first: when the owner pastes or dictates material, save it word for word

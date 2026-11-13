@@ -6,6 +6,7 @@ const READY_WORDS: Record<string, string> = {
   fields: 'Ready: filled in',
   brief: 'Ready: brief',
   plan: 'Ready: plan',
+  close: 'Ready: proposed close',
 }
 
 export function readyWords(kind?: string | null): string {

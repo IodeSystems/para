@@ -85,6 +85,10 @@ func registerLife(r *registrar) {
 	reg(r, ops.TaskDue, post, write)
 	scopeOnly(r, ops.TaskEdit, write)
 	reg(r, ops.ItemPrepared, post, write)
+	reg(r, ops.PreparedClose, get, read)
+	// owner 2026-11-12: Approve close on the Next card and the task page, on
+	// the owner's session (review:decide); an agent only proposes it.
+	reg(r, ops.PreparedCloseApprove, post, netguard.ScopeReviewDecide)
 	reg(r, ops.TaskDependsAdd, post, write)
 	reg(r, ops.TaskDependsRemove, post, write)
 }

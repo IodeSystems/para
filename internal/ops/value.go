@@ -60,8 +60,9 @@ import (
 // Effort is the item's effort field. Unset, it is xs for an ask made to the
 // owner, a question, and an incoming message that expects a response, and m
 // for the rest. Prep marks an item an agent can prepare in full so the owner
-// only approves: an ask made to the owner, a question, an outgoing draft, and
-// an incoming message that expects a response.
+// only approves: an ask made to the owner, a question, an outgoing draft, an
+// incoming message that expects a response, and a task (an agent looks for
+// evidence that it is done and proposes a close, or says there is none).
 //
 // Effective due is the earliest of the item's own date, the date of any open
 // item downstream of it (anything that waits on it, through depends_on, and
@@ -884,6 +885,7 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				doc.Kept("targets", &askTargets)
 			}
 		}
+		stored := doc.Meta.Header().Type
 		doc = obligationShape(doc) // a task of kind incident is an incident node: incidents come first
 		need := sn.Need(doc.ID)
 		if need.Life == LifeClosed {
@@ -960,6 +962,9 @@ func valueNodes(sn *Snapshot, all bool) ([]ValueNode, error) {
 				continue
 			}
 			n.Kind, n.Due, n.Owed = KindTask, string(m.Due), owed
+			// A task an agent can prepare: find it done or no longer needed
+			// (a proposed close), or say there is no obvious close.
+			n.Prep = stored == model.TypeTask
 			if reply != "" {
 				n.Reply, n.Prep, n.Waiters = true, true, 1
 				if rd, err := sn.Get(reply); err == nil {

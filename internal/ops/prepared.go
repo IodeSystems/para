@@ -20,9 +20,12 @@ import (
 //   - an incoming io item, an ask made to the owner, or an open question
 //     that an open outgoing draft answers or acts on (the draft's thread
 //     links it): kind draft, ref the draft;
-//   - anything else (filled fields, a meeting brief and agenda, a short plan):
-//     the item's prepared key, set by item_prepared, with the item's hash
-//     (model.ItemHash) at that time.
+//   - anything else (filled fields, a meeting brief and agenda, a short plan,
+//     a proposed close of a task): the item's prepared key, set by
+//     item_prepared, with the item's hash (model.ItemHash) at that time;
+//   - nothing to prepare (kind none: for a task, no obvious close): the
+//     prepared key too, never ready; the tick does not ask again until the
+//     item hashes differently.
 //
 // Ready is prepared and not stale: for the prepared key, the item still
 // hashes as it did when it was recorded (an edit after it makes it raw) and
@@ -83,7 +86,7 @@ func (sn *Snapshot) Ready(id string) (Readiness, bool) {
 		}
 	}
 	p := doc.Meta.Header().Prepared
-	if p == nil || p.Hash != model.ItemHash(doc.Meta, doc.Body) {
+	if p == nil || p.Kind == model.PreparedNone || p.Hash != model.ItemHash(doc.Meta, doc.Body) {
 		return Readiness{}, false
 	}
 	if ref := p.Ref.Target(); ref != "" {
@@ -123,12 +126,17 @@ func (sn *Snapshot) replyDraft(id string) string {
 // ItemPreparedInput is the input of item_prepared.
 type ItemPreparedInput struct {
 	ID string `json:"id"` // the item prepared
-	// Kind is what was prepared: draft, answer, fields, brief, plan, or
-	// artifact (what an agent produced for an obligation it owes).
+	// Kind is what was prepared: draft, answer, fields, brief, plan,
+	// artifact (what an agent produced for an obligation it owes), close (a
+	// proposed close of a task, in close), or none (nothing to prepare: no
+	// obvious close).
 	Kind model.PreparedKind `json:"kind"`
 	// Ref is the document that holds it, such as an io draft; empty when it
 	// is on the item (its fields, steps, or notes).
 	Ref string `json:"ref,omitempty"`
+	// Close is the proposed close, for kind close: outcome, reason,
+	// evidence, fields, confidence, and confidence_basis.
+	Close *model.CloseProposal `json:"close,omitempty"`
 }
 
 // ItemPreparedOutput is the output of item_prepared.
@@ -141,15 +149,23 @@ type ItemPreparedOutput struct {
 	// approval; Next is the next occurrence of its series.
 	Closed bool   `json:"closed,omitempty"`
 	Next   string `json:"next,omitempty"`
+	// Held says the proposed close had no evidence, so its confidence was
+	// held low.
+	Held string `json:"held,omitempty"`
 }
 
 // preparedTypes are the types item_prepared marks: what needs the owner.
 var preparedTypes = []model.Type{model.TypeTask, model.TypeObligation, model.TypeMeeting, model.TypeQuestion, model.TypeRFX, model.TypeIO, model.TypeGoal, model.TypeIncident}
 
 // ItemPrepared records that an agent prepared an item.
-var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, or artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref; any artifact but a message closes the occurrence done at once, undoable), and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item (an io item, an ask made to the owner, or a question): those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
+var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open item so the owner only approves: kind draft, answer, fields, brief, plan, artifact (the journal summary, document, or io draft you produced for an obligation you owe, with ref; any artifact but a message closes the occurrence done at once, undoable), close, or none, and ref, the document that holds it (an io draft) or empty when it is on the item (its fields, steps, or notes). "+
+	"A task: look for evidence that it is already done or no longer needed (its thread, linked items, the messages it came from, the system its done_when names). Found it with a source: kind close with close {outcome (done, dropped, duplicate, superseded, declined, failed, rerouted, partial), reason, evidence {quote, locator} the owner can open, fields the outcome needs (link for duplicate or superseded), confidence 0-100, confidence_basis}; the owner approves the close in one click (prepared_close_approve, people only), and you do not close it yourself. Without evidence the confidence is held at 40. Nothing obvious: kind none (no obvious close), so you are not asked again until the task changes; do not guess. "+
+	"Write the item first: the record binds the item as it is now, and an edit after it makes the item raw again. Not needed for a proposed answer on a question, or for a draft whose thread links the item (an io item, an ask made to the owner, or a question): those read as ready by themselves. Never send or act outward to prepare: drafts only", func(ctx context.Context, d Deps, in ItemPreparedInput) (ItemPreparedOutput, error) {
 	if !slices.Contains(model.PreparedKinds, in.Kind) {
-		return ItemPreparedOutput{}, fmt.Errorf("kind %q: want draft, answer, fields, brief, plan, or artifact", in.Kind)
+		return ItemPreparedOutput{}, fmt.Errorf("kind %q: want draft, answer, fields, brief, plan, artifact, close, or none", in.Kind)
+	}
+	if in.Close != nil && in.Kind != model.PreparedClose {
+		return ItemPreparedOutput{}, fmt.Errorf("close is for kind close, not %s", in.Kind)
 	}
 	doc, err := d.Store.Get(ctx, strings.TrimSpace(in.ID))
 	if err != nil {
@@ -179,13 +195,21 @@ var ItemPrepared = defineSafe("item_prepared", "Record that you prepared an open
 		ref = model.LinkTo(rd.ID)
 	}
 	p := &model.Prepared{By: d.Store.Info().Actor, At: nowString(d.Store), Kind: in.Kind, Ref: ref}
+	held := ""
+	if in.Kind == model.PreparedClose {
+		cp, h, err := checkCloseProposal(ctx, d, doc, in.Close)
+		if err != nil {
+			return ItemPreparedOutput{}, err
+		}
+		p.Close, held = cp, h
+	}
 	p.Hash = model.ItemHash(doc.Meta, doc.Body)
 	doc.Meta.Header().Prepared = p
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return ItemPreparedOutput{}, fmt.Errorf("item_prepared: %w", err)
 	}
-	out := ItemPreparedOutput{ID: saved.ID, Prepared: *p, Rev: saved.Rev}
+	out := ItemPreparedOutput{ID: saved.ID, Prepared: *p, Rev: saved.Rev, Held: held}
 	if o, ok := doc.Meta.(*model.Obligation); ok && in.Kind == model.PreparedArtifact && o.Produce.Kind != model.ProduceMessage {
 		// An in-vault artifact is undoable, so it needs no approval: the
 		// occurrence closes done (its receipt undoes it; reopen brings it back).
@@ -233,7 +257,7 @@ func tickPrepare(ctx context.Context, d Deps, out *TickOutput) error {
 			return err
 		}
 		v := model.ItemHash(doc.Meta, doc.Body)
-		if r.Ready || open[r.ID] || w.tried[r.ID+" "+v] {
+		if p := doc.Meta.Header().Prepared; r.Ready || open[r.ID] || w.tried[r.ID+" "+v] || p != nil && p.Kind == model.PreparedNone && p.Hash == v {
 			continue
 		}
 		req, err := addRequest(ctx, d, RequestAddInput{Title: "Prepare: " + shorten(doc.Title), Ask: prepareAsk(doc, v), Kind: PrepareKind, Links: []string{r.ID}}, "")
@@ -276,6 +300,11 @@ func prepareAsk(doc model.Document, version string) string {
 		} else {
 			what = "Draft the owner's reply to this message: io_add with direction out, state draft, medium " + string(m.Medium) + ", thread " + doc.ID + ", to the sender, and the text. The draft is ready by its thread; the owner approves it."
 		}
+	case *model.Task:
+		what = "Look for evidence that this task is already done or no longer needed: its thread, the items it links, the messages it came from, and the system its done_when names (read it with your own tools). " +
+			"Found it, with a source the owner can open: item_prepared {id: " + doc.ID + ", kind: close, close: {outcome, reason, evidence: {quote, locator}, confidence, confidence_basis}} (outcome done, dropped, duplicate or superseded with fields.link, declined, failed, rerouted, or partial). Do not close it yourself: the owner approves the close. " +
+			"Nothing obvious: item_prepared {id: " + doc.ID + ", kind: none}, so you are not asked again until the task changes; do not guess. " +
+			"If it is not done but a short plan would let the owner do it in one sitting, write it (task_edit steps), then item_prepared {kind: plan}."
 	default:
 		what = "Prepare what the owner needs to do it in one sitting: a short plan (task_edit steps), the brief and agenda of a meeting, or the missing fields; then item_prepared {id: " + doc.ID + ", kind: plan, brief, or fields}."
 	}

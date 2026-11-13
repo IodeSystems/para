@@ -185,6 +185,8 @@ var Inputs = map[string]string{
 	"goal_edit":                 `{"id":"goal-sample","done_when":"Every sample check passes."}`,
 	"task_edit":                 `{"id":"task-sample","done_when":"The sample is checked."}`,
 	"item_prepared":             `{"id":"task-sample","kind":"plan"}`,
+	"prepared_close":            `{"id":"task-proposed"}`,
+	"prepared_close_approve":    `{"id":"task-proposed"}`,
 	"question_edit":             `{"id":"question-sample","title":"Sample question, edited"}`,
 	"depends_set":               `{"id":"task-sample","on":"task-free","optional":true}`,
 	"question_depends_add":      `{"id":"question-sample","depends_on":["task-sample"]}`,
@@ -431,6 +433,8 @@ func Seed(ctx context.Context, s store.Store) error {
 				Goal: model.LinkTo("goal-sample"), Occasion: model.Occasion{Scheduled: "2026-11-04", With: []model.Link{model.LinkTo("person-sample")}}}},
 		{ID: "task-free", Folder: model.FolderProjects, Title: "Free task",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("goal-sample")}},
+		{ID: "task-proposed", Folder: model.FolderProjects, Title: "Proposed close task",
+			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("goal-sample")}},
 		{ID: "task-other", Folder: model.FolderProjects, Title: "Other task",
 			Meta: &model.Task{Common: model.Common{Type: model.TypeTask}, Status: model.TaskTodo, Goal: model.LinkTo("goal-sample"),
 				DependsOn: []model.Link{model.LinkTo("task-sample")}}},
@@ -518,6 +522,16 @@ func Seed(ctx context.Context, s store.Store) error {
 		if _, err := s.Create(ctx, d); err != nil {
 			return fmt.Errorf("opsample: seed %s: %w", d.ID, err)
 		}
+	}
+	// An agent's proposed close on task-proposed, bound to the task as it is.
+	doc, err := s.Get(ctx, "task-proposed")
+	if err != nil {
+		return fmt.Errorf("opsample: seed: %w", err)
+	}
+	doc.Meta.Header().Prepared = &model.Prepared{By: "agent:sample", At: "2026-11-01T09:00:00Z", Kind: model.PreparedClose, Hash: model.ItemHash(doc.Meta, doc.Body),
+		Close: &model.CloseProposal{Outcome: "done", Reason: "The sample ticket is closed.", Evidence: &model.Evidence{Quote: "Closed", Locator: "https://acme.example/t/1"}, Confidence: 85, ConfidenceBasis: "the ticket says closed"}}
+	if _, err := s.Update(ctx, doc); err != nil {
+		return fmt.Errorf("opsample: seed: %w", err)
 	}
 	if _, err := s.AttachmentAdd(ctx, "task-sample", strings.TrimPrefix(SampleAttachment, "attachments/task-sample/"), []byte("Sample text.")); err != nil {
 		return fmt.Errorf("opsample: seed attachment: %w", err)
