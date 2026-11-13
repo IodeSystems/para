@@ -68,7 +68,18 @@ func (m *memSource) read(p []byte) (int, error) {
 	}
 	n := copy(p, m.buf)
 	m.buf = m.buf[n:]
+	m.cond.Broadcast()
 	return n, nil
+}
+
+// taken blocks until the reader took every byte written. The gate reads and
+// keeps the bytes under its lock (pump), so an exec after this sees them.
+func (m *memSource) taken() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for len(m.buf) > 0 && !m.closed {
+		m.cond.Wait()
+	}
 }
 
 func (*memSource) safe() bool { return true }
@@ -196,8 +207,12 @@ func TestReexecHandsOverAndResumes(t *testing.T) {
 	s, _ := newVault(t)
 	bin, install := fakeBinary(t)
 	handed := make(chan []byte, 1)
+	// A wake left over from call 3 can start the exec before call 4 comes:
+	// that exec is correct (call 4 stays in stdin for the new process) but
+	// tests nothing here. The probe waits until the gate took call 4.
+	held := make(chan struct{})
 	old, err := New(ops.Deps{Store: s}, Options{Version: "v1", Executable: bin, Reexec: &Reexec{
-		Probe: func() error { return nil },
+		Probe: func() error { <-held; return nil },
 		Exec: func(h Handoff) error {
 			b, err := EncodeHandoff(h)
 			if err != nil {
@@ -223,6 +238,8 @@ func TestReexecHandsOverAndResumes(t *testing.T) {
 
 	install()
 	src.write(rpcCall(4, "lint", "{}"))
+	src.taken()
+	close(held)
 	var raw []byte
 	select {
 	case raw = <-handed:
@@ -458,8 +475,9 @@ func TestReexecWithAnOpenListen(t *testing.T) {
 	s, _ := newVault(t)
 	bin, install := fakeBinary(t)
 	handed := make(chan []byte, 1)
+	held := make(chan struct{}) // as in TestReexecHandsOverAndResumes
 	old, err := New(ops.Deps{Store: s}, Options{Version: "v1", Executable: bin, Reexec: &Reexec{
-		Probe: func() error { return nil },
+		Probe: func() error { <-held; return nil },
 		Exec: func(h Handoff) error {
 			b, err := EncodeHandoff(h)
 			if err != nil {
@@ -489,6 +507,8 @@ func TestReexecWithAnOpenListen(t *testing.T) {
 	install()
 	start := time.Now()
 	src.write(call(4))
+	src.taken()
+	close(held)
 	var raw []byte
 	select {
 	case raw = <-handed:
