@@ -158,6 +158,8 @@ func registerOrg(r *registrar) {
 	reg(r, ops.Pin, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Unpin, post, netguard.ScopeReviewDecide)
 	reg(r, ops.Pinned, get, read)
+	// The /pinned composer's conversations: io items in with agent turns.
+	reg(r, ops.Conversations, get, read)
 	reg(r, ops.Route, get, read)
 	reg(r, ops.Who, get, read)
 }

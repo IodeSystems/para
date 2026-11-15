@@ -77,7 +77,7 @@ type RequestView struct {
 	// Seen is when the owner opened the result of finished work.
 	Seen string `json:"seen,omitempty"`
 	// Thread is the thread key of an owner turn (thread_post); TurnKind
-	// says what it asks for (modify, ask, redirect, other) and Quote is the
+	// says what it asks for (modify, ask, redirect, research, other) and Quote is the
 	// text it is about. Read the turns before it with thread.
 	Thread   string                `json:"thread,omitempty"`
 	TurnKind model.RequestTurnKind `json:"turn_kind,omitempty"`

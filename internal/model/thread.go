@@ -23,6 +23,7 @@ const (
 	RequestTurnModify   RequestTurnKind = "modify"
 	RequestTurnAsk      RequestTurnKind = "ask"
 	RequestTurnRedirect RequestTurnKind = "redirect"
+	RequestTurnResearch RequestTurnKind = "research"
 	RequestTurnOther    RequestTurnKind = "other"
 )
 
@@ -30,7 +31,7 @@ const (
 func (RequestTurnKind) Enum() []string { return enumStrings(RequestTurnKinds) }
 
 // RequestTurnKinds lists every RequestTurnKind.
-var RequestTurnKinds = []RequestTurnKind{RequestTurnModify, RequestTurnAsk, RequestTurnRedirect, RequestTurnOther}
+var RequestTurnKinds = []RequestTurnKind{RequestTurnModify, RequestTurnAsk, RequestTurnRedirect, RequestTurnResearch, RequestTurnOther}
 
 // ParseThreadKey splits a thread key. The value is the item id, the tag without
 // "#", or "<source-id>/<thread-id>". The key must be canonical: use

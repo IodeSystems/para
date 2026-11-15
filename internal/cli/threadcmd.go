@@ -68,7 +68,7 @@ func newThreadCmd(l *loader) *cobra.Command {
 			Use:  "post <id|#tag|channel:<source>/<thread>> [text] (or the text on stdin)",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ThreadPostInput) {
-				fs.StringVar((*string)(&in.Kind), "kind", "", "modify, ask, redirect, or other (default other)")
+				fs.StringVar((*string)(&in.Kind), "kind", "", "modify, ask, redirect, research, or other (default other)")
 				fs.StringVar(&in.Quote, "quote", "", "the text the turn is about, quoted from the item")
 				fs.StringArrayVar(&atts, "attach", nil, "vault path of an attachment (para attachment add); repeat for more")
 			},
@@ -98,7 +98,7 @@ func newThreadCmd(l *loader) *cobra.Command {
 			Use:  "edit <request> [text]",
 			Args: cobra.MinimumNArgs(1),
 			Flags: func(fs *pflag.FlagSet, in *ops.ThreadEditInput) {
-				fs.StringVar((*string)(&in.Kind), "kind", "", "modify, ask, redirect, or other (default: unchanged)")
+				fs.StringVar((*string)(&in.Kind), "kind", "", "modify, ask, redirect, research, or other (default: unchanged)")
 				editFlags = fs
 				fs.StringVar(&editQuote, "quote", "", "the text the turn is about; an empty value removes it (default: unchanged)")
 			},

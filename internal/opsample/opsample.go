@@ -147,6 +147,7 @@ var Inputs = map[string]string{
 	"pin":                       `{"id":"task-sample"}`,
 	"unpin":                     `{"id":"task-sample"}`,
 	"pinned":                    `{}`,
+	"conversations":             `{}`,
 	"triage_run":                `{"dry_run":true}`,
 	"idea_add":                  `{"pool":"sample","title":"Try a sample idea","text":"A short synthetic idea."}`,
 	"pool_run":                  `{"dry_run":true}`,

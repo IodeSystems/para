@@ -260,6 +260,7 @@ func newRoot(l *loader) *cobra.Command {
 		newPinCmd(l),
 		newUnpinCmd(l),
 		newPinnedCmd(l),
+		newConversationsCmd(l),
 		newTriageCmd(l),
 		newPoolCmd(l),
 		newIdeaCmd(l),

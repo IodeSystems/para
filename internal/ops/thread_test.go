@@ -236,3 +236,22 @@ func TestAgentSendIsThreadTurn(t *testing.T) {
 		t.Fatalf("tag thread = %+v", tag)
 	}
 }
+
+func TestThreadPostResearchKind(t *testing.T) {
+	f := newThreadFix(t)
+	posted := must(t, ThreadPost, f.owner, ThreadPostInput{ID: f.task, Text: "Who owns the vendor contract renewal?", Kind: model.RequestTurnResearch})
+	f.rv.advance(time.Minute)
+	next := must(t, RequestNext, f.agent, RequestNextInput{})
+	if next.Request == nil || next.Request.ID != posted.Request {
+		t.Fatalf("next = %+v", next.Request)
+	}
+	r := next.Request
+	if r.TurnKind != model.RequestTurnResearch || r.Kind != SentKind {
+		t.Fatalf("claimed = %+v", r.RequestView)
+	}
+	for _, want := range []string{"Kind: " + turnKindNote(model.RequestTurnResearch), "research: treat the owner's words", "## Owner's words\n\nWho owns the vendor contract renewal?"} {
+		if !strings.Contains(r.Body, want) {
+			t.Fatalf("body lacks %q:\n%s", want, r.Body)
+		}
+	}
+}

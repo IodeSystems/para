@@ -27,7 +27,7 @@ type ThreadPostInput struct {
 	ID   string `json:"id,omitempty"`  // the item the turn is about
 	Text string `json:"text"`
 	// Kind is modify (change the item or draft), ask (a question), redirect
-	// (change the direction of the work), or other. Default other.
+	// (change the direction of the work), research (an open question or obligation to research and file), or other. Default other.
 	Kind        model.RequestTurnKind `json:"kind,omitempty"`
 	Quote       string                `json:"quote,omitempty"`       // the text the turn is about, quoted from the item
 	Attachments []string              `json:"attachments,omitempty"` // vault paths (attachment_add)
@@ -145,6 +145,10 @@ func turnKindNote(k model.RequestTurnKind) string {
 		return "ask: answer the question in your reply; change nothing the words do not ask for."
 	case model.RequestTurnRedirect:
 		return "redirect: the owner changes the direction of the work; follow the new direction and say what changes."
+	case model.RequestTurnResearch:
+		return "research: treat the owner's words as an open question or obligation. Self-serve first (search, show, thread, list), then the owner's sources with your own tools, read-only; never send anything. " +
+			"Link what you find to this io (link rel: became for items it becomes; cite sources). File new items or edit existing ones. " +
+			"To close an item, use op_run {op: item_prepared, kind: close} unless the close is minor, obvious, and undoable. reply = what you filed, changed, or proposed, with ids, and what is still open."
 	}
 	return "other: read the words and act on them. A change they ask for goes on the item."
 }
@@ -213,7 +217,7 @@ var turnLinkTypes = []model.Type{model.TypeTask, model.TypeObligation, model.Typ
 	model.TypeMeeting, model.TypeRFX, model.TypeRequest, model.TypeIO, model.TypeArea, model.TypeNote, model.TypeTrackedDoc, model.TypePerson, model.TypeGroup}
 
 // ThreadPost is one owner turn in a thread.
-var ThreadPost = definePerson("thread_post", "Post the owner's turn in a thread: key (an item id, #tag, or channel:<source>/<thread>) or id (an item; its own thread). kind modify, ask, redirect, or other; quote is the text the turn is about. "+
+var ThreadPost = definePerson("thread_post", "Post the owner's turn in a thread: key (an item id, #tag, or channel:<source>/<thread>) or id (an item; its own thread). kind modify, ask, redirect, research, or other; quote is the text the turn is about. "+
 	"It queues one request per turn (kind sent-to-agent, linked to the item) even while an agent holds earlier turns; on a done or failed request (id) it reopens that work as its next turn. People only", func(ctx context.Context, d Deps, in ThreadPostInput) (ThreadPostOutput, error) {
 	text := strings.TrimSpace(strings.ReplaceAll(in.Text, "\r\n", "\n"))
 	quote := strings.TrimSpace(strings.ReplaceAll(in.Quote, "\r\n", "\n"))

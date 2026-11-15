@@ -1,11 +1,12 @@
 // Pure helpers of the Thread panel: turn order, the words of a status line, and the chips on top.
 
-export type PostKind = 'modify' | 'ask' | 'redirect' | 'other'
+export type PostKind = 'modify' | 'ask' | 'redirect' | 'research' | 'other'
 
 export const POST_KINDS: { kind: PostKind; label: string }[] = [
   { kind: 'modify', label: 'Change' },
   { kind: 'ask', label: 'Question' },
   { kind: 'redirect', label: 'Redirect' },
+  { kind: 'research', label: 'Research and file this' },
   { kind: 'other', label: 'Other' },
 ]
 

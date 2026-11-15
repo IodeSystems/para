@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/iodesystems/para/internal/ops"
 )
@@ -56,6 +57,30 @@ func newPinnedCmd(l *loader) *cobra.Command {
 					flag = "needs you"
 				}
 				p.f("%s\t%s\t%s\t%s\t%s\t%s\n", c.ID, c.Type, firstNonEmpty(c.NextDate, "-"), flag, firstNonEmpty(c.State, string(c.Life)), c.Title)
+			}
+			return p.err
+		},
+	})
+}
+
+// newConversationsCmd is `para conversations`: io items that are the thread of
+// owner turns to an agent.
+func newConversationsCmd(l *loader) *cobra.Command {
+	return opCommand(l, ops.Conversations, binding[ops.ConversationsInput, ops.ConversationsOutput]{
+		Use:  "conversations [--limit n] [--include-done]",
+		Args: cobra.NoArgs,
+		Flags: func(fs *pflag.FlagSet, in *ops.ConversationsInput) {
+			fs.IntVar(&in.Limit, "limit", 0, "most conversations to list (0: 20)")
+			fs.BoolVar(&in.IncludeDone, "include-done", false, "also list finished conversations")
+		},
+		Text: func(w io.Writer, out ops.ConversationsOutput) error {
+			p := &printer{w: w}
+			for _, c := range out.Items {
+				flag := ""
+				if c.WaitingNoAgent {
+					flag = "no agent running"
+				}
+				p.f("%s\t%s\t%s\t%s\n", c.ID, string(c.LastStatus), flag, c.Title)
 			}
 			return p.err
 		},

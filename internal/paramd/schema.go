@@ -71,7 +71,7 @@ var (
 	incidentStatus     = []string{"open", "mitigated", "resolved"}
 	requestStatus      = []string{"proposed", "queued", "claimed", "done", "failed", "cancelled"}
 	proposalStatus     = []string{"open", "sent_back", "closed", "superseded"}
-	requestTurnKinds   = []string{"modify", "ask", "redirect", "other"}
+	requestTurnKinds   = []string{"modify", "ask", "redirect", "research", "other"}
 	requestResolutions = []string{"done", "partial", "stuck", "blocked", "needs_clarification", "failed", "cancelled"}
 	receiptChecks      = []string{"unchecked", "verified", "wrong"}
 	questionStatus     = []string{"open", "answered", "dropped"}

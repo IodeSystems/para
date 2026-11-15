@@ -206,6 +206,7 @@ type ParaV1QueryNamespace {
   constraintList: para_ConstraintListOutput @derived(operationId: "constraintList")
   context(id: String!): para_ItemContextOutput @derived(operationId: "context")
   conventionList: para_ConventionListOutput @derived(operationId: "conventionList")
+  conversations(include_done: Boolean, limit: Int): para_ConversationsOutput @derived(operationId: "conversations")
   delegationRun(agent: String, id: String!): para_DelegationRunOutput @derived(operationId: "delegationRun")
   docComments(id: String!, open: Boolean): para_DocCommentsOutput @derived(operationId: "docComments")
   docDiff(context: Int, from: Int, id: String!, to: Int, unit: String, whole: Boolean): para_DocDiffOutput @derived(operationId: "docDiff")
@@ -1440,6 +1441,53 @@ enum para_ConventionViewStatus {
   adopted
   draft
   retired
+}
+
+type para_ConversationRow {
+  claimed: Int!
+  created: String!
+  id: String!
+  lastAt: String!
+  lastKind: para_ConversationRowLast_kind
+  lastReply: String
+  lastStatus: para_ConversationRowLast_status!
+  queued: Int!
+  state: para_ConversationRowState!
+  title: String!
+  turns: Int!
+  waitingNoAgent: Boolean!
+}
+
+enum para_ConversationRowLast_kind {
+  ask
+  modify
+  other
+  redirect
+  research
+}
+
+enum para_ConversationRowLast_status {
+  cancelled
+  claimed
+  done
+  failed
+  proposed
+  queued
+}
+
+enum para_ConversationRowState {
+  draft
+  dropped
+  filed
+  read
+  ready
+  sent
+  superseded
+  unread
+}
+
+type para_ConversationsOutput {
+  items: [para_ConversationRow!]!
 }
 
 enum para_CopyInputAs {
@@ -7704,6 +7752,7 @@ enum para_RequestDetailTurn_kind {
   modify
   other
   redirect
+  research
 }
 
 input para_RequestDoneInputInput {
@@ -7816,6 +7865,7 @@ enum para_RequestViewTurn_kind {
   modify
   other
   redirect
+  research
 }
 
 type para_RetireItem {
@@ -9369,6 +9419,7 @@ enum para_ThreadEditInputKind {
   modify
   other
   redirect
+  research
 }
 
 type para_ThreadEditOutput {
@@ -9421,6 +9472,7 @@ enum para_ThreadPostInputKind {
   modify
   other
   redirect
+  research
 }
 
 type para_ThreadPostOutput {
@@ -9551,6 +9603,7 @@ enum para_ThreadTurnTurn_kind {
   modify
   other
   redirect
+  research
 }
 
 input para_ThreadWithdrawInputInput {
