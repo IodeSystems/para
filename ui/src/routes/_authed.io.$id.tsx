@@ -7,6 +7,7 @@ import Link from '@mui/material/Link'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import type { ReactNode } from 'react'
+import { useSeenOnOpen } from '@/api/requests'
 import { useIOApprove, useIODone, useIoItem } from '@/api/io'
 import { errorText } from '@/client/gqlClient'
 import { canDecide } from '@/client/session'
@@ -31,6 +32,7 @@ function IoItemPage() {
   const { session } = Route.useRouteContext()
   const decide = canDecide(session)
   const q = useIoItem(id)
+  useSeenOnOpen(id)
   return (
     <DataState q={q}>
       {({ doc, item }) => {

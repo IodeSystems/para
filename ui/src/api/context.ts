@@ -184,6 +184,48 @@ export function useCapture() {
   })
 }
 
+export type ConverseRun = { text: string; research: boolean }
+
+// useConverse saves the owner's words as an io item (io_add: the title is the first line, cut to
+// 80 characters, the body is the whole text), then posts them as a thread turn on it: kind
+// research when asked, else other. The words go as written, with no preamble. A failed turn does
+// not undo the save.
+export function useConverse() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ text, research }: ConverseRun): Promise<CaptureDone> => {
+      const r = await gqlClient.request(IOAddDoc, { body: { direction: 'in', text } })
+      const added = need(r.para.v1.ioAdd, 'message')
+      try {
+        const p = need(
+          (
+            await gqlClient.request(ThreadPostDoc, {
+              body: { key: added.id, kind: research ? 'research' : 'other', text },
+            })
+          ).para.v1.threadPost,
+          'thread',
+        )
+        let waitingNoAgent: boolean | null = null
+        try {
+          waitingNoAgent = need(
+            (await gqlClient.request(ThreadWaitingDoc, { id: added.id })).para.v1.thread,
+            'thread',
+          ).waitingNoAgent
+        } catch {
+          // the toast then goes by the post's status and note
+        }
+        return {
+          ...added,
+          told: { request: p.request, status: p.status, note: p.note, waitingNoAgent },
+        }
+      } catch (e) {
+        return { ...added, tellError: errorText(e) }
+      }
+    },
+    onSettled: () => qc.invalidateQueries(),
+  })
+}
+
 const DependsSetDoc = graphql(/* GraphQL */ `
   mutation DependsSet($body: para_DependsSetInputInput!) {
     para {

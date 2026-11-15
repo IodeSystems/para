@@ -1,14 +1,24 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import { createFileRoute, useNavigate, useRouteContext } from '@tanstack/react-router'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
+import { useConversations, type ConversationRow } from '@/api/conversations'
+import { useConverse } from '@/api/context'
 import { usePinned, type PinnedCard } from '@/api/pin'
 import { Empty, PageTitle, StateChip, StatusChip } from '@/components/Bits'
+import { errorText } from '@/client/gqlClient'
+import { canDecide } from '@/client/session'
 import { DataState } from '@/components/DataState'
 import { LinkButton, TextLink } from '@/components/links'
 import { PinButton } from '@/components/PinButton'
+import { useToasts } from '@/components/ToastStack'
 import { activityTarget } from '@/lib/activity'
 import {
   lastWords,
@@ -19,7 +29,11 @@ import {
   threadWords,
   waitingWords,
 } from '@/lib/pinned'
-import { exactTime } from '@/lib/when'
+import { tellToast } from '@/lib/tell'
+import { statusText } from '@/lib/thread'
+import { withdrawTurn } from '@/api/thread'
+import { requestEditTurn } from '@/lib/threadEdit'
+import { exactTime, humanTime } from '@/lib/when'
 
 export const Route = createFileRoute('/_authed/pinned')({ component: Pinned })
 
@@ -28,6 +42,7 @@ export const Route = createFileRoute('/_authed/pinned')({ component: Pinned })
 // date, then the newest pin. Next is one click away.
 function Pinned() {
   const q = usePinned()
+  const { session } = useRouteContext({ from: '/_authed' })
   return (
     <>
       <PageTitle
@@ -40,6 +55,8 @@ function Pinned() {
       >
         Pinned
       </PageTitle>
+      {canDecide(session) && <HomeComposer />}
+      <Conversations />
       <DataState q={q}>
         {(cards) => {
           if (cards.length === 0) return <EmptyPins />
@@ -87,6 +104,166 @@ function Pinned() {
         }}
       </DataState>
     </>
+  )
+}
+
+// HomeComposer: the owner says something to the agent from home. The words are saved as an io
+// item and sent as a turn as written; "Research and file this" asks the agent to research it and
+// file the result. Ctrl or Cmd+Enter sends.
+function HomeComposer() {
+  const [text, setText] = useState('')
+  const [research, setResearch] = useState(false)
+  const converse = useConverse()
+  const toasts = useToasts()
+  const navigate = useNavigate()
+  const ready = text.trim() !== '' && !converse.isPending
+  const send = () => {
+    if (!ready) return
+    converse.mutate(
+      { text: text.trim(), research },
+      {
+        onSuccess: (out) => {
+          setText('')
+          setResearch(false)
+          if (out.told) {
+            const request = out.told.request
+            toasts.push(
+              tellToast(out.id, out.told, {
+                undo: request ? async () => void (await withdrawTurn(request)) : undefined,
+                edit: request
+                  ? () => {
+                      void navigate({ to: '/io/$id', params: { id: out.id } })
+                      requestEditTurn(request)
+                    }
+                  : undefined,
+              }),
+            )
+          } else
+            toasts.push({
+              text: `Saved, but your agent was not told: ${out.tellError ?? 'unknown error'}`,
+              tone: 'error',
+              link: { label: 'Open the item', io: out.id },
+              target: { id: out.id, kind: 'io' },
+              dwell: 15000,
+            })
+        },
+      },
+    )
+  }
+  return (
+    <Paper variant="outlined" data-home-composer sx={{ p: 1.5, mb: 2 }}>
+      <Stack spacing={1}>
+        <TextField
+          multiline
+          minRows={2}
+          maxRows={10}
+          fullWidth
+          label="Tell your agent"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault()
+              send()
+            }
+          }}
+        />
+        {converse.isError && (
+          <Alert severity="error" data-converse-error>
+            {errorText(converse.error)}
+          </Alert>
+        )}
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                size="small"
+                checked={research}
+                onChange={(e) => setResearch(e.target.checked)}
+              />
+            }
+            label="Research and file this"
+          />
+          <Button variant="contained" size="small" disabled={!ready} onClick={send} data-converse-send>
+            Send
+          </Button>
+        </Stack>
+      </Stack>
+    </Paper>
+  )
+}
+
+// Conversations: threads with the agent that are open or have a reply not yet seen. The title
+// opens the item, where the thread takes replies. Hidden when there are none.
+function Conversations() {
+  const q = useConversations()
+  const rows = q.data ?? []
+  if (rows.length === 0) return null
+  return (
+    <Box component="section" data-conversations sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" component="h2" color="text.secondary" sx={{ mb: 1 }}>
+        Conversations
+      </Typography>
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 1.5,
+          gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
+        }}
+      >
+        {rows.map((r) => (
+          <ConversationCard key={r.id} r={r} />
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
+function ConversationCard({ r }: { r: ConversationRow }) {
+  return (
+    <Paper
+      variant="outlined"
+      data-conversation={r.id}
+      sx={{
+        position: 'relative',
+        p: 1.5,
+        borderLeft: 4,
+        borderLeftColor: r.waitingNoAgent ? 'warning.main' : 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+      }}
+    >
+      <Typography
+        variant="subtitle1"
+        component="h3"
+        sx={{ overflowWrap: 'anywhere', lineHeight: 1.3 }}
+      >
+        <TextLink to="/io/$id" params={{ id: r.id }} underline="hover" sx={STRETCH}>
+          {r.title || r.id}
+        </TextLink>
+      </Typography>
+      <Typography variant="body2" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
+        {statusText({ kind: r.lastKind ?? 'other', at: r.lastAt, status: r.lastStatus })}
+        {r.waitingNoAgent ? ' · no agent running' : ''}
+        {' · '}
+        <span title={exactTime(r.lastAt)}>{humanTime(r.lastAt)}</span>
+      </Typography>
+      {r.lastReply && (
+        <Typography
+          variant="body2"
+          component="p"
+          sx={{
+            mt: 0.5,
+            overflowWrap: 'anywhere',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {r.lastReply}
+        </Typography>
+      )}
+    </Paper>
   )
 }
 
