@@ -3,6 +3,7 @@ import {
   attachmentKind,
   attachmentSrc,
   canSend,
+  primaryButton,
   draftHints,
   composerKey,
   composerPrompt,
@@ -149,5 +150,30 @@ describe('isMacPlatform', () => {
     expect(isMacPlatform('', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36')).toBe(false)
     expect(isMacPlatform('', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)')).toBe(true)
     expect(sendKeyHint(isMacPlatform('Linux x86_64'))).toMatch(/^Ctrl\+Enter/)
+  })
+})
+
+describe('primaryButton', () => {
+  it('sends to the agent with no choice: needs words or a file', () => {
+    expect(primaryButton('Send to agent', '', 0, false)).toEqual({
+      answer: false,
+      label: 'Send to agent',
+      enabled: false,
+    })
+    expect(primaryButton('Send to agent', 'hi', 0, false).enabled).toBe(true)
+    expect(primaryButton('Send to agent', '', 1, false).enabled).toBe(true)
+  })
+  it('answers with a picked choice, even with an empty box', () => {
+    expect(primaryButton('Send to agent', '', 0, false, 'Yes')).toEqual({
+      answer: true,
+      label: 'Answer: Yes',
+      enabled: true,
+    })
+  })
+  it('is off while busy, and clips a long choice', () => {
+    expect(primaryButton('Send to agent', 'x', 0, true, 'Yes').enabled).toBe(false)
+    const l = primaryButton('Send to agent', '', 0, false, 'a'.repeat(100)).label
+    expect(l.length).toBeLessThan(60)
+    expect(l.endsWith('…')).toBe(true)
   })
 })

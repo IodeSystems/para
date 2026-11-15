@@ -39,6 +39,24 @@ export function canSend(text: string, files: number, busy: boolean): boolean {
   return !busy && (text.trim() !== '' || files > 0)
 }
 
+// clip cuts a long label to max characters, ending in an ellipsis.
+const clip = (s: string, max: number): string => (s.length > max ? `${s.slice(0, max - 1)}…` : s)
+
+// primaryButton says what the primary button of a composer does. With a picked choice it answers
+// (the choice stands for the words, so an empty box is fine); else it sends to the agent, which
+// needs words or a file.
+export function primaryButton(
+  sendLabel: string,
+  text: string,
+  files: number,
+  busy: boolean,
+  choice = '',
+): { answer: boolean; label: string; enabled: boolean } {
+  if (choice !== '')
+    return { answer: true, label: `Answer: ${clip(choice.trim(), 40)}`, enabled: !busy }
+  return { answer: false, label: sendLabel, enabled: canSend(text, files, busy) }
+}
+
 // flatHeadings makes # and ## lines bold text: a heading would end the Notes section.
 export function flatHeadings(text: string): string {
   return text

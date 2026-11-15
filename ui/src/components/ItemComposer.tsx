@@ -231,6 +231,7 @@ export function ItemComposer({
         actions={actions}
         draft={draft}
         actionsReady={asking && choice !== ''}
+        answer={asking && choice !== '' ? { choice, run: answer } : undefined}
         choicesTitle="Tell the agent"
         choices={[
           {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Box from '@mui/material/Box'
 import Chip from '@mui/material/Chip'
+import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import InputBase from '@mui/material/InputBase'
 import ListItemIcon from '@mui/material/ListItemIcon'
@@ -19,7 +20,15 @@ import MicIcon from '@mui/icons-material/Mic'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import { ChoiceBar, type ChoiceGroup } from '@/components/ChoiceBar'
 import type { Draft } from '@/components/ItemDraft'
-import { ACCEPT, canSend, composerKey, fileLabel, isMac, sendKeyHint } from '@/lib/composer'
+import {
+  ACCEPT,
+  canSend,
+  composerKey,
+  fileLabel,
+  isMac,
+  primaryButton,
+  sendKeyHint,
+} from '@/lib/composer'
 
 // Composer is the one box for telling an agent something: a large rounded card, the text on top
 // that grows upward as the owner types (up to half the screen, then it scrolls), and a toolbar
@@ -46,6 +55,7 @@ export function Composer({
   choices = [],
   choicesTitle = 'Choices',
   actionsReady = false,
+  answer,
   files: allowFiles = true,
   autoFocus,
   onCancel,
@@ -64,6 +74,9 @@ export function Composer({
   choicesTitle?: string
   // actionsReady lets the menu actions run with an empty box (a picked choice stands for the words).
   actionsReady?: boolean
+  // answer, when a choice is picked, turns the primary button into "Answer: <choice>": it runs
+  // with an empty box, and Ctrl/Cmd+Enter follows it.
+  answer?: { choice: string; run: (text: string, files: File[]) => Promise<boolean> }
   files?: boolean
   autoFocus?: boolean
   // onCancel runs on Escape.
@@ -84,6 +97,8 @@ export function Composer({
   const picker = useRef<HTMLInputElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
   const ok = canSend(text, files.length, busy)
+  const primary = primaryButton(sendLabel, text, files.length, busy, answer?.choice)
+  const primaryRun = primary.answer && answer ? answer.run : onSend
 
   const pick = (accept: string, capture?: string) => {
     setAddAt(null)
@@ -145,7 +160,10 @@ export function Composer({
         </Typography>
       )}
       {files.length > 0 && (
-        <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 0.75, px: { xs: 1, sm: 1.75 }, pt: 1.25 }}>
+        <Stack
+          direction="row"
+          sx={{ flexWrap: 'wrap', gap: 0.75, px: { xs: 1, sm: 1.75 }, pt: 1.25 }}
+        >
           {files.map((f, i) => (
             <Chip
               key={`${f.name}-${f.size}-${f.lastModified}-${i}`}
@@ -182,7 +200,7 @@ export function Composer({
             })
           ) {
             e.preventDefault()
-            void run(onSend)
+            void run(primaryRun, primary.enabled)
           }
         }}
         sx={{
@@ -214,7 +232,14 @@ export function Composer({
       )}
       <Stack
         direction="row"
-        sx={{ alignItems: 'flex-end', gap: 0.5, px: { xs: 0.5, sm: 1 }, pb: 1, pt: 0.5, minWidth: 0 }}
+        sx={{
+          alignItems: 'flex-end',
+          gap: 0.5,
+          px: { xs: 0.5, sm: 1 },
+          pb: 1,
+          pt: 0.5,
+          minWidth: 0,
+        }}
       >
         {allowFiles && (
           <>
@@ -309,32 +334,46 @@ export function Composer({
             </Menu>
           </>
         )}
-        <Tooltip title={sendLabel}>
-          <span>
-            <IconButton
-              aria-label={sendLabel}
-              disabled={!ok}
-              onClick={() => void run(onSend)}
-              data-composer-send
-              sx={{
-                width: 36,
-                height: 36,
-                bgcolor: 'primary.main',
-                color: 'primary.contrastText',
-                transition: 'background-color 120ms ease, transform 120ms ease',
-                '&:hover': { bgcolor: 'primary.dark' },
-                '&:active': { transform: 'scale(0.94)' },
-                '&.Mui-disabled': {
-                  bgcolor: 'action.disabledBackground',
-                  color: 'action.disabled',
-                },
-                '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
-              }}
-            >
-              <ArrowUpwardIcon fontSize="small" />
-            </IconButton>
-          </span>
-        </Tooltip>
+        {primary.answer ? (
+          // A picked choice is the answer: say so on the button, not only in a tooltip.
+          <Button
+            variant="contained"
+            size="small"
+            disabled={!primary.enabled}
+            onClick={() => void run(primaryRun, primary.enabled)}
+            data-composer-send
+            sx={{ height: 36, borderRadius: 18, whiteSpace: 'nowrap', flexShrink: 0 }}
+          >
+            {primary.label}
+          </Button>
+        ) : (
+          <Tooltip title={primary.label}>
+            <span>
+              <IconButton
+                aria-label={primary.label}
+                disabled={!primary.enabled}
+                onClick={() => void run(primaryRun, primary.enabled)}
+                data-composer-send
+                sx={{
+                  width: 36,
+                  height: 36,
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
+                  transition: 'background-color 120ms ease, transform 120ms ease',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                  '&:active': { transform: 'scale(0.94)' },
+                  '&.Mui-disabled': {
+                    bgcolor: 'action.disabledBackground',
+                    color: 'action.disabled',
+                  },
+                  '@media (prefers-reduced-motion: reduce)': { transition: 'none' },
+                }}
+              >
+                <ArrowUpwardIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
       </Stack>
     </Paper>
   )
