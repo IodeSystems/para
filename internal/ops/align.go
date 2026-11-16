@@ -428,7 +428,7 @@ func (h *healther) notAligned(ctx context.Context, s store.Store) error {
 			area = p.Area.Target()
 		}
 		last := lastAligned(dates, id, area)
-		fix := fmt.Sprintf("run /para align %s: align_scope {scope: %s}, then align_record", id, id)
+		fix := fmt.Sprintf("use the prompt align_vault for %s: align_scope {scope: %s}, then align_record", id, id)
 		if last == "" {
 			h.add(HealthNotAligned, id, id, "goal has never been aligned with reality", fix)
 			continue

@@ -32,7 +32,7 @@ non-zero when there are errors.
 --file also files the findings as one agent work request (kind vault-check,
 titled "Vault check: N errors, M warnings"); an open one is updated, not added
 again. The agent fixes the data with ops, or finishes with a bug report for
-para's developer when para is wrong. Run /para loop to work it.`
+para's developer when para is wrong. Run /loop 30m /para (or the loop prompt) to work it.`
 	var file bool
 	cmd.Flags().BoolVar(&file, "file", false, "file the findings as one agent work request (vault check); updates the open one")
 	check := newVaultCheckCmd(l)

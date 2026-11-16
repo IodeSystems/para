@@ -50,7 +50,7 @@ func TestAgentListShowsMCPSessions(t *testing.T) {
 	if len(out.Agents) != 0 || out.QueuedCount != 1 || !out.NoListener {
 		t.Fatalf("before = %+v", out)
 	}
-	if text := e.ok("agent", "list"); !strings.Contains(text, "no agent is connected on this machine") || !strings.Contains(text, "/para loop") {
+	if text := e.ok("agent", "list"); !strings.Contains(text, "no agent is connected on this machine") || !strings.Contains(text, "/loop 30m /para") {
 		t.Errorf("text = %q", text)
 	}
 

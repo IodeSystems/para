@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,20 +11,31 @@ import (
 
 	"github.com/iodesystems/para/internal/atomicfile"
 	"github.com/iodesystems/para/internal/guide"
+	"github.com/iodesystems/para/internal/ops"
 )
 
-// newGuideCmd prints what --help-extended prints, for anyone who looks for a
-// command.
-func newGuideCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "guide",
-		Short: "Print use cases with real commands, and where things go",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Extended())
+// newGuideCmd is `para guide [topic]`. With no topic it prints what
+// --help-extended prints (no vault needed); with one it runs the op guide.
+func newGuideCmd(l *loader) *cobra.Command {
+	cmd := opCommand(l, ops.Guide, binding[ops.GuideInput, ops.GuideOutput]{
+		Use:  "guide [topic]",
+		Args: cobra.MaximumNArgs(1),
+		Bind: func(args []string, in *ops.GuideInput) error { in.Topic = strings.Join(args, ""); return nil },
+		Text: func(w io.Writer, out ops.GuideOutput) error {
+			_, err := fmt.Fprintln(w, out.Text)
 			return err
 		},
+	})
+	cmd.Short = "Print use cases with real commands, or the guide text of a topic: " + strings.Join(guide.Topics, ", ")
+	run := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if asJSON, _ := cmd.Flags().GetBool("json"); len(args) == 0 && !asJSON {
+			_, err := fmt.Fprintln(cmd.OutOrStdout(), guide.Extended())
+			return err
+		}
+		return run(cmd, args)
 	}
+	return cmd
 }
 
 // skillVersionFile sits beside SKILL.md and holds the version of the para
@@ -54,8 +66,8 @@ func installedSkill(dir string) (version string, ok bool) {
 	return strings.TrimSpace(string(b)), true
 }
 
-// installSkill writes the skill and its reference files under dir/para and
-// records version. It returns the files written.
+// installSkill writes the skill under dir/para, removes the reference files
+// of earlier versions, and records version. It returns the files written.
 func installSkill(dir, version string) ([]any, error) {
 	if dir == "" {
 		var err error
@@ -72,21 +84,6 @@ func installSkill(dir, version string) ([]any, error) {
 		return nil, fmt.Errorf("skill: %w", err)
 	}
 	installed := []any{"installed", file}
-	for _, f := range []struct{ name, text string }{
-		{guide.SkillImportFile, guide.SkillImport()},
-		{guide.SkillIngestFile, guide.SkillIngest()},
-		{guide.SkillAlignFile, guide.SkillAlign()},
-		{guide.SkillGrillFile, guide.SkillGrill()},
-		{guide.SkillSweepFile, guide.SkillSweep()},
-		{guide.SkillLoopFile, guide.SkillLoop()},
-		{guide.SkillIOFile, guide.SkillIO()},
-	} {
-		extra := filepath.Join(target, f.name)
-		if err := atomicfile.Write(extra, []byte(f.text), 0o644); err != nil {
-			return nil, fmt.Errorf("skill: %w", err)
-		}
-		installed = append(installed, extra)
-	}
 	for _, name := range guide.SkillRetired {
 		if err := os.Remove(filepath.Join(target, name)); err != nil && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("skill: %w", err)

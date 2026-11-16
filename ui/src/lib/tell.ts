@@ -1,6 +1,7 @@
 // Tell agent: the owner says what happened, from any page. The words are saved as an io item
 // first (capture-first); then, if asked, the agent gets a turn on that item to file it.
 
+import { RUN_LOOP_HINT } from '@/lib/agents'
 import type { ToastTarget } from '@/lib/toasts'
 import { TURN_UNDO_MS } from '@/lib/threadEdit'
 
@@ -47,7 +48,7 @@ export function tellToast(
   const { undo, edit } = r.request ? acts : {}
   if (r.waitingNoAgent || r.status === 'proposed' || r.note) {
     return {
-      text: 'Saved. Queued: no agent is connected on this machine; start /para loop',
+      text: 'Saved. Queued: no agent is connected on this machine; ' + RUN_LOOP_HINT,
       link,
       target,
       undo,

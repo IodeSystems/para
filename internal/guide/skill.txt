@@ -1,31 +1,5 @@
-Use this when work touches para: tasks, blockers, asks to people, areas,
-goals, projects, policies, people, or anything the owner must review.
+Use this when work touches para: tasks, blockers, asks to people, areas, goals, projects, policies, people, or anything the owner must review.
 
-Each vault is an MCP server named para-<vault>. Use the vault the owner names. If
-none is named, ask. Do not move work between vaults.
+When the owner runs /para (for example /loop 30m /para), run `op_run {op: guide, topic: loop}` and follow the text it returns until the agent queue is empty. For anything else, follow the para MCP server instructions and its prompts (orient, bootstrap, import_corpus, ingest_source, align_vault, grill_goal, sweep, io, loop); `op_run {op: guide, topic: <name>}` returns the same text when your client does not list prompts.
 
-Start with the `orient` prompt, or read the rules below. Your tools are search, show, list, add, edit, link, tag, close, later, reopen, work, undo, thread; for any other op, `ops_describe` {query} finds it and `op_run` {op, input} runs it with the same checks. Use `bootstrap` for an
-empty vault, and `ingest_source` for a transcript. A write that can be
-undone applies at once with a receipt. A change only the owner can decide becomes a
-question (`add {type: question}`). When you offer the owner options for an item, file a question about it with options and recommended (`add {type: question, fields: {about: <item id>, root: true (or parent: its goal, task, or area), options, recommended, context}}`); its page shows them as buttons and a click answers it. Never write an options list in the item's notes. An outward act is an outgoing draft (`add {type: io}`, fields.direction out)
-the owner approves on /output (a proposal: fill why, impact, and assessments); right before you send, read the channel again and call
-`op_run {op: io_send_check}`; send it with your own tool only when it passes, then report it with `close {outcome: sent}`.
-Each reference file above is also a prompt: import.md is `import_corpus`, ingest.md
-`ingest_source`, align.md `align_vault`, grill.md `grill_goal`, sweep.md `sweep`,
-loop.md `loop`, io.md `io`. Repeat the loop with `/loop 30m /para loop`.
-
-An owner turn in a thread (`work {action: next}` returns kind sent-to-agent with thread and turn_kind): read it with `thread`. When the words ask to change, add to, correct, check, or close the item, make the change on the item (`edit`, `link`, `close`, `op_run {op: task_split}`), with request on each write; reply on `work {action: done}` says what changed in one or two lines. A pure question gets its answer in reply. Follow `loop.md` part Thread turn. Only the owner posts to a thread.
-
-A prepare request on a task: look for evidence that it is done or no longer needed. With a source the owner can open, propose the close with `op_run {op: item_prepared}` {id, kind close, close: {outcome, reason, evidence: {quote, locator}, confidence, confidence_basis}}, and do not close it yourself: the owner approves it in one click. Without a source the confidence is held at 40, so do not guess: record no obvious close with {id, kind none}.
-
-Asks in the chat: when the owner asks for something that will not end in this reply, or that you hand to another agent, record it with `work {action: ask}` (kind owner-ask, title in the owner's words, text, owner_said their message verbatim, links to the items) and end it with `work {action: done}`. The owner sees it under Asked of agents.
-
-Capture first: when the owner pastes or dictates material, save it word for word
-with `add {type: io}` (fields.direction in) before you process it, and link what it became. If
-the processing fails, point the owner to the io item. Waiting on a person is an
-Ask, not a task (`op_run {op: task_to_asks}`). Merge a duplicate with `op_run {op: doc_merge}`; edit notes
-with `show` and `edit {notes, notes_hash}` (pass the hash you read). An outgoing draft
-waits for the owner: record their approval from the chat with `op_run {op: io_approve}` and
-their words, verbatim, in owner_said; voice for_me keeps a for_me draft's stamp, as_me (default) strips it. An idea worth keeping for later goes in a
-pool with `op_run {op: idea_add}` (a title and a sentence); the owner's triggers in
-.para/pools.yaml bring it up, and the owner picks.
+Each vault is an MCP server named para-<vault>. Use the vault the owner names. If none is named, ask. Do not move work between vaults.

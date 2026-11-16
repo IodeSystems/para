@@ -262,7 +262,7 @@ type SweepReportOutput struct {
 }
 
 // SweepReport says what came in and went out since a time, per source.
-var SweepReport = defineRead("sweep_report", "Report what the sweeps brought since a time (default: since the sweep run before the last one, else today), per source: io in and out and what each became (a reply obligation, filed into an item, the digest, needs you, a triage rule, sent), reply obligations made, tracked-document versions and comments, drafts the pre-send check held, sweep errors, and meetings made or changed. Print text to the owner at the end of /para io", func(ctx context.Context, d Deps, in SweepReportInput) (SweepReportOutput, error) {
+var SweepReport = defineRead("sweep_report", "Report what the sweeps brought since a time (default: since the sweep run before the last one, else today), per source: io in and out and what each became (a reply obligation, filed into an item, the digest, needs you, a triage rule, sent), reply obligations made, tracked-document versions and comments, drafts the pre-send check held, sweep errors, and meetings made or changed. Print text to the owner at the end of the prompt io", func(ctx context.Context, d Deps, in SweepReportInput) (SweepReportOutput, error) {
 	w, err := loadIOWorld(ctx, d, true)
 	if err != nil {
 		return SweepReportOutput{}, err

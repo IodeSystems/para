@@ -107,7 +107,7 @@ func agentListCmd(l *loader) *cobra.Command {
 			}
 			p.f("queued\t%d\n", out.QueuedCount)
 			if out.NoListener {
-				p.f("warning\t%d queued, and no agent is connected on this machine. Start one, or run /para loop.\n", out.QueuedCount)
+				p.f("warning\t%d queued, and no agent is connected on this machine. Start one, or %s.\n", out.QueuedCount, ops.RunLoopHint)
 			}
 			return p.err
 		},

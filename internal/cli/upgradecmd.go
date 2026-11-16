@@ -82,7 +82,7 @@ The last line is the verdict: the format before and after, the batch ids, lint
 errors and warnings, and the judgement steps still pending. A run that stops at
 a step, or lint errors after a run, exit non-zero. After a run, lint findings
 are filed as one agent work request (kind vault-check, as para lint --file);
-run /para loop to work it.`
+run /loop 30m /para (or the loop prompt) to work it.`
 	cmd.AddCommand(opCommand(l, ops.VaultUpgradeStatus, binding[ops.VaultUpgradeStatusInput, upgrade.Status]{
 		Use:  "status",
 		Args: cobra.NoArgs,
@@ -332,7 +332,7 @@ func upgradeVerdict(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
 	default:
 		head = vault + " filed no agent work: each pending judgement step already has open work, or none is pending"
 		if len(o.Filed) > 0 {
-			head = fmt.Sprintf("%s filed %d judgement steps as agent work (%s); run /para loop", vault, len(o.Filed), strings.Join(o.Filed, ", "))
+			head = fmt.Sprintf("%s filed %d judgement steps as agent work (%s); %s", vault, len(o.Filed), strings.Join(o.Filed, ", "), ops.RunLoopHint)
 		}
 	}
 	if o.Run != nil && !o.Run.DryRun {
@@ -360,7 +360,7 @@ func upgradeVerdict(w io.Writer, vault string, o ops.VaultUpgradeOutput) error {
 		parts = append(parts, "run para vault upgrade status")
 	}
 	if o.Check != "" {
-		parts = append(parts, "findings filed as agent work "+o.Check+"; run /para loop")
+		parts = append(parts, "findings filed as agent work "+o.Check+"; "+ops.RunLoopHint)
 	}
 	return verdict(w, t, "%s — %s", head, strings.Join(parts, "; "))
 }

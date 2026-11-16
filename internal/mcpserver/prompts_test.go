@@ -74,13 +74,7 @@ func TestGuidesNameCoreTools(t *testing.T) {
 	opArg := regexp.MustCompile(`^\{op: ([a-z_]+)[,}]`)
 	texts := map[string]string{"orient": guide.Orient(), "bootstrap": guide.Bootstrap(), "import_corpus": guide.ImportCorpus(), "ingest_source": guide.IngestSource(),
 		"align_vault": guide.AlignVault(), "grill_goal": guide.GrillGoal(), "sweep": guide.Sweep(), "loop": guide.Loop(), "io": guide.IO()}
-	// The skill past its frontmatter and argument routing (/para health is an
-	// argument, not a tool).
-	_, body, ok := strings.Cut(guide.Skill(), "With no arguments, work as below.")
-	if !ok {
-		t.Fatal("the skill lost its routing end")
-	}
-	texts["skill"] = body
+	texts["skill"] = guide.Skill()
 	for name, text := range texts {
 		for _, m := range tick.FindAllStringSubmatch(text, -1) {
 			tool, args, _ := strings.Cut(m[1], " ")

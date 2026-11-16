@@ -45,8 +45,7 @@ Use para from Claude Code. (para help claude and para mcp --help-claude print th
 
 5. The loop works the agent queue until it is empty: sweeps of your sources first,
    then what you asked, then other agent work. Run it once, or on a schedule:
-   /para loop
-   /loop 30m /para loop
+   /loop 30m /para
    para serve queues a sweep per due source on its cadence; para itself reads
    nothing outside the vault. Each run spends tokens.
 

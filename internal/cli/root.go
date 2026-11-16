@@ -206,7 +206,7 @@ func newRoot(l *loader) *cobra.Command {
 	root.PersistentFlags().StringVar(&l.requestFlag, "request", "", "the agent work (request id) this write serves; default the one the actor holds; needs --actor")
 	root.AddCommand(
 		newVersionCmd(l),
-		newGuideCmd(),
+		newGuideCmd(l),
 		newSkillCmd(l),
 		newInitCmd(l),
 		newVaultCmd(l),

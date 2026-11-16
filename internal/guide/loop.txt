@@ -1,4 +1,4 @@
-Loop (/para loop): work the agent queue until it is empty, then stop. Below it: Produce (a recurring artifact you owe) and Delegate (hand work to another agent). Para fetches nothing and starts nothing here: you read sources with your own tools, and para serve keeps queuing a sweep per due source on its cadence.
+Loop: work the agent queue until it is empty, then stop. Below it: Produce (a recurring artifact you owe) and Delegate (hand work to another agent). Para fetches nothing and starts nothing here: you read sources with your own tools, and para serve keeps queuing a sweep per due source on its cadence.
 
 1. `op_run {op: agent_sources}` with the ids of the sources (`op_run {op: source_list}`) you can reach now with your own tools. Declare only what you reach. Only an agent that declared a source can claim its sweep.
 2. `work {action: next}`. It claims one request for you: sweeps of sources you declared first, then what the owner asked (kind owner-ask, sent-to-agent), then gaps to fill (kind fill-gap), then other agent work, each oldest first. Null: the queue is empty; go to step 5.
@@ -16,9 +16,17 @@ Loop (/para loop): work the agent queue until it is empty, then stop. Below it: 
 4. End it with `work {action: done}`: resolution done, partial, stuck, blocked, or needs_clarification, a summary in plain words, links to what you made or changed, and the context you followed. Use needs_clarification or blocked when only the owner can answer: it waits for them in Next. `work {action: fail}` when it cannot be done. Go to step 2.
 5. Report in a few lines: how many requests you ended and how (done, partial, stuck, blocked, needs_clarification, failed), the sweeps you recorded with counts and errors, and what waits for the owner. Then stop. Do not start work that is not in the queue.
 
-Repeat it on a schedule with Claude Code's /loop, for example /loop 30m /para loop. Each run spends the owner's tokens; an empty queue ends the run at step 2.
+Repeat it on a schedule with Claude Code's /loop, for example /loop 30m /para. Each run spends the owner's tokens; an empty queue ends the run at step 2.
 
 The owner sees the result in the web app: Next, Asked of agents (what they asked and how it ended, the queue, and the last sweep of each source), and Sources.
+
+Owner words that name a job: when the owner's words (a turn or a chat message) name one of these, get its text with `op_run {op: guide, topic: <name>}` and follow it for what the owner named. Do not work from memory.
+- import a folder or file: topic import_corpus.
+- ingest or update (a URL, a file, text, or an update on a task): topic ingest_source.
+- align a goal, area, or vault, or health: topic align_vault.
+- validate, recheck, or grill a goal: topic grill_goal.
+- track a remote document, or sweep: topic sweep. io, or io setup or stats: topic io.
+- delegate a task: Delegate below, in this text.
 
 Thread turn (a request from `work {action: next}` with thread, turn_kind modify, ask, redirect, research, or other, and quote): the owner posted a turn in a thread. Only the owner posts to a thread; you never do. Read the thread first: `thread` with the key from the request. The quote is the text the turn is about.
 The item is the record; the reply is not. When the words ask to change, add to, correct, check, or close the item, make the change on the item: `edit` (title, body, notes, fields), `link`, `close`, or `op_run {op: task_split}`. Pass request on every write. Then say in reply, in one or two lines, what changed. A pure question gets its answer in reply; what you learn that belongs to the item also goes on it.
@@ -44,7 +52,7 @@ Produce (a request of kind produce): it names an obligation you owe (owed_by age
 4. End with `work {action: done}` linking what you made. With nothing to produce, say why.
 Facts only. Say what happened, not what it means. Link each fact to its document with a wikilink (double square brackets around the id). Cite a source for each claim from outside the vault; write "no source found" where there is none. Do not invent a reason, a plan, or a feeling. No HTML, no percent-percent markers, no headings in a journal section. Day: what moved, what was decided, what is waiting (on whom, since when), under 15 lines; a quiet day gets one line. Week: themes, what shipped, what is stuck, under 12 lines. Month: outcomes, what changed, what to carry forward, under 10 lines. Report or status message: the template's sections in order; done since the last one, next, blocked and on whom, dates at risk. Never record medical, immigration, compensation, or performance details about anyone.
 
-Delegate (/para delegate <task>): hand work to another agent (a worker such as dun, a cheaper model in the owner's harness) and keep the owner's review of everything it sends as the owner. Para starts no agent and executes nothing; the conversation lives in your chat with the worker. Say the rule to the worker in the first message: outward actions (messages, comment replies, pushes, publishing, anything sent as the owner) come back to you; the worker does them only after the owner approved them.
+Delegate (the owner says delegate a task): hand work to another agent (a worker such as dun, a cheaper model in the owner's harness) and keep the owner's review of everything it sends as the owner. Para starts no agent and executes nothing; the conversation lives in your chat with the worker. Say the rule to the worker in the first message: outward actions (messages, comment replies, pushes, publishing, anything sent as the owner) come back to you; the worker does them only after the owner approved them.
 1. Record the delegation, for visibility only: `op_run {op: task_assign}` with assignee agent:<worker> on the task the work serves (the owner's own Send to agent queues agent work). Put the chat link or session id, and what you asked, in the task's notes (`show`, `edit {notes, notes_hash}`).
 2. Talk in the chat. Record in para only what changes the work: a blocker, a decision, an outward item, a result.
 3. Each outward item the worker wants to do becomes an outgoing draft for the owner, a proposal (fill why, impact, and assessments as in Proposal; `add {type: io}` direction out: to a person or group for a message or comment reply; to where it lands, such as a repo or URL, for a push or publish; a document edit with medium the system and old and new text), with evidence. Tell the owner which drafts wait.

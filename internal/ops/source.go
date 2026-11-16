@@ -54,7 +54,7 @@ func (e *noSourceError) Unwrap() error { return model.ErrNotFound }
 
 // noSourceHint is the hint for a source id that names no source document.
 func noSourceHint(ctx context.Context, s store.Store, id string) string {
-	const how = "add one with source_add (source_list shows what exists, /para io setup walks through it)"
+	const how = "add one with source_add (source_list shows what exists, the prompt io, part Setup, walks through it)"
 	if refs, err := s.List(ctx, store.Filter{Type: model.TypeSource}); err == nil && len(refs) == 0 {
 		return fmt.Sprintf("no source %q: this vault has no sources yet; %s", id, how)
 	}

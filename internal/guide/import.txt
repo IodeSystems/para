@@ -1,4 +1,4 @@
-Bring in what the owner already has: a folder, a file, a task list, a journal, or several systems (/para import <folder|file>). There is no import command. You read the source with your own tools, and you make the changes with ops, each leaving a receipt.
+Bring in what the owner already has: a folder, a file, a task list, a journal, or several systems (the prompt import_corpus). There is no import command. You read the source with your own tools, and you make the changes with ops, each leaving a receipt.
 
 1. List the sources with the owner. A path may hold several, or be one aspect of a larger system: an area or goal list, a task tracker export, a journal, notes, people, or policies. Say what each one is and have the owner confirm it before anything else. A kind you are not sure of is a question to the owner, never a silent guess.
 2. Decide import or link for each. Para is not a documentation system: docs, plans, and runbooks stay where they live and become links on an area or goal (`link {rel: link}`, `link {rel: link}`). A large document store is linked by path, never copied.

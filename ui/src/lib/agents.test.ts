@@ -19,7 +19,7 @@ describe('connected agents', () => {
   })
   it('warns when queued work has no listener', () => {
     expect(noListenerWords(3)).toBe(
-      '3 queued, and no agent is connected on this machine. Start one, or run /para loop.',
+      '3 queued, and no agent is connected on this machine. Start one, or run /loop 30m /para (or the loop prompt).',
     )
   })
 })

@@ -161,6 +161,7 @@ func registerOrg(r *registrar) {
 	// The /pinned composer's conversations: io items in with agent turns.
 	reg(r, ops.Conversations, get, read)
 	reg(r, ops.Route, get, read)
+	reg(r, ops.Guide, get, read)
 	reg(r, ops.Who, get, read)
 }
 

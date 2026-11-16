@@ -70,12 +70,12 @@ func TestLintFileFilesOneRequestAndUpdatesIt(t *testing.T) {
 		t.Fatal("lint --file with errors exited 0")
 	}
 	first := lastLine(out)
-	if !strings.HasPrefix(first, "✗ lint: 2 errors, 0 warnings — filed as agent work request-") || !strings.HasSuffix(first, "; run /para loop") {
+	if !strings.HasPrefix(first, "✗ lint: 2 errors, 0 warnings — filed as agent work request-") || !strings.HasSuffix(first, "; run /loop 30m /para (or the loop prompt)") {
 		t.Fatalf("first verdict = %q", first)
 	}
 	out, _, _ = e.run("lint", "--file")
-	id := strings.TrimSuffix(strings.TrimPrefix(first, "✗ lint: 2 errors, 0 warnings — filed as agent work "), "; run /para loop")
-	if got := lastLine(out); got != "✗ lint: 2 errors, 0 warnings — updated agent work "+id+"; run /para loop" {
+	id := strings.TrimSuffix(strings.TrimPrefix(first, "✗ lint: 2 errors, 0 warnings — filed as agent work "), "; run /loop 30m /para (or the loop prompt)")
+	if got := lastLine(out); got != "✗ lint: 2 errors, 0 warnings — updated agent work "+id+"; run /loop 30m /para (or the loop prompt)" {
 		t.Fatalf("second verdict = %q", got)
 	}
 	files, _ := filepath.Glob(filepath.Join(path, "requests", "*.md"))
@@ -136,7 +136,7 @@ func TestVaultUpgradeStoppedVerdict(t *testing.T) {
 	}
 	want := "✗ acme upgrade stopped at step small-types: 5 errors — format 7 of 10; batches up-dossiers-20261108120000; lint: 5 errors, 0 warnings; " +
 		"automated steps pending: small-types (para vault upgrade --dry-run, then para vault upgrade); judgement steps pending: done-when (queue them: para vault upgrade --file); " +
-		"run para vault upgrade status; findings filed as agent work request-sample; run /para loop\n"
+		"run para vault upgrade status; findings filed as agent work request-sample; run /loop 30m /para (or the loop prompt)\n"
 	if got := buf.String(); got != want {
 		t.Fatalf("verdict =\n%q\nwant\n%q", got, want)
 	}

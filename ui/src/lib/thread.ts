@@ -1,4 +1,5 @@
 // Pure helpers of the Thread panel: turn order, the words of a status line, and the chips on top.
+import { RUN_LOOP_HINT } from '@/lib/agents'
 
 export type PostKind = 'modify' | 'ask' | 'redirect' | 'research' | 'other'
 
@@ -95,7 +96,7 @@ export function threadChips(t: { queued: number; waitingNoAgent: boolean }): Chi
   if (t.waitingNoAgent)
     out.push({
       tone: 'attn',
-      label: 'No agent is connected on this machine: start /para loop',
+      label: 'No agent is connected on this machine: ' + RUN_LOOP_HINT,
     })
   return out
 }

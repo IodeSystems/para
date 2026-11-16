@@ -221,6 +221,7 @@ type ParaV1QueryNamespace {
   goalList(all: Boolean): para_GoalListOutput @derived(operationId: "goalList")
   graph(area: String, goal: String): para_GraphOutput @derived(operationId: "graph")
   grillContext(id: String!): para_GrillContextOutput @derived(operationId: "grillContext")
+  guide(topic: String): para_GuideOutput @derived(operationId: "guide")
   health: para_HealthOutput @derived(operationId: "health")
   history(before: String, filter: para_historyFilter, id: String!, limit: Int): para_HistoryOutput @derived(operationId: "history")
   importList(
@@ -2847,6 +2848,11 @@ type para_GroupShowOutput {
   members: [para_Ref!]!
 }
 
+type para_GuideOutput {
+  text: String!
+  topic: String!
+}
+
 input para_HealthDismissInputInput {
   id: String!
   kind: String!
@@ -5237,6 +5243,7 @@ input para_NotesEditInputInput {
 type para_NotesEditOutput {
   hash: String!
   id: String!
+  linked: [String!]
   rev: String!
 }
 

@@ -19,7 +19,7 @@ import (
 )
 
 // newImportCmd is `para import`: reads about an import. The import itself is
-// agent work (`/para import`); these commands check it. The CLI may read local
+// agent work (the prompt import_corpus); these commands check it. The CLI may read local
 // files: it hashes them here and passes path and hash to the op, which reads
 // nothing outside the vault.
 func newImportCmd(l *loader) *cobra.Command {

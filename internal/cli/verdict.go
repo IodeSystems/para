@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/iodesystems/para/internal/model"
+	"github.com/iodesystems/para/internal/ops"
 )
 
 // tone is the severity of a line of text output: it picks the colour of a
@@ -94,5 +95,5 @@ func filedNote(id string, updated bool) string {
 	if updated {
 		how = "updated"
 	}
-	return fmt.Sprintf(" — %s agent work %s; run /para loop", how, id)
+	return fmt.Sprintf(" — %s agent work %s; %s", how, id, ops.RunLoopHint)
 }

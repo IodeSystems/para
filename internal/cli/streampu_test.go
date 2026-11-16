@@ -27,6 +27,7 @@ func streamPUParityCases() map[string]parityCase {
 		"pin":           {`{"id":"group-pu-a"}`, []string{"pin", "group-pu-b"}, false},
 		"unpin":         {`{"id":"group-pu-a"}`, []string{"unpin", "group-pu-b"}, false},
 		"pinned":        {`{}`, []string{"pinned"}, true},
+		"guide":         {`{"topic":"loop"}`, []string{"guide", "loop"}, true},
 		"conversations": {`{}`, []string{"conversations"}, true},
 		"triage_run":    {`{"dry_run":true}`, []string{"triage", "run", "--dry-run"}, true},
 	}

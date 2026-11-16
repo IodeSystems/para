@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/iodesystems/para/internal/guide"
 	"github.com/iodesystems/para/internal/ops"
 )
 
@@ -31,8 +30,5 @@ func TestInstructionsCarryStreamME(t *testing.T) {
 		if !strings.Contains(Instructions, want) {
 			t.Errorf("instructions lack %q", want)
 		}
-	}
-	if s := guide.Skill(); !strings.Contains(s, "Capture first") {
-		t.Error("the skill lacks the capture-first rule")
 	}
 }

@@ -32,7 +32,7 @@ While `para serve` runs it checks for a new signed release once a day (the manif
 
 ## With an agent (optional)
 
-    para help claude    # setup for Claude Code: MCP servers, skill, tracked asks, /para loop, status
+    para help claude    # setup for Claude Code: MCP servers, skill, tracked asks, the loop (/loop 30m /para), status
     para help dun       # the same for dun (also: para mcp --help-claude, --help-dun)
     para skill install
     para mcp --help-raglit

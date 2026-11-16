@@ -1,6 +1,9 @@
 import { humanTime } from '@/lib/when'
 import type { Tone } from '@/lib/status'
 
+// How the owner starts an agent that works the queue; the one wording of every "no agent" hint.
+export const RUN_LOOP_HINT = 'run /loop 30m /para (or the loop prompt)'
+
 // Connected agents (agent_list): the MCP sessions on this machine, how para can push to each, and
 // what each holds.
 
@@ -24,5 +27,5 @@ export function lastCallWords(lastCallAt: string | null | undefined, now = Date.
 
 // noListenerWords is the warning when work is queued and no agent is connected.
 export function noListenerWords(queued: number): string {
-  return `${queued} queued, and no agent is connected on this machine. Start one, or run /para loop.`
+  return `${queued} queued, and no agent is connected on this machine. Start one, or ${RUN_LOOP_HINT}.`
 }
