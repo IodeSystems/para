@@ -105,6 +105,28 @@ func TestIOSendOfAnAction(t *testing.T) {
 	mustLintClean(t, f.owner)
 }
 
+// The owner's own record of an action needs no url; an agent's send does.
+func TestIOActionUrlOnlyForAgents(t *testing.T) {
+	f := ioFix(t)
+	add := func() string {
+		id := mustRun(t, IOAdd, f.owner, IOAddInput{Direction: model.IOOut, Text: "What: open a PR\nHow: bump the version", Subject: "Bump",
+			To: []string{"github.com/acme/site"}, Medium: model.MediumGithub, Expects: model.ExpectsNone}).ID
+		mustRun(t, IOApprove, f.owner, IOApproveInput{ID: id})
+		return id
+	}
+	id := add()
+	mustRun(t, IOSendCheck, f.agent, IOSendCheckInput{ID: id})
+	if _, err := IOSend.Run(t.Context(), f.agent, IOSendInput{ID: id, Locator: "did it"}); err == nil || !strings.Contains(err.Error(), "needs url") {
+		t.Fatalf("agent send without url = %v", err)
+	}
+	if out := mustRun(t, IODone, f.owner, IODoneInput{ID: id}); out.State != model.IOSent {
+		t.Fatalf("owner done = %+v", out)
+	}
+	if _, m, _ := getIO(t.Context(), f.owner, id); m.Ref != "done by the owner" || m.State != model.IOSent {
+		t.Fatalf("ref = %q", m.Ref)
+	}
+}
+
 func TestIOSendOpensAnAsk(t *testing.T) {
 	f := ioFix(t)
 	id := outDraft(t, f, model.ExpectsResponse, "billing")

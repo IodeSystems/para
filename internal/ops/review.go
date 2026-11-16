@@ -274,5 +274,9 @@ var IODone = withOneReceipt(definePerson("io_done", "The owner sent or applied a
 			return IOSendOutput{}, err
 		}
 	}
-	return sendIO(ctx, d, IOSendInput{ID: doc.ID, URL: in.URL, Locator: firstOf(ioLine(in.Locator), "sent by the owner"), At: in.At})
+	by := "sent by the owner"
+	if m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0 {
+		by = "done by the owner"
+	}
+	return sendIO(ctx, d, IOSendInput{ID: doc.ID, URL: in.URL, Locator: firstOf(ioLine(in.Locator), by), At: in.At})
 }))

@@ -1076,7 +1076,7 @@ type IOSendOutput struct {
 // IOSend records that an outgoing message was sent. Expects none logs an
 // interaction; expects response opens an Ask with each person or group as a
 // sent target, so follow-ups use the Ask tools.
-var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else and needs url. From an agent it is refused unless the owner approved the draft (io_approve), or it is for_me and a rule of the owner's delegation.yaml allows it now and its text ends with the stamp, and io_send_check passed after that, within 30 minutes (the item and the receipt then name the rule in allowed_by); observed records a send the owner made themself that scan_out saw. A send threaded to an incoming message closes its reply obligation. Each send is recorded in attempts (tool: what sent it); a send of one variation (variant_of) closes the others of its set as superseded. A failed try is io_attempt", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
+var IOSend = defineSafe("io_send", "Record that you sent an outgoing draft, with its url or locator. Expects none logs an interaction; expects response opens an Ask (rfx out) with the recipients as sent targets; an action (to no person: a PR, a ticket, a deploy, a document edit) logs nothing else; an agent gives url (the owner's own record needs none). From an agent it is refused unless the owner approved the draft (io_approve), or it is for_me and a rule of the owner's delegation.yaml allows it now and its text ends with the stamp, and io_send_check passed after that, within 30 minutes (the item and the receipt then name the rule in allowed_by); observed records a send the owner made themself that scan_out saw. A send threaded to an incoming message closes its reply obligation. Each send is recorded in attempts (tool: what sent it); a send of one variation (variant_of) closes the others of its set as superseded. A failed try is io_attempt", func(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	return sendIO(ctx, d, in)
 })
 
@@ -1104,7 +1104,7 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if link == "" && locator == "" {
 		return out, errors.New("give url or locator: where the owner can see the sent message")
 	}
-	if link == "" && m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0 {
+	if link == "" && agentSurface(d) && m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0 {
 		return out, errors.New("an action (to no person) needs url: where the owner can see what you did")
 	}
 	if link != "" {
@@ -1187,6 +1187,9 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	}
 	if m.Ref == "" {
 		m.Ref = link
+		if m.Ref == "" && m.Expects == model.ExpectsNone && len(ioLinks(m.To)) == 0 {
+			m.Ref = locator // an action's ref says where it is; the lint needs one
+		}
 	}
 	if doc, err = d.Store.Update(ctx, doc); err != nil {
 		return out, fmt.Errorf("%s was made but %s was not marked sent: %w", out.Became, doc.ID, err)
