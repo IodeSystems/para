@@ -26,6 +26,7 @@ const TaskShowDoc = graphql(/* GraphQL */ `
                 parent
                 parentName
                 items
+                dependsOn
               }
               updates
               rules {

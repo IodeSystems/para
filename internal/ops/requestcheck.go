@@ -55,6 +55,10 @@ func checkReply(ctx context.Context, d Deps, req model.Document, r *model.Reques
 		if err != nil || slices.Contains(replyIgnored, doc.Meta.Header().Type) || linksEither(item, doc) {
 			continue
 		}
+		if io, ok := doc.Meta.(*model.IO); ok && io.Direction == model.IOOut {
+			calls = append(calls, fmt.Sprintf("%s is an outgoing draft: link {from: %s, to: %s, rel: depends_on}; a wikilink alone leaves it out of Next", id, item.ID, id))
+			continue
+		}
 		calls = append(calls, fmt.Sprintf("%s: link {from: %s, to: %s, rel: depends_on} if it blocks %s, else name [[%s]] in the body or notes of %s (edit)", id, item.ID, id, item.ID, id, item.ID))
 	}
 	if len(calls) > 0 {

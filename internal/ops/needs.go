@@ -400,6 +400,14 @@ func (sn *Snapshot) ownerTurn(doc model.Document) Need {
 	doc = obligationShape(doc) // and a task of kind incident reads as the incident
 	switch m := doc.Meta.(type) {
 	case *model.Question:
+		for _, dep := range targets(model.HardDeps(m)) {
+			if dd, err := sn.Get(dep); err == nil && !resolved(dd) {
+				if io, ok := dd.Meta.(*model.IO); ok && io.Direction == model.IOOut {
+					return Need{Turn: TurnWaiting, Reason: "draft to approve: " + dep}
+				}
+				return Need{Turn: TurnWaiting, Reason: "waits on " + dep}
+			}
+		}
 		if m.HasProposal() {
 			return owner("answer to check")
 		}

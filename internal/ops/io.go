@@ -131,7 +131,7 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 			return IOAddOutput{}, err
 		}
 	}
-	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX, model.TypeQuestion); err != nil {
+	if m.Thread, err = linkTo(ctx, d, "thread", replyThread(ctx, d, in.Thread), model.TypeIO, model.TypeInteraction, model.TypeRFX, model.TypeQuestion, model.TypeTask, model.TypeObligation); err != nil {
 		return IOAddOutput{}, err
 	}
 	if err := checkVerifiable(m); err != nil {
@@ -188,6 +188,9 @@ func ioAdd(ctx context.Context, d Deps, in IOAddInput) (IOAddOutput, error) {
 				out.Rev, out.Reply = cur.Rev, cur.Meta.(*model.IO).Reply.Target()
 			}
 		}
+	}
+	if in.Direction == model.IOOut {
+		out.Warnings = append(out.Warnings, linkDraftFor(ctx, d, doc.ID, m.Thread)...)
 	}
 	if m.Expects == model.ExpectsResponse && in.Direction == model.IOOut {
 		if domains, err := refsOf(ctx, d.Store, store.Filter{Type: model.TypeDomain}); err == nil {
@@ -1193,6 +1196,9 @@ func sendIO(ctx context.Context, d Deps, in IOSendInput) (IOSendOutput, error) {
 	if out.Superseded, err = supersedeVariants(ctx, d, doc.ID, m); err != nil {
 		out.Warnings = append(out.Warnings, fmt.Sprintf("%s was sent, but the other variations of it were not closed: %v", doc.ID, err))
 	}
+	// What waits on the draft stops waiting; an answer that was only waiting
+	// to go out is closed.
+	out.Warnings = append(out.Warnings, closeDraftDependents(ctx, d, doc.ID)...)
 	// A reply threaded to an incoming message answers it: the message is
 	// filed, and became the reply.
 	if th := m.Thread.Target(); th != "" {

@@ -1,6 +1,7 @@
 package ops
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/iodesystems/para/internal/model"
@@ -21,14 +22,21 @@ func TestDraftThreadedToQuestionPreparesIt(t *testing.T) {
 	if sh.Item.Thread != q {
 		t.Fatalf("thread = %q, want %s", sh.Item.Thread, q)
 	}
-	if r := rowOf(t, d, q); !r.Ready || r.ReadyKind != model.PreparedDraft || r.ReadyRef != draft.ID {
-		t.Fatalf("question with a threaded draft: %+v", r)
+	// The question waits on its draft (it depends_on it); the draft is the
+	// owner's row, to approve.
+	if !slices.Contains(orderList(t, d), draft.ID) || slices.Contains(orderList(t, d), q) {
+		t.Fatalf("order = %v, want the draft %s and not the question %s", orderList(t, d), draft.ID, q)
 	}
-	// A task is still refused as a thread.
+	if r := rowOf(t, d, draft.ID); !r.Ready || r.ReadyKind != model.PreparedDraft {
+		t.Fatalf("draft row: %+v", r)
+	}
+	// A task is a thread too: it waits on the draft.
 	task := must(t, TaskAdd, d, TaskAddInput{Goal: proj, Title: "Renew cert", DoneWhen: "Renewed."}).ID
-	if _, err := IOAdd.Run(ctx, agentOf(d), IOAddInput{Direction: model.IOOut, Medium: model.MediumOther, Text: "x",
-		To: []string{"wiki.acme.example/ca"}, Expects: model.ExpectsNone, Thread: task}); err == nil {
-		t.Fatal("a task accepted as thread")
+	tdraft := must(t, IOAdd, agentOf(d), IOAddInput{Direction: model.IOOut, Medium: model.MediumOther, Text: "x",
+		To: []string{"wiki.acme.example/ca"}, Expects: model.ExpectsNone, Thread: task})
+	_, tm, err := getTask(ctx, d.Store, task)
+	if err != nil || !slices.Equal(targets(tm.DependsOn), []string{tdraft.ID}) {
+		t.Fatalf("task depends_on = %v, %v", tm, err)
 	}
 	mustLintClean(t, d)
 }

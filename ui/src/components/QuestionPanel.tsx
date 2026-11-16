@@ -1,6 +1,7 @@
 import Alert from '@mui/material/Alert'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
+import { useIoItems } from '@/api/io'
 import { useQuestion } from '@/api/questions'
 import { useTask, useTaskParts } from '@/api/tasks'
 import { DocLink } from '@/components/DocLink'
@@ -12,6 +13,32 @@ import { DoIt } from '@/components/DoIt'
 import { DoneWhen } from '@/components/DoneWhen'
 import { questionState } from '@/lib/answer'
 import { nameList, nameOr } from '@/lib/names'
+import { TextLink } from '@/components/links'
+
+// DraftsUnsent lists the outgoing drafts an item waits on (its depends_on io items) with their
+// state and a link to approve them. Answer and close still work while one is unsent.
+export function DraftsUnsent({ ids }: { ids: string[] }) {
+  const items = useIoItems(ids)
+  const drafts = items.flatMap((r) => {
+    const i = r.data?.item
+    return i && i.direction === 'out' && (i.state === 'draft' || i.state === 'ready') ? [i] : []
+  })
+  if (drafts.length === 0) return null
+  return (
+    <Alert severity="info" sx={{ mb: 1 }}>
+      <Typography variant="body2">A draft is unsent. You can still answer or close.</Typography>
+      {drafts.map((i) => (
+        <Typography key={i.id} variant="body2" sx={{ overflowWrap: 'anywhere' }}>
+          <DocLink id={i.id}>{i.title || i.id}</DocLink> (
+          {i.state === 'ready' ? 'approved, not sent' : 'to approve'}){' '}
+          <TextLink to="/io/$id" params={{ id: i.id }} underline="hover">
+            {i.state === 'ready' ? 'open' : 'approve'}
+          </TextLink>
+        </Typography>
+      ))}
+    </Alert>
+  )
+}
 
 // QuestionPanel sits above a question document: its state, any older proposed answer, and why it
 // is waiting.
@@ -32,6 +59,7 @@ export function QuestionPanel({ id }: { id: string }) {
                   </Typography>
                 )}
               </Stack>
+              <DraftsUnsent ids={x.dependsOn} />
               {x.rejectedReason && <Alert severity="warning">Rejected: {x.rejectedReason}</Alert>}
               {x.hasProposal && x.status === 'open' && <ProposedAnswer q={x} />}
               {x.status === 'answered' && (x.choice || x.answeredBy) && (
@@ -119,6 +147,7 @@ export function TaskPanel({ id }: { id: string }) {
             </Stack>
           </Section>
         ))}
+      {open && <DraftsUnsent ids={q.data.dependsOn} />}
       <RulesInEffect rules={parts?.rules ?? []} />
       {open && (
         <DoIt

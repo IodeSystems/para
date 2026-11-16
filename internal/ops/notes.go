@@ -39,6 +39,8 @@ type NotesEditOutput struct {
 	ID   string `json:"id"`
 	Hash string `json:"hash"`
 	Rev  string `json:"rev"`
+	// Linked lists the open drafts the notes name that the item now waits on.
+	Linked []string `json:"linked,omitempty"`
 }
 
 // NotesStale is a notes_edit against notes that changed since they were
@@ -110,11 +112,15 @@ func notesEdit(ctx context.Context, d Deps, in NotesEditInput) (NotesEditOutput,
 	} else {
 		doc.Body = setSection(doc.Body, notesHeading, md)
 	}
+	linked := linkNamedDrafts(ctx, d.Store, &doc, md)
 	saved, err := d.Store.Update(ctx, doc)
 	if err != nil {
 		return NotesEditOutput{}, err
 	}
-	return NotesEditOutput{ID: saved.ID, Hash: notesHash(md), Rev: saved.Rev}, nil
+	if len(linked) > 0 {
+		addReceiptNote(ctx, fmt.Sprintf("%s now waits on the drafts its notes name: %s.", doc.ID, strings.Join(linked, ", ")))
+	}
+	return NotesEditOutput{ID: saved.ID, Hash: notesHash(md), Rev: saved.Rev, Linked: linked}, nil
 }
 
 // NotesEdit writes an item's notes against the hash the caller read.
